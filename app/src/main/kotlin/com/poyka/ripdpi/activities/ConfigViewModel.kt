@@ -234,11 +234,12 @@ internal const val ConfigFieldBufferSize = "bufferSize"
 internal const val ConfigFieldDefaultTtl = "defaultTtl"
 internal const val ConfigFieldStrategyChain = "strategyChain"
 internal const val ConfigFieldRelayServerPort = "relayServerPort"
-internal const val ConfigFieldRelayChainEntryPort = "relayChainEntryPort"
-internal const val ConfigFieldRelayChainExitPort = "relayChainExitPort"
 internal const val ConfigFieldRelayLocalSocksPort = "relayLocalSocksPort"
 internal const val ConfigFieldRelayServer = "relayServer"
 internal const val ConfigFieldRelayCredentials = "relayCredentials"
+
+private const val LegacyChainEntryProfileSuffix = "__ripdpi_chain_entry"
+private const val LegacyChainExitProfileSuffix = "__ripdpi_chain_exit"
 
 internal fun AppSettings.toConfigDraft(): ConfigDraft =
     toRelaySettingsModel().let { relay ->
@@ -446,17 +447,12 @@ internal fun validateConfigDraft(
                 }
 
                 RelayKindChainRelay -> {
-                    if (
-                        (draft.relayChainEntryProfileId.isBlank() && draft.relayChainEntryServer.isBlank()) ||
-                        (draft.relayChainExitProfileId.isBlank() && draft.relayChainExitServer.isBlank())
-                    ) {
+                    val hasEntryReference =
+                        draft.relayChainEntryProfileId.isNotBlank() || draft.relayChainEntryServer.isNotBlank()
+                    val hasExitReference =
+                        draft.relayChainExitProfileId.isNotBlank() || draft.relayChainExitServer.isNotBlank()
+                    if (!hasEntryReference || !hasExitReference) {
                         put(ConfigFieldRelayServer, "required")
-                    }
-                    if (draft.relayChainEntryProfileId.isBlank() && !validatePort(draft.relayChainEntryPort)) {
-                        put(ConfigFieldRelayChainEntryPort, "invalid_port")
-                    }
-                    if (draft.relayChainExitProfileId.isBlank() && !validatePort(draft.relayChainExitPort)) {
-                        put(ConfigFieldRelayChainExitPort, "invalid_port")
                     }
                     val isChainRelayIncomplete =
                         (
@@ -565,18 +561,18 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
         setRelayVlessTransport(draft.relayVlessTransport)
         setRelayXhttpPath(draft.relayXhttpPath)
         setRelayXhttpHost(draft.relayXhttpHost)
-        setRelayChainEntryServer(draft.relayChainEntryServer)
-        setRelayChainEntryPort(draft.relayChainEntryPort.toIntOrNull() ?: defaultRelayPort)
-        setRelayChainEntryServerName(draft.relayChainEntryServerName)
-        setRelayChainEntryPublicKey(draft.relayChainEntryPublicKey)
-        setRelayChainEntryShortId(draft.relayChainEntryShortId)
-        setRelayChainEntryProfileId(draft.relayChainEntryProfileId)
-        setRelayChainExitServer(draft.relayChainExitServer)
-        setRelayChainExitPort(draft.relayChainExitPort.toIntOrNull() ?: defaultRelayPort)
-        setRelayChainExitServerName(draft.relayChainExitServerName)
-        setRelayChainExitPublicKey(draft.relayChainExitPublicKey)
-        setRelayChainExitShortId(draft.relayChainExitShortId)
-        setRelayChainExitProfileId(draft.relayChainExitProfileId)
+        setRelayChainEntryServer("")
+        setRelayChainEntryPort(defaultRelayPort)
+        setRelayChainEntryServerName("")
+        setRelayChainEntryPublicKey("")
+        setRelayChainEntryShortId("")
+        setRelayChainEntryProfileId(if (draft.relayKind == RelayKindChainRelay) draft.relayChainEntryProfileId else "")
+        setRelayChainExitServer("")
+        setRelayChainExitPort(defaultRelayPort)
+        setRelayChainExitServerName("")
+        setRelayChainExitPublicKey("")
+        setRelayChainExitShortId("")
+        setRelayChainExitProfileId(if (draft.relayKind == RelayKindChainRelay) draft.relayChainExitProfileId else "")
         setRelayMasqueUrl(draft.relayMasqueUrl)
         setRelayMasqueUseHttp2Fallback(draft.relayMasqueUseHttp2Fallback)
         setRelayMasqueCloudflareMode(
@@ -598,6 +594,108 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
         )
         setRelayTcpFallbackEnabled(draft.relayMasqueUseHttp2Fallback)
     }
+
+private suspend fun prepareRelayDraftForPersistence(
+    draft: ConfigDraft,
+    relayProfileStore: RelayProfileStore,
+    relayCredentialStore: RelayCredentialStore,
+): ConfigDraft =
+    if (draft.relayKind == RelayKindChainRelay) {
+        migrateLegacyChainRelayDraft(draft, relayProfileStore, relayCredentialStore)
+    } else {
+        draft
+    }
+
+internal suspend fun migrateLegacyChainRelayDraft(
+    draft: ConfigDraft,
+    relayProfileStore: RelayProfileStore,
+    relayCredentialStore: RelayCredentialStore,
+): ConfigDraft {
+    if (draft.relayKind != RelayKindChainRelay) {
+        return draft
+    }
+    val chainProfileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId }
+    val entryProfileId =
+        draft.relayChainEntryProfileId.ifBlank {
+            migrateLegacyChainHopProfile(
+                relayProfileStore = relayProfileStore,
+                relayCredentialStore = relayCredentialStore,
+                profileId = chainProfileId + LegacyChainEntryProfileSuffix,
+                server = draft.relayChainEntryServer,
+                serverPort = draft.relayChainEntryPort,
+                serverName = draft.relayChainEntryServerName,
+                realityPublicKey = draft.relayChainEntryPublicKey,
+                realityShortId = draft.relayChainEntryShortId,
+                vlessUuid = draft.relayChainEntryUuid,
+            )
+        }
+    val exitProfileId =
+        draft.relayChainExitProfileId.ifBlank {
+            migrateLegacyChainHopProfile(
+                relayProfileStore = relayProfileStore,
+                relayCredentialStore = relayCredentialStore,
+                profileId = chainProfileId + LegacyChainExitProfileSuffix,
+                server = draft.relayChainExitServer,
+                serverPort = draft.relayChainExitPort,
+                serverName = draft.relayChainExitServerName,
+                realityPublicKey = draft.relayChainExitPublicKey,
+                realityShortId = draft.relayChainExitShortId,
+                vlessUuid = draft.relayChainExitUuid,
+            )
+        }
+    return draft.copy(
+        relayChainEntryServer = "",
+        relayChainEntryPort = defaultRelayPort.toString(),
+        relayChainEntryServerName = "",
+        relayChainEntryPublicKey = "",
+        relayChainEntryShortId = "",
+        relayChainEntryUuid = "",
+        relayChainEntryProfileId = entryProfileId,
+        relayChainExitServer = "",
+        relayChainExitPort = defaultRelayPort.toString(),
+        relayChainExitServerName = "",
+        relayChainExitPublicKey = "",
+        relayChainExitShortId = "",
+        relayChainExitUuid = "",
+        relayChainExitProfileId = exitProfileId,
+    )
+}
+
+private suspend fun migrateLegacyChainHopProfile(
+    relayProfileStore: RelayProfileStore,
+    relayCredentialStore: RelayCredentialStore,
+    profileId: String,
+    server: String,
+    serverPort: String,
+    serverName: String,
+    realityPublicKey: String,
+    realityShortId: String,
+    vlessUuid: String,
+): String {
+    if (server.isBlank()) {
+        return ""
+    }
+    relayProfileStore.save(
+        RelayProfileRecord(
+            id = profileId,
+            kind = RelayKindVlessReality,
+            server = server,
+            serverPort = serverPort.toIntOrNull() ?: defaultRelayPort,
+            serverName = serverName,
+            realityPublicKey = realityPublicKey,
+            realityShortId = realityShortId,
+            vlessTransport = RelayVlessTransportRealityTcp,
+            udpEnabled = false,
+        ),
+    )
+    relayCredentialStore.save(
+        RelayCredentialRecord(
+            profileId = profileId,
+            vlessUuid = vlessUuid.ifBlank { null },
+        ),
+    )
+    return profileId
+}
 
 @HiltViewModel
 class ConfigViewModel
@@ -759,10 +857,16 @@ class ConfigViewModel
             }
 
             viewModelScope.launch {
+                val persistedDraft =
+                    prepareRelayDraftForPersistence(
+                        draft = draft,
+                        relayProfileStore = relayProfileStore,
+                        relayCredentialStore = relayCredentialStore,
+                    )
                 appSettingsRepository.update {
-                    applyConfigDraft(draft)
+                    applyConfigDraft(persistedDraft)
                 }
-                persistRelayArtifacts(draft)
+                persistRelayArtifacts(persistedDraft)
                 editorSession.value = ConfigEditorSession()
                 _effects.send(ConfigEffect.SaveSuccess)
             }
@@ -830,18 +934,32 @@ class ConfigViewModel
                     vlessTransport = draft.relayVlessTransport,
                     xhttpPath = draft.relayXhttpPath,
                     xhttpHost = draft.relayXhttpHost,
-                    chainEntryServer = draft.relayChainEntryServer,
-                    chainEntryPort = draft.relayChainEntryPort.toIntOrNull() ?: 443,
-                    chainEntryServerName = draft.relayChainEntryServerName,
-                    chainEntryPublicKey = draft.relayChainEntryPublicKey,
-                    chainEntryShortId = draft.relayChainEntryShortId,
-                    chainEntryProfileId = draft.relayChainEntryProfileId,
-                    chainExitServer = draft.relayChainExitServer,
-                    chainExitPort = draft.relayChainExitPort.toIntOrNull() ?: 443,
-                    chainExitServerName = draft.relayChainExitServerName,
-                    chainExitPublicKey = draft.relayChainExitPublicKey,
-                    chainExitShortId = draft.relayChainExitShortId,
-                    chainExitProfileId = draft.relayChainExitProfileId,
+                    chainEntryServer = "",
+                    chainEntryPort = 443,
+                    chainEntryServerName = "",
+                    chainEntryPublicKey = "",
+                    chainEntryShortId = "",
+                    chainEntryProfileId =
+                        if (draft.relayKind ==
+                            RelayKindChainRelay
+                        ) {
+                            draft.relayChainEntryProfileId
+                        } else {
+                            ""
+                        },
+                    chainExitServer = "",
+                    chainExitPort = 443,
+                    chainExitServerName = "",
+                    chainExitPublicKey = "",
+                    chainExitShortId = "",
+                    chainExitProfileId =
+                        if (draft.relayKind ==
+                            RelayKindChainRelay
+                        ) {
+                            draft.relayChainExitProfileId
+                        } else {
+                            ""
+                        },
                     masqueUrl = draft.relayMasqueUrl,
                     masqueUseHttp2Fallback = draft.relayMasqueUseHttp2Fallback,
                     masqueCloudflareMode =
@@ -865,8 +983,8 @@ class ConfigViewModel
                 RelayCredentialRecord(
                     profileId = profileId,
                     vlessUuid = draft.relayVlessUuid.ifBlank { null },
-                    chainEntryUuid = draft.relayChainEntryUuid.ifBlank { null },
-                    chainExitUuid = draft.relayChainExitUuid.ifBlank { null },
+                    chainEntryUuid = null,
+                    chainExitUuid = null,
                     hysteriaPassword = draft.relayHysteriaPassword.ifBlank { null },
                     hysteriaSalamanderKey = draft.relayHysteriaSalamanderKey.ifBlank { null },
                     tuicUuid = draft.relayTuicUuid.ifBlank { null },
@@ -936,16 +1054,18 @@ internal fun ConfigDraft.applyRelayPresetDefinition(preset: RelayPresetDefinitio
             } else {
                 ""
             },
-        relayChainEntryServer = if (preset.relayKind == RelayKindChainRelay) relayChainEntryServer else "",
+        relayChainEntryServer = "",
         relayChainEntryPort = defaultRelayPort.toString(),
-        relayChainEntryServerName = if (preset.relayKind == RelayKindChainRelay) relayChainEntryServerName else "",
-        relayChainEntryPublicKey = if (preset.relayKind == RelayKindChainRelay) relayChainEntryPublicKey else "",
-        relayChainEntryShortId = if (preset.relayKind == RelayKindChainRelay) relayChainEntryShortId else "",
-        relayChainExitServer = if (preset.relayKind == RelayKindChainRelay) relayChainExitServer else "",
+        relayChainEntryServerName = "",
+        relayChainEntryPublicKey = "",
+        relayChainEntryShortId = "",
+        relayChainEntryUuid = "",
+        relayChainExitServer = "",
         relayChainExitPort = defaultRelayPort.toString(),
-        relayChainExitServerName = if (preset.relayKind == RelayKindChainRelay) relayChainExitServerName else "",
-        relayChainExitPublicKey = if (preset.relayKind == RelayKindChainRelay) relayChainExitPublicKey else "",
-        relayChainExitShortId = if (preset.relayKind == RelayKindChainRelay) relayChainExitShortId else "",
+        relayChainExitServerName = "",
+        relayChainExitPublicKey = "",
+        relayChainExitShortId = "",
+        relayChainExitUuid = "",
         relayShadowTlsInnerProfileId =
             if (preset.relayKind == RelayKindShadowTlsV3) {
                 preset.shadowTlsInnerProfileId
