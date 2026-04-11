@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveRequest
+import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
@@ -677,6 +678,7 @@ internal fun buildHomeDiagnosticsUiState(
                         coverageSummary = outcome.coverageSummary,
                         recommendationSummary = outcome.recommendationSummary,
                         appliedSettings = outcome.appliedSettings,
+                        capabilityEvidence = outcome.capabilityEvidence.map(::toCapabilityEvidenceUiModel),
                         stageSummaries =
                             outcome.stageSummaries.map { stage ->
                                 HomeDiagnosticsStageUiState(
@@ -708,3 +710,18 @@ internal fun buildHomeDiagnosticsUiState(
             },
     )
 }
+
+private fun toCapabilityEvidenceUiModel(
+    evidence: DiagnosticsCapabilityEvidence,
+): DiagnosticsCapabilityEvidenceUiModel =
+    DiagnosticsCapabilityEvidenceUiModel(
+        authority = evidence.authority,
+        summary = evidence.summary,
+        fields =
+            buildList {
+                addAll(evidence.details.map { DiagnosticsFieldUiModel(it.label, it.value) })
+                if (evidence.source.isNotBlank()) {
+                    add(DiagnosticsFieldUiModel("Source", evidence.source))
+                }
+            },
+    )

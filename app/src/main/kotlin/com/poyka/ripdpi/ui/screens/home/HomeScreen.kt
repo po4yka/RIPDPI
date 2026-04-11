@@ -765,6 +765,42 @@ private fun HomeDiagnosticsBottomSheetHost(
                     color = colors.mutedForeground,
                 )
             }
+            if (sheet.capabilityEvidence.isNotEmpty()) {
+                HorizontalDivider(color = colors.divider)
+                Text(
+                    text = stringResource(R.string.home_diagnostics_capability_evidence_label),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = colors.muted.copy(alpha = stageContainerAlpha),
+                                shape = RoundedCornerShape(12.dp),
+                            ).padding(RipDpiThemeTokens.spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+                ) {
+                    sheet.capabilityEvidence.forEach { evidence ->
+                        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+                            Text(
+                                text = evidence.authority,
+                                style = RipDpiThemeTokens.type.bodyEmphasis,
+                                color = colors.foreground,
+                            )
+                            Text(
+                                text = evidence.summary,
+                                style = RipDpiThemeTokens.type.secondaryBody,
+                                color = colors.mutedForeground,
+                            )
+                            evidence.fields.forEach { field ->
+                                SettingsRow(title = field.label, value = field.value, monospaceValue = false)
+                            }
+                        }
+                    }
+                }
+            }
             if (sheet.stageSummaries.isNotEmpty()) {
                 HorizontalDivider(color = colors.divider)
                 Text(

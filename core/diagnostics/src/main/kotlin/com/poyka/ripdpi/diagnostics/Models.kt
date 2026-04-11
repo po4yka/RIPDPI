@@ -815,6 +815,7 @@ data class DiagnosticSessionDetail(
     val snapshots: List<DiagnosticNetworkSnapshot>,
     val events: List<DiagnosticEvent>,
     val context: DiagnosticContextSnapshot?,
+    val capabilityEvidence: List<DiagnosticsCapabilityEvidence> = emptyList(),
 )
 
 data class ShareSummary(

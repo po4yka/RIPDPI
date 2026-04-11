@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
+import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
 import javax.inject.Inject
 
 internal interface DiagnosticsSessionDetailUiMapper {
@@ -110,6 +111,10 @@ internal class DiagnosticsSessionDetailUiFactory
                 session = support.toSessionRowUiModel(detail.session),
                 diagnoses = diagnoses,
                 reportMetadata = reportMetadata,
+                capabilityEvidence =
+                    detail.capabilityEvidence.map { evidence ->
+                        evidence.toUiModel()
+                    },
                 probeGroups = probeGroups,
                 snapshots =
                     detail.snapshots.mapNotNull { snapshot ->
@@ -136,4 +141,20 @@ internal class DiagnosticsSessionDetailUiFactory
                 sensitiveDetailsVisible = showSensitiveDetails,
             )
         }
+
+        private fun DiagnosticsCapabilityEvidence.toUiModel(): DiagnosticsCapabilityEvidenceUiModel =
+            DiagnosticsCapabilityEvidenceUiModel(
+                authority = authority,
+                summary = summary,
+                fields =
+                    buildList {
+                        addAll(details.map { DiagnosticsFieldUiModel(it.label, it.value) })
+                        if (source.isNotBlank()) {
+                            add(DiagnosticsFieldUiModel("Source", source))
+                        }
+                        if (updatedAt > 0L) {
+                            add(DiagnosticsFieldUiModel("Recorded", support.formatTimestamp(updatedAt)))
+                        }
+                    },
+            )
     }

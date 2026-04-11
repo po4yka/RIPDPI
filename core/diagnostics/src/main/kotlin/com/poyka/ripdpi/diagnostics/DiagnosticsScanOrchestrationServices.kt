@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.ResolverOverrideStore
+import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
@@ -489,6 +490,7 @@ class ScanFinalizationService
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val networkEdgePreferenceStore: NetworkEdgePreferenceStore,
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
+        private val serverCapabilityStore: ServerCapabilityStore,
         private val findingProjector: DiagnosticsFindingProjector,
         @param:Named("diagnosticsJson")
         private val json: Json,
@@ -532,6 +534,10 @@ class ScanFinalizationService
                 )
             prepared.networkFingerprint?.let { fingerprint ->
                 rememberEdgeProbeResults(
+                    fingerprint = fingerprint,
+                    report = finalReport,
+                )
+                rememberCapabilityEvidence(
                     fingerprint = fingerprint,
                     report = finalReport,
                 )
@@ -627,6 +633,21 @@ class ScanFinalizationService
                     success = result.edgeSuccess(),
                     echCapable = result.edgeEchCapable(),
                     cdnProvider = result.detailValue("cdnProvider"),
+                )
+            }
+        }
+
+        private suspend fun rememberCapabilityEvidence(
+            fingerprint: NetworkFingerprint,
+            report: ScanReport,
+        ) {
+            collectDirectPathCapabilityObservations(report).forEach { (authority, observation) ->
+                serverCapabilityStore.rememberDirectPathObservation(
+                    fingerprint = fingerprint,
+                    authority = authority,
+                    observation = observation,
+                    source = "diagnostics",
+                    recordedAt = report.finishedAt,
                 )
             }
         }

@@ -89,6 +89,9 @@ internal fun DiagnosticsBottomSheetHost(
                         reportMetadata = detail.reportMetadata,
                     )
                 }
+                if (detail.capabilityEvidence.isNotEmpty()) {
+                    CapabilityEvidenceCard(evidence = detail.capabilityEvidence)
+                }
                 detail.strategyProbeReport?.let { report ->
                     StrategyProbeReportCard(
                         report = report,
@@ -381,6 +384,33 @@ private fun DiagnosisSummaryCard(
         }
         reportMetadata.forEach { field ->
             SettingsRow(title = field.label, value = field.value, monospaceValue = false)
+        }
+    }
+}
+
+@Composable
+private fun CapabilityEvidenceCard(evidence: List<com.poyka.ripdpi.activities.DiagnosticsCapabilityEvidenceUiModel>) {
+    val colors = RipDpiThemeTokens.colors
+    RipDpiCard {
+        Text(
+            text = stringResource(R.string.diagnostics_capability_evidence_title),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        evidence.forEach { item ->
+            Text(
+                text = item.authority,
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = item.summary,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+            item.fields.forEach { field ->
+                SettingsRow(title = field.label, value = field.value, monospaceValue = false)
+            }
         }
     }
 }

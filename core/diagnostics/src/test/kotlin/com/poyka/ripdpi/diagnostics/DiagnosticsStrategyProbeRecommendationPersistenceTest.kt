@@ -149,6 +149,7 @@ private fun scanFinalizationService(
             com.poyka.ripdpi.data.diagnostics
                 .DefaultNetworkEdgePreferenceStore(stores, clock),
         networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
+        serverCapabilityStore = FakeServerCapabilityStore(),
         findingProjector = DiagnosticsFindingProjector(),
         json = diagnosticsTestJson(),
     )
