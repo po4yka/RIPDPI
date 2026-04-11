@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.PreferredEdgeIpVersionV4
 import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
+import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
 import kotlinx.coroutines.test.runTest
@@ -149,6 +150,7 @@ class ConnectionPolicyResolverTest {
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -163,6 +165,50 @@ class ConnectionPolicyResolverTest {
                     ?.get("example.org")
                     ?.map { it.ip },
             )
+        }
+
+    @Test
+    fun `resolver injects direct path capabilities into runtime context for startup policy`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val capabilityStore = TestServerCapabilityStore()
+            capabilityStore.rememberDirectPathObservation(
+                fingerprint = fingerprint,
+                authority = "Example.org:443",
+                observation =
+                    ServerCapabilityObservation(
+                        quicUsable = false,
+                        udpUsable = false,
+                        fallbackRequired = true,
+                        repeatedHandshakeFailureClass = "tcp_reset",
+                    ),
+                recordedAt = 123L,
+            )
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = RootHelperManager(),
+                    serverCapabilityStore = capabilityStore,
+                )
+
+            val resolution = resolver.resolve(mode = Mode.Proxy)
+            val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+            val capability = uiPreferences?.runtimeContext?.directPathCapabilities?.singleOrNull()
+
+            assertNotNull(capability)
+            assertEquals("example.org:443", capability?.authority)
+            assertEquals(false, capability?.quicUsable)
+            assertEquals(false, capability?.udpUsable)
+            assertEquals(true, capability?.fallbackRequired)
+            assertEquals("tcp_reset", capability?.repeatedHandshakeFailureClass)
+            assertEquals(123L, capability?.updatedAt)
         }
 
     @Test
@@ -209,6 +255,7 @@ class ConnectionPolicyResolverTest {
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -262,6 +309,7 @@ class ConnectionPolicyResolverTest {
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
@@ -312,6 +360,7 @@ class ConnectionPolicyResolverTest {
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
+                    serverCapabilityStore = TestServerCapabilityStore(),
                 )
 
             val resolution = resolver.resolve(mode = Mode.Proxy)

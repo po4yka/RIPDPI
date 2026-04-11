@@ -13,8 +13,9 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_config::{DesyncGroup, RuntimeConfig};
-use ripdpi_desync::AdaptivePlannerHints;
+use ripdpi_config::{DesyncGroup, QuicFakeProfile, RuntimeConfig};
+use ripdpi_desync::{AdaptivePlannerHints, AdaptiveUdpBurstProfile};
+use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
 
 use super::state::RuntimeState;
 
@@ -58,7 +59,9 @@ pub(super) fn resolve_adaptive_udp_hints(
     payload: &[u8],
 ) -> io::Result<AdaptivePlannerHints> {
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
-    Ok(resolver.resolve_udp_hints(network_scope_key(&state.config), group_index, target, host, group, payload))
+    let hints = resolver.resolve_udp_hints(network_scope_key(&state.config), group_index, target, host, group, payload);
+    let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
+    Ok(merge_udp_hints_with_capability(hints, capability))
 }
 
 pub(super) fn note_adaptive_fake_ttl_success(
@@ -180,7 +183,8 @@ pub(super) fn resolve_udp_hints_with_evolver(
 ) -> io::Result<AdaptivePlannerHints> {
     if let Ok(mut evolver) = state.strategy_evolver.lock() {
         if let Some(hints) = evolver.suggest_hints() {
-            return Ok(hints);
+            let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
+            return Ok(merge_udp_hints_with_capability(hints, capability));
         }
     }
     resolve_adaptive_udp_hints(state, target, group_index, group, host, payload)
@@ -195,5 +199,122 @@ pub(super) fn note_evolver_success(state: &RuntimeState, latency_ms: u64) {
 pub(super) fn note_evolver_failure(state: &RuntimeState, class: ripdpi_failure_classifier::FailureClass) {
     if let Ok(mut evolver) = state.strategy_evolver.lock() {
         evolver.record_failure(class);
+    }
+}
+
+pub(super) fn direct_path_capability_for_route<'a>(
+    runtime_context: Option<&'a ProxyRuntimeContext>,
+    host: Option<&str>,
+    target: SocketAddr,
+) -> Option<&'a ProxyDirectPathCapability> {
+    let capabilities = runtime_context?.direct_path_capabilities.as_slice();
+    let candidates = direct_path_authority_candidates(host, target);
+    capabilities.iter().find(|capability| candidates.iter().any(|candidate| capability.authority == *candidate))
+}
+
+pub(super) fn capability_requires_desync_fallback(capability: &ProxyDirectPathCapability) -> bool {
+    capability.fallback_required == Some(true)
+        || capability.repeated_handshake_failure_class.as_deref().is_some_and(|value| !value.trim().is_empty())
+}
+
+pub(super) fn merge_udp_hints_with_capability(
+    mut hints: AdaptivePlannerHints,
+    capability: Option<&ProxyDirectPathCapability>,
+) -> AdaptivePlannerHints {
+    let Some(capability) = capability else {
+        return hints;
+    };
+    let should_conservatively_fallback = capability_requires_desync_fallback(capability)
+        || capability.udp_usable == Some(false)
+        || capability.quic_usable == Some(false);
+    if should_conservatively_fallback {
+        hints.udp_burst_profile = Some(AdaptiveUdpBurstProfile::Aggressive);
+        hints.quic_fake_profile = Some(QuicFakeProfile::CompatDefault);
+        return hints;
+    }
+    if capability.quic_usable == Some(true) {
+        hints.udp_burst_profile.get_or_insert(AdaptiveUdpBurstProfile::Conservative);
+    }
+    hints
+}
+
+fn direct_path_authority_candidates(host: Option<&str>, target: SocketAddr) -> Vec<String> {
+    let mut candidates = Vec::new();
+    if let Some(host) = normalize_authority(host) {
+        candidates.push(host.clone());
+        candidates.push(format!("{host}:{}", target.port()));
+    }
+    let target_authority = target.to_string();
+    if let Some(target_authority) = normalize_authority(Some(target_authority.as_str())) {
+        candidates.push(target_authority);
+    }
+    let target_ip = target.ip().to_string();
+    if let Some(target_ip) = normalize_authority(Some(target_ip.as_str())) {
+        candidates.push(target_ip);
+    }
+    candidates.sort();
+    candidates.dedup();
+    candidates
+}
+
+fn normalize_authority(value: Option<&str>) -> Option<String> {
+    value.map(str::trim).map(|entry| entry.trim_end_matches('.').to_ascii_lowercase()).filter(|entry| !entry.is_empty())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn capability(authority: &str) -> ProxyDirectPathCapability {
+        ProxyDirectPathCapability {
+            authority: authority.to_string(),
+            quic_usable: None,
+            udp_usable: None,
+            fallback_required: None,
+            repeated_handshake_failure_class: None,
+            updated_at: 0,
+        }
+    }
+
+    #[test]
+    fn direct_path_capability_matches_host_and_target_authorities() {
+        let runtime_context = ProxyRuntimeContext {
+            encrypted_dns: None,
+            protect_path: None,
+            preferred_edges: std::collections::BTreeMap::default(),
+            direct_path_capabilities: vec![capability("example.org:443"), capability("203.0.113.10:443")],
+        };
+
+        let host_match = direct_path_capability_for_route(
+            Some(&runtime_context),
+            Some("Example.org"),
+            "203.0.113.10:443".parse().expect("target"),
+        )
+        .expect("host capability");
+        let target_match =
+            direct_path_capability_for_route(Some(&runtime_context), None, "203.0.113.10:443".parse().expect("target"))
+                .expect("target capability");
+
+        assert_eq!(host_match.authority, "example.org:443");
+        assert_eq!(target_match.authority, "203.0.113.10:443");
+    }
+
+    #[test]
+    fn udp_hints_are_hardened_when_capability_requires_fallback() {
+        let mut hints = AdaptivePlannerHints::default();
+        hints.udp_burst_profile = Some(AdaptiveUdpBurstProfile::Conservative);
+        let capability = ProxyDirectPathCapability {
+            authority: "example.org:443".to_string(),
+            quic_usable: Some(false),
+            udp_usable: Some(false),
+            fallback_required: Some(true),
+            repeated_handshake_failure_class: Some("tcp_reset".to_string()),
+            updated_at: 10,
+        };
+
+        let merged = merge_udp_hints_with_capability(hints, Some(&capability));
+
+        assert_eq!(merged.udp_burst_profile, Some(AdaptiveUdpBurstProfile::Aggressive));
+        assert_eq!(merged.quic_fake_profile, Some(QuicFakeProfile::CompatDefault));
     }
 }

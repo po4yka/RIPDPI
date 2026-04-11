@@ -64,9 +64,23 @@ fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Opt
         Some(value)
     });
     runtime_context.protect_path = trim_non_empty(runtime_context.protect_path);
+    runtime_context.direct_path_capabilities = runtime_context
+        .direct_path_capabilities
+        .into_iter()
+        .filter_map(|mut capability| {
+            capability.authority = capability.authority.trim().trim_end_matches('.').to_ascii_lowercase();
+            if capability.authority.is_empty() {
+                return None;
+            }
+            capability.repeated_handshake_failure_class = trim_non_empty(capability.repeated_handshake_failure_class);
+            capability.updated_at = capability.updated_at.max(0);
+            Some(capability)
+        })
+        .collect();
     if runtime_context.encrypted_dns.is_none()
         && runtime_context.protect_path.is_none()
         && runtime_context.preferred_edges.is_empty()
+        && runtime_context.direct_path_capabilities.is_empty()
     {
         return None;
     }

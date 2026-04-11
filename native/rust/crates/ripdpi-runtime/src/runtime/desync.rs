@@ -11,12 +11,16 @@ use ripdpi_desync::{
     AdaptivePlannerHints, DesyncAction, DesyncPlan,
 };
 use ripdpi_packets::entropy;
+use ripdpi_proxy_config::ProxyDirectPathCapability;
 use ripdpi_session::OutboundProgress;
 use socket2::SockRef;
 
 use crate::sync::{AtomicBool, Ordering};
 
-use super::adaptive::{resolve_adaptive_fake_ttl, resolve_tcp_hints_with_evolver};
+use super::adaptive::{
+    capability_requires_desync_fallback, direct_path_capability_for_route, resolve_adaptive_fake_ttl,
+    resolve_tcp_hints_with_evolver,
+};
 use super::state::{RuntimeState, DESYNC_SEED_BASE};
 
 #[derive(Debug)]
@@ -176,8 +180,11 @@ pub(super) fn send_with_group(
     host: Option<&str>,
     target: SocketAddr,
 ) -> Result<OutboundSendOutcome, OutboundSendError> {
-    let resolved_fake_ttl = resolve_adaptive_fake_ttl(state, target, group_index, group, host)?;
-    let adaptive_hints = resolve_tcp_hints_with_evolver(state, target, group_index, group, host, payload)?;
+    let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
+    let effective_group = apply_tcp_capability_fallback(group, capability);
+    let effective_group = effective_group.as_ref();
+    let resolved_fake_ttl = resolve_adaptive_fake_ttl(state, target, group_index, effective_group, host)?;
+    let adaptive_hints = resolve_tcp_hints_with_evolver(state, target, group_index, effective_group, host, payload)?;
     let context = activation_context_from_progress(
         progress,
         ActivationTransport::Tcp,
@@ -188,17 +195,17 @@ pub(super) fn send_with_group(
     // Only apply evolver-suggested entropy padding when the group has fake
     // steps; without fakes the padding bytes reach the upstream server and
     // corrupt the application stream.
-    let entropy_override = adaptive_hints.entropy_mode.filter(|_| group_has_fake_steps(group));
-    let effective_payload = apply_entropy_padding(group, payload, entropy_override);
-    let strategy_family = primary_tcp_strategy_family(group);
-    if should_desync_tcp(group, context) {
+    let entropy_override = adaptive_hints.entropy_mode.filter(|_| group_has_fake_steps(effective_group));
+    let effective_payload = apply_entropy_padding(effective_group, payload, entropy_override);
+    let strategy_family = primary_tcp_strategy_family(effective_group);
+    if should_desync_tcp(effective_group, context) {
         let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
-        match plan_tcp(group, &effective_payload, seed, state.config.network.default_ttl, context) {
-            Ok(plan) if requires_special_tcp_execution(group) => {
+        match plan_tcp(effective_group, &effective_payload, seed, state.config.network.default_ttl, context) {
+            Ok(plan) if requires_special_tcp_execution(effective_group) => {
                 let bytes_committed = execute_tcp_plan(
                     writer,
                     &state.config,
-                    group,
+                    effective_group,
                     &plan,
                     seed,
                     resolved_fake_ttl,
@@ -290,6 +297,54 @@ fn strategy_fallback_family(strategy_family: &'static str) -> Option<&'static st
         "disorder" => Some("split"),
         "disoob" => Some("oob"),
         "fakeddisorder" => Some("fakedsplit"),
+        _ => None,
+    }
+}
+
+fn apply_tcp_capability_fallback<'a>(
+    group: &'a DesyncGroup,
+    capability: Option<&ProxyDirectPathCapability>,
+) -> Cow<'a, DesyncGroup> {
+    let Some(capability) = capability else {
+        return Cow::Borrowed(group);
+    };
+    if !capability_requires_desync_fallback(capability) {
+        return Cow::Borrowed(group);
+    }
+    let Some(strategy_family) = primary_tcp_strategy_family(group) else {
+        if group.actions.fake_tcp_timestamp_enabled {
+            let mut adjusted = group.clone();
+            adjusted.actions.fake_tcp_timestamp_enabled = false;
+            return Cow::Owned(adjusted);
+        }
+        return Cow::Borrowed(group);
+    };
+    let mut adjusted = group.clone();
+    let mut changed = false;
+    if let Some(fallback_kind) = tcp_fallback_kind_for_strategy(strategy_family) {
+        if let Some(step) = adjusted.actions.tcp_chain.iter_mut().find(|step| !step.kind.is_tls_prelude()) {
+            if step.kind != fallback_kind {
+                step.kind = fallback_kind;
+                changed = true;
+            }
+        }
+    }
+    if adjusted.actions.fake_tcp_timestamp_enabled {
+        adjusted.actions.fake_tcp_timestamp_enabled = false;
+        changed = true;
+    }
+    if changed {
+        Cow::Owned(adjusted)
+    } else {
+        Cow::Borrowed(group)
+    }
+}
+
+fn tcp_fallback_kind_for_strategy(strategy_family: &'static str) -> Option<TcpChainStepKind> {
+    match strategy_family {
+        "seqovl" | "tlsrec_seqovl" | "disorder" => Some(TcpChainStepKind::Split),
+        "disoob" => Some(TcpChainStepKind::Oob),
+        "fakeddisorder" => Some(TcpChainStepKind::FakeSplit),
         _ => None,
     }
 }
@@ -1913,6 +1968,50 @@ mod tests {
         group.actions.tcp_chain.insert(0, TcpChainStep::new(TcpChainStepKind::TlsRec, test_offset()));
         assert_eq!(primary_tcp_strategy_family(&group), Some("tlsrec_multidisorder"));
         assert_eq!(strategy_fallback_family("tlsrec_multidisorder"), None);
+    }
+
+    #[test]
+    fn tcp_capability_fallback_rewrites_seqovl_to_tlsrec_split_and_disables_fake_timestamp() {
+        let mut group = test_group();
+        group.actions.fake_tcp_timestamp_enabled = true;
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::TlsRec, test_offset()));
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::SeqOverlap, test_offset()));
+        let capability = ProxyDirectPathCapability {
+            authority: "example.org:443".to_string(),
+            quic_usable: None,
+            udp_usable: None,
+            fallback_required: Some(true),
+            repeated_handshake_failure_class: Some("tcp_reset".to_string()),
+            updated_at: 1,
+        };
+
+        let adjusted = apply_tcp_capability_fallback(&group, Some(&capability)).into_owned();
+
+        assert_eq!(
+            strategy_fallback_family(primary_tcp_strategy_family(&group).expect("strategy family")),
+            Some("tlsrec_split")
+        );
+        assert_eq!(adjusted.actions.tcp_chain[1].kind, TcpChainStepKind::Split);
+        assert!(!adjusted.actions.fake_tcp_timestamp_enabled);
+    }
+
+    #[test]
+    fn tcp_capability_fallback_leaves_group_unchanged_without_fallback_signal() {
+        let mut group = test_group();
+        group.actions.fake_tcp_timestamp_enabled = true;
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Disorder, test_offset()));
+        let capability = ProxyDirectPathCapability {
+            authority: "example.org:443".to_string(),
+            quic_usable: Some(true),
+            udp_usable: Some(true),
+            fallback_required: Some(false),
+            repeated_handshake_failure_class: None,
+            updated_at: 1,
+        };
+
+        let adjusted = apply_tcp_capability_fallback(&group, Some(&capability));
+
+        assert!(matches!(adjusted, Cow::Borrowed(_)));
     }
 
     #[test]

@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.normalizePreferredEdgeCandidates
 import kotlinx.serialization.Serializable
+import java.util.Locale
 
 @Serializable
 data class RipDpiEncryptedDnsContext(
@@ -31,10 +32,21 @@ data class RipDpiLogContext(
 )
 
 @Serializable
+data class RipDpiDirectPathCapability(
+    val authority: String,
+    val quicUsable: Boolean? = null,
+    val udpUsable: Boolean? = null,
+    val fallbackRequired: Boolean? = null,
+    val repeatedHandshakeFailureClass: String? = null,
+    val updatedAt: Long = 0L,
+)
+
+@Serializable
 data class RipDpiRuntimeContext(
     val encryptedDns: RipDpiEncryptedDnsContext? = null,
     val protectPath: String? = null,
     val preferredEdges: Map<String, List<PreferredEdgeCandidate>> = emptyMap(),
+    val directPathCapabilities: List<RipDpiDirectPathCapability> = emptyList(),
 )
 
 internal fun normalizeLogContext(logContext: RipDpiLogContext?): RipDpiLogContext? =
@@ -90,12 +102,38 @@ internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): Rip
                         normalizedHost to normalizedCandidates
                     }
                 }.toMap()
+        val directPathCapabilities =
+            ctx.directPathCapabilities
+                .mapNotNull { capability ->
+                    val authority =
+                        capability.authority
+                            .trim()
+                            .trimEnd('.')
+                            .lowercase(Locale.US)
+                            .takeIf { it.isNotEmpty() }
+                            ?: return@mapNotNull null
+                    RipDpiDirectPathCapability(
+                        authority = authority,
+                        quicUsable = capability.quicUsable,
+                        udpUsable = capability.udpUsable,
+                        fallbackRequired = capability.fallbackRequired,
+                        repeatedHandshakeFailureClass =
+                            capability.repeatedHandshakeFailureClass
+                                ?.trim()
+                                ?.takeIf { it.isNotEmpty() },
+                        updatedAt = capability.updatedAt.coerceAtLeast(0L),
+                    )
+                }.distinctBy(RipDpiDirectPathCapability::authority)
         RipDpiRuntimeContext(
             encryptedDns = encryptedDns,
             protectPath = protectPath,
             preferredEdges = preferredEdges,
+            directPathCapabilities = directPathCapabilities,
         ).takeIf {
-            encryptedDns != null || protectPath != null || preferredEdges.isNotEmpty()
+            encryptedDns != null ||
+                protectPath != null ||
+                preferredEdges.isNotEmpty() ||
+                directPathCapabilities.isNotEmpty()
         }
     }
 

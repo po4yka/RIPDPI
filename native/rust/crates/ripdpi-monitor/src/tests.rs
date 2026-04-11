@@ -740,6 +740,7 @@ fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
         }),
         protect_path: None,
         preferred_edges: std::collections::BTreeMap::default(),
+        direct_path_capabilities: Vec::new(),
     };
 
     let baseline = detect_strategy_probe_dns_tampering(
@@ -860,6 +861,7 @@ fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
         }),
         protect_path: None,
         preferred_edges: std::collections::BTreeMap::default(),
+        direct_path_capabilities: Vec::new(),
     };
     let mut request = strategy_probe_request_with_runtime_context(
         minimal_ui_config(),
@@ -992,6 +994,7 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
         }),
         protect_path: None,
         preferred_edges: std::collections::BTreeMap::default(),
+        direct_path_capabilities: Vec::new(),
     };
     let mut request = strategy_probe_request_with_runtime_context(
         minimal_ui_config(),

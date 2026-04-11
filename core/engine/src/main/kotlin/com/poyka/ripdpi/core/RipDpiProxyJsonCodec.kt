@@ -300,6 +300,17 @@ internal object RipDpiProxyJsonCodec {
         val encryptedDns: NativeEncryptedDnsContext? = null,
         val protectPath: String? = null,
         val preferredEdges: Map<String, List<NativePreferredEdge>> = emptyMap(),
+        val directPathCapabilities: List<NativeDirectPathCapability> = emptyList(),
+    )
+
+    @Serializable
+    private data class NativeDirectPathCapability(
+        val authority: String,
+        val quicUsable: Boolean? = null,
+        val udpUsable: Boolean? = null,
+        val fallbackRequired: Boolean? = null,
+        val repeatedHandshakeFailureClass: String? = null,
+        val updatedAt: Long = 0L,
     )
 
     @Serializable
@@ -661,6 +672,17 @@ internal object RipDpiProxyJsonCodec {
                                     )
                                 }
                             },
+                        directPathCapabilities =
+                            it.directPathCapabilities.map { capability ->
+                                RipDpiDirectPathCapability(
+                                    authority = capability.authority,
+                                    quicUsable = capability.quicUsable,
+                                    udpUsable = capability.udpUsable,
+                                    fallbackRequired = capability.fallbackRequired,
+                                    repeatedHandshakeFailureClass = capability.repeatedHandshakeFailureClass,
+                                    updatedAt = capability.updatedAt,
+                                )
+                            },
                     )
                 },
             )
@@ -698,6 +720,17 @@ internal object RipDpiProxyJsonCodec {
                                     cdnProvider = edge.cdnProvider,
                                 )
                             }
+                        },
+                    directPathCapabilities =
+                        context.directPathCapabilities.map { capability ->
+                            NativeDirectPathCapability(
+                                authority = capability.authority,
+                                quicUsable = capability.quicUsable,
+                                udpUsable = capability.udpUsable,
+                                fallbackRequired = capability.fallbackRequired,
+                                repeatedHandshakeFailureClass = capability.repeatedHandshakeFailureClass,
+                                updatedAt = capability.updatedAt,
+                            )
                         },
                 )
             }

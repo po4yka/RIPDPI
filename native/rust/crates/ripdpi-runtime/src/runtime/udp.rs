@@ -744,6 +744,7 @@ mod tests {
             }),
             protect_path: None,
             preferred_edges: std::collections::BTreeMap::default(),
+            direct_path_capabilities: Vec::new(),
         }
     }
 

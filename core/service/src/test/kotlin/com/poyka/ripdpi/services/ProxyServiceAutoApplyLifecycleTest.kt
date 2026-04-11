@@ -185,6 +185,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                 rememberedNetworkPolicyStore = rememberedPolicies,
                 startupDnsProbe = VpnStartupDnsProbe(),
                 rootHelperManager = RootHelperManager(),
+                serverCapabilityStore = TestServerCapabilityStore(),
             )
         val coordinator =
             ProxyServiceRuntimeCoordinator(
@@ -200,6 +201,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                         scope = backgroundScope,
                         dispatcher = dispatcher,
                         relayFactory = TestRipDpiRelayFactory(),
+                        naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                         relayProfileStore = TestRelayProfileStore(),
                         relayCredentialStore = TestRelayCredentialStore(),
                     ),

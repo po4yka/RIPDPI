@@ -67,6 +67,7 @@ fn fixture_runtime_context(dns_http_port: u16) -> ProxyRuntimeContext {
         }),
         protect_path: None,
         preferred_edges: std::collections::BTreeMap::default(),
+        direct_path_capabilities: Vec::new(),
     }
 }
 

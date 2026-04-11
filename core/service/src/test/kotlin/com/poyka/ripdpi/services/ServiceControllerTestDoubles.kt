@@ -34,6 +34,10 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServerCapabilityObservation
+import com.poyka.ripdpi.data.ServerCapabilityRecord
+import com.poyka.ripdpi.data.ServerCapabilityScope
+import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
@@ -274,6 +278,95 @@ internal class TestNetworkDnsBlockedPathStore : com.poyka.ripdpi.data.diagnostic
     override suspend fun clearAll() {
         blocked.clear()
         recorded.clear()
+    }
+}
+
+internal class TestServerCapabilityStore : ServerCapabilityStore {
+    private val relayRecords = linkedMapOf<String, ServerCapabilityRecord>()
+    private val directPathRecords = linkedMapOf<String, ServerCapabilityRecord>()
+
+    override suspend fun relayCapabilitiesForFingerprint(fingerprintHash: String): List<ServerCapabilityRecord> =
+        relayRecords.values
+            .filter { it.fingerprintHash == fingerprintHash }
+            .sortedByDescending(ServerCapabilityRecord::updatedAt)
+
+    override suspend fun directPathCapabilitiesForFingerprint(fingerprintHash: String): List<ServerCapabilityRecord> =
+        directPathRecords.values
+            .filter { it.fingerprintHash == fingerprintHash }
+            .sortedByDescending(ServerCapabilityRecord::updatedAt)
+
+    override suspend fun rememberRelayObservation(
+        fingerprint: NetworkFingerprint,
+        authority: String,
+        relayProfileId: String?,
+        observation: ServerCapabilityObservation,
+        source: String,
+        recordedAt: Long?,
+    ): ServerCapabilityRecord =
+        rememberRecord(
+            records = relayRecords,
+            scope = ServerCapabilityScope.Relay,
+            fingerprint = fingerprint,
+            authority = authority,
+            relayProfileId = relayProfileId,
+            observation = observation,
+            source = source,
+            recordedAt = recordedAt,
+        )
+
+    override suspend fun rememberDirectPathObservation(
+        fingerprint: NetworkFingerprint,
+        authority: String,
+        observation: ServerCapabilityObservation,
+        source: String,
+        recordedAt: Long?,
+    ): ServerCapabilityRecord =
+        rememberRecord(
+            records = directPathRecords,
+            scope = ServerCapabilityScope.DirectPath,
+            fingerprint = fingerprint,
+            authority = authority,
+            relayProfileId = null,
+            observation = observation,
+            source = source,
+            recordedAt = recordedAt,
+        )
+
+    override suspend fun clearAll() {
+        relayRecords.clear()
+        directPathRecords.clear()
+    }
+
+    private fun rememberRecord(
+        records: MutableMap<String, ServerCapabilityRecord>,
+        scope: ServerCapabilityScope,
+        fingerprint: NetworkFingerprint,
+        authority: String,
+        relayProfileId: String?,
+        observation: ServerCapabilityObservation,
+        source: String,
+        recordedAt: Long?,
+    ): ServerCapabilityRecord {
+        val normalizedAuthority = authority.trim().lowercase()
+        val record =
+            ServerCapabilityRecord(
+                scope = scope.wireValue,
+                fingerprintHash = fingerprint.scopeKey(),
+                authority = normalizedAuthority,
+                relayProfileId = relayProfileId,
+                quicUsable = observation.quicUsable,
+                udpUsable = observation.udpUsable,
+                authModeAccepted = observation.authModeAccepted,
+                multiplexReusable = observation.multiplexReusable,
+                shadowTlsCamouflageAccepted = observation.shadowTlsCamouflageAccepted,
+                naiveHttpsProxyAccepted = observation.naiveHttpsProxyAccepted,
+                fallbackRequired = observation.fallbackRequired,
+                repeatedHandshakeFailureClass = observation.repeatedHandshakeFailureClass,
+                source = source,
+                updatedAt = recordedAt ?: 0L,
+            )
+        records["${record.fingerprintHash}|${record.authority}|${record.relayProfileId.orEmpty()}"] = record
+        return record
     }
 }
 
@@ -594,6 +687,17 @@ internal class TestRipDpiRelayFactory(
 
     val lastRuntime: TestRelayRuntime
         get() = runtimes.last()
+
+    override fun create(): RipDpiRelayRuntime =
+        runtimeFactory().also { runtime ->
+            runtimes += runtime
+        }
+}
+
+internal class TestNaiveProxyRuntimeFactory(
+    private val runtimeFactory: () -> TestRelayRuntime = { TestRelayRuntime() },
+) : NaiveProxyRuntimeFactory {
+    val runtimes = mutableListOf<TestRelayRuntime>()
 
     override fun create(): RipDpiRelayRuntime =
         runtimeFactory().also { runtime ->
