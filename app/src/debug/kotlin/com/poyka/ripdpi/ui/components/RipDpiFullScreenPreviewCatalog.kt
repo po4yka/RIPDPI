@@ -179,6 +179,10 @@ private fun noopAdvancedSettingsActions(): AdvancedSettingsActions =
         onResetHttpParserEvasions = {},
         onResetFakePayloadLibrary = {},
         onResetFakeTlsProfile = {},
+        onRoutingPolicyModeSelected = {},
+        onDhtMitigationModeSelected = {},
+        onAntiCorrelationEnabledChanged = {},
+        onAppRoutingPresetEnabledChanged = { _, _ -> },
     )
 
 // -- Logs -----------------------------------------------------------------------

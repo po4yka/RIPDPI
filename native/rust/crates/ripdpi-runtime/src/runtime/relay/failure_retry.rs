@@ -16,7 +16,7 @@ use super::super::desync::{send_with_group, OutboundSendError};
 use super::super::retry::note_retry_success;
 use super::super::routing::{
     advance_route_for_failure, emit_failure_classified, note_block_signal_for_failure, note_route_success,
-    reconnect_target, should_track_strategy_target,
+    reconnect_target, reconnect_target_without_tfo, route_uses_direct_syn_data_tfo, should_track_strategy_target,
 };
 use super::super::state::RuntimeState;
 use super::first_exchange::{needs_first_exchange, read_first_response, FirstResponse};
@@ -79,6 +79,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         success_payload = Some(original_request.clone());
         let is_tls = original_request.first().copied() == Some(0x16);
         let inspect_first_response = needs_first_exchange(self.state)?;
+        let mut syn_data_retry_attempted = false;
 
         loop {
             session_state = SessionState::default();
@@ -99,6 +100,29 @@ impl<'a> FirstOutboundCoordinator<'a> {
                 Ok(outcome) => outcome,
                 Err(err) => {
                     let failure = classify_first_write_failure(&err);
+                    if should_retry_syn_data_without_tfo(
+                        self.state,
+                        &route,
+                        Some(&original_request),
+                        &failure,
+                        syn_data_retry_attempted,
+                    ) {
+                        tracing::debug!(
+                            group_index = route.group_index,
+                            target = %self.target,
+                            "retrying first outbound connect without TCP Fast Open for SynData"
+                        );
+                        syn_data_retry_attempted = true;
+                        upstream = reconnect_target_without_tfo(
+                            self.target,
+                            self.state,
+                            route.clone(),
+                            host.clone(),
+                            Some(&original_request),
+                        )?
+                        .0;
+                        continue;
+                    }
                     emit_failure_classified(self.state, self.target, &failure, host.as_deref());
                     let next = advance_route_for_failure(
                         self.state,
@@ -173,6 +197,29 @@ impl<'a> FirstOutboundCoordinator<'a> {
                 }
                 FirstResponse::NoData => break,
                 FirstResponse::Failure { failure, response_bytes } => {
+                    if should_retry_syn_data_without_tfo(
+                        self.state,
+                        &route,
+                        Some(&original_request),
+                        &failure,
+                        syn_data_retry_attempted,
+                    ) {
+                        tracing::debug!(
+                            group_index = route.group_index,
+                            target = %self.target,
+                            "retrying first response path without TCP Fast Open for SynData"
+                        );
+                        syn_data_retry_attempted = true;
+                        upstream = reconnect_target_without_tfo(
+                            self.target,
+                            self.state,
+                            route.clone(),
+                            host.clone(),
+                            Some(&original_request),
+                        )?
+                        .0;
+                        continue;
+                    }
                     note_block_signal_for_failure(self.state, host.as_deref(), &failure, None);
                     emit_failure_classified(self.state, self.target, &failure, host.as_deref());
                     let next = advance_route_for_failure(
@@ -313,4 +360,17 @@ pub(super) fn classify_first_write_failure(error: &OutboundSendError) -> Classif
             failure
         }
     }
+}
+
+fn should_retry_syn_data_without_tfo(
+    state: &RuntimeState,
+    route: &ConnectionRoute,
+    payload: Option<&[u8]>,
+    failure: &ClassifiedFailure,
+    already_retried: bool,
+) -> bool {
+    !already_retried
+        && route_uses_direct_syn_data_tfo(state, route, payload)
+        && failure.action != FailureAction::SurfaceOnly
+        && matches!(failure.class, FailureClass::ConnectFailure | FailureClass::TcpReset)
 }

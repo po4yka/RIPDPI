@@ -360,6 +360,7 @@ class WarpEnrollmentOrchestratorTest {
                     ipv4 = "162.159.192.1",
                     port = 2408,
                     source = "scanner",
+                    updatedAtEpochMillis = 0L,
                 ),
             )
             endpointStore.save(
@@ -370,6 +371,7 @@ class WarpEnrollmentOrchestratorTest {
                     ipv4 = "188.114.96.7",
                     port = 2408,
                     source = "scanner",
+                    updatedAtEpochMillis = 0L,
                 ),
             )
             val scanner =
@@ -395,6 +397,41 @@ class WarpEnrollmentOrchestratorTest {
             assertEquals("188.114.96.7", resolved?.ipv4)
             assertEquals("wifi:home", resolved?.networkScopeKey)
             assertEquals("188.114.96.7", endpointStore.load(DefaultWarpProfileId, "wifi:home")?.ipv4)
+        }
+
+    @Test
+    fun `endpoint scanner reuses fresh scoped endpoint without probing`() =
+        runTest {
+            val appSettingsRepository = TestAppSettingsRepository()
+            val endpointStore = FakeWarpEndpointStore()
+            endpointStore.save(
+                WarpEndpointCacheEntry(
+                    profileId = DefaultWarpProfileId,
+                    networkScopeKey = "wifi:home",
+                    host = "engage.cloudflareclient.com",
+                    ipv4 = "162.159.192.1",
+                    port = 2408,
+                    source = "scanner_native",
+                    updatedAtEpochMillis = System.currentTimeMillis(),
+                ),
+            )
+            val probe = FakeWarpEndpointProbe()
+            val scanner =
+                DefaultWarpEndpointScanner(
+                    appSettingsRepository = appSettingsRepository,
+                    endpointStore = endpointStore,
+                    endpointProbe = probe,
+                )
+
+            val resolved =
+                scanner.resolveEndpoint(
+                    profileId = DefaultWarpProfileId,
+                    networkScopeKey = "wifi:home",
+                    provisioned = null,
+                )
+
+            assertEquals("162.159.192.1", resolved?.ipv4)
+            assertEquals(0, probe.calls)
         }
 
     @Test
@@ -570,10 +607,14 @@ private class FakeWarpEndpointStore : WarpEndpointStore {
 private class FakeWarpEndpointProbe(
     private val responders: Map<String, Long> = emptyMap(),
 ) : WarpEndpointProbe {
+    var calls: Int = 0
+        private set
+
     override suspend fun probe(
         candidate: WarpEndpointCacheEntry,
         timeoutMillis: Int,
     ): WarpEndpointCacheEntry? {
+        calls += 1
         val key = candidate.ipv4 ?: candidate.ipv6 ?: candidate.host.orEmpty()
         val rttMs = responders[key] ?: return null
         return candidate.copy(

@@ -22,6 +22,7 @@ import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMax
 import com.poyka.ripdpi.data.effectiveAdaptiveFakeTtlMin
+import com.poyka.ripdpi.data.effectiveAppRoutingEnabledPresetIds
 import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.effectiveGroupActivationFilter
@@ -41,6 +42,8 @@ import com.poyka.ripdpi.data.entropyModeFromProto
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
 import com.poyka.ripdpi.data.isTlsPrelude
+import com.poyka.ripdpi.data.normalizeAppRoutingPolicyMode
+import com.poyka.ripdpi.data.normalizeDhtMitigationMode
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
@@ -51,6 +54,7 @@ import com.poyka.ripdpi.data.toAdaptiveFallbackSettingsModel
 import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.data.usesSeqOverlapFakeProfile
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 
 private data class ChainAnalysisResult(
     val tcpChainSteps: List<TcpChainStepModel>,
@@ -297,7 +301,10 @@ private fun AppSettings.buildHttpParserUiState(): HttpParserUiState =
         httpHostTab = httpHostTab,
     )
 
-private fun AppSettings.buildAdaptiveFallbackUiState(): AdaptiveFallbackUiState {
+private fun AppSettings.buildAdaptiveFallbackUiState(
+    proxyTelemetry: NativeRuntimeSnapshot,
+    rememberedNetworkCount: Int,
+): AdaptiveFallbackUiState {
     val adaptive = toAdaptiveFallbackSettingsModel()
     return AdaptiveFallbackUiState(
         enabled = adaptive.enabled,
@@ -308,6 +315,81 @@ private fun AppSettings.buildAdaptiveFallbackUiState(): AdaptiveFallbackUiState 
         autoSort = adaptive.autoSort,
         cacheTtlSeconds = adaptive.cacheTtlSeconds,
         cachePrefixV4 = adaptive.cachePrefixV4,
+        runtimeOverrideActive = proxyTelemetry.adaptiveOverrideActive,
+        runtimeOverrideRememberedPolicy = proxyTelemetry.adaptiveOverrideActive && rememberedNetworkCount > 0,
+        runtimeRouteGroup = proxyTelemetry.lastRouteGroup,
+        runtimeTriggerMask = proxyTelemetry.adaptiveTriggerMask,
+        runtimeLastTrigger = proxyTelemetry.adaptiveLastTrigger,
+        runtimeOverrideReason = proxyTelemetry.adaptiveOverrideReason,
+    )
+}
+
+private fun AppSettings.buildRoutingProtectionUiState(
+    snapshot: RoutingProtectionCatalogSnapshot,
+): RoutingProtectionUiState {
+    val enabledPresetIds = effectiveAppRoutingEnabledPresetIds().toSet()
+    val presets =
+        snapshot.presets.map { preset ->
+            RoutingProtectionPresetUiState(
+                id = preset.id,
+                title = preset.title,
+                enabled = preset.id in enabledPresetIds,
+                matchedPackages = preset.matchedPackages,
+                detectionMethod = preset.detectionMethod,
+                fixCoverage = preset.fixCoverage,
+                limitations = preset.limitations,
+            )
+        }
+    val suggestions =
+        buildList {
+            if (!fullTunnelMode && presets.any { it.matchedPackages.isNotEmpty() && !it.enabled }) {
+                add(
+                    RoutingProtectionSuggestionUiState(
+                        id = "exact_app_routing",
+                        title = "Suggest app routing presets",
+                        body =
+                            "Whitelist-sensitive apps are installed. Enable direct routing for the matched presets instead of assuming split tunneling stays hidden.",
+                    ),
+                )
+            }
+            if (!fullTunnelMode && snapshot.detectedApps.size >= 3) {
+                add(
+                    RoutingProtectionSuggestionUiState(
+                        id = "full_tunnel",
+                        title = "Suggest full tunnel mode",
+                        body =
+                            "Several risky apps are installed. Full tunnel mode removes per-app routing differences when exact exclusions are not enough.",
+                    ),
+                )
+            }
+            if (!fullTunnelMode && !antiCorrelationEnabled && snapshot.detectedApps.isNotEmpty()) {
+                add(
+                    RoutingProtectionSuggestionUiState(
+                        id = "anti_correlation",
+                        title = "Suggest anti-correlation mode",
+                        body =
+                            "Anti-correlation keeps domestic destinations direct while forcing CDN-heavy paths through VPN or relay. It is meant for mobile whitelist pressure, not generic split tunneling.",
+                    ),
+                )
+            }
+        }
+    return RoutingProtectionUiState(
+        policyMode = normalizeAppRoutingPolicyMode(appRoutingPolicyMode),
+        enabledPresetIds = enabledPresetIds.toList().sorted(),
+        antiCorrelationEnabled = antiCorrelationEnabled,
+        dhtMitigationMode = normalizeDhtMitigationMode(dhtMitigationMode),
+        fullTunnelMode = fullTunnelMode,
+        presets = presets,
+        detectedApps =
+            snapshot.detectedApps.map { app ->
+                RoutingProtectionDetectedAppUiState(
+                    packageName = app.packageName,
+                    presetTitle = app.presetTitle,
+                    detectionMethod = app.detectionMethod,
+                    fixCoverage = app.fixCoverage,
+                )
+            },
+        suggestions = suggestions,
     )
 }
 
@@ -318,6 +400,7 @@ internal fun AppSettings.toUiState(
     hostAutolearnStorePresent: Boolean = false,
     rememberedNetworkCount: Int = 0,
     biometricAvailability: Int = androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS,
+    routingProtectionSnapshot: RoutingProtectionCatalogSnapshot = RoutingProtectionCatalogSnapshot(),
 ): SettingsUiState {
     val normalizedMode = ripdpiMode.ifEmpty { "vpn" }
     val activeDns = activeDnsSettings()
@@ -348,12 +431,14 @@ internal fun AppSettings.toUiState(
         quic = buildQuicUiState(),
         detectionResistance = buildDetectionResistanceUiState(),
         warp = buildWarpUiState(),
+        routingProtection = buildRoutingProtectionUiState(routingProtectionSnapshot),
         autolearn = buildAutolearnUiState(proxyTelemetry, hostAutolearnStorePresent, rememberedNetworkCount),
-        adaptiveFallback = buildAdaptiveFallbackUiState(),
+        adaptiveFallback = buildAdaptiveFallbackUiState(proxyTelemetry, rememberedNetworkCount),
         httpParser = buildHttpParserUiState(),
         onboardingComplete = onboardingComplete,
         webrtcProtectionEnabled = webrtcProtectionEnabled,
-        excludeRussianAppsEnabled = excludeRussianAppsEnabled,
+        excludeRussianAppsEnabled =
+            effectiveAppRoutingEnabledPresetIds().contains(com.poyka.ripdpi.data.DefaultAppRoutingRussianPresetId),
         fullTunnelMode = fullTunnelMode,
         biometricEnabled = biometricEnabled,
         biometricAvailability = biometricAvailability,

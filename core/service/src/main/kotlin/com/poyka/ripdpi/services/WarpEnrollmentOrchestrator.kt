@@ -4,6 +4,9 @@ import com.poyka.ripdpi.core.RipDpiHostsConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiWarpConfig
+import com.poyka.ripdpi.core.RipDpiWarpNativeBindings
+import com.poyka.ripdpi.core.WarpEndpointProbeNativeRequest
+import com.poyka.ripdpi.core.WarpEndpointProbeNativeResult
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.BuiltInWarpControlPlaneHosts
@@ -38,8 +41,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -187,7 +194,11 @@ interface WarpEndpointProbe {
 @Singleton
 class DefaultWarpEndpointProbe
     @Inject
-    constructor() : WarpEndpointProbe {
+    constructor(
+        private val appSettingsRepository: AppSettingsRepository,
+        private val credentialStore: WarpCredentialStore,
+        private val nativeBindings: RipDpiWarpNativeBindings,
+    ) : WarpEndpointProbe {
         override suspend fun probe(
             candidate: WarpEndpointCacheEntry,
             timeoutMillis: Int,
@@ -197,6 +208,62 @@ class DefaultWarpEndpointProbe
             }
 
         private fun probeBlocking(
+            candidate: WarpEndpointCacheEntry,
+            timeoutMillis: Int,
+        ): WarpEndpointCacheEntry? {
+            probeNative(candidate, timeoutMillis)?.let { return it }
+            return probeFallbackUdp(candidate, timeoutMillis)
+        }
+
+        private fun probeNative(
+            candidate: WarpEndpointCacheEntry,
+            timeoutMillis: Int,
+        ): WarpEndpointCacheEntry? {
+            val credentials = runBlocking { credentialStore.load(candidate.profileId) } ?: return null
+            val privateKey = credentials.privateKey?.takeIf(String::isNotBlank) ?: return null
+            val peerPublicKey = credentials.peerPublicKey?.takeIf(String::isNotBlank) ?: return null
+            val settings = runBlocking { appSettingsRepository.snapshot() }
+            val request =
+                WarpEndpointProbeNativeRequest(
+                    endpoint = candidate.toResolvedEndpoint(),
+                    privateKey = privateKey,
+                    peerPublicKey = peerPublicKey,
+                    clientId = credentials.clientId,
+                    amnezia =
+                        com.poyka.ripdpi.core.RipDpiWarpAmneziaConfig(
+                            enabled = settings.warpAmneziaEnabled,
+                            jc = settings.warpAmneziaJc,
+                            jmin = settings.warpAmneziaJmin,
+                            jmax = settings.warpAmneziaJmax,
+                            h1 = settings.warpAmneziaH1,
+                            h2 = settings.warpAmneziaH2,
+                            h3 = settings.warpAmneziaH3,
+                            h4 = settings.warpAmneziaH4,
+                            s1 = settings.warpAmneziaS1,
+                            s2 = settings.warpAmneziaS2,
+                            s3 = settings.warpAmneziaS3,
+                            s4 = settings.warpAmneziaS4,
+                        ),
+                    timeoutMs = timeoutMillis.toLong(),
+                )
+            val resultJson = nativeBindings.probeEndpoint(WarpProbeJson.encodeToString(request)) ?: return null
+            val result = WarpProbeJson.decodeFromString<WarpEndpointProbeNativeResult>(resultJson)
+            return candidate.copy(
+                host =
+                    result.host
+                        .ifBlank {
+                            candidate.host ?: ""
+                        }.ifBlank { candidate.ipv4 ?: candidate.ipv6.orEmpty() },
+                ipv4 = result.ipv4 ?: candidate.ipv4,
+                ipv6 = result.ipv6 ?: candidate.ipv6,
+                port = result.port,
+                source = "scanner_native",
+                rttMs = result.rttMs,
+                updatedAtEpochMillis = System.currentTimeMillis(),
+            )
+        }
+
+        private fun probeFallbackUdp(
             candidate: WarpEndpointCacheEntry,
             timeoutMillis: Int,
         ): WarpEndpointCacheEntry? {
@@ -226,6 +293,15 @@ class DefaultWarpEndpointProbe
             )
         }
 
+        private fun WarpEndpointCacheEntry.toResolvedEndpoint() =
+            com.poyka.ripdpi.core.ResolvedRipDpiWarpEndpoint(
+                host = host?.ifBlank { ipv4 ?: ipv6.orEmpty() } ?: ipv4 ?: ipv6.orEmpty(),
+                ipv4 = ipv4,
+                ipv6 = ipv6,
+                port = port,
+                source = source,
+            )
+
         private fun resolveSocketAddress(candidate: WarpEndpointCacheEntry): InetSocketAddress? {
             val port = candidate.port.takeIf { it > 0 } ?: return null
             candidate.ipv4?.takeIf(String::isNotBlank)?.let { value ->
@@ -239,6 +315,14 @@ class DefaultWarpEndpointProbe
                 runCatching { InetAddress.getAllByName(host).firstOrNull() }.getOrNull()
                     ?: return null
             return InetSocketAddress(resolved, port)
+        }
+
+        private companion object {
+            val WarpProbeJson =
+                Json {
+                    ignoreUnknownKeys = true
+                    explicitNulls = false
+                }
         }
     }
 
@@ -256,6 +340,7 @@ class DefaultWarpEndpointScanner
             provisioned: WarpEndpointCacheEntry?,
         ): WarpEndpointCacheEntry? {
             val normalizedScope = networkScopeKey.takeIf(String::isNotBlank) ?: GlobalWarpEndpointScopeKey
+            val now = System.currentTimeMillis()
             val settings = appSettingsRepository.snapshot()
             val scannerEnabled = settings.warpScannerEnabled
             val parallelism =
@@ -268,6 +353,9 @@ class DefaultWarpEndpointScanner
                     ?: DefaultWarpScannerMaxRttMs
 
             endpointStore.load(profileId, normalizedScope)?.let { cached ->
+                if (cached.isFresh(now)) {
+                    return cached.copy(profileId = profileId, networkScopeKey = normalizedScope)
+                }
                 probeCachedEntry(
                     profileId = profileId,
                     networkScopeKey = normalizedScope,
@@ -460,6 +548,15 @@ class DefaultWarpEndpointScanner
             listOf(host.orEmpty(), ipv4.orEmpty(), ipv6.orEmpty(), port.toString()).joinToString("|")
 
         private fun candidateScore(candidate: WarpEndpointCacheEntry?): Long = candidate?.rttMs ?: Long.MAX_VALUE
+
+        private fun WarpEndpointCacheEntry.isFresh(now: Long): Boolean =
+            updatedAtEpochMillis > 0L &&
+                now >= updatedAtEpochMillis &&
+                now - updatedAtEpochMillis <= ScopedEndpointFreshnessTtlMs
+
+        private companion object {
+            const val ScopedEndpointFreshnessTtlMs: Long = 15L * 60L * 1_000L
+        }
     }
 
 interface WarpEnrollmentOrchestrator {

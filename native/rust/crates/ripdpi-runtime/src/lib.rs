@@ -55,6 +55,17 @@ pub trait RuntimeTelemetrySink: Send + Sync {
         host: Option<&str>,
     );
 
+    fn on_adaptive_override(
+        &self,
+        _target: SocketAddr,
+        _group_index: usize,
+        _trigger_mask: u32,
+        _failure_class: &'static str,
+        _host: Option<&str>,
+        _reason: &'static str,
+    ) {
+    }
+
     fn on_retry_paced(&self, _target: SocketAddr, _group_index: usize, _reason: &'static str, _backoff_ms: u64) {}
 
     fn on_host_autolearn_state(

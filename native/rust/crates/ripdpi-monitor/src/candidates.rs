@@ -347,7 +347,7 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             vec!["Runs only when the baseline proves an ECH-capable HTTPS path"],
         ),
     ];
-    if probe_tcp_fast_open_capability() {
+    if probe_tcp_fast_open_capability() && allows_direct_tfo_candidates(base) {
         candidates.push(candidate_spec_with_notes(
             "tlsrec_split_host_tfo",
             "TLS record + split host + TFO",
@@ -425,6 +425,10 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
         ));
     }
     candidates
+}
+
+fn allows_direct_tfo_candidates(base: &ProxyUiConfig) -> bool {
+    !(base.upstream_relay.enabled && !base.upstream_relay.kind.eq_ignore_ascii_case("off"))
 }
 
 pub(crate) fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
@@ -1249,6 +1253,18 @@ mod tests {
 
         assert_eq!(tcp_candidates.iter().any(|c| c.id == "fake_rst"), tcp_repair_capable);
         assert_eq!(tcp_candidates.iter().any(|c| c.id == "multi_disorder"), tcp_repair_capable);
+    }
+
+    #[test]
+    fn tfo_candidates_are_suppressed_for_upstream_relay_routes() {
+        let mut base = minimal_ui_config();
+        base.upstream_relay.enabled = true;
+        base.upstream_relay.kind = "vless_reality".to_string();
+
+        let tcp_candidates = build_tcp_candidates(&base);
+
+        assert!(!tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_split_host_tfo"));
+        assert!(!tcp_candidates.iter().any(|candidate| candidate.id == "split_host_tfo"));
     }
 
     #[test]

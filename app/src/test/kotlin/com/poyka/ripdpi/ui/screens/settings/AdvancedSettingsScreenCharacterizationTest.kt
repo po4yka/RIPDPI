@@ -278,6 +278,10 @@ class AdvancedSettingsScreenCharacterizationTest {
                             onResetHttpParserEvasions = {},
                             onResetFakePayloadLibrary = {},
                             onResetFakeTlsProfile = {},
+                            onRoutingPolicyModeSelected = {},
+                            onDhtMitigationModeSelected = {},
+                            onAntiCorrelationEnabledChanged = {},
+                            onAppRoutingPresetEnabledChanged = { _, _ -> },
                         ),
                 )
             }
