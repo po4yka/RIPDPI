@@ -313,6 +313,7 @@ mod tests {
             encrypted_dns: Some(fixture_encrypted_dns_context(dns_http_port)),
             protect_path: None,
             preferred_edges: std::collections::BTreeMap::default(),
+            direct_path_capabilities: Vec::new(),
         }
     }
 

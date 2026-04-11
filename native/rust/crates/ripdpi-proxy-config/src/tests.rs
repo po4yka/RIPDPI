@@ -386,6 +386,49 @@ fn command_line_payload_requires_runnable_config() {
 }
 
 #[test]
+fn runtime_context_sanitizes_direct_path_capabilities() {
+    let envelope = runtime_config_envelope_from_payload(ProxyConfigPayload::CommandLine {
+        args: vec!["ripdpi".to_string(), "--split".to_string(), "host+1".to_string()],
+        host_autolearn_store_path: None,
+        runtime_context: Some(ProxyRuntimeContext {
+            encrypted_dns: None,
+            protect_path: None,
+            preferred_edges: std::collections::BTreeMap::default(),
+            direct_path_capabilities: vec![
+                ProxyDirectPathCapability {
+                    authority: " Example.org:443. ".to_string(),
+                    quic_usable: Some(false),
+                    udp_usable: Some(false),
+                    fallback_required: Some(true),
+                    repeated_handshake_failure_class: Some(" tcp_reset ".to_string()),
+                    updated_at: -10,
+                },
+                ProxyDirectPathCapability {
+                    authority: "   ".to_string(),
+                    quic_usable: None,
+                    udp_usable: None,
+                    fallback_required: None,
+                    repeated_handshake_failure_class: None,
+                    updated_at: 0,
+                },
+            ],
+        }),
+        log_context: None,
+    })
+    .expect("runtime config envelope");
+
+    let capability =
+        envelope.runtime_context.expect("runtime context").direct_path_capabilities.pop().expect("capability");
+
+    assert_eq!(capability.authority, "example.org:443");
+    assert_eq!(capability.quic_usable, Some(false));
+    assert_eq!(capability.udp_usable, Some(false));
+    assert_eq!(capability.fallback_required, Some(true));
+    assert_eq!(capability.repeated_handshake_failure_class.as_deref(), Some("tcp_reset"));
+    assert_eq!(capability.updated_at, 0);
+}
+
+#[test]
 fn invalid_quic_fake_profile_is_rejected() {
     let mut ui = minimal_ui();
     ui.quic.fake_profile = "bogus".to_string();

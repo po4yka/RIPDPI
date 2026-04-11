@@ -58,6 +58,7 @@ class UpstreamRelaySupervisorTest {
                     scope = backgroundScope,
                     dispatcher = StandardTestDispatcher(testScheduler),
                     relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore = profileStore,
                     relayCredentialStore = credentialStore,
                 )
@@ -88,6 +89,7 @@ class UpstreamRelaySupervisorTest {
                     scope = backgroundScope,
                     dispatcher = StandardTestDispatcher(testScheduler),
                     relayFactory = TestRipDpiRelayFactory(),
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore = TestRelayProfileStore(),
                     relayCredentialStore = TestRelayCredentialStore(),
                 )
@@ -119,6 +121,7 @@ class UpstreamRelaySupervisorTest {
                     scope = backgroundScope,
                     dispatcher = StandardTestDispatcher(testScheduler),
                     relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore =
                         TestRelayProfileStore().apply {
                             save(
@@ -189,6 +192,7 @@ class UpstreamRelaySupervisorTest {
                     scope = backgroundScope,
                     dispatcher = StandardTestDispatcher(testScheduler),
                     relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore =
                         TestRelayProfileStore().apply {
                             save(
@@ -240,6 +244,7 @@ class UpstreamRelaySupervisorTest {
                     scope = backgroundScope,
                     dispatcher = StandardTestDispatcher(testScheduler),
                     relayFactory = TestRipDpiRelayFactory(),
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore =
                         TestRelayProfileStore().apply {
                             save(
@@ -288,6 +293,7 @@ class UpstreamRelaySupervisorTest {
                     scope = backgroundScope,
                     dispatcher = StandardTestDispatcher(testScheduler),
                     relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore =
                         TestRelayProfileStore().apply {
                             save(
@@ -341,6 +347,7 @@ class UpstreamRelaySupervisorTest {
                     scope = backgroundScope,
                     dispatcher = StandardTestDispatcher(testScheduler),
                     relayFactory = TestRipDpiRelayFactory(),
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore =
                         TestRelayProfileStore().apply {
                             save(
