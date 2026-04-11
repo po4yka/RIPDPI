@@ -52,6 +52,21 @@ internal class UpstreamRelaySupervisor(
         },
     private val stopTimeoutMillis: Long = 5_000L,
 ) {
+    private data class ResolvedChainRelayHop(
+        val profileId: String,
+        val server: String,
+        val serverPort: Int,
+        val serverName: String,
+        val publicKey: String,
+        val shortId: String,
+        val uuid: String,
+    )
+
+    private data class ResolvedChainRelayConfig(
+        val entry: ResolvedChainRelayHop,
+        val exit: ResolvedChainRelayHop,
+    )
+
     private var relayRuntime: RipDpiRelayRuntime? = null
     private var relayJob: Job? = null
 
@@ -172,6 +187,16 @@ internal class UpstreamRelaySupervisor(
             } else {
                 null
             }
+        val resolvedChainRelay =
+            if (effectiveConfig.kind == RelayKindChainRelay) {
+                resolveChainRelayConfig(
+                    chainProfileId = profileId,
+                    config = effectiveConfig,
+                    credentials = credentials,
+                )
+            } else {
+                null
+            }
         validateCredentials(profileId, effectiveConfig.kind, masqueAuthMode, credentials)
         validateSupportedFeatures(
             profileId = profileId,
@@ -209,18 +234,18 @@ internal class UpstreamRelaySupervisor(
             vlessTransport = effectiveConfig.vlessTransport,
             xhttpPath = effectiveConfig.xhttpPath,
             xhttpHost = effectiveConfig.xhttpHost,
-            chainEntryServer = effectiveConfig.chainEntryServer,
-            chainEntryPort = effectiveConfig.chainEntryPort,
-            chainEntryServerName = effectiveConfig.chainEntryServerName,
-            chainEntryPublicKey = effectiveConfig.chainEntryPublicKey,
-            chainEntryShortId = effectiveConfig.chainEntryShortId,
-            chainEntryProfileId = effectiveConfig.chainEntryProfileId,
-            chainExitServer = effectiveConfig.chainExitServer,
-            chainExitPort = effectiveConfig.chainExitPort,
-            chainExitServerName = effectiveConfig.chainExitServerName,
-            chainExitPublicKey = effectiveConfig.chainExitPublicKey,
-            chainExitShortId = effectiveConfig.chainExitShortId,
-            chainExitProfileId = effectiveConfig.chainExitProfileId,
+            chainEntryServer = resolvedChainRelay?.entry?.server ?: effectiveConfig.chainEntryServer,
+            chainEntryPort = resolvedChainRelay?.entry?.serverPort ?: effectiveConfig.chainEntryPort,
+            chainEntryServerName = resolvedChainRelay?.entry?.serverName ?: effectiveConfig.chainEntryServerName,
+            chainEntryPublicKey = resolvedChainRelay?.entry?.publicKey ?: effectiveConfig.chainEntryPublicKey,
+            chainEntryShortId = resolvedChainRelay?.entry?.shortId ?: effectiveConfig.chainEntryShortId,
+            chainEntryProfileId = resolvedChainRelay?.entry?.profileId ?: effectiveConfig.chainEntryProfileId,
+            chainExitServer = resolvedChainRelay?.exit?.server ?: effectiveConfig.chainExitServer,
+            chainExitPort = resolvedChainRelay?.exit?.serverPort ?: effectiveConfig.chainExitPort,
+            chainExitServerName = resolvedChainRelay?.exit?.serverName ?: effectiveConfig.chainExitServerName,
+            chainExitPublicKey = resolvedChainRelay?.exit?.publicKey ?: effectiveConfig.chainExitPublicKey,
+            chainExitShortId = resolvedChainRelay?.exit?.shortId ?: effectiveConfig.chainExitShortId,
+            chainExitProfileId = resolvedChainRelay?.exit?.profileId ?: effectiveConfig.chainExitProfileId,
             masqueUrl = effectiveConfig.masqueUrl,
             masqueUseHttp2Fallback = effectiveConfig.masqueUseHttp2Fallback,
             masqueCloudflareMode = effectiveConfig.masqueCloudflareMode,
@@ -234,8 +259,8 @@ internal class UpstreamRelaySupervisor(
             udpEnabled = effectiveConfig.udpEnabled,
             tcpFallbackEnabled = effectiveConfig.tcpFallbackEnabled,
             vlessUuid = credentials?.vlessUuid,
-            chainEntryUuid = credentials?.chainEntryUuid,
-            chainExitUuid = credentials?.chainExitUuid,
+            chainEntryUuid = resolvedChainRelay?.entry?.uuid ?: credentials?.chainEntryUuid,
+            chainExitUuid = resolvedChainRelay?.exit?.uuid ?: credentials?.chainExitUuid,
             hysteriaPassword = credentials?.hysteriaPassword,
             hysteriaSalamanderKey = credentials?.hysteriaSalamanderKey,
             tuicUuid = credentials?.tuicUuid,
@@ -327,8 +352,7 @@ internal class UpstreamRelaySupervisor(
                 }
 
                 RelayKindChainRelay -> {
-                    !credentials?.chainEntryUuid.isNullOrBlank() &&
-                        !credentials.chainExitUuid.isNullOrBlank()
+                    true
                 }
 
                 RelayKindMasque -> {
@@ -407,6 +431,105 @@ internal class UpstreamRelaySupervisor(
                 FailureReason.RelayConfigRejected("ShadowTLS inner profile cannot reference itself"),
             )
         }
+    }
+
+    private suspend fun resolveChainRelayConfig(
+        chainProfileId: String,
+        config: RipDpiRelayConfig,
+        credentials: RelayCredentialRecord?,
+    ): ResolvedChainRelayConfig =
+        ResolvedChainRelayConfig(
+            entry =
+                resolveChainRelayHop(
+                    hopName = "entry",
+                    chainProfileId = chainProfileId,
+                    profileId = config.chainEntryProfileId,
+                    legacyServer = config.chainEntryServer,
+                    legacyServerPort = config.chainEntryPort,
+                    legacyServerName = config.chainEntryServerName,
+                    legacyPublicKey = config.chainEntryPublicKey,
+                    legacyShortId = config.chainEntryShortId,
+                    legacyUuid = credentials?.chainEntryUuid,
+                ),
+            exit =
+                resolveChainRelayHop(
+                    hopName = "exit",
+                    chainProfileId = chainProfileId,
+                    profileId = config.chainExitProfileId,
+                    legacyServer = config.chainExitServer,
+                    legacyServerPort = config.chainExitPort,
+                    legacyServerName = config.chainExitServerName,
+                    legacyPublicKey = config.chainExitPublicKey,
+                    legacyShortId = config.chainExitShortId,
+                    legacyUuid = credentials?.chainExitUuid,
+                ),
+        )
+
+    private suspend fun resolveChainRelayHop(
+        hopName: String,
+        chainProfileId: String,
+        profileId: String,
+        legacyServer: String,
+        legacyServerPort: Int,
+        legacyServerName: String,
+        legacyPublicKey: String,
+        legacyShortId: String,
+        legacyUuid: String?,
+    ): ResolvedChainRelayHop {
+        if (profileId.isNotBlank()) {
+            val profile =
+                relayProfileStore.load(profileId)
+                    ?: throw ServiceStartupRejectedException(
+                        FailureReason.RelayConfigRejected("Chain relay $hopName profile $profileId was not found"),
+                    )
+            if (profile.id == chainProfileId) {
+                throw ServiceStartupRejectedException(
+                    FailureReason.RelayConfigRejected("Chain relay $hopName profile cannot reference itself"),
+                )
+            }
+            if (profile.kind != RelayKindVlessReality) {
+                throw ServiceStartupRejectedException(
+                    FailureReason.RelayConfigRejected(
+                        "Chain relay $hopName profile kind ${profile.kind} is not supported yet",
+                    ),
+                )
+            }
+            require(profile.vlessTransport != RelayVlessTransportXhttp) {
+                "Chain relay $hopName profile must use direct Reality TCP transport"
+            }
+            val hopCredentials = relayCredentialStore.load(profileId)
+            val hopUuid = hopCredentials?.vlessUuid
+            require(!hopUuid.isNullOrBlank()) {
+                "Relay credentials missing for profile $profileId"
+            }
+            return ResolvedChainRelayHop(
+                profileId = profile.id,
+                server = profile.server,
+                serverPort = profile.serverPort,
+                serverName = profile.serverName,
+                publicKey = profile.realityPublicKey,
+                shortId = profile.realityShortId,
+                uuid = hopUuid,
+            )
+        }
+        require(legacyServer.isNotBlank()) {
+            "Chain relay $hopName profile reference is required"
+        }
+        require(legacyServerName.isNotBlank() && legacyPublicKey.isNotBlank() && legacyShortId.isNotBlank()) {
+            "Chain relay legacy $hopName settings are incomplete"
+        }
+        require(!legacyUuid.isNullOrBlank()) {
+            "Relay credentials missing for chain relay $hopName"
+        }
+        return ResolvedChainRelayHop(
+            profileId = "",
+            server = legacyServer,
+            serverPort = legacyServerPort,
+            serverName = legacyServerName,
+            publicKey = legacyPublicKey,
+            shortId = legacyShortId,
+            uuid = legacyUuid,
+        )
     }
 
     private suspend fun resolveShadowTlsInnerConfig(

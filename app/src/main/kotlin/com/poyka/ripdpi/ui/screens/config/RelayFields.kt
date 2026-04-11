@@ -12,8 +12,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
-import com.poyka.ripdpi.activities.ConfigFieldRelayChainEntryPort
-import com.poyka.ripdpi.activities.ConfigFieldRelayChainExitPort
 import com.poyka.ripdpi.activities.ConfigFieldRelayServer
 import com.poyka.ripdpi.activities.ConfigFieldRelayServerPort
 import com.poyka.ripdpi.activities.ConfigUiState
@@ -55,19 +53,7 @@ internal fun RelayKindFields(
     onRelayVlessUuidChanged: (String) -> Unit,
     onRelayHysteriaPasswordChanged: (String) -> Unit,
     onRelayHysteriaSalamanderKeyChanged: (String) -> Unit,
-    onRelayChainEntryServerChanged: (String) -> Unit,
-    onRelayChainEntryPortChanged: (String) -> Unit,
-    onRelayChainEntryServerNameChanged: (String) -> Unit,
-    onRelayChainEntryPublicKeyChanged: (String) -> Unit,
-    onRelayChainEntryShortIdChanged: (String) -> Unit,
-    onRelayChainEntryUuidChanged: (String) -> Unit,
     onRelayChainEntryProfileIdChanged: (String) -> Unit,
-    onRelayChainExitServerChanged: (String) -> Unit,
-    onRelayChainExitPortChanged: (String) -> Unit,
-    onRelayChainExitServerNameChanged: (String) -> Unit,
-    onRelayChainExitPublicKeyChanged: (String) -> Unit,
-    onRelayChainExitShortIdChanged: (String) -> Unit,
-    onRelayChainExitUuidChanged: (String) -> Unit,
     onRelayChainExitProfileIdChanged: (String) -> Unit,
     onRelayMasqueUrlChanged: (String) -> Unit,
     onRelayMasqueAuthModeChanged: (String) -> Unit,
@@ -241,20 +227,7 @@ internal fun RelayKindFields(
         RelayKindChainRelay -> {
             RelayChainFields(
                 draft = draft,
-                uiState = uiState,
-                onRelayChainEntryServerChanged = onRelayChainEntryServerChanged,
-                onRelayChainEntryPortChanged = onRelayChainEntryPortChanged,
-                onRelayChainEntryServerNameChanged = onRelayChainEntryServerNameChanged,
-                onRelayChainEntryPublicKeyChanged = onRelayChainEntryPublicKeyChanged,
-                onRelayChainEntryShortIdChanged = onRelayChainEntryShortIdChanged,
-                onRelayChainEntryUuidChanged = onRelayChainEntryUuidChanged,
                 onRelayChainEntryProfileIdChanged = onRelayChainEntryProfileIdChanged,
-                onRelayChainExitServerChanged = onRelayChainExitServerChanged,
-                onRelayChainExitPortChanged = onRelayChainExitPortChanged,
-                onRelayChainExitServerNameChanged = onRelayChainExitServerNameChanged,
-                onRelayChainExitPublicKeyChanged = onRelayChainExitPublicKeyChanged,
-                onRelayChainExitShortIdChanged = onRelayChainExitShortIdChanged,
-                onRelayChainExitUuidChanged = onRelayChainExitUuidChanged,
                 onRelayChainExitProfileIdChanged = onRelayChainExitProfileIdChanged,
             )
         }
@@ -345,101 +318,23 @@ internal fun RelayKindFields(
 @Composable
 internal fun RelayChainFields(
     draft: ConfigDraft,
-    uiState: ConfigUiState,
-    onRelayChainEntryServerChanged: (String) -> Unit,
-    onRelayChainEntryPortChanged: (String) -> Unit,
-    onRelayChainEntryServerNameChanged: (String) -> Unit,
-    onRelayChainEntryPublicKeyChanged: (String) -> Unit,
-    onRelayChainEntryShortIdChanged: (String) -> Unit,
-    onRelayChainEntryUuidChanged: (String) -> Unit,
     onRelayChainEntryProfileIdChanged: (String) -> Unit,
-    onRelayChainExitServerChanged: (String) -> Unit,
-    onRelayChainExitPortChanged: (String) -> Unit,
-    onRelayChainExitServerNameChanged: (String) -> Unit,
-    onRelayChainExitPublicKeyChanged: (String) -> Unit,
-    onRelayChainExitShortIdChanged: (String) -> Unit,
-    onRelayChainExitUuidChanged: (String) -> Unit,
     onRelayChainExitProfileIdChanged: (String) -> Unit,
 ) {
+    Text(
+        text = "Chain relay uses saved relay profiles for both hops. Legacy inline chain settings are read-only.",
+        style = RipDpiThemeTokens.type.caption,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+    )
     RipDpiTextField(
         value = draft.relayChainEntryProfileId,
         onValueChange = onRelayChainEntryProfileIdChanged,
         decoration = RipDpiTextFieldDecoration(label = "Entry profile ID"),
     )
     RipDpiTextField(
-        value = draft.relayChainEntryServer,
-        onValueChange = onRelayChainEntryServerChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_server)),
-    )
-    RipDpiTextField(
-        value = draft.relayChainEntryPort,
-        onValueChange = onRelayChainEntryPortChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(R.string.config_relay_chain_entry_port),
-                errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayChainEntryPort]),
-            ),
-        behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)),
-    )
-    RipDpiTextField(
-        value = draft.relayChainEntryServerName,
-        onValueChange = onRelayChainEntryServerNameChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_sni)),
-    )
-    RipDpiTextField(
-        value = draft.relayChainEntryPublicKey,
-        onValueChange = onRelayChainEntryPublicKeyChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_public_key)),
-    )
-    RipDpiTextField(
-        value = draft.relayChainEntryShortId,
-        onValueChange = onRelayChainEntryShortIdChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_short_id)),
-    )
-    RipDpiTextField(
-        value = draft.relayChainEntryUuid,
-        onValueChange = onRelayChainEntryUuidChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_uuid)),
-    )
-    RipDpiTextField(
         value = draft.relayChainExitProfileId,
         onValueChange = onRelayChainExitProfileIdChanged,
         decoration = RipDpiTextFieldDecoration(label = "Exit profile ID"),
-    )
-    RipDpiTextField(
-        value = draft.relayChainExitServer,
-        onValueChange = onRelayChainExitServerChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_server)),
-    )
-    RipDpiTextField(
-        value = draft.relayChainExitPort,
-        onValueChange = onRelayChainExitPortChanged,
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(R.string.config_relay_chain_exit_port),
-                errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayChainExitPort]),
-            ),
-        behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)),
-    )
-    RipDpiTextField(
-        value = draft.relayChainExitServerName,
-        onValueChange = onRelayChainExitServerNameChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_sni)),
-    )
-    RipDpiTextField(
-        value = draft.relayChainExitPublicKey,
-        onValueChange = onRelayChainExitPublicKeyChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_public_key)),
-    )
-    RipDpiTextField(
-        value = draft.relayChainExitShortId,
-        onValueChange = onRelayChainExitShortIdChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_short_id)),
-    )
-    RipDpiTextField(
-        value = draft.relayChainExitUuid,
-        onValueChange = onRelayChainExitUuidChanged,
-        decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_exit_uuid)),
     )
 }
 
