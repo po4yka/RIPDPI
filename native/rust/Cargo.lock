@@ -3113,6 +3113,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-naiveproxy"
+version = "0.1.0"
+dependencies = [
+ "tokio",
+]
+
+[[package]]
 name = "ripdpi-native-protect"
 version = "0.1.0"
 
@@ -3160,11 +3167,21 @@ version = "0.1.0"
 dependencies = [
  "ripdpi-hysteria2",
  "ripdpi-masque",
+ "ripdpi-relay-mux",
+ "ripdpi-shadowtls",
+ "ripdpi-tuic",
  "ripdpi-vless",
  "ripdpi-xhttp",
  "serde",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "ripdpi-relay-mux"
+version = "0.1.0"
+dependencies = [
+ "tokio",
 ]
 
 [[package]]
@@ -3225,6 +3242,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-shadowtls"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "ripdpi-telemetry"
 version = "0.1.0"
 dependencies = [
@@ -3244,6 +3268,21 @@ dependencies = [
  "tokio",
  "tokio-boring",
  "tracing",
+]
+
+[[package]]
+name = "ripdpi-tuic"
+version = "0.1.0"
+dependencies = [
+ "bytes",
+ "quinn",
+ "rcgen",
+ "rustls",
+ "serde",
+ "tokio",
+ "tracing",
+ "uuid",
+ "webpki-roots 1.0.6",
 ]
 
 [[package]]
