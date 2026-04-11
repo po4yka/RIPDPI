@@ -28,7 +28,7 @@ private const val NaiveProxyReadyTimeoutMs = 5_000L
 class NaiveProxyManager
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) {
         @Volatile private var process: Process? = null
 
@@ -46,7 +46,9 @@ class NaiveProxyManager
                         add("--listen")
                         add("${config.localSocksHost}:${config.localSocksPort}")
                         add("--server")
-                        add("${config.server}:${config.serverPort}")
+                        add(config.server)
+                        add("--server-port")
+                        add(config.serverPort.toString())
                         add("--server-name")
                         add(config.serverName)
                         config.naiveUsername?.let {
@@ -148,6 +150,12 @@ class NaiveProxyManager
             runCatching {
                 Socket().use { socket ->
                     socket.connect(InetSocketAddress(host, port), 250)
+                    socket.soTimeout = 250
+                    socket.getOutputStream().write(byteArrayOf(0x05, 0x01, 0x00))
+                    val response = socket.getInputStream().readNBytes(2)
+                    if (!response.contentEquals(byteArrayOf(0x05, 0x00))) {
+                        error("unexpected SOCKS5 readiness response")
+                    }
                 }
                 true
             }.getOrDefault(false)

@@ -5,7 +5,14 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-tokio = { workspace = true, features = ["macros", "net", "rt-multi-thread"] }
+base64.workspace = true
+rustls.workspace = true
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync"] }
+tokio-rustls.workspace = true
+webpki-roots.workspace = true
+
+[dev-dependencies]
+rcgen.workspace = true
 
 [lints]
 workspace = true
