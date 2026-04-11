@@ -1,0 +1,15 @@
+{
+  "transport": {
+    "type": "xhttp",
+    "mode": "packet-up",
+    "xPaddingBytes": "100-1000"
+  },
+  "cloudflareTunnel": {
+    "hostname": "edge.example.com",
+    "origin": "origin.example.com"
+  },
+  "finalmask": {
+    "type": "noise",
+    "randRange": "16-128"
+  }
+}

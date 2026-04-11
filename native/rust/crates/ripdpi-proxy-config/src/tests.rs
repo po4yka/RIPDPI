@@ -5,7 +5,7 @@ use ripdpi_config::{
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP};
-use ripdpi_packets::{MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
+use ripdpi_packets::{MH_DMIX, MH_HMIX, MH_HOSTEXTRASPACE, MH_HOSTTAB, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
 
 use super::*;
 
@@ -322,10 +322,38 @@ fn ui_payload_maps_extended_http_parser_evasions_into_mod_http() {
     ui.parser_evasions.host_remove_spaces = true;
     ui.parser_evasions.http_method_eol = true;
     ui.parser_evasions.http_unix_eol = true;
+    ui.parser_evasions.http_host_extra_space = true;
+    ui.parser_evasions.http_host_tab = true;
 
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
 
-    assert_eq!(config.groups[0].actions.mod_http, MH_HMIX | MH_DMIX | MH_SPACE | MH_METHODEOL | MH_UNIXEOL);
+    assert_eq!(
+        config.groups[0].actions.mod_http,
+        MH_HMIX | MH_DMIX | MH_SPACE | MH_METHODEOL | MH_UNIXEOL | MH_HOSTEXTRASPACE | MH_HOSTTAB
+    );
+}
+
+#[test]
+fn ui_payload_rejects_unknown_ipv6_extension_profile() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![ProxyUiTcpChainStep {
+        kind: "ipfrag2".to_string(),
+        marker: "host+2".to_string(),
+        midhost_marker: String::new(),
+        fake_host_template: String::new(),
+        overlap_size: 0,
+        fake_mode: String::new(),
+        fragment_count: 0,
+        min_fragment_size: 0,
+        max_fragment_size: 0,
+        inter_segment_delay_ms: 0,
+        activation_filter: None,
+        ipv6_extension_profile: "bogus".to_string(),
+    }];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("invalid ipv6 extension profile");
+
+    assert!(err.to_string().contains("Unsupported ipv6ExtensionProfile"));
 }
 
 #[test]

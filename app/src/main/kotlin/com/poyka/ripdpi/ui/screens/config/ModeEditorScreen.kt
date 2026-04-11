@@ -170,6 +170,7 @@ fun ModeEditorRoute(
             }
         },
         onRelayProfileIdChanged = { viewModel.updateDraft { copy(relayProfileId = it) } },
+        onRelayPresetSelected = viewModel::applyRelayPreset,
         onRelayServerChanged = { viewModel.updateDraft { copy(relayServer = it) } },
         onRelayServerPortChanged = { viewModel.updateDraft { copy(relayServerPort = it) } },
         onRelayServerNameChanged = { viewModel.updateDraft { copy(relayServerName = it) } },
@@ -229,6 +230,7 @@ fun ModeEditorScreen(
     onRelayEnabledChanged: (Boolean) -> Unit,
     onRelayKindChanged: (String) -> Unit,
     onRelayProfileIdChanged: (String) -> Unit,
+    onRelayPresetSelected: (String) -> Unit,
     onRelayServerChanged: (String) -> Unit,
     onRelayServerPortChanged: (String) -> Unit,
     onRelayServerNameChanged: (String) -> Unit,
@@ -484,6 +486,33 @@ fun ModeEditorScreen(
                                         helperText = stringResource(R.string.config_relay_profile_id_helper),
                                     ),
                             )
+                            uiState.relayPresetSuggestion?.let { suggestion ->
+                                WarningBanner(
+                                    title = suggestion.title,
+                                    message = suggestion.reason,
+                                    tone = WarningBannerTone.Info,
+                                )
+                            }
+                            if (uiState.relayPresets.isNotEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.config_relay_presets_title),
+                                    style = RipDpiThemeTokens.type.caption,
+                                    color = colors.mutedForeground,
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                                ) {
+                                    uiState.relayPresets.forEach { preset ->
+                                        RelayKindChip(
+                                            selectedKind = draft.relayPresetId,
+                                            kind = preset.id,
+                                            label = preset.title,
+                                            onRelayKindChanged = onRelayPresetSelected,
+                                        )
+                                    }
+                                }
+                            }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(spacing.sm),
@@ -762,6 +791,7 @@ private fun ModeEditorScreenWithNoOpCallbacks(
             onRelayEnabledChanged = {},
             onRelayKindChanged = {},
             onRelayProfileIdChanged = {},
+            onRelayPresetSelected = {},
             onRelayServerChanged = {},
             onRelayServerPortChanged = {},
             onRelayServerNameChanged = {},

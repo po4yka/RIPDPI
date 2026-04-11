@@ -155,7 +155,17 @@ mod tests {
             proptest::option::of(lossy_string(24)),
             any::<bool>(),
         );
-        let parser_evasions = (any::<bool>(), any::<bool>(), any::<bool>(), any::<bool>(), any::<bool>());
+        let parser_evasions = (
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+            any::<bool>(),
+        );
         let hosts = (
             prop_oneof![
                 Just(HOSTS_DISABLE.to_string()),
@@ -202,7 +212,17 @@ mod tests {
                     fake_offset_marker,
                     drop_sack,
                 ),
-                (host_mixed_case, domain_mixed_case, host_remove_spaces, http_method_eol, http_unix_eol),
+                (
+                    host_mixed_case,
+                    domain_mixed_case,
+                    host_remove_spaces,
+                    http_method_eol,
+                    http_unix_eol,
+                    http_method_space,
+                    http_host_pad,
+                    http_host_extra_space,
+                    http_host_tab,
+                ),
                 (hosts_mode, hosts_entries),
                 (quic_initial_mode, quic_support_v1, quic_support_v2, quic_fake_profile, quic_fake_host),
                 (
@@ -227,6 +247,7 @@ mod tests {
                 };
                 config.protocols = ProxyUiProtocolConfig { resolve_domains, desync_http, desync_https, desync_udp };
                 config.chains = ProxyUiChainConfig {
+                    any_protocol: false,
                     tcp_steps: if desync_method == "none" {
                         Vec::new()
                     } else {
@@ -273,10 +294,10 @@ mod tests {
                     host_remove_spaces,
                     http_method_eol,
                     http_unix_eol,
-                    http_method_space: false,
-                    http_host_pad: false,
-                    http_host_extra_space: false,
-                    http_host_tab: false,
+                    http_method_space,
+                    http_host_pad,
+                    http_host_extra_space,
+                    http_host_tab,
                 };
                 config.hosts = ProxyUiHostsConfig { mode: hosts_mode, entries: hosts_entries };
                 config.quic = ProxyUiQuicConfig {

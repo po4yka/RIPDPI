@@ -1,0 +1,11 @@
+{
+  "id": "finalmask-cloudflare-tunnel",
+  "kind": "cloudflare_tunnel",
+  "presetId": "finalmask-cloudflare-tunnel",
+  "server": "edge.example.com",
+  "serverName": "edge.example.com",
+  "vlessTransport": "xhttp",
+  "xhttpPath": "/xhttp",
+  "xhttpHost": "origin.example.com",
+  "udpEnabled": false
+}

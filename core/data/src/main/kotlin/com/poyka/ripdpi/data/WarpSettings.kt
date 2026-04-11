@@ -21,11 +21,6 @@ const val DefaultWarpLocalSocksPort = 11888
 const val DefaultWarpScannerParallelism = 10
 const val DefaultWarpScannerMaxRttMs = 1_500
 const val DefaultWarpManualEndpointPort = 2408
-const val WarpAmneziaPresetOff = "off"
-const val WarpAmneziaPresetBalanced = "balanced"
-const val WarpAmneziaPresetAggressive = "aggressive"
-const val WarpAmneziaPresetCustom = "custom"
-
 val BuiltInWarpControlPlaneHosts: List<String> =
     listOf(
         "api.cloudflareclient.com",
@@ -123,43 +118,21 @@ fun normalizeWarpScannerMode(value: String): String =
 
 fun normalizeWarpAmneziaPreset(value: String): String =
     when (value.trim().lowercase()) {
-        WarpAmneziaPresetBalanced -> WarpAmneziaPresetBalanced
-        WarpAmneziaPresetAggressive -> WarpAmneziaPresetAggressive
+        "balanced" -> WarpAmneziaPresetQuicImitation
+        "aggressive" -> WarpAmneziaPresetTlsImitation
+        WarpAmneziaPresetRandom -> WarpAmneziaPresetRandom
+        WarpAmneziaPresetQuicImitation -> WarpAmneziaPresetQuicImitation
+        WarpAmneziaPresetTlsImitation -> WarpAmneziaPresetTlsImitation
+        WarpAmneziaPresetDnsImitation -> WarpAmneziaPresetDnsImitation
         WarpAmneziaPresetCustom -> WarpAmneziaPresetCustom
         else -> WarpAmneziaPresetOff
     }
 
-private fun balancedWarpAmneziaSettings(): WarpAmneziaSettings =
-    WarpAmneziaSettings(
-        enabled = true,
-        jc = 3,
-        jmin = 50,
-        jmax = 400,
-        h1 = 1L,
-        h2 = 3L,
-        h3 = 5L,
-        h4 = 7L,
-        s1 = 32,
-        s2 = 120,
-        s3 = 260,
-        s4 = 520,
-    )
-
-private fun aggressiveWarpAmneziaSettings(): WarpAmneziaSettings =
-    WarpAmneziaSettings(
-        enabled = true,
-        jc = 6,
-        jmin = 64,
-        jmax = 900,
-        h1 = 2L,
-        h2 = 4L,
-        h3 = 6L,
-        h4 = 8L,
-        s1 = 48,
-        s2 = 160,
-        s3 = 512,
-        s4 = 960,
-    )
+private val builtInWarpPresetProfiles: Map<String, WarpAmneziaSettings> by lazy {
+    builtInWarpPayloadGenPresets().associate { definition ->
+        definition.id to definition.toSettings()
+    }
+}
 
 internal fun rawWarpAmneziaSettings(appSettings: AppSettings): WarpAmneziaSettings =
     WarpAmneziaSettings(
@@ -185,23 +158,16 @@ internal fun inferWarpAmneziaPreset(
     if (normalizedPreset != WarpAmneziaPresetOff || storedPreset.isNotBlank()) {
         return normalizedPreset
     }
-    return if (
-        rawSettings.enabled ||
-        rawSettings.jc != 0 ||
-        rawSettings.jmin != 0 ||
-        rawSettings.jmax != 0 ||
-        rawSettings.h1 != 0L ||
-        rawSettings.h2 != 0L ||
-        rawSettings.h3 != 0L ||
-        rawSettings.h4 != 0L ||
-        rawSettings.s1 != 0 ||
-        rawSettings.s2 != 0 ||
-        rawSettings.s3 != 0 ||
-        rawSettings.s4 != 0
+    builtInWarpPresetProfiles.entries
+        .firstOrNull { (_, settings) ->
+            normalizeWarpAmneziaSettings(settings) == normalizeWarpAmneziaSettings(rawSettings)
+        }?.let { return it.key }
+    return if (normalizeWarpAmneziaSettings(rawSettings) ==
+        WarpAmneziaSettings()
     ) {
-        WarpAmneziaPresetCustom
-    } else {
         WarpAmneziaPresetOff
+    } else {
+        WarpAmneziaPresetCustom
     }
 }
 
@@ -211,10 +177,24 @@ fun resolveWarpAmneziaProfile(
 ): WarpAmneziaPresetProfile {
     val normalizedPreset = normalizeWarpAmneziaPreset(preset)
     return when (normalizedPreset) {
-        WarpAmneziaPresetBalanced -> WarpAmneziaPresetProfile(normalizedPreset, balancedWarpAmneziaSettings())
-        WarpAmneziaPresetAggressive -> WarpAmneziaPresetProfile(normalizedPreset, aggressiveWarpAmneziaSettings())
-        WarpAmneziaPresetCustom -> WarpAmneziaPresetProfile(normalizedPreset, normalizeWarpAmneziaSettings(rawSettings))
-        else -> WarpAmneziaPresetProfile(WarpAmneziaPresetOff, WarpAmneziaSettings())
+        WarpAmneziaPresetRandom,
+        WarpAmneziaPresetQuicImitation,
+        WarpAmneziaPresetTlsImitation,
+        WarpAmneziaPresetDnsImitation,
+        -> {
+            WarpAmneziaPresetProfile(
+                normalizedPreset,
+                builtInWarpPresetProfiles[normalizedPreset] ?: WarpAmneziaSettings(),
+            )
+        }
+
+        WarpAmneziaPresetCustom -> {
+            WarpAmneziaPresetProfile(normalizedPreset, normalizeWarpAmneziaSettings(rawSettings))
+        }
+
+        else -> {
+            WarpAmneziaPresetProfile(WarpAmneziaPresetOff, WarpAmneziaSettings())
+        }
     }
 }
 

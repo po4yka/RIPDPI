@@ -286,6 +286,8 @@ data class WarpUiState(
     val amneziaS2: Int = 0,
     val amneziaS3: Int = 0,
     val amneziaS4: Int = 0,
+    val amneziaSuggestedPresetId: String = "",
+    val amneziaSuggestedPresetLabel: String = "",
 ) {
     val routeRulesEnabled: Boolean
         get() = enabled && routeMode == WarpRouteModeRules
@@ -308,6 +310,9 @@ data class WarpUiState(
 
     val hasZeroTrustOrganization: Boolean
         get() = zeroTrustOrg.isNotBlank()
+
+    val hasSuggestedAmneziaPreset: Boolean
+        get() = amneziaSuggestedPresetId.isNotBlank() && amneziaSuggestedPresetLabel.isNotBlank()
 }
 
 @Stable
