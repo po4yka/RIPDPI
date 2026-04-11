@@ -68,6 +68,10 @@ pub trait RuntimeTelemetrySink: Send + Sync {
 
     fn on_retry_paced(&self, _target: SocketAddr, _group_index: usize, _reason: &'static str, _backoff_ms: u64) {}
 
+    fn on_morph_hint_applied(&self, _target: SocketAddr, _policy_id: &str, _family: &str) {}
+
+    fn on_morph_rollback(&self, _target: SocketAddr, _policy_id: &str, _reason: &str) {}
+
     fn on_host_autolearn_state(
         &self,
         enabled: bool,

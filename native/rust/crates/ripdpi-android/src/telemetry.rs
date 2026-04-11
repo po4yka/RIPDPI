@@ -102,6 +102,10 @@ pub(crate) struct NativeRuntimeSnapshot {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) morph_policy_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) morph_hint_family: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) morph_rollback_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) quic_migration_status: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) quic_migration_reason: Option<String>,
@@ -153,6 +157,8 @@ struct TelemetryStrings {
     adaptive_trigger_mask: Option<u64>,
     adaptive_last_trigger: Option<String>,
     adaptive_override_reason: Option<String>,
+    morph_hint_family: Option<String>,
+    morph_rollback_reason: Option<String>,
     quic_migration_status: Option<String>,
     quic_migration_reason: Option<String>,
     last_retry_reason: Option<String>,
@@ -226,6 +232,8 @@ impl ProxyTelemetryState {
                 adaptive_trigger_mask: None,
                 adaptive_last_trigger: None,
                 adaptive_override_reason: None,
+                morph_hint_family: None,
+                morph_rollback_reason: None,
                 quic_migration_status: None,
                 quic_migration_reason: None,
                 last_retry_reason: None,
@@ -335,6 +343,8 @@ impl ProxyTelemetryState {
             s.adaptive_trigger_mask = None;
             s.adaptive_last_trigger = None;
             s.adaptive_override_reason = None;
+            s.morph_hint_family = None;
+            s.morph_rollback_reason = None;
         });
     }
 
@@ -516,6 +526,24 @@ impl ProxyTelemetryState {
         });
     }
 
+    pub(crate) fn on_morph_hint_applied(&self, target: String, policy_id: &str, family: &str) {
+        let message = format!("morph hint applied target={target} policyId={policy_id} family={family}");
+        self.emit_event("proxy", "info", &message);
+        self.update_strings(|s| {
+            s.last_target = Some(target.clone());
+            s.morph_hint_family = Some(family.to_string());
+        });
+    }
+
+    pub(crate) fn on_morph_rollback(&self, target: String, policy_id: &str, reason: &str) {
+        let message = format!("morph rollback target={target} policyId={policy_id} reason={reason}");
+        self.emit_event("proxy", "warn", &message);
+        self.update_strings(|s| {
+            s.last_target = Some(target.clone());
+            s.morph_rollback_reason = Some(reason.to_string());
+        });
+    }
+
     pub(crate) fn on_upstream_connected(&self, upstream_address: String, upstream_rtt_ms: Option<u64>) {
         if let Some(rtt_ms) = upstream_rtt_ms {
             self.tcp_connect_histogram.record(rtt_ms);
@@ -582,6 +610,8 @@ impl ProxyTelemetryState {
         let adaptive_trigger_mask = strings.adaptive_trigger_mask;
         let adaptive_last_trigger = strings.adaptive_last_trigger.clone();
         let adaptive_override_reason = strings.adaptive_override_reason.clone();
+        let morph_hint_family = strings.morph_hint_family.clone();
+        let morph_rollback_reason = strings.morph_rollback_reason.clone();
         let quic_migration_status = strings.quic_migration_status.clone();
         let quic_migration_reason = strings.quic_migration_reason.clone();
         let last_retry_reason = strings.last_retry_reason.clone();
@@ -628,6 +658,8 @@ impl ProxyTelemetryState {
             tls_profile_id: None,
             tls_profile_catalog_version: None,
             morph_policy_id: None,
+            morph_hint_family,
+            morph_rollback_reason,
             quic_migration_status,
             quic_migration_reason,
             pt_runtime_kind: None,
@@ -819,6 +851,14 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
 
     fn on_quic_migration_status(&self, target: std::net::SocketAddr, status: &'static str, reason: &'static str) {
         self.state.on_quic_migration_status(target.to_string(), status, reason);
+    }
+
+    fn on_morph_hint_applied(&self, target: std::net::SocketAddr, policy_id: &str, family: &str) {
+        self.state.on_morph_hint_applied(target.to_string(), policy_id, family);
+    }
+
+    fn on_morph_rollback(&self, target: std::net::SocketAddr, policy_id: &str, reason: &str) {
+        self.state.on_morph_rollback(target.to_string(), policy_id, reason);
     }
 }
 
@@ -1188,6 +1228,8 @@ mod tests {
             tls_profile_id: Some("chrome_stable".to_string()),
             tls_profile_catalog_version: Some("v1".to_string()),
             morph_policy_id: Some("balanced".to_string()),
+            morph_hint_family: Some("tcp:wide:entropy".to_string()),
+            morph_rollback_reason: Some("direct_path_capability_downgrade".to_string()),
             quic_migration_status: Some("rebind_only".to_string()),
             quic_migration_reason: Some("udp_source_port_rebind_after_handshake".to_string()),
             pt_runtime_kind: None,

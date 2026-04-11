@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
+import com.poyka.ripdpi.data.StrategyPackMorphPolicy
 import com.poyka.ripdpi.data.normalizePreferredEdgeCandidates
 import kotlinx.serialization.Serializable
 import java.util.Locale
@@ -42,12 +43,41 @@ data class RipDpiDirectPathCapability(
 )
 
 @Serializable
+data class RipDpiMorphPolicy(
+    val id: String,
+    val firstFlightSizeMin: Int = 0,
+    val firstFlightSizeMax: Int = 0,
+    val paddingEnvelopeMin: Int = 0,
+    val paddingEnvelopeMax: Int = 0,
+    val entropyTargetPermil: Int = 0,
+    val tcpBurstCadenceMs: List<Int> = emptyList(),
+    val tlsBurstCadenceMs: List<Int> = emptyList(),
+    val quicBurstProfile: String = "",
+    val fakePacketShapeProfile: String = "",
+)
+
+@Serializable
 data class RipDpiRuntimeContext(
     val encryptedDns: RipDpiEncryptedDnsContext? = null,
     val protectPath: String? = null,
     val preferredEdges: Map<String, List<PreferredEdgeCandidate>> = emptyMap(),
     val directPathCapabilities: List<RipDpiDirectPathCapability> = emptyList(),
+    val morphPolicy: RipDpiMorphPolicy? = null,
 )
+
+fun StrategyPackMorphPolicy.toRipDpiMorphPolicy(): RipDpiMorphPolicy =
+    RipDpiMorphPolicy(
+        id = id,
+        firstFlightSizeMin = firstFlightSizeMin,
+        firstFlightSizeMax = firstFlightSizeMax,
+        paddingEnvelopeMin = paddingEnvelopeMin,
+        paddingEnvelopeMax = paddingEnvelopeMax,
+        entropyTargetPermil = entropyTargetPermil,
+        tcpBurstCadenceMs = tcpBurstCadenceMs.map { it.coerceAtLeast(0) },
+        tlsBurstCadenceMs = tlsBurstCadenceMs.map { it.coerceAtLeast(0) },
+        quicBurstProfile = quicBurstProfile.trim(),
+        fakePacketShapeProfile = fakePacketShapeProfile.trim(),
+    )
 
 internal fun normalizeLogContext(logContext: RipDpiLogContext?): RipDpiLogContext? =
     logContext?.let { value ->
@@ -124,16 +154,38 @@ internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): Rip
                         updatedAt = capability.updatedAt.coerceAtLeast(0L),
                     )
                 }.distinctBy(RipDpiDirectPathCapability::authority)
+        val morphPolicy =
+            ctx.morphPolicy?.let { policy ->
+                val normalizedId = policy.id.trim().takeIf { it.isNotEmpty() } ?: return@let null
+                val firstFlightMin = policy.firstFlightSizeMin.coerceAtLeast(0)
+                val firstFlightMax = policy.firstFlightSizeMax.coerceAtLeast(firstFlightMin)
+                val paddingMin = policy.paddingEnvelopeMin.coerceAtLeast(0)
+                val paddingMax = policy.paddingEnvelopeMax.coerceAtLeast(paddingMin)
+                RipDpiMorphPolicy(
+                    id = normalizedId,
+                    firstFlightSizeMin = firstFlightMin,
+                    firstFlightSizeMax = firstFlightMax,
+                    paddingEnvelopeMin = paddingMin,
+                    paddingEnvelopeMax = paddingMax,
+                    entropyTargetPermil = policy.entropyTargetPermil.coerceAtLeast(0),
+                    tcpBurstCadenceMs = policy.tcpBurstCadenceMs.map { it.coerceAtLeast(0) }.distinct(),
+                    tlsBurstCadenceMs = policy.tlsBurstCadenceMs.map { it.coerceAtLeast(0) }.distinct(),
+                    quicBurstProfile = policy.quicBurstProfile.trim().lowercase(Locale.US),
+                    fakePacketShapeProfile = policy.fakePacketShapeProfile.trim().lowercase(Locale.US),
+                )
+            }
         RipDpiRuntimeContext(
             encryptedDns = encryptedDns,
             protectPath = protectPath,
             preferredEdges = preferredEdges,
             directPathCapabilities = directPathCapabilities,
+            morphPolicy = morphPolicy,
         ).takeIf {
             encryptedDns != null ||
                 protectPath != null ||
                 preferredEdges.isNotEmpty() ||
-                directPathCapabilities.isNotEmpty()
+                directPathCapabilities.isNotEmpty() ||
+                morphPolicy != null
         }
     }
 
