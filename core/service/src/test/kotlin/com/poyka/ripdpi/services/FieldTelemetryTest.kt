@@ -121,6 +121,8 @@ class FieldTelemetryTest {
                 classifyFailureClass(
                     failureReason = null,
                     proxyTelemetry = NativeRuntimeSnapshot(source = "proxy"),
+                    relayTelemetry = NativeRuntimeSnapshot(source = "relay"),
+                    warpTelemetry = NativeRuntimeSnapshot(source = "warp"),
                     tunnelTelemetry = NativeRuntimeSnapshot(source = "tunnel", lastError = message),
                 )
             assertEquals("Unexpected mapping for `$message`", expected, actual)
@@ -145,6 +147,8 @@ class FieldTelemetryTest {
                                 ),
                             ),
                     ),
+                relayTelemetry = NativeRuntimeSnapshot(source = "relay"),
+                warpTelemetry = NativeRuntimeSnapshot(source = "warp"),
                 tunnelTelemetry =
                     NativeRuntimeSnapshot(
                         source = "tunnel",

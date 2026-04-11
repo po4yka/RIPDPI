@@ -358,7 +358,7 @@ class UpstreamRelaySupervisorTest {
                             save(
                                 RelayCredentialRecord(
                                     profileId = "edge",
-                                    hysteriaPassword = "secret",
+                                    hysteriaPassword = "fixture-pass",
                                 ),
                             )
                         },

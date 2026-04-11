@@ -13,6 +13,9 @@ import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
@@ -37,6 +40,7 @@ internal class UpstreamRelaySupervisor(
     private val scope: CoroutineScope,
     private val dispatcher: CoroutineDispatcher,
     private val relayFactory: RipDpiRelayFactory,
+    private val naiveProxyRuntimeFactory: NaiveProxyRuntimeFactory,
     private val relayProfileStore: RelayProfileStore,
     private val relayCredentialStore: RelayCredentialStore,
     private val masquePrivacyPassProvider: MasquePrivacyPassProvider = NoopMasquePrivacyPassProvider(),
@@ -54,8 +58,13 @@ internal class UpstreamRelaySupervisor(
         onUnexpectedExit: suspend (Result<Int>) -> Unit,
     ) {
         check(relayJob == null) { "Relay fields not null" }
-        val runtime = relayFactory.create()
         val resolvedConfig = resolveRuntimeConfig(config)
+        val runtime =
+            if (resolvedConfig.kind == RelayKindNaiveProxy) {
+                naiveProxyRuntimeFactory.create()
+            } else {
+                relayFactory.create()
+            }
         relayRuntime = runtime
 
         val exitResult = CompletableDeferred<Result<Int>>()
@@ -181,14 +190,20 @@ internal class UpstreamRelaySupervisor(
             chainEntryServerName = effectiveConfig.chainEntryServerName,
             chainEntryPublicKey = effectiveConfig.chainEntryPublicKey,
             chainEntryShortId = effectiveConfig.chainEntryShortId,
+            chainEntryProfileId = effectiveConfig.chainEntryProfileId,
             chainExitServer = effectiveConfig.chainExitServer,
             chainExitPort = effectiveConfig.chainExitPort,
             chainExitServerName = effectiveConfig.chainExitServerName,
             chainExitPublicKey = effectiveConfig.chainExitPublicKey,
             chainExitShortId = effectiveConfig.chainExitShortId,
+            chainExitProfileId = effectiveConfig.chainExitProfileId,
             masqueUrl = effectiveConfig.masqueUrl,
             masqueUseHttp2Fallback = effectiveConfig.masqueUseHttp2Fallback,
             masqueCloudflareMode = effectiveConfig.masqueCloudflareMode,
+            tuicZeroRtt = effectiveConfig.tuicZeroRtt,
+            tuicCongestionControl = effectiveConfig.tuicCongestionControl,
+            shadowTlsInnerProfileId = effectiveConfig.shadowTlsInnerProfileId,
+            naivePath = effectiveConfig.naivePath,
             localSocksHost = effectiveConfig.localSocksHost,
             localSocksPort = effectiveConfig.localSocksPort,
             udpEnabled = effectiveConfig.udpEnabled,
@@ -198,6 +213,11 @@ internal class UpstreamRelaySupervisor(
             chainExitUuid = credentials?.chainExitUuid,
             hysteriaPassword = credentials?.hysteriaPassword,
             hysteriaSalamanderKey = credentials?.hysteriaSalamanderKey,
+            tuicUuid = credentials?.tuicUuid,
+            tuicPassword = credentials?.tuicPassword,
+            shadowTlsPassword = credentials?.shadowTlsPassword,
+            naiveUsername = credentials?.naiveUsername,
+            naivePassword = credentials?.naivePassword,
             tlsFingerprintProfile = effectiveTlsProfile,
             masqueAuthMode = masqueAuthMode,
             masqueAuthToken = credentials?.masqueAuthToken,
@@ -230,14 +250,20 @@ internal class UpstreamRelaySupervisor(
             chainEntryServerName = profile.chainEntryServerName.ifBlank { config.chainEntryServerName },
             chainEntryPublicKey = profile.chainEntryPublicKey.ifBlank { config.chainEntryPublicKey },
             chainEntryShortId = profile.chainEntryShortId.ifBlank { config.chainEntryShortId },
+            chainEntryProfileId = profile.chainEntryProfileId.ifBlank { config.chainEntryProfileId },
             chainExitServer = profile.chainExitServer.ifBlank { config.chainExitServer },
             chainExitPort = profile.chainExitPort,
             chainExitServerName = profile.chainExitServerName.ifBlank { config.chainExitServerName },
             chainExitPublicKey = profile.chainExitPublicKey.ifBlank { config.chainExitPublicKey },
             chainExitShortId = profile.chainExitShortId.ifBlank { config.chainExitShortId },
+            chainExitProfileId = profile.chainExitProfileId.ifBlank { config.chainExitProfileId },
             masqueUrl = profile.masqueUrl.ifBlank { config.masqueUrl },
             masqueUseHttp2Fallback = profile.masqueUseHttp2Fallback,
             masqueCloudflareMode = profile.masqueCloudflareMode,
+            tuicZeroRtt = profile.tuicZeroRtt,
+            tuicCongestionControl = profile.tuicCongestionControl,
+            shadowTlsInnerProfileId = profile.shadowTlsInnerProfileId.ifBlank { config.shadowTlsInnerProfileId },
+            naivePath = profile.naivePath.ifBlank { config.naivePath },
             localSocksHost = profile.localSocksHost.ifBlank { config.localSocksHost },
             localSocksPort = profile.localSocksPort,
             udpEnabled = profile.udpEnabled,
@@ -261,6 +287,18 @@ internal class UpstreamRelaySupervisor(
 
                 RelayKindHysteria2 -> {
                     !credentials?.hysteriaPassword.isNullOrBlank()
+                }
+
+                RelayKindTuicV5 -> {
+                    !credentials?.tuicUuid.isNullOrBlank() && !credentials.tuicPassword.isNullOrBlank()
+                }
+
+                RelayKindShadowTlsV3 -> {
+                    !credentials?.shadowTlsPassword.isNullOrBlank()
+                }
+
+                RelayKindNaiveProxy -> {
+                    !credentials?.naiveUsername.isNullOrBlank() && !credentials.naivePassword.isNullOrBlank()
                 }
 
                 RelayKindChainRelay -> {
@@ -294,11 +332,27 @@ internal class UpstreamRelaySupervisor(
         privacyPassRuntime: MasquePrivacyPassRuntimeConfig?,
         tlsFingerprintProfile: String,
     ) {
-        require(!config.udpEnabled || config.kind == RelayKindHysteria2 || config.kind == RelayKindMasque) {
-            "Relay UDP mode is only available for Hysteria2 and MASQUE profiles"
+        require(
+            !config.udpEnabled || config.kind == RelayKindHysteria2 || config.kind == RelayKindMasque ||
+                config.kind == RelayKindTuicV5,
+        ) {
+            "Relay UDP mode is only available for Hysteria2, MASQUE, and TUIC profiles"
         }
         require(!(config.vlessTransport == RelayVlessTransportXhttp && config.udpEnabled)) {
             "xHTTP transport does not support UDP mode"
+        }
+        if (config.kind == RelayKindShadowTlsV3) {
+            require(!config.udpEnabled) {
+                "ShadowTLS v3 is TCP-only"
+            }
+            require(config.shadowTlsInnerProfileId.isNotBlank()) {
+                "ShadowTLS v3 requires an inner profile reference"
+            }
+        }
+        if (config.kind == RelayKindNaiveProxy) {
+            require(!config.udpEnabled) {
+                "NaiveProxy does not support UDP mode"
+            }
         }
         if (config.kind == RelayKindCloudflareTunnel && tlsFingerprintProfile != TlsFingerprintProfileChromeStable) {
             throw ServiceStartupRejectedException(
@@ -318,6 +372,11 @@ internal class UpstreamRelaySupervisor(
             requireNotNull(privacyPassRuntime) {
                 "MASQUE privacy_pass auth requires a configured token provider for profile $profileId"
             }
+        }
+        if (config.kind == RelayKindShadowTlsV3 && config.shadowTlsInnerProfileId == profileId) {
+            throw ServiceStartupRejectedException(
+                FailureReason.RelayConfigRejected("ShadowTLS inner profile cannot reference itself"),
+            )
         }
     }
 
@@ -339,6 +398,7 @@ internal open class UpstreamRelaySupervisorFactory
     @Inject
     constructor(
         private val relayFactory: RipDpiRelayFactory,
+        private val naiveProxyRuntimeFactory: NaiveProxyRuntimeFactory,
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialStore: RelayCredentialStore,
         private val masquePrivacyPassProvider: MasquePrivacyPassProvider,
@@ -350,6 +410,10 @@ internal open class UpstreamRelaySupervisorFactory
             relayCredentialStore: RelayCredentialStore,
         ) : this(
             relayFactory,
+            object : NaiveProxyRuntimeFactory {
+                override fun create(): RipDpiRelayRuntime =
+                    error("NaiveProxy runtime factory is not configured in this test harness")
+            },
             relayProfileStore,
             relayCredentialStore,
             NoopMasquePrivacyPassProvider(),
@@ -366,6 +430,7 @@ internal open class UpstreamRelaySupervisorFactory
                 scope = scope,
                 dispatcher = dispatcher,
                 relayFactory = relayFactory,
+                naiveProxyRuntimeFactory = naiveProxyRuntimeFactory,
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
                 masquePrivacyPassProvider = masquePrivacyPassProvider,

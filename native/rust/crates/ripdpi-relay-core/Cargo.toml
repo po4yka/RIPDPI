@@ -6,6 +6,9 @@ license.workspace = true
 
 [dependencies]
 ripdpi-hysteria2 = { workspace = true }
+ripdpi-relay-mux = { workspace = true }
+ripdpi-shadowtls = { workspace = true }
+ripdpi-tuic = { workspace = true }
 ripdpi-vless = { workspace = true }
 ripdpi-masque = { workspace = true }
 ripdpi-xhttp = { workspace = true }
