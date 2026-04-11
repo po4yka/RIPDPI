@@ -12,8 +12,6 @@ import com.poyka.ripdpi.data.toStrategyPackSettingsModel
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -22,7 +20,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
-import retrofit2.Response
 import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.MessageDigest
@@ -206,11 +203,9 @@ class AssetStrategyPackRepositoryTest {
         private val manifestPayload: String = "",
         private val catalogPayload: String = "",
     ) : StrategyPackDownloadService {
-        override suspend fun downloadManifest(url: String): Response<okhttp3.ResponseBody> =
-            Response.success(manifestPayload.toResponseBody("application/json".toMediaType()))
+        override suspend fun downloadManifest(url: String): ByteArray = manifestPayload.toByteArray(Charsets.UTF_8)
 
-        override suspend fun downloadCatalog(url: String): Response<okhttp3.ResponseBody> =
-            Response.success(catalogPayload.toResponseBody("application/json".toMediaType()))
+        override suspend fun downloadCatalog(url: String): ByteArray = catalogPayload.toByteArray(Charsets.UTF_8)
     }
 
     private fun strategyPackTempFileFactory(fileName: String): StrategyPackTempFileFactory =

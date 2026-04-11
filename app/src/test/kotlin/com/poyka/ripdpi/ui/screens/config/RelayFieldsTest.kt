@@ -70,6 +70,10 @@ class RelayFieldsTest {
                     onRelayNaiveUsernameChanged = {},
                     onRelayNaivePasswordChanged = {},
                     onRelayNaivePathChanged = {},
+                    onRelayPtBridgeLineChanged = {},
+                    onRelayWebTunnelUrlChanged = {},
+                    onRelaySnowflakeBrokerUrlChanged = {},
+                    onRelaySnowflakeFrontDomainChanged = {},
                 )
             }
         }
@@ -130,6 +134,10 @@ class RelayFieldsTest {
                     onRelayNaiveUsernameChanged = {},
                     onRelayNaivePasswordChanged = {},
                     onRelayNaivePathChanged = {},
+                    onRelayPtBridgeLineChanged = {},
+                    onRelayWebTunnelUrlChanged = {},
+                    onRelaySnowflakeBrokerUrlChanged = {},
+                    onRelaySnowflakeFrontDomainChanged = {},
                 )
             }
         }

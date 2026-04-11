@@ -2895,7 +2895,13 @@ version = "0.1.0"
 dependencies = [
  "android-support",
  "arc-swap",
+ "base64 0.22.1",
+ "bytes",
  "golden-test-support",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "jni 0.22.4",
  "libc",
  "log",
@@ -2913,12 +2919,16 @@ dependencies = [
  "ripdpi-runtime",
  "ripdpi-session",
  "ripdpi-telemetry",
+ "ripdpi-tls-profiles",
  "serde",
  "serde_json",
  "socket2 0.6.3",
  "thiserror 2.0.18",
+ "tokio",
+ "tokio-boring",
  "tracing",
  "tracing-subscriber",
+ "url",
 ]
 
 [[package]]

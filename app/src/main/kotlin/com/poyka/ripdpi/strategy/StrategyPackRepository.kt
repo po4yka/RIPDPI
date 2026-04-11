@@ -20,10 +20,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.ResponseBody
-import retrofit2.Response
 import java.io.File
-import java.io.IOException
 import java.io.InputStream
 import java.security.MessageDigest
 import javax.inject.Inject
@@ -120,7 +117,7 @@ class DefaultStrategyPackRepository
         private suspend fun loadManifest(channel: String): StrategyPackManifest =
             service
                 .downloadManifest(strategyPackManifestUrl(channel))
-                .requireBodyText()
+                .toString(Charsets.UTF_8)
                 .let { payload ->
                     runCatching {
                         strategyPackManifestFromJson(payload)
@@ -188,32 +185,12 @@ internal fun strategyPackManifestUrl(channel: String): String =
         channel,
     )}/manifest.json"
 
-internal fun Response<ResponseBody>.requireBodyText(): String {
-    val body =
-        if (isSuccessful) {
-            body()
-        } else {
-            null
-        }
-            ?: throw IOException("Remote request failed with HTTP ${code()} for ${raw().request.url}")
-    return body.use(ResponseBody::string)
-}
-
-internal fun Response<ResponseBody>.writeToFileAndDigest(target: File): String {
-    val body =
-        if (isSuccessful) {
-            body()
-        } else {
-            null
-        }
-            ?: throw IOException("Remote request failed with HTTP ${code()} for ${raw().request.url}")
-
-    return body.use { responseBody ->
+internal fun ByteArray.writeToFileAndDigest(target: File): String =
+    inputStream().use { input ->
         target.outputStream().use { output ->
-            responseBody.byteStream().copyToAndDigest(output)
+            input.copyToAndDigest(output)
         }
     }
-}
 
 internal fun InputStream.copyToAndDigest(output: java.io.OutputStream): String {
     val digest = MessageDigest.getInstance("SHA-256")

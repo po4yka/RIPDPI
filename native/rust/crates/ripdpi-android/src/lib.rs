@@ -1,6 +1,7 @@
 mod config;
 mod diagnostics;
 mod errors;
+mod owned_tls_http;
 mod proxy;
 #[cfg(test)]
 mod support;
@@ -18,6 +19,7 @@ use diagnostics::{
     diagnostics_poll_passive_events_entry, diagnostics_poll_progress_entry, diagnostics_start_scan_entry,
     diagnostics_take_report_entry,
 };
+use owned_tls_http::execute as execute_owned_tls_http;
 use proxy::{
     proxy_create_entry, proxy_destroy_entry, proxy_poll_telemetry_entry, proxy_start_entry, proxy_stop_entry,
     proxy_update_network_snapshot_entry,
@@ -95,6 +97,30 @@ export_diagnostics_jni!(
     (),
     proxy_update_network_snapshot_entry
 );
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_NativeOwnedTlsHttpFetcherNativeBindings_jniExecute(
+    mut env: EnvUnowned<'_>,
+    _thiz: JObject,
+    request_json: JString,
+) -> jstring {
+    match env
+        .with_env(move |env| -> jni::errors::Result<jstring> {
+            let request_json: String = request_json.mutf8_chars(env)?.to_str().into_owned();
+            let payload = execute_owned_tls_http(&request_json).unwrap_or_else(|error| {
+                serde_json::json!({
+                    "error": error.to_string(),
+                })
+                .to_string()
+            });
+            Ok(env.new_string(payload)?.into_raw())
+        })
+        .into_outcome()
+    {
+        jni::Outcome::Ok(value) => value,
+        _ => std::ptr::null_mut(),
+    }
+}
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiPlatformCapabilities_jniSeqovlSupported(

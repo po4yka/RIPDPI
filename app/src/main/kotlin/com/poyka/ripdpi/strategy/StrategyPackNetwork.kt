@@ -1,38 +1,25 @@
 package com.poyka.ripdpi.strategy
 
+import com.poyka.ripdpi.core.DefaultNativeOwnedTlsCallTimeoutMs
+import com.poyka.ripdpi.core.DefaultNativeOwnedTlsConnectTimeoutMs
+import com.poyka.ripdpi.core.DefaultNativeOwnedTlsMaxRedirects
+import com.poyka.ripdpi.core.DefaultNativeOwnedTlsReadTimeoutMs
+import com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcher
+import com.poyka.ripdpi.core.NativeOwnedTlsHttpRequest
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import okhttp3.ResponseBody
-import retrofit2.Response
-import retrofit2.Retrofit
-import retrofit2.http.GET
-import retrofit2.http.Streaming
-import retrofit2.http.Url
+import java.io.IOException
 import java.net.URI
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 interface StrategyPackDownloadService {
-    suspend fun downloadManifest(url: String): Response<ResponseBody>
+    suspend fun downloadManifest(url: String): ByteArray
 
-    suspend fun downloadCatalog(url: String): Response<ResponseBody>
-}
-
-private interface StrategyPackDownloadApi {
-    @GET
-    suspend fun downloadManifest(
-        @Url url: String,
-    ): Response<ResponseBody>
-
-    @Streaming
-    @GET
-    suspend fun downloadCatalog(
-        @Url url: String,
-    ): Response<ResponseBody>
+    suspend fun downloadCatalog(url: String): ByteArray
 }
 
 data class StrategyPackBuildProvenance(
@@ -63,33 +50,33 @@ class DefaultStrategyPackBuildProvenanceProvider
 class DefaultStrategyPackDownloadService
     @Inject
     constructor(
+        private val nativeOwnedTlsHttpFetcher: NativeOwnedTlsHttpFetcher,
         private val tlsClientFactory: OwnedTlsClientFactory,
     ) : StrategyPackDownloadService {
-        override suspend fun downloadManifest(url: String): Response<ResponseBody> = api().downloadManifest(url)
+        override suspend fun downloadManifest(url: String): ByteArray = download(url)
 
-        override suspend fun downloadCatalog(url: String): Response<ResponseBody> = api().downloadCatalog(url)
+        override suspend fun downloadCatalog(url: String): ByteArray = download(url)
 
-        private fun api(): StrategyPackDownloadApi =
-            Retrofit
-                .Builder()
-                .baseUrl(strategyPackBaseUrl)
-                .client(
-                    tlsClientFactory.createForAuthority(authority = strategyPackBaseUrl.authorityFromUrl()) {
-                        connectTimeout(networkConnectTimeoutSeconds, TimeUnit.SECONDS)
-                        readTimeout(networkReadTimeoutSeconds, TimeUnit.SECONDS)
-                        callTimeout(networkCallTimeoutSeconds, TimeUnit.SECONDS)
-                        addInterceptor { chain ->
-                            chain.proceed(
-                                chain
-                                    .request()
-                                    .newBuilder()
-                                    .header("User-Agent", strategyPackUserAgent)
-                                    .build(),
-                            )
-                        }
-                    },
-                ).build()
-                .create(StrategyPackDownloadApi::class.java)
+        private suspend fun download(url: String): ByteArray {
+            val authority = url.authorityFromUrl()
+            val selection = tlsClientFactory.selectionForAuthority(authority)
+            val response =
+                nativeOwnedTlsHttpFetcher.execute(
+                    NativeOwnedTlsHttpRequest(
+                        url = url,
+                        headers = mapOf("User-Agent" to strategyPackUserAgent),
+                        tlsProfileId = selection.profileId,
+                        connectTimeoutMs = DefaultNativeOwnedTlsConnectTimeoutMs,
+                        readTimeoutMs = DefaultNativeOwnedTlsReadTimeoutMs,
+                        callTimeoutMs = DefaultNativeOwnedTlsCallTimeoutMs,
+                        maxRedirects = DefaultNativeOwnedTlsMaxRedirects,
+                    ),
+                )
+            if (response.statusCode in 200..299) {
+                return response.body
+            }
+            throw IOException("Remote request failed with HTTP ${response.statusCode} for ${response.finalUrl ?: url}")
+        }
     }
 
 @Module
@@ -108,9 +95,6 @@ abstract class StrategyPackProvenanceBindingsModule {
     ): StrategyPackDownloadService
 }
 
-private const val networkConnectTimeoutSeconds = 20L
-private const val networkReadTimeoutSeconds = 90L
-private const val networkCallTimeoutSeconds = 120L
 const val strategyPackBaseUrl = "https://raw.githubusercontent.com/"
 const val strategyPackUserAgent = "RIPDPI strategy-pack catalog"
 
