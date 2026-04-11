@@ -1,6 +1,7 @@
 use ripdpi_config::{
-    AutoTtlConfig, DesyncMode, OffsetBase, OffsetExpr, OffsetProto, QuicFakeProfile, TcpChainStepKind,
-    UdpChainStepKind, WsTunnelMode, DETECT_CONNECT, FM_DUPSID, FM_ORIG, HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
+    AutoTtlConfig, DesyncMode, FakePacketSource, OffsetBase, OffsetExpr, OffsetProto, QuicFakeProfile,
+    TcpChainStepKind, UdpChainStepKind, WsTunnelMode, DETECT_CONNECT, FM_DUPSID, FM_ORIG,
+    HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_UDP};
@@ -287,6 +288,30 @@ fn ui_payload_parses_fake_payload_profiles() {
     assert_eq!(config.groups[0].actions.http_fake_profile, HttpFakeProfile::CloudflareGet);
     assert_eq!(config.groups[0].actions.tls_fake_profile, TlsFakeProfile::GoogleChrome);
     assert_eq!(config.groups[0].actions.udp_fake_profile, UdpFakeProfile::DnsQuery);
+}
+
+#[test]
+fn ui_payload_maps_fake_tls_source_and_secondary_profile() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.fake_tls_source = "captured_client_hello".to_string();
+    ui.fake_packets.fake_tls_secondary_profile = "google_chrome".to_string();
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+
+    assert_eq!(config.groups[0].actions.fake_tls_source, FakePacketSource::CapturedClientHello);
+    assert_eq!(config.groups[0].actions.fake_tls_secondary_profile, Some(TlsFakeProfile::GoogleChrome));
+}
+
+#[test]
+fn ui_payload_maps_fake_tcp_timestamp_settings() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.fake_tcp_timestamp_enabled = true;
+    ui.fake_packets.fake_tcp_timestamp_delta_ticks = -77;
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+
+    assert!(config.groups[0].actions.fake_tcp_timestamp_enabled);
+    assert_eq!(config.groups[0].actions.fake_tcp_timestamp_delta_ticks, -77);
 }
 
 #[test]

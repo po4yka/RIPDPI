@@ -116,6 +116,30 @@ fn build_fake_packet_uses_selected_tls_profile_when_no_raw_fake_is_set() {
 }
 
 #[test]
+fn build_fake_packet_can_clone_captured_client_hello() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.fake_tls_source = ripdpi_config::FakePacketSource::CapturedClientHello;
+
+    let fake = build_fake_packet(&group, DEFAULT_FAKE_TLS, 7).expect("tls fake");
+
+    assert_eq!(fake.bytes, DEFAULT_FAKE_TLS);
+}
+
+#[test]
+fn build_secondary_fake_packet_uses_secondary_tls_profile_without_raw_fake_override() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.fake_data = Some(b"not-used".to_vec());
+    group.actions.fake_tls_secondary_profile = Some(TlsFakeProfile::GoogleChrome);
+
+    let fake = build_secondary_fake_packet(&group, DEFAULT_FAKE_TLS, 13)
+        .expect("secondary fake")
+        .expect("secondary fake should exist");
+    let parsed = parse_tls(&fake.bytes).expect("parse fake tls");
+
+    assert_eq!(parsed, b"www.google.com");
+}
+
+#[test]
 fn build_seqovl_fake_prefix_profile_reuses_fake_packet_builder() {
     let mut group = DesyncGroup::new(0);
     group.actions.tls_fake_profile = TlsFakeProfile::GoogleChrome;

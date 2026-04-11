@@ -5,10 +5,10 @@ use std::{fmt, mem};
 use ripdpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
     parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, EntropyMode,
-    NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig, SeqOverlapFakeMode,
-    StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind, UpstreamSocksConfig, WsizeConfig,
-    AUTO_RECONN, AUTO_SORT, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR, DETECT_TORST, FM_DUPSID, FM_ORIG,
-    FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    FakePacketSource, NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RuntimeConfig,
+    SeqOverlapFakeMode, StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
+    UpstreamSocksConfig, WsizeConfig, AUTO_RECONN, AUTO_SORT, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR,
+    DETECT_TORST, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{
@@ -20,9 +20,10 @@ use crate::presets;
 use crate::types::{
     ProxyConfigError, ProxyConfigPayload, ProxyLogContext, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiConfig,
     ProxyUiNumericRange, RuntimeConfigEnvelope, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, FAKE_TLS_SNI_MODE_FIXED,
-    FAKE_TLS_SNI_MODE_RANDOMIZED, HOSTS_BLACKLIST, HOSTS_DISABLE, HOSTS_WHITELIST, RELAY_KIND_OFF,
-    SEQOVL_DEFAULT_OVERLAP_SIZE, SEQOVL_FAKE_MODE_PROFILE, SEQOVL_FAKE_MODE_RAND, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT,
-    TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE, WARP_ROUTE_MODE_RULES,
+    FAKE_TLS_SNI_MODE_RANDOMIZED, FAKE_TLS_SOURCE_CAPTURED_CLIENT_HELLO, FAKE_TLS_SOURCE_PROFILE, HOSTS_BLACKLIST,
+    HOSTS_DISABLE, HOSTS_WHITELIST, RELAY_KIND_OFF, SEQOVL_DEFAULT_OVERLAP_SIZE, SEQOVL_FAKE_MODE_PROFILE,
+    SEQOVL_FAKE_MODE_RAND, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT, TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE,
+    TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE, WARP_ROUTE_MODE_RULES,
 };
 
 const WARP_CONTROL_PLANE_HOSTS: &[&str] = &[
@@ -657,6 +658,20 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     group.actions.http_fake_profile = parse_http_fake_profile(&fake_packets.http_fake_profile)?;
     group.actions.tls_fake_profile = parse_tls_fake_profile(&fake_packets.tls_fake_profile)?;
     group.actions.udp_fake_profile = parse_udp_fake_profile(&fake_packets.udp_fake_profile)?;
+    group.actions.fake_tls_source = match fake_packets.fake_tls_source.trim().to_ascii_lowercase().as_str() {
+        FAKE_TLS_SOURCE_PROFILE => FakePacketSource::Profile,
+        FAKE_TLS_SOURCE_CAPTURED_CLIENT_HELLO => FakePacketSource::CapturedClientHello,
+        _ => {
+            return Err(ProxyConfigError::InvalidConfig("Invalid fakePackets.fakeTlsSource".to_string()));
+        }
+    };
+    group.actions.fake_tls_secondary_profile = if fake_packets.fake_tls_secondary_profile.trim().is_empty() {
+        None
+    } else {
+        Some(parse_tls_fake_profile(&fake_packets.fake_tls_secondary_profile)?)
+    };
+    group.actions.fake_tcp_timestamp_enabled = fake_packets.fake_tcp_timestamp_enabled;
+    group.actions.fake_tcp_timestamp_delta_ticks = fake_packets.fake_tcp_timestamp_delta_ticks;
     group.actions.drop_sack = fake_packets.drop_sack;
     group.actions.window_clamp = fake_packets.window_clamp;
     group.actions.wsize = fake_packets.wsize_window.filter(|&w| w > 0).map(|window| WsizeConfig {

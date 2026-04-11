@@ -17,6 +17,13 @@ pub mod root_helper_client;
 
 pub type TcpStageWait = (bool, Duration);
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FakeTcpOptions<'a> {
+    pub secondary_fake_prefix: Option<&'a [u8]>,
+    pub timestamp_delta_ticks: Option<i32>,
+    pub protect_path: Option<&'a str>,
+}
+
 static SEQOVL_SUPPORTED: OnceLock<bool> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -203,9 +210,10 @@ pub fn send_fake_tcp(
     ttl: u8,
     md5sig: bool,
     default_ttl: u8,
+    options: FakeTcpOptions<'_>,
     wait: TcpStageWait,
 ) -> io::Result<()> {
-    linux::send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, wait)
+    linux::send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, options, wait)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -216,6 +224,7 @@ pub fn send_fake_tcp(
     _ttl: u8,
     _md5sig: bool,
     _default_ttl: u8,
+    _options: FakeTcpOptions<'_>,
     _wait: TcpStageWait,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))

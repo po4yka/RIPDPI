@@ -5,9 +5,9 @@ use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use crate::{HOST_AUTOLEARN_DEFAULT_MAX_HOSTS, HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS};
 
 use super::{
-    DesyncGroup, DesyncGroupActionSettings, EntropyMode, HostAutolearnSettings, ListenConfig, QuicFakeProfile,
-    QuicInitialMode, RuntimeAdaptiveSettings, RuntimeConfig, RuntimeNetworkSettings, RuntimeProcessSettings,
-    RuntimeQuicSettings, RuntimeTimeoutSettings, WsTunnelMode,
+    DesyncGroup, DesyncGroupActionSettings, EntropyMode, FakePacketSource, HostAutolearnSettings, ListenConfig,
+    QuicFakeProfile, QuicInitialMode, RuntimeAdaptiveSettings, RuntimeConfig, RuntimeNetworkSettings,
+    RuntimeProcessSettings, RuntimeQuicSettings, RuntimeTimeoutSettings, WsTunnelMode,
 };
 
 impl Default for DesyncGroupActionSettings {
@@ -21,6 +21,10 @@ impl Default for DesyncGroupActionSettings {
             ttl: None,
             auto_ttl: None,
             fake_data: None,
+            fake_tls_source: FakePacketSource::Profile,
+            fake_tls_secondary_profile: None,
+            fake_tcp_timestamp_enabled: false,
+            fake_tcp_timestamp_delta_ticks: 0,
             fake_offset: None,
             quic_fake_host: None,
             oob_data: None,
