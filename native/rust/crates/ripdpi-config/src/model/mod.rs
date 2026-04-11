@@ -212,6 +212,13 @@ pub enum SeqOverlapFakeMode {
     Rand,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum FakePacketSource {
+    #[default]
+    Profile,
+    CapturedClientHello,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TcpChainStep {
     pub kind: TcpChainStepKind,
@@ -420,6 +427,10 @@ pub struct DesyncGroupActionSettings {
     pub auto_ttl: Option<AutoTtlConfig>,
     pub md5sig: bool,
     pub fake_data: Option<Vec<u8>>,
+    pub fake_tls_source: FakePacketSource,
+    pub fake_tls_secondary_profile: Option<TlsFakeProfile>,
+    pub fake_tcp_timestamp_enabled: bool,
+    pub fake_tcp_timestamp_delta_ticks: i32,
     pub fake_offset: Option<OffsetExpr>,
     pub fake_sni_list: Vec<String>,
     pub fake_mod: u32,
@@ -896,6 +907,7 @@ mod tests {
         let match_settings = DesyncGroupMatchSettings {
             detect: DETECT_CONNECT | DETECT_HTTP_LOCAT,
             proto: 0x22,
+            any_protocol: false,
             filters: FilterSet {
                 hosts: vec!["video.example.test".to_string()],
                 ipset: vec![Cidr { addr: IpAddr::from_str("203.0.113.10").expect("ip"), bits: 24 }],
@@ -914,6 +926,10 @@ mod tests {
             auto_ttl: Some(AutoTtlConfig { delta: -1, min_ttl: 3, max_ttl: 12 }),
             md5sig: true,
             fake_data: Some(vec![0x16, 0x03, 0x01]),
+            fake_tls_source: FakePacketSource::CapturedClientHello,
+            fake_tls_secondary_profile: Some(TlsFakeProfile::VkChrome),
+            fake_tcp_timestamp_enabled: true,
+            fake_tcp_timestamp_delta_ticks: 17,
             fake_offset: Some(OffsetExpr::absolute(3)),
             fake_sni_list: vec!["cdn.example.test".to_string()],
             fake_mod: 3,

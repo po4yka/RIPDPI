@@ -6,8 +6,9 @@ use std::time::Duration;
 use crate::platform;
 use ripdpi_config::{DesyncGroup, EntropyMode, RuntimeConfig, TcpChainStepKind};
 use ripdpi_desync::{
-    activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes, plan_tcp,
-    resolve_hostfake_span, ActivationContext, ActivationTransport, AdaptivePlannerHints, DesyncAction, DesyncPlan,
+    activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes,
+    build_secondary_fake_packet, plan_tcp, resolve_hostfake_span, ActivationContext, ActivationTransport,
+    AdaptivePlannerHints, DesyncAction, DesyncPlan,
 };
 use ripdpi_packets::entropy;
 use ripdpi_session::OutboundProgress;
@@ -656,6 +657,21 @@ fn extract_os_error(err: &io::Error) -> Option<i32> {
     err.raw_os_error()
 }
 
+#[derive(Debug)]
+struct BuiltFakePackets {
+    primary: ripdpi_desync::FakePacketPlan,
+    secondary: Option<ripdpi_desync::FakePacketPlan>,
+}
+
+fn build_tcp_fake_packets(group: &DesyncGroup, tampered: &[u8], seed: u32) -> io::Result<Option<BuiltFakePackets>> {
+    let primary = build_fake_packet(group, tampered, seed)
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "failed to build fake packet for tcp desync"))?;
+    let secondary = build_secondary_fake_packet(group, tampered, seed.wrapping_add(1)).map_err(|_| {
+        io::Error::new(io::ErrorKind::InvalidData, "failed to build secondary fake packet for tcp desync")
+    })?;
+    Ok(Some(BuiltFakePackets { primary, secondary }))
+}
+
 fn execute_tcp_plan(
     writer: &mut TcpStream,
     config: &RuntimeConfig,
@@ -667,16 +683,13 @@ fn execute_tcp_plan(
     session_ttl_unavailable: &AtomicBool,
 ) -> Result<usize, OutboundSendError> {
     let has_multi_disorder = plan.steps.iter().any(|step| step.kind == TcpChainStepKind::MultiDisorder);
-    let fake =
-        if plan.steps.iter().any(|step| {
-            matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
-        }) {
-            Some(build_fake_packet(group, &plan.tampered, seed).map_err(|_| {
-                io::Error::new(io::ErrorKind::InvalidData, "failed to build fake packet for tcp desync")
-            })?)
-        } else {
-            None
-        };
+    let fake_packets = if plan.steps.iter().any(|step| {
+        matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
+    }) {
+        build_tcp_fake_packets(group, &plan.tampered, seed)?
+    } else {
+        None
+    };
     // When default_ttl is 0 (auto-detect), use the system default so that
     // Disorder/Disoob/FakeDisorder handlers always restore the TTL.
     let restore_ttl = if config.network.default_ttl != 0 {
@@ -879,14 +892,18 @@ fn execute_tcp_plan(
                 }
             }
             TcpChainStepKind::Fake => {
-                let fake =
-                    fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
+                let fake_packets = fake_packets
+                    .as_ref()
+                    .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
+                let fake = &fake_packets.primary;
                 let span = chunk.len();
                 // Use cyclic wrapping when the fake payload is shorter than the
                 // split span.  This matches FakeSplit/FakeDisorder which already
                 // use build_fake_region_bytes() for the same purpose.
                 let fake_chunk: Vec<u8> =
                     (0..span).map(|i| fake.bytes[(fake.fake_offset + i) % fake.bytes.len()]).collect();
+                let secondary_fake_chunk =
+                    fake_packets.secondary.as_ref().map(|secondary| build_fake_region_bytes(secondary, start, span));
                 bytes_committed = send_fake_tcp_action_named(
                     writer,
                     chunk,
@@ -894,6 +911,14 @@ fn execute_tcp_plan(
                     resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8),
                     md5sig,
                     config.network.default_ttl,
+                    platform::FakeTcpOptions {
+                        secondary_fake_prefix: secondary_fake_chunk.as_deref(),
+                        timestamp_delta_ticks: group
+                            .actions
+                            .fake_tcp_timestamp_enabled
+                            .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
+                        protect_path: config.process.protect_path.as_deref(),
+                    },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake",
                     step_family,
@@ -924,10 +949,19 @@ fn execute_tcp_plan(
                     cursor = end;
                     continue;
                 }
-                let fake =
-                    fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
-                let first_fake = build_fake_region_bytes(fake, start, chunk.len());
-                let second_fake = build_fake_region_bytes(fake, end, second.len());
+                let fake_packets = fake_packets
+                    .as_ref()
+                    .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
+                let first_fake = build_fake_region_bytes(&fake_packets.primary, start, chunk.len());
+                let second_fake = build_fake_region_bytes(&fake_packets.primary, end, second.len());
+                let first_secondary_fake = fake_packets
+                    .secondary
+                    .as_ref()
+                    .map(|secondary| build_fake_region_bytes(secondary, start, chunk.len()));
+                let second_secondary_fake = fake_packets
+                    .secondary
+                    .as_ref()
+                    .map(|secondary| build_fake_region_bytes(secondary, end, second.len()));
                 let fake_ttl = resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
                 bytes_committed = send_fake_tcp_action_named(
                     writer,
@@ -936,6 +970,14 @@ fn execute_tcp_plan(
                     fake_ttl,
                     md5sig,
                     config.network.default_ttl,
+                    platform::FakeTcpOptions {
+                        secondary_fake_prefix: first_secondary_fake.as_deref(),
+                        timestamp_delta_ticks: group
+                            .actions
+                            .fake_tcp_timestamp_enabled
+                            .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
+                        protect_path: config.process.protect_path.as_deref(),
+                    },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakesplit",
                     step_family,
@@ -949,6 +991,14 @@ fn execute_tcp_plan(
                     fake_ttl,
                     md5sig,
                     config.network.default_ttl,
+                    platform::FakeTcpOptions {
+                        secondary_fake_prefix: second_secondary_fake.as_deref(),
+                        timestamp_delta_ticks: group
+                            .actions
+                            .fake_tcp_timestamp_enabled
+                            .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
+                        protect_path: config.process.protect_path.as_deref(),
+                    },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakesplit",
                     step_family,
@@ -1005,10 +1055,19 @@ fn execute_tcp_plan(
                     cursor = end;
                     continue;
                 }
-                let fake =
-                    fake.as_ref().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
-                let first_fake = build_fake_region_bytes(fake, start, chunk.len());
-                let second_fake = build_fake_region_bytes(fake, end, second.len());
+                let fake_packets = fake_packets
+                    .as_ref()
+                    .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
+                let first_fake = build_fake_region_bytes(&fake_packets.primary, start, chunk.len());
+                let second_fake = build_fake_region_bytes(&fake_packets.primary, end, second.len());
+                let first_secondary_fake = fake_packets
+                    .secondary
+                    .as_ref()
+                    .map(|secondary| build_fake_region_bytes(secondary, start, chunk.len()));
+                let second_secondary_fake = fake_packets
+                    .secondary
+                    .as_ref()
+                    .map(|secondary| build_fake_region_bytes(secondary, end, second.len()));
                 let fake_ttl = resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
                 match send_fake_tcp_action_named(
                     writer,
@@ -1017,6 +1076,14 @@ fn execute_tcp_plan(
                     1,
                     md5sig,
                     config.network.default_ttl,
+                    platform::FakeTcpOptions {
+                        secondary_fake_prefix: first_secondary_fake.as_deref(),
+                        timestamp_delta_ticks: group
+                            .actions
+                            .fake_tcp_timestamp_enabled
+                            .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
+                        protect_path: config.process.protect_path.as_deref(),
+                    },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakeddisorder",
                     step_family,
@@ -1035,6 +1102,14 @@ fn execute_tcp_plan(
                             fake_ttl,
                             md5sig,
                             config.network.default_ttl,
+                            platform::FakeTcpOptions {
+                                secondary_fake_prefix: first_secondary_fake.as_deref(),
+                                timestamp_delta_ticks: group
+                                    .actions
+                                    .fake_tcp_timestamp_enabled
+                                    .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
+                                protect_path: config.process.protect_path.as_deref(),
+                            },
                             (
                                 config.timeouts.wait_send,
                                 Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
@@ -1054,6 +1129,14 @@ fn execute_tcp_plan(
                     fake_ttl,
                     md5sig,
                     config.network.default_ttl,
+                    platform::FakeTcpOptions {
+                        secondary_fake_prefix: second_secondary_fake.as_deref(),
+                        timestamp_delta_ticks: group
+                            .actions
+                            .fake_tcp_timestamp_enabled
+                            .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
+                        protect_path: config.process.protect_path.as_deref(),
+                    },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakesplit",
                     "fakedsplit",
@@ -1148,6 +1231,11 @@ fn execute_tcp_plan(
                     resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8),
                     md5sig,
                     config.network.default_ttl,
+                    platform::FakeTcpOptions {
+                        secondary_fake_prefix: None,
+                        timestamp_delta_ticks: None,
+                        protect_path: config.process.protect_path.as_deref(),
+                    },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_hostfake",
                     step_family,
@@ -1217,6 +1305,11 @@ fn execute_tcp_plan(
                     resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8),
                     md5sig,
                     config.network.default_ttl,
+                    platform::FakeTcpOptions {
+                        secondary_fake_prefix: None,
+                        timestamp_delta_ticks: None,
+                        protect_path: config.process.protect_path.as_deref(),
+                    },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_hostfake",
                     step_family,
@@ -1560,6 +1653,7 @@ fn send_fake_tcp_action_named(
     ttl: u8,
     md5sig: bool,
     default_ttl: u8,
+    options: platform::FakeTcpOptions<'_>,
     wait: platform::TcpStageWait,
     action: &'static str,
     strategy_family: &'static str,
@@ -1567,7 +1661,7 @@ fn send_fake_tcp_action_named(
     bytes_committed: usize,
 ) -> Result<usize, OutboundSendError> {
     strategy_result(
-        platform::send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, wait),
+        platform::send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, options, wait),
         action,
         strategy_family,
         fallback,
