@@ -16,10 +16,19 @@ pub struct ProfileConfig {
     pub permute_extensions: bool,
     pub min_version: SslVersion,
     pub max_version: SslVersion,
+    pub client_hello_size_hint: usize,
+}
+
+pub struct ProfileCatalog {
+    pub version: &'static str,
+    pub default_profile_set_id: &'static str,
+    pub profiles: &'static [&'static str],
 }
 
 /// All known profile names in selection order.
 pub const AVAILABLE_PROFILES: &[&str] = &["chrome_stable", "firefox_stable", "safari_stable", "edge_stable"];
+pub const DEFAULT_PROFILE_CATALOG: ProfileCatalog =
+    ProfileCatalog { version: "v1", default_profile_set_id: "default", profiles: AVAILABLE_PROFILES };
 
 pub fn lookup_profile(name: &str) -> &'static ProfileConfig {
     match name {
@@ -29,4 +38,8 @@ pub fn lookup_profile(name: &str) -> &'static ProfileConfig {
         "edge_stable" => &crate::edge::EDGE_LATEST,
         _ => &crate::chrome::CHROME_LATEST,
     }
+}
+
+pub fn profile_catalog() -> &'static ProfileCatalog {
+    &DEFAULT_PROFILE_CATALOG
 }

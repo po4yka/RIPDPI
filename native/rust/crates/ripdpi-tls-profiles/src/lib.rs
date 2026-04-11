@@ -1,8 +1,7 @@
 use boring::ssl::{SslConnector, SslConnectorBuilder, SslMethod, SslVerifyMode};
 use thiserror::Error;
 
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
+use sha2::{Digest, Sha256};
 
 mod apply;
 mod chrome;
@@ -11,7 +10,7 @@ mod firefox;
 mod profile;
 mod safari;
 
-pub use profile::{ProfileConfig, AVAILABLE_PROFILES};
+pub use profile::{profile_catalog, ProfileCatalog, ProfileConfig, AVAILABLE_PROFILES};
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -42,10 +41,29 @@ pub fn build_connector(profile: &str, verify: bool) -> Result<SslConnector, Erro
 const DEFAULT_WEIGHTS: &[(&str, u32)] =
     &[("chrome_stable", 65), ("firefox_stable", 20), ("safari_stable", 10), ("edge_stable", 5)];
 
+pub fn profile_catalog_version() -> &'static str {
+    profile::profile_catalog().version
+}
+
 /// Select a TLS profile using deterministic weighted rotation.
 /// The same (domain, session_seed) pair always returns the same profile
 /// within a session, but different sessions get different profiles.
 pub fn select_rotated_profile(domain: &str, session_seed: u64, allowed_profiles: &[String]) -> &'static str {
+    select_rotated_profile_with_set(
+        domain,
+        session_seed,
+        profile::profile_catalog().default_profile_set_id,
+        allowed_profiles,
+    )
+}
+
+/// Deterministic rotation that stays stable for a single catalog/profile-set version.
+pub fn select_rotated_profile_with_set(
+    authority: &str,
+    session_seed: u64,
+    profile_set_id: &str,
+    allowed_profiles: &[String],
+) -> &'static str {
     let candidates: Vec<(&str, u32)> = if allowed_profiles.is_empty() {
         DEFAULT_WEIGHTS.to_vec()
     } else {
@@ -54,10 +72,7 @@ pub fn select_rotated_profile(domain: &str, session_seed: u64, allowed_profiles:
     if candidates.is_empty() {
         return "chrome_stable";
     }
-    let mut hasher = DefaultHasher::new();
-    domain.hash(&mut hasher);
-    session_seed.hash(&mut hasher);
-    let hash = hasher.finish();
+    let hash = stable_rotation_hash(authority, session_seed, profile_set_id);
     weighted_pick(&candidates, hash)
 }
 
@@ -90,6 +105,13 @@ fn weighted_pick(candidates: &[(&str, u32)], hash: u64) -> &'static str {
         }
     }
     profile::lookup_profile(candidates.last().unwrap().0).name
+}
+
+fn stable_rotation_hash(authority: &str, session_seed: u64, profile_set_id: &str) -> u64 {
+    let digest = Sha256::digest(format!("{authority}|{session_seed}|{profile_set_id}"));
+    let mut bytes = [0u8; 8];
+    bytes.copy_from_slice(&digest[..8]);
+    u64::from_be_bytes(bytes)
 }
 
 #[cfg(test)]
@@ -138,5 +160,29 @@ mod tests {
         assert_eq!(&[b"h2".as_slice(), b"http/1.1".as_slice()], profile.alpn);
         assert!(profile.grease_enabled);
         assert!(profile.permute_extensions);
+        assert_ne!(517, profile.client_hello_size_hint);
+    }
+
+    #[test]
+    fn rotated_selection_uses_profile_set_id_in_hash() {
+        let allowed = vec!["chrome_stable".to_string(), "firefox_stable".to_string()];
+        let seeds = [42_u64, 1337_u64, 9_001_u64, 65_535_u64];
+
+        for seed in seeds {
+            let left = select_rotated_profile_with_set("example.org", seed, "set-a", &allowed);
+            let repeated_left = select_rotated_profile_with_set("example.org", seed, "set-a", &allowed);
+            assert_eq!(left, repeated_left);
+        }
+
+        let distinct_across_sets = seeds.into_iter().any(|seed| {
+            select_rotated_profile_with_set("example.org", seed, "set-a", &allowed)
+                != select_rotated_profile_with_set("example.org", seed, "set-b", &allowed)
+        });
+        assert!(distinct_across_sets || allowed.len() == 1);
+    }
+
+    #[test]
+    fn catalog_version_is_exposed() {
+        assert_eq!("v1", profile_catalog_version());
     }
 }

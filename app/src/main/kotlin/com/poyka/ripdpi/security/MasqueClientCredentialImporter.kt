@@ -65,9 +65,10 @@ class AndroidMasqueClientCredentialImporter
                 val key =
                     keyStore.getKey(alias, password?.toCharArray()) as? PrivateKey
                         ?: throw IllegalArgumentException("The PKCS#12 bundle private key could not be read.")
-                val chain = keyStore.getCertificateChain(alias)?.toList().orEmpty().ifEmpty {
-                    listOfNotNull(keyStore.getCertificate(alias))
-                }
+                val chain =
+                    keyStore.getCertificateChain(alias)?.toList().orEmpty().ifEmpty {
+                        listOfNotNull(keyStore.getCertificate(alias))
+                    }
                 require(chain.isNotEmpty()) {
                     "The PKCS#12 bundle does not contain a certificate chain."
                 }

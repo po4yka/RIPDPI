@@ -8,6 +8,8 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultRelayLocalSocksPort
 import com.poyka.ripdpi.data.DefaultRelayProfileId
+import com.poyka.ripdpi.data.DefaultSnowflakeBrokerUrl
+import com.poyka.ripdpi.data.DefaultSnowflakeFrontDomain
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -20,10 +22,13 @@ import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
@@ -151,6 +156,10 @@ data class ConfigDraft(
     val relayNaiveUsername: String = "",
     val relayNaivePassword: String = "",
     val relayNaivePath: String = "",
+    val relayPtBridgeLine: String = "",
+    val relayWebTunnelUrl: String = "",
+    val relaySnowflakeBrokerUrl: String = DefaultSnowflakeBrokerUrl,
+    val relaySnowflakeFrontDomain: String = DefaultSnowflakeFrontDomain,
     val relayUdpEnabled: Boolean = false,
     val relayLocalSocksPort: String = DefaultRelayLocalSocksPort.toString(),
 ) {
@@ -168,6 +177,9 @@ data class ConfigDraft(
                 relayKind == RelayKindTuicV5 -> "TUIC v5"
                 relayKind == RelayKindShadowTlsV3 -> "ShadowTLS v3"
                 relayKind == RelayKindNaiveProxy -> "NaiveProxy"
+                relayKind == RelayKindSnowflake -> "Snowflake"
+                relayKind == RelayKindWebTunnel -> "WebTunnel"
+                relayKind == RelayKindObfs4 -> "obfs4"
                 else -> "VLESS + Reality"
             }
 
@@ -302,6 +314,10 @@ internal fun AppSettings.toConfigDraft(): ConfigDraft =
             relayTuicCongestionControl = relay.profile.tuicCongestionControl,
             relayShadowTlsInnerProfileId = relay.profile.shadowTlsInnerProfileId,
             relayNaivePath = relay.profile.naivePath,
+            relayPtBridgeLine = relay.profile.ptBridgeLine,
+            relayWebTunnelUrl = relay.profile.ptWebTunnelUrl,
+            relaySnowflakeBrokerUrl = relay.profile.ptSnowflakeBrokerUrl,
+            relaySnowflakeFrontDomain = relay.profile.ptSnowflakeFrontDomain,
             relayUdpEnabled = relay.profile.udpEnabled,
             relayLocalSocksPort = relay.profile.localSocksPort.toString(),
         )
@@ -445,6 +461,33 @@ internal fun validateConfigDraft(
                         draft.relayNaiveUsername.isBlank() ||
                         draft.relayNaivePassword.isBlank()
                     ) {
+                        put(ConfigFieldRelayCredentials, "required")
+                    }
+                    if (draft.relayUdpEnabled) {
+                        put(ConfigFieldRelayCredentials, "unsupported")
+                    }
+                }
+
+                RelayKindSnowflake -> {
+                    if (draft.relaySnowflakeBrokerUrl.isBlank()) {
+                        put(ConfigFieldRelayCredentials, "required")
+                    }
+                    if (draft.relayUdpEnabled) {
+                        put(ConfigFieldRelayCredentials, "unsupported")
+                    }
+                }
+
+                RelayKindWebTunnel -> {
+                    if (draft.relayWebTunnelUrl.isBlank()) {
+                        put(ConfigFieldRelayCredentials, "required")
+                    }
+                    if (draft.relayUdpEnabled) {
+                        put(ConfigFieldRelayCredentials, "unsupported")
+                    }
+                }
+
+                RelayKindObfs4 -> {
+                    if (draft.relayPtBridgeLine.isBlank()) {
                         put(ConfigFieldRelayCredentials, "required")
                     }
                     if (draft.relayUdpEnabled) {
@@ -964,6 +1007,18 @@ class ConfigViewModel
                                 relayShadowTlsPassword = credentials?.shadowTlsPassword.orEmpty(),
                                 relayNaiveUsername = credentials?.naiveUsername.orEmpty(),
                                 relayNaivePassword = credentials?.naivePassword.orEmpty(),
+                                relayPtBridgeLine = profile?.ptBridgeLine.orEmpty(),
+                                relayWebTunnelUrl = profile?.ptWebTunnelUrl.orEmpty(),
+                                relaySnowflakeBrokerUrl =
+                                    profile
+                                        ?.ptSnowflakeBrokerUrl
+                                        ?.ifBlank { DefaultSnowflakeBrokerUrl }
+                                        ?: DefaultSnowflakeBrokerUrl,
+                                relaySnowflakeFrontDomain =
+                                    profile
+                                        ?.ptSnowflakeFrontDomain
+                                        ?.ifBlank { DefaultSnowflakeFrontDomain }
+                                        ?: DefaultSnowflakeFrontDomain,
                                 relayChainEntryUuid = credentials?.chainEntryUuid.orEmpty(),
                                 relayChainExitUuid = credentials?.chainExitUuid.orEmpty(),
                                 relayMasqueAuthMode =
@@ -1027,6 +1082,10 @@ class ConfigViewModel
                     tuicCongestionControl = normalizeRelayCongestionControl(draft.relayTuicCongestionControl),
                     shadowTlsInnerProfileId = draft.relayShadowTlsInnerProfileId,
                     naivePath = draft.relayNaivePath,
+                    ptBridgeLine = draft.relayPtBridgeLine,
+                    ptWebTunnelUrl = draft.relayWebTunnelUrl,
+                    ptSnowflakeBrokerUrl = draft.relaySnowflakeBrokerUrl.ifBlank { DefaultSnowflakeBrokerUrl },
+                    ptSnowflakeFrontDomain = draft.relaySnowflakeFrontDomain.ifBlank { DefaultSnowflakeFrontDomain },
                     udpEnabled =
                         draft.relayUdpEnabled &&
                             (

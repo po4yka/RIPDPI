@@ -86,6 +86,8 @@ pub trait RuntimeTelemetrySink: Send + Sync {
 
     /// Called when the runtime escalates from desync to WS tunnel (fallback mode).
     fn on_ws_tunnel_escalation(&self, _target: SocketAddr, _dc: u8, _success: bool) {}
+
+    fn on_quic_migration_status(&self, _target: SocketAddr, _status: &'static str, _reason: &'static str) {}
 }
 
 #[derive(Clone)]

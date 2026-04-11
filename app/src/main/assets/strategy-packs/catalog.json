@@ -1,10 +1,77 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "generatedAt": "2026-04-05T08:00:00Z",
   "channel": "stable",
   "minAppVersion": "0.0.4",
   "minNativeVersion": "0.0.4",
   "notes": "Bundled fallback strategy packs for offline compatibility and rollback safety.",
+  "tlsProfiles": [
+    {
+      "id": "baseline-default",
+      "title": "Baseline browser catalog",
+      "catalogVersion": "v1",
+      "allowedProfileIds": [
+        "chrome_stable",
+        "firefox_stable"
+      ],
+      "rotationEnabled": true
+    }
+  ],
+  "morphPolicies": [
+    {
+      "id": "balanced",
+      "title": "Balanced",
+      "description": "Conservative first-flight sizing and padding envelopes for blocked mobile networks.",
+      "firstFlightSizeMin": 320,
+      "firstFlightSizeMax": 768,
+      "paddingEnvelopeMin": 16,
+      "paddingEnvelopeMax": 96,
+      "entropyTargetPermil": 3400,
+      "tcpBurstCadenceMs": [
+        0,
+        12,
+        24
+      ],
+      "tlsBurstCadenceMs": [
+        0,
+        8
+      ],
+      "quicBurstProfile": "compat_burst",
+      "fakePacketShapeProfile": "compat_default"
+    }
+  ],
+  "hostLists": [
+    {
+      "id": "video",
+      "title": "Blocked Video",
+      "description": "High-value video and CDN targets used during validation.",
+      "hosts": [
+        "youtube.com",
+        "googlevideo.com"
+      ]
+    }
+  ],
+  "transportModules": [
+    {
+      "id": "naive-fallback",
+      "kind": "naiveproxy",
+      "title": "NaiveProxy fallback"
+    }
+  ],
+  "featureFlags": [
+    {
+      "id": "quic_migration_experiment",
+      "enabled": false,
+      "scope": "pack"
+    }
+  ],
+  "rollout": {
+    "id": "baseline-stable-rollout",
+    "channel": "stable",
+    "cohort": "default",
+    "percentage": 100,
+    "staged": false
+  },
   "packs": [
     {
       "id": "baseline-stable",
@@ -16,16 +83,16 @@
         "torst",
         "tls_err"
       ],
-      "hostLists": [
-        {
-          "id": "video",
-          "title": "Blocked Video",
-          "description": "High-value video and CDN targets used during validation.",
-          "hosts": [
-            "youtube.com",
-            "googlevideo.com"
-          ]
-        }
+      "hostListRefs": [
+        "video"
+      ],
+      "tlsProfileSetId": "baseline-default",
+      "morphPolicyId": "balanced",
+      "transportModuleIds": [
+        "naive-fallback"
+      ],
+      "featureFlagIds": [
+        "quic_migration_experiment"
       ],
       "strategies": [
         {

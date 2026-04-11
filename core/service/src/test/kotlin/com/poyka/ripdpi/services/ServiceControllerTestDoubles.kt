@@ -705,6 +705,17 @@ internal class TestNaiveProxyRuntimeFactory(
         }
 }
 
+internal class TestPluggableTransportRuntimeFactory(
+    private val runtimeFactory: () -> TestRelayRuntime = { TestRelayRuntime() },
+) : PluggableTransportRuntimeFactory {
+    val runtimes = mutableListOf<TestRelayRuntime>()
+
+    override fun create(): RipDpiRelayRuntime =
+        runtimeFactory().also { runtime ->
+            runtimes += runtime
+        }
+}
+
 internal class TestRelayProfileStore : RelayProfileStore {
     val profiles = linkedMapOf<String, RelayProfileRecord>()
 

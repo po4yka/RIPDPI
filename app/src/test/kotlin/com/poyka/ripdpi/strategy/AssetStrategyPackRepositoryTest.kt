@@ -230,30 +230,53 @@ private fun applicationStrategyPackDefaults() =
 private fun refreshedCatalogJson(): String =
     """
     {
-      "schemaVersion": 1,
+      "schemaVersion": 2,
       "generatedAt": "2026-04-05T09:00:00Z",
       "channel": "stable",
       "minAppVersion": "0.0.4",
       "minNativeVersion": "0.0.4",
       "notes": "Downloaded strategy pack catalog.",
+      "tlsProfiles": [
+        {
+          "id": "baseline-default",
+          "title": "Baseline",
+          "catalogVersion": "v1",
+          "allowedProfileIds": [
+            "chrome_stable",
+            "firefox_stable"
+          ],
+          "rotationEnabled": true
+        }
+      ],
+      "morphPolicies": [
+        {
+          "id": "balanced",
+          "title": "Balanced"
+        }
+      ],
+      "hostLists": [
+        {
+          "id": "video",
+          "title": "Video",
+          "hosts": [
+            "youtube.com"
+          ]
+        }
+      ],
       "packs": [
         {
           "id": "mobile-2026",
           "version": "2026.04.1",
           "title": "Mobile 2026",
           "description": "Aggressive mobile-network strategy pack.",
+          "tlsProfileSetId": "baseline-default",
+          "morphPolicyId": "balanced",
+          "hostListRefs": [
+            "video"
+          ],
           "triggerMetadata": [
             "torst",
             "http_redirect"
-          ],
-          "hostLists": [
-            {
-              "id": "video",
-              "title": "Video",
-              "hosts": [
-                "youtube.com"
-              ]
-            }
           ],
           "strategies": [
             {

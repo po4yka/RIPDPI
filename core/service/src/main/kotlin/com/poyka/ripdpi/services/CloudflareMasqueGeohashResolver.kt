@@ -36,7 +36,7 @@ class AndroidCloudflareMasqueGeohashResolver
             return if (geohash.isBlank() || countryCode.isBlank()) {
                 null
             } else {
-                "${geohash}-${countryCode.uppercase(Locale.US)}"
+                "$geohash-${countryCode.uppercase(Locale.US)}"
             }
         }
 
@@ -54,9 +54,10 @@ class AndroidCloudflareMasqueGeohashResolver
                     add(LocationManager.PASSIVE_PROVIDER)
                     addAll(locationManager.getProviders(true))
                 }.distinct()
-            return providerNames.mapNotNull { provider ->
-                runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull()
-            }.maxByOrNull(Location::getTime)
+            return providerNames
+                .mapNotNull { provider ->
+                    runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull()
+                }.maxByOrNull(Location::getTime)
         }
 
         @Suppress("DEPRECATION")
@@ -66,7 +67,8 @@ class AndroidCloudflareMasqueGeohashResolver
             }
             val geocoder = Geocoder(context, Locale.US)
             return runCatching {
-                geocoder.getFromLocation(location.latitude, location.longitude, 1)
+                geocoder
+                    .getFromLocation(location.latitude, location.longitude, 1)
                     ?.firstOrNull()
                     ?.countryCode
                     .orEmpty()

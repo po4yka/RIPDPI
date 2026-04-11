@@ -113,6 +113,15 @@ pub struct RelayTelemetry {
     pub last_handshake_error: Option<String>,
     pub chain_entry_state: Option<String>,
     pub chain_exit_state: Option<String>,
+    pub strategy_pack_id: Option<String>,
+    pub strategy_pack_version: Option<String>,
+    pub tls_profile_id: Option<String>,
+    pub tls_profile_catalog_version: Option<String>,
+    pub morph_policy_id: Option<String>,
+    pub quic_migration_status: Option<String>,
+    pub quic_migration_reason: Option<String>,
+    pub pt_runtime_kind: Option<String>,
+    pub pt_runtime_state: Option<String>,
     pub captured_at: u64,
 }
 
@@ -711,6 +720,15 @@ impl RelayRuntime {
             } else {
                 None
             },
+            strategy_pack_id: None,
+            strategy_pack_version: None,
+            tls_profile_id: Some(self.config.tls_fingerprint_profile.clone()),
+            tls_profile_catalog_version: None,
+            morph_policy_id: None,
+            quic_migration_status: None,
+            quic_migration_reason: None,
+            pt_runtime_kind: None,
+            pt_runtime_state: None,
             captured_at: now_ms(),
         }
     }

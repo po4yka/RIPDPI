@@ -5,6 +5,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.detection.DetectionCheckScheduler
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.strategy.StrategyPackService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -20,12 +21,14 @@ class AppStartupInitializer
         private val appCompatibilityReset: AppCompatibilityReset,
         private val diagnosticsBootstrapperProvider: Provider<DiagnosticsBootstrapper>,
         private val detectionCheckScheduler: DetectionCheckScheduler,
+        private val strategyPackService: StrategyPackService,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
             applicationScope.launch {
                 runCatching {
                     appCompatibilityReset.resetIfNeeded()
+                    strategyPackService.initialize()
                     diagnosticsBootstrapperProvider.get().initialize()
                 }.onFailure { error ->
                     Logger.w(error) { "Diagnostics bootstrap skipped" }

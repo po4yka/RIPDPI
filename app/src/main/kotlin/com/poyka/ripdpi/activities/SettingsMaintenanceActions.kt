@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.HostPackPreset
+import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.applyCuratedHostPack
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
@@ -22,6 +23,7 @@ import com.poyka.ripdpi.hosts.HostPackChecksumFormatException
 import com.poyka.ripdpi.hosts.HostPackChecksumMismatchException
 import com.poyka.ripdpi.platform.HostAutolearnStoreController
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.strategy.StrategyPackService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 
@@ -30,9 +32,12 @@ internal class SettingsMaintenanceActions(
     private val hostAutolearnStoreController: HostAutolearnStoreController,
     private val rememberedPolicySource: DiagnosticsRememberedPolicySource,
     private val hostPackCatalogRepository: HostPackCatalogRepository,
+    private val strategyPackService: StrategyPackService,
+    private val strategyPackStateStore: StrategyPackStateStore,
     private val mutations: SettingsMutationRunner,
     private val hostAutolearnStoreRefresh: MutableStateFlow<Int>,
     private val hostPackCatalogState: MutableStateFlow<HostPackCatalogUiState>,
+    private val strategyPackCatalogState: MutableStateFlow<StrategyPackCatalogUiState>,
     private val currentUiState: () -> SettingsUiState,
     private val currentServiceStatus: () -> AppStatus,
 ) {
@@ -43,6 +48,13 @@ internal class SettingsMaintenanceActions(
                     snapshot = hostPackCatalogRepository.loadSnapshot(),
                 )
         }
+    }
+
+    fun loadInitialStrategyPackCatalog() {
+        strategyPackCatalogState.value =
+            StrategyPackCatalogUiState(
+                runtimeState = strategyPackStateStore.state.value,
+            )
     }
 
     fun resetSettings() {
@@ -152,6 +164,44 @@ internal class SettingsMaintenanceActions(
                     },
                 )
             emit(effect)
+        }
+    }
+
+    fun refreshStrategyPackCatalog() {
+        val previousState = strategyPackCatalogState.value.runtimeState
+        strategyPackCatalogState.update { current ->
+            current.copy(isRefreshing = true)
+        }
+        mutations.launch {
+            runCatching {
+                strategyPackService.refreshNow()
+            }.onFailure { error ->
+                strategyPackCatalogState.value =
+                    StrategyPackCatalogUiState(
+                        runtimeState = previousState,
+                        isRefreshing = false,
+                    )
+                emit(
+                    SettingsEffect.Notice(
+                        title = "Strategy pack refresh failed",
+                        message = error.message ?: "The strategy pack catalog could not be refreshed.",
+                        tone = SettingsNoticeTone.Warning,
+                    ),
+                )
+                return@launch
+            }
+            strategyPackCatalogState.value =
+                StrategyPackCatalogUiState(
+                    runtimeState = strategyPackStateStore.state.value,
+                    isRefreshing = false,
+                )
+            emit(
+                SettingsEffect.Notice(
+                    title = "Strategy packs refreshed",
+                    message = "The active strategy-pack catalog has been updated.",
+                    tone = SettingsNoticeTone.Info,
+                ),
+            )
         }
     }
 

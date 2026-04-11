@@ -11,6 +11,7 @@ import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Streaming
 import retrofit2.http.Url
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -73,7 +74,7 @@ class DefaultStrategyPackDownloadService
                 .Builder()
                 .baseUrl(strategyPackBaseUrl)
                 .client(
-                    tlsClientFactory.create {
+                    tlsClientFactory.createForAuthority(authority = strategyPackBaseUrl.authorityFromUrl()) {
                         connectTimeout(networkConnectTimeoutSeconds, TimeUnit.SECONDS)
                         readTimeout(networkReadTimeoutSeconds, TimeUnit.SECONDS)
                         callTimeout(networkCallTimeoutSeconds, TimeUnit.SECONDS)
@@ -112,3 +113,5 @@ private const val networkReadTimeoutSeconds = 90L
 private const val networkCallTimeoutSeconds = 120L
 const val strategyPackBaseUrl = "https://raw.githubusercontent.com/"
 const val strategyPackUserAgent = "RIPDPI strategy-pack catalog"
+
+private fun String.authorityFromUrl(): String? = runCatching { URI(this).host }.getOrNull()
