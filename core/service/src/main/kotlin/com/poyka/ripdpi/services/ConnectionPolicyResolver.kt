@@ -79,6 +79,7 @@ class DefaultConnectionPolicyResolver
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         private val networkEdgePreferenceStore: NetworkEdgePreferenceStore,
+        private val antiCorrelationRoutingPolicy: AntiCorrelationRoutingPolicy,
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val startupDnsProbe: VpnStartupDnsProbe,
         private val rootHelperManager: RootHelperManager,
@@ -107,7 +108,7 @@ class DefaultConnectionPolicyResolver
                     preferredPath = preferredVpnDnsPath,
                 )
             val protectPath = resolveVpnProtectPath(context, mode)
-            val preferredEdges = resolvePreferredEdges(networkScopeKey)
+            val preferredEdges = resolvePreferredEdges(settings, networkScopeKey)
             val runtimeContext = mergeRuntimeContext(baselineVpnDnsSelection.activeDns, protectPath, preferredEdges)
             val hostAutolearnStorePath = resolveHostAutolearnStorePath(context)
 
@@ -247,12 +248,17 @@ class DefaultConnectionPolicyResolver
         }
 
         private suspend fun resolvePreferredEdges(
+            settings: AppSettings,
             networkScopeKey: String?,
         ): Map<String, List<com.poyka.ripdpi.data.PreferredEdgeCandidate>> =
-            networkScopeKey
-                ?.let { fingerprintHash ->
-                    networkEdgePreferenceStore.getPreferredEdgesForRuntime(fingerprintHash)
-                }.orEmpty()
+            antiCorrelationRoutingPolicy.apply(
+                settings = settings,
+                preferredEdges =
+                    networkScopeKey
+                        ?.let { fingerprintHash ->
+                            networkEdgePreferenceStore.getPreferredEdgesForRuntime(fingerprintHash)
+                        }.orEmpty(),
+            )
 
         private fun buildBaselinePreferences(
             settings: AppSettings,

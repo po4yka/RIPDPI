@@ -33,6 +33,10 @@ fn is_transient_network_error(error: &std::io::Error) -> bool {
     )
 }
 
+fn is_false(value: &bool) -> bool {
+    !*value
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct NativeRuntimeEvent {
@@ -79,6 +83,14 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) last_route_group: Option<i32>,
     pub(crate) last_failure_class: Option<String>,
     pub(crate) last_fallback_action: Option<String>,
+    #[serde(skip_serializing_if = "is_false")]
+    pub(crate) adaptive_override_active: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) adaptive_trigger_mask: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) adaptive_last_trigger: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) adaptive_override_reason: Option<String>,
     pub(crate) listener_address: Option<String>,
     pub(crate) upstream_address: Option<String>,
     pub(crate) upstream_rtt_ms: Option<u64>,
@@ -120,6 +132,9 @@ struct TelemetryStrings {
     last_error: Option<String>,
     last_failure_class: Option<String>,
     last_fallback_action: Option<String>,
+    adaptive_trigger_mask: Option<u64>,
+    adaptive_last_trigger: Option<String>,
+    adaptive_override_reason: Option<String>,
     last_retry_reason: Option<String>,
     last_autolearn_host: Option<String>,
     last_autolearn_action: Option<String>,
@@ -141,6 +156,7 @@ pub(crate) struct ProxyTelemetryState {
     last_retry_backoff_ms: AtomicU64,
     candidate_diversification_count: AtomicU64,
     last_route_group: AtomicI64,
+    adaptive_override_active: AtomicBool,
     autolearn_enabled: AtomicBool,
     learned_host_count: AtomicU64,
     penalized_host_count: AtomicU64,
@@ -171,6 +187,7 @@ impl ProxyTelemetryState {
             last_retry_backoff_ms: AtomicU64::new(0),
             candidate_diversification_count: AtomicU64::new(0),
             last_route_group: AtomicI64::new(-1),
+            adaptive_override_active: AtomicBool::new(false),
             autolearn_enabled: AtomicBool::new(false),
             learned_host_count: AtomicU64::new(0),
             penalized_host_count: AtomicU64::new(0),
@@ -186,6 +203,9 @@ impl ProxyTelemetryState {
                 last_error: None,
                 last_failure_class: None,
                 last_fallback_action: None,
+                adaptive_trigger_mask: None,
+                adaptive_last_trigger: None,
+                adaptive_override_reason: None,
                 last_retry_reason: None,
                 last_autolearn_host: None,
                 last_autolearn_action: None,
@@ -285,14 +305,21 @@ impl ProxyTelemetryState {
 
     pub(crate) fn mark_running(&self, bind_addr: String, max_clients: usize, group_count: usize) {
         self.running.store(true, Ordering::Relaxed);
+        self.adaptive_override_active.store(false, Ordering::Relaxed);
         let message = format!("listener started addr={bind_addr} maxClients={max_clients} groups={group_count}");
         self.emit_event("proxy", "info", &message);
-        self.update_strings(|s| s.listener_address = Some(bind_addr.clone()));
+        self.update_strings(|s| {
+            s.listener_address = Some(bind_addr.clone());
+            s.adaptive_trigger_mask = None;
+            s.adaptive_last_trigger = None;
+            s.adaptive_override_reason = None;
+        });
     }
 
     pub(crate) fn mark_stopped(&self) {
         self.running.store(false, Ordering::Relaxed);
         self.active_sessions.store(0, Ordering::Relaxed);
+        self.adaptive_override_active.store(false, Ordering::Relaxed);
         let message = "listener stopped".to_string();
         self.emit_event("proxy", "info", &message);
     }
@@ -364,6 +391,36 @@ impl ProxyTelemetryState {
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.last_host = host.clone();
+        });
+    }
+
+    pub(crate) fn on_adaptive_override(
+        &self,
+        target: String,
+        group_index: usize,
+        trigger_mask: u32,
+        failure_class: &'static str,
+        host: Option<String>,
+        reason: &'static str,
+    ) {
+        self.adaptive_override_active.store(true, Ordering::Relaxed);
+        self.last_route_group.store(group_index.try_into().unwrap_or(i64::MAX), Ordering::Relaxed);
+        let message = format!(
+            "adaptive override active target={} group={} triggerMask={} failureClass={} reason={} host={}",
+            target,
+            group_index,
+            trigger_mask,
+            failure_class,
+            reason,
+            host.as_deref().unwrap_or("<none>")
+        );
+        self.emit_event("proxy", "warn", &message);
+        self.update_strings(|s| {
+            s.last_target = Some(target.clone());
+            s.last_host = host.clone();
+            s.adaptive_trigger_mask = Some(u64::from(trigger_mask));
+            s.adaptive_last_trigger = Some(failure_class.to_string());
+            s.adaptive_override_reason = Some(reason.to_string());
         });
     }
 
@@ -490,6 +547,9 @@ impl ProxyTelemetryState {
         let last_error = strings.last_error.clone();
         let last_failure_class = strings.last_failure_class.clone();
         let last_fallback_action = strings.last_fallback_action.clone();
+        let adaptive_trigger_mask = strings.adaptive_trigger_mask;
+        let adaptive_last_trigger = strings.adaptive_last_trigger.clone();
+        let adaptive_override_reason = strings.adaptive_override_reason.clone();
         let last_retry_reason = strings.last_retry_reason.clone();
         let last_autolearn_host = strings.last_autolearn_host.clone();
         let last_autolearn_action = strings.last_autolearn_action.clone();
@@ -525,6 +585,10 @@ impl ProxyTelemetryState {
             },
             last_failure_class,
             last_fallback_action,
+            adaptive_override_active: self.adaptive_override_active.load(Ordering::Relaxed),
+            adaptive_trigger_mask,
+            adaptive_last_trigger,
+            adaptive_override_reason,
             listener_address,
             upstream_address,
             upstream_rtt_ms,
@@ -654,6 +718,25 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         host: Option<&str>,
     ) {
         self.state.on_route_advanced(target.to_string(), from_group, to_group, trigger, host.map(ToOwned::to_owned));
+    }
+
+    fn on_adaptive_override(
+        &self,
+        target: std::net::SocketAddr,
+        group_index: usize,
+        trigger_mask: u32,
+        failure_class: &'static str,
+        host: Option<&str>,
+        reason: &'static str,
+    ) {
+        self.state.on_adaptive_override(
+            target.to_string(),
+            group_index,
+            trigger_mask,
+            failure_class,
+            host.map(ToOwned::to_owned),
+            reason,
+        );
     }
 
     fn on_retry_paced(&self, target: std::net::SocketAddr, group_index: usize, reason: &'static str, backoff_ms: u64) {

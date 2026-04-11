@@ -110,6 +110,16 @@ fun AdvancedSettingsRoute(
                 onResetHttpParserEvasions = viewModel::resetHttpParserEvasions,
                 onResetFakePayloadLibrary = viewModel::resetFakePayloadLibrary,
                 onResetFakeTlsProfile = viewModel::resetFakeTlsProfile,
+                onRoutingPolicyModeSelected = binder::onRoutingPolicyModeSelected,
+                onDhtMitigationModeSelected = binder::onDhtMitigationModeSelected,
+                onAntiCorrelationEnabledChanged = binder::onAntiCorrelationEnabledChanged,
+                onAppRoutingPresetEnabledChanged = { presetId, enabled ->
+                    binder.onAppRoutingPresetEnabledChanged(
+                        presetId = presetId,
+                        enabled = enabled,
+                        uiState = uiState,
+                    )
+                },
             ),
         modifier = modifier,
     )

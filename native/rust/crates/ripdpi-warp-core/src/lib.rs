@@ -260,6 +260,28 @@ pub struct WarpAmneziaConfig {
     pub s4: i32,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WarpEndpointProbeRequest {
+    pub endpoint: ResolvedWarpRuntimeEndpoint,
+    pub private_key: String,
+    pub peer_public_key: String,
+    pub client_id: Option<String>,
+    #[serde(default)]
+    pub amnezia: WarpAmneziaConfig,
+    pub timeout_ms: u64,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WarpEndpointProbeResult {
+    pub host: String,
+    pub ipv4: Option<String>,
+    pub ipv6: Option<String>,
+    pub port: i32,
+    pub rtt_ms: u64,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WarpTelemetry {
@@ -412,6 +434,63 @@ impl WarpRuntime {
 
         self.running.store(false, Ordering::SeqCst);
         Ok(())
+    }
+}
+
+pub async fn probe_endpoint(request: WarpEndpointProbeRequest) -> anyhow::Result<WarpEndpointProbeResult> {
+    let endpoint = resolve_endpoint(&request.endpoint).await?;
+    let private_key = decode_key(&request.private_key).context("invalid WARP private key")?;
+    let peer_public_key = decode_key(&request.peer_public_key).context("invalid WARP peer public key")?;
+    let reserved = reserved_bytes_from_client_id(request.client_id.as_deref());
+    let amnezia = request.amnezia.enabled.then(|| AmneziaCodec::new(&request.amnezia));
+    let mut peer = Box::new(Tunn::new(
+        boringtun::x25519::StaticSecret::from(private_key),
+        boringtun::x25519::PublicKey::from(peer_public_key),
+        None,
+        Some(25),
+        0,
+        None,
+    ));
+    let udp = bind_probe_socket(endpoint).context("bind WARP probe socket")?;
+    let mut outbound = [0u8; MAX_PACKET];
+    let handshake = match peer.format_handshake_initiation(&mut outbound, true) {
+        TunnResult::WriteToNetwork(packet) => encode_probe_packet(packet, reserved, amnezia.as_ref()),
+        TunnResult::Err(error) => anyhow::bail!("format handshake initiation failed: {error:?}"),
+        _ => anyhow::bail!("WARP handshake initiation did not produce a packet"),
+    };
+    let started_at = std::time::Instant::now();
+    udp.send_to(&handshake, endpoint).await.context("send WARP probe handshake")?;
+
+    let timeout_ms = request.timeout_ms.max(250);
+    let deadline = tokio::time::Instant::now() + Duration::from_millis(timeout_ms);
+    let mut recv_buf = [0u8; MAX_PACKET];
+    let mut decap_buf = [0u8; MAX_PACKET];
+    loop {
+        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+        if remaining.is_zero() {
+            anyhow::bail!("WARP endpoint probe timed out");
+        }
+        let (size, source) = timeout(remaining, udp.recv_from(&mut recv_buf))
+            .await
+            .context("WARP endpoint probe timed out")?
+            .context("receive WARP probe packet")?;
+        if source.ip() != endpoint.ip() {
+            continue;
+        }
+        let Some(packet) = decode_probe_packet(&recv_buf[..size], amnezia.as_ref()) else {
+            continue;
+        };
+        match peer.decapsulate(Some(source.ip()), &packet, &mut decap_buf) {
+            TunnResult::WriteToNetwork(response) => {
+                let payload = encode_probe_packet(response, reserved, amnezia.as_ref());
+                udp.send_to(&payload, endpoint).await.context("respond to WARP probe packet")?;
+                return Ok(probe_result_from_endpoint(endpoint, &request.endpoint, started_at.elapsed()));
+            }
+            TunnResult::Done | TunnResult::WriteToTunnelV4(_, _) | TunnResult::WriteToTunnelV6(_, _) => {
+                return Ok(probe_result_from_endpoint(endpoint, &request.endpoint, started_at.elapsed()));
+            }
+            TunnResult::Err(_) => {}
+        }
     }
 }
 
@@ -627,6 +706,25 @@ impl AmneziaCodec {
     }
 }
 
+fn encode_probe_packet(packet: &[u8], reserved: [u8; 3], amnezia: Option<&AmneziaCodec>) -> Vec<u8> {
+    let mut payload = packet.to_vec();
+    apply_reserved_bytes(&mut payload, reserved);
+    match amnezia {
+        Some(codec) => codec.encode(&payload),
+        None => payload,
+    }
+}
+
+fn decode_probe_packet(packet: &[u8], amnezia: Option<&AmneziaCodec>) -> Option<Vec<u8>> {
+    match amnezia {
+        Some(codec) => {
+            let (wg_type, tail) = codec.decode(packet)?;
+            Some(std::iter::once(wg_type).chain(tail.iter().copied()).collect())
+        }
+        None => Some(packet.to_vec()),
+    }
+}
+
 struct WireGuardTunnel {
     peer: tokio::sync::Mutex<Box<Tunn>>,
     udp: UdpSocket,
@@ -634,6 +732,19 @@ struct WireGuardTunnel {
     source_peer_ip: IpAddr,
     reserved: [u8; 3],
     amnezia: Option<AmneziaCodec>,
+}
+
+fn bind_probe_socket(endpoint: SocketAddr) -> anyhow::Result<UdpSocket> {
+    let bind_addr = if endpoint.is_ipv4() {
+        SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))
+    } else {
+        "[::]:0".parse().expect("ipv6 bind addr")
+    };
+    let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
+    socket.bind(&bind_addr.into())?;
+    let _ = protect_socket_via_callback(socket.as_raw_fd());
+    socket.set_nonblocking(true)?;
+    Ok(UdpSocket::from_std(socket.into())?)
 }
 
 impl WireGuardTunnel {
@@ -1083,10 +1194,34 @@ fn new_udp_client_socket(source_peer_ip: IpAddr, virtual_port: VirtualPort) -> a
 }
 
 fn resolve_sync_host(host: &str, port: u16) -> io::Result<SocketAddr> {
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return Ok(SocketAddr::new(ip, port));
+    }
     (host, port)
         .to_socket_addrs()?
         .find(SocketAddr::is_ipv4)
         .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no IPv4 address resolved"))
+}
+
+fn resolve_host_for_family(host: &str, port: u16, family: Domain) -> io::Result<SocketAddr> {
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        let matches_family = match family {
+            Domain::IPV4 => ip.is_ipv4(),
+            Domain::IPV6 => ip.is_ipv6(),
+            _ => true,
+        };
+        if matches_family {
+            return Ok(SocketAddr::new(ip, port));
+        }
+    }
+    let predicate: fn(&SocketAddr) -> bool = match family {
+        Domain::IPV6 => SocketAddr::is_ipv6,
+        _ => SocketAddr::is_ipv4,
+    };
+    (host, port)
+        .to_socket_addrs()?
+        .find(predicate)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "no endpoint address resolved"))
 }
 
 async fn read_target(client: &mut TcpStream, address_type: u8) -> io::Result<SocketAddr> {
@@ -1163,7 +1298,10 @@ async fn resolve_endpoint(endpoint: &ResolvedWarpRuntimeEndpoint) -> io::Result<
     let port = u16::try_from(endpoint.port)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid WARP endpoint port"))?;
     if let Some(ipv4) = endpoint.ipv4.as_deref().filter(|value| !value.is_empty()) {
-        return resolve_sync_host(ipv4, port);
+        return resolve_host_for_family(ipv4, port, Domain::IPV4);
+    }
+    if let Some(ipv6) = endpoint.ipv6.as_deref().filter(|value| !value.is_empty()) {
+        return resolve_host_for_family(ipv6, port, Domain::IPV6);
     }
     resolve_sync_host(&endpoint.host, port)
 }
@@ -1175,6 +1313,20 @@ fn parse_ipv4_cidr(value: Option<&str>) -> Option<IpAddr> {
 fn decode_key(value: &str) -> anyhow::Result<[u8; 32]> {
     let bytes = STANDARD.decode(value).context("base64 decode failed")?;
     bytes.try_into().map_err(|_| anyhow!("expected 32-byte key"))
+}
+
+fn probe_result_from_endpoint(
+    endpoint: SocketAddr,
+    original: &ResolvedWarpRuntimeEndpoint,
+    elapsed: std::time::Duration,
+) -> WarpEndpointProbeResult {
+    WarpEndpointProbeResult {
+        host: if !original.host.trim().is_empty() { original.host.clone() } else { endpoint.ip().to_string() },
+        ipv4: endpoint.ip().is_ipv4().then(|| endpoint.ip().to_string()),
+        ipv6: endpoint.ip().is_ipv6().then(|| endpoint.ip().to_string()),
+        port: i32::from(endpoint.port()),
+        rtt_ms: elapsed.as_millis().max(1) as u64,
+    }
 }
 
 fn reserved_bytes_from_client_id(client_id: Option<&str>) -> [u8; 3] {

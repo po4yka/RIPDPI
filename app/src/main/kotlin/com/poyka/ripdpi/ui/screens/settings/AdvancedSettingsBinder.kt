@@ -12,6 +12,7 @@ import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
+import com.poyka.ripdpi.data.DefaultAppRoutingRussianPresetId
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.NumericRangeModel
@@ -26,6 +27,8 @@ import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.normalizeActivationFilter
 import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCachePrefixV4
 import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCacheTtlSeconds
+import com.poyka.ripdpi.data.normalizeAppRoutingPolicyMode
+import com.poyka.ripdpi.data.normalizeDhtMitigationMode
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.normalizeOffsetExpression
@@ -123,6 +126,46 @@ internal class AdvancedSettingsBinder(
             key = "splitMarker",
             marker = manualSplitMarkerFallback(uiState),
         )
+    }
+
+    fun onRoutingPolicyModeSelected(value: String) {
+        val normalized = normalizeAppRoutingPolicyMode(value)
+        writer.updateValue("appRoutingPolicyMode", normalized) {
+            setAppRoutingPolicyMode(normalized)
+        }
+    }
+
+    fun onDhtMitigationModeSelected(value: String) {
+        val normalized = normalizeDhtMitigationMode(value)
+        writer.updateValue("dhtMitigationMode", normalized) {
+            setDhtMitigationMode(normalized)
+        }
+    }
+
+    fun onAntiCorrelationEnabledChanged(enabled: Boolean) {
+        writer.updateBoolean("antiCorrelationEnabled", enabled) {
+            setAntiCorrelationEnabled(enabled)
+        }
+    }
+
+    fun onAppRoutingPresetEnabledChanged(
+        presetId: String,
+        enabled: Boolean,
+        uiState: SettingsUiState,
+    ) {
+        val updatedPresetIds = uiState.routingProtection.enabledPresetIds.toMutableSet()
+        if (enabled) {
+            updatedPresetIds += presetId
+        } else {
+            updatedPresetIds -= presetId
+        }
+        writer.updateValue("appRoutingEnabledPresetIds", updatedPresetIds.joinToString(",")) {
+            clearAppRoutingEnabledPresetIds()
+            if (updatedPresetIds.isNotEmpty()) {
+                addAllAppRoutingEnabledPresetIds(updatedPresetIds.sorted())
+            }
+            setExcludeRussianAppsEnabled(DefaultAppRoutingRussianPresetId in updatedPresetIds)
+        }
     }
 }
 

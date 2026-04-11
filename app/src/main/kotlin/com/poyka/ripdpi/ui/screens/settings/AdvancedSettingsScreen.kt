@@ -160,6 +160,8 @@ internal enum class AdvancedOptionSetting {
     EntropyMode,
     UdpFakeProfile,
     QuicFakeProfile,
+    AppRoutingPolicyMode,
+    DhtMitigationMode,
 }
 
 internal enum class ActivationWindowDimension {
@@ -207,6 +209,10 @@ internal data class AdvancedSettingsActions(
     val onResetHttpParserEvasions: () -> Unit,
     val onResetFakePayloadLibrary: () -> Unit,
     val onResetFakeTlsProfile: () -> Unit,
+    val onRoutingPolicyModeSelected: (String) -> Unit,
+    val onDhtMitigationModeSelected: (String) -> Unit,
+    val onAntiCorrelationEnabledChanged: (Boolean) -> Unit,
+    val onAppRoutingPresetEnabledChanged: (String, Boolean) -> Unit,
 )
 
 private data class AdvancedSettingsContentState(
@@ -513,6 +519,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecon
         onToggleChanged = actions.onToggleChanged,
         onTextConfirmed = actions.onTextConfirmed,
     )
+    routingProtectionSection(
+        uiState = uiState,
+        visualEditorEnabled = contentState.visualEditorEnabled,
+        onRoutingPolicyModeSelected = actions.onRoutingPolicyModeSelected,
+        onDhtMitigationModeSelected = actions.onDhtMitigationModeSelected,
+        onAntiCorrelationEnabledChanged = actions.onAntiCorrelationEnabledChanged,
+        onAppRoutingPresetEnabledChanged = actions.onAppRoutingPresetEnabledChanged,
+    )
     httpParserSection(
         uiState = uiState,
         visualEditorEnabled = contentState.visualEditorEnabled,
@@ -731,4 +745,8 @@ private fun previewAdvancedSettingsActions(): AdvancedSettingsActions =
         onResetHttpParserEvasions = {},
         onResetFakePayloadLibrary = {},
         onResetFakeTlsProfile = {},
+        onRoutingPolicyModeSelected = {},
+        onDhtMitigationModeSelected = {},
+        onAntiCorrelationEnabledChanged = {},
+        onAppRoutingPresetEnabledChanged = { _, _ -> },
     )

@@ -62,6 +62,19 @@ data class DhtTriggerCidrsCatalog(
 )
 
 @Serializable
+data class AsnRoutingMapCatalog(
+    val entries: List<AsnRoutingMapEntry> = emptyList(),
+)
+
+@Serializable
+data class AsnRoutingMapEntry(
+    val asn: Int,
+    val label: String,
+    val country: String = "",
+    val cdn: Boolean = false,
+)
+
+@Serializable
 data class AppRoutingPolicyPreset(
     val id: String,
     val title: String,
@@ -97,3 +110,5 @@ fun appRoutingPolicyCatalogFromJson(payload: String): AppRoutingPolicyCatalog =
 
 fun dhtTriggerCidrsCatalogFromJson(payload: String): DhtTriggerCidrsCatalog =
     appRoutingPolicyJson.decodeFromString(payload)
+
+fun asnRoutingMapCatalogFromJson(payload: String): AsnRoutingMapCatalog = appRoutingPolicyJson.decodeFromString(payload)

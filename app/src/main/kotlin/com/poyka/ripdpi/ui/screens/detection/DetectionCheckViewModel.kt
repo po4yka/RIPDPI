@@ -25,6 +25,7 @@ import com.poyka.ripdpi.core.detection.community.CommunityComparisonClient
 import com.poyka.ripdpi.core.detection.community.CommunityComparisonStore
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -64,6 +65,7 @@ class DetectionCheckViewModel
         private val application: Application,
         private val appSettingsRepository: AppSettingsRepository,
         private val networkFingerprintProvider: com.poyka.ripdpi.data.NetworkFingerprintProvider,
+        private val routingProtectionCatalogService: RoutingProtectionCatalogService,
     ) : AndroidViewModel(application) {
         private val _uiState = MutableStateFlow(DetectionCheckUiState())
         val uiState: StateFlow<DetectionCheckUiState> = _uiState.asStateFlow()
@@ -199,7 +201,13 @@ class DetectionCheckViewModel
 
                             val score = StealthScore.compute(result)
                             val label = StealthScore.label(score)
-                            val recommendations = DetectionRecommendations.generate(result)
+                            val recommendations =
+                                DetectionRecommendations.generate(result) +
+                                    buildRoutingProtectionRecommendations(
+                                        result = result,
+                                        settings = settings,
+                                        snapshot = routingProtectionCatalogService.snapshot(),
+                                    )
                             val reportText = DetectionReportFormatter.format(result)
                             val fixes =
                                 DetectionAutoTuner.suggestFixes(

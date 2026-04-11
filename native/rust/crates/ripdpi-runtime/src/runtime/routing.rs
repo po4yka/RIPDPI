@@ -3,8 +3,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use ripdpi_config::{
-    DETECT_CONNECT, DETECT_CONNECTION_FREEZE, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT,
-    DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE,
+    DesyncGroup, TcpChainStepKind, DETECT_CONNECT, DETECT_CONNECTION_FREEZE, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE,
+    DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE,
 };
 use ripdpi_dns_resolver::extract_ip_answers;
 use ripdpi_failure_classifier::{
@@ -30,6 +30,7 @@ const MAX_PREFERRED_EDGE_TARGETS: usize = 2;
 pub(super) struct ConnectAttemptError {
     source: io::Error,
     tcp_total_retransmissions: Option<u32>,
+    tcp_fast_open_enabled: bool,
 }
 
 impl ConnectAttemptError {
@@ -125,8 +126,15 @@ fn connect_target_candidates_via_group(
     targets: &[SocketAddr],
     state: &RuntimeState,
     group_index: usize,
-    tfo_enabled: bool,
+    payload: Option<&[u8]>,
+    allow_tfo: bool,
 ) -> Result<TcpStream, ConnectAttemptError> {
+    let group = state.config.groups.get(group_index).ok_or_else(|| ConnectAttemptError {
+        source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
+        tcp_total_retransmissions: None,
+        tcp_fast_open_enabled: false,
+    })?;
+    let tfo_enabled = group_uses_tcp_fast_open(state, group, payload, allow_tfo);
     let mut last_error = None;
     for &candidate in targets {
         match connect_target_via_group_with_tfo(candidate, state, group_index, tfo_enabled) {
@@ -137,6 +145,7 @@ fn connect_target_candidates_via_group(
     Err(last_error.unwrap_or_else(|| ConnectAttemptError {
         source: io::Error::new(io::ErrorKind::AddrNotAvailable, "no target candidates available"),
         tcp_total_retransmissions: None,
+        tcp_fast_open_enabled: tfo_enabled,
     }))
 }
 
@@ -151,15 +160,20 @@ pub(super) fn connect_target_with_route(
     let mut retries: usize = 0;
     loop {
         let attempt_targets = preferred_targets_for_transport(state, target, host.as_deref(), TransportProtocol::Tcp);
-        match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, state.config.network.tfo)
-        {
+        match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, payload, true) {
             Ok(stream) => return Ok((stream, route)),
             Err(mut err) => {
                 retries += 1;
                 let mut failure = classify_transport_error(FailureStage::Connect, &err.source);
-                if should_retry_without_tfo(state, &failure) {
+                if should_retry_without_tfo(err.tcp_fast_open_enabled, &failure) {
                     tracing::debug!(group_index = route.group_index, target = %target, "retrying connect without TCP Fast Open");
-                    match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, false) {
+                    match connect_target_candidates_via_group(
+                        &attempt_targets,
+                        state,
+                        route.group_index,
+                        payload,
+                        false,
+                    ) {
                         Ok(stream) => return Ok((stream, route)),
                         Err(fallback_err) => {
                             err = fallback_err;
@@ -296,6 +310,14 @@ pub(super) fn advance_route_for_failure(
     }
     if let (Some(telemetry), Some(next_route)) = (&state.telemetry, next.as_ref()) {
         telemetry.on_route_advanced(target, route.group_index, next_route.group_index, trigger, host.as_deref());
+        telemetry.on_adaptive_override(
+            target,
+            next_route.group_index,
+            trigger,
+            failure.class.as_str(),
+            host.as_deref(),
+            "route_advance",
+        );
     }
     Ok(next)
 }
@@ -419,6 +441,7 @@ fn connect_target_via_group_with_tfo(
     let group = state.config.groups.get(group_index).ok_or_else(|| ConnectAttemptError {
         source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
         tcp_total_retransmissions: None,
+        tcp_fast_open_enabled: false,
     })?;
     let connect_timeout = if state.config.timeouts.connect_timeout_ms > 0 {
         Some(Duration::from_millis(state.config.timeouts.connect_timeout_ms as u64))
@@ -439,7 +462,11 @@ fn connect_target_via_group_with_tfo(
             tfo_enabled,
             connect_timeout,
         )
-        .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })
+        .map_err(|source| ConnectAttemptError {
+            source,
+            tcp_total_retransmissions: None,
+            tcp_fast_open_enabled: tfo_enabled,
+        })
     } else {
         connect_socket_detailed(
             target,
@@ -452,8 +479,11 @@ fn connect_target_via_group_with_tfo(
     }?;
 
     if group.actions.drop_sack {
-        platform::attach_drop_sack(&stream)
-            .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
+        platform::attach_drop_sack(&stream).map_err(|source| ConnectAttemptError {
+            source,
+            tcp_total_retransmissions: None,
+            tcp_fast_open_enabled: tfo_enabled,
+        })?;
     }
     // wsize supersedes window_clamp when both are set.
     let effective_clamp = group.actions.wsize.map(|w| w.window).or(group.actions.window_clamp);
@@ -475,6 +505,23 @@ fn connect_target_via_group_with_tfo(
         telemetry.on_upstream_connected(upstream_addr, upstream_rtt_ms);
     }
     Ok(stream)
+}
+
+fn group_has_syn_data(group: &DesyncGroup) -> bool {
+    group.actions.tcp_chain.iter().any(|step| step.kind == TcpChainStepKind::SynData)
+}
+
+fn group_requests_direct_syn_data_tfo(group: &DesyncGroup, payload: Option<&[u8]>) -> bool {
+    payload.is_some_and(|bytes| !bytes.is_empty()) && group.policy.ext_socks.is_none() && group_has_syn_data(group)
+}
+
+fn group_uses_tcp_fast_open(
+    state: &RuntimeState,
+    group: &DesyncGroup,
+    payload: Option<&[u8]>,
+    allow_tfo: bool,
+) -> bool {
+    allow_tfo && (state.config.network.tfo || group_requests_direct_syn_data_tfo(group, payload))
 }
 
 fn unspecified_ip_for(addr: SocketAddr) -> IpAddr {
@@ -587,18 +634,30 @@ fn connect_socket_detailed(
         SocketAddr::V4(_) => Domain::IPV4,
         SocketAddr::V6(_) => Domain::IPV6,
     };
-    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))
-        .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
+    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP)).map_err(|source| ConnectAttemptError {
+        source,
+        tcp_total_retransmissions: None,
+        tcp_fast_open_enabled: tfo,
+    })?;
     if let Some(path) = protect_path {
-        platform::protect_socket(&socket, Some(path))
-            .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
+        platform::protect_socket(&socket, Some(path)).map_err(|source| ConnectAttemptError {
+            source,
+            tcp_total_retransmissions: None,
+            tcp_fast_open_enabled: tfo,
+        })?;
     }
     if tfo {
-        enable_tcp_fastopen_if_supported(&socket)
-            .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
+        enable_tcp_fastopen_if_supported(&socket).map_err(|source| ConnectAttemptError {
+            source,
+            tcp_total_retransmissions: None,
+            tcp_fast_open_enabled: tfo,
+        })?;
     }
-    bind_socket(&socket, bind_ip, target)
-        .map_err(|source| ConnectAttemptError { source, tcp_total_retransmissions: None })?;
+    bind_socket(&socket, bind_ip, target).map_err(|source| ConnectAttemptError {
+        source,
+        tcp_total_retransmissions: None,
+        tcp_fast_open_enabled: tfo,
+    })?;
     if let Some(rcvbuf) = pre_connect_rcvbuf {
         let _ = platform::set_rcvbuf(&socket, rcvbuf);
     }
@@ -625,7 +684,7 @@ fn connect_socket_detailed(
             elapsed_ms = connect_started.elapsed().as_millis() as u64,
             "ripdpi upstream connect failed: {err}"
         );
-        return Err(ConnectAttemptError { source: err, tcp_total_retransmissions });
+        return Err(ConnectAttemptError { source: err, tcp_total_retransmissions, tcp_fast_open_enabled: tfo });
     }
     tracing::debug!(
         target = %target,
@@ -678,8 +737,8 @@ fn is_unspecified(ip: IpAddr) -> bool {
     }
 }
 
-fn should_retry_without_tfo(state: &RuntimeState, failure: &ClassifiedFailure) -> bool {
-    state.config.network.tfo && matches!(failure.class, FailureClass::ConnectFailure | FailureClass::TcpReset)
+fn should_retry_without_tfo(tcp_fast_open_enabled: bool, failure: &ClassifiedFailure) -> bool {
+    tcp_fast_open_enabled && matches!(failure.class, FailureClass::ConnectFailure | FailureClass::TcpReset)
 }
 
 pub(super) fn runtime_supports_trigger(state: &RuntimeState, trigger: u32) -> io::Result<bool> {
@@ -690,17 +749,45 @@ pub(super) fn runtime_supports_trigger(state: &RuntimeState, trigger: u32) -> io
 pub(super) fn reconnect_target(
     target: SocketAddr,
     state: &RuntimeState,
+    route: ConnectionRoute,
+    host: Option<String>,
+    payload: Option<&[u8]>,
+) -> io::Result<(TcpStream, ConnectionRoute)> {
+    reconnect_target_with_tfo_mode(target, state, route, host, payload, true)
+}
+
+pub(super) fn reconnect_target_without_tfo(
+    target: SocketAddr,
+    state: &RuntimeState,
+    route: ConnectionRoute,
+    host: Option<String>,
+    payload: Option<&[u8]>,
+) -> io::Result<(TcpStream, ConnectionRoute)> {
+    reconnect_target_with_tfo_mode(target, state, route, host, payload, false)
+}
+
+pub(super) fn route_uses_direct_syn_data_tfo(
+    state: &RuntimeState,
+    route: &ConnectionRoute,
+    payload: Option<&[u8]>,
+) -> bool {
+    state.config.groups.get(route.group_index).is_some_and(|group| group_requests_direct_syn_data_tfo(group, payload))
+}
+
+fn reconnect_target_with_tfo_mode(
+    target: SocketAddr,
+    state: &RuntimeState,
     mut route: ConnectionRoute,
     host: Option<String>,
     payload: Option<&[u8]>,
+    allow_tfo: bool,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
     let max_retries = state.config.max_route_retries;
     let mut retries: usize = 0;
     loop {
         super::retry::apply_retry_pacing_before_connect(state, target, &route, host.as_deref(), payload)?;
         let attempt_targets = preferred_targets_for_transport(state, target, host.as_deref(), TransportProtocol::Tcp);
-        match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, state.config.network.tfo)
-        {
+        match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, payload, allow_tfo) {
             Ok(stream) => return Ok((stream, route)),
             Err(mut err) => {
                 retries += 1;
@@ -708,9 +795,15 @@ pub(super) fn reconnect_target(
                     return Err(err.into_io_error());
                 }
                 let mut failure = classify_transport_error(FailureStage::Connect, &err.source);
-                if should_retry_without_tfo(state, &failure) {
+                if allow_tfo && should_retry_without_tfo(err.tcp_fast_open_enabled, &failure) {
                     tracing::debug!(group_index = route.group_index, target = %target, "retrying reconnect without TCP Fast Open");
-                    match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, false) {
+                    match connect_target_candidates_via_group(
+                        &attempt_targets,
+                        state,
+                        route.group_index,
+                        payload,
+                        false,
+                    ) {
                         Ok(stream) => return Ok((stream, route)),
                         Err(fallback_err) => {
                             err = fallback_err;
@@ -732,6 +825,7 @@ pub(super) fn reconnect_target(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ripdpi_config::{OffsetExpr, TcpChainStep, UpstreamSocksConfig};
     use std::io::{Read, Write};
     use std::net::TcpListener;
     use std::thread;
@@ -784,6 +878,36 @@ mod tests {
         assert!(!should_track_strategy_target(SocketAddr::from(([198, 19, 42, 7], 853))));
         assert!(should_track_strategy_target(SocketAddr::from(([198, 18, 0, 53], 443))));
         assert!(should_track_strategy_target(SocketAddr::from(([142, 251, 127, 84], 443))));
+    }
+
+    #[test]
+    fn direct_syn_data_tfo_requires_payload_and_direct_upstream() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1)));
+
+        assert!(group_requests_direct_syn_data_tfo(&group, Some(b"GET / HTTP/1.1\r\n\r\n")));
+        assert!(!group_requests_direct_syn_data_tfo(&group, None));
+        assert!(!group_requests_direct_syn_data_tfo(&group, Some(&[])));
+
+        group.policy.ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::from(([127, 0, 0, 1], 1080)) });
+        assert!(!group_requests_direct_syn_data_tfo(&group, Some(b"GET / HTTP/1.1\r\n\r\n")));
+    }
+
+    #[test]
+    fn retry_without_tfo_depends_on_attempt_using_tfo() {
+        let connect_failure =
+            classify_transport_error(FailureStage::Connect, &io::Error::new(io::ErrorKind::ConnectionRefused, "boom"));
+        let reset_failure = ClassifiedFailure::new(
+            FailureClass::TcpReset,
+            FailureStage::Connect,
+            FailureAction::RetryWithMatchingGroup,
+            "reset",
+        );
+
+        assert!(should_retry_without_tfo(true, &connect_failure));
+        assert!(should_retry_without_tfo(true, &reset_failure));
+        assert!(!should_retry_without_tfo(false, &connect_failure));
+        assert!(!should_retry_without_tfo(false, &reset_failure));
     }
 
     #[test]

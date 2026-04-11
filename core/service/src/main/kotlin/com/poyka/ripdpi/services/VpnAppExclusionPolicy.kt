@@ -109,4 +109,10 @@ abstract class VpnAppExclusionPolicyModule {
     abstract fun bindInstalledPackagesProvider(
         provider: PackageManagerInstalledPackagesProvider,
     ): InstalledPackagesProvider
+
+    @Binds
+    @Singleton
+    abstract fun bindRoutingProtectionCatalogService(
+        service: DefaultRoutingProtectionCatalogService,
+    ): RoutingProtectionCatalogService
 }

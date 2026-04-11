@@ -189,6 +189,12 @@ data class AdaptiveFallbackUiState(
     val autoSort: Boolean = true,
     val cacheTtlSeconds: Int = DefaultAdaptiveFallbackCacheTtlSeconds,
     val cachePrefixV4: Int = DefaultAdaptiveFallbackCachePrefixV4,
+    val runtimeOverrideActive: Boolean = false,
+    val runtimeOverrideRememberedPolicy: Boolean = false,
+    val runtimeRouteGroup: Int? = null,
+    val runtimeTriggerMask: Long? = null,
+    val runtimeLastTrigger: String? = null,
+    val runtimeOverrideReason: String? = null,
 ) {
     val triggerCount: Int
         get() = listOf(torst, tlsErr, httpRedirect, connectFailure).count { it }
@@ -206,6 +212,25 @@ data class AdaptiveFallbackUiState(
                 autoSort &&
                 cacheTtlSeconds == DefaultAdaptiveFallbackCacheTtlSeconds &&
                 cachePrefixV4 == DefaultAdaptiveFallbackCachePrefixV4
+
+    val runtimeOverrideSummary: String?
+        get() =
+            if (!runtimeOverrideActive) {
+                null
+            } else {
+                buildString {
+                    append("Route ")
+                    append(runtimeRouteGroup?.toString() ?: "unknown")
+                    runtimeTriggerMask?.let {
+                        append(" via mask ")
+                        append(it)
+                    }
+                    runtimeLastTrigger?.takeIf(String::isNotBlank)?.let {
+                        append(" after ")
+                        append(it)
+                    }
+                }
+            }
 }
 
 @Stable
@@ -283,6 +308,55 @@ data class WarpUiState(
 
     val hasZeroTrustOrganization: Boolean
         get() = zeroTrustOrg.isNotBlank()
+}
+
+@Stable
+data class RoutingProtectionDetectedAppUiState(
+    val packageName: String,
+    val presetTitle: String,
+    val detectionMethod: String,
+    val fixCoverage: String,
+)
+
+@Stable
+data class RoutingProtectionPresetUiState(
+    val id: String,
+    val title: String,
+    val enabled: Boolean,
+    val matchedPackages: List<String> = emptyList(),
+    val detectionMethod: String = "",
+    val fixCoverage: String = "",
+    val limitations: String = "",
+)
+
+@Stable
+data class RoutingProtectionSuggestionUiState(
+    val id: String,
+    val title: String,
+    val body: String,
+)
+
+@Stable
+data class RoutingProtectionUiState(
+    val policyMode: String = com.poyka.ripdpi.data.AppRoutingPolicyModePrompt,
+    val enabledPresetIds: List<String> = emptyList(),
+    val antiCorrelationEnabled: Boolean = false,
+    val dhtMitigationMode: String = com.poyka.ripdpi.data.DhtMitigationModeOff,
+    val fullTunnelMode: Boolean = false,
+    val presets: List<RoutingProtectionPresetUiState> = emptyList(),
+    val detectedApps: List<RoutingProtectionDetectedAppUiState> = emptyList(),
+    val suggestions: List<RoutingProtectionSuggestionUiState> = emptyList(),
+    val transportVpnDisclosure: String =
+        "Application exclusion does not hide TRANSPORT_VPN checks made by the app itself.",
+) {
+    val detectedAppCount: Int
+        get() = detectedApps.size
+
+    val enabledPresetCount: Int
+        get() = enabledPresetIds.size
+
+    val hasDetectedRiskyApps: Boolean
+        get() = detectedApps.isNotEmpty()
 }
 
 @Stable
@@ -500,6 +574,7 @@ data class SettingsUiState(
     val quic: QuicUiState = QuicUiState(),
     val detectionResistance: DetectionResistanceUiState = DetectionResistanceUiState(),
     val warp: WarpUiState = WarpUiState(),
+    val routingProtection: RoutingProtectionUiState = RoutingProtectionUiState(),
     val autolearn: HostAutolearnUiState = HostAutolearnUiState(),
     val adaptiveFallback: AdaptiveFallbackUiState = AdaptiveFallbackUiState(),
     val httpParser: HttpParserUiState = HttpParserUiState(),
