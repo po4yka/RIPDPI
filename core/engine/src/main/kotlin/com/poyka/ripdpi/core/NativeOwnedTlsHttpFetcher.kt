@@ -19,6 +19,12 @@ data class NativeOwnedTlsHttpResult(
     val statusCode: Int,
     val body: ByteArray,
     val finalUrl: String? = null,
+    val tlsProfileId: String? = null,
+    val tlsProfileCatalogVersion: String? = null,
+    val tlsJa3ParityTarget: String? = null,
+    val tlsJa4ParityTarget: String? = null,
+    val clientHelloSizeHint: Int? = null,
+    val clientHelloInvariantStatus: String? = null,
 )
 
 data class NativeOwnedTlsHttpRequest(
@@ -86,6 +92,12 @@ class DefaultNativeOwnedTlsHttpFetcher
                     statusCode = statusCode,
                     body = body,
                     finalUrl = response.finalUrl,
+                    tlsProfileId = response.tlsProfileId,
+                    tlsProfileCatalogVersion = response.tlsProfileCatalogVersion,
+                    tlsJa3ParityTarget = response.tlsJa3ParityTarget,
+                    tlsJa4ParityTarget = response.tlsJa4ParityTarget,
+                    clientHelloSizeHint = response.clientHelloSizeHint,
+                    clientHelloInvariantStatus = response.clientHelloInvariantStatus,
                 )
             }
     }
@@ -129,6 +141,18 @@ private data class NativeOwnedTlsHttpResponse(
     val bodyBase64: String? = null,
     @SerialName("finalUrl")
     val finalUrl: String? = null,
+    @SerialName("tlsProfileId")
+    val tlsProfileId: String? = null,
+    @SerialName("tlsProfileCatalogVersion")
+    val tlsProfileCatalogVersion: String? = null,
+    @SerialName("tlsJa3ParityTarget")
+    val tlsJa3ParityTarget: String? = null,
+    @SerialName("tlsJa4ParityTarget")
+    val tlsJa4ParityTarget: String? = null,
+    @SerialName("clientHelloSizeHint")
+    val clientHelloSizeHint: Int? = null,
+    @SerialName("clientHelloInvariantStatus")
+    val clientHelloInvariantStatus: String? = null,
     val error: String? = null,
 )
 

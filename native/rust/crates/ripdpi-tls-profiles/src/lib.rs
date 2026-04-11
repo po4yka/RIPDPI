@@ -10,12 +10,17 @@ mod firefox;
 mod profile;
 mod safari;
 
-pub use profile::{profile_catalog, ProfileCatalog, ProfileConfig, AVAILABLE_PROFILES};
+pub use profile::{
+    profile_catalog, profile_metadata, ProfileCatalog, ProfileConfig, ProfileInvariantStatus, ProfileMetadata,
+    ProfileParityTargets, AVAILABLE_PROFILES,
+};
 
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("BoringSSL error: {0}")]
     Ssl(#[from] boring::error::ErrorStack),
+    #[error("TLS profile invariant failed for {profile}: {reason}")]
+    Invariant { profile: &'static str, reason: &'static str },
 }
 
 /// Returns a configured builder that the caller can further customize before
@@ -24,6 +29,7 @@ pub enum Error {
 pub fn configure_builder(profile: &str) -> Result<SslConnectorBuilder, Error> {
     let mut builder = SslConnector::builder(SslMethod::tls())?;
     let config = profile::lookup_profile(profile);
+    validate_profile_config(config)?;
     apply::apply_profile(&mut builder, config)?;
     Ok(builder)
 }
@@ -43,6 +49,10 @@ const DEFAULT_WEIGHTS: &[(&str, u32)] =
 
 pub fn profile_catalog_version() -> &'static str {
     profile::profile_catalog().version
+}
+
+pub fn selected_profile_metadata(profile: &str) -> ProfileMetadata {
+    profile::profile_metadata(profile)
 }
 
 /// Select a TLS profile using deterministic weighted rotation.
@@ -114,6 +124,33 @@ fn stable_rotation_hash(authority: &str, session_seed: u64, profile_set_id: &str
     u64::from_be_bytes(bytes)
 }
 
+fn validate_profile_config(config: &ProfileConfig) -> Result<(), Error> {
+    if config.client_hello_size_hint == 517 {
+        return Err(Error::Invariant {
+            profile: config.name,
+            reason: "517-byte ClientHello is blocked by known middlebox fingerprinting rules",
+        });
+    }
+    if config.client_hello_size_hint < 480 || config.client_hello_size_hint > 540 {
+        return Err(Error::Invariant {
+            profile: config.name,
+            reason: "ClientHello size hint drifted outside the expected mimicry envelope",
+        });
+    }
+    let supports_h2 = config.alpn.iter().any(|value| *value == b"h2");
+    let supports_http11 = config.alpn.iter().any(|value| *value == b"http/1.1");
+    if !supports_h2 || !supports_http11 {
+        return Err(Error::Invariant { profile: config.name, reason: "ALPN list must include both h2 and http/1.1" });
+    }
+    if config.ja3_parity_target.is_empty() || config.ja4_parity_target.is_empty() {
+        return Err(Error::Invariant {
+            profile: config.name,
+            reason: "JA3/JA4 parity targets must be declared for telemetry and diagnostics",
+        });
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -153,6 +190,7 @@ mod tests {
     #[test]
     fn chrome_profile_matches_phase_zero_invariants() {
         let profile = profile::lookup_profile("chrome_stable");
+        let metadata = selected_profile_metadata("chrome_stable");
 
         assert_eq!("chrome_stable", profile.name);
         assert_eq!(SslVersion::TLS1_2, profile.min_version);
@@ -161,6 +199,9 @@ mod tests {
         assert!(profile.grease_enabled);
         assert!(profile.permute_extensions);
         assert_ne!(517, profile.client_hello_size_hint);
+        assert_eq!("chrome-stable", metadata.parity_targets.ja3);
+        assert_eq!("chrome-stable", metadata.parity_targets.ja4);
+        assert_eq!(ProfileInvariantStatus::AvoidsBlocked517ByteClientHello, metadata.invariant_status);
     }
 
     #[test]
@@ -184,5 +225,20 @@ mod tests {
     #[test]
     fn catalog_version_is_exposed() {
         assert_eq!("v1", profile_catalog_version());
+    }
+
+    #[test]
+    fn all_catalog_profiles_publish_safe_parity_metadata() {
+        for name in AVAILABLE_PROFILES {
+            let config = profile::lookup_profile(name);
+            validate_profile_config(config).expect("catalog profile should remain valid");
+            let metadata = selected_profile_metadata(name);
+            assert_eq!(profile_catalog_version(), metadata.catalog_version);
+            assert!(!metadata.parity_targets.browser_family.is_empty());
+            assert!(!metadata.parity_targets.browser_track.is_empty());
+            assert!(!metadata.parity_targets.ja3.is_empty());
+            assert!(!metadata.parity_targets.ja4.is_empty());
+            assert_ne!(517, metadata.client_hello_size_hint);
+        }
     }
 }
