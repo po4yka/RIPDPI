@@ -109,6 +109,18 @@ impl RuntimePolicy {
         }
     }
 
+    pub(crate) fn clear_connection_cache(&mut self, config: &RuntimeConfig) -> usize {
+        let cleared = self.records.len();
+        if cleared == 0 {
+            return 0;
+        }
+        self.records.clear();
+        for group_index in 0..config.groups.len() {
+            self.persist_group(config, group_index);
+        }
+        cleared
+    }
+
     pub(crate) fn persist_group(&self, config: &RuntimeConfig, group_index: usize) {
         let Some(path) = config.groups[group_index].policy.cache_file.as_deref() else {
             return;
@@ -252,6 +264,34 @@ mod tests {
         let config = RuntimeConfig::default();
         assert_eq!(cache_bits(&config, IpAddr::from([192, 168, 1, 1])), 32);
         assert_eq!(cache_bits(&config, IpAddr::from([0u16, 0, 0, 0, 0, 0, 0, 1])), 128);
+    }
+
+    #[test]
+    fn clear_connection_cache_drops_all_records() {
+        let dest = sample_dest(443);
+        let config = config_with_groups(vec![DesyncGroup::new(0)]);
+        let mut policy = RuntimePolicy {
+            records: vec![CacheRecord {
+                entry: ripdpi_config::CacheEntry {
+                    addr: dest.ip(),
+                    bits: 32,
+                    port: dest.port(),
+                    time: now_unix(),
+                    host: Some("example.org".to_string()),
+                },
+                group_index: 0,
+                attempted_mask: 1,
+            }],
+            groups: vec![GroupPolicy { detect: 0, fail_count: 0, pri: 0 }],
+            order: vec![0],
+            learned_hosts_by_scope: BTreeMap::default(),
+            pending_blocked_hosts_by_scope: BTreeMap::default(),
+            autolearn_events: VecDeque::default(),
+            last_persist_at_ms: 0,
+        };
+
+        assert_eq!(policy.clear_connection_cache(&config), 1);
+        assert!(policy.records.is_empty());
     }
 
     #[test]

@@ -4,7 +4,9 @@ import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Recommendation
+import com.poyka.ripdpi.data.DhtMitigationModeOff
 import com.poyka.ripdpi.data.effectiveAppRoutingEnabledPresetIds
+import com.poyka.ripdpi.data.normalizeDhtMitigationMode
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 
@@ -54,6 +56,19 @@ internal fun buildRoutingProtectionRecommendations(
                     title = "Anti-correlation mode may reduce route fingerprints",
                     description =
                         "Application exclusion does not hide TRANSPORT_VPN checks. Anti-correlation is the next step when app routing alone is still visible.",
+                    actionRoute = "advanced_settings",
+                ),
+            )
+        }
+        if (!settings.fullTunnelMode &&
+            normalizeDhtMitigationMode(settings.dhtMitigationMode) == DhtMitigationModeOff &&
+            hasSplitBypass
+        ) {
+            add(
+                Recommendation(
+                    title = "DHT mitigation can protect split routes",
+                    description =
+                        "Split routing is visible in the current checks. Enabling DHT trigger mitigation helps avoid known UDP trigger CIDRs that can destabilize relay or WARP control-plane paths.",
                     actionRoute = "advanced_settings",
                 ),
             )

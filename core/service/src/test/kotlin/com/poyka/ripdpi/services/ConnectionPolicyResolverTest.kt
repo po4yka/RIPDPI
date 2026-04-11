@@ -216,12 +216,112 @@ class ConnectionPolicyResolverTest {
 
             assertNotNull(uiPreferences)
             assertEquals(
-                listOf("203.0.113.11", "203.0.113.10"),
+                listOf("203.0.113.11"),
                 uiPreferences
                     ?.runtimeContext
                     ?.preferredEdges
                     ?.get("video.example.org")
                     ?.map { it.ip },
+            )
+        }
+
+    @Test
+    fun `resolver drops domestic CDN edge pinning when no foreign CDN edge exists`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val edgeStore = TestNetworkEdgePreferenceStore()
+            edgeStore.rememberPreferredEdges(
+                fingerprint = fingerprint,
+                host = "cdn.example.org",
+                transportKind = PreferredEdgeTransportTcp,
+                edges =
+                    listOf(
+                        PreferredEdgeCandidate(
+                            ip = "203.0.113.10",
+                            transportKind = PreferredEdgeTransportTcp,
+                            ipVersion = PreferredEdgeIpVersionV4,
+                            successCount = 3,
+                            cdnProvider = "Yandex",
+                        ),
+                    ),
+                recordedAt = 100L,
+            )
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setAntiCorrelationEnabled(true)
+                    .build()
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(settings),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = edgeStore,
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = RootHelperManager(),
+                )
+
+            val resolution = resolver.resolve(mode = Mode.Proxy)
+            val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+
+            assertTrue(
+                uiPreferences
+                    ?.runtimeContext
+                    ?.preferredEdges
+                    ?.containsKey("cdn.example.org") != true,
+            )
+        }
+
+    @Test
+    fun `resolver drops domestic edge when no foreign cdn candidate exists`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val edgeStore = TestNetworkEdgePreferenceStore()
+            edgeStore.rememberPreferredEdges(
+                fingerprint = fingerprint,
+                host = "music.example.org",
+                transportKind = PreferredEdgeTransportTcp,
+                edges =
+                    listOf(
+                        PreferredEdgeCandidate(
+                            ip = "203.0.113.10",
+                            transportKind = PreferredEdgeTransportTcp,
+                            ipVersion = PreferredEdgeIpVersionV4,
+                            successCount = 1,
+                            cdnProvider = "Yandex",
+                        ),
+                    ),
+                recordedAt = 100L,
+            )
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setAntiCorrelationEnabled(true)
+                    .build()
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(settings),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = edgeStore,
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = RootHelperManager(),
+                )
+
+            val resolution = resolver.resolve(mode = Mode.Proxy)
+            val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+
+            assertTrue(
+                uiPreferences
+                    ?.runtimeContext
+                    ?.preferredEdges
+                    ?.containsKey("music.example.org") != true,
             )
         }
 
