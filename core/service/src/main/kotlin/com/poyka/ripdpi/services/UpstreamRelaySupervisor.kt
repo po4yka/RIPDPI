@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.ResolvedShadowTlsInnerRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
@@ -86,10 +87,11 @@ internal class UpstreamRelaySupervisor(
 
     suspend fun start(
         config: RipDpiRelayConfig,
+        quicMigrationConfig: OwnedRelayQuicMigrationConfig = OwnedRelayQuicMigrationConfig(),
         onUnexpectedExit: suspend (Result<Int>) -> Unit,
     ) {
         check(relayJob == null) { "Relay fields not null" }
-        val resolvedConfig = resolveRuntimeConfig(config)
+        val resolvedConfig = resolveRuntimeConfig(config, quicMigrationConfig)
         val runtime =
             if (resolvedConfig.kind == RelayKindNaiveProxy) {
                 naiveProxyRuntimeFactory.create()
@@ -159,7 +161,10 @@ internal class UpstreamRelaySupervisor(
 
     suspend fun pollTelemetry(): NativeRuntimeSnapshot? = runCatching { relayRuntime?.pollTelemetry() }.getOrNull()
 
-    private suspend fun resolveRuntimeConfig(config: RipDpiRelayConfig): ResolvedRipDpiRelayConfig {
+    private suspend fun resolveRuntimeConfig(
+        config: RipDpiRelayConfig,
+        quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+    ): ResolvedRipDpiRelayConfig {
         val profileId = config.profileId.ifBlank { DefaultRelayProfileId }
         val storedProfile = relayProfileStore.load(profileId)
         val requestedTlsProfile = normalizeTlsFingerprintProfile(tlsFingerprintProfileProvider.currentProfile())
@@ -289,6 +294,8 @@ internal class UpstreamRelaySupervisor(
             localSocksPort = effectiveConfig.localSocksPort,
             udpEnabled = effectiveConfig.udpEnabled,
             tcpFallbackEnabled = effectiveConfig.tcpFallbackEnabled,
+            quicBindLowPort = quicMigrationConfig.bindLowPort,
+            quicMigrateAfterHandshake = quicMigrationConfig.migrateAfterHandshake,
             vlessUuid = credentials?.vlessUuid,
             chainEntryUuid = resolvedChainRelay?.entry?.uuid ?: credentials?.chainEntryUuid,
             chainExitUuid = resolvedChainRelay?.exit?.uuid ?: credentials?.chainExitUuid,

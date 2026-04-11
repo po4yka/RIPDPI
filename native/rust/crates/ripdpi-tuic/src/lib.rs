@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
 use std::pin::Pin;
 use std::str::FromStr;
 use std::sync::atomic::{AtomicU16, Ordering};
@@ -17,6 +17,7 @@ use quinn::{ClientConfig, Endpoint, RecvStream, SendStream, TransportConfig, Var
 use rustls::pki_types::CertificateDer;
 use rustls::{ClientConfig as RustlsClientConfig, RootCertStore};
 use serde::{Deserialize, Serialize};
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::sync::{mpsc, Mutex};
 use tracing::debug;
@@ -30,6 +31,7 @@ const MAX_CONCURRENT_STREAMS: u32 = 512;
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
 const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REASSEMBLY_SLOTS: usize = 128;
+const MIGRATION_COOLDOWN: Duration = Duration::from_secs(30);
 static RUSTLS_PROVIDER: Once = Once::new();
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -42,6 +44,8 @@ pub struct Config {
     pub zero_rtt: bool,
     pub congestion_control: String,
     pub udp_enabled: bool,
+    pub quic_bind_low_port: bool,
+    pub quic_migrate_after_handshake: bool,
 }
 
 #[derive(Clone)]
@@ -58,7 +62,8 @@ impl TuicClient {
     async fn connect_with_tls(config: Config, tls_config: RustlsClientConfig) -> io::Result<Self> {
         validate_config(&config)?;
         let server_addr = resolve_server_addr(&config.server, config.server_port)?;
-        let endpoint = build_endpoint(&config, tls_config)?;
+        let socket_spec = ClientSocketSpec { ipv6: server_addr.is_ipv6(), bind_low_port: config.quic_bind_low_port };
+        let (endpoint, current_socket) = build_endpoint(&config, tls_config, socket_spec)?;
         let connection = establish_connection(&endpoint, &config, server_addr).await?;
         authenticate_connection(&connection, &config).await?;
         let max_datagram_size = connection.max_datagram_size();
@@ -69,6 +74,16 @@ impl TuicClient {
             next_assoc_id: AtomicU16::new(1),
             registrations: Mutex::new(HashMap::new()),
             max_datagram_size,
+            socket_spec,
+            migrate_after_handshake: config.quic_migrate_after_handshake,
+            current_socket: Mutex::new(current_socket),
+            migration: Mutex::new(QuicMigrationState {
+                status: Some("not_attempted".to_string()),
+                reason: None,
+                validated: false,
+                cooldown_until: None,
+                previous_socket: None,
+            }),
         });
 
         if config.udp_enabled && max_datagram_size.is_some() {
@@ -80,9 +95,20 @@ impl TuicClient {
 
     pub async fn tcp_connect(&self, authority: &str) -> io::Result<DuplexStream> {
         let target = TuicAddress::from_authority(authority)?;
-        let (mut send, recv) = self.inner.connection.open_bi().await?;
-        encode_connect_header(&mut send, &target).await?;
-        Ok(DuplexStream { send, recv })
+        let migrated = self.inner.begin_quic_migration().await?;
+        match self.open_tcp_stream(&target).await {
+            Ok(stream) => {
+                if migrated {
+                    self.inner.complete_quic_migration("path_validated_after_stream_open").await;
+                }
+                Ok(stream)
+            }
+            Err(_error) if migrated => {
+                let _ = self.inner.rollback_quic_migration("stream_open_failed_after_rebind").await;
+                self.open_tcp_stream(&target).await
+            }
+            Err(error) => Err(error),
+        }
     }
 
     pub async fn udp_session(&self) -> io::Result<UdpSession> {
@@ -102,6 +128,16 @@ impl TuicClient {
             packet_ids: Mutex::new(HashMap::new()),
         })
     }
+
+    pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
+        self.inner.quic_migration_snapshot()
+    }
+
+    async fn open_tcp_stream(&self, target: &TuicAddress) -> io::Result<DuplexStream> {
+        let (mut send, recv) = self.inner.connection.open_bi().await?;
+        encode_connect_header(&mut send, target).await?;
+        Ok(DuplexStream { send, recv })
+    }
 }
 
 struct ClientInner {
@@ -110,6 +146,104 @@ struct ClientInner {
     next_assoc_id: AtomicU16,
     registrations: Mutex<HashMap<u16, mpsc::Sender<UdpPacket>>>,
     max_datagram_size: Option<usize>,
+    socket_spec: ClientSocketSpec,
+    migrate_after_handshake: bool,
+    current_socket: Mutex<std::net::UdpSocket>,
+    migration: Mutex<QuicMigrationState>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ClientSocketSpec {
+    ipv6: bool,
+    bind_low_port: bool,
+}
+
+#[derive(Default)]
+struct QuicMigrationState {
+    status: Option<String>,
+    reason: Option<String>,
+    validated: bool,
+    cooldown_until: Option<Instant>,
+    previous_socket: Option<std::net::UdpSocket>,
+}
+
+impl ClientInner {
+    async fn begin_quic_migration(&self) -> io::Result<bool> {
+        let should_attempt = {
+            let state = self.migration.lock().await;
+            self.should_attempt_quic_migration(&state)
+        };
+        if !should_attempt {
+            return Ok(false);
+        }
+
+        let old_socket = self.current_socket.lock().await.try_clone()?;
+        let new_socket = build_client_udp_socket(self.socket_spec)?;
+        let new_socket_clone = new_socket.try_clone()?;
+        match self._endpoint.rebind(new_socket) {
+            Ok(()) => {
+                *self.current_socket.lock().await = new_socket_clone;
+                let mut state = self.migration.lock().await;
+                state.status = Some("not_attempted".to_string());
+                state.reason = Some("path_challenge_pending".to_string());
+                state.previous_socket = Some(old_socket);
+                Ok(true)
+            }
+            Err(error) => {
+                let mut state = self.migration.lock().await;
+                state.status = Some("failed".to_string());
+                state.reason = Some("endpoint_rebind_failed".to_string());
+                state.cooldown_until = Some(Instant::now() + MIGRATION_COOLDOWN);
+                Err(error)
+            }
+        }
+    }
+
+    async fn complete_quic_migration(&self, reason: &str) {
+        let mut state = self.migration.lock().await;
+        if state.previous_socket.is_some() || state.validated {
+            state.status = Some("validated".to_string());
+            state.reason = Some(reason.to_string());
+            state.validated = true;
+            state.previous_socket = None;
+        }
+    }
+
+    async fn rollback_quic_migration(&self, reason: &str) -> io::Result<()> {
+        let previous_socket = {
+            let mut state = self.migration.lock().await;
+            let Some(previous_socket) = state.previous_socket.take() else {
+                return Ok(());
+            };
+            previous_socket
+        };
+        let replacement = previous_socket.try_clone()?;
+        self._endpoint.rebind(previous_socket)?;
+        *self.current_socket.lock().await = replacement;
+        let mut state = self.migration.lock().await;
+        state.status = Some("reverted".to_string());
+        state.reason = Some(reason.to_string());
+        state.validated = false;
+        state.cooldown_until = Some(Instant::now() + MIGRATION_COOLDOWN);
+        Ok(())
+    }
+
+    fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
+        self.migration
+            .try_lock()
+            .map(|state| (state.status.clone(), state.reason.clone()))
+            .unwrap_or_else(|_| (Some("not_attempted".to_string()), None))
+    }
+
+    fn should_attempt_quic_migration(&self, state: &QuicMigrationState) -> bool {
+        if !self.migrate_after_handshake {
+            return false;
+        }
+        if state.validated || state.previous_socket.is_some() {
+            return false;
+        }
+        !state.cooldown_until.is_some_and(|cooldown_until| cooldown_until > Instant::now())
+    }
 }
 
 pub struct DuplexStream {
@@ -150,7 +284,20 @@ impl UdpSession {
         let target = TuicAddress::from_authority(address)?;
         let assoc_id = self.assoc_id_for(address).await;
         let packet_id = self.next_packet_id(assoc_id).await;
-        send_udp_payload(&self.client, assoc_id, packet_id, &target, payload)
+        let migrated = self.client.begin_quic_migration().await?;
+        match send_udp_payload(&self.client, assoc_id, packet_id, &target, payload) {
+            Ok(()) => {
+                if migrated {
+                    self.client.complete_quic_migration("path_validated_after_datagram_send").await;
+                }
+                Ok(())
+            }
+            Err(_error) if migrated => {
+                let _ = self.client.rollback_quic_migration("datagram_send_failed_after_rebind").await;
+                send_udp_payload(&self.client, assoc_id, packet_id, &target, payload)
+            }
+            Err(error) => Err(error),
+        }
     }
 
     pub async fn recv_from(&mut self) -> io::Result<(String, Vec<u8>)> {
@@ -179,6 +326,10 @@ impl UdpSession {
         let packet_id = *next;
         *next = next.wrapping_add(1);
         packet_id
+    }
+
+    pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
+        self.client.quic_migration_snapshot()
     }
 }
 
@@ -542,7 +693,11 @@ fn send_udp_payload(
     Ok(())
 }
 
-fn build_endpoint(config: &Config, tls_config: RustlsClientConfig) -> io::Result<Endpoint> {
+fn build_endpoint(
+    config: &Config,
+    tls_config: RustlsClientConfig,
+    socket_spec: ClientSocketSpec,
+) -> io::Result<(Endpoint, std::net::UdpSocket)> {
     let mut transport = TransportConfig::default();
     transport.max_concurrent_bidi_streams(VarInt::from_u32(MAX_CONCURRENT_STREAMS));
     transport.max_concurrent_uni_streams(VarInt::from_u32(MAX_CONCURRENT_STREAMS));
@@ -558,9 +713,39 @@ fn build_endpoint(config: &Config, tls_config: RustlsClientConfig) -> io::Result
     ));
     client_config.transport_config(Arc::new(transport));
 
-    let mut endpoint = Endpoint::client(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)))?;
+    let socket = build_client_udp_socket(socket_spec)?;
+    let socket_clone = socket.try_clone()?;
+    let mut endpoint = Endpoint::new(quinn::EndpointConfig::default(), None, socket, Arc::new(quinn::TokioRuntime))?;
     endpoint.set_default_client_config(client_config);
-    Ok(endpoint)
+    Ok((endpoint, socket_clone))
+}
+
+fn build_client_udp_socket(socket_spec: ClientSocketSpec) -> io::Result<std::net::UdpSocket> {
+    let bind_addr = if socket_spec.ipv6 {
+        SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0))
+    } else {
+        SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))
+    };
+    let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
+    if socket_spec.ipv6 {
+        let _ = socket.set_only_v6(false);
+    }
+    if socket_spec.bind_low_port {
+        try_bind_low_port(&socket, bind_addr.ip())?;
+    } else {
+        socket.bind(&SockAddr::from(bind_addr))?;
+    }
+    Ok(socket.into())
+}
+
+fn try_bind_low_port(socket: &Socket, bind_ip: IpAddr) -> io::Result<()> {
+    for port in [2048u16, 2053, 2080, 2443, 3000, 3074, 4096] {
+        let addr = SocketAddr::new(bind_ip, port);
+        if socket.bind(&SockAddr::from(addr)).is_ok() {
+            return Ok(());
+        }
+    }
+    socket.bind(&SockAddr::from(SocketAddr::new(bind_ip, 0)))
 }
 
 fn build_tls_config(
@@ -795,6 +980,8 @@ mod tests {
                 zero_rtt: false,
                 congestion_control: "bbr".to_owned(),
                 udp_enabled: true,
+                quic_bind_low_port: false,
+                quic_migrate_after_handshake: true,
             },
             tls_config,
         )
@@ -812,6 +999,10 @@ mod tests {
         let (address, payload) = udp.recv_from().await.expect("udp recv");
         assert_eq!(address, "dns.example:53");
         assert_eq!(payload, b"world");
+        assert_eq!(
+            client.quic_migration_snapshot(),
+            (Some("validated".to_string()), Some("path_validated_after_stream_open".to_string()),)
+        );
 
         server_task.await.expect("server task");
     }

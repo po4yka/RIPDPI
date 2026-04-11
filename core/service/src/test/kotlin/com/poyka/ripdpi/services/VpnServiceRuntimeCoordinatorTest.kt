@@ -606,6 +606,10 @@ class VpnServiceRuntimeCoordinatorTest {
                         serviceStateStore = store,
                         networkFingerprintProvider = fingerprintProvider,
                         telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
+                        runtimeExperimentSelectionProvider =
+                            object : RuntimeExperimentSelectionProvider {
+                                override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+                            },
                         clock = clock,
                     ),
                 screenStateObserver = TestScreenStateObserver(),

@@ -28,6 +28,7 @@ http-body-util = { workspace = true }
 reqwest = { workspace = true, features = ["json"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
+socket2 = { workspace = true }
 rustls-pemfile = { workspace = true }
 
 [lints]
