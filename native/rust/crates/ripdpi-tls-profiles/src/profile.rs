@@ -4,6 +4,8 @@ use boring::ssl::SslVersion;
 /// to match a specific browser's TLS fingerprint.
 pub struct ProfileConfig {
     pub name: &'static str,
+    pub browser_family: &'static str,
+    pub browser_track: &'static str,
     pub cipher_list_tls12: &'static str,
     /// TLS 1.3 cipher suite configuration string. BoringSSL uses a fixed set of
     /// TLS 1.3 ciphers and does not expose `SSL_CTX_set_ciphersuites`, so this
@@ -17,12 +19,46 @@ pub struct ProfileConfig {
     pub min_version: SslVersion,
     pub max_version: SslVersion,
     pub client_hello_size_hint: usize,
+    pub ja3_parity_target: &'static str,
+    pub ja4_parity_target: &'static str,
 }
 
 pub struct ProfileCatalog {
     pub version: &'static str,
     pub default_profile_set_id: &'static str,
     pub profiles: &'static [&'static str],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProfileInvariantStatus {
+    Satisfied,
+    AvoidsBlocked517ByteClientHello,
+}
+
+impl ProfileInvariantStatus {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Satisfied => "satisfied",
+            Self::AvoidsBlocked517ByteClientHello => "avoids_blocked_517_byte_client_hello",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProfileParityTargets {
+    pub browser_family: &'static str,
+    pub browser_track: &'static str,
+    pub ja3: &'static str,
+    pub ja4: &'static str,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProfileMetadata {
+    pub profile_name: &'static str,
+    pub catalog_version: &'static str,
+    pub client_hello_size_hint: usize,
+    pub invariant_status: ProfileInvariantStatus,
+    pub parity_targets: ProfileParityTargets,
 }
 
 /// All known profile names in selection order.
@@ -42,4 +78,20 @@ pub fn lookup_profile(name: &str) -> &'static ProfileConfig {
 
 pub fn profile_catalog() -> &'static ProfileCatalog {
     &DEFAULT_PROFILE_CATALOG
+}
+
+pub fn profile_metadata(name: &str) -> ProfileMetadata {
+    let profile = lookup_profile(name);
+    ProfileMetadata {
+        profile_name: profile.name,
+        catalog_version: DEFAULT_PROFILE_CATALOG.version,
+        client_hello_size_hint: profile.client_hello_size_hint,
+        invariant_status: ProfileInvariantStatus::AvoidsBlocked517ByteClientHello,
+        parity_targets: ProfileParityTargets {
+            browser_family: profile.browser_family,
+            browser_track: profile.browser_track,
+            ja3: profile.ja3_parity_target,
+            ja4: profile.ja4_parity_target,
+        },
+    }
 }
