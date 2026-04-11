@@ -18,12 +18,7 @@ pub struct RelayPoolHealth {
 
 impl Default for RelayPoolHealth {
     fn default() -> Self {
-        Self {
-            idle_streams: 0,
-            busy_streams: 0,
-            evictions: 0,
-            idle_timeout: Duration::from_secs(30),
-        }
+        Self { idle_streams: 0, busy_streams: 0, evictions: 0, idle_timeout: Duration::from_secs(30) }
     }
 }
 
@@ -35,13 +30,9 @@ pub trait PooledRelayBackend: Send + Sync {
     fn capabilities(&self) -> RelayCapabilities;
     fn health(&self) -> RelayPoolHealth;
 
-    fn open_stream(
-        &self,
-    ) -> impl Future<Output = Result<Self::Stream, Self::Error>> + Send;
+    fn open_stream(&self) -> impl Future<Output = Result<Self::Stream, Self::Error>> + Send;
 
-    fn open_datagram(
-        &self,
-    ) -> impl Future<Output = Result<Self::Datagram, Self::Error>> + Send;
+    fn open_datagram(&self) -> impl Future<Output = Result<Self::Datagram, Self::Error>> + Send;
 }
 
 #[derive(Default)]
