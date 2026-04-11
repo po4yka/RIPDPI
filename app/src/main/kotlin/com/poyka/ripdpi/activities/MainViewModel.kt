@@ -140,6 +140,7 @@ data class HomeDiagnosticsAnalysisSheetUiState(
     val coverageSummary: String? = null,
     val recommendationSummary: String? = null,
     val appliedSettings: List<DiagnosticsAppliedSetting> = emptyList(),
+    val capabilityEvidence: List<DiagnosticsCapabilityEvidenceUiModel> = emptyList(),
     val stageSummaries: List<HomeDiagnosticsStageUiState> = emptyList(),
     val completedStageCount: Int = 0,
     val failedStageCount: Int = 0,

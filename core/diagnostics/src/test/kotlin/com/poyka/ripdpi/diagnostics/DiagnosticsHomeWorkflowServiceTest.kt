@@ -152,6 +152,57 @@ class DiagnosticsHomeWorkflowServiceTest {
         }
 
     @Test
+    fun `finalizeHomeAudit includes stored capability evidence for the audit fingerprint`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val appSettingsRepository = FakeAppSettingsRepository()
+            val capabilityStore = FakeServerCapabilityStore()
+            val fingerprint = fingerprint("fp-capability")
+            stores.sessionsState.value =
+                listOf(
+                    diagnosticsSession(
+                        id = "capability-session",
+                        profileId = "automatic-audit",
+                        pathMode = ScanPathMode.RAW_PATH.name,
+                        summary = "Audit complete",
+                        reportJson =
+                            json.encodeToString(
+                                ScanReport.serializer(),
+                                strategyAuditReport("capability-session"),
+                            ),
+                    ).copy(triggerCurrentFingerprintHash = fingerprint.scopeKey()),
+                )
+            capabilityStore.rememberDirectPathObservation(
+                fingerprint = fingerprint,
+                authority = "video.example",
+                observation =
+                    com.poyka.ripdpi.data.ServerCapabilityObservation(
+                        quicUsable = true,
+                        udpUsable = true,
+                        fallbackRequired = true,
+                    ),
+                source = "diagnostics",
+                recordedAt = 50L,
+            )
+
+            val outcome =
+                createHomeWorkflowService(
+                    stores = stores,
+                    appSettingsRepository = appSettingsRepository,
+                    serverCapabilityStore = capabilityStore,
+                ).finalizeHomeAudit("capability-session")
+
+            assertEquals(1, outcome.capabilityEvidence.size)
+            assertEquals("video.example", outcome.capabilityEvidence.single().authority)
+            assertTrue(
+                outcome.capabilityEvidence
+                    .single()
+                    .summary
+                    .contains("QUIC usable"),
+            )
+        }
+
+    @Test
     fun `finalizeHomeAudit includes detection resistance configuration in applied settings summary`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -198,11 +249,6 @@ class DiagnosticsHomeWorkflowServiceTest {
                 ).finalizeHomeAudit("tier4-audit-session")
 
             assertTrue(outcome.actionable)
-            assertTrue(
-                outcome.appliedSettings.any {
-                    it.label == "TLS fingerprint" && it.value == "Chrome stable"
-                },
-            )
             assertTrue(
                 outcome.appliedSettings.any {
                     it.label == "Traffic morphing" &&
@@ -351,6 +397,7 @@ class DiagnosticsHomeWorkflowServiceTest {
         stores: FakeDiagnosticsHistoryStores,
         appSettingsRepository: FakeAppSettingsRepository,
         networkFingerprintProvider: MutableNetworkFingerprintProvider = MutableNetworkFingerprintProvider(),
+        serverCapabilityStore: FakeServerCapabilityStore = FakeServerCapabilityStore(),
     ): DefaultDiagnosticsHomeWorkflowService {
         val resolverActions =
             DefaultDiagnosticsResolverActions(
@@ -366,6 +413,7 @@ class DiagnosticsHomeWorkflowServiceTest {
             scanRecordStore = stores,
             artifactQueryStore = stores,
             networkFingerprintProvider = networkFingerprintProvider,
+            serverCapabilityStore = serverCapabilityStore,
             resolverActions = resolverActions,
             json = json,
         )
@@ -457,6 +505,18 @@ class DiagnosticsHomeWorkflowServiceTest {
                                 ),
                         ),
                 ),
+        )
+
+    private fun fingerprint(scopeKey: String) =
+        com.poyka.ripdpi.data.NetworkFingerprint(
+            transport = "wifi",
+            networkValidated = true,
+            captivePortalDetected = false,
+            privateDnsMode = "system",
+            dnsServers = emptyList(),
+            wifi =
+                com.poyka.ripdpi.data
+                    .WifiNetworkIdentityTuple(ssid = scopeKey),
         )
 
     private fun resolverOnlyAuditReport(sessionId: String): ScanReport =

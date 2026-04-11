@@ -165,6 +165,7 @@ internal fun createDiagnosticsServices(
                         .toString()
                 },
         ),
+    serverCapabilityStore: FakeServerCapabilityStore = FakeServerCapabilityStore(),
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
     controllerScope: CoroutineScope = scope,
 ): DiagnosticsServicesBundle {
@@ -223,6 +224,7 @@ internal fun createDiagnosticsServices(
                     rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
                     networkEdgePreferenceStore = networkEdgePreferenceStore,
                     networkDnsPathPreferenceStore = networkDnsPathPreferenceStore,
+                    serverCapabilityStore = serverCapabilityStore,
                     findingProjector = DiagnosticsFindingProjector(),
                     json = json,
                 ),
@@ -294,6 +296,7 @@ internal fun createDiagnosticsServices(
                 scanRecordStore = stores,
                 artifactQueryStore = stores,
                 bypassUsageHistoryStore = stores,
+                serverCapabilityStore = serverCapabilityStore,
                 mapper = mapper,
                 json = json,
             ),

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStatus
@@ -500,6 +501,46 @@ class MainHomeDiagnosticsActionsTest {
             )
 
         assertNull(uiState.analysisProgress)
+    }
+
+    @Test
+    fun `buildHomeDiagnosticsUiState exposes capability evidence on the analysis sheet`() {
+        val uiState =
+            buildHomeDiagnosticsUiState(
+                settings = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
+                appStatus = AppStatus.Halted,
+                connectionState = ConnectionState.Disconnected,
+                runtime =
+                    HomeDiagnosticsRuntimeState(
+                        latestCompositeOutcome =
+                            compositeOutcome().copy(
+                                capabilityEvidence =
+                                    listOf(
+                                        DiagnosticsCapabilityEvidence(
+                                            authority = "video.example",
+                                            summary = "QUIC usable · UDP usable",
+                                            details =
+                                                listOf(
+                                                    com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting(
+                                                        "QUIC",
+                                                        "Available",
+                                                    ),
+                                                ),
+                                        ),
+                                    ),
+                            ),
+                        analysisSheetVisible = true,
+                    ),
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(
+            "video.example",
+            uiState.analysisSheet
+                ?.capabilityEvidence
+                ?.single()
+                ?.authority,
+        )
     }
 
     private fun createActions(
