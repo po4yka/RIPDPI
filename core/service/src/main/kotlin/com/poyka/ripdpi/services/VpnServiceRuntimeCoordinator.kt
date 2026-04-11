@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
+import com.poyka.ripdpi.core.ownedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -126,8 +127,9 @@ internal class VpnServiceRuntimeCoordinator(
                 .toString()
                 .replace("-", "")
         currentProxyAuthToken = authToken
+        val relayQuicMigrationConfig = resolution.proxyPreferences.ownedRelayQuicMigrationConfig()
         resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
-            upstreamRelaySupervisor.start(relayConfig, ::handleRelayExit)
+            upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, ::handleRelayExit)
         }
         resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
             warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
@@ -324,8 +326,9 @@ internal class VpnServiceRuntimeCoordinator(
                 .toString()
                 .replace("-", "")
         currentProxyAuthToken = authToken
+        val relayQuicMigrationConfig = resolution.proxyPreferences.ownedRelayQuicMigrationConfig()
         resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
-            upstreamRelaySupervisor.start(relayConfig, ::handleRelayExit)
+            upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, ::handleRelayExit)
         }
         resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
             warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
