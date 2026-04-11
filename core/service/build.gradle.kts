@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.LibraryExtension
+import java.util.Properties
 
 plugins {
     id("ripdpi.android.coverage")
@@ -8,8 +9,50 @@ plugins {
     id("ripdpi.android.serialization")
 }
 
+val localProps =
+    Properties().apply {
+        rootProject
+            .file("local.properties")
+            .takeIf { it.exists() }
+            ?.inputStream()
+            ?.use(::load)
+    }
+
+fun localOrEnv(
+    propKey: String,
+    envKey: String,
+): String? = localProps.getProperty(propKey) ?: providers.environmentVariable(envKey).orNull
+
+val masquePrivacyPassProviderUrl =
+    localOrEnv(
+        "masque.privacyPassProviderUrl",
+        "RIPDPI_MASQUE_PRIVACY_PASS_PROVIDER_URL",
+    )
+val masquePrivacyPassProviderAuthToken =
+    localOrEnv(
+        "masque.privacyPassProviderAuthToken",
+        "RIPDPI_MASQUE_PRIVACY_PASS_PROVIDER_AUTH_TOKEN",
+    )
+
 extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.service"
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    defaultConfig {
+        buildConfigField(
+            "String",
+            "MASQUE_PRIVACY_PASS_PROVIDER_URL",
+            "\"${masquePrivacyPassProviderUrl.orEmpty()}\"",
+        )
+        buildConfigField(
+            "String",
+            "MASQUE_PRIVACY_PASS_PROVIDER_AUTH_TOKEN",
+            "\"${masquePrivacyPassProviderAuthToken.orEmpty()}\"",
+        )
+    }
 }
 
 dependencies {

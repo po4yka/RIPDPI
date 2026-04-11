@@ -45,7 +45,7 @@ internal class UpstreamRelaySupervisor(
     private val naiveProxyRuntimeFactory: NaiveProxyRuntimeFactory,
     private val relayProfileStore: RelayProfileStore,
     private val relayCredentialStore: RelayCredentialStore,
-    private val masquePrivacyPassProvider: MasquePrivacyPassProvider = NoopMasquePrivacyPassProvider(),
+    private val masquePrivacyPassProvider: MasquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
     private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider =
         object : OwnedTlsFingerprintProfileProvider {
             override fun currentProfile(): String = TlsFingerprintProfileChromeStable
@@ -160,6 +160,12 @@ internal class UpstreamRelaySupervisor(
             }
         val credentials = relayCredentialStore.load(profileId)
         val masqueAuthMode = resolveMasqueAuthMode(effectiveConfig, credentials)
+        val privacyPassReadiness =
+            if (effectiveConfig.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
+                masquePrivacyPassProvider.readinessFor(effectiveConfig, credentials)
+            } else {
+                null
+            }
         val privacyPassRuntime =
             if (effectiveConfig.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
                 masquePrivacyPassProvider.resolve(profileId, effectiveConfig, credentials)
@@ -167,7 +173,14 @@ internal class UpstreamRelaySupervisor(
                 null
             }
         validateCredentials(profileId, effectiveConfig.kind, masqueAuthMode, credentials)
-        validateSupportedFeatures(profileId, effectiveConfig, masqueAuthMode, privacyPassRuntime, requestedTlsProfile)
+        validateSupportedFeatures(
+            profileId = profileId,
+            config = effectiveConfig,
+            masqueAuthMode = masqueAuthMode,
+            privacyPassRuntime = privacyPassRuntime,
+            privacyPassReadiness = privacyPassReadiness,
+            tlsFingerprintProfile = requestedTlsProfile,
+        )
         val shadowTlsInner =
             if (effectiveConfig.kind == RelayKindShadowTlsV3) {
                 resolveShadowTlsInnerConfig(
@@ -342,6 +355,7 @@ internal class UpstreamRelaySupervisor(
         config: RipDpiRelayConfig,
         masqueAuthMode: String?,
         privacyPassRuntime: MasquePrivacyPassRuntimeConfig?,
+        privacyPassReadiness: MasquePrivacyPassReadiness?,
         tlsFingerprintProfile: String,
     ) {
         require(
@@ -385,7 +399,7 @@ internal class UpstreamRelaySupervisor(
         }
         if (config.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
             requireNotNull(privacyPassRuntime) {
-                "MASQUE privacy_pass auth requires a configured token provider for profile $profileId"
+                masquePrivacyPassReadinessMessage(profileId, privacyPassReadiness)
             }
         }
         if (config.kind == RelayKindShadowTlsV3 && config.shadowTlsInnerProfileId == profileId) {
@@ -453,6 +467,34 @@ internal class UpstreamRelaySupervisor(
         } else {
             null
         }
+
+    private fun masquePrivacyPassReadinessMessage(
+        profileId: String,
+        readiness: MasquePrivacyPassReadiness?,
+    ): String =
+        when (readiness) {
+            MasquePrivacyPassReadiness.MissingProviderUrl -> {
+                "MASQUE privacy_pass auth requires a configured provider URL for profile $profileId"
+            }
+
+            MasquePrivacyPassReadiness.InvalidProviderUrl -> {
+                "MASQUE privacy_pass auth provider URL is invalid for profile $profileId"
+            }
+
+            MasquePrivacyPassReadiness.UnsupportedRelayKind -> {
+                "MASQUE privacy_pass auth is only available for MASQUE relay profiles"
+            }
+
+            MasquePrivacyPassReadiness.UnsupportedAuthMode -> {
+                "MASQUE privacy_pass auth is not selected for profile $profileId"
+            }
+
+            MasquePrivacyPassReadiness.Ready,
+            null,
+            -> {
+                "MASQUE privacy_pass auth requires a configured provider for profile $profileId"
+            }
+        }
 }
 
 internal open class UpstreamRelaySupervisorFactory
@@ -477,7 +519,7 @@ internal open class UpstreamRelaySupervisorFactory
             },
             relayProfileStore,
             relayCredentialStore,
-            NoopMasquePrivacyPassProvider(),
+            StaticMasquePrivacyPassProvider(),
             object : OwnedTlsFingerprintProfileProvider {
                 override fun currentProfile(): String = TlsFingerprintProfileChromeStable
             },
@@ -498,3 +540,35 @@ internal open class UpstreamRelaySupervisorFactory
                 tlsFingerprintProfileProvider = tlsFingerprintProfileProvider,
             )
     }
+
+internal class StaticMasquePrivacyPassProvider(
+    private val available: Boolean = false,
+    private val providerUrl: String = "",
+    private val providerAuthToken: String? = null,
+) : MasquePrivacyPassProvider {
+    override fun isAvailable(): Boolean = available
+
+    override fun readinessFor(
+        config: RipDpiRelayConfig,
+        credentials: RelayCredentialRecord?,
+    ): MasquePrivacyPassReadiness =
+        if (available) {
+            MasquePrivacyPassReadiness.Ready
+        } else {
+            MasquePrivacyPassReadiness.MissingProviderUrl
+        }
+
+    override suspend fun resolve(
+        profileId: String,
+        config: RipDpiRelayConfig,
+        credentials: RelayCredentialRecord?,
+    ): MasquePrivacyPassRuntimeConfig? =
+        if (available) {
+            MasquePrivacyPassRuntimeConfig(
+                providerUrl = providerUrl,
+                providerAuthToken = providerAuthToken,
+            )
+        } else {
+            null
+        }
+}

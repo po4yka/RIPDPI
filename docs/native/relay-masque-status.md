@@ -51,7 +51,16 @@ It also documents what is still intentionally missing in the current build.
 - `core/service/src/main/kotlin/com/poyka/ripdpi/services/UpstreamRelaySupervisor.kt`
   - Passes Salamander and UDP settings to native runtime
   - Resolves `privacy_pass` runtime inputs through `MasquePrivacyPassProvider`
-  - Fails fast if `privacy_pass` is selected but no runtime provider is available
+  - Validates build/provider readiness before native launch
+  - Fails fast if `privacy_pass` is selected but no valid runtime provider is available
+- `core/service/build.gradle.kts`
+  - Injects deployer-supplied provider settings into `BuildConfig`
+  - Reads `masque.privacyPassProviderUrl` / `masque.privacyPassProviderAuthToken` from `local.properties`
+  - Reads `RIPDPI_MASQUE_PRIVACY_PASS_PROVIDER_URL` / `RIPDPI_MASQUE_PRIVACY_PASS_PROVIDER_AUTH_TOKEN` from env
+- `core/service/src/main/kotlin/com/poyka/ripdpi/services/MasquePrivacyPassProvider.kt`
+  - Binds a real `BuildConfigMasquePrivacyPassProvider`
+  - Validates MASQUE auth mode and provider URL format
+  - Exposes build availability to the app through `MasquePrivacyPassAvailability`
 - `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt`
   - Carries provider URL/auth token into the JNI/native contract
 
@@ -68,41 +77,19 @@ It also documents what is still intentionally missing in the current build.
 
 ## Current Build Behavior
 
-The default application build does **not** ship a real `privacy_pass` provider.
+`privacy_pass` is now build-configurable.
 
-- `core/service/src/main/kotlin/com/poyka/ripdpi/services/MasquePrivacyPassProvider.kt`
-  - `NoopMasquePrivacyPassProvider` is the bound implementation
-  - `MasquePrivacyPassAvailability.isAvailable()` returns `false`
-  - `resolve(...)` returns `null`
+- When `MASQUE_PRIVACY_PASS_PROVIDER_URL` is populated through Gradle config, the app exposes `Privacy Pass` as a selectable MASQUE auth mode and the supervisor forwards provider settings to the native runtime.
+- When the provider URL is missing or invalid, the app still hides the option and the supervisor rejects stale stored `privacy_pass` profiles before native launch.
+- The optional provider auth token is forwarded when configured but is not required for rollout.
 
-Because of that:
-
-- The config editor does not offer `Privacy Pass` as a selectable MASQUE auth mode
-- Validation rejects hand-crafted `privacy_pass` drafts in app code
-- The relay supervisor still fails fast if a stale stored profile somehow requests `privacy_pass`
-
-This is intentional. The goal in the current build is to keep the app usable without pretending that `privacy_pass` is fully configured.
+This keeps release safety intact while allowing deployer-provided builds to ship a working `privacy_pass` path.
 
 ## What Is Still Missing
 
-### 1. Real deployer-supplied `privacy_pass` provider
+### 1. Provider-aware app UX
 
-The missing piece is a real implementation of:
-
-- `core/service/src/main/kotlin/com/poyka/ripdpi/services/MasquePrivacyPassProvider.kt`
-
-That provider must:
-
-- return `isAvailable() == true`
-- produce a `MasquePrivacyPassRuntimeConfig`
-- supply the provider URL expected by the native MASQUE client
-- optionally supply provider auth material if the deployer requires it
-
-The native MASQUE client already expects the provider to return ready-to-use auth headers or header batches through the external provider endpoint.
-
-### 2. Provider-aware app UX
-
-The current app only knows whether `privacy_pass` is available in the build.
+The current app only knows whether `privacy_pass` is available in the build and whether the provider URL is structurally valid.
 
 Future product work may still want:
 
@@ -111,9 +98,9 @@ Future product work may still want:
 - error details for provider failures
 - any deployer-specific onboarding or sign-in flow
 
-Those are not required for the current safe fallback behavior, but they are likely required for a production `privacy_pass` rollout.
+Those are not required for the current rollout, but they may still be needed for a broader production deployment.
 
-### 3. Legacy Cloudflare cleanup
+### 2. Legacy Cloudflare cleanup
 
 Legacy migration fields are still present in the runtime/config contract:
 
@@ -131,7 +118,7 @@ Once a real deployer-backed `privacy_pass` path is stable, these legacy fields s
 - runtime config contracts
 - obsolete tests
 
-### 4. Official Cloudflare `cf-connect-ip` ECDSA mode
+### 3. Official Cloudflare `cf-connect-ip` ECDSA mode
 
 `native/rust/crates/ripdpi-masque/src/cloudflare.rs` still intentionally fails fast for Cloudflare-specific ECDSA-authenticated MASQUE mode.
 
@@ -139,7 +126,7 @@ That path is distinct from the deployer-supplied `privacy_pass` provider flow ad
 
 If the project later chooses to support official Cloudflare `cf-connect-ip` directly, that remains separate implementation work.
 
-### 5. Live interoperability coverage
+### 4. Live interoperability coverage
 
 Current verification covers unit tests and targeted Kotlin tests. It does **not** yet include:
 
@@ -147,12 +134,11 @@ Current verification covers unit tests and targeted Kotlin tests. It does **not*
 - live MASQUE TCP/UDP interoperability against a real proxy
 - deployer-backed `privacy_pass` provider integration tests
 
-Those should be added before enabling `privacy_pass` in release builds.
+Those should be added before enabling `privacy_pass` broadly in release builds.
 
 ## Suggested Future Implementation Order
 
-1. Implement a real `MasquePrivacyPassProvider` in `core/service`.
-2. Add provider-backed integration tests on the Kotlin side.
-3. Add live or stubbed end-to-end MASQUE `privacy_pass` tests on the native side.
-4. Expose provider readiness in the app UI only after the provider is real.
-5. Remove legacy Cloudflare migration fields after rollout is stable.
+1. Add provider-backed integration tests on the Kotlin side.
+2. Add live or stubbed end-to-end MASQUE `privacy_pass` tests on the native side.
+3. Expose richer provider readiness in the app UI if product needs it.
+4. Remove legacy Cloudflare migration fields after rollout is stable.
