@@ -259,6 +259,8 @@ class UpstreamRelaySupervisorTest {
                 object : MasquePrivacyPassProvider {
                     override fun isAvailable(): Boolean = true
 
+                    override fun buildStatus(): MasquePrivacyPassBuildStatus = MasquePrivacyPassBuildStatus.Available
+
                     override fun readinessFor(
                         config: RipDpiRelayConfig,
                         credentials: RelayCredentialRecord?,
@@ -287,7 +289,6 @@ class UpstreamRelaySupervisorTest {
                                     id = "edge",
                                     kind = RelayKindMasque,
                                     masqueUrl = "https://masque.example/",
-                                    masqueCloudflareMode = true,
                                 ),
                             )
                         },
@@ -339,7 +340,6 @@ class UpstreamRelaySupervisorTest {
                                     id = "edge",
                                     kind = RelayKindMasque,
                                     masqueUrl = "https://masque.example/",
-                                    masqueCloudflareMode = true,
                                 ),
                             )
                         },

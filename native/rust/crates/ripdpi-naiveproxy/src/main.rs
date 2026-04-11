@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr};
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::sync::Once;
 
@@ -418,6 +418,7 @@ fn parse_status_code(header_block: &[u8]) -> io::Result<u16> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::Ipv4Addr;
 
     use rcgen::{CertificateParams, DistinguishedName, DnType, IsCa, KeyPair};
     use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};

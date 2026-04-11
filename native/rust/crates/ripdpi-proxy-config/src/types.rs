@@ -630,8 +630,6 @@ pub struct ProxyUiRelayConfig {
     pub masque_url: String,
     #[serde(default = "default_true")]
     pub masque_use_http2_fallback: bool,
-    #[serde(default)]
-    pub masque_cloudflare_mode: bool,
     #[serde(default = "default_relay_local_socks_host")]
     pub local_socks_host: String,
     #[serde(default = "default_relay_local_socks_port")]
@@ -666,7 +664,6 @@ impl Default for ProxyUiRelayConfig {
             chain_exit_short_id: String::new(),
             masque_url: String::new(),
             masque_use_http2_fallback: true,
-            masque_cloudflare_mode: false,
             local_socks_host: default_relay_local_socks_host(),
             local_socks_port: default_relay_local_socks_port(),
             udp_enabled: false,

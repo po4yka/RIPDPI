@@ -30,6 +30,7 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -262,7 +263,26 @@ internal fun RelayKindFields(
             }
             if (!uiState.supportsMasquePrivacyPass) {
                 Text(
-                    text = stringResource(R.string.config_relay_masque_privacy_pass_unavailable),
+                    text =
+                        when (uiState.masquePrivacyPassBuildStatus) {
+                            MasquePrivacyPassBuildStatus.Available -> {
+                                stringResource(R.string.config_relay_masque_privacy_pass_available)
+                            }
+
+                            MasquePrivacyPassBuildStatus.MissingProviderUrl -> {
+                                stringResource(R.string.config_relay_masque_privacy_pass_missing_provider)
+                            }
+
+                            MasquePrivacyPassBuildStatus.InvalidProviderUrl -> {
+                                stringResource(R.string.config_relay_masque_privacy_pass_invalid_provider)
+                            }
+                        },
+                    style = RipDpiThemeTokens.type.caption,
+                    color = colors.mutedForeground,
+                )
+            } else {
+                Text(
+                    text = stringResource(R.string.config_relay_masque_privacy_pass_available),
                     style = RipDpiThemeTokens.type.caption,
                     color = colors.mutedForeground,
                 )

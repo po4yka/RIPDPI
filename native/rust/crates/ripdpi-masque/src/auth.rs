@@ -42,7 +42,7 @@ pub struct PrivacyPassProviderRequest {
     pub challenge_header: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrivacyPassProviderResponse {
     pub authorization_headers: Option<Vec<String>>,
@@ -138,12 +138,8 @@ mod tests {
         let header = build_static_auth_header(&MasqueConfig {
             url: "https://masque.example/".to_string(),
             use_http2_fallback: true,
-            cloudflare_mode: false,
             auth_mode: Some("preshared".to_string()),
             auth_token: Some("secret".to_string()),
-            cf_client_id: None,
-            cf_key_id: None,
-            cf_private_key_pem: None,
             privacy_pass_provider_url: None,
             privacy_pass_provider_auth_token: None,
             tls_fingerprint_profile: "native_default".to_string(),
@@ -159,12 +155,8 @@ mod tests {
         let header = build_static_auth_header(&MasqueConfig {
             url: "https://masque.example/".to_string(),
             use_http2_fallback: false,
-            cloudflare_mode: false,
             auth_mode: Some("privacy_pass".to_string()),
             auth_token: None,
-            cf_client_id: None,
-            cf_key_id: None,
-            cf_private_key_pem: None,
             privacy_pass_provider_url: Some("https://provider.example/token".to_string()),
             privacy_pass_provider_auth_token: None,
             tls_fingerprint_profile: "native_default".to_string(),

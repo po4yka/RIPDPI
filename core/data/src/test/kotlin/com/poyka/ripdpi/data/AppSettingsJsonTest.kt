@@ -155,7 +155,6 @@ class AppSettingsJsonTest {
                 .setRelayChainExitShortId("exit01")
                 .setRelayMasqueUrl("https://masque.example.test/.well-known/masque/ip")
                 .setRelayMasqueUseHttp2Fallback(true)
-                .setRelayMasqueCloudflareMode(true)
                 .setRelayLocalSocksHost("127.0.0.5")
                 .setRelayLocalSocksPort(2090)
                 .setRelayUdpEnabled(true)
