@@ -32,8 +32,12 @@ members = [
     "crates/ripdpi-bench",
     "crates/ripdpi-io-uring",
     "crates/ripdpi-root-helper",
+    "crates/ripdpi-relay-mux",
     "crates/ripdpi-vless",
+    "crates/ripdpi-shadowtls",
     "crates/ripdpi-masque",
+    "crates/ripdpi-tuic",
+    "crates/ripdpi-naiveproxy",
     "crates/ripdpi-tls-profiles",
     "crates/ripdpi-xhttp",
 ]
@@ -57,6 +61,7 @@ ripdpi-runtime = { path = "crates/ripdpi-runtime" }
 ripdpi-telemetry = { path = "crates/ripdpi-telemetry" }
 ripdpi-native-protect = { path = "crates/ripdpi-native-protect" }
 ripdpi-relay-core = { path = "crates/ripdpi-relay-core" }
+ripdpi-relay-mux = { path = "crates/ripdpi-relay-mux" }
 ripdpi-warp-core = { path = "crates/ripdpi-warp-core" }
 ripdpi-packets = { path = "crates/ripdpi-packets" }
 ripdpi-ipfrag = { path = "crates/ripdpi-ipfrag" }
@@ -67,9 +72,12 @@ ripdpi-desync = { path = "crates/ripdpi-desync" }
 ripdpi-cli = { path = "crates/ripdpi-cli" }
 ripdpi-io-uring = { path = "crates/ripdpi-io-uring" }
 ripdpi-vless = { path = "crates/ripdpi-vless" }
+ripdpi-shadowtls = { path = "crates/ripdpi-shadowtls" }
 ripdpi-masque = { path = "crates/ripdpi-masque" }
+ripdpi-tuic = { path = "crates/ripdpi-tuic" }
 ripdpi-tls-profiles = { path = "crates/ripdpi-tls-profiles" }
 ripdpi-xhttp = { path = "crates/ripdpi-xhttp" }
+ripdpi-naiveproxy = { path = "crates/ripdpi-naiveproxy" }
 criterion = { version = "0.8", features = ["html_reports"] }
 
 ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }

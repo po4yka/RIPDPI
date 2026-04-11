@@ -18,7 +18,12 @@ import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
+import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindOff
+import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
@@ -60,6 +65,7 @@ import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeQuicFakeProfile
 import com.poyka.ripdpi.data.normalizeQuicInitialMode
+import com.poyka.ripdpi.data.normalizeRelayCongestionControl
 import com.poyka.ripdpi.data.normalizeRelayKind
 import com.poyka.ripdpi.data.normalizeRelayVlessTransport
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
@@ -323,14 +329,20 @@ class RipDpiProxyUIPreferences(
                 chainEntryServerName = relay.profile.chainEntryServerName,
                 chainEntryPublicKey = relay.profile.chainEntryPublicKey,
                 chainEntryShortId = relay.profile.chainEntryShortId,
+                chainEntryProfileId = relay.profile.chainEntryProfileId,
                 chainExitServer = relay.profile.chainExitServer,
                 chainExitPort = relay.profile.chainExitPort,
                 chainExitServerName = relay.profile.chainExitServerName,
                 chainExitPublicKey = relay.profile.chainExitPublicKey,
                 chainExitShortId = relay.profile.chainExitShortId,
+                chainExitProfileId = relay.profile.chainExitProfileId,
                 masqueUrl = relay.profile.masqueUrl,
                 masqueUseHttp2Fallback = relay.profile.masqueUseHttp2Fallback,
                 masqueCloudflareMode = relay.profile.masqueCloudflareMode,
+                tuicZeroRtt = relay.profile.tuicZeroRtt,
+                tuicCongestionControl = relay.profile.tuicCongestionControl,
+                shadowTlsInnerProfileId = relay.profile.shadowTlsInnerProfileId,
+                naivePath = relay.profile.naivePath,
                 localSocksHost = relay.profile.localSocksHost,
                 localSocksPort = relay.profile.localSocksPort,
                 udpEnabled = relay.profile.udpEnabled,
@@ -678,15 +690,25 @@ private fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig {
         chainEntryServerName = config.chainEntryServerName.trim(),
         chainEntryPublicKey = config.chainEntryPublicKey.trim(),
         chainEntryShortId = config.chainEntryShortId.trim(),
+        chainEntryProfileId = config.chainEntryProfileId.trim(),
         chainExitServer = config.chainExitServer.trim(),
         chainExitPort = config.chainExitPort.takeIf { it in 1..MaxValidPortNumber } ?: 443,
         chainExitServerName = config.chainExitServerName.trim(),
         chainExitPublicKey = config.chainExitPublicKey.trim(),
         chainExitShortId = config.chainExitShortId.trim(),
+        chainExitProfileId = config.chainExitProfileId.trim(),
         masqueUrl = config.masqueUrl.trim(),
+        tuicCongestionControl = normalizeRelayCongestionControl(config.tuicCongestionControl),
+        shadowTlsInnerProfileId = config.shadowTlsInnerProfileId.trim(),
+        naivePath = config.naivePath.trim(),
         localSocksHost = config.localSocksHost.ifBlank { DefaultRelayLocalSocksHost },
         localSocksPort = config.localSocksPort.takeIf { it in 1..MaxValidPortNumber } ?: DefaultRelayLocalSocksPort,
-        udpEnabled = if (normalizedKind == RelayKindCloudflareTunnel) false else config.udpEnabled,
+        udpEnabled =
+            when (normalizedKind) {
+                RelayKindHysteria2, RelayKindMasque, RelayKindTuicV5 -> config.udpEnabled
+                else -> false
+            },
+        tcpFallbackEnabled = normalizedKind != RelayKindShadowTlsV3 && config.tcpFallbackEnabled,
     )
 }
 

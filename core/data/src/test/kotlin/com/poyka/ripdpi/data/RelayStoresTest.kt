@@ -26,6 +26,25 @@ class RelayStoresTest {
     }
 
     @Test
+    fun `relay credential record preserves tuic shadowtls and naive credentials`() {
+        val json = Json { ignoreUnknownKeys = true }
+        val record =
+            RelayCredentialRecord(
+                profileId = "multi",
+                tuicUuid = "00000000-0000-0000-0000-000000000000",
+                tuicPassword = "tuic-fixture",
+                shadowTlsPassword = "shadow-fixture",
+                naiveUsername = "naive-user",
+                naivePassword = "naive-fixture",
+            )
+
+        val encoded = json.encodeToString(RelayCredentialRecord.serializer(), record)
+        val decoded = json.decodeFromString(RelayCredentialRecord.serializer(), encoded)
+
+        assertEquals(record, decoded)
+    }
+
+    @Test
     fun `relay profile record preserves xHTTP and Cloudflare tunnel fields`() {
         val json = Json { ignoreUnknownKeys = true }
         val record =
@@ -40,6 +59,27 @@ class RelayStoresTest {
                 xhttpPath = "/xhttp",
                 xhttpHost = "origin.example.com",
                 udpEnabled = false,
+            )
+
+        val encoded = json.encodeToString(RelayProfileRecord.serializer(), record)
+        val decoded = json.decodeFromString(RelayProfileRecord.serializer(), encoded)
+
+        assertEquals(record, decoded)
+    }
+
+    @Test
+    fun `relay profile record preserves chain profile refs and p2 relay fields`() {
+        val json = Json { ignoreUnknownKeys = true }
+        val record =
+            RelayProfileRecord(
+                id = "p2",
+                kind = RelayKindTuicV5,
+                chainEntryProfileId = "entry",
+                chainExitProfileId = "exit",
+                tuicZeroRtt = true,
+                tuicCongestionControl = RelayCongestionControlCubic,
+                shadowTlsInnerProfileId = "inner",
+                naivePath = "/proxy",
             )
 
         val encoded = json.encodeToString(RelayProfileRecord.serializer(), record)

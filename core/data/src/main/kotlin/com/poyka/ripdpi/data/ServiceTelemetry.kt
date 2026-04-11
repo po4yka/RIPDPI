@@ -178,6 +178,10 @@ private fun classifyFailureReasonDirectly(failureReason: FailureReason?): Failur
             FailureClass.FingerprintPolicy
         }
 
+        is FailureReason.RelayConfigRejected -> {
+            classifyFailureText(failureReason.message) ?: FailureClass.NativeIo
+        }
+
         is FailureReason.NativeError -> {
             classifyFailureText(failureReason.message) ?: FailureClass.NativeIo
         }

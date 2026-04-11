@@ -195,14 +195,20 @@ internal data class AppSettingsSnapshot(
     val relayChainEntryServerName: String = defaultSettings.relayChainEntryServerName,
     val relayChainEntryPublicKey: String = defaultSettings.relayChainEntryPublicKey,
     val relayChainEntryShortId: String = defaultSettings.relayChainEntryShortId,
+    val relayChainEntryProfileId: String = defaultSettings.relayChainEntryProfileId,
     val relayChainExitServer: String = defaultSettings.relayChainExitServer,
     val relayChainExitPort: Int = defaultSettings.relayChainExitPort,
     val relayChainExitServerName: String = defaultSettings.relayChainExitServerName,
     val relayChainExitPublicKey: String = defaultSettings.relayChainExitPublicKey,
     val relayChainExitShortId: String = defaultSettings.relayChainExitShortId,
+    val relayChainExitProfileId: String = defaultSettings.relayChainExitProfileId,
     val relayMasqueUrl: String = defaultSettings.relayMasqueUrl,
     val relayMasqueUseHttp2Fallback: Boolean = defaultSettings.relayMasqueUseHttp2Fallback,
     val relayMasqueCloudflareMode: Boolean = defaultSettings.relayMasqueCloudflareMode,
+    val relayTuicZeroRtt: Boolean = defaultSettings.relayTuicZeroRtt,
+    val relayTuicCongestionControl: String = defaultSettings.relayTuicCongestionControl,
+    val relayShadowTlsInnerProfileId: String = defaultSettings.relayShadowtlsInnerProfileId,
+    val relayNaivePath: String = defaultSettings.relayNaivePath,
     val relayLocalSocksHost: String = defaultSettings.relayLocalSocksHost,
     val relayLocalSocksPort: Int = defaultSettings.relayLocalSocksPort,
     val relayUdpEnabled: Boolean = defaultSettings.relayUdpEnabled,
@@ -410,14 +416,20 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             relayChainEntryServerName = relayChainEntryServerName,
             relayChainEntryPublicKey = relayChainEntryPublicKey,
             relayChainEntryShortId = relayChainEntryShortId,
+            relayChainEntryProfileId = relayChainEntryProfileId,
             relayChainExitServer = relayChainExitServer,
             relayChainExitPort = relayChainExitPort.takeIf { it > 0 } ?: 443,
             relayChainExitServerName = relayChainExitServerName,
             relayChainExitPublicKey = relayChainExitPublicKey,
             relayChainExitShortId = relayChainExitShortId,
+            relayChainExitProfileId = relayChainExitProfileId,
             relayMasqueUrl = relayMasqueUrl,
             relayMasqueUseHttp2Fallback = relayMasqueUseHttp2Fallback,
             relayMasqueCloudflareMode = relayMasqueCloudflareMode,
+            relayTuicZeroRtt = relayTuicZeroRtt,
+            relayTuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
+            relayShadowTlsInnerProfileId = relayShadowtlsInnerProfileId,
+            relayNaivePath = relayNaivePath,
             relayLocalSocksHost = relayLocalSocksHost.ifBlank { DefaultRelayLocalSocksHost },
             relayLocalSocksPort = relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort,
             relayUdpEnabled = relayUdpEnabled,
@@ -629,14 +641,20 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setRelayChainEntryServerName(relayChainEntryServerName)
         .setRelayChainEntryPublicKey(relayChainEntryPublicKey)
         .setRelayChainEntryShortId(relayChainEntryShortId)
+        .setRelayChainEntryProfileId(relayChainEntryProfileId)
         .setRelayChainExitServer(relayChainExitServer)
         .setRelayChainExitPort(relayChainExitPort.takeIf { it > 0 } ?: DefaultHttpsPort)
         .setRelayChainExitServerName(relayChainExitServerName)
         .setRelayChainExitPublicKey(relayChainExitPublicKey)
         .setRelayChainExitShortId(relayChainExitShortId)
+        .setRelayChainExitProfileId(relayChainExitProfileId)
         .setRelayMasqueUrl(relayMasqueUrl)
         .setRelayMasqueUseHttp2Fallback(relayMasqueUseHttp2Fallback)
         .setRelayMasqueCloudflareMode(relayMasqueCloudflareMode)
+        .setRelayTuicZeroRtt(relayTuicZeroRtt)
+        .setRelayTuicCongestionControl(normalizeRelayCongestionControl(relayTuicCongestionControl))
+        .setRelayShadowtlsInnerProfileId(relayShadowTlsInnerProfileId)
+        .setRelayNaivePath(relayNaivePath)
         .setRelayLocalSocksHost(relayLocalSocksHost.ifBlank { DefaultRelayLocalSocksHost })
         .setRelayLocalSocksPort(relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort)
         .setRelayUdpEnabled(relayUdpEnabled)

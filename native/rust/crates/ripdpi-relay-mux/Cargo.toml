@@ -1,0 +1,11 @@
+[package]
+name = "ripdpi-relay-mux"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tokio = { workspace = true, features = ["sync", "time"] }
+
+[lints]
+workspace = true

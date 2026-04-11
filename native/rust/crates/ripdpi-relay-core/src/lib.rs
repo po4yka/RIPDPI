@@ -36,14 +36,20 @@ pub struct ResolvedRelayRuntimeConfig {
     pub chain_entry_server_name: String,
     pub chain_entry_public_key: String,
     pub chain_entry_short_id: String,
+    pub chain_entry_profile_id: String,
     pub chain_exit_server: String,
     pub chain_exit_port: i32,
     pub chain_exit_server_name: String,
     pub chain_exit_public_key: String,
     pub chain_exit_short_id: String,
+    pub chain_exit_profile_id: String,
     pub masque_url: String,
     pub masque_use_http2_fallback: bool,
     pub masque_cloudflare_mode: bool,
+    pub tuic_zero_rtt: bool,
+    pub tuic_congestion_control: String,
+    pub shadow_tls_inner_profile_id: String,
+    pub naive_path: String,
     pub local_socks_host: String,
     pub local_socks_port: i32,
     pub udp_enabled: bool,
@@ -53,6 +59,11 @@ pub struct ResolvedRelayRuntimeConfig {
     pub chain_exit_uuid: Option<String>,
     pub hysteria_password: Option<String>,
     pub hysteria_salamander_key: Option<String>,
+    pub tuic_uuid: Option<String>,
+    pub tuic_password: Option<String>,
+    pub shadow_tls_password: Option<String>,
+    pub naive_username: Option<String>,
+    pub naive_password: Option<String>,
     pub tls_fingerprint_profile: String,
     pub masque_auth_mode: Option<String>,
     pub masque_auth_token: Option<String>,
@@ -93,6 +104,7 @@ type BoxedIo = Box<dyn AsyncIo>;
 enum RelayUdpSession {
     Hysteria2(ripdpi_hysteria2::UdpSession),
     Masque(ripdpi_masque::MasqueUdpRelay),
+    Unsupported { kind: &'static str },
 }
 
 impl RelayUdpSession {
@@ -102,6 +114,10 @@ impl RelayUdpSession {
                 session.send_to(&target.to_connect_target(), payload).await.map_err(to_io_error)
             }
             Self::Masque(session) => session.send_to(&target.to_connect_target(), payload).await,
+            Self::Unsupported { kind } => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                format!("{kind} UDP relay scaffold is not fully implemented yet"),
+            )),
         }
     }
 
@@ -115,31 +131,39 @@ impl RelayUdpSession {
                 let (address, payload) = session.recv_from().await?;
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
+            Self::Unsupported { kind } => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                format!("{kind} UDP relay scaffold is not fully implemented yet"),
+            )),
         }
     }
 }
 
 enum RelayBackend {
     Hysteria2(Hysteria2Backend),
+    Tuic(TuicBackend),
     VlessReality(VlessRealityBackend),
     Xhttp(XhttpBackend),
     ChainRelay(ChainRelayBackend),
     Masque(MasqueBackend),
+    ShadowTls(ShadowTlsBackend),
     Unsupported { kind: String },
 }
 
 impl RelayBackend {
     fn udp_capable(&self) -> bool {
-        matches!(self, Self::Hysteria2(_) | Self::Masque(_))
+        matches!(self, Self::Hysteria2(_) | Self::Masque(_) | Self::Tuic(_))
     }
 
     async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
         match self {
             Self::Hysteria2(backend) => backend.connect_tcp(target).await,
+            Self::Tuic(backend) => backend.connect_tcp(target).await,
             Self::VlessReality(backend) => backend.connect_tcp(target).await,
             Self::Xhttp(backend) => backend.connect_tcp(target).await,
             Self::ChainRelay(backend) => backend.connect_tcp(target).await,
             Self::Masque(backend) => backend.connect_tcp(target).await,
+            Self::ShadowTls(backend) => backend.connect_tcp(target).await,
             Self::Unsupported { kind, .. } => {
                 Err(io::Error::new(io::ErrorKind::Unsupported, format!("relay backend {kind} is not implemented")))
             }
@@ -149,8 +173,9 @@ impl RelayBackend {
     async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
         match self {
             Self::Hysteria2(backend) => backend.open_udp_session().await,
+            Self::Tuic(backend) => backend.open_udp_session().await,
             Self::Masque(backend) => backend.open_udp_session().await,
-            Self::VlessReality(_) | Self::Xhttp(_) | Self::ChainRelay(_) => {
+            Self::VlessReality(_) | Self::Xhttp(_) | Self::ChainRelay(_) | Self::ShadowTls(_) => {
                 Err(io::Error::new(io::ErrorKind::Unsupported, "relay backend does not support UDP ASSOCIATE"))
             }
             Self::Unsupported { kind, .. } => {
@@ -164,6 +189,10 @@ struct Hysteria2Backend {
     client: ripdpi_hysteria2::HysteriaClient,
 }
 
+struct TuicBackend {
+    client: ripdpi_tuic::TuicClient,
+}
+
 impl Hysteria2Backend {
     async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
         let stream = self.client.tcp_connect(&target.to_connect_target()).await.map_err(to_io_error)?;
@@ -172,6 +201,17 @@ impl Hysteria2Backend {
 
     async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
         self.client.udp_session().await.map(RelayUdpSession::Hysteria2).map_err(to_io_error)
+    }
+}
+
+impl TuicBackend {
+    async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
+        let stream = self.client.tcp_connect(&target.to_connect_target()).await?;
+        Ok(Box::new(stream))
+    }
+
+    async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
+        Ok(RelayUdpSession::Unsupported { kind: "tuic_v5" })
     }
 }
 
@@ -266,6 +306,10 @@ struct MasqueBackend {
     client: ripdpi_masque::MasqueClient,
 }
 
+struct ShadowTlsBackend {
+    client: ripdpi_shadowtls::ShadowTlsClient,
+}
+
 impl MasqueBackend {
     async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
         let stream = self.client.connect_tcp(&target.to_connect_target()).await?;
@@ -274,6 +318,18 @@ impl MasqueBackend {
 
     async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
         Ok(RelayUdpSession::Masque(self.client.udp_session()))
+    }
+}
+
+impl ShadowTlsBackend {
+    async fn connect_tcp(&self, _target: &RelayTargetAddr) -> io::Result<BoxedIo> {
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            format!(
+                "ShadowTLS backend scaffold for inner profile {} is not fully implemented yet",
+                self.client.config().inner_profile_id
+            ),
+        ))
     }
 }
 
@@ -510,6 +566,20 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
             let client = ripdpi_hysteria2::connect(&client_config).await.map_err(to_io_error)?;
             Ok(RelayBackend::Hysteria2(Hysteria2Backend { client }))
         }
+        "tuic_v5" => {
+            let client = ripdpi_tuic::TuicClient::connect(ripdpi_tuic::Config {
+                server: config.server.clone(),
+                server_port: config.server_port,
+                server_name: config.server_name.clone(),
+                uuid: config.tuic_uuid.clone().unwrap_or_default(),
+                password: config.tuic_password.clone().unwrap_or_default(),
+                zero_rtt: config.tuic_zero_rtt,
+                congestion_control: config.tuic_congestion_control.clone(),
+                udp_enabled: config.udp_enabled,
+            })
+            .await?;
+            Ok(RelayBackend::Tuic(TuicBackend { client }))
+        }
         "vless_reality" if config.vless_transport == "xhttp" => {
             let vless = ripdpi_vless::config::VlessRealityConfig::from_strings(
                 &config.server,
@@ -570,6 +640,13 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                 tls_fingerprint_profile: config.tls_fingerprint_profile.clone(),
             })?,
         })),
+        "shadowtls_v3" => Ok(RelayBackend::ShadowTls(ShadowTlsBackend {
+            client: ripdpi_shadowtls::ShadowTlsClient::new(ripdpi_shadowtls::Config {
+                password: config.shadow_tls_password.clone().unwrap_or_default(),
+                server_name: config.server_name.clone(),
+                inner_profile_id: config.shadow_tls_inner_profile_id.clone(),
+            }),
+        })),
         other => Ok(RelayBackend::Unsupported { kind: other.to_string() }),
     }
 }
@@ -578,7 +655,8 @@ fn backend_capabilities(config: &ResolvedRelayRuntimeConfig) -> (bool, bool, Opt
     match config.kind.as_str() {
         "hysteria2" => (true, true, None),
         "masque" => (true, true, None),
-        "vless_reality" | "cloudflare_tunnel" | "chain_relay" => (true, false, None),
+        "tuic_v5" => (true, true, None),
+        "shadowtls_v3" | "naiveproxy" | "vless_reality" | "cloudflare_tunnel" | "chain_relay" => (true, false, None),
         other => (false, false, Some(format!("unsupported:{other}"))),
     }
 }
@@ -667,14 +745,20 @@ mod tests {
             chain_entry_server_name: String::new(),
             chain_entry_public_key: String::new(),
             chain_entry_short_id: String::new(),
+            chain_entry_profile_id: String::new(),
             chain_exit_server: String::new(),
             chain_exit_port: 443,
             chain_exit_server_name: String::new(),
             chain_exit_public_key: String::new(),
             chain_exit_short_id: String::new(),
+            chain_exit_profile_id: String::new(),
             masque_url: "https://masque.example/".to_string(),
             masque_use_http2_fallback: true,
             masque_cloudflare_mode: false,
+            tuic_zero_rtt: false,
+            tuic_congestion_control: "bbr".to_string(),
+            shadow_tls_inner_profile_id: String::new(),
+            naive_path: String::new(),
             local_socks_host: "127.0.0.1".to_string(),
             local_socks_port: 10_80,
             udp_enabled: false,
@@ -684,6 +768,11 @@ mod tests {
             chain_exit_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
             hysteria_password: Some("secret".to_string()),
             hysteria_salamander_key: None,
+            tuic_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+            tuic_password: Some("secret".to_string()),
+            shadow_tls_password: Some("secret".to_string()),
+            naive_username: Some("user".to_string()),
+            naive_password: Some("secret".to_string()),
             tls_fingerprint_profile: "chrome_stable".to_string(),
             masque_auth_mode: Some("token".to_string()),
             masque_auth_token: Some("token".to_string()),

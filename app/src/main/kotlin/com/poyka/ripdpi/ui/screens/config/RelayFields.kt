@@ -17,10 +17,15 @@ import com.poyka.ripdpi.activities.ConfigFieldRelayChainExitPort
 import com.poyka.ripdpi.activities.ConfigFieldRelayServer
 import com.poyka.ripdpi.activities.ConfigFieldRelayServerPort
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.data.RelayCongestionControlBbr
+import com.poyka.ripdpi.data.RelayCongestionControlCubic
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
@@ -56,23 +61,36 @@ internal fun RelayKindFields(
     onRelayChainEntryPublicKeyChanged: (String) -> Unit,
     onRelayChainEntryShortIdChanged: (String) -> Unit,
     onRelayChainEntryUuidChanged: (String) -> Unit,
+    onRelayChainEntryProfileIdChanged: (String) -> Unit,
     onRelayChainExitServerChanged: (String) -> Unit,
     onRelayChainExitPortChanged: (String) -> Unit,
     onRelayChainExitServerNameChanged: (String) -> Unit,
     onRelayChainExitPublicKeyChanged: (String) -> Unit,
     onRelayChainExitShortIdChanged: (String) -> Unit,
     onRelayChainExitUuidChanged: (String) -> Unit,
+    onRelayChainExitProfileIdChanged: (String) -> Unit,
     onRelayMasqueUrlChanged: (String) -> Unit,
     onRelayMasqueAuthModeChanged: (String) -> Unit,
     onRelayMasqueAuthTokenChanged: (String) -> Unit,
     onRelayMasqueUseHttp2FallbackChanged: (Boolean) -> Unit,
+    onRelayTuicUuidChanged: (String) -> Unit,
+    onRelayTuicPasswordChanged: (String) -> Unit,
+    onRelayTuicZeroRttChanged: (Boolean) -> Unit,
+    onRelayTuicCongestionControlChanged: (String) -> Unit,
+    onRelayShadowTlsPasswordChanged: (String) -> Unit,
+    onRelayShadowTlsInnerProfileIdChanged: (String) -> Unit,
+    onRelayNaiveUsernameChanged: (String) -> Unit,
+    onRelayNaivePasswordChanged: (String) -> Unit,
+    onRelayNaivePathChanged: (String) -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val colors = RipDpiThemeTokens.colors
     if (
         draft.relayKind == RelayKindVlessReality ||
         draft.relayKind == RelayKindCloudflareTunnel ||
-        draft.relayKind == RelayKindHysteria2
+        draft.relayKind == RelayKindHysteria2 ||
+        draft.relayKind == RelayKindTuicV5 ||
+        draft.relayKind == RelayKindNaiveProxy
     ) {
         RipDpiTextField(
             value = draft.relayServer,
@@ -183,6 +201,43 @@ internal fun RelayKindFields(
             )
         }
 
+        RelayKindTuicV5 -> {
+            RipDpiTextField(
+                value = draft.relayTuicUuid,
+                onValueChange = onRelayTuicUuidChanged,
+                decoration = RipDpiTextFieldDecoration(label = "TUIC UUID"),
+            )
+            RipDpiTextField(
+                value = draft.relayTuicPassword,
+                onValueChange = onRelayTuicPasswordChanged,
+                decoration = RipDpiTextFieldDecoration(label = "TUIC password"),
+            )
+            RipDpiSwitch(
+                checked = draft.relayTuicZeroRtt,
+                onCheckedChange = onRelayTuicZeroRttChanged,
+                label = "Enable 0-RTT",
+            )
+            Text(
+                text = "Congestion control",
+                style = RipDpiThemeTokens.type.caption,
+                color = colors.mutedForeground,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                RelayKindChip(
+                    selectedKind = draft.relayTuicCongestionControl,
+                    kind = RelayCongestionControlBbr,
+                    label = "BBR",
+                    onRelayKindChanged = onRelayTuicCongestionControlChanged,
+                )
+                RelayKindChip(
+                    selectedKind = draft.relayTuicCongestionControl,
+                    kind = RelayCongestionControlCubic,
+                    label = "CUBIC",
+                    onRelayKindChanged = onRelayTuicCongestionControlChanged,
+                )
+            }
+        }
+
         RelayKindChainRelay -> {
             RelayChainFields(
                 draft = draft,
@@ -193,12 +248,14 @@ internal fun RelayKindFields(
                 onRelayChainEntryPublicKeyChanged = onRelayChainEntryPublicKeyChanged,
                 onRelayChainEntryShortIdChanged = onRelayChainEntryShortIdChanged,
                 onRelayChainEntryUuidChanged = onRelayChainEntryUuidChanged,
+                onRelayChainEntryProfileIdChanged = onRelayChainEntryProfileIdChanged,
                 onRelayChainExitServerChanged = onRelayChainExitServerChanged,
                 onRelayChainExitPortChanged = onRelayChainExitPortChanged,
                 onRelayChainExitServerNameChanged = onRelayChainExitServerNameChanged,
                 onRelayChainExitPublicKeyChanged = onRelayChainExitPublicKeyChanged,
                 onRelayChainExitShortIdChanged = onRelayChainExitShortIdChanged,
                 onRelayChainExitUuidChanged = onRelayChainExitUuidChanged,
+                onRelayChainExitProfileIdChanged = onRelayChainExitProfileIdChanged,
             )
         }
 
@@ -250,6 +307,37 @@ internal fun RelayKindFields(
                 label = stringResource(R.string.config_relay_masque_http2),
             )
         }
+
+        RelayKindShadowTlsV3 -> {
+            RipDpiTextField(
+                value = draft.relayShadowTlsInnerProfileId,
+                onValueChange = onRelayShadowTlsInnerProfileIdChanged,
+                decoration = RipDpiTextFieldDecoration(label = "Inner profile ID"),
+            )
+            RipDpiTextField(
+                value = draft.relayShadowTlsPassword,
+                onValueChange = onRelayShadowTlsPasswordChanged,
+                decoration = RipDpiTextFieldDecoration(label = "ShadowTLS password"),
+            )
+        }
+
+        RelayKindNaiveProxy -> {
+            RipDpiTextField(
+                value = draft.relayNaiveUsername,
+                onValueChange = onRelayNaiveUsernameChanged,
+                decoration = RipDpiTextFieldDecoration(label = "NaiveProxy username"),
+            )
+            RipDpiTextField(
+                value = draft.relayNaivePassword,
+                onValueChange = onRelayNaivePasswordChanged,
+                decoration = RipDpiTextFieldDecoration(label = "NaiveProxy password"),
+            )
+            RipDpiTextField(
+                value = draft.relayNaivePath,
+                onValueChange = onRelayNaivePathChanged,
+                decoration = RipDpiTextFieldDecoration(label = "HTTP path (optional)"),
+            )
+        }
     }
 }
 
@@ -264,13 +352,20 @@ internal fun RelayChainFields(
     onRelayChainEntryPublicKeyChanged: (String) -> Unit,
     onRelayChainEntryShortIdChanged: (String) -> Unit,
     onRelayChainEntryUuidChanged: (String) -> Unit,
+    onRelayChainEntryProfileIdChanged: (String) -> Unit,
     onRelayChainExitServerChanged: (String) -> Unit,
     onRelayChainExitPortChanged: (String) -> Unit,
     onRelayChainExitServerNameChanged: (String) -> Unit,
     onRelayChainExitPublicKeyChanged: (String) -> Unit,
     onRelayChainExitShortIdChanged: (String) -> Unit,
     onRelayChainExitUuidChanged: (String) -> Unit,
+    onRelayChainExitProfileIdChanged: (String) -> Unit,
 ) {
+    RipDpiTextField(
+        value = draft.relayChainEntryProfileId,
+        onValueChange = onRelayChainEntryProfileIdChanged,
+        decoration = RipDpiTextFieldDecoration(label = "Entry profile ID"),
+    )
     RipDpiTextField(
         value = draft.relayChainEntryServer,
         onValueChange = onRelayChainEntryServerChanged,
@@ -305,6 +400,11 @@ internal fun RelayChainFields(
         value = draft.relayChainEntryUuid,
         onValueChange = onRelayChainEntryUuidChanged,
         decoration = RipDpiTextFieldDecoration(label = stringResource(R.string.config_relay_chain_entry_uuid)),
+    )
+    RipDpiTextField(
+        value = draft.relayChainExitProfileId,
+        onValueChange = onRelayChainExitProfileIdChanged,
+        decoration = RipDpiTextFieldDecoration(label = "Exit profile ID"),
     )
     RipDpiTextField(
         value = draft.relayChainExitServer,
