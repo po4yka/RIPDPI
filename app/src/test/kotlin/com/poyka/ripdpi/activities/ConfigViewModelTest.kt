@@ -12,6 +12,8 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
@@ -145,7 +147,7 @@ class ConfigViewModelTest {
                     relayKind = RelayKindHysteria2,
                     relayServer = "relay.example",
                     relayServerName = "relay.example",
-                    relayHysteriaPassword = "secret",
+                    relayHysteriaPassword = "fixture-pass",
                     relayHysteriaSalamanderKey = "salamander",
                     relayUdpEnabled = true,
                 ),
@@ -185,6 +187,41 @@ class ConfigViewModelTest {
                     relayKind = RelayKindCloudflareTunnel,
                     relayServer = "edge.example.com",
                     relayVlessTransport = RelayVlessTransportXhttp,
+                    relayUdpEnabled = true,
+                ),
+            )
+
+        assertEquals("unsupported", errors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation accepts tuic udp mode when required fields are present`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindTuicV5,
+                    relayServer = "relay.example",
+                    relayServerPort = "443",
+                    relayServerName = "relay.example",
+                    relayTuicUuid = "00000000-0000-0000-0000-000000000000",
+                    relayTuicPassword = "fixture-pass",
+                    relayUdpEnabled = true,
+                ),
+            )
+
+        assertEquals(null, errors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation rejects shadowtls udp mode`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindShadowTlsV3,
+                    relayShadowTlsInnerProfileId = "inner-profile",
+                    relayShadowTlsPassword = "fixture-pass",
                     relayUdpEnabled = true,
                 ),
             )

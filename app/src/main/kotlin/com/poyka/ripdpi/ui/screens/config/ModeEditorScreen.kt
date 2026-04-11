@@ -57,6 +57,9 @@ import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
@@ -163,6 +166,15 @@ fun ModeEditorRoute(
                         )
                     }
 
+                    RelayKindShadowTlsV3,
+                    RelayKindNaiveProxy,
+                    -> {
+                        copy(
+                            relayKind = it,
+                            relayUdpEnabled = false,
+                        )
+                    }
+
                     else -> {
                         copy(relayKind = it)
                     }
@@ -188,12 +200,14 @@ fun ModeEditorRoute(
         onRelayChainEntryPublicKeyChanged = { viewModel.updateDraft { copy(relayChainEntryPublicKey = it) } },
         onRelayChainEntryShortIdChanged = { viewModel.updateDraft { copy(relayChainEntryShortId = it) } },
         onRelayChainEntryUuidChanged = { viewModel.updateDraft { copy(relayChainEntryUuid = it) } },
+        onRelayChainEntryProfileIdChanged = { viewModel.updateDraft { copy(relayChainEntryProfileId = it) } },
         onRelayChainExitServerChanged = { viewModel.updateDraft { copy(relayChainExitServer = it) } },
         onRelayChainExitPortChanged = { viewModel.updateDraft { copy(relayChainExitPort = it) } },
         onRelayChainExitServerNameChanged = { viewModel.updateDraft { copy(relayChainExitServerName = it) } },
         onRelayChainExitPublicKeyChanged = { viewModel.updateDraft { copy(relayChainExitPublicKey = it) } },
         onRelayChainExitShortIdChanged = { viewModel.updateDraft { copy(relayChainExitShortId = it) } },
         onRelayChainExitUuidChanged = { viewModel.updateDraft { copy(relayChainExitUuid = it) } },
+        onRelayChainExitProfileIdChanged = { viewModel.updateDraft { copy(relayChainExitProfileId = it) } },
         onRelayMasqueUrlChanged = { viewModel.updateDraft { copy(relayMasqueUrl = it) } },
         onRelayMasqueAuthModeChanged = {
             viewModel.updateDraft {
@@ -205,6 +219,15 @@ fun ModeEditorRoute(
         },
         onRelayMasqueAuthTokenChanged = { viewModel.updateDraft { copy(relayMasqueAuthToken = it) } },
         onRelayMasqueUseHttp2FallbackChanged = { viewModel.updateDraft { copy(relayMasqueUseHttp2Fallback = it) } },
+        onRelayTuicUuidChanged = { viewModel.updateDraft { copy(relayTuicUuid = it) } },
+        onRelayTuicPasswordChanged = { viewModel.updateDraft { copy(relayTuicPassword = it) } },
+        onRelayTuicZeroRttChanged = { viewModel.updateDraft { copy(relayTuicZeroRtt = it) } },
+        onRelayTuicCongestionControlChanged = { viewModel.updateDraft { copy(relayTuicCongestionControl = it) } },
+        onRelayShadowTlsPasswordChanged = { viewModel.updateDraft { copy(relayShadowTlsPassword = it) } },
+        onRelayShadowTlsInnerProfileIdChanged = { viewModel.updateDraft { copy(relayShadowTlsInnerProfileId = it) } },
+        onRelayNaiveUsernameChanged = { viewModel.updateDraft { copy(relayNaiveUsername = it) } },
+        onRelayNaivePasswordChanged = { viewModel.updateDraft { copy(relayNaivePassword = it) } },
+        onRelayNaivePathChanged = { viewModel.updateDraft { copy(relayNaivePath = it) } },
         onRelayUdpEnabledChanged = { viewModel.updateDraft { copy(relayUdpEnabled = it) } },
         onRelayLocalSocksPortChanged = { viewModel.updateDraft { copy(relayLocalSocksPort = it) } },
         onSave = viewModel::saveDraft,
@@ -248,16 +271,27 @@ fun ModeEditorScreen(
     onRelayChainEntryPublicKeyChanged: (String) -> Unit,
     onRelayChainEntryShortIdChanged: (String) -> Unit,
     onRelayChainEntryUuidChanged: (String) -> Unit,
+    onRelayChainEntryProfileIdChanged: (String) -> Unit,
     onRelayChainExitServerChanged: (String) -> Unit,
     onRelayChainExitPortChanged: (String) -> Unit,
     onRelayChainExitServerNameChanged: (String) -> Unit,
     onRelayChainExitPublicKeyChanged: (String) -> Unit,
     onRelayChainExitShortIdChanged: (String) -> Unit,
     onRelayChainExitUuidChanged: (String) -> Unit,
+    onRelayChainExitProfileIdChanged: (String) -> Unit,
     onRelayMasqueUrlChanged: (String) -> Unit,
     onRelayMasqueAuthModeChanged: (String) -> Unit,
     onRelayMasqueAuthTokenChanged: (String) -> Unit,
     onRelayMasqueUseHttp2FallbackChanged: (Boolean) -> Unit,
+    onRelayTuicUuidChanged: (String) -> Unit,
+    onRelayTuicPasswordChanged: (String) -> Unit,
+    onRelayTuicZeroRttChanged: (Boolean) -> Unit,
+    onRelayTuicCongestionControlChanged: (String) -> Unit,
+    onRelayShadowTlsPasswordChanged: (String) -> Unit,
+    onRelayShadowTlsInnerProfileIdChanged: (String) -> Unit,
+    onRelayNaiveUsernameChanged: (String) -> Unit,
+    onRelayNaivePasswordChanged: (String) -> Unit,
+    onRelayNaivePathChanged: (String) -> Unit,
     onRelayUdpEnabledChanged: (Boolean) -> Unit,
     onRelayLocalSocksPortChanged: (String) -> Unit,
     onSave: () -> Unit,
@@ -540,6 +574,12 @@ fun ModeEditorScreen(
                                     R.string.config_relay_kind_cloudflare_tunnel,
                                     onRelayKindChanged,
                                 )
+                                RelayKindChip(
+                                    draft.relayKind,
+                                    RelayKindNaiveProxy,
+                                    "NaiveProxy",
+                                    onRelayKindChanged,
+                                )
                             }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -555,6 +595,23 @@ fun ModeEditorScreen(
                                     draft.relayKind,
                                     RelayKindMasque,
                                     R.string.config_relay_kind_masque,
+                                    onRelayKindChanged,
+                                )
+                                RelayKindChip(
+                                    draft.relayKind,
+                                    RelayKindTuicV5,
+                                    "TUIC v5",
+                                    onRelayKindChanged,
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                            ) {
+                                RelayKindChip(
+                                    draft.relayKind,
+                                    RelayKindShadowTlsV3,
+                                    "ShadowTLS v3",
                                     onRelayKindChanged,
                                 )
                             }
@@ -585,18 +642,33 @@ fun ModeEditorScreen(
                                 onRelayChainEntryPublicKeyChanged = onRelayChainEntryPublicKeyChanged,
                                 onRelayChainEntryShortIdChanged = onRelayChainEntryShortIdChanged,
                                 onRelayChainEntryUuidChanged = onRelayChainEntryUuidChanged,
+                                onRelayChainEntryProfileIdChanged = onRelayChainEntryProfileIdChanged,
                                 onRelayChainExitServerChanged = onRelayChainExitServerChanged,
                                 onRelayChainExitPortChanged = onRelayChainExitPortChanged,
                                 onRelayChainExitServerNameChanged = onRelayChainExitServerNameChanged,
                                 onRelayChainExitPublicKeyChanged = onRelayChainExitPublicKeyChanged,
                                 onRelayChainExitShortIdChanged = onRelayChainExitShortIdChanged,
                                 onRelayChainExitUuidChanged = onRelayChainExitUuidChanged,
+                                onRelayChainExitProfileIdChanged = onRelayChainExitProfileIdChanged,
                                 onRelayMasqueUrlChanged = onRelayMasqueUrlChanged,
                                 onRelayMasqueAuthModeChanged = onRelayMasqueAuthModeChanged,
                                 onRelayMasqueAuthTokenChanged = onRelayMasqueAuthTokenChanged,
                                 onRelayMasqueUseHttp2FallbackChanged = onRelayMasqueUseHttp2FallbackChanged,
+                                onRelayTuicUuidChanged = onRelayTuicUuidChanged,
+                                onRelayTuicPasswordChanged = onRelayTuicPasswordChanged,
+                                onRelayTuicZeroRttChanged = onRelayTuicZeroRttChanged,
+                                onRelayTuicCongestionControlChanged = onRelayTuicCongestionControlChanged,
+                                onRelayShadowTlsPasswordChanged = onRelayShadowTlsPasswordChanged,
+                                onRelayShadowTlsInnerProfileIdChanged = onRelayShadowTlsInnerProfileIdChanged,
+                                onRelayNaiveUsernameChanged = onRelayNaiveUsernameChanged,
+                                onRelayNaivePasswordChanged = onRelayNaivePasswordChanged,
+                                onRelayNaivePathChanged = onRelayNaivePathChanged,
                             )
-                            if (draft.relayKind == RelayKindHysteria2 || draft.relayKind == RelayKindMasque) {
+                            if (
+                                draft.relayKind == RelayKindHysteria2 ||
+                                draft.relayKind == RelayKindMasque ||
+                                draft.relayKind == RelayKindTuicV5
+                            ) {
                                 RipDpiSwitch(
                                     checked = draft.relayUdpEnabled,
                                     onCheckedChange = onRelayUdpEnabledChanged,
@@ -809,16 +881,27 @@ private fun ModeEditorScreenWithNoOpCallbacks(
             onRelayChainEntryPublicKeyChanged = {},
             onRelayChainEntryShortIdChanged = {},
             onRelayChainEntryUuidChanged = {},
+            onRelayChainEntryProfileIdChanged = {},
             onRelayChainExitServerChanged = {},
             onRelayChainExitPortChanged = {},
             onRelayChainExitServerNameChanged = {},
             onRelayChainExitPublicKeyChanged = {},
             onRelayChainExitShortIdChanged = {},
             onRelayChainExitUuidChanged = {},
+            onRelayChainExitProfileIdChanged = {},
             onRelayMasqueUrlChanged = {},
             onRelayMasqueAuthModeChanged = {},
             onRelayMasqueAuthTokenChanged = {},
             onRelayMasqueUseHttp2FallbackChanged = {},
+            onRelayTuicUuidChanged = {},
+            onRelayTuicPasswordChanged = {},
+            onRelayTuicZeroRttChanged = {},
+            onRelayTuicCongestionControlChanged = {},
+            onRelayShadowTlsPasswordChanged = {},
+            onRelayShadowTlsInnerProfileIdChanged = {},
+            onRelayNaiveUsernameChanged = {},
+            onRelayNaivePasswordChanged = {},
+            onRelayNaivePathChanged = {},
             onRelayUdpEnabledChanged = {},
             onRelayLocalSocksPortChanged = {},
             onSave = {},

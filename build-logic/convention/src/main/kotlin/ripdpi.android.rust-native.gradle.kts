@@ -504,9 +504,13 @@ val rustNativePackageDirs =
         "ripdpi-ws-tunnel",
         "ripdpi-ipfrag",
         "ripdpi-root-helper",
+        "ripdpi-relay-mux",
         "ripdpi-relay-core",
         "ripdpi-warp-core",
         "ripdpi-native-protect",
+        "ripdpi-naiveproxy",
+        "ripdpi-shadowtls",
+        "ripdpi-tuic",
         "ripdpi-vless",
         "ripdpi-masque",
         "ripdpi-tls-profiles",
@@ -520,6 +524,10 @@ val rustRootHelperBuildDir = layout.buildDirectory.dir("intermediates/rust-root-
 val rustRootHelperArtifactSpecs =
     listOf(
         "ripdpi-root-helper|ripdpi-root-helper|ripdpi-root-helper",
+    )
+val rustNaiveProxyArtifactSpecs =
+    listOf(
+        "ripdpi-naiveproxy|ripdpi-naiveproxy|ripdpi-naiveproxy",
     )
 
 extensions.configure<LibraryExtension> {
@@ -616,6 +624,47 @@ val buildRustRootHelper =
         outputDir.set(generatedAssetsDir.map { it.dir("bin") })
     }
 
+val buildRustNaiveProxy =
+    tasks.register<BuildRustNativeLibsTask>("buildRustNaiveProxy") {
+        group = "build"
+        description = "Builds the NaiveProxy helper binary into generated assets."
+
+        nativeSources.from(rustWorkspaceManifestFile)
+        nativeSources.from(
+            listOf("Cargo.lock", "rust-toolchain.toml")
+                .map(rustWorkspaceDir::resolve)
+                .filter { it.isFile },
+        )
+        nativeSources.from(
+            fileTree(rustWorkspaceDir.resolve(".cargo")) {
+                include("**/*")
+            },
+        )
+        nativeSources.from(
+            fileTree(rustWorkspaceDir.resolve("vendor")) {
+                include("**/*")
+            },
+        )
+        nativeSources.from(
+            rustNativePackageDirs.map { packageDir ->
+                fileTree(packageDir) {
+                    exclude("**/target/**")
+                }
+            },
+        )
+        workspaceManifest.set(rustWorkspaceManifestFile)
+        sdkDir.set(resolveAndroidSdkDir())
+        cargoExecutable.set(resolveRustTool("cargo"))
+        rustupExecutable.set(resolveRustTool("rustup"))
+        ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
+        cargoProfile.set(rustNativeCargoProfile)
+        minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
+        abis.set(rustNativeAbis)
+        artifactSpecs.set(rustNaiveProxyArtifactSpecs)
+        cargoTargetDir.set(layout.buildDirectory.dir("intermediates/rust-naiveproxy"))
+        outputDir.set(generatedAssetsDir.map { it.dir("bin") })
+    }
+
 // Wire the Rust build into the actual JNI packaging tasks so Rust-only source
 // changes cannot be skipped when the Android variants are otherwise up to date.
 tasks.configureEach {
@@ -628,10 +677,12 @@ tasks.configureEach {
     }
     if (name.matches(Regex("^merge.+Assets$"))) {
         dependsOn(buildRustRootHelper)
+        dependsOn(buildRustNaiveProxy)
     }
 }
 
 tasks.named("preBuild") {
     dependsOn(buildRustNativeLibs)
     dependsOn(buildRustRootHelper)
+    dependsOn(buildRustNaiveProxy)
 }

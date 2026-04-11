@@ -23,6 +23,10 @@ sealed interface FailureReason {
         val message: String,
     ) : FailureReason
 
+    data class RelayConfigRejected(
+        val message: String,
+    ) : FailureReason
+
     data class Unexpected(
         val cause: Throwable,
     ) : FailureReason
@@ -45,6 +49,7 @@ val FailureReason.displayMessage: String
             is FailureReason.WarpEndpointUnavailable -> message
             is FailureReason.WarpRuntimeFailed -> message
             is FailureReason.RelayFingerprintPolicyRejected -> message
+            is FailureReason.RelayConfigRejected -> message
             is FailureReason.Unexpected -> cause.message ?: "Unexpected error"
             is FailureReason.PermissionLost -> "Required permission revoked: $permission"
         }

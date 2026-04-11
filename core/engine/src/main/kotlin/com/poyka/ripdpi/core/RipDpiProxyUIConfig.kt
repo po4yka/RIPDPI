@@ -29,6 +29,7 @@ import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSourceProfile
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
+import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.TcpChainStepModel
@@ -197,14 +198,20 @@ data class RipDpiRelayConfig(
     val chainEntryServerName: String = "",
     val chainEntryPublicKey: String = "",
     val chainEntryShortId: String = "",
+    val chainEntryProfileId: String = "",
     val chainExitServer: String = "",
     val chainExitPort: Int = 443,
     val chainExitServerName: String = "",
     val chainExitPublicKey: String = "",
     val chainExitShortId: String = "",
+    val chainExitProfileId: String = "",
     val masqueUrl: String = "",
     val masqueUseHttp2Fallback: Boolean = true,
     val masqueCloudflareMode: Boolean = false,
+    val tuicZeroRtt: Boolean = false,
+    val tuicCongestionControl: String = RelayCongestionControlBbr,
+    val shadowTlsInnerProfileId: String = "",
+    val naivePath: String = "",
     val localSocksHost: String = DefaultRelayLocalSocksHost,
     val localSocksPort: Int = DefaultRelayLocalSocksPort,
     val udpEnabled: Boolean = false,

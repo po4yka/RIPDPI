@@ -1,0 +1,12 @@
+[package]
+name = "ripdpi-tuic"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["net"] }
+
+[lints]
+workspace = true

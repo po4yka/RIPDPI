@@ -2,6 +2,7 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.coroutines.CompletableDeferred
@@ -105,14 +106,20 @@ data class ResolvedRipDpiRelayConfig(
     val chainEntryServerName: String,
     val chainEntryPublicKey: String,
     val chainEntryShortId: String,
+    val chainEntryProfileId: String = "",
     val chainExitServer: String,
     val chainExitPort: Int,
     val chainExitServerName: String,
     val chainExitPublicKey: String,
     val chainExitShortId: String,
+    val chainExitProfileId: String = "",
     val masqueUrl: String,
     val masqueUseHttp2Fallback: Boolean,
     val masqueCloudflareMode: Boolean,
+    val tuicZeroRtt: Boolean = false,
+    val tuicCongestionControl: String = RelayCongestionControlBbr,
+    val shadowTlsInnerProfileId: String = "",
+    val naivePath: String = "",
     val localSocksHost: String,
     val localSocksPort: Int,
     val udpEnabled: Boolean,
@@ -122,6 +129,11 @@ data class ResolvedRipDpiRelayConfig(
     val chainExitUuid: String? = null,
     val hysteriaPassword: String? = null,
     val hysteriaSalamanderKey: String? = null,
+    val tuicUuid: String? = null,
+    val tuicPassword: String? = null,
+    val shadowTlsPassword: String? = null,
+    val naiveUsername: String? = null,
+    val naivePassword: String? = null,
     val tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
     val masqueAuthMode: String? = null,
     val masqueAuthToken: String? = null,

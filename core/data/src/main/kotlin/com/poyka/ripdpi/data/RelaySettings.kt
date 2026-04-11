@@ -8,11 +8,16 @@ const val RelayKindHysteria2 = "hysteria2"
 const val RelayKindChainRelay = "chain_relay"
 const val RelayKindMasque = "masque"
 const val RelayKindCloudflareTunnel = "cloudflare_tunnel"
+const val RelayKindTuicV5 = "tuic_v5"
+const val RelayKindShadowTlsV3 = "shadowtls_v3"
+const val RelayKindNaiveProxy = "naiveproxy"
 const val RelayVlessTransportRealityTcp = "reality_tcp"
 const val RelayVlessTransportXhttp = "xhttp"
 const val RelayMasqueAuthModeBearer = "bearer"
 const val RelayMasqueAuthModePreshared = "preshared"
 const val RelayMasqueAuthModePrivacyPass = "privacy_pass"
+const val RelayCongestionControlBbr = "bbr"
+const val RelayCongestionControlCubic = "cubic"
 const val DefaultRelayProfileId = "default"
 const val DefaultRelayLocalSocksHost = "127.0.0.1"
 const val DefaultRelayLocalSocksPort = 11980
@@ -24,6 +29,9 @@ fun normalizeRelayKind(value: String): String =
         RelayKindChainRelay -> RelayKindChainRelay
         RelayKindMasque -> RelayKindMasque
         RelayKindCloudflareTunnel -> RelayKindCloudflareTunnel
+        RelayKindTuicV5 -> RelayKindTuicV5
+        RelayKindShadowTlsV3 -> RelayKindShadowTlsV3
+        RelayKindNaiveProxy -> RelayKindNaiveProxy
         else -> RelayKindOff
     }
 
@@ -57,6 +65,12 @@ fun normalizeRelayMasqueAuthMode(
         else -> null
     }
 
+fun normalizeRelayCongestionControl(value: String?): String =
+    when (value?.trim()?.lowercase()) {
+        RelayCongestionControlCubic -> RelayCongestionControlCubic
+        else -> RelayCongestionControlBbr
+    }
+
 data class RelayProfileModel(
     val id: String = DefaultRelayProfileId,
     val kind: String = RelayKindOff,
@@ -75,14 +89,20 @@ data class RelayProfileModel(
     val chainEntryServerName: String = "",
     val chainEntryPublicKey: String = "",
     val chainEntryShortId: String = "",
+    val chainEntryProfileId: String = "",
     val chainExitServer: String = "",
     val chainExitPort: Int = 443,
     val chainExitServerName: String = "",
     val chainExitPublicKey: String = "",
     val chainExitShortId: String = "",
+    val chainExitProfileId: String = "",
     val masqueUrl: String = "",
     val masqueUseHttp2Fallback: Boolean = true,
     val masqueCloudflareMode: Boolean = false,
+    val tuicZeroRtt: Boolean = false,
+    val tuicCongestionControl: String = RelayCongestionControlBbr,
+    val shadowTlsInnerProfileId: String = "",
+    val naivePath: String = "",
     val localSocksHost: String = DefaultRelayLocalSocksHost,
     val localSocksPort: Int = DefaultRelayLocalSocksPort,
     val udpEnabled: Boolean = false,
@@ -122,14 +142,20 @@ fun AppSettings.toRelaySettingsModel(): RelaySettingsModel {
                 chainEntryServerName = relayChainEntryServerName,
                 chainEntryPublicKey = relayChainEntryPublicKey,
                 chainEntryShortId = relayChainEntryShortId,
+                chainEntryProfileId = relayChainEntryProfileId,
                 chainExitServer = relayChainExitServer,
                 chainExitPort = relayChainExitPort.takeIf { it > 0 } ?: 443,
                 chainExitServerName = relayChainExitServerName,
                 chainExitPublicKey = relayChainExitPublicKey,
                 chainExitShortId = relayChainExitShortId,
+                chainExitProfileId = relayChainExitProfileId,
                 masqueUrl = relayMasqueUrl,
                 masqueUseHttp2Fallback = relayMasqueUseHttp2Fallback,
                 masqueCloudflareMode = relayMasqueCloudflareMode,
+                tuicZeroRtt = relayTuicZeroRtt,
+                tuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
+                shadowTlsInnerProfileId = relayShadowtlsInnerProfileId,
+                naivePath = relayNaivePath,
                 localSocksHost = relayLocalSocksHost.ifBlank { DefaultRelayLocalSocksHost },
                 localSocksPort = relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort,
                 udpEnabled = relayUdpEnabled,
