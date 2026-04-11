@@ -471,6 +471,43 @@ class WarpEnrollmentOrchestratorTest {
             assertEquals("188.114.99.1", endpointStore.load(DefaultWarpProfileId, GlobalWarpEndpointScopeKey)?.ipv4)
         }
 
+    @Test
+    fun `endpoint scanner probes full built in port matrix`() =
+        runTest {
+            val appSettingsRepository =
+                TestAppSettingsRepository(
+                    initial =
+                        com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue
+                            .toBuilder()
+                            .setWarpScannerEnabled(true)
+                            .build(),
+                )
+            val endpointStore = FakeWarpEndpointStore()
+            val scanner =
+                DefaultWarpEndpointScanner(
+                    appSettingsRepository = appSettingsRepository,
+                    endpointStore = endpointStore,
+                    endpointProbe =
+                        FakeWarpEndpointProbe(
+                            responders =
+                                mapOf(
+                                    "188.114.96.1:8854" to 9L,
+                                    "188.114.96.1" to 40L,
+                                ),
+                        ),
+                )
+
+            val resolved =
+                scanner.resolveEndpoint(
+                    profileId = DefaultWarpProfileId,
+                    networkScopeKey = "cellular:test",
+                    provisioned = null,
+                )
+
+            assertEquals("188.114.96.1", resolved?.ipv4)
+            assertEquals(8854, resolved?.port)
+        }
+
     private fun sampleProvisioningResult(): WarpProvisioningResult =
         WarpProvisioningResult(
             credentials =
@@ -615,8 +652,10 @@ private class FakeWarpEndpointProbe(
         timeoutMillis: Int,
     ): WarpEndpointCacheEntry? {
         calls += 1
-        val key = candidate.ipv4 ?: candidate.ipv6 ?: candidate.host.orEmpty()
-        val rttMs = responders[key] ?: return null
+        val endpoint = candidate.ipv4 ?: candidate.ipv6 ?: candidate.host.orEmpty()
+        val key = "$endpoint:${candidate.port}"
+        val fallbackKey = endpoint
+        val rttMs = responders[key] ?: responders[fallbackKey] ?: return null
         return candidate.copy(
             source = "scanner",
             rttMs = rttMs,

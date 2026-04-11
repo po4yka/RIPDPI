@@ -7,6 +7,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.HostPackPreset
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.WarpPayloadGenCatalog
@@ -79,8 +80,10 @@ class SettingsViewModel
                 settings.toUiState(
                     serviceStatus = telemetry.status,
                     proxyTelemetry = telemetry.proxyTelemetry,
+                    serviceTelemetry = telemetry,
                     hostAutolearnStorePresent = hostAutolearnStoreController.hasStore(),
                     rememberedNetworkCount = rememberedPolicies.size,
+                    runtimeOverrideRememberedPolicy = rememberedPolicies.isNotEmpty(),
                     biometricAvailability = biometricAuthManager.canAuthenticate(application),
                     routingProtectionSnapshot = routingProtectionSnapshot,
                     suggestedWarpAmneziaPresetId = warpSuggestion?.preset?.id.orEmpty(),
@@ -94,8 +97,10 @@ class SettingsViewModel
                         isHydrated = false,
                         serviceStatus = serviceStateStore.telemetry.value.status,
                         proxyTelemetry = serviceStateStore.telemetry.value.proxyTelemetry,
+                        serviceTelemetry = serviceStateStore.telemetry.value,
                         hostAutolearnStorePresent = hostAutolearnStoreController.hasStore(),
                         rememberedNetworkCount = 0,
+                        runtimeOverrideRememberedPolicy = false,
                         biometricAvailability = biometricAuthManager.canAuthenticate(application),
                         routingProtectionSnapshot = routingProtectionCatalogService.snapshot(),
                         suggestedWarpAmneziaPresetId = "",
