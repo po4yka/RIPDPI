@@ -359,6 +359,21 @@ internal fun RowScope.RelayKindChip(
 }
 
 @Composable
+internal fun RowScope.RelayKindChip(
+    selectedKind: String,
+    kind: String,
+    label: String,
+    onRelayKindChanged: (String) -> Unit,
+) {
+    RipDpiChip(
+        text = label,
+        selected = selectedKind == kind,
+        onClick = { onRelayKindChanged(kind) },
+        modifier = Modifier.weight(1f),
+    )
+}
+
+@Composable
 internal fun RowScope.MasqueAuthModeChip(
     selectedMode: String,
     mode: String,

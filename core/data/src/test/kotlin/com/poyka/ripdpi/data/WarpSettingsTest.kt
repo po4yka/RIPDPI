@@ -6,10 +6,10 @@ import org.junit.Test
 
 class WarpSettingsTest {
     @Test
-    fun `balanced preset resolves to built in profile`() {
+    fun `quic imitation preset resolves to built in profile`() {
         val resolved =
             resolveWarpAmneziaProfile(
-                preset = WarpAmneziaPresetBalanced,
+                preset = WarpAmneziaPresetQuicImitation,
                 rawSettings =
                     WarpAmneziaSettings(
                         enabled = true,
@@ -19,10 +19,10 @@ class WarpSettingsTest {
                     ),
             )
 
-        assertEquals(WarpAmneziaPresetBalanced, resolved.preset)
+        assertEquals(WarpAmneziaPresetQuicImitation, resolved.preset)
         assertEquals(3, resolved.settings.jc)
-        assertEquals(50, resolved.settings.jmin)
-        assertEquals(400, resolved.settings.jmax)
+        assertEquals(16, resolved.settings.jmin)
+        assertEquals(64, resolved.settings.jmax)
         assertTrue(resolved.settings.enabled)
     }
 

@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.DefaultShannonEntropyTargetPermil
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
+import com.poyka.ripdpi.data.DhtMitigationModeOff
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TcpChainStepKind
@@ -251,7 +252,10 @@ private fun AppSettings.buildAutolearnUiState(
         hostAutolearnLastAction = proxyTelemetry.lastAutolearnAction,
     )
 
-private fun AppSettings.buildWarpUiState(): WarpUiState {
+private fun AppSettings.buildWarpUiState(
+    suggestedAmneziaPresetId: String = "",
+    suggestedAmneziaPresetLabel: String = "",
+): WarpUiState {
     val warp = toWarpSettingsModel()
     return WarpUiState(
         enabled = warp.enabled,
@@ -285,6 +289,8 @@ private fun AppSettings.buildWarpUiState(): WarpUiState {
         amneziaS2 = warp.amnezia.s2,
         amneziaS3 = warp.amnezia.s3,
         amneziaS4 = warp.amnezia.s4,
+        amneziaSuggestedPresetId = suggestedAmneziaPresetId,
+        amneziaSuggestedPresetLabel = suggestedAmneziaPresetLabel,
     )
 }
 
@@ -372,6 +378,19 @@ private fun AppSettings.buildRoutingProtectionUiState(
                     ),
                 )
             }
+            if (!fullTunnelMode &&
+                normalizeDhtMitigationMode(dhtMitigationMode) == DhtMitigationModeOff &&
+                (presets.any { it.enabled } || antiCorrelationEnabled)
+            ) {
+                add(
+                    RoutingProtectionSuggestionUiState(
+                        id = "dht_mitigation",
+                        title = "Suggest DHT trigger mitigation",
+                        body =
+                            "Split-routing protection is active, but DHT mitigation is still off. Known trigger CIDRs can destabilize WARP, relay, or control-plane paths on mobile networks.",
+                    ),
+                )
+            }
         }
     return RoutingProtectionUiState(
         policyMode = normalizeAppRoutingPolicyMode(appRoutingPolicyMode),
@@ -401,6 +420,8 @@ internal fun AppSettings.toUiState(
     rememberedNetworkCount: Int = 0,
     biometricAvailability: Int = androidx.biometric.BiometricManager.BIOMETRIC_SUCCESS,
     routingProtectionSnapshot: RoutingProtectionCatalogSnapshot = RoutingProtectionCatalogSnapshot(),
+    suggestedWarpAmneziaPresetId: String = "",
+    suggestedWarpAmneziaPresetLabel: String = "",
 ): SettingsUiState {
     val normalizedMode = ripdpiMode.ifEmpty { "vpn" }
     val activeDns = activeDnsSettings()
@@ -430,7 +451,7 @@ internal fun AppSettings.toUiState(
         tlsPrelude = buildTlsPreludeUiState(chain),
         quic = buildQuicUiState(),
         detectionResistance = buildDetectionResistanceUiState(),
-        warp = buildWarpUiState(),
+        warp = buildWarpUiState(suggestedWarpAmneziaPresetId, suggestedWarpAmneziaPresetLabel),
         routingProtection = buildRoutingProtectionUiState(routingProtectionSnapshot),
         autolearn = buildAutolearnUiState(proxyTelemetry, hostAutolearnStorePresent, rememberedNetworkCount),
         adaptiveFallback = buildAdaptiveFallbackUiState(proxyTelemetry, rememberedNetworkCount),

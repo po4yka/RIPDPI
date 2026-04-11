@@ -42,14 +42,18 @@
 
     <array name="warp_amnezia_presets">
         <item name="off">Off</item>
-        <item name="balanced">Balanced</item>
-        <item name="aggressive">Aggressive</item>
+        <item name="random">Random</item>
+        <item name="quic_imitation">QUIC imitation</item>
+        <item name="tls_imitation">TLS imitation</item>
+        <item name="dns_imitation">DNS imitation</item>
         <item name="custom">Custom</item>
     </array>
     <array name="warp_amnezia_presets_entries">
         <item name="off">off</item>
-        <item name="balanced">balanced</item>
-        <item name="aggressive">aggressive</item>
+        <item name="random">random</item>
+        <item name="quic_imitation">quic_imitation</item>
+        <item name="tls_imitation">tls_imitation</item>
+        <item name="dns_imitation">dns_imitation</item>
         <item name="custom">custom</item>
     </array>
 

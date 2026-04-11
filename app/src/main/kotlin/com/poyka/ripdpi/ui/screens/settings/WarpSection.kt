@@ -235,6 +235,22 @@ internal fun LazyListScope.warpSection(
                     onSelected = onOptionSelected,
                     showDivider = uiState.warp.amneziaEnabled,
                 )
+                if (
+                    uiState.warp.enabled &&
+                    uiState.warp.hasSuggestedAmneziaPreset &&
+                    uiState.warp.amneziaPreset != uiState.warp.amneziaSuggestedPresetId
+                ) {
+                    SettingsRow(
+                        title = stringResource(R.string.warp_amnezia_profile_title),
+                        subtitle =
+                            stringResource(
+                                R.string.warp_amnezia_suggested_preset,
+                                uiState.warp.amneziaSuggestedPresetLabel,
+                            ),
+                        value = uiState.warp.amneziaSuggestedPresetLabel,
+                        showDivider = uiState.warp.amneziaEnabled,
+                    )
+                }
                 if (uiState.warp.amneziaEnabled) {
                     SettingsRow(
                         title = stringResource(R.string.warp_amnezia_profile_title),

@@ -167,6 +167,19 @@ class SettingsUiStateTest {
     }
 
     @Test
+    fun `warp ui state carries suggested payloadgen preset`() {
+        val state =
+            defaults.toUiState(
+                suggestedWarpAmneziaPresetId = "quic_imitation",
+                suggestedWarpAmneziaPresetLabel = "QUIC imitation",
+            )
+
+        assertEquals("quic_imitation", state.warp.amneziaSuggestedPresetId)
+        assertEquals("QUIC imitation", state.warp.amneziaSuggestedPresetLabel)
+        assertTrue(state.warp.hasSuggestedAmneziaPreset)
+    }
+
+    @Test
     fun `warp amnezia preset is exposed and custom fields stay gated`() {
         val balancedState =
             defaults

@@ -1242,7 +1242,9 @@ mod tests {
         let udp_ipfrag_capable = supports_udp_ip_fragmentation();
 
         assert_eq!(tcp_candidates.iter().any(|candidate| candidate.id == "ipfrag2"), tcp_ipfrag_capable);
+        assert_eq!(tcp_candidates.iter().any(|candidate| candidate.id == "ipfrag2_ipv6_ext"), tcp_ipfrag_capable);
         assert_eq!(quic_candidates.iter().any(|candidate| candidate.id == "quic_ipfrag2"), udp_ipfrag_capable);
+        assert_eq!(quic_candidates.iter().any(|candidate| candidate.id == "quic_ipfrag2_ipv6_ext"), udp_ipfrag_capable);
     }
 
     #[test]

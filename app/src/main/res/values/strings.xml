@@ -362,6 +362,7 @@
     <string name="config_relay_vless_transport_reality_tcp">Reality TCP</string>
     <string name="config_relay_vless_transport_xhttp">xHTTP</string>
     <string name="config_relay_cloudflare_tunnel_note">Use your user-managed Cloudflare Tunnel hostname here. P0 expects that hostname to front your own xHTTP/VLESS origin; RIPDPI does not manage cloudflared tokens or TryCloudflare setup.</string>
+    <string name="config_relay_presets_title">Relay presets</string>
     <string name="config_relay_xhttp_path">xHTTP path</string>
     <string name="config_relay_xhttp_host">xHTTP host override</string>
     <string name="config_relay_vless_uuid">VLESS UUID</string>
@@ -1321,11 +1322,12 @@ fakeddisorder endhost</string>
     <string name="warp_scanner_rtt_title">Maximum endpoint RTT</string>
     <string name="warp_scanner_rtt_body">Discard scanner candidates whose measured latency exceeds this budget in milliseconds.</string>
     <string name="warp_amnezia_preset_title">AmneziaWG shaping profile</string>
-    <string name="warp_amnezia_preset_body">Choose a built-in WARP obfuscation preset or switch to custom to edit raw AmneziaWG values.</string>
+    <string name="warp_amnezia_preset_body">Choose a PayloadGen-backed WARP obfuscation preset or switch to custom to edit raw AmneziaWG values.</string>
     <string name="warp_amnezia_profile_title">Applied AmneziaWG profile</string>
     <string name="warp_amnezia_preset_off_summary">AmneziaWG shaping is disabled for WARP.</string>
     <string name="warp_amnezia_preset_profile_summary">Built-in profile. JC %1$d, Jmin %2$d, Jmax %3$d.</string>
     <string name="warp_amnezia_preset_custom_summary">Custom profile. JC %1$d, Jmin %2$d, Jmax %3$d.</string>
+    <string name="warp_amnezia_suggested_preset">%1$s is recommended for the current operator hint. The suggestion is informational only.</string>
     <string name="warp_amnezia_jc_title">Amnezia JC</string>
     <string name="warp_amnezia_jmin_title">Amnezia Jmin</string>
     <string name="warp_amnezia_jmax_title">Amnezia Jmax</string>

@@ -1,0 +1,13 @@
+{
+  "id": "finalmask-xhttp",
+  "kind": "vless_reality",
+  "presetId": "finalmask-xhttp",
+  "server": "origin.example.com",
+  "serverName": "edge.example.com",
+  "realityPublicKey": "public-key",
+  "realityShortId": "abcd1234",
+  "vlessTransport": "xhttp",
+  "xhttpPath": "/xhttp",
+  "xhttpHost": "origin.example.com",
+  "udpEnabled": false
+}
