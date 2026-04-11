@@ -146,6 +146,7 @@ class DefaultStrategyPackService
                     tlsProfileAllowedIds = selection.tlsProfileSet?.allowedProfileIds.orEmpty(),
                     tlsRotationEnabled = selection.tlsProfileSet?.rotationEnabled == true,
                     morphPolicyId = selection.morphPolicy?.id,
+                    morphPolicy = selection.morphPolicy,
                     transportModuleIds = selection.transportModules.map { it.id },
                     featureFlags = selection.featureFlags.associate { it.id to it.enabled },
                     lastResolvedAtEpochMillis = clock.nowEpochMillis(),

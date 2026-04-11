@@ -17,6 +17,7 @@ use ripdpi_config::{DesyncGroup, QuicFakeProfile, RuntimeConfig};
 use ripdpi_desync::{AdaptivePlannerHints, AdaptiveUdpBurstProfile};
 use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
 
+use super::morph::{apply_tcp_morph_policy_to_hints, apply_udp_morph_policy_to_hints, emit_morph_rollback};
 use super::state::RuntimeState;
 
 pub(super) fn network_scope_key(config: &RuntimeConfig) -> Option<&str> {
@@ -47,7 +48,10 @@ pub(super) fn resolve_adaptive_tcp_hints(
     payload: &[u8],
 ) -> io::Result<AdaptivePlannerHints> {
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
-    Ok(resolver.resolve_tcp_hints(network_scope_key(&state.config), group_index, target, host, group, payload))
+    Ok(apply_tcp_morph_policy_to_hints(
+        state,
+        resolver.resolve_tcp_hints(network_scope_key(&state.config), group_index, target, host, group, payload),
+    ))
 }
 
 pub(super) fn resolve_adaptive_udp_hints(
@@ -59,9 +63,14 @@ pub(super) fn resolve_adaptive_udp_hints(
     payload: &[u8],
 ) -> io::Result<AdaptivePlannerHints> {
     let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
-    let hints = resolver.resolve_udp_hints(network_scope_key(&state.config), group_index, target, host, group, payload);
+    let hints = apply_udp_morph_policy_to_hints(
+        state,
+        resolver.resolve_udp_hints(network_scope_key(&state.config), group_index, target, host, group, payload),
+    );
     let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
-    Ok(merge_udp_hints_with_capability(hints, capability))
+    let merged = merge_udp_hints_with_capability(hints.clone(), capability);
+    record_morph_rollback(state, target, &hints, &merged);
+    Ok(merged)
 }
 
 pub(super) fn note_adaptive_fake_ttl_success(
@@ -167,7 +176,7 @@ pub(super) fn resolve_tcp_hints_with_evolver(
 ) -> io::Result<AdaptivePlannerHints> {
     if let Ok(mut evolver) = state.strategy_evolver.lock() {
         if let Some(hints) = evolver.suggest_hints() {
-            return Ok(hints);
+            return Ok(apply_tcp_morph_policy_to_hints(state, hints));
         }
     }
     resolve_adaptive_tcp_hints(state, target, group_index, group, host, payload)
@@ -183,8 +192,11 @@ pub(super) fn resolve_udp_hints_with_evolver(
 ) -> io::Result<AdaptivePlannerHints> {
     if let Ok(mut evolver) = state.strategy_evolver.lock() {
         if let Some(hints) = evolver.suggest_hints() {
+            let hints = apply_udp_morph_policy_to_hints(state, hints);
             let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
-            return Ok(merge_udp_hints_with_capability(hints, capability));
+            let merged = merge_udp_hints_with_capability(hints.clone(), capability);
+            record_morph_rollback(state, target, &hints, &merged);
+            return Ok(merged);
         }
     }
     resolve_adaptive_udp_hints(state, target, group_index, group, host, payload)
@@ -238,6 +250,17 @@ pub(super) fn merge_udp_hints_with_capability(
     hints
 }
 
+fn record_morph_rollback(
+    state: &RuntimeState,
+    target: SocketAddr,
+    before: &AdaptivePlannerHints,
+    after: &AdaptivePlannerHints,
+) {
+    if before.udp_burst_profile != after.udp_burst_profile || before.quic_fake_profile != after.quic_fake_profile {
+        emit_morph_rollback(state, target, "direct_path_capability_downgrade");
+    }
+}
+
 fn direct_path_authority_candidates(host: Option<&str>, target: SocketAddr) -> Vec<String> {
     let mut candidates = Vec::new();
     if let Some(host) = normalize_authority(host) {
@@ -283,6 +306,7 @@ mod tests {
             protect_path: None,
             preferred_edges: std::collections::BTreeMap::default(),
             direct_path_capabilities: vec![capability("example.org:443"), capability("203.0.113.10:443")],
+            morph_policy: None,
         };
 
         let host_match = direct_path_capability_for_route(

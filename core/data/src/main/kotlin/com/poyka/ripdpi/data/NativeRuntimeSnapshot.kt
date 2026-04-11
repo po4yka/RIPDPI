@@ -74,6 +74,8 @@ data class NativeRuntimeSnapshot(
     val tlsProfileId: String? = null,
     val tlsProfileCatalogVersion: String? = null,
     val morphPolicyId: String? = null,
+    val morphHintFamily: String? = null,
+    val morphRollbackReason: String? = null,
     val quicMigrationStatus: String? = null,
     val quicMigrationReason: String? = null,
     val ptRuntimeKind: String? = null,

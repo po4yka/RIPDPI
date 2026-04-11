@@ -301,6 +301,7 @@ internal object RipDpiProxyJsonCodec {
         val protectPath: String? = null,
         val preferredEdges: Map<String, List<NativePreferredEdge>> = emptyMap(),
         val directPathCapabilities: List<NativeDirectPathCapability> = emptyList(),
+        val morphPolicy: NativeMorphPolicy? = null,
     )
 
     @Serializable
@@ -311,6 +312,20 @@ internal object RipDpiProxyJsonCodec {
         val fallbackRequired: Boolean? = null,
         val repeatedHandshakeFailureClass: String? = null,
         val updatedAt: Long = 0L,
+    )
+
+    @Serializable
+    private data class NativeMorphPolicy(
+        val id: String,
+        val firstFlightSizeMin: Int = 0,
+        val firstFlightSizeMax: Int = 0,
+        val paddingEnvelopeMin: Int = 0,
+        val paddingEnvelopeMax: Int = 0,
+        val entropyTargetPermil: Int = 0,
+        val tcpBurstCadenceMs: List<Int> = emptyList(),
+        val tlsBurstCadenceMs: List<Int> = emptyList(),
+        val quicBurstProfile: String = "",
+        val fakePacketShapeProfile: String = "",
     )
 
     @Serializable
@@ -683,6 +698,21 @@ internal object RipDpiProxyJsonCodec {
                                     updatedAt = capability.updatedAt,
                                 )
                             },
+                        morphPolicy =
+                            it.morphPolicy?.let { policy ->
+                                RipDpiMorphPolicy(
+                                    id = policy.id,
+                                    firstFlightSizeMin = policy.firstFlightSizeMin,
+                                    firstFlightSizeMax = policy.firstFlightSizeMax,
+                                    paddingEnvelopeMin = policy.paddingEnvelopeMin,
+                                    paddingEnvelopeMax = policy.paddingEnvelopeMax,
+                                    entropyTargetPermil = policy.entropyTargetPermil,
+                                    tcpBurstCadenceMs = policy.tcpBurstCadenceMs,
+                                    tlsBurstCadenceMs = policy.tlsBurstCadenceMs,
+                                    quicBurstProfile = policy.quicBurstProfile,
+                                    fakePacketShapeProfile = policy.fakePacketShapeProfile,
+                                )
+                            },
                     )
                 },
             )
@@ -730,6 +760,21 @@ internal object RipDpiProxyJsonCodec {
                                 fallbackRequired = capability.fallbackRequired,
                                 repeatedHandshakeFailureClass = capability.repeatedHandshakeFailureClass,
                                 updatedAt = capability.updatedAt,
+                            )
+                        },
+                    morphPolicy =
+                        context.morphPolicy?.let { policy ->
+                            NativeMorphPolicy(
+                                id = policy.id,
+                                firstFlightSizeMin = policy.firstFlightSizeMin,
+                                firstFlightSizeMax = policy.firstFlightSizeMax,
+                                paddingEnvelopeMin = policy.paddingEnvelopeMin,
+                                paddingEnvelopeMax = policy.paddingEnvelopeMax,
+                                entropyTargetPermil = policy.entropyTargetPermil,
+                                tcpBurstCadenceMs = policy.tcpBurstCadenceMs,
+                                tlsBurstCadenceMs = policy.tlsBurstCadenceMs,
+                                quicBurstProfile = policy.quicBurstProfile,
+                                fakePacketShapeProfile = policy.fakePacketShapeProfile,
                             )
                         },
                 )
