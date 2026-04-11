@@ -3,6 +3,7 @@ package com.poyka.ripdpi.core
 import android.content.Context
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.TunnelStats
 import dagger.Binds
 import dagger.Module
@@ -22,16 +23,21 @@ class DefaultProxyPreferencesResolver
     constructor(
         @param:ApplicationContext private val context: Context,
         private val appSettingsRepository: AppSettingsRepository,
+        private val strategyPackStateStore: StrategyPackStateStore,
     ) : ProxyPreferencesResolver {
         override suspend fun resolve(): RipDpiProxyPreferences {
             val settings = appSettingsRepository.snapshot()
             val hostAutolearnStorePath = resolveHostAutolearnStorePath(context)
+            val morphPolicy =
+                strategyPackStateStore.state.value.morphPolicy
+                    ?.toRipDpiMorphPolicy()
             return if (settings.enableCmdSettings) {
                 RipDpiProxyCmdPreferences(settings.cmdArgs, hostAutolearnStorePath, runtimeContext = null)
             } else {
                 RipDpiProxyUIPreferences.fromSettings(
                     settings,
                     hostAutolearnStorePath,
+                    runtimeContext = RipDpiRuntimeContext(morphPolicy = morphPolicy),
                 )
             }
         }

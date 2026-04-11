@@ -36,4 +36,42 @@ class RipDpiProxyJsonCodecTest {
         assertEquals("tcp_reset", capability?.repeatedHandshakeFailureClass)
         assertEquals(321L, capability?.updatedAt)
     }
+
+    @Test
+    fun `ui preferences round trip morph policy through runtime context`() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                runtimeContext =
+                    RipDpiRuntimeContext(
+                        morphPolicy =
+                            RipDpiMorphPolicy(
+                                id = " balanced ",
+                                firstFlightSizeMin = 320,
+                                firstFlightSizeMax = 768,
+                                paddingEnvelopeMin = 16,
+                                paddingEnvelopeMax = 96,
+                                entropyTargetPermil = 3400,
+                                tcpBurstCadenceMs = listOf(0, 12, 24),
+                                tlsBurstCadenceMs = listOf(0, 8),
+                                quicBurstProfile = " Compat_Burst ",
+                                fakePacketShapeProfile = " Compat_Default ",
+                            ),
+                    ),
+            )
+
+        val decoded = decodeRipDpiProxyUiPreferences(preferences.toNativeConfigJson())
+        val morphPolicy = decoded?.runtimeContext?.morphPolicy
+
+        assertNotNull(morphPolicy)
+        assertEquals("balanced", morphPolicy?.id)
+        assertEquals(320, morphPolicy?.firstFlightSizeMin)
+        assertEquals(768, morphPolicy?.firstFlightSizeMax)
+        assertEquals(16, morphPolicy?.paddingEnvelopeMin)
+        assertEquals(96, morphPolicy?.paddingEnvelopeMax)
+        assertEquals(3400, morphPolicy?.entropyTargetPermil)
+        assertEquals(listOf(0, 12, 24), morphPolicy?.tcpBurstCadenceMs)
+        assertEquals(listOf(0, 8), morphPolicy?.tlsBurstCadenceMs)
+        assertEquals("compat_burst", morphPolicy?.quicBurstProfile)
+        assertEquals("compat_default", morphPolicy?.fakePacketShapeProfile)
+    }
 }

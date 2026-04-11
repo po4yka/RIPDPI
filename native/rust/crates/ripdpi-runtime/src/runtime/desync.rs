@@ -21,6 +21,7 @@ use super::adaptive::{
     capability_requires_desync_fallback, direct_path_capability_for_route, resolve_adaptive_fake_ttl,
     resolve_tcp_hints_with_evolver,
 };
+use super::morph::{apply_tcp_morph_policy_to_group, emit_morph_hint_applied, tcp_morph_hint_family};
 use super::state::{RuntimeState, DESYNC_SEED_BASE};
 
 #[derive(Debug)]
@@ -185,6 +186,9 @@ pub(super) fn send_with_group(
     let effective_group = effective_group.as_ref();
     let resolved_fake_ttl = resolve_adaptive_fake_ttl(state, target, group_index, effective_group, host)?;
     let adaptive_hints = resolve_tcp_hints_with_evolver(state, target, group_index, effective_group, host, payload)?;
+    emit_morph_hint_applied(state, target, tcp_morph_hint_family(state, payload, &adaptive_hints));
+    let morphed_group = apply_tcp_morph_policy_to_group(state, effective_group, payload, &adaptive_hints);
+    let effective_group = &morphed_group;
     let context = activation_context_from_progress(
         progress,
         ActivationTransport::Tcp,

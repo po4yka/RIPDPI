@@ -19,6 +19,7 @@ data class StrategyPackRuntimeState(
     val tlsProfileAllowedIds: List<String> = emptyList(),
     val tlsRotationEnabled: Boolean = false,
     val morphPolicyId: String? = null,
+    val morphPolicy: StrategyPackMorphPolicy? = null,
     val transportModuleIds: List<String> = emptyList(),
     val featureFlags: Map<String, Boolean> = emptyMap(),
     val lastResolvedAtEpochMillis: Long? = null,

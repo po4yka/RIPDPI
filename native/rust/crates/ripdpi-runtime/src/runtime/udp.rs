@@ -18,6 +18,7 @@ use super::adaptive::{
     note_adaptive_udp_failure, note_adaptive_udp_success, note_evolver_failure, note_evolver_success,
     resolve_udp_hints_with_evolver,
 };
+use super::morph::{emit_morph_hint_applied, udp_morph_hint_family};
 use super::retry::{
     build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure, note_retry_success,
 };
@@ -648,6 +649,7 @@ fn plan_udp_flow_actions(
         entry.host.as_deref(),
         payload,
     )?;
+    emit_morph_hint_applied(state, entry.current_target, udp_morph_hint_family(state, &adaptive_hints));
     entry.last_used = now;
     entry.payload.clear();
     entry.payload.extend_from_slice(payload);
@@ -752,6 +754,7 @@ mod tests {
             protect_path: None,
             preferred_edges: std::collections::BTreeMap::default(),
             direct_path_capabilities: Vec::new(),
+            morph_policy: None,
         }
     }
 

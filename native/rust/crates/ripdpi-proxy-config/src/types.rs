@@ -69,6 +69,32 @@ pub struct ProxyRuntimeContext {
     pub preferred_edges: std::collections::BTreeMap<String, Vec<ProxyPreferredEdge>>,
     #[serde(default)]
     pub direct_path_capabilities: Vec<ProxyDirectPathCapability>,
+    #[serde(default)]
+    pub morph_policy: Option<ProxyMorphPolicy>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyMorphPolicy {
+    pub id: String,
+    #[serde(default)]
+    pub first_flight_size_min: i32,
+    #[serde(default)]
+    pub first_flight_size_max: i32,
+    #[serde(default)]
+    pub padding_envelope_min: i32,
+    #[serde(default)]
+    pub padding_envelope_max: i32,
+    #[serde(default)]
+    pub entropy_target_permil: i32,
+    #[serde(default)]
+    pub tcp_burst_cadence_ms: Vec<i32>,
+    #[serde(default)]
+    pub tls_burst_cadence_ms: Vec<i32>,
+    #[serde(default)]
+    pub quic_burst_profile: String,
+    #[serde(default)]
+    pub fake_packet_shape_profile: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

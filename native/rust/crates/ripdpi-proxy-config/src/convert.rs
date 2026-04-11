@@ -77,10 +77,27 @@ fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeContext>) -> Opt
             Some(capability)
         })
         .collect();
+    runtime_context.morph_policy = runtime_context.morph_policy.and_then(|mut policy| {
+        policy.id = policy.id.trim().to_string();
+        if policy.id.is_empty() {
+            return None;
+        }
+        policy.first_flight_size_min = policy.first_flight_size_min.max(0);
+        policy.first_flight_size_max = policy.first_flight_size_max.max(policy.first_flight_size_min);
+        policy.padding_envelope_min = policy.padding_envelope_min.max(0);
+        policy.padding_envelope_max = policy.padding_envelope_max.max(policy.padding_envelope_min);
+        policy.entropy_target_permil = policy.entropy_target_permil.max(0);
+        policy.tcp_burst_cadence_ms = policy.tcp_burst_cadence_ms.into_iter().map(|value| value.max(0)).collect();
+        policy.tls_burst_cadence_ms = policy.tls_burst_cadence_ms.into_iter().map(|value| value.max(0)).collect();
+        policy.quic_burst_profile = policy.quic_burst_profile.trim().to_ascii_lowercase();
+        policy.fake_packet_shape_profile = policy.fake_packet_shape_profile.trim().to_ascii_lowercase();
+        Some(policy)
+    });
     if runtime_context.encrypted_dns.is_none()
         && runtime_context.protect_path.is_none()
         && runtime_context.preferred_edges.is_empty()
         && runtime_context.direct_path_capabilities.is_empty()
+        && runtime_context.morph_policy.is_none()
     {
         return None;
     }

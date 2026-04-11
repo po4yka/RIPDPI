@@ -1,3 +1,4 @@
+use crate::types::ProxyMorphPolicy;
 use ripdpi_config::{
     AutoTtlConfig, DesyncMode, FakePacketSource, OffsetBase, OffsetExpr, OffsetProto, QuicFakeProfile,
     TcpChainStepKind, UdpChainStepKind, WsTunnelMode, DETECT_CONNECT, FM_DUPSID, FM_ORIG,
@@ -412,13 +413,26 @@ fn runtime_context_sanitizes_direct_path_capabilities() {
                     updated_at: 0,
                 },
             ],
+            morph_policy: Some(ProxyMorphPolicy {
+                id: " balanced ".to_string(),
+                first_flight_size_min: -10,
+                first_flight_size_max: 700,
+                padding_envelope_min: -1,
+                padding_envelope_max: 80,
+                entropy_target_permil: -50,
+                tcp_burst_cadence_ms: vec![0, -5, 12],
+                tls_burst_cadence_ms: vec![8, -2],
+                quic_burst_profile: " Compat_Burst ".to_string(),
+                fake_packet_shape_profile: " Compat_Default ".to_string(),
+            }),
         }),
         log_context: None,
     })
     .expect("runtime config envelope");
 
-    let capability =
-        envelope.runtime_context.expect("runtime context").direct_path_capabilities.pop().expect("capability");
+    let mut runtime_context = envelope.runtime_context.expect("runtime context");
+    let capability = runtime_context.direct_path_capabilities.pop().expect("capability");
+    let morph_policy = runtime_context.morph_policy.expect("morph policy");
 
     assert_eq!(capability.authority, "example.org:443");
     assert_eq!(capability.quic_usable, Some(false));
@@ -426,6 +440,16 @@ fn runtime_context_sanitizes_direct_path_capabilities() {
     assert_eq!(capability.fallback_required, Some(true));
     assert_eq!(capability.repeated_handshake_failure_class.as_deref(), Some("tcp_reset"));
     assert_eq!(capability.updated_at, 0);
+    assert_eq!(morph_policy.id, "balanced");
+    assert_eq!(morph_policy.first_flight_size_min, 0);
+    assert_eq!(morph_policy.first_flight_size_max, 700);
+    assert_eq!(morph_policy.padding_envelope_min, 0);
+    assert_eq!(morph_policy.padding_envelope_max, 80);
+    assert_eq!(morph_policy.entropy_target_permil, 0);
+    assert_eq!(morph_policy.tcp_burst_cadence_ms, vec![0, 0, 12]);
+    assert_eq!(morph_policy.tls_burst_cadence_ms, vec![8, 0]);
+    assert_eq!(morph_policy.quic_burst_profile, "compat_burst");
+    assert_eq!(morph_policy.fake_packet_shape_profile, "compat_default");
 }
 
 #[test]
