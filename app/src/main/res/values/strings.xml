@@ -1921,14 +1921,14 @@ Source: %2$s</string>
     <string name="detection_resistance_badge_default">Default</string>
     <string name="detection_resistance_badge_evolution">Strategy evolution</string>
     <string name="detection_resistance_badge_low_port">Low-port QUIC</string>
-    <string name="detection_resistance_badge_quic_migrate">QUIC migration</string>
+    <string name="detection_resistance_badge_quic_migrate">UDP rebind</string>
     <string name="detection_resistance_summary_tls">TLS handshake profile</string>
     <string name="detection_resistance_summary_entropy">Traffic morphing</string>
     <string name="detection_resistance_summary_entropy_value">Popcount %1$d, Shannon %2$d</string>
     <string name="detection_resistance_summary_exploration">Adaptive exploration</string>
     <string name="detection_resistance_summary_epsilon_value">Epsilon %1$.2f</string>
     <string name="detection_resistance_summary_quic">QUIC transport</string>
-    <string name="detection_resistance_summary_quic_migrate">Migrate after handshake</string>
+    <string name="detection_resistance_summary_quic_migrate">Rebind after handshake</string>
     <string name="detection_resistance_summary_quic_low_port">Bind low source ports</string>
     <string name="detection_resistance_summary_off">Off</string>
     <string name="detection_resistance_tls_fingerprint_title">TLS fingerprint profile</string>
@@ -1947,9 +1947,9 @@ Source: %2$s</string>
     <string name="detection_resistance_evolution_epsilon_body">Chance from 0.0 to 1.0 that the runtime explores instead of reusing the current best hint.</string>
     <string name="detection_resistance_quic_low_port_title">Bind QUIC to low ports</string>
     <string name="detection_resistance_quic_low_port_body">Makes UDP source ports look closer to common system services when QUIC Initial evasion is active.</string>
-    <string name="detection_resistance_quic_migrate_title">Migrate QUIC after handshake</string>
-    <string name="detection_resistance_quic_migrate_body">VPN-only. Lets the runtime attempt post-handshake QUIC migration on eligible flows.</string>
-    <string name="detection_resistance_quic_migrate_vpn_only">Available only in VPN mode because migration depends on controlled transport ownership.</string>
+    <string name="detection_resistance_quic_migrate_title">Rebind QUIC UDP path after handshake</string>
+    <string name="detection_resistance_quic_migrate_body">VPN-only. Today this uses the existing post-handshake UDP rebind path for generic QUIC flows; validated RFC 9000 migration is only available in owned QUIC transports.</string>
+    <string name="detection_resistance_quic_migrate_vpn_only">Available only in VPN mode because the post-handshake UDP rebind path depends on controlled transport ownership.</string>
 
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="diagnostics_probe_copy_action">Copy result</string>

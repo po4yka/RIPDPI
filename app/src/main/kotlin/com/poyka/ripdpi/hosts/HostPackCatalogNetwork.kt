@@ -10,6 +10,7 @@ import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Streaming
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -44,7 +45,7 @@ class DefaultHostPackCatalogDownloadService
                 .Builder()
                 .baseUrl(hostPackCatalogBaseUrl)
                 .client(
-                    tlsClientFactory.create {
+                    tlsClientFactory.createForAuthority(authority = hostPackCatalogBaseUrl.authorityFromUrl()) {
                         connectTimeout(connectTimeoutSeconds, TimeUnit.SECONDS)
                         readTimeout(readTimeoutSeconds, TimeUnit.SECONDS)
                         callTimeout(callTimeoutSeconds, TimeUnit.SECONDS)
@@ -78,3 +79,5 @@ private const val callTimeoutSeconds = 120L
 
 const val hostPackCatalogBaseUrl = "https://raw.githubusercontent.com/"
 const val hostPackCatalogUserAgent = "RIPDPI host-pack catalog"
+
+private fun String.authorityFromUrl(): String? = runCatching { URI(this).host }.getOrNull()

@@ -240,6 +240,12 @@ abstract class StrategyPackBindingsModule {
 
     @Binds
     @Singleton
+    abstract fun bindStrategyPackTempFileFactory(
+        factory: DefaultStrategyPackTempFileFactory,
+    ): StrategyPackTempFileFactory
+
+    @Binds
+    @Singleton
     abstract fun bindStrategyPackClock(clock: SystemStrategyPackClock): StrategyPackClock
 }
 

@@ -25,7 +25,9 @@ internal interface ServiceStatusReporterFactory {
 @Singleton
 internal class DefaultServiceStatusReporterFactory
     @Inject
-    constructor() : ServiceStatusReporterFactory {
+    constructor(
+        private val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
+    ) : ServiceStatusReporterFactory {
         override fun create(
             mode: Mode,
             sender: Sender,
@@ -40,6 +42,7 @@ internal class DefaultServiceStatusReporterFactory
                 serviceStateStore = serviceStateStore,
                 networkFingerprintProvider = networkFingerprintProvider,
                 telemetryFingerprintHasher = telemetryFingerprintHasher,
+                runtimeExperimentSelectionProvider = runtimeExperimentSelectionProvider,
                 clock = clock,
             )
     }

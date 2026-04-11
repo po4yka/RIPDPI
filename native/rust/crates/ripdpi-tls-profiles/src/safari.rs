@@ -19,4 +19,5 @@ pub const SAFARI_LATEST: ProfileConfig = ProfileConfig {
     permute_extensions: false,
     min_version: SslVersion::TLS1_2,
     max_version: SslVersion::TLS1_3,
+    client_hello_size_hint: 498,
 };

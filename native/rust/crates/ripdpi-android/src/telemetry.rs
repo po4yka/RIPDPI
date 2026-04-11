@@ -91,6 +91,24 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) adaptive_last_trigger: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) adaptive_override_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) strategy_pack_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) strategy_pack_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) tls_profile_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) tls_profile_catalog_version: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) morph_policy_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) quic_migration_status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) quic_migration_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) pt_runtime_kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) pt_runtime_state: Option<String>,
     pub(crate) listener_address: Option<String>,
     pub(crate) upstream_address: Option<String>,
     pub(crate) upstream_rtt_ms: Option<u64>,
@@ -135,6 +153,8 @@ struct TelemetryStrings {
     adaptive_trigger_mask: Option<u64>,
     adaptive_last_trigger: Option<String>,
     adaptive_override_reason: Option<String>,
+    quic_migration_status: Option<String>,
+    quic_migration_reason: Option<String>,
     last_retry_reason: Option<String>,
     last_autolearn_host: Option<String>,
     last_autolearn_action: Option<String>,
@@ -206,6 +226,8 @@ impl ProxyTelemetryState {
                 adaptive_trigger_mask: None,
                 adaptive_last_trigger: None,
                 adaptive_override_reason: None,
+                quic_migration_status: None,
+                quic_migration_reason: None,
                 last_retry_reason: None,
                 last_autolearn_host: None,
                 last_autolearn_action: None,
@@ -484,6 +506,16 @@ impl ProxyTelemetryState {
         self.update_strings(|s| s.last_target = Some(target.clone()));
     }
 
+    pub(crate) fn on_quic_migration_status(&self, target: String, status: &'static str, reason: &'static str) {
+        let message = format!("quic migration target={target} status={status} reason={reason}");
+        self.emit_event("proxy", "info", &message);
+        self.update_strings(|s| {
+            s.last_target = Some(target.clone());
+            s.quic_migration_status = Some(status.to_string());
+            s.quic_migration_reason = Some(reason.to_string());
+        });
+    }
+
     pub(crate) fn on_upstream_connected(&self, upstream_address: String, upstream_rtt_ms: Option<u64>) {
         if let Some(rtt_ms) = upstream_rtt_ms {
             self.tcp_connect_histogram.record(rtt_ms);
@@ -550,6 +582,8 @@ impl ProxyTelemetryState {
         let adaptive_trigger_mask = strings.adaptive_trigger_mask;
         let adaptive_last_trigger = strings.adaptive_last_trigger.clone();
         let adaptive_override_reason = strings.adaptive_override_reason.clone();
+        let quic_migration_status = strings.quic_migration_status.clone();
+        let quic_migration_reason = strings.quic_migration_reason.clone();
         let last_retry_reason = strings.last_retry_reason.clone();
         let last_autolearn_host = strings.last_autolearn_host.clone();
         let last_autolearn_action = strings.last_autolearn_action.clone();
@@ -589,6 +623,15 @@ impl ProxyTelemetryState {
             adaptive_trigger_mask,
             adaptive_last_trigger,
             adaptive_override_reason,
+            strategy_pack_id: None,
+            strategy_pack_version: None,
+            tls_profile_id: None,
+            tls_profile_catalog_version: None,
+            morph_policy_id: None,
+            quic_migration_status,
+            quic_migration_reason,
+            pt_runtime_kind: None,
+            pt_runtime_state: None,
             listener_address,
             upstream_address,
             upstream_rtt_ms,
@@ -772,6 +815,10 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
 
     fn on_ws_tunnel_escalation(&self, target: std::net::SocketAddr, dc: u8, success: bool) {
         self.state.on_ws_tunnel_escalation(target.to_string(), dc, success);
+    }
+
+    fn on_quic_migration_status(&self, target: std::net::SocketAddr, status: &'static str, reason: &'static str) {
+        self.state.on_quic_migration_status(target.to_string(), status, reason);
     }
 }
 
@@ -1136,6 +1183,15 @@ mod tests {
             adaptive_trigger_mask: Some(7),
             adaptive_last_trigger: Some("dns_timeout".to_string()),
             adaptive_override_reason: Some("forced_reorder".to_string()),
+            strategy_pack_id: Some("baseline-stable".to_string()),
+            strategy_pack_version: Some("2026.04.1".to_string()),
+            tls_profile_id: Some("chrome_stable".to_string()),
+            tls_profile_catalog_version: Some("v1".to_string()),
+            morph_policy_id: Some("balanced".to_string()),
+            quic_migration_status: Some("rebind_only".to_string()),
+            quic_migration_reason: Some("udp_source_port_rebind_after_handshake".to_string()),
+            pt_runtime_kind: None,
+            pt_runtime_state: None,
             listener_address: Some("127.0.0.1:1080".to_string()),
             upstream_address: Some("203.0.113.10:443".to_string()),
             upstream_rtt_ms: Some(42),
