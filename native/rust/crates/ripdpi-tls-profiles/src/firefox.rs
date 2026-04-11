@@ -4,6 +4,8 @@ use crate::profile::ProfileConfig;
 
 pub const FIREFOX_LATEST: ProfileConfig = ProfileConfig {
     name: "firefox_stable",
+    browser_family: "firefox",
+    browser_track: "stable",
     cipher_list_tls12: "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:\
                         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:\
                         ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384",
@@ -18,4 +20,6 @@ pub const FIREFOX_LATEST: ProfileConfig = ProfileConfig {
     min_version: SslVersion::TLS1_2,
     max_version: SslVersion::TLS1_3,
     client_hello_size_hint: 505,
+    ja3_parity_target: "firefox-stable",
+    ja4_parity_target: "firefox-stable",
 };

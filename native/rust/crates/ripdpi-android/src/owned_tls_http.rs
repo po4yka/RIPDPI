@@ -9,7 +9,7 @@ use http::{Method, Request, StatusCode};
 use http_body_util::{BodyExt, Full};
 use hyper::client::conn::http1;
 use hyper_util::rt::TokioIo;
-use ripdpi_tls_profiles::configure_builder;
+use ripdpi_tls_profiles::{configure_builder, profile_catalog_version, selected_profile_metadata};
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpStream;
 use tokio::time::timeout;
@@ -45,6 +45,18 @@ pub struct NativeOwnedTlsHttpResponse {
     pub body_base64: Option<String>,
     #[serde(rename = "finalUrl")]
     pub final_url: Option<String>,
+    #[serde(rename = "tlsProfileId")]
+    pub tls_profile_id: Option<String>,
+    #[serde(rename = "tlsProfileCatalogVersion")]
+    pub tls_profile_catalog_version: Option<String>,
+    #[serde(rename = "tlsJa3ParityTarget")]
+    pub tls_ja3_parity_target: Option<String>,
+    #[serde(rename = "tlsJa4ParityTarget")]
+    pub tls_ja4_parity_target: Option<String>,
+    #[serde(rename = "clientHelloSizeHint")]
+    pub client_hello_size_hint: Option<usize>,
+    #[serde(rename = "clientHelloInvariantStatus")]
+    pub client_hello_invariant_status: Option<String>,
     pub error: Option<String>,
 }
 
@@ -70,6 +82,12 @@ pub fn execute(request_json: &str) -> io::Result<String> {
             status_code: None,
             body_base64: None,
             final_url: None,
+            tls_profile_id: None,
+            tls_profile_catalog_version: None,
+            tls_ja3_parity_target: None,
+            tls_ja4_parity_target: None,
+            client_hello_size_hint: None,
+            client_hello_invariant_status: None,
             error: Some(error.to_string()),
         },
     };
@@ -77,6 +95,7 @@ pub fn execute(request_json: &str) -> io::Result<String> {
 }
 
 async fn execute_async(request: NativeOwnedTlsHttpRequest) -> io::Result<NativeOwnedTlsHttpResponse> {
+    let profile_metadata = selected_profile_metadata(&request.tls_profile_id);
     let method = Method::from_bytes(request.method.as_bytes())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid method: {error}")))?;
     let mut current_url = Url::parse(&request.url)
@@ -100,6 +119,12 @@ async fn execute_async(request: NativeOwnedTlsHttpRequest) -> io::Result<NativeO
             status_code: Some(response.status_code.as_u16()),
             body_base64: Some(base64::engine::general_purpose::STANDARD.encode(response.body)),
             final_url: Some(current_url.into()),
+            tls_profile_id: Some(profile_metadata.profile_name.to_string()),
+            tls_profile_catalog_version: Some(profile_catalog_version().to_string()),
+            tls_ja3_parity_target: Some(profile_metadata.parity_targets.ja3.to_string()),
+            tls_ja4_parity_target: Some(profile_metadata.parity_targets.ja4.to_string()),
+            client_hello_size_hint: Some(profile_metadata.client_hello_size_hint),
+            client_hello_invariant_status: Some(profile_metadata.invariant_status.as_str().to_string()),
             error: None,
         });
     }
@@ -292,6 +317,9 @@ mod tests {
         assert_eq!(response["statusCode"], 200);
         assert_eq!(STANDARD.decode(response["bodyBase64"].as_str().expect("body")).expect("decode body"), b"manifest");
         assert_eq!(response["finalUrl"].as_str().expect("final url"), format!("http://127.0.0.1:{port}/manifest.json"));
+        assert_eq!(response["tlsProfileId"], "chrome_stable");
+        assert_eq!(response["tlsProfileCatalogVersion"], "v1");
+        assert_eq!(response["clientHelloInvariantStatus"], "avoids_blocked_517_byte_client_hello");
     }
 
     #[test]
@@ -314,6 +342,8 @@ mod tests {
         assert_eq!(response["statusCode"], 200);
         assert_eq!(STANDARD.decode(response["bodyBase64"].as_str().expect("body")).expect("decode body"), b"catalog");
         assert_eq!(response["finalUrl"].as_str().expect("final url"), format!("http://127.0.0.1:{port}/final.json"));
+        assert_eq!(response["tlsJa3ParityTarget"], "chrome-stable");
+        assert_eq!(response["tlsJa4ParityTarget"], "chrome-stable");
     }
 
     fn http_response(status_line: &str, headers: &[(&str, &str)], body: &[u8]) -> Vec<u8> {

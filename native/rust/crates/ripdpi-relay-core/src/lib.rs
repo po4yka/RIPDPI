@@ -10,6 +10,7 @@ use ripdpi_relay_mux::{
     BoxFuture, MuxLease, RelayCapabilities, RelayMux, RelayPoolConfig, RelayPoolHealth, RelaySession,
     RelaySessionFactory,
 };
+use ripdpi_tls_profiles::profile_catalog_version;
 use serde::{Deserialize, Serialize};
 use tokio::io::{copy_bidirectional, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
@@ -853,7 +854,7 @@ impl RelayRuntime {
             strategy_pack_id: None,
             strategy_pack_version: None,
             tls_profile_id: Some(self.config.tls_fingerprint_profile.clone()),
-            tls_profile_catalog_version: None,
+            tls_profile_catalog_version: Some(profile_catalog_version().to_string()),
             morph_policy_id: None,
             quic_migration_status,
             quic_migration_reason,
@@ -1422,6 +1423,16 @@ mod tests {
 
         assert_eq!(config.masque_auth_mode.as_deref(), Some("cloudflare_mtls"));
         assert_eq!(config.masque_cloudflare_geohash_header.as_deref(), Some("u4pruyd-GB"));
+    }
+
+    #[test]
+    fn relay_telemetry_reports_tls_catalog_version() {
+        let runtime = RelayRuntime::new(sample_config("masque"));
+
+        let telemetry = runtime.telemetry();
+
+        assert_eq!(Some("chrome_stable"), telemetry.tls_profile_id.as_deref());
+        assert_eq!(Some(profile_catalog_version()), telemetry.tls_profile_catalog_version.as_deref());
     }
 
     #[test]

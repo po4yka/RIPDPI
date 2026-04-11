@@ -3193,6 +3193,7 @@ dependencies = [
  "ripdpi-masque",
  "ripdpi-relay-mux",
  "ripdpi-shadowtls",
+ "ripdpi-tls-profiles",
  "ripdpi-tuic",
  "ripdpi-vless",
  "ripdpi-xhttp",
