@@ -19,6 +19,10 @@ import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServerCapabilityObservation
+import com.poyka.ripdpi.data.ServerCapabilityRecord
+import com.poyka.ripdpi.data.ServerCapabilityScope
+import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
@@ -66,6 +70,7 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.io.File
 import java.nio.file.Files
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 
 internal class FakeAppSettingsRepository(
@@ -764,6 +769,107 @@ internal class FakeResolverOverrideStore : ResolverOverrideStore {
 
     override fun clear() {
         state.value = null
+    }
+}
+
+internal class FakeServerCapabilityStore : ServerCapabilityStore {
+    private val relayRecords = linkedMapOf<String, ServerCapabilityRecord>()
+    private val directPathRecords = linkedMapOf<String, ServerCapabilityRecord>()
+
+    override suspend fun relayCapabilitiesForFingerprint(fingerprintHash: String): List<ServerCapabilityRecord> =
+        relayRecords.values
+            .filter {
+                it.fingerprintHash == fingerprintHash
+            }.sortedByDescending(ServerCapabilityRecord::updatedAt)
+
+    override suspend fun directPathCapabilitiesForFingerprint(fingerprintHash: String): List<ServerCapabilityRecord> =
+        directPathRecords.values
+            .filter { it.fingerprintHash == fingerprintHash }
+            .sortedByDescending(ServerCapabilityRecord::updatedAt)
+
+    override suspend fun rememberRelayObservation(
+        fingerprint: NetworkFingerprint,
+        authority: String,
+        relayProfileId: String?,
+        observation: ServerCapabilityObservation,
+        source: String,
+        recordedAt: Long?,
+    ): ServerCapabilityRecord =
+        remember(
+            records = relayRecords,
+            scope = ServerCapabilityScope.Relay,
+            fingerprint = fingerprint,
+            authority = authority,
+            relayProfileId = relayProfileId,
+            observation = observation,
+            source = source,
+            recordedAt = recordedAt,
+        )
+
+    override suspend fun rememberDirectPathObservation(
+        fingerprint: NetworkFingerprint,
+        authority: String,
+        observation: ServerCapabilityObservation,
+        source: String,
+        recordedAt: Long?,
+    ): ServerCapabilityRecord =
+        remember(
+            records = directPathRecords,
+            scope = ServerCapabilityScope.DirectPath,
+            fingerprint = fingerprint,
+            authority = authority,
+            relayProfileId = null,
+            observation = observation,
+            source = source,
+            recordedAt = recordedAt,
+        )
+
+    override suspend fun clearAll() {
+        relayRecords.clear()
+        directPathRecords.clear()
+    }
+
+    private fun remember(
+        records: MutableMap<String, ServerCapabilityRecord>,
+        scope: ServerCapabilityScope,
+        fingerprint: NetworkFingerprint,
+        authority: String,
+        relayProfileId: String?,
+        observation: ServerCapabilityObservation,
+        source: String,
+        recordedAt: Long?,
+    ): ServerCapabilityRecord {
+        val normalizedAuthority = authority.trim().lowercase(Locale.US)
+        val key =
+            listOf(
+                scope.wireValue,
+                fingerprint.scopeKey(),
+                normalizedAuthority,
+                relayProfileId.orEmpty(),
+            ).joinToString(":")
+        val existing = records[key]
+        val merged =
+            ServerCapabilityRecord(
+                scope = scope.wireValue,
+                fingerprintHash = fingerprint.scopeKey(),
+                authority = normalizedAuthority,
+                relayProfileId = relayProfileId ?: existing?.relayProfileId,
+                quicUsable = observation.quicUsable ?: existing?.quicUsable,
+                udpUsable = observation.udpUsable ?: existing?.udpUsable,
+                authModeAccepted = observation.authModeAccepted ?: existing?.authModeAccepted,
+                multiplexReusable = observation.multiplexReusable ?: existing?.multiplexReusable,
+                shadowTlsCamouflageAccepted =
+                    observation.shadowTlsCamouflageAccepted ?: existing?.shadowTlsCamouflageAccepted,
+                naiveHttpsProxyAccepted =
+                    observation.naiveHttpsProxyAccepted ?: existing?.naiveHttpsProxyAccepted,
+                fallbackRequired = observation.fallbackRequired ?: existing?.fallbackRequired,
+                repeatedHandshakeFailureClass =
+                    observation.repeatedHandshakeFailureClass ?: existing?.repeatedHandshakeFailureClass,
+                source = source,
+                updatedAt = recordedAt ?: System.currentTimeMillis(),
+            )
+        records[key] = merged
+        return merged
     }
 }
 

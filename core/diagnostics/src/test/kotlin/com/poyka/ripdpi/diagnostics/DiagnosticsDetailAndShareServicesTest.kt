@@ -20,6 +20,8 @@ class DiagnosticsDetailAndShareServicesTest {
     fun `detail loader loads session detail and approach detail from repository slices`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
+            val capabilityStore = FakeServerCapabilityStore()
+            val fingerprint = fingerprint("fp-session")
             val session =
                 diagnosticsSession(
                     id = "session-1",
@@ -67,8 +69,20 @@ class DiagnosticsDetailAndShareServicesTest {
                         level = "warn",
                         message = "fallback",
                         createdAt = 22L,
+                        fingerprintHash = fingerprint.scopeKey(),
                     ),
                 )
+            capabilityStore.rememberDirectPathObservation(
+                fingerprint = fingerprint,
+                authority = "blocked.example",
+                observation =
+                    com.poyka.ripdpi.data.ServerCapabilityObservation(
+                        quicUsable = false,
+                        udpUsable = false,
+                    ),
+                source = "diagnostics",
+                recordedAt = 30L,
+            )
             stores.usageSessionsState.value =
                 listOf(
                     diagnosticsUsageSession(
@@ -80,7 +94,7 @@ class DiagnosticsDetailAndShareServicesTest {
                     ),
                 )
 
-            val loader = DefaultDiagnosticsDetailLoader(stores, stores, stores, json)
+            val loader = DefaultDiagnosticsDetailLoader(stores, stores, stores, capabilityStore, json)
             val detail = loader.loadSessionDetail(session.id)
             val approach = loader.loadApproachDetail(BypassApproachKind.Strategy, "strategy-fast")
 
@@ -88,6 +102,8 @@ class DiagnosticsDetailAndShareServicesTest {
             assertEquals(1, detail.results.size)
             assertEquals("ctx-1", detail.context?.id)
             assertEquals("ev-1", detail.events.single().id)
+            assertEquals(1, detail.capabilityEvidence.size)
+            assertEquals("blocked.example", detail.capabilityEvidence.single().authority)
             assertEquals("strategy-fast", approach.summary.approachId.value)
             assertEquals(1, approach.recentValidatedSessions.size)
             assertEquals(1, approach.recentUsageSessions.size)
@@ -165,6 +181,18 @@ class DiagnosticsDetailAndShareServicesTest {
                         packVersions = mapOf("ru-independent-media" to 1),
                     ),
                 ),
+        )
+
+    private fun fingerprint(scopeKey: String) =
+        com.poyka.ripdpi.data.NetworkFingerprint(
+            transport = "wifi",
+            networkValidated = true,
+            captivePortalDetected = false,
+            privateDnsMode = "system",
+            dnsServers = emptyList(),
+            wifi =
+                com.poyka.ripdpi.data
+                    .WifiNetworkIdentityTuple(ssid = scopeKey),
         )
 
     private suspend fun seedShareServiceStores(

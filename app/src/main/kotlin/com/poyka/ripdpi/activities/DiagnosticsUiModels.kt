@@ -316,6 +316,7 @@ data class DiagnosticsSessionDetailUiModel(
     val session: DiagnosticsSessionRowUiModel,
     val diagnoses: List<DiagnosticsDiagnosisUiModel> = emptyList(),
     val reportMetadata: List<DiagnosticsFieldUiModel> = emptyList(),
+    val capabilityEvidence: List<DiagnosticsCapabilityEvidenceUiModel> = emptyList(),
     val probeGroups: List<DiagnosticsProbeGroupUiModel>,
     val snapshots: List<DiagnosticsNetworkSnapshotUiModel>,
     val events: List<DiagnosticsEventUiModel>,
@@ -323,6 +324,13 @@ data class DiagnosticsSessionDetailUiModel(
     val strategyProbeReport: DiagnosticsStrategyProbeReportUiModel? = null,
     val hasSensitiveDetails: Boolean,
     val sensitiveDetailsVisible: Boolean,
+)
+
+@Stable
+data class DiagnosticsCapabilityEvidenceUiModel(
+    val authority: String,
+    val summary: String,
+    val fields: List<DiagnosticsFieldUiModel>,
 )
 
 @Stable

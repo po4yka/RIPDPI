@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ResolverOverrideStore
+import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.WarpEndpointSelectionManual
 import com.poyka.ripdpi.data.WarpRouteModeRules
@@ -80,6 +81,7 @@ class DefaultDiagnosticsDetailLoader
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val artifactQueryStore: DiagnosticsArtifactQueryStore,
         private val bypassUsageHistoryStore: BypassUsageHistoryStore,
+        private val serverCapabilityStore: ServerCapabilityStore,
         private val mapper: DiagnosticsBoundaryMapper,
         @param:Named("diagnosticsJson")
         private val json: Json,
@@ -88,17 +90,38 @@ class DefaultDiagnosticsDetailLoader
             scanRecordStore: DiagnosticsScanRecordStore,
             artifactQueryStore: DiagnosticsArtifactQueryStore,
             bypassUsageHistoryStore: BypassUsageHistoryStore,
+            serverCapabilityStore: ServerCapabilityStore,
             json: Json,
         ) : this(
             scanRecordStore = scanRecordStore,
             artifactQueryStore = artifactQueryStore,
             bypassUsageHistoryStore = bypassUsageHistoryStore,
+            serverCapabilityStore = serverCapabilityStore,
             mapper = DiagnosticsBoundaryMapper(json),
             json = json,
         )
 
-        override suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail =
-            DiagnosticsSessionQueries.loadSessionDetail(sessionId, scanRecordStore, artifactQueryStore, mapper)
+        override suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail {
+            val detail =
+                DiagnosticsSessionQueries.loadSessionDetail(
+                    sessionId,
+                    scanRecordStore,
+                    artifactQueryStore,
+                    mapper,
+                )
+            val fingerprintHash = detail.resolveFingerprintHash()
+            val evidence =
+                if (fingerprintHash != null) {
+                    val records = serverCapabilityStore.directPathCapabilitiesForFingerprint(fingerprintHash)
+                    summarizeCapabilityEvidence(
+                        records = records,
+                        relevantAuthorities = detail.relevantCapabilityAuthorities(),
+                    )
+                } else {
+                    emptyList()
+                }
+            return detail.copy(capabilityEvidence = evidence)
+        }
 
         override suspend fun loadApproachDetail(
             kind: BypassApproachKind,
@@ -164,6 +187,7 @@ class DefaultDiagnosticsHomeWorkflowService
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val artifactQueryStore: DiagnosticsArtifactQueryStore,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
+        private val serverCapabilityStore: ServerCapabilityStore,
         private val resolverActions: DiagnosticsResolverActions,
         @param:Named("diagnosticsJson")
         private val json: Json,
@@ -203,6 +227,14 @@ class DefaultDiagnosticsHomeWorkflowService
                     } else {
                         emptyList()
                     }
+                val capabilityEvidence =
+                    if (fingerprintHash != null) {
+                        summarizeCapabilityEvidence(
+                            serverCapabilityStore.directPathCapabilitiesForFingerprint(fingerprintHash),
+                        )
+                    } else {
+                        emptyList()
+                    }
 
                 buildAuditOutcome(
                     sessionId = sessionId,
@@ -215,6 +247,7 @@ class DefaultDiagnosticsHomeWorkflowService
                     resolverRecommendation = resolverRecommendation,
                     resolverApplied = resolverApplied,
                     strategyRecommendationApplied = strategyRecommendationApplied,
+                    capabilityEvidence = capabilityEvidence,
                 )
             }
 
@@ -287,6 +320,7 @@ class DefaultDiagnosticsHomeWorkflowService
             resolverRecommendation: ResolverRecommendation?,
             resolverApplied: List<DiagnosticsAppliedSetting>,
             strategyRecommendationApplied: List<DiagnosticsAppliedSetting>,
+            capabilityEvidence: List<DiagnosticsCapabilityEvidence>,
         ): DiagnosticsHomeAuditOutcome {
             val allApplied = resolveAppliedSettings(strategyApplied, resolverApplied, strategyRecommendationApplied)
             val actionable =
@@ -326,6 +360,7 @@ class DefaultDiagnosticsHomeWorkflowService
                         resolverRecommendation,
                     ),
                 appliedSettings = allApplied,
+                capabilityEvidence = capabilityEvidence,
                 strategyAdequacy = strategyAdequacy,
             )
         }
@@ -647,6 +682,19 @@ class DefaultDiagnosticsHomeWorkflowService
                 }
             }
     }
+
+private fun DiagnosticSessionDetail.resolveFingerprintHash(): String? =
+    session.launchTrigger?.currentFingerprintHash
+        ?: events.lastOrNull { !it.fingerprintHash.isNullOrBlank() }?.fingerprintHash
+
+private fun DiagnosticSessionDetail.relevantCapabilityAuthorities(): Set<String> =
+    results
+        .mapNotNull { result ->
+            result.detailValue("targetHost")
+                ?: result.detailValue("handshakeHost")
+                ?: result.detailValue("quicHost")
+                ?: result.inferEdgeHost()
+        }.toSet()
 
 @Singleton
 class DefaultDiagnosticsResolverActions

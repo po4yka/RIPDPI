@@ -619,6 +619,7 @@ internal fun executionCoordinatorFixtures(
             rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
             networkEdgePreferenceStore = networkEdgePreferenceStore,
             networkDnsPathPreferenceStore = preferredPathStore,
+            serverCapabilityStore = FakeServerCapabilityStore(),
             findingProjector = DiagnosticsFindingProjector(),
             json = json,
         )

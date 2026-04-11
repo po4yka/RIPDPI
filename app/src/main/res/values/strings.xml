@@ -150,6 +150,7 @@
     <string name="diagnostics_scan_metadata_triggered_at">Triggered at</string>
     <string name="diagnostics_scan_metadata_previous_fingerprint">Previous fingerprint</string>
     <string name="diagnostics_scan_metadata_current_fingerprint">Current fingerprint</string>
+    <string name="diagnostics_capability_evidence_title">Capability evidence</string>
     <string name="diagnostics_report_metadata_title">Session metadata</string>
     <string name="diagnostics_source_manual_session">Manual session</string>
     <string name="diagnostics_source_automatic_probing_background">Automatic probing (background)</string>
@@ -291,6 +292,7 @@
     <string name="home_diagnostics_coverage_label">Coverage</string>
     <string name="home_diagnostics_recommendation_label">Recommendation</string>
     <string name="home_diagnostics_applied_settings_label">Applied settings</string>
+    <string name="home_diagnostics_capability_evidence_label">Observed capability evidence</string>
     <string name="home_diagnostics_no_settings_applied">No settings were applied automatically.</string>
     <string name="home_diagnostics_stage_results_label">Stage results</string>
     <string name="home_diagnostics_stage_recommendation_marker">active recommendation</string>

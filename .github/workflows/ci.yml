@@ -56,6 +56,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_android_relay_smoke:
+        description: Run Android relay emulator smoke suite
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "0 3 * * *"
 
@@ -323,6 +328,32 @@ jobs:
 
       - name: Run repo-owned Rust network E2E
         run: bash scripts/ci/run-rust-network-e2e.sh
+
+  relay-interoperability:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.94.0"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+          shared-key: relay-interoperability
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-nextest
+
+      - name: Run relay interoperability suite
+        run: bash scripts/ci/run-rust-relay-interoperability.sh
 
   cli-packet-smoke:
     if: github.event_name != 'schedule'
@@ -844,6 +875,59 @@ jobs:
             ${{ runner.temp }}/local-network-fixture/fixture.log
             ${{ runner.temp }}/local-network-fixture/fixture-manifest.json
             ${{ runner.temp }}/local-network-fixture/fixture-events.json
+          retention-days: 7
+
+  android-relay-emulator-smoke:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_relay_smoke == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-targets: x86_64-linux-android
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "false"
+
+      - name: Enable KVM for emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run Android relay emulator smoke
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: aosp_atd
+          ram-size: 4096M
+          heap-size: 1024M
+          disk-size: 8G
+          emulator-boot-timeout: 600
+          emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
+          script: bash scripts/ci/run-android-relay-emulator-smoke.sh
+
+      - name: Capture emulator logcat
+        if: always()
+        run: |
+          if adb devices | grep -q 'emulator'; then
+            adb logcat -d > android-relay-logcat.txt || true
+          else
+            touch android-relay-logcat.txt
+          fi
+
+      - name: Upload Android relay smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-relay-smoke-artifacts
+          path: |
+            android-relay-logcat.txt
+            app/build/reports/androidTests/connected/
+            app/build/outputs/androidTest-results/connected/
           retention-days: 7
 
   linux-tun-e2e:
