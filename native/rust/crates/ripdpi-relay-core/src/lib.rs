@@ -49,6 +49,7 @@ pub struct ResolvedRelayRuntimeConfig {
     pub tuic_zero_rtt: bool,
     pub tuic_congestion_control: String,
     pub shadow_tls_inner_profile_id: String,
+    pub shadow_tls_inner: Option<ResolvedShadowTlsInnerRelayConfig>,
     pub naive_path: String,
     pub local_socks_host: String,
     pub local_socks_port: i32,
@@ -72,6 +73,20 @@ pub struct ResolvedRelayRuntimeConfig {
     pub masque_cloudflare_private_key_pem: Option<String>,
     pub masque_privacy_pass_provider_url: Option<String>,
     pub masque_privacy_pass_provider_auth_token: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResolvedShadowTlsInnerRelayConfig {
+    pub kind: String,
+    pub profile_id: String,
+    pub server: String,
+    pub server_port: i32,
+    pub server_name: String,
+    pub reality_public_key: String,
+    pub reality_short_id: String,
+    pub vless_transport: String,
+    pub vless_uuid: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -305,6 +320,9 @@ struct MasqueBackend {
 
 struct ShadowTlsBackend {
     client: ripdpi_shadowtls::ShadowTlsClient,
+    outer_server: String,
+    outer_server_port: i32,
+    inner: ResolvedShadowTlsInnerRelayConfig,
 }
 
 impl MasqueBackend {
@@ -319,14 +337,47 @@ impl MasqueBackend {
 }
 
 impl ShadowTlsBackend {
-    async fn connect_tcp(&self, _target: &RelayTargetAddr) -> io::Result<BoxedIo> {
-        Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            format!(
-                "ShadowTLS backend scaffold for inner profile {} is not fully implemented yet",
-                self.client.config().inner_profile_id
-            ),
-        ))
+    async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
+        let transport = self
+            .client
+            .connect(&self.outer_server, self.outer_server_port)
+            .await
+            .map_err(|error| io::Error::new(error.kind(), format!("shadowtls connect: {error}")))?;
+
+        match self.inner.kind.as_str() {
+            "vless_reality" => {
+                if self.inner.vless_transport == "xhttp" {
+                    return Err(io::Error::new(
+                        io::ErrorKind::Unsupported,
+                        "ShadowTLS inner VLESS xHTTP transport is not supported yet",
+                    ));
+                }
+                let uuid =
+                    self.inner.vless_uuid.as_ref().filter(|value| !value.trim().is_empty()).ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidInput, "missing ShadowTLS inner VLESS UUID")
+                    })?;
+                let config = ripdpi_vless::config::VlessRealityConfig::from_strings(
+                    &self.inner.server,
+                    self.inner.server_port,
+                    uuid,
+                    &self.inner.server_name,
+                    &self.inner.reality_public_key,
+                    &self.inner.reality_short_id,
+                    "chrome_stable",
+                )
+                .map_err(|error| {
+                    io::Error::new(io::ErrorKind::InvalidInput, format!("shadowtls inner vless: {error}"))
+                })?;
+                let stream =
+                    ripdpi_vless::VlessRealityClient::connect_over(&config, transport, &target.to_connect_target())
+                        .await?;
+                Ok(Box::new(stream))
+            }
+            other => Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                format!("ShadowTLS inner relay kind {other} is not supported"),
+            )),
+        }
     }
 }
 
@@ -643,6 +694,12 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                 server_name: config.server_name.clone(),
                 inner_profile_id: config.shadow_tls_inner_profile_id.clone(),
             }),
+            outer_server: config.server.clone(),
+            outer_server_port: config.server_port,
+            inner: config
+                .shadow_tls_inner
+                .clone()
+                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing ShadowTLS inner relay config"))?,
         })),
         other => Ok(RelayBackend::Unsupported { kind: other.to_string() }),
     }
@@ -755,6 +812,7 @@ mod tests {
             tuic_zero_rtt: false,
             tuic_congestion_control: "bbr".to_string(),
             shadow_tls_inner_profile_id: String::new(),
+            shadow_tls_inner: None,
             naive_path: String::new(),
             local_socks_host: "127.0.0.1".to_string(),
             local_socks_port: 10_80,
@@ -892,5 +950,28 @@ mod tests {
 
         let error = validate_runtime_config(&config, &backend).expect_err("unsupported bind ip must fail");
         assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+    }
+
+    #[tokio::test]
+    async fn relay_runtime_builds_shadowtls_backend_with_inner_vless_profile() {
+        let mut config = sample_config("shadowtls_v3");
+        config.shadow_tls_inner_profile_id = "inner-vless".to_string();
+        config.shadow_tls_inner = Some(ResolvedShadowTlsInnerRelayConfig {
+            kind: "vless_reality".to_string(),
+            profile_id: "inner-vless".to_string(),
+            server: "inner.example".to_string(),
+            server_port: 443,
+            server_name: "inner.example".to_string(),
+            reality_public_key: "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=".to_string(),
+            reality_short_id: String::new(),
+            vless_transport: "reality_tcp".to_string(),
+            vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+        });
+
+        let backend = build_backend(&config).await.expect("shadowtls backend");
+        match backend {
+            RelayBackend::ShadowTls(_) => {}
+            other => panic!("expected ShadowTLS backend, got {:?}", std::mem::discriminant(&other)),
+        }
     }
 }
