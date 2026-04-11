@@ -494,10 +494,21 @@ pub fn send_fake_tcp(
     ttl: u8,
     md5sig: bool,
     default_ttl: u8,
+    options: super::FakeTcpOptions<'_>,
     wait: TcpStageWait,
 ) -> io::Result<()> {
     if original_prefix.is_empty() {
         return Ok(());
+    }
+
+    if options.secondary_fake_prefix.is_some() || options.timestamp_delta_ticks.is_some() {
+        match send_fake_tcp_via_raw_packets(stream, original_prefix, fake_prefix, ttl, md5sig, options, wait) {
+            Ok(()) => return Ok(()),
+            Err(error) if should_fallback_raw_fake_tcp(error.kind()) => {
+                tracing::debug!("falling back to stream fake TCP path after raw fake downgrade: {error}");
+            }
+            Err(error) => return Err(error),
+        }
     }
 
     let fd = stream.as_raw_fd();
@@ -578,6 +589,94 @@ pub fn send_fake_tcp(
     let _ = set_stream_ttl(stream, restore_ttl);
     free_region(region, region_len);
     result
+}
+
+fn should_fallback_raw_fake_tcp(kind: io::ErrorKind) -> bool {
+    matches!(
+        kind,
+        io::ErrorKind::Unsupported
+            | io::ErrorKind::PermissionDenied
+            | io::ErrorKind::WouldBlock
+            | io::ErrorKind::InvalidInput
+    )
+}
+
+fn send_fake_tcp_via_raw_packets(
+    stream: &TcpStream,
+    original_prefix: &[u8],
+    fake_prefix: &[u8],
+    ttl: u8,
+    md5sig: bool,
+    options: super::FakeTcpOptions<'_>,
+    wait: TcpStageWait,
+) -> io::Result<()> {
+    let source = stream.local_addr()?;
+    let target = stream.peer_addr()?;
+    let fd = stream.as_raw_fd();
+
+    set_tcp_repair(fd, TCP_REPAIR_ON)?;
+    let snapshot_result = snapshot_tcp_repair_state(fd);
+    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+    let _ = disable_tcp_repair(fd);
+    let snapshot = snapshot_result?;
+
+    let timestamp = mutate_fake_timestamp(snapshot.options.timestamp, options.timestamp_delta_ticks)?;
+    let mut packets = Vec::with_capacity(1 + usize::from(options.secondary_fake_prefix.is_some()));
+    let base_identification = fragment_identification(source, target, original_prefix.len());
+    packets.push(build_tcp_segment_packet(
+        source,
+        target,
+        ttl,
+        base_identification,
+        snapshot.sequence_number,
+        snapshot.acknowledgment_number,
+        snapshot.window_size,
+        timestamp,
+        true,
+        fake_prefix,
+        md5sig,
+    )?);
+    if let Some(secondary_fake_prefix) = options.secondary_fake_prefix.filter(|payload| !payload.is_empty()) {
+        packets.push(build_tcp_segment_packet(
+            source,
+            target,
+            ttl,
+            base_identification.wrapping_add(1),
+            snapshot.sequence_number,
+            snapshot.acknowledgment_number,
+            snapshot.window_size,
+            timestamp,
+            true,
+            secondary_fake_prefix,
+            md5sig,
+        )?);
+    }
+
+    send_raw_packets(target, packets.iter().map(Vec::as_slice), options.protect_path)?;
+    use std::io::Write;
+    (&*stream).write_all(original_prefix)?;
+    wait_tcp_stage_fd(fd, wait.0, wait.1)
+}
+
+fn mutate_fake_timestamp(
+    timestamp: Option<TcpTimestampSnapshot>,
+    delta_ticks: Option<i32>,
+) -> io::Result<Option<TcpTimestampSnapshot>> {
+    let Some(delta_ticks) = delta_ticks else {
+        return Ok(timestamp);
+    };
+    let Some(mut timestamp) = timestamp else {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "fake TCP timestamp corruption requires negotiated TCP timestamps",
+        ));
+    };
+    timestamp.value = if delta_ticks >= 0 {
+        timestamp.value.wrapping_add(delta_ticks as u32)
+    } else {
+        timestamp.value.wrapping_sub(delta_ticks.unsigned_abs())
+    };
+    Ok(Some(timestamp))
 }
 
 pub fn probe_ip_fragmentation_capabilities(protect_path: Option<&str>) -> io::Result<IpFragmentationCapabilities> {
@@ -1770,6 +1869,23 @@ mod tests {
         assert!(options.sack_permitted);
         assert_eq!(options.window_scale, None);
         assert_eq!(options.timestamp, None);
+    }
+
+    #[test]
+    fn mutate_fake_timestamp_applies_signed_delta_with_wrapping() {
+        let original = Some(TcpTimestampSnapshot { value: 10, echo_reply: 20, usec_ts: false });
+
+        let increased = mutate_fake_timestamp(original, Some(7)).expect("increase timestamp");
+        assert_eq!(increased.unwrap().value, 17);
+
+        let decreased = mutate_fake_timestamp(original, Some(-15)).expect("decrease timestamp");
+        assert_eq!(decreased.unwrap().value, u32::MAX - 4);
+    }
+
+    #[test]
+    fn mutate_fake_timestamp_requires_negotiated_timestamp_option() {
+        let err = mutate_fake_timestamp(None, Some(1)).expect_err("missing negotiated timestamp should fail");
+        assert_eq!(err.kind(), io::ErrorKind::Unsupported);
     }
 
     #[test]

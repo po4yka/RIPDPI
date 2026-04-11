@@ -2,7 +2,8 @@ use crate::offset::gen_offset;
 use crate::proto::resolve_host_range;
 use crate::types::{DesyncError, FakePacketPlan, HostFakeSpan, ProtoInfo};
 use ripdpi_config::{
-    DesyncGroup, OffsetProto, SeqOverlapFakeMode, TcpChainStep, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    DesyncGroup, FakePacketSource, OffsetProto, SeqOverlapFakeMode, TcpChainStep, FM_DUPSID, FM_ORIG, FM_PADENCAP,
+    FM_RAND, FM_RNDSNI,
 };
 use ripdpi_packets::{
     change_tls_sni_seeded_like_c, duplicate_tls_session_id_inplace, http_fake_profile_bytes, is_http,
@@ -175,7 +176,15 @@ pub(crate) fn normalize_fake_tls_size(value: i32, input_len: usize) -> usize {
     }
 }
 
-pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<FakePacketPlan, DesyncError> {
+fn build_fake_packet_internal(
+    group: &DesyncGroup,
+    input: &[u8],
+    seed: u32,
+    fake_tls_source: FakePacketSource,
+    tls_fake_profile: ripdpi_packets::TlsFakeProfile,
+    allow_raw_fake_data: bool,
+    allow_orig_override: bool,
+) -> Result<FakePacketPlan, DesyncError> {
     let mut info = ProtoInfo::default();
     let mut rng = OracleRng::seeded(seed);
     let fixed_sni = if group.actions.fake_sni_list.is_empty() {
@@ -192,17 +201,23 @@ pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result
         }
     }
 
-    let base = if let Some(fake) = &group.actions.fake_data {
-        fake.clone()
-    } else if info.kind == IS_HTTP {
-        http_fake_profile_bytes(group.actions.http_fake_profile).to_vec()
-    } else {
-        tls_fake_profile_bytes(group.actions.tls_fake_profile).to_vec()
-    };
+    let base =
+        if allow_raw_fake_data { group.actions.fake_data.as_ref().cloned() } else { None }.unwrap_or_else(|| {
+            if matches!(fake_tls_source, FakePacketSource::CapturedClientHello) && info.kind == IS_HTTPS {
+                input.to_vec()
+            } else if info.kind == IS_HTTP {
+                http_fake_profile_bytes(group.actions.http_fake_profile).to_vec()
+            } else {
+                tls_fake_profile_bytes(tls_fake_profile).to_vec()
+            }
+        });
 
     let fake_tls_target = normalize_fake_tls_size(group.actions.fake_tls_size, input.len());
-    let mut output =
-        if (group.actions.fake_mod & FM_ORIG) != 0 && info.kind == IS_HTTPS { input.to_vec() } else { base };
+    let mut output = if allow_orig_override && (group.actions.fake_mod & FM_ORIG) != 0 && info.kind == IS_HTTPS {
+        input.to_vec()
+    } else {
+        base
+    };
 
     if is_tls_client_hello(&output) {
         if let Some(sni) = fixed_sni {
@@ -234,4 +249,30 @@ pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result
     let fake_offset = if fake_offset < 0 || fake_offset as usize > output.len() { 0 } else { fake_offset as usize };
 
     Ok(FakePacketPlan { bytes: output, fake_offset, proto: info })
+}
+
+pub fn build_fake_packet(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<FakePacketPlan, DesyncError> {
+    build_fake_packet_internal(
+        group,
+        input,
+        seed,
+        group.actions.fake_tls_source,
+        group.actions.tls_fake_profile,
+        true,
+        true,
+    )
+}
+
+pub fn build_secondary_fake_packet(
+    group: &DesyncGroup,
+    input: &[u8],
+    seed: u32,
+) -> Result<Option<FakePacketPlan>, DesyncError> {
+    let Some(secondary_profile) = group.actions.fake_tls_secondary_profile else {
+        return Ok(None);
+    };
+    if !is_tls_client_hello(input) {
+        return Ok(None);
+    }
+    build_fake_packet_internal(group, input, seed, FakePacketSource::Profile, secondary_profile, false, false).map(Some)
 }
