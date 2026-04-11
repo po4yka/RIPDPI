@@ -701,7 +701,7 @@ TSPU freezes sessions >15-20KB on international links but is lenient toward dome
 
 RFC 9484 Connect-IP over QUIC. Extended CONNECT with `:protocol = connect-ip`. IP packets encapsulated in QUIC datagrams: `[QuarterStreamID][ContextID][IPPacket]`.
 
-Cloudflare uses `cf-connect-ip` variant with ECDSA P-256 auth. Port 443 (blends with HTTPS). HTTP/2 TCP fallback when UDP blocked (WARP v2025.4): IP packets in HTTP/2 stream frames, head-of-line blocking but connectivity maintained.
+Cloudflare direct MASQUE now uses client-certificate mTLS with an optional `sec-ch-geohash` hint. Port 443 blends with HTTPS, and HTTP/2 TCP fallback keeps connectivity when UDP is blocked.
 
 **Reference:** [usque](https://github.com/Diniboy1123/usque), [connect-ip-go](https://github.com/quic-go/connect-ip-go)
 

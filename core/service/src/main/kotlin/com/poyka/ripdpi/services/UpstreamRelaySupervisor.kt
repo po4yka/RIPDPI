@@ -19,6 +19,7 @@ import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
+import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -45,6 +46,10 @@ internal class UpstreamRelaySupervisor(
     private val naiveProxyRuntimeFactory: NaiveProxyRuntimeFactory,
     private val relayProfileStore: RelayProfileStore,
     private val relayCredentialStore: RelayCredentialStore,
+    private val cloudflareMasqueGeohashResolver: CloudflareMasqueGeohashResolver =
+        object : CloudflareMasqueGeohashResolver {
+            override suspend fun resolveHeaderValue(): String? = null
+        },
     private val masquePrivacyPassProvider: MasquePrivacyPassProvider = StaticMasquePrivacyPassProvider(),
     private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider =
         object : OwnedTlsFingerprintProfileProvider {
@@ -248,6 +253,7 @@ internal class UpstreamRelaySupervisor(
             chainExitProfileId = resolvedChainRelay?.exit?.profileId ?: effectiveConfig.chainExitProfileId,
             masqueUrl = effectiveConfig.masqueUrl,
             masqueUseHttp2Fallback = effectiveConfig.masqueUseHttp2Fallback,
+            masqueCloudflareGeohashEnabled = effectiveConfig.masqueCloudflareGeohashEnabled,
             tuicZeroRtt = effectiveConfig.tuicZeroRtt,
             tuicCongestionControl = effectiveConfig.tuicCongestionControl,
             shadowTlsInnerProfileId = effectiveConfig.shadowTlsInnerProfileId,
@@ -270,6 +276,17 @@ internal class UpstreamRelaySupervisor(
             tlsFingerprintProfile = effectiveTlsProfile,
             masqueAuthMode = masqueAuthMode,
             masqueAuthToken = credentials?.masqueAuthToken,
+            masqueClientCertificateChainPem = credentials?.masqueClientCertificateChainPem,
+            masqueClientPrivateKeyPem = credentials?.masqueClientPrivateKeyPem,
+            masqueCloudflareGeohashHeader =
+                if (effectiveConfig.kind == RelayKindMasque &&
+                    masqueAuthMode == RelayMasqueAuthModeCloudflareMtls &&
+                    effectiveConfig.masqueCloudflareGeohashEnabled
+                ) {
+                    cloudflareMasqueGeohashResolver.resolveHeaderValue()
+                } else {
+                    null
+                },
             masquePrivacyPassProviderUrl = privacyPassRuntime?.providerUrl,
             masquePrivacyPassProviderAuthToken = privacyPassRuntime?.providerAuthToken,
         )
@@ -305,6 +322,7 @@ internal class UpstreamRelaySupervisor(
             chainExitProfileId = profile.chainExitProfileId.ifBlank { config.chainExitProfileId },
             masqueUrl = profile.masqueUrl.ifBlank { config.masqueUrl },
             masqueUseHttp2Fallback = profile.masqueUseHttp2Fallback,
+            masqueCloudflareGeohashEnabled = profile.masqueCloudflareGeohashEnabled,
             tuicZeroRtt = profile.tuicZeroRtt,
             tuicCongestionControl = profile.tuicCongestionControl,
             shadowTlsInnerProfileId = profile.shadowTlsInnerProfileId.ifBlank { config.shadowTlsInnerProfileId },
@@ -355,6 +373,11 @@ internal class UpstreamRelaySupervisor(
                         RelayMasqueAuthModeBearer,
                         RelayMasqueAuthModePreshared,
                         -> !credentials?.masqueAuthToken.isNullOrBlank()
+
+                        RelayMasqueAuthModeCloudflareMtls -> {
+                            !credentials?.masqueClientCertificateChainPem.isNullOrBlank() &&
+                                !credentials.masqueClientPrivateKeyPem.isNullOrBlank()
+                        }
 
                         RelayMasqueAuthModePrivacyPass -> true
 
@@ -578,10 +601,19 @@ internal class UpstreamRelaySupervisor(
         credentials: RelayCredentialRecord?,
     ): String? =
         normalizeRelayMasqueAuthMode(credentials?.masqueAuthMode)
-            ?: if (!credentials?.masqueAuthToken.isNullOrBlank()) {
-                RelayMasqueAuthModeBearer
-            } else {
-                null
+            ?: when {
+                !credentials?.masqueClientCertificateChainPem.isNullOrBlank() &&
+                    !credentials.masqueClientPrivateKeyPem.isNullOrBlank() -> {
+                    RelayMasqueAuthModeCloudflareMtls
+                }
+
+                !credentials?.masqueAuthToken.isNullOrBlank() -> {
+                    RelayMasqueAuthModeBearer
+                }
+
+                else -> {
+                    null
+                }
             }
 
     private fun masquePrivacyPassReadinessMessage(
@@ -620,6 +652,7 @@ internal open class UpstreamRelaySupervisorFactory
         private val naiveProxyRuntimeFactory: NaiveProxyRuntimeFactory,
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialStore: RelayCredentialStore,
+        private val cloudflareMasqueGeohashResolver: CloudflareMasqueGeohashResolver,
         private val masquePrivacyPassProvider: MasquePrivacyPassProvider,
         private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider,
     ) {
@@ -635,6 +668,9 @@ internal open class UpstreamRelaySupervisorFactory
             },
             relayProfileStore,
             relayCredentialStore,
+            object : CloudflareMasqueGeohashResolver {
+                override suspend fun resolveHeaderValue(): String? = null
+            },
             StaticMasquePrivacyPassProvider(),
             object : OwnedTlsFingerprintProfileProvider {
                 override fun currentProfile(): String = TlsFingerprintProfileChromeStable
@@ -652,6 +688,7 @@ internal open class UpstreamRelaySupervisorFactory
                 naiveProxyRuntimeFactory = naiveProxyRuntimeFactory,
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
+                cloudflareMasqueGeohashResolver = cloudflareMasqueGeohashResolver,
                 masquePrivacyPassProvider = masquePrivacyPassProvider,
                 tlsFingerprintProfileProvider = tlsFingerprintProfileProvider,
             )

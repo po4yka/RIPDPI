@@ -128,6 +128,7 @@ data class ResolvedRipDpiRelayConfig(
     val chainExitProfileId: String = "",
     val masqueUrl: String,
     val masqueUseHttp2Fallback: Boolean,
+    val masqueCloudflareGeohashEnabled: Boolean = false,
     val tuicZeroRtt: Boolean = false,
     val tuicCongestionControl: String = RelayCongestionControlBbr,
     val shadowTlsInnerProfileId: String = "",
@@ -150,6 +151,9 @@ data class ResolvedRipDpiRelayConfig(
     val tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
     val masqueAuthMode: String? = null,
     val masqueAuthToken: String? = null,
+    val masqueClientCertificateChainPem: String? = null,
+    val masqueClientPrivateKeyPem: String? = null,
+    val masqueCloudflareGeohashHeader: String? = null,
     val masquePrivacyPassProviderUrl: String? = null,
     val masquePrivacyPassProviderAuthToken: String? = null,
 )

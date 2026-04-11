@@ -263,7 +263,7 @@ class RipDpiProxyPreferencesTest {
                         realityShortId = "short01",
                         localSocksHost = "127.0.0.5",
                         localSocksPort = 2090,
-                        udpEnabled = true,
+                        udpEnabled = false,
                         tcpFallbackEnabled = true,
                     ),
             )
@@ -281,7 +281,7 @@ class RipDpiProxyPreferencesTest {
         assertEquals("short01", payload.string("realityShortId"))
         assertEquals("127.0.0.5", payload.string("localSocksHost"))
         assertEquals(2090, payload.int("localSocksPort"))
-        assertEquals("true", payload.string("udpEnabled"))
+        assertEquals("false", payload.string("udpEnabled"))
         assertEquals("true", payload.string("tcpFallbackEnabled"))
         assertEquals(original.relay, decoded?.relay)
     }

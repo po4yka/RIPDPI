@@ -19,6 +19,7 @@ import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
+import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayPresetDefinition
 import com.poyka.ripdpi.data.RelayPresetSuggestion
@@ -268,6 +269,25 @@ class ConfigViewModelTest {
             )
 
         assertEquals(null, masqueErrors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation accepts masque cloudflare direct when certificate material is present`() {
+        val errors =
+            validateConfigDraft(
+                draft =
+                    defaultDraft.copy(
+                        relayEnabled = true,
+                        relayKind = RelayKindMasque,
+                        relayMasqueUrl = "https://masque.example/",
+                        relayMasqueAuthMode = RelayMasqueAuthModeCloudflareMtls,
+                        relayMasqueClientCertificateChainPem = "-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----",
+                        relayMasqueClientPrivateKeyPem = "-----BEGIN PRIVATE KEY-----\nfixture\n-----END PRIVATE KEY-----",
+                    ),
+                supportsMasquePrivacyPass = true,
+            )
+
+        assertEquals(null, errors[ConfigFieldRelayCredentials])
     }
 
     @Test

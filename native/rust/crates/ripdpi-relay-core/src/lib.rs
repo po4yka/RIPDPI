@@ -49,6 +49,7 @@ pub struct ResolvedRelayRuntimeConfig {
     pub chain_exit_profile_id: String,
     pub masque_url: String,
     pub masque_use_http2_fallback: bool,
+    pub masque_cloudflare_geohash_enabled: bool,
     pub tuic_zero_rtt: bool,
     pub tuic_congestion_control: String,
     pub shadow_tls_inner_profile_id: String,
@@ -71,6 +72,9 @@ pub struct ResolvedRelayRuntimeConfig {
     pub tls_fingerprint_profile: String,
     pub masque_auth_mode: Option<String>,
     pub masque_auth_token: Option<String>,
+    pub masque_client_certificate_chain_pem: Option<String>,
+    pub masque_client_private_key_pem: Option<String>,
+    pub masque_cloudflare_geohash_header: Option<String>,
     pub masque_privacy_pass_provider_url: Option<String>,
     pub masque_privacy_pass_provider_auth_token: Option<String>,
 }
@@ -994,6 +998,9 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                     use_http2_fallback: config.masque_use_http2_fallback,
                     auth_mode: config.masque_auth_mode.clone(),
                     auth_token: config.masque_auth_token.clone(),
+                    client_certificate_chain_pem: config.masque_client_certificate_chain_pem.clone(),
+                    client_private_key_pem: config.masque_client_private_key_pem.clone(),
+                    cloudflare_geohash_header: config.masque_cloudflare_geohash_header.clone(),
                     privacy_pass_provider_url: config.masque_privacy_pass_provider_url.clone(),
                     privacy_pass_provider_auth_token: config.masque_privacy_pass_provider_auth_token.clone(),
                     tls_fingerprint_profile: config.tls_fingerprint_profile.clone(),
@@ -1158,6 +1165,7 @@ mod tests {
             chain_exit_profile_id: String::new(),
             masque_url: "https://masque.example/".to_string(),
             masque_use_http2_fallback: true,
+            masque_cloudflare_geohash_enabled: false,
             tuic_zero_rtt: false,
             tuic_congestion_control: "bbr".to_string(),
             shadow_tls_inner_profile_id: String::new(),
@@ -1180,6 +1188,9 @@ mod tests {
             tls_fingerprint_profile: "chrome_stable".to_string(),
             masque_auth_mode: Some("token".to_string()),
             masque_auth_token: Some("token".to_string()),
+            masque_client_certificate_chain_pem: None,
+            masque_client_private_key_pem: None,
+            masque_cloudflare_geohash_header: None,
             masque_privacy_pass_provider_url: None,
             masque_privacy_pass_provider_auth_token: None,
         }
@@ -1222,12 +1233,28 @@ mod tests {
         config.udp_enabled = true;
         config.masque_auth_mode = Some("privacy_pass".to_string());
         config.masque_auth_token = None;
+        config.masque_client_certificate_chain_pem = None;
+        config.masque_client_private_key_pem = None;
+        config.masque_cloudflare_geohash_header = None;
         config.masque_privacy_pass_provider_url = Some("https://provider.example/token".to_string());
 
         let capabilities = planned_backend_capabilities(&config);
         assert!(capabilities.udp, "MASQUE should report UDP capability");
         let backend = build_backend(&config).await.expect("masque backend");
         validate_runtime_config(&config, &backend).expect("MASQUE privacy pass should validate");
+    }
+
+    #[test]
+    fn relay_runtime_preserves_cloudflare_mtls_material() {
+        let mut config = sample_config("masque");
+        config.masque_auth_mode = Some("cloudflare_mtls".to_string());
+        config.masque_auth_token = None;
+        config.masque_client_certificate_chain_pem = Some("cert-chain".to_string());
+        config.masque_client_private_key_pem = Some("private-key".to_string());
+        config.masque_cloudflare_geohash_header = Some("u4pruyd-GB".to_string());
+
+        assert_eq!(config.masque_auth_mode.as_deref(), Some("cloudflare_mtls"));
+        assert_eq!(config.masque_cloudflare_geohash_header.as_deref(), Some("u4pruyd-GB"));
     }
 
     #[test]

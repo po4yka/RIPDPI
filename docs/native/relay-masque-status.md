@@ -41,6 +41,7 @@ It also documents what is still intentionally missing in the current build.
   - Bearer auth
   - Preshared auth via `Proxy-Authorization: Preshared ...`
   - `privacy_pass` retry flow driven by a deployer-supplied HTTP provider
+  - Cloudflare direct mTLS auth with optional `sec-ch-geohash`
 - `native/rust/crates/ripdpi-masque/src/auth.rs`
   - Static auth header construction
   - `PrivateToken` challenge parsing
@@ -51,8 +52,10 @@ It also documents what is still intentionally missing in the current build.
 - `core/service/src/main/kotlin/com/poyka/ripdpi/services/UpstreamRelaySupervisor.kt`
   - Passes Salamander and UDP settings to native runtime
   - Resolves `privacy_pass` runtime inputs through `MasquePrivacyPassProvider`
+  - Resolves Cloudflare direct mTLS identity material and optional geohash hints
   - Validates build/provider readiness before native launch
   - Fails fast if `privacy_pass` is selected but no valid runtime provider is available
+  - Fails fast if `cloudflare_mtls` is selected without a certificate chain and private key
 - `core/service/build.gradle.kts`
   - Injects deployer-supplied provider settings into `BuildConfig`
   - Reads `masque.privacyPassProviderUrl` / `masque.privacyPassProviderAuthToken` from `local.properties`
@@ -70,11 +73,14 @@ It also documents what is still intentionally missing in the current build.
   - Supports MASQUE bearer and preshared modes in current builds
   - Rejects `privacy_pass` in validation when the build does not provide a token provider
   - Sanitizes old `privacy_pass` drafts back to bearer mode in the editor when unavailable
+  - Stores Cloudflare direct certificate and private key material as normalized PEM
 - `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/ModeEditorScreen.kt`
   - Exposes relay UDP for `hysteria2` and `masque`
   - Hides the `Privacy Pass` auth chip when the build has no provider
+  - Exposes `Cloudflare Direct` mTLS mode with PEM import actions and optional geohash hints
 - `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/RelayFields.kt`
   - Shows provider-aware `Privacy Pass` status for available, missing-provider, and invalid-provider builds
+  - Swaps MASQUE bearer-token inputs for certificate/private-key inputs when Cloudflare direct is selected
 
 ### Interoperability coverage
 
@@ -105,10 +111,10 @@ What remains below is intentionally outside the P2 roadmap exit criteria.
 
 ## Future Follow-Ups
 
-### 1. Official Cloudflare `cf-connect-ip` ECDSA mode
+### 1. Cloudflare direct follow-up hardening
 
-Direct Cloudflare-specific ECDSA-authenticated `cf-connect-ip` mode is still not implemented in the current MASQUE client.
+Direct Cloudflare-specific MASQUE is now implemented as `cloudflare_mtls` with client-certificate authentication and optional `sec-ch-geohash`.
 
-That path is distinct from the deployer-supplied `privacy_pass` provider flow added here.
+Future work, if needed, is now limited to Cloudflare-specific interoperability hardening and rollout validation rather than a missing auth mode.
 
-If the project later chooses to support official Cloudflare `cf-connect-ip` directly, that remains separate implementation work.
+That path remains distinct from the deployer-supplied `privacy_pass` provider flow.

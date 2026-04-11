@@ -16,6 +16,7 @@ const val RelayVlessTransportXhttp = "xhttp"
 const val RelayMasqueAuthModeBearer = "bearer"
 const val RelayMasqueAuthModePreshared = "preshared"
 const val RelayMasqueAuthModePrivacyPass = "privacy_pass"
+const val RelayMasqueAuthModeCloudflareMtls = "cloudflare_mtls"
 const val RelayCongestionControlBbr = "bbr"
 const val RelayCongestionControlCubic = "cubic"
 const val DefaultRelayProfileId = "default"
@@ -54,6 +55,8 @@ fun normalizeRelayMasqueAuthMode(value: String?): String? =
         RelayMasqueAuthModePreshared -> RelayMasqueAuthModePreshared
 
         RelayMasqueAuthModePrivacyPass -> RelayMasqueAuthModePrivacyPass
+
+        RelayMasqueAuthModeCloudflareMtls -> RelayMasqueAuthModeCloudflareMtls
 
         null,
         "",
@@ -95,6 +98,7 @@ data class RelayProfileModel(
     val chainExitProfileId: String = "",
     val masqueUrl: String = "",
     val masqueUseHttp2Fallback: Boolean = true,
+    val masqueCloudflareGeohashEnabled: Boolean = false,
     val tuicZeroRtt: Boolean = false,
     val tuicCongestionControl: String = RelayCongestionControlBbr,
     val shadowTlsInnerProfileId: String = "",
@@ -147,6 +151,7 @@ fun AppSettings.toRelaySettingsModel(): RelaySettingsModel {
                 chainExitProfileId = relayChainExitProfileId,
                 masqueUrl = relayMasqueUrl,
                 masqueUseHttp2Fallback = relayMasqueUseHttp2Fallback,
+                masqueCloudflareGeohashEnabled = relayMasqueCloudflareGeohashEnabled,
                 tuicZeroRtt = relayTuicZeroRtt,
                 tuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
                 shadowTlsInnerProfileId = relayShadowtlsInnerProfileId,
