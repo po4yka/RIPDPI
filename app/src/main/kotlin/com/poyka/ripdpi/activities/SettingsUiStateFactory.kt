@@ -384,12 +384,15 @@ private fun AppSettings.buildRoutingProtectionUiState(
                 normalizeDhtMitigationMode(dhtMitigationMode) == DhtMitigationModeOff &&
                 (presets.any { it.enabled } || antiCorrelationEnabled || serviceTelemetry.hasRecentRoutingPressure())
             ) {
+                val dhtCorrelationReason = serviceTelemetry.runtimeFieldTelemetry.dhtTriggerCorrelationReason
                 add(
                     RoutingProtectionSuggestionUiState(
                         id = "dht_mitigation",
                         title = "Suggest DHT trigger mitigation",
                         body =
-                            if (serviceTelemetry.hasRecentRoutingPressure()) {
+                            if (dhtCorrelationReason != null) {
+                                "$dhtCorrelationReason Enable DHT trigger mitigation so known trigger CIDRs do not keep destabilizing relay or WARP paths."
+                            } else if (serviceTelemetry.hasRecentRoutingPressure()) {
                                 "Recent runtime failures suggest control-plane instability while split routing is active. Known DHT trigger CIDRs can destabilize WARP, relay, or control-plane paths on mobile networks."
                             } else {
                                 "Split-routing protection is active, but DHT mitigation is still off. Known trigger CIDRs can destabilize WARP, relay, or control-plane paths on mobile networks."
@@ -503,6 +506,7 @@ internal fun AppSettings.toUiState(
 }
 
 private fun ServiceTelemetrySnapshot.hasRecentRoutingPressure(): Boolean =
-    listOf(proxyTelemetry, relayTelemetry, warpTelemetry).any { telemetry ->
-        telemetry.lastFailureClass?.isNotBlank() == true || telemetry.lastError?.isNotBlank() == true
-    }
+    runtimeFieldTelemetry.dhtTriggerCorrelationActive ||
+        listOf(proxyTelemetry, relayTelemetry, warpTelemetry).any { telemetry ->
+            telemetry.lastFailureClass?.isNotBlank() == true || telemetry.lastError?.isNotBlank() == true
+        }

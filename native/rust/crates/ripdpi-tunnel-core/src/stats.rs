@@ -1,6 +1,14 @@
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+const DHT_TRIGGER_SCALAWAY_62_NET: u32 = u32::from_be_bytes([62, 210, 0, 0]);
+const DHT_TRIGGER_SCALAWAY_62_MASK: u32 = 0xFFFF_8000;
+const DHT_TRIGGER_SCALAWAY_51_NET: u32 = u32::from_be_bytes([51, 159, 0, 0]);
+const DHT_TRIGGER_SCALAWAY_51_MASK: u32 = 0xFFFF_0000;
+const DHT_TRIGGER_GLOBALTELEHOST_NET: u32 = u32::from_be_bytes([134, 195, 196, 0]);
+const DHT_TRIGGER_GLOBALTELEHOST_MASK: u32 = 0xFFFF_FC00;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct DnsStatsSnapshot {
@@ -16,6 +24,9 @@ pub struct DnsStatsSnapshot {
     pub resolver_latency_avg_ms: Option<u64>,
     pub resolver_fallback_active: bool,
     pub resolver_fallback_reason: Option<String>,
+    pub dht_trigger_observations: u64,
+    pub last_dht_trigger_endpoint: Option<String>,
+    pub last_dht_trigger_at_ms: Option<u64>,
 }
 
 /// Per-tunnel traffic and DNS counters.
@@ -39,6 +50,9 @@ pub struct Stats {
     pub resolver_latency_window: Mutex<VecDeque<u64>>,
     pub resolver_fallback_active: AtomicU64,
     pub resolver_fallback_reason: Mutex<Option<String>>,
+    pub dht_trigger_observations: AtomicU64,
+    pub last_dht_trigger_endpoint: Mutex<Option<String>>,
+    pub last_dht_trigger_at_ms: AtomicU64,
     /// Optional callback invoked with the latency (ms) on each successful DNS
     /// resolution. Kept in an `Arc<dyn Fn>` so callers can cheaply clone a
     /// handle and share it with external histogram state without requiring
@@ -71,6 +85,9 @@ impl Stats {
             resolver_latency_window: Mutex::new(VecDeque::with_capacity(32)),
             resolver_fallback_active: AtomicU64::new(0),
             resolver_fallback_reason: Mutex::new(None),
+            dht_trigger_observations: AtomicU64::new(0),
+            last_dht_trigger_endpoint: Mutex::new(None),
+            last_dht_trigger_at_ms: AtomicU64::new(0),
             dns_latency_observer: Mutex::new(None),
         }
     }
@@ -112,7 +129,21 @@ impl Stats {
             }),
             resolver_fallback_active: self.resolver_fallback_active.load(Ordering::Relaxed) != 0,
             resolver_fallback_reason: self.resolver_fallback_reason.lock().ok().and_then(|guard| guard.clone()),
+            dht_trigger_observations: self.dht_trigger_observations.load(Ordering::Relaxed),
+            last_dht_trigger_endpoint: self.last_dht_trigger_endpoint.lock().ok().and_then(|guard| guard.clone()),
+            last_dht_trigger_at_ms: non_zero_u64(self.last_dht_trigger_at_ms.load(Ordering::Relaxed)),
         }
+    }
+
+    pub fn record_dht_trigger_destination(&self, endpoint: std::net::SocketAddr) {
+        if !is_dht_trigger_destination(endpoint.ip()) {
+            return;
+        }
+        self.dht_trigger_observations.fetch_add(1, Ordering::Relaxed);
+        if let Ok(mut guard) = self.last_dht_trigger_endpoint.lock() {
+            *guard = Some(endpoint.to_string());
+        }
+        self.last_dht_trigger_at_ms.store(now_ms(), Ordering::Relaxed);
     }
 
     pub fn record_dns_success(
@@ -183,9 +214,32 @@ impl Stats {
     }
 }
 
+fn is_dht_trigger_destination(ip: std::net::IpAddr) -> bool {
+    let std::net::IpAddr::V4(ipv4) = ip else {
+        return false;
+    };
+    let value = u32::from(ipv4);
+    cidr_contains(value, DHT_TRIGGER_SCALAWAY_62_NET, DHT_TRIGGER_SCALAWAY_62_MASK)
+        || cidr_contains(value, DHT_TRIGGER_SCALAWAY_51_NET, DHT_TRIGGER_SCALAWAY_51_MASK)
+        || cidr_contains(value, DHT_TRIGGER_GLOBALTELEHOST_NET, DHT_TRIGGER_GLOBALTELEHOST_MASK)
+}
+
+fn cidr_contains(value: u32, network: u32, mask: u32) -> bool {
+    value & mask == network
+}
+
+fn now_ms() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+}
+
+fn non_zero_u64(value: u64) -> Option<u64> {
+    (value != 0).then_some(value)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
     #[test]
     fn u08_stats_counters_increment() {
@@ -233,5 +287,31 @@ mod tests {
         assert_eq!(snapshot.resolver_latency_avg_ms, Some(42));
         assert!(snapshot.resolver_fallback_active);
         assert_eq!(snapshot.resolver_fallback_reason.as_deref(), Some("temporary override"));
+    }
+
+    #[test]
+    fn dht_trigger_stats_record_matching_cidr_destinations() {
+        let stats = Stats::new();
+
+        stats.record_dht_trigger_destination(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(134, 195, 198, 23)), 6881));
+        stats.record_dht_trigger_destination(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(62, 210, 12, 77)), 49000));
+
+        let snapshot = stats.dns_snapshot();
+        assert_eq!(snapshot.dht_trigger_observations, 2);
+        assert_eq!(snapshot.last_dht_trigger_endpoint.as_deref(), Some("62.210.12.77:49000"));
+        assert!(snapshot.last_dht_trigger_at_ms.is_some());
+    }
+
+    #[test]
+    fn dht_trigger_stats_ignore_non_matching_destinations() {
+        let stats = Stats::new();
+
+        stats.record_dht_trigger_destination(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 6881));
+        stats.record_dht_trigger_destination(SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::LOCALHOST), 6881));
+
+        let snapshot = stats.dns_snapshot();
+        assert_eq!(snapshot.dht_trigger_observations, 0);
+        assert!(snapshot.last_dht_trigger_endpoint.is_none());
+        assert!(snapshot.last_dht_trigger_at_ms.is_none());
     }
 }

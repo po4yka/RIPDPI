@@ -220,6 +220,7 @@ pub async fn io_loop_task(
                 }
 
                 IpClass::Udp { src, dst, payload } => {
+                    stats.record_dht_trigger_destination(dst);
                     if let Some(resolved_dst) = resolve_mapped_target(&stats, &mut dns_cache, dst) {
                         forward_udp_payload(
                             proxy_sockaddr,

@@ -131,6 +131,8 @@ class DefaultServiceStateStore
                             winningDnsStrategyFamily =
                                 currentTelemetry.runtimeFieldTelemetry.winningDnsStrategyFamily,
                             proxyTelemetry = currentTelemetry.proxyTelemetry,
+                            relayTelemetry = currentTelemetry.relayTelemetry,
+                            warpTelemetry = currentTelemetry.warpTelemetry,
                             tunnelTelemetry = currentTelemetry.tunnelTelemetry,
                             tunnelRecoveryRetryCount =
                                 currentTelemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount,

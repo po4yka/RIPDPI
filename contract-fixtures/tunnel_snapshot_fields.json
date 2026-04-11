@@ -1,6 +1,7 @@
 [
   "activeSessions",
   "capturedAt",
+  "dhtTriggerObservations",
   "dnsCacheHits",
   "dnsCacheMisses",
   "dnsFailuresTotal",
@@ -8,6 +9,8 @@
   "health",
   "lastDnsError",
   "lastDnsHost",
+  "lastDhtTriggerAt",
+  "lastDhtTriggerEndpoint",
   "lastError",
   "lastHost",
   "lastRouteGroup",

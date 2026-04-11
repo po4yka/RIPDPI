@@ -126,6 +126,17 @@ fn build_fake_packet_can_clone_captured_client_hello() {
 }
 
 #[test]
+fn build_fake_packet_avoids_517_byte_tls_size_when_padding_can_be_tuned() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.fake_tls_size = 517;
+
+    let fake = build_fake_packet(&group, DEFAULT_FAKE_TLS, 7).expect("tls fake");
+
+    assert_ne!(fake.bytes.len(), 517);
+    assert!(ripdpi_packets::is_tls_client_hello(&fake.bytes));
+}
+
+#[test]
 fn build_secondary_fake_packet_uses_secondary_tls_profile_without_raw_fake_override() {
     let mut group = DesyncGroup::new(0);
     group.actions.fake_data = Some(b"not-used".to_vec());
