@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayLocalSocksPort
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindChainRelay
@@ -18,6 +19,8 @@ import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
+import com.poyka.ripdpi.data.RelayPresetCatalog
+import com.poyka.ripdpi.data.RelayPresetSuggestion
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
@@ -85,6 +88,7 @@ data class ConfigDraft(
     val relayEnabled: Boolean = false,
     val relayKind: String = RelayKindOff,
     val relayProfileId: String = DefaultRelayProfileId,
+    val relayPresetId: String = "",
     val relayServer: String = "",
     val relayServerPort: String = "443",
     val relayServerName: String = "",
@@ -164,7 +168,21 @@ data class ConfigUiState(
     val editingPreset: ConfigPreset? = null,
     val draft: ConfigDraft = AppSettingsSerializer.defaultValue.toConfigDraft(),
     val validationErrors: ImmutableMap<String, String> = persistentMapOf(),
+    val relayPresets: ImmutableList<RelayPresetUiState> = persistentListOf(),
+    val relayPresetSuggestion: RelayPresetSuggestionUiState? = null,
     val supportsMasquePrivacyPass: Boolean = false,
+)
+
+data class RelayPresetUiState(
+    val id: String,
+    val title: String,
+    val selected: Boolean,
+)
+
+data class RelayPresetSuggestionUiState(
+    val presetId: String,
+    val title: String,
+    val reason: String,
 )
 
 sealed interface ConfigEffect {
@@ -212,6 +230,7 @@ internal fun AppSettings.toConfigDraft(): ConfigDraft =
             relayEnabled = relay.enabled,
             relayKind = relay.kind,
             relayProfileId = relay.profileId,
+            relayPresetId = relay.profile.presetId,
             relayServer = relay.profile.server,
             relayServerPort = relay.profile.serverPort.toString(),
             relayServerName = relay.profile.serverName,
@@ -486,6 +505,8 @@ class ConfigViewModel
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialStore: RelayCredentialStore,
         private val masquePrivacyPassAvailability: MasquePrivacyPassAvailability,
+        private val relayPresetCatalog: RelayPresetCatalog,
+        private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
     ) : ViewModel() {
         private val editorSession = MutableStateFlow(ConfigEditorSession())
         private val supportsMasquePrivacyPass = masquePrivacyPassAvailability.isAvailable()
@@ -498,6 +519,8 @@ class ConfigViewModel
                 appSettingsRepository.settings,
                 editorSession,
             ) { settings, session ->
+                val relayPresets = relayPresetCatalog.all()
+                val networkSnapshot = runCatching { networkSnapshotProvider.capture() }.getOrNull()
                 val currentDraft =
                     sanitizeMasqueAuthModeForCurrentBuild(
                         draft = settings.toConfigDraft(),
@@ -525,6 +548,16 @@ class ConfigViewModel
                     editingPreset = editingPreset,
                     draft = draft,
                     validationErrors = validateConfigDraft(draft, supportsMasquePrivacyPass),
+                    relayPresets =
+                        relayPresets
+                            .map { preset ->
+                                RelayPresetUiState(
+                                    id = preset.id,
+                                    title = preset.title,
+                                    selected = draft.relayPresetId == preset.id,
+                                )
+                            }.toImmutableList(),
+                    relayPresetSuggestion = relayPresetCatalog.suggestFor(networkSnapshot).toUiState(draft),
                     supportsMasquePrivacyPass = supportsMasquePrivacyPass,
                 )
             }.stateIn(
@@ -580,6 +613,20 @@ class ConfigViewModel
             }
         }
 
+        fun applyRelayPreset(presetId: String) {
+            val preset = relayPresetCatalog.find(presetId) ?: return
+            updateDraft {
+                copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindChainRelay,
+                    relayPresetId = preset.id,
+                    relayChainEntryPort = defaultRelayPort.toString(),
+                    relayChainExitPort = defaultRelayPort.toString(),
+                    relayChainEntryServerName = relayChainEntryServerName.ifBlank { "ya.ru" },
+                )
+            }
+        }
+
         fun updateChainDsl(value: String) {
             updateDraft { withChainDsl(value) }
         }
@@ -620,6 +667,7 @@ class ConfigViewModel
             draft: ConfigDraft,
         ) {
             val profileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId }
+            val profile = relayProfileStore.load(profileId)
             val credentials = relayCredentialStore.load(profileId)
             editorSession.update { current ->
                 if (current.presetId != presetId) {
@@ -628,6 +676,7 @@ class ConfigViewModel
                     current.copy(
                         draft =
                             (current.draft ?: draft).copy(
+                                relayPresetId = profile?.presetId.orEmpty(),
                                 relayVlessUuid = credentials?.vlessUuid.orEmpty(),
                                 relayHysteriaPassword = credentials?.hysteriaPassword.orEmpty(),
                                 relayHysteriaSalamanderKey = credentials?.hysteriaSalamanderKey.orEmpty(),
@@ -651,6 +700,7 @@ class ConfigViewModel
                 RelayProfileRecord(
                     id = profileId,
                     kind = draft.relayKind,
+                    presetId = draft.relayPresetId,
                     server = draft.relayServer,
                     serverPort = draft.relayServerPort.toIntOrNull() ?: 443,
                     serverName = draft.relayServerName,
@@ -694,3 +744,13 @@ class ConfigViewModel
             )
         }
     }
+
+private fun RelayPresetSuggestion?.toUiState(draft: ConfigDraft): RelayPresetSuggestionUiState? {
+    val suggestion = this ?: return null
+    if (draft.relayPresetId == suggestion.preset.id) return null
+    return RelayPresetSuggestionUiState(
+        presetId = suggestion.preset.id,
+        title = suggestion.preset.title,
+        reason = suggestion.reason,
+    )
+}

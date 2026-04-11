@@ -7,7 +7,9 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.HostPackPreset
+import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.WarpPayloadGenCatalog
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.hosts.HostPackCatalogRepository
 import com.poyka.ripdpi.platform.HostAutolearnStoreController
@@ -45,6 +47,8 @@ class SettingsViewModel
         private val hostAutolearnStoreController: HostAutolearnStoreController,
         private val telemetrySaltStore: com.poyka.ripdpi.services.TelemetryInstallSaltStore,
         private val routingProtectionCatalogService: RoutingProtectionCatalogService,
+        private val warpPayloadGenCatalog: WarpPayloadGenCatalog,
+        private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
         private val pinVerifier: PinVerifier,
         private val pinLockoutManager: PinLockoutManager,
         private val application: Application,
@@ -66,6 +70,12 @@ class SettingsViewModel
                 rememberedPolicySource.observePolicies(limit = 64),
                 flow { emit(routingProtectionCatalogService.snapshot()) },
             ) { settings, telemetry, _, rememberedPolicies, routingProtectionSnapshot ->
+                val warpSuggestion =
+                    runCatching {
+                        warpPayloadGenCatalog.suggestFor(
+                            networkSnapshotProvider.capture(),
+                        )
+                    }.getOrNull()
                 settings.toUiState(
                     serviceStatus = telemetry.status,
                     proxyTelemetry = telemetry.proxyTelemetry,
@@ -73,6 +83,8 @@ class SettingsViewModel
                     rememberedNetworkCount = rememberedPolicies.size,
                     biometricAvailability = biometricAuthManager.canAuthenticate(application),
                     routingProtectionSnapshot = routingProtectionSnapshot,
+                    suggestedWarpAmneziaPresetId = warpSuggestion?.preset?.id.orEmpty(),
+                    suggestedWarpAmneziaPresetLabel = warpSuggestion?.preset?.label.orEmpty(),
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -86,6 +98,8 @@ class SettingsViewModel
                         rememberedNetworkCount = 0,
                         biometricAvailability = biometricAuthManager.canAuthenticate(application),
                         routingProtectionSnapshot = routingProtectionCatalogService.snapshot(),
+                        suggestedWarpAmneziaPresetId = "",
+                        suggestedWarpAmneziaPresetLabel = "",
                     ),
             )
 

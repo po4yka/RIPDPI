@@ -12,7 +12,8 @@ use ripdpi_config::{
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{
-    IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_HOSTPAD, MH_METHODEOL, MH_METHODSPACE, MH_SPACE, MH_UNIXEOL,
+    IS_HTTP, IS_HTTPS, IS_UDP, MH_DMIX, MH_HMIX, MH_HOSTEXTRASPACE, MH_HOSTPAD, MH_HOSTTAB, MH_METHODEOL,
+    MH_METHODSPACE, MH_SPACE, MH_UNIXEOL,
 };
 use serde::de::{Deserializer, IgnoredAny, MapAccess, Visitor};
 
@@ -729,7 +730,9 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         | (u32::from(parser_evasions.http_method_eol) * MH_METHODEOL)
         | (u32::from(parser_evasions.http_method_space) * MH_METHODSPACE)
         | (u32::from(parser_evasions.http_unix_eol) * MH_UNIXEOL)
-        | (u32::from(parser_evasions.http_host_pad) * MH_HOSTPAD);
+        | (u32::from(parser_evasions.http_host_pad) * MH_HOSTPAD)
+        | (u32::from(parser_evasions.http_host_extra_space) * MH_HOSTEXTRASPACE)
+        | (u32::from(parser_evasions.http_host_tab) * MH_HOSTTAB);
 
     for step in &chains.tcp_steps {
         let kind = parse_tcp_chain_step_kind(&step.kind)?;
@@ -797,7 +800,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         };
         let activation_filter =
             parse_proxy_activation_filter(step.activation_filter.as_ref(), "chains.tcpSteps.activationFilter")?;
-        let ipv6_ext = parse_ipv6_extension_profile(&step.ipv6_extension_profile);
+        let ipv6_ext = parse_ipv6_extension_profile(&step.ipv6_extension_profile)?;
         group.actions.tcp_chain.push(TcpChainStep {
             kind,
             offset,
@@ -842,7 +845,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
                 "udpChainSteps splitBytes is only supported for kind=ipfrag2_udp".to_string(),
             ));
         }
-        let ipv6_ext = parse_ipv6_extension_profile(&step.ipv6_extension_profile);
+        let ipv6_ext = parse_ipv6_extension_profile(&step.ipv6_extension_profile)?;
         group.actions.udp_chain.push(UdpChainStep {
             kind,
             count: step.count,
@@ -962,13 +965,17 @@ struct ParsedIpv6ExtensionProfile {
     dest_opt2: bool,
 }
 
-fn parse_ipv6_extension_profile(value: &str) -> ParsedIpv6ExtensionProfile {
+fn parse_ipv6_extension_profile(value: &str) -> Result<ParsedIpv6ExtensionProfile, ProxyConfigError> {
     match value.trim() {
-        "hopByHop" => ParsedIpv6ExtensionProfile { hop_by_hop: true, dest_opt: false, dest_opt2: false },
-        "hopByHop2" => ParsedIpv6ExtensionProfile { hop_by_hop: true, dest_opt: false, dest_opt2: true },
-        "destOpt" => ParsedIpv6ExtensionProfile { hop_by_hop: false, dest_opt: true, dest_opt2: false },
-        "hopByHopDestOpt" => ParsedIpv6ExtensionProfile { hop_by_hop: true, dest_opt: true, dest_opt2: false },
-        _ => ParsedIpv6ExtensionProfile { hop_by_hop: false, dest_opt: false, dest_opt2: false },
+        "" | "none" => Ok(ParsedIpv6ExtensionProfile { hop_by_hop: false, dest_opt: false, dest_opt2: false }),
+        "hopByHop" => Ok(ParsedIpv6ExtensionProfile { hop_by_hop: true, dest_opt: false, dest_opt2: false }),
+        "hopByHop2" => Ok(ParsedIpv6ExtensionProfile { hop_by_hop: true, dest_opt: false, dest_opt2: true }),
+        "destOpt" => Ok(ParsedIpv6ExtensionProfile { hop_by_hop: false, dest_opt: true, dest_opt2: false }),
+        "hopByHopDestOpt" => Ok(ParsedIpv6ExtensionProfile { hop_by_hop: true, dest_opt: true, dest_opt2: false }),
+        _ => Err(ProxyConfigError::InvalidConfig(
+            "Unsupported ipv6ExtensionProfile; expected none, hopByHop, hopByHop2, destOpt, or hopByHopDestOpt"
+                .to_string(),
+        )),
     }
 }
 

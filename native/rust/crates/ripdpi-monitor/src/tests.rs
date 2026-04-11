@@ -781,6 +781,11 @@ fn aggressive_parser_candidates_enable_only_expected_evasion() {
     let unixeol = candidates.iter().find(|candidate| candidate.id == "parser_unixeol").expect("unixeol candidate");
     let methodeol =
         candidates.iter().find(|candidate| candidate.id == "parser_methodeol").expect("methodeol candidate");
+    let host_extra_space = candidates
+        .iter()
+        .find(|candidate| candidate.id == "parser_host_extra_space")
+        .expect("host_extra_space candidate");
+    let host_tab = candidates.iter().find(|candidate| candidate.id == "parser_host_tab").expect("host_tab candidate");
 
     assert!(unixeol.config.parser_evasions.host_mixed_case);
     assert!(unixeol.config.parser_evasions.domain_mixed_case);
@@ -793,6 +798,18 @@ fn aggressive_parser_candidates_enable_only_expected_evasion() {
     assert!(methodeol.config.parser_evasions.host_remove_spaces);
     assert!(methodeol.config.parser_evasions.http_method_eol);
     assert!(!methodeol.config.parser_evasions.http_unix_eol);
+
+    assert!(host_extra_space.config.parser_evasions.host_mixed_case);
+    assert!(host_extra_space.config.parser_evasions.domain_mixed_case);
+    assert!(host_extra_space.config.parser_evasions.host_remove_spaces);
+    assert!(host_extra_space.config.parser_evasions.http_host_extra_space);
+    assert!(!host_extra_space.config.parser_evasions.http_host_tab);
+
+    assert!(host_tab.config.parser_evasions.host_mixed_case);
+    assert!(host_tab.config.parser_evasions.domain_mixed_case);
+    assert!(host_tab.config.parser_evasions.host_remove_spaces);
+    assert!(host_tab.config.parser_evasions.http_host_tab);
+    assert!(!host_tab.config.parser_evasions.http_host_extra_space);
 }
 
 #[test]
