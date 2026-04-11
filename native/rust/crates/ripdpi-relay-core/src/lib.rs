@@ -103,8 +103,8 @@ type BoxedIo = Box<dyn AsyncIo>;
 
 enum RelayUdpSession {
     Hysteria2(ripdpi_hysteria2::UdpSession),
+    Tuic(ripdpi_tuic::UdpSession),
     Masque(ripdpi_masque::MasqueUdpRelay),
-    Unsupported { kind: &'static str },
 }
 
 impl RelayUdpSession {
@@ -113,11 +113,8 @@ impl RelayUdpSession {
             Self::Hysteria2(session) => {
                 session.send_to(&target.to_connect_target(), payload).await.map_err(to_io_error)
             }
+            Self::Tuic(session) => session.send_to(&target.to_connect_target(), payload).await,
             Self::Masque(session) => session.send_to(&target.to_connect_target(), payload).await,
-            Self::Unsupported { kind } => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                format!("{kind} UDP relay scaffold is not fully implemented yet"),
-            )),
         }
     }
 
@@ -127,14 +124,14 @@ impl RelayUdpSession {
                 let (address, payload) = session.recv_from().await.map_err(to_io_error)?;
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
+            Self::Tuic(session) => {
+                let (address, payload) = session.recv_from().await?;
+                Ok((RelayTargetAddr::from_authority(&address)?, payload))
+            }
             Self::Masque(session) => {
                 let (address, payload) = session.recv_from().await?;
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
-            Self::Unsupported { kind } => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                format!("{kind} UDP relay scaffold is not fully implemented yet"),
-            )),
         }
     }
 }
@@ -211,7 +208,7 @@ impl TuicBackend {
     }
 
     async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
-        Ok(RelayUdpSession::Unsupported { kind: "tuic_v5" })
+        self.client.udp_session().await.map(RelayUdpSession::Tuic)
     }
 }
 
@@ -791,6 +788,18 @@ mod tests {
         config.hysteria_salamander_key = Some("salamander".to_string());
         let capabilities = backend_capabilities(&config);
         assert!(capabilities.1, "Hysteria2 should report UDP capability");
+    }
+
+    #[test]
+    fn relay_runtime_allows_tuic_udp_and_zero_rtt() {
+        let mut config = sample_config("tuic_v5");
+        config.udp_enabled = true;
+        config.tuic_zero_rtt = true;
+
+        let capabilities = backend_capabilities(&config);
+        assert!(capabilities.0, "TUIC should report TCP capability");
+        assert!(capabilities.1, "TUIC should report UDP capability");
+        assert_eq!("relay.example:443", describe_upstream(&config));
     }
 
     #[test]
