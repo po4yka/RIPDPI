@@ -6,6 +6,10 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use ripdpi_relay_mux::{
+    BoxFuture, MuxLease, RelayCapabilities, RelayMux, RelayPoolConfig, RelayPoolHealth, RelaySession,
+    RelaySessionFactory,
+};
 use serde::{Deserialize, Serialize};
 use tokio::io::{copy_bidirectional, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
@@ -117,34 +121,34 @@ impl<T> AsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 type BoxedIo = Box<dyn AsyncIo>;
 
 enum RelayUdpSession {
-    Hysteria2(ripdpi_hysteria2::UdpSession),
-    Tuic(ripdpi_tuic::UdpSession),
-    Masque(ripdpi_masque::MasqueUdpRelay),
+    Hysteria2(MuxLease<ripdpi_hysteria2::UdpSession, Hysteria2Session>),
+    Tuic(MuxLease<ripdpi_tuic::UdpSession, TuicSession>),
+    Masque(MuxLease<ripdpi_masque::MasqueUdpRelay, MasqueSession>),
 }
 
 impl RelayUdpSession {
     async fn send_to(&mut self, target: &RelayTargetAddr, payload: &[u8]) -> io::Result<()> {
         match self {
             Self::Hysteria2(session) => {
-                session.send_to(&target.to_connect_target(), payload).await.map_err(to_io_error)
+                session.get_mut().send_to(&target.to_connect_target(), payload).await.map_err(to_io_error)
             }
-            Self::Tuic(session) => session.send_to(&target.to_connect_target(), payload).await,
-            Self::Masque(session) => session.send_to(&target.to_connect_target(), payload).await,
+            Self::Tuic(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
+            Self::Masque(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
         }
     }
 
     async fn recv_from(&mut self) -> io::Result<(RelayTargetAddr, Vec<u8>)> {
         match self {
             Self::Hysteria2(session) => {
-                let (address, payload) = session.recv_from().await.map_err(to_io_error)?;
+                let (address, payload) = session.get_mut().recv_from().await.map_err(to_io_error)?;
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
             Self::Tuic(session) => {
-                let (address, payload) = session.recv_from().await?;
+                let (address, payload) = session.get_mut().recv_from().await?;
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
             Self::Masque(session) => {
-                let (address, payload) = session.recv_from().await?;
+                let (address, payload) = session.get_mut().recv_from().await?;
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
         }
@@ -163,8 +167,34 @@ enum RelayBackend {
 }
 
 impl RelayBackend {
+    fn capabilities(&self) -> RelayCapabilities {
+        match self {
+            Self::Hysteria2(backend) => backend.mux.capabilities(),
+            Self::Tuic(backend) => backend.mux.capabilities(),
+            Self::VlessReality(backend) => backend.mux.capabilities(),
+            Self::Xhttp(backend) => backend.mux.capabilities(),
+            Self::ChainRelay(backend) => backend.mux.capabilities(),
+            Self::Masque(backend) => backend.mux.capabilities(),
+            Self::ShadowTls(backend) => backend.mux.capabilities(),
+            Self::Unsupported { .. } => RelayCapabilities::default(),
+        }
+    }
+
+    fn pool_health(&self) -> Option<RelayPoolHealth> {
+        match self {
+            Self::Hysteria2(backend) => Some(backend.mux.health()),
+            Self::Tuic(backend) => Some(backend.mux.health()),
+            Self::VlessReality(backend) => Some(backend.mux.health()),
+            Self::Xhttp(backend) => Some(backend.mux.health()),
+            Self::ChainRelay(backend) => Some(backend.mux.health()),
+            Self::Masque(backend) => Some(backend.mux.health()),
+            Self::ShadowTls(backend) => Some(backend.mux.health()),
+            Self::Unsupported { .. } => None,
+        }
+    }
+
     fn udp_capable(&self) -> bool {
-        matches!(self, Self::Hysteria2(_) | Self::Masque(_) | Self::Tuic(_))
+        self.capabilities().udp
     }
 
     async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
@@ -198,186 +228,459 @@ impl RelayBackend {
 }
 
 struct Hysteria2Backend {
-    client: ripdpi_hysteria2::HysteriaClient,
+    mux: RelayMux<Hysteria2SessionFactory>,
 }
 
 struct TuicBackend {
-    client: ripdpi_tuic::TuicClient,
-}
-
-impl Hysteria2Backend {
-    async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
-        let stream = self.client.tcp_connect(&target.to_connect_target()).await.map_err(to_io_error)?;
-        Ok(Box::new(stream))
-    }
-
-    async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
-        self.client.udp_session().await.map(RelayUdpSession::Hysteria2).map_err(to_io_error)
-    }
-}
-
-impl TuicBackend {
-    async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
-        let stream = self.client.tcp_connect(&target.to_connect_target()).await?;
-        Ok(Box::new(stream))
-    }
-
-    async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
-        self.client.udp_session().await.map(RelayUdpSession::Tuic)
-    }
+    mux: RelayMux<TuicSessionFactory>,
 }
 
 struct VlessRealityBackend {
-    config: ResolvedRelayRuntimeConfig,
-    outbound_bind_ip: Option<IpAddr>,
-}
-
-impl VlessRealityBackend {
-    async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
-        let uuid = self
-            .config
-            .vless_uuid
-            .as_ref()
-            .filter(|value| !value.trim().is_empty())
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing VLESS UUID"))?;
-        let config = ripdpi_vless::config::VlessRealityConfig::from_strings(
-            &self.config.server,
-            self.config.server_port,
-            uuid,
-            &self.config.server_name,
-            &self.config.reality_public_key,
-            &self.config.reality_short_id,
-            &self.config.tls_fingerprint_profile,
-        )
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
-        let stream = match self.outbound_bind_ip {
-            Some(bind_ip) => {
-                ripdpi_vless::VlessRealityClient::connect_with_bind(&config, bind_ip, &target.to_connect_target())
-                    .await?
-            }
-            None => ripdpi_vless::VlessRealityClient::connect(&config, &target.to_connect_target()).await?,
-        };
-        Ok(Box::new(stream))
-    }
+    mux: RelayMux<VlessRealitySessionFactory>,
 }
 
 struct XhttpBackend {
-    client: ripdpi_xhttp::XhttpClient,
-}
-
-impl XhttpBackend {
-    async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
-        let stream = self.client.connect(&target.to_connect_target()).await?;
-        Ok(Box::new(stream))
-    }
+    mux: RelayMux<XhttpSessionFactory>,
 }
 
 struct ChainRelayBackend {
-    config: ResolvedRelayRuntimeConfig,
-    outbound_bind_ip: Option<IpAddr>,
-}
-
-impl ChainRelayBackend {
-    async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
-        let entry_config = ripdpi_vless::config::VlessRealityConfig::from_strings(
-            &self.config.chain_entry_server,
-            self.config.chain_entry_port,
-            self.config.chain_entry_uuid.as_deref().unwrap_or_default(),
-            &self.config.chain_entry_server_name,
-            &self.config.chain_entry_public_key,
-            &self.config.chain_entry_short_id,
-            &self.config.tls_fingerprint_profile,
-        )
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain entry: {error}")))?;
-        let exit_config = ripdpi_vless::config::VlessRealityConfig::from_strings(
-            &self.config.chain_exit_server,
-            self.config.chain_exit_port,
-            self.config.chain_exit_uuid.as_deref().unwrap_or_default(),
-            &self.config.chain_exit_server_name,
-            &self.config.chain_exit_public_key,
-            &self.config.chain_exit_short_id,
-            &self.config.tls_fingerprint_profile,
-        )
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain exit: {error}")))?;
-
-        let exit_target = format!("{}:{}", exit_config.server, exit_config.port);
-        let first_hop = match self.outbound_bind_ip {
-            Some(bind_ip) => {
-                ripdpi_vless::VlessRealityClient::connect_with_bind(&entry_config, bind_ip, &exit_target).await?
-            }
-            None => ripdpi_vless::VlessRealityClient::connect(&entry_config, &exit_target).await?,
-        };
-        let second_hop =
-            ripdpi_vless::VlessRealityClient::connect_over(&exit_config, first_hop, &target.to_connect_target())
-                .await?;
-        Ok(Box::new(second_hop))
-    }
+    mux: RelayMux<ChainRelaySessionFactory>,
 }
 
 struct MasqueBackend {
-    client: ripdpi_masque::MasqueClient,
+    mux: RelayMux<MasqueSessionFactory>,
 }
 
 struct ShadowTlsBackend {
-    client: ripdpi_shadowtls::ShadowTlsClient,
+    mux: RelayMux<ShadowTlsSessionFactory>,
+}
+
+#[derive(Clone)]
+struct Hysteria2SessionFactory {
+    config: ripdpi_hysteria2::Config,
+}
+
+struct Hysteria2Session {
+    client: ripdpi_hysteria2::HysteriaClient,
+}
+
+#[derive(Clone)]
+struct TuicSessionFactory {
+    config: ripdpi_tuic::Config,
+}
+
+struct TuicSession {
+    client: ripdpi_tuic::TuicClient,
+}
+
+#[derive(Clone)]
+struct VlessRealitySessionFactory {
+    config: ripdpi_vless::config::VlessRealityConfig,
+    outbound_bind_ip: Option<IpAddr>,
+}
+
+struct VlessRealitySession {
+    config: ripdpi_vless::config::VlessRealityConfig,
+    outbound_bind_ip: Option<IpAddr>,
+}
+
+#[derive(Clone)]
+enum XhttpSessionMode {
+    Reality(ripdpi_xhttp::XhttpRealityConfig),
+    Tls(ripdpi_xhttp::XhttpTlsConfig),
+}
+
+#[derive(Clone)]
+struct XhttpSessionFactory {
+    mode: XhttpSessionMode,
+}
+
+struct XhttpSession {
+    client: ripdpi_xhttp::XhttpClient,
+}
+
+#[derive(Clone)]
+struct ChainRelaySessionFactory {
+    entry: ripdpi_vless::config::VlessRealityConfig,
+    exit: ripdpi_vless::config::VlessRealityConfig,
+    outbound_bind_ip: Option<IpAddr>,
+}
+
+struct ChainRelaySession {
+    entry: ripdpi_vless::config::VlessRealityConfig,
+    exit: ripdpi_vless::config::VlessRealityConfig,
+    outbound_bind_ip: Option<IpAddr>,
+}
+
+#[derive(Clone)]
+struct MasqueSessionFactory {
+    config: ripdpi_masque::config::MasqueConfig,
+}
+
+struct MasqueSession {
+    client: ripdpi_masque::MasqueClient,
+}
+
+#[derive(Clone)]
+struct ShadowTlsSessionFactory {
+    client_config: ripdpi_shadowtls::Config,
     outer_server: String,
     outer_server_port: i32,
     inner: ResolvedShadowTlsInnerRelayConfig,
 }
 
-impl MasqueBackend {
+struct ShadowTlsSession {
+    client_config: ripdpi_shadowtls::Config,
+    outer_server: String,
+    outer_server_port: i32,
+    inner: ResolvedShadowTlsInnerRelayConfig,
+}
+
+impl RelaySession for Hysteria2Session {
+    type Stream = ripdpi_hysteria2::DuplexStream;
+    type Datagram = ripdpi_hysteria2::UdpSession;
+    type Error = io::Error;
+
+    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
+        Box::pin(async move { self.client.tcp_connect(target).await.map_err(to_io_error) })
+    }
+
+    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
+        Box::pin(async move { self.client.udp_session().await.map_err(to_io_error) })
+    }
+}
+
+impl RelaySessionFactory for Hysteria2SessionFactory {
+    type Session = Hysteria2Session;
+    type Error = io::Error;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: true, reusable: true }
+    }
+
+    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+        let config = self.config.clone();
+        Box::pin(async move {
+            let client = ripdpi_hysteria2::connect(&config).await.map_err(to_io_error)?;
+            Ok(Arc::new(Hysteria2Session { client }))
+        })
+    }
+}
+
+impl RelaySession for TuicSession {
+    type Stream = ripdpi_tuic::DuplexStream;
+    type Datagram = ripdpi_tuic::UdpSession;
+    type Error = io::Error;
+
+    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
+        Box::pin(async move { self.client.tcp_connect(target).await })
+    }
+
+    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
+        Box::pin(async move { self.client.udp_session().await })
+    }
+}
+
+impl RelaySessionFactory for TuicSessionFactory {
+    type Session = TuicSession;
+    type Error = io::Error;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: true, reusable: true }
+    }
+
+    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+        let config = self.config.clone();
+        Box::pin(async move {
+            let client = ripdpi_tuic::TuicClient::connect(config).await?;
+            Ok(Arc::new(TuicSession { client }))
+        })
+    }
+}
+
+impl RelaySession for VlessRealitySession {
+    type Stream = Box<dyn ripdpi_vless::AsyncIo>;
+    type Datagram = ();
+    type Error = io::Error;
+
+    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
+        Box::pin(async move {
+            let stream = match self.outbound_bind_ip {
+                Some(bind_ip) => {
+                    ripdpi_vless::VlessRealityClient::connect_with_bind(&self.config, bind_ip, target).await?
+                }
+                None => ripdpi_vless::VlessRealityClient::connect(&self.config, target).await?,
+            };
+            let stream: Box<dyn ripdpi_vless::AsyncIo> = Box::new(stream);
+            Ok(stream)
+        })
+    }
+
+    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
+        Box::pin(async move {
+            Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS Reality relay does not support UDP ASSOCIATE"))
+        })
+    }
+}
+
+impl RelaySessionFactory for VlessRealitySessionFactory {
+    type Session = VlessRealitySession;
+    type Error = io::Error;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: false, reusable: false }
+    }
+
+    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+        let config = self.config.clone();
+        let outbound_bind_ip = self.outbound_bind_ip;
+        Box::pin(async move { Ok(Arc::new(VlessRealitySession { config, outbound_bind_ip })) })
+    }
+}
+
+impl RelaySession for XhttpSession {
+    type Stream = ripdpi_xhttp::XhttpStream;
+    type Datagram = ();
+    type Error = io::Error;
+
+    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
+        Box::pin(async move { self.client.connect(target).await })
+    }
+
+    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
+        Box::pin(async move {
+            Err(io::Error::new(io::ErrorKind::Unsupported, "xHTTP relay does not support UDP ASSOCIATE"))
+        })
+    }
+}
+
+impl RelaySessionFactory for XhttpSessionFactory {
+    type Session = XhttpSession;
+    type Error = io::Error;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: false, reusable: true }
+    }
+
+    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+        let mode = self.mode.clone();
+        Box::pin(async move {
+            let client = match mode {
+                XhttpSessionMode::Reality(config) => ripdpi_xhttp::XhttpClient::new_reality(config),
+                XhttpSessionMode::Tls(config) => ripdpi_xhttp::XhttpClient::new_tls(config),
+            };
+            Ok(Arc::new(XhttpSession { client }))
+        })
+    }
+}
+
+impl RelaySession for ChainRelaySession {
+    type Stream = Box<dyn ripdpi_vless::AsyncIo>;
+    type Datagram = ();
+    type Error = io::Error;
+
+    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
+        Box::pin(async move {
+            let exit_target = format!("{}:{}", self.exit.server, self.exit.port);
+            let first_hop = match self.outbound_bind_ip {
+                Some(bind_ip) => {
+                    ripdpi_vless::VlessRealityClient::connect_with_bind(&self.entry, bind_ip, &exit_target).await?
+                }
+                None => ripdpi_vless::VlessRealityClient::connect(&self.entry, &exit_target).await?,
+            };
+            let second_hop = ripdpi_vless::VlessRealityClient::connect_over(&self.exit, first_hop, target).await?;
+            let stream: Box<dyn ripdpi_vless::AsyncIo> = Box::new(second_hop);
+            Ok(stream)
+        })
+    }
+
+    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
+        Box::pin(async move {
+            Err(io::Error::new(io::ErrorKind::Unsupported, "chain relay does not support UDP ASSOCIATE"))
+        })
+    }
+}
+
+impl RelaySessionFactory for ChainRelaySessionFactory {
+    type Session = ChainRelaySession;
+    type Error = io::Error;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: false, reusable: false }
+    }
+
+    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+        let entry = self.entry.clone();
+        let exit = self.exit.clone();
+        let outbound_bind_ip = self.outbound_bind_ip;
+        Box::pin(async move { Ok(Arc::new(ChainRelaySession { entry, exit, outbound_bind_ip })) })
+    }
+}
+
+impl RelaySession for MasqueSession {
+    type Stream = Box<dyn ripdpi_masque::AsyncIo>;
+    type Datagram = ripdpi_masque::MasqueUdpRelay;
+    type Error = io::Error;
+
+    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
+        Box::pin(async move { self.client.connect_tcp(target).await })
+    }
+
+    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
+        Box::pin(async move { Ok(self.client.udp_session()) })
+    }
+}
+
+impl RelaySessionFactory for MasqueSessionFactory {
+    type Session = MasqueSession;
+    type Error = io::Error;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: true, reusable: true }
+    }
+
+    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+        let config = self.config.clone();
+        Box::pin(async move {
+            let client = ripdpi_masque::MasqueClient::new(config)?;
+            Ok(Arc::new(MasqueSession { client }))
+        })
+    }
+}
+
+impl RelaySession for ShadowTlsSession {
+    type Stream = Box<dyn ripdpi_vless::AsyncIo>;
+    type Datagram = ();
+    type Error = io::Error;
+
+    fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
+        Box::pin(async move {
+            let client = ripdpi_shadowtls::ShadowTlsClient::new(self.client_config.clone());
+            let transport = client
+                .connect(&self.outer_server, self.outer_server_port)
+                .await
+                .map_err(|error| io::Error::new(error.kind(), format!("shadowtls connect: {error}")))?;
+
+            match self.inner.kind.as_str() {
+                "vless_reality" => {
+                    if self.inner.vless_transport == "xhttp" {
+                        return Err(io::Error::new(
+                            io::ErrorKind::Unsupported,
+                            "ShadowTLS inner VLESS xHTTP transport is not supported yet",
+                        ));
+                    }
+                    let uuid =
+                        self.inner.vless_uuid.as_ref().filter(|value| !value.trim().is_empty()).ok_or_else(|| {
+                            io::Error::new(io::ErrorKind::InvalidInput, "missing ShadowTLS inner VLESS UUID")
+                        })?;
+                    let config = ripdpi_vless::config::VlessRealityConfig::from_strings(
+                        &self.inner.server,
+                        self.inner.server_port,
+                        uuid,
+                        &self.inner.server_name,
+                        &self.inner.reality_public_key,
+                        &self.inner.reality_short_id,
+                        "chrome_stable",
+                    )
+                    .map_err(|error| {
+                        io::Error::new(io::ErrorKind::InvalidInput, format!("shadowtls inner vless: {error}"))
+                    })?;
+                    let stream = ripdpi_vless::VlessRealityClient::connect_over(&config, transport, target).await?;
+                    let stream: Box<dyn ripdpi_vless::AsyncIo> = Box::new(stream);
+                    Ok(stream)
+                }
+                other => Err(io::Error::new(
+                    io::ErrorKind::Unsupported,
+                    format!("ShadowTLS inner relay kind {other} is not supported"),
+                )),
+            }
+        })
+    }
+
+    fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
+        Box::pin(async move {
+            Err(io::Error::new(io::ErrorKind::Unsupported, "ShadowTLS relay does not support UDP ASSOCIATE"))
+        })
+    }
+}
+
+impl RelaySessionFactory for ShadowTlsSessionFactory {
+    type Session = ShadowTlsSession;
+    type Error = io::Error;
+
+    fn capabilities(&self) -> RelayCapabilities {
+        RelayCapabilities { tcp: true, udp: false, reusable: false }
+    }
+
+    fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
+        let client_config = self.client_config.clone();
+        let outer_server = self.outer_server.clone();
+        let outer_server_port = self.outer_server_port;
+        let inner = self.inner.clone();
+        Box::pin(
+            async move { Ok(Arc::new(ShadowTlsSession { client_config, outer_server, outer_server_port, inner })) },
+        )
+    }
+}
+
+impl Hysteria2Backend {
     async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
-        let stream = self.client.connect_tcp(&target.to_connect_target()).await?;
+        let stream = self.mux.open_stream(&target.to_connect_target()).await?;
         Ok(Box::new(stream))
     }
 
     async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
-        Ok(RelayUdpSession::Masque(self.client.udp_session()))
+        self.mux.open_datagram().await.map(RelayUdpSession::Hysteria2)
+    }
+}
+
+impl TuicBackend {
+    async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
+        let stream = self.mux.open_stream(&target.to_connect_target()).await?;
+        Ok(Box::new(stream))
+    }
+
+    async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
+        self.mux.open_datagram().await.map(RelayUdpSession::Tuic)
+    }
+}
+
+impl VlessRealityBackend {
+    async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
+        let stream = self.mux.open_stream(&target.to_connect_target()).await?;
+        Ok(Box::new(stream))
+    }
+}
+
+impl XhttpBackend {
+    async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
+        let stream = self.mux.open_stream(&target.to_connect_target()).await?;
+        Ok(Box::new(stream))
+    }
+}
+
+impl ChainRelayBackend {
+    async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
+        let stream = self.mux.open_stream(&target.to_connect_target()).await?;
+        Ok(Box::new(stream))
+    }
+}
+
+impl MasqueBackend {
+    async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
+        let stream = self.mux.open_stream(&target.to_connect_target()).await?;
+        Ok(Box::new(stream))
+    }
+
+    async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
+        self.mux.open_datagram().await.map(RelayUdpSession::Masque)
     }
 }
 
 impl ShadowTlsBackend {
     async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
-        let transport = self
-            .client
-            .connect(&self.outer_server, self.outer_server_port)
-            .await
-            .map_err(|error| io::Error::new(error.kind(), format!("shadowtls connect: {error}")))?;
-
-        match self.inner.kind.as_str() {
-            "vless_reality" => {
-                if self.inner.vless_transport == "xhttp" {
-                    return Err(io::Error::new(
-                        io::ErrorKind::Unsupported,
-                        "ShadowTLS inner VLESS xHTTP transport is not supported yet",
-                    ));
-                }
-                let uuid =
-                    self.inner.vless_uuid.as_ref().filter(|value| !value.trim().is_empty()).ok_or_else(|| {
-                        io::Error::new(io::ErrorKind::InvalidInput, "missing ShadowTLS inner VLESS UUID")
-                    })?;
-                let config = ripdpi_vless::config::VlessRealityConfig::from_strings(
-                    &self.inner.server,
-                    self.inner.server_port,
-                    uuid,
-                    &self.inner.server_name,
-                    &self.inner.reality_public_key,
-                    &self.inner.reality_short_id,
-                    "chrome_stable",
-                )
-                .map_err(|error| {
-                    io::Error::new(io::ErrorKind::InvalidInput, format!("shadowtls inner vless: {error}"))
-                })?;
-                let stream =
-                    ripdpi_vless::VlessRealityClient::connect_over(&config, transport, &target.to_connect_target())
-                        .await?;
-                Ok(Box::new(stream))
-            }
-            other => Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                format!("ShadowTLS inner relay kind {other} is not supported"),
-            )),
-        }
+        let stream = self.mux.open_stream(&target.to_connect_target()).await?;
+        Ok(Box::new(stream))
     }
 }
 
@@ -387,6 +690,7 @@ pub struct RelayRuntime {
     running: AtomicBool,
     active_sessions: AtomicU64,
     total_sessions: AtomicU64,
+    backend: Mutex<Option<Arc<RelayBackend>>>,
     listener_address: Mutex<Option<String>>,
     last_target: Mutex<Option<String>>,
     last_error: Mutex<Option<String>>,
@@ -401,6 +705,7 @@ impl RelayRuntime {
             running: AtomicBool::new(false),
             active_sessions: AtomicU64::new(0),
             total_sessions: AtomicU64::new(0),
+            backend: Mutex::new(None),
             listener_address: Mutex::new(None),
             last_target: Mutex::new(None),
             last_error: Mutex::new(None),
@@ -414,13 +719,14 @@ impl RelayRuntime {
 
     pub fn telemetry(&self) -> RelayTelemetry {
         let capabilities = backend_capabilities(&self.config);
+        let backend = self.backend.lock().expect("relay backend").clone();
         let is_running = self.running.load(Ordering::SeqCst);
         let state = if is_running { "running" } else { "idle" };
 
         RelayTelemetry {
             source: "relay",
             state: state.to_string(),
-            health: state.to_string(),
+            health: describe_runtime_health(state, backend.as_deref()),
             active_sessions: self.active_sessions.load(Ordering::SeqCst),
             total_sessions: self.total_sessions.load(Ordering::SeqCst),
             listener_address: self.listener_address.lock().expect("listener address").clone(),
@@ -450,6 +756,7 @@ impl RelayRuntime {
     pub async fn run(self: Arc<Self>) -> io::Result<()> {
         let backend = Arc::new(build_backend(&self.config).await?);
         validate_runtime_config(&self.config, &backend)?;
+        *self.backend.lock().expect("relay backend") = Some(Arc::clone(&backend));
 
         let bind_addr = format!("{}:{}", self.config.local_socks_host, self.config.local_socks_port);
         let listener = TcpListener::bind(&bind_addr).await?;
@@ -478,6 +785,7 @@ impl RelayRuntime {
         }
 
         self.running.store(false, Ordering::SeqCst);
+        *self.backend.lock().expect("relay backend") = None;
         Ok(())
     }
 
@@ -611,23 +919,27 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
             .map_err(to_io_error)?;
             client_config.salamander_key =
                 config.hysteria_salamander_key.as_ref().filter(|value| !value.trim().is_empty()).cloned();
-            let client = ripdpi_hysteria2::connect(&client_config).await.map_err(to_io_error)?;
-            Ok(RelayBackend::Hysteria2(Hysteria2Backend { client }))
+            Ok(RelayBackend::Hysteria2(Hysteria2Backend {
+                mux: RelayMux::new(Hysteria2SessionFactory { config: client_config }, RelayPoolConfig::default()),
+            }))
         }
-        "tuic_v5" => {
-            let client = ripdpi_tuic::TuicClient::connect(ripdpi_tuic::Config {
-                server: config.server.clone(),
-                server_port: config.server_port,
-                server_name: config.server_name.clone(),
-                uuid: config.tuic_uuid.clone().unwrap_or_default(),
-                password: config.tuic_password.clone().unwrap_or_default(),
-                zero_rtt: config.tuic_zero_rtt,
-                congestion_control: config.tuic_congestion_control.clone(),
-                udp_enabled: config.udp_enabled,
-            })
-            .await?;
-            Ok(RelayBackend::Tuic(TuicBackend { client }))
-        }
+        "tuic_v5" => Ok(RelayBackend::Tuic(TuicBackend {
+            mux: RelayMux::new(
+                TuicSessionFactory {
+                    config: ripdpi_tuic::Config {
+                        server: config.server.clone(),
+                        server_port: config.server_port,
+                        server_name: config.server_name.clone(),
+                        uuid: config.tuic_uuid.clone().unwrap_or_default(),
+                        password: config.tuic_password.clone().unwrap_or_default(),
+                        zero_rtt: config.tuic_zero_rtt,
+                        congestion_control: config.tuic_congestion_control.clone(),
+                        udp_enabled: config.udp_enabled,
+                    },
+                },
+                RelayPoolConfig::default(),
+            ),
+        })),
         "vless_reality" if config.vless_transport == "xhttp" => {
             let vless = ripdpi_vless::config::VlessRealityConfig::from_strings(
                 &config.server,
@@ -640,66 +952,127 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
             )
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
             Ok(RelayBackend::Xhttp(XhttpBackend {
-                client: ripdpi_xhttp::XhttpClient::new_reality(ripdpi_xhttp::XhttpRealityConfig {
-                    vless,
-                    path: config.xhttp_path.clone(),
-                    host: if config.xhttp_host.trim().is_empty() {
-                        None
-                    } else {
-                        Some(config.xhttp_host.trim().to_owned())
+                mux: RelayMux::new(
+                    XhttpSessionFactory {
+                        mode: XhttpSessionMode::Reality(ripdpi_xhttp::XhttpRealityConfig {
+                            vless,
+                            path: config.xhttp_path.clone(),
+                            host: if config.xhttp_host.trim().is_empty() {
+                                None
+                            } else {
+                                Some(config.xhttp_host.trim().to_owned())
+                            },
+                            bind_ip: outbound_bind_ip,
+                            xmux: ripdpi_xhttp::XmuxConfig::default(),
+                        }),
                     },
-                    bind_ip: outbound_bind_ip,
-                    xmux: ripdpi_xhttp::XmuxConfig::default(),
-                }),
+                    RelayPoolConfig::default(),
+                ),
             }))
         }
-        "vless_reality" => {
-            Ok(RelayBackend::VlessReality(VlessRealityBackend { config: config.clone(), outbound_bind_ip }))
-        }
-        "cloudflare_tunnel" => Ok(RelayBackend::Xhttp(XhttpBackend {
-            client: ripdpi_xhttp::XhttpClient::new_tls({
-                let mut tls = ripdpi_xhttp::XhttpTlsConfig::from_strings(
-                    &config.server,
-                    config.server_port,
-                    &config.server_name,
-                    config.vless_uuid.as_deref().unwrap_or_default(),
-                    &config.xhttp_path,
-                    &config.xhttp_host,
-                    &config.tls_fingerprint_profile,
-                )
-                .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
-                tls.bind_ip = outbound_bind_ip;
-                tls
-            }),
+        "vless_reality" => Ok(RelayBackend::VlessReality(VlessRealityBackend {
+            mux: RelayMux::new(
+                VlessRealitySessionFactory {
+                    config: ripdpi_vless::config::VlessRealityConfig::from_strings(
+                        &config.server,
+                        config.server_port,
+                        config.vless_uuid.as_deref().unwrap_or_default(),
+                        &config.server_name,
+                        &config.reality_public_key,
+                        &config.reality_short_id,
+                        &config.tls_fingerprint_profile,
+                    )
+                    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?,
+                    outbound_bind_ip,
+                },
+                RelayPoolConfig::default(),
+            ),
         })),
-        "chain_relay" => Ok(RelayBackend::ChainRelay(ChainRelayBackend { config: config.clone(), outbound_bind_ip })),
+        "cloudflare_tunnel" => Ok(RelayBackend::Xhttp(XhttpBackend {
+            mux: RelayMux::new(
+                XhttpSessionFactory {
+                    mode: XhttpSessionMode::Tls({
+                        let mut tls = ripdpi_xhttp::XhttpTlsConfig::from_strings(
+                            &config.server,
+                            config.server_port,
+                            &config.server_name,
+                            config.vless_uuid.as_deref().unwrap_or_default(),
+                            &config.xhttp_path,
+                            &config.xhttp_host,
+                            &config.tls_fingerprint_profile,
+                        )
+                        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
+                        tls.bind_ip = outbound_bind_ip;
+                        tls
+                    }),
+                },
+                RelayPoolConfig::default(),
+            ),
+        })),
+        "chain_relay" => Ok(RelayBackend::ChainRelay(ChainRelayBackend {
+            mux: RelayMux::new(
+                ChainRelaySessionFactory {
+                    entry: ripdpi_vless::config::VlessRealityConfig::from_strings(
+                        &config.chain_entry_server,
+                        config.chain_entry_port,
+                        config.chain_entry_uuid.as_deref().unwrap_or_default(),
+                        &config.chain_entry_server_name,
+                        &config.chain_entry_public_key,
+                        &config.chain_entry_short_id,
+                        &config.tls_fingerprint_profile,
+                    )
+                    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain entry: {error}")))?,
+                    exit: ripdpi_vless::config::VlessRealityConfig::from_strings(
+                        &config.chain_exit_server,
+                        config.chain_exit_port,
+                        config.chain_exit_uuid.as_deref().unwrap_or_default(),
+                        &config.chain_exit_server_name,
+                        &config.chain_exit_public_key,
+                        &config.chain_exit_short_id,
+                        &config.tls_fingerprint_profile,
+                    )
+                    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain exit: {error}")))?,
+                    outbound_bind_ip,
+                },
+                RelayPoolConfig::default(),
+            ),
+        })),
         "masque" => Ok(RelayBackend::Masque(MasqueBackend {
-            client: ripdpi_masque::MasqueClient::new(ripdpi_masque::config::MasqueConfig {
-                url: config.masque_url.clone(),
-                use_http2_fallback: config.masque_use_http2_fallback,
-                cloudflare_mode: config.masque_cloudflare_mode,
-                auth_mode: config.masque_auth_mode.clone(),
-                auth_token: config.masque_auth_token.clone(),
-                cf_client_id: config.masque_cloudflare_client_id.clone(),
-                cf_key_id: config.masque_cloudflare_key_id.clone(),
-                cf_private_key_pem: config.masque_cloudflare_private_key_pem.clone(),
-                privacy_pass_provider_url: config.masque_privacy_pass_provider_url.clone(),
-                privacy_pass_provider_auth_token: config.masque_privacy_pass_provider_auth_token.clone(),
-                tls_fingerprint_profile: config.tls_fingerprint_profile.clone(),
-            })?,
+            mux: RelayMux::new(
+                MasqueSessionFactory {
+                    config: ripdpi_masque::config::MasqueConfig {
+                        url: config.masque_url.clone(),
+                        use_http2_fallback: config.masque_use_http2_fallback,
+                        cloudflare_mode: config.masque_cloudflare_mode,
+                        auth_mode: config.masque_auth_mode.clone(),
+                        auth_token: config.masque_auth_token.clone(),
+                        cf_client_id: config.masque_cloudflare_client_id.clone(),
+                        cf_key_id: config.masque_cloudflare_key_id.clone(),
+                        cf_private_key_pem: config.masque_cloudflare_private_key_pem.clone(),
+                        privacy_pass_provider_url: config.masque_privacy_pass_provider_url.clone(),
+                        privacy_pass_provider_auth_token: config.masque_privacy_pass_provider_auth_token.clone(),
+                        tls_fingerprint_profile: config.tls_fingerprint_profile.clone(),
+                    },
+                },
+                RelayPoolConfig::default(),
+            ),
         })),
         "shadowtls_v3" => Ok(RelayBackend::ShadowTls(ShadowTlsBackend {
-            client: ripdpi_shadowtls::ShadowTlsClient::new(ripdpi_shadowtls::Config {
-                password: config.shadow_tls_password.clone().unwrap_or_default(),
-                server_name: config.server_name.clone(),
-                inner_profile_id: config.shadow_tls_inner_profile_id.clone(),
-            }),
-            outer_server: config.server.clone(),
-            outer_server_port: config.server_port,
-            inner: config
-                .shadow_tls_inner
-                .clone()
-                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing ShadowTLS inner relay config"))?,
+            mux: RelayMux::new(
+                ShadowTlsSessionFactory {
+                    client_config: ripdpi_shadowtls::Config {
+                        password: config.shadow_tls_password.clone().unwrap_or_default(),
+                        server_name: config.server_name.clone(),
+                        inner_profile_id: config.shadow_tls_inner_profile_id.clone(),
+                    },
+                    outer_server: config.server.clone(),
+                    outer_server_port: config.server_port,
+                    inner: config.shadow_tls_inner.clone().ok_or_else(|| {
+                        io::Error::new(io::ErrorKind::InvalidInput, "missing ShadowTLS inner relay config")
+                    })?,
+                },
+                RelayPoolConfig::default(),
+            ),
         })),
         other => Ok(RelayBackend::Unsupported { kind: other.to_string() }),
     }
@@ -728,6 +1101,16 @@ fn describe_upstream(config: &ResolvedRelayRuntimeConfig) -> String {
         "masque" => config.masque_url.clone(),
         _ => format!("{}:{}", config.server, config.server_port),
     }
+}
+
+fn describe_runtime_health(state: &str, backend: Option<&RelayBackend>) -> String {
+    let Some(pool_health) = backend.and_then(RelayBackend::pool_health) else {
+        return state.to_string();
+    };
+    format!(
+        "{state} (pool busy={} idle={} evictions={} backpressure={})",
+        pool_health.busy_streams, pool_health.idle_streams, pool_health.evictions, pool_health.backpressure_events,
+    )
 }
 
 fn normalized_xhttp_path(config: &ResolvedRelayRuntimeConfig) -> String {
@@ -860,21 +1243,18 @@ mod tests {
         assert_eq!("relay.example:443", describe_upstream(&config));
     }
 
-    #[test]
-    fn relay_runtime_rejects_udp_without_backend_support() {
+    #[tokio::test]
+    async fn relay_runtime_rejects_udp_without_backend_support() {
         let mut config = sample_config("vless_reality");
         config.udp_enabled = true;
-        let backend = RelayBackend::VlessReality(VlessRealityBackend {
-            config: sample_config("vless_reality"),
-            outbound_bind_ip: None,
-        });
+        let backend = RelayBackend::Unsupported { kind: "vless_reality".to_string() };
 
         let error = validate_runtime_config(&config, &backend).expect_err("UDP must fail fast");
         assert_eq!(error.kind(), io::ErrorKind::Unsupported);
     }
 
-    #[test]
-    fn relay_runtime_allows_masque_udp_and_privacy_pass_provider() {
+    #[tokio::test]
+    async fn relay_runtime_allows_masque_udp_and_privacy_pass_provider() {
         let mut config = sample_config("masque");
         config.udp_enabled = true;
         config.masque_cloudflare_mode = true;
@@ -884,26 +1264,8 @@ mod tests {
 
         let capabilities = backend_capabilities(&config);
         assert!(capabilities.1, "MASQUE should report UDP capability");
-        validate_runtime_config(
-            &config,
-            &RelayBackend::Masque(MasqueBackend {
-                client: ripdpi_masque::MasqueClient::new(ripdpi_masque::config::MasqueConfig {
-                    url: config.masque_url.clone(),
-                    use_http2_fallback: config.masque_use_http2_fallback,
-                    cloudflare_mode: config.masque_cloudflare_mode,
-                    auth_mode: config.masque_auth_mode.clone(),
-                    auth_token: config.masque_auth_token.clone(),
-                    cf_client_id: config.masque_cloudflare_client_id.clone(),
-                    cf_key_id: config.masque_cloudflare_key_id.clone(),
-                    cf_private_key_pem: config.masque_cloudflare_private_key_pem.clone(),
-                    privacy_pass_provider_url: config.masque_privacy_pass_provider_url.clone(),
-                    privacy_pass_provider_auth_token: config.masque_privacy_pass_provider_auth_token.clone(),
-                    tls_fingerprint_profile: config.tls_fingerprint_profile.clone(),
-                })
-                .expect("client"),
-            }),
-        )
-        .expect("MASQUE privacy pass should validate");
+        let backend = build_backend(&config).await.expect("masque backend");
+        validate_runtime_config(&config, &backend).expect("MASQUE privacy pass should validate");
     }
 
     #[test]
@@ -933,10 +1295,7 @@ mod tests {
     fn relay_runtime_rejects_invalid_outbound_bind_ip() {
         let mut config = sample_config("vless_reality");
         config.outbound_bind_ip = "not-an-ip".to_string();
-        let backend = RelayBackend::VlessReality(VlessRealityBackend {
-            config: sample_config("vless_reality"),
-            outbound_bind_ip: None,
-        });
+        let backend = RelayBackend::Unsupported { kind: "vless_reality".to_string() };
 
         let error = validate_runtime_config(&config, &backend).expect_err("invalid bind ip must fail");
         assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
