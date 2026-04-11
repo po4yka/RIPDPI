@@ -20,6 +20,10 @@ class ServiceStatusReporterTest {
                 serviceStateStore = store,
                 networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
                 telemetryFingerprintHasher = TestTelemetryFingerprintHasher(hashValue = "fp-hash"),
+                runtimeExperimentSelectionProvider =
+                    object : RuntimeExperimentSelectionProvider {
+                        override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+                    },
                 clock = TestServiceClock(now = 42L),
             )
 
@@ -46,6 +50,10 @@ class ServiceStatusReporterTest {
                 serviceStateStore = store,
                 networkFingerprintProvider = TestNetworkFingerprintProvider(),
                 telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
+                runtimeExperimentSelectionProvider =
+                    object : RuntimeExperimentSelectionProvider {
+                        override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+                    },
                 clock = TestServiceClock(now = 99L),
             )
         val reason = FailureReason.NativeError("boom")
@@ -72,6 +80,10 @@ class ServiceStatusReporterTest {
                 serviceStateStore = store,
                 networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
                 telemetryFingerprintHasher = TestTelemetryFingerprintHasher(hashValue = "fp-hash"),
+                runtimeExperimentSelectionProvider =
+                    object : RuntimeExperimentSelectionProvider {
+                        override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+                    },
                 clock = TestServiceClock(now = 123L),
             )
         val policy =

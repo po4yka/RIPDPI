@@ -149,6 +149,8 @@ mod tests {
             privacy_pass_provider_url: None,
             privacy_pass_provider_auth_token: None,
             tls_fingerprint_profile: "native_default".to_string(),
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
         })
         .expect("header")
         .expect("some");
@@ -169,6 +171,8 @@ mod tests {
             privacy_pass_provider_url: Some("https://provider.example/token".to_string()),
             privacy_pass_provider_auth_token: None,
             tls_fingerprint_profile: "native_default".to_string(),
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
         })
         .expect("header");
 
@@ -190,6 +194,8 @@ mod tests {
             privacy_pass_provider_url: None,
             privacy_pass_provider_auth_token: None,
             tls_fingerprint_profile: "native_default".to_string(),
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
         })
         .expect("header");
 

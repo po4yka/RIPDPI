@@ -142,6 +142,8 @@ data class ResolvedRipDpiRelayConfig(
     val localSocksPort: Int,
     val udpEnabled: Boolean,
     val tcpFallbackEnabled: Boolean,
+    val quicBindLowPort: Boolean = false,
+    val quicMigrateAfterHandshake: Boolean = false,
     val vlessUuid: String? = null,
     val chainEntryUuid: String? = null,
     val chainExitUuid: String? = null,

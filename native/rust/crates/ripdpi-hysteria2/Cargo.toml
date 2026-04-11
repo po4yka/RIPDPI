@@ -13,6 +13,7 @@ http = { workspace = true }
 quinn = { workspace = true }
 rand = { workspace = true }
 rustls = { workspace = true }
+socket2 = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "sync", "time"] }
 tracing = { workspace = true }

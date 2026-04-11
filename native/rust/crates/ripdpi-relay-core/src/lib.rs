@@ -59,6 +59,8 @@ pub struct ResolvedRelayRuntimeConfig {
     pub local_socks_port: i32,
     pub udp_enabled: bool,
     pub tcp_fallback_enabled: bool,
+    pub quic_bind_low_port: bool,
+    pub quic_migrate_after_handshake: bool,
     pub vless_uuid: Option<String>,
     pub chain_entry_uuid: Option<String>,
     pub chain_exit_uuid: Option<String>,
@@ -129,39 +131,89 @@ trait AsyncIo: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T> AsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 type BoxedIo = Box<dyn AsyncIo>;
 
+#[derive(Clone, Default)]
+struct QuicMigrationTelemetryState {
+    inner: Arc<Mutex<QuicMigrationTelemetrySnapshot>>,
+}
+
+#[derive(Default)]
+struct QuicMigrationTelemetrySnapshot {
+    status: Option<String>,
+    reason: Option<String>,
+}
+
+impl QuicMigrationTelemetryState {
+    fn update(&self, status: Option<&str>, reason: Option<&str>) {
+        let mut snapshot = self.inner.lock().expect("quic migration telemetry");
+        snapshot.status = status.map(ToOwned::to_owned);
+        snapshot.reason = reason.map(ToOwned::to_owned);
+    }
+
+    fn snapshot(&self) -> (Option<String>, Option<String>) {
+        let snapshot = self.inner.lock().expect("quic migration telemetry");
+        (snapshot.status.clone(), snapshot.reason.clone())
+    }
+}
+
 enum RelayUdpSession {
-    Hysteria2(MuxLease<ripdpi_hysteria2::UdpSession, Hysteria2Session>),
-    Tuic(MuxLease<ripdpi_tuic::UdpSession, TuicSession>),
-    Masque(MuxLease<ripdpi_masque::MasqueUdpRelay, MasqueSession>),
+    Hysteria2 {
+        session: MuxLease<ripdpi_hysteria2::UdpSession, Hysteria2Session>,
+        migration: QuicMigrationTelemetryState,
+    },
+    Tuic {
+        session: MuxLease<ripdpi_tuic::UdpSession, TuicSession>,
+        migration: QuicMigrationTelemetryState,
+    },
+    Masque {
+        session: MuxLease<ripdpi_masque::MasqueUdpRelay, MasqueSession>,
+        migration: QuicMigrationTelemetryState,
+    },
 }
 
 impl RelayUdpSession {
     async fn send_to(&mut self, target: &RelayTargetAddr, payload: &[u8]) -> io::Result<()> {
         match self {
-            Self::Hysteria2(session) => {
-                session.get_mut().send_to(&target.to_connect_target(), payload).await.map_err(to_io_error)
+            Self::Hysteria2 { session, migration } => {
+                let result = session.get_mut().send_to(&target.to_connect_target(), payload).await.map_err(to_io_error);
+                sync_quic_migration_state(migration, session.get_mut().quic_migration_snapshot());
+                result
             }
-            Self::Tuic(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
-            Self::Masque(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
+            Self::Tuic { session, migration } => {
+                let result = session.get_mut().send_to(&target.to_connect_target(), payload).await;
+                sync_quic_migration_state(migration, session.get_mut().quic_migration_snapshot());
+                result
+            }
+            Self::Masque { session, migration } => {
+                let result = session.get_mut().send_to(&target.to_connect_target(), payload).await;
+                sync_quic_migration_state(migration, session.get_mut().quic_migration_snapshot());
+                result
+            }
         }
     }
 
     async fn recv_from(&mut self) -> io::Result<(RelayTargetAddr, Vec<u8>)> {
         match self {
-            Self::Hysteria2(session) => {
+            Self::Hysteria2 { session, migration } => {
                 let (address, payload) = session.get_mut().recv_from().await.map_err(to_io_error)?;
+                sync_quic_migration_state(migration, session.get_mut().quic_migration_snapshot());
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
-            Self::Tuic(session) => {
+            Self::Tuic { session, migration } => {
                 let (address, payload) = session.get_mut().recv_from().await?;
+                sync_quic_migration_state(migration, session.get_mut().quic_migration_snapshot());
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
-            Self::Masque(session) => {
+            Self::Masque { session, migration } => {
                 let (address, payload) = session.get_mut().recv_from().await?;
+                sync_quic_migration_state(migration, session.get_mut().quic_migration_snapshot());
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
         }
     }
+}
+
+fn sync_quic_migration_state(telemetry: &QuicMigrationTelemetryState, snapshot: (Option<String>, Option<String>)) {
+    telemetry.update(snapshot.0.as_deref(), snapshot.1.as_deref());
 }
 
 enum RelayBackend {
@@ -206,6 +258,19 @@ impl RelayBackend {
         self.capabilities().udp
     }
 
+    fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
+        match self {
+            Self::Hysteria2(backend) => backend.quic_migration_snapshot(),
+            Self::Tuic(backend) => backend.quic_migration_snapshot(),
+            Self::Masque(backend) => backend.quic_migration_snapshot(),
+            Self::VlessReality(_)
+            | Self::Xhttp(_)
+            | Self::ChainRelay(_)
+            | Self::ShadowTls(_)
+            | Self::Unsupported { .. } => (None, None),
+        }
+    }
+
     async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
         match self {
             Self::Hysteria2(backend) => backend.connect_tcp(target).await,
@@ -223,9 +288,27 @@ impl RelayBackend {
 
     async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
         match self {
-            Self::Hysteria2(backend) => backend.open_udp_session(RelayUdpSession::Hysteria2).await,
-            Self::Tuic(backend) => backend.open_udp_session(RelayUdpSession::Tuic).await,
-            Self::Masque(backend) => backend.open_udp_session(RelayUdpSession::Masque).await,
+            Self::Hysteria2(backend) => {
+                let migration = backend.quic_migration_snapshot_state();
+                backend
+                    .open_udp_session(move |session| RelayUdpSession::Hysteria2 {
+                        session,
+                        migration: migration.clone(),
+                    })
+                    .await
+            }
+            Self::Tuic(backend) => {
+                let migration = backend.quic_migration_snapshot_state();
+                backend
+                    .open_udp_session(move |session| RelayUdpSession::Tuic { session, migration: migration.clone() })
+                    .await
+            }
+            Self::Masque(backend) => {
+                let migration = backend.quic_migration_snapshot_state();
+                backend
+                    .open_udp_session(move |session| RelayUdpSession::Masque { session, migration: migration.clone() })
+                    .await
+            }
             Self::VlessReality(_) | Self::Xhttp(_) | Self::ChainRelay(_) | Self::ShadowTls(_) => {
                 Err(io::Error::new(io::ErrorKind::Unsupported, "relay backend does not support UDP ASSOCIATE"))
             }
@@ -241,24 +324,29 @@ where
     F: RelaySessionFactory<Error = io::Error>,
 {
     mux: RelayMux<F>,
+    migration: Option<QuicMigrationTelemetryState>,
 }
 
 #[derive(Clone)]
 struct Hysteria2SessionFactory {
     config: ripdpi_hysteria2::Config,
+    migration: QuicMigrationTelemetryState,
 }
 
 struct Hysteria2Session {
     client: ripdpi_hysteria2::HysteriaClient,
+    migration: QuicMigrationTelemetryState,
 }
 
 #[derive(Clone)]
 struct TuicSessionFactory {
     config: ripdpi_tuic::Config,
+    migration: QuicMigrationTelemetryState,
 }
 
 struct TuicSession {
     client: ripdpi_tuic::TuicClient,
+    migration: QuicMigrationTelemetryState,
 }
 
 #[derive(Clone)]
@@ -303,10 +391,12 @@ struct ChainRelaySession {
 #[derive(Clone)]
 struct MasqueSessionFactory {
     config: ripdpi_masque::config::MasqueConfig,
+    migration: QuicMigrationTelemetryState,
 }
 
 struct MasqueSession {
     client: ripdpi_masque::MasqueClient,
+    migration: QuicMigrationTelemetryState,
 }
 
 #[derive(Clone)]
@@ -330,11 +420,19 @@ impl RelaySession for Hysteria2Session {
     type Error = io::Error;
 
     fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
-        Box::pin(async move { self.client.tcp_connect(target).await.map_err(to_io_error) })
+        Box::pin(async move {
+            let stream = self.client.tcp_connect(target).await.map_err(to_io_error)?;
+            sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
+            Ok(stream)
+        })
     }
 
     fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
-        Box::pin(async move { self.client.udp_session().await.map_err(to_io_error) })
+        Box::pin(async move {
+            let session = self.client.udp_session().await.map_err(to_io_error)?;
+            sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
+            Ok(session)
+        })
     }
 }
 
@@ -348,9 +446,11 @@ impl RelaySessionFactory for Hysteria2SessionFactory {
 
     fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
         let config = self.config.clone();
+        let migration = self.migration.clone();
         Box::pin(async move {
             let client = ripdpi_hysteria2::connect(&config).await.map_err(to_io_error)?;
-            Ok(Arc::new(Hysteria2Session { client }))
+            sync_quic_migration_state(&migration, client.quic_migration_snapshot());
+            Ok(Arc::new(Hysteria2Session { client, migration }))
         })
     }
 }
@@ -361,11 +461,19 @@ impl RelaySession for TuicSession {
     type Error = io::Error;
 
     fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
-        Box::pin(async move { self.client.tcp_connect(target).await })
+        Box::pin(async move {
+            let stream = self.client.tcp_connect(target).await?;
+            sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
+            Ok(stream)
+        })
     }
 
     fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
-        Box::pin(async move { self.client.udp_session().await })
+        Box::pin(async move {
+            let session = self.client.udp_session().await?;
+            sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
+            Ok(session)
+        })
     }
 }
 
@@ -379,9 +487,11 @@ impl RelaySessionFactory for TuicSessionFactory {
 
     fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
         let config = self.config.clone();
+        let migration = self.migration.clone();
         Box::pin(async move {
             let client = ripdpi_tuic::TuicClient::connect(config).await?;
-            Ok(Arc::new(TuicSession { client }))
+            sync_quic_migration_state(&migration, client.quic_migration_snapshot());
+            Ok(Arc::new(TuicSession { client, migration }))
         })
     }
 }
@@ -511,11 +621,19 @@ impl RelaySession for MasqueSession {
     type Error = io::Error;
 
     fn open_stream<'a>(&'a self, target: &'a str) -> BoxFuture<'a, Result<Self::Stream, Self::Error>> {
-        Box::pin(async move { self.client.connect_tcp(target).await })
+        Box::pin(async move {
+            let stream = self.client.connect_tcp(target).await?;
+            sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
+            Ok(stream)
+        })
     }
 
     fn open_datagram(&self) -> BoxFuture<'_, Result<Self::Datagram, Self::Error>> {
-        Box::pin(async move { Ok(self.client.udp_session()) })
+        Box::pin(async move {
+            let session = self.client.udp_session();
+            sync_quic_migration_state(&self.migration, self.client.quic_migration_snapshot());
+            Ok(session)
+        })
     }
 }
 
@@ -529,9 +647,11 @@ impl RelaySessionFactory for MasqueSessionFactory {
 
     fn create_session(&self) -> BoxFuture<'_, Result<Arc<Self::Session>, Self::Error>> {
         let config = self.config.clone();
+        let migration = self.migration.clone();
         Box::pin(async move {
             let client = ripdpi_masque::MasqueClient::new(config)?;
-            Ok(Arc::new(MasqueSession { client }))
+            sync_quic_migration_state(&migration, client.quic_migration_snapshot());
+            Ok(Arc::new(MasqueSession { client, migration }))
         })
     }
 }
@@ -615,8 +735,8 @@ impl<F> PooledRelayBackend<F>
 where
     F: RelaySessionFactory<Error = io::Error>,
 {
-    fn new(factory: F, config: RelayPoolConfig) -> Self {
-        Self { mux: RelayMux::new(factory, config) }
+    fn new(factory: F, config: RelayPoolConfig, migration: Option<QuicMigrationTelemetryState>) -> Self {
+        Self { mux: RelayMux::new(factory, config), migration }
     }
 
     fn capabilities(&self) -> RelayCapabilities {
@@ -625,6 +745,14 @@ where
 
     fn pool_health(&self) -> RelayPoolHealth {
         self.mux.health()
+    }
+
+    fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
+        self.migration.as_ref().map_or((None, None), QuicMigrationTelemetryState::snapshot)
+    }
+
+    fn quic_migration_snapshot_state(&self) -> QuicMigrationTelemetryState {
+        self.migration.clone().unwrap_or_default()
     }
 }
 
@@ -644,10 +772,10 @@ where
     F: RelaySessionFactory<Error = io::Error>,
     <F::Session as RelaySession>::Datagram: Send + 'static,
 {
-    async fn open_udp_session(
-        &self,
-        map: fn(MuxLease<<F::Session as RelaySession>::Datagram, F::Session>) -> RelayUdpSession,
-    ) -> io::Result<RelayUdpSession> {
+    async fn open_udp_session<M>(&self, map: M) -> io::Result<RelayUdpSession>
+    where
+        M: FnOnce(MuxLease<<F::Session as RelaySession>::Datagram, F::Session>) -> RelayUdpSession,
+    {
         self.mux.open_datagram().await.map(map)
     }
 }
@@ -691,6 +819,8 @@ impl RelayRuntime {
             .as_deref()
             .map(RelayBackend::capabilities)
             .unwrap_or_else(|| planned_backend_capabilities(&self.config));
+        let (quic_migration_status, quic_migration_reason) =
+            backend.as_deref().map(RelayBackend::quic_migration_snapshot).unwrap_or((None, None));
         let is_running = self.running.load(Ordering::SeqCst);
         let state = if is_running { "running" } else { "idle" };
 
@@ -725,8 +855,8 @@ impl RelayRuntime {
             tls_profile_id: Some(self.config.tls_fingerprint_profile.clone()),
             tls_profile_catalog_version: None,
             morph_policy_id: None,
-            quic_migration_status: None,
-            quic_migration_reason: None,
+            quic_migration_status,
+            quic_migration_reason,
             pt_runtime_kind: None,
             pt_runtime_state: None,
             captured_at: now_ms(),
@@ -886,6 +1016,7 @@ impl RelayRuntime {
 async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayBackend> {
     let outbound_bind_ip = parse_outbound_bind_ip(&config.outbound_bind_ip)?;
     let pool_config = pool_config_for_backend(config);
+    let quic_migration = QuicMigrationTelemetryState::default();
     match config.kind.as_str() {
         "hysteria2" => {
             let password = config
@@ -900,9 +1031,12 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
             .map_err(to_io_error)?;
             client_config.salamander_key =
                 config.hysteria_salamander_key.as_ref().filter(|value| !value.trim().is_empty()).cloned();
+            client_config.quic_bind_low_port = config.quic_bind_low_port;
+            client_config.quic_migrate_after_handshake = config.quic_migrate_after_handshake;
             Ok(RelayBackend::Hysteria2(PooledRelayBackend::new(
-                Hysteria2SessionFactory { config: client_config },
+                Hysteria2SessionFactory { config: client_config, migration: quic_migration.clone() },
                 pool_config,
+                Some(quic_migration),
             )))
         }
         "tuic_v5" => Ok(RelayBackend::Tuic(PooledRelayBackend::new(
@@ -916,9 +1050,13 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                     zero_rtt: config.tuic_zero_rtt,
                     congestion_control: config.tuic_congestion_control.clone(),
                     udp_enabled: config.udp_enabled,
+                    quic_bind_low_port: config.quic_bind_low_port,
+                    quic_migrate_after_handshake: config.quic_migrate_after_handshake,
                 },
+                migration: quic_migration.clone(),
             },
             pool_config,
+            Some(quic_migration),
         ))),
         "vless_reality" if config.vless_transport == "xhttp" => {
             let vless = ripdpi_vless::config::VlessRealityConfig::from_strings(
@@ -946,6 +1084,7 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                     }),
                 },
                 pool_config,
+                None,
             )))
         }
         "vless_reality" => Ok(RelayBackend::VlessReality(PooledRelayBackend::new(
@@ -963,6 +1102,7 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                 outbound_bind_ip,
             },
             pool_config,
+            None,
         ))),
         "cloudflare_tunnel" => Ok(RelayBackend::Xhttp(PooledRelayBackend::new(
             XhttpSessionFactory {
@@ -982,6 +1122,7 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                 }),
             },
             pool_config,
+            None,
         ))),
         "chain_relay" => Ok(RelayBackend::ChainRelay(PooledRelayBackend::new(
             ChainRelaySessionFactory {
@@ -1008,6 +1149,7 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                 outbound_bind_ip,
             },
             pool_config,
+            None,
         ))),
         "masque" => Ok(RelayBackend::Masque(PooledRelayBackend::new(
             MasqueSessionFactory {
@@ -1022,9 +1164,13 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                     privacy_pass_provider_url: config.masque_privacy_pass_provider_url.clone(),
                     privacy_pass_provider_auth_token: config.masque_privacy_pass_provider_auth_token.clone(),
                     tls_fingerprint_profile: config.tls_fingerprint_profile.clone(),
+                    quic_bind_low_port: config.quic_bind_low_port,
+                    quic_migrate_after_handshake: config.quic_migrate_after_handshake,
                 },
+                migration: quic_migration.clone(),
             },
             pool_config,
+            Some(quic_migration),
         ))),
         "shadowtls_v3" => Ok(RelayBackend::ShadowTls(PooledRelayBackend::new(
             ShadowTlsSessionFactory {
@@ -1040,6 +1186,7 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                 })?,
             },
             pool_config,
+            None,
         ))),
         other => Ok(RelayBackend::Unsupported { kind: other.to_string() }),
     }
@@ -1193,6 +1340,8 @@ mod tests {
             local_socks_port: 10_80,
             udp_enabled: false,
             tcp_fallback_enabled: true,
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
             vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
             chain_entry_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
             chain_exit_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),

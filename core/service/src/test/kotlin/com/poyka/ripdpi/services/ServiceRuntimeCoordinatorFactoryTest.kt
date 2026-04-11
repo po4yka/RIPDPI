@@ -196,6 +196,10 @@ class ServiceRuntimeCoordinatorFactoryTest {
                 serviceStateStore = serviceStateStore,
                 networkFingerprintProvider = networkFingerprintProvider,
                 telemetryFingerprintHasher = telemetryFingerprintHasher,
+                runtimeExperimentSelectionProvider =
+                    object : RuntimeExperimentSelectionProvider {
+                        override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+                    },
                 clock = clock,
             )
         }

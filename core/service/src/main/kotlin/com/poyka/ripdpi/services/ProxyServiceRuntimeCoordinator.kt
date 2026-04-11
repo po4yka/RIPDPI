@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.ownedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.relayConfigOrNull
 import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.data.FailureReason
@@ -102,8 +103,9 @@ internal class ProxyServiceRuntimeCoordinator(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
     ) {
+        val relayQuicMigrationConfig = resolution.proxyPreferences.ownedRelayQuicMigrationConfig()
         resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
-            upstreamRelaySupervisor.start(relayConfig, ::handleRelayExit)
+            upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, ::handleRelayExit)
         }
         resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
             warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
@@ -188,8 +190,9 @@ internal class ProxyServiceRuntimeCoordinator(
             restartReason = "network_handover",
             appliedAt = appliedAt,
         )
+        val relayQuicMigrationConfig = resolution.proxyPreferences.ownedRelayQuicMigrationConfig()
         resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
-            upstreamRelaySupervisor.start(relayConfig, ::handleRelayExit)
+            upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, ::handleRelayExit)
         }
         resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
             warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)

@@ -296,6 +296,10 @@ class ProxyServiceRuntimeCoordinatorTest {
                         serviceStateStore = store,
                         networkFingerprintProvider = fingerprintProvider,
                         telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
+                        runtimeExperimentSelectionProvider =
+                            object : RuntimeExperimentSelectionProvider {
+                                override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+                            },
                         clock = TestServiceClock(now = 1_000L),
                     ),
                 screenStateObserver = TestScreenStateObserver(),

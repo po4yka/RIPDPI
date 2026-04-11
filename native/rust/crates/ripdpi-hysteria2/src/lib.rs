@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::io;
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
@@ -19,6 +19,7 @@ use rand::{Rng, RngCore};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, RootCertStore, SignatureScheme};
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use thiserror::Error;
 use tokio::io::{sink, AsyncRead, AsyncReadExt, AsyncWrite, ReadBuf};
 use tokio::sync::{mpsc, Mutex};
@@ -29,6 +30,7 @@ const HYSTERIA_AUTH_STATUS: u16 = 233;
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
 const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REASSEMBLY_SLOTS: usize = 128;
+const MIGRATION_COOLDOWN: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -37,6 +39,8 @@ pub struct Config {
     pub server_name: String,
     pub insecure: bool,
     pub salamander_key: Option<String>,
+    pub quic_bind_low_port: bool,
+    pub quic_migrate_after_handshake: bool,
 }
 
 impl Config {
@@ -53,6 +57,8 @@ impl Config {
             server_name: query.get("sni").cloned().unwrap_or_else(|| host.to_string()),
             insecure: query.get("insecure").is_some_and(|value| value == "1"),
             salamander_key: query.get("obfs-password").cloned(),
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
         })
     }
 }
@@ -99,7 +105,12 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
         .ok_or_else(|| HysteriaError::InvalidAddress(config.server_addr.clone()))?;
 
     let tls_config = build_tls_config(config)?;
-    let endpoint = build_endpoint(config, tls_config)?;
+    let socket_spec = ClientSocketSpec {
+        ipv6: server_addr.is_ipv6(),
+        bind_low_port: config.quic_bind_low_port,
+        salamander_key: config.salamander_key.clone(),
+    };
+    let (endpoint, current_socket) = build_endpoint(config, tls_config, socket_spec.clone())?;
     let connection = endpoint.connect(server_addr, &config.server_name)?.await?;
 
     let udp_supported = authenticate_connection(config, &connection).await?;
@@ -112,6 +123,16 @@ pub async fn connect(config: &Config) -> Result<HysteriaClient> {
         registrations: Mutex::new(HashMap::new()),
         udp_supported,
         max_datagram_size,
+        socket_spec,
+        migrate_after_handshake: config.quic_migrate_after_handshake,
+        current_socket: Mutex::new(current_socket),
+        migration: Mutex::new(QuicMigrationState {
+            status: Some("not_attempted".to_string()),
+            reason: None,
+            validated: false,
+            cooldown_until: None,
+            previous_socket: None,
+        }),
     });
 
     if udp_supported {
@@ -128,15 +149,20 @@ pub struct HysteriaClient {
 
 impl HysteriaClient {
     pub async fn tcp_connect(&self, address: &str) -> Result<DuplexStream> {
-        let (mut send, mut recv) = self.inner.connection.open_bi().await?;
-        send.write_all(&build_tcp_request(address, 0)).await?;
-
-        let (status_ok, message) = read_tcp_response(&mut recv).await?;
-        if !status_ok {
-            return Err(HysteriaError::TcpConnect(message));
+        let migrated = self.inner.begin_quic_migration().await?;
+        match self.open_tcp_stream(address).await {
+            Ok(stream) => {
+                if migrated {
+                    self.inner.complete_quic_migration("path_validated_after_stream_open").await;
+                }
+                Ok(stream)
+            }
+            Err(_error) if migrated => {
+                let _ = self.inner.rollback_quic_migration("stream_open_failed_after_rebind").await;
+                self.open_tcp_stream(address).await
+            }
+            Err(error) => Err(error),
         }
-
-        Ok(DuplexStream { send, recv })
     }
 
     pub fn udp_supported(&self) -> bool {
@@ -157,9 +183,24 @@ impl HysteriaClient {
             packet_ids: Mutex::new(HashMap::new()),
         })
     }
+
+    pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
+        self.inner.quic_migration_snapshot()
+    }
+
+    async fn open_tcp_stream(&self, address: &str) -> Result<DuplexStream> {
+        let (mut send, mut recv) = self.inner.connection.open_bi().await?;
+        send.write_all(&build_tcp_request(address, 0)).await?;
+
+        let (status_ok, message) = read_tcp_response(&mut recv).await?;
+        if !status_ok {
+            return Err(HysteriaError::TcpConnect(message));
+        }
+
+        Ok(DuplexStream { send, recv })
+    }
 }
 
-#[derive(Debug)]
 struct ClientInner {
     _endpoint: quinn::Endpoint,
     connection: quinn::Connection,
@@ -167,6 +208,105 @@ struct ClientInner {
     registrations: Mutex<HashMap<u32, mpsc::Sender<UdpPacket>>>,
     udp_supported: bool,
     max_datagram_size: Option<usize>,
+    socket_spec: ClientSocketSpec,
+    migrate_after_handshake: bool,
+    current_socket: Mutex<std::net::UdpSocket>,
+    migration: Mutex<QuicMigrationState>,
+}
+
+#[derive(Debug, Clone)]
+struct ClientSocketSpec {
+    ipv6: bool,
+    bind_low_port: bool,
+    salamander_key: Option<String>,
+}
+
+#[derive(Default)]
+struct QuicMigrationState {
+    status: Option<String>,
+    reason: Option<String>,
+    validated: bool,
+    cooldown_until: Option<Instant>,
+    previous_socket: Option<std::net::UdpSocket>,
+}
+
+impl ClientInner {
+    async fn begin_quic_migration(&self) -> Result<bool> {
+        let should_attempt = {
+            let state = self.migration.lock().await;
+            self.should_attempt_quic_migration(&state)
+        };
+        if !should_attempt {
+            return Ok(false);
+        }
+
+        let old_socket = self.current_socket.lock().await.try_clone()?;
+        let new_socket = build_client_udp_socket(&self.socket_spec)?;
+        let new_socket_clone = new_socket.try_clone()?;
+        match rebind_endpoint(&self._endpoint, &self.socket_spec, new_socket) {
+            Ok(()) => {
+                *self.current_socket.lock().await = new_socket_clone;
+                let mut state = self.migration.lock().await;
+                state.status = Some("not_attempted".to_string());
+                state.reason = Some("path_challenge_pending".to_string());
+                state.previous_socket = Some(old_socket);
+                Ok(true)
+            }
+            Err(error) => {
+                let mut state = self.migration.lock().await;
+                state.status = Some("failed".to_string());
+                state.reason = Some("endpoint_rebind_failed".to_string());
+                state.cooldown_until = Some(Instant::now() + MIGRATION_COOLDOWN);
+                Err(error.into())
+            }
+        }
+    }
+
+    async fn complete_quic_migration(&self, reason: &str) {
+        let mut state = self.migration.lock().await;
+        if state.previous_socket.is_some() || state.validated {
+            state.status = Some("validated".to_string());
+            state.reason = Some(reason.to_string());
+            state.validated = true;
+            state.previous_socket = None;
+        }
+    }
+
+    async fn rollback_quic_migration(&self, reason: &str) -> Result<()> {
+        let previous_socket = {
+            let mut state = self.migration.lock().await;
+            let Some(previous_socket) = state.previous_socket.take() else {
+                return Ok(());
+            };
+            previous_socket
+        };
+        let replacement = previous_socket.try_clone()?;
+        rebind_endpoint(&self._endpoint, &self.socket_spec, previous_socket)?;
+        *self.current_socket.lock().await = replacement;
+        let mut state = self.migration.lock().await;
+        state.status = Some("reverted".to_string());
+        state.reason = Some(reason.to_string());
+        state.validated = false;
+        state.cooldown_until = Some(Instant::now() + MIGRATION_COOLDOWN);
+        Ok(())
+    }
+
+    fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
+        self.migration
+            .try_lock()
+            .map(|state| (state.status.clone(), state.reason.clone()))
+            .unwrap_or_else(|_| (Some("not_attempted".to_string()), None))
+    }
+
+    fn should_attempt_quic_migration(&self, state: &QuicMigrationState) -> bool {
+        if !self.migrate_after_handshake {
+            return false;
+        }
+        if state.validated || state.previous_socket.is_some() {
+            return false;
+        }
+        !state.cooldown_until.is_some_and(|cooldown_until| cooldown_until > Instant::now())
+    }
 }
 
 pub struct DuplexStream {
@@ -206,7 +346,20 @@ impl UdpSession {
     pub async fn send_to(&self, address: &str, payload: &[u8]) -> Result<()> {
         let session_id = self.session_id_for(address).await;
         let packet_id = self.next_packet_id(session_id).await;
-        send_udp_payload(&self.client, session_id, packet_id, address, payload).await
+        let migrated = self.client.begin_quic_migration().await?;
+        match send_udp_payload(&self.client, session_id, packet_id, address, payload).await {
+            Ok(()) => {
+                if migrated {
+                    self.client.complete_quic_migration("path_validated_after_datagram_send").await;
+                }
+                Ok(())
+            }
+            Err(_error) if migrated => {
+                let _ = self.client.rollback_quic_migration("datagram_send_failed_after_rebind").await;
+                send_udp_payload(&self.client, session_id, packet_id, address, payload).await
+            }
+            Err(error) => Err(error),
+        }
     }
 
     pub async fn recv_from(&mut self) -> Result<(String, Vec<u8>)> {
@@ -235,6 +388,10 @@ impl UdpSession {
         let packet_id = *next;
         *next = next.wrapping_add(1);
         packet_id
+    }
+
+    pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
+        self.client.quic_migration_snapshot()
     }
 }
 
@@ -441,26 +598,70 @@ async fn authenticate_connection(config: &Config, connection: &quinn::Connection
     Ok(response.headers().get("Hysteria-UDP").and_then(|value| value.to_str().ok()) == Some("true"))
 }
 
-fn build_endpoint(config: &Config, tls_config: rustls::ClientConfig) -> Result<quinn::Endpoint> {
+fn build_endpoint(
+    config: &Config,
+    tls_config: rustls::ClientConfig,
+    socket_spec: ClientSocketSpec,
+) -> Result<(quinn::Endpoint, std::net::UdpSocket)> {
+    let socket = build_client_udp_socket(&socket_spec)?;
+    let socket_clone = socket.try_clone()?;
     let mut endpoint = if let Some(key) = config.salamander_key.as_ref() {
-        let socket = std::net::UdpSocket::bind("0.0.0.0:0")?;
-        socket.set_nonblocking(true)?;
-        let socket = SalamanderUdpSocket::new(socket, key.as_bytes().to_vec())?;
+        let wrapped = SalamanderUdpSocket::new(socket, key.as_bytes().to_vec())?;
         quinn::Endpoint::new_with_abstract_socket(
             quinn::EndpointConfig::default(),
             None,
-            Arc::new(socket),
+            Arc::new(wrapped),
             Arc::new(quinn::TokioRuntime),
         )?
     } else {
-        quinn::Endpoint::client("0.0.0.0:0".parse().expect("literal socket addr"))?
+        quinn::Endpoint::new(quinn::EndpointConfig::default(), None, socket, Arc::new(quinn::TokioRuntime))?
     };
 
     endpoint.set_default_client_config(quinn::ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(tls_config)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?,
     )));
-    Ok(endpoint)
+    Ok((endpoint, socket_clone))
+}
+
+fn build_client_udp_socket(socket_spec: &ClientSocketSpec) -> io::Result<std::net::UdpSocket> {
+    let bind_addr = if socket_spec.ipv6 {
+        SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0))
+    } else {
+        SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))
+    };
+    let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
+    if socket_spec.ipv6 {
+        let _ = socket.set_only_v6(false);
+    }
+    if socket_spec.bind_low_port {
+        try_bind_low_port(&socket, bind_addr.ip())?;
+    } else {
+        socket.bind(&SockAddr::from(bind_addr))?;
+    }
+    Ok(socket.into())
+}
+
+fn try_bind_low_port(socket: &Socket, bind_ip: IpAddr) -> io::Result<()> {
+    for port in [2048u16, 2053, 2080, 2443, 3000, 3074, 4096] {
+        let addr = SocketAddr::new(bind_ip, port);
+        if socket.bind(&SockAddr::from(addr)).is_ok() {
+            return Ok(());
+        }
+    }
+    socket.bind(&SockAddr::from(SocketAddr::new(bind_ip, 0)))
+}
+
+fn rebind_endpoint(
+    endpoint: &quinn::Endpoint,
+    socket_spec: &ClientSocketSpec,
+    socket: std::net::UdpSocket,
+) -> io::Result<()> {
+    if let Some(key) = socket_spec.salamander_key.as_ref() {
+        endpoint.rebind_abstract(Arc::new(SalamanderUdpSocket::new(socket, key.as_bytes().to_vec())?))
+    } else {
+        endpoint.rebind(socket)
+    }
 }
 
 fn build_tls_config(config: &Config) -> Result<rustls::ClientConfig> {

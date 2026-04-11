@@ -226,6 +226,10 @@ class ProxyServiceAutoApplyLifecycleTest {
                         serviceStateStore = stateStore,
                         networkFingerprintProvider = fingerprintProvider,
                         telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
+                        runtimeExperimentSelectionProvider =
+                            object : RuntimeExperimentSelectionProvider {
+                                override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+                            },
                         clock = clock,
                     ),
                 screenStateObserver = TestScreenStateObserver(),

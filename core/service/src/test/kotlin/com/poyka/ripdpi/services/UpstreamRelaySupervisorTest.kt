@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayCredentialRecord
@@ -79,6 +80,55 @@ class UpstreamRelaySupervisorTest {
             assertEquals("edge", resolved?.profileId)
             assertEquals("relay.example", resolved?.server)
             assertEquals("00000000-0000-0000-0000-000000000000", resolved?.vlessUuid)
+
+            supervisor.stop()
+        }
+
+    @Test
+    fun `start passes owned quic migration policy to native runtime`() =
+        runTest {
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    relayProfileStore = TestRelayProfileStore(),
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "tuic",
+                                    tuicUuid = "00000000-0000-0000-0000-000000000000",
+                                    tuicPassword = "secret",
+                                ),
+                            )
+                        },
+                )
+
+            supervisor.start(
+                config =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = "tuic_v5",
+                        profileId = "tuic",
+                        server = "relay.example",
+                        serverPort = 443,
+                        serverName = "relay.example",
+                        udpEnabled = true,
+                    ),
+                quicMigrationConfig =
+                    OwnedRelayQuicMigrationConfig(
+                        bindLowPort = true,
+                        migrateAfterHandshake = true,
+                    ),
+                onUnexpectedExit = {},
+            )
+
+            val resolved = relayFactory.lastRuntime.lastConfig
+            assertEquals(true, resolved?.quicBindLowPort)
+            assertEquals(true, resolved?.quicMigrateAfterHandshake)
 
             supervisor.stop()
         }

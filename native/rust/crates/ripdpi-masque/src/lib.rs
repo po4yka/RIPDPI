@@ -7,9 +7,9 @@ use std::collections::HashMap;
 use std::future::poll_fn;
 use std::io;
 use std::io::Cursor;
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use bytes::{Buf, Bytes, BytesMut};
 use h3_datagram::datagram_handler::{DatagramSender, HandleDatagramsExt};
@@ -17,6 +17,7 @@ use http::{HeaderMap, Request, StatusCode};
 use hyper_util::rt::TokioIo;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::RootCertStore;
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::sync::{mpsc, Mutex};
@@ -31,6 +32,7 @@ use crate::config::{MasqueAuthMode, MasqueConfig};
 
 const H3_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 const UDP_CONTEXT_ID: u8 = 0;
+const MIGRATION_COOLDOWN: Duration = Duration::from_secs(30);
 
 type H3DatagramSender = DatagramSender<h3_quinn::datagram::SendDatagramHandler, Bytes>;
 
@@ -45,6 +47,7 @@ struct MasqueClientInner {
     config: MasqueConfig,
     provider_client: reqwest::Client,
     privacy_pass_cache: Mutex<HashMap<String, PrivacyPassCache>>,
+    last_migration_snapshot: Mutex<QuicMigrationSnapshot>,
 }
 
 pub struct MasqueUdpRelay {
@@ -58,6 +61,13 @@ struct MasqueUdpFlow {
     sender: H3DatagramSender,
     driver_task: JoinHandle<()>,
     reader_task: JoinHandle<()>,
+}
+
+#[derive(Default)]
+struct QuicMigrationSnapshot {
+    status: Option<String>,
+    reason: Option<String>,
+    cooldown_until: Option<Instant>,
 }
 
 enum AttemptError {
@@ -83,6 +93,11 @@ impl MasqueClient {
                 config,
                 provider_client,
                 privacy_pass_cache: Mutex::new(HashMap::new()),
+                last_migration_snapshot: Mutex::new(QuicMigrationSnapshot {
+                    status: Some("not_attempted".to_string()),
+                    reason: None,
+                    cooldown_until: None,
+                }),
             }),
         })
     }
@@ -114,22 +129,51 @@ impl MasqueClient {
         MasqueUdpRelay { client: Arc::clone(&self.inner), flows: HashMap::new(), incoming_tx, incoming_rx }
     }
 
+    pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
+        self.inner.quic_migration_snapshot()
+    }
+
     async fn connect_tcp_h3(&self, target: &str) -> io::Result<Box<dyn AsyncIo>> {
         let auth_header = self.inner.request_auth_header(target).await?;
         match attempt_h3_connect_tcp(&self.inner.config, target, auth_header.as_ref()).await {
-            Ok(stream) => Ok(Box::new(stream)),
+            Ok(stream) => {
+                let reason = if self.inner.config.quic_migrate_after_handshake {
+                    Some("path_validated_after_http3_connect")
+                } else {
+                    Some("http3_transport_without_rebind")
+                };
+                let status = if self.inner.config.quic_migrate_after_handshake { "validated" } else { "not_attempted" };
+                self.inner.record_quic_migration_status(status, reason).await;
+                Ok(Box::new(stream))
+            }
             Err(AttemptError::PrivacyPassChallenge(challenge)) => {
                 let retry_header = self.inner.fetch_privacy_pass_header(target, &challenge).await?;
                 match attempt_h3_connect_tcp(&self.inner.config, target, Some(&retry_header)).await {
-                    Ok(stream) => Ok(Box::new(stream)),
-                    Err(AttemptError::Io(error)) => Err(error),
+                    Ok(stream) => {
+                        let reason = if self.inner.config.quic_migrate_after_handshake {
+                            Some("path_validated_after_http3_connect_retry")
+                        } else {
+                            Some("http3_transport_without_rebind")
+                        };
+                        let status =
+                            if self.inner.config.quic_migrate_after_handshake { "validated" } else { "not_attempted" };
+                        self.inner.record_quic_migration_status(status, reason).await;
+                        Ok(Box::new(stream))
+                    }
+                    Err(AttemptError::Io(error)) => {
+                        self.inner.record_quic_migration_status("failed", Some("http3_connect_failed")).await;
+                        Err(error)
+                    }
                     Err(AttemptError::PrivacyPassChallenge(_)) => Err(io::Error::new(
                         io::ErrorKind::PermissionDenied,
                         "MASQUE proxy requested Privacy Pass credentials again after retry",
                     )),
                 }
             }
-            Err(AttemptError::Io(error)) => Err(error),
+            Err(AttemptError::Io(error)) => {
+                self.inner.record_quic_migration_status("failed", Some("http3_connect_failed")).await;
+                Err(error)
+            }
         }
     }
 
@@ -175,22 +219,52 @@ impl MasqueUdpRelay {
         let auth_header = self.client.request_auth_header(target).await?;
         match attempt_h3_connect_udp(&self.client.config, target, auth_header.as_ref(), self.incoming_tx.clone()).await
         {
-            Ok(flow) => Ok(flow),
+            Ok(flow) => {
+                let reason = if self.client.config.quic_migrate_after_handshake {
+                    Some("path_validated_after_http3_udp_connect")
+                } else {
+                    Some("http3_transport_without_rebind")
+                };
+                let status =
+                    if self.client.config.quic_migrate_after_handshake { "validated" } else { "not_attempted" };
+                self.client.record_quic_migration_status(status, reason).await;
+                Ok(flow)
+            }
             Err(AttemptError::PrivacyPassChallenge(challenge)) => {
                 let retry_header = self.client.fetch_privacy_pass_header(target, &challenge).await?;
                 match attempt_h3_connect_udp(&self.client.config, target, Some(&retry_header), self.incoming_tx.clone())
                     .await
                 {
-                    Ok(flow) => Ok(flow),
-                    Err(AttemptError::Io(error)) => Err(error),
+                    Ok(flow) => {
+                        let reason = if self.client.config.quic_migrate_after_handshake {
+                            Some("path_validated_after_http3_udp_connect_retry")
+                        } else {
+                            Some("http3_transport_without_rebind")
+                        };
+                        let status =
+                            if self.client.config.quic_migrate_after_handshake { "validated" } else { "not_attempted" };
+                        self.client.record_quic_migration_status(status, reason).await;
+                        Ok(flow)
+                    }
+                    Err(AttemptError::Io(error)) => {
+                        self.client.record_quic_migration_status("failed", Some("http3_udp_connect_failed")).await;
+                        Err(error)
+                    }
                     Err(AttemptError::PrivacyPassChallenge(_)) => Err(io::Error::new(
                         io::ErrorKind::PermissionDenied,
                         "MASQUE proxy requested Privacy Pass credentials again after retry",
                     )),
                 }
             }
-            Err(AttemptError::Io(error)) => Err(error),
+            Err(AttemptError::Io(error)) => {
+                self.client.record_quic_migration_status("failed", Some("http3_udp_connect_failed")).await;
+                Err(error)
+            }
         }
+    }
+
+    pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
+        self.client.quic_migration_snapshot()
     }
 }
 
@@ -213,6 +287,24 @@ impl Drop for MasqueUdpFlow {
 }
 
 impl MasqueClientInner {
+    fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
+        self.last_migration_snapshot
+            .try_lock()
+            .map(|snapshot| (snapshot.status.clone(), snapshot.reason.clone()))
+            .unwrap_or_else(|_| (Some("not_attempted".to_string()), None))
+    }
+
+    async fn record_quic_migration_status(&self, status: &str, reason: Option<&str>) {
+        let mut snapshot = self.last_migration_snapshot.lock().await;
+        snapshot.status = Some(status.to_string());
+        snapshot.reason = reason.map(ToOwned::to_owned);
+        if status == "reverted" || status == "failed" {
+            snapshot.cooldown_until = Some(Instant::now() + MIGRATION_COOLDOWN);
+        } else {
+            snapshot.cooldown_until = None;
+        }
+    }
+
     async fn request_auth_header(&self, target: &str) -> io::Result<Option<AuthHeader>> {
         if self.config.effective_auth_mode() == MasqueAuthMode::PrivacyPass {
             return Ok(self.cached_privacy_pass_header(target).await);
@@ -468,15 +560,21 @@ async fn connect_h3_transport(
             .map_err(|error| io::Error::other(format!("failed to build QUIC TLS config: {error}")))?,
     ));
 
-    let mut endpoint = quinn::Endpoint::client("0.0.0.0:0".parse().expect("literal socket address"))
-        .map_err(|error| io::Error::other(format!("failed to create QUIC client endpoint: {error}")))?;
+    let proxy_addr = proxy_origin.socket_addr;
+    let socket = build_client_udp_socket(proxy_addr.is_ipv6(), config.quic_bind_low_port)
+        .map_err(|error| io::Error::other(format!("failed to bind QUIC client socket: {error}")))?;
+    let mut endpoint =
+        quinn::Endpoint::new(quinn::EndpointConfig::default(), None, socket, Arc::new(quinn::TokioRuntime))
+            .map_err(|error| io::Error::other(format!("failed to create QUIC client endpoint: {error}")))?;
     endpoint.set_default_client_config(quic_config);
 
     let connection = endpoint
-        .connect(proxy_origin.socket_addr, &proxy_origin.host)
+        .connect(proxy_addr, &proxy_origin.host)
         .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("QUIC connect failed: {error}")))?
         .await
         .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("QUIC handshake failed: {error}")))?;
+    maybe_rebind_quic_endpoint(config, &endpoint, proxy_addr)
+        .map_err(|error| io::Error::other(format!("failed to rebind QUIC transport: {error}")))?;
 
     let mut builder = h3::client::builder();
     builder.enable_extended_connect(true);
@@ -484,6 +582,43 @@ async fn connect_h3_transport(
     builder.build(h3_quinn::Connection::new(connection)).await.map_err(|error| {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to negotiate HTTP/3: {error}")).into()
     })
+}
+
+fn build_client_udp_socket(ipv6: bool, bind_low_port: bool) -> io::Result<std::net::UdpSocket> {
+    let bind_addr =
+        if ipv6 { SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0)) } else { SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)) };
+    let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
+    if ipv6 {
+        let _ = socket.set_only_v6(false);
+    }
+    if bind_low_port {
+        try_bind_low_port(&socket, bind_addr.ip())?;
+    } else {
+        socket.bind(&SockAddr::from(bind_addr))?;
+    }
+    Ok(socket.into())
+}
+
+fn try_bind_low_port(socket: &Socket, bind_ip: IpAddr) -> io::Result<()> {
+    for port in [2048u16, 2053, 2080, 2443, 3000, 3074, 4096] {
+        let addr = SocketAddr::new(bind_ip, port);
+        if socket.bind(&SockAddr::from(addr)).is_ok() {
+            return Ok(());
+        }
+    }
+    socket.bind(&SockAddr::from(SocketAddr::new(bind_ip, 0)))
+}
+
+fn maybe_rebind_quic_endpoint(
+    config: &MasqueConfig,
+    endpoint: &quinn::Endpoint,
+    proxy_addr: SocketAddr,
+) -> io::Result<()> {
+    if !config.quic_migrate_after_handshake {
+        return Ok(());
+    }
+    let replacement = build_client_udp_socket(proxy_addr.is_ipv6(), config.quic_bind_low_port)?;
+    endpoint.rebind(replacement)
 }
 
 fn apply_request_headers(
@@ -729,6 +864,8 @@ mod tests {
             privacy_pass_provider_url: Some(provider_url),
             privacy_pass_provider_auth_token: provider_auth_token.map(ToOwned::to_owned),
             tls_fingerprint_profile: "native_default".to_string(),
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
         }
     }
 
@@ -850,6 +987,8 @@ mod tests {
             privacy_pass_provider_url: None,
             privacy_pass_provider_auth_token: None,
             tls_fingerprint_profile: "native_default".to_string(),
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
         };
 
         let request = apply_request_headers(Request::builder().method("CONNECT").uri("example.com:443"), &config, None)

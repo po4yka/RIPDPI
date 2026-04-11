@@ -8,6 +8,11 @@ sealed interface RipDpiProxyPreferences {
     val localAuthToken: String? get() = null
 }
 
+data class OwnedRelayQuicMigrationConfig(
+    val bindLowPort: Boolean = false,
+    val migrateAfterHandshake: Boolean = false,
+)
+
 fun stripRipDpiRuntimeContext(configJson: String): String = RipDpiProxyJsonCodec.stripRuntimeContext(configJson)
 
 fun decodeRipDpiProxyUiPreferences(configJson: String): RipDpiProxyUIPreferences? =
@@ -40,6 +45,31 @@ fun RipDpiProxyPreferences.relayConfigOrNull(): RipDpiRelayConfig? =
 
         is RipDpiProxyCmdPreferences -> {
             null
+        }
+    }
+
+fun RipDpiProxyPreferences.ownedRelayQuicMigrationConfig(): OwnedRelayQuicMigrationConfig =
+    when (this) {
+        is RipDpiProxyUIPreferences -> {
+            OwnedRelayQuicMigrationConfig(
+                bindLowPort = fakePackets.quicBindLowPort,
+                migrateAfterHandshake = fakePackets.quicMigrateAfterHandshake,
+            )
+        }
+
+        is RipDpiProxyJsonPreferences -> {
+            decodeRipDpiProxyUiPreferences(toNativeConfigJson())
+                ?.let { preferences ->
+                    OwnedRelayQuicMigrationConfig(
+                        bindLowPort = preferences.fakePackets.quicBindLowPort,
+                        migrateAfterHandshake = preferences.fakePackets.quicMigrateAfterHandshake,
+                    )
+                }
+                ?: OwnedRelayQuicMigrationConfig()
+        }
+
+        is RipDpiProxyCmdPreferences -> {
+            OwnedRelayQuicMigrationConfig()
         }
     }
 
