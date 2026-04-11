@@ -127,6 +127,7 @@ class ServiceRuntimeCoordinatorFactoryTest {
                 scope = scope,
                 dispatcher = dispatcher,
                 relayFactory = TestRipDpiRelayFactory(),
+                naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                 relayProfileStore = TestRelayProfileStore(),
                 relayCredentialStore = TestRelayCredentialStore(),
             )

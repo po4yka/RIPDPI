@@ -62,6 +62,7 @@ class FinalmaskCompatibilityTest {
                     scope = backgroundScope,
                     dispatcher = StandardTestDispatcher(testScheduler),
                     relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore =
                         TestRelayProfileStore().apply {
                             save(
@@ -111,6 +112,7 @@ class FinalmaskCompatibilityTest {
                     scope = backgroundScope,
                     dispatcher = StandardTestDispatcher(testScheduler),
                     relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                     relayProfileStore =
                         TestRelayProfileStore().apply {
                             save(

@@ -581,6 +581,7 @@ class VpnServiceRuntimeCoordinatorTest {
                         scope = backgroundScope,
                         dispatcher = dispatcher,
                         relayFactory = TestRipDpiRelayFactory(),
+                        naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
                         relayProfileStore = TestRelayProfileStore(),
                         relayCredentialStore = TestRelayCredentialStore(),
                     ),

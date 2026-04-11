@@ -67,6 +67,8 @@ pub struct ProxyRuntimeContext {
     pub protect_path: Option<String>,
     #[serde(default)]
     pub preferred_edges: std::collections::BTreeMap<String, Vec<ProxyPreferredEdge>>,
+    #[serde(default)]
+    pub direct_path_capabilities: Vec<ProxyDirectPathCapability>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -74,6 +76,22 @@ pub struct ProxyRuntimeContext {
 pub struct ProxyPreferredEdge {
     pub ip: String,
     pub transport_kind: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyDirectPathCapability {
+    pub authority: String,
+    #[serde(default)]
+    pub quic_usable: Option<bool>,
+    #[serde(default)]
+    pub udp_usable: Option<bool>,
+    #[serde(default)]
+    pub fallback_required: Option<bool>,
+    #[serde(default)]
+    pub repeated_handshake_failure_class: Option<String>,
+    #[serde(default)]
+    pub updated_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
