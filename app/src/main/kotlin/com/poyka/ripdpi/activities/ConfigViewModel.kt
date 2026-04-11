@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -24,6 +25,7 @@ import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
+import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayPresetCatalog
@@ -55,6 +57,8 @@ import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.toRelaySettingsModel
 import com.poyka.ripdpi.data.validateStrategyChainUsage
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.security.ImportedMasqueClientIdentity
+import com.poyka.ripdpi.security.MasqueClientCredentialImporter
 import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import com.poyka.ripdpi.utility.checkIp
@@ -134,7 +138,10 @@ data class ConfigDraft(
     val relayMasqueUrl: String = "",
     val relayMasqueAuthMode: String = RelayMasqueAuthModeBearer,
     val relayMasqueAuthToken: String = "",
+    val relayMasqueClientCertificateChainPem: String = "",
+    val relayMasqueClientPrivateKeyPem: String = "",
     val relayMasqueUseHttp2Fallback: Boolean = true,
+    val relayMasqueCloudflareGeohashEnabled: Boolean = false,
     val relayTuicUuid: String = "",
     val relayTuicPassword: String = "",
     val relayTuicZeroRtt: Boolean = false,
@@ -220,6 +227,10 @@ sealed interface ConfigEffect {
     data object SaveSuccess : ConfigEffect
 
     data object ValidationFailed : ConfigEffect
+
+    data class Message(
+        val text: String,
+    ) : ConfigEffect
 }
 
 private data class ConfigEditorSession(
@@ -286,6 +297,7 @@ internal fun AppSettings.toConfigDraft(): ConfigDraft =
             relayMasqueUrl = relay.profile.masqueUrl,
             relayMasqueAuthMode = RelayMasqueAuthModeBearer,
             relayMasqueUseHttp2Fallback = relay.profile.masqueUseHttp2Fallback,
+            relayMasqueCloudflareGeohashEnabled = relay.profile.masqueCloudflareGeohashEnabled,
             relayTuicZeroRtt = relay.profile.tuicZeroRtt,
             relayTuicCongestionControl = relay.profile.tuicCongestionControl,
             relayShadowTlsInnerProfileId = relay.profile.shadowTlsInnerProfileId,
@@ -491,6 +503,15 @@ internal fun validateConfigDraft(
                             }
                         }
 
+                        RelayMasqueAuthModeCloudflareMtls -> {
+                            if (
+                                draft.relayMasqueClientCertificateChainPem.isBlank() ||
+                                draft.relayMasqueClientPrivateKeyPem.isBlank()
+                            ) {
+                                put(ConfigFieldRelayCredentials, "required")
+                            }
+                        }
+
                         else -> {
                             put(ConfigFieldRelayCredentials, "required")
                         }
@@ -569,6 +590,7 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
         setRelayChainExitProfileId(if (draft.relayKind == RelayKindChainRelay) draft.relayChainExitProfileId else "")
         setRelayMasqueUrl(draft.relayMasqueUrl)
         setRelayMasqueUseHttp2Fallback(draft.relayMasqueUseHttp2Fallback)
+        setRelayMasqueCloudflareGeohashEnabled(draft.relayMasqueCloudflareGeohashEnabled)
         setRelayTuicZeroRtt(draft.relayTuicZeroRtt)
         setRelayTuicCongestionControl(normalizeRelayCongestionControl(draft.relayTuicCongestionControl))
         setRelayShadowtlsInnerProfileId(draft.relayShadowTlsInnerProfileId)
@@ -694,6 +716,7 @@ class ConfigViewModel
         private val appSettingsRepository: AppSettingsRepository,
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialStore: RelayCredentialStore,
+        private val masqueClientCredentialImporter: MasqueClientCredentialImporter,
         private val masquePrivacyPassAvailability: MasquePrivacyPassAvailability,
         private val relayPresetCatalog: RelayPresetCatalog,
         private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
@@ -841,6 +864,41 @@ class ConfigViewModel
             editorSession.value = ConfigEditorSession()
         }
 
+        fun importRelayMasqueCertificateChain(uri: Uri) {
+            viewModelScope.launch {
+                runCatching { masqueClientCredentialImporter.importCertificateChainPem(uri) }
+                    .onSuccess { certificateChain ->
+                        updateDraft { copy(relayMasqueClientCertificateChainPem = certificateChain) }
+                    }.onFailure { error ->
+                        _effects.send(ConfigEffect.Message(error.message ?: "Certificate import failed."))
+                    }
+            }
+        }
+
+        fun importRelayMasquePrivateKey(uri: Uri) {
+            viewModelScope.launch {
+                runCatching { masqueClientCredentialImporter.importPrivateKeyPem(uri) }
+                    .onSuccess { privateKey ->
+                        updateDraft { copy(relayMasqueClientPrivateKeyPem = privateKey) }
+                    }.onFailure { error ->
+                        _effects.send(ConfigEffect.Message(error.message ?: "Private key import failed."))
+                    }
+            }
+        }
+
+        fun importRelayMasquePkcs12(
+            uri: Uri,
+            password: String?,
+        ) {
+            viewModelScope.launch {
+                runCatching { masqueClientCredentialImporter.importPkcs12Identity(uri, password) }
+                    .onSuccess(::applyImportedMasqueIdentity)
+                    .onFailure { error ->
+                        _effects.send(ConfigEffect.Message(error.message ?: "PKCS#12 import failed."))
+                    }
+            }
+        }
+
         fun saveDraft() {
             val draft = editorSession.value.draft ?: uiState.value.draft
             if (validateConfigDraft(draft, supportsMasquePrivacyPass).isNotEmpty()) {
@@ -874,6 +932,15 @@ class ConfigViewModel
             }
         }
 
+        private fun applyImportedMasqueIdentity(identity: ImportedMasqueClientIdentity) {
+            updateDraft {
+                copy(
+                    relayMasqueClientCertificateChainPem = identity.certificateChainPem,
+                    relayMasqueClientPrivateKeyPem = identity.privateKeyPem,
+                )
+            }
+        }
+
         private suspend fun hydrateRelaySecrets(
             presetId: String,
             draft: ConfigDraft,
@@ -903,6 +970,9 @@ class ConfigViewModel
                                     normalizeRelayMasqueAuthMode(credentials?.masqueAuthMode)
                                         ?: (current.draft ?: draft).relayMasqueAuthMode,
                                 relayMasqueAuthToken = credentials?.masqueAuthToken.orEmpty(),
+                                relayMasqueClientCertificateChainPem =
+                                    credentials?.masqueClientCertificateChainPem.orEmpty(),
+                                relayMasqueClientPrivateKeyPem = credentials?.masqueClientPrivateKeyPem.orEmpty(),
                             ),
                     )
                 }
@@ -952,6 +1022,7 @@ class ConfigViewModel
                         },
                     masqueUrl = draft.relayMasqueUrl,
                     masqueUseHttp2Fallback = draft.relayMasqueUseHttp2Fallback,
+                    masqueCloudflareGeohashEnabled = draft.relayMasqueCloudflareGeohashEnabled,
                     tuicZeroRtt = draft.relayTuicZeroRtt,
                     tuicCongestionControl = normalizeRelayCongestionControl(draft.relayTuicCongestionControl),
                     shadowTlsInnerProfileId = draft.relayShadowTlsInnerProfileId,
@@ -981,6 +1052,8 @@ class ConfigViewModel
                     naivePassword = draft.relayNaivePassword.ifBlank { null },
                     masqueAuthMode = normalizeRelayMasqueAuthMode(draft.relayMasqueAuthMode),
                     masqueAuthToken = draft.relayMasqueAuthToken.ifBlank { null },
+                    masqueClientCertificateChainPem = draft.relayMasqueClientCertificateChainPem.ifBlank { null },
+                    masqueClientPrivateKeyPem = draft.relayMasqueClientPrivateKeyPem.ifBlank { null },
                 ),
             )
         }
