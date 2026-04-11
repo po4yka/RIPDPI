@@ -12,8 +12,20 @@ if cargo nextest --version >/dev/null 2>&1; then
     cargo nextest run --manifest-path "$workspace_manifest" -p local-network-fixture "${NEXTEST_ARGS[@]}"
   }
 
-  run_relay_unit_tests() {
-    cargo nextest run --manifest-path "$workspace_manifest" -p ripdpi-relay-core -p ripdpi-tuic "${NEXTEST_ARGS[@]}"
+  run_transport_interop_tests() {
+    cargo nextest run \
+      --manifest-path "$workspace_manifest" \
+      -p ripdpi-vless \
+      -p ripdpi-hysteria2 \
+      -p ripdpi-tuic \
+      -p ripdpi-shadowtls \
+      -p ripdpi-masque \
+      -p ripdpi-naiveproxy \
+      "${NEXTEST_ARGS[@]}"
+  }
+
+  run_relay_core_tests() {
+    cargo nextest run --manifest-path "$workspace_manifest" -p ripdpi-relay-core "${NEXTEST_ARGS[@]}"
   }
 
   run_runtime_relay_e2e() {
@@ -25,8 +37,20 @@ else
     cargo test --manifest-path "$workspace_manifest" -p local-network-fixture -- --nocapture
   }
 
-  run_relay_unit_tests() {
-    cargo test --manifest-path "$workspace_manifest" -p ripdpi-relay-core -p ripdpi-tuic -- --nocapture
+  run_transport_interop_tests() {
+    cargo test \
+      --manifest-path "$workspace_manifest" \
+      -p ripdpi-vless \
+      -p ripdpi-hysteria2 \
+      -p ripdpi-tuic \
+      -p ripdpi-shadowtls \
+      -p ripdpi-masque \
+      -p ripdpi-naiveproxy \
+      -- --nocapture
+  }
+
+  run_relay_core_tests() {
+    cargo test --manifest-path "$workspace_manifest" -p ripdpi-relay-core -- --nocapture
   }
 
   run_runtime_relay_e2e() {
@@ -38,8 +62,11 @@ fi
 echo "==> relay fixture stack"
 run_fixture_tests
 
-echo "==> relay core and TUIC coverage"
-run_relay_unit_tests
+echo "==> transport interoperability coverage"
+run_transport_interop_tests
+
+echo "==> relay core coverage"
+run_relay_core_tests
 
 echo "==> relay interoperability end-to-end"
 run_runtime_relay_e2e
