@@ -166,6 +166,10 @@ class OnboardingViewModelTest {
     private class TestOwnedTlsClientFactory : OwnedTlsClientFactory {
         override fun currentProfile(): String = "chrome_stable"
 
+        override fun selectionForAuthority(authority: String?) =
+            com.poyka.ripdpi.services
+                .OwnedTlsFingerprintSelection(profileId = currentProfile())
+
         override fun create(
             forcedTlsVersions: List<TlsVersion>?,
             configure: OkHttpClient.Builder.() -> Unit,
@@ -174,5 +178,11 @@ class OnboardingViewModelTest {
                 .Builder()
                 .apply(configure)
                 .build()
+
+        override fun createForAuthority(
+            authority: String?,
+            forcedTlsVersions: List<TlsVersion>?,
+            configure: OkHttpClient.Builder.() -> Unit,
+        ): OkHttpClient = create(forcedTlsVersions = forcedTlsVersions, configure = configure)
     }
 }

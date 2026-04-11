@@ -1,0 +1,344 @@
+use std::collections::BTreeMap;
+use std::io;
+use std::time::Duration;
+
+use base64::Engine;
+use bytes::Bytes;
+use http::header::{HeaderName, HeaderValue, HOST, LOCATION};
+use http::{Method, Request, StatusCode};
+use http_body_util::{BodyExt, Full};
+use hyper::client::conn::http1;
+use hyper_util::rt::TokioIo;
+use ripdpi_tls_profiles::configure_builder;
+use serde::{Deserialize, Serialize};
+use tokio::net::TcpStream;
+use tokio::time::timeout;
+use url::Url;
+
+const HTTP11_ALPN: &[u8] = b"\x08http/1.1";
+const DEFAULT_TLS_PROFILE: &str = "chrome_stable";
+
+#[derive(Debug, Deserialize)]
+pub struct NativeOwnedTlsHttpRequest {
+    #[serde(default = "default_method")]
+    pub method: String,
+    pub url: String,
+    #[serde(default)]
+    pub headers: BTreeMap<String, String>,
+    #[serde(rename = "tlsProfileId", default = "default_tls_profile")]
+    pub tls_profile_id: String,
+    #[serde(rename = "connectTimeoutMs", default = "default_connect_timeout_ms")]
+    pub connect_timeout_ms: u64,
+    #[serde(rename = "readTimeoutMs", default = "default_read_timeout_ms")]
+    pub read_timeout_ms: u64,
+    #[serde(rename = "callTimeoutMs", default = "default_call_timeout_ms")]
+    pub call_timeout_ms: u64,
+    #[serde(rename = "maxRedirects", default = "default_max_redirects")]
+    pub max_redirects: usize,
+}
+
+#[derive(Debug, Serialize)]
+pub struct NativeOwnedTlsHttpResponse {
+    #[serde(rename = "statusCode")]
+    pub status_code: Option<u16>,
+    #[serde(rename = "bodyBase64")]
+    pub body_base64: Option<String>,
+    #[serde(rename = "finalUrl")]
+    pub final_url: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Debug)]
+struct RawHttpResponse {
+    status_code: StatusCode,
+    headers: http::HeaderMap,
+    body: Bytes,
+}
+
+pub fn execute(request_json: &str) -> io::Result<String> {
+    let request: NativeOwnedTlsHttpRequest =
+        serde_json::from_str(request_json).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(io::Error::other)?;
+    let response = runtime.block_on(async {
+        timeout(Duration::from_millis(request.call_timeout_ms), execute_async(request))
+            .await
+            .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "native TLS fetch timed out"))?
+    });
+    let payload = match response {
+        Ok(response) => response,
+        Err(error) => NativeOwnedTlsHttpResponse {
+            status_code: None,
+            body_base64: None,
+            final_url: None,
+            error: Some(error.to_string()),
+        },
+    };
+    serde_json::to_string(&payload).map_err(io::Error::other)
+}
+
+async fn execute_async(request: NativeOwnedTlsHttpRequest) -> io::Result<NativeOwnedTlsHttpResponse> {
+    let method = Method::from_bytes(request.method.as_bytes())
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid method: {error}")))?;
+    let mut current_url = Url::parse(&request.url)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid URL: {error}")))?;
+    let mut redirects_remaining = request.max_redirects;
+
+    loop {
+        let response = execute_once(&method, &current_url, &request).await?;
+        if let Some(location) = redirect_target(&current_url, &response) {
+            if redirects_remaining == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("too many redirects while fetching {}", request.url),
+                ));
+            }
+            redirects_remaining -= 1;
+            current_url = location;
+            continue;
+        }
+        return Ok(NativeOwnedTlsHttpResponse {
+            status_code: Some(response.status_code.as_u16()),
+            body_base64: Some(base64::engine::general_purpose::STANDARD.encode(response.body)),
+            final_url: Some(current_url.into()),
+            error: None,
+        });
+    }
+}
+
+fn redirect_target(current_url: &Url, response: &RawHttpResponse) -> Option<Url> {
+    match response.status_code {
+        StatusCode::MOVED_PERMANENTLY
+        | StatusCode::FOUND
+        | StatusCode::SEE_OTHER
+        | StatusCode::TEMPORARY_REDIRECT
+        | StatusCode::PERMANENT_REDIRECT => response
+            .headers
+            .get(LOCATION)
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| current_url.join(value).ok()),
+        _ => None,
+    }
+}
+
+async fn execute_once(method: &Method, url: &Url, request: &NativeOwnedTlsHttpRequest) -> io::Result<RawHttpResponse> {
+    let host = url
+        .host_str()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "native TLS fetch URL has no host"))?
+        .to_string();
+    let port = url.port_or_known_default().unwrap_or(default_port(url.scheme()));
+    let path = url.path().to_string();
+    let query_suffix = url.query().map(|query| format!("?{query}")).unwrap_or_default();
+    let target_path = format!("{path}{query_suffix}");
+    let tcp = connect_transport(&host, port, request.connect_timeout_ms).await?;
+    tcp.set_nodelay(true)?;
+
+    match url.scheme() {
+        "https" => {
+            let mut connector_builder = configure_builder(&request.tls_profile_id)
+                .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
+            connector_builder
+                .set_alpn_protos(HTTP11_ALPN)
+                .map_err(|error| io::Error::other(format!("TLS ALPN: {error}")))?;
+            let ssl = connector_builder
+                .build()
+                .configure()
+                .map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
+            let tls =
+                timeout(Duration::from_millis(request.connect_timeout_ms), tokio_boring::connect(ssl, &host, tcp))
+                    .await
+                    .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, format!("TLS handshake to {host} timed out")))?
+                    .map_err(|error| {
+                        io::Error::new(io::ErrorKind::ConnectionRefused, format!("TLS handshake failed: {error}"))
+                    })?;
+            send_request(method, &target_path, &host, port, request, TokioIo::new(tls)).await
+        }
+        "http" => send_request(method, &target_path, &host, port, request, TokioIo::new(tcp)).await,
+        scheme => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("unsupported scheme for native TLS fetch: {scheme}"),
+        )),
+    }
+}
+
+async fn connect_transport(host: &str, port: u16, connect_timeout_ms: u64) -> io::Result<TcpStream> {
+    timeout(Duration::from_millis(connect_timeout_ms), TcpStream::connect((host, port)))
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, format!("connect to {host}:{port} timed out")))?
+}
+
+async fn send_request<T>(
+    method: &Method,
+    target_path: &str,
+    host: &str,
+    port: u16,
+    request: &NativeOwnedTlsHttpRequest,
+    io: TokioIo<T>,
+) -> io::Result<RawHttpResponse>
+where
+    T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
+{
+    let (mut sender, connection) = timeout(Duration::from_millis(request.read_timeout_ms), http1::handshake(io))
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "HTTP handshake timed out"))?
+        .map_err(|error| io::Error::new(io::ErrorKind::ConnectionAborted, format!("HTTP handshake failed: {error}")))?;
+    tokio::spawn(async move {
+        let _ = connection.await;
+    });
+
+    let http_request = build_request(method, target_path, host, port, &request.headers)?;
+    let response = timeout(Duration::from_millis(request.read_timeout_ms), sender.send_request(http_request))
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "HTTP request timed out"))?
+        .map_err(|error| io::Error::new(io::ErrorKind::ConnectionAborted, format!("request failed: {error}")))?;
+    let status_code = response.status();
+    let headers = response.headers().clone();
+    let body = timeout(Duration::from_millis(request.read_timeout_ms), response.into_body().collect())
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "response body timed out"))?
+        .map_err(|error| io::Error::new(io::ErrorKind::ConnectionAborted, format!("response body failed: {error}")))?;
+    Ok(RawHttpResponse { status_code, headers, body: body.to_bytes() })
+}
+
+fn build_request(
+    method: &Method,
+    target_path: &str,
+    host: &str,
+    port: u16,
+    headers: &BTreeMap<String, String>,
+) -> io::Result<Request<Full<Bytes>>> {
+    let mut builder = Request::builder().method(method.clone()).uri(target_path);
+    let mut has_host_header = false;
+    for (name, value) in headers {
+        let header_name = HeaderName::try_from(name.as_str())
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid header name: {error}")))?;
+        if header_name == HOST {
+            has_host_header = true;
+        }
+        let header_value = HeaderValue::try_from(value.as_str())
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid header value: {error}")))?;
+        builder = builder.header(header_name, header_value);
+    }
+    if !has_host_header {
+        builder = builder.header(HOST, authority_header_value(host, port));
+    }
+    builder
+        .body(Full::new(Bytes::new()))
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid request body: {error}")))
+}
+
+fn authority_header_value(host: &str, port: u16) -> String {
+    if port == 443 || port == 80 {
+        host.to_string()
+    } else {
+        format!("{host}:{port}")
+    }
+}
+
+fn default_port(scheme: &str) -> u16 {
+    match scheme {
+        "http" => 80,
+        _ => 443,
+    }
+}
+
+fn default_method() -> String {
+    "GET".to_string()
+}
+
+fn default_tls_profile() -> String {
+    DEFAULT_TLS_PROFILE.to_string()
+}
+
+const fn default_connect_timeout_ms() -> u64 {
+    20_000
+}
+
+const fn default_read_timeout_ms() -> u64 {
+    90_000
+}
+
+const fn default_call_timeout_ms() -> u64 {
+    120_000
+}
+
+const fn default_max_redirects() -> usize {
+    5
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::thread;
+
+    use base64::engine::general_purpose::STANDARD;
+    use serde_json::Value;
+
+    #[test]
+    fn execute_fetches_plain_http_response() {
+        let server = spawn_http_server(vec![http_response("200 OK", &[], b"manifest")]);
+        let port = server.local_addr().expect("local addr").port();
+        let request = serde_json::json!({
+            "url": format!("http://127.0.0.1:{port}/manifest.json"),
+            "headers": {"User-Agent": "RIPDPI test"},
+            "tlsProfileId": "chrome_stable",
+        });
+
+        let payload = execute(&request.to_string()).expect("execute");
+        let response: Value = serde_json::from_str(&payload).expect("json response");
+
+        assert_eq!(response["statusCode"], 200);
+        assert_eq!(STANDARD.decode(response["bodyBase64"].as_str().expect("body")).expect("decode body"), b"manifest");
+        assert_eq!(response["finalUrl"].as_str().expect("final url"), format!("http://127.0.0.1:{port}/manifest.json"));
+    }
+
+    #[test]
+    fn execute_follows_redirects() {
+        let server = spawn_http_server(vec![
+            http_response("302 Found", &[("Location", "/final.json")], b""),
+            http_response("200 OK", &[], b"catalog"),
+        ]);
+        let port = server.local_addr().expect("local addr").port();
+        let request = serde_json::json!({
+            "url": format!("http://127.0.0.1:{port}/manifest.json"),
+            "headers": {"User-Agent": "RIPDPI test"},
+            "tlsProfileId": "chrome_stable",
+            "maxRedirects": 2,
+        });
+
+        let payload = execute(&request.to_string()).expect("execute");
+        let response: Value = serde_json::from_str(&payload).expect("json response");
+
+        assert_eq!(response["statusCode"], 200);
+        assert_eq!(STANDARD.decode(response["bodyBase64"].as_str().expect("body")).expect("decode body"), b"catalog");
+        assert_eq!(response["finalUrl"].as_str().expect("final url"), format!("http://127.0.0.1:{port}/final.json"));
+    }
+
+    fn http_response(status_line: &str, headers: &[(&str, &str)], body: &[u8]) -> Vec<u8> {
+        let mut response = format!("HTTP/1.1 {status_line}\r\nContent-Length: {}\r\n", body.len());
+        for (name, value) in headers {
+            response.push_str(&format!("{name}: {value}\r\n"));
+        }
+        response.push_str("\r\n");
+        let mut bytes = response.into_bytes();
+        bytes.extend_from_slice(body);
+        bytes
+    }
+
+    fn spawn_http_server(responses: Vec<Vec<u8>>) -> TcpListener {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
+        let server = listener.try_clone().expect("clone listener");
+        thread::spawn(move || {
+            for response in responses {
+                let (mut stream, _) = server.accept().expect("accept");
+                let mut buffer = [0u8; 1024];
+                let _ = stream.read(&mut buffer);
+                stream.write_all(&response).expect("write response");
+                stream.flush().expect("flush response");
+            }
+        });
+        listener
+    }
+}
