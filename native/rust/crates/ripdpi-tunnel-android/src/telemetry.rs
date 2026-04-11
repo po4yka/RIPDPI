@@ -61,6 +61,12 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) resolver_latency_avg_ms: Option<u64>,
     pub(crate) resolver_fallback_active: bool,
     pub(crate) resolver_fallback_reason: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) dht_trigger_observations: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) last_dht_trigger_endpoint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) last_dht_trigger_at: Option<u64>,
     pub(crate) network_handover_class: Option<String>,
     pub(crate) last_target: Option<String>,
     pub(crate) last_host: Option<String>,
@@ -239,6 +245,10 @@ impl TunnelTelemetryState {
             resolver_latency_avg_ms: dns_stats.resolver_latency_avg_ms,
             resolver_fallback_active: dns_stats.resolver_fallback_active,
             resolver_fallback_reason: dns_stats.resolver_fallback_reason,
+            dht_trigger_observations: (dns_stats.dht_trigger_observations != 0)
+                .then_some(dns_stats.dht_trigger_observations),
+            last_dht_trigger_endpoint: dns_stats.last_dht_trigger_endpoint,
+            last_dht_trigger_at: dns_stats.last_dht_trigger_at_ms,
             network_handover_class: None,
             last_target: None,
             last_host: dns_stats.last_host,
@@ -444,6 +454,23 @@ mod tests {
     }
 
     #[test]
+    fn tunnel_snapshot_exposes_dht_trigger_observations() {
+        let state = TunnelTelemetryState::new(None);
+        let dns_stats = DnsStatsSnapshot {
+            dht_trigger_observations: 2,
+            last_dht_trigger_endpoint: Some("134.195.198.23:6881".to_string()),
+            last_dht_trigger_at_ms: Some(4242),
+            ..DnsStatsSnapshot::default()
+        };
+
+        let snap = state.snapshot((0, 0, 0, 0), dns_stats, None, None);
+
+        assert_eq!(snap.dht_trigger_observations, Some(2));
+        assert_eq!(snap.last_dht_trigger_endpoint.as_deref(), Some("134.195.198.23:6881"));
+        assert_eq!(snap.last_dht_trigger_at, Some(4242));
+    }
+
+    #[test]
     fn tunnel_snapshot_reads_do_not_block_under_concurrent_writes() {
         use std::sync::{Arc, Barrier};
 
@@ -491,8 +518,11 @@ mod tests {
             dns_cache_hits: 50,
             dns_cache_misses: 30,
             dns_failures_total: 5,
+            dht_trigger_observations: 2,
             last_dns_host: Some("example.org".to_string()),
             last_dns_error: Some("SERVFAIL".to_string()),
+            last_dht_trigger_endpoint: Some("134.195.198.23:6881".to_string()),
+            last_dht_trigger_at_ms: Some(4242),
             last_host: Some("example.org".to_string()),
             resolver_endpoint: Some("1.1.1.1:443".to_string()),
             resolver_latency_ms: Some(15),
@@ -519,6 +549,9 @@ mod tests {
             resolver_latency_avg_ms: dns_stats.resolver_latency_avg_ms,
             resolver_fallback_active: dns_stats.resolver_fallback_active,
             resolver_fallback_reason: dns_stats.resolver_fallback_reason,
+            dht_trigger_observations: Some(2),
+            last_dht_trigger_endpoint: Some("134.195.198.23:6881".to_string()),
+            last_dht_trigger_at: Some(4242),
             network_handover_class: Some("wifi_to_cellular".to_string()),
             last_target: Some("203.0.113.10:443".to_string()),
             last_host: dns_stats.last_host,

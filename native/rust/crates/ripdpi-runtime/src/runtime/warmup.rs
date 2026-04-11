@@ -13,7 +13,7 @@ use std::thread;
 use std::time::Duration;
 
 use ripdpi_failure_classifier::{classify_transport_error, FailureAction, FailureStage};
-use ripdpi_packets::{tls_fake_profile_bytes, TlsFakeProfile};
+use ripdpi_packets::{tls_fake_profile_bytes, tune_tls_padding_size_into, TlsFakeProfile};
 use ripdpi_session::OutboundProgress;
 
 use super::desync::send_with_group;
@@ -210,12 +210,20 @@ fn build_probe_client_hello(domain: &str) -> Vec<u8> {
     let template = tls_fake_profile_bytes(TlsFakeProfile::GoogleChrome);
     let capacity = template.len() + domain.len() + 64;
     let mutation = ripdpi_packets::change_tls_sni_seeded_like_c(template, domain.as_bytes(), capacity, 0);
-    if mutation.rc == 0 {
+    let mut output = if mutation.rc == 0 {
         mutation.bytes
     } else {
         // If SNI patching fails, use the template as-is.
         // This still exercises the desync pipeline, just with the template SNI.
         template.to_vec()
+    };
+    avoid_tls_517_size(&mut output);
+    output
+}
+
+fn avoid_tls_517_size(output: &mut Vec<u8>) {
+    if output.len() == 517 && ripdpi_packets::is_tls_client_hello(output) {
+        let _ = tune_tls_padding_size_into(output, 518);
     }
 }
 
@@ -239,6 +247,18 @@ mod tests {
         let sni = ripdpi_packets::parse_tls(&hello);
         assert!(sni.is_some(), "SNI should be extractable after patching");
         assert_eq!(sni.unwrap().len(), "discord.com".len(), "SNI length must match domain");
+    }
+
+    #[test]
+    fn avoid_tls_517_size_retunes_padding_when_needed() {
+        let mut hello = tls_fake_profile_bytes(TlsFakeProfile::GoogleChrome).to_vec();
+        tune_tls_padding_size_into(&mut hello, 517);
+        assert_eq!(hello.len(), 517);
+
+        avoid_tls_517_size(&mut hello);
+
+        assert_ne!(hello.len(), 517);
+        assert!(ripdpi_packets::is_tls_client_hello(&hello));
     }
 
     #[test]
