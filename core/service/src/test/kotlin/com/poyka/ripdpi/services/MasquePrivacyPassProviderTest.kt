@@ -24,6 +24,7 @@ class MasquePrivacyPassProviderTest {
             )
 
         assertFalse(provider.isAvailable())
+        assertEquals(MasquePrivacyPassBuildStatus.MissingProviderUrl, provider.buildStatus())
         assertEquals(
             MasquePrivacyPassReadiness.MissingProviderUrl,
             provider.readinessFor(
@@ -42,6 +43,7 @@ class MasquePrivacyPassProviderTest {
                 ),
             )
 
+        assertEquals(MasquePrivacyPassBuildStatus.InvalidProviderUrl, provider.buildStatus())
         assertEquals(
             MasquePrivacyPassReadiness.InvalidProviderUrl,
             provider.readinessFor(
@@ -63,6 +65,7 @@ class MasquePrivacyPassProviderTest {
             )
 
         assertTrue(provider.isAvailable())
+        assertEquals(MasquePrivacyPassBuildStatus.Available, provider.buildStatus())
         var resolved: MasquePrivacyPassRuntimeConfig? = null
         kotlinx.coroutines.test.runTest {
             resolved =
@@ -88,7 +91,7 @@ class MasquePrivacyPassProviderTest {
 
         val readiness =
             provider.readinessFor(
-                config = privacyPassConfig().copy(masqueCloudflareMode = false),
+                config = privacyPassConfig(),
                 credentials = RelayCredentialRecord(profileId = "edge"),
             )
         var resolved: MasquePrivacyPassRuntimeConfig? = null
@@ -96,7 +99,7 @@ class MasquePrivacyPassProviderTest {
             resolved =
                 provider.resolve(
                     profileId = "edge",
-                    config = privacyPassConfig().copy(masqueCloudflareMode = false),
+                    config = privacyPassConfig(),
                     credentials = RelayCredentialRecord(profileId = "edge"),
                 )
         }
@@ -129,7 +132,6 @@ class MasquePrivacyPassProviderTest {
             kind = RelayKindMasque,
             profileId = "edge",
             masqueUrl = "https://masque.example/",
-            masqueCloudflareMode = true,
         )
 
     private fun privacyPassCredentials(): RelayCredentialRecord =

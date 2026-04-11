@@ -31,8 +31,16 @@ internal enum class MasquePrivacyPassReadiness {
     UnsupportedAuthMode,
 }
 
+enum class MasquePrivacyPassBuildStatus {
+    Available,
+    MissingProviderUrl,
+    InvalidProviderUrl,
+}
+
 interface MasquePrivacyPassAvailability {
     fun isAvailable(): Boolean
+
+    fun buildStatus(): MasquePrivacyPassBuildStatus
 }
 
 internal interface MasquePrivacyPassProvider : MasquePrivacyPassAvailability {
@@ -59,6 +67,19 @@ internal class BuildConfigMasquePrivacyPassProvider
 
         override fun isAvailable(): Boolean = readinessForMasquePrivacyPass() == MasquePrivacyPassReadiness.Ready
 
+        override fun buildStatus(): MasquePrivacyPassBuildStatus =
+            when (readinessForMasquePrivacyPass()) {
+                MasquePrivacyPassReadiness.Ready -> MasquePrivacyPassBuildStatus.Available
+
+                MasquePrivacyPassReadiness.MissingProviderUrl -> MasquePrivacyPassBuildStatus.MissingProviderUrl
+
+                MasquePrivacyPassReadiness.InvalidProviderUrl -> MasquePrivacyPassBuildStatus.InvalidProviderUrl
+
+                MasquePrivacyPassReadiness.UnsupportedRelayKind,
+                MasquePrivacyPassReadiness.UnsupportedAuthMode,
+                -> MasquePrivacyPassBuildStatus.MissingProviderUrl
+            }
+
         override fun readinessFor(
             config: RipDpiRelayConfig,
             credentials: RelayCredentialRecord?,
@@ -67,10 +88,8 @@ internal class BuildConfigMasquePrivacyPassProvider
                 return MasquePrivacyPassReadiness.UnsupportedRelayKind
             }
             val authMode =
-                normalizeRelayMasqueAuthMode(
-                    value = credentials?.masqueAuthMode,
-                    cloudflareMode = config.masqueCloudflareMode,
-                ) ?: return MasquePrivacyPassReadiness.UnsupportedAuthMode
+                normalizeRelayMasqueAuthMode(credentials?.masqueAuthMode)
+                    ?: return MasquePrivacyPassReadiness.UnsupportedAuthMode
             if (authMode != RelayMasqueAuthModePrivacyPass) {
                 return MasquePrivacyPassReadiness.UnsupportedAuthMode
             }

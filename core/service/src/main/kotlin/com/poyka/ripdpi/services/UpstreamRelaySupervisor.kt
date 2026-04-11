@@ -248,7 +248,6 @@ internal class UpstreamRelaySupervisor(
             chainExitProfileId = resolvedChainRelay?.exit?.profileId ?: effectiveConfig.chainExitProfileId,
             masqueUrl = effectiveConfig.masqueUrl,
             masqueUseHttp2Fallback = effectiveConfig.masqueUseHttp2Fallback,
-            masqueCloudflareMode = effectiveConfig.masqueCloudflareMode,
             tuicZeroRtt = effectiveConfig.tuicZeroRtt,
             tuicCongestionControl = effectiveConfig.tuicCongestionControl,
             shadowTlsInnerProfileId = effectiveConfig.shadowTlsInnerProfileId,
@@ -271,9 +270,6 @@ internal class UpstreamRelaySupervisor(
             tlsFingerprintProfile = effectiveTlsProfile,
             masqueAuthMode = masqueAuthMode,
             masqueAuthToken = credentials?.masqueAuthToken,
-            masqueCloudflareClientId = credentials?.masqueCloudflareClientId,
-            masqueCloudflareKeyId = credentials?.masqueCloudflareKeyId,
-            masqueCloudflarePrivateKeyPem = credentials?.masqueCloudflarePrivateKeyPem,
             masquePrivacyPassProviderUrl = privacyPassRuntime?.providerUrl,
             masquePrivacyPassProviderAuthToken = privacyPassRuntime?.providerAuthToken,
         )
@@ -309,7 +305,6 @@ internal class UpstreamRelaySupervisor(
             chainExitProfileId = profile.chainExitProfileId.ifBlank { config.chainExitProfileId },
             masqueUrl = profile.masqueUrl.ifBlank { config.masqueUrl },
             masqueUseHttp2Fallback = profile.masqueUseHttp2Fallback,
-            masqueCloudflareMode = profile.masqueCloudflareMode,
             tuicZeroRtt = profile.tuicZeroRtt,
             tuicCongestionControl = profile.tuicCongestionControl,
             shadowTlsInnerProfileId = profile.shadowTlsInnerProfileId.ifBlank { config.shadowTlsInnerProfileId },
@@ -582,14 +577,12 @@ internal class UpstreamRelaySupervisor(
         config: RipDpiRelayConfig,
         credentials: RelayCredentialRecord?,
     ): String? =
-        normalizeRelayMasqueAuthMode(
-            value = credentials?.masqueAuthMode,
-            cloudflareMode = config.masqueCloudflareMode,
-        ) ?: if (!credentials?.masqueAuthToken.isNullOrBlank()) {
-            RelayMasqueAuthModeBearer
-        } else {
-            null
-        }
+        normalizeRelayMasqueAuthMode(credentials?.masqueAuthMode)
+            ?: if (!credentials?.masqueAuthToken.isNullOrBlank()) {
+                RelayMasqueAuthModeBearer
+            } else {
+                null
+            }
 
     private fun masquePrivacyPassReadinessMessage(
         profileId: String,
@@ -670,6 +663,13 @@ internal class StaticMasquePrivacyPassProvider(
     private val providerAuthToken: String? = null,
 ) : MasquePrivacyPassProvider {
     override fun isAvailable(): Boolean = available
+
+    override fun buildStatus(): MasquePrivacyPassBuildStatus =
+        if (available) {
+            MasquePrivacyPassBuildStatus.Available
+        } else {
+            MasquePrivacyPassBuildStatus.MissingProviderUrl
+        }
 
     override fun readinessFor(
         config: RipDpiRelayConfig,

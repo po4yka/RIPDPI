@@ -45,10 +45,7 @@ fun normalizeRelayVlessTransport(
         else -> RelayVlessTransportRealityTcp
     }
 
-fun normalizeRelayMasqueAuthMode(
-    value: String?,
-    cloudflareMode: Boolean = false,
-): String? =
+fun normalizeRelayMasqueAuthMode(value: String?): String? =
     when (value?.trim()?.lowercase()) {
         RelayMasqueAuthModeBearer,
         "token",
@@ -60,7 +57,7 @@ fun normalizeRelayMasqueAuthMode(
 
         null,
         "",
-        -> if (cloudflareMode) RelayMasqueAuthModePrivacyPass else null
+        -> null
 
         else -> null
     }
@@ -98,7 +95,6 @@ data class RelayProfileModel(
     val chainExitProfileId: String = "",
     val masqueUrl: String = "",
     val masqueUseHttp2Fallback: Boolean = true,
-    val masqueCloudflareMode: Boolean = false,
     val tuicZeroRtt: Boolean = false,
     val tuicCongestionControl: String = RelayCongestionControlBbr,
     val shadowTlsInnerProfileId: String = "",
@@ -151,7 +147,6 @@ fun AppSettings.toRelaySettingsModel(): RelaySettingsModel {
                 chainExitProfileId = relayChainExitProfileId,
                 masqueUrl = relayMasqueUrl,
                 masqueUseHttp2Fallback = relayMasqueUseHttp2Fallback,
-                masqueCloudflareMode = relayMasqueCloudflareMode,
                 tuicZeroRtt = relayTuicZeroRtt,
                 tuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
                 shadowTlsInnerProfileId = relayShadowtlsInnerProfileId,

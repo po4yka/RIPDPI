@@ -670,11 +670,13 @@ class NativeConfigContractSnapshotTest {
         }
 
     private fun chainsExpected(
+        anyProtocol: Boolean = false,
         groupActivationFilter: JsonObject? = null,
         tcpSteps: List<JsonObject> = listOf(tcpStepExpected(kind = "split", marker = "host+1")),
         udpSteps: List<JsonObject> = emptyList(),
     ): JsonObject =
         buildJsonObject {
+            put("anyProtocol", JsonPrimitive(anyProtocol))
             put("groupActivationFilter", groupActivationFilter ?: JsonNull)
             put("tcpSteps", JsonArray(tcpSteps))
             put("udpSteps", JsonArray(udpSteps))
@@ -750,6 +752,14 @@ class NativeConfigContractSnapshotTest {
         entropyPaddingMax: Int = 256,
         shannonEntropyTargetPermil: Int = 7920,
         tlsFingerprintProfile: String = "chrome_stable",
+        fakeTlsSource: String = "profile",
+        fakeTlsSecondaryProfile: String = "",
+        fakeTcpTimestampEnabled: Boolean = false,
+        fakeTcpTimestampDeltaTicks: Int = 0,
+        stripTimestamps: Boolean = false,
+        windowClamp: Int? = null,
+        wsizeWindow: Int? = null,
+        wsizeScale: Int? = null,
     ): JsonObject =
         buildJsonObject {
             put("fakeTtl", JsonPrimitive(fakeTtl))
@@ -769,6 +779,10 @@ class NativeConfigContractSnapshotTest {
             put("tlsFakeProfile", JsonPrimitive(tlsFakeProfile))
             put("udpFakeProfile", JsonPrimitive(udpFakeProfile))
             put("fakeOffsetMarker", JsonPrimitive(fakeOffsetMarker))
+            put("fakeTlsSource", JsonPrimitive(fakeTlsSource))
+            put("fakeTlsSecondaryProfile", JsonPrimitive(fakeTlsSecondaryProfile))
+            put("fakeTcpTimestampEnabled", JsonPrimitive(fakeTcpTimestampEnabled))
+            put("fakeTcpTimestampDeltaTicks", JsonPrimitive(fakeTcpTimestampDeltaTicks))
             put("oobChar", JsonPrimitive(oobChar))
             put("dropSack", JsonPrimitive(dropSack))
             put("quicBindLowPort", JsonPrimitive(quicBindLowPort))
@@ -778,6 +792,10 @@ class NativeConfigContractSnapshotTest {
             put("entropyPaddingMax", JsonPrimitive(entropyPaddingMax))
             put("shannonEntropyTargetPermil", JsonPrimitive(shannonEntropyTargetPermil))
             put("tlsFingerprintProfile", JsonPrimitive(tlsFingerprintProfile))
+            put("stripTimestamps", stripTimestamps.let(::JsonPrimitive))
+            put("windowClamp", windowClamp?.let(::JsonPrimitive) ?: JsonNull)
+            put("wsizeWindow", wsizeWindow?.let(::JsonPrimitive) ?: JsonNull)
+            put("wsizeScale", wsizeScale?.let(::JsonPrimitive) ?: JsonNull)
         }
 
     private fun parserEvasionsExpected(
@@ -857,24 +875,33 @@ class NativeConfigContractSnapshotTest {
         enabled: Boolean = false,
         kind: String = "off",
         profileId: String = "default",
+        outboundBindIp: String = "",
         server: String = "",
         serverPort: Int = 443,
         serverName: String = "",
         realityPublicKey: String = "",
         realityShortId: String = "",
+        vlessTransport: String = "reality_tcp",
+        xhttpPath: String = "",
+        xhttpHost: String = "",
         chainEntryServer: String = "",
         chainEntryPort: Int = 443,
         chainEntryServerName: String = "",
         chainEntryPublicKey: String = "",
         chainEntryShortId: String = "",
+        chainEntryProfileId: String = "",
         chainExitServer: String = "",
         chainExitPort: Int = 443,
         chainExitServerName: String = "",
         chainExitPublicKey: String = "",
         chainExitShortId: String = "",
+        chainExitProfileId: String = "",
         masqueUrl: String = "",
         masqueUseHttp2Fallback: Boolean = true,
-        masqueCloudflareMode: Boolean = false,
+        tuicZeroRtt: Boolean = false,
+        tuicCongestionControl: String = "bbr",
+        shadowTlsInnerProfileId: String = "",
+        naivePath: String = "",
         localSocksHost: String = "127.0.0.1",
         localSocksPort: Int = 11980,
         udpEnabled: Boolean = false,
@@ -884,24 +911,33 @@ class NativeConfigContractSnapshotTest {
             put("enabled", JsonPrimitive(enabled))
             put("kind", JsonPrimitive(kind))
             put("profileId", JsonPrimitive(profileId))
+            put("outboundBindIp", JsonPrimitive(outboundBindIp))
             put("server", JsonPrimitive(server))
             put("serverPort", JsonPrimitive(serverPort))
             put("serverName", JsonPrimitive(serverName))
             put("realityPublicKey", JsonPrimitive(realityPublicKey))
             put("realityShortId", JsonPrimitive(realityShortId))
+            put("vlessTransport", JsonPrimitive(vlessTransport))
+            put("xhttpPath", JsonPrimitive(xhttpPath))
+            put("xhttpHost", JsonPrimitive(xhttpHost))
             put("chainEntryServer", JsonPrimitive(chainEntryServer))
             put("chainEntryPort", JsonPrimitive(chainEntryPort))
             put("chainEntryServerName", JsonPrimitive(chainEntryServerName))
             put("chainEntryPublicKey", JsonPrimitive(chainEntryPublicKey))
             put("chainEntryShortId", JsonPrimitive(chainEntryShortId))
+            put("chainEntryProfileId", JsonPrimitive(chainEntryProfileId))
             put("chainExitServer", JsonPrimitive(chainExitServer))
             put("chainExitPort", JsonPrimitive(chainExitPort))
             put("chainExitServerName", JsonPrimitive(chainExitServerName))
             put("chainExitPublicKey", JsonPrimitive(chainExitPublicKey))
             put("chainExitShortId", JsonPrimitive(chainExitShortId))
+            put("chainExitProfileId", JsonPrimitive(chainExitProfileId))
             put("masqueUrl", JsonPrimitive(masqueUrl))
             put("masqueUseHttp2Fallback", JsonPrimitive(masqueUseHttp2Fallback))
-            put("masqueCloudflareMode", JsonPrimitive(masqueCloudflareMode))
+            put("tuicZeroRtt", JsonPrimitive(tuicZeroRtt))
+            put("tuicCongestionControl", JsonPrimitive(tuicCongestionControl))
+            put("shadowTlsInnerProfileId", JsonPrimitive(shadowTlsInnerProfileId))
+            put("naivePath", JsonPrimitive(naivePath))
             put("localSocksHost", JsonPrimitive(localSocksHost))
             put("localSocksPort", JsonPrimitive(localSocksPort))
             put("udpEnabled", JsonPrimitive(udpEnabled))
@@ -934,6 +970,7 @@ class NativeConfigContractSnapshotTest {
         amneziaS2: Int = 0,
         amneziaS3: Int = 0,
         amneziaS4: Int = 0,
+        amneziaPreset: String = "off",
         localSocksHost: String = "127.0.0.1",
         localSocksPort: Int = 11888,
     ): JsonObject =
@@ -972,6 +1009,7 @@ class NativeConfigContractSnapshotTest {
                     put("s4", JsonPrimitive(amneziaS4))
                 },
             )
+            put("amneziaPreset", JsonPrimitive(amneziaPreset))
             put("localSocksHost", JsonPrimitive(localSocksHost))
             put("localSocksPort", JsonPrimitive(localSocksPort))
         }

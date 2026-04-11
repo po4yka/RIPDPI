@@ -636,6 +636,103 @@ impl TargetAuthority {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::Arc;
+
+    use serde_json::to_string;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::TcpListener;
+    use tokio::sync::Mutex;
+
+    fn privacy_pass_test_config(provider_url: String, provider_auth_token: Option<&str>) -> MasqueConfig {
+        MasqueConfig {
+            url: "https://masque.example/".to_string(),
+            use_http2_fallback: false,
+            auth_mode: Some("privacy_pass".to_string()),
+            auth_token: None,
+            privacy_pass_provider_url: Some(provider_url),
+            privacy_pass_provider_auth_token: provider_auth_token.map(ToOwned::to_owned),
+            tls_fingerprint_profile: "native_default".to_string(),
+        }
+    }
+
+    async fn start_provider_stub(
+        responses: Vec<(u16, PrivacyPassProviderResponse)>,
+    ) -> io::Result<(String, Arc<Mutex<Vec<String>>>, tokio::task::JoinHandle<io::Result<()>>)> {
+        let listener = TcpListener::bind("127.0.0.1:0").await?;
+        let address = listener.local_addr()?;
+        let requests = Arc::new(Mutex::new(Vec::new()));
+        let request_log = Arc::clone(&requests);
+
+        let handle = tokio::spawn(async move {
+            for (status, payload) in responses {
+                let (mut socket, _) = listener.accept().await?;
+                let request = read_http_request(&mut socket).await?;
+                request_log.lock().await.push(request);
+
+                let body = to_string(&payload)
+                    .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error.to_string()))?;
+                let status_text = http_status_text(status);
+                let response = format!(
+                    "HTTP/1.1 {status} {status_text}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                socket.write_all(response.as_bytes()).await?;
+            }
+            Ok(())
+        });
+
+        Ok((format!("http://{address}/token"), requests, handle))
+    }
+
+    async fn read_http_request(stream: &mut tokio::net::TcpStream) -> io::Result<String> {
+        let mut buffer = Vec::new();
+        let mut chunk = [0u8; 512];
+        loop {
+            let read = stream.read(&mut chunk).await?;
+            if read == 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "provider request ended before the full body arrived",
+                ));
+            }
+            buffer.extend_from_slice(&chunk[..read]);
+            if let Some(headers_end) = find_headers_end(&buffer) {
+                let content_length = parse_content_length(&buffer[..headers_end])?;
+                if buffer.len() >= headers_end + content_length {
+                    return String::from_utf8(buffer)
+                        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error.to_string()));
+                }
+            }
+        }
+    }
+
+    fn find_headers_end(buffer: &[u8]) -> Option<usize> {
+        buffer.windows(4).position(|window| window == b"\r\n\r\n").map(|index| index + 4)
+    }
+
+    fn parse_content_length(headers: &[u8]) -> io::Result<usize> {
+        let headers = std::str::from_utf8(headers)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error.to_string()))?;
+        Ok(headers
+            .lines()
+            .find_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                if name.trim().eq_ignore_ascii_case("content-length") {
+                    value.trim().parse::<usize>().ok()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(0))
+    }
+
+    fn http_status_text(status: u16) -> &'static str {
+        match status {
+            200 => "OK",
+            403 => "Forbidden",
+            _ => "Test",
+        }
+    }
 
     #[test]
     fn connect_udp_path_percent_encodes_ipv6_hosts() {
@@ -659,5 +756,77 @@ mod tests {
         let ipv6 = parse_target("[2001:db8::1]:443").expect("ipv6");
         assert_eq!(ipv6.host, "2001:db8::1");
         assert_eq!(ipv6.port, 443);
+    }
+
+    #[tokio::test]
+    async fn privacy_pass_provider_fetch_caches_spare_headers() {
+        let (provider_url, requests, provider_task) = start_provider_stub(vec![(
+            200,
+            PrivacyPassProviderResponse {
+                authorization_headers: Some(vec![
+                    "PrivateToken token-one".to_string(),
+                    "PrivateToken token-two".to_string(),
+                ]),
+                authorization_header: None,
+                proxy_authorization_headers: None,
+                proxy_authorization_header: None,
+                expires_at_epoch_ms: None,
+            },
+        )])
+        .await
+        .expect("provider stub");
+        let client =
+            MasqueClient::new(privacy_pass_test_config(provider_url, Some("provider-secret"))).expect("client");
+
+        let first = client
+            .inner
+            .fetch_privacy_pass_header("example.com:443", "PrivateToken challenge=AAAA, token-key=BBBB")
+            .await
+            .expect("first provider header");
+        assert_eq!(first.name, "authorization");
+        assert_eq!(first.value, "PrivateToken token-one");
+
+        let cached = client.inner.cached_privacy_pass_header("example.com:443").await.expect("cached provider header");
+        assert_eq!(cached.name, "authorization");
+        assert_eq!(cached.value, "PrivateToken token-two");
+        assert!(client.inner.cached_privacy_pass_header("example.com:443").await.is_none());
+
+        provider_task.await.expect("provider task").expect("provider result");
+        let requests = requests.lock().await.clone();
+        assert_eq!(requests.len(), 1);
+        let request = &requests[0];
+        let request_lower = request.to_ascii_lowercase();
+        assert!(request.starts_with("POST /token HTTP/1.1"));
+        assert!(request_lower.contains("authorization: bearer provider-secret"));
+        assert!(request.contains("\"proxyUrl\":\"https://masque.example/\""));
+        assert!(request.contains("\"target\":\"example.com:443\""));
+        assert!(request.contains("\"challengeHeader\":\"PrivateToken challenge=AAAA, token-key=BBBB\""));
+    }
+
+    #[tokio::test]
+    async fn privacy_pass_provider_non_success_is_permission_denied() {
+        let (provider_url, requests, provider_task) = start_provider_stub(vec![(
+            403,
+            PrivacyPassProviderResponse {
+                authorization_headers: None,
+                authorization_header: None,
+                proxy_authorization_headers: None,
+                proxy_authorization_header: None,
+                expires_at_epoch_ms: None,
+            },
+        )])
+        .await
+        .expect("provider stub");
+        let client = MasqueClient::new(privacy_pass_test_config(provider_url, None)).expect("client");
+
+        let error = client
+            .inner
+            .fetch_privacy_pass_header("forbidden.example:443", "PrivateToken challenge=AAAA, token-key=BBBB")
+            .await
+            .expect_err("403 must fail");
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
+
+        provider_task.await.expect("provider task").expect("provider result");
+        assert_eq!(requests.lock().await.len(), 1);
     }
 }

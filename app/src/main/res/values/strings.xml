@@ -386,7 +386,9 @@
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_auth_preshared">Preshared</string>
     <string name="config_relay_masque_auth_privacy_pass">Privacy Pass</string>
-    <string name="config_relay_masque_privacy_pass_unavailable">Privacy Pass requires a configured deployer token provider and is unavailable in this build.</string>
+    <string name="config_relay_masque_privacy_pass_available">Privacy Pass provider is configured for this build.</string>
+    <string name="config_relay_masque_privacy_pass_missing_provider">Privacy Pass is unavailable because this build has no configured provider URL.</string>
+    <string name="config_relay_masque_privacy_pass_invalid_provider">Privacy Pass is disabled because the configured provider URL is invalid.</string>
     <string name="config_relay_masque_token">MASQUE auth token</string>
     <string name="config_relay_masque_http2">Allow HTTP/2 TCP fallback</string>
     <string name="config_relay_masque_cloudflare">Use Cloudflare auth mode</string>

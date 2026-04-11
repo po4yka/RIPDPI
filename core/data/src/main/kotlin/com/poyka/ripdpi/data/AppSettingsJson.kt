@@ -204,7 +204,6 @@ internal data class AppSettingsSnapshot(
     val relayChainExitProfileId: String = defaultSettings.relayChainExitProfileId,
     val relayMasqueUrl: String = defaultSettings.relayMasqueUrl,
     val relayMasqueUseHttp2Fallback: Boolean = defaultSettings.relayMasqueUseHttp2Fallback,
-    val relayMasqueCloudflareMode: Boolean = defaultSettings.relayMasqueCloudflareMode,
     val relayTuicZeroRtt: Boolean = defaultSettings.relayTuicZeroRtt,
     val relayTuicCongestionControl: String = defaultSettings.relayTuicCongestionControl,
     val relayShadowTlsInnerProfileId: String = defaultSettings.relayShadowtlsInnerProfileId,
@@ -425,7 +424,6 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             relayChainExitProfileId = relayChainExitProfileId,
             relayMasqueUrl = relayMasqueUrl,
             relayMasqueUseHttp2Fallback = relayMasqueUseHttp2Fallback,
-            relayMasqueCloudflareMode = relayMasqueCloudflareMode,
             relayTuicZeroRtt = relayTuicZeroRtt,
             relayTuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
             relayShadowTlsInnerProfileId = relayShadowtlsInnerProfileId,
@@ -650,7 +648,6 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setRelayChainExitProfileId(relayChainExitProfileId)
         .setRelayMasqueUrl(relayMasqueUrl)
         .setRelayMasqueUseHttp2Fallback(relayMasqueUseHttp2Fallback)
-        .setRelayMasqueCloudflareMode(relayMasqueCloudflareMode)
         .setRelayTuicZeroRtt(relayTuicZeroRtt)
         .setRelayTuicCongestionControl(normalizeRelayCongestionControl(relayTuicCongestionControl))
         .setRelayShadowtlsInnerProfileId(relayShadowTlsInnerProfileId)
