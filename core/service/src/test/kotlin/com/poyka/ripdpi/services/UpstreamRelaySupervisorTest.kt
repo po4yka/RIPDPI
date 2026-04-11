@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
@@ -164,6 +165,87 @@ class UpstreamRelaySupervisorTest {
             assertEquals(RelayVlessTransportXhttp, resolved?.vlessTransport)
             assertEquals("/xhttp", resolved?.xhttpPath)
             assertEquals("origin.example", resolved?.xhttpHost)
+
+            supervisor.stop()
+        }
+
+    @Test
+    fun `chain relay resolves referenced hop profiles before native runtime launch`() =
+        runTest {
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "chain",
+                                    kind = RelayKindChainRelay,
+                                    chainEntryProfileId = "entry-hop",
+                                    chainExitProfileId = "exit-hop",
+                                ),
+                            )
+                            save(
+                                RelayProfileRecord(
+                                    id = "entry-hop",
+                                    kind = RelayKindVlessReality,
+                                    server = "entry.example",
+                                    serverPort = 443,
+                                    serverName = "entry-sni.example",
+                                    realityPublicKey = "entry-public",
+                                    realityShortId = "entry-short",
+                                ),
+                            )
+                            save(
+                                RelayProfileRecord(
+                                    id = "exit-hop",
+                                    kind = RelayKindVlessReality,
+                                    server = "exit.example",
+                                    serverPort = 8443,
+                                    serverName = "exit-sni.example",
+                                    realityPublicKey = "exit-public",
+                                    realityShortId = "exit-short",
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "entry-hop",
+                                    vlessUuid = "11111111-1111-1111-1111-111111111111",
+                                ),
+                            )
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "exit-hop",
+                                    vlessUuid = "22222222-2222-2222-2222-222222222222",
+                                ),
+                            )
+                        },
+                )
+
+            supervisor.start(
+                config =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindChainRelay,
+                        profileId = "chain",
+                    ),
+                onUnexpectedExit = {},
+            )
+
+            val resolved = relayFactory.lastRuntime.lastConfig
+            assertEquals("entry-hop", resolved?.chainEntryProfileId)
+            assertEquals("entry.example", resolved?.chainEntryServer)
+            assertEquals("11111111-1111-1111-1111-111111111111", resolved?.chainEntryUuid)
+            assertEquals("exit-hop", resolved?.chainExitProfileId)
+            assertEquals("exit.example", resolved?.chainExitServer)
+            assertEquals("22222222-2222-2222-2222-222222222222", resolved?.chainExitUuid)
 
             supervisor.stop()
         }

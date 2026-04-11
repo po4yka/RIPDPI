@@ -9,6 +9,9 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
@@ -19,11 +22,14 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayPresetDefinition
 import com.poyka.ripdpi.data.RelayPresetSuggestion
+import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.ServerCapabilityRecord
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -366,7 +372,7 @@ class ConfigViewModelTest {
                 RelayPresetDefinition(
                     id = "ru-mobile-relay",
                     title = "Russian mobile relay",
-                    relayKind = com.poyka.ripdpi.data.RelayKindChainRelay,
+                    relayKind = RelayKindChainRelay,
                     chainEntryProfileId = "ru-mobile-entry",
                     chainExitProfileId = "eu-egress",
                 ),
@@ -376,5 +382,92 @@ class ConfigViewModelTest {
         assertEquals(com.poyka.ripdpi.data.RelayKindChainRelay, updated.relayKind)
         assertEquals("ru-mobile-entry", updated.relayChainEntryProfileId)
         assertEquals("eu-egress", updated.relayChainExitProfileId)
+    }
+
+    @Test
+    fun `legacy chain relay draft migrates inline hops into referenced profiles`() =
+        runTest {
+            val profileStore = InMemoryRelayProfileStore()
+            val credentialStore = InMemoryRelayCredentialStore()
+
+            val migrated =
+                migrateLegacyChainRelayDraft(
+                    draft =
+                        defaultDraft.copy(
+                            relayEnabled = true,
+                            relayKind = RelayKindChainRelay,
+                            relayProfileId = "legacy-chain",
+                            relayChainEntryServer = "entry.example",
+                            relayChainEntryPort = "443",
+                            relayChainEntryServerName = "entry-sni.example",
+                            relayChainEntryPublicKey = "entry-public",
+                            relayChainEntryShortId = "entry-short",
+                            relayChainEntryUuid = "11111111-1111-1111-1111-111111111111",
+                            relayChainExitServer = "exit.example",
+                            relayChainExitPort = "443",
+                            relayChainExitServerName = "exit-sni.example",
+                            relayChainExitPublicKey = "exit-public",
+                            relayChainExitShortId = "exit-short",
+                            relayChainExitUuid = "22222222-2222-2222-2222-222222222222",
+                        ),
+                    relayProfileStore = profileStore,
+                    relayCredentialStore = credentialStore,
+                )
+
+            assertEquals("legacy-chain__ripdpi_chain_entry", migrated.relayChainEntryProfileId)
+            assertEquals("legacy-chain__ripdpi_chain_exit", migrated.relayChainExitProfileId)
+            assertEquals("", migrated.relayChainEntryServer)
+            assertEquals("", migrated.relayChainExitServer)
+            assertEquals("", migrated.relayChainEntryUuid)
+            assertEquals("", migrated.relayChainExitUuid)
+
+            assertEquals(
+                RelayProfileRecord(
+                    id = "legacy-chain__ripdpi_chain_entry",
+                    kind = RelayKindVlessReality,
+                    server = "entry.example",
+                    serverPort = 443,
+                    serverName = "entry-sni.example",
+                    realityPublicKey = "entry-public",
+                    realityShortId = "entry-short",
+                ),
+                profileStore.load("legacy-chain__ripdpi_chain_entry"),
+            )
+            assertEquals(
+                "11111111-1111-1111-1111-111111111111",
+                credentialStore.load("legacy-chain__ripdpi_chain_entry")?.vlessUuid,
+            )
+            assertEquals(
+                "22222222-2222-2222-2222-222222222222",
+                credentialStore.load("legacy-chain__ripdpi_chain_exit")?.vlessUuid,
+            )
+        }
+
+    private class InMemoryRelayProfileStore : RelayProfileStore {
+        private val records = LinkedHashMap<String, RelayProfileRecord>()
+
+        override suspend fun load(profileId: String): RelayProfileRecord? = records[profileId]
+
+        override suspend fun save(profile: RelayProfileRecord) {
+            records[profile.id] = profile
+        }
+
+        override suspend fun clear(profileId: String) {
+            records.remove(profileId)
+        }
+    }
+
+    private class InMemoryRelayCredentialStore : RelayCredentialStore {
+        private val records = LinkedHashMap<String, RelayCredentialRecord>()
+
+        override suspend fun load(profileId: String): RelayCredentialRecord? = records[profileId]
+
+        override suspend fun save(credentials: RelayCredentialRecord) {
+            records[credentials.profileId] = credentials
+        }
+
+        override suspend fun clear(profileId: String) {
+            records.remove(profileId)
+        }
     }
 }
