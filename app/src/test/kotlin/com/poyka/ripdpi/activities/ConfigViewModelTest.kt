@@ -245,7 +245,6 @@ class ConfigViewModelTest {
                     relayKind = RelayKindMasque,
                     relayMasqueUrl = "https://masque.example/",
                     relayMasqueAuthMode = RelayMasqueAuthModePrivacyPass,
-                    relayMasqueCloudflareMode = true,
                     relayUdpEnabled = true,
                 ),
             )
@@ -263,7 +262,6 @@ class ConfigViewModelTest {
                         relayKind = RelayKindMasque,
                         relayMasqueUrl = "https://masque.example/",
                         relayMasqueAuthMode = RelayMasqueAuthModePrivacyPass,
-                        relayMasqueCloudflareMode = true,
                         relayUdpEnabled = true,
                     ),
                 supportsMasquePrivacyPass = true,
@@ -280,13 +278,11 @@ class ConfigViewModelTest {
                     defaultDraft.copy(
                         relayKind = RelayKindMasque,
                         relayMasqueAuthMode = RelayMasqueAuthModePrivacyPass,
-                        relayMasqueCloudflareMode = true,
                     ),
                 supportsMasquePrivacyPass = false,
             )
 
         assertEquals(RelayMasqueAuthModeBearer, sanitized.relayMasqueAuthMode)
-        assertFalse(sanitized.relayMasqueCloudflareMode)
     }
 
     @Test

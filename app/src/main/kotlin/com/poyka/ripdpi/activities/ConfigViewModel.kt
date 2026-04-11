@@ -56,6 +56,7 @@ import com.poyka.ripdpi.data.toRelaySettingsModel
 import com.poyka.ripdpi.data.validateStrategyChainUsage
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
+import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
@@ -134,7 +135,6 @@ data class ConfigDraft(
     val relayMasqueAuthMode: String = RelayMasqueAuthModeBearer,
     val relayMasqueAuthToken: String = "",
     val relayMasqueUseHttp2Fallback: Boolean = true,
-    val relayMasqueCloudflareMode: Boolean = false,
     val relayTuicUuid: String = "",
     val relayTuicPassword: String = "",
     val relayTuicZeroRtt: Boolean = false,
@@ -201,6 +201,7 @@ data class ConfigUiState(
     val relayPresets: ImmutableList<RelayPresetUiState> = persistentListOf(),
     val relayPresetSuggestion: RelayPresetSuggestionUiState? = null,
     val supportsMasquePrivacyPass: Boolean = false,
+    val masquePrivacyPassBuildStatus: MasquePrivacyPassBuildStatus = MasquePrivacyPassBuildStatus.MissingProviderUrl,
 )
 
 data class RelayPresetUiState(
@@ -283,14 +284,8 @@ internal fun AppSettings.toConfigDraft(): ConfigDraft =
             relayChainExitShortId = relay.profile.chainExitShortId,
             relayChainExitProfileId = relay.profile.chainExitProfileId,
             relayMasqueUrl = relay.profile.masqueUrl,
-            relayMasqueAuthMode =
-                if (relay.profile.masqueCloudflareMode) {
-                    RelayMasqueAuthModePrivacyPass
-                } else {
-                    RelayMasqueAuthModeBearer
-                },
+            relayMasqueAuthMode = RelayMasqueAuthModeBearer,
             relayMasqueUseHttp2Fallback = relay.profile.masqueUseHttp2Fallback,
-            relayMasqueCloudflareMode = relay.profile.masqueCloudflareMode,
             relayTuicZeroRtt = relay.profile.tuicZeroRtt,
             relayTuicCongestionControl = relay.profile.tuicCongestionControl,
             relayShadowTlsInnerProfileId = relay.profile.shadowTlsInnerProfileId,
@@ -339,7 +334,6 @@ internal fun sanitizeMasqueAuthModeForCurrentBuild(
     if (!supportsMasquePrivacyPass && draft.relayMasqueAuthMode == RelayMasqueAuthModePrivacyPass) {
         draft.copy(
             relayMasqueAuthMode = RelayMasqueAuthModeBearer,
-            relayMasqueCloudflareMode = false,
         )
     } else {
         draft
@@ -482,7 +476,7 @@ internal fun validateConfigDraft(
                     if (draft.relayMasqueUrl.isBlank()) {
                         put(ConfigFieldRelayCredentials, "required")
                     }
-                    when (normalizeRelayMasqueAuthMode(draft.relayMasqueAuthMode, draft.relayMasqueCloudflareMode)) {
+                    when (normalizeRelayMasqueAuthMode(draft.relayMasqueAuthMode)) {
                         RelayMasqueAuthModeBearer,
                         RelayMasqueAuthModePreshared,
                         -> {
@@ -575,10 +569,6 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
         setRelayChainExitProfileId(if (draft.relayKind == RelayKindChainRelay) draft.relayChainExitProfileId else "")
         setRelayMasqueUrl(draft.relayMasqueUrl)
         setRelayMasqueUseHttp2Fallback(draft.relayMasqueUseHttp2Fallback)
-        setRelayMasqueCloudflareMode(
-            normalizeRelayMasqueAuthMode(draft.relayMasqueAuthMode, draft.relayMasqueCloudflareMode) ==
-                RelayMasqueAuthModePrivacyPass,
-        )
         setRelayTuicZeroRtt(draft.relayTuicZeroRtt)
         setRelayTuicCongestionControl(normalizeRelayCongestionControl(draft.relayTuicCongestionControl))
         setRelayShadowtlsInnerProfileId(draft.relayShadowTlsInnerProfileId)
@@ -713,6 +703,7 @@ class ConfigViewModel
     ) : ViewModel() {
         private val editorSession = MutableStateFlow(ConfigEditorSession())
         private val supportsMasquePrivacyPass = masquePrivacyPassAvailability.isAvailable()
+        private val masquePrivacyPassBuildStatus = masquePrivacyPassAvailability.buildStatus()
 
         private val _effects = Channel<ConfigEffect>(Channel.BUFFERED)
         val effects: Flow<ConfigEffect> = _effects.receiveAsFlow()
@@ -780,6 +771,7 @@ class ConfigViewModel
                             capabilityRecords = capabilityRecords,
                         ).toUiState(draft),
                     supportsMasquePrivacyPass = supportsMasquePrivacyPass,
+                    masquePrivacyPassBuildStatus = masquePrivacyPassBuildStatus,
                 )
             }.stateIn(
                 scope = viewModelScope,
@@ -908,10 +900,8 @@ class ConfigViewModel
                                 relayChainEntryUuid = credentials?.chainEntryUuid.orEmpty(),
                                 relayChainExitUuid = credentials?.chainExitUuid.orEmpty(),
                                 relayMasqueAuthMode =
-                                    normalizeRelayMasqueAuthMode(
-                                        credentials?.masqueAuthMode,
-                                        (current.draft ?: draft).relayMasqueCloudflareMode,
-                                    ) ?: (current.draft ?: draft).relayMasqueAuthMode,
+                                    normalizeRelayMasqueAuthMode(credentials?.masqueAuthMode)
+                                        ?: (current.draft ?: draft).relayMasqueAuthMode,
                                 relayMasqueAuthToken = credentials?.masqueAuthToken.orEmpty(),
                             ),
                     )
@@ -962,9 +952,6 @@ class ConfigViewModel
                         },
                     masqueUrl = draft.relayMasqueUrl,
                     masqueUseHttp2Fallback = draft.relayMasqueUseHttp2Fallback,
-                    masqueCloudflareMode =
-                        normalizeRelayMasqueAuthMode(draft.relayMasqueAuthMode, draft.relayMasqueCloudflareMode) ==
-                            RelayMasqueAuthModePrivacyPass,
                     tuicZeroRtt = draft.relayTuicZeroRtt,
                     tuicCongestionControl = normalizeRelayCongestionControl(draft.relayTuicCongestionControl),
                     shadowTlsInnerProfileId = draft.relayShadowTlsInnerProfileId,
@@ -992,8 +979,7 @@ class ConfigViewModel
                     shadowTlsPassword = draft.relayShadowTlsPassword.ifBlank { null },
                     naiveUsername = draft.relayNaiveUsername.ifBlank { null },
                     naivePassword = draft.relayNaivePassword.ifBlank { null },
-                    masqueAuthMode =
-                        normalizeRelayMasqueAuthMode(draft.relayMasqueAuthMode, draft.relayMasqueCloudflareMode),
+                    masqueAuthMode = normalizeRelayMasqueAuthMode(draft.relayMasqueAuthMode),
                     masqueAuthToken = draft.relayMasqueAuthToken.ifBlank { null },
                 ),
             )

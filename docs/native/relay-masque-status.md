@@ -60,7 +60,7 @@ It also documents what is still intentionally missing in the current build.
 - `core/service/src/main/kotlin/com/poyka/ripdpi/services/MasquePrivacyPassProvider.kt`
   - Binds a real `BuildConfigMasquePrivacyPassProvider`
   - Validates MASQUE auth mode and provider URL format
-  - Exposes build availability to the app through `MasquePrivacyPassAvailability`
+  - Exposes build availability and provider-url validity to the app through `MasquePrivacyPassAvailability`
 - `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt`
   - Carries provider URL/auth token into the JNI/native contract
 
@@ -73,7 +73,15 @@ It also documents what is still intentionally missing in the current build.
 - `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/ModeEditorScreen.kt`
   - Exposes relay UDP for `hysteria2` and `masque`
   - Hides the `Privacy Pass` auth chip when the build has no provider
-  - Shows a note explaining that `Privacy Pass` is disabled in the current build
+- `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/RelayFields.kt`
+  - Shows provider-aware `Privacy Pass` status for available, missing-provider, and invalid-provider builds
+
+### Interoperability coverage
+
+- `native/rust/crates/ripdpi-masque/src/lib.rs`
+  - Includes near-live provider tests using a local HTTP stub for `privacy_pass` token fetch, retry input serialization, caching, and permission-denied failures
+- `scripts/ci/run-rust-relay-interoperability.sh`
+  - Runs `ripdpi-masque` in the relay interoperability matrix so the provider-flow tests execute in CI together with the broader relay transport suites
 
 ## Current Build Behavior
 
@@ -85,60 +93,22 @@ It also documents what is still intentionally missing in the current build.
 
 This keeps release safety intact while allowing deployer-provided builds to ship a working `privacy_pass` path.
 
-## What Is Still Missing
+## Phase P2 Closure
 
-### 1. Provider-aware app UX
+The P2 MASQUE closure items are now complete:
 
-The current app only knows whether `privacy_pass` is available in the build and whether the provider URL is structurally valid.
+- provider-aware build status is surfaced in the editor UI
+- the deployer-backed `privacy_pass` path is covered by near-live native tests
+- legacy Cloudflare migration fields have been removed from persistence, runtime config contracts, and tests
 
-Future product work may still want:
+What remains below is intentionally outside the P2 roadmap exit criteria.
 
-- provider readiness state
-- user-facing setup status
-- error details for provider failures
-- any deployer-specific onboarding or sign-in flow
+## Future Follow-Ups
 
-Those are not required for the current rollout, but they may still be needed for a broader production deployment.
+### 1. Official Cloudflare `cf-connect-ip` ECDSA mode
 
-### 2. Legacy Cloudflare cleanup
-
-Legacy migration fields are still present in the runtime/config contract:
-
-- `masqueCloudflareMode`
-- `masqueCloudflareClientId`
-- `masqueCloudflareKeyId`
-- `masqueCloudflarePrivateKeyPem`
-
-These currently remain only so existing settings and tests can still round-trip. New work should avoid expanding them further.
-
-Once a real deployer-backed `privacy_pass` path is stable, these legacy fields should be removed from:
-
-- app settings persistence
-- relay credential storage
-- runtime config contracts
-- obsolete tests
-
-### 3. Official Cloudflare `cf-connect-ip` ECDSA mode
-
-`native/rust/crates/ripdpi-masque/src/cloudflare.rs` still intentionally fails fast for Cloudflare-specific ECDSA-authenticated MASQUE mode.
+Direct Cloudflare-specific ECDSA-authenticated `cf-connect-ip` mode is still not implemented in the current MASQUE client.
 
 That path is distinct from the deployer-supplied `privacy_pass` provider flow added here.
 
 If the project later chooses to support official Cloudflare `cf-connect-ip` directly, that remains separate implementation work.
-
-### 4. Live interoperability coverage
-
-Current verification covers unit tests and targeted Kotlin tests. It does **not** yet include:
-
-- live Hysteria2 TCP/UDP interoperability against a real server
-- live MASQUE TCP/UDP interoperability against a real proxy
-- deployer-backed `privacy_pass` provider integration tests
-
-Those should be added before enabling `privacy_pass` broadly in release builds.
-
-## Suggested Future Implementation Order
-
-1. Add provider-backed integration tests on the Kotlin side.
-2. Add live or stubbed end-to-end MASQUE `privacy_pass` tests on the native side.
-3. Expose richer provider readiness in the app UI if product needs it.
-4. Remove legacy Cloudflare migration fields after rollout is stable.

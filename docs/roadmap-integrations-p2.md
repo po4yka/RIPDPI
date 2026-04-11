@@ -19,6 +19,7 @@ This phase is the relay-protocol expansion track. It should build on the transpo
 - VLESS, Hysteria2, chain relay, and MASQUE are already in the tree. The relay runtime currently supports them through `native/rust/crates/ripdpi-relay-core`, `native/rust/crates/ripdpi-vless`, `native/rust/crates/ripdpi-hysteria2`, and `native/rust/crates/ripdpi-masque`.
 - Kotlin-side relay orchestration is already live through `core/service/src/main/kotlin/com/poyka/ripdpi/services/UpstreamRelaySupervisor.kt`, and the engine bridge already serializes relay config through `RipDpiRelay.kt`.
 - The current MASQUE and Hysteria2 status is already documented in [docs/native/relay-masque-status.md](native/relay-masque-status.md). Use that as the baseline before expanding protocol count.
+- The NaiveProxy go-decision is recorded in [docs/native/relay-naiveproxy-decision.md](native/relay-naiveproxy-decision.md).
 - Relay settings today only model `vless_reality`, `hysteria2`, `chain_relay`, and `masque`. TUIC, ShadowTLS, and NaiveProxy require deliberate data-model and UI additions instead of ad hoc flags.
 
 ## Recommended Sequence
@@ -50,3 +51,7 @@ This phase is the relay-protocol expansion track. It should build on the transpo
 - TUIC and ShadowTLS, if added, appear as first-class relay options with config, runtime, and tests.
 - NaiveProxy has a clear go or no-go decision based on binary size, maintenance burden, and Android process model.
 - Conditional desync can use server capabilities without duplicating caches and heuristics across modules.
+
+## Current Closure Status
+
+The P2 exit criteria above are now satisfied in-repo. Remaining relay work after this phase is future hardening, interoperability expansion, or new transport scope, not unfinished P2 implementation.

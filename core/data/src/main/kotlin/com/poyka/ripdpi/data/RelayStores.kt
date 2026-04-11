@@ -40,7 +40,6 @@ data class RelayProfileRecord(
     val chainExitProfileId: String = "",
     val masqueUrl: String = "",
     val masqueUseHttp2Fallback: Boolean = true,
-    val masqueCloudflareMode: Boolean = false,
     val tuicZeroRtt: Boolean = false,
     val tuicCongestionControl: String = RelayCongestionControlBbr,
     val shadowTlsInnerProfileId: String = "",
@@ -66,9 +65,6 @@ data class RelayCredentialRecord(
     val naivePassword: String? = null,
     val masqueAuthMode: String? = null,
     val masqueAuthToken: String? = null,
-    val masqueCloudflareClientId: String? = null,
-    val masqueCloudflareKeyId: String? = null,
-    val masqueCloudflarePrivateKeyPem: String? = null,
     val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
 

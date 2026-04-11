@@ -14,9 +14,6 @@ class RelayStoresTest {
                 profileId = "masque",
                 masqueAuthMode = RelayMasqueAuthModePrivacyPass,
                 masqueAuthToken = "bearer",
-                masqueCloudflareClientId = "client-id",
-                masqueCloudflareKeyId = "key-id",
-                masqueCloudflarePrivateKeyPem = "pem-data",
             )
 
         val encoded = json.encodeToString(RelayCredentialRecord.serializer(), record)

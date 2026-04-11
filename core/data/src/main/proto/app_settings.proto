@@ -36,7 +36,7 @@ message StrategyUdpStep {
 }
 
 message AppSettings {
-  reserved 15, 16, 17, 29, 30, 31, 32, 69, 71, 93, 94, 130;
+  reserved 15, 16, 17, 29, 30, 31, 32, 69, 71, 93, 94, 130, 190;
   reserved
       "desync_method",
       "split_position",
@@ -49,7 +49,8 @@ message AppSettings {
       "tlsrec_marker",
       "dns_doh_url",
       "dns_doh_bootstrap_ips",
-      "settings_migration_level";
+      "settings_migration_level",
+      "relay_masque_cloudflare_mode";
 
   // General
   string app_theme = 1;       // "system" | "light" | "dark"
@@ -247,7 +248,6 @@ message AppSettings {
   string relay_chain_exit_short_id = 187;
   string relay_masque_url = 188;
   bool relay_masque_use_http2_fallback = 189;
-  bool relay_masque_cloudflare_mode = 190;
   string relay_local_socks_host = 191;
   int32 relay_local_socks_port = 192;
   bool relay_udp_enabled = 193;

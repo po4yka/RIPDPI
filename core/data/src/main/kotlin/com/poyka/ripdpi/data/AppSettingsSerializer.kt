@@ -105,7 +105,6 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setRelayChainEntryPort(443)
             .setRelayChainExitPort(443)
             .setRelayMasqueUseHttp2Fallback(true)
-            .setRelayMasqueCloudflareMode(false)
             .setRelayOutboundBindIp("")
             .setRelayLocalSocksHost(DefaultRelayLocalSocksHost)
             .setRelayLocalSocksPort(DefaultRelayLocalSocksPort)

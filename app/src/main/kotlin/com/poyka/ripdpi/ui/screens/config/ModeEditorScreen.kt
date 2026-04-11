@@ -195,14 +195,7 @@ fun ModeEditorRoute(
         onRelayChainEntryProfileIdChanged = { viewModel.updateDraft { copy(relayChainEntryProfileId = it) } },
         onRelayChainExitProfileIdChanged = { viewModel.updateDraft { copy(relayChainExitProfileId = it) } },
         onRelayMasqueUrlChanged = { viewModel.updateDraft { copy(relayMasqueUrl = it) } },
-        onRelayMasqueAuthModeChanged = {
-            viewModel.updateDraft {
-                copy(
-                    relayMasqueAuthMode = it,
-                    relayMasqueCloudflareMode = it == RelayMasqueAuthModePrivacyPass,
-                )
-            }
-        },
+        onRelayMasqueAuthModeChanged = { viewModel.updateDraft { copy(relayMasqueAuthMode = it) } },
         onRelayMasqueAuthTokenChanged = { viewModel.updateDraft { copy(relayMasqueAuthToken = it) } },
         onRelayMasqueUseHttp2FallbackChanged = { viewModel.updateDraft { copy(relayMasqueUseHttp2Fallback = it) } },
         onRelayTuicUuidChanged = { viewModel.updateDraft { copy(relayTuicUuid = it) } },
