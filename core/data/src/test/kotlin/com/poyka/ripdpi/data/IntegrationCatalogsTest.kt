@@ -14,12 +14,15 @@ class IntegrationCatalogsTest {
                 {
                   "presets": [
                     {
-                      "id": "ru-mobile-relay",
-                      "title": "Russian mobile relay",
+                      "id": "ru-mobile-tuic",
+                      "title": "Russian mobile TUIC",
                       "entryCountry": "RU",
                       "exitCountry": "EU",
                       "antiCorrelationSuggested": true,
-                      "routeMode": "direct_for_domestic"
+                      "routeMode": "direct_for_domestic",
+                      "relayKind": "tuic_v5",
+                      "udpEnabled": true,
+                      "requiresQuic": true
                     }
                   ]
                 }
@@ -27,7 +30,8 @@ class IntegrationCatalogsTest {
             )
 
         assertEquals(1, presets.size)
-        assertEquals("ru-mobile-relay", presets.single().id)
+        assertEquals("ru-mobile-tuic", presets.single().id)
+        assertEquals(RelayKindTuicV5, presets.single().relayKind)
         assertTrue(presets.single().antiCorrelationSuggested)
     }
 
@@ -38,7 +42,9 @@ class IntegrationCatalogsTest {
                 """
                 {
                   "presets": [
-                    { "id": "ru-mobile-relay", "title": "Russian mobile relay" }
+                    { "id": "ru-mobile-tuic", "title": "Russian mobile TUIC", "relayKind": "tuic_v5", "routeMode": "direct_for_domestic", "requiresQuic": true, "requiresUdp": true, "udpEnabled": true },
+                    { "id": "ru-mobile-naiveproxy", "title": "Russian mobile NaiveProxy", "relayKind": "naiveproxy", "routeMode": "direct_for_domestic", "requiresNaiveHttpsProxy": true },
+                    { "id": "ru-mobile-relay", "title": "Russian mobile relay", "relayKind": "chain_relay", "routeMode": "direct_for_domestic" }
                   ]
                 }
                 """.trimIndent(),
@@ -51,10 +57,62 @@ class IntegrationCatalogsTest {
                     cellular = NativeCellularSnapshot(operatorCode = "25001", generation = "4g"),
                 ),
                 presets,
+                capabilityRecords =
+                    listOf(
+                        ServerCapabilityRecord(
+                            scope = "relay",
+                            fingerprintHash = "fp",
+                            authority = "relay.example",
+                            quicUsable = true,
+                            udpUsable = true,
+                            multiplexReusable = true,
+                        ),
+                    ),
             )
 
         assertNotNull(suggestion)
-        assertEquals("ru-mobile-relay", suggestion?.preset?.id)
+        assertEquals("ru-mobile-tuic", suggestion?.preset?.id)
+    }
+
+    @Test
+    fun `relay preset suggestion falls back to naive when quic is unavailable`() {
+        val presets =
+            decodeRelayPresetCatalog(
+                """
+                {
+                  "presets": [
+                    { "id": "ru-mobile-tuic", "title": "Russian mobile TUIC", "relayKind": "tuic_v5", "routeMode": "direct_for_domestic", "requiresQuic": true, "requiresUdp": true, "udpEnabled": true },
+                    { "id": "ru-mobile-naiveproxy", "title": "Russian mobile NaiveProxy", "relayKind": "naiveproxy", "routeMode": "direct_for_domestic", "requiresNaiveHttpsProxy": true },
+                    { "id": "ru-mobile-relay", "title": "Russian mobile relay", "relayKind": "chain_relay", "routeMode": "direct_for_domestic" }
+                  ]
+                }
+                """.trimIndent(),
+            )
+
+        val suggestion =
+            suggestRelayPreset(
+                snapshot =
+                    NativeNetworkSnapshot(
+                        transport = "cellular",
+                        cellular = NativeCellularSnapshot(operatorCode = "25099", generation = "5g"),
+                    ),
+                presets = presets,
+                capabilityRecords =
+                    listOf(
+                        ServerCapabilityRecord(
+                            scope = "relay",
+                            fingerprintHash = "fp",
+                            authority = "relay.example",
+                            quicUsable = false,
+                            udpUsable = false,
+                            naiveHttpsProxyAccepted = true,
+                            fallbackRequired = true,
+                        ),
+                    ),
+            )
+
+        assertNotNull(suggestion)
+        assertEquals("ru-mobile-naiveproxy", suggestion?.preset?.id)
     }
 
     @Test

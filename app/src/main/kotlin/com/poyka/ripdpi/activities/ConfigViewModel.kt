@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
@@ -26,11 +27,15 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayPresetCatalog
+import com.poyka.ripdpi.data.RelayPresetDefinition
 import com.poyka.ripdpi.data.RelayPresetSuggestion
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.ServerCapabilityObservation
+import com.poyka.ripdpi.data.ServerCapabilityRecord
+import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.StrategyChainSet
@@ -71,6 +76,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Locale
 import javax.inject.Inject
 import com.poyka.ripdpi.data.FailureClass as RuntimeFailureClass
 
@@ -603,6 +609,8 @@ class ConfigViewModel
         private val masquePrivacyPassAvailability: MasquePrivacyPassAvailability,
         private val relayPresetCatalog: RelayPresetCatalog,
         private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
+        private val networkFingerprintProvider: NetworkFingerprintProvider,
+        private val serverCapabilityStore: ServerCapabilityStore,
         private val serviceStateStore: ServiceStateStore,
     ) : ViewModel() {
         private val editorSession = MutableStateFlow(ConfigEditorSession())
@@ -610,6 +618,10 @@ class ConfigViewModel
 
         private val _effects = Channel<ConfigEffect>(Channel.BUFFERED)
         val effects: Flow<ConfigEffect> = _effects.receiveAsFlow()
+
+        init {
+            observeCapabilityEvidence()
+        }
 
         val uiState: StateFlow<ConfigUiState> =
             combine(
@@ -619,6 +631,14 @@ class ConfigViewModel
             ) { settings, session, serviceTelemetry ->
                 val relayPresets = relayPresetCatalog.all()
                 val networkSnapshot = runCatching { networkSnapshotProvider.capture() }.getOrNull()
+                val capabilityRecords =
+                    runCatching {
+                        networkFingerprintProvider
+                            .capture()
+                            ?.let { fingerprint ->
+                                serverCapabilityStore.relayCapabilitiesForFingerprint(fingerprint.scopeKey())
+                            }.orEmpty()
+                    }.getOrDefault(emptyList())
                 val currentDraft =
                     sanitizeMasqueAuthModeForCurrentBuild(
                         draft = settings.toConfigDraft(),
@@ -657,8 +677,9 @@ class ConfigViewModel
                             }.toImmutableList(),
                     relayPresetSuggestion =
                         resolveRelayPresetSuggestion(
-                            heuristicSuggestion = relayPresetCatalog.suggestFor(networkSnapshot),
+                            heuristicSuggestion = relayPresetCatalog.suggestFor(networkSnapshot, capabilityRecords),
                             serviceTelemetry = serviceTelemetry,
+                            capabilityRecords = capabilityRecords,
                         ).toUiState(draft),
                     supportsMasquePrivacyPass = supportsMasquePrivacyPass,
                 )
@@ -718,14 +739,7 @@ class ConfigViewModel
         fun applyRelayPreset(presetId: String) {
             val preset = relayPresetCatalog.find(presetId) ?: return
             updateDraft {
-                copy(
-                    relayEnabled = true,
-                    relayKind = RelayKindChainRelay,
-                    relayPresetId = preset.id,
-                    relayChainEntryPort = defaultRelayPort.toString(),
-                    relayChainExitPort = defaultRelayPort.toString(),
-                    relayChainEntryServerName = relayChainEntryServerName.ifBlank { "ya.ru" },
-                )
+                applyRelayPresetDefinition(preset)
             }
         }
 
@@ -866,7 +880,93 @@ class ConfigViewModel
                 ),
             )
         }
+
+        private fun observeCapabilityEvidence() {
+            viewModelScope.launch {
+                combine(
+                    appSettingsRepository.settings,
+                    serviceStateStore.telemetry,
+                ) { settings, telemetry ->
+                    settings.toConfigDraft() to telemetry
+                }.collect { (draft, telemetry) ->
+                    persistCapabilityEvidence(draft, telemetry)
+                }
+            }
+        }
+
+        private suspend fun persistCapabilityEvidence(
+            draft: ConfigDraft,
+            telemetry: ServiceTelemetrySnapshot,
+        ) {
+            val fingerprint = runCatching { networkFingerprintProvider.capture() }.getOrNull() ?: return
+            buildRelayCapabilityObservation(draft, telemetry)?.let { (authority, observation) ->
+                serverCapabilityStore.rememberRelayObservation(
+                    fingerprint = fingerprint,
+                    authority = authority,
+                    relayProfileId = draft.relayProfileId.ifBlank { DefaultRelayProfileId },
+                    observation = observation,
+                    source = "config_viewmodel",
+                )
+            }
+            buildDirectPathCapabilityObservation(telemetry)?.let { (authority, observation) ->
+                serverCapabilityStore.rememberDirectPathObservation(
+                    fingerprint = fingerprint,
+                    authority = authority,
+                    observation = observation,
+                    source = "config_viewmodel",
+                )
+            }
+        }
     }
+
+internal fun ConfigDraft.applyRelayPresetDefinition(preset: RelayPresetDefinition): ConfigDraft =
+    copy(
+        relayEnabled = true,
+        relayKind = preset.relayKind,
+        relayPresetId = preset.id,
+        relayChainEntryProfileId =
+            if (preset.relayKind == RelayKindChainRelay) {
+                preset.chainEntryProfileId
+            } else {
+                ""
+            },
+        relayChainExitProfileId =
+            if (preset.relayKind == RelayKindChainRelay) {
+                preset.chainExitProfileId
+            } else {
+                ""
+            },
+        relayChainEntryServer = if (preset.relayKind == RelayKindChainRelay) relayChainEntryServer else "",
+        relayChainEntryPort = defaultRelayPort.toString(),
+        relayChainEntryServerName = if (preset.relayKind == RelayKindChainRelay) relayChainEntryServerName else "",
+        relayChainEntryPublicKey = if (preset.relayKind == RelayKindChainRelay) relayChainEntryPublicKey else "",
+        relayChainEntryShortId = if (preset.relayKind == RelayKindChainRelay) relayChainEntryShortId else "",
+        relayChainExitServer = if (preset.relayKind == RelayKindChainRelay) relayChainExitServer else "",
+        relayChainExitPort = defaultRelayPort.toString(),
+        relayChainExitServerName = if (preset.relayKind == RelayKindChainRelay) relayChainExitServerName else "",
+        relayChainExitPublicKey = if (preset.relayKind == RelayKindChainRelay) relayChainExitPublicKey else "",
+        relayChainExitShortId = if (preset.relayKind == RelayKindChainRelay) relayChainExitShortId else "",
+        relayShadowTlsInnerProfileId =
+            if (preset.relayKind == RelayKindShadowTlsV3) {
+                preset.shadowTlsInnerProfileId
+            } else {
+                ""
+            },
+        relayTuicZeroRtt = if (preset.relayKind == RelayKindTuicV5) preset.tuicZeroRtt else relayTuicZeroRtt,
+        relayTuicCongestionControl =
+            if (preset.relayKind == RelayKindTuicV5) {
+                normalizeRelayCongestionControl(preset.tuicCongestionControl)
+            } else {
+                relayTuicCongestionControl
+            },
+        relayNaivePath = if (preset.relayKind == RelayKindNaiveProxy) preset.naivePath else "",
+        relayUdpEnabled =
+            preset.udpEnabled &&
+                (
+                    preset.relayKind == RelayKindHysteria2 || preset.relayKind == RelayKindMasque ||
+                        preset.relayKind == RelayKindTuicV5
+                ),
+    )
 
 private fun RelayPresetSuggestion?.toUiState(draft: ConfigDraft): RelayPresetSuggestionUiState? {
     val suggestion = this ?: return null
@@ -881,10 +981,15 @@ private fun RelayPresetSuggestion?.toUiState(draft: ConfigDraft): RelayPresetSug
 internal fun resolveRelayPresetSuggestion(
     heuristicSuggestion: RelayPresetSuggestion?,
     serviceTelemetry: ServiceTelemetrySnapshot,
+    capabilityRecords: List<ServerCapabilityRecord> = emptyList(),
 ): RelayPresetSuggestion? {
     val suggestion = heuristicSuggestion ?: return null
-    val evidence = relayPresetEvidenceReason(serviceTelemetry) ?: return null
-    return suggestion.copy(reason = evidence)
+    val evidence = relayPresetEvidenceReason(serviceTelemetry)
+    return when {
+        evidence != null -> suggestion.copy(reason = evidence)
+        capabilityRecords.isNotEmpty() -> suggestion
+        else -> null
+    }
 }
 
 private fun relayPresetEvidenceReason(serviceTelemetry: ServiceTelemetrySnapshot): String? {
@@ -942,3 +1047,108 @@ private fun NativeRuntimeSnapshot.isDegradedControlPlane(): Boolean {
         lastFailureClass?.isNotBlank() == true ||
         lastError?.isNotBlank() == true
 }
+
+private fun buildRelayCapabilityObservation(
+    draft: ConfigDraft,
+    telemetry: ServiceTelemetrySnapshot,
+): Pair<String, ServerCapabilityObservation>? {
+    val relayTelemetry = telemetry.relayTelemetry
+    val authority = relayAuthorityCandidate(draft, relayTelemetry) ?: return null
+    val healthState = relayTelemetry.health.trim().lowercase(Locale.US)
+    val lastFailureText =
+        relayTelemetry.lastFailureClass?.trim()?.takeIf { it.isNotEmpty() }
+            ?: relayTelemetry.lastHandshakeError?.trim()?.takeIf { it.isNotEmpty() }
+            ?: relayTelemetry.lastError?.trim()?.takeIf { it.isNotEmpty() }
+    val successfulSession = relayTelemetry.activeSessions > 0 || relayTelemetry.totalSessions > 0
+    val quicRelayKind =
+        draft.relayKind == RelayKindTuicV5 ||
+            draft.relayKind == RelayKindHysteria2 ||
+            draft.relayKind == RelayKindMasque
+    val healthy = relayTelemetry.state.equals("running", ignoreCase = true) || healthState == "healthy"
+    return authority to
+        ServerCapabilityObservation(
+            quicUsable =
+                when {
+                    quicRelayKind && healthy -> true
+                    quicRelayKind && relayTelemetry.lastFailureClass?.isNotBlank() == true -> false
+                    else -> null
+                },
+            udpUsable =
+                relayTelemetry.udpCapable ?: when {
+                    quicRelayKind && healthy -> true
+                    quicRelayKind && relayTelemetry.lastFailureClass?.isNotBlank() == true -> false
+                    else -> null
+                },
+            authModeAccepted = if (successfulSession && healthy) true else null,
+            multiplexReusable = if (successfulSession && relayTelemetry.routeChanges == 0L) true else null,
+            shadowTlsCamouflageAccepted =
+                when {
+                    draft.relayKind == RelayKindShadowTlsV3 && healthy -> true
+
+                    draft.relayKind == RelayKindShadowTlsV3 &&
+                        relayTelemetry.lastFailureClass?.isNotBlank() == true -> false
+
+                    else -> null
+                },
+            naiveHttpsProxyAccepted =
+                when {
+                    draft.relayKind == RelayKindNaiveProxy && healthy -> true
+
+                    draft.relayKind == RelayKindNaiveProxy &&
+                        relayTelemetry.lastFailureClass?.isNotBlank() == true -> false
+
+                    else -> null
+                },
+            fallbackRequired =
+                relayTelemetry.lastFallbackAction?.trim()?.takeIf { it.isNotEmpty() } != null ||
+                    relayTelemetry.fallbackMode?.trim()?.takeIf { it.isNotEmpty() } != null,
+            repeatedHandshakeFailureClass = lastFailureText,
+        )
+}
+
+private fun buildDirectPathCapabilityObservation(
+    telemetry: ServiceTelemetrySnapshot,
+): Pair<String, ServerCapabilityObservation>? {
+    val proxyTelemetry = telemetry.proxyTelemetry
+    val authority =
+        proxyTelemetry.lastTarget?.trim()?.takeIf { it.isNotEmpty() }
+            ?: proxyTelemetry.lastHost?.trim()?.takeIf { it.isNotEmpty() }
+            ?: return null
+    val healthState = proxyTelemetry.health.trim().lowercase(Locale.US)
+    val healthy = proxyTelemetry.state.equals("running", ignoreCase = true) || healthState == "healthy"
+    return authority to
+        ServerCapabilityObservation(
+            quicUsable =
+                when {
+                    proxyTelemetry.protocolKind?.contains("quic", ignoreCase = true) == true && healthy -> true
+                    proxyTelemetry.lastFailureClass?.contains("quic", ignoreCase = true) == true -> false
+                    else -> null
+                },
+            udpUsable = proxyTelemetry.udpCapable,
+            multiplexReusable = if (healthy && proxyTelemetry.totalSessions > 1) true else null,
+            fallbackRequired =
+                proxyTelemetry.lastFallbackAction?.trim()?.takeIf { it.isNotEmpty() } != null ||
+                    proxyTelemetry.fallbackMode?.trim()?.takeIf { it.isNotEmpty() } != null,
+            repeatedHandshakeFailureClass =
+                proxyTelemetry.lastFailureClass?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: proxyTelemetry.lastError?.trim()?.takeIf { it.isNotEmpty() },
+        )
+}
+
+private fun relayAuthorityCandidate(
+    draft: ConfigDraft,
+    relayTelemetry: NativeRuntimeSnapshot,
+): String? =
+    relayTelemetry.upstreamAddress?.trim()?.takeIf { it.isNotEmpty() }
+        ?: relayTelemetry.lastTarget?.trim()?.takeIf { it.isNotEmpty() }
+        ?: relayTelemetry.lastHost?.trim()?.takeIf { it.isNotEmpty() }
+        ?: when {
+            draft.relayMasqueUrl.isNotBlank() -> draft.relayMasqueUrl
+
+            draft.relayServer.isNotBlank() -> "${draft.relayServer}:${draft.relayServerPort.ifBlank {
+                defaultRelayPort
+                    .toString()
+            }}"
+
+            else -> null
+        }

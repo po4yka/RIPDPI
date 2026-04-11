@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.RelayPresetDefinition
 import com.poyka.ripdpi.data.RelayPresetSuggestion
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
+import com.poyka.ripdpi.data.ServerCapabilityRecord
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import org.junit.Assert.assertEquals
@@ -292,6 +293,7 @@ class ConfigViewModelTest {
                         reason = "heuristic only",
                     ),
                 serviceTelemetry = ServiceTelemetrySnapshot(),
+                capabilityRecords = emptyList(),
             )
 
         assertEquals(null, suggestion)
@@ -319,8 +321,60 @@ class ConfigViewModelTest {
                                 lastError = "whitelist_sni_failed",
                             ),
                     ),
+                capabilityRecords = emptyList(),
             )
 
         assertTrue(suggestion?.reason?.contains("whitelist-style routing pressure") == true)
+    }
+
+    @Test
+    fun `relay preset suggestion uses stored capability evidence when runtime is idle`() {
+        val suggestion =
+            resolveRelayPresetSuggestion(
+                heuristicSuggestion =
+                    RelayPresetSuggestion(
+                        preset =
+                            RelayPresetDefinition(
+                                id = "ru-mobile-tuic",
+                                title = "Russian mobile TUIC",
+                                relayKind = RelayKindTuicV5,
+                                routeMode = "direct_for_domestic",
+                            ),
+                        reason =
+                            "Saved capability evidence for this network shows QUIC and UDP relay paths are usable.",
+                    ),
+                serviceTelemetry = ServiceTelemetrySnapshot(),
+                capabilityRecords =
+                    listOf(
+                        ServerCapabilityRecord(
+                            scope = "relay",
+                            fingerprintHash = "fp",
+                            authority = "relay.example",
+                            quicUsable = true,
+                            udpUsable = true,
+                        ),
+                    ),
+            )
+
+        assertTrue(suggestion?.reason?.contains("Saved capability evidence") == true)
+    }
+
+    @Test
+    fun `apply relay preset definition materializes chain profile references`() {
+        val updated =
+            defaultDraft.applyRelayPresetDefinition(
+                RelayPresetDefinition(
+                    id = "ru-mobile-relay",
+                    title = "Russian mobile relay",
+                    relayKind = com.poyka.ripdpi.data.RelayKindChainRelay,
+                    chainEntryProfileId = "ru-mobile-entry",
+                    chainExitProfileId = "eu-egress",
+                ),
+            )
+
+        assertTrue(updated.relayEnabled)
+        assertEquals(com.poyka.ripdpi.data.RelayKindChainRelay, updated.relayKind)
+        assertEquals("ru-mobile-entry", updated.relayChainEntryProfileId)
+        assertEquals("eu-egress", updated.relayChainExitProfileId)
     }
 }

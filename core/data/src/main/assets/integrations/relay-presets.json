@@ -1,12 +1,52 @@
 {
   "presets": [
     {
+      "id": "ru-mobile-tuic",
+      "title": "Russian mobile TUIC",
+      "entryCountry": "RU",
+      "exitCountry": "EU",
+      "antiCorrelationSuggested": true,
+      "routeMode": "direct_for_domestic",
+      "relayKind": "tuic_v5",
+      "tuicZeroRtt": true,
+      "tuicCongestionControl": "bbr",
+      "udpEnabled": true,
+      "requiresQuic": true,
+      "requiresUdp": true,
+      "requiresMultiplexReusable": true
+    },
+    {
+      "id": "ru-mobile-shadowtls",
+      "title": "Russian mobile ShadowTLS",
+      "entryCountry": "RU",
+      "exitCountry": "EU",
+      "antiCorrelationSuggested": true,
+      "routeMode": "direct_for_domestic",
+      "relayKind": "shadowtls_v3",
+      "shadowTlsInnerProfileId": "ru-mobile-vless-entry",
+      "requiresShadowTlsCamouflage": true
+    },
+    {
+      "id": "ru-mobile-naiveproxy",
+      "title": "Russian mobile NaiveProxy",
+      "entryCountry": "RU",
+      "exitCountry": "EU",
+      "antiCorrelationSuggested": true,
+      "routeMode": "direct_for_domestic",
+      "relayKind": "naiveproxy",
+      "naivePath": "/",
+      "requiresNaiveHttpsProxy": true
+    },
+    {
       "id": "ru-mobile-relay",
       "title": "Russian mobile relay",
       "entryCountry": "RU",
       "exitCountry": "EU",
       "antiCorrelationSuggested": true,
-      "routeMode": "direct_for_domestic"
+      "routeMode": "direct_for_domestic",
+      "relayKind": "chain_relay",
+      "chainEntryProfileId": "ru-mobile-entry",
+      "chainExitProfileId": "eu-egress"
     }
   ]
 }
