@@ -177,6 +177,11 @@ class UpstreamRelaySupervisorTest {
                 object : MasquePrivacyPassProvider {
                     override fun isAvailable(): Boolean = true
 
+                    override fun readinessFor(
+                        config: RipDpiRelayConfig,
+                        credentials: RelayCredentialRecord?,
+                    ): MasquePrivacyPassReadiness = MasquePrivacyPassReadiness.Ready
+
                     override suspend fun resolve(
                         profileId: String,
                         config: RipDpiRelayConfig,
@@ -280,7 +285,7 @@ class UpstreamRelaySupervisorTest {
                 )
                 fail("Expected MASQUE privacy_pass startup to fail without a provider")
             } catch (error: IllegalArgumentException) {
-                assertTrue(error.message?.contains("token provider") == true)
+                assertTrue(error.message?.contains("provider URL") == true)
             }
         }
 
