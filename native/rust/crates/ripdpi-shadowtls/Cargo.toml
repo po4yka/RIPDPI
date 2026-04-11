@@ -5,7 +5,12 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+rand.workspace = true
+ring.workspace = true
+rustls.workspace = true
 serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["io-util", "net"] }
+webpki-roots.workspace = true
 
 [lints]
 workspace = true

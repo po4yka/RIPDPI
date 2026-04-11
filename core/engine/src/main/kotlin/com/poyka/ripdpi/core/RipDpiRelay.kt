@@ -88,6 +88,19 @@ class RipDpiRelayNativeBindings
 private val relayJson = Json { ignoreUnknownKeys = true }
 
 @Serializable
+data class ResolvedShadowTlsInnerRelayConfig(
+    val kind: String,
+    val profileId: String,
+    val server: String,
+    val serverPort: Int,
+    val serverName: String,
+    val realityPublicKey: String = "",
+    val realityShortId: String = "",
+    val vlessTransport: String = RelayVlessTransportRealityTcp,
+    val vlessUuid: String? = null,
+)
+
+@Serializable
 data class ResolvedRipDpiRelayConfig(
     val enabled: Boolean,
     val kind: String,
@@ -119,6 +132,7 @@ data class ResolvedRipDpiRelayConfig(
     val tuicZeroRtt: Boolean = false,
     val tuicCongestionControl: String = RelayCongestionControlBbr,
     val shadowTlsInnerProfileId: String = "",
+    val shadowTlsInner: ResolvedShadowTlsInnerRelayConfig? = null,
     val naivePath: String = "",
     val localSocksHost: String,
     val localSocksPort: Int,
