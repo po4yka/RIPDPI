@@ -1,4 +1,6 @@
 import com.android.build.api.dsl.LibraryExtension
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
@@ -22,6 +24,7 @@ import org.gradle.process.ExecOperations
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.nio.file.Files
+import java.security.MessageDigest
 import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import javax.inject.Inject
@@ -30,6 +33,16 @@ data class RustNativeArtifact(
     val packageName: String,
     val sourceName: String,
     val outputName: String,
+)
+
+data class PluggableTransportSource(
+    val id: String,
+    val repoUrl: String,
+    val commit: String,
+    val goToolchain: String?,
+    val packagePath: String,
+    val sourceBinaryName: String,
+    val outputNames: List<String>,
 )
 
 @CacheableTask
@@ -465,8 +478,386 @@ abstract class BuildRustNativeLibsTask
             }
     }
 
+@CacheableTask
+abstract class BuildPluggableTransportAssetsTask
+    @Inject
+    constructor(
+        private val execOperations: ExecOperations,
+        private val fileSystemOperations: FileSystemOperations,
+    ) : DefaultTask() {
+        @get:InputFile
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val sourcesManifest: RegularFileProperty
+
+        @get:Input
+        abstract val gitExecutable: Property<String>
+
+        @get:Input
+        abstract val goExecutable: Property<String>
+
+        @get:Input
+        abstract val buildMode: Property<String>
+
+        @get:Input
+        abstract val strictFailures: Property<Boolean>
+
+        @get:Input
+        abstract val abis: ListProperty<String>
+
+        @get:OutputDirectory
+        abstract val outputDir: DirectoryProperty
+
+        @get:LocalState
+        abstract val workDir: DirectoryProperty
+
+        @TaskAction
+        fun build() {
+            val mode = buildMode.get()
+            val outputRoot = outputDir.get().asFile
+            val workRoot = workDir.get().asFile
+            val sources = parseSourcesManifest(sourcesManifest.get().asFile)
+            val strictMode = strictFailures.get()
+            val buildFromSource =
+                when (mode) {
+                    "source" -> {
+                        true
+                    }
+
+                    "stub" -> {
+                        false
+                    }
+
+                    "auto" -> {
+                        executableAvailable(gitExecutable.get(), "--version") &&
+                            executableAvailable(goExecutable.get(), "version")
+                    }
+
+                    else -> {
+                        throw GradleException("Unsupported pluggable transport build mode: $mode")
+                    }
+                }
+
+            if (mode == "source" && !executableAvailable(gitExecutable.get(), "--version")) {
+                throw GradleException("git is required for ripdpi.pluggableTransportAssetsMode=source")
+            }
+            if (mode == "source" && !executableAvailable(goExecutable.get(), "version")) {
+                throw GradleException("go is required for ripdpi.pluggableTransportAssetsMode=source")
+            }
+
+            pruneStaleOutputs(outputRoot)
+            val records = mutableListOf<Map<String, Any?>>()
+            val reposDir = workRoot.resolve("repos")
+            val cacheDir = workRoot.resolve("gocache")
+            val modCacheDir = workRoot.resolve("gomodcache")
+            reposDir.mkdirs()
+            cacheDir.mkdirs()
+            modCacheDir.mkdirs()
+
+            for (abi in abis.get()) {
+                val abiBinDir = outputRoot.resolve("bin").resolve(abi).apply { mkdirs() }
+                for (source in sources) {
+                    var buildError: String? = null
+                    val sourceBuildResult =
+                        if (buildFromSource) {
+                            runCatching {
+                                val repoDir = syncPinnedRepo(reposDir, source)
+                                buildGoBinary(
+                                    source = source,
+                                    abi = abi,
+                                    repoDir = repoDir,
+                                    cacheDir = cacheDir.resolve(abi).resolve(source.id),
+                                    modCacheDir = modCacheDir,
+                                )
+                            }.getOrElse { error ->
+                                if (strictMode) {
+                                    throw error
+                                }
+                                buildError = error.message ?: error::class.java.simpleName
+                                logger.warn(
+                                    "Pluggable transport source build failed for ${source.id} ($abi): $buildError",
+                                )
+                                null
+                            }
+                        } else {
+                            null
+                        }
+                    for (outputName in source.outputNames) {
+                        val launcher = abiBinDir.resolve(outputName)
+                        val upstreamBinary = abiBinDir.resolve("$outputName.upstream")
+                        if (sourceBuildResult != null) {
+                            copyIfChanged(sourceBuildResult, upstreamBinary)
+                            launcher.writeText(
+                                adapterStubScript(outputName, upstreamBinary.name, source),
+                                Charsets.UTF_8,
+                            )
+                        } else if (buildError != null) {
+                            if (upstreamBinary.exists()) {
+                                upstreamBinary.delete()
+                            }
+                            launcher.writeText(
+                                sourceBuildFailedScript(outputName, source, buildError!!),
+                                Charsets.UTF_8,
+                            )
+                        } else {
+                            if (upstreamBinary.exists()) {
+                                upstreamBinary.delete()
+                            }
+                            launcher.writeText(sourceBuildUnavailableScript(outputName, source), Charsets.UTF_8)
+                        }
+                        launcher.setExecutable(true, true)
+                        upstreamBinary.takeIf(File::exists)?.setExecutable(true, true)
+                        records +=
+                            mapOf(
+                                "abi" to abi,
+                                "outputName" to outputName,
+                                "sourceId" to source.id,
+                                "repoUrl" to source.repoUrl,
+                                "commit" to source.commit,
+                                "goToolchain" to source.goToolchain,
+                                "packagePath" to source.packagePath,
+                                "mode" to if (sourceBuildResult != null) "source" else "stub",
+                                "buildError" to buildError,
+                                "launcherSha256" to sha256(launcher),
+                                "upstreamBinary" to upstreamBinary.name.takeIf { upstreamBinary.exists() },
+                                "upstreamSha256" to upstreamBinary.takeIf(File::exists)?.let(::sha256),
+                            )
+                    }
+                }
+            }
+
+            val manifestFile = outputRoot.resolve("metadata/pluggable-transports.json")
+            manifestFile.parentFile.mkdirs()
+            manifestFile.writeText(
+                JsonOutput.prettyPrint(
+                    JsonOutput.toJson(
+                        mapOf(
+                            "schemaVersion" to 1,
+                            "buildMode" to if (buildFromSource) "source" else "stub",
+                            "strictFailures" to strictMode,
+                            "sources" to
+                                sources.map { source ->
+                                    mapOf(
+                                        "id" to source.id,
+                                        "repoUrl" to source.repoUrl,
+                                        "commit" to source.commit,
+                                        "goToolchain" to source.goToolchain,
+                                        "packagePath" to source.packagePath,
+                                        "sourceBinaryName" to source.sourceBinaryName,
+                                        "outputNames" to source.outputNames,
+                                    )
+                                },
+                            "artifacts" to records,
+                        ),
+                    ),
+                ),
+                Charsets.UTF_8,
+            )
+        }
+
+        private fun parseSourcesManifest(file: File): List<PluggableTransportSource> {
+            val root = JsonSlurper().parse(file) as Map<*, *>
+            val schemaVersion = (root["schemaVersion"] as Number?)?.toInt()
+            require(schemaVersion == 1) { "Unsupported pluggable transport source schema version: $schemaVersion" }
+            val sources = root["sources"] as? List<*> ?: error("pluggable transport source manifest missing sources")
+            return sources.map { entry ->
+                val data = entry as Map<*, *>
+                PluggableTransportSource(
+                    id = data.requireString("id"),
+                    repoUrl = data.requireString("repoUrl"),
+                    commit = data.requireString("commit"),
+                    goToolchain = data["goToolchain"]?.toString()?.takeIf(String::isNotBlank),
+                    packagePath = data.requireString("packagePath"),
+                    sourceBinaryName = data.requireString("sourceBinaryName"),
+                    outputNames = (data["outputNames"] as? List<*>)?.map { it.toString() }.orEmpty(),
+                ).also { source ->
+                    require(
+                        source.outputNames.isNotEmpty(),
+                    ) { "Source ${source.id} must declare at least one output name" }
+                }
+            }
+        }
+
+        private fun syncPinnedRepo(
+            reposDir: File,
+            source: PluggableTransportSource,
+        ): File {
+            val repoDir = reposDir.resolve(source.id)
+            if (!repoDir.resolve(".git").exists()) {
+                fileSystemOperations.delete { delete(repoDir) }
+                execOperations
+                    .exec {
+                        commandLine(
+                            gitExecutable.get(),
+                            "clone",
+                            "--filter=blob:none",
+                            source.repoUrl,
+                            repoDir.absolutePath,
+                        )
+                    }.assertNormalExitValue()
+            }
+            execOperations
+                .exec {
+                    workingDir = repoDir
+                    commandLine(gitExecutable.get(), "fetch", "--depth", "1", "origin", source.commit)
+                }.assertNormalExitValue()
+            execOperations
+                .exec {
+                    workingDir = repoDir
+                    commandLine(gitExecutable.get(), "checkout", "--force", source.commit)
+                }.assertNormalExitValue()
+            execOperations
+                .exec {
+                    workingDir = repoDir
+                    commandLine(gitExecutable.get(), "clean", "-fdx")
+                }.assertNormalExitValue()
+            return repoDir
+        }
+
+        private fun buildGoBinary(
+            source: PluggableTransportSource,
+            abi: String,
+            repoDir: File,
+            cacheDir: File,
+            modCacheDir: File,
+        ): File {
+            val outputFile = workDir.get().asFile.resolve("built/$abi/${source.id}/${source.sourceBinaryName}")
+            outputFile.parentFile.mkdirs()
+            cacheDir.mkdirs()
+            val goArch = abiToGoArch(abi)
+            execOperations
+                .exec {
+                    workingDir = repoDir
+                    environment("GOOS", "android")
+                    environment("GOARCH", goArch.arch)
+                    goArch.goarm?.let { environment("GOARM", it) }
+                    environment("CGO_ENABLED", "0")
+                    environment("GOCACHE", cacheDir.absolutePath)
+                    environment("GOMODCACHE", modCacheDir.absolutePath)
+                    environment("GOFLAGS", "-trimpath -buildvcs=false")
+                    source.goToolchain?.let { environment("GOTOOLCHAIN", it) }
+                    commandLine(
+                        goExecutable.get(),
+                        "build",
+                        "-trimpath",
+                        "-buildvcs=false",
+                        "-ldflags=-s -w -buildid=",
+                        "-o",
+                        outputFile.absolutePath,
+                        source.packagePath,
+                    )
+                }.assertNormalExitValue()
+            if (!outputFile.isFile) {
+                throw GradleException(
+                    "Expected pluggable transport binary was not produced: ${outputFile.absolutePath}",
+                )
+            }
+            return outputFile
+        }
+
+        private fun executableAvailable(
+            executable: String,
+            vararg args: String,
+        ): Boolean =
+            runCatching {
+                execOperations.exec {
+                    isIgnoreExitValue = true
+                    commandLine(listOf(executable) + args)
+                }
+            }.getOrNull()?.exitValue == 0
+
+        private fun pruneStaleOutputs(outputRoot: File) {
+            if (!outputRoot.isDirectory) {
+                return
+            }
+            fileSystemOperations.delete {
+                delete(outputRoot)
+            }
+        }
+
+        private fun adapterStubScript(
+            outputName: String,
+            upstreamBinaryName: String,
+            source: PluggableTransportSource,
+        ): String =
+            """
+            |#!/system/bin/sh
+            |echo "$outputName was source-built from ${source.id}@${source.commit}, but the standalone RIPDPI SOCKS adapter is not generated yet." >&2
+            |echo "Upstream binary is packaged as $upstreamBinaryName for future adapter integration." >&2
+            |exit 78
+            """.trimMargin()
+
+        private fun sourceBuildFailedScript(
+            outputName: String,
+            source: PluggableTransportSource,
+            buildError: String,
+        ): String =
+            """
+            |#!/system/bin/sh
+            |echo "$outputName could not be source-built from ${source.id}@${source.commit}." >&2
+            |echo "${buildError.replace("\"", "\\\"")}" >&2
+            |exit 78
+            """.trimMargin()
+
+        private fun sourceBuildUnavailableScript(
+            outputName: String,
+            source: PluggableTransportSource,
+        ): String =
+            """
+            |#!/system/bin/sh
+            |echo "$outputName is unavailable in this APK because pluggable transport source builds were skipped." >&2
+            |echo "Rebuild with -Pripdpi.pluggableTransportAssetsMode=source to compile ${source.id} from ${source.repoUrl}." >&2
+            |exit 78
+            """.trimMargin()
+
+        private fun copyIfChanged(
+            source: File,
+            target: File,
+        ) {
+            target.parentFile.mkdirs()
+            if (target.isFile && Files.mismatch(source.toPath(), target.toPath()) == -1L) {
+                return
+            }
+            source.copyTo(target, overwrite = true)
+        }
+
+        private fun sha256(file: File): String {
+            val digest = MessageDigest.getInstance("SHA-256")
+            file.inputStream().use { input ->
+                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                while (true) {
+                    val read = input.read(buffer)
+                    if (read <= 0) {
+                        break
+                    }
+                    digest.update(buffer, 0, read)
+                }
+            }
+            return digest.digest().joinToString("") { "%02x".format(it) }
+        }
+
+        private fun abiToGoArch(abi: String): GoArch =
+            when (abi) {
+                "armeabi-v7a" -> GoArch(arch = "arm", goarm = "7")
+                "arm64-v8a" -> GoArch(arch = "arm64")
+                "x86" -> GoArch(arch = "386")
+                "x86_64" -> GoArch(arch = "amd64")
+                else -> throw GradleException("Unsupported ABI for pluggable transport build: $abi")
+            }
+
+        private data class GoArch(
+            val arch: String,
+            val goarm: String? = null,
+        )
+
+        private fun Map<*, *>.requireString(key: String): String =
+            this[key]?.toString()?.takeIf(String::isNotBlank)
+                ?: throw GradleException("Missing required pluggable transport manifest field: $key")
+    }
+
 val rustNativeAbis = resolvedNativeAbis()
 val rustNativeCargoProfile = resolvedNativeCargoProfile()
+val pluggableTransportAssetsMode = resolvedPluggableTransportAssetsMode()
+val pluggableTransportAssetsStrictFailures = resolvedPluggableTransportAssetsStrictFailures()
 val rustNativeArtifactSpecs =
     listOf(
         "ripdpi-android|libripdpi_android.so|libripdpi.so",
@@ -519,8 +910,14 @@ val rustNativePackageDirs =
     }
 val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
 val generatedAssetsDir = layout.buildDirectory.dir("generated/rootHelperAssets")
+val generatedPtAssetsDir = layout.buildDirectory.dir("generated/pluggableTransportAssets")
 val rustNativeLibsBuildDir = layout.buildDirectory.dir("intermediates/rust-native-libs")
 val rustRootHelperBuildDir = layout.buildDirectory.dir("intermediates/rust-root-helper")
+val ptAssetsBuildDir = layout.buildDirectory.dir("intermediates/pluggable-transport-assets")
+val ptSourcesManifestFile =
+    rootProject.layout.projectDirectory
+        .file("native/pluggable-transports/sources.json")
+        .asFile
 val rustRootHelperArtifactSpecs =
     listOf(
         "ripdpi-root-helper|ripdpi-root-helper|ripdpi-root-helper",
@@ -533,6 +930,7 @@ val rustNaiveProxyArtifactSpecs =
 extensions.configure<LibraryExtension> {
     sourceSets["main"].jniLibs.directories.add(generatedJniLibsDir.get().asFile.absolutePath)
     sourceSets["main"].assets.directories.add(generatedAssetsDir.get().asFile.absolutePath)
+    sourceSets["main"].assets.directories.add(generatedPtAssetsDir.get().asFile.absolutePath)
 }
 
 val buildRustNativeLibs =
@@ -665,6 +1063,21 @@ val buildRustNaiveProxy =
         outputDir.set(generatedAssetsDir.map { it.dir("bin") })
     }
 
+val buildPluggableTransportAssets =
+    tasks.register<BuildPluggableTransportAssetsTask>("buildPluggableTransportAssets") {
+        group = "build"
+        description = "Builds source-pinned pluggable transport helper assets or stub launchers."
+
+        sourcesManifest.set(ptSourcesManifestFile)
+        gitExecutable.set(resolveHostTool("git"))
+        goExecutable.set(resolveHostTool("go"))
+        buildMode.set(pluggableTransportAssetsMode)
+        strictFailures.set(pluggableTransportAssetsStrictFailures)
+        abis.set(rustNativeAbis)
+        outputDir.set(generatedPtAssetsDir)
+        workDir.set(ptAssetsBuildDir)
+    }
+
 // Wire the Rust build into the actual JNI packaging tasks so Rust-only source
 // changes cannot be skipped when the Android variants are otherwise up to date.
 tasks.configureEach {
@@ -678,6 +1091,7 @@ tasks.configureEach {
     if (name.matches(Regex("^merge.+Assets$"))) {
         dependsOn(buildRustRootHelper)
         dependsOn(buildRustNaiveProxy)
+        dependsOn(buildPluggableTransportAssets)
     }
 }
 
@@ -685,4 +1099,5 @@ tasks.named("preBuild") {
     dependsOn(buildRustNativeLibs)
     dependsOn(buildRustRootHelper)
     dependsOn(buildRustNaiveProxy)
+    dependsOn(buildPluggableTransportAssets)
 }
