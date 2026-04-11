@@ -42,6 +42,7 @@ import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
 import com.poyka.ripdpi.data.QuicInitialModeRouteAndCache
 import com.poyka.ripdpi.data.SeqOverlapFakeModeProfile
+import com.poyka.ripdpi.data.StrategyPackRuntimeState
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
@@ -734,4 +735,16 @@ data class HostPackCatalogUiState(
 ) {
     val presets: List<HostPackPreset>
         get() = snapshot.packs
+}
+
+@Stable
+data class StrategyPackCatalogUiState(
+    val runtimeState: StrategyPackRuntimeState = StrategyPackRuntimeState(),
+    val isRefreshing: Boolean = false,
+) {
+    val snapshot
+        get() = runtimeState.snapshot
+
+    val packs
+        get() = runtimeState.snapshot.packs
 }

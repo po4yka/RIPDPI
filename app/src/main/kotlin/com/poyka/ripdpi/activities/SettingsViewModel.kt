@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.WarpPayloadGenCatalog
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.hosts.HostPackCatalogRepository
@@ -21,12 +22,14 @@ import com.poyka.ripdpi.security.PinLockoutManager
 import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.security.PinVerifyResult
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
+import com.poyka.ripdpi.strategy.StrategyPackService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -42,6 +45,7 @@ class SettingsViewModel
         private val appSettingsRepository: AppSettingsRepository,
         private val rememberedPolicySource: DiagnosticsRememberedPolicySource,
         private val hostPackCatalogRepository: HostPackCatalogRepository,
+        private val strategyPackStateStore: StrategyPackStateStore,
         private val launcherIconController: LauncherIconController,
         private val serviceStateStore: ServiceStateStore,
         private val stringResolver: StringResolver,
@@ -50,6 +54,7 @@ class SettingsViewModel
         private val routingProtectionCatalogService: RoutingProtectionCatalogService,
         private val warpPayloadGenCatalog: WarpPayloadGenCatalog,
         private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
+        private val strategyPackService: StrategyPackService,
         private val pinVerifier: PinVerifier,
         private val pinLockoutManager: PinLockoutManager,
         private val application: Application,
@@ -58,10 +63,12 @@ class SettingsViewModel
         private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
         private val hostAutolearnStoreRefresh = MutableStateFlow(0)
         private val hostPackCatalogState = MutableStateFlow(HostPackCatalogUiState())
+        private val strategyPackCatalogState = MutableStateFlow(StrategyPackCatalogUiState())
         private val mutations = SettingsMutationRunner(viewModelScope, appSettingsRepository, _effects)
 
         val effects: Flow<SettingsEffect> = _effects.receiveAsFlow()
         val hostPackCatalog: StateFlow<HostPackCatalogUiState> = hostPackCatalogState
+        val strategyPackCatalog: StateFlow<StrategyPackCatalogUiState> = strategyPackCatalogState
 
         val uiState: StateFlow<SettingsUiState> =
             combine(
@@ -124,9 +131,12 @@ class SettingsViewModel
                 hostAutolearnStoreController = hostAutolearnStoreController,
                 rememberedPolicySource = rememberedPolicySource,
                 hostPackCatalogRepository = hostPackCatalogRepository,
+                strategyPackService = strategyPackService,
+                strategyPackStateStore = strategyPackStateStore,
                 mutations = mutations,
                 hostAutolearnStoreRefresh = hostAutolearnStoreRefresh,
                 hostPackCatalogState = hostPackCatalogState,
+                strategyPackCatalogState = strategyPackCatalogState,
                 currentUiState = { uiState.value },
                 currentServiceStatus = { serviceStateStore.status.value.first },
             )
@@ -134,6 +144,16 @@ class SettingsViewModel
 
         init {
             maintenanceActions.loadInitialHostPackCatalog()
+            maintenanceActions.loadInitialStrategyPackCatalog()
+            viewModelScope.launch {
+                strategyPackStateStore.state.collect { runtimeState ->
+                    strategyPackCatalogState.value =
+                        strategyPackCatalogState.value.copy(
+                            runtimeState = runtimeState,
+                            isRefreshing = false,
+                        )
+                }
+            }
             ensurePinKeyIntegrity()
         }
 
@@ -244,6 +264,8 @@ class SettingsViewModel
         fun forgetLearnedHosts() = maintenanceActions.forgetLearnedHosts()
 
         fun clearRememberedNetworks() = maintenanceActions.clearRememberedNetworks()
+
+        fun refreshStrategyPackCatalog() = maintenanceActions.refreshStrategyPackCatalog()
 
         fun resetFakeTlsProfile() = maintenanceActions.resetFakeTlsProfile()
 

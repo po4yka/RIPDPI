@@ -20,6 +20,7 @@ internal class ServiceStatusReporter(
     private val serviceStateStore: ServiceStateStore,
     private val networkFingerprintProvider: NetworkFingerprintProvider,
     private val telemetryFingerprintHasher: TelemetryFingerprintHasher,
+    private val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
     private val clock: ServiceClock = SystemServiceClock,
 ) {
     val startedAt: Long?
@@ -88,10 +89,10 @@ internal class ServiceStatusReporter(
                 mode = mode,
                 status = appStatus,
                 tunnelStats = tunnelStatsFor(mode, proxyTelemetry, tunnelTelemetry),
-                proxyTelemetry = proxyTelemetry,
-                relayTelemetry = effectiveRelayTelemetry,
-                warpTelemetry = effectiveWarpTelemetry,
-                tunnelTelemetry = tunnelTelemetry,
+                proxyTelemetry = enrichRuntimeSnapshot(proxyTelemetry),
+                relayTelemetry = enrichRuntimeSnapshot(effectiveRelayTelemetry),
+                warpTelemetry = enrichRuntimeSnapshot(effectiveWarpTelemetry),
+                tunnelTelemetry = enrichRuntimeSnapshot(tunnelTelemetry),
                 runtimeFieldTelemetry =
                     deriveRuntimeFieldTelemetry(
                         telemetryNetworkFingerprintHash =
@@ -99,10 +100,10 @@ internal class ServiceStatusReporter(
                         winningTcpStrategyFamily = winningTcpStrategyFamily,
                         winningQuicStrategyFamily = winningQuicStrategyFamily,
                         winningDnsStrategyFamily = winningDnsStrategyFamily,
-                        proxyTelemetry = proxyTelemetry,
-                        relayTelemetry = effectiveRelayTelemetry,
-                        warpTelemetry = effectiveWarpTelemetry,
-                        tunnelTelemetry = tunnelTelemetry,
+                        proxyTelemetry = enrichRuntimeSnapshot(proxyTelemetry),
+                        relayTelemetry = enrichRuntimeSnapshot(effectiveRelayTelemetry),
+                        warpTelemetry = enrichRuntimeSnapshot(effectiveWarpTelemetry),
+                        tunnelTelemetry = enrichRuntimeSnapshot(tunnelTelemetry),
                         tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
                         failureReason = failureReason,
                     ),
@@ -135,10 +136,10 @@ internal class ServiceStatusReporter(
                 mode = mode,
                 status = AppStatus.Running,
                 tunnelStats = tunnelStatsFor(mode, proxyTelemetry, enrichedTunnelTelemetry),
-                proxyTelemetry = proxyTelemetry,
-                relayTelemetry = relayTelemetry,
-                warpTelemetry = warpTelemetry,
-                tunnelTelemetry = enrichedTunnelTelemetry,
+                proxyTelemetry = enrichRuntimeSnapshot(proxyTelemetry),
+                relayTelemetry = enrichRuntimeSnapshot(relayTelemetry),
+                warpTelemetry = enrichRuntimeSnapshot(warpTelemetry),
+                tunnelTelemetry = enrichRuntimeSnapshot(enrichedTunnelTelemetry),
                 runtimeFieldTelemetry =
                     deriveRuntimeFieldTelemetry(
                         telemetryNetworkFingerprintHash =
@@ -146,10 +147,10 @@ internal class ServiceStatusReporter(
                         winningTcpStrategyFamily = winningTcpStrategyFamily,
                         winningQuicStrategyFamily = winningQuicStrategyFamily,
                         winningDnsStrategyFamily = winningDnsStrategyFamily,
-                        proxyTelemetry = proxyTelemetry,
-                        relayTelemetry = relayTelemetry,
-                        warpTelemetry = warpTelemetry,
-                        tunnelTelemetry = enrichedTunnelTelemetry,
+                        proxyTelemetry = enrichRuntimeSnapshot(proxyTelemetry),
+                        relayTelemetry = enrichRuntimeSnapshot(relayTelemetry),
+                        warpTelemetry = enrichRuntimeSnapshot(warpTelemetry),
+                        tunnelTelemetry = enrichRuntimeSnapshot(enrichedTunnelTelemetry),
                         tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
                         failureReason = failureReason,
                     ),
@@ -193,6 +194,18 @@ internal class ServiceStatusReporter(
     ): NativeRuntimeSnapshot {
         val classification = consumePendingNetworkHandoverClass() ?: return snapshot
         return snapshot.copy(networkHandoverClass = classification)
+    }
+
+    private fun enrichRuntimeSnapshot(snapshot: NativeRuntimeSnapshot): NativeRuntimeSnapshot {
+        val selection = runtimeExperimentSelectionProvider.current()
+        return snapshot.copy(
+            strategyPackId = snapshot.strategyPackId ?: selection.strategyPackId,
+            strategyPackVersion = snapshot.strategyPackVersion ?: selection.strategyPackVersion,
+            tlsProfileId = snapshot.tlsProfileId ?: selection.tlsProfileId,
+            tlsProfileCatalogVersion = snapshot.tlsProfileCatalogVersion ?: selection.tlsProfileCatalogVersion,
+            morphPolicyId = snapshot.morphPolicyId ?: selection.morphPolicyId,
+            quicMigrationStatus = snapshot.quicMigrationStatus ?: com.poyka.ripdpi.data.QuicMigrationStatusNotAttempted,
+        )
     }
 
     private fun tunnelStatsFor(

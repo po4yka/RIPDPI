@@ -22,9 +22,12 @@ import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
@@ -34,8 +37,8 @@ import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
-import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
+import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
@@ -79,6 +82,10 @@ internal fun RelayKindFields(
     onRelayNaiveUsernameChanged: (String) -> Unit,
     onRelayNaivePasswordChanged: (String) -> Unit,
     onRelayNaivePathChanged: (String) -> Unit,
+    onRelayPtBridgeLineChanged: (String) -> Unit,
+    onRelayWebTunnelUrlChanged: (String) -> Unit,
+    onRelaySnowflakeBrokerUrlChanged: (String) -> Unit,
+    onRelaySnowflakeFrontDomainChanged: (String) -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val colors = RipDpiThemeTokens.colors
@@ -403,6 +410,39 @@ internal fun RelayKindFields(
                 value = draft.relayNaivePath,
                 onValueChange = onRelayNaivePathChanged,
                 decoration = RipDpiTextFieldDecoration(label = "HTTP path (optional)"),
+            )
+        }
+
+        RelayKindSnowflake -> {
+            RipDpiTextField(
+                value = draft.relaySnowflakeBrokerUrl,
+                onValueChange = onRelaySnowflakeBrokerUrlChanged,
+                decoration = RipDpiTextFieldDecoration(label = "Broker URL"),
+            )
+            RipDpiTextField(
+                value = draft.relaySnowflakeFrontDomain,
+                onValueChange = onRelaySnowflakeFrontDomainChanged,
+                decoration = RipDpiTextFieldDecoration(label = "Front domain"),
+            )
+        }
+
+        RelayKindWebTunnel -> {
+            RipDpiTextField(
+                value = draft.relayWebTunnelUrl,
+                onValueChange = onRelayWebTunnelUrlChanged,
+                decoration = RipDpiTextFieldDecoration(label = "WebTunnel URL"),
+            )
+        }
+
+        RelayKindObfs4 -> {
+            RipDpiConfigTextField(
+                value = draft.relayPtBridgeLine,
+                onValueChange = onRelayPtBridgeLineChanged,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = "Bridge line",
+                        helperText = "Paste a full obfs4 bridge line from your bridge source.",
+                    ),
             )
         }
     }

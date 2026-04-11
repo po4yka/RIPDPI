@@ -487,7 +487,7 @@ class DefaultDiagnosticsHomeWorkflowService
                     val quicSummary =
                         buildList {
                             if (preferences.fakePackets.quicBindLowPort) add("low-port bind")
-                            if (preferences.fakePackets.quicMigrateAfterHandshake) add("post-handshake migration")
+                            if (preferences.fakePackets.quicMigrateAfterHandshake) add("post-handshake UDP rebind")
                         }.joinToString(separator = " · ")
                     add(DiagnosticsAppliedSetting(label = "QUIC resistance", value = quicSummary))
                 }

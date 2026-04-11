@@ -6,6 +6,8 @@ import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.data.DefaultRelayProfileId
+import com.poyka.ripdpi.data.DefaultSnowflakeBrokerUrl
+import com.poyka.ripdpi.data.DefaultSnowflakeFrontDomain
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayCredentialRecord
@@ -15,9 +17,12 @@ import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
@@ -44,6 +49,10 @@ internal class UpstreamRelaySupervisor(
     private val dispatcher: CoroutineDispatcher,
     private val relayFactory: RipDpiRelayFactory,
     private val naiveProxyRuntimeFactory: NaiveProxyRuntimeFactory,
+    private val pluggableTransportRuntimeFactory: PluggableTransportRuntimeFactory =
+        object : PluggableTransportRuntimeFactory {
+            override fun create(): RipDpiRelayRuntime = error("Pluggable transport runtime factory is not configured")
+        },
     private val relayProfileStore: RelayProfileStore,
     private val relayCredentialStore: RelayCredentialStore,
     private val cloudflareMasqueGeohashResolver: CloudflareMasqueGeohashResolver =
@@ -84,6 +93,8 @@ internal class UpstreamRelaySupervisor(
         val runtime =
             if (resolvedConfig.kind == RelayKindNaiveProxy) {
                 naiveProxyRuntimeFactory.create()
+            } else if (isPluggableTransportRelay(resolvedConfig.kind)) {
+                pluggableTransportRuntimeFactory.create()
             } else {
                 relayFactory.create()
             }
@@ -169,6 +180,17 @@ internal class UpstreamRelaySupervisor(
                                     true
                                 } else {
                                     merged.masqueUseHttp2Fallback
+                                },
+                        )
+                    }
+
+                    RelayKindSnowflake -> {
+                        merged.copy(
+                            udpEnabled = false,
+                            ptSnowflakeBrokerUrl = merged.ptSnowflakeBrokerUrl.ifBlank { DefaultSnowflakeBrokerUrl },
+                            ptSnowflakeFrontDomain =
+                                merged.ptSnowflakeFrontDomain.ifBlank {
+                                    DefaultSnowflakeFrontDomain
                                 },
                         )
                     }
@@ -259,6 +281,10 @@ internal class UpstreamRelaySupervisor(
             shadowTlsInnerProfileId = effectiveConfig.shadowTlsInnerProfileId,
             shadowTlsInner = shadowTlsInner,
             naivePath = effectiveConfig.naivePath,
+            ptBridgeLine = effectiveConfig.ptBridgeLine,
+            ptWebTunnelUrl = effectiveConfig.ptWebTunnelUrl,
+            ptSnowflakeBrokerUrl = effectiveConfig.ptSnowflakeBrokerUrl,
+            ptSnowflakeFrontDomain = effectiveConfig.ptSnowflakeFrontDomain,
             localSocksHost = effectiveConfig.localSocksHost,
             localSocksPort = effectiveConfig.localSocksPort,
             udpEnabled = effectiveConfig.udpEnabled,
@@ -327,6 +353,10 @@ internal class UpstreamRelaySupervisor(
             tuicCongestionControl = profile.tuicCongestionControl,
             shadowTlsInnerProfileId = profile.shadowTlsInnerProfileId.ifBlank { config.shadowTlsInnerProfileId },
             naivePath = profile.naivePath.ifBlank { config.naivePath },
+            ptBridgeLine = profile.ptBridgeLine.ifBlank { config.ptBridgeLine },
+            ptWebTunnelUrl = profile.ptWebTunnelUrl.ifBlank { config.ptWebTunnelUrl },
+            ptSnowflakeBrokerUrl = profile.ptSnowflakeBrokerUrl.ifBlank { config.ptSnowflakeBrokerUrl },
+            ptSnowflakeFrontDomain = profile.ptSnowflakeFrontDomain.ifBlank { config.ptSnowflakeFrontDomain },
             localSocksHost = profile.localSocksHost.ifBlank { config.localSocksHost },
             localSocksPort = profile.localSocksPort,
             udpEnabled = profile.udpEnabled,
@@ -364,6 +394,13 @@ internal class UpstreamRelaySupervisor(
                     !credentials?.naiveUsername.isNullOrBlank() && !credentials.naivePassword.isNullOrBlank()
                 }
 
+                RelayKindSnowflake,
+                RelayKindWebTunnel,
+                RelayKindObfs4,
+                -> {
+                    true
+                }
+
                 RelayKindChainRelay -> {
                     true
                 }
@@ -372,16 +409,22 @@ internal class UpstreamRelaySupervisor(
                     when (masqueAuthMode) {
                         RelayMasqueAuthModeBearer,
                         RelayMasqueAuthModePreshared,
-                        -> !credentials?.masqueAuthToken.isNullOrBlank()
+                        -> {
+                            !credentials?.masqueAuthToken.isNullOrBlank()
+                        }
 
                         RelayMasqueAuthModeCloudflareMtls -> {
                             !credentials?.masqueClientCertificateChainPem.isNullOrBlank() &&
                                 !credentials.masqueClientPrivateKeyPem.isNullOrBlank()
                         }
 
-                        RelayMasqueAuthModePrivacyPass -> true
+                        RelayMasqueAuthModePrivacyPass -> {
+                            true
+                        }
 
-                        else -> false
+                        else -> {
+                            false
+                        }
                     }
                 }
 
@@ -423,6 +466,26 @@ internal class UpstreamRelaySupervisor(
         if (config.kind == RelayKindNaiveProxy) {
             require(!config.udpEnabled) {
                 "NaiveProxy does not support UDP mode"
+            }
+        }
+        if (isPluggableTransportRelay(config.kind)) {
+            require(!config.udpEnabled) {
+                "Pluggable transports are exposed as TCP SOCKS5 loopback relays"
+            }
+        }
+        if (config.kind == RelayKindSnowflake) {
+            require(config.ptSnowflakeBrokerUrl.isNotBlank()) {
+                "Snowflake requires a broker URL"
+            }
+        }
+        if (config.kind == RelayKindWebTunnel) {
+            require(config.ptWebTunnelUrl.isNotBlank()) {
+                "WebTunnel requires a target URL"
+            }
+        }
+        if (config.kind == RelayKindObfs4) {
+            require(config.ptBridgeLine.isNotBlank()) {
+                "obfs4 requires a bridge line"
             }
         }
         if (config.kind == RelayKindCloudflareTunnel && tlsFingerprintProfile != TlsFingerprintProfileChromeStable) {
@@ -650,6 +713,7 @@ internal open class UpstreamRelaySupervisorFactory
     constructor(
         private val relayFactory: RipDpiRelayFactory,
         private val naiveProxyRuntimeFactory: NaiveProxyRuntimeFactory,
+        private val pluggableTransportRuntimeFactory: PluggableTransportRuntimeFactory,
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialStore: RelayCredentialStore,
         private val cloudflareMasqueGeohashResolver: CloudflareMasqueGeohashResolver,
@@ -665,6 +729,10 @@ internal open class UpstreamRelaySupervisorFactory
             object : NaiveProxyRuntimeFactory {
                 override fun create(): RipDpiRelayRuntime =
                     error("NaiveProxy runtime factory is not configured in this test harness")
+            },
+            object : PluggableTransportRuntimeFactory {
+                override fun create(): RipDpiRelayRuntime =
+                    error("Pluggable transport runtime factory is not configured in this test harness")
             },
             relayProfileStore,
             relayCredentialStore,
@@ -686,6 +754,7 @@ internal open class UpstreamRelaySupervisorFactory
                 dispatcher = dispatcher,
                 relayFactory = relayFactory,
                 naiveProxyRuntimeFactory = naiveProxyRuntimeFactory,
+                pluggableTransportRuntimeFactory = pluggableTransportRuntimeFactory,
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
                 cloudflareMasqueGeohashResolver = cloudflareMasqueGeohashResolver,
@@ -693,6 +762,11 @@ internal open class UpstreamRelaySupervisorFactory
                 tlsFingerprintProfileProvider = tlsFingerprintProfileProvider,
             )
     }
+
+private fun isPluggableTransportRelay(kind: String): Boolean =
+    kind == RelayKindSnowflake ||
+        kind == RelayKindWebTunnel ||
+        kind == RelayKindObfs4
 
 internal class StaticMasquePrivacyPassProvider(
     private val available: Boolean = false,

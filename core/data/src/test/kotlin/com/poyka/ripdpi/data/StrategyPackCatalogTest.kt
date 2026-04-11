@@ -48,4 +48,54 @@ class StrategyPackCatalogTest {
         assertEquals(StrategyPackRefreshPolicyManual, normalizeStrategyPackRefreshPolicy("manual"))
         assertEquals(StrategyPackRefreshPolicyAutomatic, normalizeStrategyPackRefreshPolicy("unknown"))
     }
+
+    @Test
+    fun `resolves typed pack sections from pinned selection`() {
+        val catalog =
+            StrategyPackCatalog(
+                packs =
+                    listOf(
+                        StrategyPackDefinition(
+                            id = "mobile",
+                            version = "2026.04.1",
+                            title = "Mobile",
+                            description = "Mobile defaults",
+                            hostListRefs = listOf("video"),
+                            tlsProfileSetId = "baseline",
+                            morphPolicyId = "balanced",
+                            transportModuleIds = listOf("snowflake"),
+                            featureFlagIds = listOf("quic"),
+                        ),
+                    ),
+                hostLists = listOf(StrategyPackHostList(id = "video", title = "Video")),
+                tlsProfiles =
+                    listOf(
+                        StrategyPackTlsProfileSet(
+                            id = "baseline",
+                            title = "Baseline",
+                            allowedProfileIds = listOf("chrome_stable", "firefox_stable"),
+                            rotationEnabled = true,
+                        ),
+                    ),
+                morphPolicies = listOf(StrategyPackMorphPolicy(id = "balanced", title = "Balanced")),
+                transportModules =
+                    listOf(
+                        StrategyPackTransportModule(
+                            id = "snowflake",
+                            kind = "snowflake",
+                            title = "Snowflake",
+                        ),
+                    ),
+                featureFlags = listOf(StrategyPackFeatureFlag(id = "quic", enabled = true)),
+            )
+
+        val selection = catalog.resolveSelection(pinnedPackId = "mobile", pinnedPackVersion = "2026.04.1")
+
+        assertEquals("mobile", selection.pack?.id)
+        assertEquals("baseline", selection.tlsProfileSet?.id)
+        assertEquals("balanced", selection.morphPolicy?.id)
+        assertEquals(listOf("video"), selection.hostLists.map { it.id })
+        assertEquals(listOf("snowflake"), selection.transportModules.map { it.id })
+        assertEquals(listOf("quic"), selection.featureFlags.map { it.id })
+    }
 }

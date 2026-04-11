@@ -29,15 +29,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
@@ -66,9 +67,12 @@ import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
+import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
+import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
@@ -97,7 +101,6 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import androidx.core.content.ContextCompat
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.coroutines.flow.collectLatest
 
@@ -325,6 +328,10 @@ fun ModeEditorRoute(
         onRelayNaiveUsernameChanged = { viewModel.updateDraft { copy(relayNaiveUsername = it) } },
         onRelayNaivePasswordChanged = { viewModel.updateDraft { copy(relayNaivePassword = it) } },
         onRelayNaivePathChanged = { viewModel.updateDraft { copy(relayNaivePath = it) } },
+        onRelayPtBridgeLineChanged = { viewModel.updateDraft { copy(relayPtBridgeLine = it) } },
+        onRelayWebTunnelUrlChanged = { viewModel.updateDraft { copy(relayWebTunnelUrl = it) } },
+        onRelaySnowflakeBrokerUrlChanged = { viewModel.updateDraft { copy(relaySnowflakeBrokerUrl = it) } },
+        onRelaySnowflakeFrontDomainChanged = { viewModel.updateDraft { copy(relaySnowflakeFrontDomain = it) } },
         onRelayUdpEnabledChanged = { viewModel.updateDraft { copy(relayUdpEnabled = it) } },
         onRelayLocalSocksPortChanged = { viewModel.updateDraft { copy(relayLocalSocksPort = it) } },
         onSave = viewModel::saveDraft,
@@ -383,6 +390,10 @@ fun ModeEditorScreen(
     onRelayNaiveUsernameChanged: (String) -> Unit,
     onRelayNaivePasswordChanged: (String) -> Unit,
     onRelayNaivePathChanged: (String) -> Unit,
+    onRelayPtBridgeLineChanged: (String) -> Unit,
+    onRelayWebTunnelUrlChanged: (String) -> Unit,
+    onRelaySnowflakeBrokerUrlChanged: (String) -> Unit,
+    onRelaySnowflakeFrontDomainChanged: (String) -> Unit,
     onRelayUdpEnabledChanged: (Boolean) -> Unit,
     onRelayLocalSocksPortChanged: (String) -> Unit,
     onSave: () -> Unit,
@@ -705,6 +716,29 @@ fun ModeEditorScreen(
                                     "ShadowTLS v3",
                                     onRelayKindChanged,
                                 )
+                                RelayKindChip(
+                                    draft.relayKind,
+                                    RelayKindSnowflake,
+                                    "Snowflake",
+                                    onRelayKindChanged,
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                            ) {
+                                RelayKindChip(
+                                    draft.relayKind,
+                                    RelayKindWebTunnel,
+                                    "WebTunnel",
+                                    onRelayKindChanged,
+                                )
+                                RelayKindChip(
+                                    draft.relayKind,
+                                    RelayKindObfs4,
+                                    "obfs4",
+                                    onRelayKindChanged,
+                                )
                             }
                             if (uiState.validationErrors[ConfigFieldRelayCredentials] != null) {
                                 WarningBanner(
@@ -733,11 +767,11 @@ fun ModeEditorScreen(
                                 onRelayMasqueAuthModeChanged = onRelayMasqueAuthModeChanged,
                                 onRelayMasqueAuthTokenChanged = onRelayMasqueAuthTokenChanged,
                                 onRelayMasqueClientCertificateChainPemChanged =
-                                    onRelayMasqueClientCertificateChainPemChanged,
+                                onRelayMasqueClientCertificateChainPemChanged,
                                 onRelayMasqueClientPrivateKeyPemChanged = onRelayMasqueClientPrivateKeyPemChanged,
                                 onRelayMasqueUseHttp2FallbackChanged = onRelayMasqueUseHttp2FallbackChanged,
                                 onRelayMasqueCloudflareGeohashEnabledChanged =
-                                    onRelayMasqueCloudflareGeohashEnabledChanged,
+                                onRelayMasqueCloudflareGeohashEnabledChanged,
                                 onRelayMasqueImportCertificateChainClicked = onRelayMasqueImportCertificateChainClicked,
                                 onRelayMasqueImportPrivateKeyClicked = onRelayMasqueImportPrivateKeyClicked,
                                 onRelayMasqueImportPkcs12Clicked = onRelayMasqueImportPkcs12Clicked,
@@ -750,6 +784,10 @@ fun ModeEditorScreen(
                                 onRelayNaiveUsernameChanged = onRelayNaiveUsernameChanged,
                                 onRelayNaivePasswordChanged = onRelayNaivePasswordChanged,
                                 onRelayNaivePathChanged = onRelayNaivePathChanged,
+                                onRelayPtBridgeLineChanged = onRelayPtBridgeLineChanged,
+                                onRelayWebTunnelUrlChanged = onRelayWebTunnelUrlChanged,
+                                onRelaySnowflakeBrokerUrlChanged = onRelaySnowflakeBrokerUrlChanged,
+                                onRelaySnowflakeFrontDomainChanged = onRelaySnowflakeFrontDomainChanged,
                             )
                             if (
                                 draft.relayKind == RelayKindHysteria2 ||
@@ -983,6 +1021,10 @@ private fun ModeEditorScreenWithNoOpCallbacks(
             onRelayNaiveUsernameChanged = {},
             onRelayNaivePasswordChanged = {},
             onRelayNaivePathChanged = {},
+            onRelayPtBridgeLineChanged = {},
+            onRelayWebTunnelUrlChanged = {},
+            onRelaySnowflakeBrokerUrlChanged = {},
+            onRelaySnowflakeFrontDomainChanged = {},
             onRelayUdpEnabledChanged = {},
             onRelayLocalSocksPortChanged = {},
             onSave = {},

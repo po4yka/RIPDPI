@@ -42,6 +42,14 @@ data class RuntimeFieldTelemetry(
     val winningTcpStrategyFamily: String? = null,
     val winningQuicStrategyFamily: String? = null,
     val winningDnsStrategyFamily: String? = null,
+    val strategyPackId: String? = null,
+    val strategyPackVersion: String? = null,
+    val tlsProfileId: String? = null,
+    val tlsProfileCatalogVersion: String? = null,
+    val morphPolicyId: String? = null,
+    val quicMigrationStatus: String? = null,
+    val ptRuntimeKind: String? = null,
+    val ptRuntimeState: String? = null,
     val proxyRttBand: RttBand = RttBand.Unknown,
     val resolverRttBand: RttBand = RttBand.Unknown,
     val proxyRouteRetryCount: Long = 0,
@@ -89,6 +97,46 @@ fun deriveRuntimeFieldTelemetry(
             winningTcpStrategyFamily = winningTcpStrategyFamily?.trim()?.takeIf { it.isNotEmpty() },
             winningQuicStrategyFamily = winningQuicStrategyFamily?.trim()?.takeIf { it.isNotEmpty() },
             winningDnsStrategyFamily = winningDnsStrategyFamily?.trim()?.takeIf { it.isNotEmpty() },
+            strategyPackId =
+                proxyTelemetry.strategyPackId
+                    ?: relayTelemetry.strategyPackId
+                    ?: warpTelemetry.strategyPackId
+                    ?: tunnelTelemetry.strategyPackId,
+            strategyPackVersion =
+                proxyTelemetry.strategyPackVersion
+                    ?: relayTelemetry.strategyPackVersion
+                    ?: warpTelemetry.strategyPackVersion
+                    ?: tunnelTelemetry.strategyPackVersion,
+            tlsProfileId =
+                relayTelemetry.tlsProfileId
+                    ?: proxyTelemetry.tlsProfileId
+                    ?: warpTelemetry.tlsProfileId
+                    ?: tunnelTelemetry.tlsProfileId,
+            tlsProfileCatalogVersion =
+                relayTelemetry.tlsProfileCatalogVersion
+                    ?: proxyTelemetry.tlsProfileCatalogVersion
+                    ?: warpTelemetry.tlsProfileCatalogVersion
+                    ?: tunnelTelemetry.tlsProfileCatalogVersion,
+            morphPolicyId =
+                proxyTelemetry.morphPolicyId
+                    ?: relayTelemetry.morphPolicyId
+                    ?: warpTelemetry.morphPolicyId
+                    ?: tunnelTelemetry.morphPolicyId,
+            quicMigrationStatus =
+                proxyTelemetry.quicMigrationStatus
+                    ?: relayTelemetry.quicMigrationStatus
+                    ?: warpTelemetry.quicMigrationStatus
+                    ?: tunnelTelemetry.quicMigrationStatus,
+            ptRuntimeKind =
+                relayTelemetry.ptRuntimeKind
+                    ?: proxyTelemetry.ptRuntimeKind
+                    ?: warpTelemetry.ptRuntimeKind
+                    ?: tunnelTelemetry.ptRuntimeKind,
+            ptRuntimeState =
+                relayTelemetry.ptRuntimeState
+                    ?: proxyTelemetry.ptRuntimeState
+                    ?: warpTelemetry.ptRuntimeState
+                    ?: tunnelTelemetry.ptRuntimeState,
             proxyRttBand = RttBand.fromLatencyMs(proxyTelemetry.upstreamRttMs),
             resolverRttBand =
                 RttBand.fromLatencyMs(

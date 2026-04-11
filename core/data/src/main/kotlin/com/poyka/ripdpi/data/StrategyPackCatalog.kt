@@ -15,7 +15,17 @@ const val DefaultStrategyPackChannel = StrategyPackChannelStable
 const val DefaultStrategyPackRefreshPolicy = StrategyPackRefreshPolicyAutomatic
 const val DefaultStrategyPackPinnedId = ""
 const val DefaultStrategyPackPinnedVersion = ""
-const val StrategyPackCatalogSchemaVersion = 1
+const val StrategyPackCatalogSchemaVersion = 2
+
+const val DefaultTlsProfileCatalogVersion = "v1"
+const val DefaultTlsProfileSetId = "default"
+const val DefaultMorphPolicyId = "off"
+
+const val QuicMigrationStatusNotAttempted = "not_attempted"
+const val QuicMigrationStatusRebindOnly = "rebind_only"
+const val QuicMigrationStatusValidated = "validated"
+const val QuicMigrationStatusReverted = "reverted"
+const val QuicMigrationStatusFailed = "failed"
 
 @Serializable
 data class StrategyPackCatalog(
@@ -26,6 +36,12 @@ data class StrategyPackCatalog(
     val minNativeVersion: String = "0.0.0",
     val notes: String = "",
     val packs: List<StrategyPackDefinition> = emptyList(),
+    val tlsProfiles: List<StrategyPackTlsProfileSet> = emptyList(),
+    val morphPolicies: List<StrategyPackMorphPolicy> = emptyList(),
+    val hostLists: List<StrategyPackHostList> = emptyList(),
+    val transportModules: List<StrategyPackTransportModule> = emptyList(),
+    val featureFlags: List<StrategyPackFeatureFlag> = emptyList(),
+    val rollout: StrategyPackRolloutMetadata = StrategyPackRolloutMetadata(),
 )
 
 @Serializable
@@ -63,6 +79,12 @@ data class StrategyPackDefinition(
     val triggerMetadata: List<String> = emptyList(),
     val hostLists: List<StrategyPackHostList> = emptyList(),
     val strategies: List<StrategyPackStrategy> = emptyList(),
+    val hostListRefs: List<String> = emptyList(),
+    val tlsProfileSetId: String = "",
+    val morphPolicyId: String = "",
+    val transportModuleIds: List<String> = emptyList(),
+    val featureFlagIds: List<String> = emptyList(),
+    val rollout: StrategyPackPackRollout = StrategyPackPackRollout(),
 )
 
 @Serializable
@@ -80,6 +102,76 @@ data class StrategyPackStrategy(
     val recommendedProxyConfigJson: String = "",
     val candidateIds: List<String> = emptyList(),
     val notes: String = "",
+)
+
+@Serializable
+data class StrategyPackTlsProfileSet(
+    val id: String,
+    val title: String,
+    val catalogVersion: String = DefaultTlsProfileCatalogVersion,
+    val allowedProfileIds: List<String> = emptyList(),
+    val rotationEnabled: Boolean = false,
+    val notes: String = "",
+)
+
+@Serializable
+data class StrategyPackMorphPolicy(
+    val id: String = DefaultMorphPolicyId,
+    val title: String = "Disabled",
+    val description: String = "",
+    val firstFlightSizeMin: Int = 0,
+    val firstFlightSizeMax: Int = 0,
+    val paddingEnvelopeMin: Int = 0,
+    val paddingEnvelopeMax: Int = 0,
+    val entropyTargetPermil: Int = 0,
+    val tcpBurstCadenceMs: List<Int> = emptyList(),
+    val tlsBurstCadenceMs: List<Int> = emptyList(),
+    val quicBurstProfile: String = "",
+    val fakePacketShapeProfile: String = "",
+    val notes: String = "",
+)
+
+@Serializable
+data class StrategyPackTransportModule(
+    val id: String,
+    val kind: String,
+    val title: String,
+    val configRef: String = "",
+    val notes: String = "",
+)
+
+@Serializable
+data class StrategyPackFeatureFlag(
+    val id: String,
+    val enabled: Boolean = false,
+    val scope: String = "pack",
+    val notes: String = "",
+)
+
+@Serializable
+data class StrategyPackRolloutMetadata(
+    val id: String = "",
+    val channel: String = "",
+    val cohort: String = "",
+    val percentage: Int = 0,
+    val staged: Boolean = false,
+    val notes: String = "",
+)
+
+@Serializable
+data class StrategyPackPackRollout(
+    val cohort: String = "",
+    val percentage: Int = 0,
+    val staged: Boolean = false,
+)
+
+data class StrategyPackResolvedSelection(
+    val pack: StrategyPackDefinition? = null,
+    val tlsProfileSet: StrategyPackTlsProfileSet? = null,
+    val morphPolicy: StrategyPackMorphPolicy? = null,
+    val hostLists: List<StrategyPackHostList> = emptyList(),
+    val transportModules: List<StrategyPackTransportModule> = emptyList(),
+    val featureFlags: List<StrategyPackFeatureFlag> = emptyList(),
 )
 
 data class StrategyPackCompatibility(
@@ -116,6 +208,60 @@ fun StrategyPackSnapshot.toJson(): String = strategyPackJson.encodeToString(this
 fun strategyPackManifestFromJson(payload: String): StrategyPackManifest = strategyPackJson.decodeFromString(payload)
 
 fun StrategyPackManifest.toJson(): String = strategyPackJson.encodeToString(this)
+
+fun StrategyPackCatalog.resolveSelection(
+    pinnedPackId: String = "",
+    pinnedPackVersion: String = "",
+): StrategyPackResolvedSelection {
+    val normalizedPinnedId = pinnedPackId.trim()
+    val normalizedPinnedVersion = pinnedPackVersion.trim()
+    val selectedPack =
+        when {
+            normalizedPinnedId.isNotEmpty() && normalizedPinnedVersion.isNotEmpty() -> {
+                packs.firstOrNull { it.id == normalizedPinnedId && it.version == normalizedPinnedVersion }
+            }
+
+            normalizedPinnedId.isNotEmpty() -> {
+                packs.firstOrNull { it.id == normalizedPinnedId }
+            }
+
+            else -> {
+                packs.firstOrNull()
+            }
+        }
+    val resolvedHostLists =
+        buildList {
+            addAll(selectedPack?.hostLists.orEmpty())
+            val refIds = selectedPack?.hostListRefs.orEmpty().toSet()
+            addAll(hostLists.filter { it.id in refIds })
+        }.distinctBy(StrategyPackHostList::id)
+    val resolvedTlsProfileSet =
+        tlsProfiles.firstOrNull { it.id == selectedPack?.tlsProfileSetId }
+            ?: tlsProfiles.firstOrNull()
+    val resolvedMorphPolicy =
+        morphPolicies.firstOrNull { it.id == selectedPack?.morphPolicyId }
+            ?: morphPolicies.firstOrNull()
+    val resolvedTransportModules =
+        if (selectedPack == null) {
+            emptyList()
+        } else {
+            transportModules.filter { it.id in selectedPack.transportModuleIds.toSet() }
+        }
+    val resolvedFeatureFlags =
+        if (selectedPack == null) {
+            emptyList()
+        } else {
+            featureFlags.filter { it.id in selectedPack.featureFlagIds.toSet() }
+        }
+    return StrategyPackResolvedSelection(
+        pack = selectedPack,
+        tlsProfileSet = resolvedTlsProfileSet,
+        morphPolicy = resolvedMorphPolicy,
+        hostLists = resolvedHostLists,
+        transportModules = resolvedTransportModules,
+        featureFlags = resolvedFeatureFlags,
+    )
+}
 
 @Suppress("ReturnCount")
 fun StrategyPackCatalog.checkCompatibility(
