@@ -4,6 +4,7 @@ private const val LatencyFastMs = 50L
 private const val LatencyModerateMs = 100L
 private const val LatencySlowMs = 250L
 private const val LatencyVerySlowMs = 500L
+private const val DhtTriggerCorrelationWindowMs = 10 * 60 * 1000L
 
 enum class FailureClass(
     val wireValue: String,
@@ -45,6 +46,8 @@ data class RuntimeFieldTelemetry(
     val resolverRttBand: RttBand = RttBand.Unknown,
     val proxyRouteRetryCount: Long = 0,
     val tunnelRecoveryRetryCount: Long = 0,
+    val dhtTriggerCorrelationActive: Boolean = false,
+    val dhtTriggerCorrelationReason: String? = null,
 ) {
     val winningStrategyFamily: String?
         get() =
@@ -67,24 +70,50 @@ fun deriveRuntimeFieldTelemetry(
     winningQuicStrategyFamily: String?,
     winningDnsStrategyFamily: String?,
     proxyTelemetry: NativeRuntimeSnapshot,
+    relayTelemetry: NativeRuntimeSnapshot,
+    warpTelemetry: NativeRuntimeSnapshot,
     tunnelTelemetry: NativeRuntimeSnapshot,
     tunnelRecoveryRetryCount: Long,
     failureReason: FailureReason? = null,
 ): RuntimeFieldTelemetry =
-    RuntimeFieldTelemetry(
-        failureClass = classifyFailureClass(failureReason, proxyTelemetry, tunnelTelemetry),
-        telemetryNetworkFingerprintHash = telemetryNetworkFingerprintHash,
-        winningTcpStrategyFamily = winningTcpStrategyFamily?.trim()?.takeIf { it.isNotEmpty() },
-        winningQuicStrategyFamily = winningQuicStrategyFamily?.trim()?.takeIf { it.isNotEmpty() },
-        winningDnsStrategyFamily = winningDnsStrategyFamily?.trim()?.takeIf { it.isNotEmpty() },
-        proxyRttBand = RttBand.fromLatencyMs(proxyTelemetry.upstreamRttMs),
-        resolverRttBand =
-            RttBand.fromLatencyMs(
-                tunnelTelemetry.resolverLatencyAvgMs ?: tunnelTelemetry.resolverLatencyMs,
-            ),
-        proxyRouteRetryCount = proxyTelemetry.routeChanges,
-        tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
-    )
+    classifyFailureClass(
+        failureReason = failureReason,
+        proxyTelemetry = proxyTelemetry,
+        relayTelemetry = relayTelemetry,
+        warpTelemetry = warpTelemetry,
+        tunnelTelemetry = tunnelTelemetry,
+    ).let { failureClass ->
+        RuntimeFieldTelemetry(
+            failureClass = failureClass,
+            telemetryNetworkFingerprintHash = telemetryNetworkFingerprintHash,
+            winningTcpStrategyFamily = winningTcpStrategyFamily?.trim()?.takeIf { it.isNotEmpty() },
+            winningQuicStrategyFamily = winningQuicStrategyFamily?.trim()?.takeIf { it.isNotEmpty() },
+            winningDnsStrategyFamily = winningDnsStrategyFamily?.trim()?.takeIf { it.isNotEmpty() },
+            proxyRttBand = RttBand.fromLatencyMs(proxyTelemetry.upstreamRttMs),
+            resolverRttBand =
+                RttBand.fromLatencyMs(
+                    tunnelTelemetry.resolverLatencyAvgMs ?: tunnelTelemetry.resolverLatencyMs,
+                ),
+            proxyRouteRetryCount = proxyTelemetry.routeChanges,
+            tunnelRecoveryRetryCount = tunnelRecoveryRetryCount,
+            dhtTriggerCorrelationActive =
+                hasRecentDhtTriggerCorrelation(
+                    proxyTelemetry = proxyTelemetry,
+                    relayTelemetry = relayTelemetry,
+                    warpTelemetry = warpTelemetry,
+                    tunnelTelemetry = tunnelTelemetry,
+                    failureClass = failureClass,
+                ),
+            dhtTriggerCorrelationReason =
+                buildDhtTriggerCorrelationReason(
+                    proxyTelemetry = proxyTelemetry,
+                    relayTelemetry = relayTelemetry,
+                    warpTelemetry = warpTelemetry,
+                    tunnelTelemetry = tunnelTelemetry,
+                    failureClass = failureClass,
+                ),
+        )
+    }
 
 fun aggregateWinningStrategyFamily(
     winningTcpStrategyFamily: String?,
@@ -110,10 +139,12 @@ fun aggregateRttBand(
 fun classifyFailureClass(
     failureReason: FailureReason?,
     proxyTelemetry: NativeRuntimeSnapshot,
+    relayTelemetry: NativeRuntimeSnapshot,
+    warpTelemetry: NativeRuntimeSnapshot,
     tunnelTelemetry: NativeRuntimeSnapshot,
 ): FailureClass? {
     classifyFailureReasonDirectly(failureReason)?.let { return it }
-    latestFailureText(proxyTelemetry, tunnelTelemetry)?.let { text ->
+    latestFailureText(proxyTelemetry, relayTelemetry, warpTelemetry, tunnelTelemetry)?.let { text ->
         classifyFailureText(text)?.let { return it }
     }
     return tunnelTelemetry.networkHandoverClass
@@ -164,21 +195,74 @@ private fun classifyFailureReasonDirectly(failureReason: FailureReason?): Failur
 
 private fun latestFailureText(
     proxyTelemetry: NativeRuntimeSnapshot,
+    relayTelemetry: NativeRuntimeSnapshot,
+    warpTelemetry: NativeRuntimeSnapshot,
     tunnelTelemetry: NativeRuntimeSnapshot,
 ): String? {
     val latestEvent =
-        (proxyTelemetry.nativeEvents + tunnelTelemetry.nativeEvents)
-            .filter { event ->
-                event.level.equals("error", ignoreCase = true) ||
-                    event.level.equals("warn", ignoreCase = true)
-            }.maxByOrNull { it.createdAt }
+        (
+            proxyTelemetry.nativeEvents + relayTelemetry.nativeEvents + warpTelemetry.nativeEvents +
+                tunnelTelemetry.nativeEvents
+        ).filter { event ->
+            event.level.equals("error", ignoreCase = true) ||
+                event.level.equals("warn", ignoreCase = true)
+        }.maxByOrNull { it.createdAt }
             ?.message
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
     return latestEvent
+        ?: relayTelemetry.lastFailureClass?.trim()?.takeIf { it.isNotEmpty() }
+        ?: warpTelemetry.lastFailureClass?.trim()?.takeIf { it.isNotEmpty() }
+        ?: proxyTelemetry.lastFailureClass?.trim()?.takeIf { it.isNotEmpty() }
+        ?: relayTelemetry.lastError?.trim()?.takeIf { it.isNotEmpty() }
+        ?: warpTelemetry.lastError?.trim()?.takeIf { it.isNotEmpty() }
         ?: tunnelTelemetry.lastError?.trim()?.takeIf { it.isNotEmpty() }
         ?: proxyTelemetry.lastError?.trim()?.takeIf { it.isNotEmpty() }
         ?: tunnelTelemetry.resolverFallbackReason?.trim()?.takeIf { it.isNotEmpty() }
+}
+
+private fun hasRecentDhtTriggerCorrelation(
+    proxyTelemetry: NativeRuntimeSnapshot,
+    relayTelemetry: NativeRuntimeSnapshot,
+    warpTelemetry: NativeRuntimeSnapshot,
+    tunnelTelemetry: NativeRuntimeSnapshot,
+    failureClass: FailureClass?,
+): Boolean =
+    buildDhtTriggerCorrelationReason(proxyTelemetry, relayTelemetry, warpTelemetry, tunnelTelemetry, failureClass) !=
+        null
+
+private fun buildDhtTriggerCorrelationReason(
+    proxyTelemetry: NativeRuntimeSnapshot,
+    relayTelemetry: NativeRuntimeSnapshot,
+    warpTelemetry: NativeRuntimeSnapshot,
+    tunnelTelemetry: NativeRuntimeSnapshot,
+    failureClass: FailureClass?,
+): String? {
+    val observedAt = tunnelTelemetry.lastDhtTriggerAt ?: return null
+    val now =
+        maxOf(
+            proxyTelemetry.capturedAt,
+            relayTelemetry.capturedAt,
+            warpTelemetry.capturedAt,
+            tunnelTelemetry.capturedAt,
+        )
+    if (now != 0L && now - observedAt > DhtTriggerCorrelationWindowMs) {
+        return null
+    }
+    val relevantFailure =
+        failureClass?.takeIf {
+            it in
+                setOf(
+                    FailureClass.TlsInterference,
+                    FailureClass.Timeout,
+                    FailureClass.ResetAbort,
+                    FailureClass.WarpEndpoint,
+                    FailureClass.FingerprintPolicy,
+                )
+        } ?: return null
+    val destination = tunnelTelemetry.lastDhtTriggerEndpoint ?: "known trigger CIDR"
+    return "Recent UDP traffic to $destination was followed by " +
+        "${relevantFailure.wireValue} on relay, WARP, or TLS control-plane paths."
 }
 
 @Suppress("CyclomaticComplexMethod")

@@ -95,4 +95,25 @@ class SettingsUiModelsTest {
 
         assertTrue(state.routingProtection.suggestions.any { it.id == "dht_mitigation" })
     }
+
+    @Test
+    fun `routing protection prefers explicit dht correlation reason`() {
+        val state =
+            AppSettingsSerializer.defaultValue.toUiState(
+                serviceTelemetry =
+                    ServiceTelemetrySnapshot(
+                        status = AppStatus.Running,
+                        runtimeFieldTelemetry =
+                            com.poyka.ripdpi.data.RuntimeFieldTelemetry(
+                                dhtTriggerCorrelationActive = true,
+                                dhtTriggerCorrelationReason =
+                                    "Recent UDP traffic to 134.195.198.23:6881 was followed by tls_interference on relay, WARP, or TLS control-plane paths.",
+                            ),
+                    ),
+                routingProtectionSnapshot = RoutingProtectionCatalogSnapshot(),
+            )
+
+        val suggestion = state.routingProtection.suggestions.first { it.id == "dht_mitigation" }
+        assertTrue(suggestion.body.contains("134.195.198.23:6881"))
+    }
 }

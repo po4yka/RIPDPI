@@ -176,6 +176,12 @@ pub(crate) fn normalize_fake_tls_size(value: i32, input_len: usize) -> usize {
     }
 }
 
+fn avoid_tls_517_size(output: &mut Vec<u8>) {
+    if output.len() == 517 && is_tls_client_hello(output) {
+        let _ = tune_tls_padding_size_into(output, 518);
+    }
+}
+
 fn build_fake_packet_internal(
     group: &DesyncGroup,
     input: &[u8],
@@ -236,6 +242,7 @@ fn build_fake_packet_internal(
         if fake_tls_target != output.len() {
             tune_tls_padding_size_into(&mut output, fake_tls_target);
         }
+        avoid_tls_517_size(&mut output);
         if (group.actions.fake_mod & FM_PADENCAP) != 0 {
             padencap_tls_into(&mut output, input.len());
         }
