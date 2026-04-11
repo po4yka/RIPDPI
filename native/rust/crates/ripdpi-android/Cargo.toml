@@ -13,11 +13,19 @@ crate-type = ["cdylib"]
 [dependencies]
 android-support = { workspace = true }
 arc-swap = { workspace = true }
+base64 = { workspace = true }
+bytes = { workspace = true }
+http = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
 ripdpi-config = { workspace = true }
 ripdpi-desync = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-session = { workspace = true }
 jni = { workspace = true }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "net", "time"] }
+tokio-boring = { workspace = true }
 libc = { workspace = true }
 loom = { workspace = true, optional = true }
 nix = { workspace = true }
@@ -26,6 +34,7 @@ once_cell = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
 ripdpi-native-protect = { workspace = true }
 ripdpi-proxy-config = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
 ripdpi-monitor = { workspace = true }
 ripdpi-runtime = { workspace = true }
 ripdpi-telemetry = { workspace = true }
@@ -34,6 +43,7 @@ serde_json = { workspace = true }
 socket2 = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
+url = { workspace = true }
 
 [dev-dependencies]
 golden-test-support = { workspace = true }
