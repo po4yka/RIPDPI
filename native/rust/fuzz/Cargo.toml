@@ -13,6 +13,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 ripdpi-failure-classifier = { path = "../crates/ripdpi-failure-classifier" }
 ripdpi-dns-resolver = { path = "../crates/ripdpi-dns-resolver" }
+ripdpi-monitor = { path = "../crates/ripdpi-monitor" }
 ripdpi-packets = { path = "../crates/ripdpi-packets" }
 ripdpi-proxy-config = { path = "../crates/ripdpi-proxy-config" }
 ripdpi-session = { path = "../crates/ripdpi-session" }
@@ -64,5 +65,11 @@ doc = false
 [[bin]]
 name = "dns_response_answers"
 path = "fuzz_targets/dns_response_answers.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "monitor_dns_response"
+path = "fuzz_targets/monitor_dns_response.rs"
 test = false
 doc = false
