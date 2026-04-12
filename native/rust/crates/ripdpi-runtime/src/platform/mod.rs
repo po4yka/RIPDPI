@@ -421,14 +421,8 @@ pub fn send_seqovl_tcp(
 /// root helper. Uses `dup2` to swap and then closes the replacement.
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn swap_replacement_fd(target_fd: std::os::fd::RawFd, replacement_fd: std::os::fd::RawFd) -> io::Result<()> {
-    // Safety: both fds are valid — target is the app's TcpStream, replacement
-    // was received via SCM_RIGHTS from the root helper.
-    let ret = unsafe { libc::dup2(replacement_fd, target_fd) };
-    if ret < 0 {
-        return Err(io::Error::last_os_error());
-    }
-    // Close the now-duplicated replacement fd.
-    unsafe { libc::close(replacement_fd) };
+    linux::dup2_fd(replacement_fd, target_fd)?;
+    linux::close_fd(replacement_fd)?;
     Ok(())
 }
 
