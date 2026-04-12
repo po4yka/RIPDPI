@@ -94,10 +94,10 @@ Suggested commit slice:
 
 Goal: remove the direct diagnostics-to-service coupling.
 
-- [ ] Define a diagnostics-facing interface in a neutral module such as `:core:data` or a new diagnostics API module.
-- [ ] Move service-owned implementations behind that interface in `:core:service`.
-- [ ] Replace direct diagnostics imports of service-layer types with injected abstractions.
-- [ ] Update tests so diagnostics can run with fakes without pulling the service implementation.
+- [x] Define a diagnostics-facing interface in a neutral module such as `:core:data` or a new diagnostics API module.
+- [x] Move service-owned implementations behind that interface in `:core:service`.
+- [x] Replace direct diagnostics imports of service-layer types with injected abstractions.
+- [x] Update tests so diagnostics can run with fakes without pulling the service implementation.
 
 Acceptance criteria:
 

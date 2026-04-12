@@ -95,6 +95,9 @@ jobs:
           RUSTC_WRAPPER: sccache
         run: ./gradlew assembleDebug testDebugUnitTest
 
+      - name: Verify diagnostics-service boundary
+        run: python3 scripts/ci/verify_diagnostics_boundary.py
+
       - name: Verify screenshot baselines
         run: ./gradlew verifyRoborazziDebug
 
