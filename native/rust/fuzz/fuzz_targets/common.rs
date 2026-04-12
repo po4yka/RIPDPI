@@ -258,6 +258,132 @@ pub fn http_connect_request_from_bytes(data: &[u8]) -> String {
     format!("CONNECT {request_target} HTTP/1.1\r\nHost: {request_target}\r\n\r\n")
 }
 
+fn push_dns_name(packet: &mut Vec<u8>, name: &str) {
+    for label in name.split('.') {
+        packet.push(label.len() as u8);
+        packet.extend_from_slice(label.as_bytes());
+    }
+    packet.push(0);
+}
+
+pub fn dns_response_smoke() {
+    static ONCE: OnceLock<()> = OnceLock::new();
+    ONCE.get_or_init(|| {
+        let a_response = dns_response_packet_from_bytes(&[0, 0, 0, 0, 0, 0]);
+        let _ = ripdpi_dns_resolver::extract_ip_answers(&a_response);
+
+        let aaaa_response = dns_response_packet_from_bytes(&[1, 1, 1, 1, 1, 1, 1, 1]);
+        let _ = ripdpi_dns_resolver::extract_ip_answers(&aaaa_response);
+
+        let malformed = b"\x12\x34\x81\x80\x00\x01\x00\x01";
+        let _ = ripdpi_dns_resolver::extract_ip_answers(malformed);
+    });
+}
+
+pub fn dns_response_packet_from_bytes(data: &[u8]) -> Vec<u8> {
+    let id = u16::from_be_bytes([data.first().copied().unwrap_or(0x12), data.get(1).copied().unwrap_or(0x34)]);
+    let answer_count = 1 + usize::from(data.get(2).copied().unwrap_or(0) % 3);
+    let question_name =
+        match data.get(3).copied().unwrap_or(0) % 3 {
+            0 => "example.com",
+            1 => "ipv6.example",
+            _ => "test.local",
+        };
+
+    let mut packet = Vec::with_capacity(128);
+    packet.extend_from_slice(&id.to_be_bytes());
+    packet.extend_from_slice(&0x8180u16.to_be_bytes());
+    packet.extend_from_slice(&1u16.to_be_bytes());
+    packet.extend_from_slice(&(answer_count as u16).to_be_bytes());
+    packet.extend_from_slice(&0u16.to_be_bytes());
+    packet.extend_from_slice(&0u16.to_be_bytes());
+
+    push_dns_name(&mut packet, question_name);
+    let question_type =
+        if data.get(4).copied().unwrap_or(0) & 0x1 == 0 {
+            1u16
+        } else {
+            28u16
+        };
+    packet.extend_from_slice(&question_type.to_be_bytes());
+    packet.extend_from_slice(&1u16.to_be_bytes());
+
+    for index in 0..answer_count {
+        let selector = data.get(5 + index).copied().unwrap_or(0) % 4;
+        let use_pointer = data.get(8 + index).copied().unwrap_or(0) & 0x1 == 0;
+        if use_pointer {
+            packet.extend_from_slice(&[0xC0, 0x0C]);
+        } else {
+            push_dns_name(&mut packet, question_name);
+        }
+
+        match selector {
+            0 => {
+                packet.extend_from_slice(&1u16.to_be_bytes());
+                packet.extend_from_slice(&1u16.to_be_bytes());
+                packet.extend_from_slice(&60u32.to_be_bytes());
+                packet.extend_from_slice(&4u16.to_be_bytes());
+                packet.extend_from_slice(&[
+                    198,
+                    18,
+                    data.get(11 + index).copied().unwrap_or(0),
+                    1 + index as u8,
+                ]);
+            }
+            1 => {
+                packet.extend_from_slice(&28u16.to_be_bytes());
+                packet.extend_from_slice(&1u16.to_be_bytes());
+                packet.extend_from_slice(&60u32.to_be_bytes());
+                packet.extend_from_slice(&16u16.to_be_bytes());
+                packet.extend_from_slice(&[
+                    0x20,
+                    0x01,
+                    0x0d,
+                    0xb8,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    data.get(12 + index).copied().unwrap_or(0),
+                    0,
+                    0,
+                    index as u8,
+                ]);
+            }
+            2 => {
+                packet.extend_from_slice(&5u16.to_be_bytes());
+                packet.extend_from_slice(&1u16.to_be_bytes());
+                packet.extend_from_slice(&60u32.to_be_bytes());
+                let mut cname = Vec::new();
+                push_dns_name(&mut cname, "alias.example");
+                packet.extend_from_slice(&(cname.len() as u16).to_be_bytes());
+                packet.extend_from_slice(&cname);
+            }
+            _ => {
+                packet.extend_from_slice(&1u16.to_be_bytes());
+                packet.extend_from_slice(&1u16.to_be_bytes());
+                packet.extend_from_slice(&60u32.to_be_bytes());
+                packet.extend_from_slice(&16u16.to_be_bytes());
+                packet.extend_from_slice(&[
+                    198,
+                    18,
+                    data.get(13 + index).copied().unwrap_or(0),
+                ]);
+            }
+        }
+    }
+
+    if data.get(20).copied().unwrap_or(0) & 0x1 != 0 {
+        packet.extend_from_slice(&[0xC0]);
+    }
+
+    packet
+}
+
 pub fn http_response_from_bytes(data: &[u8]) -> Vec<u8> {
     let status = match data.first().copied().unwrap_or(0) % 5 {
         0 => 200,
