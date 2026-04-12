@@ -1,7 +1,14 @@
 # Finalmask Compatibility
 
-RIPDPI does not implement Finalmask on-device. Finalmask is an xray-core server-side feature, so this phase only
-documents server shapes that work with the existing RIPDPI relay handling.
+RIPDPI now applies Finalmask on the client side for xHTTP-backed relay transports:
+
+- VLESS Reality with `xhttp`
+- Cloudflare Tunnel profiles that resolve through the xHTTP TLS path
+
+The current implementation mutates the outbound xHTTP transport stream before the Reality or TLS handshake starts.
+Supported modes are `header-custom`, `fragment`, and `Sudoku`.
+
+The app still does not implement QUIC-side Finalmask. `noise`, Hysteria2, TUIC, and MASQUE remain unsupported.
 
 Use these examples as references for compatible server-side setups and matching client profiles:
 
@@ -10,8 +17,8 @@ Use these examples as references for compatible server-side setups and matching 
 - [xHTTP client profile](../examples/finalmask/xhttp-client-profile.json)
 - [Cloudflare Tunnel client profile](../examples/finalmask/cloudflare-tunnel-client-profile.json)
 
-The client-side relay behavior stays unchanged:
+Client-side behavior:
 
-- xHTTP relay profiles should resolve normally through the existing VLESS/xHTTP path.
-- Cloudflare Tunnel relay profiles should still force xHTTP and disable UDP.
-- No Finalmask toggle should appear in RIPDPI settings.
+- xHTTP relay profiles now apply Finalmask directly in the native xHTTP transport.
+- Cloudflare Tunnel relay profiles still force xHTTP and disable UDP, and can use the same Finalmask transport modes.
+- Unsupported relay kinds or Finalmask modes are rejected at validation time instead of being silently ignored.
