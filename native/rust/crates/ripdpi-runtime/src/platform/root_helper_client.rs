@@ -13,7 +13,7 @@ use std::time::Duration;
 use nix::sys::socket::{self, ControlMessage, MsgFlags};
 use serde::{Deserialize, Serialize};
 
-use super::IpFragmentationCapabilities;
+use super::{extract_scm_rights_fd, IpFragmentationCapabilities};
 
 /// Client for communicating with the root helper process.
 pub struct RootHelperClient {
@@ -225,19 +225,7 @@ fn recv_with_fd(stream: &UnixStream) -> io::Result<(Vec<u8>, Option<RawFd>)> {
     }
     let bytes_read = n as usize;
 
-    let mut received_fd: Option<RawFd> = None;
-    let mut cmsg = unsafe { libc::CMSG_FIRSTHDR(&msg) };
-    while !cmsg.is_null() {
-        let hdr = unsafe { &*cmsg };
-        if hdr.cmsg_level == libc::SOL_SOCKET && hdr.cmsg_type == libc::SCM_RIGHTS {
-            let data_ptr = unsafe { libc::CMSG_DATA(cmsg) };
-            let recv_fd: RawFd = unsafe { std::ptr::read_unaligned(data_ptr.cast()) };
-            received_fd = Some(recv_fd);
-        }
-        cmsg = unsafe { libc::CMSG_NXTHDR(&msg, cmsg) };
-    }
-
     let data = &buf[..bytes_read];
     let data = data.strip_suffix(b"\n").unwrap_or(data);
-    Ok((data.to_vec(), received_fd))
+    Ok((data.to_vec(), extract_scm_rights_fd(&msg)))
 }
