@@ -58,7 +58,7 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::super::routing::trigger_flag;
-    use super::failure_retry::classify_first_write_failure;
+    use super::failure_retry::retry_logic::classify_first_write_failure;
     use super::first_exchange::{first_response_timeout, response_trigger_supported, timeout_count_limit};
     use super::tls_boundary::{
         OutboundTlsFirstRecordAssembler, TlsRecordBoundaryTracker, FIRST_TLS_RECORD_ASSEMBLY_TIMEOUT,
