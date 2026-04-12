@@ -73,3 +73,9 @@ name = "monitor_dns_response"
 path = "fuzz_targets/monitor_dns_response.rs"
 test = false
 doc = false
+
+[[bin]]
+name = "monitor_http_response"
+path = "fuzz_targets/monitor_http_response.rs"
+test = false
+doc = false
