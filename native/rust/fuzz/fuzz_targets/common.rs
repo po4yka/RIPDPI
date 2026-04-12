@@ -94,6 +94,39 @@ pub fn proxy_config_json_from_bytes(data: &[u8]) -> String {
     }
 }
 
+pub fn tunnel_config_smoke() {
+    static ONCE: OnceLock<()> = OnceLock::new();
+    ONCE.get_or_init(|| {
+        let minimal = "socks5:\n  port: 1080\n  address: 127.0.0.1\n";
+        let _ = minimal.parse::<ripdpi_tunnel_config::Config>();
+
+        let with_credentials =
+            "socks5:\n  port: 1080\n  address: 127.0.0.1\n  username: user\n  password: pass\n";
+        let _ = with_credentials.parse::<ripdpi_tunnel_config::Config>();
+
+        let invalid = "socks5:\n  port: 1080\n  username: user\n";
+        let _ = invalid.parse::<ripdpi_tunnel_config::Config>();
+    });
+}
+
+pub fn tunnel_config_yaml_from_bytes(data: &[u8]) -> String {
+    let address = format!("127.0.0.{}", 1 + data.first().copied().unwrap_or(0) % 200);
+    let port = 1 + u16::from(data.get(1).copied().unwrap_or(0));
+    let username = ascii_label(data.get(2..).unwrap_or_default(), "user", 8);
+    let password = ascii_label(data.get(3..).unwrap_or_default(), "pass", 8);
+
+    match data.first().copied().unwrap_or(0) % 6 {
+        0 => format!("socks5:\n  port: {port}\n  address: {address}\n"),
+        1 => format!(
+            "socks5:\n  port: {port}\n  address: {address}\n  username: {username}\n  password: {password}\n"
+        ),
+        2 => format!("socks5:\n  address: {address}\n"),
+        3 => format!("socks5:\n  port: {port}\n"),
+        4 => format!("socks5:\n  port: {port}\n  address: {address}\n  username: {username}\n"),
+        _ => String::from_utf8_lossy(data).into_owned(),
+    }
+}
+
 pub fn http_response_from_bytes(data: &[u8]) -> Vec<u8> {
     let status = match data.first().copied().unwrap_or(0) % 5 {
         0 => 200,
