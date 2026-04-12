@@ -15,7 +15,7 @@ import android.os.Build
 import android.telephony.ServiceState
 import android.telephony.TelephonyManager
 import androidx.core.content.ContextCompat
-import com.poyka.ripdpi.services.OwnedTlsClientFactory
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -48,7 +48,7 @@ interface PublicIpInfoResolver {
 class HttpPublicIpInfoResolver
     @Inject
     constructor(
-        private val tlsClientFactory: OwnedTlsClientFactory,
+        private val tlsClientFactory: DiagnosticsHttpClientFactory,
     ) : PublicIpInfoResolver {
         companion object {
             private const val PublicIpTimeoutMs = 3_000
@@ -73,7 +73,7 @@ class HttpPublicIpInfoResolver
                         .get()
                         .build()
                 tlsClientFactory
-                    .create {
+                    .createClient {
                         connectTimeout(PublicIpTimeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
                         readTimeout(PublicIpTimeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
                         callTimeout(PublicIpTimeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
@@ -98,7 +98,7 @@ class HttpPublicIpInfoResolver
                         .get()
                         .build()
                 tlsClientFactory
-                    .create {
+                    .createClient {
                         connectTimeout(PublicIpTimeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
                         readTimeout(PublicIpTimeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
                         callTimeout(PublicIpTimeoutMs.toLong(), java.util.concurrent.TimeUnit.MILLISECONDS)
