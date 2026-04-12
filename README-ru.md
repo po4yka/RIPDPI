@@ -24,6 +24,9 @@
 - шифрованным DNS в VPN-режиме через DoH/DoT/DNSCrypt
 - расширенной стратегической настройкой: semantic markers, adaptive split placement, разделением TCP/QUIC/DNS strategy lanes, per-network policy memory и automatic probing/audit
 - handover-aware live policy re-evaluation при переходах между Wi-Fi, cellular и roaming
+- relay transport stack: WARP, VLESS Reality/xHTTP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3 и NaiveProxy
+- strategy-pack и TLS catalog rollout control для feature flags, transport defaults и fingerprint rotation
+- xHTTP-side Finalmask для поддерживаемых relay profiles и Cloudflare Tunnel path
 - встроенной диагностикой и пассивной telemetry
 - in-repository Rust native modules
 
@@ -170,6 +173,9 @@ scripts/guide/.venv/bin/python scripts/guide/generate_guide.py \
 - [Proxy engine и strategy surface](docs/native/proxy-engine.md)
 - [TUN-to-SOCKS bridge](docs/native/tunnel.md)
 - [Debug a runtime issue](docs/native/debug-runtime-issue.md)
+- [Текущее состояние MASQUE](docs/native/relay-masque-status.md)
+- [NaiveProxy runtime](docs/native/relay-naiveproxy-decision.md)
+- [Совместимость Finalmask и примеры конфигурации](docs/native/finalmask-compatibility.md)
 
 **Тестирование и CI**
 - [Тесты, E2E, golden contracts и soak coverage](docs/testing.md)
@@ -185,6 +191,9 @@ scripts/guide/.venv/bin/python scripts/guide/generate_guide.py \
 
 **Руководства**
 - [Инструкция по диагностике](docs/user-manual-diagnostics-ru.md)
+
+**Roadmap**
+- [Интеграционный roadmap](docs/roadmap-integrations.md)
 
 ## Сборка
 

@@ -24,6 +24,9 @@ Android application for optimizing network connectivity with:
 - encrypted DNS in VPN mode with DoH/DoT/DNSCrypt
 - advanced strategy controls with semantic markers, adaptive split placement, QUIC/TLS/DNS lane separation, per-network policy memory, and automatic probing/audit
 - handover-aware live policy re-evaluation across Wi-Fi, cellular, and roaming changes
+- relay transports including WARP, VLESS Reality/xHTTP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, and NaiveProxy
+- strategy-pack and TLS-catalog driven rollout control for transport defaults, feature flags, and fingerprint rotation
+- xHTTP-side Finalmask support for supported relay profiles and Cloudflare Tunnel paths
 - integrated diagnostics and passive telemetry
 - in-repository Rust native modules
 
@@ -189,6 +192,9 @@ Options: `--device <serial>` to target a specific device, `--skip-capture` to re
 - [Proxy engine and strategy surface](docs/native/proxy-engine.md)
 - [TUN-to-SOCKS bridge](docs/native/tunnel.md)
 - [Debug a runtime issue](docs/native/debug-runtime-issue.md)
+- [MASQUE current state](docs/native/relay-masque-status.md)
+- [NaiveProxy runtime](docs/native/relay-naiveproxy-decision.md)
+- [Finalmask compatibility and example configs](docs/native/finalmask-compatibility.md)
 
 **Testing & CI**
 - [Testing, E2E, golden contracts, and soak coverage](docs/testing.md)
@@ -204,6 +210,9 @@ Options: `--device <serial>` to target a specific device, `--skip-capture` to re
 
 **User Manuals**
 - [Diagnostics manual (Russian)](docs/user-manual-diagnostics-ru.md)
+
+**Roadmap**
+- [Integrations roadmap](docs/roadmap-integrations.md)
 
 ## Building
 
