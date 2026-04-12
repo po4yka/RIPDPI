@@ -2,6 +2,8 @@
 
 This guide is for reviewing and reducing `unsafe` in RIPDPI native code without weakening the invariants the runtime depends on.
 
+The initial unsafe-containment audit is complete. This document remains the ongoing checklist for follow-up native work.
+
 ## Purpose
 
 - Keep `unsafe` localized, documented, and easy to review.
