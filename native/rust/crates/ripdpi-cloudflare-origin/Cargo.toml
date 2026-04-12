@@ -1,0 +1,20 @@
+[package]
+name = "ripdpi-cloudflare-origin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ripdpi-cloudflare-origin"
+path = "src/main.rs"
+
+[dependencies]
+bytes = { workspace = true }
+hex = { workspace = true }
+http = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+ripdpi-vless = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util", "sync", "time"] }
+tracing = { workspace = true }

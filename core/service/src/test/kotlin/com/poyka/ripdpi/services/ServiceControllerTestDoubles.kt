@@ -705,6 +705,17 @@ internal class TestNaiveProxyRuntimeFactory(
         }
 }
 
+internal class TestCloudflarePublishRuntimeFactory(
+    private val runtimeFactory: () -> TestRelayRuntime = { TestRelayRuntime() },
+) : CloudflarePublishRuntimeFactory {
+    val runtimes = mutableListOf<TestRelayRuntime>()
+
+    override fun create(): RipDpiRelayRuntime =
+        runtimeFactory().also { runtime ->
+            runtimes += runtime
+        }
+}
+
 internal class TestPluggableTransportRuntimeFactory(
     private val runtimeFactory: () -> TestRelayRuntime = { TestRelayRuntime() },
 ) : PluggableTransportRuntimeFactory {
