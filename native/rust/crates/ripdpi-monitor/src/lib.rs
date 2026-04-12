@@ -65,6 +65,13 @@ pub fn fuzz_parse_dns_response(packet: &[u8], expected_id: u16) -> Result<Vec<St
     dns::parse_dns_response(packet, expected_id)
 }
 
+#[doc(hidden)]
+pub fn fuzz_parse_http_response(headers: &[u8], body: &[u8]) -> Result<(), String> {
+    let response = http::parse_http_response(headers, body.to_vec())?;
+    let _ = http::classify_http_response(&response);
+    Ok(())
+}
+
 impl From<NativeEventRecord> for NativeSessionEvent {
     fn from(value: NativeEventRecord) -> Self {
         Self {

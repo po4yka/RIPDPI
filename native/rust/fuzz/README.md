@@ -13,6 +13,7 @@ Targets:
 - `session_request_parse` - SOCKS4/SOCKS5/HTTP CONNECT request parsing in `ripdpi-session`
 - `dns_response_answers` - DNS response answer extraction in `ripdpi-dns-resolver`
 - `monitor_dns_response` - DNS response parsing in `ripdpi-monitor`
+- `monitor_http_response` - HTTP response parsing in `ripdpi-monitor`
 
 Run from `native/rust/fuzz`:
 
@@ -26,6 +27,7 @@ cargo fuzz run tunnel_config_yaml
 cargo fuzz run session_request_parse
 cargo fuzz run dns_response_answers
 cargo fuzz run monitor_dns_response
+cargo fuzz run monitor_http_response
 ```
 
 Seed corpora live under `corpus/`. Generated artifacts and coverage output are ignored by git.
