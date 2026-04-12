@@ -270,12 +270,16 @@ fn parse_http_response(response: &[u8]) -> Option<ParsedHttpResponse> {
     let headers_text = std::str::from_utf8(&response[..headers_end]).ok()?;
     let mut lines = headers_text.split("\r\n");
     let status_line = lines.next()?;
-    if !status_line.starts_with("HTTP/1.") {
+    let mut parts = status_line.splitn(3, ' ');
+    let http_version = parts.next()?;
+    if !matches!(http_version, "HTTP/1.0" | "HTTP/1.1") {
         return None;
     }
-    let mut parts = status_line.splitn(3, ' ');
-    let _ = parts.next()?;
-    let status_code = parts.next()?.parse::<u16>().ok()?;
+    let status_code_raw = parts.next()?;
+    if status_code_raw.len() != 3 || !status_code_raw.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    let status_code = status_code_raw.parse::<u16>().ok()?;
     let mut headers = Vec::new();
     for line in lines {
         if line.is_empty() {
@@ -337,6 +341,12 @@ mod tests {
     fn fingerprint_line_parser_rejects_empty_header_name() {
         assert!(parse_fingerprint_line("name,header.,contains,blocked,isp,high").is_none());
         assert!(parse_fingerprint_line("name,header.   ,contains,blocked,isp,high").is_none());
+    }
+
+    #[test]
+    fn fingerprint_line_parser_rejects_invalid_location_and_pattern_type() {
+        assert!(parse_fingerprint_line("name,footer.server,contains,blocked,isp,high").is_none());
+        assert!(parse_fingerprint_line("name,body,suffix,blocked,isp,high").is_none());
     }
 
     #[test]
@@ -412,6 +422,27 @@ mod tests {
             parsed.headers.iter().find(|(name, _)| name == "location").map(|(_, value)| value.as_str()),
             Some("http://blocked.mts.ru/")
         );
+    }
+
+    #[test]
+    fn http_response_parser_rejects_missing_headers_delimiter() {
+        let response = b"HTTP/1.1 200 OK\r\nServer: test\r\nbody";
+
+        assert!(parse_http_response(response).is_none());
+    }
+
+    #[test]
+    fn http_response_parser_rejects_non_utf8_headers() {
+        let response = b"HTTP/1.1 200 OK\r\nServer: \xFF\xFE\r\n\r\nbody";
+
+        assert!(parse_http_response(response).is_none());
+    }
+
+    #[test]
+    fn http_response_parser_rejects_non_http1_versions_and_bad_status_codes() {
+        assert!(parse_http_response(b"HTTP/2 200 OK\r\nServer: test\r\n\r\nbody").is_none());
+        assert!(parse_http_response(b"HTTP/1.1 20 OK\r\nServer: test\r\n\r\nbody").is_none());
+        assert!(parse_http_response(b"HTTP/1.1 two OK\r\nServer: test\r\n\r\nbody").is_none());
     }
 
     #[test]
