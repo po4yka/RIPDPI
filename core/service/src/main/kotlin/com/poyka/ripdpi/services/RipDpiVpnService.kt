@@ -29,8 +29,10 @@ import com.poyka.ripdpi.utility.NotificationContentBuilder
 import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
+import dagger.hilt.EntryPoints
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import javax.inject.Provider
 
 @AndroidEntryPoint
 class RipDpiVpnService :
@@ -46,8 +48,9 @@ class RipDpiVpnService :
     lateinit var vpnDhtMitigationPolicy: VpnDhtMitigationPolicy
 
     @Inject
-    internal lateinit var coordinatorFactory: VpnServiceRuntimeCoordinatorFactory
+    internal lateinit var sessionComponentBuilderProvider: Provider<VpnServiceSessionComponentBuilder>
 
+    private var sessionComponent: VpnServiceSessionComponent? = null
     private lateinit var coordinator: VpnServiceRuntimeCoordinator
     private lateinit var shellDelegate: ServiceShellDelegate
     private lateinit var protectSocketServer: VpnProtectSocketServer
@@ -62,12 +65,15 @@ class RipDpiVpnService :
             NOTIFICATION_CHANNEL_ID,
             R.string.vpn_channel_name,
         )
-        coordinator = coordinatorFactory.create(host = this)
-        protectSocketServer =
-            VpnProtectSocketServer(
-                vpnService = this,
-                socketPath = java.io.File(filesDir, "protect_path").absolutePath,
-            )
+        sessionComponent =
+            sessionComponentBuilderProvider
+                .get()
+                .host(this)
+                .vpnService(this)
+                .build()
+        val entryPoint = EntryPoints.get(checkNotNull(sessionComponent), VpnServiceSessionEntryPoint::class.java)
+        coordinator = entryPoint.coordinator()
+        protectSocketServer = entryPoint.protectSocketServer()
         protectSocketServer.start()
         com.poyka.ripdpi.core.RipDpiProxyNativeBindings
             .jniRegisterVpnProtect(this)
@@ -98,6 +104,7 @@ class RipDpiVpnService :
         if (!revoked) {
             coordinator.onDestroy()
         }
+        sessionComponent = null
         super.onDestroy()
     }
 

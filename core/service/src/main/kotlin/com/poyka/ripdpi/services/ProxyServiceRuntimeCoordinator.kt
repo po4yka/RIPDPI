@@ -21,7 +21,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 internal class ProxyServiceRuntimeCoordinator(
     host: ServiceCoordinatorHost,
@@ -308,60 +307,3 @@ internal class ProxyServiceRuntimeCoordinator(
         host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
     }
 }
-
-@Suppress("LongParameterList")
-internal class ProxyServiceRuntimeCoordinatorFactory
-    @Inject
-    constructor(
-        private val connectionPolicyResolver: ConnectionPolicyResolver,
-        private val serviceStateStore: ServiceStateStore,
-        private val networkFingerprintProvider: NetworkFingerprintProvider,
-        private val telemetryFingerprintHasher: TelemetryFingerprintHasher,
-        private val serviceRuntimeRegistry: ServiceRuntimeRegistry,
-        private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
-        private val networkHandoverMonitor: NetworkHandoverMonitor,
-        private val policyHandoverEventStore: PolicyHandoverEventStore,
-        private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
-        private val upstreamRelaySupervisorFactory: UpstreamRelaySupervisorFactory,
-        private val warpRuntimeSupervisorFactory: WarpRuntimeSupervisorFactory,
-        private val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
-        private val serviceStatusReporterFactory: ServiceStatusReporterFactory,
-        private val permissionWatchdog: PermissionWatchdog,
-        private val screenStateObserver: ScreenStateObserver,
-    ) {
-        fun create(host: ServiceCoordinatorHost): ProxyServiceRuntimeCoordinator =
-            ProxyServiceRuntimeCoordinator(
-                host = host,
-                connectionPolicyResolver = connectionPolicyResolver,
-                serviceRuntimeRegistry = serviceRuntimeRegistry,
-                rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
-                networkHandoverMonitor = networkHandoverMonitor,
-                policyHandoverEventStore = policyHandoverEventStore,
-                permissionWatchdog = permissionWatchdog,
-                upstreamRelaySupervisor =
-                    upstreamRelaySupervisorFactory.create(
-                        scope = host.serviceScope,
-                        dispatcher = Dispatchers.IO,
-                    ),
-                warpRuntimeSupervisor =
-                    warpRuntimeSupervisorFactory.create(
-                        scope = host.serviceScope,
-                        dispatcher = Dispatchers.IO,
-                    ),
-                proxyRuntimeSupervisor =
-                    proxyRuntimeSupervisorFactory.create(
-                        scope = host.serviceScope,
-                        dispatcher = Dispatchers.IO,
-                        networkSnapshotProvider = networkSnapshotProvider,
-                    ),
-                statusReporter =
-                    serviceStatusReporterFactory.create(
-                        mode = Mode.Proxy,
-                        sender = Sender.Proxy,
-                        serviceStateStore = serviceStateStore,
-                        networkFingerprintProvider = networkFingerprintProvider,
-                        telemetryFingerprintHasher = telemetryFingerprintHasher,
-                    ),
-                screenStateObserver = screenStateObserver,
-            )
-    }

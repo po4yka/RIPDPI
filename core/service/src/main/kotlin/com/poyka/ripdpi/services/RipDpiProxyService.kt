@@ -19,8 +19,10 @@ import com.poyka.ripdpi.utility.NotificationContentBuilder
 import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import com.poyka.ripdpi.utility.registerNotificationChannel
+import dagger.hilt.EntryPoints
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import javax.inject.Provider
 
 @AndroidEntryPoint
 class RipDpiProxyService :
@@ -30,8 +32,9 @@ class RipDpiProxyService :
     lateinit var serviceStateStore: ServiceStateStore
 
     @Inject
-    internal lateinit var coordinatorFactory: ProxyServiceRuntimeCoordinatorFactory
+    internal lateinit var sessionComponentBuilderProvider: Provider<ProxyServiceSessionComponentBuilder>
 
+    private var sessionComponent: ProxyServiceSessionComponent? = null
     private lateinit var coordinator: ProxyServiceRuntimeCoordinator
     private lateinit var shellDelegate: ServiceShellDelegate
 
@@ -44,7 +47,13 @@ class RipDpiProxyService :
             NOTIFICATION_CHANNEL_ID,
             R.string.proxy_channel_name,
         )
-        coordinator = coordinatorFactory.create(host = this)
+        sessionComponent = sessionComponentBuilderProvider.get().host(this).build()
+        coordinator =
+            EntryPoints
+                .get(
+                    checkNotNull(sessionComponent),
+                    ProxyServiceSessionEntryPoint::class.java,
+                ).coordinator()
         shellDelegate =
             ServiceShellDelegate(
                 serviceScope = lifecycleScope,
@@ -56,6 +65,7 @@ class RipDpiProxyService :
 
     override fun onDestroy() {
         coordinator.onDestroy()
+        sessionComponent = null
         super.onDestroy()
     }
 

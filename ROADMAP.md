@@ -136,10 +136,10 @@ Suggested commit slice:
 
 Goal: replace manual session lifetime handling with explicit scope.
 
-- [ ] Introduce a VPN or runtime session scope for per-run objects.
-- [ ] Move session-owned coordinators, telemetry bridges, and runtime helpers into that scope.
-- [ ] Keep true app-wide singletons global and do not over-scope shared stores.
-- [ ] Convert manual destroy paths to scope-driven lifecycle where possible.
+- [x] Introduce a VPN or runtime session scope for per-run objects.
+- [x] Move session-owned coordinators, telemetry bridges, and runtime helpers into that scope.
+- [x] Keep true app-wide singletons global and do not over-scope shared stores.
+- [x] Convert manual destroy paths to scope-driven lifecycle where possible.
 
 Acceptance criteria:
 
@@ -250,4 +250,3 @@ Suggested commit slice:
 - No diagnostics-service coupling changes that preserve the same architecture under a different name.
 - No binary-size optimization that removes intentional protocol support without evidence.
 - No unsafe cleanup that weakens correctness or hides invariants.
-
