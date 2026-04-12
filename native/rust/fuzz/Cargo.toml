@@ -14,6 +14,7 @@ libfuzzer-sys = "0.4"
 ripdpi-failure-classifier = { path = "../crates/ripdpi-failure-classifier" }
 ripdpi-packets = { path = "../crates/ripdpi-packets" }
 ripdpi-proxy-config = { path = "../crates/ripdpi-proxy-config" }
+ripdpi-session = { path = "../crates/ripdpi-session" }
 ripdpi-tunnel-config = { path = "../crates/ripdpi-tunnel-config" }
 ripdpi-vless = { path = "../crates/ripdpi-vless" }
 
@@ -50,5 +51,11 @@ doc = false
 [[bin]]
 name = "tunnel_config_yaml"
 path = "fuzz_targets/tunnel_config_yaml.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "session_request_parse"
+path = "fuzz_targets/session_request_parse.rs"
 test = false
 doc = false

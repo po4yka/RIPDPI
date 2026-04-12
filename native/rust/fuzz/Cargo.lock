@@ -348,6 +348,7 @@ dependencies = [
  "ripdpi-failure-classifier",
  "ripdpi-packets",
  "ripdpi-proxy-config",
+ "ripdpi-session",
  "ripdpi-tunnel-config",
  "ripdpi-vless",
 ]
@@ -750,6 +751,13 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "ripdpi-session"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-packets",
 ]
 
 [[package]]
