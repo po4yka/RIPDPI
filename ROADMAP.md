@@ -157,10 +157,10 @@ Suggested commit slice:
 
 Goal: validate whether the current thread-per-connection model should be changed.
 
-- [ ] Measure memory and scheduling cost per active connection under load.
-- [ ] Confirm which relay paths truly need blocking threads and which can use lighter task-based execution.
-- [ ] Prototype a hybrid model only if the measurement shows a material win.
-- [ ] Keep the more complex desync and socket-mutation paths on blocking execution where required.
+- [x] Measure memory and scheduling cost per active connection under load.
+- [x] Confirm which relay paths truly need blocking threads and which can use lighter task-based execution.
+- [x] Prototype a hybrid model only if the measurement shows a material win.
+- [x] Keep the more complex desync and socket-mutation paths on blocking execution where required.
 
 Acceptance criteria:
 
