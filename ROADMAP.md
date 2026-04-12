@@ -73,10 +73,10 @@ Suggested commit slice:
 
 Goal: reduce lock contention on the hot path without speculative redesign.
 
-- [ ] Profile `RuntimeState` and identify the actual contention points.
-- [ ] Split the state into smaller ownership units if the profile confirms a shared-lock bottleneck.
-- [ ] Convert read-heavy paths to snapshot or read-optimized access where it is justified by data.
-- [ ] Revisit autolearn host storage and adaptive tuning state only after measurement.
+- [x] Profile `RuntimeState` and identify the actual contention points.
+- [x] Split the state into smaller ownership units if the profile confirms a shared-lock bottleneck.
+- [x] Convert read-heavy paths to snapshot or read-optimized access where it is justified by data.
+- [x] Revisit autolearn host storage and adaptive tuning state only after measurement.
 
 Acceptance criteria:
 
@@ -178,9 +178,9 @@ Suggested commit slice:
 
 Goal: verify that the JNI polling and wrapper lifecycle are correct before redesigning them.
 
-- [ ] Audit handle lifecycle and race windows around poll, stop, and destroy.
-- [ ] Add concurrency tests for stale-handle and lifecycle-transition cases.
-- [ ] Only introduce atomics or a state machine if tests expose a concrete bug or measurable latency issue.
+- [x] Audit handle lifecycle and race windows around poll, stop, and destroy.
+- [x] Add concurrency tests for stale-handle and lifecycle-transition cases.
+- [x] Only introduce atomics or a state machine if tests expose a concrete bug or measurable latency issue.
 
 Acceptance criteria:
 
