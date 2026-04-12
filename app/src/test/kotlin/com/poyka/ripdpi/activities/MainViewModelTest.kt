@@ -741,9 +741,11 @@ class MainViewModelTest {
                 com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
                     java.io.File(System.getProperty("java.io.tmpdir"), "ripdpi-test-crash-reports"),
                 ),
-            appLockLifecycleObserver =
-                com.poyka.ripdpi.security
-                    .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
+            appLockLifecycleCoordinator =
+                MainAppLockLifecycleCoordinator(
+                    com.poyka.ripdpi.security
+                        .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
+                ),
         ).also { viewModel ->
             if (initialize) {
                 viewModel.initialize()
