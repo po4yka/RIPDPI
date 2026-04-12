@@ -47,6 +47,66 @@ class VerifyNativeBloatTest(unittest.TestCase):
 
             self.assertEqual(Path("/tmp/android-sdk").resolve(), resolved)
 
+    def test_diff_named_items_tracks_growth_and_new_entries(self) -> None:
+        diff = verify_native_bloat.diff_named_items(
+            baseline_items=[{"name": "foo", "size": 1000, "crate": "a"}],
+            current_items=[
+                {"name": "foo", "size": 1600, "crate": "a"},
+                {"name": "bar", "size": 700, "crate": "b"},
+            ],
+        )
+
+        self.assertEqual("bar", diff[0]["name"])
+        self.assertEqual(700, diff[0]["deltaBytes"])
+        self.assertEqual("foo", diff[1]["name"])
+        self.assertEqual(600, diff[1]["deltaBytes"])
+
+    def test_render_bloat_report_markdown_mentions_likely_drivers(self) -> None:
+        markdown = verify_native_bloat.render_bloat_report_markdown(
+            {
+                "target": "x86_64-linux-android",
+                "profile": "android-jni",
+                "packages": {
+                    "ripdpi-android": {
+                        "fileSize": {"baseline": 1000, "current": 1200, "deltaBytes": 200},
+                        "textSection": {
+                            "baseline": 400,
+                            "current": 450,
+                            "deltaBytes": 50,
+                            "allowed": 500,
+                            "status": "ok",
+                        },
+                        "topCrateGrowth": [
+                            {
+                                "name": "ripdpi_runtime",
+                                "crate": None,
+                                "baselineSize": 100,
+                                "currentSize": 140,
+                                "deltaBytes": 40,
+                                "status": "changed",
+                            },
+                        ],
+                        "topFunctionGrowth": [
+                            {
+                                "name": "send_with_group",
+                                "crate": "ripdpi_runtime",
+                                "baselineSize": 20,
+                                "currentSize": 30,
+                                "deltaBytes": 10,
+                                "status": "changed",
+                            },
+                        ],
+                        "likelyDrivers": ["ripdpi_runtime"],
+                    },
+                },
+                "failures": [],
+            },
+        )
+
+        self.assertIn("# Native Bloat Attribution Report", markdown)
+        self.assertIn("likely crate drivers", markdown)
+        self.assertIn("ripdpi_runtime", markdown)
+
 
 if __name__ == "__main__":
     unittest.main()

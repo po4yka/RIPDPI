@@ -215,9 +215,9 @@ Suggested commit slice:
 
 Goal: keep binary size visible without forcing premature architectural cuts.
 
-- [ ] Preserve existing size and bloat checks in CI.
-- [ ] Attribute native size growth by crate or feature when possible.
-- [ ] Revisit protocol feature gating only if release size becomes a real constraint.
+- [x] Preserve existing size and bloat checks in CI.
+- [x] Attribute native size growth by crate or feature when possible.
+- [x] Revisit protocol feature gating only if release size becomes a real constraint.
 
 Acceptance criteria:
 
