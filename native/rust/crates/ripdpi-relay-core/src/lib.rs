@@ -268,6 +268,30 @@ fn sync_quic_migration_state(telemetry: &QuicMigrationTelemetryState, snapshot: 
     telemetry.update(snapshot.0.as_deref(), snapshot.1.as_deref());
 }
 
+macro_rules! dispatch_pooled_backend {
+    ($self:expr, $backend:ident => $expr:expr, unsupported => $unsupported:expr) => {
+        match $self {
+            RelayBackend::Hysteria2($backend) => $expr,
+            RelayBackend::Tuic($backend) => $expr,
+            RelayBackend::VlessReality($backend) => $expr,
+            RelayBackend::Xhttp($backend) => $expr,
+            RelayBackend::ChainRelay($backend) => $expr,
+            RelayBackend::Masque($backend) => $expr,
+            RelayBackend::ShadowTls($backend) => $expr,
+            RelayBackend::Unsupported { .. } => $unsupported,
+        }
+    };
+}
+
+macro_rules! open_quic_udp_session {
+    ($backend:expr, $variant:ident) => {{
+        let migration = $backend.quic_migration_snapshot_state();
+        $backend
+            .open_udp_session(move |session| RelayUdpSession::$variant { session, migration: migration.clone() })
+            .await
+    }};
+}
+
 enum RelayBackend {
     Hysteria2(PooledRelayBackend<Hysteria2SessionFactory>),
     Tuic(PooledRelayBackend<TuicSessionFactory>),
@@ -280,30 +304,16 @@ enum RelayBackend {
 }
 
 impl RelayBackend {
+    fn unsupported_error(kind: &str) -> io::Error {
+        io::Error::new(io::ErrorKind::Unsupported, format!("relay backend {kind} is not implemented"))
+    }
+
     fn capabilities(&self) -> RelayCapabilities {
-        match self {
-            Self::Hysteria2(backend) => backend.capabilities(),
-            Self::Tuic(backend) => backend.capabilities(),
-            Self::VlessReality(backend) => backend.capabilities(),
-            Self::Xhttp(backend) => backend.capabilities(),
-            Self::ChainRelay(backend) => backend.capabilities(),
-            Self::Masque(backend) => backend.capabilities(),
-            Self::ShadowTls(backend) => backend.capabilities(),
-            Self::Unsupported { .. } => RelayCapabilities::default(),
-        }
+        dispatch_pooled_backend!(self, backend => backend.capabilities(), unsupported => RelayCapabilities::default())
     }
 
     fn pool_health(&self) -> Option<RelayPoolHealth> {
-        match self {
-            Self::Hysteria2(backend) => Some(backend.pool_health()),
-            Self::Tuic(backend) => Some(backend.pool_health()),
-            Self::VlessReality(backend) => Some(backend.pool_health()),
-            Self::Xhttp(backend) => Some(backend.pool_health()),
-            Self::ChainRelay(backend) => Some(backend.pool_health()),
-            Self::Masque(backend) => Some(backend.pool_health()),
-            Self::ShadowTls(backend) => Some(backend.pool_health()),
-            Self::Unsupported { .. } => None,
-        }
+        dispatch_pooled_backend!(self, backend => Some(backend.pool_health()), unsupported => None)
     }
 
     fn udp_capable(&self) -> bool {
@@ -324,49 +334,25 @@ impl RelayBackend {
     }
 
     async fn connect_tcp(&self, target: &RelayTargetAddr) -> io::Result<BoxedIo> {
-        match self {
-            Self::Hysteria2(backend) => backend.connect_tcp(target).await,
-            Self::Tuic(backend) => backend.connect_tcp(target).await,
-            Self::VlessReality(backend) => backend.connect_tcp(target).await,
-            Self::Xhttp(backend) => backend.connect_tcp(target).await,
-            Self::ChainRelay(backend) => backend.connect_tcp(target).await,
-            Self::Masque(backend) => backend.connect_tcp(target).await,
-            Self::ShadowTls(backend) => backend.connect_tcp(target).await,
-            Self::Unsupported { kind, .. } => {
-                Err(io::Error::new(io::ErrorKind::Unsupported, format!("relay backend {kind} is not implemented")))
+        dispatch_pooled_backend!(
+            self,
+            backend => backend.connect_tcp(target).await,
+            unsupported => {
+                let Self::Unsupported { kind } = self else { unreachable!("macro must only route Unsupported here") };
+                Err(Self::unsupported_error(kind))
             }
-        }
+        )
     }
 
     async fn open_udp_session(&self) -> io::Result<RelayUdpSession> {
         match self {
-            Self::Hysteria2(backend) => {
-                let migration = backend.quic_migration_snapshot_state();
-                backend
-                    .open_udp_session(move |session| RelayUdpSession::Hysteria2 {
-                        session,
-                        migration: migration.clone(),
-                    })
-                    .await
-            }
-            Self::Tuic(backend) => {
-                let migration = backend.quic_migration_snapshot_state();
-                backend
-                    .open_udp_session(move |session| RelayUdpSession::Tuic { session, migration: migration.clone() })
-                    .await
-            }
-            Self::Masque(backend) => {
-                let migration = backend.quic_migration_snapshot_state();
-                backend
-                    .open_udp_session(move |session| RelayUdpSession::Masque { session, migration: migration.clone() })
-                    .await
-            }
+            Self::Hysteria2(backend) => open_quic_udp_session!(backend, Hysteria2),
+            Self::Tuic(backend) => open_quic_udp_session!(backend, Tuic),
+            Self::Masque(backend) => open_quic_udp_session!(backend, Masque),
             Self::VlessReality(_) | Self::Xhttp(_) | Self::ChainRelay(_) | Self::ShadowTls(_) => {
                 Err(io::Error::new(io::ErrorKind::Unsupported, "relay backend does not support UDP ASSOCIATE"))
             }
-            Self::Unsupported { kind, .. } => {
-                Err(io::Error::new(io::ErrorKind::Unsupported, format!("relay backend {kind} is not implemented")))
-            }
+            Self::Unsupported { kind, .. } => Err(Self::unsupported_error(kind)),
         }
     }
 }
