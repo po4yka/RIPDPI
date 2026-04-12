@@ -1,127 +1,63 @@
-# Relay Transport Status
+# MASQUE Current State
 
-This note records the current state of the relay transport work after adding:
+This note describes the current MASQUE implementation in RIPDPI and the validation work that still remains.
 
-- Hysteria2 Salamander support
-- Relay UDP support for `hysteria2` and `masque`
-- MASQUE TCP and UDP support
-- MASQUE bearer and preshared authentication
-- MASQUE `privacy_pass` runtime plumbing with a deployer-supplied token provider
+## Implemented Transport Surface
 
-It also documents what is still intentionally missing in the current build.
+RIPDPI currently ships:
 
-## Implemented Now
+- HTTP/3 `CONNECT` for TCP
+- HTTP/3 `CONNECT-UDP`
+- HTTP/2 TCP fallback
+- bearer auth
+- preshared auth via `Proxy-Authorization: Preshared ...`
+- `privacy_pass` retry flow driven by a deployer-supplied token provider
+- Cloudflare-direct `cloudflare_mtls` with client certificates and optional `sec-ch-geohash`
 
-### Native relay runtime
-
-- `native/rust/crates/ripdpi-relay-core/src/lib.rs`
-  - Stateful relay backends instead of TCP-only helper calls
-  - SOCKS5 `CONNECT` and `UDP ASSOCIATE`
-  - UDP relay support for `hysteria2` and `masque`
-  - Domain targets preserved through SOCKS5 UDP frames instead of forced local resolution
-- `native/rust/crates/ripdpi-relay-core/src/socks5.rs`
-  - SOCKS5 target parsing
-  - SOCKS5 UDP frame encode/decode for IPv4, IPv6, and domain names
-
-### Hysteria2
-
-- `native/rust/crates/ripdpi-hysteria2/src/lib.rs`
-  - Stateful Hysteria2 client
-  - TCP proxy streams
-  - UDP datagram sessions
-  - Salamander obfuscation at the UDP socket boundary
-  - Datagram fragmentation/reassembly for relay-side UDP
-
-### MASQUE
+Primary implementation points:
 
 - `native/rust/crates/ripdpi-masque/src/lib.rs`
-  - HTTP/3 `CONNECT` for TCP
-  - HTTP/3 `CONNECT-UDP`
-  - HTTP/2 TCP fallback
-  - Bearer auth
-  - Preshared auth via `Proxy-Authorization: Preshared ...`
-  - `privacy_pass` retry flow driven by a deployer-supplied HTTP provider
-  - Cloudflare direct mTLS auth with optional `sec-ch-geohash`
 - `native/rust/crates/ripdpi-masque/src/auth.rs`
-  - Static auth header construction
-  - `PrivateToken` challenge parsing
-  - In-memory caching of provider-supplied auth headers
-
-### Android/service wiring
-
 - `core/service/src/main/kotlin/com/poyka/ripdpi/services/UpstreamRelaySupervisor.kt`
-  - Passes Salamander and UDP settings to native runtime
-  - Resolves `privacy_pass` runtime inputs through `MasquePrivacyPassProvider`
-  - Resolves Cloudflare direct mTLS identity material and optional geohash hints
-  - Validates build/provider readiness before native launch
-  - Fails fast if `privacy_pass` is selected but no valid runtime provider is available
-  - Fails fast if `cloudflare_mtls` is selected without a certificate chain and private key
-- `core/service/build.gradle.kts`
-  - Injects deployer-supplied provider settings into `BuildConfig`
-  - Reads `masque.privacyPassProviderUrl` / `masque.privacyPassProviderAuthToken` from `local.properties`
-  - Reads `RIPDPI_MASQUE_PRIVACY_PASS_PROVIDER_URL` / `RIPDPI_MASQUE_PRIVACY_PASS_PROVIDER_AUTH_TOKEN` from env
 - `core/service/src/main/kotlin/com/poyka/ripdpi/services/MasquePrivacyPassProvider.kt`
-  - Binds a real `BuildConfigMasquePrivacyPassProvider`
-  - Validates MASQUE auth mode and provider URL format
-  - Exposes build availability and provider-url validity to the app through `MasquePrivacyPassAvailability`
-- `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt`
-  - Carries provider URL/auth token into the JNI/native contract
 
-### App/config UI
+## Current Hardening State
 
-- `app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigViewModel.kt`
-  - Supports MASQUE bearer and preshared modes in current builds
-  - Rejects `privacy_pass` in validation when the build does not provide a token provider
-  - Sanitizes old `privacy_pass` drafts back to bearer mode in the editor when unavailable
-  - Stores Cloudflare direct certificate and private key material as normalized PEM
-- `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/ModeEditorScreen.kt`
-  - Exposes relay UDP for `hysteria2` and `masque`
-  - Hides the `Privacy Pass` auth chip when the build has no provider
-  - Exposes `Cloudflare Direct` mTLS mode with PEM import actions and optional geohash hints
-- `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/RelayFields.kt`
-  - Shows provider-aware `Privacy Pass` status for available, missing-provider, and invalid-provider builds
-  - Swaps MASQUE bearer-token inputs for certificate/private-key inputs when Cloudflare direct is selected
+The Cloudflare-direct path now includes the interoperability fixes that were previously tracked as follow-up work:
 
-### Interoperability coverage
+- configured MASQUE endpoint paths and queries are preserved for both HTTP/3 and HTTP/2 request construction
+- non-HTTPS MASQUE URLs are rejected before native startup
+- Cloudflare mTLS auth failures are classified as identity or certificate rejection instead of being misreported as Privacy Pass retry paths
+- successful HTTP/3 to HTTP/2 fallback is recorded in runtime telemetry
 
-- `native/rust/crates/ripdpi-masque/src/lib.rs`
-  - Includes near-live provider tests using a local HTTP stub for `privacy_pass` token fetch, retry input serialization, caching, and permission-denied failures
-- `scripts/ci/run-rust-relay-interoperability.sh`
-  - Runs `ripdpi-masque` in the relay interoperability matrix so the provider-flow tests execute in CI together with the broader relay transport suites
+This moved MASQUE from basic plumbing to rollout-ready transport behavior.
 
-## Current Build Behavior
+## Android and Editor Behavior
 
-`privacy_pass` is now build-configurable.
+The app and service layer currently:
 
-- When `MASQUE_PRIVACY_PASS_PROVIDER_URL` is populated through Gradle config, the app exposes `Privacy Pass` as a selectable MASQUE auth mode and the supervisor forwards provider settings to the native runtime.
-- When the provider URL is missing or invalid, the app still hides the option and the supervisor rejects stale stored `privacy_pass` profiles before native launch.
-- The optional provider auth token is forwarded when configured but is not required for rollout.
+- resolve deployer-supplied Privacy Pass provider settings
+- expose provider readiness to the editor UI
+- hide unsupported auth modes when build or provider inputs are unavailable
+- reject stale stored profiles before native launch when requirements are not met
+- normalize imported client certificate and private key PEM for `cloudflare_mtls`
 
-This keeps release safety intact while allowing deployer-provided builds to ship a working `privacy_pass` path.
+## Current Validation Model
 
-## Phase P2 Closure
+Coverage exists at several layers:
 
-The P2 MASQUE closure items are now complete:
+- native unit tests for request construction, auth header generation, challenge parsing, provider retry flow, and fallback behavior
+- service tests for feature gating and preflight rejection paths
+- relay-core tests for config bridging and capability validation
 
-- provider-aware build status is surfaced in the editor UI
-- the deployer-backed `privacy_pass` path is covered by near-live native tests
-- legacy Cloudflare migration fields have been removed from persistence, runtime config contracts, and tests
+The remaining work is validation breadth, not transport design.
 
-What remains below is intentionally outside the P2 roadmap exit criteria.
+## Remaining Work
 
-## Future Follow-Ups
+What remains is limited to staged rollout confidence:
 
-### 1. Cloudflare direct follow-up hardening
+- broader provider and endpoint sampling for `cloudflare_mtls`
+- continued verification that HTTP/3 to HTTP/2 fallback telemetry is sufficient for rollout decisions
+- additional field validation across representative network conditions
 
-Direct Cloudflare-specific MASQUE is now implemented as `cloudflare_mtls` with client-certificate authentication and optional `sec-ch-geohash`.
-
-The remaining work is now narrower than the original follow-up note:
-
-- the native client now preserves configured MASQUE endpoint paths and queries for both HTTP/3 and HTTP/2 CONNECT requests instead of collapsing everything to a root-only path
-- supervisor startup now rejects non-HTTPS MASQUE URLs before the native runtime launches
-- Cloudflare mTLS auth failures are classified as certificate or identity rejections instead of being misreported as missing `privacy_pass` challenges
-- successful HTTP/3 to HTTP/2 fallback is now surfaced through runtime telemetry so staged rollout can distinguish healthy downgrade behavior from opaque retry paths
-
-Future work, if needed, is now limited to broader staged rollout validation and additional provider-specific interoperability sampling rather than a missing auth mode or a known request-construction bug.
-
-That path remains distinct from the deployer-supplied `privacy_pass` provider flow.
+The deployer-supplied `privacy_pass` provider flow remains distinct from the Cloudflare-direct mTLS path.

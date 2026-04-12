@@ -13,16 +13,19 @@ These run through Gradle on the host JVM and cover the Android-facing logic with
   - config contract snapshots
   - state-machine tests
   - fault-injection tests
+  - relay config bridge coverage for Cloudflare Tunnel modes, credential references, TLS catalog versioning, and Finalmask payloads
   - advanced strategy JSON coverage for markers, fake payload profiles, activation windows, adaptive fake TTL, per-network `networkScopeKey`, and UI/native bridge parity
   - native telemetry golden contracts
 - `core:data`
   - app settings and serializer coverage for network-strategy memory toggles
   - fingerprint hashing and privacy-preserving network summaries
+  - relay profile persistence coverage for Cloudflare Tunnel mode, Finalmask config, and credential-reference round trips
   - encrypted DNS path candidate planning, ordering, and persistence-backed migration coverage
 - `core:service`
   - service state store
   - lifecycle coordination
   - diagnostics runtime coordination
+  - relay supervisor coverage for Cloudflare Tunnel publish mode, MASQUE URL validation, feature gating, helper orchestration, and NaiveProxy watchdog behavior
   - connection-policy resolution, remembered-policy replay, and active-policy signature tracking
   - handover monitor debounce/classification and service restart behavior
   - merged service telemetry golden contracts
@@ -60,6 +63,7 @@ The Rust workspace contains several test styles:
 - unit tests for JNI adapters and helpers
 - property-based and fuzz-style parsing coverage with `proptest`
 - config and planner coverage for semantic markers, adaptive `auto(...)` markers, activation filters, fake payload profile selection, QUIC fake Initial profiles, and HTTP parser evasions
+- relay transport coverage for MASQUE path and auth handling, xHTTP Finalmask mutation, Cloudflare publish-origin helper behavior, and NaiveProxy helper contracts
 - runtime policy coverage for host autolearn scoping, route advancement, adaptive fake TTL learning, retry-stealth pacing, and candidate diversification
 - diagnostics monitor coverage for automatic probing/audit candidate catalogs, candidate-aware progress, probe pacing, target-order shuffling, rotating target cohorts, recommendation assembly, and audit-assessment propagation
 - state-machine coverage for proxy and tunnel session registries
@@ -86,9 +90,16 @@ Focused native commands for the current policy/runtime surface:
 cargo test -p ripdpi-runtime --lib
 cargo test -p ripdpi-monitor --lib
 cargo test -p ripdpi-android --lib
+cargo test -p ripdpi-masque -p ripdpi-relay-core -p ripdpi-xhttp -p ripdpi-naiveproxy -p ripdpi-cloudflare-origin
 ./gradlew :core:engine:testDebugUnitTest \
   --tests com.poyka.ripdpi.core.NativeTelemetryGoldenTest \
   -x :core:engine:buildRustNativeLibs
+./gradlew :core:service:testDebugUnitTest \
+  --tests com.poyka.ripdpi.services.UpstreamRelaySupervisorTest \
+  -x :core:engine:buildRustCloudflareOrigin \
+  -x :core:engine:buildRustNativeLibs \
+  -x :core:engine:buildRustNaiveProxy \
+  -x :core:engine:buildRustRootHelper
 ```
 
 ## Local network E2E
