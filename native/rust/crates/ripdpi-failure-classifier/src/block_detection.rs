@@ -276,12 +276,18 @@ fn parse_http_response(response: &[u8]) -> Option<ParsedHttpResponse> {
     let mut parts = status_line.splitn(3, ' ');
     let _ = parts.next()?;
     let status_code = parts.next()?.parse::<u16>().ok()?;
-    let headers = lines
-        .filter_map(|line| {
-            let (name, value) = line.split_once(':')?;
-            Some((name.trim().to_ascii_lowercase(), value.trim().to_string()))
-        })
-        .collect();
+    let mut headers = Vec::new();
+    for line in lines {
+        if line.is_empty() {
+            continue;
+        }
+        let (name, value) = line.split_once(':')?;
+        let name = name.trim();
+        if name.is_empty() {
+            return None;
+        }
+        headers.push((name.to_ascii_lowercase(), value.trim().to_string()));
+    }
     Some(ParsedHttpResponse { status_code, headers, body: response[headers_end + 4..].to_vec() })
 }
 
@@ -374,6 +380,38 @@ mod tests {
         assert_eq!(failure.class, FailureClass::HttpBlockpage);
         assert_eq!(failure.stage, FailureStage::HttpResponse);
         assert!(failure.evidence.tags.iter().any(|tag| tag == "provider=rkn_standard"));
+    }
+
+    #[test]
+    fn http_response_parser_rejects_header_without_colon() {
+        let response = b"HTTP/1.1 200 OK\r\nServer: test\r\nBadHeader\r\n\r\nbody";
+
+        assert!(parse_http_response(response).is_none());
+        assert!(classify_http_response_block(response).is_none());
+    }
+
+    #[test]
+    fn http_response_parser_rejects_empty_header_name() {
+        let response = b"HTTP/1.1 200 OK\r\n: value\r\n\r\nbody";
+
+        assert!(parse_http_response(response).is_none());
+        assert!(classify_http_response_block(response).is_none());
+    }
+
+    #[test]
+    fn http_response_parser_keeps_valid_headers() {
+        let response = b"HTTP/1.1 302 Found\r\nServer: MTS Proxy/1.0\r\nLocation: http://blocked.mts.ru/\r\n\r\n";
+        let parsed = parse_http_response(response).expect("parsed response");
+
+        assert_eq!(parsed.status_code, 302);
+        assert_eq!(
+            parsed.headers.iter().find(|(name, _)| name == "server").map(|(_, value)| value.as_str()),
+            Some("MTS Proxy/1.0")
+        );
+        assert_eq!(
+            parsed.headers.iter().find(|(name, _)| name == "location").map(|(_, value)| value.as_str()),
+            Some("http://blocked.mts.ru/")
+        );
     }
 
     #[test]
