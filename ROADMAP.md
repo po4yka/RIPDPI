@@ -115,10 +115,10 @@ Suggested commit slice:
 
 Goal: reduce `MainViewModel` width and isolate orchestration concerns.
 
-- [ ] Extract connection-state reconciliation into a smaller component or use case.
-- [ ] Separate startup, permission, diagnostics, and navigation orchestration where the responsibilities are currently mixed.
-- [ ] Keep `MainViewModel` as a composition root, not a behavior dump.
-- [ ] Preserve current behavior with focused tests during each extraction.
+- [x] Extract connection-state reconciliation into a smaller component or use case.
+- [x] Separate startup, permission, diagnostics, and navigation orchestration where the responsibilities are currently mixed.
+- [x] Keep `MainViewModel` as a composition root, not a behavior dump.
+- [x] Preserve current behavior with focused tests during each extraction.
 
 Acceptance criteria:
 

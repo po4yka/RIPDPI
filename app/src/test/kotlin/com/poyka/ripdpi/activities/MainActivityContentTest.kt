@@ -195,42 +195,54 @@ class MainActivityContentTest {
             )
         return MainViewModel(
             appSettingsRepository = appSettingsRepository,
-            serviceStateStore = FakeServiceStateStore(),
-            serviceController = serviceController,
-            diagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
-            diagnosticsScanController = StubDiagnosticsScanController(),
-            diagnosticsShareService = StubDiagnosticsShareService(),
-            homeDiagnosticsServices =
-                HomeDiagnosticsServices(
-                    workflowService = StubDiagnosticsHomeWorkflowService(),
-                    compositeRunService = StubDiagnosticsHomeCompositeRunService(),
+            mainServiceDependencies =
+                MainServiceDependencies(
+                    serviceStateStore = FakeServiceStateStore(),
+                    serviceController = serviceController,
+                    trafficStatsReader = FakeTrafficStatsReader(),
+                ),
+            mainPermissionDependencies =
+                MainPermissionDependencies(
+                    permissionPlatformBridge =
+                        FakePermissionPlatformBridge(
+                            vpnPermissionIntent = Intent("fake.vpn.permission"),
+                        ),
+                    permissionStatusProvider = permissionStatusProvider,
+                    permissionCoordinator = PermissionCoordinator(),
+                ),
+            mainDiagnosticsDependencies =
+                MainDiagnosticsDependencies(
+                    diagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
+                    diagnosticsScanController = StubDiagnosticsScanController(),
+                    diagnosticsShareService = StubDiagnosticsShareService(),
+                    homeDiagnosticsServices =
+                        HomeDiagnosticsServices(
+                            workflowService = StubDiagnosticsHomeWorkflowService(),
+                            compositeRunService = StubDiagnosticsHomeCompositeRunService(),
+                        ),
+                ),
+            mainLifecycleDependencies =
+                MainLifecycleDependencies(
+                    appLockLifecycleCoordinator =
+                        MainAppLockLifecycleCoordinator(
+                            com.poyka.ripdpi.security
+                                .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
+                        ),
+                    startupSideEffectsCoordinator =
+                        MainStartupSideEffectsCoordinator(
+                            appSettingsRepository = appSettingsRepository,
+                            crashReportReader = crashReportReader,
+                        ),
+                    settingsDismissCoordinator =
+                        MainSettingsDismissCoordinator(
+                            appSettingsRepository = appSettingsRepository,
+                        ),
+                    crashReportCoordinator =
+                        MainCrashReportCoordinator(
+                            crashReportReader = crashReportReader,
+                        ),
                 ),
             stringResolver = FakeStringResolver(),
-            trafficStatsReader = FakeTrafficStatsReader(),
-            permissionPlatformBridge =
-                FakePermissionPlatformBridge(
-                    vpnPermissionIntent = Intent("fake.vpn.permission"),
-                ),
-            permissionStatusProvider = permissionStatusProvider,
-            permissionCoordinator = PermissionCoordinator(),
-            appLockLifecycleCoordinator =
-                MainAppLockLifecycleCoordinator(
-                    com.poyka.ripdpi.security
-                        .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
-                ),
-            startupSideEffectsCoordinator =
-                MainStartupSideEffectsCoordinator(
-                    appSettingsRepository = appSettingsRepository,
-                    crashReportReader = crashReportReader,
-                ),
-            settingsDismissCoordinator =
-                MainSettingsDismissCoordinator(
-                    appSettingsRepository = appSettingsRepository,
-                ),
-            crashReportCoordinator =
-                MainCrashReportCoordinator(
-                    crashReportReader = crashReportReader,
-                ),
         )
     }
 }

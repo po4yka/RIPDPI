@@ -77,6 +77,56 @@ class MainViewModelTest {
     }
 
     @Test
+    fun `effective connection state reconciles service and runtime state`() {
+        assertEquals(
+            ConnectionState.Connecting,
+            resolveEffectiveConnectionState(
+                appStatus = AppStatus.Running,
+                runtimeConnectionState = ConnectionState.Disconnected,
+            ),
+        )
+        assertEquals(
+            ConnectionState.Disconnected,
+            resolveEffectiveConnectionState(
+                appStatus = AppStatus.Halted,
+                runtimeConnectionState = ConnectionState.Connected,
+            ),
+        )
+        assertEquals(
+            ConnectionState.Error,
+            resolveEffectiveConnectionState(
+                appStatus = AppStatus.Halted,
+                runtimeConnectionState = ConnectionState.Error,
+            ),
+        )
+    }
+
+    @Test
+    fun `primary connection action resolves from ui state`() {
+        assertEquals(
+            MainPrimaryConnectionAction.NONE,
+            resolvePrimaryConnectionAction(
+                connectionState = ConnectionState.Connecting,
+                appStatus = AppStatus.Running,
+            ),
+        )
+        assertEquals(
+            MainPrimaryConnectionAction.STOP,
+            resolvePrimaryConnectionAction(
+                connectionState = ConnectionState.Connected,
+                appStatus = AppStatus.Running,
+            ),
+        )
+        assertEquals(
+            MainPrimaryConnectionAction.START_CONFIGURED_MODE,
+            resolvePrimaryConnectionAction(
+                connectionState = ConnectionState.Disconnected,
+                appStatus = AppStatus.Halted,
+            ),
+        )
+    }
+
+    @Test
     fun `startup destination opens biometric gate after onboarding`() {
         val settings =
             AppSettings
@@ -730,35 +780,47 @@ class MainViewModelTest {
             )
         return MainViewModel(
             appSettingsRepository = appSettingsRepository,
-            serviceStateStore = serviceStateStore,
-            serviceController = serviceController,
-            diagnosticsTimelineSource = diagnosticsTimelineSource,
-            diagnosticsScanController = diagnosticsScanController,
-            diagnosticsShareService = diagnosticsShareService,
-            homeDiagnosticsServices = homeDiagnosticsServices,
+            mainServiceDependencies =
+                MainServiceDependencies(
+                    serviceStateStore = serviceStateStore,
+                    serviceController = serviceController,
+                    trafficStatsReader = FakeTrafficStatsReader(),
+                ),
+            mainPermissionDependencies =
+                MainPermissionDependencies(
+                    permissionPlatformBridge = FakePermissionPlatformBridge(),
+                    permissionStatusProvider = permissionStatusProvider,
+                    permissionCoordinator = PermissionCoordinator(),
+                ),
+            mainDiagnosticsDependencies =
+                MainDiagnosticsDependencies(
+                    diagnosticsTimelineSource = diagnosticsTimelineSource,
+                    diagnosticsScanController = diagnosticsScanController,
+                    diagnosticsShareService = diagnosticsShareService,
+                    homeDiagnosticsServices = homeDiagnosticsServices,
+                ),
+            mainLifecycleDependencies =
+                MainLifecycleDependencies(
+                    appLockLifecycleCoordinator =
+                        MainAppLockLifecycleCoordinator(
+                            com.poyka.ripdpi.security
+                                .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
+                        ),
+                    startupSideEffectsCoordinator =
+                        MainStartupSideEffectsCoordinator(
+                            appSettingsRepository = appSettingsRepository,
+                            crashReportReader = crashReportReader,
+                        ),
+                    settingsDismissCoordinator =
+                        MainSettingsDismissCoordinator(
+                            appSettingsRepository = appSettingsRepository,
+                        ),
+                    crashReportCoordinator =
+                        MainCrashReportCoordinator(
+                            crashReportReader = crashReportReader,
+                        ),
+                ),
             stringResolver = FakeStringResolver(),
-            trafficStatsReader = FakeTrafficStatsReader(),
-            permissionPlatformBridge = FakePermissionPlatformBridge(),
-            permissionStatusProvider = permissionStatusProvider,
-            permissionCoordinator = PermissionCoordinator(),
-            appLockLifecycleCoordinator =
-                MainAppLockLifecycleCoordinator(
-                    com.poyka.ripdpi.security
-                        .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
-                ),
-            startupSideEffectsCoordinator =
-                MainStartupSideEffectsCoordinator(
-                    appSettingsRepository = appSettingsRepository,
-                    crashReportReader = crashReportReader,
-                ),
-            settingsDismissCoordinator =
-                MainSettingsDismissCoordinator(
-                    appSettingsRepository = appSettingsRepository,
-                ),
-            crashReportCoordinator =
-                MainCrashReportCoordinator(
-                    crashReportReader = crashReportReader,
-                ),
         ).also { viewModel ->
             if (initialize) {
                 viewModel.initialize()
