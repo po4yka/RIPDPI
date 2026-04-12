@@ -22,6 +22,12 @@ pub mod runtime_policy;
 pub(crate) mod strategy_evolver;
 pub mod ws_bootstrap;
 
+#[doc(hidden)]
+pub mod bench_support {
+    pub use crate::retry_stealth::{RetryLane, RetryPacer, RetrySignature};
+    pub use crate::strategy_evolver::StrategyEvolver;
+}
+
 pub trait RuntimeTelemetrySink: Send + Sync {
     fn on_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize);
 

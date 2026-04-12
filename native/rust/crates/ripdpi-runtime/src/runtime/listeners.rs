@@ -304,8 +304,8 @@ pub(super) fn run_proxy_with_listener_internal(
         cache: Arc::new(Mutex::new(cache)),
         adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
         adaptive_tuning: Arc::new(Mutex::new(adaptive_tuning)),
-        retry_stealth: Arc::new(Mutex::new(RetryPacer::default())),
-        strategy_evolver: Arc::new(Mutex::new(crate::strategy_evolver::StrategyEvolver::new(
+        retry_stealth: Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
+        strategy_evolver: Arc::new(crate::sync::RwLock::new(crate::strategy_evolver::StrategyEvolver::new(
             evolver_enabled,
             evolver_epsilon,
         ))),

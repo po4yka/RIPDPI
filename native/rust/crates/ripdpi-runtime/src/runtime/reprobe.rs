@@ -163,7 +163,7 @@ pub(super) fn maybe_spawn_reprobe(state: &RuntimeState) {
 /// ServerHello completes.
 fn run_reprobe(
     config: &ripdpi_config::RuntimeConfig,
-    evolver: &crate::sync::Mutex<StrategyEvolver>,
+    evolver: &crate::sync::Arc<crate::sync::RwLock<StrategyEvolver>>,
     adaptive_tuning: &crate::sync::Mutex<crate::adaptive_tuning::AdaptivePlannerResolver>,
 ) {
     let deadline = std::time::Instant::now() + TOTAL_DEADLINE;
@@ -204,7 +204,7 @@ fn run_reprobe(
             PROBE_DOMAINS.len()
         );
         // Reset the strategy evolver so it re-explores on the new network.
-        if let Ok(mut ev) = evolver.lock() {
+        if let Ok(mut ev) = evolver.write() {
             *ev = StrategyEvolver::new(ev.is_enabled(), ev.epsilon());
         }
         // Flush adaptive tuning cache so per-flow hints are re-learned.

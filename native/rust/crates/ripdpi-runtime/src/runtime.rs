@@ -416,8 +416,10 @@ mod tests {
             cache: Arc::new(Mutex::new(RuntimePolicy::load(&config))),
             adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
             adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
-            retry_stealth: Arc::new(Mutex::new(RetryPacer::default())),
-            strategy_evolver: Arc::new(Mutex::new(crate::strategy_evolver::StrategyEvolver::new(false, 0.0))),
+            retry_stealth: Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
+            strategy_evolver: Arc::new(crate::sync::RwLock::new(crate::strategy_evolver::StrategyEvolver::new(
+                false, 0.0,
+            ))),
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry: None,
             runtime_context: None,
