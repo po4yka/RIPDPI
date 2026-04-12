@@ -197,9 +197,9 @@ Suggested commit slice:
 
 Goal: reduce boilerplate without changing behavior.
 
-- [ ] Replace repetitive `RelayBackend` match arms with a trait-based or macro-generated dispatch path.
-- [ ] Keep the refactor mechanical and local to the relay abstraction.
-- [ ] Avoid mixing boilerplate cleanup with protocol changes.
+- [x] Replace repetitive `RelayBackend` match arms with a trait-based or macro-generated dispatch path.
+- [x] Keep the refactor mechanical and local to the relay abstraction.
+- [x] Avoid mixing boilerplate cleanup with protocol changes.
 
 Acceptance criteria:
 
