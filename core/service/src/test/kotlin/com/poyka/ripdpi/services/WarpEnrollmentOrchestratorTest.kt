@@ -249,11 +249,19 @@ class WarpEnrollmentOrchestratorTest {
         runTest {
             val appSettingsRepository = TestAppSettingsRepository()
             val proxyFactory = TestRipDpiProxyFactory()
+            val bootstrapSessionFactory =
+                object : BootstrapProxyRuntimeSupervisorSessionFactory {
+                    override fun create(scope: kotlinx.coroutines.CoroutineScope): ProxyRuntimeSupervisor =
+                        DefaultProxyRuntimeSupervisorFactory(proxyFactory).create(
+                            scope = scope,
+                            dispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
+                            networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                        )
+                }
             val runner =
                 ManagedWarpBootstrapProxyRunner(
                     appSettingsRepository = appSettingsRepository,
-                    proxyRuntimeSupervisorFactory = DefaultProxyRuntimeSupervisorFactory(proxyFactory),
-                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                    bootstrapProxyRuntimeSupervisorSessionFactory = bootstrapSessionFactory,
                     scope = backgroundScope,
                 )
 

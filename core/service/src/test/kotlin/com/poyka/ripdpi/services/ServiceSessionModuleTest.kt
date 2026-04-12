@@ -11,47 +11,59 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Test
 
-class ServiceRuntimeCoordinatorFactoryTest {
+class ServiceSessionModuleTest {
     @Test
-    fun proxyCoordinatorFactoryUsesInjectedFactories() =
+    fun proxySessionModuleUsesInjectedFactories() =
         runTest {
             val relayFactory = RecordingUpstreamRelaySupervisorFactory()
             val warpFactory = RecordingWarpRuntimeSupervisorFactory()
             val proxyFactory = RecordingProxyRuntimeSupervisorFactory()
             val statusFactory = RecordingServiceStatusReporterFactory()
             val host = TestProxyServiceHost(backgroundScope)
-            val coordinatorFactory =
-                ProxyServiceRuntimeCoordinatorFactory(
-                    connectionPolicyResolver = TestConnectionPolicyResolver(sampleResolution(mode = Mode.Proxy)),
+            val upstreamRelaySupervisor = ProxyServiceSessionModule.provideUpstreamRelaySupervisor(host, relayFactory)
+            val warpRuntimeSupervisor = ProxyServiceSessionModule.provideWarpRuntimeSupervisor(host, warpFactory)
+            val proxyRuntimeSupervisor =
+                ProxyServiceSessionModule.provideProxyRuntimeSupervisor(
+                    host = host,
+                    factory = proxyFactory,
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+            val statusReporter =
+                ProxyServiceSessionModule.provideProxyStatusReporter(
                     serviceStateStore = TestServiceStateStore(),
                     networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
                     telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
+                    factory = statusFactory,
+                )
+            val coordinator =
+                ProxyServiceSessionModule.provideProxyCoordinator(
+                    host = host,
+                    connectionPolicyResolver = TestConnectionPolicyResolver(sampleResolution(mode = Mode.Proxy)),
                     serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     networkHandoverMonitor = TestNetworkHandoverMonitor(),
                     policyHandoverEventStore = TestPolicyHandoverEventStore(),
-                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
-                    upstreamRelaySupervisorFactory = relayFactory,
-                    warpRuntimeSupervisorFactory = warpFactory,
-                    proxyRuntimeSupervisorFactory = proxyFactory,
-                    serviceStatusReporterFactory = statusFactory,
                     permissionWatchdog = TestPermissionWatchdog(),
+                    upstreamRelaySupervisor = upstreamRelaySupervisor,
+                    warpRuntimeSupervisor = warpRuntimeSupervisor,
+                    proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+                    statusReporter = statusReporter,
                     screenStateObserver = TestScreenStateObserver(),
                 )
-
-            coordinatorFactory.create(host)
 
             assertEquals(1, proxyFactory.createCalls)
             assertEquals(1, relayFactory.createCalls)
             assertEquals(1, warpFactory.createCalls)
             assertEquals(Mode.Proxy, statusFactory.createdModes.single())
             assertEquals(Sender.Proxy, statusFactory.createdSenders.single())
+            assertNotNull(coordinator)
         }
 
     @Test
-    fun vpnCoordinatorFactoryUsesInjectedFactories() =
+    fun vpnSessionModuleUsesInjectedFactories() =
         runTest {
             val relayFactory = RecordingUpstreamRelaySupervisorFactory()
             val warpFactory = RecordingWarpRuntimeSupervisorFactory()
@@ -94,20 +106,48 @@ class ServiceRuntimeCoordinatorFactoryTest {
                     telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
                     serviceStatusReporterFactory = statusFactory,
                 )
-            val coordinatorFactory =
-                VpnServiceRuntimeCoordinatorFactory(
+            val vpnTunnelRuntime =
+                VpnServiceSessionModule.provideVpnTunnelRuntime(
+                    host = host,
+                    dependencies = runtimeDependencies,
+                )
+            val encryptedDnsFailoverController =
+                VpnServiceSessionModule.provideVpnEncryptedDnsFailoverController(
+                    runtimeDependencies = runtimeDependencies,
+                    statusDependencies = statusDependencies,
+                )
+            val upstreamRelaySupervisor =
+                VpnServiceSessionModule.provideVpnUpstreamRelaySupervisor(host, relayFactory)
+            val warpRuntimeSupervisor =
+                VpnServiceSessionModule.provideVpnWarpRuntimeSupervisor(host, warpFactory)
+            val proxyRuntimeSupervisor =
+                VpnServiceSessionModule.provideVpnProxyRuntimeSupervisor(
+                    host = host,
+                    factory = proxyFactory,
+                    dependencies = runtimeDependencies,
+                )
+            val statusReporter =
+                VpnServiceSessionModule.provideVpnStatusReporter(statusDependencies)
+            val coordinator =
+                VpnServiceSessionModule.provideVpnCoordinator(
+                    host = host,
                     runtimeDependencies = runtimeDependencies,
                     statusDependencies = statusDependencies,
                     permissionWatchdog = TestPermissionWatchdog(),
+                    vpnTunnelRuntime = vpnTunnelRuntime,
+                    encryptedDnsFailoverController = encryptedDnsFailoverController,
+                    upstreamRelaySupervisor = upstreamRelaySupervisor,
+                    warpRuntimeSupervisor = warpRuntimeSupervisor,
+                    proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+                    statusReporter = statusReporter,
                 )
-
-            coordinatorFactory.create(host)
 
             assertEquals(1, proxyFactory.createCalls)
             assertEquals(1, relayFactory.createCalls)
             assertEquals(1, warpFactory.createCalls)
             assertEquals(Mode.VPN, statusFactory.createdModes.single())
             assertEquals(Sender.VPN, statusFactory.createdSenders.single())
+            assertNotNull(coordinator)
         }
 
     private class RecordingUpstreamRelaySupervisorFactory :

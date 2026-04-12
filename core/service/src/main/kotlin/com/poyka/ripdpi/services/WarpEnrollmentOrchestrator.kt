@@ -16,7 +16,6 @@ import com.poyka.ripdpi.data.DefaultWarpProfileId
 import com.poyka.ripdpi.data.DefaultWarpScannerMaxRttMs
 import com.poyka.ripdpi.data.DefaultWarpScannerParallelism
 import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
-import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.WarpAccountKindConsumerFree
 import com.poyka.ripdpi.data.WarpAccountKindConsumerPlus
 import com.poyka.ripdpi.data.WarpAccountKindZeroTrust
@@ -40,8 +39,11 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
@@ -107,8 +109,7 @@ internal class ManagedWarpBootstrapProxyRunner
     @Inject
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
-        private val proxyRuntimeSupervisorFactory: ProxyRuntimeSupervisorFactory,
-        private val networkSnapshotProvider: NativeNetworkSnapshotProvider,
+        private val bootstrapProxyRuntimeSupervisorSessionFactory: BootstrapProxyRuntimeSupervisorSessionFactory,
         @param:ApplicationIoScope private val scope: CoroutineScope,
     ) : WarpBootstrapProxyRunner {
         override suspend fun <T> withBootstrapProxy(block: suspend (WarpBootstrapProxyConfig?) -> T): T {
@@ -138,17 +139,15 @@ internal class ManagedWarpBootstrapProxyRunner
                     rootMode = basePreferences.rootMode,
                     rootHelperSocketPath = basePreferences.rootHelperSocketPath,
                 )
+            val bootstrapScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
             val proxyRuntimeSupervisor =
-                proxyRuntimeSupervisorFactory.create(
-                    scope = scope,
-                    dispatcher = Dispatchers.IO,
-                    networkSnapshotProvider = networkSnapshotProvider,
-                )
+                bootstrapProxyRuntimeSupervisorSessionFactory.create(bootstrapScope)
             proxyRuntimeSupervisor.start(preferences = bootstrapPreferences, onUnexpectedExit = {})
             return try {
                 block(WarpBootstrapProxyConfig(host = LoopbackHost, port = bootstrapPort))
             } finally {
                 proxyRuntimeSupervisor.stop()
+                bootstrapScope.cancel()
             }
         }
 

@@ -477,68 +477,6 @@ internal class VpnServiceRuntimeCoordinator(
     }
 }
 
-internal class VpnServiceRuntimeCoordinatorFactory
-    @Inject
-    constructor(
-        private val runtimeDependencies: VpnServiceRuntimeRuntimeDependencies,
-        private val statusDependencies: VpnServiceRuntimeStatusDependencies,
-        private val permissionWatchdog: PermissionWatchdog,
-    ) {
-        fun create(host: VpnCoordinatorHost): VpnServiceRuntimeCoordinator =
-            VpnServiceRuntimeCoordinator(
-                vpnHost = host,
-                connectionPolicyResolver = runtimeDependencies.connectionPolicyResolver,
-                resolverOverrideStore = runtimeDependencies.resolverOverrideStore,
-                serviceRuntimeRegistry = runtimeDependencies.serviceRuntimeRegistry,
-                rememberedNetworkPolicyStore = runtimeDependencies.rememberedNetworkPolicyStore,
-                networkHandoverMonitor = runtimeDependencies.networkHandoverMonitor,
-                policyHandoverEventStore = runtimeDependencies.policyHandoverEventStore,
-                permissionWatchdog = permissionWatchdog,
-                vpnTunnelRuntime =
-                    VpnTunnelRuntime(
-                        vpnHost = host,
-                        appSettingsRepository = runtimeDependencies.appSettingsRepository,
-                        tun2SocksBridgeFactory = runtimeDependencies.tun2SocksBridgeFactory,
-                        vpnTunnelSessionProvider = runtimeDependencies.vpnTunnelSessionProvider,
-                    ),
-                resolverRefreshPlanner = runtimeDependencies.dnsDependencies.resolverRefreshPlanner,
-                encryptedDnsFailoverController =
-                    VpnEncryptedDnsFailoverController(
-                        resolverOverrideStore = runtimeDependencies.resolverOverrideStore,
-                        networkDnsPathPreferenceStore =
-                            runtimeDependencies.dnsDependencies.networkDnsPathPreferenceStore,
-                        networkDnsBlockedPathStore =
-                            runtimeDependencies.dnsDependencies.networkDnsBlockedPathStore,
-                        networkFingerprintProvider = statusDependencies.networkFingerprintProvider,
-                    ),
-                upstreamRelaySupervisor =
-                    runtimeDependencies.upstreamRelaySupervisorFactory.create(
-                        scope = host.serviceScope,
-                        dispatcher = Dispatchers.IO,
-                    ),
-                warpRuntimeSupervisor =
-                    runtimeDependencies.warpRuntimeSupervisorFactory.create(
-                        scope = host.serviceScope,
-                        dispatcher = Dispatchers.IO,
-                    ),
-                proxyRuntimeSupervisor =
-                    runtimeDependencies.proxyRuntimeSupervisorFactory.create(
-                        scope = host.serviceScope,
-                        dispatcher = Dispatchers.IO,
-                        networkSnapshotProvider = runtimeDependencies.networkSnapshotProvider,
-                    ),
-                statusReporter =
-                    statusDependencies.serviceStatusReporterFactory.create(
-                        mode = Mode.VPN,
-                        sender = Sender.VPN,
-                        serviceStateStore = statusDependencies.serviceStateStore,
-                        networkFingerprintProvider = statusDependencies.networkFingerprintProvider,
-                        telemetryFingerprintHasher = statusDependencies.telemetryFingerprintHasher,
-                    ),
-                screenStateObserver = runtimeDependencies.screenStateObserver,
-            )
-    }
-
 @Suppress("LongParameterList")
 internal class VpnServiceRuntimeRuntimeDependencies
     @Inject
