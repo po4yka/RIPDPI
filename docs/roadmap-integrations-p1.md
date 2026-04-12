@@ -2,6 +2,17 @@
 
 This file groups the medium-term hardening work that expands the existing engine, routing, and Android platform behavior after the P0 transport path is stable.
 
+## Current Closure Status
+
+Phase P1 is implemented in-repo.
+
+- Adaptive per-destination fallback is exposed through settings and runtime-policy logic, with trigger selection, cache TTL controls, and UI messaging for active and pending states.
+- App-routing policy moved beyond a hardcoded package list. The service now resolves packaged routing presets and regex rules from assets, and VPN exclusion uses the resolved catalog instead of a static Russian-app array only.
+- WARP PayloadGen presets and operator-aware suggestions are implemented in the catalog and settings layer, and the app exposes preset-driven WARP obfuscation rather than only raw Amnezia numbers.
+- The relay model now carries `outboundBindIp`, which closes the dual-IP VPS support gap for relay profiles that can bind outbound sockets.
+- Finalmask is documented as a supported server-side compatibility shape through [finalmask-compatibility.md](native/finalmask-compatibility.md) and shipped example profiles.
+- The native runtime and config bridge now include `any_protocol`, entropy padding, adaptive fallback, and related routing/morphing controls.
+
 ## Scope
 
 - [Item 4 - WARP endpoint scanner](roadmap-integrations.md#4-warp-endpoint-scanner)
@@ -31,17 +42,14 @@ This file groups the medium-term hardening work that expands the existing engine
 - Android app exclusion is not greenfield. `core/service/src/main/kotlin/com/poyka/ripdpi/services/VpnAppExclusionPolicy.kt` already ships a static Russian app exclusion list, and `RipDpiVpnService.kt` already applies `addDisallowedApplication`.
 - WARP already exposes scanner and Amnezia knobs in `WarpSettings.kt`, which makes items 4 and 31 mostly about turning stored fields into tested runtime behavior.
 
-## Recommended Sequence
+## Remaining Follow-Up Scope
 
-1. Land the low-risk desync upgrades first. Items 6, 7, 17, 18, 19, 33, and 35 fit naturally into the existing packet-mutation path and should be added with golden fixtures and failure-classifier coverage before more adaptive work starts.
+No open P1 roadmap item remains as an unimplemented phase blocker. The remaining work is validation and iterative tuning:
 
-2. Add adaptive fallback on top of that stable primitive set. Implement item 5 by extending the current per-network policy memory with per-destination trigger caches, and keep the decision engine close to `ripdpi-failure-classifier` and `ripdpi-session` instead of scattering it across Kotlin service code.
-
-3. Treat WARP and relay operational hardening as one stream. Item 4 should produce a real endpoint-selection loop, item 30 should document and validate interoperability with Finalmask-enabled servers, item 31 should turn raw Amnezia parameters into operator presets, and item 34 should add a concrete mitigation for DHT-triggered failures in VPN mode.
-
-4. Replace static Android exclusions with data-driven routing. Items 24, 28, and 36 should move the app from a hardcoded list to bundled policy data, regex expansion, richer UI disclosure, and routing decisions that understand Russian apps, global CDNs, and split-tunnel correlation risk.
-
-5. Deliver the whitelist-era mobile preset after the routing substrate is ready. Items 27 and 29 depend on reliable relay config modeling, source-IP binding, and app-routing policy. Item 8 should stay VPN-mode-only and should not block the rest of the phase.
+- Cloudflare direct and Finalmask compatibility need continued interoperability coverage as upstream server ecosystems evolve.
+- Adaptive fallback, entropy padding, and operator-targeted WARP presets may still need pack-driven tuning over time, but the feature surfaces are already shipped.
+- App-routing policy quality now depends on keeping the catalog current rather than building new routing machinery from scratch.
+- Mobile whitelist presets and correlation defenses are now operational features; future work is mostly policy refinement and field feedback, not missing implementation.
 
 ## Repo Touchpoints
 
@@ -57,3 +65,5 @@ This file groups the medium-term hardening work that expands the existing engine
 - App exclusion and routing policies are data-driven, explainable in UI, and no longer hardcoded to a fixed package list only.
 - Mobile whitelist mitigation has a concrete relay preset and routing story tied to existing per-network state.
 - WARP scanner, PayloadGen presets, and DHT-trigger mitigation are all represented in runtime behavior, not just stored config fields.
+
+All P1 exit criteria above are now satisfied in-repo.
