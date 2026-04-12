@@ -17,7 +17,6 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:diagnostics-data"))
     implementation(project(":core:engine"))
-    implementation(project(":core:service"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.kotlinx.coroutines.core)
