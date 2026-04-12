@@ -206,6 +206,13 @@ Options: `--device <serial>` to target a specific device, `--skip-capture` to re
 **Testing & CI**
 - [Testing, E2E, golden contracts, and soak coverage](docs/testing.md)
 
+**Architecture Hardening**
+- [Completed audit roadmap](ROADMAP.md)
+- [Unsafe audit guide](docs/native/unsafe-audit.md)
+- [Service session scope](docs/service-session-scope.md)
+- [TCP relay concurrency](docs/native/tcp-concurrency.md)
+- [Native size monitoring](docs/native/size-monitoring.md)
+
 **UI & Design**
 - [Design system](docs/design-system.md)
 - [Host-pack presets](docs/host-pack-presets.md)
@@ -219,6 +226,7 @@ Options: `--device <serial>` to target a specific device, `--skip-capture` to re
 - [Diagnostics manual (Russian)](docs/user-manual-diagnostics-ru.md)
 
 **Roadmap**
+- [Completed audit roadmap](ROADMAP.md)
 - [Integrations roadmap](docs/roadmap-integrations.md)
 
 ## Building

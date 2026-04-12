@@ -187,6 +187,13 @@ scripts/guide/.venv/bin/python scripts/guide/generate_guide.py \
 **Тестирование и CI**
 - [Тесты, E2E, golden contracts и soak coverage](docs/testing.md)
 
+**Укрепление архитектуры**
+- [Завершённый audit roadmap](ROADMAP.md)
+- [Unsafe audit guide](docs/native/unsafe-audit.md)
+- [Service session scope](docs/service-session-scope.md)
+- [TCP relay concurrency](docs/native/tcp-concurrency.md)
+- [Native size monitoring](docs/native/size-monitoring.md)
+
 **UI и дизайн**
 - [Дизайн-система](docs/design-system.md)
 - [Host-pack presets](docs/host-pack-presets.md)
@@ -200,6 +207,7 @@ scripts/guide/.venv/bin/python scripts/guide/generate_guide.py \
 - [Инструкция по диагностике](docs/user-manual-diagnostics-ru.md)
 
 **Roadmap**
+- [Завершённый audit roadmap](ROADMAP.md)
 - [Интеграционный roadmap](docs/roadmap-integrations.md)
 
 ## Сборка

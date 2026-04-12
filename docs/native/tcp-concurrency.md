@@ -1,6 +1,6 @@
 # TCP Relay Concurrency
 
-This note documents the current TCP relay threading model and the Phase 7 validation work.
+This note documents the current TCP relay threading model and the validation work that established it.
 
 ## Current Model
 
@@ -31,7 +31,7 @@ That reduces the steady-state relay thread budget by one OS thread per active TC
 
 ## Measurement Path
 
-Phase 7 uses `native/rust/crates/ripdpi-runtime/tests/network_load.rs`:
+The verification path uses `native/rust/crates/ripdpi-runtime/tests/network_load.rs`:
 
 - `proxy_connection_resource_budget`
 

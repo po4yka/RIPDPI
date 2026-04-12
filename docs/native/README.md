@@ -217,6 +217,13 @@ For runtime refactors, treat the checked-in benchmark and native-size baselines 
 
 The local commands for those checks are also documented in [../testing.md](../testing.md).
 
+Related architecture notes:
+
+- [Unsafe audit guide](unsafe-audit.md)
+- [TCP relay concurrency](tcp-concurrency.md)
+- [Native size monitoring](size-monitoring.md)
+- [Service session scope](../service-session-scope.md)
+
 ## Golden Contracts
 
 Structured telemetry, diagnostics-event payloads, and strategy-probe progress/report payloads are treated as compatibility contracts.

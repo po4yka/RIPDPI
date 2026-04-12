@@ -2,6 +2,8 @@
 
 `RipDpiProxyService` and `RipDpiVpnService` now create explicit Hilt session components in `onCreate()` and resolve their per-run graph from those components.
 
+This migration is complete and is now the default runtime lifetime model for service-owned objects.
+
 ## Components
 
 - `ProxyServiceSessionComponent`

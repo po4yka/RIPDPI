@@ -154,7 +154,7 @@ Tracked native-size baselines live in:
 `verify_native_bloat.py` uses the Android SDK/NDK configuration from `local.properties` and `gradle.properties`, so do
 not hardcode toolchain paths when refreshing those baselines.
 
-Phase 0 baseline snapshot:
+Baseline snapshot:
 
 ```bash
 bash scripts/ci/run-phase0-baseline.sh /tmp/ripdpi-phase0-baseline
@@ -175,6 +175,14 @@ The aggregated snapshot is written as:
 
 Use `docs/native/unsafe-audit.md` as the required unsafe-code checklist when changing JNI wrappers, fd ownership, or
 platform syscalls during follow-up performance work.
+
+Architecture verification guardrails:
+
+- `python3 scripts/ci/verify_diagnostics_boundary.py` ensures `core:diagnostics` does not regain a direct
+  `:core:service` dependency or service-package imports in production sources.
+- `NativeWrapperLifecycleRaceTest` exercises stale-handle transitions around JNI wrapper `poll`, `stop`, `destroy`,
+  and network-snapshot update paths.
+- `bash scripts/ci/run-rust-miri.sh` remains the targeted host-side validation lane for pure unsafe helper logic.
 
 ## Local network E2E
 
