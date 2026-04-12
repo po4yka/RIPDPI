@@ -1,6 +1,6 @@
 use std::io;
 use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
-use std::os::fd::AsRawFd;
+use std::os::fd::{AsRawFd, RawFd};
 use std::sync::OnceLock;
 use std::time::Duration;
 
@@ -47,6 +47,28 @@ impl IpFragmentationCapabilities {
     pub const fn supports_tcp_ip_fragmentation(self, ipv6_enabled: bool) -> bool {
         self.supports_udp_ip_fragmentation(ipv6_enabled) && self.tcp_repair
     }
+}
+
+#[doc(hidden)]
+pub fn extract_scm_rights_fd(msg: &libc::msghdr) -> Option<RawFd> {
+    // SAFETY: `msg` must describe a control buffer populated by `recvmsg`; the
+    // caller owns the underlying storage for the duration of this traversal.
+    let mut cmsg = unsafe { libc::CMSG_FIRSTHDR(msg) };
+    while !cmsg.is_null() {
+        // SAFETY: `cmsg` is either null or a valid control header pointer from
+        // the `CMSG_*` traversal macros.
+        let hdr = unsafe { &*cmsg };
+        if hdr.cmsg_level == libc::SOL_SOCKET && hdr.cmsg_type == libc::SCM_RIGHTS {
+            // SAFETY: `SCM_RIGHTS` stores at least one `RawFd` in the
+            // associated control message payload.
+            let data_ptr = unsafe { libc::CMSG_DATA(cmsg) };
+            let received_fd: RawFd = unsafe { std::ptr::read_unaligned(data_ptr.cast()) };
+            return Some(received_fd);
+        }
+        // SAFETY: advances within the same ancillary buffer described by `msg`.
+        cmsg = unsafe { libc::CMSG_NXTHDR(msg, cmsg) };
+    }
+    None
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -469,4 +491,57 @@ pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(us
 pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(usize, Option<u8>)> {
     use std::io::Read;
     Ok(((&*stream).read(buf)?, None))
+}
+
+#[cfg(test)]
+mod tests {
+    use std::mem::{size_of, zeroed};
+    use std::ptr;
+
+    use super::extract_scm_rights_fd;
+
+    #[test]
+    fn extract_scm_rights_fd_returns_received_fd() {
+        let control_len = unsafe { libc::CMSG_SPACE(size_of::<libc::c_int>() as _) } as usize;
+        let mut control = vec![0u8; control_len];
+        let mut msg: libc::msghdr = unsafe { zeroed() };
+        msg.msg_control = control.as_mut_ptr().cast();
+        msg.msg_controllen = control_len as _;
+
+        // SAFETY: `msg` describes the writable `control` buffer above.
+        let cmsg = unsafe { libc::CMSG_FIRSTHDR(&msg) };
+        assert!(!cmsg.is_null());
+
+        let expected_fd: libc::c_int = 123;
+        unsafe {
+            (*cmsg).cmsg_level = libc::SOL_SOCKET;
+            (*cmsg).cmsg_type = libc::SCM_RIGHTS;
+            (*cmsg).cmsg_len = libc::CMSG_LEN(size_of::<libc::c_int>() as _) as _;
+            ptr::write_unaligned(libc::CMSG_DATA(cmsg).cast(), expected_fd);
+        }
+
+        assert_eq!(extract_scm_rights_fd(&msg), Some(expected_fd));
+    }
+
+    #[test]
+    fn extract_scm_rights_fd_ignores_non_fd_control_messages() {
+        let control_len = unsafe { libc::CMSG_SPACE(size_of::<libc::c_int>() as _) } as usize;
+        let mut control = vec![0u8; control_len];
+        let mut msg: libc::msghdr = unsafe { zeroed() };
+        msg.msg_control = control.as_mut_ptr().cast();
+        msg.msg_controllen = control_len as _;
+
+        // SAFETY: `msg` describes the writable `control` buffer above.
+        let cmsg = unsafe { libc::CMSG_FIRSTHDR(&msg) };
+        assert!(!cmsg.is_null());
+
+        unsafe {
+            (*cmsg).cmsg_level = libc::IPPROTO_IP;
+            (*cmsg).cmsg_type = libc::IP_TTL;
+            (*cmsg).cmsg_len = libc::CMSG_LEN(size_of::<libc::c_int>() as _) as _;
+            ptr::write_unaligned(libc::CMSG_DATA(cmsg).cast(), 64 as libc::c_int);
+        }
+
+        assert_eq!(extract_scm_rights_fd(&msg), None);
+    }
 }
