@@ -68,7 +68,6 @@ pub(in crate::runtime) fn relay_streams_uring(
     let freeze_flag = freeze_detected.clone();
     let timeouts = state.config.timeouts;
     let down_done = peer_done.clone();
-    let up_done = peer_done.clone();
 
     // Inbound: upstream -> client using io_uring ZC send.
     let uring_clone = Arc::clone(uring);
@@ -89,23 +88,22 @@ pub(in crate::runtime) fn relay_streams_uring(
         })
         .map_err(|err| io::Error::other(format!("failed to spawn inbound relay thread: {err}")))?;
 
-    // Outbound: client -> upstream uses standard desync path.
-    let up = thread::Builder::new()
-        .name("ripdpi-up".into())
-        .spawn(move || {
-            copy_outbound_half(
-                client_reader,
-                upstream_writer,
-                outbound_state,
-                group_index,
-                outbound_session,
-                up_done,
-                remembered_host_seed,
-            )
-        })
-        .map_err(|err| io::Error::other(format!("failed to spawn outbound relay thread: {err}")))?;
-
-    let up_result = up.join().map_err(|_| io::Error::other("upstream thread panicked"))?;
+    // Keep the complex outbound/desync path on the existing worker thread and
+    // use io_uring only for the plain inbound copy half.
+    let up_result = copy_outbound_half(
+        client_reader,
+        upstream_writer,
+        outbound_state,
+        group_index,
+        outbound_session,
+        peer_done.clone(),
+        remembered_host_seed,
+    );
+    if up_result.is_err() {
+        peer_done.store(true, Ordering::Release);
+        let _ = upstream.shutdown(Shutdown::Both);
+        let _ = client.shutdown(Shutdown::Both);
+    }
     let down_result = down.join().map_err(|_| io::Error::other("downstream thread panicked"))?;
 
     let _ = upstream.shutdown(Shutdown::Both);

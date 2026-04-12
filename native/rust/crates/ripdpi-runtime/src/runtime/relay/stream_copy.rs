@@ -99,7 +99,6 @@ pub(super) fn relay_streams(
     let freeze_flag = freeze_detected.clone();
     let timeouts = state.config.timeouts;
     let down_done = peer_done.clone();
-    let up_done = peer_done.clone();
     let down = thread::Builder::new()
         .name("ripdpi-dn".into())
         .spawn(move || {
@@ -108,22 +107,24 @@ pub(super) fn relay_streams(
             copy_inbound_half(upstream_reader, client_writer, inbound_session, down_done, detector, freeze_flag)
         })
         .map_err(|err| io::Error::other(format!("failed to spawn inbound relay thread: {err}")))?;
-    let up = thread::Builder::new()
-        .name("ripdpi-up".into())
-        .spawn(move || {
-            copy_outbound_half(
-                client_reader,
-                upstream_writer,
-                outbound_state,
-                group_index,
-                outbound_session,
-                up_done,
-                remembered_host_seed,
-            )
-        })
-        .map_err(|err| io::Error::other(format!("failed to spawn outbound relay thread: {err}")))?;
 
-    let up_result = up.join().map_err(|_| io::Error::other("upstream thread panicked"))?;
+    // Keep the client->upstream half on the worker thread that already owns
+    // this connection. That preserves the blocking desync path while avoiding
+    // a second per-flow relay thread in steady state.
+    let up_result = copy_outbound_half(
+        client_reader,
+        upstream_writer,
+        outbound_state,
+        group_index,
+        outbound_session,
+        peer_done.clone(),
+        remembered_host_seed,
+    );
+    if up_result.is_err() {
+        peer_done.store(true, Ordering::Release);
+        let _ = upstream.shutdown(Shutdown::Both);
+        let _ = client.shutdown(Shutdown::Both);
+    }
     let down_result = down.join().map_err(|_| io::Error::other("downstream thread panicked"))?;
 
     // Ensure both sockets are fully closed regardless of how relay threads exited.

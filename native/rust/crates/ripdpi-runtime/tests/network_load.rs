@@ -7,13 +7,16 @@ mod support;
 
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, Shutdown, TcpStream};
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Barrier, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
-use native_soak_support::{acquire_global_lock, write_json_artifact, LatencyRecorder, SoakProfile, SoakSampler};
+use native_soak_support::{
+    acquire_global_lock, assert_growth, capture_process_resource_snapshot, sample_thread_count_by_prefix,
+    write_json_artifact, GrowthThresholds, LatencyRecorder, SoakProfile, SoakSampler,
+};
 use ripdpi_runtime::RuntimeTelemetrySink;
 use serde_json::json;
 
@@ -393,6 +396,168 @@ fn proxy_saturation_load() {
 
     // Resource growth is expected under load -- soak tests cover leak detection.
     // Load tests record samples for observability but do not assert growth thresholds.
+}
+
+#[test]
+#[ignore = "requires RIPDPI_RUN_LOAD=1"]
+fn proxy_connection_resource_budget() {
+    if !SoakProfile::load_tests_enabled() {
+        eprintln!("skipping proxy_connection_resource_budget because RIPDPI_RUN_LOAD!=1");
+        return;
+    }
+
+    let _lock = acquire_global_lock().expect("acquire soak lock");
+    let profile = SoakProfile::from_env();
+    let target_conn = profile.pick_count(24, 64);
+    let hold = profile.pick_duration(Duration::from_secs(22), Duration::from_secs(40));
+
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    let telemetry = Arc::new(LoadTestTelemetry::default());
+
+    let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
+    config.network.max_open = target_conn as i32;
+    let proxy = start_proxy(config, Some(telemetry.clone() as Arc<dyn RuntimeTelemetrySink>));
+
+    let baseline = capture_process_resource_snapshot();
+    let baseline_ripdpi_threads = sample_thread_count_by_prefix("ripdpi");
+    let sampler = start_load_sampler("proxy_connection_resource_budget", &telemetry);
+    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let established = Arc::new(AtomicUsize::new(0));
+    let last_progress = Arc::new(AtomicU64::new(now_ms()));
+
+    let handles: Vec<_> = (0..target_conn)
+        .map(|i| {
+            let stop = stop.clone();
+            let established = established.clone();
+            let last_progress = last_progress.clone();
+            let echo_port = fixture.manifest().tcp_echo_port;
+            let proxy_port = proxy.port;
+            thread::spawn(move || {
+                let mut stream = match try_socks_connect(proxy_port, echo_port) {
+                    Ok(stream) => {
+                        established.fetch_add(1, Ordering::Relaxed);
+                        stream
+                    }
+                    Err(_) => return false,
+                };
+                stream.set_read_timeout(Some(Duration::from_secs(5))).ok();
+                stream.set_write_timeout(Some(Duration::from_secs(5))).ok();
+                while !stop.load(Ordering::Relaxed) {
+                    let payload = format!("budget-{i}");
+                    let payload_bytes = payload.as_bytes();
+                    let progress = stream.write_all(payload_bytes).and_then(|()| {
+                        let mut buf = vec![0u8; payload_bytes.len()];
+                        stream.read_exact(&mut buf)?;
+                        if buf == payload_bytes {
+                            Ok(())
+                        } else {
+                            Err(std::io::Error::other("echo mismatch"))
+                        }
+                    });
+                    if progress.is_ok() {
+                        last_progress.store(now_ms(), Ordering::Relaxed);
+                    }
+                    thread::sleep(Duration::from_millis(250));
+                }
+                let _ = stream.shutdown(Shutdown::Both);
+                true
+            })
+        })
+        .collect();
+
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while established.load(Ordering::Relaxed) < target_conn && Instant::now() < deadline {
+        thread::sleep(Duration::from_millis(100));
+    }
+    let established_count = established.load(Ordering::Relaxed);
+    assert!(
+        established_count >= (target_conn * 3) / 4,
+        "expected at least 75% of budget connections to establish, got {established_count}/{target_conn}"
+    );
+
+    thread::sleep(hold);
+    let idle_for = now_ms().saturating_sub(last_progress.load(Ordering::Relaxed));
+    assert!(idle_for <= PROGRESS_TIMEOUT.as_millis() as u64, "budget load made no progress for {idle_for}ms");
+
+    let steady = capture_process_resource_snapshot();
+    let steady_ripdpi_threads = sample_thread_count_by_prefix("ripdpi");
+    stop.store(true, Ordering::Relaxed);
+    let connected_workers = handles.into_iter().filter_map(|h| h.join().ok()).filter(|ok| *ok).count();
+    let samples = sampler.finish().expect("finish resource budget sampler");
+    let accepted = telemetry.accepted.load(Ordering::Relaxed);
+    let finished = telemetry.finished.load(Ordering::Relaxed);
+    let slot_exhaustions = telemetry.slot_exhaustions.load(Ordering::Relaxed);
+    let errors = telemetry.errors.load(Ordering::Relaxed);
+
+    let process_thread_growth = steady
+        .thread_count
+        .zip(baseline.thread_count)
+        .map(|(steady_threads, baseline_threads)| steady_threads.saturating_sub(baseline_threads));
+    let process_rss_growth_bytes = steady
+        .rss_bytes
+        .zip(baseline.rss_bytes)
+        .map(|(steady_rss, baseline_rss)| steady_rss.saturating_sub(baseline_rss));
+    let ripdpi_thread_growth = steady_ripdpi_threads
+        .zip(baseline_ripdpi_threads)
+        .map(|(steady_threads, baseline_threads)| steady_threads.saturating_sub(baseline_threads));
+    let ripdpi_thread_growth_per_connection =
+        ripdpi_thread_growth.map(|growth| growth as f64 / established_count.max(1) as f64);
+    let process_rss_growth_per_connection =
+        process_rss_growth_bytes.map(|growth| growth as f64 / established_count.max(1) as f64);
+
+    let result = json!({
+        "targetConnections": target_conn,
+        "establishedConnections": established_count,
+        "joinedConnectionWorkers": connected_workers,
+        "holdSeconds": hold.as_secs(),
+        "accepted": accepted,
+        "finished": finished,
+        "slotExhaustions": slot_exhaustions,
+        "errors": errors,
+        "baseline": baseline,
+        "steady": steady,
+        "baselineRipdpiThreadCount": baseline_ripdpi_threads,
+        "steadyRipdpiThreadCount": steady_ripdpi_threads,
+        "sampleCount": samples.len(),
+        "baselineThreadCount": samples.first().and_then(|sample| sample.thread_count),
+        "peakThreadCount": samples.iter().filter_map(|sample| sample.thread_count).max(),
+        "baselineRssBytes": samples.first().and_then(|sample| sample.rss_bytes),
+        "peakRssBytes": samples.iter().filter_map(|sample| sample.rss_bytes).max(),
+        "processThreadGrowth": process_thread_growth,
+        "processRssGrowthBytes": process_rss_growth_bytes,
+        "ripdpiThreadGrowth": ripdpi_thread_growth,
+        "ripdpiThreadGrowthPerEstablishedConnection": ripdpi_thread_growth_per_connection,
+        "processRssGrowthBytesPerEstablishedConnection": process_rss_growth_per_connection,
+        "expectedSteadyStateThreadBudgetPerConnection": 2.0,
+        "note": "Whole-process growth includes the local fixture server threads. The ripdpi-prefixed thread count isolates the proxy listener, worker pool, warmup thread, and relay helpers.",
+    });
+    let _ = write_json_artifact("proxy_connection_resource_budget.results.json", &result);
+
+    let post_warmup_samples =
+        samples.iter().filter(|sample| sample.elapsed_ms >= Duration::from_secs(10).as_millis() as u64).count();
+    assert!(post_warmup_samples >= 2, "expected at least two post-warmup resource samples, got {post_warmup_samples}");
+    assert_eq!(accepted, established_count, "accepted connection count should match established flows");
+    assert_eq!(finished, established_count, "finished connection count should match established flows");
+    assert_eq!(slot_exhaustions, 0, "resource budget scenario should not exhaust slots");
+    assert_eq!(errors, 0, "resource budget scenario should not surface client errors");
+    assert_growth(
+        &samples,
+        Duration::from_secs(10),
+        GrowthThresholds {
+            rss_growth_bytes: target_conn as u64 * 1_024 * 1_024,
+            fd_growth: target_conn * 3,
+            thread_growth: target_conn * 4,
+        },
+    )
+    .expect("resource budget growth thresholds");
+    if let Some(per_connection) = ripdpi_thread_growth_per_connection {
+        assert!(
+            per_connection <= 2.25,
+            "steady-state proxy thread budget regressed: {per_connection:.2} ripdpi threads/connection"
+        );
+    }
+
+    drop(proxy);
 }
 
 // ── Load-test helpers ──
