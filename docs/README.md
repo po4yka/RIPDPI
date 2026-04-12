@@ -9,6 +9,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 - [TUN-to-SOCKS bridge](native/tunnel.md)
 - [Debug a runtime issue](native/debug-runtime-issue.md)
 - [Relay transport status and MASQUE handoff notes](native/relay-masque-status.md)
+- [NaiveProxy decision record](native/relay-naiveproxy-decision.md)
 - [Finalmask compatibility note and example configs](native/finalmask-compatibility.md)
 
 ## Testing & CI
@@ -29,6 +30,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 ## Roadmap
 
 - [Integrations and techniques roadmap](roadmap-integrations.md)
+- [Implementation status and remaining follow-up scope](roadmap-integrations-status.md)
 - [Phase P0 implementation](roadmap-integrations-p0.md)
 - [Phase P1 implementation](roadmap-integrations-p1.md)
 - [Phase P2 implementation](roadmap-integrations-p2.md)
