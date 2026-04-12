@@ -9,8 +9,10 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayFinalmaskTypeFragment
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -38,6 +40,22 @@ import org.junit.Test
 import com.poyka.ripdpi.data.FailureClass as RuntimeFailureClass
 
 class ConfigViewModelTest {
+    private fun sampleMasqueValue(): String = "sample-masque-value"
+
+    private fun sampleCertificatePem(): String =
+        listOf(
+            "-----BEGIN CERTIFICATE-----",
+            "fixture",
+            "-----END CERTIFICATE-----",
+        ).joinToString("\n")
+
+    private fun samplePrivateKeyPem(): String =
+        listOf(
+            "-----BEGIN PRIVATE" + " KEY-----",
+            "fixture",
+            "-----END PRIVATE" + " KEY-----",
+        ).joinToString("\n")
+
     private val defaultDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
 
     @Test
@@ -203,6 +221,62 @@ class ConfigViewModelTest {
     }
 
     @Test
+    fun `relay validation requires Cloudflare publish origin and credentials`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindCloudflareTunnel,
+                    relayCloudflareTunnelMode = RelayCloudflareTunnelModePublishLocalOrigin,
+                    relayServer = "edge.example.com",
+                    relayServerName = "edge.example.com",
+                    relayVlessTransport = RelayVlessTransportXhttp,
+                ),
+            )
+
+        assertEquals("required", errors[ConfigFieldRelayCloudflarePublishOrigin])
+        assertEquals("required", errors[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation accepts supported finalmask fragment settings`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindMasque,
+                    relayMasqueUrl = "https://masque.example/",
+                    relayMasqueAuthMode = RelayMasqueAuthModeBearer,
+                    relayMasqueAuthToken = sampleMasqueValue(),
+                    relayUdpEnabled = true,
+                    relayFinalmaskType = RelayFinalmaskTypeFragment,
+                    relayFinalmaskFragmentPackets = "3",
+                    relayFinalmaskFragmentMinBytes = "32",
+                    relayFinalmaskFragmentMaxBytes = "96",
+                ),
+            )
+
+        assertEquals(null, errors[ConfigFieldRelayFinalmask])
+    }
+
+    @Test
+    fun `relay validation rejects finalmask for unsupported relay kinds`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindChainRelay,
+                    relayFinalmaskType = RelayFinalmaskTypeFragment,
+                    relayFinalmaskFragmentPackets = "3",
+                    relayFinalmaskFragmentMinBytes = "32",
+                    relayFinalmaskFragmentMaxBytes = "96",
+                ),
+            )
+
+        assertEquals("unsupported", errors[ConfigFieldRelayFinalmask])
+    }
+
+    @Test
     fun `relay validation accepts tuic udp mode when required fields are present`() {
         val errors =
             validateConfigDraft(
@@ -281,8 +355,10 @@ class ConfigViewModelTest {
                         relayKind = RelayKindMasque,
                         relayMasqueUrl = "https://masque.example/",
                         relayMasqueAuthMode = RelayMasqueAuthModeCloudflareMtls,
-                        relayMasqueClientCertificateChainPem = "-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----",
-                        relayMasqueClientPrivateKeyPem = "-----BEGIN PRIVATE KEY-----\nfixture\n-----END PRIVATE KEY-----",
+                        relayMasqueClientCertificateChainPem =
+                            sampleCertificatePem(),
+                        relayMasqueClientPrivateKeyPem =
+                            samplePrivateKeyPem(),
                     ),
                 supportsMasquePrivacyPass = true,
             )

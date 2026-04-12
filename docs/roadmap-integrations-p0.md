@@ -2,6 +2,16 @@
 
 This file translates the highest-priority roadmap work into repo-specific implementation tracks. The research source of truth remains [roadmap-integrations.md](roadmap-integrations.md).
 
+## Current Closure Status
+
+Phase P0 is implemented in-repo.
+
+- WARP provisioning, runtime supervision, enrollment orchestration, endpoint persistence, and native execution are present across `core/data`, `core/service`, `core/engine`, `native/rust/crates/ripdpi-warp-core`, and `native/rust/crates/ripdpi-warp-android`.
+- The Cloudflare WARP control-plane host set is shipped as built-in data in `core/data/src/main/kotlin/com/poyka/ripdpi/data/WarpSettings.kt`.
+- xHTTP is implemented as a first-class relay transport in `native/rust/crates/ripdpi-xhttp` and is wired through the relay runtime, config model, and editor UI.
+- Chrome-profile TLS fingerprint handling is present in `native/rust/crates/ripdpi-tls-profiles` and is reused across the transport stack.
+- `cloudflare_tunnel` ships as a supported relay kind backed by the xHTTP client path, with explicit UI guidance that the user supplies the hostname.
+
 ## Scope
 
 - [Item 1 - WARP WireGuard tunnel](roadmap-integrations.md#1-warp-wireguard-tunnel)
@@ -19,17 +29,13 @@ This file translates the highest-priority roadmap work into repo-specific implem
 - Relay orchestration already exists for VLESS, Hysteria2, MASQUE, and chain relay through `core/data/src/main/kotlin/com/poyka/ripdpi/data/RelaySettings.kt`, `core/service/src/main/kotlin/com/poyka/ripdpi/services/UpstreamRelaySupervisor.kt`, `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiRelay.kt`, and `native/rust/crates/ripdpi-relay-core`.
 - Chrome-like TLS profile support already exists in `native/rust/crates/ripdpi-tls-profiles`, and one production caller already uses it in `native/rust/crates/ripdpi-ws-tunnel/src/connect.rs`. The remaining gap is uniform adoption across every outbound TLS and QUIC origin.
 
-## Recommended Sequence
+## Remaining Follow-Up Scope
 
-1. Finish WARP as a production-grade upstream. Lock down registration, refresh, endpoint persistence, and service restart recovery around `WarpProvisioningClient`, `WarpEnrollmentOrchestrator`, `WarpStores`, and `WarpRuntimeSupervisor`, and treat the control-plane hostlist as mandatory bootstrap coverage for desync.
+No open P0 roadmap item remains as an unimplemented feature. The remaining work is follow-up hardening and rollout support:
 
-2. Close the WARP operator-hardening gap. Turn the existing AmneziaWG settings into validated presets, wire the endpoint scanner into per-network memory and manual override flows, and make diagnostics distinguish provisioning failures, endpoint reachability failures, and runtime tunnel failures.
-
-3. Add xHTTP as the first new relay transport in this phase. Implement it as a transport extension around the existing VLESS relay stack, with a dedicated native crate and integration through `ripdpi-relay-core`, `RelaySettings.kt`, the engine JSON codecs, `UpstreamRelaySupervisor`, and the relay config UI.
-
-4. Standardize Chrome fingerprints across all client-originated TLS. Make `ripdpi-tls-profiles` the only supported constructor for outbound TLS where BoringSSL can be used, add regression tests that capture ClientHello bytes, and eliminate silent fallbacks to library-default fingerprints in WARP bootstrap and relay transports.
-
-5. Add Cloudflare Tunnel only after the TLS and xHTTP substrate is stable. Integrate it through the existing relay model instead of adding a one-off service path, and prefer the lowest-risk client architecture that gets a working transport into the app quickly.
+- Cloudflare Tunnel onboarding is still intentionally user-managed. RIPDPI accepts a user-managed hostname and xHTTP origin, but it does not provision tunnel tokens, create TryCloudflare tunnels, or operate `cloudflared` on the user’s behalf.
+- Cloudflare-specific MASQUE and Cloudflare-direct rollout hardening remain separate follow-up work under [relay-masque-status.md](native/relay-masque-status.md), not unfinished P0 delivery.
+- TLS profile freshness, strategy-pack delivery, and long-tail fingerprint rotation now belong to P3 hardening rather than unfinished P0 transport work.
 
 ## P0 Cloudflare Tunnel Topology
 
@@ -54,3 +60,5 @@ This file translates the highest-priority roadmap work into repo-specific implem
 - xHTTP is available as a relay transport with config round-trip coverage and runtime startup tests.
 - Every outbound TLS path that RIPDPI owns uses an explicit fingerprint policy.
 - Cloudflare Tunnel has a documented and code-level insertion point in the relay stack, even if advanced onboarding remains follow-up work.
+
+All P0 exit criteria above are now satisfied in-repo.

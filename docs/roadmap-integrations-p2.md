@@ -55,3 +55,9 @@ This phase is the relay-protocol expansion track. It should build on the transpo
 ## Current Closure Status
 
 The P2 exit criteria above are now satisfied in-repo. Remaining relay work after this phase is future hardening, interoperability expansion, or new transport scope, not unfinished P2 implementation.
+
+## Remaining Follow-Up Scope
+
+- MASQUE still has Cloudflare-direct interoperability hardening and rollout validation work tracked in [relay-masque-status.md](native/relay-masque-status.md).
+- NaiveProxy is no longer an open transport-selection question. Future work is limited to subprocess hardening, readiness polish, and operational validation, as recorded in [relay-naiveproxy-decision.md](native/relay-naiveproxy-decision.md).
+- Additional relay transports or deployment presets can still be added later, but they are outside the closed P2 roadmap scope.
