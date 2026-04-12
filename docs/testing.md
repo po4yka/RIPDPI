@@ -117,6 +117,15 @@ python3 scripts/ci/check-criterion-regressions.py
 
 Tracked benchmark baselines live in `scripts/ci/rust-bench-baseline.json`.
 
+Native fuzz smoke:
+
+```bash
+bash scripts/ci/run-rust-fuzz-smoke.sh
+```
+
+This is the same lightweight `cargo-fuzz` smoke lane used in CI. It runs one seeded `packets_parse`
+iteration and then builds the other checked-in fuzz targets to catch broken scaffolding early.
+
 Packaged native size checks:
 
 ```bash
