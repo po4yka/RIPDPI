@@ -16,6 +16,10 @@ harness = false
 name = "relay_throughput"
 harness = false
 
+[[bench]]
+name = "runtime_control_snapshot"
+harness = false
+
 [dependencies]
 # Bench crate has no library; all dependencies are dev-dependencies used by
 # the benchmark harnesses.
