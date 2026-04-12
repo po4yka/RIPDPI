@@ -79,6 +79,21 @@ fn get_c_int_sockopt(fd: libc::c_int, level: libc::c_int, name: libc::c_int) -> 
     Ok(value)
 }
 
+/// Safe wrapper for socket options whose Linux ABI payload is exactly `u32`.
+fn set_u32_sockopt(fd: libc::c_int, level: libc::c_int, name: libc::c_int, value: u32) -> io::Result<()> {
+    // SAFETY: callers provide a live socket descriptor and this helper is only
+    // used for options whose payload type is exactly `u32`.
+    unsafe { setsockopt_raw(fd, level, name, &value) }
+}
+
+/// Safe wrapper for socket options whose Linux ABI returns exactly `u32`.
+fn get_u32_sockopt(fd: libc::c_int, level: libc::c_int, name: libc::c_int) -> io::Result<u32> {
+    // SAFETY: callers provide a live socket descriptor and this helper is only
+    // used for options whose payload type is exactly `u32`.
+    let (value, _len): (u32, _) = unsafe { getsockopt_raw(fd, level, name) }?;
+    Ok(value)
+}
+
 #[repr(C)]
 struct TcpMd5Sig {
     addr: libc::sockaddr_storage,
@@ -1341,6 +1356,8 @@ fn build_tcp_segment_packet(
 }
 
 fn set_tcp_repair_option(fd: libc::c_int, value: TcpRepairOpt) -> io::Result<()> {
+    // SAFETY: `TcpRepairOpt` matches the Linux `TCP_REPAIR_OPTIONS` ABI and
+    // `fd` is a live TCP socket in repair mode at all call sites.
     unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR_OPTIONS, &value) }
 }
 
@@ -1349,12 +1366,11 @@ fn set_tcp_repair_queue(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
 }
 
 fn set_tcp_queue_seq(fd: libc::c_int, value: u32) -> io::Result<()> {
-    unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, TCP_QUEUE_SEQ, &value) }
+    set_u32_sockopt(fd, libc::IPPROTO_TCP, TCP_QUEUE_SEQ, value)
 }
 
 fn get_tcp_queue_seq(fd: libc::c_int) -> io::Result<u32> {
-    let (value, _): (u32, _) = unsafe { getsockopt_raw(fd, libc::IPPROTO_TCP, TCP_QUEUE_SEQ) }?;
-    Ok(value)
+    get_u32_sockopt(fd, libc::IPPROTO_TCP, TCP_QUEUE_SEQ)
 }
 
 fn read_tcp_timestamp(fd: libc::c_int) -> io::Result<u32> {
@@ -1373,11 +1389,15 @@ fn set_tcp_timestamp(fd: libc::c_int, value: u32, usec_ts: bool) -> io::Result<(
 }
 
 fn get_tcp_repair_window(fd: libc::c_int) -> io::Result<TcpRepairWindow> {
+    // SAFETY: `TcpRepairWindow` matches the Linux `TCP_REPAIR_WINDOW` ABI and
+    // `fd` is a live TCP socket in repair mode at all call sites.
     let (value, _): (TcpRepairWindow, _) = unsafe { getsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR_WINDOW) }?;
     Ok(value)
 }
 
 fn set_tcp_repair_window(fd: libc::c_int, value: TcpRepairWindow) -> io::Result<()> {
+    // SAFETY: `TcpRepairWindow` matches the Linux `TCP_REPAIR_WINDOW` ABI and
+    // `fd` is a live TCP socket in repair mode at all call sites.
     unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR_WINDOW, &value) }
 }
 
