@@ -1,252 +1,64 @@
 # RIPDPI Roadmap
 
-This roadmap is based on the audit issues discussed in this thread. It separates confirmed work from partially confirmed items and orders the work to reduce risk: hardening first, structural cleanup next, and runtime refactors only after baselines exist.
-
-## Status Legend
-
-- `confirmed`: directly supported by code inspection or repository evidence.
-- `partially confirmed`: structurally plausible, but needs measurement or deeper validation before a large refactor.
-- `defer`: low priority relative to higher-impact items.
-
-## Phase 0: Baseline And Guardrails
-
-Goal: establish repeatable measurements before changing architecture.
-
-- [x] Define baselines for native throughput, memory per connection, startup/shutdown time, JNI polling cost, release `.so` size, and key test/runtime durations.
-- [x] Add a small benchmark or profiling harness for the runtime hot path and TCP relay path.
-- [x] Record current values in CI artifacts or a tracked benchmark output.
-- [x] Add a short checklist for unsafe-code review so future refactors do not expand blind spots.
-
-Acceptance criteria:
-
-- Baselines are reproducible locally and in CI.
-- Later phases can compare against a known starting point.
-
-Suggested commit slice:
-
-- `docs: add roadmap and baseline plan`
-- `test: add initial benchmark harness`
-
-## Phase 1: Input-Surface Hardening
-
-Goal: close the highest-risk gaps around untrusted input.
-
-- [x] Add fuzz targets for parser-heavy code in `ripdpi-packets`.
-- [x] Add fuzz targets for `ripdpi-failure-classifier` and other blockpage or response-parsing paths.
-- [x] Add a documented local fuzz workflow and at least one CI smoke target if practical.
-- [x] Triage fuzz crashes into parser fixes, corpus additions, or false positives.
-
-Acceptance criteria:
-
-- Core network parsers have fuzz coverage.
-- At least one fuzz job or smoke test is runnable in a documented way.
-- Newly discovered parser bugs are fixed or tracked with repro cases.
-
-Suggested commit slice:
-
-- `test: scaffold fuzz targets for parser crates`
-- `test: add fuzz smoke documentation`
-- `fix: address first fuzz-found parser issues`
-
-## Phase 2: Unsafe Audit And Containment
-
-Goal: make unsafe usage reviewable and reduce hidden risk.
-
-- [x] Audit unsafe blocks in `ripdpi-runtime`, starting with platform and socket code.
-- [x] Add or tighten `// SAFETY:` notes where the code is not self-evident.
-- [x] Extract safe wrappers for repeated unsafe patterns such as socket setup, fd handling, and platform shims.
-- [x] Add Miri or equivalent pure-logic checks where the code can run off-device.
-
-Acceptance criteria:
-
-- Unsafe hotspots are mapped to owners or modules.
-- Repeated unsafe patterns are wrapped behind narrower APIs.
-- Pure-logic unsafe helpers have at least one automated validation path.
-
-Suggested commit slice:
-
-- `refactor: isolate runtime unsafe helpers`
-- `docs: annotate unsafe invariants`
-- `test: add targeted unsafe validation`
-
-## Phase 3: Runtime Contention Reduction
-
-Goal: reduce lock contention on the hot path without speculative redesign.
-
-- [x] Profile `RuntimeState` and identify the actual contention points.
-- [x] Split the state into smaller ownership units if the profile confirms a shared-lock bottleneck.
-- [x] Convert read-heavy paths to snapshot or read-optimized access where it is justified by data.
-- [x] Revisit autolearn host storage and adaptive tuning state only after measurement.
-
-Acceptance criteria:
-
-- The profile shows lower contention on the targeted hot path.
-- Behavior stays unchanged under concurrent connection load.
-- Benchmarks show either lower latency or higher throughput, or both.
-
-Suggested commit slice:
-
-- `perf: measure runtime lock contention`
-- `refactor: shard hot runtime state`
-- `perf: add contention regression benchmark`
-
-## Phase 4: Diagnostics Boundary Cleanup
-
-Goal: remove the direct diagnostics-to-service coupling.
-
-- [x] Define a diagnostics-facing interface in a neutral module such as `:core:data` or a new diagnostics API module.
-- [x] Move service-owned implementations behind that interface in `:core:service`.
-- [x] Replace direct diagnostics imports of service-layer types with injected abstractions.
-- [x] Update tests so diagnostics can run with fakes without pulling the service implementation.
-
-Acceptance criteria:
-
-- `:core:diagnostics` no longer depends directly on `:core:service`.
-- Diagnostics behavior is testable with substitutes.
-- The dependency arrow is interface-first, not implementation-first.
-
-Suggested commit slice:
-
-- `refactor: introduce diagnostics service interface`
-- `refactor: decouple diagnostics from service implementation`
-- `test: update diagnostics fakes and coverage`
-
-## Phase 5: App-State Decomposition
-
-Goal: reduce `MainViewModel` width and isolate orchestration concerns.
-
-- [x] Extract connection-state reconciliation into a smaller component or use case.
-- [x] Separate startup, permission, diagnostics, and navigation orchestration where the responsibilities are currently mixed.
-- [x] Keep `MainViewModel` as a composition root, not a behavior dump.
-- [x] Preserve current behavior with focused tests during each extraction.
-
-Acceptance criteria:
-
-- Constructor width is materially reduced.
-- The extracted pieces are independently testable.
-- No user-visible behavior changes in startup, permissions, or diagnostics flows.
-
-Suggested commit slice:
-
-- `refactor: extract connection state reconciliation`
-- `refactor: split main viewmodel orchestration`
-- `test: add focused viewmodel coverage`
-
-## Phase 6: Session-Scoped DI
-
-Goal: replace manual session lifetime handling with explicit scope.
-
-- [x] Introduce a VPN or runtime session scope for per-run objects.
-- [x] Move session-owned coordinators, telemetry bridges, and runtime helpers into that scope.
-- [x] Keep true app-wide singletons global and do not over-scope shared stores.
-- [x] Convert manual destroy paths to scope-driven lifecycle where possible.
-
-Acceptance criteria:
-
-- Session-lifetime objects are created and destroyed automatically.
-- Manual cleanup is reduced rather than expanded.
-- The scope model is documented and used consistently.
-
-Suggested commit slice:
-
-- `refactor: add session scope for vpn runtime`
-- `refactor: migrate session-owned services`
-- `docs: document scoped lifetime model`
-
-## Phase 7: TCP Concurrency Model Validation
-
-Goal: validate whether the current thread-per-connection model should be changed.
-
-- [x] Measure memory and scheduling cost per active connection under load.
-- [x] Confirm which relay paths truly need blocking threads and which can use lighter task-based execution.
-- [x] Prototype a hybrid model only if the measurement shows a material win.
-- [x] Keep the more complex desync and socket-mutation paths on blocking execution where required.
-
-Acceptance criteria:
-
-- The actual concurrency bottleneck is measured.
-- Any hybrid model is benchmark-backed and does not regress protocol handling.
-- The default path stays simple unless the gain is clear.
-
-Suggested commit slice:
-
-- `perf: measure tcp per-connection runtime cost`
-- `refactor: prototype hybrid relay execution`
-- `perf: compare relay models under load`
-
-## Phase 8: JNI Wrapper Validation
-
-Goal: verify that the JNI polling and wrapper lifecycle are correct before redesigning them.
-
-- [x] Audit handle lifecycle and race windows around poll, stop, and destroy.
-- [x] Add concurrency tests for stale-handle and lifecycle-transition cases.
-- [x] Only introduce atomics or a state machine if tests expose a concrete bug or measurable latency issue.
-
-Acceptance criteria:
-
-- The suspected JNI contention issue is either disproven or backed by a failing test.
-- Handle lifecycle transitions are exercised by automation.
-- No speculative synchronization rewrite lands without evidence.
-
-Suggested commit slice:
-
-- `test: add jni lifecycle race coverage`
-- `refactor: harden wrapper state transitions`
-
-## Phase 9: RelayBackend Cleanup
-
-Goal: reduce boilerplate without changing behavior.
-
-- [x] Replace repetitive `RelayBackend` match arms with a trait-based or macro-generated dispatch path.
-- [x] Keep the refactor mechanical and local to the relay abstraction.
-- [x] Avoid mixing boilerplate cleanup with protocol changes.
-
-Acceptance criteria:
-
-- The delegation code is shorter and easier to extend.
-- Behavior is unchanged.
-- The change is low-risk and easy to review.
-
-Suggested commit slice:
-
-- `refactor: simplify relay backend dispatch`
-
-## Phase 10: TLS Size Monitoring
-
-Goal: keep binary size visible without forcing premature architectural cuts.
-
-- [x] Preserve existing size and bloat checks in CI.
-- [x] Attribute native size growth by crate or feature when possible.
-- [x] Revisit protocol feature gating only if release size becomes a real constraint.
-
-Acceptance criteria:
-
-- Release-size trends remain observable.
-- Any growth can be explained by a specific crate or feature.
-- No unnecessary TLS-stack removal lands without a measured need.
-
-Suggested commit slice:
-
-- `ci: improve native size monitoring`
-- `docs: note native size tradeoffs`
-
-## Recommended Execution Order
-
-1. Phase 0
-1. Phase 1
-1. Phase 2
-1. Phase 3
-1. Phase 4
-1. Phase 5
-1. Phase 6
-1. Phase 7
-1. Phase 8
-1. Phase 9
-1. Phase 10
-
-## Non-Goals
-
-- No broad rewrite of the runtime concurrency model without measurements.
-- No diagnostics-service coupling changes that preserve the same architecture under a different name.
-- No binary-size optimization that removes intentional protocol support without evidence.
-- No unsafe cleanup that weakens correctness or hides invariants.
+The audit roadmap tracked in this repository is complete. The items below are no longer planned work; they are the current architecture and verification baseline.
+
+## Current Status
+
+- All 10 audit phases have been implemented on `main`.
+- There are no remaining open items from the original audit backlog.
+- New work should be tracked as a separate roadmap or issue list instead of reopening this completed checklist.
+
+## Completed Workstreams
+
+1. Baseline and guardrails
+   - repeatable runtime, load, JNI-wrapper, and native-size baselines
+   - CI artifact collection for baseline snapshots
+   - supporting documentation in [docs/testing.md](docs/testing.md)
+2. Input-surface hardening
+   - `cargo-fuzz` targets across parser-heavy native crates
+   - local and CI fuzz smoke workflow
+   - parser fixes and regression coverage for malformed inputs
+3. Unsafe audit and containment
+   - wrapper extraction for repeated fd, socket-option, ancillary-fd, and lifecycle patterns
+   - targeted Miri smoke coverage for pure helper logic
+   - current checklist in [docs/native/unsafe-audit.md](docs/native/unsafe-audit.md)
+4. Runtime contention reduction
+   - runtime lock contention benchmarks
+   - read-optimized access on hot runtime paths
+   - reduced lock scope on retry and strategy-evolver paths
+5. Diagnostics boundary cleanup
+   - diagnostics contracts live behind neutral interfaces
+   - `core:diagnostics` no longer depends on `:core:service`
+   - regression guard in `scripts/ci/verify_diagnostics_boundary.py`
+6. App-state decomposition
+   - `MainViewModel` orchestration split into focused coordinators and resolvers
+   - constructor width reduced through grouped dependency carriers
+   - focused unit coverage for extracted behavior
+7. Session-scoped DI
+   - explicit service-session components for VPN/proxy runtime lifetime
+   - session-owned coordinators and supervisors removed from manual assembly paths
+   - lifetime model documented in [docs/service-session-scope.md](docs/service-session-scope.md)
+8. TCP concurrency validation
+   - bounded hybrid relay model measured under load
+   - per-connection resource budget coverage
+   - current model documented in [docs/native/tcp-concurrency.md](docs/native/tcp-concurrency.md)
+9. JNI wrapper validation
+   - handle lifecycle audit for `poll`, `stop`, `destroy`, and update paths
+   - race coverage for stale-handle transitions
+   - lifecycle-sensitive JNI calls serialized where needed
+10. Relay cleanup and size monitoring
+   - mechanical backend-dispatch simplification
+   - CI size and bloat attribution reporting
+   - size policy documented in [docs/native/size-monitoring.md](docs/native/size-monitoring.md)
+
+## Architecture Documentation
+
+- [docs/testing.md](docs/testing.md)
+- [docs/native/unsafe-audit.md](docs/native/unsafe-audit.md)
+- [docs/service-session-scope.md](docs/service-session-scope.md)
+- [docs/native/tcp-concurrency.md](docs/native/tcp-concurrency.md)
+- [docs/native/size-monitoring.md](docs/native/size-monitoring.md)
+
+## Next Work
+
+No remaining work is tracked in this completed roadmap. Add new initiatives as a separate document with its own acceptance criteria and status model.

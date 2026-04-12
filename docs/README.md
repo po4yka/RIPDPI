@@ -25,6 +25,14 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 
 - [Testing, E2E, golden contracts, and soak coverage](testing.md)
 
+## Architecture Hardening
+
+- [Completed audit roadmap](../ROADMAP.md)
+- [Unsafe audit guide](native/unsafe-audit.md)
+- [Service session scope](service-session-scope.md)
+- [TCP relay concurrency](native/tcp-concurrency.md)
+- [Native size monitoring](native/size-monitoring.md)
+
 ## UI & Design
 
 - [Design system](design-system.md)

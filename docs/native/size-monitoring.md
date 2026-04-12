@@ -1,6 +1,6 @@
 # Native Size Monitoring
 
-Phase 10 keeps native size visible without forcing premature protocol cuts.
+This document describes the current native size policy and attribution workflow.
 
 ## Current Policy
 
