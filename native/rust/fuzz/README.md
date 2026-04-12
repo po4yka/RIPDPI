@@ -5,6 +5,7 @@ This directory contains the first `cargo-fuzz` setup for the Rust workspace.
 Targets:
 
 - `packets_parse` - parser-heavy surfaces in `ripdpi-packets`
+- `packets_tls_quic` - focused TLS ClientHello and QUIC Initial mutation/parsing in `ripdpi-packets`
 - `failure_http_response` - raw HTTP/blockpage classification in `ripdpi-failure-classifier`
 - `failure_field_cache` - field-cache-based failure classification in `ripdpi-failure-classifier`
 - `vless_request_header` - VLESS request-header parsing in `ripdpi-vless`
@@ -20,6 +21,7 @@ Run from `native/rust/fuzz`:
 
 ```bash
 cargo fuzz run packets_parse
+cargo fuzz run packets_tls_quic
 cargo fuzz run failure_http_response
 cargo fuzz run failure_field_cache
 cargo fuzz run vless_request_header

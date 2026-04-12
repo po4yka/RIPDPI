@@ -31,10 +31,10 @@ Suggested commit slice:
 
 Goal: close the highest-risk gaps around untrusted input.
 
-- [ ] Add fuzz targets for parser-heavy code in `ripdpi-packets`.
-- [ ] Add fuzz targets for `ripdpi-failure-classifier` and other blockpage or response-parsing paths.
-- [ ] Add a documented local fuzz workflow and at least one CI smoke target if practical.
-- [ ] Triage fuzz crashes into parser fixes, corpus additions, or false positives.
+- [x] Add fuzz targets for parser-heavy code in `ripdpi-packets`.
+- [x] Add fuzz targets for `ripdpi-failure-classifier` and other blockpage or response-parsing paths.
+- [x] Add a documented local fuzz workflow and at least one CI smoke target if practical.
+- [x] Triage fuzz crashes into parser fixes, corpus additions, or false positives.
 
 Acceptance criteria:
 

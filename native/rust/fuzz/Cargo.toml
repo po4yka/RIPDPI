@@ -28,6 +28,12 @@ test = false
 doc = false
 
 [[bin]]
+name = "packets_tls_quic"
+path = "fuzz_targets/packets_tls_quic.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "failure_http_response"
 path = "fuzz_targets/failure_http_response.rs"
 test = false

@@ -15,6 +15,12 @@ echo "==> fuzz smoke: run packets_parse once"
   cargo +nightly fuzz run packets_parse -- -runs=1
 )
 
+echo "==> fuzz smoke: build packets_tls_quic"
+(
+  cd "$fuzz_dir"
+  cargo +nightly fuzz build packets_tls_quic
+)
+
 for target in failure_http_response failure_field_cache; do
   echo "==> fuzz smoke: build $target"
   (
