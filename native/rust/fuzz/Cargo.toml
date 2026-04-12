@@ -1,0 +1,33 @@
+[workspace]
+
+[package]
+name = "fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ripdpi-failure-classifier = { path = "../crates/ripdpi-failure-classifier" }
+ripdpi-packets = { path = "../crates/ripdpi-packets" }
+
+[[bin]]
+name = "packets_parse"
+path = "fuzz_targets/packets_parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "failure_http_response"
+path = "fuzz_targets/failure_http_response.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "failure_field_cache"
+path = "fuzz_targets/failure_field_cache.rs"
+test = false
+doc = false

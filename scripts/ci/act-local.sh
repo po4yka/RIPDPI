@@ -40,6 +40,7 @@ declare -A JOB_MODE=(
   [cargo-deny]="native"
   [rust-loom]="native"
   [rust-turmoil]="native"
+  [rust-fuzz-smoke]="native"
   [rust-criterion-bench]="native"
   [rust-network-e2e]="native"
   [build]="native"
@@ -75,6 +76,7 @@ ALL_NATIVE_JOBS=(
   rust-workspace-tests
   rust-loom
   rust-turmoil
+  rust-fuzz-smoke
   rust-network-e2e
   rust-criterion-bench
   rust-cross-check
@@ -119,6 +121,10 @@ run_native_rust_loom() {
 
 run_native_rust_turmoil() {
   bash "$REPO_ROOT/scripts/ci/run-rust-turmoil-tests.sh"
+}
+
+run_native_rust_fuzz_smoke() {
+  bash "$REPO_ROOT/scripts/ci/run-rust-fuzz-smoke.sh"
 }
 
 run_native_rust_network_e2e() {
