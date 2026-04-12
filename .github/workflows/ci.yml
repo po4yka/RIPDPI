@@ -97,7 +97,20 @@ jobs:
         run: python3 scripts/ci/verify_native_elfs.py
 
       - name: Verify packaged native library sizes
-        run: python3 scripts/ci/verify_native_sizes.py
+        run: |
+          mkdir -p "$RUNNER_TEMP/native-size-report"
+          python3 scripts/ci/verify_native_sizes.py \
+            --report-json "$RUNNER_TEMP/native-size-report/native-size-report.json" \
+            --report-md "$RUNNER_TEMP/native-size-report/native-size-report.md"
+
+      - name: Upload native size report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-size-report
+          path: ${{ runner.temp }}/native-size-report/*
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Upload test results
         if: always()
@@ -166,7 +179,20 @@ jobs:
           tool: cargo-bloat
 
       - name: Verify representative native bloat hotspots
-        run: python3 scripts/ci/verify_native_bloat.py
+        run: |
+          mkdir -p "$RUNNER_TEMP/native-bloat-report"
+          python3 scripts/ci/verify_native_bloat.py \
+            --report-json "$RUNNER_TEMP/native-bloat-report/native-bloat-report.json" \
+            --report-md "$RUNNER_TEMP/native-bloat-report/native-bloat-report.md"
+
+      - name: Upload native bloat attribution report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-bloat-report
+          path: ${{ runner.temp }}/native-bloat-report/*
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Dump current native bloat baseline (on failure)
         if: failure()

@@ -69,6 +69,66 @@ class VerifyNativeSizesTest(unittest.TestCase):
         self.assertEqual(262144, payload["maxTotalGrowthBytes"])
         self.assertEqual(1234, payload["libraries"]["x86_64"]["libripdpi.so"])
 
+    def test_build_size_report_includes_deltas_and_totals(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lib_dir = Path(temp_dir)
+            self.write_libraries(
+                lib_dir,
+                {
+                    "arm64-v8a": {
+                        "libripdpi.so": 110,
+                        "libripdpi-tunnel.so": 210,
+                    },
+                },
+            )
+            baseline = {
+                "maxPerLibraryGrowthBytes": 16,
+                "maxTotalGrowthPercent": 10,
+                "maxTotalGrowthBytes": 40,
+                "libraries": {
+                    "arm64-v8a": {
+                        "libripdpi.so": 100,
+                        "libripdpi-tunnel.so": 200,
+                    },
+                },
+            }
+
+            report = verify_native_sizes.build_size_report(lib_dir, baseline)
+
+            self.assertEqual(20, report["totals"]["deltaBytes"])
+            self.assertEqual("ok", report["totals"]["status"])
+            self.assertEqual([], report["failures"])
+            self.assertEqual(10, report["libraries"][0]["deltaBytes"])
+
+    def test_render_size_report_markdown_mentions_totals(self) -> None:
+        report = {
+            "libraries": [
+                {
+                    "abi": "x86_64",
+                    "library": "libripdpi.so",
+                    "baselineSize": 100,
+                    "currentSize": 105,
+                    "allowedSize": 120,
+                    "deltaBytes": 5,
+                    "status": "ok",
+                },
+            ],
+            "totals": {
+                "baselineSize": 100,
+                "currentSize": 105,
+                "allowedSize": 120,
+                "deltaBytes": 5,
+                "status": "ok",
+            },
+            "failures": [],
+        }
+
+        markdown = verify_native_sizes.render_size_report_markdown(report)
+
+        self.assertIn("# Native Size Report", markdown)
+        self.assertIn("## Totals", markdown)
+        self.assertIn("`+5`", markdown)
+
 
 if __name__ == "__main__":
     unittest.main()

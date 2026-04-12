@@ -214,7 +214,40 @@ def compare_named_items(
     return failures
 
 
-def verify(repo_root: Path, baseline: dict) -> None:
+def diff_named_items(baseline_items: list[dict], current_items: list[dict]) -> list[dict]:
+    baseline_by_name = {item["name"]: item for item in baseline_items}
+    current_by_name = {item["name"]: item for item in current_items}
+    names = sorted(set(baseline_by_name) | set(current_by_name))
+    diff: list[dict] = []
+    for name in names:
+        baseline_item = baseline_by_name.get(name)
+        current_item = current_by_name.get(name)
+        baseline_size = int(baseline_item["size"]) if baseline_item else None
+        current_size = int(current_item["size"]) if current_item else None
+        if baseline_size is None:
+            status = "new"
+            delta = current_size
+        elif current_size is None:
+            status = "dropped"
+            delta = -baseline_size
+        else:
+            status = "changed"
+            delta = current_size - baseline_size
+        diff.append(
+            {
+                "name": name,
+                "crate": (current_item or baseline_item).get("crate"),
+                "baselineSize": baseline_size,
+                "currentSize": current_size,
+                "deltaBytes": delta,
+                "status": status,
+            },
+        )
+    diff.sort(key=lambda item: abs(int(item["deltaBytes"] or 0)), reverse=True)
+    return diff
+
+
+def build_bloat_report(repo_root: Path, baseline: dict) -> dict:
     target = baseline["target"]
     profile = baseline["profile"]
     top_functions = int(baseline["topFunctions"])
@@ -226,37 +259,123 @@ def verify(repo_root: Path, baseline: dict) -> None:
     max_new_crate_size_bytes = int(baseline["maxNewCrateSizeBytes"])
 
     failures: list[str] = []
+    packages: dict[str, dict] = {}
     for package, baseline_report in baseline["packages"].items():
         current_report = analyze_package(repo_root, package, target, profile, top_functions, top_crates)
         baseline_text = int(baseline_report["textSectionSize"])
         current_text = int(current_report["textSectionSize"])
         allowed_text = baseline_text + max_text_section_growth_bytes
+        text_status = "ok"
         if current_text > allowed_text:
             failures.append(
                 f"{package} text section regression: baseline={baseline_text} actual={current_text} allowed={allowed_text}",
             )
+            text_status = "regression"
 
-        failures.extend(
-            compare_named_items(
-                package,
-                "functions",
-                baseline_report["functions"],
-                current_report["functions"],
-                max_function_growth_bytes,
-                max_new_function_size_bytes,
-            ),
+        function_failures = compare_named_items(
+            package,
+            "functions",
+            baseline_report["functions"],
+            current_report["functions"],
+            max_function_growth_bytes,
+            max_new_function_size_bytes,
         )
-        failures.extend(
-            compare_named_items(
-                package,
-                "crates",
-                baseline_report["crates"],
-                current_report["crates"],
-                max_crate_growth_bytes,
-                max_new_crate_size_bytes,
-            ),
+        crate_failures = compare_named_items(
+            package,
+            "crates",
+            baseline_report["crates"],
+            current_report["crates"],
+            max_crate_growth_bytes,
+            max_new_crate_size_bytes,
         )
+        failures.extend(function_failures)
+        failures.extend(crate_failures)
 
+        crate_growth = [item for item in diff_named_items(baseline_report["crates"], current_report["crates"]) if item["deltaBytes"]]
+        function_growth = [
+            item for item in diff_named_items(baseline_report["functions"], current_report["functions"]) if item["deltaBytes"]
+        ]
+        packages[package] = {
+            "fileSize": {
+                "baseline": int(baseline_report["fileSize"]),
+                "current": int(current_report["fileSize"]),
+                "deltaBytes": int(current_report["fileSize"]) - int(baseline_report["fileSize"]),
+            },
+            "textSection": {
+                "baseline": baseline_text,
+                "current": current_text,
+                "deltaBytes": current_text - baseline_text,
+                "allowed": allowed_text,
+                "status": text_status,
+            },
+            "topCrateGrowth": crate_growth[:10],
+            "topFunctionGrowth": function_growth[:10],
+            "likelyDrivers": [item["name"] for item in crate_growth if int(item["deltaBytes"]) > 0][:5],
+        }
+
+    return {
+        "target": target,
+        "profile": profile,
+        "limits": {
+            "maxTextSectionGrowthBytes": max_text_section_growth_bytes,
+            "maxFunctionGrowthBytes": max_function_growth_bytes,
+            "maxCrateGrowthBytes": max_crate_growth_bytes,
+            "maxNewFunctionSizeBytes": max_new_function_size_bytes,
+            "maxNewCrateSizeBytes": max_new_crate_size_bytes,
+        },
+        "packages": packages,
+        "failures": failures,
+    }
+
+
+def render_bloat_report_markdown(report: dict) -> str:
+    lines = [
+        "# Native Bloat Attribution Report",
+        "",
+        f"- target: `{report['target']}`",
+        f"- profile: `{report['profile']}`",
+    ]
+    for package, package_report in report["packages"].items():
+        file_size = package_report["fileSize"]
+        text_section = package_report["textSection"]
+        lines.extend(
+            [
+                "",
+                f"## {package}",
+                "",
+                f"- file size: `{file_size['baseline']}` -> `{file_size['current']}` (`{file_size['deltaBytes']:+d}`)",
+                f"- text section: `{text_section['baseline']}` -> `{text_section['current']}` (`{text_section['deltaBytes']:+d}`), allowed `{text_section['allowed']}`, status `{text_section['status']}`",
+            ],
+        )
+        if package_report["likelyDrivers"]:
+            lines.append(f"- likely crate drivers: `{', '.join(package_report['likelyDrivers'])}`")
+        if package_report["topCrateGrowth"]:
+            lines.extend(["", "### Top Crate Growth", "", "| Crate | Baseline | Current | Delta | Status |", "| --- | ---: | ---: | ---: | --- |"])
+            for entry in package_report["topCrateGrowth"]:
+                baseline_size = "-" if entry["baselineSize"] is None else str(entry["baselineSize"])
+                current_size = "-" if entry["currentSize"] is None else str(entry["currentSize"])
+                lines.append(
+                    f"| {entry['name']} | {baseline_size} | {current_size} | {entry['deltaBytes']:+d} | {entry['status']} |",
+                )
+        if package_report["topFunctionGrowth"]:
+            lines.extend(
+                ["", "### Top Function Growth", "", "| Function | Crate | Baseline | Current | Delta | Status |", "| --- | --- | ---: | ---: | ---: | --- |"],
+            )
+            for entry in package_report["topFunctionGrowth"][:5]:
+                baseline_size = "-" if entry["baselineSize"] is None else str(entry["baselineSize"])
+                current_size = "-" if entry["currentSize"] is None else str(entry["currentSize"])
+                crate_name = entry["crate"] or "-"
+                lines.append(
+                    f"| {entry['name']} | {crate_name} | {baseline_size} | {current_size} | {entry['deltaBytes']:+d} | {entry['status']} |",
+                )
+    if report["failures"]:
+        lines.extend(["", "## Failures", ""])
+        lines.extend(f"- {failure}" for failure in report["failures"])
+    return "\n".join(lines) + "\n"
+
+
+def verify(repo_root: Path, baseline: dict) -> None:
+    failures = build_bloat_report(repo_root, baseline)["failures"]
     if failures:
         raise ValueError("\n".join(failures))
 
@@ -303,6 +422,8 @@ def main() -> int:
         action="store_true",
         help="Print a current cargo-bloat baseline payload instead of verifying against the checked-in file.",
     )
+    parser.add_argument("--report-json", help="Write a JSON bloat attribution report to this path.")
+    parser.add_argument("--report-md", help="Write a Markdown bloat attribution report to this path.")
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
@@ -329,7 +450,14 @@ def main() -> int:
     if not baseline_path.is_file():
         raise ValueError(f"Native bloat baseline not found: {baseline_path}")
 
-    verify(repo_root, json.loads(baseline_path.read_text(encoding="utf-8")))
+    baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
+    report = build_bloat_report(repo_root, baseline)
+    if args.report_json:
+        Path(args.report_json).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    if args.report_md:
+        Path(args.report_md).write_text(render_bloat_report_markdown(report), encoding="utf-8")
+    if report["failures"]:
+        raise ValueError("\n".join(report["failures"]))
     print(f"Verified cargo-bloat output against {baseline_path}")
     return 0
 
