@@ -71,6 +71,14 @@ fn set_c_int_sockopt(fd: libc::c_int, level: libc::c_int, name: libc::c_int, val
     unsafe { setsockopt_raw(fd, level, name, &value) }
 }
 
+/// Safe wrapper for socket options whose Linux ABI returns a plain `c_int`.
+fn get_c_int_sockopt(fd: libc::c_int, level: libc::c_int, name: libc::c_int) -> io::Result<libc::c_int> {
+    // SAFETY: callers provide a live socket descriptor and this helper is only
+    // used for options whose payload type is exactly `c_int`.
+    let (value, _len): (libc::c_int, _) = unsafe { getsockopt_raw(fd, level, name) }?;
+    Ok(value)
+}
+
 #[repr(C)]
 struct TcpMd5Sig {
     addr: libc::sockaddr_storage,
@@ -340,9 +348,7 @@ pub fn set_tcp_window_clamp(stream: &TcpStream, size: u32) -> io::Result<()> {
 /// Read the current `TCP_WINDOW_CLAMP` value on a socket.
 #[cfg(test)]
 pub fn get_tcp_window_clamp(stream: &TcpStream) -> io::Result<u32> {
-    let (val, _len): (libc::c_int, _) =
-        unsafe { getsockopt_raw(stream.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_WINDOW_CLAMP) }?;
-    Ok(val as u32)
+    Ok(get_c_int_sockopt(stream.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_WINDOW_CLAMP)? as u32)
 }
 
 /// Set the socket receive buffer size (`SO_RCVBUF`).
@@ -358,8 +364,7 @@ pub fn set_rcvbuf(fd: &impl AsRawFd, size: u32) -> io::Result<()> {
 /// Read the current `SO_RCVBUF` value on a socket.
 #[cfg(test)]
 pub fn get_rcvbuf(fd: &impl AsRawFd) -> io::Result<u32> {
-    let (val, _len): (libc::c_int, _) = unsafe { getsockopt_raw(fd.as_raw_fd(), libc::SOL_SOCKET, libc::SO_RCVBUF) }?;
-    Ok(val as u32)
+    Ok(get_c_int_sockopt(fd.as_raw_fd(), libc::SOL_SOCKET, libc::SO_RCVBUF)? as u32)
 }
 
 /// Send a fake TCP RST packet with the current (fake) TTL to clear DPI state.
@@ -1353,7 +1358,7 @@ fn get_tcp_queue_seq(fd: libc::c_int) -> io::Result<u32> {
 }
 
 fn read_tcp_timestamp(fd: libc::c_int) -> io::Result<u32> {
-    let (value, _): (libc::c_int, _) = unsafe { getsockopt_raw(fd, libc::IPPROTO_TCP, libc::TCP_TIMESTAMP) }?;
+    let value = get_c_int_sockopt(fd, libc::IPPROTO_TCP, libc::TCP_TIMESTAMP)?;
     u32::try_from(value).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "negative TCP timestamp"))
 }
 
@@ -1607,13 +1612,11 @@ mod tests {
     }
 
     fn get_tcp_fastopen_connect(fd: libc::c_int) -> io::Result<bool> {
-        let (val, _): (libc::c_int, _) = unsafe { getsockopt_raw(fd, libc::IPPROTO_TCP, libc::TCP_FASTOPEN_CONNECT) }?;
-        Ok(val != 0)
+        Ok(get_c_int_sockopt(fd, libc::IPPROTO_TCP, libc::TCP_FASTOPEN_CONNECT)? != 0)
     }
 
     fn get_recv_ttl(fd: libc::c_int) -> io::Result<bool> {
-        let (val, _): (libc::c_int, _) = unsafe { getsockopt_raw(fd, libc::IPPROTO_IP, libc::IP_RECVTTL) }?;
-        Ok(val != 0)
+        Ok(get_c_int_sockopt(fd, libc::IPPROTO_IP, libc::IP_RECVTTL)? != 0)
     }
 
     fn sample_tcp_repair_snapshot() -> TcpRepairSnapshot {
