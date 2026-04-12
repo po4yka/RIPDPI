@@ -8,9 +8,18 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 - [Proxy engine and strategy surface](native/proxy-engine.md)
 - [TUN-to-SOCKS bridge](native/tunnel.md)
 - [Debug a runtime issue](native/debug-runtime-issue.md)
+- [Cloudflare Tunnel operations](native/cloudflare-tunnel-operations.md)
 - [MASQUE current state](native/relay-masque-status.md)
 - [NaiveProxy runtime](native/relay-naiveproxy-decision.md)
 - [Finalmask compatibility and example configs](native/finalmask-compatibility.md)
+
+## Operations
+
+- [Strategy-pack and TLS catalog operations](strategy-pack-operations.md)
+
+## Configuration
+
+- [Relay profile examples](relay-profile-examples.md)
 
 ## Testing & CI
 

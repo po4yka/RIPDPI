@@ -192,9 +192,16 @@ Options: `--device <serial>` to target a specific device, `--skip-capture` to re
 - [Proxy engine and strategy surface](docs/native/proxy-engine.md)
 - [TUN-to-SOCKS bridge](docs/native/tunnel.md)
 - [Debug a runtime issue](docs/native/debug-runtime-issue.md)
+- [Cloudflare Tunnel operations](docs/native/cloudflare-tunnel-operations.md)
 - [MASQUE current state](docs/native/relay-masque-status.md)
 - [NaiveProxy runtime](docs/native/relay-naiveproxy-decision.md)
 - [Finalmask compatibility and example configs](docs/native/finalmask-compatibility.md)
+
+**Operations**
+- [Strategy-pack and TLS catalog operations](docs/strategy-pack-operations.md)
+
+**Configuration**
+- [Relay profile examples](docs/relay-profile-examples.md)
 
 **Testing & CI**
 - [Testing, E2E, golden contracts, and soak coverage](docs/testing.md)
