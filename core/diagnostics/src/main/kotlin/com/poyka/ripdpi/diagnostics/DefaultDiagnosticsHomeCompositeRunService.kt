@@ -3,9 +3,10 @@ package com.poyka.ripdpi.diagnostics
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.ApplicationIoScope
+import com.poyka.ripdpi.data.NetworkHandoverEvent
+import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
-import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -239,7 +240,7 @@ class DefaultDiagnosticsHomeCompositeRunService
             log.i { "started runId=$runId stages=${HomeCompositeStageSpecs.size}" }
             val auditSpec = HomeCompositeStageSpecs[0]
             val auditIndex = 0
-            val networkEvents = mutableListOf<com.poyka.ripdpi.services.NetworkHandoverEvent>()
+            val networkEvents = mutableListOf<NetworkHandoverEvent>()
             val eventCollector =
                 scope.launch {
                     networkHandoverMonitor.events.collect { event ->
