@@ -188,8 +188,12 @@ class MainActivityContentTest {
             ),
         serviceController: FakeServiceController = FakeServiceController(),
         permissionStatusProvider: FakePermissionStatusProvider = FakePermissionStatusProvider(),
-    ): MainViewModel =
-        MainViewModel(
+    ): MainViewModel {
+        val crashReportReader =
+            com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
+                java.io.File(System.getProperty("java.io.tmpdir"), "ripdpi-test-crash-reports"),
+            )
+        return MainViewModel(
             appSettingsRepository = appSettingsRepository,
             serviceStateStore = FakeServiceStateStore(),
             serviceController = serviceController,
@@ -209,14 +213,17 @@ class MainActivityContentTest {
                 ),
             permissionStatusProvider = permissionStatusProvider,
             permissionCoordinator = PermissionCoordinator(),
-            crashReportReader =
-                com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
-                    java.io.File(System.getProperty("java.io.tmpdir"), "ripdpi-test-crash-reports"),
-                ),
+            crashReportReader = crashReportReader,
             appLockLifecycleCoordinator =
                 MainAppLockLifecycleCoordinator(
                     com.poyka.ripdpi.security
                         .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
                 ),
+            startupSideEffectsCoordinator =
+                MainStartupSideEffectsCoordinator(
+                    appSettingsRepository = appSettingsRepository,
+                    crashReportReader = crashReportReader,
+                ),
         )
+    }
 }

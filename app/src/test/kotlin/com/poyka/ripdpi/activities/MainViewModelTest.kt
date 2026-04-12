@@ -723,8 +723,12 @@ class MainViewModelTest {
                 compositeRunService = StubDiagnosticsHomeCompositeRunService(),
             ),
         initialize: Boolean = true,
-    ): MainViewModel =
-        MainViewModel(
+    ): MainViewModel {
+        val crashReportReader =
+            com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
+                java.io.File(System.getProperty("java.io.tmpdir"), "ripdpi-test-crash-reports"),
+            )
+        return MainViewModel(
             appSettingsRepository = appSettingsRepository,
             serviceStateStore = serviceStateStore,
             serviceController = serviceController,
@@ -737,20 +741,23 @@ class MainViewModelTest {
             permissionPlatformBridge = FakePermissionPlatformBridge(),
             permissionStatusProvider = permissionStatusProvider,
             permissionCoordinator = PermissionCoordinator(),
-            crashReportReader =
-                com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
-                    java.io.File(System.getProperty("java.io.tmpdir"), "ripdpi-test-crash-reports"),
-                ),
+            crashReportReader = crashReportReader,
             appLockLifecycleCoordinator =
                 MainAppLockLifecycleCoordinator(
                     com.poyka.ripdpi.security
                         .AppLockLifecycleObserver(RuntimeEnvironment.getApplication()),
+                ),
+            startupSideEffectsCoordinator =
+                MainStartupSideEffectsCoordinator(
+                    appSettingsRepository = appSettingsRepository,
+                    crashReportReader = crashReportReader,
                 ),
         ).also { viewModel ->
             if (initialize) {
                 viewModel.initialize()
             }
         }
+    }
 
     private fun grantedPermissionStatusProvider(): FakePermissionStatusProvider =
         FakePermissionStatusProvider(

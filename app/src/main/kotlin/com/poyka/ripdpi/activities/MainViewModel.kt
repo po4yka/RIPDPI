@@ -40,7 +40,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -261,6 +260,7 @@ class MainViewModel
         permissionCoordinator: PermissionCoordinator,
         private val crashReportReader: CrashReportReader,
         private val appLockLifecycleCoordinator: MainAppLockLifecycleCoordinator,
+        private val startupSideEffectsCoordinator: MainStartupSideEffectsCoordinator,
     ) : ViewModel() {
         private var initialized = false
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
@@ -442,24 +442,12 @@ class MainViewModel
             ) {
                 _effects.trySend(MainEffect.RelockRequested)
             }
-            viewModelScope.launch {
-                val report = crashReportReader.read()
-                if (report != null) {
-                    _pendingCrashReport.value = report
-                }
-            }
-            viewModelScope.launch {
-                permissionState
-                    .map { it.snapshot.batteryOptimization }
-                    .distinctUntilChanged()
-                    .collect { status ->
-                        if (
-                            status == com.poyka.ripdpi.permissions.PermissionStatus.RequiresSettings &&
-                            settingsState.value.batteryBannerDismissed
-                        ) {
-                            appSettingsRepository.update { setBatteryBannerDismissed(false) }
-                        }
-                    }
+            startupSideEffectsCoordinator.start(
+                scope = viewModelScope,
+                batteryOptimizationStatus = permissionState.map { it.snapshot.batteryOptimization },
+                isBatteryBannerDismissed = { settingsState.value.batteryBannerDismissed },
+            ) { report ->
+                _pendingCrashReport.value = report
             }
         }
 
