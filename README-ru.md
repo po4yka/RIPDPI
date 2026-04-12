@@ -173,9 +173,16 @@ scripts/guide/.venv/bin/python scripts/guide/generate_guide.py \
 - [Proxy engine и strategy surface](docs/native/proxy-engine.md)
 - [TUN-to-SOCKS bridge](docs/native/tunnel.md)
 - [Debug a runtime issue](docs/native/debug-runtime-issue.md)
+- [Эксплуатация Cloudflare Tunnel](docs/native/cloudflare-tunnel-operations.md)
 - [Текущее состояние MASQUE](docs/native/relay-masque-status.md)
 - [NaiveProxy runtime](docs/native/relay-naiveproxy-decision.md)
 - [Совместимость Finalmask и примеры конфигурации](docs/native/finalmask-compatibility.md)
+
+**Operations**
+- [Эксплуатация strategy-pack и TLS catalog](docs/strategy-pack-operations.md)
+
+**Configuration**
+- [Примеры relay profiles](docs/relay-profile-examples.md)
 
 **Тестирование и CI**
 - [Тесты, E2E, golden contracts и soak coverage](docs/testing.md)

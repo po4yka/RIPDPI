@@ -22,9 +22,12 @@ RIPDPI already ships the following integration stack in-repo:
 Use these notes as the source of truth for shipped behavior:
 
 - [Native integration and modules](native/README.md)
+- [Cloudflare Tunnel operations](native/cloudflare-tunnel-operations.md)
 - [MASQUE current state](native/relay-masque-status.md)
 - [NaiveProxy runtime](native/relay-naiveproxy-decision.md)
 - [Finalmask compatibility](native/finalmask-compatibility.md)
+- [Strategy-pack and TLS catalog operations](strategy-pack-operations.md)
+- [Relay profile examples](relay-profile-examples.md)
 - [Testing and verification](testing.md)
 
 ## Active Roadmap
