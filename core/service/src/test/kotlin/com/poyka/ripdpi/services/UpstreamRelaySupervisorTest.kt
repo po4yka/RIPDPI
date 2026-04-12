@@ -208,6 +208,55 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
+    fun `start rejects invalid masque url before native runtime launch`() =
+        runTest {
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = TestRipDpiRelayFactory(),
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "edge",
+                                    kind = RelayKindMasque,
+                                    masqueUrl = "http://masque.example/.well-known/masque/ip",
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "edge",
+                                    masqueAuthMode = RelayMasqueAuthModeBearer,
+                                    masqueAuthToken = sampleMasqueValue(),
+                                ),
+                            )
+                        },
+                )
+
+            try {
+                supervisor.start(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindMasque,
+                            profileId = "edge",
+                        ),
+                    onUnexpectedExit = {},
+                )
+                fail("Expected invalid MASQUE URL to be rejected")
+            } catch (error: ServiceStartupRejectedException) {
+                val reason = error.reason as? FailureReason.RelayConfigRejected
+                assertTrue(reason != null)
+                assertTrue(reason?.message?.contains("HTTPS URL") == true)
+            }
+        }
+
+    @Test
     fun `start fails fast when relay credentials are missing`() =
         runTest {
             val supervisor =

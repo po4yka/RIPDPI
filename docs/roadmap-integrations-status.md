@@ -24,7 +24,7 @@ All roadmap phases P0 through P3 are implemented in-repo, and the follow-up inte
 What remains is narrowed to runtime-complete transport work and iterative interoperability polish, not unfinished roadmap phases:
 
 - Cloudflare Tunnel publish mode is now modeled, persisted, validated, and feature-gated, but this tree still does not ship a bundled `cloudflared` sidecar or local xHTTP-origin helper binary. The mode is intentionally kept rollout-disabled until that runtime exists.
-- Cloudflare-direct MASQUE support now has explicit rollout gating, but interop and staged validation still continue in [native/relay-masque-status.md](native/relay-masque-status.md).
+- Cloudflare-direct MASQUE support now has explicit rollout gating, preserves configured endpoint paths across HTTP/3 and HTTP/2, rejects invalid URLs before launch, and reports HTTP/3 to HTTP/2 fallback through telemetry. Remaining work is staged field validation rather than basic interop plumbing, as tracked in [native/relay-masque-status.md](native/relay-masque-status.md).
 - Finalmask now mutates live xHTTP transport traffic for VLESS Reality xHTTP and Cloudflare Tunnel profiles, with runtime validation limiting support to the modes and transports that are actually implemented.
 - NaiveProxy is implemented as a managed subprocess helper with watchdog logic. The remaining work is operational polish and broader field validation, as recorded in [native/relay-naiveproxy-decision.md](native/relay-naiveproxy-decision.md).
 - TLS fingerprint catalogs, strategy-pack contents, and rollout flags will continue to need refreshes as upstream fingerprints and censorship conditions evolve.
