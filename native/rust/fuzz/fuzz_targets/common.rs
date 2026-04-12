@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::sync::OnceLock;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use ripdpi_failure_classifier::{bundled_blockpage_fingerprints, classify_http_response_block};
 use ripdpi_packets::fields::{FieldCache, FieldObserver, ProtocolField};
@@ -125,6 +126,136 @@ pub fn tunnel_config_yaml_from_bytes(data: &[u8]) -> String {
         4 => format!("socks5:\n  port: {port}\n  address: {address}\n  username: {username}\n"),
         _ => String::from_utf8_lossy(data).into_owned(),
     }
+}
+
+pub fn session_resolver(host: &str, socket_type: ripdpi_session::SocketType) -> Option<SocketAddr> {
+    match (host, socket_type) {
+        ("example.com", ripdpi_session::SocketType::Stream) => Some(SocketAddr::from(([198, 51, 100, 10], 0))),
+        ("example.net", ripdpi_session::SocketType::Datagram) => Some(SocketAddr::from(([198, 51, 100, 20], 0))),
+        ("ipv6.example", ripdpi_session::SocketType::Stream) => {
+            Some(SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 0))
+        }
+        _ => None,
+    }
+}
+
+pub fn session_request_smoke() {
+    static ONCE: OnceLock<()> = OnceLock::new();
+    ONCE.get_or_init(|| {
+        let resolver = session_resolver;
+        let config = ripdpi_session::SessionConfig::default();
+
+        let socks4 = b"\x04\x01\x01\xbb\x00\x00\x00\x01user\x00example.com\x00";
+        let _ = ripdpi_session::parse_socks4_request(socks4, config, &resolver);
+
+        let socks5 = [
+            ripdpi_session::S_VER5,
+            ripdpi_session::S_CMD_CONN,
+            0,
+            ripdpi_session::S_ATP_ID,
+            11,
+            b'e',
+            b'x',
+            b'a',
+            b'm',
+            b'p',
+            b'l',
+            b'e',
+            b'.',
+            b'c',
+            b'o',
+            b'm',
+            0x01,
+            0xbb,
+        ];
+        let _ = ripdpi_session::parse_socks5_request(
+            &socks5,
+            ripdpi_session::SocketType::Stream,
+            config,
+            &resolver,
+        );
+
+        let http_connect = b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n";
+        let _ = ripdpi_session::parse_http_connect_request(http_connect, &resolver);
+    });
+}
+
+pub fn socks4_request_from_bytes(data: &[u8]) -> Vec<u8> {
+    let port = 1 + u16::from_be_bytes([data.first().copied().unwrap_or(0), data.get(1).copied().unwrap_or(0)]);
+    let user = ascii_label(data.get(2..).unwrap_or_default(), "user", 12);
+
+    if data.first().copied().unwrap_or(0) & 0x1 == 0 {
+        let host = if data.get(2).copied().unwrap_or(0) & 0x1 == 0 { "example.com" } else { "example.net" };
+        let mut request = vec![ripdpi_session::S_VER4, ripdpi_session::S_CMD_CONN];
+        request.extend_from_slice(&port.to_be_bytes());
+        request.extend_from_slice(&[0, 0, 0, 1]);
+        request.extend_from_slice(user.as_bytes());
+        request.push(0);
+        request.extend_from_slice(host.as_bytes());
+        request.push(0);
+        request
+    } else {
+        let ipv4 = Ipv4Addr::new(1, data.get(2).copied().unwrap_or(0), data.get(3).copied().unwrap_or(0), 1);
+        let mut request = vec![ripdpi_session::S_VER4, ripdpi_session::S_CMD_CONN];
+        request.extend_from_slice(&port.to_be_bytes());
+        request.extend_from_slice(&ipv4.octets());
+        request.extend_from_slice(user.as_bytes());
+        request.push(0);
+        request
+    }
+}
+
+pub fn socks5_request_from_bytes(data: &[u8]) -> Vec<u8> {
+    let port = 1 + u16::from_be_bytes([data.first().copied().unwrap_or(0), data.get(1).copied().unwrap_or(0)]);
+    let cmd =
+        if data.get(2).copied().unwrap_or(0) & 0x1 == 0 {
+            ripdpi_session::S_CMD_CONN
+        } else {
+            ripdpi_session::S_CMD_AUDP
+        };
+
+    let mut request = vec![ripdpi_session::S_VER5, cmd, 0];
+    match data.get(3).copied().unwrap_or(0) % 3 {
+        0 => {
+            request.push(ripdpi_session::S_ATP_I4);
+            request.extend_from_slice(&[
+                198,
+                51,
+                100,
+                data.get(4).copied().unwrap_or(10),
+            ]);
+        }
+        1 => {
+            let host = if data.get(4).copied().unwrap_or(0) & 0x1 == 0 { "example.com" } else { "example.net" };
+            request.push(ripdpi_session::S_ATP_ID);
+            request.push(host.len() as u8);
+            request.extend_from_slice(host.as_bytes());
+        }
+        _ => {
+            request.push(ripdpi_session::S_ATP_I6);
+            request.extend_from_slice(&Ipv6Addr::LOCALHOST.octets());
+        }
+    }
+    request.extend_from_slice(&port.to_be_bytes());
+    request
+}
+
+pub fn http_connect_request_from_bytes(data: &[u8]) -> String {
+    let host =
+        match data.first().copied().unwrap_or(0) % 3 {
+            0 => "example.com",
+            1 => "example.net",
+            _ => "ipv6.example",
+        };
+    let port = 1 + u16::from_be_bytes([data.get(1).copied().unwrap_or(0), data.get(2).copied().unwrap_or(0)]);
+    let request_target =
+        if data.get(3).copied().unwrap_or(0) & 0x1 == 0 {
+            format!("{host}:{port}")
+        } else {
+            format!("[{host}]:{port}")
+        };
+
+    format!("CONNECT {request_target} HTTP/1.1\r\nHost: {request_target}\r\n\r\n")
 }
 
 pub fn http_response_from_bytes(data: &[u8]) -> Vec<u8> {
