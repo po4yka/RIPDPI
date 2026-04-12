@@ -261,6 +261,7 @@ class MainViewModel
         private val crashReportReader: CrashReportReader,
         private val appLockLifecycleCoordinator: MainAppLockLifecycleCoordinator,
         private val startupSideEffectsCoordinator: MainStartupSideEffectsCoordinator,
+        private val settingsDismissCoordinator: MainSettingsDismissCoordinator,
     ) : ViewModel() {
         private var initialized = false
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
@@ -493,15 +494,11 @@ class MainViewModel
         fun dismissError() = connectionActions.dismissError()
 
         fun onDismissBatteryBanner() {
-            viewModelScope.launch {
-                appSettingsRepository.update { setBatteryBannerDismissed(true) }
-            }
+            settingsDismissCoordinator.dismissBatteryBanner(viewModelScope)
         }
 
         fun onDismissBackgroundGuidance() {
-            viewModelScope.launch {
-                appSettingsRepository.update { setBackgroundGuidanceDismissed(true) }
-            }
+            settingsDismissCoordinator.dismissBackgroundGuidance(viewModelScope)
         }
 
         fun onRunHomeFullAnalysis() = permissionActions.resolvePermissionAction(PermissionAction.RunHomeAnalysis)

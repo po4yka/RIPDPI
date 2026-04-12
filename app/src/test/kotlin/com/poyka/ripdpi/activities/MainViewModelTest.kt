@@ -752,6 +752,10 @@ class MainViewModelTest {
                     appSettingsRepository = appSettingsRepository,
                     crashReportReader = crashReportReader,
                 ),
+            settingsDismissCoordinator =
+                MainSettingsDismissCoordinator(
+                    appSettingsRepository = appSettingsRepository,
+                ),
         ).also { viewModel ->
             if (initialize) {
                 viewModel.initialize()
