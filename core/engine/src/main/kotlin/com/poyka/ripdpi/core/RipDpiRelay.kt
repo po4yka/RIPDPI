@@ -300,8 +300,17 @@ class RipDpiRelay(
     }
 
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
-        if (handle == 0L) return NativeRuntimeSnapshot.idle(source = "relay")
-        val telemetryJson = withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(handle) }
+        val telemetryJson =
+            mutex.withLock {
+                val currentHandle = handle
+                if (currentHandle == 0L) {
+                    null
+                } else {
+                    // Serialize handle-sensitive JNI calls with lifecycle transitions so
+                    // stop/destroy cannot invalidate the handle during polling.
+                    withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(currentHandle) }
+                }
+            }
         return telemetryJson
             ?.takeIf { it.isNotBlank() }
             ?.let { relayJson.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }
