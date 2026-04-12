@@ -19,6 +19,9 @@ import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private const val PemLineWidth = 64
+private val PemLineSeparator = "\n".toByteArray()
+
 data class ImportedMasqueClientIdentity(
     val certificateChainPem: String,
     val privateKeyPem: String,
@@ -123,14 +126,14 @@ class AndroidMasqueClientCredentialImporter
         private fun certificateToPem(certificate: Certificate): String =
             buildPemBlock(
                 label = "CERTIFICATE",
-                payload = Base64.getMimeEncoder(64, "\n".toByteArray()).encodeToString(certificate.encoded),
+                payload = Base64.getMimeEncoder(PemLineWidth, PemLineSeparator).encodeToString(certificate.encoded),
                 alreadyWrapped = true,
             )
 
         private fun privateKeyToPem(privateKey: PrivateKey): String =
             buildPemBlock(
                 label = "PRIVATE KEY",
-                payload = Base64.getMimeEncoder(64, "\n".toByteArray()).encodeToString(privateKey.encoded),
+                payload = Base64.getMimeEncoder(PemLineWidth, PemLineSeparator).encodeToString(privateKey.encoded),
                 alreadyWrapped = true,
             )
 
@@ -143,7 +146,7 @@ class AndroidMasqueClientCredentialImporter
                 if (alreadyWrapped) {
                     payload.trim()
                 } else {
-                    payload.chunked(64).joinToString(separator = "\n")
+                    payload.chunked(PemLineWidth).joinToString(separator = "\n")
                 }
             return "-----BEGIN $label-----\n$body\n-----END $label-----"
         }

@@ -134,6 +134,10 @@ private val builtInWarpPresetProfiles: Map<String, WarpAmneziaSettings> by lazy 
     }
 }
 
+private const val WarpAmneziaReservedS2Offset = 56
+private const val WarpAmneziaMaxJc = 10
+private const val WarpAmneziaMaxJmax = 1024
+
 internal fun rawWarpAmneziaSettings(appSettings: AppSettings): WarpAmneziaSettings =
     WarpAmneziaSettings(
         enabled = appSettings.warpAmneziaEnabled,
@@ -155,19 +159,16 @@ internal fun inferWarpAmneziaPreset(
     rawSettings: WarpAmneziaSettings,
 ): String {
     val normalizedPreset = normalizeWarpAmneziaPreset(storedPreset)
-    if (normalizedPreset != WarpAmneziaPresetOff || storedPreset.isNotBlank()) {
-        return normalizedPreset
-    }
-    builtInWarpPresetProfiles.entries
-        .firstOrNull { (_, settings) ->
-            normalizeWarpAmneziaSettings(settings) == normalizeWarpAmneziaSettings(rawSettings)
-        }?.let { return it.key }
-    return if (normalizeWarpAmneziaSettings(rawSettings) ==
-        WarpAmneziaSettings()
-    ) {
-        WarpAmneziaPresetOff
-    } else {
-        WarpAmneziaPresetCustom
+    val inferredPreset =
+        builtInWarpPresetProfiles.entries
+            .firstOrNull { (_, settings) ->
+                normalizeWarpAmneziaSettings(settings) == normalizeWarpAmneziaSettings(rawSettings)
+            }?.key
+    return when {
+        normalizedPreset != WarpAmneziaPresetOff || storedPreset.isNotBlank() -> normalizedPreset
+        inferredPreset != null -> inferredPreset
+        normalizeWarpAmneziaSettings(rawSettings) == WarpAmneziaSettings() -> WarpAmneziaPresetOff
+        else -> WarpAmneziaPresetCustom
     }
 }
 
@@ -215,14 +216,14 @@ fun normalizeWarpAmneziaSettings(settings: WarpAmneziaSettings): WarpAmneziaSett
             }
     val normalizedS1 = settings.s1.coerceAtLeast(0)
     var normalizedS2 = settings.s2.coerceAtLeast(0)
-    if (normalizedS1 + 56 == normalizedS2) {
+    if (normalizedS1 + WarpAmneziaReservedS2Offset == normalizedS2) {
         normalizedS2 += 1
     }
     return settings.copy(
         enabled = settings.enabled,
-        jc = settings.jc.coerceIn(0, 10),
+        jc = settings.jc.coerceIn(0, WarpAmneziaMaxJc),
         jmin = normalizedJmin,
-        jmax = normalizedJmax.coerceAtMost(1024),
+        jmax = normalizedJmax.coerceAtMost(WarpAmneziaMaxJmax),
         h1 = normalizedHeaders[0],
         h2 = normalizedHeaders[1],
         h3 = normalizedHeaders[2],

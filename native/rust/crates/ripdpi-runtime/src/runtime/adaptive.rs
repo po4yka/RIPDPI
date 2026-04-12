@@ -68,8 +68,8 @@ pub(super) fn resolve_adaptive_udp_hints(
         resolver.resolve_udp_hints(network_scope_key(&state.config), group_index, target, host, group, payload),
     );
     let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
-    let merged = merge_udp_hints_with_capability(hints.clone(), capability);
-    record_morph_rollback(state, target, &hints, &merged);
+    let merged = merge_udp_hints_with_capability(hints, capability);
+    record_morph_rollback(state, target, hints, merged);
     Ok(merged)
 }
 
@@ -194,8 +194,8 @@ pub(super) fn resolve_udp_hints_with_evolver(
         if let Some(hints) = evolver.suggest_hints() {
             let hints = apply_udp_morph_policy_to_hints(state, hints);
             let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
-            let merged = merge_udp_hints_with_capability(hints.clone(), capability);
-            record_morph_rollback(state, target, &hints, &merged);
+            let merged = merge_udp_hints_with_capability(hints, capability);
+            record_morph_rollback(state, target, hints, merged);
             return Ok(merged);
         }
     }
@@ -221,7 +221,7 @@ pub(super) fn direct_path_capability_for_route<'a>(
 ) -> Option<&'a ProxyDirectPathCapability> {
     let capabilities = runtime_context?.direct_path_capabilities.as_slice();
     let candidates = direct_path_authority_candidates(host, target);
-    capabilities.iter().find(|capability| candidates.iter().any(|candidate| capability.authority == *candidate))
+    capabilities.iter().find(|capability| candidates.contains(&capability.authority))
 }
 
 pub(super) fn capability_requires_desync_fallback(capability: &ProxyDirectPathCapability) -> bool {
@@ -253,8 +253,8 @@ pub(super) fn merge_udp_hints_with_capability(
 fn record_morph_rollback(
     state: &RuntimeState,
     target: SocketAddr,
-    before: &AdaptivePlannerHints,
-    after: &AdaptivePlannerHints,
+    before: AdaptivePlannerHints,
+    after: AdaptivePlannerHints,
 ) {
     if before.udp_burst_profile != after.udp_burst_profile || before.quic_fake_profile != after.quic_fake_profile {
         emit_morph_rollback(state, target, "direct_path_capability_downgrade");
@@ -325,8 +325,10 @@ mod tests {
 
     #[test]
     fn udp_hints_are_hardened_when_capability_requires_fallback() {
-        let mut hints = AdaptivePlannerHints::default();
-        hints.udp_burst_profile = Some(AdaptiveUdpBurstProfile::Conservative);
+        let hints = AdaptivePlannerHints {
+            udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative),
+            ..AdaptivePlannerHints::default()
+        };
         let capability = ProxyDirectPathCapability {
             authority: "example.org:443".to_string(),
             quic_usable: Some(false),

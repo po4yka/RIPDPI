@@ -16,6 +16,7 @@ import java.util.UUID
 class DiagnosticsDetailAndShareServicesTest {
     private val json = diagnosticsTestJson()
 
+    @Suppress("LongMethod")
     @Test
     fun `detail loader loads session detail and approach detail from repository slices`() =
         runTest {

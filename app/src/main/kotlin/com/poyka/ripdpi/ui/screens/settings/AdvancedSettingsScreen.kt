@@ -495,6 +495,22 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecon
     pendingHostPack: HostPackPreset?,
     onPresetSelected: (HostPackPreset) -> Unit,
 ) {
+    advancedSettingsProtectionSections(uiState, actions, contentState)
+    advancedSettingsProtocolSections(
+        uiState = uiState,
+        hostPackCatalog = hostPackCatalog,
+        actions = actions,
+        contentState = contentState,
+        pendingHostPack = pendingHostPack,
+        onPresetSelected = onPresetSelected,
+    )
+}
+
+private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsProtectionSections(
+    uiState: SettingsUiState,
+    actions: AdvancedSettingsActions,
+    contentState: AdvancedSettingsContentState,
+) {
     hostAutolearnSection(
         uiState = uiState,
         visualEditorEnabled = contentState.visualEditorEnabled,
@@ -527,6 +543,16 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecon
         onAntiCorrelationEnabledChanged = actions.onAntiCorrelationEnabledChanged,
         onAppRoutingPresetEnabledChanged = actions.onAppRoutingPresetEnabledChanged,
     )
+}
+
+private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsProtocolSections(
+    uiState: SettingsUiState,
+    hostPackCatalog: HostPackCatalogUiState,
+    actions: AdvancedSettingsActions,
+    contentState: AdvancedSettingsContentState,
+    pendingHostPack: HostPackPreset?,
+    onPresetSelected: (HostPackPreset) -> Unit,
+) {
     httpParserSection(
         uiState = uiState,
         visualEditorEnabled = contentState.visualEditorEnabled,

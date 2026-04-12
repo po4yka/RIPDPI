@@ -4,6 +4,8 @@ import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.ServerCapabilityRecord
 import java.util.Locale
 
+private const val CapabilitySummaryItemLimit = 3
+
 data class DiagnosticsCapabilityEvidence(
     val authority: String,
     val summary: String,
@@ -102,7 +104,7 @@ private fun capabilitySummaryLine(record: ServerCapabilityRecord): String =
             add("Fallback required")
         }
         record.repeatedHandshakeFailureClass?.let { add("Failure $it") }
-    }.take(3)
+    }.take(CapabilitySummaryItemLimit)
         .joinToString(separator = " · ")
         .ifBlank { "Capability evidence recorded for this authority." }
 

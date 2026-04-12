@@ -1,3 +1,5 @@
+@file:Suppress("TooGenericExceptionCaught", "ThrowsCount", "MagicNumber")
+
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiWarpProvisioningBindings

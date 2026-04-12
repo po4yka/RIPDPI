@@ -107,7 +107,8 @@ class SettingsUiModelsTest {
                             com.poyka.ripdpi.data.RuntimeFieldTelemetry(
                                 dhtTriggerCorrelationActive = true,
                                 dhtTriggerCorrelationReason =
-                                    "Recent UDP traffic to 134.195.198.23:6881 was followed by tls_interference on relay, WARP, or TLS control-plane paths.",
+                                    "Recent UDP traffic to 134.195.198.23:6881 was followed " +
+                                        "by tls_interference on relay, WARP, or TLS control-plane paths.",
                             ),
                     ),
                 routingProtectionSnapshot = RoutingProtectionCatalogSnapshot(),

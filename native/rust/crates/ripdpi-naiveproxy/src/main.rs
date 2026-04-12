@@ -254,7 +254,7 @@ fn emit_structured_error(error: &io::Error) {
 }
 
 fn sanitize_structured_message(message: &str) -> String {
-    message.replace('|', "/").replace('\n', " ").replace('\r', " ")
+    message.replace('|', "/").replace(['\n', '\r'], " ")
 }
 
 fn classify_io_error(error: &io::Error) -> &'static str {
@@ -480,7 +480,7 @@ fn parse_status_code(header_block: &[u8]) -> io::Result<u16> {
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing HTTP status line"))?;
     let status_line = std::str::from_utf8(status_line)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, format!("invalid HTTP status line: {error}")))?;
-    let mut parts = status_line.trim().split_whitespace();
+    let mut parts = status_line.split_whitespace();
     let _http_version =
         parts.next().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing HTTP version"))?;
     let status = parts.next().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing HTTP status code"))?;
@@ -495,7 +495,7 @@ mod tests {
     use std::net::Ipv4Addr;
 
     use rcgen::{CertificateParams, DistinguishedName, DnType, IsCa, KeyPair};
-    use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
+    use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
     use rustls::ServerConfig as RustlsServerConfig;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
@@ -623,10 +623,7 @@ mod tests {
 
         let server_config = RustlsServerConfig::builder()
             .with_no_client_auth()
-            .with_single_cert(
-                vec![CertificateDer::from(cert_der)],
-                PrivateKeyDer::from(PrivatePkcs8KeyDer::from(key_der)),
-            )
+            .with_single_cert(vec![cert_der], PrivateKeyDer::from(PrivatePkcs8KeyDer::from(key_der)))
             .expect("server cert");
         let acceptor = TlsAcceptor::from(Arc::new(server_config));
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind proxy");

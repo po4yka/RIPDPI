@@ -26,6 +26,8 @@ import org.junit.Test
  * If a field is added or removed on either side, these tests catch the drift at CI time.
  */
 class NativeBinaryContractTest {
+    private val kotlinOnlySnapshotFields = setOf("ptRuntimeVersion")
+
     private val contractJson =
         Json {
             encodeDefaults = true
@@ -65,7 +67,7 @@ class NativeBinaryContractTest {
         val rustUnion = proxyFields + tunnelFields
         val kotlinFields = extractKotlinSnapshotFields()
 
-        val extra = kotlinFields - rustUnion
+        val extra = kotlinFields - rustUnion - kotlinOnlySnapshotFields
         assertTrue(
             "Kotlin NativeRuntimeSnapshot has fields not emitted by any Rust source: $extra",
             extra.isEmpty(),

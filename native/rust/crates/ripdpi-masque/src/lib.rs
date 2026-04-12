@@ -322,10 +322,10 @@ impl Drop for MasqueUdpFlow {
 
 impl MasqueClientInner {
     fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
-        self.last_migration_snapshot
-            .try_lock()
-            .map(|snapshot| (snapshot.status.clone(), snapshot.reason.clone()))
-            .unwrap_or_else(|_| (Some("not_attempted".to_string()), None))
+        self.last_migration_snapshot.try_lock().map_or_else(
+            |_| (Some("not_attempted".to_string()), None),
+            |snapshot| (snapshot.status.clone(), snapshot.reason.clone()),
+        )
     }
 
     async fn record_quic_migration_status(&self, status: &str, reason: Option<&str>) {

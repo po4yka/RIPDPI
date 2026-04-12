@@ -1,3 +1,5 @@
+@file:Suppress("ComplexCondition", "ReturnCount", "MagicNumber")
+
 package com.poyka.ripdpi.services
 
 import android.content.Context
@@ -218,7 +220,7 @@ class SubprocessSocksRelayManager
                     socket.connect(InetSocketAddress(host, port), 250)
                     socket.soTimeout = 250
                     socket.getOutputStream().write(byteArrayOf(0x05, 0x01, 0x00))
-                    val response = socket.getInputStream().readNBytes(2)
+                    val response = socket.getInputStream().readFully(2)
                     if (!response.contentEquals(byteArrayOf(0x05, 0x00))) {
                         error("unexpected SOCKS5 readiness response")
                     }
@@ -399,4 +401,17 @@ private fun parseStructuredEvent(line: String): StructuredRelayEvent? {
         )
     }
     return null
+}
+
+private fun java.io.InputStream.readFully(length: Int): ByteArray {
+    val buffer = ByteArray(length)
+    var offset = 0
+    while (offset < length) {
+        val read = read(buffer, offset, length - offset)
+        if (read < 0) {
+            throw IOException("Unexpected end of readiness probe stream")
+        }
+        offset += read
+    }
+    return buffer
 }

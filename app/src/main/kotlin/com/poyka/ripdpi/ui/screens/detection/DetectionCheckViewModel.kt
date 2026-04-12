@@ -25,6 +25,7 @@ import com.poyka.ripdpi.core.detection.community.CommunityComparisonClient
 import com.poyka.ripdpi.core.detection.community.CommunityComparisonStore
 import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -165,31 +166,11 @@ class DetectionCheckViewModel
             if (_uiState.value.isRunning) return
             runJob =
                 viewModelScope.launch {
-                    _uiState.value =
-                        _uiState.value.copy(
-                            isRunning = true,
-                            progress = null,
-                            result = null,
-                            stealthScore = null,
-                            stealthLabel = null,
-                            recommendations = emptyList(),
-                            autoTuneFixes = emptyList(),
-                            reportText = null,
-                            error = null,
-                        )
+                    _uiState.value = _uiState.value.resetForCheckRun()
                     val outcome =
                         runCatching {
                             val settings = appSettingsRepository.settings.first()
-                            val config =
-                                DetectionRunnerConfig(
-                                    ownProxyPort = settings.proxyPort.takeIf { it > 0 },
-                                    ownPackageName = application.packageName,
-                                    encryptedDnsEnabled = settings.dnsMode == "encrypted",
-                                    webRtcProtectionEnabled = settings.webrtcProtectionEnabled,
-                                    tlsFingerprintProfile =
-                                        settings.tlsFingerprintProfile
-                                            .ifEmpty { "chrome_stable" },
-                                )
+                            val config = settings.toDetectionRunnerConfig(application.packageName)
                             val result =
                                 DetectionRunner.run(
                                     context = application,
@@ -223,14 +204,12 @@ class DetectionCheckViewModel
                             refreshCommunityStats()
 
                             _uiState.value =
-                                _uiState.value.copy(
-                                    isRunning = false,
-                                    progress = null,
+                                _uiState.value.withCheckResult(
                                     result = result,
-                                    stealthScore = score,
-                                    stealthLabel = label,
+                                    score = score,
+                                    label = label,
                                     recommendations = recommendations,
-                                    autoTuneFixes = fixes,
+                                    fixes = fixes,
                                     reportText = reportText,
                                 )
                         }
@@ -248,6 +227,47 @@ class DetectionCheckViewModel
                     }
                 }
         }
+
+        private fun DetectionCheckUiState.resetForCheckRun(): DetectionCheckUiState =
+            copy(
+                isRunning = true,
+                progress = null,
+                result = null,
+                stealthScore = null,
+                stealthLabel = null,
+                recommendations = emptyList(),
+                autoTuneFixes = emptyList(),
+                reportText = null,
+                error = null,
+            )
+
+        private fun DetectionCheckUiState.withCheckResult(
+            result: DetectionCheckResult,
+            score: Int,
+            label: String,
+            recommendations: List<Recommendation>,
+            fixes: List<AutoTuneFix>,
+            reportText: String,
+        ): DetectionCheckUiState =
+            copy(
+                isRunning = false,
+                progress = null,
+                result = result,
+                stealthScore = score,
+                stealthLabel = label,
+                recommendations = recommendations,
+                autoTuneFixes = fixes,
+                reportText = reportText,
+            )
+
+        private fun AppSettings.toDetectionRunnerConfig(packageName: String): DetectionRunnerConfig =
+            DetectionRunnerConfig(
+                ownProxyPort = proxyPort.takeIf { it > 0 },
+                ownPackageName = packageName,
+                encryptedDnsEnabled = dnsMode == "encrypted",
+                webRtcProtectionEnabled = webrtcProtectionEnabled,
+                tlsFingerprintProfile = tlsFingerprintProfile.ifEmpty { "chrome_stable" },
+            )
 
         fun applyAllFixes() {
             viewModelScope.launch {
