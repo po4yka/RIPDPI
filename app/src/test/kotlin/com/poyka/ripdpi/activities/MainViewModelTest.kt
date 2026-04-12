@@ -741,7 +741,6 @@ class MainViewModelTest {
             permissionPlatformBridge = FakePermissionPlatformBridge(),
             permissionStatusProvider = permissionStatusProvider,
             permissionCoordinator = PermissionCoordinator(),
-            crashReportReader = crashReportReader,
             appLockLifecycleCoordinator =
                 MainAppLockLifecycleCoordinator(
                     com.poyka.ripdpi.security
@@ -755,6 +754,10 @@ class MainViewModelTest {
             settingsDismissCoordinator =
                 MainSettingsDismissCoordinator(
                     appSettingsRepository = appSettingsRepository,
+                ),
+            crashReportCoordinator =
+                MainCrashReportCoordinator(
+                    crashReportReader = crashReportReader,
                 ),
         ).also { viewModel ->
             if (initialize) {

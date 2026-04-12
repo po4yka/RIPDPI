@@ -213,7 +213,6 @@ class MainActivityContentTest {
                 ),
             permissionStatusProvider = permissionStatusProvider,
             permissionCoordinator = PermissionCoordinator(),
-            crashReportReader = crashReportReader,
             appLockLifecycleCoordinator =
                 MainAppLockLifecycleCoordinator(
                     com.poyka.ripdpi.security
@@ -227,6 +226,10 @@ class MainActivityContentTest {
             settingsDismissCoordinator =
                 MainSettingsDismissCoordinator(
                     appSettingsRepository = appSettingsRepository,
+                ),
+            crashReportCoordinator =
+                MainCrashReportCoordinator(
+                    crashReportReader = crashReportReader,
                 ),
         )
     }
