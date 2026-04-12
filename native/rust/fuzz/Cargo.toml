@@ -13,6 +13,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 ripdpi-failure-classifier = { path = "../crates/ripdpi-failure-classifier" }
 ripdpi-packets = { path = "../crates/ripdpi-packets" }
+ripdpi-vless = { path = "../crates/ripdpi-vless" }
 
 [[bin]]
 name = "packets_parse"
@@ -29,5 +30,11 @@ doc = false
 [[bin]]
 name = "failure_field_cache"
 path = "fuzz_targets/failure_field_cache.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "vless_request_header"
+path = "fuzz_targets/vless_request_header.rs"
 test = false
 doc = false
