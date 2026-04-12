@@ -22,7 +22,7 @@ private const val warpScannerParallelismMax = 64
 private const val warpScannerRttMinMs = 50
 private const val warpScannerRttMaxMs = 10_000
 
-@Suppress("LongMethod")
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun LazyListScope.warpSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,

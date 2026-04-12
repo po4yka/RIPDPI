@@ -5,9 +5,9 @@ import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class RelayStoresTest {
-    private fun sampleCloudflareValue(): String = "sample-cloudflare-value"
+private const val SampleCloudflareValue = "sample-cloudflare-value"
 
+class RelayStoresTest {
     @Test
     fun `relay credential record preserves masque auth variants`() {
         val json = Json { ignoreUnknownKeys = true }
@@ -51,7 +51,7 @@ class RelayStoresTest {
             RelayCredentialRecord(
                 profileId = "cf-publish",
                 vlessUuid = "00000000-0000-0000-0000-000000000000",
-                cloudflareTunnelToken = sampleCloudflareValue(),
+                cloudflareTunnelToken = SampleCloudflareValue,
                 cloudflareTunnelCredentialsJson = """{"AccountTag":"fixture","TunnelSecret":"secret"}""",
             )
 

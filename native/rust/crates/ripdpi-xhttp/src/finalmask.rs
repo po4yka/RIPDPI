@@ -577,9 +577,8 @@ mod tests {
             ..FinalmaskConfig::default()
         };
         let spec = FinalmaskSpec::from_config(&config).expect("config").expect("mask");
-        let table = match spec {
-            FinalmaskSpec::Sudoku { table } => table,
-            _ => unreachable!(),
+        let FinalmaskSpec::Sudoku { table } = spec else {
+            unreachable!();
         };
         let mut encoder = SudokuEncoder::new(Arc::clone(&table));
         let encoded = encoder.encode_chunk(b"hello world").expect("encode");

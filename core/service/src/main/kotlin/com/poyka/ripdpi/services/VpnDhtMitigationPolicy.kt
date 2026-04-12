@@ -1,3 +1,5 @@
+@file:Suppress("ReturnCount", "MaxLineLength")
+
 package com.poyka.ripdpi.services
 
 import android.content.Context

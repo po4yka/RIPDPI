@@ -41,7 +41,9 @@ import org.junit.Test
 import com.poyka.ripdpi.data.FailureClass as RuntimeFailureClass
 
 class ConfigViewModelTest {
-    private fun sampleMasqueValue(): String = "sample-masque-value"
+    private companion object {
+        const val SampleMasqueValue = "sample-masque-value"
+    }
 
     private fun sampleCertificatePem(): String =
         listOf(
@@ -268,7 +270,7 @@ class ConfigViewModelTest {
                     relayKind = RelayKindMasque,
                     relayMasqueUrl = "https://masque.example/",
                     relayMasqueAuthMode = RelayMasqueAuthModeBearer,
-                    relayMasqueAuthToken = sampleMasqueValue(),
+                    relayMasqueAuthToken = SampleMasqueValue,
                     relayFinalmaskType = RelayFinalmaskTypeFragment,
                     relayFinalmaskFragmentPackets = "3",
                     relayFinalmaskFragmentMinBytes = "32",

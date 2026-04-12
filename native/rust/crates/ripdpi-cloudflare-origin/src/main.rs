@@ -388,7 +388,7 @@ fn classify_error(error: &io::Error) -> &'static str {
 fn emit_structured_error(failure_class: &str, error: &io::Error) {
     eprintln!(
         "{STRUCTURED_ERROR_PREFIX}{failure_class}|{}",
-        error.to_string().replace('|', "/").replace('\n', " ").replace('\r', " "),
+        error.to_string().replace('|', "/").replace(['\n', '\r'], " "),
     );
 }
 

@@ -46,7 +46,7 @@ pub(super) fn apply_tcp_morph_policy_to_group(
     state: &RuntimeState,
     group: &DesyncGroup,
     payload: &[u8],
-    hints: &AdaptivePlannerHints,
+    hints: AdaptivePlannerHints,
 ) -> DesyncGroup {
     let Some(policy) = current_morph_policy(state) else {
         return group.clone();
@@ -67,10 +67,10 @@ pub(super) fn apply_tcp_morph_policy_to_group(
 
     let cadence = select_tcp_cadence(policy, is_tls);
     if !cadence.is_empty() {
-        let mut index = 0usize;
-        for step in morphed.actions.tcp_chain.iter_mut().filter(|step| step_supports_cadence(step.kind)) {
+        for (index, step) in
+            morphed.actions.tcp_chain.iter_mut().filter(|step| step_supports_cadence(step.kind)).enumerate()
+        {
             step.inter_segment_delay_ms = cadence[index % cadence.len()];
-            index += 1;
         }
     }
 
@@ -107,7 +107,7 @@ pub(super) fn emit_morph_rollback(state: &RuntimeState, target: SocketAddr, reas
 pub(super) fn tcp_morph_hint_family(
     state: &RuntimeState,
     payload: &[u8],
-    hints: &AdaptivePlannerHints,
+    hints: AdaptivePlannerHints,
 ) -> Option<String> {
     let policy = current_morph_policy(state)?;
     let cadence = if is_tls_client_hello(payload) { "tls" } else { "tcp" };
@@ -120,7 +120,7 @@ pub(super) fn tcp_morph_hint_family(
     Some(format!("{cadence}:{record_profile}:{entropy}"))
 }
 
-pub(super) fn udp_morph_hint_family(state: &RuntimeState, hints: &AdaptivePlannerHints) -> Option<String> {
+pub(super) fn udp_morph_hint_family(state: &RuntimeState, hints: AdaptivePlannerHints) -> Option<String> {
     let _policy = current_morph_policy(state)?;
     let burst = match hints.udp_burst_profile.unwrap_or(AdaptiveUdpBurstProfile::Balanced) {
         AdaptiveUdpBurstProfile::Balanced => "balanced",
@@ -135,7 +135,7 @@ pub(super) fn udp_morph_hint_family(state: &RuntimeState, hints: &AdaptivePlanne
     Some(format!("quic:{burst}:{fake}"))
 }
 
-fn select_first_flight_size(policy: &ProxyMorphPolicy, payload_len: usize, hints: &AdaptivePlannerHints) -> i32 {
+fn select_first_flight_size(policy: &ProxyMorphPolicy, payload_len: usize, hints: AdaptivePlannerHints) -> i32 {
     let min = policy.first_flight_size_min.max(0);
     let max = policy.first_flight_size_max.max(min);
     if max == 0 {
@@ -150,7 +150,7 @@ fn select_first_flight_size(policy: &ProxyMorphPolicy, payload_len: usize, hints
     bucket.max((payload_len as i32).saturating_add(padding)).clamp(min, max)
 }
 
-fn select_padding_envelope(policy: &ProxyMorphPolicy, hints: &AdaptivePlannerHints) -> i32 {
+fn select_padding_envelope(policy: &ProxyMorphPolicy, hints: AdaptivePlannerHints) -> i32 {
     let min = policy.padding_envelope_min.max(0);
     let max = policy.padding_envelope_max.max(min);
     if max == min {
@@ -269,7 +269,7 @@ mod tests {
         let hints =
             AdaptivePlannerHints { tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Wide), ..Default::default() };
 
-        let morphed = apply_tcp_morph_policy_to_group(&state, &group, DEFAULT_FAKE_TLS, &hints);
+        let morphed = apply_tcp_morph_policy_to_group(&state, &group, DEFAULT_FAKE_TLS, hints);
 
         assert_eq!(morphed.actions.fake_tls_size, 640);
         assert_eq!(morphed.actions.entropy_mode, EntropyMode::Popcount);

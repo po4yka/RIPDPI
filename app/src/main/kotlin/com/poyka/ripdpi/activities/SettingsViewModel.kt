@@ -40,6 +40,7 @@ import javax.inject.Inject
 @Suppress("TooManyFunctions")
 @HiltViewModel
 class SettingsViewModel
+    @Suppress("LongParameterList")
     @Inject
     constructor(
         private val appSettingsRepository: AppSettingsRepository,

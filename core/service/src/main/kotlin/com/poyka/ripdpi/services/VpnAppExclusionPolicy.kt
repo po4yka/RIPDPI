@@ -1,3 +1,5 @@
+@file:Suppress("ReturnCount")
+
 package com.poyka.ripdpi.services
 
 import android.content.Context

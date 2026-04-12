@@ -16,6 +16,9 @@ import java.net.URI
 import javax.inject.Inject
 import javax.inject.Singleton
 
+private const val HttpSuccessStatusMin = 200
+private const val HttpSuccessStatusMax = 299
+
 interface StrategyPackDownloadService {
     suspend fun downloadManifest(url: String): ByteArray
 
@@ -72,7 +75,7 @@ class DefaultStrategyPackDownloadService
                         maxRedirects = DefaultNativeOwnedTlsMaxRedirects,
                     ),
                 )
-            if (response.statusCode in 200..299) {
+            if (response.statusCode in HttpSuccessStatusMin..HttpSuccessStatusMax) {
                 return response.body
             }
             throw IOException("Remote request failed with HTTP ${response.statusCode} for ${response.finalUrl ?: url}")

@@ -372,14 +372,14 @@ fn normalize_path(path: &str) -> String {
     if trimmed.is_empty() {
         "/".to_owned()
     } else {
-        format!("/{}", trimmed)
+        format!("/{trimmed}")
     }
 }
 
 fn stream_up_path(path: &str, session_id: &str) -> String {
     let normalized = normalize_path(path);
     if normalized == "/" {
-        format!("/{}", session_id)
+        format!("/{session_id}")
     } else {
         format!("{normalized}/{session_id}")
     }
@@ -601,7 +601,7 @@ impl PooledConnection {
             let _ = transport_download.shutdown().await;
         });
 
-        let request = ripdpi_vless::wire::encode_request(mode.uuid(), &ripdpi_vless::addons::VISION_ADDONS, target);
+        let request = ripdpi_vless::wire::encode_request(mode.uuid(), ripdpi_vless::addons::VISION_ADDONS, target);
         user_upload.write_all(&request).await?;
 
         let mut stream = XhttpStream { reader: user_download, writer: user_upload, _permit: permit };

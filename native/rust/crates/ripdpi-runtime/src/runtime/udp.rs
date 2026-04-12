@@ -649,7 +649,7 @@ fn plan_udp_flow_actions(
         entry.host.as_deref(),
         payload,
     )?;
-    emit_morph_hint_applied(state, entry.current_target, udp_morph_hint_family(state, &adaptive_hints));
+    emit_morph_hint_applied(state, entry.current_target, udp_morph_hint_family(state, adaptive_hints));
     entry.last_used = now;
     entry.payload.clear();
     entry.payload.extend_from_slice(payload);

@@ -1,3 +1,5 @@
+@file:Suppress("ReturnCount", "MagicNumber")
+
 package com.poyka.ripdpi.services
 
 import android.Manifest

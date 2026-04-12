@@ -38,6 +38,9 @@
     "latencyDistributions": null,
     "learnedHostCount": 0,
     "listenerAddress": "127.0.0.1:<port>",
+    "morphHintFamily": null,
+    "morphPolicyId": null,
+    "morphRollbackReason": null,
     "nativeEvents": [
         {
             "createdAt": 0,
@@ -78,6 +81,11 @@
     "penalizedHostCount": 0,
     "profileId": null,
     "protocolKind": null,
+    "ptRuntimeKind": null,
+    "ptRuntimeState": null,
+    "ptRuntimeVersion": null,
+    "quicMigrationReason": null,
+    "quicMigrationStatus": null,
     "resolverEndpoint": null,
     "resolverFallbackActive": false,
     "resolverFallbackReason": null,
@@ -90,7 +98,11 @@
     "slotExhaustions": 0,
     "source": "proxy",
     "state": "running",
+    "strategyPackId": null,
+    "strategyPackVersion": null,
     "tcpCapable": null,
+    "tlsProfileCatalogVersion": null,
+    "tlsProfileId": null,
     "totalErrors": 0,
     "totalSessions": 0,
     "tunnelStats": {

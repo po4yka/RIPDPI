@@ -292,10 +292,10 @@ impl ClientInner {
     }
 
     fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
-        self.migration
-            .try_lock()
-            .map(|state| (state.status.clone(), state.reason.clone()))
-            .unwrap_or_else(|_| (Some("not_attempted".to_string()), None))
+        self.migration.try_lock().map_or_else(
+            |_| (Some("not_attempted".to_string()), None),
+            |state| (state.status.clone(), state.reason.clone()),
+        )
     }
 
     fn should_attempt_quic_migration(&self, state: &QuicMigrationState) -> bool {
@@ -305,7 +305,7 @@ impl ClientInner {
         if state.validated || state.previous_socket.is_some() {
             return false;
         }
-        !state.cooldown_until.is_some_and(|cooldown_until| cooldown_until > Instant::now())
+        state.cooldown_until.is_none_or(|cooldown_until| cooldown_until <= Instant::now())
     }
 }
 

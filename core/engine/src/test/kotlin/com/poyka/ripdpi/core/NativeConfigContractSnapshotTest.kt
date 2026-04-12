@@ -884,6 +884,9 @@ class NativeConfigContractSnapshotTest {
         vlessTransport: String = "reality_tcp",
         xhttpPath: String = "",
         xhttpHost: String = "",
+        cloudflareTunnelMode: String = com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting,
+        cloudflarePublishLocalOriginUrl: String = "",
+        cloudflareCredentialsRef: String = "",
         chainEntryServer: String = "",
         chainEntryPort: Int = 443,
         chainEntryServerName: String = "",
@@ -907,6 +910,7 @@ class NativeConfigContractSnapshotTest {
         localSocksPort: Int = 11980,
         udpEnabled: Boolean = false,
         tcpFallbackEnabled: Boolean = true,
+        finalmask: JsonObject = finalmaskExpected(),
     ): JsonObject =
         buildJsonObject {
             put("enabled", JsonPrimitive(enabled))
@@ -921,6 +925,9 @@ class NativeConfigContractSnapshotTest {
             put("vlessTransport", JsonPrimitive(vlessTransport))
             put("xhttpPath", JsonPrimitive(xhttpPath))
             put("xhttpHost", JsonPrimitive(xhttpHost))
+            put("cloudflareTunnelMode", JsonPrimitive(cloudflareTunnelMode))
+            put("cloudflarePublishLocalOriginUrl", JsonPrimitive(cloudflarePublishLocalOriginUrl))
+            put("cloudflareCredentialsRef", JsonPrimitive(cloudflareCredentialsRef))
             put("chainEntryServer", JsonPrimitive(chainEntryServer))
             put("chainEntryPort", JsonPrimitive(chainEntryPort))
             put("chainEntryServerName", JsonPrimitive(chainEntryServerName))
@@ -944,6 +951,7 @@ class NativeConfigContractSnapshotTest {
             put("localSocksPort", JsonPrimitive(localSocksPort))
             put("udpEnabled", JsonPrimitive(udpEnabled))
             put("tcpFallbackEnabled", JsonPrimitive(tcpFallbackEnabled))
+            put("finalmask", finalmask)
         }
 
     @Suppress("LongParameterList")
@@ -1038,6 +1046,27 @@ class NativeConfigContractSnapshotTest {
         buildJsonObject {
             put("enabled", JsonPrimitive(enabled))
             put("mode", mode?.let(::JsonPrimitive) ?: JsonNull)
+        }
+
+    private fun finalmaskExpected(
+        type: String = com.poyka.ripdpi.data.RelayFinalmaskTypeOff,
+        headerHex: String = "",
+        trailerHex: String = "",
+        randRange: String = "",
+        sudokuSeed: String = "",
+        fragmentPackets: Int = 0,
+        fragmentMinBytes: Int = 0,
+        fragmentMaxBytes: Int = 0,
+    ): JsonObject =
+        buildJsonObject {
+            put("type", JsonPrimitive(type))
+            put("headerHex", JsonPrimitive(headerHex))
+            put("trailerHex", JsonPrimitive(trailerHex))
+            put("randRange", JsonPrimitive(randRange))
+            put("sudokuSeed", JsonPrimitive(sudokuSeed))
+            put("fragmentPackets", JsonPrimitive(fragmentPackets))
+            put("fragmentMinBytes", JsonPrimitive(fragmentMinBytes))
+            put("fragmentMaxBytes", JsonPrimitive(fragmentMaxBytes))
         }
 
     private fun activationFilterExpected(

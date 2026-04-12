@@ -1,3 +1,5 @@
+@file:Suppress("ReturnCount")
+
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiRelayConfig

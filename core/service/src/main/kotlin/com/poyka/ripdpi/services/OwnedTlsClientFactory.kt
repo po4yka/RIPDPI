@@ -1,3 +1,5 @@
+@file:Suppress("MagicNumber")
+
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.AppSettingsRepository

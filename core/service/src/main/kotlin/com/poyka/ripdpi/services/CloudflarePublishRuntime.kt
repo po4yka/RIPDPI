@@ -1,3 +1,5 @@
+@file:Suppress("TooGenericExceptionCaught", "MagicNumber")
+
 package com.poyka.ripdpi.services
 
 import android.content.Context

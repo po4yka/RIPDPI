@@ -21,6 +21,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+@Suppress("LongMethod")
 internal fun LazyListScope.routingProtectionSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
@@ -31,32 +32,8 @@ internal fun LazyListScope.routingProtectionSection(
 ) {
     item(key = "advanced_routing_protection") {
         val sectionEnabled = visualEditorEnabled && !uiState.enableCmdSettings
-        val policyOptions =
-            listOf(
-                RipDpiDropdownOption(
-                    value = AppRoutingPolicyModePrompt,
-                    label = stringResource(R.string.routing_protection_policy_prompt_title),
-                ),
-                RipDpiDropdownOption(
-                    value = AppRoutingPolicyModeOff,
-                    label = stringResource(R.string.routing_protection_policy_off_title),
-                ),
-            )
-        val dhtOptions =
-            listOf(
-                RipDpiDropdownOption(
-                    value = DhtMitigationModeOff,
-                    label = stringResource(R.string.routing_protection_dht_off_title),
-                ),
-                RipDpiDropdownOption(
-                    value = DhtMitigationModeBypass,
-                    label = stringResource(R.string.routing_protection_dht_bypass_title),
-                ),
-                RipDpiDropdownOption(
-                    value = DhtMitigationModeDropWarn,
-                    label = stringResource(R.string.routing_protection_dht_drop_warn_title),
-                ),
-            )
+        val policyOptions = routingProtectionPolicyOptions()
+        val dhtOptions = routingProtectionDhtOptions()
         AdvancedSettingsSection(
             title = stringResource(R.string.routing_protection_section_title),
             testTag = RipDpiTestTags.advancedSection("routing_protection"),
@@ -94,16 +71,7 @@ internal fun LazyListScope.routingProtectionSection(
                 uiState.routingProtection.presets.forEachIndexed { index, preset ->
                     SettingsRow(
                         title = preset.title,
-                        subtitle =
-                            buildString {
-                                append(preset.fixCoverage)
-                                if (preset.detectionMethod.isNotBlank()) {
-                                    append(" ")
-                                    append("(")
-                                    append(preset.detectionMethod)
-                                    append(")")
-                                }
-                            },
+                        subtitle = routingProtectionPresetSubtitle(preset.fixCoverage, preset.detectionMethod),
                         checked = preset.enabled,
                         enabled = sectionEnabled && !uiState.fullTunnelMode,
                         onCheckedChange = { enabled -> onAppRoutingPresetEnabledChanged(preset.id, enabled) },
@@ -126,6 +94,49 @@ internal fun LazyListScope.routingProtectionSection(
         }
     }
 }
+
+@Composable
+private fun routingProtectionPolicyOptions(): List<RipDpiDropdownOption<String>> =
+    listOf(
+        RipDpiDropdownOption(
+            value = AppRoutingPolicyModePrompt,
+            label = stringResource(R.string.routing_protection_policy_prompt_title),
+        ),
+        RipDpiDropdownOption(
+            value = AppRoutingPolicyModeOff,
+            label = stringResource(R.string.routing_protection_policy_off_title),
+        ),
+    )
+
+@Composable
+private fun routingProtectionDhtOptions(): List<RipDpiDropdownOption<String>> =
+    listOf(
+        RipDpiDropdownOption(
+            value = DhtMitigationModeOff,
+            label = stringResource(R.string.routing_protection_dht_off_title),
+        ),
+        RipDpiDropdownOption(
+            value = DhtMitigationModeBypass,
+            label = stringResource(R.string.routing_protection_dht_bypass_title),
+        ),
+        RipDpiDropdownOption(
+            value = DhtMitigationModeDropWarn,
+            label = stringResource(R.string.routing_protection_dht_drop_warn_title),
+        ),
+    )
+
+private fun routingProtectionPresetSubtitle(
+    fixCoverage: String,
+    detectionMethod: String,
+): String =
+    buildString {
+        append(fixCoverage)
+        if (detectionMethod.isNotBlank()) {
+            append(" (")
+            append(detectionMethod)
+            append(")")
+        }
+    }
 
 @Composable
 private fun RoutingProtectionSummaryCard(

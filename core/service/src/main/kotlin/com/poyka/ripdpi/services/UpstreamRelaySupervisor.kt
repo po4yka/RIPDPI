@@ -1,3 +1,5 @@
+@file:Suppress("LongMethod", "CyclomaticComplexMethod")
+
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
@@ -51,7 +53,6 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import java.net.URI
 import javax.inject.Inject
 
 internal class UpstreamRelaySupervisor(
@@ -84,21 +85,6 @@ internal class UpstreamRelaySupervisor(
         },
     private val stopTimeoutMillis: Long = 5_000L,
 ) {
-    private data class ResolvedChainRelayHop(
-        val profileId: String,
-        val server: String,
-        val serverPort: Int,
-        val serverName: String,
-        val publicKey: String,
-        val shortId: String,
-        val uuid: String,
-    )
-
-    private data class ResolvedChainRelayConfig(
-        val entry: ResolvedChainRelayHop,
-        val exit: ResolvedChainRelayHop,
-    )
-
     private var relayRuntime: RipDpiRelayRuntime? = null
     private var relayJob: Job? = null
 
@@ -191,7 +177,7 @@ internal class UpstreamRelaySupervisor(
         val storedProfile = relayProfileStore.load(profileId)
         val requestedTlsProfile = normalizeTlsFingerprintProfile(tlsFingerprintProfileProvider.currentProfile())
         val effectiveConfig =
-            mergeConfig(config, storedProfile).let { merged ->
+            mergeRelayConfig(config, storedProfile).let { merged ->
                 when (merged.kind) {
                     RelayKindCloudflareTunnel -> {
                         merged.copy(
@@ -228,7 +214,7 @@ internal class UpstreamRelaySupervisor(
                 }
             }
         val credentials = relayCredentialStore.load(profileId)
-        val masqueAuthMode = resolveMasqueAuthMode(effectiveConfig, credentials)
+        val masqueAuthMode = resolveMasqueAuthModeSupport(credentials)
         val privacyPassReadiness =
             if (effectiveConfig.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
                 masquePrivacyPassProvider.readinessFor(effectiveConfig, credentials)
@@ -243,16 +229,18 @@ internal class UpstreamRelaySupervisor(
             }
         val resolvedChainRelay =
             if (effectiveConfig.kind == RelayKindChainRelay) {
-                resolveChainRelayConfig(
+                resolveChainRelayConfigSupport(
                     chainProfileId = profileId,
                     config = effectiveConfig,
                     credentials = credentials,
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
                 )
             } else {
                 null
             }
-        validateCredentials(profileId, effectiveConfig.kind, masqueAuthMode, credentials)
-        validateSupportedFeatures(
+        validateRelayCredentials(profileId, effectiveConfig.kind, masqueAuthMode, credentials)
+        validateSupportedRelayFeatures(
             profileId = profileId,
             config = effectiveConfig,
             credentials = credentials,
@@ -264,9 +252,11 @@ internal class UpstreamRelaySupervisor(
         )
         val shadowTlsInner =
             if (effectiveConfig.kind == RelayKindShadowTlsV3) {
-                resolveShadowTlsInnerConfig(
+                resolveShadowTlsInnerConfigSupport(
                     outerProfileId = profileId,
                     innerProfileId = effectiveConfig.shadowTlsInnerProfileId,
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
                 )
             } else {
                 null
@@ -364,480 +354,6 @@ internal class UpstreamRelaySupervisor(
                 ),
         )
     }
-
-    private fun mergeConfig(
-        config: RipDpiRelayConfig,
-        profile: RelayProfileRecord?,
-    ): RipDpiRelayConfig {
-        if (profile == null) return config
-        return config.copy(
-            kind = profile.kind.ifBlank { config.kind },
-            outboundBindIp = profile.outboundBindIp.ifBlank { config.outboundBindIp },
-            server = profile.server.ifBlank { config.server },
-            serverPort = profile.serverPort,
-            serverName = profile.serverName.ifBlank { config.serverName },
-            realityPublicKey = profile.realityPublicKey.ifBlank { config.realityPublicKey },
-            realityShortId = profile.realityShortId.ifBlank { config.realityShortId },
-            vlessTransport = profile.vlessTransport.ifBlank { config.vlessTransport },
-            xhttpPath = profile.xhttpPath.ifBlank { config.xhttpPath },
-            xhttpHost = profile.xhttpHost.ifBlank { config.xhttpHost },
-            cloudflareTunnelMode = profile.cloudflareTunnelMode.ifBlank { config.cloudflareTunnelMode },
-            cloudflarePublishLocalOriginUrl =
-                profile.cloudflarePublishLocalOriginUrl.ifBlank { config.cloudflarePublishLocalOriginUrl },
-            cloudflareCredentialsRef = profile.cloudflareCredentialsRef.ifBlank { config.cloudflareCredentialsRef },
-            chainEntryServer = profile.chainEntryServer.ifBlank { config.chainEntryServer },
-            chainEntryPort = profile.chainEntryPort,
-            chainEntryServerName = profile.chainEntryServerName.ifBlank { config.chainEntryServerName },
-            chainEntryPublicKey = profile.chainEntryPublicKey.ifBlank { config.chainEntryPublicKey },
-            chainEntryShortId = profile.chainEntryShortId.ifBlank { config.chainEntryShortId },
-            chainEntryProfileId = profile.chainEntryProfileId.ifBlank { config.chainEntryProfileId },
-            chainExitServer = profile.chainExitServer.ifBlank { config.chainExitServer },
-            chainExitPort = profile.chainExitPort,
-            chainExitServerName = profile.chainExitServerName.ifBlank { config.chainExitServerName },
-            chainExitPublicKey = profile.chainExitPublicKey.ifBlank { config.chainExitPublicKey },
-            chainExitShortId = profile.chainExitShortId.ifBlank { config.chainExitShortId },
-            chainExitProfileId = profile.chainExitProfileId.ifBlank { config.chainExitProfileId },
-            masqueUrl = profile.masqueUrl.ifBlank { config.masqueUrl },
-            masqueUseHttp2Fallback = profile.masqueUseHttp2Fallback,
-            masqueCloudflareGeohashEnabled = profile.masqueCloudflareGeohashEnabled,
-            tuicZeroRtt = profile.tuicZeroRtt,
-            tuicCongestionControl = profile.tuicCongestionControl,
-            shadowTlsInnerProfileId = profile.shadowTlsInnerProfileId.ifBlank { config.shadowTlsInnerProfileId },
-            naivePath = profile.naivePath.ifBlank { config.naivePath },
-            ptBridgeLine = profile.ptBridgeLine.ifBlank { config.ptBridgeLine },
-            ptWebTunnelUrl = profile.ptWebTunnelUrl.ifBlank { config.ptWebTunnelUrl },
-            ptSnowflakeBrokerUrl = profile.ptSnowflakeBrokerUrl.ifBlank { config.ptSnowflakeBrokerUrl },
-            ptSnowflakeFrontDomain = profile.ptSnowflakeFrontDomain.ifBlank { config.ptSnowflakeFrontDomain },
-            localSocksHost = profile.localSocksHost.ifBlank { config.localSocksHost },
-            localSocksPort = profile.localSocksPort,
-            udpEnabled = profile.udpEnabled,
-            tcpFallbackEnabled = profile.tcpFallbackEnabled,
-            finalmask =
-                config.finalmask.copy(
-                    type = profile.finalmaskType.ifBlank { config.finalmask.type },
-                    headerHex = profile.finalmaskHeaderHex.ifBlank { config.finalmask.headerHex },
-                    trailerHex = profile.finalmaskTrailerHex.ifBlank { config.finalmask.trailerHex },
-                    randRange = profile.finalmaskRandRange.ifBlank { config.finalmask.randRange },
-                    sudokuSeed = profile.finalmaskSudokuSeed.ifBlank { config.finalmask.sudokuSeed },
-                    fragmentPackets =
-                        profile.finalmaskFragmentPackets.takeIf { it > 0 } ?: config.finalmask.fragmentPackets,
-                    fragmentMinBytes =
-                        profile.finalmaskFragmentMinBytes.takeIf { it > 0 } ?: config.finalmask.fragmentMinBytes,
-                    fragmentMaxBytes =
-                        profile.finalmaskFragmentMaxBytes.takeIf { it > 0 } ?: config.finalmask.fragmentMaxBytes,
-                ),
-        )
-    }
-
-    private fun validateCredentials(
-        profileId: String,
-        relayKind: String,
-        masqueAuthMode: String?,
-        credentials: RelayCredentialRecord?,
-    ) {
-        val isValid =
-            when (relayKind) {
-                RelayKindVlessReality,
-                RelayKindCloudflareTunnel,
-                -> {
-                    !credentials?.vlessUuid.isNullOrBlank()
-                }
-
-                RelayKindHysteria2 -> {
-                    !credentials?.hysteriaPassword.isNullOrBlank()
-                }
-
-                RelayKindTuicV5 -> {
-                    !credentials?.tuicUuid.isNullOrBlank() && !credentials.tuicPassword.isNullOrBlank()
-                }
-
-                RelayKindShadowTlsV3 -> {
-                    !credentials?.shadowTlsPassword.isNullOrBlank()
-                }
-
-                RelayKindNaiveProxy -> {
-                    !credentials?.naiveUsername.isNullOrBlank() && !credentials.naivePassword.isNullOrBlank()
-                }
-
-                RelayKindSnowflake,
-                RelayKindWebTunnel,
-                RelayKindObfs4,
-                -> {
-                    true
-                }
-
-                RelayKindChainRelay -> {
-                    true
-                }
-
-                RelayKindMasque -> {
-                    when (masqueAuthMode) {
-                        RelayMasqueAuthModeBearer,
-                        RelayMasqueAuthModePreshared,
-                        -> {
-                            !credentials?.masqueAuthToken.isNullOrBlank()
-                        }
-
-                        RelayMasqueAuthModeCloudflareMtls -> {
-                            !credentials?.masqueClientCertificateChainPem.isNullOrBlank() &&
-                                !credentials.masqueClientPrivateKeyPem.isNullOrBlank()
-                        }
-
-                        RelayMasqueAuthModePrivacyPass -> {
-                            true
-                        }
-
-                        else -> {
-                            false
-                        }
-                    }
-                }
-
-                else -> {
-                    true
-                }
-            }
-        require(isValid) { "Relay credentials missing for profile $profileId" }
-    }
-
-    private fun validateSupportedFeatures(
-        profileId: String,
-        config: RipDpiRelayConfig,
-        credentials: RelayCredentialRecord?,
-        masqueAuthMode: String?,
-        privacyPassRuntime: MasquePrivacyPassRuntimeConfig?,
-        privacyPassReadiness: MasquePrivacyPassReadiness?,
-        tlsFingerprintProfile: String,
-        featureFlags: Map<String, Boolean>,
-    ) {
-        require(
-            !config.udpEnabled || config.kind == RelayKindHysteria2 || config.kind == RelayKindMasque ||
-                config.kind == RelayKindTuicV5,
-        ) {
-            "Relay UDP mode is only available for Hysteria2, MASQUE, and TUIC profiles"
-        }
-        require(!(config.vlessTransport == RelayVlessTransportXhttp && config.udpEnabled)) {
-            "xHTTP transport does not support UDP mode"
-        }
-        if (config.kind == RelayKindShadowTlsV3) {
-            require(!config.udpEnabled) {
-                "ShadowTLS v3 is TCP-only"
-            }
-            require(config.shadowTlsInnerProfileId.isNotBlank()) {
-                "ShadowTLS v3 requires an inner profile reference"
-            }
-            require(config.vlessTransport == RelayVlessTransportRealityTcp) {
-                "ShadowTLS outer profile must use direct TCP transport"
-            }
-        }
-        if (config.kind == RelayKindNaiveProxy) {
-            require(!config.udpEnabled) {
-                "NaiveProxy does not support UDP mode"
-            }
-            if (!featureFlags.isEnabled(StrategyFeatureNaiveProxyWatchdog)) {
-                require(config.naivePath.isBlank() || config.naivePath.startsWith("/")) {
-                    "NaiveProxy custom path must be absolute"
-                }
-            }
-        }
-        if (isPluggableTransportRelay(config.kind)) {
-            require(!config.udpEnabled) {
-                "Pluggable transports are exposed as TCP SOCKS5 loopback relays"
-            }
-        }
-        if (config.kind == RelayKindSnowflake) {
-            require(config.ptSnowflakeBrokerUrl.isNotBlank()) {
-                "Snowflake requires a broker URL"
-            }
-        }
-        if (config.kind == RelayKindWebTunnel) {
-            require(config.ptWebTunnelUrl.isNotBlank()) {
-                "WebTunnel requires a target URL"
-            }
-        }
-        if (config.kind == RelayKindObfs4) {
-            require(config.ptBridgeLine.isNotBlank()) {
-                "obfs4 requires a bridge line"
-            }
-        }
-        if (config.kind == RelayKindCloudflareTunnel && tlsFingerprintProfile != TlsFingerprintProfileChromeStable) {
-            throw ServiceStartupRejectedException(
-                FailureReason.RelayFingerprintPolicyRejected(
-                    "Cloudflare Tunnel requires the Chrome stable TLS fingerprint profile",
-                ),
-            )
-        }
-        if (config.kind == RelayKindCloudflareTunnel) {
-            require(config.server.isNotBlank()) {
-                "Cloudflare Tunnel requires a tunnel hostname"
-            }
-            require(config.serverName.isNotBlank()) {
-                "Cloudflare Tunnel requires a TLS server name"
-            }
-            if (config.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin &&
-                !featureFlags.isEnabled(StrategyFeatureCloudflarePublish)
-            ) {
-                throw ServiceStartupRejectedException(
-                    FailureReason.RelayConfigRejected("Cloudflare local-origin publish mode is feature-gated"),
-                )
-            }
-            if (config.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin) {
-                require(config.cloudflarePublishLocalOriginUrl.isNotBlank()) {
-                    "Cloudflare publish mode requires a local origin URL"
-                }
-                parseCloudflareLocalOriginSpec(config.cloudflarePublishLocalOriginUrl)
-                require(
-                    !credentials?.cloudflareTunnelToken.isNullOrBlank() ||
-                        !credentials?.cloudflareTunnelCredentialsJson.isNullOrBlank(),
-                ) {
-                    "Cloudflare publish mode requires a tunnel token or named-tunnel credentials"
-                }
-            } else if (!featureFlags.isEnabled(StrategyFeatureCloudflareConsumeValidation)) {
-                require(config.server.isNotBlank()) {
-                    "Cloudflare Tunnel requires a tunnel hostname"
-                }
-            }
-        }
-        if (config.kind == RelayKindHysteria2 && tlsFingerprintProfile == TlsFingerprintProfileChromeStable) {
-            throw ServiceStartupRejectedException(
-                FailureReason.RelayFingerprintPolicyRejected(
-                    "Hysteria2 is blocked until Chrome-like QUIC fingerprinting is implemented",
-                ),
-            )
-        }
-        if (config.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModeCloudflareMtls &&
-            !featureFlags.isEnabled(StrategyFeatureMasqueCloudflareDirect)
-        ) {
-            throw ServiceStartupRejectedException(
-                FailureReason.RelayConfigRejected("Cloudflare-direct MASQUE is feature-gated"),
-            )
-        }
-        if (config.kind == RelayKindMasque) {
-            validateMasqueUrl(config.masqueUrl)
-        }
-        if (config.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
-            requireNotNull(privacyPassRuntime) {
-                masquePrivacyPassReadinessMessage(profileId, privacyPassReadiness)
-            }
-        }
-        if (config.finalmask.type != RelayFinalmaskTypeOff && !featureFlags.isEnabled(StrategyFeatureFinalmask)) {
-            throw ServiceStartupRejectedException(
-                FailureReason.RelayConfigRejected("Finalmask is feature-gated"),
-            )
-        }
-        if (config.kind == RelayKindShadowTlsV3 && config.shadowTlsInnerProfileId == profileId) {
-            throw ServiceStartupRejectedException(
-                FailureReason.RelayConfigRejected("ShadowTLS inner profile cannot reference itself"),
-            )
-        }
-    }
-
-    private suspend fun resolveChainRelayConfig(
-        chainProfileId: String,
-        config: RipDpiRelayConfig,
-        credentials: RelayCredentialRecord?,
-    ): ResolvedChainRelayConfig =
-        ResolvedChainRelayConfig(
-            entry =
-                resolveChainRelayHop(
-                    hopName = "entry",
-                    chainProfileId = chainProfileId,
-                    profileId = config.chainEntryProfileId,
-                    legacyServer = config.chainEntryServer,
-                    legacyServerPort = config.chainEntryPort,
-                    legacyServerName = config.chainEntryServerName,
-                    legacyPublicKey = config.chainEntryPublicKey,
-                    legacyShortId = config.chainEntryShortId,
-                    legacyUuid = credentials?.chainEntryUuid,
-                ),
-            exit =
-                resolveChainRelayHop(
-                    hopName = "exit",
-                    chainProfileId = chainProfileId,
-                    profileId = config.chainExitProfileId,
-                    legacyServer = config.chainExitServer,
-                    legacyServerPort = config.chainExitPort,
-                    legacyServerName = config.chainExitServerName,
-                    legacyPublicKey = config.chainExitPublicKey,
-                    legacyShortId = config.chainExitShortId,
-                    legacyUuid = credentials?.chainExitUuid,
-                ),
-        )
-
-    private suspend fun resolveChainRelayHop(
-        hopName: String,
-        chainProfileId: String,
-        profileId: String,
-        legacyServer: String,
-        legacyServerPort: Int,
-        legacyServerName: String,
-        legacyPublicKey: String,
-        legacyShortId: String,
-        legacyUuid: String?,
-    ): ResolvedChainRelayHop {
-        if (profileId.isNotBlank()) {
-            val profile =
-                relayProfileStore.load(profileId)
-                    ?: throw ServiceStartupRejectedException(
-                        FailureReason.RelayConfigRejected("Chain relay $hopName profile $profileId was not found"),
-                    )
-            if (profile.id == chainProfileId) {
-                throw ServiceStartupRejectedException(
-                    FailureReason.RelayConfigRejected("Chain relay $hopName profile cannot reference itself"),
-                )
-            }
-            if (profile.kind != RelayKindVlessReality) {
-                throw ServiceStartupRejectedException(
-                    FailureReason.RelayConfigRejected(
-                        "Chain relay $hopName profile kind ${profile.kind} is not supported yet",
-                    ),
-                )
-            }
-            require(profile.vlessTransport != RelayVlessTransportXhttp) {
-                "Chain relay $hopName profile must use direct Reality TCP transport"
-            }
-            val hopCredentials = relayCredentialStore.load(profileId)
-            val hopUuid = hopCredentials?.vlessUuid
-            require(!hopUuid.isNullOrBlank()) {
-                "Relay credentials missing for profile $profileId"
-            }
-            return ResolvedChainRelayHop(
-                profileId = profile.id,
-                server = profile.server,
-                serverPort = profile.serverPort,
-                serverName = profile.serverName,
-                publicKey = profile.realityPublicKey,
-                shortId = profile.realityShortId,
-                uuid = hopUuid,
-            )
-        }
-        require(legacyServer.isNotBlank()) {
-            "Chain relay $hopName profile reference is required"
-        }
-        require(legacyServerName.isNotBlank() && legacyPublicKey.isNotBlank() && legacyShortId.isNotBlank()) {
-            "Chain relay legacy $hopName settings are incomplete"
-        }
-        require(!legacyUuid.isNullOrBlank()) {
-            "Relay credentials missing for chain relay $hopName"
-        }
-        return ResolvedChainRelayHop(
-            profileId = "",
-            server = legacyServer,
-            serverPort = legacyServerPort,
-            serverName = legacyServerName,
-            publicKey = legacyPublicKey,
-            shortId = legacyShortId,
-            uuid = legacyUuid,
-        )
-    }
-
-    private suspend fun resolveShadowTlsInnerConfig(
-        outerProfileId: String,
-        innerProfileId: String,
-    ): ResolvedShadowTlsInnerRelayConfig {
-        val innerProfile =
-            relayProfileStore.load(innerProfileId)
-                ?: throw ServiceStartupRejectedException(
-                    FailureReason.RelayConfigRejected("ShadowTLS inner profile $innerProfileId was not found"),
-                )
-        if (innerProfile.id == outerProfileId) {
-            throw ServiceStartupRejectedException(
-                FailureReason.RelayConfigRejected("ShadowTLS inner profile cannot reference itself"),
-            )
-        }
-        val innerCredentials = relayCredentialStore.load(innerProfileId)
-        return when (innerProfile.kind) {
-            RelayKindVlessReality -> {
-                require(innerProfile.vlessTransport != RelayVlessTransportXhttp) {
-                    "ShadowTLS currently supports only VLESS Reality TCP as an inner profile"
-                }
-                require(!innerCredentials?.vlessUuid.isNullOrBlank()) {
-                    "Relay credentials missing for profile $innerProfileId"
-                }
-                ResolvedShadowTlsInnerRelayConfig(
-                    kind = innerProfile.kind,
-                    profileId = innerProfile.id,
-                    server = innerProfile.server,
-                    serverPort = innerProfile.serverPort,
-                    serverName = innerProfile.serverName,
-                    realityPublicKey = innerProfile.realityPublicKey,
-                    realityShortId = innerProfile.realityShortId,
-                    vlessTransport = innerProfile.vlessTransport.ifBlank { RelayVlessTransportRealityTcp },
-                    vlessUuid = innerCredentials.vlessUuid,
-                )
-            }
-
-            else -> {
-                throw ServiceStartupRejectedException(
-                    FailureReason.RelayConfigRejected(
-                        "ShadowTLS inner profile kind ${innerProfile.kind} is not supported yet",
-                    ),
-                )
-            }
-        }
-    }
-
-    private fun resolveMasqueAuthMode(
-        config: RipDpiRelayConfig,
-        credentials: RelayCredentialRecord?,
-    ): String? =
-        normalizeRelayMasqueAuthMode(credentials?.masqueAuthMode)
-            ?: when {
-                !credentials?.masqueClientCertificateChainPem.isNullOrBlank() &&
-                    !credentials.masqueClientPrivateKeyPem.isNullOrBlank() -> {
-                    RelayMasqueAuthModeCloudflareMtls
-                }
-
-                !credentials?.masqueAuthToken.isNullOrBlank() -> {
-                    RelayMasqueAuthModeBearer
-                }
-
-                else -> {
-                    null
-                }
-            }
-
-    private fun validateMasqueUrl(rawUrl: String) {
-        val parsed =
-            runCatching { URI(rawUrl.trim()) }.getOrElse {
-                throw ServiceStartupRejectedException(
-                    FailureReason.RelayConfigRejected("MASQUE URL must be a valid HTTPS URL"),
-                )
-            }
-        if (!parsed.scheme.equals("https", ignoreCase = true) || parsed.host.isNullOrBlank()) {
-            throw ServiceStartupRejectedException(
-                FailureReason.RelayConfigRejected("MASQUE URL must be a valid HTTPS URL"),
-            )
-        }
-    }
-
-    private fun masquePrivacyPassReadinessMessage(
-        profileId: String,
-        readiness: MasquePrivacyPassReadiness?,
-    ): String =
-        when (readiness) {
-            MasquePrivacyPassReadiness.MissingProviderUrl -> {
-                "MASQUE privacy_pass auth requires a configured provider URL for profile $profileId"
-            }
-
-            MasquePrivacyPassReadiness.InvalidProviderUrl -> {
-                "MASQUE privacy_pass auth provider URL is invalid for profile $profileId"
-            }
-
-            MasquePrivacyPassReadiness.UnsupportedRelayKind -> {
-                "MASQUE privacy_pass auth is only available for MASQUE relay profiles"
-            }
-
-            MasquePrivacyPassReadiness.UnsupportedAuthMode -> {
-                "MASQUE privacy_pass auth is not selected for profile $profileId"
-            }
-
-            MasquePrivacyPassReadiness.Ready,
-            null,
-            -> {
-                "MASQUE privacy_pass auth requires a configured provider for profile $profileId"
-            }
-        }
 }
 
 internal open class UpstreamRelaySupervisorFactory
@@ -906,9 +422,9 @@ internal open class UpstreamRelaySupervisorFactory
             )
     }
 
-private fun Map<String, Boolean>.isEnabled(flagId: String): Boolean = this[flagId] == true
+internal fun Map<String, Boolean>.isEnabled(flagId: String): Boolean = this[flagId] == true
 
-private fun isPluggableTransportRelay(kind: String): Boolean =
+internal fun isPluggableTransportRelay(kind: String): Boolean =
     kind == RelayKindSnowflake ||
         kind == RelayKindWebTunnel ||
         kind == RelayKindObfs4

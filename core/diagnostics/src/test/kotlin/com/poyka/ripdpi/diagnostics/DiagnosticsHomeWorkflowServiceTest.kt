@@ -268,7 +268,7 @@ class DiagnosticsHomeWorkflowServiceTest {
             assertTrue(
                 outcome.appliedSettings.any {
                     it.label == "QUIC resistance" &&
-                        it.value == "low-port bind · post-handshake migration"
+                        it.value == "low-port bind · post-handshake UDP rebind"
                 },
             )
         }

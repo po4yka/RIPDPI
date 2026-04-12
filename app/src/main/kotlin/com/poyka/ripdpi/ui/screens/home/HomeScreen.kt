@@ -665,7 +665,7 @@ private fun HomeDiagnosticsCard(
     }
 }
 
-@Suppress("LongMethod")
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 private fun HomeDiagnosticsBottomSheetHost(

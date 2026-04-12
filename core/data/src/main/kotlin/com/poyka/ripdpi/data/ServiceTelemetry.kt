@@ -72,6 +72,7 @@ data class RuntimeFieldTelemetry(
         get() = proxyRouteRetryCount + tunnelRecoveryRetryCount
 }
 
+@Suppress("LongMethod")
 fun deriveRuntimeFieldTelemetry(
     telemetryNetworkFingerprintHash: String?,
     winningTcpStrategyFamily: String?,
@@ -91,52 +92,76 @@ fun deriveRuntimeFieldTelemetry(
         warpTelemetry = warpTelemetry,
         tunnelTelemetry = tunnelTelemetry,
     ).let { failureClass ->
+        val runtimeStrategyPackId =
+            firstPresent(
+                proxyTelemetry.strategyPackId,
+                relayTelemetry.strategyPackId,
+                warpTelemetry.strategyPackId,
+                tunnelTelemetry.strategyPackId,
+            )
+        val runtimeStrategyPackVersion =
+            firstPresent(
+                proxyTelemetry.strategyPackVersion,
+                relayTelemetry.strategyPackVersion,
+                warpTelemetry.strategyPackVersion,
+                tunnelTelemetry.strategyPackVersion,
+            )
+        val runtimeTlsProfileId =
+            firstPresent(
+                relayTelemetry.tlsProfileId,
+                proxyTelemetry.tlsProfileId,
+                warpTelemetry.tlsProfileId,
+                tunnelTelemetry.tlsProfileId,
+            )
+        val runtimeTlsProfileCatalogVersion =
+            firstPresent(
+                relayTelemetry.tlsProfileCatalogVersion,
+                proxyTelemetry.tlsProfileCatalogVersion,
+                warpTelemetry.tlsProfileCatalogVersion,
+                tunnelTelemetry.tlsProfileCatalogVersion,
+            )
+        val runtimeMorphPolicyId =
+            firstPresent(
+                proxyTelemetry.morphPolicyId,
+                relayTelemetry.morphPolicyId,
+                warpTelemetry.morphPolicyId,
+                tunnelTelemetry.morphPolicyId,
+            )
+        val runtimeQuicMigrationStatus =
+            firstPresent(
+                proxyTelemetry.quicMigrationStatus,
+                relayTelemetry.quicMigrationStatus,
+                warpTelemetry.quicMigrationStatus,
+                tunnelTelemetry.quicMigrationStatus,
+            )
+        val runtimePtKind =
+            firstPresent(
+                relayTelemetry.ptRuntimeKind,
+                proxyTelemetry.ptRuntimeKind,
+                warpTelemetry.ptRuntimeKind,
+                tunnelTelemetry.ptRuntimeKind,
+            )
+        val runtimePtState =
+            firstPresent(
+                relayTelemetry.ptRuntimeState,
+                proxyTelemetry.ptRuntimeState,
+                warpTelemetry.ptRuntimeState,
+                tunnelTelemetry.ptRuntimeState,
+            )
         RuntimeFieldTelemetry(
             failureClass = failureClass,
             telemetryNetworkFingerprintHash = telemetryNetworkFingerprintHash,
             winningTcpStrategyFamily = winningTcpStrategyFamily?.trim()?.takeIf { it.isNotEmpty() },
             winningQuicStrategyFamily = winningQuicStrategyFamily?.trim()?.takeIf { it.isNotEmpty() },
             winningDnsStrategyFamily = winningDnsStrategyFamily?.trim()?.takeIf { it.isNotEmpty() },
-            strategyPackId =
-                proxyTelemetry.strategyPackId
-                    ?: relayTelemetry.strategyPackId
-                    ?: warpTelemetry.strategyPackId
-                    ?: tunnelTelemetry.strategyPackId,
-            strategyPackVersion =
-                proxyTelemetry.strategyPackVersion
-                    ?: relayTelemetry.strategyPackVersion
-                    ?: warpTelemetry.strategyPackVersion
-                    ?: tunnelTelemetry.strategyPackVersion,
-            tlsProfileId =
-                relayTelemetry.tlsProfileId
-                    ?: proxyTelemetry.tlsProfileId
-                    ?: warpTelemetry.tlsProfileId
-                    ?: tunnelTelemetry.tlsProfileId,
-            tlsProfileCatalogVersion =
-                relayTelemetry.tlsProfileCatalogVersion
-                    ?: proxyTelemetry.tlsProfileCatalogVersion
-                    ?: warpTelemetry.tlsProfileCatalogVersion
-                    ?: tunnelTelemetry.tlsProfileCatalogVersion,
-            morphPolicyId =
-                proxyTelemetry.morphPolicyId
-                    ?: relayTelemetry.morphPolicyId
-                    ?: warpTelemetry.morphPolicyId
-                    ?: tunnelTelemetry.morphPolicyId,
-            quicMigrationStatus =
-                proxyTelemetry.quicMigrationStatus
-                    ?: relayTelemetry.quicMigrationStatus
-                    ?: warpTelemetry.quicMigrationStatus
-                    ?: tunnelTelemetry.quicMigrationStatus,
-            ptRuntimeKind =
-                relayTelemetry.ptRuntimeKind
-                    ?: proxyTelemetry.ptRuntimeKind
-                    ?: warpTelemetry.ptRuntimeKind
-                    ?: tunnelTelemetry.ptRuntimeKind,
-            ptRuntimeState =
-                relayTelemetry.ptRuntimeState
-                    ?: proxyTelemetry.ptRuntimeState
-                    ?: warpTelemetry.ptRuntimeState
-                    ?: tunnelTelemetry.ptRuntimeState,
+            strategyPackId = runtimeStrategyPackId,
+            strategyPackVersion = runtimeStrategyPackVersion,
+            tlsProfileId = runtimeTlsProfileId,
+            tlsProfileCatalogVersion = runtimeTlsProfileCatalogVersion,
+            morphPolicyId = runtimeMorphPolicyId,
+            quicMigrationStatus = runtimeQuicMigrationStatus,
+            ptRuntimeKind = runtimePtKind,
+            ptRuntimeState = runtimePtState,
             proxyRttBand = RttBand.fromLatencyMs(proxyTelemetry.upstreamRttMs),
             resolverRttBand =
                 RttBand.fromLatencyMs(
@@ -283,6 +308,9 @@ private fun hasRecentDhtTriggerCorrelation(
     buildDhtTriggerCorrelationReason(proxyTelemetry, relayTelemetry, warpTelemetry, tunnelTelemetry, failureClass) !=
         null
 
+private fun firstPresent(vararg values: String?): String? = values.firstOrNull { !it.isNullOrBlank() }
+
+@Suppress("ReturnCount")
 private fun buildDhtTriggerCorrelationReason(
     proxyTelemetry: NativeRuntimeSnapshot,
     relayTelemetry: NativeRuntimeSnapshot,
@@ -301,21 +329,21 @@ private fun buildDhtTriggerCorrelationReason(
     if (now != 0L && now - observedAt > DhtTriggerCorrelationWindowMs) {
         return null
     }
-    val relevantFailure =
-        failureClass?.takeIf {
-            it in
-                setOf(
-                    FailureClass.TlsInterference,
-                    FailureClass.Timeout,
-                    FailureClass.ResetAbort,
-                    FailureClass.WarpEndpoint,
-                    FailureClass.FingerprintPolicy,
-                )
-        } ?: return null
+    val relevantFailure = failureClass?.takeIf(::isDhtCorrelationFailureClass) ?: return null
     val destination = tunnelTelemetry.lastDhtTriggerEndpoint ?: "known trigger CIDR"
     return "Recent UDP traffic to $destination was followed by " +
         "${relevantFailure.wireValue} on relay, WARP, or TLS control-plane paths."
 }
+
+private fun isDhtCorrelationFailureClass(failureClass: FailureClass): Boolean =
+    failureClass in
+        setOf(
+            FailureClass.TlsInterference,
+            FailureClass.Timeout,
+            FailureClass.ResetAbort,
+            FailureClass.WarpEndpoint,
+            FailureClass.FingerprintPolicy,
+        )
 
 @Suppress("CyclomaticComplexMethod")
 private fun classifyFailureText(text: String): FailureClass? {
