@@ -51,6 +51,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.net.URI
 import javax.inject.Inject
 
 internal class UpstreamRelaySupervisor(
@@ -611,6 +612,9 @@ internal class UpstreamRelaySupervisor(
                 FailureReason.RelayConfigRejected("Cloudflare-direct MASQUE is feature-gated"),
             )
         }
+        if (config.kind == RelayKindMasque) {
+            validateMasqueUrl(config.masqueUrl)
+        }
         if (config.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
             requireNotNull(privacyPassRuntime) {
                 masquePrivacyPassReadinessMessage(profileId, privacyPassReadiness)
@@ -792,6 +796,20 @@ internal class UpstreamRelaySupervisor(
                     null
                 }
             }
+
+    private fun validateMasqueUrl(rawUrl: String) {
+        val parsed =
+            runCatching { URI(rawUrl.trim()) }.getOrElse {
+                throw ServiceStartupRejectedException(
+                    FailureReason.RelayConfigRejected("MASQUE URL must be a valid HTTPS URL"),
+                )
+            }
+        if (!parsed.scheme.equals("https", ignoreCase = true) || parsed.host.isNullOrBlank()) {
+            throw ServiceStartupRejectedException(
+                FailureReason.RelayConfigRejected("MASQUE URL must be a valid HTTPS URL"),
+            )
+        }
+    }
 
     private fun masquePrivacyPassReadinessMessage(
         profileId: String,

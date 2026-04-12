@@ -83,6 +83,7 @@ impl From<io::Error> for AttemptError {
 
 impl MasqueClient {
     pub fn new(config: MasqueConfig) -> io::Result<Self> {
+        validate_config(&config)?;
         let provider_client = reqwest::Client::builder()
             .timeout(Duration::from_secs(15))
             .build()
@@ -114,12 +115,43 @@ impl MasqueClient {
         match tokio::time::timeout(H3_CONNECT_TIMEOUT, self.connect_tcp_h3(target)).await {
             Ok(Ok(stream)) => Ok(stream),
             Ok(Err(error)) => {
+                let fallback_reason = format!("http3_connect_failed_{}", classify_attempt_failure(&error));
                 tracing::info!(target, error = %error, "MASQUE H3 TCP connect failed, falling back to HTTP/2");
-                self.connect_tcp_h2(target).await
+                match self.connect_tcp_h2(target).await {
+                    Ok(stream) => {
+                        self.inner.record_quic_migration_status("http2_fallback", Some(&fallback_reason)).await;
+                        Ok(stream)
+                    }
+                    Err(fallback_error) => {
+                        self.inner
+                            .record_quic_migration_status(
+                                "failed",
+                                Some("http3_connect_failed_and_http2_fallback_failed"),
+                            )
+                            .await;
+                        Err(fallback_error)
+                    }
+                }
             }
             Err(_) => {
                 tracing::info!(target, "MASQUE H3 TCP connect timed out, falling back to HTTP/2");
-                self.connect_tcp_h2(target).await
+                match self.connect_tcp_h2(target).await {
+                    Ok(stream) => {
+                        self.inner
+                            .record_quic_migration_status("http2_fallback", Some("http3_connect_timed_out"))
+                            .await;
+                        Ok(stream)
+                    }
+                    Err(error) => {
+                        self.inner
+                            .record_quic_migration_status(
+                                "failed",
+                                Some("http3_connect_timed_out_and_http2_fallback_failed"),
+                            )
+                            .await;
+                        Err(error)
+                    }
+                }
             }
         }
     }
@@ -247,7 +279,8 @@ impl MasqueUdpRelay {
                         Ok(flow)
                     }
                     Err(AttemptError::Io(error)) => {
-                        self.client.record_quic_migration_status("failed", Some("http3_udp_connect_failed")).await;
+                        let reason = format!("http3_udp_connect_failed_{}", classify_attempt_failure(&error));
+                        self.client.record_quic_migration_status("failed", Some(&reason)).await;
                         Err(error)
                     }
                     Err(AttemptError::PrivacyPassChallenge(_)) => Err(io::Error::new(
@@ -257,7 +290,8 @@ impl MasqueUdpRelay {
                 }
             }
             Err(AttemptError::Io(error)) => {
-                self.client.record_quic_migration_status("failed", Some("http3_udp_connect_failed")).await;
+                let reason = format!("http3_udp_connect_failed_{}", classify_attempt_failure(&error));
+                self.client.record_quic_migration_status("failed", Some(&reason)).await;
                 Err(error)
             }
         }
@@ -387,10 +421,11 @@ async fn attempt_h3_connect_tcp(
     target: &str,
     auth_header: Option<&AuthHeader>,
 ) -> Result<impl AsyncIo, AttemptError> {
+    let proxy_origin = parse_proxy_origin(config)?;
     let (mut driver, mut send_request) = connect_h3_transport(config, false).await?;
     let request = Request::builder()
         .method("CONNECT")
-        .uri(format!("/{target}"))
+        .uri(proxy_origin.request_uri)
         .header(":protocol", "connect-tcp")
         .header(":authority", target);
     let request = apply_request_headers(request, config, auth_header)?.body(()).map_err(|error| {
@@ -403,7 +438,7 @@ async fn attempt_h3_connect_tcp(
     let response = stream.recv_response().await.map_err(|error| {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to receive H3 CONNECT-TCP response: {error}"))
     })?;
-    validate_proxy_response(response.status(), response.headers())?;
+    validate_proxy_response(response.status(), response.headers(), config.effective_auth_mode())?;
 
     tokio::spawn(async move {
         let error = poll_fn(|cx| driver.poll_close(cx)).await;
@@ -425,7 +460,7 @@ async fn attempt_h3_connect_udp(
 
     let request = Request::builder()
         .method("CONNECT")
-        .uri(build_connect_udp_path(&target))
+        .uri(build_connect_udp_path(&proxy_origin, &target))
         .header(":protocol", "connect-udp")
         .header(":authority", proxy_origin.authority)
         .header(":scheme", "https")
@@ -443,7 +478,7 @@ async fn attempt_h3_connect_udp(
     let response = stream.recv_response().await.map_err(|error| {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to receive H3 CONNECT-UDP response: {error}"))
     })?;
-    validate_proxy_response(response.status(), response.headers())?;
+    validate_proxy_response(response.status(), response.headers(), config.effective_auth_mode())?;
 
     let stream_id = stream.id();
     let datagram_sender = driver.get_datagram_sender(stream_id);
@@ -487,11 +522,11 @@ async fn attempt_h3_connect_udp(
 
 async fn attempt_h2_connect_tcp(
     config: &MasqueConfig,
-    target: &str,
+    _target: &str,
     auth_header: Option<&AuthHeader>,
 ) -> Result<impl AsyncIo, AttemptError> {
     let proxy_origin = parse_proxy_origin(config)?;
-    let tcp = TcpStream::connect(proxy_origin.socket_addr)
+    let tcp = TcpStream::connect(resolve_proxy_socket_addr(&proxy_origin)?)
         .await
         .map_err(|error| io::Error::new(error.kind(), format!("failed to connect to MASQUE proxy: {error}")))?;
     tcp.set_nodelay(true)?;
@@ -518,13 +553,17 @@ async fn attempt_h2_connect_tcp(
         }
     });
 
-    let request = apply_request_headers(hyper::Request::builder().method("CONNECT").uri(target), config, auth_header)?
-        .body(http_body_util::Empty::<Bytes>::new())
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid H2 CONNECT request: {error}")))?;
+    let request = apply_request_headers(
+        hyper::Request::builder().method("CONNECT").uri(proxy_origin.request_uri),
+        config,
+        auth_header,
+    )?
+    .body(http_body_util::Empty::<Bytes>::new())
+    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid H2 CONNECT request: {error}")))?;
     let response = sender.send_request(request).await.map_err(|error| {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to send H2 CONNECT request: {error}"))
     })?;
-    validate_proxy_response(response.status(), response.headers())?;
+    validate_proxy_response(response.status(), response.headers(), config.effective_auth_mode())?;
 
     let upgraded = hyper::upgrade::on(response).await.map_err(|error| {
         io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to upgrade H2 CONNECT stream: {error}"))
@@ -560,7 +599,7 @@ async fn connect_h3_transport(
             .map_err(|error| io::Error::other(format!("failed to build QUIC TLS config: {error}")))?,
     ));
 
-    let proxy_addr = proxy_origin.socket_addr;
+    let proxy_addr = resolve_proxy_socket_addr(&proxy_origin)?;
     let socket = build_client_udp_socket(proxy_addr.is_ipv6(), config.quic_bind_low_port)
         .map_err(|error| io::Error::other(format!("failed to bind QUIC client socket: {error}")))?;
     let mut endpoint =
@@ -597,6 +636,46 @@ fn build_client_udp_socket(ipv6: bool, bind_low_port: bool) -> io::Result<std::n
         socket.bind(&SockAddr::from(bind_addr))?;
     }
     Ok(socket.into())
+}
+
+fn validate_config(config: &MasqueConfig) -> io::Result<()> {
+    let _ = parse_proxy_origin(config)?;
+    let _ = build_static_auth_header(config)?;
+    match config.effective_auth_mode() {
+        MasqueAuthMode::CloudflareMtls => {
+            let _ = load_client_identity(config)?;
+            if config.use_http2_fallback {
+                let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
+                    .map_err(|error| io::Error::other(format!("failed to build H2 TLS profile: {error}")))?;
+                apply_h2_client_auth(&mut builder, config)?;
+            }
+        }
+        MasqueAuthMode::PrivacyPass => {
+            let provider_url =
+                config.privacy_pass_provider_url.as_ref().filter(|value| !value.trim().is_empty()).ok_or_else(
+                    || {
+                        io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "MASQUE privacy_pass mode requires a deployer-supplied token provider URL",
+                        )
+                    },
+                )?;
+            let parsed = Url::parse(provider_url).map_err(|error| {
+                io::Error::new(io::ErrorKind::InvalidInput, format!("invalid Privacy Pass provider URL: {error}"))
+            })?;
+            let is_https = parsed.scheme() == "https";
+            let is_loopback_http = parsed.scheme() == "http"
+                && parsed.host_str().is_some_and(|host| matches!(host, "127.0.0.1" | "localhost" | "::1"));
+            if !(is_https || is_loopback_http) {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Privacy Pass provider URL must use https unless it targets loopback for local testing",
+                ));
+            }
+        }
+        MasqueAuthMode::None | MasqueAuthMode::Bearer | MasqueAuthMode::Preshared => {}
+    }
+    Ok(())
 }
 
 fn try_bind_low_port(socket: &Socket, bind_ip: IpAddr) -> io::Result<()> {
@@ -695,41 +774,114 @@ fn apply_h2_client_auth(builder: &mut boring::ssl::SslConnectorBuilder, config: 
     Ok(())
 }
 
-fn validate_proxy_response(status: StatusCode, headers: &HeaderMap) -> Result<(), AttemptError> {
+fn validate_proxy_response(
+    status: StatusCode,
+    headers: &HeaderMap,
+    auth_mode: MasqueAuthMode,
+) -> Result<(), AttemptError> {
     if status.is_success() {
         return Ok(());
     }
 
-    if status == StatusCode::PROXY_AUTHENTICATION_REQUIRED || status == StatusCode::UNAUTHORIZED {
-        let challenge = parse_privacy_pass_challenge(
-            headers.get("www-authenticate").or_else(|| headers.get("proxy-authenticate")),
-        )?;
-        return Err(AttemptError::PrivacyPassChallenge(challenge));
+    if auth_mode == MasqueAuthMode::PrivacyPass
+        && (status == StatusCode::PROXY_AUTHENTICATION_REQUIRED || status == StatusCode::UNAUTHORIZED)
+    {
+        let authenticate_header = headers.get("www-authenticate").or_else(|| headers.get("proxy-authenticate"));
+        if authenticate_header.is_some() {
+            let challenge = parse_privacy_pass_challenge(authenticate_header)?;
+            return Err(AttemptError::PrivacyPassChallenge(challenge));
+        }
     }
 
-    Err(io::Error::new(io::ErrorKind::ConnectionRefused, format!("MASQUE proxy rejected request with status {status}"))
-        .into())
+    let message = match auth_mode {
+        MasqueAuthMode::CloudflareMtls if status == StatusCode::UNAUTHORIZED || status == StatusCode::FORBIDDEN => {
+            format!("MASQUE proxy rejected the Cloudflare direct client identity with status {status}")
+        }
+        MasqueAuthMode::Bearer | MasqueAuthMode::Preshared
+            if status == StatusCode::UNAUTHORIZED || status == StatusCode::PROXY_AUTHENTICATION_REQUIRED =>
+        {
+            format!("MASQUE proxy rejected the configured auth secret with status {status}")
+        }
+        MasqueAuthMode::PrivacyPass
+            if status == StatusCode::UNAUTHORIZED || status == StatusCode::PROXY_AUTHENTICATION_REQUIRED =>
+        {
+            format!("MASQUE proxy rejected Privacy Pass authentication with status {status}")
+        }
+        _ => format!("MASQUE proxy rejected request with status {status}"),
+    };
+    Err(io::Error::new(io::ErrorKind::PermissionDenied, message).into())
 }
 
 fn parse_proxy_origin(config: &MasqueConfig) -> io::Result<ProxyOrigin> {
     let parsed = Url::parse(&config.url)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid MASQUE URL: {error}")))?;
+    if parsed.scheme() != "https" {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "MASQUE URL must use https"));
+    }
     let host = parsed
         .host_str()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "MASQUE URL is missing a host"))?
         .to_string();
+    let request_uri = build_request_uri(&parsed);
+    let udp_base_path = derive_udp_base_path(parsed.path());
     let port = parsed.port().unwrap_or(443);
     let authority = if port == 443 { host.clone() } else { format!("{host}:{port}") };
-    let socket_addr = authority
-        .to_socket_addrs()?
-        .next()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "failed to resolve MASQUE proxy host"))?;
-    Ok(ProxyOrigin { host, authority, socket_addr })
+    Ok(ProxyOrigin { host, authority, request_uri, udp_base_path })
 }
 
-fn build_connect_udp_path(target: &TargetAuthority) -> String {
+fn resolve_proxy_socket_addr(proxy_origin: &ProxyOrigin) -> io::Result<SocketAddr> {
+    proxy_origin
+        .authority
+        .to_socket_addrs()?
+        .next()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "failed to resolve MASQUE proxy host"))
+}
+
+fn build_request_uri(parsed: &Url) -> String {
+    match parsed.query().filter(|value| !value.is_empty()) {
+        Some(query) => format!("{}?{query}", normalized_url_path(parsed.path())),
+        None => normalized_url_path(parsed.path()),
+    }
+}
+
+fn normalized_url_path(path: &str) -> String {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        "/".to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
+fn derive_udp_base_path(path: &str) -> String {
+    let normalized = normalized_url_path(path);
+    let trimmed = normalized.trim_end_matches('/');
+    if trimmed.is_empty() || trimmed == "/" {
+        return "/.well-known/masque".to_string();
+    }
+    if let Some(base) = trimmed.strip_suffix("/ip") {
+        return if base.is_empty() { "/.well-known/masque".to_string() } else { base.to_string() };
+    }
+    trimmed.to_string()
+}
+
+fn build_connect_udp_path(proxy_origin: &ProxyOrigin, target: &TargetAuthority) -> String {
     let host = byte_serialize(target.host.as_bytes()).collect::<String>();
-    format!("/.well-known/masque/udp/{host}/{}/", target.port)
+    format!("{}/udp/{host}/{}/", proxy_origin.udp_base_path.trim_end_matches('/'), target.port,)
+}
+
+fn classify_attempt_failure(error: &io::Error) -> &'static str {
+    match error.kind() {
+        io::ErrorKind::PermissionDenied => "permission_denied",
+        io::ErrorKind::InvalidInput => "invalid_input",
+        io::ErrorKind::InvalidData => "invalid_data",
+        io::ErrorKind::AddrNotAvailable => "address_unavailable",
+        io::ErrorKind::TimedOut => "timed_out",
+        io::ErrorKind::ConnectionRefused => "connection_refused",
+        io::ErrorKind::ConnectionReset => "connection_reset",
+        io::ErrorKind::BrokenPipe | io::ErrorKind::UnexpectedEof => "transport_closed",
+        _ => "io_error",
+    }
 }
 
 fn parse_target(target: &str) -> io::Result<TargetAuthority> {
@@ -824,7 +976,8 @@ fn spawn_h3_bridge(mut stream: h3::client::RequestStream<h3_quinn::BidiStream<By
 struct ProxyOrigin {
     host: String,
     authority: String,
-    socket_addr: SocketAddr,
+    request_uri: String,
+    udp_base_path: String,
 }
 
 struct TargetAuthority {
@@ -950,9 +1103,39 @@ mod tests {
 
     #[test]
     fn connect_udp_path_percent_encodes_ipv6_hosts() {
-        let path = build_connect_udp_path(&TargetAuthority { host: "2001:db8::42".to_string(), port: 443 });
+        let path = build_connect_udp_path(
+            &ProxyOrigin {
+                host: "masque.example".to_string(),
+                authority: "masque.example".to_string(),
+                request_uri: "/.well-known/masque/ip".to_string(),
+                udp_base_path: "/.well-known/masque".to_string(),
+            },
+            &TargetAuthority { host: "2001:db8::42".to_string(), port: 443 },
+        );
 
         assert_eq!(path, "/.well-known/masque/udp/2001%3Adb8%3A%3A42/443/");
+    }
+
+    #[test]
+    fn parse_proxy_origin_preserves_request_path_and_query() {
+        let origin = parse_proxy_origin(&MasqueConfig {
+            url: "https://masque.example/.well-known/masque/ip?cf=1".to_string(),
+            use_http2_fallback: true,
+            auth_mode: Some("bearer".to_string()),
+            auth_token: Some("secret".to_string()),
+            client_certificate_chain_pem: None,
+            client_private_key_pem: None,
+            cloudflare_geohash_header: None,
+            privacy_pass_provider_url: None,
+            privacy_pass_provider_auth_token: None,
+            tls_fingerprint_profile: "native_default".to_string(),
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: false,
+        })
+        .expect("origin");
+
+        assert_eq!("/.well-known/masque/ip?cf=1", origin.request_uri);
+        assert_eq!("/.well-known/masque", origin.udp_base_path);
     }
 
     #[test]
@@ -999,6 +1182,32 @@ mod tests {
         assert_eq!(request.headers().get("sec-ch-geohash").unwrap(), "u4pruyd-GB");
         assert!(request.headers().get("authorization").is_none());
         assert!(request.headers().get("proxy-authorization").is_none());
+    }
+
+    #[test]
+    fn cloudflare_mtls_auth_rejection_does_not_require_privacy_pass_challenge() {
+        let error = validate_proxy_response(StatusCode::FORBIDDEN, &HeaderMap::new(), MasqueAuthMode::CloudflareMtls)
+            .expect_err("expected rejection");
+
+        let AttemptError::Io(error) = error else {
+            panic!("expected io rejection");
+        };
+        assert_eq!(io::ErrorKind::PermissionDenied, error.kind());
+        assert!(error.to_string().contains("client identity"));
+    }
+
+    #[test]
+    fn privacy_pass_challenge_requires_private_token_header() {
+        let mut headers = HeaderMap::new();
+        headers.insert("www-authenticate", "Basic realm=test".parse().expect("header"));
+
+        let error = validate_proxy_response(StatusCode::UNAUTHORIZED, &headers, MasqueAuthMode::PrivacyPass)
+            .expect_err("expected challenge failure");
+
+        let AttemptError::Io(error) = error else {
+            panic!("expected io error");
+        };
+        assert_eq!(io::ErrorKind::InvalidData, error.kind());
     }
 
     #[tokio::test]

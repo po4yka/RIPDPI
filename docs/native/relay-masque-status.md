@@ -115,6 +115,13 @@ What remains below is intentionally outside the P2 roadmap exit criteria.
 
 Direct Cloudflare-specific MASQUE is now implemented as `cloudflare_mtls` with client-certificate authentication and optional `sec-ch-geohash`.
 
-Future work, if needed, is now limited to Cloudflare-specific interoperability hardening and rollout validation rather than a missing auth mode.
+The remaining work is now narrower than the original follow-up note:
+
+- the native client now preserves configured MASQUE endpoint paths and queries for both HTTP/3 and HTTP/2 CONNECT requests instead of collapsing everything to a root-only path
+- supervisor startup now rejects non-HTTPS MASQUE URLs before the native runtime launches
+- Cloudflare mTLS auth failures are classified as certificate or identity rejections instead of being misreported as missing `privacy_pass` challenges
+- successful HTTP/3 to HTTP/2 fallback is now surfaced through runtime telemetry so staged rollout can distinguish healthy downgrade behavior from opaque retry paths
+
+Future work, if needed, is now limited to broader staged rollout validation and additional provider-specific interoperability sampling rather than a missing auth mode or a known request-construction bug.
 
 That path remains distinct from the deployer-supplied `privacy_pass` provider flow.
