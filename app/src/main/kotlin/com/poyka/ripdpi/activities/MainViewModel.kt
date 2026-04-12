@@ -20,17 +20,12 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import com.poyka.ripdpi.diagnostics.crash.CrashReport
 import com.poyka.ripdpi.diagnostics.crash.CrashReportReader
 import com.poyka.ripdpi.permissions.PermissionAction
-import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
-import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
-import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
@@ -211,7 +206,7 @@ internal data class PermissionRuntimeState(
     val issue: PermissionIssueUiState? = null,
 )
 
-private data class MainUiInputs(
+internal data class MainUiInputs(
     val settings: AppSettings,
     val statusAndMode: Pair<AppStatus, Mode>,
     val runtime: ConnectionRuntimeState,
@@ -246,21 +241,11 @@ class MainViewModel
     @Inject
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
-        serviceStateStore: ServiceStateStore,
-        serviceController: ServiceController,
-        diagnosticsTimelineSource: DiagnosticsTimelineSource,
-        diagnosticsScanController: DiagnosticsScanController,
-        diagnosticsShareService: DiagnosticsShareService,
-        homeDiagnosticsServices: HomeDiagnosticsServices,
+        private val mainServiceDependencies: MainServiceDependencies,
+        private val mainPermissionDependencies: MainPermissionDependencies,
+        private val mainDiagnosticsDependencies: MainDiagnosticsDependencies,
+        private val mainLifecycleDependencies: MainLifecycleDependencies,
         private val stringResolver: StringResolver,
-        trafficStatsReader: TrafficStatsReader,
-        permissionPlatformBridge: PermissionPlatformBridge,
-        permissionStatusProvider: PermissionStatusProvider,
-        permissionCoordinator: PermissionCoordinator,
-        private val appLockLifecycleCoordinator: MainAppLockLifecycleCoordinator,
-        private val startupSideEffectsCoordinator: MainStartupSideEffectsCoordinator,
-        private val settingsDismissCoordinator: MainSettingsDismissCoordinator,
-        private val crashReportCoordinator: MainCrashReportCoordinator,
     ) : ViewModel() {
         private var initialized = false
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
@@ -290,9 +275,9 @@ class MainViewModel
         private val connectionActions: MainConnectionActions by lazy {
             MainConnectionActions(
                 mutations = mutations,
-                serviceController = serviceController,
-                serviceStateStore = serviceStateStore,
-                trafficStatsReader = trafficStatsReader,
+                serviceController = mainServiceDependencies.serviceController,
+                serviceStateStore = mainServiceDependencies.serviceStateStore,
+                trafficStatsReader = mainServiceDependencies.trafficStatsReader,
                 stringResolver = stringResolver,
                 runtimeState = runtimeState,
                 refreshPermissionSnapshot = { permissionActions.refreshPermissionSnapshot() },
@@ -302,9 +287,9 @@ class MainViewModel
         private val permissionActions: MainPermissionActions by lazy {
             MainPermissionActions(
                 mutations = mutations,
-                permissionCoordinator = permissionCoordinator,
-                permissionStatusProvider = permissionStatusProvider,
-                permissionPlatformBridge = permissionPlatformBridge,
+                permissionCoordinator = mainPermissionDependencies.permissionCoordinator,
+                permissionStatusProvider = mainPermissionDependencies.permissionStatusProvider,
+                permissionPlatformBridge = mainPermissionDependencies.permissionPlatformBridge,
                 stringResolver = stringResolver,
                 permissionState = permissionState,
                 onStartMode = { mode -> connectionActions.startMode(mode) },
@@ -320,12 +305,13 @@ class MainViewModel
         private val homeDiagnosticsActions: MainHomeDiagnosticsActions by lazy {
             MainHomeDiagnosticsActions(
                 mutations = mutations,
-                diagnosticsTimelineSource = diagnosticsTimelineSource,
-                diagnosticsScanController = diagnosticsScanController,
-                diagnosticsShareService = diagnosticsShareService,
-                diagnosticsHomeWorkflowService = homeDiagnosticsServices.workflowService,
-                diagnosticsHomeCompositeRunService = homeDiagnosticsServices.compositeRunService,
-                serviceStateStore = serviceStateStore,
+                diagnosticsTimelineSource = mainDiagnosticsDependencies.diagnosticsTimelineSource,
+                diagnosticsScanController = mainDiagnosticsDependencies.diagnosticsScanController,
+                diagnosticsShareService = mainDiagnosticsDependencies.diagnosticsShareService,
+                diagnosticsHomeWorkflowService = mainDiagnosticsDependencies.homeDiagnosticsServices.workflowService,
+                diagnosticsHomeCompositeRunService =
+                    mainDiagnosticsDependencies.homeDiagnosticsServices.compositeRunService,
+                serviceStateStore = mainServiceDependencies.serviceStateStore,
                 runtimeState = runtimeState,
                 permissionState = permissionState,
                 homeDiagnosticsState = homeDiagnosticsState,
@@ -353,10 +339,10 @@ class MainViewModel
         val uiState: StateFlow<MainUiState> =
             combine(
                 settingsState,
-                serviceStateStore.status,
+                mainServiceDependencies.serviceStateStore.status,
                 runtimeState,
                 permissionState,
-                diagnosticsTimelineSource.approachStats,
+                mainDiagnosticsDependencies.diagnosticsTimelineSource.approachStats,
             ) { settings, statusAndMode, runtime, permissions, approachStats ->
                 MainUiInputs(
                     settings = settings,
@@ -368,59 +354,16 @@ class MainViewModel
             }.combine(homeDiagnosticsState) { inputs, homeDiagnostics ->
                 val settings = inputs.settings
                 val (status, activeMode) = inputs.statusAndMode
-                val runtime = inputs.runtime
-                val permissions = inputs.permissions
-                val approachStats = inputs.approachStats
                 val configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
-                val permissionSummary =
-                    buildPermissionSummary(
-                        snapshot = permissions.snapshot,
-                        issue = permissions.issue,
-                        configuredMode = configuredMode,
-                        stringResolver = stringResolver,
-                        deviceManufacturer = Build.MANUFACTURER.orEmpty(),
-                        batteryBannerDismissed = settings.batteryBannerDismissed,
-                        backgroundGuidanceDismissed = settings.backgroundGuidanceDismissed,
-                    )
-                val effectiveConnectionState =
-                    when {
-                        status == AppStatus.Halted && runtime.connectionState == ConnectionState.Connected -> {
-                            ConnectionState.Disconnected
-                        }
-
-                        status == AppStatus.Running && runtime.connectionState == ConnectionState.Disconnected -> {
-                            ConnectionState.Connecting
-                        }
-
-                        else -> {
-                            runtime.connectionState
-                        }
-                    }
-                MainUiState(
-                    appStatus = status,
-                    activeMode = activeMode,
-                    configuredMode = configuredMode,
-                    proxyIp = settings.proxyIp.ifEmpty { "127.0.0.1" },
-                    proxyPort = if (settings.proxyPort > 0) settings.proxyPort.toString() else "1080",
-                    theme = settings.appTheme.ifEmpty { "system" },
-                    connectionState = effectiveConnectionState,
-                    connectionDuration = runtime.connectionDuration,
-                    dataTransferred = runtime.dataTransferred,
-                    errorMessage = runtime.errorMessage,
-                    permissionSummary = permissionSummary,
+                buildMainUiState(
+                    inputs = inputs,
+                    homeDiagnostics = homeDiagnostics,
+                    stringResolver = stringResolver,
                     approachSummary =
                         connectionActions.buildApproachSummary(
                             settings = settings,
                             activeMode = if (status == AppStatus.Running) activeMode else configuredMode,
-                            approachStats = approachStats,
-                        ),
-                    homeDiagnostics =
-                        buildHomeDiagnosticsUiState(
-                            settings = settings,
-                            appStatus = status,
-                            connectionState = effectiveConnectionState,
-                            runtime = homeDiagnostics,
-                            stringResolver = stringResolver,
+                            approachStats = inputs.approachStats,
                         ),
                 )
             }.stateIn(
@@ -437,12 +380,12 @@ class MainViewModel
             permissionActions.refreshPermissionSnapshot()
             connectionActions.initialize()
             homeDiagnosticsActions.initialize()
-            appLockLifecycleCoordinator.start(
+            mainLifecycleDependencies.appLockLifecycleCoordinator.start(
                 isBiometricEnabled = { settingsState.value.biometricEnabled },
             ) {
                 _effects.trySend(MainEffect.RelockRequested)
             }
-            startupSideEffectsCoordinator.start(
+            mainLifecycleDependencies.startupSideEffectsCoordinator.start(
                 scope = viewModelScope,
                 batteryOptimizationStatus = permissionState.map { it.snapshot.batteryOptimization },
                 isBatteryBannerDismissed = { settingsState.value.batteryBannerDismissed },
@@ -452,27 +395,22 @@ class MainViewModel
         }
 
         fun onPrimaryConnectionAction() {
-            when (uiState.value.connectionState) {
-                ConnectionState.Connecting -> {
+            when (
+                resolvePrimaryConnectionAction(
+                    connectionState = uiState.value.connectionState,
+                    appStatus = uiState.value.appStatus,
+                )
+            ) {
+                MainPrimaryConnectionAction.NONE -> {
                     return
                 }
 
-                ConnectionState.Connected -> {
-                    connectionActions.stop()
+                MainPrimaryConnectionAction.START_CONFIGURED_MODE -> {
+                    permissionActions.resolvePermissionAction(PermissionAction.StartConfiguredMode)
                 }
 
-                ConnectionState.Disconnected,
-                ConnectionState.Error,
-                -> {
-                    when (uiState.value.appStatus) {
-                        AppStatus.Halted -> {
-                            permissionActions.resolvePermissionAction(PermissionAction.StartConfiguredMode)
-                        }
-
-                        AppStatus.Running -> {
-                            connectionActions.stop()
-                        }
-                    }
+                MainPrimaryConnectionAction.STOP -> {
+                    connectionActions.stop()
                 }
             }
         }
@@ -493,11 +431,11 @@ class MainViewModel
         fun dismissError() = connectionActions.dismissError()
 
         fun onDismissBatteryBanner() {
-            settingsDismissCoordinator.dismissBatteryBanner(viewModelScope)
+            mainLifecycleDependencies.settingsDismissCoordinator.dismissBatteryBanner(viewModelScope)
         }
 
         fun onDismissBackgroundGuidance() {
-            settingsDismissCoordinator.dismissBackgroundGuidance(viewModelScope)
+            mainLifecycleDependencies.settingsDismissCoordinator.dismissBackgroundGuidance(viewModelScope)
         }
 
         fun onRunHomeFullAnalysis() = permissionActions.resolvePermissionAction(PermissionAction.RunHomeAnalysis)
@@ -513,15 +451,15 @@ class MainViewModel
         fun dismissHomeVerificationSheet() = homeDiagnosticsActions.dismissVerificationSheet()
 
         fun buildCrashReportShareText(report: CrashReport): Pair<String, String> =
-            crashReportCoordinator.buildShareText(report)
+            mainLifecycleDependencies.crashReportCoordinator.buildShareText(report)
 
         fun dismissCrashReport() {
-            crashReportCoordinator.dismiss(viewModelScope) {
+            mainLifecycleDependencies.crashReportCoordinator.dismiss(viewModelScope) {
                 _pendingCrashReport.value = null
             }
         }
 
         fun onAuthenticated() {
-            appLockLifecycleCoordinator.onAuthenticated()
+            mainLifecycleDependencies.appLockLifecycleCoordinator.onAuthenticated()
         }
     }
