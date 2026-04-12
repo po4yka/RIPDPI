@@ -58,6 +58,10 @@ internal class UpstreamRelaySupervisor(
     private val dispatcher: CoroutineDispatcher,
     private val relayFactory: RipDpiRelayFactory,
     private val naiveProxyRuntimeFactory: NaiveProxyRuntimeFactory,
+    private val cloudflarePublishRuntimeFactory: CloudflarePublishRuntimeFactory =
+        object : CloudflarePublishRuntimeFactory {
+            override fun create(): RipDpiRelayRuntime = error("Cloudflare publish runtime factory is not configured")
+        },
     private val pluggableTransportRuntimeFactory: PluggableTransportRuntimeFactory =
         object : PluggableTransportRuntimeFactory {
             override fun create(): RipDpiRelayRuntime = error("Pluggable transport runtime factory is not configured")
@@ -107,6 +111,11 @@ internal class UpstreamRelaySupervisor(
         val runtime =
             if (resolvedConfig.kind == RelayKindNaiveProxy) {
                 naiveProxyRuntimeFactory.create()
+            } else if (
+                resolvedConfig.kind == RelayKindCloudflareTunnel &&
+                resolvedConfig.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin
+            ) {
+                cloudflarePublishRuntimeFactory.create()
             } else if (isPluggableTransportRelay(resolvedConfig.kind)) {
                 pluggableTransportRuntimeFactory.create()
             } else {
@@ -245,6 +254,7 @@ internal class UpstreamRelaySupervisor(
         validateSupportedFeatures(
             profileId = profileId,
             config = effectiveConfig,
+            credentials = credentials,
             masqueAuthMode = masqueAuthMode,
             privacyPassRuntime = privacyPassRuntime,
             privacyPassReadiness = privacyPassReadiness,
@@ -492,6 +502,7 @@ internal class UpstreamRelaySupervisor(
     private fun validateSupportedFeatures(
         profileId: String,
         config: RipDpiRelayConfig,
+        credentials: RelayCredentialRecord?,
         masqueAuthMode: String?,
         privacyPassRuntime: MasquePrivacyPassRuntimeConfig?,
         privacyPassReadiness: MasquePrivacyPassReadiness?,
@@ -556,6 +567,12 @@ internal class UpstreamRelaySupervisor(
             )
         }
         if (config.kind == RelayKindCloudflareTunnel) {
+            require(config.server.isNotBlank()) {
+                "Cloudflare Tunnel requires a tunnel hostname"
+            }
+            require(config.serverName.isNotBlank()) {
+                "Cloudflare Tunnel requires a TLS server name"
+            }
             if (config.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin &&
                 !featureFlags.isEnabled(StrategyFeatureCloudflarePublish)
             ) {
@@ -563,9 +580,18 @@ internal class UpstreamRelaySupervisor(
                     FailureReason.RelayConfigRejected("Cloudflare local-origin publish mode is feature-gated"),
                 )
             }
-            if (!featureFlags.isEnabled(StrategyFeatureCloudflareConsumeValidation) &&
-                config.cloudflareTunnelMode != RelayCloudflareTunnelModePublishLocalOrigin
-            ) {
+            if (config.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin) {
+                require(config.cloudflarePublishLocalOriginUrl.isNotBlank()) {
+                    "Cloudflare publish mode requires a local origin URL"
+                }
+                parseCloudflareLocalOriginSpec(config.cloudflarePublishLocalOriginUrl)
+                require(
+                    !credentials?.cloudflareTunnelToken.isNullOrBlank() ||
+                        !credentials?.cloudflareTunnelCredentialsJson.isNullOrBlank(),
+                ) {
+                    "Cloudflare publish mode requires a tunnel token or named-tunnel credentials"
+                }
+            } else if (!featureFlags.isEnabled(StrategyFeatureCloudflareConsumeValidation)) {
                 require(config.server.isNotBlank()) {
                     "Cloudflare Tunnel requires a tunnel hostname"
                 }
@@ -801,6 +827,7 @@ internal open class UpstreamRelaySupervisorFactory
     constructor(
         private val relayFactory: RipDpiRelayFactory,
         private val naiveProxyRuntimeFactory: NaiveProxyRuntimeFactory,
+        private val cloudflarePublishRuntimeFactory: CloudflarePublishRuntimeFactory,
         private val pluggableTransportRuntimeFactory: PluggableTransportRuntimeFactory,
         private val relayProfileStore: RelayProfileStore,
         private val relayCredentialStore: RelayCredentialStore,
@@ -818,6 +845,10 @@ internal open class UpstreamRelaySupervisorFactory
             object : NaiveProxyRuntimeFactory {
                 override fun create(): RipDpiRelayRuntime =
                     error("NaiveProxy runtime factory is not configured in this test harness")
+            },
+            object : CloudflarePublishRuntimeFactory {
+                override fun create(): RipDpiRelayRuntime =
+                    error("Cloudflare publish runtime factory is not configured in this test harness")
             },
             object : PluggableTransportRuntimeFactory {
                 override fun create(): RipDpiRelayRuntime =
@@ -846,6 +877,7 @@ internal open class UpstreamRelaySupervisorFactory
                 dispatcher = dispatcher,
                 relayFactory = relayFactory,
                 naiveProxyRuntimeFactory = naiveProxyRuntimeFactory,
+                cloudflarePublishRuntimeFactory = cloudflarePublishRuntimeFactory,
                 pluggableTransportRuntimeFactory = pluggableTransportRuntimeFactory,
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,

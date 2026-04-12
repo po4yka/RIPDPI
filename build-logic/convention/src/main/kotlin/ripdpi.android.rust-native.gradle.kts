@@ -40,6 +40,7 @@ data class PluggableTransportSource(
     val repoUrl: String,
     val commit: String,
     val goToolchain: String?,
+    val cgoEnabled: Boolean,
     val packagePath: String,
     val sourceBinaryName: String,
     val outputNames: List<String>,
@@ -496,6 +497,15 @@ abstract class BuildPluggableTransportAssetsTask
         abstract val goExecutable: Property<String>
 
         @get:Input
+        abstract val sdkDir: Property<String>
+
+        @get:Input
+        abstract val ndkVersion: Property<String>
+
+        @get:Input
+        abstract val minSdk: Property<Int>
+
+        @get:Input
         abstract val buildMode: Property<String>
 
         @get:Input
@@ -615,6 +625,7 @@ abstract class BuildPluggableTransportAssetsTask
                                     "repoUrl" to source.repoUrl,
                                     "commit" to source.commit,
                                     "goToolchain" to source.goToolchain,
+                                    "cgoEnabled" to source.cgoEnabled,
                                     "packagePath" to source.packagePath,
                                     "mode" to if (sourceBuildResult != null) "source" else "stub",
                                     "buildError" to buildError,
@@ -642,6 +653,7 @@ abstract class BuildPluggableTransportAssetsTask
                                             "repoUrl" to source.repoUrl,
                                             "commit" to source.commit,
                                             "goToolchain" to source.goToolchain,
+                                            "cgoEnabled" to source.cgoEnabled,
                                             "packagePath" to source.packagePath,
                                             "sourceBinaryName" to source.sourceBinaryName,
                                             "outputNames" to source.outputNames,
@@ -670,6 +682,7 @@ abstract class BuildPluggableTransportAssetsTask
                     repoUrl = data.requireString("repoUrl"),
                     commit = data.requireString("commit"),
                     goToolchain = data["goToolchain"]?.toString()?.takeIf(String::isNotBlank),
+                    cgoEnabled = data["cgoEnabled"]?.toString()?.toBooleanStrictOrNull() ?: false,
                     packagePath = data.requireString("packagePath"),
                     sourceBinaryName = data.requireString("sourceBinaryName"),
                     outputNames = (data["outputNames"] as? List<*>)?.map { it.toString() }.orEmpty(),
@@ -728,13 +741,17 @@ abstract class BuildPluggableTransportAssetsTask
             outputFile.parentFile.mkdirs()
             cacheDir.mkdirs()
             val goArch = abiToGoArch(abi)
+            val cgoEnvironment = buildGoCgoEnvironment(source, abi)
             execOperations
                 .exec {
                     workingDir = repoDir
                     environment("GOOS", "android")
                     environment("GOARCH", goArch.arch)
                     goArch.goarm?.let { environment("GOARM", it) }
-                    environment("CGO_ENABLED", "0")
+                    cgoEnvironment.forEach(::environment)
+                    if (!source.cgoEnabled) {
+                        environment("CGO_ENABLED", "0")
+                    }
                     environment("GOCACHE", cacheDir.absolutePath)
                     environment("GOMODCACHE", modCacheDir.absolutePath)
                     environment("GOFLAGS", "-trimpath -buildvcs=false")
@@ -757,6 +774,50 @@ abstract class BuildPluggableTransportAssetsTask
             }
             return outputFile
         }
+
+        private fun buildGoCgoEnvironment(
+            source: PluggableTransportSource,
+            abi: String,
+        ): Map<String, String> {
+            if (!source.cgoEnabled) {
+                return emptyMap()
+            }
+            val hostBinDir = resolveNdkToolchainBinDir()
+            val clangTarget = abiToClangTarget(abi)
+            val apiLevel = minSdk.get()
+            val clang = hostBinDir.resolve("${clangTarget}$apiLevel-clang")
+            val clangxx = hostBinDir.resolve("${clangTarget}$apiLevel-clang++")
+            require(clang.isFile) {
+                "Android clang linker not found for ${source.id} ($abi): ${clang.absolutePath}"
+            }
+            require(clangxx.isFile) {
+                "Android clang++ linker not found for ${source.id} ($abi): ${clangxx.absolutePath}"
+            }
+            return mapOf(
+                "CGO_ENABLED" to "1",
+                "CC" to clang.absolutePath,
+                "CXX" to clangxx.absolutePath,
+            )
+        }
+
+        private fun resolveNdkToolchainBinDir(): File {
+            val ndkDir = File(sdkDir.get()).resolve("ndk").resolve(ndkVersion.get())
+            val toolchainsDir = ndkDir.resolve("toolchains/llvm/prebuilt")
+            val hostTag =
+                listOf("linux-aarch64", "linux-x86_64", "darwin-arm64", "darwin-x86_64")
+                    .firstOrNull { toolchainsDir.resolve(it).isDirectory }
+                    ?: throw GradleException("Unsupported NDK host toolchain layout in ${toolchainsDir.absolutePath}")
+            return toolchainsDir.resolve(hostTag).resolve("bin")
+        }
+
+        private fun abiToClangTarget(abi: String): String =
+            when (abi) {
+                "armeabi-v7a" -> "armv7a-linux-androideabi"
+                "arm64-v8a" -> "aarch64-linux-android"
+                "x86" -> "i686-linux-android"
+                "x86_64" -> "x86_64-linux-android"
+                else -> throw GradleException("Unsupported ABI for pluggable transport build: $abi")
+            }
 
         private fun executableAvailable(
             executable: String,
@@ -804,7 +865,8 @@ abstract class BuildPluggableTransportAssetsTask
             """
             |#!/system/bin/sh
             |echo "$outputName is unavailable in this APK because pluggable transport source builds were skipped." >&2
-            |echo "Rebuild with -Pripdpi.pluggableTransportAssetsMode=source to compile ${source.id} from ${source.repoUrl}." >&2
+            |echo "Rebuild with -Pripdpi.pluggableTransportAssetsMode=source" >&2
+            |echo "to compile ${source.id} from ${source.repoUrl}." >&2
             |exit 78
             """.trimMargin()
 
@@ -917,6 +979,7 @@ val rustNativePackageDirs =
         "ripdpi-vless",
         "ripdpi-masque",
         "ripdpi-tls-profiles",
+        "ripdpi-cloudflare-origin",
     ).map { packageName ->
         rustWorkspaceDir.resolve("crates").resolve(packageName)
     }
@@ -937,6 +1000,10 @@ val rustRootHelperArtifactSpecs =
 val rustNaiveProxyArtifactSpecs =
     listOf(
         "ripdpi-naiveproxy|ripdpi-naiveproxy|ripdpi-naiveproxy",
+    )
+val rustCloudflareOriginArtifactSpecs =
+    listOf(
+        "ripdpi-cloudflare-origin|ripdpi-cloudflare-origin|ripdpi-cloudflare-origin",
     )
 
 extensions.configure<LibraryExtension> {
@@ -1075,6 +1142,47 @@ val buildRustNaiveProxy =
         outputDir.set(generatedAssetsDir.map { it.dir("bin") })
     }
 
+val buildRustCloudflareOrigin =
+    tasks.register<BuildRustNativeLibsTask>("buildRustCloudflareOrigin") {
+        group = "build"
+        description = "Builds the Cloudflare local-origin helper binary into generated assets."
+
+        nativeSources.from(rustWorkspaceManifestFile)
+        nativeSources.from(
+            listOf("Cargo.lock", "rust-toolchain.toml")
+                .map(rustWorkspaceDir::resolve)
+                .filter { it.isFile },
+        )
+        nativeSources.from(
+            fileTree(rustWorkspaceDir.resolve(".cargo")) {
+                include("**/*")
+            },
+        )
+        nativeSources.from(
+            fileTree(rustWorkspaceDir.resolve("vendor")) {
+                include("**/*")
+            },
+        )
+        nativeSources.from(
+            rustNativePackageDirs.map { packageDir ->
+                fileTree(packageDir) {
+                    exclude("**/target/**")
+                }
+            },
+        )
+        workspaceManifest.set(rustWorkspaceManifestFile)
+        sdkDir.set(resolveAndroidSdkDir())
+        cargoExecutable.set(resolveRustTool("cargo"))
+        rustupExecutable.set(resolveRustTool("rustup"))
+        ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
+        cargoProfile.set(rustNativeCargoProfile)
+        minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
+        abis.set(rustNativeAbis)
+        artifactSpecs.set(rustCloudflareOriginArtifactSpecs)
+        cargoTargetDir.set(layout.buildDirectory.dir("intermediates/rust-cloudflare-origin"))
+        outputDir.set(generatedAssetsDir.map { it.dir("bin") })
+    }
+
 val buildPluggableTransportAssets =
     tasks.register<BuildPluggableTransportAssetsTask>("buildPluggableTransportAssets") {
         group = "build"
@@ -1083,6 +1191,9 @@ val buildPluggableTransportAssets =
         sourcesManifest.set(ptSourcesManifestFile)
         gitExecutable.set(resolveHostTool("git"))
         goExecutable.set(resolveHostTool("go"))
+        sdkDir.set(resolveAndroidSdkDir())
+        ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
+        minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         buildMode.set(pluggableTransportAssetsMode)
         strictFailures.set(pluggableTransportAssetsStrictFailures)
         abis.set(rustNativeAbis)
@@ -1103,6 +1214,7 @@ tasks.configureEach {
     if (name.matches(Regex("^merge.+Assets$"))) {
         dependsOn(buildRustRootHelper)
         dependsOn(buildRustNaiveProxy)
+        dependsOn(buildRustCloudflareOrigin)
         dependsOn(buildPluggableTransportAssets)
     }
 }
@@ -1111,5 +1223,6 @@ tasks.named("preBuild") {
     dependsOn(buildRustNativeLibs)
     dependsOn(buildRustRootHelper)
     dependsOn(buildRustNaiveProxy)
+    dependsOn(buildRustCloudflareOrigin)
     dependsOn(buildPluggableTransportAssets)
 }
