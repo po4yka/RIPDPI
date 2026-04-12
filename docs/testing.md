@@ -112,6 +112,9 @@ Criterion benchmarks:
 ```bash
 cargo bench -p ripdpi-bench --bench config_parse
 cargo bench -p ripdpi-bench --bench relay_throughput
+cargo bench -p ripdpi-bench --bench runtime_control_snapshot
+cargo bench -p ripdpi-bench --bench relay_connect_setup
+cargo bench -p ripdpi-bench --bench runtime_lock_contention
 python3 scripts/ci/check-criterion-regressions.py
 ```
 
@@ -141,6 +144,28 @@ Tracked native-size baselines live in:
 
 `verify_native_bloat.py` uses the Android SDK/NDK configuration from `local.properties` and `gradle.properties`, so do
 not hardcode toolchain paths when refreshing those baselines.
+
+Phase 0 baseline snapshot:
+
+```bash
+bash scripts/ci/run-phase0-baseline.sh /tmp/ripdpi-phase0-baseline
+```
+
+This captures one repo-level artifact set for:
+
+- criterion runtime hot-path and TCP relay benchmarks
+- per-connection memory/thread growth from the native load lane
+- engine wrapper startup, shutdown, and `pollTelemetry()` latency on fake bindings
+- packaged debug and release `.so` size reports
+- representative native bloat attribution
+
+The aggregated snapshot is written as:
+
+- `/tmp/ripdpi-phase0-baseline/phase0-baseline.json`
+- `/tmp/ripdpi-phase0-baseline/phase0-baseline.md`
+
+Use `docs/native/unsafe-audit.md` as the required unsafe-code checklist when changing JNI wrappers, fd ownership, or
+platform syscalls during follow-up performance work.
 
 ## Local network E2E
 
