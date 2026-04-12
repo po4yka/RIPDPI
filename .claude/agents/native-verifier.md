@@ -3,6 +3,7 @@ name: native-verifier
 description: Native build verification specialist. Use when checking .so library sizes, ELF metadata, cargo-bloat regressions, or updating native baselines. Trigger phrases -- "verify native", "check native sizes", "native bloat", "update baseline", "size regression", "ELF check".
 tools: Read, Grep, Glob, Bash
 model: haiku
+maxTurns: 30
 skills:
   - cargo-workflows
   - rust-build-times
