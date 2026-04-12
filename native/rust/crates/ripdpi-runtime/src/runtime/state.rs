@@ -1,4 +1,4 @@
-use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex, Ordering};
+use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex, Ordering, RwLock};
 use std::time::Duration;
 
 use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
@@ -23,8 +23,8 @@ pub(super) struct RuntimeState {
     pub(super) cache: Arc<Mutex<RuntimePolicy>>,
     pub(super) adaptive_fake_ttl: Arc<Mutex<AdaptiveFakeTtlResolver>>,
     pub(super) adaptive_tuning: Arc<Mutex<AdaptivePlannerResolver>>,
-    pub(super) retry_stealth: Arc<Mutex<RetryPacer>>,
-    pub(super) strategy_evolver: Arc<Mutex<StrategyEvolver>>,
+    pub(super) retry_stealth: Arc<RwLock<RetryPacer>>,
+    pub(super) strategy_evolver: Arc<RwLock<StrategyEvolver>>,
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     pub(super) runtime_context: Option<ProxyRuntimeContext>,

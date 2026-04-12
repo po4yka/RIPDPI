@@ -73,7 +73,7 @@ pub(super) fn note_retry_success(
     let Some(signature) = build_retry_signature(state, target, group_index, host, payload, transport)? else {
         return Ok(());
     };
-    let mut pacer = state.retry_stealth.lock().map_err(|_| io::Error::other("retry pacing mutex poisoned"))?;
+    let mut pacer = state.retry_stealth.write().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
     pacer.clear_success(&signature);
     Ok(())
 }
@@ -89,15 +89,14 @@ pub(super) fn note_retry_failure(
     let Some(signature) = build_retry_signature(state, target, group_index, host, payload, transport)? else {
         return Ok(None);
     };
-    let mut pacer = state.retry_stealth.lock().map_err(|_| io::Error::other("retry pacing mutex poisoned"))?;
+    let mut pacer = state.retry_stealth.write().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
     Ok(Some(pacer.record_failure(&signature, now_millis())))
 }
 
 /// Builds retry selection penalties for all groups.
 ///
-/// LOCK ORDERING: This function acquires the retry_stealth lock first, then calls
-/// `build_retry_signature` which acquires adaptive locks (adaptive_fake_ttl, adaptive_tuning).
-/// This establishes the retry -> adaptive lock ordering. Do not invert.
+/// Signatures are built first so adaptive locks are not nested under retry pacing.
+/// The shared retry lock is only acquired while reading penalty state.
 pub(super) fn build_retry_selection_penalties(
     state: &RuntimeState,
     target: SocketAddr,
@@ -106,12 +105,16 @@ pub(super) fn build_retry_selection_penalties(
     transport: TransportProtocol,
 ) -> io::Result<BTreeMap<usize, RetrySelectionPenalty>> {
     let now_ms = now_millis();
-    let mut penalties = BTreeMap::new();
-    let pacer = state.retry_stealth.lock().map_err(|_| io::Error::other("retry pacing mutex poisoned"))?;
+    let mut signatures = Vec::with_capacity(state.config.groups.len());
     for group_index in 0..state.config.groups.len() {
         if let Some(signature) = build_retry_signature(state, target, group_index, host, payload, transport)? {
-            penalties.insert(group_index, pacer.penalty_for(&signature, now_ms));
+            signatures.push((group_index, signature));
         }
+    }
+    let mut penalties = BTreeMap::new();
+    let pacer = state.retry_stealth.read().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
+    for (group_index, signature) in signatures {
+        penalties.insert(group_index, pacer.penalty_for(&signature, now_ms));
     }
     Ok(penalties)
 }
@@ -151,7 +154,7 @@ pub(super) fn apply_retry_pacing_before_connect(
         return Ok(());
     };
     let decision = {
-        let pacer = state.retry_stealth.lock().map_err(|_| io::Error::other("retry pacing mutex poisoned"))?;
+        let pacer = state.retry_stealth.read().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
         pacer.retry_delay_for(&signature, now_millis())
     };
     let Some(decision) = decision.filter(|value| value.backoff_ms > 0) else {

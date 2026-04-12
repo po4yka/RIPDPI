@@ -449,6 +449,14 @@ impl StrategyEvolver {
         self.explore_epsilon
     }
 
+    /// Returns the currently pending experiment hints without mutating state.
+    pub fn peek_hints(&self) -> Option<AdaptivePlannerHints> {
+        if !self.enabled {
+            return None;
+        }
+        self.current_experiment.as_ref().map(StrategyCombo::to_hints)
+    }
+
     /// Returns adaptive hints if the evolver wants to override the default planner.
     ///
     /// When `Some` is returned, the caller should use these hints **instead of**
@@ -832,6 +840,22 @@ mod tests {
         let second = e.suggest_hints().expect("second suggestion");
         // Should return same hints since experiment is still outstanding
         assert_eq!(first, second);
+    }
+
+    #[test]
+    fn peek_hints_returns_none_when_disabled() {
+        let e = StrategyEvolver::new(false, 0.0);
+        assert!(e.peek_hints().is_none());
+    }
+
+    #[test]
+    fn peek_hints_returns_pending_experiment_without_mutation() {
+        let mut e = StrategyEvolver::new(true, 0.0);
+        e.combos.insert(StrategyCombo::default_combo(), ComboStats::new());
+        let suggested = e.suggest_hints().expect("suggested hints");
+
+        assert_eq!(e.peek_hints(), Some(suggested));
+        assert!(e.current_experiment.is_some(), "peek should not clear the pending experiment");
     }
 
     #[test]
