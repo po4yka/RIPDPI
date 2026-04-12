@@ -60,6 +60,22 @@ Why these first:
 - They sit on the runtime path and can turn a small bug into a crash or leak.
 - They often contain repeated patterns that are good candidates for safe extraction.
 
+## Current Hotspot Map
+
+Use this map instead of starting every audit from a raw `unsafe` grep.
+
+| Module | Invariant family | Current containment | Review status |
+| --- | --- | --- | --- |
+| `ripdpi-runtime/src/platform/linux.rs` | socket ABI, raw fd ownership, `sockaddr` casts, `mmap`, `ioctl` | `set_*sockopt`, `get_*sockopt`, `dup2_fd`, `close_fd` wrappers plus focused helper structs | active hotspot; largest remaining syscall surface |
+| `ripdpi-runtime/src/platform/mod.rs` | ancillary data traversal, unaligned fd reads, `recvmsg` setup | shared `extract_scm_rights_fd`, `recv_line_with_optional_fd`, Miri-covered unaligned-fd helper | wrapped |
+| `ripdpi-runtime/src/platform/root_helper_client.rs` | Unix-socket IPC with fd passing | now delegates receive-side unsafe to `platform::recv_line_with_optional_fd` | wrapped |
+| `ripdpi-root-helper/src/protocol.rs` | Unix-socket IPC with fd passing | now delegates receive-side unsafe to `platform::recv_line_with_optional_fd` | wrapped |
+| `ripdpi-root-helper/src/handlers.rs` | adopting SCM_RIGHTS-owned TCP/UDP fds | small `adopt_*` helpers keep `from_raw_fd` localized | wrapped |
+| `ripdpi-android/src/support.rs` and `vpn_protect.rs` | JNI env/object lifetimes, `Send`/`Sync` promises | narrow helpers plus explicit `SAFETY` notes | comment-sensitive |
+| `ripdpi-runtime/src/process.rs` | signal handlers, pid-file locking, daemonization | isolated libc calls with documented invariants | keep |
+
+`ripdpi-runtime/tests/support/wire.rs` is intentionally lower priority because it is test-only raw packet plumbing, not shipped runtime code.
+
 ## Safe-Wrapper Extraction Targets
 
 Prefer extracting one safe API around each repeated unsafe pattern:
@@ -95,3 +111,16 @@ Minimum bar before landing a change:
 - a clear `SAFETY` comment for every remaining block
 - no broad refactor unless the audit found a real repeatable pattern
 
+## Miri Validation Path
+
+Use Miri only on pure host-side helpers that do not cross JNI, raw syscalls, or Android-only FFI. The current supported lane is:
+
+- `ripdpi-runtime::platform::read_unaligned_raw_fd`
+
+Run it with:
+
+```bash
+bash scripts/ci/run-rust-miri.sh
+```
+
+That smoke lane is intentionally narrow. JNI bridges, `ioctl`, `recvmsg`, and other libc-heavy paths should stay on targeted unit/integration coverage plus explicit `SAFETY` comments instead of fake Miri support.

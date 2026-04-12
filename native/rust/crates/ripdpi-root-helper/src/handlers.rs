@@ -8,6 +8,18 @@ use ripdpi_runtime::platform::{self, TcpPayloadSegment};
 
 use crate::protocol::HelperResponse;
 
+fn adopt_tcp_stream(fd: RawFd) -> TcpStream {
+    // SAFETY: root-helper command fds come from SCM_RIGHTS and ownership is
+    // transferred into this process exactly once for the duration of a handler.
+    unsafe { TcpStream::from_raw_fd(fd) }
+}
+
+fn adopt_udp_socket(fd: RawFd) -> std::net::UdpSocket {
+    // SAFETY: root-helper command fds come from SCM_RIGHTS and ownership is
+    // transferred into this process exactly once for the duration of a handler.
+    unsafe { std::net::UdpSocket::from_raw_fd(fd) }
+}
+
 // ---------------------------------------------------------------------------
 // probe_capabilities
 // ---------------------------------------------------------------------------
@@ -42,8 +54,7 @@ pub struct FakeRstParams {
 
 pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, ttl = params.default_ttl, "send_fake_rst");
-    // Safety: fd was received via SCM_RIGHTS from the client process.
-    let stream = unsafe { TcpStream::from_raw_fd(fd) };
+    let stream = adopt_tcp_stream(fd);
     match platform::send_fake_rst(&stream, params.default_ttl, None) {
         Ok(()) => {
             // Return the fd back to the caller (don't let Drop close it).
@@ -73,7 +84,7 @@ pub struct SeqOvlParams {
 
 pub fn handle_send_seqovl_tcp(fd: RawFd, params: SeqOvlParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, "send_seqovl_tcp");
-    let stream = unsafe { TcpStream::from_raw_fd(fd) };
+    let stream = adopt_tcp_stream(fd);
     match platform::send_seqovl_tcp(
         &stream,
         &params.real_chunk,
@@ -119,7 +130,7 @@ pub struct SegmentSpec {
 
 pub fn handle_send_multi_disorder_tcp(fd: RawFd, params: MultiDisorderParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, segments = params.segments.len(), "send_multi_disorder_tcp");
-    let stream = unsafe { TcpStream::from_raw_fd(fd) };
+    let stream = adopt_tcp_stream(fd);
     let segments: Vec<TcpPayloadSegment> =
         params.segments.iter().map(|s| TcpPayloadSegment { start: s.start, end: s.end }).collect();
 
@@ -159,7 +170,7 @@ pub struct IpFragTcpParams {
 
 pub fn handle_send_ip_fragmented_tcp(fd: RawFd, params: IpFragTcpParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, split = params.split_offset, "send_ip_fragmented_tcp");
-    let stream = unsafe { TcpStream::from_raw_fd(fd) };
+    let stream = adopt_tcp_stream(fd);
     match platform::send_ip_fragmented_tcp(
         &stream,
         &params.payload,
@@ -203,8 +214,7 @@ pub fn handle_send_ip_fragmented_udp(fd: RawFd, params: IpFragUdpParams) -> (Hel
         Err(e) => return (HelperResponse::error(format!("invalid target_addr: {e}")), None),
     };
 
-    // Safety: fd was received via SCM_RIGHTS.
-    let socket = unsafe { std::net::UdpSocket::from_raw_fd(fd) };
+    let socket = adopt_udp_socket(fd);
     match platform::send_ip_fragmented_udp(
         &socket,
         target,

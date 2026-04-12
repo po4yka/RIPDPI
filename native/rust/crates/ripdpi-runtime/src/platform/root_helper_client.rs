@@ -13,7 +13,7 @@ use std::time::Duration;
 use nix::sys::socket::{self, ControlMessage, MsgFlags};
 use serde::{Deserialize, Serialize};
 
-use super::{extract_scm_rights_fd, IpFragmentationCapabilities};
+use super::{recv_line_with_optional_fd, IpFragmentationCapabilities};
 
 /// Client for communicating with the root helper process.
 pub struct RootHelperClient {
@@ -206,26 +206,5 @@ fn recv_with_fd(stream: &UnixStream) -> io::Result<(Vec<u8>, Option<RawFd>)> {
     let fd = stream.as_raw_fd();
     let mut buf = [0u8; 8192];
     let mut cmsg_buf = [0u8; 64];
-
-    let mut iov = libc::iovec { iov_base: buf.as_mut_ptr().cast(), iov_len: buf.len() };
-
-    let mut msg: libc::msghdr = unsafe { std::mem::zeroed() };
-    msg.msg_iov = &mut iov;
-    msg.msg_iovlen = 1;
-    msg.msg_control = cmsg_buf.as_mut_ptr().cast();
-    msg.msg_controllen = cmsg_buf.len() as _;
-
-    // Safety: `msg` references live stack storage for iov and control buffers.
-    let n = unsafe { libc::recvmsg(fd, &mut msg, 0) };
-    if n < 0 {
-        return Err(io::Error::last_os_error());
-    }
-    if n == 0 {
-        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "helper closed connection"));
-    }
-    let bytes_read = n as usize;
-
-    let data = &buf[..bytes_read];
-    let data = data.strip_suffix(b"\n").unwrap_or(data);
-    Ok((data.to_vec(), extract_scm_rights_fd(&msg)))
+    recv_line_with_optional_fd(fd, &mut buf, &mut cmsg_buf, "helper closed connection")
 }
