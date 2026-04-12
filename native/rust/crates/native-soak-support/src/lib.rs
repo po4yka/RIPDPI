@@ -81,6 +81,14 @@ pub struct SoakSample {
     pub extra: Value,
 }
 
+#[derive(Debug, Clone, Copy, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProcessResourceSnapshot {
+    pub rss_bytes: Option<u64>,
+    pub fd_count: Option<usize>,
+    pub thread_count: Option<usize>,
+}
+
 pub struct SoakSampler {
     stop: Arc<AtomicBool>,
     join: Option<JoinHandle<io::Result<Vec<SoakSample>>>>,
@@ -113,6 +121,20 @@ where
     let file = File::create(&path)?;
     serde_json::to_writer_pretty(file, value).map_err(io::Error::other)?;
     Ok(path)
+}
+
+#[must_use]
+pub fn capture_process_resource_snapshot() -> ProcessResourceSnapshot {
+    ProcessResourceSnapshot {
+        rss_bytes: sample_rss_bytes(),
+        fd_count: sample_fd_count(),
+        thread_count: sample_thread_count(),
+    }
+}
+
+#[must_use]
+pub fn sample_thread_count_by_prefix(prefix: &str) -> Option<usize> {
+    sample_thread_names_linux().map(|names| names.into_iter().filter(|name| name.starts_with(prefix)).count())
 }
 
 impl SoakSampler {
@@ -318,6 +340,16 @@ fn sample_thread_count_ps() -> Option<usize> {
     }
     let lines = String::from_utf8_lossy(&output.stdout).lines().count();
     lines.checked_sub(1)
+}
+
+fn sample_thread_names_linux() -> Option<Vec<String>> {
+    let mut names = Vec::new();
+    for entry in fs::read_dir("/proc/self/task").ok()? {
+        let entry = entry.ok()?;
+        let name = fs::read_to_string(entry.path().join("comm")).ok()?;
+        names.push(name.trim().to_string());
+    }
+    Some(names)
 }
 
 fn now_ms() -> u64 {
