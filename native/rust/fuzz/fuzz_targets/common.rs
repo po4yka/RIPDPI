@@ -61,6 +61,39 @@ pub fn vless_smoke() {
     });
 }
 
+pub fn proxy_config_smoke() {
+    static ONCE: OnceLock<()> = OnceLock::new();
+    ONCE.get_or_init(|| {
+        let valid_ui = r#"{"kind":"ui","strategyPreset":null,"config":{"protocols":{"desyncUdp":true},"chains":{"tcpSteps":[{"kind":"disorder","marker":"host+1","midhostMarker":"","fakeHostTemplate":"","overlapSize":0,"fakeMode":"","fragmentCount":0,"minFragmentSize":0,"maxFragmentSize":0,"interSegmentDelayMs":0,"activationFilter":null,"ipv6ExtensionProfile":"none"}]},"fakePackets":{"fakeSni":"www.wikipedia.org"}},"runtimeContext":null,"logContext":null}"#;
+        let _ = ripdpi_proxy_config::parse_proxy_config_json(valid_ui);
+
+        let valid_cli = r#"{"kind":"command_line","args":["--ip","127.0.0.1","-p","1080"],"runtimeContext":null,"logContext":null}"#;
+        let _ = ripdpi_proxy_config::parse_proxy_config_json(valid_cli);
+
+        let legacy_ui = r#"{"kind":"ui","ip":"127.0.0.1","port":1080,"desyncMethod":"disorder"}"#;
+        let _ = ripdpi_proxy_config::parse_proxy_config_json(legacy_ui);
+    });
+}
+
+pub fn proxy_config_json_from_bytes(data: &[u8]) -> String {
+    let runtime_id = ascii_label(data, "rt-", 12);
+    let fake_sni = format!("{}.example", ascii_label(data.get(1..).unwrap_or_default(), "host-", 12));
+    let direct_ip = format!("127.0.0.{}", 1 + data.first().copied().unwrap_or(0) % 200);
+
+    match data.first().copied().unwrap_or(0) % 4 {
+        0 => format!(
+            r#"{{"kind":"ui","strategyPreset":null,"config":{{"protocols":{{"desyncUdp":true}},"chains":{{"tcpSteps":[{{"kind":"disorder","marker":"host+1","midhostMarker":"","fakeHostTemplate":"","overlapSize":0,"fakeMode":"","fragmentCount":0,"minFragmentSize":0,"maxFragmentSize":0,"interSegmentDelayMs":0,"activationFilter":null,"ipv6ExtensionProfile":"none"}}]}},"fakePackets":{{"fakeSni":"{fake_sni}"}}}},"runtimeContext":null,"logContext":{{"runtimeId":"{runtime_id}"}}}}"#
+        ),
+        1 => format!(
+            r#"{{"kind":"command_line","args":["--ip","{direct_ip}","-p","1080"],"runtimeContext":{{"protectPath":"/tmp/{runtime_id}"}},"logContext":{{"runtimeId":"{runtime_id}"}}}}"#
+        ),
+        2 => format!(
+            r#"{{"kind":"ui","ip":"{direct_ip}","port":1080,"desyncMethod":"disorder","logContext":{{"runtimeId":"{runtime_id}"}}}}"#
+        ),
+        _ => String::from_utf8_lossy(data).into_owned(),
+    }
+}
+
 pub fn http_response_from_bytes(data: &[u8]) -> Vec<u8> {
     let status = match data.first().copied().unwrap_or(0) % 5 {
         0 => 200,
