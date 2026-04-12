@@ -14,6 +14,7 @@ Targets:
 - `dns_response_answers` - DNS response answer extraction in `ripdpi-dns-resolver`
 - `monitor_dns_response` - DNS response parsing in `ripdpi-monitor`
 - `monitor_http_response` - HTTP response parsing in `ripdpi-monitor`
+- `config_offset_expr` - offset-expression parsing in `ripdpi-config`
 
 Run from `native/rust/fuzz`:
 
@@ -28,6 +29,7 @@ cargo fuzz run session_request_parse
 cargo fuzz run dns_response_answers
 cargo fuzz run monitor_dns_response
 cargo fuzz run monitor_http_response
+cargo fuzz run config_offset_expr
 ```
 
 Seed corpora live under `corpus/`. Generated artifacts and coverage output are ignored by git.

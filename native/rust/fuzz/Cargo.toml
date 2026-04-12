@@ -11,6 +11,7 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
+ripdpi-config = { path = "../crates/ripdpi-config" }
 ripdpi-failure-classifier = { path = "../crates/ripdpi-failure-classifier" }
 ripdpi-dns-resolver = { path = "../crates/ripdpi-dns-resolver" }
 ripdpi-monitor = { path = "../crates/ripdpi-monitor" }
@@ -77,5 +78,11 @@ doc = false
 [[bin]]
 name = "monitor_http_response"
 path = "fuzz_targets/monitor_http_response.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "config_offset_expr"
+path = "fuzz_targets/config_offset_expr.rs"
 test = false
 doc = false
