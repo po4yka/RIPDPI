@@ -3,6 +3,7 @@ use std::os::fd::{AsRawFd, RawFd};
 use std::os::unix::net::UnixStream;
 
 use nix::sys::socket::{self, ControlMessage, MsgFlags};
+use ripdpi_runtime::platform::extract_scm_rights_fd;
 use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
@@ -97,22 +98,7 @@ pub fn recv_message(stream: &UnixStream) -> io::Result<(Vec<u8>, Option<RawFd>)>
     }
     let bytes_read = n as usize;
 
-    // Extract ancillary fd if present.
-    let mut received_fd: Option<RawFd> = None;
-    // Safety: `msg` was populated by `recvmsg`; CMSG macros iterate the
-    // ancillary buffer we provided.
-    let mut cmsg = unsafe { libc::CMSG_FIRSTHDR(&msg) };
-    while !cmsg.is_null() {
-        let hdr = unsafe { &*cmsg };
-        if hdr.cmsg_level == libc::SOL_SOCKET && hdr.cmsg_type == libc::SCM_RIGHTS {
-            let data_ptr = unsafe { libc::CMSG_DATA(cmsg) };
-            let received: RawFd = unsafe { std::ptr::read_unaligned(data_ptr.cast()) };
-            received_fd = Some(received);
-        }
-        cmsg = unsafe { libc::CMSG_NXTHDR(&msg, cmsg) };
-    }
-
     let data = &buf[..bytes_read];
     let data = data.strip_suffix(b"\n").unwrap_or(data);
-    Ok((data.to_vec(), received_fd))
+    Ok((data.to_vec(), extract_scm_rights_fd(&msg)))
 }
