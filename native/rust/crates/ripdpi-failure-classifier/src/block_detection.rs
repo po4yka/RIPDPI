@@ -227,26 +227,41 @@ fn parse_fingerprint_line(line: &str) -> Option<BlockpageFingerprint> {
     if parts.len() < 6 {
         return None;
     }
-    let location = if parts[1] == "body" {
+    let name = parts[0].trim();
+    let location_field = parts[1].trim();
+    let pattern_type_field = parts[2].trim();
+    let pattern = parts[3].trim();
+    let scope = parts[4].trim();
+    let confidence = parts[5].trim();
+
+    if name.is_empty() || pattern.is_empty() || scope.is_empty() || confidence.is_empty() {
+        return None;
+    }
+
+    let location = if location_field == "body" {
         FingerprintLocation::Body
-    } else if let Some(header) = parts[1].strip_prefix("header.") {
+    } else if let Some(header) = location_field.strip_prefix("header.") {
+        let header = header.trim();
+        if header.is_empty() {
+            return None;
+        }
         FingerprintLocation::Header(header.to_ascii_lowercase())
     } else {
         return None;
     };
-    let pattern_type = match parts[2] {
+    let pattern_type = match pattern_type_field {
         "full" => PatternType::Full,
         "prefix" => PatternType::Prefix,
         "contains" => PatternType::Contains,
         _ => return None,
     };
     Some(BlockpageFingerprint {
-        name: parts[0].to_string(),
+        name: name.to_string(),
         location,
         pattern_type,
-        pattern: parts[3].to_string(),
-        scope: parts[4].to_string(),
-        confidence: parts[5].to_string(),
+        pattern: pattern.to_string(),
+        scope: scope.to_string(),
+        confidence: confidence.to_string(),
     })
 }
 
@@ -289,6 +304,33 @@ mod tests {
         let fingerprints = load_blockpage_fingerprints();
         assert!(!fingerprints.is_empty());
         assert!(fingerprints.iter().any(|value| value.name == "rkn_standard"));
+    }
+
+    #[test]
+    fn fingerprint_line_parser_trims_fields_and_normalizes_header_names() {
+        let parsed = parse_fingerprint_line("  mts_header  , header.Server  , contains , MTS Proxy , isp , medium  ")
+            .expect("parsed");
+
+        assert_eq!(parsed.name, "mts_header");
+        assert_eq!(parsed.location, FingerprintLocation::Header("server".to_string()));
+        assert_eq!(parsed.pattern_type, PatternType::Contains);
+        assert_eq!(parsed.pattern, "MTS Proxy");
+        assert_eq!(parsed.scope, "isp");
+        assert_eq!(parsed.confidence, "medium");
+    }
+
+    #[test]
+    fn fingerprint_line_parser_rejects_empty_required_fields() {
+        assert!(parse_fingerprint_line(",body,contains,blocked,isp,high").is_none());
+        assert!(parse_fingerprint_line("name,body,contains,,isp,high").is_none());
+        assert!(parse_fingerprint_line("name,body,contains,blocked,,high").is_none());
+        assert!(parse_fingerprint_line("name,body,contains,blocked,isp,").is_none());
+    }
+
+    #[test]
+    fn fingerprint_line_parser_rejects_empty_header_name() {
+        assert!(parse_fingerprint_line("name,header.,contains,blocked,isp,high").is_none());
+        assert!(parse_fingerprint_line("name,header.   ,contains,blocked,isp,high").is_none());
     }
 
     #[test]
