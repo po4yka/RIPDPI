@@ -82,6 +82,8 @@ fn daemonize() -> io::Result<()> {
         target_os = "openbsd"
     )))]
     {
+        // SAFETY: libc `daemon(0, 0)` is invoked during process setup only and
+        // does not alias or outlive any Rust-managed memory.
         let rc = unsafe { libc::daemon(0, 0) };
         if rc == 0 {
             Ok(())
@@ -102,6 +104,8 @@ impl PidFileGuard {
 
         let mut lock =
             libc::flock { l_type: libc::F_WRLCK as _, l_whence: libc::SEEK_CUR as _, l_start: 0, l_len: 0, l_pid: 0 };
+        // SAFETY: `file` owns a live fd, `lock` is fully initialized, and
+        // `F_SETLK` only borrows the pointer for the duration of the syscall.
         let rc = unsafe { libc::fcntl(file.as_raw_fd(), libc::F_SETLK, &mut lock) };
         if rc != 0 {
             return Err(io::Error::last_os_error());
