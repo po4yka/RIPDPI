@@ -52,10 +52,10 @@ Suggested commit slice:
 
 Goal: make unsafe usage reviewable and reduce hidden risk.
 
-- [ ] Audit unsafe blocks in `ripdpi-runtime`, starting with platform and socket code.
-- [ ] Add or tighten `// SAFETY:` notes where the code is not self-evident.
-- [ ] Extract safe wrappers for repeated unsafe patterns such as socket setup, fd handling, and platform shims.
-- [ ] Add Miri or equivalent pure-logic checks where the code can run off-device.
+- [x] Audit unsafe blocks in `ripdpi-runtime`, starting with platform and socket code.
+- [x] Add or tighten `// SAFETY:` notes where the code is not self-evident.
+- [x] Extract safe wrappers for repeated unsafe patterns such as socket setup, fd handling, and platform shims.
+- [x] Add Miri or equivalent pure-logic checks where the code can run off-device.
 
 Acceptance criteria:
 

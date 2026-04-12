@@ -129,6 +129,15 @@ bash scripts/ci/run-rust-fuzz-smoke.sh
 This is the same lightweight `cargo-fuzz` smoke lane used in CI. It runs one seeded `packets_parse`
 iteration and then builds the other checked-in fuzz targets to catch broken scaffolding early.
 
+Targeted Miri smoke for pure unsafe helpers:
+
+```bash
+bash scripts/ci/run-rust-miri.sh
+```
+
+This currently validates the host-side ancillary-fd decoding helper in `ripdpi-runtime::platform` under strict provenance.
+Do not expand this lane to JNI or syscall-heavy paths unless they gain explicit `#[cfg(miri)]` stubs.
+
 Packaged native size checks:
 
 ```bash

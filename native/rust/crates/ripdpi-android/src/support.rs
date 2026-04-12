@@ -22,6 +22,8 @@ pub(crate) fn with_env<R>(f: impl for<'a> FnOnce(&mut Env<'a>) -> R) -> R {
 /// The returned `EnvUnowned` borrows the same JNI env pointer and must not
 /// outlive the `Env` it was derived from.
 pub(crate) fn env_to_unowned<'local>(env: &mut Env<'local>) -> EnvUnowned<'local> {
+    // SAFETY: `env.get_raw()` returns the current JNI env pointer for this
+    // thread; the returned `EnvUnowned` stays within the caller's borrow.
     unsafe { EnvUnowned::from_raw(env.get_raw()) }
 }
 
@@ -32,6 +34,8 @@ pub(crate) fn take_exception(env: &mut Env<'_>) -> String {
 
 pub(crate) fn decode_jstring(env: &mut Env<'_>, value: jstring) -> Option<String> {
     (!value.is_null()).then(|| {
+        // SAFETY: `value` is a live local JNI string reference in the current
+        // frame and is consumed exactly once by `from_raw`.
         let value = unsafe { JString::from_raw(env, value) };
         value.try_to_string(env).expect("decode jstring")
     })
