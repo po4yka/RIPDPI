@@ -3,6 +3,7 @@ name: rust-test-runner
 description: Runs and triages Rust test suites for the RIPDPI 23-crate workspace -- picks the right suite, executes it, interprets failures, and returns only actionable diagnostics.
 tools: Bash, Read, Grep, Glob
 model: inherit
+maxTurns: 30
 skills:
   - cargo-workflows
   - mutation-testing
