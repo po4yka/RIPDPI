@@ -119,6 +119,18 @@ class RipDpiProxy(
     @Volatile private var handle = 0L
     private var readinessSignal: CompletableDeferred<Unit>? = null
 
+    private suspend fun <T> withActiveHandle(block: suspend (Long) -> T): T? =
+        mutex.withLock {
+            val currentHandle = handle
+            if (currentHandle == 0L) {
+                null
+            } else {
+                // Keep lifecycle-sensitive JNI calls under the mutex so stop/destroy
+                // cannot retire the native handle while a call is still in flight.
+                block(currentHandle)
+            }
+        }
+
     @Suppress("TooGenericExceptionCaught")
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     override suspend fun startProxy(preferences: RipDpiProxyPreferences): Int {
@@ -243,16 +255,17 @@ class RipDpiProxy(
     }
 
     override suspend fun updateNetworkSnapshot(snapshot: NativeNetworkSnapshot) {
-        val currentHandle = mutex.withLock { handle }
-        if (currentHandle == 0L) return
         val snapshotJson = json.encodeToString(NativeNetworkSnapshot.serializer(), snapshot)
-        withContext(Dispatchers.IO) { nativeBindings.updateNetworkSnapshot(currentHandle, snapshotJson) }
+        withActiveHandle { currentHandle ->
+            withContext(Dispatchers.IO) { nativeBindings.updateNetworkSnapshot(currentHandle, snapshotJson) }
+        }
     }
 
     override suspend fun pollTelemetry(): NativeRuntimeSnapshot {
-        val currentHandle = mutex.withLock { handle }
-        if (currentHandle == 0L) return NativeRuntimeSnapshot.idle(source = "proxy")
-        val payload = withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(currentHandle) }
+        val payload: String? =
+            withActiveHandle { currentHandle ->
+                withContext(Dispatchers.IO) { nativeBindings.pollTelemetry(currentHandle) }
+            } ?: return NativeRuntimeSnapshot.idle(source = "proxy")
         return payload
             ?.takeIf { it.isNotBlank() }
             ?.let { json.decodeFromString(NativeRuntimeSnapshot.serializer(), it) }

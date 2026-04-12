@@ -74,8 +74,14 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     var startFailure: Throwable? = null
     var stopFailure: Throwable? = null
     var telemetryFailure: Throwable? = null
+    var updateFailure: Throwable? = null
     var startedSignal: CompletableDeferred<Long>? = null
     var startBlocker: CompletableDeferred<Unit>? = null
+    var telemetryStartedSignal: CompletableDeferred<Long>? = null
+    var telemetryBlocker: CompletableDeferred<Unit>? = null
+    var updateStartedSignal: CompletableDeferred<Long>? = null
+    var updateBlocker: CompletableDeferred<Unit>? = null
+    var destroySignal: CompletableDeferred<Long>? = null
     var stopCompletesStartBlocker: Boolean = false
     var startBlockTimeoutMillis: Long = DEFAULT_START_BLOCK_TIMEOUT_MS
     var lastCreatePayload: String? = null
@@ -89,6 +95,7 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     val stoppedHandles = mutableListOf<Long>()
     val destroyedHandles = mutableListOf<Long>()
     val telemetryHandles = mutableListOf<Long>()
+    val updatedHandles = mutableListOf<Long>()
 
     override fun create(configJson: String): Long {
         faults.next(ProxyBindingFaultTarget.CREATE)?.throwOrIgnore()
@@ -133,6 +140,21 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
 
     override fun pollTelemetry(handle: Long): String? {
         telemetryHandles += handle
+        telemetryStartedSignal?.complete(handle)
+        telemetryBlocker?.let { blocker ->
+            try {
+                runBlocking {
+                    withTimeout(startBlockTimeoutMillis) {
+                        blocker.await()
+                    }
+                }
+            } catch (error: TimeoutCancellationException) {
+                throw AssertionError(
+                    "FakeRipDpiProxyBindings.pollTelemetry blocked for more than ${startBlockTimeoutMillis}ms",
+                    error,
+                )
+            }
+        }
         faults.next(ProxyBindingFaultTarget.TELEMETRY)?.let { fault ->
             return fault.payloadResult() ?: telemetryJson
         }
@@ -143,13 +165,30 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     override fun destroy(handle: Long) {
         lastDestroyedHandle = handle
         destroyedHandles += handle
+        destroySignal?.complete(handle)
     }
 
     override fun updateNetworkSnapshot(
         handle: Long,
         snapshotJson: String,
     ) {
-        // No-op in fake.
+        updatedHandles += handle
+        updateStartedSignal?.complete(handle)
+        updateBlocker?.let { blocker ->
+            try {
+                runBlocking {
+                    withTimeout(startBlockTimeoutMillis) {
+                        blocker.await()
+                    }
+                }
+            } catch (error: TimeoutCancellationException) {
+                throw AssertionError(
+                    "FakeRipDpiProxyBindings.updateNetworkSnapshot blocked for more than ${startBlockTimeoutMillis}ms",
+                    error,
+                )
+            }
+        }
+        updateFailure?.let { throw it }
     }
 }
 
