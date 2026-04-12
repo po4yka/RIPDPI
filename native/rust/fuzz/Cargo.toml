@@ -13,6 +13,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 ripdpi-failure-classifier = { path = "../crates/ripdpi-failure-classifier" }
 ripdpi-packets = { path = "../crates/ripdpi-packets" }
+ripdpi-proxy-config = { path = "../crates/ripdpi-proxy-config" }
 ripdpi-vless = { path = "../crates/ripdpi-vless" }
 
 [[bin]]
@@ -36,5 +37,11 @@ doc = false
 [[bin]]
 name = "vless_request_header"
 path = "fuzz_targets/vless_request_header.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "proxy_config_json"
+path = "fuzz_targets/proxy_config_json.rs"
 test = false
 doc = false

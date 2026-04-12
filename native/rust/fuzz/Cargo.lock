@@ -341,6 +341,7 @@ dependencies = [
  "libfuzzer-sys",
  "ripdpi-failure-classifier",
  "ripdpi-packets",
+ "ripdpi-proxy-config",
  "ripdpi-vless",
 ]
 
@@ -406,6 +407,12 @@ checksum = "413ee7dfc52ee1a4949ceeb7dbc8a33f2d6c088194d9f922fb8318faf1f01186"
 dependencies = [
  "either",
 ]
+
+[[package]]
+name = "itoa"
+version = "1.0.18"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jni"
@@ -686,6 +693,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-config"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-packets",
+]
+
+[[package]]
 name = "ripdpi-failure-classifier"
 version = "0.1.0"
 dependencies = [
@@ -702,6 +716,17 @@ dependencies = [
  "android-support",
  "nom 8.0.0",
  "ring",
+]
+
+[[package]]
+name = "ripdpi-proxy-config"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-config",
+ "ripdpi-packets",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]
@@ -791,6 +816,19 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "serde_json"
+version = "1.0.149"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83fc039473c5595ace860d8c4fafa220ff474b3fc6bfdb4293327f1a37e94d86"
+dependencies = [
+ "itoa",
+ "memchr",
+ "serde",
+ "serde_core",
+ "zmij",
 ]
 
 [[package]]
@@ -1194,3 +1232,9 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "zmij"
+version = "1.0.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8848ee67ecc8aedbaf3e4122217aff892639231befc6a1b58d29fff4c2cabaa"
