@@ -43,6 +43,7 @@ The native relay layer is no longer limited to the original VLESS, Hysteria2, an
 - `native/rust/crates/ripdpi-relay-core` is the shared relay backend and pooling layer used by Android service orchestration.
 - `native/rust/crates/ripdpi-relay-mux` provides reusable relay-session pooling and stream-lease logic for reusable transports.
 - `native/rust/crates/ripdpi-xhttp` implements the xHTTP transport used by VLESS xHTTP and Cloudflare Tunnel relay profiles.
+- `native/rust/crates/ripdpi-cloudflare-origin` is the local xHTTP origin helper used by Cloudflare Tunnel publish mode.
 - `native/rust/crates/ripdpi-tuic` implements TUIC v5 TCP and UDP relay behavior.
 - `native/rust/crates/ripdpi-shadowtls` implements ShadowTLS v3 stream camouflage.
 - `native/rust/crates/ripdpi-naiveproxy` is a standalone helper binary used through the Android subprocess manager rather than JNI embedding.
@@ -51,9 +52,12 @@ The native relay layer is no longer limited to the original VLESS, Hysteria2, an
 Recent integration hardening in this layer:
 
 - Relay runtime config now preserves Cloudflare Tunnel mode, Cloudflare credential references, tunnel import material, and Finalmask settings from Kotlin through to the Rust relay boundary.
+- Cloudflare Tunnel publish mode now runs through a bundled `cloudflared` sidecar plus the local `ripdpi-cloudflare-origin` helper instead of stopping at control-plane modeling.
 - `ripdpi-xhttp` now applies Finalmask directly on the outbound xHTTP transport for VLESS xHTTP and Cloudflare Tunnel profiles; `ripdpi-relay-core` rejects unsupported relay and mode combinations early rather than dropping them silently.
+- `ripdpi-masque` now preserves configured endpoint paths for HTTP/3 and HTTP/2, reports HTTP/3 to HTTP/2 fallback in telemetry, and classifies Cloudflare direct auth failures by their actual cause.
 - `ripdpi-naiveproxy` emits structured readiness and failure events (`RIPDPI-READY`, `RIPDPI-ERROR`) so the Android service can classify DNS/TLS/HTTP CONNECT/auth failures and expose watchdog state.
 - The Android subprocess supervisor now probes helper versions, redacts configured secrets from surfaced error text, and performs bounded restart attempts for NaiveProxy helper crashes.
+- Strategy-pack schema v3 and versioned TLS catalogs now act as the remote control plane for transport rollouts and TLS default changes, with bundled fallback catalogs kept in-app.
 
 ## Runtime Topology
 
@@ -231,6 +235,7 @@ Structured telemetry, diagnostics-event payloads, and strategy-probe progress/re
 - `native/rust/crates/ripdpi-relay-core` -- shared relay backend orchestration and capability surface
 - `native/rust/crates/ripdpi-relay-mux` -- reusable relay pooling and multiplex lease management
 - `native/rust/crates/ripdpi-xhttp` -- xHTTP transport client for relay mode and Cloudflare Tunnel profiles
+- `native/rust/crates/ripdpi-cloudflare-origin` -- local xHTTP origin helper for Cloudflare Tunnel publish mode
 - `native/rust/crates/ripdpi-tuic` -- TUIC v5 relay client
 - `native/rust/crates/ripdpi-shadowtls` -- ShadowTLS v3 camouflage client
 - `native/rust/crates/ripdpi-naiveproxy` -- NaiveProxy helper binary used via subprocess management

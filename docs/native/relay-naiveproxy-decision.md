@@ -1,49 +1,67 @@
-# NaiveProxy Decision Record
+# NaiveProxy Runtime
 
-This note closes the Phase P2 roadmap requirement to make a clear go or no-go decision for NaiveProxy based on binary size, maintenance burden, and Android process model.
+RIPDPI ships NaiveProxy as a managed helper runtime, not as a JNI-embedded transport.
 
-## Decision
+This file keeps the current-state rationale and the operational boundaries for that choice.
 
-Go with the subprocess model.
+## Runtime Model
 
-NaiveProxy is accepted as a first-class relay kind in RIPDPI, but only as a bundled helper process managed by Android service code. It is intentionally not embedded into `libripdpi.so`, and it does not use a Chromium or JNI-hosted browser stack.
+NaiveProxy runs as a bundled subprocess started by Android service code.
 
-## Why This Model Was Chosen
+Key pieces:
 
-### Android process model
+- `core/service/src/main/kotlin/com/poyka/ripdpi/services/NaiveProxyManager.kt`
+- `core/service/src/main/kotlin/com/poyka/ripdpi/services/SubprocessSocksRelayManager.kt`
+- `native/rust/crates/ripdpi-naiveproxy/src/main.rs`
 
-- RIPDPI already manages native helper binaries with explicit extract/start/health-check/stop lifecycle code.
-- `core/service/src/main/kotlin/com/poyka/ripdpi/services/NaiveProxyManager.kt` fits that pattern cleanly and keeps `UpstreamRelaySupervisor` as the single orchestration entry.
-- Failure handling stays isolated. If the helper exits or fails readiness, the service can surface the same relay-start failure path used for the other transports.
+The helper contract is intentionally narrow:
 
-### Maintenance burden
+- bind a local SOCKS5 listener
+- negotiate SOCKS5 with RIPDPI
+- open the upstream HTTPS `CONNECT`
+- tunnel bytes after the upstream proxy is established
+- report readiness and structured failures back to Android service code
 
-- The implementation is contained in `native/rust/crates/ripdpi-naiveproxy/src/main.rs`.
-- The helper is small and purpose-built: local SOCKS5 listener, upstream TLS session, HTTPS `CONNECT`, optional Basic auth, then byte-for-byte tunneling.
-- This avoids carrying a browser engine, Chromium patch set, or Android WebView coupling just to get Naive-compatible upstream behavior.
+## Why This Model Stays
 
-### Binary size
+### Android lifecycle fit
 
-- Measured host release artifact on April 11, 2026:
-  - `native/rust/target/release/ripdpi-naiveproxy`: `2,929,104` bytes
-- That footprint is acceptable for a standalone helper binary and materially smaller than any realistic browser-embedding approach.
+RIPDPI already manages standalone helper binaries for transport and privileged workflows. NaiveProxy fits that lifecycle without adding a new embedding or browser runtime model.
 
-## Constraints That Stay In Force
+### Isolation
 
-- NaiveProxy remains a subprocess backend, not a JNI-embedded transport.
-- The helper must keep a narrow contract:
-  - listen locally
-  - negotiate SOCKS5 with RIPDPI
-  - open upstream HTTPS `CONNECT`
-  - expose health/readiness clearly to Android service code
-- Future feature work should preserve this isolation instead of expanding the helper into a general browser-like runtime.
+Helper crashes, startup failures, and upstream auth or TLS errors stay isolated from `libripdpi.so` and are surfaced through the same relay-start and unexpected-exit paths used by other managed upstreams.
 
-## Outcome For P2
+### Binary scope
 
-The roadmap decision requirement is satisfied:
+The in-repo helper remains much smaller and easier to reason about than a Chromium-derived or WebView-based approach.
 
-- binary size was measured
-- maintenance burden was evaluated against the actual crate layout
-- Android process-model fit was validated through `NaiveProxyManager`
+## Current Behavior
 
-Any future work on NaiveProxy should be treated as iterative hardening, not as an open P2 go/no-go question.
+The current implementation goes beyond the original go or no-go decision:
+
+- helper version probing before launch
+- readiness handshake through explicit `RIPDPI-READY` signaling
+- structured failure signaling through `RIPDPI-ERROR`
+- Android-side classification for DNS, TLS, HTTP `CONNECT`, and auth failures
+- credential-redacted surfaced logs and error text
+- graceful stop handling
+- bounded watchdog restarts for unexpected helper exits
+
+This means NaiveProxy is no longer a provisional transport. It is a supported runtime with explicit operational boundaries.
+
+## Boundaries
+
+These constraints remain intentional:
+
+- NaiveProxy stays a subprocess backend, not a JNI-embedded transport.
+- The helper should remain small and protocol-focused.
+- Future work should improve observability and compatibility, not expand the helper toward browser-engine behavior.
+
+## Remaining Work
+
+The remaining work is operational validation rather than design uncertainty:
+
+- broader field validation across upstream proxies and auth combinations
+- watchdog tuning based on real helper failure patterns
+- continued telemetry review to keep surfaced errors useful without leaking secrets

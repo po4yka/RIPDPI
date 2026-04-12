@@ -1,14 +1,47 @@
 # Finalmask Compatibility
 
-RIPDPI now applies Finalmask on the client side for xHTTP-backed relay transports:
+RIPDPI applies Finalmask directly in the native xHTTP transport on supported relay profiles.
+
+## Supported Today
+
+Supported relay families:
 
 - VLESS Reality with `xhttp`
 - Cloudflare Tunnel profiles that resolve through the xHTTP TLS path
 
-The current implementation mutates the outbound xHTTP transport stream before the Reality or TLS handshake starts.
-Supported modes are `header-custom`, `fragment`, and `Sudoku`.
+Supported modes:
 
-The app still does not implement QUIC-side Finalmask. `noise`, Hysteria2, TUIC, and MASQUE remain unsupported.
+- `header-custom`
+- `fragment`
+- `Sudoku`
+
+The current implementation mutates the outbound xHTTP byte stream before the Reality or TLS handshake starts.
+
+## Control Plane Integration
+
+Finalmask is now carried through:
+
+- relay profile models and protobuf-backed settings
+- advanced relay editor fields
+- strategy-pack feature flags and presets
+- Kotlin service validation
+- Rust relay validation
+
+Unsupported combinations fail fast instead of being silently ignored.
+
+## Not Supported Yet
+
+The current tree still does not implement:
+
+- `noise`
+- QUIC-side Finalmask
+- Hysteria2 Finalmask
+- TUIC Finalmask
+- MASQUE Finalmask
+
+New Finalmask transport or mode work should not be enabled until upstream-compatible parity tests exist.
+
+## Example Configs
 
 Use these examples as references for compatible server-side setups and matching client profiles:
 
@@ -17,8 +50,7 @@ Use these examples as references for compatible server-side setups and matching 
 - [xHTTP client profile](../examples/finalmask/xhttp-client-profile.json)
 - [Cloudflare Tunnel client profile](../examples/finalmask/cloudflare-tunnel-client-profile.json)
 
-Client-side behavior:
+## Practical Notes
 
-- xHTTP relay profiles now apply Finalmask directly in the native xHTTP transport.
-- Cloudflare Tunnel relay profiles still force xHTTP and disable UDP, and can use the same Finalmask transport modes.
-- Unsupported relay kinds or Finalmask modes are rejected at validation time instead of being silently ignored.
+- Cloudflare Tunnel profiles still force xHTTP and disable UDP, so they can reuse the same Finalmask path as other xHTTP-backed profiles.
+- Finalmask rollout should remain strategy-pack controlled rather than becoming an unconditional default.
