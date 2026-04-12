@@ -64,6 +64,13 @@ unsafe fn getsockopt_raw<T>(
     }
 }
 
+/// Safe wrapper for socket options whose Linux ABI is a plain `c_int`.
+fn set_c_int_sockopt(fd: libc::c_int, level: libc::c_int, name: libc::c_int, value: libc::c_int) -> io::Result<()> {
+    // SAFETY: callers provide a live socket descriptor and this helper is only
+    // used for options whose payload type is exactly `c_int`.
+    unsafe { setsockopt_raw(fd, level, name, &value) }
+}
+
 #[repr(C)]
 struct TcpMd5Sig {
     addr: libc::sockaddr_storage,
@@ -195,8 +202,7 @@ struct LinuxTcpInfo {
 }
 
 pub fn enable_tcp_fastopen_connect<T: AsRawFd>(socket: &T) -> io::Result<()> {
-    // SAFETY: live TCP socket; `1i32` is valid for TCP_FASTOPEN_CONNECT.
-    unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_FASTOPEN_CONNECT, &1i32) }
+    set_c_int_sockopt(socket.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_FASTOPEN_CONNECT, 1)
 }
 
 pub fn set_tcp_md5sig(stream: &TcpStream, key_len: u16) -> io::Result<()> {
@@ -276,9 +282,7 @@ pub fn attach_drop_sack(stream: &TcpStream) -> io::Result<()> {
 }
 
 pub fn detach_drop_sack(stream: &TcpStream) -> io::Result<()> {
-    // SAFETY: `0i32` is a valid payload for SO_DETACH_FILTER and `stream` is a
-    // live TCP socket.
-    unsafe { setsockopt_raw(stream.as_raw_fd(), libc::SOL_SOCKET, libc::SO_DETACH_FILTER, &0i32) }
+    set_c_int_sockopt(stream.as_raw_fd(), libc::SOL_SOCKET, libc::SO_DETACH_FILTER, 0)
 }
 
 /// Attach a BPF socket filter that drops outgoing TCP segments containing
@@ -330,9 +334,7 @@ pub fn attach_strip_timestamps(stream: &TcpStream) -> io::Result<()> {
 /// A value of 0 removes the clamp and restores the default window behaviour.
 pub fn set_tcp_window_clamp(stream: &TcpStream, size: u32) -> io::Result<()> {
     let val = size as libc::c_int;
-    // SAFETY: `TCP_WINDOW_CLAMP` accepts a `c_int` value and `stream` is a
-    // live TCP socket.
-    unsafe { setsockopt_raw(stream.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_WINDOW_CLAMP, &val) }
+    set_c_int_sockopt(stream.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_WINDOW_CLAMP, val)
 }
 
 /// Read the current `TCP_WINDOW_CLAMP` value on a socket.
@@ -350,8 +352,7 @@ pub fn get_tcp_window_clamp(stream: &TcpStream) -> io::Result<u32> {
 /// scale factor negotiated in the SYN packet.
 pub fn set_rcvbuf(fd: &impl AsRawFd, size: u32) -> io::Result<()> {
     let val = size as libc::c_int;
-    // SAFETY: `SO_RCVBUF` accepts a `c_int` value and `fd` is a live socket.
-    unsafe { setsockopt_raw(fd.as_raw_fd(), libc::SOL_SOCKET, libc::SO_RCVBUF, &val) }
+    set_c_int_sockopt(fd.as_raw_fd(), libc::SOL_SOCKET, libc::SO_RCVBUF, val)
 }
 
 /// Read the current `SO_RCVBUF` value on a socket.
@@ -433,10 +434,8 @@ pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
     let fd = stream.as_raw_fd();
     // On dual-stack sockets both options may be valid, so attempt both and
     // succeed if at least one takes effect (mirrors `set_stream_ttl` pattern).
-    // SAFETY: `1i32` enables IP_RECVTTL / IPV6_RECVHOPLIMIT and `stream` is a
-    // live TCP socket.
-    let ipv4 = unsafe { setsockopt_raw(fd, libc::IPPROTO_IP, libc::IP_RECVTTL, &1i32) };
-    let ipv6 = unsafe { setsockopt_raw(fd, libc::IPPROTO_IPV6, libc::IPV6_RECVHOPLIMIT, &1i32) };
+    let ipv4 = set_c_int_sockopt(fd, libc::IPPROTO_IP, libc::IP_RECVTTL, 1);
+    let ipv6 = set_c_int_sockopt(fd, libc::IPPROTO_IPV6, libc::IPV6_RECVHOPLIMIT, 1);
     match (ipv4, ipv6) {
         (Ok(()), _) | (_, Ok(())) => Ok(()),
         (Err(err), _) => Err(err),
@@ -910,7 +909,7 @@ fn probe_raw_socket(
 ) -> io::Result<()> {
     let socket = Socket::new(domain, Type::RAW, Some(Protocol::from(protocol)))?;
     super::protect_socket(&socket, protect_path)?;
-    unsafe { setsockopt_raw(socket.as_raw_fd(), level, option_name, &1i32) }
+    set_c_int_sockopt(socket.as_raw_fd(), level, option_name, 1)
 }
 
 fn probe_tcp_repair(protect_path: Option<&str>) -> io::Result<()> {
@@ -1191,7 +1190,7 @@ fn open_raw_socket(target: SocketAddr, protect_path: Option<&str>) -> io::Result
 }
 
 fn set_tcp_repair(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
-    unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR, &value) }
+    set_c_int_sockopt(fd, libc::IPPROTO_TCP, TCP_REPAIR, value)
 }
 
 fn build_multi_disorder_packets(
@@ -1341,7 +1340,7 @@ fn set_tcp_repair_option(fd: libc::c_int, value: TcpRepairOpt) -> io::Result<()>
 }
 
 fn set_tcp_repair_queue(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
-    unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, TCP_REPAIR_QUEUE, &value) }
+    set_c_int_sockopt(fd, libc::IPPROTO_TCP, TCP_REPAIR_QUEUE, value)
 }
 
 fn set_tcp_queue_seq(fd: libc::c_int, value: u32) -> io::Result<()> {
@@ -1365,7 +1364,7 @@ fn set_tcp_timestamp(fd: libc::c_int, value: u32, usec_ts: bool) -> io::Result<(
     }
     let encoded =
         i32::try_from(encoded).map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "TCP timestamp exceeds i32"))?;
-    unsafe { setsockopt_raw(fd, libc::IPPROTO_TCP, libc::TCP_TIMESTAMP, &encoded) }
+    set_c_int_sockopt(fd, libc::IPPROTO_TCP, libc::TCP_TIMESTAMP, encoded)
 }
 
 fn get_tcp_repair_window(fd: libc::c_int) -> io::Result<TcpRepairWindow> {

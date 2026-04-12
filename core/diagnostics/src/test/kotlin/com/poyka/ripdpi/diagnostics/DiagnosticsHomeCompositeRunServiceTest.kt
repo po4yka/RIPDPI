@@ -3,9 +3,9 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.NetworkHandoverEvent
+import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
-import com.poyka.ripdpi.services.NetworkHandoverEvent
-import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow

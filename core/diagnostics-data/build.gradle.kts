@@ -24,6 +24,7 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.kermit)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.okhttp)
     ksp(libs.androidx.room.compiler)
 
     testImplementation(libs.bundles.unit.test)

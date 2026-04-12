@@ -428,7 +428,7 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
 }
 
 fn allows_direct_tfo_candidates(base: &ProxyUiConfig) -> bool {
-    !(base.upstream_relay.enabled && !base.upstream_relay.kind.eq_ignore_ascii_case("off"))
+    !base.upstream_relay.enabled || base.upstream_relay.kind.eq_ignore_ascii_case("off")
 }
 
 pub(crate) fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {

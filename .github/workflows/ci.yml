@@ -278,6 +278,34 @@ jobs:
           path: native/rust/target/golden-diffs/
           retention-days: 7
 
+  rust-fuzz-smoke:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            native/rust -> target
+            native/rust/fuzz -> target
+          cache-on-failure: true
+          shared-key: rust-fuzz-smoke
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+
+      - name: Run fuzz smoke check
+        run: bash scripts/ci/run-rust-fuzz-smoke.sh
+
   gradle-static-analysis:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest

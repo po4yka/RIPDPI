@@ -1,0 +1,19 @@
+# RIPDPI fuzzing scaffold
+
+This directory contains the first `cargo-fuzz` setup for the Rust workspace.
+
+Targets:
+
+- `packets_parse` - parser-heavy surfaces in `ripdpi-packets`
+- `failure_http_response` - raw HTTP/blockpage classification in `ripdpi-failure-classifier`
+- `failure_field_cache` - field-cache-based failure classification in `ripdpi-failure-classifier`
+
+Run from `native/rust/fuzz`:
+
+```bash
+cargo fuzz run packets_parse
+cargo fuzz run failure_http_response
+cargo fuzz run failure_field_cache
+```
+
+Seed corpora live under `corpus/`. Generated artifacts and coverage output are ignored by git.

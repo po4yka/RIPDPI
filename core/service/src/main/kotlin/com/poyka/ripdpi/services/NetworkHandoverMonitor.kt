@@ -28,20 +28,11 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.shareIn
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.poyka.ripdpi.data.NetworkHandoverEvent as SharedNetworkHandoverEvent
+import com.poyka.ripdpi.data.NetworkHandoverMonitor as SharedNetworkHandoverMonitor
 
-data class NetworkHandoverEvent(
-    val previousFingerprint: NetworkFingerprint?,
-    val currentFingerprint: NetworkFingerprint?,
-    val classification: String,
-    val occurredAt: Long,
-) {
-    val isActionable: Boolean
-        get() = currentFingerprint != null && classification != "connectivity_loss"
-}
-
-interface NetworkHandoverMonitor {
-    val events: SharedFlow<NetworkHandoverEvent>
-}
+typealias NetworkHandoverEvent = SharedNetworkHandoverEvent
+typealias NetworkHandoverMonitor = SharedNetworkHandoverMonitor
 
 @Singleton
 class DefaultNetworkHandoverMonitor

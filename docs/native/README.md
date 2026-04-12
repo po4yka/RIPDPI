@@ -209,6 +209,14 @@ Native integration is covered at several layers:
 
 Testing commands and CI mapping are documented in [../testing.md](../testing.md).
 
+For runtime refactors, treat the checked-in benchmark and native-size baselines as part of the review surface:
+
+- `scripts/ci/rust-bench-baseline.json` for Criterion output from `native/rust/crates/ripdpi-bench`
+- `scripts/ci/native-size-baseline.json` for packaged `.so` size growth
+- `scripts/ci/native-bloat-baseline.json` for top text-section and symbol growth
+
+The local commands for those checks are also documented in [../testing.md](../testing.md).
+
 ## Golden Contracts
 
 Structured telemetry, diagnostics-event payloads, and strategy-probe progress/report payloads are treated as compatibility contracts.

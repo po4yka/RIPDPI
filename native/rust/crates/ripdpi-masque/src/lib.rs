@@ -6,7 +6,6 @@ pub mod config;
 use std::collections::HashMap;
 use std::future::poll_fn;
 use std::io;
-use std::io::Cursor;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -15,7 +14,7 @@ use bytes::{Buf, Bytes, BytesMut};
 use h3_datagram::datagram_handler::{DatagramSender, HandleDatagramsExt};
 use http::{HeaderMap, Request, StatusCode};
 use hyper_util::rt::TokioIo;
-use rustls::pki_types::{CertificateDer, PrivateKeyDer};
+use rustls::pki_types::{pem::PemObject, CertificateDer, PrivateKeyDer};
 use rustls::RootCertStore;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -721,16 +720,15 @@ fn load_client_identity(
     let private_key = config.client_private_key_pem.as_deref().filter(|value| !value.trim().is_empty());
     match (certificate_chain, private_key) {
         (Some(certificate_chain), Some(private_key)) => {
-            let certificates: Vec<CertificateDer<'static>> = rustls_pemfile::certs(&mut Cursor::new(certificate_chain))
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|error| {
-                    io::Error::new(io::ErrorKind::InvalidInput, format!("invalid client certificate PEM: {error}"))
-                })?;
-            let private_key = rustls_pemfile::private_key(&mut Cursor::new(private_key))
-                .map_err(|error| {
-                    io::Error::new(io::ErrorKind::InvalidInput, format!("invalid client private key PEM: {error}"))
-                })?
-                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing client private key in PEM data"))?;
+            let certificates: Vec<CertificateDer<'static>> =
+                CertificateDer::pem_slice_iter(certificate_chain.as_bytes()).collect::<Result<Vec<_>, _>>().map_err(
+                    |error| {
+                        io::Error::new(io::ErrorKind::InvalidInput, format!("invalid client certificate PEM: {error}"))
+                    },
+                )?;
+            let private_key = PrivateKeyDer::from_pem_slice(private_key.as_bytes()).map_err(|error| {
+                io::Error::new(io::ErrorKind::InvalidInput, format!("invalid client private key PEM: {error}"))
+            })?;
             Ok(Some((certificates, private_key)))
         }
         (None, None) => Ok(None),

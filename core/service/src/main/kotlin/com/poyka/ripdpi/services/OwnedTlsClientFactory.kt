@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.TlsFingerprintProfileEdgeStable
 import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
 import com.poyka.ripdpi.data.TlsFingerprintProfileSafariStable
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import dagger.Binds
 import dagger.Module
@@ -82,7 +83,8 @@ class DefaultOwnedTlsClientFactory
         private val profileProvider: OwnedTlsFingerprintProfileProvider,
         private val strategyPackStateStore: StrategyPackStateStore,
         @param:Named("ownedTlsSessionSeed") private val sessionSeed: Long,
-    ) : OwnedTlsClientFactory {
+    ) : OwnedTlsClientFactory,
+        DiagnosticsHttpClientFactory {
         override fun currentProfile(): String = profileProvider.currentProfile()
 
         override fun selectionForAuthority(authority: String?): OwnedTlsFingerprintSelection {
@@ -116,6 +118,12 @@ class DefaultOwnedTlsClientFactory
             createForAuthority(
                 authority = null,
                 forcedTlsVersions = forcedTlsVersions,
+                configure = configure,
+            )
+
+        override fun createClient(configure: OkHttpClient.Builder.() -> Unit): OkHttpClient =
+            create(
+                forcedTlsVersions = null,
                 configure = configure,
             )
 
@@ -243,6 +251,10 @@ internal abstract class OwnedTlsClientModule {
     @Binds
     @Singleton
     abstract fun bindOwnedTlsClientFactory(factory: DefaultOwnedTlsClientFactory): OwnedTlsClientFactory
+
+    @Binds
+    @Singleton
+    abstract fun bindDiagnosticsHttpClientFactory(factory: DefaultOwnedTlsClientFactory): DiagnosticsHttpClientFactory
 }
 
 @dagger.Module
