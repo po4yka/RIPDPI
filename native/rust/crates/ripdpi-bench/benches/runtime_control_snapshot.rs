@@ -20,7 +20,6 @@ fn sample_wifi_snapshot(ssid: &str, dns_servers: &[&str], captured_at_ms: u64) -
             rssi_dbm: Some(-52),
             channel_width: "80 MHz".to_string(),
             wifi_standard: "802.11ax".to_string(),
-            ..WifiSnapshot::default()
         }),
         mtu: Some(1500),
         traffic_tx_bytes: 1024,

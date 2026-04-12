@@ -33,6 +33,7 @@ fn is_transient_network_error(error: &std::io::Error) -> bool {
     )
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn is_false(value: &bool) -> bool {
     !*value
 }

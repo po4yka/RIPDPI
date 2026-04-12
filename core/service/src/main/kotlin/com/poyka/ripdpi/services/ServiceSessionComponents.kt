@@ -264,7 +264,6 @@ internal object VpnServiceSessionModule {
     fun provideVpnCoordinator(
         host: VpnCoordinatorHost,
         runtimeDependencies: VpnServiceRuntimeRuntimeDependencies,
-        statusDependencies: VpnServiceRuntimeStatusDependencies,
         permissionWatchdog: PermissionWatchdog,
         vpnTunnelRuntime: VpnTunnelRuntime,
         encryptedDnsFailoverController: VpnEncryptedDnsFailoverController,

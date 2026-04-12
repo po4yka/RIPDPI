@@ -3,7 +3,6 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.diagnostics.crash.CrashReport
 import com.poyka.ripdpi.diagnostics.crash.CrashReportReader
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -18,8 +17,8 @@ class MainCrashReportCoordinator
             scope: CoroutineScope,
             onDismissed: () -> Unit,
         ) {
-            onDismissed()
-            scope.launch(Dispatchers.IO) {
+            scope.launch {
+                onDismissed()
                 crashReportReader.delete()
             }
         }

@@ -73,39 +73,14 @@ class ServiceSessionModuleTest {
             val resolver = TestConnectionPolicyResolver(sampleResolution(mode = Mode.VPN))
             val host = TestVpnServiceHost(backgroundScope)
             val runtimeDependencies =
-                VpnServiceRuntimeRuntimeDependencies(
-                    appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
-                    connectionPolicyResolver = resolver,
-                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(),
-                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(),
-                    resolverOverrideStore = overrides,
-                    serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
-                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    networkHandoverMonitor = TestNetworkHandoverMonitor(),
-                    policyHandoverEventStore = TestPolicyHandoverEventStore(),
-                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
-                    dnsDependencies =
-                        VpnServiceRuntimeDnsDependencies(
-                            networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
-                            networkDnsBlockedPathStore = TestNetworkDnsBlockedPathStore(),
-                            resolverRefreshPlanner =
-                                VpnResolverRefreshPlanner(
-                                    connectionPolicyResolver = resolver,
-                                    resolverOverrideStore = overrides,
-                                ),
-                        ),
-                    upstreamRelaySupervisorFactory = relayFactory,
-                    warpRuntimeSupervisorFactory = warpFactory,
-                    proxyRuntimeSupervisorFactory = proxyFactory,
-                    screenStateObserver = TestScreenStateObserver(),
+                createVpnRuntimeDependencies(
+                    resolver = resolver,
+                    overrides = overrides,
+                    relayFactory = relayFactory,
+                    warpFactory = warpFactory,
+                    proxyFactory = proxyFactory,
                 )
-            val statusDependencies =
-                VpnServiceRuntimeStatusDependencies(
-                    serviceStateStore = TestServiceStateStore(),
-                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
-                    telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
-                    serviceStatusReporterFactory = statusFactory,
-                )
+            val statusDependencies = createVpnStatusDependencies(statusFactory)
             val vpnTunnelRuntime =
                 VpnServiceSessionModule.provideVpnTunnelRuntime(
                     host = host,
@@ -132,7 +107,6 @@ class ServiceSessionModuleTest {
                 VpnServiceSessionModule.provideVpnCoordinator(
                     host = host,
                     runtimeDependencies = runtimeDependencies,
-                    statusDependencies = statusDependencies,
                     permissionWatchdog = TestPermissionWatchdog(),
                     vpnTunnelRuntime = vpnTunnelRuntime,
                     encryptedDnsFailoverController = encryptedDnsFailoverController,
@@ -149,6 +123,55 @@ class ServiceSessionModuleTest {
             assertEquals(Sender.VPN, statusFactory.createdSenders.single())
             assertNotNull(coordinator)
         }
+
+    private fun createVpnRuntimeDependencies(
+        resolver: TestConnectionPolicyResolver,
+        overrides: TestResolverOverrideStore,
+        relayFactory: RecordingUpstreamRelaySupervisorFactory,
+        warpFactory: RecordingWarpRuntimeSupervisorFactory,
+        proxyFactory: RecordingProxyRuntimeSupervisorFactory,
+    ): VpnServiceRuntimeRuntimeDependencies =
+        VpnServiceRuntimeRuntimeDependencies(
+            appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
+            connectionPolicyResolver = resolver,
+            tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(),
+            vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(),
+            resolverOverrideStore = overrides,
+            serviceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
+            rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+            networkHandoverMonitor = TestNetworkHandoverMonitor(),
+            policyHandoverEventStore = TestPolicyHandoverEventStore(),
+            networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+            dnsDependencies = createVpnDnsDependencies(resolver, overrides),
+            upstreamRelaySupervisorFactory = relayFactory,
+            warpRuntimeSupervisorFactory = warpFactory,
+            proxyRuntimeSupervisorFactory = proxyFactory,
+            screenStateObserver = TestScreenStateObserver(),
+        )
+
+    private fun createVpnDnsDependencies(
+        resolver: TestConnectionPolicyResolver,
+        overrides: TestResolverOverrideStore,
+    ): VpnServiceRuntimeDnsDependencies =
+        VpnServiceRuntimeDnsDependencies(
+            networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+            networkDnsBlockedPathStore = TestNetworkDnsBlockedPathStore(),
+            resolverRefreshPlanner =
+                VpnResolverRefreshPlanner(
+                    connectionPolicyResolver = resolver,
+                    resolverOverrideStore = overrides,
+                ),
+        )
+
+    private fun createVpnStatusDependencies(
+        statusFactory: RecordingServiceStatusReporterFactory,
+    ): VpnServiceRuntimeStatusDependencies =
+        VpnServiceRuntimeStatusDependencies(
+            serviceStateStore = TestServiceStateStore(),
+            networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+            telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
+            serviceStatusReporterFactory = statusFactory,
+        )
 
     private class RecordingUpstreamRelaySupervisorFactory :
         UpstreamRelaySupervisorFactory(
