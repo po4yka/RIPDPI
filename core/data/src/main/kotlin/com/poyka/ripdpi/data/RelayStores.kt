@@ -26,6 +26,9 @@ data class RelayProfileRecord(
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",
+    val cloudflareTunnelMode: String = RelayCloudflareTunnelModeConsumeExisting,
+    val cloudflarePublishLocalOriginUrl: String = "",
+    val cloudflareCredentialsRef: String = "",
     val chainEntryServer: String = "",
     val chainEntryPort: Int = 443,
     val chainEntryServerName: String = "",
@@ -53,6 +56,14 @@ data class RelayProfileRecord(
     val localSocksPort: Int = DefaultRelayLocalSocksPort,
     val udpEnabled: Boolean = false,
     val tcpFallbackEnabled: Boolean = true,
+    val finalmaskType: String = RelayFinalmaskTypeOff,
+    val finalmaskHeaderHex: String = "",
+    val finalmaskTrailerHex: String = "",
+    val finalmaskRandRange: String = "",
+    val finalmaskSudokuSeed: String = "",
+    val finalmaskFragmentPackets: Int = 0,
+    val finalmaskFragmentMinBytes: Int = 0,
+    val finalmaskFragmentMaxBytes: Int = 0,
 )
 
 @Serializable
@@ -72,6 +83,8 @@ data class RelayCredentialRecord(
     val masqueAuthToken: String? = null,
     val masqueClientCertificateChainPem: String? = null,
     val masqueClientPrivateKeyPem: String? = null,
+    val cloudflareTunnelToken: String? = null,
+    val cloudflareTunnelCredentialsJson: String? = null,
     val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
 

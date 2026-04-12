@@ -13,20 +13,25 @@ import java.io.File
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.concurrent.thread
 
 private const val RelayReadyPollIntervalMs = 100L
 private const val RelayReadyTimeoutMs = 5_000L
+private const val StructuredReadyPrefix = "RIPDPI-READY|"
+private const val StructuredErrorPrefix = "RIPDPI-ERROR|"
 
 data class SubprocessSocksRelayLaunchSpec(
     val binaryName: String,
     val commandArguments: List<String>,
+    val versionArguments: List<String> = emptyList(),
     val runtimeKind: String,
     val upstreamAddress: String? = null,
     val environment: Map<String, String> = emptyMap(),
     val managedClientBridge: ManagedClientSocksBridgeSpec? = null,
+    val redactedValues: List<String> = emptyList(),
 )
 
 @Singleton
@@ -49,12 +54,19 @@ class SubprocessSocksRelayManager
 
         @Volatile private var managedClientBridge: ManagedClientSocksBridge? = null
 
+        @Volatile private var runtimeVersion: String? = null
+
+        @Volatile private var lastFailureClass: String? = null
+
+        @Volatile private var runtimeStateOverride: String? = null
+
         suspend fun start(
             config: ResolvedRipDpiRelayConfig,
             spec: SubprocessSocksRelayLaunchSpec,
         ) {
             withContext(Dispatchers.IO) {
                 stopInternal()
+                runtimeStateOverride = "starting"
                 val binary = extractBinary(spec.binaryName)
                 val processBuilder =
                     ProcessBuilder(
@@ -68,7 +80,9 @@ class SubprocessSocksRelayManager
                 process = processBuilder.start()
                 this@SubprocessSocksRelayManager.config = config
                 this@SubprocessSocksRelayManager.launchSpec = spec
+                runtimeVersion = probeVersion(binary, spec)
                 lastError = null
+                lastFailureClass = null
                 managedClientListener = null
                 managedClientBridge = null
                 processOutputThread = startProcessOutputThread(process!!, spec)
@@ -88,6 +102,7 @@ class SubprocessSocksRelayManager
                 }
             }
             waitUntilReady(config)
+            runtimeStateOverride = null
         }
 
         suspend fun waitForExit(): Int =
@@ -118,12 +133,14 @@ class SubprocessSocksRelayManager
                             ?.runtimeKind
                             ?.takeUnless { it == RelayKindNaiveProxy }
                             ?.let {
-                                when {
+                                runtimeStateOverride ?: when {
                                     running -> "running"
                                     lastError != null -> "failed"
                                     else -> "idle"
                                 }
                             },
+                    ptRuntimeVersion = runtimeVersion,
+                    lastFailureClass = lastFailureClass,
                 )
             }
 
@@ -139,6 +156,8 @@ class SubprocessSocksRelayManager
             managedClientListener = null
             processOutputThread?.interrupt()
             processOutputThread = null
+            runtimeVersion = null
+            runtimeStateOverride = null
             val activeProcess = process
             process = null
             config = null
@@ -148,9 +167,9 @@ class SubprocessSocksRelayManager
             }
             try {
                 activeProcess.destroy()
-                runCatching { activeProcess.waitFor() }
-                if (runCatching { activeProcess.exitValue() }.isFailure) {
+                if (!activeProcess.waitFor(1_500, TimeUnit.MILLISECONDS)) {
                     activeProcess.destroyForcibly()
+                    activeProcess.waitFor(1_500, TimeUnit.MILLISECONDS)
                 }
             } catch (error: IOException) {
                 lastError = error.message
@@ -172,6 +191,7 @@ class SubprocessSocksRelayManager
             while (System.currentTimeMillis() < deadline) {
                 if (!isRunning()) {
                     lastError = "Subprocess relay exited before readiness"
+                    runtimeStateOverride = "failed"
                     error(lastError ?: "Subprocess relay exited")
                 }
                 if (canConnect(config.localSocksHost, config.localSocksPort)) {
@@ -180,7 +200,13 @@ class SubprocessSocksRelayManager
                 delay(RelayReadyPollIntervalMs)
             }
             lastError = "Subprocess relay readiness timed out"
+            runtimeStateOverride = "failed"
             error(lastError ?: "Subprocess relay readiness timed out")
+        }
+
+        fun noteRestarting(reason: String) {
+            runtimeStateOverride = "restarting"
+            lastError = reason
         }
 
         private fun canConnect(
@@ -234,7 +260,7 @@ class SubprocessSocksRelayManager
             line: String,
             spec: SubprocessSocksRelayLaunchSpec,
         ) {
-            val trimmed = line.trim()
+            val trimmed = redactSensitive(line.trim(), spec)
             if (trimmed.isBlank()) {
                 return
             }
@@ -245,6 +271,25 @@ class SubprocessSocksRelayManager
                     managedClientListener = listener
                     return
                 }
+            when (val structured = parseStructuredEvent(trimmed)) {
+                is StructuredRelayEvent.Ready -> {
+                    if (runtimeVersion.isNullOrBlank()) {
+                        runtimeVersion = structured.version
+                    }
+                    return
+                }
+
+                is StructuredRelayEvent.Error -> {
+                    lastFailureClass = structured.failureClass
+                    lastError = redactSensitive(structured.message, spec)
+                    runtimeStateOverride = "failed"
+                    return
+                }
+
+                null -> {
+                    Unit
+                }
+            }
             if (
                 trimmed.startsWith("ENV-ERROR") ||
                 trimmed.startsWith("VERSION-ERROR") ||
@@ -285,4 +330,73 @@ class SubprocessSocksRelayManager
             target.setExecutable(true, true)
             return target
         }
+
+        private fun probeVersion(
+            binary: File,
+            spec: SubprocessSocksRelayLaunchSpec,
+        ): String? {
+            if (spec.versionArguments.isEmpty()) {
+                return null
+            }
+            return runCatching {
+                val process =
+                    ProcessBuilder(
+                        buildList {
+                            add(binary.absolutePath)
+                            addAll(spec.versionArguments)
+                        },
+                    ).redirectErrorStream(true)
+                        .start()
+                val output =
+                    process.inputStream
+                        .bufferedReader()
+                        .readText()
+                        .trim()
+                process.waitFor(2, TimeUnit.SECONDS)
+                output.ifBlank { null }
+            }.getOrNull()
+        }
+
+        private fun redactSensitive(
+            raw: String,
+            spec: SubprocessSocksRelayLaunchSpec,
+        ): String =
+            spec.redactedValues
+                .asSequence()
+                .filter(String::isNotBlank)
+                .fold(raw) { message, secret ->
+                    message.replace(secret, "<redacted>")
+                }
     }
+
+private sealed interface StructuredRelayEvent {
+    data class Ready(
+        val runtimeKind: String,
+        val version: String?,
+    ) : StructuredRelayEvent
+
+    data class Error(
+        val runtimeKind: String,
+        val failureClass: String,
+        val message: String,
+    ) : StructuredRelayEvent
+}
+
+private fun parseStructuredEvent(line: String): StructuredRelayEvent? {
+    if (line.startsWith(StructuredReadyPrefix)) {
+        val parts = line.split('|', limit = 3)
+        return StructuredRelayEvent.Ready(
+            runtimeKind = parts.getOrNull(1).orEmpty(),
+            version = parts.getOrNull(2)?.takeIf(String::isNotBlank),
+        )
+    }
+    if (line.startsWith(StructuredErrorPrefix)) {
+        val parts = line.split('|', limit = 4)
+        return StructuredRelayEvent.Error(
+            runtimeKind = parts.getOrNull(1).orEmpty(),
+            failureClass = parts.getOrNull(2).orEmpty(),
+            message = parts.getOrNull(3).orEmpty(),
+        )
+    }
+    return null
+}

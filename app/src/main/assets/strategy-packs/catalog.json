@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "generatedAt": "2026-04-05T08:00:00Z",
   "channel": "stable",
   "minAppVersion": "0.0.4",
@@ -63,6 +63,31 @@
       "id": "quic_migration_experiment",
       "enabled": false,
       "scope": "pack"
+    },
+    {
+      "id": "cloudflare_consume_validation",
+      "enabled": true,
+      "scope": "pack"
+    },
+    {
+      "id": "cloudflare_publish",
+      "enabled": false,
+      "scope": "pack"
+    },
+    {
+      "id": "finalmask",
+      "enabled": false,
+      "scope": "pack"
+    },
+    {
+      "id": "masque_cloudflare_direct",
+      "enabled": false,
+      "scope": "pack"
+    },
+    {
+      "id": "naiveproxy_watchdog",
+      "enabled": true,
+      "scope": "pack"
     }
   ],
   "rollout": {
@@ -92,7 +117,9 @@
         "naive-fallback"
       ],
       "featureFlagIds": [
-        "quic_migration_experiment"
+        "quic_migration_experiment",
+        "cloudflare_consume_validation",
+        "naiveproxy_watchdog"
       ],
       "strategies": [
         {

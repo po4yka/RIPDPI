@@ -80,6 +80,7 @@ data class NativeRuntimeSnapshot(
     val quicMigrationReason: String? = null,
     val ptRuntimeKind: String? = null,
     val ptRuntimeState: String? = null,
+    val ptRuntimeVersion: String? = null,
     val lastTarget: String? = null,
     val lastHost: String? = null,
     val lastError: String? = null,

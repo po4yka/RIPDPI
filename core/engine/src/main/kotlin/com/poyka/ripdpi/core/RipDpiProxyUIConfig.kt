@@ -180,6 +180,18 @@ data class RipDpiWsTunnelConfig(
 )
 
 @Serializable
+data class RipDpiRelayFinalmaskConfig(
+    val type: String = com.poyka.ripdpi.data.RelayFinalmaskTypeOff,
+    val headerHex: String = "",
+    val trailerHex: String = "",
+    val randRange: String = "",
+    val sudokuSeed: String = "",
+    val fragmentPackets: Int = 0,
+    val fragmentMinBytes: Int = 0,
+    val fragmentMaxBytes: Int = 0,
+)
+
+@Serializable
 data class RipDpiRelayConfig(
     val enabled: Boolean = false,
     val kind: String = RelayKindOff,
@@ -193,6 +205,9 @@ data class RipDpiRelayConfig(
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",
+    val cloudflareTunnelMode: String = com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting,
+    val cloudflarePublishLocalOriginUrl: String = "",
+    val cloudflareCredentialsRef: String = "",
     val chainEntryServer: String = "",
     val chainEntryPort: Int = 443,
     val chainEntryServerName: String = "",
@@ -220,6 +235,7 @@ data class RipDpiRelayConfig(
     val localSocksPort: Int = DefaultRelayLocalSocksPort,
     val udpEnabled: Boolean = false,
     val tcpFallbackEnabled: Boolean = true,
+    val finalmask: RipDpiRelayFinalmaskConfig = RipDpiRelayFinalmaskConfig(),
 )
 
 @Serializable

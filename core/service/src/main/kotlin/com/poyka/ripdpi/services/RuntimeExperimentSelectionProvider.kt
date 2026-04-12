@@ -23,6 +23,7 @@ data class RuntimeExperimentSelection(
     val tlsProfileId: String? = null,
     val tlsProfileCatalogVersion: String = DefaultTlsProfileCatalogVersion,
     val morphPolicyId: String? = null,
+    val featureFlags: Map<String, Boolean> = emptyMap(),
 )
 
 interface RuntimeExperimentSelectionProvider {
@@ -49,6 +50,7 @@ class DefaultRuntimeExperimentSelectionProvider
                         tlsProfileCatalogVersion =
                             strategyPackState.tlsProfileCatalogVersion ?: DefaultTlsProfileCatalogVersion,
                         morphPolicyId = strategyPackState.morphPolicyId,
+                        featureFlags = strategyPackState.featureFlags,
                     )
                 }.collectLatest(currentState::set)
             }

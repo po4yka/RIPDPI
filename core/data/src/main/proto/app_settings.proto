@@ -259,6 +259,17 @@ message AppSettings {
   string relay_shadowtls_inner_profile_id = 231;
   string relay_naive_path = 232;
   bool relay_masque_cloudflare_geohash_enabled = 233;
+  string relay_cloudflare_tunnel_mode = 234; // "consume_existing" | "publish_local_origin"
+  string relay_cloudflare_publish_local_origin_url = 235;
+  string relay_cloudflare_credentials_ref = 236;
+  string relay_finalmask_type = 237; // "off" | "header_custom" | "sudoku" | "fragment" | "noise"
+  string relay_finalmask_header_hex = 238;
+  string relay_finalmask_trailer_hex = 239;
+  string relay_finalmask_rand_range = 240;
+  string relay_finalmask_sudoku_seed = 241;
+  int32 relay_finalmask_fragment_packets = 242;
+  int32 relay_finalmask_fragment_min_bytes = 243;
+  int32 relay_finalmask_fragment_max_bytes = 244;
   string relay_vless_transport = 214; // "reality_tcp" | "xhttp"
   string relay_xhttp_path = 215;
   string relay_xhttp_host = 216;

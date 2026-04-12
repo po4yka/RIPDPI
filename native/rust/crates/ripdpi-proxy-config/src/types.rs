@@ -613,6 +613,50 @@ impl Default for ProxyUiWarpConfig {
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct ProxyUiRelayFinalmaskConfig {
+    #[serde(default = "default_relay_finalmask_type")]
+    pub r#type: String,
+    #[serde(default)]
+    pub header_hex: String,
+    #[serde(default)]
+    pub trailer_hex: String,
+    #[serde(default)]
+    pub rand_range: String,
+    #[serde(default)]
+    pub sudoku_seed: String,
+    #[serde(default)]
+    pub fragment_packets: i32,
+    #[serde(default)]
+    pub fragment_min_bytes: i32,
+    #[serde(default)]
+    pub fragment_max_bytes: i32,
+}
+
+fn default_relay_cloudflare_tunnel_mode() -> String {
+    "consume_existing".to_string()
+}
+
+fn default_relay_finalmask_type() -> String {
+    "off".to_string()
+}
+
+impl Default for ProxyUiRelayFinalmaskConfig {
+    fn default() -> Self {
+        Self {
+            r#type: default_relay_finalmask_type(),
+            header_hex: String::new(),
+            trailer_hex: String::new(),
+            rand_range: String::new(),
+            sudoku_seed: String::new(),
+            fragment_packets: 0,
+            fragment_min_bytes: 0,
+            fragment_max_bytes: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ProxyUiRelayConfig {
     #[serde(default)]
     pub enabled: bool,
@@ -632,6 +676,18 @@ pub struct ProxyUiRelayConfig {
     pub reality_public_key: String,
     #[serde(default)]
     pub reality_short_id: String,
+    #[serde(default)]
+    pub vless_transport: String,
+    #[serde(default)]
+    pub xhttp_path: String,
+    #[serde(default)]
+    pub xhttp_host: String,
+    #[serde(default = "default_relay_cloudflare_tunnel_mode")]
+    pub cloudflare_tunnel_mode: String,
+    #[serde(default)]
+    pub cloudflare_publish_local_origin_url: String,
+    #[serde(default)]
+    pub cloudflare_credentials_ref: String,
     #[serde(default)]
     pub chain_entry_server: String,
     #[serde(default = "default_relay_server_port")]
@@ -656,6 +712,8 @@ pub struct ProxyUiRelayConfig {
     pub masque_url: String,
     #[serde(default = "default_true")]
     pub masque_use_http2_fallback: bool,
+    #[serde(default)]
+    pub finalmask: ProxyUiRelayFinalmaskConfig,
     #[serde(default = "default_relay_local_socks_host")]
     pub local_socks_host: String,
     #[serde(default = "default_relay_local_socks_port")]
@@ -678,6 +736,12 @@ impl Default for ProxyUiRelayConfig {
             server_name: String::new(),
             reality_public_key: String::new(),
             reality_short_id: String::new(),
+            vless_transport: String::new(),
+            xhttp_path: String::new(),
+            xhttp_host: String::new(),
+            cloudflare_tunnel_mode: default_relay_cloudflare_tunnel_mode(),
+            cloudflare_publish_local_origin_url: String::new(),
+            cloudflare_credentials_ref: String::new(),
             chain_entry_server: String::new(),
             chain_entry_port: default_relay_server_port(),
             chain_entry_server_name: String::new(),
@@ -690,6 +754,7 @@ impl Default for ProxyUiRelayConfig {
             chain_exit_short_id: String::new(),
             masque_url: String::new(),
             masque_use_http2_fallback: true,
+            finalmask: ProxyUiRelayFinalmaskConfig::default(),
             local_socks_host: default_relay_local_socks_host(),
             local_socks_port: default_relay_local_socks_port(),
             udp_enabled: false,

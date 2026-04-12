@@ -53,6 +53,7 @@ class StrategyPackCatalogTest {
     fun `resolves typed pack sections from pinned selection`() {
         val catalog =
             StrategyPackCatalog(
+                schemaVersion = StrategyPackCatalogSchemaVersion,
                 packs =
                     listOf(
                         StrategyPackDefinition(
@@ -64,7 +65,11 @@ class StrategyPackCatalogTest {
                             tlsProfileSetId = "baseline",
                             morphPolicyId = "balanced",
                             transportModuleIds = listOf("snowflake"),
-                            featureFlagIds = listOf("quic"),
+                            featureFlagIds =
+                                listOf(
+                                    StrategyFeatureCloudflareConsumeValidation,
+                                    StrategyFeatureNaiveProxyWatchdog,
+                                ),
                         ),
                     ),
                 hostLists = listOf(StrategyPackHostList(id = "video", title = "Video")),
@@ -86,7 +91,12 @@ class StrategyPackCatalogTest {
                             title = "Snowflake",
                         ),
                     ),
-                featureFlags = listOf(StrategyPackFeatureFlag(id = "quic", enabled = true)),
+                featureFlags =
+                    listOf(
+                        StrategyPackFeatureFlag(id = StrategyFeatureCloudflareConsumeValidation, enabled = true),
+                        StrategyPackFeatureFlag(id = StrategyFeatureNaiveProxyWatchdog, enabled = true),
+                        StrategyPackFeatureFlag(id = StrategyFeatureCloudflarePublish, enabled = false),
+                    ),
             )
 
         val selection = catalog.resolveSelection(pinnedPackId = "mobile", pinnedPackVersion = "2026.04.1")
@@ -96,6 +106,9 @@ class StrategyPackCatalogTest {
         assertEquals("balanced", selection.morphPolicy?.id)
         assertEquals(listOf("video"), selection.hostLists.map { it.id })
         assertEquals(listOf("snowflake"), selection.transportModules.map { it.id })
-        assertEquals(listOf("quic"), selection.featureFlags.map { it.id })
+        assertEquals(
+            listOf(StrategyFeatureCloudflareConsumeValidation, StrategyFeatureNaiveProxyWatchdog),
+            selection.featureFlags.map { it.id },
+        )
     }
 }

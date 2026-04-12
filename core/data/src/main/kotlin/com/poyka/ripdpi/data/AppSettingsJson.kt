@@ -190,6 +190,9 @@ internal data class AppSettingsSnapshot(
     val relayVlessTransport: String = defaultSettings.relayVlessTransport,
     val relayXhttpPath: String = defaultSettings.relayXhttpPath,
     val relayXhttpHost: String = defaultSettings.relayXhttpHost,
+    val relayCloudflareTunnelMode: String = defaultSettings.relayCloudflareTunnelMode,
+    val relayCloudflarePublishLocalOriginUrl: String = defaultSettings.relayCloudflarePublishLocalOriginUrl,
+    val relayCloudflareCredentialsRef: String = defaultSettings.relayCloudflareCredentialsRef,
     val relayChainEntryServer: String = defaultSettings.relayChainEntryServer,
     val relayChainEntryPort: Int = defaultSettings.relayChainEntryPort,
     val relayChainEntryServerName: String = defaultSettings.relayChainEntryServerName,
@@ -213,6 +216,14 @@ internal data class AppSettingsSnapshot(
     val relayLocalSocksPort: Int = defaultSettings.relayLocalSocksPort,
     val relayUdpEnabled: Boolean = defaultSettings.relayUdpEnabled,
     val relayTcpFallbackEnabled: Boolean = defaultSettings.relayTcpFallbackEnabled,
+    val relayFinalmaskType: String = defaultSettings.relayFinalmaskType,
+    val relayFinalmaskHeaderHex: String = defaultSettings.relayFinalmaskHeaderHex,
+    val relayFinalmaskTrailerHex: String = defaultSettings.relayFinalmaskTrailerHex,
+    val relayFinalmaskRandRange: String = defaultSettings.relayFinalmaskRandRange,
+    val relayFinalmaskSudokuSeed: String = defaultSettings.relayFinalmaskSudokuSeed,
+    val relayFinalmaskFragmentPackets: Int = defaultSettings.relayFinalmaskFragmentPackets,
+    val relayFinalmaskFragmentMinBytes: Int = defaultSettings.relayFinalmaskFragmentMinBytes,
+    val relayFinalmaskFragmentMaxBytes: Int = defaultSettings.relayFinalmaskFragmentMaxBytes,
     val desyncAnyProtocol: Boolean = defaultSettings.desyncAnyProtocol,
     val appRoutingPolicyMode: String = defaultSettings.appRoutingPolicyMode,
     val appRoutingEnabledPresetIds: List<String> = defaultSettings.appRoutingEnabledPresetIdsList,
@@ -411,6 +422,9 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             relayVlessTransport = normalizeRelayVlessTransport(relayVlessTransport, relayKind),
             relayXhttpPath = relayXhttpPath,
             relayXhttpHost = relayXhttpHost,
+            relayCloudflareTunnelMode = normalizeRelayCloudflareTunnelMode(relayCloudflareTunnelMode),
+            relayCloudflarePublishLocalOriginUrl = relayCloudflarePublishLocalOriginUrl,
+            relayCloudflareCredentialsRef = relayCloudflareCredentialsRef,
             relayChainEntryServer = relayChainEntryServer,
             relayChainEntryPort = relayChainEntryPort.takeIf { it > 0 } ?: 443,
             relayChainEntryServerName = relayChainEntryServerName,
@@ -434,6 +448,14 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             relayLocalSocksPort = relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort,
             relayUdpEnabled = relayUdpEnabled,
             relayTcpFallbackEnabled = relayTcpFallbackEnabled,
+            relayFinalmaskType = normalizeRelayFinalmaskType(relayFinalmaskType),
+            relayFinalmaskHeaderHex = relayFinalmaskHeaderHex,
+            relayFinalmaskTrailerHex = relayFinalmaskTrailerHex,
+            relayFinalmaskRandRange = relayFinalmaskRandRange,
+            relayFinalmaskSudokuSeed = relayFinalmaskSudokuSeed,
+            relayFinalmaskFragmentPackets = relayFinalmaskFragmentPackets,
+            relayFinalmaskFragmentMinBytes = relayFinalmaskFragmentMinBytes,
+            relayFinalmaskFragmentMaxBytes = relayFinalmaskFragmentMaxBytes,
             desyncAnyProtocol = desyncAnyProtocol,
             appRoutingPolicyMode = normalizeAppRoutingPolicyMode(appRoutingPolicyMode),
             appRoutingEnabledPresetIds = effectiveAppRoutingEnabledPresetIds(),
@@ -636,6 +658,9 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setRelayVlessTransport(normalizeRelayVlessTransport(relayVlessTransport, relayKind))
         .setRelayXhttpPath(relayXhttpPath)
         .setRelayXhttpHost(relayXhttpHost)
+        .setRelayCloudflareTunnelMode(normalizeRelayCloudflareTunnelMode(relayCloudflareTunnelMode))
+        .setRelayCloudflarePublishLocalOriginUrl(relayCloudflarePublishLocalOriginUrl)
+        .setRelayCloudflareCredentialsRef(relayCloudflareCredentialsRef)
         .setRelayChainEntryServer(relayChainEntryServer)
         .setRelayChainEntryPort(relayChainEntryPort.takeIf { it > 0 } ?: DefaultHttpsPort)
         .setRelayChainEntryServerName(relayChainEntryServerName)
@@ -659,6 +684,14 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setRelayLocalSocksPort(relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort)
         .setRelayUdpEnabled(relayUdpEnabled)
         .setRelayTcpFallbackEnabled(relayTcpFallbackEnabled)
+        .setRelayFinalmaskType(normalizeRelayFinalmaskType(relayFinalmaskType))
+        .setRelayFinalmaskHeaderHex(relayFinalmaskHeaderHex)
+        .setRelayFinalmaskTrailerHex(relayFinalmaskTrailerHex)
+        .setRelayFinalmaskRandRange(relayFinalmaskRandRange)
+        .setRelayFinalmaskSudokuSeed(relayFinalmaskSudokuSeed)
+        .setRelayFinalmaskFragmentPackets(relayFinalmaskFragmentPackets)
+        .setRelayFinalmaskFragmentMinBytes(relayFinalmaskFragmentMinBytes)
+        .setRelayFinalmaskFragmentMaxBytes(relayFinalmaskFragmentMaxBytes)
         .setDesyncAnyProtocol(desyncAnyProtocol)
         .setAppRoutingPolicyMode(normalizeAppRoutingPolicyMode(appRoutingPolicyMode))
         .clearAppRoutingEnabledPresetIds()

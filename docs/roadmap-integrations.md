@@ -6,10 +6,18 @@ Prioritized list of integrations and path optimization techniques for RIPDPI, ba
 
 This document remains the research and backlog source of truth. The actionable implementation splits live in separate phase files:
 
+- [Implementation status and remaining follow-up scope](roadmap-integrations-status.md)
 - [Phase P0 implementation](roadmap-integrations-p0.md)
 - [Phase P1 implementation](roadmap-integrations-p1.md)
 - [Phase P2 implementation](roadmap-integrations-p2.md)
 - [Phase P3 implementation](roadmap-integrations-p3.md)
+
+Current repo status on the follow-up backlog:
+
+- Cloudflare Tunnel now has explicit consume/publish modes, credential-reference persistence, import-backed secret storage, and rollout-flag wiring.
+- Finalmask is exposed in settings, relay models, strategy-pack flags, and native relay validation, with unsupported combinations rejected at startup.
+- NaiveProxy now runs as a supervised helper with version probing, structured failure telemetry, and bounded restart budgeting.
+- Cloudflare publish runtime bundling and transport-level Finalmask byte rewriting remain the two material implementation gaps after this update.
 
 ## Current Threat Landscape
 

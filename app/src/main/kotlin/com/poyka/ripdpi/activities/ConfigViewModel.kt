@@ -14,9 +14,16 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
+import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayFinalmaskTypeFragment
+import com.poyka.ripdpi.data.RelayFinalmaskTypeHeaderCustom
+import com.poyka.ripdpi.data.RelayFinalmaskTypeNoise
+import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
+import com.poyka.ripdpi.data.RelayFinalmaskTypeSudoku
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -54,7 +61,9 @@ import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
+import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
+import com.poyka.ripdpi.data.normalizeRelayFinalmaskType
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.primaryDesyncMethod
@@ -123,6 +132,11 @@ data class ConfigDraft(
     val relayVlessTransport: String = RelayVlessTransportRealityTcp,
     val relayXhttpPath: String = "",
     val relayXhttpHost: String = "",
+    val relayCloudflareTunnelMode: String = RelayCloudflareTunnelModeConsumeExisting,
+    val relayCloudflarePublishLocalOriginUrl: String = "",
+    val relayCloudflareCredentialsRef: String = "",
+    val relayCloudflareTunnelToken: String = "",
+    val relayCloudflareTunnelCredentialsJson: String = "",
     val relayVlessUuid: String = "",
     val relayHysteriaPassword: String = "",
     val relayHysteriaSalamanderKey: String = "",
@@ -162,6 +176,14 @@ data class ConfigDraft(
     val relaySnowflakeFrontDomain: String = DefaultSnowflakeFrontDomain,
     val relayUdpEnabled: Boolean = false,
     val relayLocalSocksPort: String = DefaultRelayLocalSocksPort.toString(),
+    val relayFinalmaskType: String = RelayFinalmaskTypeOff,
+    val relayFinalmaskHeaderHex: String = "",
+    val relayFinalmaskTrailerHex: String = "",
+    val relayFinalmaskRandRange: String = "",
+    val relayFinalmaskSudokuSeed: String = "",
+    val relayFinalmaskFragmentPackets: String = "",
+    val relayFinalmaskFragmentMinBytes: String = "",
+    val relayFinalmaskFragmentMaxBytes: String = "",
 ) {
     val chainSummary: String
         get() = resolvedChainSet().let { formatChainSummary(it.tcpSteps, it.udpSteps) }
@@ -261,6 +283,8 @@ internal const val ConfigFieldRelayServerPort = "relayServerPort"
 internal const val ConfigFieldRelayLocalSocksPort = "relayLocalSocksPort"
 internal const val ConfigFieldRelayServer = "relayServer"
 internal const val ConfigFieldRelayCredentials = "relayCredentials"
+internal const val ConfigFieldRelayCloudflarePublishOrigin = "relayCloudflarePublishOrigin"
+internal const val ConfigFieldRelayFinalmask = "relayFinalmask"
 
 private const val LegacyChainEntryProfileSuffix = "__ripdpi_chain_entry"
 private const val LegacyChainExitProfileSuffix = "__ripdpi_chain_exit"
@@ -294,6 +318,9 @@ internal fun AppSettings.toConfigDraft(): ConfigDraft =
             relayVlessTransport = relay.profile.vlessTransport,
             relayXhttpPath = relay.profile.xhttpPath,
             relayXhttpHost = relay.profile.xhttpHost,
+            relayCloudflareTunnelMode = relay.profile.cloudflareTunnelMode,
+            relayCloudflarePublishLocalOriginUrl = relay.profile.cloudflarePublishLocalOriginUrl,
+            relayCloudflareCredentialsRef = relay.profile.cloudflareCredentialsRef,
             relayChainEntryServer = relay.profile.chainEntryServer,
             relayChainEntryPort = relay.profile.chainEntryPort.toString(),
             relayChainEntryServerName = relay.profile.chainEntryServerName,
@@ -320,6 +347,26 @@ internal fun AppSettings.toConfigDraft(): ConfigDraft =
             relaySnowflakeFrontDomain = relay.profile.ptSnowflakeFrontDomain,
             relayUdpEnabled = relay.profile.udpEnabled,
             relayLocalSocksPort = relay.profile.localSocksPort.toString(),
+            relayFinalmaskType = relay.profile.finalmask.type,
+            relayFinalmaskHeaderHex = relay.profile.finalmask.headerHex,
+            relayFinalmaskTrailerHex = relay.profile.finalmask.trailerHex,
+            relayFinalmaskRandRange = relay.profile.finalmask.randRange,
+            relayFinalmaskSudokuSeed = relay.profile.finalmask.sudokuSeed,
+            relayFinalmaskFragmentPackets =
+                relay.profile.finalmask.fragmentPackets
+                    .takeIf { it > 0 }
+                    ?.toString()
+                    .orEmpty(),
+            relayFinalmaskFragmentMinBytes =
+                relay.profile.finalmask.fragmentMinBytes
+                    .takeIf { it > 0 }
+                    ?.toString()
+                    .orEmpty(),
+            relayFinalmaskFragmentMaxBytes =
+                relay.profile.finalmask.fragmentMaxBytes
+                    .takeIf { it > 0 }
+                    ?.toString()
+                    .orEmpty(),
         )
     }
 
@@ -416,8 +463,24 @@ internal fun validateConfigDraft(
 
                 RelayKindCloudflareTunnel -> {
                     if (draft.relayServer.isBlank()) put(ConfigFieldRelayServer, "required")
-                    if (draft.relayVlessUuid.isBlank()) {
-                        put(ConfigFieldRelayCredentials, "required")
+                    when (normalizeRelayCloudflareTunnelMode(draft.relayCloudflareTunnelMode)) {
+                        RelayCloudflareTunnelModeConsumeExisting -> {
+                            if (draft.relayVlessUuid.isBlank()) {
+                                put(ConfigFieldRelayCredentials, "required")
+                            }
+                        }
+
+                        RelayCloudflareTunnelModePublishLocalOrigin -> {
+                            if (draft.relayCloudflarePublishLocalOriginUrl.isBlank()) {
+                                put(ConfigFieldRelayCloudflarePublishOrigin, "required")
+                            }
+                            if (
+                                draft.relayCloudflareTunnelToken.isBlank() &&
+                                draft.relayCloudflareTunnelCredentialsJson.isBlank()
+                            ) {
+                                put(ConfigFieldRelayCredentials, "required")
+                            }
+                        }
                     }
                     if (draft.relayUdpEnabled) {
                         put(ConfigFieldRelayCredentials, "unsupported")
@@ -562,6 +625,8 @@ internal fun validateConfigDraft(
                 }
             }
 
+            validateRelayFinalmaskDraft(draft)?.let { put(ConfigFieldRelayFinalmask, it) }
+
             if (
                 draft.relayUdpEnabled &&
                 draft.relayKind != RelayKindHysteria2 &&
@@ -587,6 +652,67 @@ internal fun validateConfigDraft(
             }
         }
     }.toImmutableMap()
+
+private fun validateRelayFinalmaskDraft(draft: ConfigDraft): String? {
+    val finalmaskType = normalizeRelayFinalmaskType(draft.relayFinalmaskType)
+    if (finalmaskType == RelayFinalmaskTypeOff) {
+        return null
+    }
+    if (
+        draft.relayKind != RelayKindVlessReality &&
+        draft.relayKind != RelayKindCloudflareTunnel &&
+        draft.relayKind != RelayKindMasque &&
+        draft.relayKind != RelayKindHysteria2 &&
+        draft.relayKind != RelayKindTuicV5
+    ) {
+        return "unsupported"
+    }
+    return when (finalmaskType) {
+        RelayFinalmaskTypeHeaderCustom,
+        RelayFinalmaskTypeNoise,
+        -> {
+            when {
+                draft.relayFinalmaskRandRange.isNotBlank() &&
+                    !draft.relayFinalmaskRandRange.matches(
+                        Regex("\\d+-\\d+"),
+                    )
+                -> {
+                    "invalid_range"
+                }
+
+                finalmaskType == RelayFinalmaskTypeHeaderCustom &&
+                    draft.relayFinalmaskHeaderHex.isBlank() &&
+                    draft.relayFinalmaskTrailerHex.isBlank() -> {
+                    "required"
+                }
+
+                else -> {
+                    null
+                }
+            }
+        }
+
+        RelayFinalmaskTypeSudoku -> {
+            if (draft.relayFinalmaskSudokuSeed.isBlank()) "required" else null
+        }
+
+        RelayFinalmaskTypeFragment -> {
+            if (
+                !validateIntRange(draft.relayFinalmaskFragmentPackets, 1, 16) ||
+                !validateIntRange(draft.relayFinalmaskFragmentMinBytes, 1, 65535) ||
+                !validateIntRange(draft.relayFinalmaskFragmentMaxBytes, 1, 65535)
+            ) {
+                "out_of_range"
+            } else {
+                null
+            }
+        }
+
+        else -> {
+            null
+        }
+    }
+}
 
 private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSettings.Builder =
     apply {
@@ -619,6 +745,9 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
         setRelayVlessTransport(draft.relayVlessTransport)
         setRelayXhttpPath(draft.relayXhttpPath)
         setRelayXhttpHost(draft.relayXhttpHost)
+        setRelayCloudflareTunnelMode(normalizeRelayCloudflareTunnelMode(draft.relayCloudflareTunnelMode))
+        setRelayCloudflarePublishLocalOriginUrl(draft.relayCloudflarePublishLocalOriginUrl)
+        setRelayCloudflareCredentialsRef(draft.relayCloudflareCredentialsRef)
         setRelayChainEntryServer("")
         setRelayChainEntryPort(defaultRelayPort)
         setRelayChainEntryServerName("")
@@ -648,6 +777,14 @@ private fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSetting
                 ),
         )
         setRelayTcpFallbackEnabled(draft.relayMasqueUseHttp2Fallback)
+        setRelayFinalmaskType(normalizeRelayFinalmaskType(draft.relayFinalmaskType))
+        setRelayFinalmaskHeaderHex(draft.relayFinalmaskHeaderHex)
+        setRelayFinalmaskTrailerHex(draft.relayFinalmaskTrailerHex)
+        setRelayFinalmaskRandRange(draft.relayFinalmaskRandRange)
+        setRelayFinalmaskSudokuSeed(draft.relayFinalmaskSudokuSeed)
+        setRelayFinalmaskFragmentPackets(draft.relayFinalmaskFragmentPackets.toIntOrNull() ?: 0)
+        setRelayFinalmaskFragmentMinBytes(draft.relayFinalmaskFragmentMinBytes.toIntOrNull() ?: 0)
+        setRelayFinalmaskFragmentMaxBytes(draft.relayFinalmaskFragmentMaxBytes.toIntOrNull() ?: 0)
     }
 
 private suspend fun prepareRelayDraftForPersistence(
@@ -1007,6 +1144,14 @@ class ConfigViewModel
                                 relayShadowTlsPassword = credentials?.shadowTlsPassword.orEmpty(),
                                 relayNaiveUsername = credentials?.naiveUsername.orEmpty(),
                                 relayNaivePassword = credentials?.naivePassword.orEmpty(),
+                                relayCloudflareCredentialsRef =
+                                    profile
+                                        ?.cloudflareCredentialsRef
+                                        ?.ifBlank { (current.draft ?: draft).relayCloudflareCredentialsRef }
+                                        ?: (current.draft ?: draft).relayCloudflareCredentialsRef,
+                                relayCloudflareTunnelToken = credentials?.cloudflareTunnelToken.orEmpty(),
+                                relayCloudflareTunnelCredentialsJson =
+                                    credentials?.cloudflareTunnelCredentialsJson.orEmpty(),
                                 relayPtBridgeLine = profile?.ptBridgeLine.orEmpty(),
                                 relayWebTunnelUrl = profile?.ptWebTunnelUrl.orEmpty(),
                                 relaySnowflakeBrokerUrl =
@@ -1049,6 +1194,12 @@ class ConfigViewModel
                     vlessTransport = draft.relayVlessTransport,
                     xhttpPath = draft.relayXhttpPath,
                     xhttpHost = draft.relayXhttpHost,
+                    cloudflareTunnelMode = normalizeRelayCloudflareTunnelMode(draft.relayCloudflareTunnelMode),
+                    cloudflarePublishLocalOriginUrl = draft.relayCloudflarePublishLocalOriginUrl,
+                    cloudflareCredentialsRef =
+                        draft.relayCloudflareCredentialsRef.ifBlank {
+                            draft.relayProfileId.ifBlank { DefaultRelayProfileId }
+                        },
                     chainEntryServer = "",
                     chainEntryPort = 443,
                     chainEntryServerName = "",
@@ -1094,6 +1245,14 @@ class ConfigViewModel
                             ),
                     tcpFallbackEnabled = draft.relayMasqueUseHttp2Fallback,
                     localSocksPort = draft.relayLocalSocksPort.toIntOrNull() ?: DefaultRelayLocalSocksPort,
+                    finalmaskType = normalizeRelayFinalmaskType(draft.relayFinalmaskType),
+                    finalmaskHeaderHex = draft.relayFinalmaskHeaderHex,
+                    finalmaskTrailerHex = draft.relayFinalmaskTrailerHex,
+                    finalmaskRandRange = draft.relayFinalmaskRandRange,
+                    finalmaskSudokuSeed = draft.relayFinalmaskSudokuSeed,
+                    finalmaskFragmentPackets = draft.relayFinalmaskFragmentPackets.toIntOrNull() ?: 0,
+                    finalmaskFragmentMinBytes = draft.relayFinalmaskFragmentMinBytes.toIntOrNull() ?: 0,
+                    finalmaskFragmentMaxBytes = draft.relayFinalmaskFragmentMaxBytes.toIntOrNull() ?: 0,
                 ),
             )
             relayCredentialStore.save(
@@ -1113,6 +1272,8 @@ class ConfigViewModel
                     masqueAuthToken = draft.relayMasqueAuthToken.ifBlank { null },
                     masqueClientCertificateChainPem = draft.relayMasqueClientCertificateChainPem.ifBlank { null },
                     masqueClientPrivateKeyPem = draft.relayMasqueClientPrivateKeyPem.ifBlank { null },
+                    cloudflareTunnelToken = draft.relayCloudflareTunnelToken.ifBlank { null },
+                    cloudflareTunnelCredentialsJson = draft.relayCloudflareTunnelCredentialsJson.ifBlank { null },
                 ),
             )
         }

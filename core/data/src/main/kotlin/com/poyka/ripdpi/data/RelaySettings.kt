@@ -20,6 +20,13 @@ const val RelayMasqueAuthModeBearer = "bearer"
 const val RelayMasqueAuthModePreshared = "preshared"
 const val RelayMasqueAuthModePrivacyPass = "privacy_pass"
 const val RelayMasqueAuthModeCloudflareMtls = "cloudflare_mtls"
+const val RelayCloudflareTunnelModeConsumeExisting = "consume_existing"
+const val RelayCloudflareTunnelModePublishLocalOrigin = "publish_local_origin"
+const val RelayFinalmaskTypeOff = "off"
+const val RelayFinalmaskTypeHeaderCustom = "header_custom"
+const val RelayFinalmaskTypeSudoku = "sudoku"
+const val RelayFinalmaskTypeFragment = "fragment"
+const val RelayFinalmaskTypeNoise = "noise"
 const val RelayCongestionControlBbr = "bbr"
 const val RelayCongestionControlCubic = "cubic"
 const val DefaultRelayProfileId = "default"
@@ -79,6 +86,32 @@ fun normalizeRelayCongestionControl(value: String?): String =
         else -> RelayCongestionControlBbr
     }
 
+fun normalizeRelayCloudflareTunnelMode(value: String?): String =
+    when (value?.trim()?.lowercase()) {
+        RelayCloudflareTunnelModePublishLocalOrigin -> RelayCloudflareTunnelModePublishLocalOrigin
+        else -> RelayCloudflareTunnelModeConsumeExisting
+    }
+
+fun normalizeRelayFinalmaskType(value: String?): String =
+    when (value?.trim()?.lowercase()) {
+        RelayFinalmaskTypeHeaderCustom -> RelayFinalmaskTypeHeaderCustom
+        RelayFinalmaskTypeSudoku -> RelayFinalmaskTypeSudoku
+        RelayFinalmaskTypeFragment -> RelayFinalmaskTypeFragment
+        RelayFinalmaskTypeNoise -> RelayFinalmaskTypeNoise
+        else -> RelayFinalmaskTypeOff
+    }
+
+data class RelayFinalmaskModel(
+    val type: String = RelayFinalmaskTypeOff,
+    val headerHex: String = "",
+    val trailerHex: String = "",
+    val randRange: String = "",
+    val sudokuSeed: String = "",
+    val fragmentPackets: Int = 0,
+    val fragmentMinBytes: Int = 0,
+    val fragmentMaxBytes: Int = 0,
+)
+
 data class RelayProfileModel(
     val id: String = DefaultRelayProfileId,
     val kind: String = RelayKindOff,
@@ -92,6 +125,9 @@ data class RelayProfileModel(
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",
+    val cloudflareTunnelMode: String = RelayCloudflareTunnelModeConsumeExisting,
+    val cloudflarePublishLocalOriginUrl: String = "",
+    val cloudflareCredentialsRef: String = "",
     val chainEntryServer: String = "",
     val chainEntryPort: Int = 443,
     val chainEntryServerName: String = "",
@@ -119,6 +155,7 @@ data class RelayProfileModel(
     val localSocksPort: Int = DefaultRelayLocalSocksPort,
     val udpEnabled: Boolean = false,
     val tcpFallbackEnabled: Boolean = true,
+    val finalmask: RelayFinalmaskModel = RelayFinalmaskModel(),
 )
 
 data class RelaySettingsModel(
@@ -149,6 +186,9 @@ fun AppSettings.toRelaySettingsModel(): RelaySettingsModel {
                 vlessTransport = normalizeRelayVlessTransport(relayVlessTransport, kind),
                 xhttpPath = relayXhttpPath,
                 xhttpHost = relayXhttpHost,
+                cloudflareTunnelMode = normalizeRelayCloudflareTunnelMode(relayCloudflareTunnelMode),
+                cloudflarePublishLocalOriginUrl = relayCloudflarePublishLocalOriginUrl,
+                cloudflareCredentialsRef = relayCloudflareCredentialsRef,
                 chainEntryServer = relayChainEntryServer,
                 chainEntryPort = relayChainEntryPort.takeIf { it > 0 } ?: 443,
                 chainEntryServerName = relayChainEntryServerName,
@@ -176,6 +216,17 @@ fun AppSettings.toRelaySettingsModel(): RelaySettingsModel {
                 localSocksPort = relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort,
                 udpEnabled = relayUdpEnabled,
                 tcpFallbackEnabled = relayTcpFallbackEnabled,
+                finalmask =
+                    RelayFinalmaskModel(
+                        type = normalizeRelayFinalmaskType(relayFinalmaskType),
+                        headerHex = relayFinalmaskHeaderHex,
+                        trailerHex = relayFinalmaskTrailerHex,
+                        randRange = relayFinalmaskRandRange,
+                        sudokuSeed = relayFinalmaskSudokuSeed,
+                        fragmentPackets = relayFinalmaskFragmentPackets,
+                        fragmentMinBytes = relayFinalmaskFragmentMinBytes,
+                        fragmentMaxBytes = relayFinalmaskFragmentMaxBytes,
+                    ),
             ),
     )
 }

@@ -12,11 +12,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
+import com.poyka.ripdpi.activities.ConfigFieldRelayCloudflarePublishOrigin
+import com.poyka.ripdpi.activities.ConfigFieldRelayFinalmask
 import com.poyka.ripdpi.activities.ConfigFieldRelayServer
 import com.poyka.ripdpi.activities.ConfigFieldRelayServerPort
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
+import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayCongestionControlCubic
+import com.poyka.ripdpi.data.RelayFinalmaskTypeFragment
+import com.poyka.ripdpi.data.RelayFinalmaskTypeHeaderCustom
+import com.poyka.ripdpi.data.RelayFinalmaskTypeNoise
+import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
+import com.poyka.ripdpi.data.RelayFinalmaskTypeSudoku
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -58,6 +67,11 @@ internal fun RelayKindFields(
     onRelayVlessTransportChanged: (String) -> Unit,
     onRelayXhttpPathChanged: (String) -> Unit,
     onRelayXhttpHostChanged: (String) -> Unit,
+    onRelayCloudflareTunnelModeChanged: (String) -> Unit = {},
+    onRelayCloudflarePublishLocalOriginUrlChanged: (String) -> Unit = {},
+    onRelayCloudflareCredentialsRefChanged: (String) -> Unit = {},
+    onRelayCloudflareTunnelTokenChanged: (String) -> Unit = {},
+    onRelayCloudflareTunnelCredentialsJsonChanged: (String) -> Unit = {},
     onRelayVlessUuidChanged: (String) -> Unit,
     onRelayHysteriaPasswordChanged: (String) -> Unit,
     onRelayHysteriaSalamanderKeyChanged: (String) -> Unit,
@@ -86,6 +100,14 @@ internal fun RelayKindFields(
     onRelayWebTunnelUrlChanged: (String) -> Unit,
     onRelaySnowflakeBrokerUrlChanged: (String) -> Unit,
     onRelaySnowflakeFrontDomainChanged: (String) -> Unit,
+    onRelayFinalmaskTypeChanged: (String) -> Unit = {},
+    onRelayFinalmaskHeaderHexChanged: (String) -> Unit = {},
+    onRelayFinalmaskTrailerHexChanged: (String) -> Unit = {},
+    onRelayFinalmaskRandRangeChanged: (String) -> Unit = {},
+    onRelayFinalmaskSudokuSeedChanged: (String) -> Unit = {},
+    onRelayFinalmaskFragmentPacketsChanged: (String) -> Unit = {},
+    onRelayFinalmaskFragmentMinBytesChanged: (String) -> Unit = {},
+    onRelayFinalmaskFragmentMaxBytesChanged: (String) -> Unit = {},
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val colors = RipDpiThemeTokens.colors
@@ -134,6 +156,59 @@ internal fun RelayKindFields(
                     style = RipDpiThemeTokens.type.caption,
                     color = colors.mutedForeground,
                 )
+                Text(
+                    text = "Tunnel mode",
+                    style = RipDpiThemeTokens.type.caption,
+                    color = colors.mutedForeground,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+                    RelayKindChip(
+                        selectedKind = draft.relayCloudflareTunnelMode,
+                        kind = RelayCloudflareTunnelModeConsumeExisting,
+                        label = "Consume existing",
+                        onRelayKindChanged = onRelayCloudflareTunnelModeChanged,
+                    )
+                    RelayKindChip(
+                        selectedKind = draft.relayCloudflareTunnelMode,
+                        kind = RelayCloudflareTunnelModePublishLocalOrigin,
+                        label = "Publish local",
+                        onRelayKindChanged = onRelayCloudflareTunnelModeChanged,
+                    )
+                }
+                if (draft.relayCloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin) {
+                    RipDpiTextField(
+                        value = draft.relayCloudflarePublishLocalOriginUrl,
+                        onValueChange = onRelayCloudflarePublishLocalOriginUrlChanged,
+                        decoration =
+                            RipDpiTextFieldDecoration(
+                                label = "Local origin URL",
+                                errorText =
+                                    validationMessage(
+                                        uiState.validationErrors[ConfigFieldRelayCloudflarePublishOrigin],
+                                    ),
+                            ),
+                    )
+                    RipDpiTextField(
+                        value = draft.relayCloudflareCredentialsRef,
+                        onValueChange = onRelayCloudflareCredentialsRefChanged,
+                        decoration = RipDpiTextFieldDecoration(label = "Credentials reference"),
+                    )
+                    RipDpiConfigTextField(
+                        value = draft.relayCloudflareTunnelToken,
+                        onValueChange = onRelayCloudflareTunnelTokenChanged,
+                        decoration =
+                            RipDpiTextFieldDecoration(
+                                label = "Tunnel token",
+                                helperText = "Import a Cloudflare tunnel token or credentials JSON.",
+                            ),
+                    )
+                    RipDpiConfigTextField(
+                        value = draft.relayCloudflareTunnelCredentialsJson,
+                        onValueChange = onRelayCloudflareTunnelCredentialsJsonChanged,
+                        decoration = RipDpiTextFieldDecoration(label = "Named tunnel credentials JSON"),
+                        multiline = true,
+                    )
+                }
             }
             if (draft.relayKind == RelayKindVlessReality) {
                 RipDpiTextField(
@@ -442,6 +517,127 @@ internal fun RelayKindFields(
                     RipDpiTextFieldDecoration(
                         label = "Bridge line",
                         helperText = "Paste a full obfs4 bridge line from your bridge source.",
+                    ),
+            )
+        }
+    }
+
+    Text(
+        text = "Finalmask",
+        style = RipDpiThemeTokens.type.caption,
+        color = colors.mutedForeground,
+    )
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        RelayKindChip(
+            selectedKind = draft.relayFinalmaskType,
+            kind = RelayFinalmaskTypeOff,
+            label = "Off",
+            onRelayKindChanged = onRelayFinalmaskTypeChanged,
+        )
+        RelayKindChip(
+            selectedKind = draft.relayFinalmaskType,
+            kind = RelayFinalmaskTypeHeaderCustom,
+            label = "Header",
+            onRelayKindChanged = onRelayFinalmaskTypeChanged,
+        )
+        RelayKindChip(
+            selectedKind = draft.relayFinalmaskType,
+            kind = RelayFinalmaskTypeSudoku,
+            label = "Sudoku",
+            onRelayKindChanged = onRelayFinalmaskTypeChanged,
+        )
+    }
+    Row(horizontalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        RelayKindChip(
+            selectedKind = draft.relayFinalmaskType,
+            kind = RelayFinalmaskTypeFragment,
+            label = "Fragment",
+            onRelayKindChanged = onRelayFinalmaskTypeChanged,
+        )
+        RelayKindChip(
+            selectedKind = draft.relayFinalmaskType,
+            kind = RelayFinalmaskTypeNoise,
+            label = "Noise",
+            onRelayKindChanged = onRelayFinalmaskTypeChanged,
+        )
+    }
+    when (draft.relayFinalmaskType) {
+        RelayFinalmaskTypeHeaderCustom -> {
+            RipDpiTextField(
+                value = draft.relayFinalmaskHeaderHex,
+                onValueChange = onRelayFinalmaskHeaderHexChanged,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = "Header hex",
+                        errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayFinalmask]),
+                    ),
+            )
+            RipDpiTextField(
+                value = draft.relayFinalmaskTrailerHex,
+                onValueChange = onRelayFinalmaskTrailerHexChanged,
+                decoration = RipDpiTextFieldDecoration(label = "Trailer hex"),
+            )
+            RipDpiTextField(
+                value = draft.relayFinalmaskRandRange,
+                onValueChange = onRelayFinalmaskRandRangeChanged,
+                decoration = RipDpiTextFieldDecoration(label = "Random range"),
+            )
+        }
+
+        RelayFinalmaskTypeSudoku -> {
+            RipDpiTextField(
+                value = draft.relayFinalmaskSudokuSeed,
+                onValueChange = onRelayFinalmaskSudokuSeedChanged,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = "Sudoku seed",
+                        errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayFinalmask]),
+                    ),
+            )
+        }
+
+        RelayFinalmaskTypeFragment -> {
+            RipDpiTextField(
+                value = draft.relayFinalmaskFragmentPackets,
+                onValueChange = onRelayFinalmaskFragmentPacketsChanged,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = "Fragment packets",
+                        errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayFinalmask]),
+                    ),
+                behavior =
+                    RipDpiTextFieldBehavior(
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    ),
+            )
+            RipDpiTextField(
+                value = draft.relayFinalmaskFragmentMinBytes,
+                onValueChange = onRelayFinalmaskFragmentMinBytesChanged,
+                decoration = RipDpiTextFieldDecoration(label = "Fragment min bytes"),
+                behavior =
+                    RipDpiTextFieldBehavior(
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    ),
+            )
+            RipDpiTextField(
+                value = draft.relayFinalmaskFragmentMaxBytes,
+                onValueChange = onRelayFinalmaskFragmentMaxBytesChanged,
+                decoration = RipDpiTextFieldDecoration(label = "Fragment max bytes"),
+                behavior =
+                    RipDpiTextFieldBehavior(
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    ),
+            )
+        }
+
+        RelayFinalmaskTypeNoise -> {
+            RipDpiTextField(
+                value = draft.relayFinalmaskRandRange,
+                onValueChange = onRelayFinalmaskRandRangeChanged,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = "Noise range",
+                        errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayFinalmask]),
                     ),
             )
         }

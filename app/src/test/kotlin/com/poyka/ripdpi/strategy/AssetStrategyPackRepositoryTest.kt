@@ -225,7 +225,7 @@ private fun applicationStrategyPackDefaults() =
 private fun refreshedCatalogJson(): String =
     """
     {
-      "schemaVersion": 2,
+      "schemaVersion": 3,
       "generatedAt": "2026-04-05T09:00:00Z",
       "channel": "stable",
       "minAppVersion": "0.0.4",
@@ -258,6 +258,13 @@ private fun refreshedCatalogJson(): String =
           ]
         }
       ],
+      "featureFlags": [
+        {
+          "id": "cloudflare_consume_validation",
+          "enabled": true,
+          "scope": "pack"
+        }
+      ],
       "packs": [
         {
           "id": "mobile-2026",
@@ -272,6 +279,9 @@ private fun refreshedCatalogJson(): String =
           "triggerMetadata": [
             "torst",
             "http_redirect"
+          ],
+          "featureFlagIds": [
+            "cloudflare_consume_validation"
           ],
           "strategies": [
             {
