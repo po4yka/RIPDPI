@@ -60,6 +60,11 @@ pub use wire::{
     EngineScanReportWire, EngineScanRequestWire, ResolverRecommendationWire, DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
 };
 
+#[doc(hidden)]
+pub fn fuzz_parse_dns_response(packet: &[u8], expected_id: u16) -> Result<Vec<String>, String> {
+    dns::parse_dns_response(packet, expected_id)
+}
+
 impl From<NativeEventRecord> for NativeSessionEvent {
     fn from(value: NativeEventRecord) -> Self {
         Self {
