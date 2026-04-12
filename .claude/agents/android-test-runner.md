@@ -3,6 +3,7 @@ name: android-test-runner
 description: Runs and triages Android test suites for the RIPDPI app -- instrumentation tests, Maestro flows, and Appium suites on emulator or device, with failure artifact collection and structured reporting.
 tools: Bash, Read, Grep, Glob
 model: inherit
+maxTurns: 30
 skills:
   - kotlin-test-patterns
   - compose-performance

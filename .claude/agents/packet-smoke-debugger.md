@@ -6,6 +6,7 @@ description: >
   expected on-wire packet mutations (splits, reorders, fake TTLs, OOB bytes).
 tools: Bash, Read, Grep, Glob
 model: inherit
+maxTurns: 30
 skills:
   - desync-engine
 ---
