@@ -174,7 +174,15 @@ pub(super) fn resolve_tcp_hints_with_evolver(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<AdaptivePlannerHints> {
-    if let Ok(mut evolver) = state.strategy_evolver.lock() {
+    if !state.config.adaptive.strategy_evolution {
+        return resolve_adaptive_tcp_hints(state, target, group_index, group, host, payload);
+    }
+    if let Ok(evolver) = state.strategy_evolver.read() {
+        if let Some(hints) = evolver.peek_hints() {
+            return Ok(apply_tcp_morph_policy_to_hints(state, hints));
+        }
+    }
+    if let Ok(mut evolver) = state.strategy_evolver.write() {
         if let Some(hints) = evolver.suggest_hints() {
             return Ok(apply_tcp_morph_policy_to_hints(state, hints));
         }
@@ -190,7 +198,19 @@ pub(super) fn resolve_udp_hints_with_evolver(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<AdaptivePlannerHints> {
-    if let Ok(mut evolver) = state.strategy_evolver.lock() {
+    if !state.config.adaptive.strategy_evolution {
+        return resolve_adaptive_udp_hints(state, target, group_index, group, host, payload);
+    }
+    if let Ok(evolver) = state.strategy_evolver.read() {
+        if let Some(hints) = evolver.peek_hints() {
+            let hints = apply_udp_morph_policy_to_hints(state, hints);
+            let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
+            let merged = merge_udp_hints_with_capability(hints, capability);
+            record_morph_rollback(state, target, hints, merged);
+            return Ok(merged);
+        }
+    }
+    if let Ok(mut evolver) = state.strategy_evolver.write() {
         if let Some(hints) = evolver.suggest_hints() {
             let hints = apply_udp_morph_policy_to_hints(state, hints);
             let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
@@ -203,13 +223,13 @@ pub(super) fn resolve_udp_hints_with_evolver(
 }
 
 pub(super) fn note_evolver_success(state: &RuntimeState, latency_ms: u64) {
-    if let Ok(mut evolver) = state.strategy_evolver.lock() {
+    if let Ok(mut evolver) = state.strategy_evolver.write() {
         evolver.record_success(latency_ms);
     }
 }
 
 pub(super) fn note_evolver_failure(state: &RuntimeState, class: ripdpi_failure_classifier::FailureClass) {
-    if let Ok(mut evolver) = state.strategy_evolver.lock() {
+    if let Ok(mut evolver) = state.strategy_evolver.write() {
         evolver.record_failure(class);
     }
 }

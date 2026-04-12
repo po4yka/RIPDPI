@@ -24,6 +24,10 @@ harness = false
 name = "relay_connect_setup"
 harness = false
 
+[[bench]]
+name = "runtime_lock_contention"
+harness = false
+
 [dependencies]
 # Bench crate has no library; all dependencies are dev-dependencies used by
 # the benchmark harnesses.
