@@ -23,6 +23,42 @@ const UDP_BUFFER_SIZE: usize = 65_536;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ResolvedRelayFinalmaskConfig {
+    #[serde(default)]
+    pub r#type: String,
+    #[serde(default)]
+    pub header_hex: String,
+    #[serde(default)]
+    pub trailer_hex: String,
+    #[serde(default)]
+    pub rand_range: String,
+    #[serde(default)]
+    pub sudoku_seed: String,
+    #[serde(default)]
+    pub fragment_packets: i32,
+    #[serde(default)]
+    pub fragment_min_bytes: i32,
+    #[serde(default)]
+    pub fragment_max_bytes: i32,
+}
+
+impl Default for ResolvedRelayFinalmaskConfig {
+    fn default() -> Self {
+        Self {
+            r#type: "off".to_string(),
+            header_hex: String::new(),
+            trailer_hex: String::new(),
+            rand_range: String::new(),
+            sudoku_seed: String::new(),
+            fragment_packets: 0,
+            fragment_min_bytes: 0,
+            fragment_max_bytes: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ResolvedRelayRuntimeConfig {
     pub enabled: bool,
     pub kind: String,
@@ -36,6 +72,12 @@ pub struct ResolvedRelayRuntimeConfig {
     pub vless_transport: String,
     pub xhttp_path: String,
     pub xhttp_host: String,
+    #[serde(default)]
+    pub cloudflare_tunnel_mode: String,
+    #[serde(default)]
+    pub cloudflare_publish_local_origin_url: String,
+    #[serde(default)]
+    pub cloudflare_credentials_ref: String,
     pub chain_entry_server: String,
     pub chain_entry_port: i32,
     pub chain_entry_server_name: String,
@@ -80,6 +122,10 @@ pub struct ResolvedRelayRuntimeConfig {
     pub masque_cloudflare_geohash_header: Option<String>,
     pub masque_privacy_pass_provider_url: Option<String>,
     pub masque_privacy_pass_provider_auth_token: Option<String>,
+    pub cloudflare_tunnel_token: Option<String>,
+    pub cloudflare_tunnel_credentials_json: Option<String>,
+    #[serde(default)]
+    pub finalmask: ResolvedRelayFinalmaskConfig,
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -1278,6 +1324,60 @@ fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backend: &RelayB
         ));
     }
 
+    validate_finalmask_config(config)?;
+
+    Ok(())
+}
+
+fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> io::Result<()> {
+    let finalmask = &config.finalmask;
+    if finalmask.r#type.trim().is_empty() || finalmask.r#type == "off" {
+        return Ok(());
+    }
+
+    let supported_kind = matches!(config.kind.as_str(), "cloudflare_tunnel" | "masque" | "hysteria2" | "tuic_v5")
+        || (config.kind == "vless_reality" && config.vless_transport == "xhttp");
+    if !supported_kind {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            format!("finalmask is unsupported for relay kind {}", config.kind),
+        ));
+    }
+
+    match finalmask.r#type.as_str() {
+        "header_custom" | "noise" => {
+            if finalmask.header_hex.trim().is_empty() && finalmask.trailer_hex.trim().is_empty() {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "finalmask header_custom/noise requires header or trailer hex",
+                ));
+            }
+        }
+        "sudoku" => {
+            if finalmask.sudoku_seed.trim().is_empty() {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "finalmask sudoku requires sudoku_seed"));
+            }
+        }
+        "fragment" => {
+            if finalmask.fragment_packets <= 0
+                || finalmask.fragment_min_bytes <= 0
+                || finalmask.fragment_max_bytes <= 0
+                || finalmask.fragment_min_bytes > finalmask.fragment_max_bytes
+            {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "finalmask fragment requires a positive packet count and byte range",
+                ));
+            }
+        }
+        _ => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("unsupported finalmask type {}", finalmask.r#type),
+            ));
+        }
+    }
+
     Ok(())
 }
 
@@ -1317,6 +1417,9 @@ mod tests {
             vless_transport: "reality_tcp".to_string(),
             xhttp_path: String::new(),
             xhttp_host: String::new(),
+            cloudflare_tunnel_mode: "consume_existing".to_string(),
+            cloudflare_publish_local_origin_url: String::new(),
+            cloudflare_credentials_ref: String::new(),
             chain_entry_server: String::new(),
             chain_entry_port: 443,
             chain_entry_server_name: String::new(),
@@ -1361,6 +1464,9 @@ mod tests {
             masque_cloudflare_geohash_header: None,
             masque_privacy_pass_provider_url: None,
             masque_privacy_pass_provider_auth_token: None,
+            cloudflare_tunnel_token: None,
+            cloudflare_tunnel_credentials_json: None,
+            finalmask: ResolvedRelayFinalmaskConfig::default(),
         }
     }
 
@@ -1423,6 +1529,34 @@ mod tests {
 
         assert_eq!(config.masque_auth_mode.as_deref(), Some("cloudflare_mtls"));
         assert_eq!(config.masque_cloudflare_geohash_header.as_deref(), Some("u4pruyd-GB"));
+    }
+
+    #[test]
+    fn relay_runtime_rejects_finalmask_for_unsupported_transport() {
+        let mut config = sample_config("vless_reality");
+        config.finalmask = ResolvedRelayFinalmaskConfig {
+            r#type: "header_custom".to_string(),
+            header_hex: "abcd".to_string(),
+            ..ResolvedRelayFinalmaskConfig::default()
+        };
+
+        let error = validate_finalmask_config(&config).expect_err("finalmask should be rejected");
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+    }
+
+    #[test]
+    fn relay_runtime_accepts_finalmask_for_xhttp_vless() {
+        let mut config = sample_config("vless_reality");
+        config.vless_transport = "xhttp".to_string();
+        config.finalmask = ResolvedRelayFinalmaskConfig {
+            r#type: "fragment".to_string(),
+            fragment_packets: 3,
+            fragment_min_bytes: 32,
+            fragment_max_bytes: 96,
+            ..ResolvedRelayFinalmaskConfig::default()
+        };
+
+        validate_finalmask_config(&config).expect("xhttp finalmask should validate");
     }
 
     #[test]

@@ -36,6 +36,25 @@ The same bridge also carries the runtime context used by the service layer:
 - exact `proxyConfigJson` replay for validated remembered policies
 - VPN-only DNS override replay when a remembered VPN policy is applied
 
+## Relay Transport Expansion
+
+The native relay layer is no longer limited to the original VLESS, Hysteria2, and MASQUE surface.
+
+- `native/rust/crates/ripdpi-relay-core` is the shared relay backend and pooling layer used by Android service orchestration.
+- `native/rust/crates/ripdpi-relay-mux` provides reusable relay-session pooling and stream-lease logic for reusable transports.
+- `native/rust/crates/ripdpi-xhttp` implements the xHTTP transport used by VLESS xHTTP and Cloudflare Tunnel relay profiles.
+- `native/rust/crates/ripdpi-tuic` implements TUIC v5 TCP and UDP relay behavior.
+- `native/rust/crates/ripdpi-shadowtls` implements ShadowTLS v3 stream camouflage.
+- `native/rust/crates/ripdpi-naiveproxy` is a standalone helper binary used through the Android subprocess manager rather than JNI embedding.
+- `native/rust/crates/ripdpi-warp-core` and `native/rust/crates/ripdpi-warp-android` provide the native WARP runtime used by the Kotlin service and settings stack.
+
+Recent integration hardening in this layer:
+
+- Relay runtime config now preserves Cloudflare Tunnel mode, Cloudflare credential references, tunnel import material, and Finalmask settings from Kotlin through to the Rust relay boundary.
+- `ripdpi-relay-core` validates Finalmask eligibility per relay family and rejects unsupported combinations early rather than dropping the config silently.
+- `ripdpi-naiveproxy` emits structured readiness and failure events (`RIPDPI-READY`, `RIPDPI-ERROR`) so the Android service can classify DNS/TLS/HTTP CONNECT/auth failures and expose watchdog state.
+- The Android subprocess supervisor now probes helper versions, redacts configured secrets from surfaced error text, and performs bounded restart attempts for NaiveProxy helper crashes.
+
 ## Runtime Topology
 
 ```mermaid
@@ -209,6 +228,14 @@ Structured telemetry, diagnostics-event payloads, and strategy-probe progress/re
 - `native/rust/crates/ripdpi-runtime`
 - `native/rust/crates/ripdpi-telemetry` -- telemetry data structures and contracts
 - `native/rust/crates/ripdpi-tunnel-config` -- tunnel configuration
+- `native/rust/crates/ripdpi-relay-core` -- shared relay backend orchestration and capability surface
+- `native/rust/crates/ripdpi-relay-mux` -- reusable relay pooling and multiplex lease management
+- `native/rust/crates/ripdpi-xhttp` -- xHTTP transport client for relay mode and Cloudflare Tunnel profiles
+- `native/rust/crates/ripdpi-tuic` -- TUIC v5 relay client
+- `native/rust/crates/ripdpi-shadowtls` -- ShadowTLS v3 camouflage client
+- `native/rust/crates/ripdpi-naiveproxy` -- NaiveProxy helper binary used via subprocess management
+- `native/rust/crates/ripdpi-warp-core` -- native WARP runtime and AmneziaWG codec
+- `native/rust/crates/ripdpi-warp-android` -- JNI bridge for WARP runtime lifecycle
 - `native/rust/crates/ripdpi-ws-tunnel` -- MTProto WebSocket tunnel for Telegram traffic through official web gateways
 - `native/rust/crates/ripdpi-ipfrag` -- IP-level packet fragmentation for DPI bypass (TCP and UDP/QUIC)
 - `native/rust/crates/ripdpi-io-uring` -- io_uring async I/O support (Linux only)
@@ -219,6 +246,7 @@ Structured telemetry, diagnostics-event payloads, and strategy-probe progress/re
 - `native/rust/crates/ripdpi-packets` -- packet parsing utilities (TLS, HTTP, QUIC markers)
 - `native/rust/crates/ripdpi-tun-driver` -- raw TUN socket handling
 - `native/rust/crates/ripdpi-root-helper` -- standalone privileged helper binary for rooted devices (raw sockets, TCP_REPAIR, IP fragmentation via Unix socket IPC)
+- `native/rust/crates/ripdpi-relay-android` -- Android bridge layer for relay-native integration tests and support code
 - `native/rust/crates/android-support`
 
 ### Crate dependency graph

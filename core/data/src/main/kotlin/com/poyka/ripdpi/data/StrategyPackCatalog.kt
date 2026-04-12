@@ -15,11 +15,16 @@ const val DefaultStrategyPackChannel = StrategyPackChannelStable
 const val DefaultStrategyPackRefreshPolicy = StrategyPackRefreshPolicyAutomatic
 const val DefaultStrategyPackPinnedId = ""
 const val DefaultStrategyPackPinnedVersion = ""
-const val StrategyPackCatalogSchemaVersion = 2
+const val StrategyPackCatalogSchemaVersion = 3
 
 const val DefaultTlsProfileCatalogVersion = "v1"
 const val DefaultTlsProfileSetId = "default"
 const val DefaultMorphPolicyId = "off"
+const val StrategyFeatureCloudflarePublish = "cloudflare_publish"
+const val StrategyFeatureCloudflareConsumeValidation = "cloudflare_consume_validation"
+const val StrategyFeatureFinalmask = "finalmask"
+const val StrategyFeatureMasqueCloudflareDirect = "masque_cloudflare_direct"
+const val StrategyFeatureNaiveProxyWatchdog = "naiveproxy_watchdog"
 
 const val QuicMigrationStatusNotAttempted = "not_attempted"
 const val QuicMigrationStatusRebindOnly = "rebind_only"

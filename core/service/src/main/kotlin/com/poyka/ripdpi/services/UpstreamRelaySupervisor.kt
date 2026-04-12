@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
+import com.poyka.ripdpi.core.ResolvedRelayFinalmaskConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.ResolvedShadowTlsInnerRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
@@ -11,8 +12,10 @@ import com.poyka.ripdpi.data.DefaultSnowflakeBrokerUrl
 import com.poyka.ripdpi.data.DefaultSnowflakeFrontDomain
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -33,6 +36,11 @@ import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
+import com.poyka.ripdpi.data.StrategyFeatureCloudflareConsumeValidation
+import com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish
+import com.poyka.ripdpi.data.StrategyFeatureFinalmask
+import com.poyka.ripdpi.data.StrategyFeatureMasqueCloudflareDirect
+import com.poyka.ripdpi.data.StrategyFeatureNaiveProxyWatchdog
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
@@ -64,6 +72,10 @@ internal class UpstreamRelaySupervisor(
     private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider =
         object : OwnedTlsFingerprintProfileProvider {
             override fun currentProfile(): String = TlsFingerprintProfileChromeStable
+        },
+    private val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider =
+        object : RuntimeExperimentSelectionProvider {
+            override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
         },
     private val stopTimeoutMillis: Long = 5_000L,
 ) {
@@ -237,6 +249,7 @@ internal class UpstreamRelaySupervisor(
             privacyPassRuntime = privacyPassRuntime,
             privacyPassReadiness = privacyPassReadiness,
             tlsFingerprintProfile = requestedTlsProfile,
+            featureFlags = runtimeExperimentSelectionProvider.current().featureFlags,
         )
         val shadowTlsInner =
             if (effectiveConfig.kind == RelayKindShadowTlsV3) {
@@ -266,6 +279,9 @@ internal class UpstreamRelaySupervisor(
             vlessTransport = effectiveConfig.vlessTransport,
             xhttpPath = effectiveConfig.xhttpPath,
             xhttpHost = effectiveConfig.xhttpHost,
+            cloudflareTunnelMode = effectiveConfig.cloudflareTunnelMode,
+            cloudflarePublishLocalOriginUrl = effectiveConfig.cloudflarePublishLocalOriginUrl,
+            cloudflareCredentialsRef = effectiveConfig.cloudflareCredentialsRef,
             chainEntryServer = resolvedChainRelay?.entry?.server ?: effectiveConfig.chainEntryServer,
             chainEntryPort = resolvedChainRelay?.entry?.serverPort ?: effectiveConfig.chainEntryPort,
             chainEntryServerName = resolvedChainRelay?.entry?.serverName ?: effectiveConfig.chainEntryServerName,
@@ -322,6 +338,19 @@ internal class UpstreamRelaySupervisor(
                 },
             masquePrivacyPassProviderUrl = privacyPassRuntime?.providerUrl,
             masquePrivacyPassProviderAuthToken = privacyPassRuntime?.providerAuthToken,
+            cloudflareTunnelToken = credentials?.cloudflareTunnelToken,
+            cloudflareTunnelCredentialsJson = credentials?.cloudflareTunnelCredentialsJson,
+            finalmask =
+                ResolvedRelayFinalmaskConfig(
+                    type = effectiveConfig.finalmask.type,
+                    headerHex = effectiveConfig.finalmask.headerHex,
+                    trailerHex = effectiveConfig.finalmask.trailerHex,
+                    randRange = effectiveConfig.finalmask.randRange,
+                    sudokuSeed = effectiveConfig.finalmask.sudokuSeed,
+                    fragmentPackets = effectiveConfig.finalmask.fragmentPackets,
+                    fragmentMinBytes = effectiveConfig.finalmask.fragmentMinBytes,
+                    fragmentMaxBytes = effectiveConfig.finalmask.fragmentMaxBytes,
+                ),
         )
     }
 
@@ -341,6 +370,10 @@ internal class UpstreamRelaySupervisor(
             vlessTransport = profile.vlessTransport.ifBlank { config.vlessTransport },
             xhttpPath = profile.xhttpPath.ifBlank { config.xhttpPath },
             xhttpHost = profile.xhttpHost.ifBlank { config.xhttpHost },
+            cloudflareTunnelMode = profile.cloudflareTunnelMode.ifBlank { config.cloudflareTunnelMode },
+            cloudflarePublishLocalOriginUrl =
+                profile.cloudflarePublishLocalOriginUrl.ifBlank { config.cloudflarePublishLocalOriginUrl },
+            cloudflareCredentialsRef = profile.cloudflareCredentialsRef.ifBlank { config.cloudflareCredentialsRef },
             chainEntryServer = profile.chainEntryServer.ifBlank { config.chainEntryServer },
             chainEntryPort = profile.chainEntryPort,
             chainEntryServerName = profile.chainEntryServerName.ifBlank { config.chainEntryServerName },
@@ -368,6 +401,20 @@ internal class UpstreamRelaySupervisor(
             localSocksPort = profile.localSocksPort,
             udpEnabled = profile.udpEnabled,
             tcpFallbackEnabled = profile.tcpFallbackEnabled,
+            finalmask =
+                config.finalmask.copy(
+                    type = profile.finalmaskType.ifBlank { config.finalmask.type },
+                    headerHex = profile.finalmaskHeaderHex.ifBlank { config.finalmask.headerHex },
+                    trailerHex = profile.finalmaskTrailerHex.ifBlank { config.finalmask.trailerHex },
+                    randRange = profile.finalmaskRandRange.ifBlank { config.finalmask.randRange },
+                    sudokuSeed = profile.finalmaskSudokuSeed.ifBlank { config.finalmask.sudokuSeed },
+                    fragmentPackets =
+                        profile.finalmaskFragmentPackets.takeIf { it > 0 } ?: config.finalmask.fragmentPackets,
+                    fragmentMinBytes =
+                        profile.finalmaskFragmentMinBytes.takeIf { it > 0 } ?: config.finalmask.fragmentMinBytes,
+                    fragmentMaxBytes =
+                        profile.finalmaskFragmentMaxBytes.takeIf { it > 0 } ?: config.finalmask.fragmentMaxBytes,
+                ),
         )
     }
 
@@ -449,6 +496,7 @@ internal class UpstreamRelaySupervisor(
         privacyPassRuntime: MasquePrivacyPassRuntimeConfig?,
         privacyPassReadiness: MasquePrivacyPassReadiness?,
         tlsFingerprintProfile: String,
+        featureFlags: Map<String, Boolean>,
     ) {
         require(
             !config.udpEnabled || config.kind == RelayKindHysteria2 || config.kind == RelayKindMasque ||
@@ -473,6 +521,11 @@ internal class UpstreamRelaySupervisor(
         if (config.kind == RelayKindNaiveProxy) {
             require(!config.udpEnabled) {
                 "NaiveProxy does not support UDP mode"
+            }
+            if (!featureFlags.isEnabled(StrategyFeatureNaiveProxyWatchdog)) {
+                require(config.naivePath.isBlank() || config.naivePath.startsWith("/")) {
+                    "NaiveProxy custom path must be absolute"
+                }
             }
         }
         if (isPluggableTransportRelay(config.kind)) {
@@ -502,6 +555,22 @@ internal class UpstreamRelaySupervisor(
                 ),
             )
         }
+        if (config.kind == RelayKindCloudflareTunnel) {
+            if (config.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin &&
+                !featureFlags.isEnabled(StrategyFeatureCloudflarePublish)
+            ) {
+                throw ServiceStartupRejectedException(
+                    FailureReason.RelayConfigRejected("Cloudflare local-origin publish mode is feature-gated"),
+                )
+            }
+            if (!featureFlags.isEnabled(StrategyFeatureCloudflareConsumeValidation) &&
+                config.cloudflareTunnelMode != RelayCloudflareTunnelModePublishLocalOrigin
+            ) {
+                require(config.server.isNotBlank()) {
+                    "Cloudflare Tunnel requires a tunnel hostname"
+                }
+            }
+        }
         if (config.kind == RelayKindHysteria2 && tlsFingerprintProfile == TlsFingerprintProfileChromeStable) {
             throw ServiceStartupRejectedException(
                 FailureReason.RelayFingerprintPolicyRejected(
@@ -509,10 +578,22 @@ internal class UpstreamRelaySupervisor(
                 ),
             )
         }
+        if (config.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModeCloudflareMtls &&
+            !featureFlags.isEnabled(StrategyFeatureMasqueCloudflareDirect)
+        ) {
+            throw ServiceStartupRejectedException(
+                FailureReason.RelayConfigRejected("Cloudflare-direct MASQUE is feature-gated"),
+            )
+        }
         if (config.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
             requireNotNull(privacyPassRuntime) {
                 masquePrivacyPassReadinessMessage(profileId, privacyPassReadiness)
             }
+        }
+        if (config.finalmask.type != RelayFinalmaskTypeOff && !featureFlags.isEnabled(StrategyFeatureFinalmask)) {
+            throw ServiceStartupRejectedException(
+                FailureReason.RelayConfigRejected("Finalmask is feature-gated"),
+            )
         }
         if (config.kind == RelayKindShadowTlsV3 && config.shadowTlsInnerProfileId == profileId) {
             throw ServiceStartupRejectedException(
@@ -726,6 +807,7 @@ internal open class UpstreamRelaySupervisorFactory
         private val cloudflareMasqueGeohashResolver: CloudflareMasqueGeohashResolver,
         private val masquePrivacyPassProvider: MasquePrivacyPassProvider,
         private val tlsFingerprintProfileProvider: OwnedTlsFingerprintProfileProvider,
+        private val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
     ) {
         constructor(
             relayFactory: RipDpiRelayFactory,
@@ -750,6 +832,9 @@ internal open class UpstreamRelaySupervisorFactory
             object : OwnedTlsFingerprintProfileProvider {
                 override fun currentProfile(): String = TlsFingerprintProfileChromeStable
             },
+            object : RuntimeExperimentSelectionProvider {
+                override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+            },
         )
 
         open fun create(
@@ -767,8 +852,11 @@ internal open class UpstreamRelaySupervisorFactory
                 cloudflareMasqueGeohashResolver = cloudflareMasqueGeohashResolver,
                 masquePrivacyPassProvider = masquePrivacyPassProvider,
                 tlsFingerprintProfileProvider = tlsFingerprintProfileProvider,
+                runtimeExperimentSelectionProvider = runtimeExperimentSelectionProvider,
             )
     }
+
+private fun Map<String, Boolean>.isEnabled(flagId: String): Boolean = this[flagId] == true
 
 private fun isPluggableTransportRelay(kind: String): Boolean =
     kind == RelayKindSnowflake ||

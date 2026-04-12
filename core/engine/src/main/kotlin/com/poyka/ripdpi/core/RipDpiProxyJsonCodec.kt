@@ -540,6 +540,18 @@ internal object RipDpiProxyJsonCodec {
     )
 
     @Serializable
+    private data class NativeRelayFinalmaskConfig(
+        val type: String = com.poyka.ripdpi.data.RelayFinalmaskTypeOff,
+        val headerHex: String = "",
+        val trailerHex: String = "",
+        val randRange: String = "",
+        val sudokuSeed: String = "",
+        val fragmentPackets: Int = 0,
+        val fragmentMinBytes: Int = 0,
+        val fragmentMaxBytes: Int = 0,
+    )
+
+    @Serializable
     private data class NativeRelayConfig(
         val enabled: Boolean = false,
         val kind: String = "off",
@@ -553,6 +565,9 @@ internal object RipDpiProxyJsonCodec {
         val vlessTransport: String = "reality_tcp",
         val xhttpPath: String = "",
         val xhttpHost: String = "",
+        val cloudflareTunnelMode: String = com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting,
+        val cloudflarePublishLocalOriginUrl: String = "",
+        val cloudflareCredentialsRef: String = "",
         val chainEntryServer: String = "",
         val chainEntryPort: Int = 443,
         val chainEntryServerName: String = "",
@@ -576,6 +591,7 @@ internal object RipDpiProxyJsonCodec {
         val localSocksPort: Int = 11980,
         val udpEnabled: Boolean = false,
         val tcpFallbackEnabled: Boolean = true,
+        val finalmask: NativeRelayFinalmaskConfig = NativeRelayFinalmaskConfig(),
     )
 
     @Serializable
@@ -1070,6 +1086,9 @@ internal object RipDpiProxyJsonCodec {
                 vlessTransport = value.vlessTransport,
                 xhttpPath = value.xhttpPath,
                 xhttpHost = value.xhttpHost,
+                cloudflareTunnelMode = value.cloudflareTunnelMode,
+                cloudflarePublishLocalOriginUrl = value.cloudflarePublishLocalOriginUrl,
+                cloudflareCredentialsRef = value.cloudflareCredentialsRef,
                 chainEntryServer = value.chainEntryServer,
                 chainEntryPort = value.chainEntryPort,
                 chainEntryServerName = value.chainEntryServerName,
@@ -1093,6 +1112,17 @@ internal object RipDpiProxyJsonCodec {
                 localSocksPort = value.localSocksPort,
                 udpEnabled = value.udpEnabled,
                 tcpFallbackEnabled = value.tcpFallbackEnabled,
+                finalmask =
+                    RipDpiRelayFinalmaskConfig(
+                        type = value.finalmask.type,
+                        headerHex = value.finalmask.headerHex,
+                        trailerHex = value.finalmask.trailerHex,
+                        randRange = value.finalmask.randRange,
+                        sudokuSeed = value.finalmask.sudokuSeed,
+                        fragmentPackets = value.finalmask.fragmentPackets,
+                        fragmentMinBytes = value.finalmask.fragmentMinBytes,
+                        fragmentMaxBytes = value.finalmask.fragmentMaxBytes,
+                    ),
             )
 
         fun toNative(value: RipDpiRelayConfig): NativeRelayConfig =
@@ -1109,6 +1139,9 @@ internal object RipDpiProxyJsonCodec {
                 vlessTransport = value.vlessTransport,
                 xhttpPath = value.xhttpPath,
                 xhttpHost = value.xhttpHost,
+                cloudflareTunnelMode = value.cloudflareTunnelMode,
+                cloudflarePublishLocalOriginUrl = value.cloudflarePublishLocalOriginUrl,
+                cloudflareCredentialsRef = value.cloudflareCredentialsRef,
                 chainEntryServer = value.chainEntryServer,
                 chainEntryPort = value.chainEntryPort,
                 chainEntryServerName = value.chainEntryServerName,
@@ -1132,6 +1165,17 @@ internal object RipDpiProxyJsonCodec {
                 localSocksPort = value.localSocksPort,
                 udpEnabled = value.udpEnabled,
                 tcpFallbackEnabled = value.tcpFallbackEnabled,
+                finalmask =
+                    NativeRelayFinalmaskConfig(
+                        type = value.finalmask.type,
+                        headerHex = value.finalmask.headerHex,
+                        trailerHex = value.finalmask.trailerHex,
+                        randRange = value.finalmask.randRange,
+                        sudokuSeed = value.finalmask.sudokuSeed,
+                        fragmentPackets = value.finalmask.fragmentPackets,
+                        fragmentMinBytes = value.finalmask.fragmentMinBytes,
+                        fragmentMaxBytes = value.finalmask.fragmentMaxBytes,
+                    ),
             )
     }
 
