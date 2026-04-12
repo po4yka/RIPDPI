@@ -348,59 +348,7 @@ private fun AppSettings.buildRoutingProtectionUiState(
                 limitations = preset.limitations,
             )
         }
-    val suggestions =
-        buildList {
-            if (!fullTunnelMode && presets.any { it.matchedPackages.isNotEmpty() && !it.enabled }) {
-                add(
-                    RoutingProtectionSuggestionUiState(
-                        id = "exact_app_routing",
-                        title = "Suggest app routing presets",
-                        body =
-                            "Whitelist-sensitive apps are installed. Enable direct routing for the matched presets instead of assuming split tunneling stays hidden.",
-                    ),
-                )
-            }
-            if (!fullTunnelMode && snapshot.detectedApps.size >= 3) {
-                add(
-                    RoutingProtectionSuggestionUiState(
-                        id = "full_tunnel",
-                        title = "Suggest full tunnel mode",
-                        body =
-                            "Several risky apps are installed. Full tunnel mode removes per-app routing differences when exact exclusions are not enough.",
-                    ),
-                )
-            }
-            if (!fullTunnelMode && !antiCorrelationEnabled && snapshot.detectedApps.isNotEmpty()) {
-                add(
-                    RoutingProtectionSuggestionUiState(
-                        id = "anti_correlation",
-                        title = "Suggest anti-correlation mode",
-                        body =
-                            "Anti-correlation keeps domestic destinations direct while forcing CDN-heavy paths through VPN or relay. It is meant for mobile whitelist pressure, not generic split tunneling.",
-                    ),
-                )
-            }
-            if (!fullTunnelMode &&
-                normalizeDhtMitigationMode(dhtMitigationMode) == DhtMitigationModeOff &&
-                (presets.any { it.enabled } || antiCorrelationEnabled || serviceTelemetry.hasRecentRoutingPressure())
-            ) {
-                val dhtCorrelationReason = serviceTelemetry.runtimeFieldTelemetry.dhtTriggerCorrelationReason
-                add(
-                    RoutingProtectionSuggestionUiState(
-                        id = "dht_mitigation",
-                        title = "Suggest DHT trigger mitigation",
-                        body =
-                            if (dhtCorrelationReason != null) {
-                                "$dhtCorrelationReason Enable DHT trigger mitigation so known trigger CIDRs do not keep destabilizing relay or WARP paths."
-                            } else if (serviceTelemetry.hasRecentRoutingPressure()) {
-                                "Recent runtime failures suggest control-plane instability while split routing is active. Known DHT trigger CIDRs can destabilize WARP, relay, or control-plane paths on mobile networks."
-                            } else {
-                                "Split-routing protection is active, but DHT mitigation is still off. Known trigger CIDRs can destabilize WARP, relay, or control-plane paths on mobile networks."
-                            },
-                    ),
-                )
-            }
-        }
+    val suggestions = buildRoutingProtectionSuggestions(presets, snapshot, serviceTelemetry)
     return RoutingProtectionUiState(
         policyMode = normalizeAppRoutingPolicyMode(appRoutingPolicyMode),
         enabledPresetIds = enabledPresetIds.toList().sorted(),
@@ -419,6 +367,87 @@ private fun AppSettings.buildRoutingProtectionUiState(
             },
         suggestions = suggestions,
     )
+}
+
+private const val FullTunnelSuggestionDetectedAppsThreshold = 3
+
+private fun AppSettings.buildRoutingProtectionSuggestions(
+    presets: List<RoutingProtectionPresetUiState>,
+    snapshot: RoutingProtectionCatalogSnapshot,
+    serviceTelemetry: ServiceTelemetrySnapshot,
+): List<RoutingProtectionSuggestionUiState> =
+    buildList {
+        if (!fullTunnelMode && presets.any { it.matchedPackages.isNotEmpty() && !it.enabled }) {
+            add(
+                RoutingProtectionSuggestionUiState(
+                    id = "exact_app_routing",
+                    title = "Suggest app routing presets",
+                    body =
+                        "Whitelist-sensitive apps are installed. Enable direct routing for the matched presets " +
+                            "instead of assuming split tunneling stays hidden.",
+                ),
+            )
+        }
+        if (!fullTunnelMode && snapshot.detectedApps.size >= FullTunnelSuggestionDetectedAppsThreshold) {
+            add(
+                RoutingProtectionSuggestionUiState(
+                    id = "full_tunnel",
+                    title = "Suggest full tunnel mode",
+                    body =
+                        "Several risky apps are installed. Full tunnel mode removes per-app routing differences " +
+                            "when exact exclusions are not enough.",
+                ),
+            )
+        }
+        if (!fullTunnelMode && !antiCorrelationEnabled && snapshot.detectedApps.isNotEmpty()) {
+            add(
+                RoutingProtectionSuggestionUiState(
+                    id = "anti_correlation",
+                    title = "Suggest anti-correlation mode",
+                    body =
+                        "Anti-correlation keeps domestic destinations direct while forcing CDN-heavy paths " +
+                            "through VPN or relay. It is meant for mobile whitelist pressure, not generic " +
+                            "split tunneling.",
+                ),
+            )
+        }
+        if (shouldSuggestDhtMitigation(presets, serviceTelemetry)) {
+            add(
+                RoutingProtectionSuggestionUiState(
+                    id = "dht_mitigation",
+                    title = "Suggest DHT trigger mitigation",
+                    body = dhtMitigationSuggestionBody(serviceTelemetry),
+                ),
+            )
+        }
+    }
+
+private fun AppSettings.shouldSuggestDhtMitigation(
+    presets: List<RoutingProtectionPresetUiState>,
+    serviceTelemetry: ServiceTelemetrySnapshot,
+): Boolean =
+    !fullTunnelMode &&
+        normalizeDhtMitigationMode(dhtMitigationMode) == DhtMitigationModeOff &&
+        (presets.any { it.enabled } || antiCorrelationEnabled || serviceTelemetry.hasRecentRoutingPressure())
+
+private fun dhtMitigationSuggestionBody(serviceTelemetry: ServiceTelemetrySnapshot): String {
+    val dhtCorrelationReason = serviceTelemetry.runtimeFieldTelemetry.dhtTriggerCorrelationReason
+    return when {
+        dhtCorrelationReason != null -> {
+            "$dhtCorrelationReason Enable DHT trigger mitigation so known trigger CIDRs do not keep " +
+                "destabilizing relay or WARP paths."
+        }
+
+        serviceTelemetry.hasRecentRoutingPressure() -> {
+            "Recent runtime failures suggest control-plane instability while split routing is active. " +
+                "Known DHT trigger CIDRs can destabilize WARP, relay, or control-plane paths on mobile networks."
+        }
+
+        else -> {
+            "Split-routing protection is active, but DHT mitigation is still off. Known trigger CIDRs can " +
+                "destabilize WARP, relay, or control-plane paths on mobile networks."
+        }
+    }
 }
 
 internal fun AppSettings.toUiState(

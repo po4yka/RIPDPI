@@ -103,6 +103,7 @@ internal fun normalizeLogContext(logContext: RipDpiLogContext?): RipDpiLogContex
         }
     }
 
+@Suppress("LongMethod")
 internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): RipDpiRuntimeContext? =
     runtimeContext?.let { ctx ->
         val encryptedDns =

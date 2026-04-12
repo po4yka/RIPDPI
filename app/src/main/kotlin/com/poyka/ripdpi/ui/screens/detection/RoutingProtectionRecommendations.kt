@@ -10,6 +10,8 @@ import com.poyka.ripdpi.data.normalizeDhtMitigationMode
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 
+private const val HighRiskDetectedAppsThreshold = 3
+
 internal fun buildRoutingProtectionRecommendations(
     result: DetectionCheckResult,
     settings: AppSettings,
@@ -27,25 +29,29 @@ internal fun buildRoutingProtectionRecommendations(
         result.bypassResult.evidence.any {
             it.source == EvidenceSource.SPLIT_TUNNEL_BYPASS && it.detected
         }
+    val hasDisabledPresetMatches =
+        snapshot.presets.any { preset ->
+            preset.matchedPackages.isNotEmpty() && preset.id !in enabledPresetIds
+        }
     return buildList {
-        if (!settings.fullTunnelMode &&
-            snapshot.presets.any { it.matchedPackages.isNotEmpty() && it.id !in enabledPresetIds }
-        ) {
+        if (!settings.fullTunnelMode && hasDisabledPresetMatches) {
             add(
                 Recommendation(
                     title = "App routing protection is available",
                     description =
-                        "Known whitelist-sensitive apps are installed. Enable direct routing for the matched presets before assuming split tunneling remains invisible.",
+                        "Known whitelist-sensitive apps are installed. Enable direct routing for " +
+                            "the matched presets before assuming split tunneling remains invisible.",
                     actionRoute = "advanced_settings",
                 ),
             )
         }
-        if (!settings.fullTunnelMode && snapshot.detectedApps.size >= 3) {
+        if (!settings.fullTunnelMode && snapshot.detectedApps.size >= HighRiskDetectedAppsThreshold) {
             add(
                 Recommendation(
                     title = "Full tunnel remains the strongest routing fix",
                     description =
-                        "Several risky apps are installed. Full tunnel mode removes per-app routing differences when exact exclusions are not enough.",
+                        "Several risky apps are installed. Full tunnel mode removes per-app routing " +
+                            "differences when exact exclusions are not enough.",
                     actionRoute = "settings",
                 ),
             )
@@ -55,7 +61,8 @@ internal fun buildRoutingProtectionRecommendations(
                 Recommendation(
                     title = "Anti-correlation mode may reduce route fingerprints",
                     description =
-                        "Application exclusion does not hide TRANSPORT_VPN checks. Anti-correlation is the next step when app routing alone is still visible.",
+                        "Application exclusion does not hide TRANSPORT_VPN checks. Anti-correlation " +
+                            "is the next step when app routing alone is still visible.",
                     actionRoute = "advanced_settings",
                 ),
             )
@@ -68,7 +75,9 @@ internal fun buildRoutingProtectionRecommendations(
                 Recommendation(
                     title = "DHT mitigation can protect split routes",
                     description =
-                        "Split routing is visible in the current checks. Enabling DHT trigger mitigation helps avoid known UDP trigger CIDRs that can destabilize relay or WARP control-plane paths.",
+                        "Split routing is visible in the current checks. Enabling DHT trigger " +
+                            "mitigation helps avoid known UDP trigger CIDRs that can destabilize relay " +
+                            "or WARP control-plane paths.",
                     actionRoute = "advanced_settings",
                 ),
             )

@@ -54,7 +54,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
-@Suppress("LongParameterList", "LongMethod")
+@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun RelayKindFields(
     draft: ConfigDraft,
@@ -111,13 +111,7 @@ internal fun RelayKindFields(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val colors = RipDpiThemeTokens.colors
-    if (
-        draft.relayKind == RelayKindVlessReality ||
-        draft.relayKind == RelayKindCloudflareTunnel ||
-        draft.relayKind == RelayKindHysteria2 ||
-        draft.relayKind == RelayKindTuicV5 ||
-        draft.relayKind == RelayKindNaiveProxy
-    ) {
+    if (draft.relayKind.supportsStandardRelayEndpointFields()) {
         RipDpiTextField(
             value = draft.relayServer,
             onValueChange = onRelayServerChanged,
@@ -245,7 +239,7 @@ internal fun RelayKindFields(
                     onRelayVlessTransportChanged = onRelayVlessTransportChanged,
                 )
             }
-            if (draft.relayKind == RelayKindCloudflareTunnel || draft.relayVlessTransport == RelayVlessTransportXhttp) {
+            if (draft.showsXhttpFields()) {
                 RipDpiTextField(
                     value = draft.relayXhttpPath,
                     onValueChange = onRelayXhttpPathChanged,
@@ -643,6 +637,16 @@ internal fun RelayKindFields(
         }
     }
 }
+
+private fun String.supportsStandardRelayEndpointFields(): Boolean =
+    this == RelayKindVlessReality ||
+        this == RelayKindCloudflareTunnel ||
+        this == RelayKindHysteria2 ||
+        this == RelayKindTuicV5 ||
+        this == RelayKindNaiveProxy
+
+private fun ConfigDraft.showsXhttpFields(): Boolean =
+    relayKind == RelayKindCloudflareTunnel || relayVlessTransport == RelayVlessTransportXhttp
 
 @Suppress("LongParameterList")
 @Composable

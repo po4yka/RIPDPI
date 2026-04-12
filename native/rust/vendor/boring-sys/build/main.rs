@@ -229,11 +229,20 @@ fn get_boringssl_cmake_config(config: &Config) -> cmake::Config {
     }
 
     if should_use_cmake_cross_compilation(config) {
-        boringssl_cmake
-            .define("CMAKE_CROSSCOMPILING", "true")
-            .define("CMAKE_C_COMPILER_TARGET", &config.target)
-            .define("CMAKE_CXX_COMPILER_TARGET", &config.target)
-            .define("CMAKE_ASM_COMPILER_TARGET", &config.target);
+        boringssl_cmake.define("CMAKE_CROSSCOMPILING", "true");
+        if config.target_os == "android" {
+            if let Some(android_target) = android_compiler_target(config) {
+                boringssl_cmake
+                    .define("CMAKE_C_COMPILER_TARGET", &android_target)
+                    .define("CMAKE_CXX_COMPILER_TARGET", &android_target)
+                    .define("CMAKE_ASM_COMPILER_TARGET", &android_target);
+            }
+        } else {
+            boringssl_cmake
+                .define("CMAKE_C_COMPILER_TARGET", &config.target)
+                .define("CMAKE_CXX_COMPILER_TARGET", &config.target)
+                .define("CMAKE_ASM_COMPILER_TARGET", &config.target);
+        }
     }
 
     if !config.features.fips {
@@ -265,6 +274,7 @@ fn get_boringssl_cmake_config(config: &Config) -> cmake::Config {
                 .android_ndk_home
                 .as_ref()
                 .expect("Please set ANDROID_NDK_HOME for Android build");
+            boringssl_cmake.define("CMAKE_SYSTEM_NAME", "Android");
             for (name, value) in cmake_params_android(config) {
                 eprintln!("android arch={} add {}={}", config.target_arch, name, value);
                 boringssl_cmake.define(name, value);
@@ -314,8 +324,19 @@ fn get_boringssl_cmake_config(config: &Config) -> cmake::Config {
                     "    string(STRIP \"${_f}\" _f)\n",
                     "    set(CMAKE_${_lang}_FLAGS_INIT \"${_f}\" CACHE STRING \"\" FORCE)\n",
                     "  endif()\n",
+                    "  unset(CMAKE_${_lang}_LINK_FLAGS)\n",
+                    "  set(CMAKE_${_lang}_LINK_FLAGS \"\")\n",
+                    "  unset(CMAKE_SHARED_LIBRARY_CREATE_${_lang}_FLAGS)\n",
+                    "  set(CMAKE_SHARED_LIBRARY_CREATE_${_lang}_FLAGS \"\")\n",
+                    "  unset(CMAKE_SHARED_MODULE_CREATE_${_lang}_FLAGS)\n",
+                    "  set(CMAKE_SHARED_MODULE_CREATE_${_lang}_FLAGS \"\")\n",
                     "endforeach()\n",
+                    "unset(_CMAKE_APPLE_ARCHS_DEFAULT)\n",
+                    "set(_CMAKE_APPLE_ARCHS_DEFAULT \"\")\n",
+                    "unset(CMAKE_APPLE_ARCH_SYSROOTS CACHE)\n",
+                    "unset(CMAKE_OSX_ARCHITECTURES)\n",
                     "set(CMAKE_OSX_ARCHITECTURES \"\" CACHE STRING \"\" FORCE)\n",
+                    "unset(CMAKE_OSX_SYSROOT)\n",
                     "set(CMAKE_OSX_SYSROOT \"\" CACHE PATH \"\" FORCE)\n",
                 ),
             )
@@ -404,6 +425,15 @@ fn get_boringssl_cmake_config(config: &Config) -> cmake::Config {
     }
 
     boringssl_cmake
+}
+
+fn android_compiler_target(config: &Config) -> Option<String> {
+    let compiler = config.env.cc.as_ref()?;
+    let compiler_name = Path::new(compiler).file_name()?.to_str()?;
+    compiler_name
+        .strip_suffix("-clang++")
+        .or_else(|| compiler_name.strip_suffix("-clang"))
+        .map(str::to_owned)
 }
 
 fn pick_best_android_ndk_toolchain(toolchains_dir: &Path) -> std::io::Result<OsString> {

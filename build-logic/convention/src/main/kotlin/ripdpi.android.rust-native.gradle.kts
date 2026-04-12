@@ -292,6 +292,10 @@ abstract class BuildRustNativeLibsTask
                     "RC_ARCHS",
                     "CMAKE_OSX_ARCHITECTURES",
                     "CMAKE_OSX_SYSROOT",
+                    "CFLAGS",
+                    "CXXFLAGS",
+                    "CPPFLAGS",
+                    "LDFLAGS",
                 )
 
             val cargoEnvironment =

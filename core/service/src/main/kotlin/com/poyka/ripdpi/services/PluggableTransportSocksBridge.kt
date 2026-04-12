@@ -1,3 +1,11 @@
+@file:Suppress(
+    "ComplexCondition",
+    "TooGenericExceptionCaught",
+    "InstanceOfCheckForException",
+    "ReturnCount",
+    "MagicNumber",
+)
+
 package com.poyka.ripdpi.services
 
 import java.io.Closeable
@@ -288,16 +296,16 @@ internal class ManagedClientSocksBridge(
     ) {
         when (atyp) {
             0x01 -> {
-                input.skipNBytes(4)
+                skipFully(input, 4)
             }
 
             0x03 -> {
                 val length = readByte(input)
-                input.skipNBytes(length.toLong())
+                skipFully(input, length.toLong())
             }
 
             0x04 -> {
-                input.skipNBytes(16)
+                skipFully(input, 16)
             }
 
             else -> {
@@ -322,6 +330,24 @@ internal class ManagedClientSocksBridge(
                 throw EOFException("Unexpected end of SOCKS stream")
             }
             offset += read
+        }
+    }
+
+    private fun skipFully(
+        input: java.io.InputStream,
+        count: Long,
+    ) {
+        var remaining = count
+        while (remaining > 0) {
+            val skipped = input.skip(remaining)
+            if (skipped > 0) {
+                remaining -= skipped
+                continue
+            }
+            if (input.read() < 0) {
+                throw EOFException("Unexpected end of SOCKS stream")
+            }
+            remaining -= 1
         }
     }
 }

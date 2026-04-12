@@ -157,7 +157,7 @@ async fn socks5_handshake_no_auth(stream: &mut TcpStream) -> io::Result<()> {
     if response != [0x05, 0x00] {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
-            format!("SOCKS5 handshake rejected method {:?}", response),
+            format!("SOCKS5 handshake rejected method {response:?}"),
         ));
     }
     Ok(())

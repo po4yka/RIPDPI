@@ -68,25 +68,29 @@ internal fun decodeWarpPayloadGenCatalog(json: String): List<WarpPayloadGenPrese
         .decodeFromString(WarpPayloadGenCatalogPayload.serializer(), json)
         .presets
 
+@Suppress("ReturnCount")
 internal fun suggestWarpPayloadGenPreset(
     snapshot: NativeNetworkSnapshot?,
     presets: List<WarpPayloadGenPresetDefinition>,
 ): WarpPayloadGenSuggestion? {
-    val cellular = snapshot?.cellular ?: return null
-    if (snapshot.transport != "cellular") return null
+    val cellular = snapshot?.cellular
+    val isCellular = snapshot?.transport == "cellular" && cellular != null
+    if (!isCellular) return null
+    val cellularSnapshot = cellular ?: return null
     val presetId =
         when {
-            cellular.operatorCode.startsWith("250") -> WarpAmneziaPresetQuicImitation
-            cellular.generation == "5g" -> WarpAmneziaPresetTlsImitation
+            cellularSnapshot.operatorCode.startsWith("250") -> WarpAmneziaPresetQuicImitation
+            cellularSnapshot.generation == "5g" -> WarpAmneziaPresetTlsImitation
             else -> WarpAmneziaPresetDnsImitation
         }
-    val preset = presets.firstOrNull { it.id == presetId } ?: return null
-    return WarpPayloadGenSuggestion(
-        preset = preset,
-        reason =
-            "Operator hints suggest ${preset.label.lowercase()} for this network. " +
-                "The preset is only suggested and is not applied automatically.",
-    )
+    return presets.firstOrNull { it.id == presetId }?.let { preset ->
+        WarpPayloadGenSuggestion(
+            preset = preset,
+            reason =
+                "Operator hints suggest ${preset.label.lowercase()} for this network. " +
+                    "The preset is only suggested and is not applied automatically.",
+        )
+    }
 }
 
 internal fun builtInWarpPayloadGenPresets(): List<WarpPayloadGenPresetDefinition> =

@@ -1,3 +1,5 @@
+@file:Suppress("LargeClass")
+
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
@@ -31,11 +33,12 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UpstreamRelaySupervisorTest {
+    private companion object {
+        const val SampleCloudflareValue = "sample-cloudflare-value"
+        const val SampleMasqueValue = "sample-masque-value"
+    }
+
     private fun providerAuthFixture(): String = listOf("provider", "auth").joinToString("-")
-
-    private fun sampleCloudflareValue(): String = "sample-cloudflare-value"
-
-    private fun sampleMasqueValue(): String = "sample-masque-value"
 
     @Test
     fun `start resolves stored profile and credentials before native runtime launch`() =
@@ -232,7 +235,7 @@ class UpstreamRelaySupervisorTest {
                                 RelayCredentialRecord(
                                     profileId = "edge",
                                     masqueAuthMode = RelayMasqueAuthModeBearer,
-                                    masqueAuthToken = sampleMasqueValue(),
+                                    masqueAuthToken = SampleMasqueValue,
                                 ),
                             )
                         },
@@ -630,7 +633,7 @@ class UpstreamRelaySupervisorTest {
                                 RelayCredentialRecord(
                                     profileId = "cf",
                                     vlessUuid = "00000000-0000-0000-0000-000000000000",
-                                    cloudflareTunnelToken = sampleCloudflareValue(),
+                                    cloudflareTunnelToken = SampleCloudflareValue,
                                 ),
                             )
                         },
@@ -746,7 +749,7 @@ class UpstreamRelaySupervisorTest {
                                 RelayCredentialRecord(
                                     profileId = "edge",
                                     masqueAuthMode = RelayMasqueAuthModeBearer,
-                                    masqueAuthToken = sampleMasqueValue(),
+                                    masqueAuthToken = SampleMasqueValue,
                                 ),
                             )
                         },
