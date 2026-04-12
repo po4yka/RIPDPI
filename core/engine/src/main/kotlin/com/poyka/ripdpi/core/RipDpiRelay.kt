@@ -88,6 +88,18 @@ class RipDpiRelayNativeBindings
 private val relayJson = Json { ignoreUnknownKeys = true }
 
 @Serializable
+data class ResolvedRelayFinalmaskConfig(
+    val type: String = com.poyka.ripdpi.data.RelayFinalmaskTypeOff,
+    val headerHex: String = "",
+    val trailerHex: String = "",
+    val randRange: String = "",
+    val sudokuSeed: String = "",
+    val fragmentPackets: Int = 0,
+    val fragmentMinBytes: Int = 0,
+    val fragmentMaxBytes: Int = 0,
+)
+
+@Serializable
 data class ResolvedShadowTlsInnerRelayConfig(
     val kind: String,
     val profileId: String,
@@ -114,6 +126,9 @@ data class ResolvedRipDpiRelayConfig(
     val vlessTransport: String = RelayVlessTransportRealityTcp,
     val xhttpPath: String = "",
     val xhttpHost: String = "",
+    val cloudflareTunnelMode: String = com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting,
+    val cloudflarePublishLocalOriginUrl: String = "",
+    val cloudflareCredentialsRef: String = "",
     val chainEntryServer: String,
     val chainEntryPort: Int,
     val chainEntryServerName: String,
@@ -162,6 +177,9 @@ data class ResolvedRipDpiRelayConfig(
     val masqueCloudflareGeohashHeader: String? = null,
     val masquePrivacyPassProviderUrl: String? = null,
     val masquePrivacyPassProviderAuthToken: String? = null,
+    val cloudflareTunnelToken: String? = null,
+    val cloudflareTunnelCredentialsJson: String? = null,
+    val finalmask: ResolvedRelayFinalmaskConfig = ResolvedRelayFinalmaskConfig(),
 )
 
 class RipDpiRelay(

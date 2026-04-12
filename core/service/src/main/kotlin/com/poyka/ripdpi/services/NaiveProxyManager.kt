@@ -7,10 +7,14 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.delay
 import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val NaiveProxyBinaryName = "ripdpi-naiveproxy"
+private const val NaiveProxyRestartDelayMs = 750L
+private const val NaiveProxyRestartBudgetWindowMs = 60_000L
+private const val NaiveProxyRestartBudgetMaxAttempts = 3
 
 @Singleton
 class NaiveProxyManager
@@ -24,8 +28,10 @@ class NaiveProxyManager
                 spec =
                     SubprocessSocksRelayLaunchSpec(
                         binaryName = NaiveProxyBinaryName,
+                        versionArguments = listOf("--version"),
                         runtimeKind = config.kind,
                         upstreamAddress = "${config.server}:${config.serverPort}",
+                        redactedValues = listOfNotNull(config.naiveUsername, config.naivePassword),
                         commandArguments =
                             buildList {
                                 add("--listen")
@@ -57,6 +63,8 @@ class NaiveProxyManager
 
         suspend fun pollTelemetry() = subprocessManager.pollTelemetry()
 
+        fun noteRestarting(reason: String) = subprocessManager.noteRestarting(reason)
+
         suspend fun stop() = subprocessManager.stop()
     }
 
@@ -65,9 +73,34 @@ class NaiveProxyRuntime
     constructor(
         private val manager: NaiveProxyManager,
     ) : RipDpiRelayRuntime {
+        @Volatile private var stopping = false
+
         override suspend fun start(config: ResolvedRipDpiRelayConfig): Int {
-            manager.start(config)
-            return manager.waitForExit()
+            stopping = false
+            val restartAttempts = ArrayDeque<Long>()
+            while (true) {
+                manager.start(config)
+                val exitCode = manager.waitForExit()
+                if (stopping) {
+                    return exitCode
+                }
+                val now = System.currentTimeMillis()
+                while (restartAttempts.isNotEmpty() &&
+                    now - restartAttempts.first() > NaiveProxyRestartBudgetWindowMs
+                ) {
+                    restartAttempts.removeFirst()
+                }
+                if (restartAttempts.size >= NaiveProxyRestartBudgetMaxAttempts) {
+                    return exitCode
+                }
+                restartAttempts.addLast(now)
+                manager.noteRestarting(
+                    reason =
+                        "NaiveProxy exited with code $exitCode; " +
+                            "restarting ${restartAttempts.size}/$NaiveProxyRestartBudgetMaxAttempts",
+                )
+                delay(NaiveProxyRestartDelayMs)
+            }
         }
 
         override suspend fun awaitReady(timeoutMillis: Long) {
@@ -75,6 +108,7 @@ class NaiveProxyRuntime
         }
 
         override suspend fun stop() {
+            stopping = true
             manager.stop()
         }
 

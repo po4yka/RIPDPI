@@ -324,6 +324,9 @@ class RipDpiProxyUIPreferences(
                 vlessTransport = relay.profile.vlessTransport,
                 xhttpPath = relay.profile.xhttpPath,
                 xhttpHost = relay.profile.xhttpHost,
+                cloudflareTunnelMode = relay.profile.cloudflareTunnelMode,
+                cloudflarePublishLocalOriginUrl = relay.profile.cloudflarePublishLocalOriginUrl,
+                cloudflareCredentialsRef = relay.profile.cloudflareCredentialsRef,
                 chainEntryServer = relay.profile.chainEntryServer,
                 chainEntryPort = relay.profile.chainEntryPort,
                 chainEntryServerName = relay.profile.chainEntryServerName,
@@ -347,6 +350,17 @@ class RipDpiProxyUIPreferences(
                 localSocksPort = relay.profile.localSocksPort,
                 udpEnabled = relay.profile.udpEnabled,
                 tcpFallbackEnabled = relay.profile.tcpFallbackEnabled,
+                finalmask =
+                    RipDpiRelayFinalmaskConfig(
+                        type = relay.profile.finalmask.type,
+                        headerHex = relay.profile.finalmask.headerHex,
+                        trailerHex = relay.profile.finalmask.trailerHex,
+                        randRange = relay.profile.finalmask.randRange,
+                        sudokuSeed = relay.profile.finalmask.sudokuSeed,
+                        fragmentPackets = relay.profile.finalmask.fragmentPackets,
+                        fragmentMinBytes = relay.profile.finalmask.fragmentMinBytes,
+                        fragmentMaxBytes = relay.profile.finalmask.fragmentMaxBytes,
+                    ),
             )
         }
 

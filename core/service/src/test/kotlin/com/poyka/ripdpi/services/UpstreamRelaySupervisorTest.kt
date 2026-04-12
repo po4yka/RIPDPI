@@ -3,17 +3,22 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayFinalmaskTypeFragment
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
+import com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish
+import com.poyka.ripdpi.data.StrategyFeatureFinalmask
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -27,6 +32,10 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class UpstreamRelaySupervisorTest {
     private fun providerAuthFixture(): String = listOf("provider", "auth").joinToString("-")
+
+    private fun sampleCloudflareValue(): String = "sample-cloudflare-value"
+
+    private fun sampleMasqueValue(): String = "sample-masque-value"
 
     @Test
     fun `start resolves stored profile and credentials before native runtime launch`() =
@@ -164,6 +173,14 @@ class UpstreamRelaySupervisorTest {
                                     masqueClientPrivateKeyPem = "private-key",
                                 ),
                             )
+                        },
+                    runtimeExperimentSelectionProvider =
+                        object : RuntimeExperimentSelectionProvider {
+                            override fun current(): RuntimeExperimentSelection =
+                                RuntimeExperimentSelection(
+                                    featureFlags =
+                                        mapOf(com.poyka.ripdpi.data.StrategyFeatureMasqueCloudflareDirect to true),
+                                )
                         },
                     cloudflareMasqueGeohashResolver =
                         object : CloudflareMasqueGeohashResolver {
@@ -531,6 +548,120 @@ class UpstreamRelaySupervisorTest {
             assertEquals(RelayVlessTransportXhttp, resolved?.vlessTransport)
             assertEquals(false, resolved?.udpEnabled)
             assertEquals(TlsFingerprintProfileChromeStable, resolved?.tlsFingerprintProfile)
+            supervisor.stop()
+        }
+
+    @Test
+    fun `cloudflare publish mode is rejected when feature flag is disabled`() =
+        runTest {
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = TestRipDpiRelayFactory(),
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "cf",
+                                    kind = RelayKindCloudflareTunnel,
+                                    server = "edge.example.com",
+                                    serverName = "edge.example.com",
+                                    vlessTransport = RelayVlessTransportXhttp,
+                                    cloudflareTunnelMode = RelayCloudflareTunnelModePublishLocalOrigin,
+                                    cloudflarePublishLocalOriginUrl = "http://127.0.0.1:8080",
+                                    cloudflareCredentialsRef = "cf-credentials",
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "cf",
+                                    vlessUuid = "00000000-0000-0000-0000-000000000000",
+                                    cloudflareTunnelToken = sampleCloudflareValue(),
+                                ),
+                            )
+                        },
+                )
+
+            try {
+                supervisor.start(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindCloudflareTunnel,
+                            profileId = "cf",
+                        ),
+                    onUnexpectedExit = {},
+                )
+                fail("Expected Cloudflare publish mode to be feature-gated")
+            } catch (error: ServiceStartupRejectedException) {
+                assertTrue(error.reason is FailureReason.RelayConfigRejected)
+            }
+        }
+
+    @Test
+    fun `finalmask config reaches runtime when feature flag is enabled`() =
+        runTest {
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "edge",
+                                    kind = RelayKindMasque,
+                                    masqueUrl = "https://masque.example/",
+                                    finalmaskType = RelayFinalmaskTypeFragment,
+                                    finalmaskFragmentPackets = 3,
+                                    finalmaskFragmentMinBytes = 32,
+                                    finalmaskFragmentMaxBytes = 96,
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "edge",
+                                    masqueAuthMode = RelayMasqueAuthModeBearer,
+                                    masqueAuthToken = sampleMasqueValue(),
+                                ),
+                            )
+                        },
+                    runtimeExperimentSelectionProvider =
+                        object : RuntimeExperimentSelectionProvider {
+                            override fun current(): RuntimeExperimentSelection =
+                                RuntimeExperimentSelection(
+                                    featureFlags = mapOf(StrategyFeatureFinalmask to true),
+                                )
+                        },
+                )
+
+            supervisor.start(
+                config =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindMasque,
+                        profileId = "edge",
+                    ),
+                onUnexpectedExit = {},
+            )
+
+            val resolved = relayFactory.lastRuntime.lastConfig
+            assertEquals(RelayFinalmaskTypeFragment, resolved?.finalmask?.type)
+            assertEquals(3, resolved?.finalmask?.fragmentPackets)
+            assertEquals(32, resolved?.finalmask?.fragmentMinBytes)
+            assertEquals(96, resolved?.finalmask?.fragmentMaxBytes)
+
             supervisor.stop()
         }
 
