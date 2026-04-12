@@ -94,6 +94,30 @@ fn get_u32_sockopt(fd: libc::c_int, level: libc::c_int, name: libc::c_int) -> io
     Ok(value)
 }
 
+/// Safe wrapper around `libc::dup2` for fd handoff and replacement.
+pub(crate) fn dup2_fd(source_fd: libc::c_int, target_fd: libc::c_int) -> io::Result<()> {
+    // SAFETY: callers guarantee both fds are live descriptors and accept the
+    // kernel-level replacement semantics of `dup2`.
+    let rc = unsafe { libc::dup2(source_fd, target_fd) };
+    if rc >= 0 {
+        Ok(())
+    } else {
+        Err(io::Error::last_os_error())
+    }
+}
+
+/// Safe wrapper around `libc::close` for owned transient descriptors.
+pub(crate) fn close_fd(fd: libc::c_int) -> io::Result<()> {
+    // SAFETY: callers guarantee `fd` is an owned live descriptor that should
+    // be closed exactly once by this helper.
+    let rc = unsafe { libc::close(fd) };
+    if rc == 0 {
+        Ok(())
+    } else {
+        Err(io::Error::last_os_error())
+    }
+}
+
 #[repr(C)]
 struct TcpMd5Sig {
     addr: libc::sockaddr_storage,
@@ -1103,10 +1127,7 @@ fn swap_stream_to_replacement(
 ) -> io::Result<()> {
     let target_fd = stream.as_raw_fd();
     let replacement_fd = replacement.as_raw_fd();
-    let rc = unsafe { libc::dup2(replacement_fd, target_fd) };
-    if rc < 0 {
-        return Err(io::Error::last_os_error());
-    }
+    dup2_fd(replacement_fd, target_fd)?;
     apply_stream_socket_settings(stream, settings);
     Ok(())
 }
@@ -1606,8 +1627,10 @@ fn write_region(region: *mut u8, data: &[u8], len: usize) {
 mod tests {
     use super::*;
     use etherparse::{Ipv4Header, TcpHeader};
+    use std::io::Write;
     use std::mem::zeroed;
     use std::net::TcpListener;
+    use std::os::fd::IntoRawFd;
     use std::slice;
 
     fn connected_pair() -> (TcpStream, TcpStream) {
@@ -1652,6 +1675,28 @@ mod tests {
                 timestamp: Some(TcpTimestampSnapshot { value: 0x1122_3344, echo_reply: 0x5566_7788, usec_ts: false }),
             },
         }
+    }
+
+    #[test]
+    fn dup2_fd_replaces_target_and_close_fd_releases_transient_source() {
+        let (mut target_stream, _target_peer) = UnixStream::pair().expect("create target pair");
+        let (source_stream, mut source_peer) = UnixStream::pair().expect("create source pair");
+        let target_fd = target_stream.as_raw_fd();
+        let source_fd = source_stream.into_raw_fd();
+
+        dup2_fd(source_fd, target_fd).expect("replace target fd");
+        close_fd(source_fd).expect("close transient source fd");
+
+        source_peer.write_all(b"ok").expect("write through replacement peer");
+        let mut buf = [0_u8; 2];
+        target_stream.read_exact(&mut buf).expect("read from replaced target");
+        assert_eq!(&buf, b"ok");
+
+        // SAFETY: `source_fd` was closed by `close_fd`, so probing it with
+        // `F_GETFD` should now fail with `EBADF`.
+        let rc = unsafe { libc::fcntl(source_fd, libc::F_GETFD) };
+        assert_eq!(rc, -1);
+        assert_eq!(io::Error::last_os_error().raw_os_error(), Some(libc::EBADF));
     }
 
     #[test]
