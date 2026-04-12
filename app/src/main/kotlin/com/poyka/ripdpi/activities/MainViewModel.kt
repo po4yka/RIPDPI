@@ -44,7 +44,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
@@ -258,10 +257,10 @@ class MainViewModel
         permissionPlatformBridge: PermissionPlatformBridge,
         permissionStatusProvider: PermissionStatusProvider,
         permissionCoordinator: PermissionCoordinator,
-        private val crashReportReader: CrashReportReader,
         private val appLockLifecycleCoordinator: MainAppLockLifecycleCoordinator,
         private val startupSideEffectsCoordinator: MainStartupSideEffectsCoordinator,
         private val settingsDismissCoordinator: MainSettingsDismissCoordinator,
+        private val crashReportCoordinator: MainCrashReportCoordinator,
     ) : ViewModel() {
         private var initialized = false
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
@@ -514,12 +513,11 @@ class MainViewModel
         fun dismissHomeVerificationSheet() = homeDiagnosticsActions.dismissVerificationSheet()
 
         fun buildCrashReportShareText(report: CrashReport): Pair<String, String> =
-            crashReportReader.buildShareText(report)
+            crashReportCoordinator.buildShareText(report)
 
         fun dismissCrashReport() {
-            _pendingCrashReport.value = null
-            viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                crashReportReader.delete()
+            crashReportCoordinator.dismiss(viewModelScope) {
+                _pendingCrashReport.value = null
             }
         }
 
