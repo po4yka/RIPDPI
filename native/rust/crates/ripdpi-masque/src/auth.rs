@@ -104,19 +104,37 @@ pub fn parse_privacy_pass_challenge(value: Option<&HeaderValue>) -> io::Result<S
     })?;
     let value =
         value.to_str().map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid WWW-Authenticate header"))?;
-    let mut parts = value.trim().splitn(2, char::is_whitespace);
+    let trimmed = value.trim();
+    let mut parts = trimmed.splitn(2, char::is_whitespace);
     let scheme = parts.next().unwrap_or_default();
     let params = parts.next().unwrap_or_default();
     if !scheme.eq_ignore_ascii_case("PrivateToken") {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "proxy did not return a PrivateToken challenge"));
     }
-    if !params.contains("challenge=") {
+    if privacy_pass_auth_param(params, "challenge").is_none() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "proxy Privacy Pass challenge is missing a challenge parameter",
         ));
     }
-    Ok(value.to_owned())
+    if privacy_pass_auth_param(params, "token-key").is_none() {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "proxy Privacy Pass challenge is missing a token-key parameter",
+        ));
+    }
+    Ok(trimmed.to_owned())
+}
+
+fn privacy_pass_auth_param<'a>(params: &'a str, name: &str) -> Option<&'a str> {
+    params.split(',').find_map(|segment| {
+        let (key, value) = segment.trim().split_once('=')?;
+        if !key.trim().eq_ignore_ascii_case(name) {
+            return None;
+        }
+        let value = value.trim().trim_matches('"');
+        (!value.is_empty()).then_some(value)
+    })
 }
 
 fn now_ms() -> u64 {
@@ -134,6 +152,49 @@ mod tests {
         );
         let parsed = parse_privacy_pass_challenge(Some(&value)).expect("parse");
         assert!(parsed.starts_with("PrivateToken "));
+    }
+
+    #[test]
+    fn privacy_pass_challenge_parser_accepts_case_insensitive_scheme_and_trimmed_header() {
+        let value = HeaderValue::from_static(
+            "  privatetoken challenge=AAEABmlzc3VlcgAAAAZvcmlnaW4=, token-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=  ",
+        );
+
+        let parsed = parse_privacy_pass_challenge(Some(&value)).expect("parse");
+
+        assert_eq!(
+            parsed,
+            "privatetoken challenge=AAEABmlzc3VlcgAAAAZvcmlnaW4=, token-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        );
+    }
+
+    #[test]
+    fn privacy_pass_challenge_parser_rejects_missing_challenge_param() {
+        let value = HeaderValue::from_static("PrivateToken token-key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
+
+        let error = parse_privacy_pass_challenge(Some(&value)).expect_err("missing challenge should fail");
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("challenge parameter"));
+    }
+
+    #[test]
+    fn privacy_pass_challenge_parser_rejects_missing_token_key_param() {
+        let value = HeaderValue::from_static("PrivateToken challenge=AAEABmlzc3VlcgAAAAZvcmlnaW4=");
+
+        let error = parse_privacy_pass_challenge(Some(&value)).expect_err("missing token-key should fail");
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("token-key parameter"));
+    }
+
+    #[test]
+    fn privacy_pass_challenge_parser_rejects_empty_params() {
+        let value = HeaderValue::from_static("PrivateToken challenge=, token-key=\"\"");
+
+        let error = parse_privacy_pass_challenge(Some(&value)).expect_err("empty params should fail");
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
     }
 
     #[test]
