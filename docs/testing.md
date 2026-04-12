@@ -102,6 +102,37 @@ cargo test -p ripdpi-masque -p ripdpi-relay-core -p ripdpi-xhttp -p ripdpi-naive
   -x :core:engine:buildRustRootHelper
 ```
 
+## Native performance and size guardrails
+
+Before changing runtime threading, lock granularity, JNI wrappers, or packet-parsing hot paths, capture a local
+baseline with the same guardrails CI uses.
+
+Criterion benchmarks:
+
+```bash
+cargo bench -p ripdpi-bench --bench config_parse
+cargo bench -p ripdpi-bench --bench relay_throughput
+python3 scripts/ci/check-criterion-regressions.py
+```
+
+Tracked benchmark baselines live in `scripts/ci/rust-bench-baseline.json`.
+
+Packaged native size checks:
+
+```bash
+./gradlew :app:assembleDebug
+python3 scripts/ci/verify_native_sizes.py
+python3 scripts/ci/verify_native_bloat.py
+```
+
+Tracked native-size baselines live in:
+
+- `scripts/ci/native-size-baseline.json`
+- `scripts/ci/native-bloat-baseline.json`
+
+`verify_native_bloat.py` uses the Android SDK/NDK configuration from `local.properties` and `gradle.properties`, so do
+not hardcode toolchain paths when refreshing those baselines.
+
 ## Local network E2E
 
 RIPDPI includes a repo-owned local fixture binary that exposes:
