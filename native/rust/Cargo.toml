@@ -38,6 +38,7 @@ members = [
     "crates/ripdpi-masque",
     "crates/ripdpi-tuic",
     "crates/ripdpi-naiveproxy",
+    "crates/ripdpi-cloudflare-origin",
     "crates/ripdpi-tls-profiles",
     "crates/ripdpi-xhttp",
 ]
@@ -78,6 +79,7 @@ ripdpi-tuic = { path = "crates/ripdpi-tuic" }
 ripdpi-tls-profiles = { path = "crates/ripdpi-tls-profiles" }
 ripdpi-xhttp = { path = "crates/ripdpi-xhttp" }
 ripdpi-naiveproxy = { path = "crates/ripdpi-naiveproxy" }
+ripdpi-cloudflare-origin = { path = "crates/ripdpi-cloudflare-origin" }
 criterion = { version = "0.8", features = ["html_reports"] }
 
 ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }
@@ -134,7 +136,7 @@ flume = "0.12"
 x25519-dalek = { version = "2", features = ["static_secrets", "getrandom"] }
 h3 = "0.0.8"
 h3-quinn = "0.0.10"
-hyper = { version = "1", features = ["client", "http1", "http2"] }
+hyper = { version = "1", features = ["client", "server", "http1", "http2"] }
 hyper-util = { version = "0.1", features = ["tokio"] }
 bytes = "1"
 http = "1"

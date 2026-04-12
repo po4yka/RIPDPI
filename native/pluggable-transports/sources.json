@@ -13,6 +13,18 @@
         "ripdpi-webtunnel",
         "ripdpi-obfs4"
       ]
+    },
+    {
+      "id": "cloudflared",
+      "repoUrl": "https://github.com/cloudflare/cloudflared.git",
+      "commit": "2026.2.0",
+      "goToolchain": "go1.24.0",
+      "cgoEnabled": true,
+      "packagePath": "./cmd/cloudflared",
+      "sourceBinaryName": "cloudflared",
+      "outputNames": [
+        "ripdpi-cloudflared"
+      ]
     }
   ]
 }

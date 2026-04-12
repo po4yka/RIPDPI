@@ -604,6 +604,70 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
+    fun `cloudflare publish mode uses the dedicated publish runtime when feature flag is enabled`() =
+        runTest {
+            val relayFactory = TestRipDpiRelayFactory()
+            val cloudflarePublishFactory = TestCloudflarePublishRuntimeFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    cloudflarePublishRuntimeFactory = cloudflarePublishFactory,
+                    relayProfileStore =
+                        TestRelayProfileStore().apply {
+                            save(
+                                RelayProfileRecord(
+                                    id = "cf",
+                                    kind = RelayKindCloudflareTunnel,
+                                    server = "edge.example.com",
+                                    serverName = "edge.example.com",
+                                    vlessTransport = RelayVlessTransportXhttp,
+                                    cloudflareTunnelMode = RelayCloudflareTunnelModePublishLocalOrigin,
+                                    cloudflarePublishLocalOriginUrl = "http://127.0.0.1:43128",
+                                ),
+                            )
+                        },
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "cf",
+                                    vlessUuid = "00000000-0000-0000-0000-000000000000",
+                                    cloudflareTunnelCredentialsJson =
+                                        """
+                                        {"TunnelID":"550e8400-e29b-41d4-a716-446655440000"}
+                                        """.trimIndent(),
+                                ),
+                            )
+                        },
+                    runtimeExperimentSelectionProvider =
+                        object : RuntimeExperimentSelectionProvider {
+                            override fun current(): RuntimeExperimentSelection =
+                                RuntimeExperimentSelection(
+                                    featureFlags = mapOf(StrategyFeatureCloudflarePublish to true),
+                                )
+                        },
+                )
+
+            supervisor.start(
+                config =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindCloudflareTunnel,
+                        profileId = "cf",
+                    ),
+                onUnexpectedExit = {},
+            )
+
+            assertEquals(0, relayFactory.runtimes.size)
+            assertEquals(1, cloudflarePublishFactory.runtimes.size)
+
+            supervisor.stop()
+        }
+
+    @Test
     fun `finalmask config reaches runtime when feature flag is enabled`() =
         runTest {
             val relayFactory = TestRipDpiRelayFactory()
