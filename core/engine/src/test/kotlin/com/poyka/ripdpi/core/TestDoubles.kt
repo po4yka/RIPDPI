@@ -76,6 +76,7 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     var telemetryFailure: Throwable? = null
     var startedSignal: CompletableDeferred<Long>? = null
     var startBlocker: CompletableDeferred<Unit>? = null
+    var stopCompletesStartBlocker: Boolean = false
     var startBlockTimeoutMillis: Long = DEFAULT_START_BLOCK_TIMEOUT_MS
     var lastCreatePayload: String? = null
     var lastStartedHandle: Long? = null
@@ -123,6 +124,9 @@ class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     override fun stop(handle: Long) {
         lastStoppedHandle = handle
         stoppedHandles += handle
+        if (stopCompletesStartBlocker) {
+            startBlocker?.complete(Unit)
+        }
         faults.next(ProxyBindingFaultTarget.STOP)?.throwOrIgnore()
         stopFailure?.let { throw it }
     }

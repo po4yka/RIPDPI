@@ -61,6 +61,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_phase0_baseline:
+        description: Capture the full Phase 0 baseline snapshot
+        required: false
+        default: false
+        type: boolean
   schedule:
     - cron: "0 3 * * *"
 
@@ -574,6 +579,46 @@ jobs:
             ${{ runner.temp }}/criterion-output.txt
             ${{ runner.temp }}/criterion-summary.md
           retention-days: 7
+
+  phase0-baseline:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_phase0_baseline == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "false"
+
+      - name: Resolve baseline profile
+        id: baseline-profile
+        run: |
+          profile="${{ github.event.inputs.soak_profile }}"
+          if [ "${GITHUB_EVENT_NAME}" = "schedule" ]; then
+            profile="smoke"
+          elif [ -z "$profile" ]; then
+            profile="smoke"
+          fi
+          echo "profile=$profile" >> "$GITHUB_OUTPUT"
+
+      - name: Capture full Phase 0 baseline snapshot
+        run: |
+          mkdir -p "$RUNNER_TEMP/phase0-baseline"
+          RIPDPI_SOAK_PROFILE="${{ steps.baseline-profile.outputs.profile }}" \
+            bash scripts/ci/run-phase0-baseline.sh "$RUNNER_TEMP/phase0-baseline" \
+            2>&1 | tee "$RUNNER_TEMP/phase0-baseline/phase0-baseline.log"
+
+      - name: Upload Phase 0 baseline artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: phase0-baseline-artifacts
+          path: |
+            ${{ runner.temp }}/phase0-baseline/
+          retention-days: 14
 
   android-macrobenchmark:
     if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_android_macrobenchmark == 'true')

@@ -12,10 +12,10 @@ This roadmap is based on the audit issues discussed in this thread. It separates
 
 Goal: establish repeatable measurements before changing architecture.
 
-- [ ] Define baselines for native throughput, memory per connection, startup/shutdown time, JNI polling cost, release `.so` size, and key test/runtime durations.
-- [ ] Add a small benchmark or profiling harness for the runtime hot path and TCP relay path.
-- [ ] Record current values in CI artifacts or a tracked benchmark output.
-- [ ] Add a short checklist for unsafe-code review so future refactors do not expand blind spots.
+- [x] Define baselines for native throughput, memory per connection, startup/shutdown time, JNI polling cost, release `.so` size, and key test/runtime durations.
+- [x] Add a small benchmark or profiling harness for the runtime hot path and TCP relay path.
+- [x] Record current values in CI artifacts or a tracked benchmark output.
+- [x] Add a short checklist for unsafe-code review so future refactors do not expand blind spots.
 
 Acceptance criteria:
 
