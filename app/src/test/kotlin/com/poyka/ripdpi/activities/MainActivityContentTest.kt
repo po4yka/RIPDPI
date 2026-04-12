@@ -224,6 +224,10 @@ class MainActivityContentTest {
                     appSettingsRepository = appSettingsRepository,
                     crashReportReader = crashReportReader,
                 ),
+            settingsDismissCoordinator =
+                MainSettingsDismissCoordinator(
+                    appSettingsRepository = appSettingsRepository,
+                ),
         )
     }
 }
