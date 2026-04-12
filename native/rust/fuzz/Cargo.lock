@@ -676,6 +676,7 @@ name = "fuzz"
 version = "0.0.0"
 dependencies = [
  "libfuzzer-sys",
+ "ripdpi-config",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-monitor",
