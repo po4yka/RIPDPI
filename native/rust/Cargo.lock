@@ -3502,6 +3502,7 @@ dependencies = [
  "rand 0.9.3",
  "ripdpi-tls-profiles",
  "ripdpi-vless",
+ "sha2",
  "thiserror 2.0.18",
  "tokio",
  "tokio-boring",

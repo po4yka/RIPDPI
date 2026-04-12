@@ -15,9 +15,9 @@ This document remains the research and backlog source of truth. The actionable i
 Current repo status on the follow-up backlog:
 
 - Cloudflare Tunnel now has explicit consume/publish modes, credential-reference persistence, import-backed secret storage, and rollout-flag wiring.
-- Finalmask is exposed in settings, relay models, strategy-pack flags, and native relay validation, with unsupported combinations rejected at startup.
+- Finalmask is exposed in settings, relay models, strategy-pack flags, and now mutates live xHTTP transport traffic for VLESS xHTTP and Cloudflare Tunnel profiles, with unsupported combinations rejected at startup.
 - NaiveProxy now runs as a supervised helper with version probing, structured failure telemetry, and bounded restart budgeting.
-- Cloudflare publish runtime bundling and transport-level Finalmask byte rewriting remain the two material implementation gaps after this update.
+- Cloudflare publish runtime bundling remains the main transport/runtime gap after this update; Finalmask is now implemented for the xHTTP transport family, while unsupported QUIC-side combinations stay rejected.
 
 ## Current Threat Landscape
 

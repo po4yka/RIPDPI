@@ -659,18 +659,16 @@ private fun validateRelayFinalmaskDraft(draft: ConfigDraft): String? {
         return null
     }
     if (
-        draft.relayKind != RelayKindVlessReality &&
-        draft.relayKind != RelayKindCloudflareTunnel &&
-        draft.relayKind != RelayKindMasque &&
-        draft.relayKind != RelayKindHysteria2 &&
-        draft.relayKind != RelayKindTuicV5
+        draft.relayKind == RelayKindVlessReality &&
+        draft.relayVlessTransport != RelayVlessTransportXhttp
     ) {
         return "unsupported"
     }
+    if (draft.relayKind != RelayKindVlessReality && draft.relayKind != RelayKindCloudflareTunnel) {
+        return "unsupported"
+    }
     return when (finalmaskType) {
-        RelayFinalmaskTypeHeaderCustom,
-        RelayFinalmaskTypeNoise,
-        -> {
+        RelayFinalmaskTypeHeaderCustom -> {
             when {
                 draft.relayFinalmaskRandRange.isNotBlank() &&
                     !draft.relayFinalmaskRandRange.matches(
@@ -690,6 +688,10 @@ private fun validateRelayFinalmaskDraft(draft: ConfigDraft): String? {
                     null
                 }
             }
+        }
+
+        RelayFinalmaskTypeNoise -> {
+            "unsupported"
         }
 
         RelayFinalmaskTypeSudoku -> {
