@@ -51,7 +51,7 @@ The native relay layer is no longer limited to the original VLESS, Hysteria2, an
 Recent integration hardening in this layer:
 
 - Relay runtime config now preserves Cloudflare Tunnel mode, Cloudflare credential references, tunnel import material, and Finalmask settings from Kotlin through to the Rust relay boundary.
-- `ripdpi-relay-core` validates Finalmask eligibility per relay family and rejects unsupported combinations early rather than dropping the config silently.
+- `ripdpi-xhttp` now applies Finalmask directly on the outbound xHTTP transport for VLESS xHTTP and Cloudflare Tunnel profiles; `ripdpi-relay-core` rejects unsupported relay and mode combinations early rather than dropping them silently.
 - `ripdpi-naiveproxy` emits structured readiness and failure events (`RIPDPI-READY`, `RIPDPI-ERROR`) so the Android service can classify DNS/TLS/HTTP CONNECT/auth failures and expose watchdog state.
 - The Android subprocess supervisor now probes helper versions, redacts configured secrets from surfaced error text, and performs bounded restart attempts for NaiveProxy helper crashes.
 

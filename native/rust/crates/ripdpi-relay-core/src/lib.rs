@@ -1128,6 +1128,16 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                         },
                         bind_ip: outbound_bind_ip,
                         xmux: ripdpi_xhttp::XmuxConfig::default(),
+                        finalmask: ripdpi_xhttp::FinalmaskConfig {
+                            r#type: config.finalmask.r#type.clone(),
+                            header_hex: config.finalmask.header_hex.clone(),
+                            trailer_hex: config.finalmask.trailer_hex.clone(),
+                            rand_range: config.finalmask.rand_range.clone(),
+                            sudoku_seed: config.finalmask.sudoku_seed.clone(),
+                            fragment_packets: config.finalmask.fragment_packets,
+                            fragment_min_bytes: config.finalmask.fragment_min_bytes,
+                            fragment_max_bytes: config.finalmask.fragment_max_bytes,
+                        },
                     }),
                 },
                 pool_config,
@@ -1165,6 +1175,16 @@ async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayB
                     )
                     .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
                     tls.bind_ip = outbound_bind_ip;
+                    tls.finalmask = ripdpi_xhttp::FinalmaskConfig {
+                        r#type: config.finalmask.r#type.clone(),
+                        header_hex: config.finalmask.header_hex.clone(),
+                        trailer_hex: config.finalmask.trailer_hex.clone(),
+                        rand_range: config.finalmask.rand_range.clone(),
+                        sudoku_seed: config.finalmask.sudoku_seed.clone(),
+                        fragment_packets: config.finalmask.fragment_packets,
+                        fragment_min_bytes: config.finalmask.fragment_min_bytes,
+                        fragment_max_bytes: config.finalmask.fragment_max_bytes,
+                    };
                     tls
                 }),
             },
@@ -1335,21 +1355,21 @@ fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> io::Result<
         return Ok(());
     }
 
-    let supported_kind = matches!(config.kind.as_str(), "cloudflare_tunnel" | "masque" | "hysteria2" | "tuic_v5")
-        || (config.kind == "vless_reality" && config.vless_transport == "xhttp");
+    let supported_kind =
+        config.kind == "cloudflare_tunnel" || (config.kind == "vless_reality" && config.vless_transport == "xhttp");
     if !supported_kind {
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            format!("finalmask is unsupported for relay kind {}", config.kind),
+            format!("finalmask is unsupported for relay kind {} on its active transport", config.kind),
         ));
     }
 
     match finalmask.r#type.as_str() {
-        "header_custom" | "noise" => {
+        "header_custom" => {
             if finalmask.header_hex.trim().is_empty() && finalmask.trailer_hex.trim().is_empty() {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
-                    "finalmask header_custom/noise requires header or trailer hex",
+                    "finalmask header_custom requires header or trailer hex",
                 ));
             }
         }
@@ -1369,6 +1389,12 @@ fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> io::Result<
                     "finalmask fragment requires a positive packet count and byte range",
                 ));
             }
+        }
+        "noise" => {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "finalmask noise is not available for xHTTP transports",
+            ));
         }
         _ => {
             return Err(io::Error::new(
@@ -1557,6 +1583,31 @@ mod tests {
         };
 
         validate_finalmask_config(&config).expect("xhttp finalmask should validate");
+    }
+
+    #[test]
+    fn relay_runtime_accepts_finalmask_for_cloudflare_xhttp() {
+        let mut config = sample_config("cloudflare_tunnel");
+        config.finalmask = ResolvedRelayFinalmaskConfig {
+            r#type: "sudoku".to_string(),
+            sudoku_seed: "fixture-seed".to_string(),
+            ..ResolvedRelayFinalmaskConfig::default()
+        };
+
+        validate_finalmask_config(&config).expect("cloudflare xhttp finalmask should validate");
+    }
+
+    #[test]
+    fn relay_runtime_rejects_noise_for_xhttp_transports() {
+        let mut config = sample_config("cloudflare_tunnel");
+        config.finalmask = ResolvedRelayFinalmaskConfig {
+            r#type: "noise".to_string(),
+            rand_range: "8-12".to_string(),
+            ..ResolvedRelayFinalmaskConfig::default()
+        };
+
+        let error = validate_finalmask_config(&config).expect_err("noise should be rejected");
+        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
     }
 
     #[test]

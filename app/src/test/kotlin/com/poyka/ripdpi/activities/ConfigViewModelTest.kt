@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayFinalmaskTypeFragment
+import com.poyka.ripdpi.data.RelayFinalmaskTypeNoise
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -244,11 +245,10 @@ class ConfigViewModelTest {
             validateConfigDraft(
                 defaultDraft.copy(
                     relayEnabled = true,
-                    relayKind = RelayKindMasque,
-                    relayMasqueUrl = "https://masque.example/",
-                    relayMasqueAuthMode = RelayMasqueAuthModeBearer,
-                    relayMasqueAuthToken = sampleMasqueValue(),
-                    relayUdpEnabled = true,
+                    relayKind = RelayKindCloudflareTunnel,
+                    relayServer = "edge.example.com",
+                    relayServerPort = "443",
+                    relayServerName = "edge.example.com",
                     relayFinalmaskType = RelayFinalmaskTypeFragment,
                     relayFinalmaskFragmentPackets = "3",
                     relayFinalmaskFragmentMinBytes = "32",
@@ -265,11 +265,54 @@ class ConfigViewModelTest {
             validateConfigDraft(
                 defaultDraft.copy(
                     relayEnabled = true,
-                    relayKind = RelayKindChainRelay,
+                    relayKind = RelayKindMasque,
+                    relayMasqueUrl = "https://masque.example/",
+                    relayMasqueAuthMode = RelayMasqueAuthModeBearer,
+                    relayMasqueAuthToken = sampleMasqueValue(),
                     relayFinalmaskType = RelayFinalmaskTypeFragment,
                     relayFinalmaskFragmentPackets = "3",
                     relayFinalmaskFragmentMinBytes = "32",
                     relayFinalmaskFragmentMaxBytes = "96",
+                ),
+            )
+
+        assertEquals("unsupported", errors[ConfigFieldRelayFinalmask])
+    }
+
+    @Test
+    fun `relay validation rejects finalmask for reality tcp transport`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindVlessReality,
+                    relayServer = "edge.example.com",
+                    relayServerPort = "443",
+                    relayServerName = "edge.example.com",
+                    relayRealityPublicKey = "QUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUE=",
+                    relayVlessUuid = "00000000-0000-0000-0000-000000000000",
+                    relayFinalmaskType = RelayFinalmaskTypeFragment,
+                    relayFinalmaskFragmentPackets = "3",
+                    relayFinalmaskFragmentMinBytes = "32",
+                    relayFinalmaskFragmentMaxBytes = "96",
+                ),
+            )
+
+        assertEquals("unsupported", errors[ConfigFieldRelayFinalmask])
+    }
+
+    @Test
+    fun `relay validation rejects unsupported finalmask noise mode`() {
+        val errors =
+            validateConfigDraft(
+                defaultDraft.copy(
+                    relayEnabled = true,
+                    relayKind = RelayKindCloudflareTunnel,
+                    relayServer = "edge.example.com",
+                    relayServerPort = "443",
+                    relayServerName = "edge.example.com",
+                    relayFinalmaskType = RelayFinalmaskTypeNoise,
+                    relayFinalmaskRandRange = "8-12",
                 ),
             )
 

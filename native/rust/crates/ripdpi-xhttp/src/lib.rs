@@ -1,5 +1,7 @@
 #![forbid(unsafe_code)]
 
+mod finalmask;
+
 use std::io;
 use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::pin::Pin;
@@ -34,6 +36,33 @@ impl<T> AsyncIo for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 type XhttpBody = http_body_util::combinators::BoxBody<Bytes, io::Error>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FinalmaskConfig {
+    pub r#type: String,
+    pub header_hex: String,
+    pub trailer_hex: String,
+    pub rand_range: String,
+    pub sudoku_seed: String,
+    pub fragment_packets: i32,
+    pub fragment_min_bytes: i32,
+    pub fragment_max_bytes: i32,
+}
+
+impl Default for FinalmaskConfig {
+    fn default() -> Self {
+        Self {
+            r#type: "off".to_string(),
+            header_hex: String::new(),
+            trailer_hex: String::new(),
+            rand_range: String::new(),
+            sudoku_seed: String::new(),
+            fragment_packets: 0,
+            fragment_min_bytes: 0,
+            fragment_max_bytes: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct XmuxConfig {
     pub max_connections: usize,
     pub max_concurrent_streams: usize,
@@ -55,6 +84,7 @@ pub struct XhttpRealityConfig {
     pub host: Option<String>,
     pub bind_ip: Option<IpAddr>,
     pub xmux: XmuxConfig,
+    pub finalmask: FinalmaskConfig,
 }
 
 #[derive(Debug, Clone)]
@@ -68,6 +98,7 @@ pub struct XhttpTlsConfig {
     pub bind_ip: Option<IpAddr>,
     pub tls_fingerprint_profile: String,
     pub xmux: XmuxConfig,
+    pub finalmask: FinalmaskConfig,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -215,20 +246,22 @@ impl XhttpClient {
     async fn create_connection(&self) -> io::Result<Arc<PooledConnection>> {
         let io = match &self.inner.mode {
             XhttpMode::Reality(config) => {
-                let tls = ripdpi_vless::reality::connect_reality_tls(
+                let transport = finalmask::wrap_tcp_stream(
                     connect_tcp_stream(&config.vless.server, config.vless.port, config.bind_ip).await?,
-                    &config.vless,
-                )
-                .await?;
+                    &config.finalmask,
+                )?;
+                let tls = ripdpi_vless::reality::connect_reality_tls_over(transport, &config.vless).await?;
                 TokioIo::new(tls)
             }
             XhttpMode::Tls(config) => {
-                let tcp = connect_tcp_stream(&config.server, config.port, config.bind_ip).await?;
-                tcp.set_nodelay(true)?;
+                let transport = finalmask::wrap_tcp_stream(
+                    connect_tcp_stream(&config.server, config.port, config.bind_ip).await?,
+                    &config.finalmask,
+                )?;
                 let connector = ripdpi_tls_profiles::build_connector(&config.tls_fingerprint_profile, true)
                     .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
                 let ssl = connector.configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
-                let tls = tokio_boring::connect(ssl, &config.server_name, tcp).await.map_err(|error| {
+                let tls = tokio_boring::connect(ssl, &config.server_name, transport).await.map_err(|error| {
                     io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP TLS handshake: {error}"))
                 })?;
                 TokioIo::new(tls)
@@ -277,6 +310,7 @@ impl XhttpTlsConfig {
             bind_ip: None,
             tls_fingerprint_profile: tls_fingerprint_profile.to_owned(),
             xmux: XmuxConfig::default(),
+            finalmask: FinalmaskConfig::default(),
         })
     }
 }
