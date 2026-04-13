@@ -724,6 +724,8 @@ mod tests {
             acknowledgment_number: 0x0506_0708,
             window_size: 4096,
             timestamp: None,
+            tcp_flags_set: 0,
+            tcp_flags_unset: 0,
             ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let payload = b"fragmented tls client hello";
@@ -757,6 +759,8 @@ mod tests {
             acknowledgment_number: 0x0506_0708,
             window_size: 4096,
             timestamp: None,
+            tcp_flags_set: 0,
+            tcp_flags_unset: 0,
             ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let payload = b"fragmented tls client hello over ipv6";
@@ -798,6 +802,8 @@ mod tests {
             acknowledgment_number: 0x0506_0708,
             window_size: 4096,
             timestamp: None,
+            tcp_flags_set: 0,
+            tcp_flags_unset: 0,
             ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let payload = b"fragmented tls client hello";
@@ -835,6 +841,8 @@ mod tests {
             acknowledgment_number: 0x0506_0708,
             window_size: 4096,
             timestamp: Some(TcpTimestampOption { value: 0x1122_3344, echo_reply: 0 }),
+            tcp_flags_set: 0,
+            tcp_flags_unset: 0,
             ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let payload = b"timestamped payload";
@@ -869,6 +877,8 @@ mod tests {
             acknowledgment_number: 0x0506_0708,
             window_size: 4096,
             timestamp: Some(TcpTimestampOption { value: 0x5566_7788, echo_reply: 0 }),
+            tcp_flags_set: 0,
+            tcp_flags_unset: 0,
             ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let payload = b"ipv6 timestamped payload";
@@ -1037,6 +1047,8 @@ mod tests {
             acknowledgment_number: 2000,
             window_size: 0,
             timestamp: None,
+            tcp_flags_set: 0,
+            tcp_flags_unset: 0,
             ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let packet = build_fake_rst_packet(&spec).expect("build fake rst");
@@ -1063,6 +1075,8 @@ mod tests {
             acknowledgment_number: 4000,
             window_size: 0,
             timestamp: None,
+            tcp_flags_set: 0,
+            tcp_flags_unset: 0,
             ipv6_ext: Ipv6ExtHeaders::default(),
         };
         let packet = build_fake_rst_packet(&spec).expect("build fake rst v6");
@@ -1088,6 +1102,8 @@ mod tests {
             acknowledgment_number: 0,
             window_size: 0,
             timestamp: None,
+            tcp_flags_set: 0,
+            tcp_flags_unset: 0,
             ipv6_ext: Ipv6ExtHeaders::default(),
         };
         assert_eq!(build_fake_rst_packet(&spec).unwrap_err(), BuildError::AddressFamilyMismatch);

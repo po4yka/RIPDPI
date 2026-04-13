@@ -1,7 +1,12 @@
 use std::borrow::Cow;
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
+use std::sync::Arc;
 use std::time::Duration;
+
+/// Callback invoked for each packet written during desync execution.
+/// The bool parameter is `true` for outbound packets.
+pub type PcapHook = Arc<dyn Fn(&[u8], bool) + Send + Sync>;
 
 use crate::platform;
 use ripdpi_config::{DesyncGroup, EntropyMode, FakeOrder, FakeSeqMode, RuntimeConfig, TcpChainStep, TcpChainStepKind};
@@ -377,6 +382,7 @@ pub(super) fn send_with_group(
                     &state.ttl_unavailable,
                     group.actions.md5sig,
                     effective_group.actions.ip_id_mode,
+                    state.pcap_hook.as_ref(),
                 )?;
                 Ok(OutboundSendOutcome { bytes_committed, strategy_family })
             }
@@ -608,6 +614,7 @@ fn execute_tcp_actions(
     session_ttl_unavailable: &AtomicBool,
     md5sig: bool,
     ip_id_mode: Option<ripdpi_config::IpIdMode>,
+    pcap_hook: Option<&PcapHook>,
 ) -> Result<usize, OutboundSendError> {
     // When default_ttl is 0 (auto-detect), lazily read the current TTL on
     // the first SetTtl action so we always have a value to restore.
@@ -652,6 +659,9 @@ fn execute_tcp_actions(
                         }
                     } else {
                         bytes_committed = write_transport_payload(writer, bytes)?;
+                    }
+                    if let Some(hook) = pcap_hook {
+                        hook(bytes, true);
                     }
                 }
                 DesyncAction::WriteUrgent { prefix, urgent_byte } => {
@@ -1772,7 +1782,12 @@ fn execute_tcp_plan(
                 }
 
                 let real_host = &plan.tampered[span.host_start..span.host_end];
-                let fake_host = build_hostfake_bytes(real_host, configured_step.fake_host_template.as_deref(), seed);
+                let fake_host = build_hostfake_bytes(
+                    real_host,
+                    configured_step.fake_host_template.as_deref(),
+                    seed,
+                    configured_step.random_fake_host,
+                );
                 let fake_ttl = resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
                 let fake_flags = step_fake_tcp_flags(configured_step);
                 let original_flags = step_original_tcp_flags(configured_step);
@@ -3245,6 +3260,7 @@ mod tests {
             &unavailable,
             false,
             None,
+            None,
         );
         // write_transport_payload returns bytes.len() (not accumulated), so last write's len is returned
         assert_eq!(result.unwrap(), 5);
@@ -3269,6 +3285,7 @@ mod tests {
             &unavailable,
             false,
             None,
+            None,
         );
         assert_eq!(result.unwrap(), 5);
     }
@@ -3289,6 +3306,7 @@ mod tests {
             &unavailable,
             false,
             None,
+            None,
         );
         assert_eq!(result.unwrap(), 1);
     }
@@ -3307,6 +3325,7 @@ mod tests {
             Some("disorder"),
             &unavailable,
             false,
+            None,
             None,
         );
         assert_eq!(result.unwrap(), 0);
@@ -3327,6 +3346,7 @@ mod tests {
             &unavailable,
             false,
             None,
+            None,
         );
         assert_eq!(result.unwrap(), 3); // prefix.len() + 1
     }
@@ -3345,6 +3365,7 @@ mod tests {
             Some("oob"),
             &unavailable,
             false,
+            None,
             None,
         );
         assert_eq!(result.unwrap(), 3);
@@ -3373,6 +3394,7 @@ mod tests {
             Some("ipfrag2"),
             &unavailable,
             false,
+            None,
             None,
         );
         assert_eq!(result.unwrap(), 5);
@@ -3403,6 +3425,7 @@ mod tests {
             &unavailable,
             false,
             None,
+            None,
         );
         assert_eq!(result.unwrap(), 5);
         let mut buf = vec![0u8; 5];
@@ -3430,6 +3453,7 @@ mod tests {
             None,
             &unavailable,
             false,
+            None,
             None,
         );
         assert_eq!(result.unwrap(), 4);
@@ -3459,6 +3483,7 @@ mod tests {
             &unavailable,
             false,
             None,
+            None,
         )
         .unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
@@ -3480,6 +3505,7 @@ mod tests {
             None,
             &unavailable,
             false,
+            None,
             None,
         );
         assert_eq!(result.unwrap(), 1);
@@ -3504,6 +3530,7 @@ mod tests {
             &unavailable,
             false,
             None,
+            None,
         );
         assert_eq!(result.unwrap(), 1);
     }
@@ -3526,6 +3553,7 @@ mod tests {
             &unavailable,
             false,
             None,
+            None,
         )
         .unwrap_err();
         assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
@@ -3546,6 +3574,7 @@ mod tests {
             Some("split"),
             &unavailable,
             false,
+            None,
             None,
         )
         .unwrap_err();
@@ -3568,6 +3597,7 @@ mod tests {
             &unavailable,
             false,
             None,
+            None,
         );
         assert_eq!(result.unwrap(), 4);
     }
@@ -3587,6 +3617,7 @@ mod tests {
             Some("disorder"),
             &unavailable,
             false,
+            None,
             None,
         );
         // Should succeed and safety net restores TTL at lines 590-594

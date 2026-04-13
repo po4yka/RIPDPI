@@ -115,6 +115,7 @@ fun DiagnosticsRoute(
         viewModel.initialize()
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val pcapRecording by viewModel.pcapRecording.collectAsStateWithLifecycle()
     val pagerState = rememberPagerState { DiagnosticsSection.entries.size }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -256,6 +257,8 @@ fun DiagnosticsRoute(
         onOpenDetectionCheck = onOpenDetectionCheck,
         onRequestVpnPermission = onRequestVpnPermission,
         onOpenHistory = onOpenHistory,
+        pcapRecording = pcapRecording,
+        onTogglePcapRecording = viewModel::togglePcapRecording,
         modifier = modifier,
     )
 }
@@ -304,6 +307,8 @@ fun DiagnosticsScreen(
     onOpenDetectionCheck: () -> Unit = {},
     onRequestVpnPermission: () -> Unit = {},
     onOpenHistory: () -> Unit,
+    pcapRecording: Boolean = false,
+    onTogglePcapRecording: () -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
     TrackRecomposition("DiagnosticsScreen")
@@ -417,6 +422,8 @@ fun DiagnosticsScreen(
                                 onSaveArchive = onSaveArchive,
                                 onSaveLogs = onSaveLogs,
                                 onOpenDetectionCheck = onOpenDetectionCheck,
+                                pcapRecording = pcapRecording,
+                                onTogglePcapRecording = onTogglePcapRecording,
                             )
                         }
                     }
@@ -811,6 +818,8 @@ private fun ToolsSection(
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
     onOpenDetectionCheck: () -> Unit = {},
+    pcapRecording: Boolean = false,
+    onTogglePcapRecording: () -> Unit = {},
 ) {
     TrackRecomposition("ToolsSection")
     val spacing = RipDpiThemeTokens.spacing
@@ -887,6 +896,22 @@ private fun ToolsSection(
                     color = RipDpiThemeTokens.colors.mutedForeground,
                 )
             }
+        }
+        // PCAP recording
+        item {
+            ShareActionCard(
+                title = "Packet Capture",
+                body =
+                    if (pcapRecording) {
+                        "Recording packets for diagnostics..."
+                    } else {
+                        "Record raw packets to a pcap file for analysis in Wireshark."
+                    },
+                buttonLabel = if (pcapRecording) "Stop Recording" else "Start Recording",
+                onClick = onTogglePcapRecording,
+                iconTint = if (pcapRecording) RipDpiThemeTokens.colors.destructive else RipDpiThemeTokens.colors.info,
+                variant = if (pcapRecording) RipDpiButtonVariant.Destructive else RipDpiButtonVariant.Outline,
+            )
         }
         // Share/Export section
         item {

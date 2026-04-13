@@ -1,4 +1,5 @@
 mod lifecycle;
+mod pcap;
 mod registry;
 mod telemetry;
 
@@ -15,6 +16,7 @@ use jni::{EnvUnowned, Outcome};
 use crate::errors::extract_panic_message;
 
 use lifecycle::{create_session, destroy_session, start_session, stop_session, update_network_snapshot};
+pub(crate) use pcap::{pcap_is_recording_entry, pcap_start_entry, pcap_stop_entry};
 use telemetry::poll_proxy_telemetry;
 
 pub(crate) fn proxy_create_entry(mut env: EnvUnowned<'_>, config_json: JString) -> jlong {

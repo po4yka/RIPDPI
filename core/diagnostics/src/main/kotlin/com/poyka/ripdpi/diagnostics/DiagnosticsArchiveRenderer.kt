@@ -12,6 +12,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import java.io.File
 import java.security.MessageDigest
 import javax.inject.Inject
 import javax.inject.Named
@@ -194,6 +195,9 @@ class DiagnosticsArchiveRenderer
                 }
                 selection.fileLogSnapshot?.let { content ->
                     add(DiagnosticsArchiveEntry(name = "app-log.txt", bytes = content.toByteArray()))
+                }
+                selection.pcapFiles.forEach { pcapFile ->
+                    add(DiagnosticsArchiveEntry(name = pcapFile.name, bytes = pcapFile.readBytes()))
                 }
             }
 

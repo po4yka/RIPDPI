@@ -190,6 +190,7 @@ fn synthesize_tlsrec_prelude_for_bare_hostfake(chain: &mut Vec<TcpChainStep>) {
             ipv6_dest_opt2: false,
             ipv6_routing: false,
             ipv6_frag_next_override: None,
+            random_fake_host: false,
         },
     );
 }
@@ -1248,6 +1249,7 @@ fn parse_proxy_tcp_chain(
             ipv6_dest_opt2: ipv6_ext.dest_opt2,
             ipv6_routing: false,
             ipv6_frag_next_override: None,
+            random_fake_host: step.random_fake_host,
         });
     }
     Ok(parsed)
