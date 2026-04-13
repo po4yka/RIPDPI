@@ -195,9 +195,9 @@ the default empty value preserving previous behavior.
 
 ### 5. Fakedsplit Ordering Variants (altorder)
 
-**Status:** [ ] Not started
+**Status:** [x] Implemented (2026-04-13)
 **Priority:** High
-**Crate:** `ripdpi-desync`
+**Crate:** `ripdpi-config`, `ripdpi-runtime`, `ripdpi-monitor`
 
 **What:** zapret2 supports 4 ordering modes (altorder 0-3) that control where
 fake packets are placed relative to genuine segments. Different DPI
@@ -213,13 +213,32 @@ orderings increases the chance of finding one that works.
 Additionally: `--dpi-desync-fake-tcp-mod=seq` applies sequential TCP sequence
 numbers across multiple fakes (instead of all sharing the original's seq).
 
-**Approach:**
-1. Add `fake_order: FakeOrder` enum to `TcpChainStep` for Fake/FakeSplit/
-   FakeDisorder steps
-2. Add `fake_seq_mode: FakeSeqMode` (`duplicate` | `sequential`) 
-3. In desync plan execution, reorder the packet queue according to selected mode
-   before flushing to raw socket
-4. Add `altorder1`, `altorder2` variants to strategy probe candidates
+**Implemented design:**
+1. Added shared `FakeOrder` (`0`-`3`) and `FakeSeqMode`
+   (`duplicate` | `sequential`) fields to TCP steps and threaded them through
+   AppSettings, Kotlin typed models, JSON/native config, and the TCP chain DSL
+   as `altorder=` and `seqmode=`.
+2. Supported ordering on `fake`, `fakedsplit`, `fakeddisorder`, and
+   `hostfake`. Unsupported step kinds keep these fields empty on the wire and
+   reject non-default values in Kotlin and native validation.
+3. `hostfake` only allows non-default `altorder` when `midhost=` is present, so
+   the runtime has two genuine host regions to reorder. `hostfake` still allows
+   `seqmode=sequential` without `midhost`.
+4. Refactored fake send execution in `ripdpi-runtime` into an ordered emission
+   batch so the runtime can reorder fake and genuine spans for `fake`,
+   `fakedsplit`, `fakeddisorder`, and `hostfake` while reusing the existing
+   fake TTL, fake timestamp, TCP flag, and IPv4 ID logic per emitted packet.
+5. `seqmode=duplicate` preserves current behavior. `seqmode=sequential`
+   advances later fake packet sequence numbers in emission order and forces the
+   raw/TCP_REPAIR batch path; if exact raw sequence control is unavailable, the
+   send fails closed instead of silently degrading.
+6. Added a primary-step Advanced Settings card for fake ordering. Simple chains
+   expose editable `altorder` and `seqmode` dropdowns; complex chains fall back
+   to the DSL summary. `hostfake` without `midhost` shows the card but keeps
+   non-default ordering disabled.
+7. Added `tlsrec_fakedsplit_altorder1` and `tlsrec_fakedsplit_altorder2` to
+   the `full_matrix_v1` TCP diagnostics suite. `quick_v1` remains unchanged and
+   the candidates stay inside the existing `fake_approx` family taxonomy.
 
 **Vault references:**
 - `Censorship/fake-packet-construction.md` -- "Fakedsplit Ordering Modes"

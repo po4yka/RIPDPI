@@ -10,6 +10,8 @@ import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
+import com.poyka.ripdpi.data.FakeOrderInterleaveRealFirst
+import com.poyka.ripdpi.data.FakeSeqModeSequential
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.proto.AppSettings
@@ -250,6 +252,77 @@ class AdvancedSettingsRouteBinderTest {
         binder.onOptionSelected(
             setting = AdvancedOptionSetting.TcpFlagsOrigSet,
             value = "psh|urg",
+            uiState = uiState,
+        )
+
+        assertTrue(recorder.updates.isEmpty())
+    }
+
+    @Test
+    fun `binder updates primary fake ordering through visual editor`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+        val uiState =
+            SettingsUiState(
+                desync =
+                    DesyncCoreUiState(
+                        tcpChainSteps =
+                            listOf(
+                                TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                                TcpChainStepModel(TcpChainStepKind.FakeSplit, "host+1"),
+                            ),
+                    ),
+            )
+
+        binder.onOptionSelected(
+            setting = AdvancedOptionSetting.FakeOrder,
+            value = "2",
+            uiState = uiState,
+        )
+
+        val update = recorder.singleUpdate()
+        assertEquals("fakeOrder", update.key)
+        assertEquals(FakeOrderInterleaveRealFirst, update.value)
+        assertEquals(FakeOrderInterleaveRealFirst, update.settings.tcpChainStepsList[1].fakeOrder)
+    }
+
+    @Test
+    fun `binder ignores fake ordering edits when visual editor is unsupported`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+        val uiState = multidisorderUiState()
+
+        binder.onOptionSelected(
+            setting = AdvancedOptionSetting.FakeSeqMode,
+            value = "sequential",
+            uiState = uiState,
+        )
+
+        assertTrue(recorder.updates.isEmpty())
+    }
+
+    @Test
+    fun `binder ignores hostfake altorder changes without midhost`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+        val uiState =
+            SettingsUiState(
+                desync =
+                    DesyncCoreUiState(
+                        tcpChainSteps =
+                            listOf(
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.HostFake,
+                                    marker = "endhost+8",
+                                    fakeSeqMode = FakeSeqModeSequential,
+                                ),
+                            ),
+                    ),
+            )
+
+        binder.onOptionSelected(
+            setting = AdvancedOptionSetting.FakeOrder,
+            value = "1",
             uiState = uiState,
         )
 

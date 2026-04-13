@@ -235,6 +235,10 @@ impl TcpChainStepKind {
                 | Self::IpFrag2
         )
     }
+
+    pub const fn supports_fake_ordering(self) -> bool {
+        matches!(self, Self::Fake | Self::FakeSplit | Self::FakeDisorder | Self::HostFake)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -249,6 +253,22 @@ pub enum FakePacketSource {
     #[default]
     Profile,
     CapturedClientHello,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum FakeOrder {
+    #[default]
+    BeforeEach,
+    AllFakesFirst,
+    RealFakeRealFake,
+    AllRealsFirst,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum FakeSeqMode {
+    #[default]
+    Duplicate,
+    Sequential,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -266,6 +286,8 @@ pub struct TcpChainStep {
     pub activation_filter: Option<ActivationFilter>,
     pub midhost_offset: Option<OffsetExpr>,
     pub fake_host_template: Option<String>,
+    pub fake_order: FakeOrder,
+    pub fake_seq_mode: FakeSeqMode,
     pub tcp_flags_set: Option<u16>,
     pub tcp_flags_unset: Option<u16>,
     pub tcp_flags_orig_set: Option<u16>,
@@ -299,6 +321,8 @@ impl TcpChainStep {
             activation_filter: None,
             midhost_offset: None,
             fake_host_template: None,
+            fake_order: FakeOrder::BeforeEach,
+            fake_seq_mode: FakeSeqMode::Duplicate,
             tcp_flags_set: None,
             tcp_flags_unset: None,
             tcp_flags_orig_set: None,

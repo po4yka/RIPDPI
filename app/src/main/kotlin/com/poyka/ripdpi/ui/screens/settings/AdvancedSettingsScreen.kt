@@ -20,6 +20,12 @@ import com.poyka.ripdpi.activities.ProxyNetworkUiState
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.TlsPreludeUiState
 import com.poyka.ripdpi.activities.WarpUiState
+import com.poyka.ripdpi.data.FakeOrderAllFakesFirst
+import com.poyka.ripdpi.data.FakeOrderAllRealsFirst
+import com.poyka.ripdpi.data.FakeOrderDefault
+import com.poyka.ripdpi.data.FakeOrderInterleaveRealFirst
+import com.poyka.ripdpi.data.FakeSeqModeDuplicate
+import com.poyka.ripdpi.data.FakeSeqModeSequential
 import com.poyka.ripdpi.data.HostPackApplyModeMerge
 import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded
 import com.poyka.ripdpi.data.HostPackPreset
@@ -147,6 +153,8 @@ internal enum class AdvancedOptionSetting {
     AdaptiveSplitPreset,
     AdaptiveFakeTtlMode,
     TlsPreludeMode,
+    FakeOrder,
+    FakeSeqMode,
     TcpFlagsSet,
     TcpFlagsUnset,
     TcpFlagsOrigSet,
@@ -226,6 +234,7 @@ private data class AdvancedSettingsContentState(
     val showHostFakeSection: Boolean,
     val showSeqOverlapSection: Boolean,
     val showFakeApproxSection: Boolean,
+    val showFakeOrderingSection: Boolean,
     val showQuicFakeSection: Boolean,
     val showFakePayloadLibrary: Boolean,
     val showAdaptiveFakeTtlSection: Boolean,
@@ -234,6 +243,8 @@ private data class AdvancedSettingsContentState(
     val httpFakeProfileOptions: List<RipDpiDropdownOption<String>>,
     val fakeTlsSniModeOptions: List<RipDpiDropdownOption<String>>,
     val tlsFakeProfileOptions: List<RipDpiDropdownOption<String>>,
+    val fakeOrderOptions: List<RipDpiDropdownOption<String>>,
+    val fakeSeqModeOptions: List<RipDpiDropdownOption<String>>,
     val ipIdModeOptions: List<RipDpiDropdownOption<String>>,
     val hostsOptions: List<RipDpiDropdownOption<String>>,
     val warpRouteModeOptions: List<RipDpiDropdownOption<String>>,
@@ -305,6 +316,7 @@ private fun rememberAdvancedSettingsContentState(uiState: SettingsUiState): Adva
         showHostFakeSection = uiState.showHostFakeProfile,
         showSeqOverlapSection = uiState.showSeqOverlapProfile,
         showFakeApproxSection = uiState.showFakeApproximationProfile,
+        showFakeOrderingSection = uiState.showFakeOrderingProfile,
         showQuicFakeSection = uiState.showQuicFakeProfile,
         showFakePayloadLibrary = uiState.showFakePayloadLibrary,
         showAdaptiveFakeTtlSection = uiState.showAdaptiveFakeTtlProfile,
@@ -333,6 +345,18 @@ private fun rememberAdvancedSettingsContentState(uiState: SettingsUiState): Adva
             rememberSettingsOptions(
                 labelArrayRes = R.array.tls_fake_profiles,
                 valueArrayRes = R.array.tls_fake_profiles_entries,
+            ),
+        fakeOrderOptions =
+            listOf(
+                RipDpiDropdownOption(FakeOrderDefault, "Altorder 0"),
+                RipDpiDropdownOption(FakeOrderAllFakesFirst, "Altorder 1"),
+                RipDpiDropdownOption(FakeOrderInterleaveRealFirst, "Altorder 2"),
+                RipDpiDropdownOption(FakeOrderAllRealsFirst, "Altorder 3"),
+            ),
+        fakeSeqModeOptions =
+            listOf(
+                RipDpiDropdownOption(FakeSeqModeDuplicate, "Duplicate"),
+                RipDpiDropdownOption(FakeSeqModeSequential, "Sequential"),
             ),
         ipIdModeOptions =
             rememberSettingsOptions(
@@ -467,6 +491,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsPrima
         showHostFakeSection = contentState.showHostFakeSection,
         showSeqOverlapSection = contentState.showSeqOverlapSection,
         showFakeApproxSection = contentState.showFakeApproxSection,
+        showFakeOrderingSection = contentState.showFakeOrderingSection,
         showAdaptiveFakeTtlSection = contentState.showAdaptiveFakeTtlSection,
         showFakePayloadLibrary = contentState.showFakePayloadLibrary,
         showFakeTlsSection = contentState.showFakeTlsSection,
@@ -476,6 +501,8 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsPrima
         fakeTlsBaseOptions = contentState.fakeTlsBaseOptions,
         fakeTlsSniModeOptions = contentState.fakeTlsSniModeOptions,
         tlsFakeProfileOptions = contentState.tlsFakeProfileOptions,
+        fakeOrderOptions = contentState.fakeOrderOptions,
+        fakeSeqModeOptions = contentState.fakeSeqModeOptions,
         ipIdModeOptions = contentState.ipIdModeOptions,
         udpFakeProfileOptions = contentState.udpFakeProfileOptions,
         onToggleChanged = actions.onToggleChanged,
