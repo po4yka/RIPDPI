@@ -19,23 +19,22 @@ use lifecycle::{create_session, destroy_session, start_session, stop_session, up
 pub(crate) use pcap::{pcap_is_recording_entry, pcap_start_entry, pcap_stop_entry};
 use telemetry::poll_proxy_telemetry;
 
+fn log_and_throw(env: &mut EnvUnowned<'_>, label: &str, message: &str) {
+    log::error!("{label}: {message}");
+    throw_runtime_exception(env, sanitize_error_message(message, label));
+}
+
 pub(crate) fn proxy_create_entry(mut env: EnvUnowned<'_>, config_json: JString) -> jlong {
     init_android_logging("ripdpi-native");
     match env.with_env(move |env| -> jni::errors::Result<jlong> { Ok(create_session(env, config_json)) }).into_outcome()
     {
         Outcome::Ok(handle) => handle,
         Outcome::Err(err) => {
-            log::error!("Proxy session creation failed: {err}");
-            throw_runtime_exception(
-                &mut env,
-                sanitize_error_message(&err.to_string(), "Proxy session creation failed"),
-            );
+            log_and_throw(&mut env, "Proxy session creation failed", &err.to_string());
             0
         }
-        Outcome::Panic(panic_payload) => {
-            let msg = extract_panic_message(panic_payload);
-            log::error!("Proxy session creation panicked: {msg}");
-            throw_runtime_exception(&mut env, sanitize_error_message(&msg, "Proxy session creation failed"));
+        Outcome::Panic(payload) => {
+            log_and_throw(&mut env, "Proxy session creation panicked", &extract_panic_message(payload));
             0
         }
     }
@@ -46,14 +45,11 @@ pub(crate) fn proxy_start_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jint 
     match env.with_env(move |env| -> jni::errors::Result<jint> { Ok(start_session(env, handle)) }).into_outcome() {
         Outcome::Ok(result) => result,
         Outcome::Err(err) => {
-            log::error!("Proxy session start failed: {err}");
-            throw_runtime_exception(&mut env, sanitize_error_message(&err.to_string(), "Proxy session start failed"));
+            log_and_throw(&mut env, "Proxy session start failed", &err.to_string());
             libc::EINVAL
         }
-        Outcome::Panic(panic_payload) => {
-            let msg = extract_panic_message(panic_payload);
-            log::error!("Proxy session start panicked: {msg}");
-            throw_runtime_exception(&mut env, sanitize_error_message(&msg, "Proxy session start failed"));
+        Outcome::Panic(payload) => {
+            log_and_throw(&mut env, "Proxy session start panicked", &extract_panic_message(payload));
             libc::EINVAL
         }
     }
@@ -69,14 +65,9 @@ pub(crate) fn proxy_stop_entry(mut env: EnvUnowned<'_>, handle: jlong) {
         .into_outcome()
     {
         Outcome::Ok(()) => {}
-        Outcome::Err(err) => {
-            log::error!("Proxy session stop failed: {err}");
-            throw_runtime_exception(&mut env, sanitize_error_message(&err.to_string(), "Proxy session stop failed"));
-        }
-        Outcome::Panic(panic_payload) => {
-            let msg = extract_panic_message(panic_payload);
-            log::error!("Proxy session stop panicked: {msg}");
-            throw_runtime_exception(&mut env, sanitize_error_message(&msg, "Proxy session stop failed"));
+        Outcome::Err(err) => log_and_throw(&mut env, "Proxy session stop failed", &err.to_string()),
+        Outcome::Panic(payload) => {
+            log_and_throw(&mut env, "Proxy session stop panicked", &extract_panic_message(payload))
         }
     }
 }
@@ -89,17 +80,11 @@ pub(crate) fn proxy_poll_telemetry_entry(mut env: EnvUnowned<'_>, handle: jlong)
     {
         Outcome::Ok(value) => value,
         Outcome::Err(err) => {
-            log::error!("Proxy telemetry polling failed: {err}");
-            throw_runtime_exception(
-                &mut env,
-                sanitize_error_message(&err.to_string(), "Proxy telemetry polling failed"),
-            );
+            log_and_throw(&mut env, "Proxy telemetry polling failed", &err.to_string());
             std::ptr::null_mut()
         }
-        Outcome::Panic(panic_payload) => {
-            let msg = extract_panic_message(panic_payload);
-            log::error!("Proxy telemetry polling panicked: {msg}");
-            throw_runtime_exception(&mut env, sanitize_error_message(&msg, "Proxy telemetry polling failed"));
+        Outcome::Panic(payload) => {
+            log_and_throw(&mut env, "Proxy telemetry polling panicked", &extract_panic_message(payload));
             std::ptr::null_mut()
         }
     }
@@ -115,14 +100,9 @@ pub(crate) fn proxy_destroy_entry(mut env: EnvUnowned<'_>, handle: jlong) {
         .into_outcome()
     {
         Outcome::Ok(()) => {}
-        Outcome::Err(err) => {
-            log::error!("Proxy session destroy failed: {err}");
-            throw_runtime_exception(&mut env, sanitize_error_message(&err.to_string(), "Proxy session destroy failed"));
-        }
-        Outcome::Panic(panic_payload) => {
-            let msg = extract_panic_message(panic_payload);
-            log::error!("Proxy session destroy panicked: {msg}");
-            throw_runtime_exception(&mut env, sanitize_error_message(&msg, "Proxy session destroy failed"));
+        Outcome::Err(err) => log_and_throw(&mut env, "Proxy session destroy failed", &err.to_string()),
+        Outcome::Panic(payload) => {
+            log_and_throw(&mut env, "Proxy session destroy panicked", &extract_panic_message(payload))
         }
     }
 }
@@ -137,17 +117,9 @@ pub(crate) fn proxy_update_network_snapshot_entry(mut env: EnvUnowned<'_>, handl
         .into_outcome()
     {
         Outcome::Ok(()) => {}
-        Outcome::Err(err) => {
-            log::error!("Proxy network snapshot update failed: {err}");
-            throw_runtime_exception(
-                &mut env,
-                sanitize_error_message(&err.to_string(), "Proxy network snapshot update failed"),
-            );
-        }
-        Outcome::Panic(panic_payload) => {
-            let msg = extract_panic_message(panic_payload);
-            log::error!("Proxy network snapshot update panicked: {msg}");
-            throw_runtime_exception(&mut env, sanitize_error_message(&msg, "Proxy network snapshot update failed"));
+        Outcome::Err(err) => log_and_throw(&mut env, "Proxy network snapshot update failed", &err.to_string()),
+        Outcome::Panic(payload) => {
+            log_and_throw(&mut env, "Proxy network snapshot update panicked", &extract_panic_message(payload))
         }
     }
 }
