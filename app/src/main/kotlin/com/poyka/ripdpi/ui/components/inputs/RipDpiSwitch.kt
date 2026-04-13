@@ -35,7 +35,9 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
 private const val luminanceMidpoint = 0.5f
 
@@ -289,8 +291,11 @@ private fun SwitchLayout(
                     Modifier
                         .offset(x = dimensions.thumbPadding + thumbOffset)
                         .size(dimensions.thumbSize)
-                        .shadow(elevation = 3.dp, shape = CircleShape, clip = false)
-                        .background(thumbColor.copy(alpha = alpha), CircleShape),
+                        .shadow(
+                            elevation = ripDpiSurfaceStyle(RipDpiSurfaceRole.SwitchThumb).shadowElevation,
+                            shape = CircleShape,
+                            clip = false,
+                        ).background(thumbColor.copy(alpha = alpha), CircleShape),
             )
         }
     }
