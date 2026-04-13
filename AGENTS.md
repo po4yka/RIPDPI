@@ -261,6 +261,7 @@ Additional Rust/native skills in `.claude/skills/`:
 | Skill | Use when |
 |-------|----------|
 | `cargo-workflows` | Managing the Rust workspace, feature flags, build scripts, Gradle-Cargo integration, or cross-compilation |
+| `compose-audit` | Conducting a periodic Compose codebase audit, scoring Performance/State/Side Effects/API Quality across `:app`, generating `COMPOSE-AUDIT-REPORT.md` with evidence-based deductions, or establishing a scored Compose quality baseline before a release |
 | `desync-engine` | Working with DPI desync evasion pipeline, DesyncMode, DesyncGroup, TcpChainStep, UdpChainStep, OffsetExpr, or ActivationFilter |
 | `diagnostics-system` | Working with diagnostics scan pipeline, ScanRequest, ScanReport, ProbeTask, ripdpi-monitor, strategy probes, or diagnostics catalog |
 | `memory-model` | Understanding memory ordering, writing lock-free code, using Rust atomics, or diagnosing data races on ARM64 Android |
