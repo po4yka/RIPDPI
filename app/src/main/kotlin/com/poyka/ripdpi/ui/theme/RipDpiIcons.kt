@@ -11,14 +11,24 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Dns
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.NetworkCheck
+import androidx.compose.material.icons.outlined.Public
+import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.ReportProblem
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material.icons.outlined.TaskAlt
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.Videocam
+import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VpnKey
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -54,4 +64,14 @@ object RipDpiIcons {
     val Overflow: ImageVector = Icons.Outlined.MoreVert
     val Close: ImageVector = Icons.Outlined.Close
     val Check: ImageVector = Icons.Outlined.Check
+    val KeyboardArrowDown: ImageVector = Icons.Outlined.KeyboardArrowDown
+    val KeyboardArrowUp: ImageVector = Icons.Outlined.KeyboardArrowUp
+    val LocationOn: ImageVector = Icons.Outlined.LocationOn
+    val NetworkCheck: ImageVector = Icons.Outlined.NetworkCheck
+    val Public: ImageVector = Icons.Outlined.Public
+    val Remove: ImageVector = Icons.Outlined.Remove
+    val Shield: ImageVector = Icons.Outlined.Shield
+    val Timer: ImageVector = Icons.Outlined.Timer
+    val Videocam: ImageVector = Icons.Outlined.Videocam
+    val Visibility: ImageVector = Icons.Outlined.Visibility
 }
