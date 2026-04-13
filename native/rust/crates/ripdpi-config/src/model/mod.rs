@@ -20,11 +20,21 @@ pub struct ActivationFilter {
     pub round: Option<NumericRange<i64>>,
     pub payload_size: Option<NumericRange<i64>>,
     pub stream_bytes: Option<NumericRange<i64>>,
+    pub tcp_has_timestamp: Option<bool>,
+    pub tcp_has_ech: Option<bool>,
+    pub tcp_window_below: Option<u16>,
+    pub tcp_mss_below: Option<u16>,
 }
 
 impl ActivationFilter {
     pub const fn is_unbounded(self) -> bool {
-        self.round.is_none() && self.payload_size.is_none() && self.stream_bytes.is_none()
+        self.round.is_none()
+            && self.payload_size.is_none()
+            && self.stream_bytes.is_none()
+            && self.tcp_has_timestamp.is_none()
+            && self.tcp_has_ech.is_none()
+            && self.tcp_window_below.is_none()
+            && self.tcp_mss_below.is_none()
     }
 }
 
@@ -755,6 +765,9 @@ mod tests {
 
         let with_stream = ActivationFilter { stream_bytes: Some(NumericRange::new(0, 512)), ..Default::default() };
         assert!(!with_stream.is_unbounded());
+
+        let with_timestamp = ActivationFilter { tcp_has_timestamp: Some(true), ..Default::default() };
+        assert!(!with_timestamp.is_unbounded());
     }
 
     // --- DesyncGroup ---

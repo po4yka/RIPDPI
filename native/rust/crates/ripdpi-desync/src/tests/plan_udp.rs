@@ -9,6 +9,7 @@ fn udp_context(payload: &[u8]) -> ActivationContext {
         seqovl_supported: false,
         transport: ActivationTransport::Udp,
         tcp_segment_hint: None,
+        tcp_state: ActivationTcpState::default(),
         resolved_fake_ttl: None,
         adaptive: AdaptivePlannerHints::default(),
     }
@@ -91,6 +92,7 @@ fn plan_udp_step_activation_filter_skips_filtered_fake_bursts() {
                 round: Some(NumericRange::new(2, 4)),
                 payload_size: None,
                 stream_bytes: None,
+                ..Default::default()
             }),
             ip_frag_disorder: false,
             ipv6_hop_by_hop: false,

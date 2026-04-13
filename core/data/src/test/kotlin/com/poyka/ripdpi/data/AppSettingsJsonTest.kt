@@ -210,6 +210,10 @@ class AppSettingsJsonTest {
                                     ActivationFilterModel(
                                         round = NumericRangeModel(start = 1, end = 1),
                                         payloadSize = NumericRangeModel(start = 32, end = 256),
+                                        tcpHasTimestamp = true,
+                                        tcpHasEch = false,
+                                        tcpWindowBelow = 4096,
+                                        tcpMssBelow = 1400,
                                     ),
                             ),
                         ),

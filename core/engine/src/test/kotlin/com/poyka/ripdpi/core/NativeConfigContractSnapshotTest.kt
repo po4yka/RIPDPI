@@ -672,12 +672,14 @@ class NativeConfigContractSnapshotTest {
     private fun chainsExpected(
         anyProtocol: Boolean = false,
         groupActivationFilter: JsonObject? = null,
+        tcpRotation: JsonObject? = null,
         tcpSteps: List<JsonObject> = listOf(tcpStepExpected(kind = "split", marker = "host+1")),
         udpSteps: List<JsonObject> = emptyList(),
     ): JsonObject =
         buildJsonObject {
             put("anyProtocol", JsonPrimitive(anyProtocol))
             put("groupActivationFilter", groupActivationFilter ?: JsonNull)
+            put("tcpRotation", tcpRotation ?: JsonNull)
             put("tcpSteps", JsonArray(tcpSteps))
             put("udpSteps", JsonArray(udpSteps))
         }
@@ -1073,11 +1075,19 @@ class NativeConfigContractSnapshotTest {
         round: JsonObject? = null,
         payloadSize: JsonObject? = null,
         streamBytes: JsonObject? = null,
+        tcpHasTimestamp: Boolean? = null,
+        tcpHasEch: Boolean? = null,
+        tcpWindowBelow: Int? = null,
+        tcpMssBelow: Int? = null,
     ): JsonObject =
         buildJsonObject {
             put("round", round ?: JsonNull)
             put("payloadSize", payloadSize ?: JsonNull)
             put("streamBytes", streamBytes ?: JsonNull)
+            put("tcpHasTimestamp", tcpHasTimestamp?.let(::JsonPrimitive) ?: JsonNull)
+            put("tcpHasEch", tcpHasEch?.let(::JsonPrimitive) ?: JsonNull)
+            put("tcpWindowBelow", tcpWindowBelow?.let(::JsonPrimitive) ?: JsonNull)
+            put("tcpMssBelow", tcpMssBelow?.let(::JsonPrimitive) ?: JsonNull)
         }
 
     private fun numericRangeExpected(

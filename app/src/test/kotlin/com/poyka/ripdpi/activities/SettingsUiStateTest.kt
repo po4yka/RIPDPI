@@ -1112,6 +1112,33 @@ class SettingsUiStateTest {
     }
 
     @Test
+    fun `tcp state step activation filters count as saved activation filters`() {
+        val settings =
+            defaults
+                .toBuilder()
+                .clearTcpChainSteps()
+                .addTcpChainSteps(
+                    StrategyTcpStep
+                        .newBuilder()
+                        .setKind("fake")
+                        .setMarker("host")
+                        .setActivationFilter(
+                            ActivationFilter
+                                .newBuilder()
+                                .setTcpHasTimestamp(true)
+                                .setTcpWindowBelow(4096)
+                                .build(),
+                        ).build(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.showActivationWindowProfile)
+        assertTrue(state.desync.hasStepActivationFilters)
+        assertEquals(1, state.desync.stepActivationFilterCount)
+    }
+
+    @Test
     fun `command line mode keeps activation profile visible but reset disabled`() {
         val settings =
             defaults

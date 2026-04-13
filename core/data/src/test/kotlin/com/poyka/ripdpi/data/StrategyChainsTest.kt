@@ -575,6 +575,54 @@ class StrategyChainsTest {
     }
 
     @Test
+    fun `dsl round trip preserves tcp state activation filters on tcp steps`() {
+        val dsl =
+            """
+            [tcp]
+            fake host tcp_has_ts=true tcp_has_ech=false tcp_window_lt=4096 tcp_mss_lt=1400
+            """.trimIndent()
+
+        val parsed = parseStrategyChainDsl(dsl).getOrThrow()
+
+        assertEquals(
+            listOf(
+                TcpChainStepModel(
+                    kind = TcpChainStepKind.Fake,
+                    marker = "host",
+                    activationFilter =
+                        ActivationFilterModel(
+                            tcpHasTimestamp = true,
+                            tcpHasEch = false,
+                            tcpWindowBelow = 4096,
+                            tcpMssBelow = 1400,
+                        ),
+                ),
+            ),
+            parsed.tcpSteps,
+        )
+        assertEquals(dsl, formatStrategyChainDsl(parsed.tcpSteps, parsed.udpSteps))
+        assertEquals(
+            "tcp: fake(host ts=yes ech=no win<4096 mss<1400)",
+            formatChainSummary(parsed.tcpSteps, parsed.udpSteps),
+        )
+    }
+
+    @Test
+    fun `dsl rejects tcp state activation filters on udp steps`() {
+        val parsed = parseStrategyChainDsl("[udp]\nfake_burst 3 tcp_has_ts=true")
+
+        assertTrue(parsed.isFailure)
+        assertTrue(parsed.exceptionOrNull()?.message?.contains("tcp_has_ts is only supported for tcp steps") == true)
+    }
+
+    @Test
+    fun `group activation filter rejects tcp state predicates`() {
+        assertThrows(IllegalArgumentException::class.java) {
+            AppSettings.newBuilder().setGroupActivationFilterCompat(ActivationFilterModel(tcpHasTimestamp = true))
+        }
+    }
+
+    @Test
     fun `ipfrag dsl round trip preserves normalized summaries`() {
         val dsl =
             """

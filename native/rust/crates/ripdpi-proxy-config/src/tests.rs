@@ -63,6 +63,18 @@ fn udp_step(kind: &str, count: i32) -> ProxyUiUdpChainStep {
     }
 }
 
+fn activation_filter_with_tcp_state() -> ProxyUiActivationFilter {
+    ProxyUiActivationFilter {
+        round: None,
+        payload_size: None,
+        stream_bytes: None,
+        tcp_has_timestamp: Some(true),
+        tcp_has_ech: Some(false),
+        tcp_window_below: Some(4096),
+        tcp_mss_below: Some(1400),
+    }
+}
+
 fn ui_payload(config: ProxyUiConfig) -> ProxyConfigPayload {
     ProxyConfigPayload::Ui { strategy_preset: None, config, runtime_context: None, log_context: None }
 }
@@ -182,6 +194,29 @@ fn ui_payload_rejects_non_leading_seqovl_step() {
     let err = runtime_config_from_payload(ui_payload(ui)).expect_err("non-leading seqovl");
 
     assert!(err.to_string().contains("seqovl must be the first tcp send step"));
+}
+
+#[test]
+fn ui_payload_rejects_tcp_state_predicates_on_group_activation_filter() {
+    let mut ui = minimal_ui();
+    ui.chains.group_activation_filter = Some(activation_filter_with_tcp_state());
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("group tcp-state predicates should be rejected");
+
+    assert!(err.to_string().contains("chains.groupActivationFilter must not declare TCP-state predicates"));
+}
+
+#[test]
+fn ui_payload_rejects_tcp_state_predicates_on_udp_steps() {
+    let mut ui = minimal_ui();
+    ui.chains.udp_steps = vec![ProxyUiUdpChainStep {
+        activation_filter: Some(activation_filter_with_tcp_state()),
+        ..udp_step("fake_burst", 1)
+    }];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("udp tcp-state predicates should be rejected");
+
+    assert!(err.to_string().contains("chains.udpSteps.activationFilter must not declare TCP-state predicates"));
 }
 
 #[test]

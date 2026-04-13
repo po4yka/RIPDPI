@@ -614,6 +614,8 @@ class RipDpiProxyPreferencesTest {
                                         ActivationFilterModel(
                                             round = NumericRangeModel(start = 1, end = 2),
                                             payloadSize = NumericRangeModel(start = 64, end = 512),
+                                            tcpHasTimestamp = true,
+                                            tcpWindowBelow = 4096,
                                         ),
                                 ),
                             ),
@@ -631,6 +633,8 @@ class RipDpiProxyPreferencesTest {
         assertEquals("2047", group.objectAt("streamBytes").string("end"))
         assertEquals("1", filter.objectAt("round").string("start"))
         assertEquals("512", filter.objectAt("payloadSize").string("end"))
+        assertEquals("true", filter.string("tcpHasTimestamp"))
+        assertEquals("4096", filter.string("tcpWindowBelow"))
     }
 
     @Test
@@ -653,6 +657,10 @@ class RipDpiProxyPreferencesTest {
                                         ActivationFilterModel(
                                             round = NumericRangeModel(start = 1, end = 1),
                                             payloadSize = NumericRangeModel(start = 32, end = 256),
+                                            tcpHasTimestamp = true,
+                                            tcpHasEch = false,
+                                            tcpWindowBelow = 4096,
+                                            tcpMssBelow = 1400,
                                         ),
                                 ),
                             ),

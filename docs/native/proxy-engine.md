@@ -145,13 +145,76 @@ rotation through `chains.tcpRotation`.
 Each candidate supplies only a replacement `tcpSteps` chain. Everything else is
 inherited from the base group for that connection.
 
+### Conditional TCP step execution
+
+TCP chain steps now support runtime branching through the existing
+`activationFilter` path rather than a separate condition AST.
+
+- The predicates are available only on TCP step activation filters. Group
+  activation windows and UDP steps reject them during Kotlin validation and
+  native config conversion.
+- Predicate evaluation happens per outbound TCP write during planning. If a step
+  does not match, that step is skipped and later steps still run normally.
+- TCP-state predicates are ANDed with the existing `when_round`,
+  `when_size_*`, and `when_stream_*` filters.
+- Unknown TCP state fails closed for that predicate. RIPDPI skips the step
+  instead of guessing.
+- `tcp_has_ech` is derived from the current outbound TLS payload's markers, not
+  from persistent socket state.
+- `tcp_window_lt` and `tcp_mss_lt` prefer TCP repair snapshot data and fall back
+  to the existing segment hints only when a repair snapshot does not provide the
+  value.
+
+Supported TCP predicates:
+
+- `tcp_has_ts=true|false` -- whether the negotiated TCP connection has
+  timestamps
+- `tcp_has_ech=true|false` -- whether the current outbound TLS payload contains
+  an ECH extension
+- `tcp_window_lt=<u16>` -- current advertised receive window is below the
+  threshold
+- `tcp_mss_lt=<u16>` -- negotiated MSS is below the threshold
+
+Example chain DSL:
+
+```text
+fake(tcp_has_ts=true)
+fake(tcp_has_ts=false,when_round=1)
+tlsrec(extlen,tcp_has_ech=true)
+split(host+1,tcp_window_lt=4096,tcp_mss_lt=1300)
+```
+
+Equivalent JSON fragment:
+
+```json
+{
+  "chains": {
+    "tcpSteps": [
+      {
+        "kind": "fake",
+        "activationFilter": {
+          "tcpHasTimestamp": true
+        }
+      },
+      {
+        "kind": "tlsrec",
+        "marker": "extlen",
+        "activationFilter": {
+          "tcpHasEch": true
+        }
+      }
+    ]
+  }
+}
+```
+
 ### Markers and chains
 
 The runtime now supports:
 
 - semantic marker offsets such as `host`, `endhost`, `midsld`, `method`, `extlen`, and `sniext`
 - adaptive markers such as `auto(balanced)` and `auto(host)` that resolve per payload from live `TCP_INFO`
-- ordered TCP and UDP chain steps with per-step activation filters and group activation windows
+- ordered TCP and UDP chain steps with per-step activation filters, runtime TCP-state predicates on TCP steps, and group activation windows
 - grouped `multidisorder` TCP runs where each contiguous terminal step contributes one marker and the runtime sends the resulting regions in reverse order
 
 #### TCP chain step kinds (complete reference)
