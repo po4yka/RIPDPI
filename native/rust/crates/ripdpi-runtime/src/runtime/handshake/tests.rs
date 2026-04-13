@@ -194,6 +194,32 @@ fn domain_protocols_resolve_through_encrypted_dns_runtime_context() {
 }
 
 #[test]
+fn localhost_resolves_to_loopback_without_runtime_context() {
+    let mut config = RuntimeConfig::default();
+    config.network.resolve = false;
+    config.network.ipv6 = false;
+    let state = runtime_state(config);
+
+    assert_eq!(
+        resolve_name("localhost", SocketType::Stream, &state),
+        Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0))
+    );
+}
+
+#[test]
+fn localhost_prefers_ipv6_loopback_when_enabled() {
+    let mut config = RuntimeConfig::default();
+    config.network.resolve = false;
+    config.network.ipv6 = true;
+    let state = runtime_state(config);
+
+    assert_eq!(
+        resolve_name("LOCALHOST.", SocketType::Stream, &state),
+        Some(SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::LOCALHOST), 0))
+    );
+}
+
+#[test]
 fn handle_client_sends_socks5_failure_reply_when_upstream_connect_fails() {
     let probe = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind probe listener");
     let target = probe.local_addr().expect("probe addr");
