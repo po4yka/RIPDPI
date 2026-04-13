@@ -55,8 +55,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.AnnotatedString
@@ -1291,6 +1293,7 @@ private fun HomeConnectionButton(
                     .semantics(mergeDescendants = true) {
                         contentDescription = label
                         stateDescription = connectionStateDescription
+                        liveRegion = LiveRegionMode.Polite
                     }.size(homeChrome.connectionButtonSize)
                     .graphicsLayer {
                         scaleX = buttonScale.value * pressScale

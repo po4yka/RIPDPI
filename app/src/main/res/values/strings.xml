@@ -2044,6 +2044,18 @@ Source: %2$s</string>
     <string name="shortcut_diagnostics">Run Diagnostics</string>
     <string name="shortcut_diagnostics_short">Diagnostics</string>
     <string name="shortcut_diagnostics_disabled">Diagnostics unavailable</string>
+    <plurals name="stage_passed_count">
+        <item quantity="one">%d passed</item>
+        <item quantity="other">%d passed</item>
+    </plurals>
+    <plurals name="stage_failed_count">
+        <item quantity="one">, %d failed</item>
+        <item quantity="other">, %d failed</item>
+    </plurals>
+    <plurals name="stage_pending_count">
+        <item quantity="one">, %d pending</item>
+        <item quantity="other">, %d pending</item>
+    </plurals>
     <string name="settings_danger_section">Danger Zone</string>
     <string name="settings_reset_title">Reset all settings</string>
     <string name="settings_reset_body">Restore all settings to their default values</string>
