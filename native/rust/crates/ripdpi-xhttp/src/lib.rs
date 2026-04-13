@@ -17,7 +17,7 @@ use hyper::body::{Body, Frame};
 use hyper::client::conn::http2;
 use hyper::StatusCode;
 use hyper_util::rt::{TokioExecutor, TokioIo};
-use rand::Rng;
+use rand::RngExt;
 use ripdpi_vless::config::VlessRealityConfig;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
 use tokio::net::{TcpSocket, TcpStream};
