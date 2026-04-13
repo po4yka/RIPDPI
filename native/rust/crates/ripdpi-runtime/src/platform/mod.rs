@@ -428,6 +428,7 @@ pub fn bind_udp_low_port(_socket: &UdpSocket, _local_ip: IpAddr, _max_port: u16)
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn send_fake_tcp(
     stream: &TcpStream,
@@ -459,6 +460,7 @@ pub fn send_fake_tcp(
     linux::send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, options, wait)
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn send_fake_tcp(
     _stream: &TcpStream,
@@ -474,6 +476,7 @@ pub fn send_fake_tcp(
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn send_ordered_tcp_segments_reserved(
     stream: &TcpStream,
@@ -499,6 +502,7 @@ pub fn send_ordered_tcp_segments_reserved(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn send_ordered_tcp_segments(
     stream: &TcpStream,
@@ -545,6 +549,7 @@ pub fn send_ordered_tcp_segments(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn send_ordered_tcp_segments_reserved(
     _stream: &TcpStream,
@@ -560,6 +565,7 @@ pub fn send_ordered_tcp_segments_reserved(
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn send_ordered_tcp_segments(
     _stream: &TcpStream,
@@ -638,6 +644,7 @@ pub fn probe_ip_fragmentation_capabilities(_protect_path: Option<&str>) -> io::R
     Ok(IpFragmentationCapabilities::default())
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn send_ip_fragmented_udp_reserved(
     upstream: &UdpSocket,
@@ -676,6 +683,7 @@ pub fn send_ip_fragmented_udp_reserved(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn send_ip_fragmented_udp(
     upstream: &UdpSocket,
@@ -702,6 +710,7 @@ pub fn send_ip_fragmented_udp(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn send_ip_fragmented_udp(
     _upstream: &UdpSocket,
@@ -717,6 +726,7 @@ pub fn send_ip_fragmented_udp(
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn send_ip_fragmented_tcp_reserved(
     stream: &TcpStream,
@@ -759,6 +769,7 @@ pub fn send_ip_fragmented_tcp_reserved(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn send_ip_fragmented_tcp(
     stream: &TcpStream,
@@ -785,6 +796,7 @@ pub fn send_ip_fragmented_tcp(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn send_ip_fragmented_tcp(
     _stream: &TcpStream,
@@ -800,6 +812,7 @@ pub fn send_ip_fragmented_tcp(
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn send_multi_disorder_tcp_reserved(
     stream: &TcpStream,
@@ -843,6 +856,7 @@ pub fn send_multi_disorder_tcp_reserved(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn send_multi_disorder_tcp(
     stream: &TcpStream,
@@ -869,6 +883,7 @@ pub fn send_multi_disorder_tcp(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn send_multi_disorder_tcp(
     _stream: &TcpStream,

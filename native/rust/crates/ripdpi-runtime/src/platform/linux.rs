@@ -755,6 +755,7 @@ fn send_fake_tcp_via_raw_packets(
     result
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn send_ordered_tcp_segments(
     stream: &TcpStream,
     segments: &[super::OrderedTcpSegment<'_>],
@@ -907,6 +908,7 @@ pub fn probe_ip_fragmentation_capabilities(protect_path: Option<&str>) -> io::Re
     Ok(IpFragmentationCapabilities { raw_ipv4, raw_ipv6, tcp_repair })
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn send_ip_fragmented_udp(
     upstream: &UdpSocket,
     target: SocketAddr,
@@ -940,6 +942,7 @@ pub fn send_ip_fragmented_udp(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn send_ip_fragmented_tcp(
     stream: &TcpStream,
     payload: &[u8],
@@ -1004,6 +1007,7 @@ pub fn send_ip_fragmented_tcp(
     result
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn send_multi_disorder_tcp(
     stream: &TcpStream,
     payload: &[u8],
@@ -1508,6 +1512,7 @@ fn set_tcp_repair(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
     set_c_int_sockopt(fd, libc::IPPROTO_TCP, TCP_REPAIR, value)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_multi_disorder_packets(
     source: SocketAddr,
     target: SocketAddr,
@@ -2276,8 +2281,18 @@ mod tests {
         ];
         let snapshot = sample_tcp_repair_snapshot();
 
-        let packets = build_multi_disorder_packets(source, target, 37, payload, &segments, &snapshot, false)
-            .expect("build multidisorder packets");
+        let packets = build_multi_disorder_packets(
+            source,
+            target,
+            37,
+            payload,
+            &segments,
+            &snapshot,
+            false,
+            TcpFlagOverrides::default(),
+            &[],
+        )
+        .expect("build multidisorder packets");
 
         assert_eq!(packets.len(), 3);
 
@@ -2314,9 +2329,18 @@ mod tests {
             crate::platform::TcpPayloadSegment { start: 5, end: payload.len() },
         ];
 
-        let err =
-            build_multi_disorder_packets(source, target, 37, payload, &segments, &sample_tcp_repair_snapshot(), false)
-                .expect_err("reject gapped segments");
+        let err = build_multi_disorder_packets(
+            source,
+            target,
+            37,
+            payload,
+            &segments,
+            &sample_tcp_repair_snapshot(),
+            false,
+            TcpFlagOverrides::default(),
+            &[],
+        )
+        .expect_err("reject gapped segments");
 
         assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
         assert!(err.to_string().contains("invalid multidisorder TCP payload segments"));
@@ -2333,9 +2357,18 @@ mod tests {
             crate::platform::TcpPayloadSegment { start: 8, end: 11 },
         ];
 
-        let err =
-            build_multi_disorder_packets(source, target, 37, payload, &segments, &sample_tcp_repair_snapshot(), false)
-                .expect_err("reject truncated coverage");
+        let err = build_multi_disorder_packets(
+            source,
+            target,
+            37,
+            payload,
+            &segments,
+            &sample_tcp_repair_snapshot(),
+            false,
+            TcpFlagOverrides::default(),
+            &[],
+        )
+        .expect_err("reject truncated coverage");
 
         assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
         assert!(err.to_string().contains("multidisorder TCP payload segments must cover the full payload"));

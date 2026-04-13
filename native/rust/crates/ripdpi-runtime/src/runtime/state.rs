@@ -35,6 +35,7 @@ pub(super) struct RuntimeState {
     pub(super) ttl_unavailable: Arc<AtomicBool>,
     /// Tracks network scope key changes for lightweight re-probing.
     pub(super) reprobe_tracker: std::sync::Arc<super::reprobe::ReprobeTracker>,
+    #[allow(dead_code)]
     pub(super) dns_hostname_cache: std::sync::Arc<crate::dns_hostname_cache::DnsHostnameCache>,
     pub(super) pcap_hook: Option<super::desync::PcapHook>,
     /// io_uring driver for zero-copy relay (Linux 6.0+, optional).

@@ -5,15 +5,19 @@ use std::time::{Duration, Instant};
 
 use lru::LruCache;
 
+#[allow(dead_code)]
 const MIN_TTL: Duration = Duration::from_secs(60);
+#[allow(dead_code)]
 const MAX_TTL: Duration = Duration::from_secs(7200);
 const DEFAULT_CAPACITY: usize = 4096;
 
+#[allow(dead_code)]
 struct Entry {
     hostname: String,
     expires: Instant,
 }
 
+#[allow(dead_code)]
 struct Inner {
     lru: LruCache<IpAddr, Entry>,
     hits: u64,
@@ -21,6 +25,7 @@ struct Inner {
 }
 
 pub struct DnsHostnameCache {
+    #[allow(dead_code)]
     inner: Mutex<Inner>,
 }
 
@@ -34,6 +39,7 @@ impl DnsHostnameCache {
         Self::new(DEFAULT_CAPACITY)
     }
 
+    #[allow(dead_code)]
     pub fn insert(&self, ip: IpAddr, hostname: String, ttl: Duration) {
         let ttl = ttl.clamp(MIN_TTL, MAX_TTL);
         let entry = Entry { hostname, expires: Instant::now() + ttl };
@@ -42,6 +48,7 @@ impl DnsHostnameCache {
         }
     }
 
+    #[allow(dead_code)]
     pub fn lookup(&self, ip: &IpAddr) -> Option<String> {
         let mut inner = self.inner.lock().ok()?;
         let result = inner.lru.get(ip).and_then(|entry| {
@@ -64,6 +71,7 @@ impl DnsHostnameCache {
         }
     }
 
+    #[allow(dead_code)]
     pub fn stats(&self) -> (usize, u64, u64) {
         self.inner.lock().map(|inner| (inner.lru.len(), inner.hits, inner.misses)).unwrap_or((0, 0, 0))
     }

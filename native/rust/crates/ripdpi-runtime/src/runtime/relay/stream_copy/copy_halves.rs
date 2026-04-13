@@ -12,7 +12,7 @@ use super::freeze::FreezeDetector;
 use super::observers::{observe_rotation_inbound_chunk, observe_rotation_transport_failure};
 use super::rotation::CircularTcpRotationController;
 use super::RELAY_IDLE_TIMEOUT;
-
+#[allow(clippy::too_many_arguments)]
 pub(super) fn copy_inbound_half(
     mut reader: TcpStream,
     mut writer: TcpStream,
@@ -24,8 +24,7 @@ pub(super) fn copy_inbound_half(
     mut detector: FreezeDetector,
     freeze_detected: Arc<AtomicBool>,
 ) -> io::Result<()> {
-    let mut buffer = [0u8; 16_384];
-    let target = reader.peer_addr().ok();
+    let (mut buffer, target) = ([0u8; 16_384], reader.peer_addr().ok());
     loop {
         match reader.read(&mut buffer) {
             Ok(0) => {
