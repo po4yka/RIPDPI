@@ -13,10 +13,10 @@ if [[ -z "${ANDROID_HOME:-}" ]]; then
   exit 1
 fi
 
-# Resolve NDK toolchain and set CC_<target>, AR_<target>, and
-# CARGO_TARGET_<TARGET>_LINKER so cc-rs / ring / aws-lc-sys can find
-# the correct NDK tools for each Android ABI.  Mirrors the approach in
-# verify_native_bloat.py:cargo_environment().
+# Resolve NDK toolchain and set CC_<target>, CXX_<target>, AR_<target>,
+# and CARGO_TARGET_<TARGET>_LINKER so cc-rs / ring / aws-lc-sys /
+# boring-sys can find the correct NDK tools for each Android ABI.
+# Mirrors the approach in verify_native_bloat.py:cargo_environment().
 ndk_version="$(grep '^ripdpi.nativeNdkVersion=' "$repo_root/gradle.properties" | cut -d= -f2-)"
 min_sdk="$(grep '^ripdpi.minSdk=' "$repo_root/gradle.properties" | cut -d= -f2-)"
 case "$(uname -s)" in
@@ -37,6 +37,7 @@ for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x
   target_env="${target//-/_}"
   target_upper="${target_env^^}"
   export "CC_${target_env}=$ndk_bin/${clang_target}${min_sdk}-clang"
+  export "CXX_${target_env}=$ndk_bin/${clang_target}${min_sdk}-clang++"
   export "AR_${target_env}=$ndk_bin/llvm-ar"
   export "CARGO_TARGET_${target_upper}_LINKER=$ndk_bin/${clang_target}${min_sdk}-clang"
 done

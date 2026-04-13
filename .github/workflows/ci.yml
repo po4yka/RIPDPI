@@ -202,12 +202,20 @@ jobs:
         with:
           name: native-bloat-report
           path: ${{ runner.temp }}/native-bloat-report/*
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
       - name: Dump current native bloat baseline (on failure)
         if: failure()
-        run: python3 scripts/ci/verify_native_bloat.py --dump-current > /tmp/native-bloat-baseline.json
+        run: |
+          if ! python3 scripts/ci/verify_native_bloat.py --dump-current > /tmp/native-bloat-baseline.json; then
+            python3 - <<'PY' > /tmp/native-bloat-baseline.json
+import json
+print(json.dumps({
+    "error": "verify_native_bloat.py --dump-current failed; see job log for compiler output",
+}, indent=2))
+PY
+          fi
 
       - name: Upload native bloat baseline (on failure)
         if: failure()
@@ -215,6 +223,7 @@ jobs:
         with:
           name: native-bloat-baseline
           path: /tmp/native-bloat-baseline.json
+          if-no-files-found: warn
           retention-days: 14
 
   rust-miri:
