@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="quick_connect"
+        android:enabled="true"
+        android:icon="@drawable/ic_vpn_key_outline"
+        android:shortcutShortLabel="@string/shortcut_quick_connect_short"
+        android:shortcutLongLabel="@string/shortcut_quick_connect"
+        android:shortcutDisabledMessage="@string/shortcut_quick_connect_disabled">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="ripdpi://connect" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="diagnostics"
+        android:enabled="true"
+        android:icon="@drawable/ic_article_outline"
+        android:shortcutShortLabel="@string/shortcut_diagnostics_short"
+        android:shortcutLongLabel="@string/shortcut_diagnostics"
+        android:shortcutDisabledMessage="@string/shortcut_diagnostics_disabled">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="ripdpi://diagnostics" />
+    </shortcut>
+</shortcuts>

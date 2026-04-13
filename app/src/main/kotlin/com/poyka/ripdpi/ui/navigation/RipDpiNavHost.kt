@@ -7,6 +7,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -28,6 +30,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navDeepLink
 import com.poyka.ripdpi.activities.ConfigViewModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
@@ -56,6 +59,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val ConfigGraphRoute = "config_graph"
 private const val SettingsGraphRoute = "settings_graph"
+private const val DeepLinkScheme = "ripdpi"
 
 data class RipDpiNavHostActions(
     val onSaveLogs: () -> Unit = {},
@@ -262,7 +266,10 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             },
         )
     }
-    composable(Route.Home.route) {
+    composable(
+        Route.Home.route,
+        deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://connect" }),
+    ) {
         HomeRoute(
             onOpenDiagnostics = {
                 onDiagnosticsInitialSectionChanged(DiagnosticsSection.Tools)
@@ -276,7 +283,10 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             viewModel = mainViewModel,
         )
     }
-    composable(Route.Diagnostics.route) {
+    composable(
+        Route.Diagnostics.route,
+        deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://diagnostics" }),
+    ) {
         val diagnosticsViewModel: DiagnosticsViewModel = hiltViewModel()
         DiagnosticsRoute(
             onShareArchive = actions.onShareDiagnosticsArchive,
@@ -350,7 +360,10 @@ private fun NavGraphBuilder.addSettingsRoutes(
         startDestination = Route.Settings.route,
         route = SettingsGraphRoute,
     ) {
-        composable(Route.Settings.route) {
+        composable(
+            Route.Settings.route,
+            deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://settings" }),
+        ) {
             val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry(SettingsGraphRoute) }
             val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
             SettingsRoute(
@@ -460,6 +473,38 @@ private fun routePopExitTransition(
         ) +
             scaleOut(
                 targetScale = 0.992f,
+                animationSpec = tween(durationMillis = quickDurationMillis, easing = RipDpiMotion.EmphasizedAccelerate),
+            )
+    }
+
+internal fun nestedEnterTransition(
+    animationsEnabled: Boolean,
+    routeDurationMillis: Int,
+): EnterTransition =
+    if (!animationsEnabled) {
+        EnterTransition.None
+    } else {
+        slideInHorizontally(
+            initialOffsetX = { fullWidth -> (fullWidth * 0.15f).toInt() },
+            animationSpec = tween(durationMillis = routeDurationMillis, easing = RipDpiMotion.EmphasizedDecelerate),
+        ) +
+            fadeIn(
+                animationSpec = tween(durationMillis = routeDurationMillis, easing = RipDpiMotion.EmphasizedDecelerate),
+            )
+    }
+
+internal fun nestedPopExitTransition(
+    animationsEnabled: Boolean,
+    quickDurationMillis: Int,
+): ExitTransition =
+    if (!animationsEnabled) {
+        ExitTransition.None
+    } else {
+        slideOutHorizontally(
+            targetOffsetX = { fullWidth -> (fullWidth * 0.15f).toInt() },
+            animationSpec = tween(durationMillis = quickDurationMillis, easing = RipDpiMotion.EmphasizedAccelerate),
+        ) +
+            fadeOut(
                 animationSpec = tween(durationMillis = quickDurationMillis, easing = RipDpiMotion.EmphasizedAccelerate),
             )
     }

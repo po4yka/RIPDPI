@@ -2033,4 +2033,10 @@ Source: %2$s</string>
     <string name="tcp_flag_fake_clear_title">Fake packet: clear flags</string>
     <string name="tcp_flag_orig_set_title">Original packet: set flags</string>
     <string name="tcp_flag_orig_clear_title">Original packet: clear flags</string>
+    <string name="shortcut_quick_connect">Quick Connect</string>
+    <string name="shortcut_quick_connect_short">Connect</string>
+    <string name="shortcut_quick_connect_disabled">Connection unavailable</string>
+    <string name="shortcut_diagnostics">Run Diagnostics</string>
+    <string name="shortcut_diagnostics_short">Diagnostics</string>
+    <string name="shortcut_diagnostics_disabled">Diagnostics unavailable</string>
 </resources>
