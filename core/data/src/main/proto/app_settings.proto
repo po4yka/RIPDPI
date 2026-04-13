@@ -11,6 +11,10 @@ message ActivationFilter {
   NumericRange round = 1;
   NumericRange payload_size = 2;
   NumericRange stream_bytes = 3;
+  optional bool tcp_has_timestamp = 4;
+  optional bool tcp_has_ech = 5;
+  optional int32 tcp_window_below = 6;
+  optional int32 tcp_mss_below = 7;
 }
 
 message StrategyTcpStep {

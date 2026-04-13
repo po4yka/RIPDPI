@@ -19,12 +19,28 @@ data class ActivationFilterModel(
     val round: NumericRangeModel = NumericRangeModel(),
     val payloadSize: NumericRangeModel = NumericRangeModel(),
     val streamBytes: NumericRangeModel = NumericRangeModel(),
+    val tcpHasTimestamp: Boolean? = null,
+    val tcpHasEch: Boolean? = null,
+    val tcpWindowBelow: Int? = null,
+    val tcpMssBelow: Int? = null,
 ) {
     val isEmpty: Boolean
-        get() = round.isEmpty && payloadSize.isEmpty && streamBytes.isEmpty
+        get() =
+            round.isEmpty &&
+                payloadSize.isEmpty &&
+                streamBytes.isEmpty &&
+                tcpHasTimestamp == null &&
+                tcpHasEch == null &&
+                tcpWindowBelow == null &&
+                tcpMssBelow == null
+
+    val hasTcpStatePredicates: Boolean
+        get() = tcpHasTimestamp != null || tcpHasEch != null || tcpWindowBelow != null || tcpMssBelow != null
 }
 
 private const val ActivationFilterUnset = -1L
+private const val ActivationFilterTcpThresholdMin = 1
+private const val ActivationFilterTcpThresholdMax = 65_535
 
 fun normalizeRoundRange(
     start: Long?,
@@ -54,6 +70,10 @@ fun normalizeActivationFilter(filter: ActivationFilterModel): ActivationFilterMo
         round = normalizeRoundRange(filter.round.start, filter.round.end),
         payloadSize = normalizePayloadSizeRange(filter.payloadSize.start, filter.payloadSize.end),
         streamBytes = normalizeStreamBytesRange(filter.streamBytes.start, filter.streamBytes.end),
+        tcpHasTimestamp = filter.tcpHasTimestamp,
+        tcpHasEch = filter.tcpHasEch,
+        tcpWindowBelow = normalizeTcpThreshold(filter.tcpWindowBelow),
+        tcpMssBelow = normalizeTcpThreshold(filter.tcpMssBelow),
     )
 
 @Suppress("ReturnCount")
@@ -69,6 +89,10 @@ fun formatActivationFilterSummary(filter: ActivationFilterModel): String =
         formatNumericRange(filter.round)?.let { "round=$it" },
         formatNumericRange(filter.payloadSize)?.let { "size=$it" },
         formatNumericRange(filter.streamBytes)?.let { "stream=$it" },
+        filter.tcpHasTimestamp?.let { "ts=${booleanFilterLabel(it)}" },
+        filter.tcpHasEch?.let { "ech=${booleanFilterLabel(it)}" },
+        filter.tcpWindowBelow?.let { "win<$it" },
+        filter.tcpMssBelow?.let { "mss<$it" },
     ).joinToString(" ")
 
 fun parseRoundRange(spec: String): NumericRangeModel = parseNumericRange(spec, 1L)
@@ -86,10 +110,12 @@ fun AppSettings.effectiveGroupActivationFilter(): ActivationFilterModel =
 
 fun AppSettings.Builder.setGroupActivationFilterCompat(filter: ActivationFilterModel): AppSettings.Builder =
     apply {
-        if (filter.isEmpty) {
+        val normalized = normalizeActivationFilter(filter)
+        validateNoTcpStatePredicates(normalized, "groupActivationFilter")
+        if (normalized.isEmpty) {
             clearGroupActivationFilter()
         } else {
-            setGroupActivationFilter(filter.toProto())
+            setGroupActivationFilter(normalized.toProto())
         }
     }
 
@@ -111,6 +137,10 @@ internal fun ActivationFilter.toModel(): ActivationFilterModel =
         round = if (hasRound()) round.toModel() else NumericRangeModel(),
         payloadSize = if (hasPayloadSize()) payloadSize.toModel() else NumericRangeModel(),
         streamBytes = if (hasStreamBytes()) streamBytes.toModel() else NumericRangeModel(),
+        tcpHasTimestamp = if (hasTcpHasTimestamp()) tcpHasTimestamp else null,
+        tcpHasEch = if (hasTcpHasEch()) tcpHasEch else null,
+        tcpWindowBelow = tcpWindowBelow.takeIf { hasTcpWindowBelow() },
+        tcpMssBelow = tcpMssBelow.takeIf { hasTcpMssBelow() },
     )
 
 internal fun ActivationFilterModel.toProto(): ActivationFilter =
@@ -126,7 +156,20 @@ internal fun ActivationFilterModel.toProto(): ActivationFilter =
             if (!this@toProto.streamBytes.isEmpty) {
                 setStreamBytes(this@toProto.streamBytes.toProto())
             }
+            this@toProto.tcpHasTimestamp?.let(::setTcpHasTimestamp)
+            this@toProto.tcpHasEch?.let(::setTcpHasEch)
+            this@toProto.tcpWindowBelow?.let(::setTcpWindowBelow)
+            this@toProto.tcpMssBelow?.let(::setTcpMssBelow)
         }.build()
+
+fun validateNoTcpStatePredicates(
+    filter: ActivationFilterModel,
+    fieldName: String,
+) {
+    require(!normalizeActivationFilter(filter).hasTcpStatePredicates) {
+        "$fieldName must not declare TCP-state predicates"
+    }
+}
 
 @Suppress("ReturnCount")
 private fun normalizeNumericRange(
@@ -169,3 +212,8 @@ private fun parseNumericRange(
     require(start <= end) { "Range start must be <= end" }
     return NumericRangeModel(start = start, end = end)
 }
+
+private fun booleanFilterLabel(value: Boolean): String = if (value) "yes" else "no"
+
+private fun normalizeTcpThreshold(value: Int?): Int? =
+    value?.takeIf { it in ActivationFilterTcpThresholdMin..ActivationFilterTcpThresholdMax }

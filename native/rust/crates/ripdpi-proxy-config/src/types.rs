@@ -181,6 +181,14 @@ pub struct ProxyUiActivationFilter {
     pub payload_size: Option<ProxyUiNumericRange>,
     #[serde(default)]
     pub stream_bytes: Option<ProxyUiNumericRange>,
+    #[serde(default)]
+    pub tcp_has_timestamp: Option<bool>,
+    #[serde(default)]
+    pub tcp_has_ech: Option<bool>,
+    #[serde(default)]
+    pub tcp_window_below: Option<u16>,
+    #[serde(default)]
+    pub tcp_mss_below: Option<u16>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

@@ -37,6 +37,11 @@ class ActivationFiltersTest {
         assertFalse(ActivationFilterModel(round = NumericRangeModel(1, 2)).isEmpty)
     }
 
+    @Test
+    fun `activation filter with tcp state predicate is not empty`() {
+        assertFalse(ActivationFilterModel(tcpHasTimestamp = true).isEmpty)
+    }
+
     // -- normalizeRoundRange --
 
     @Test
@@ -107,12 +112,18 @@ class ActivationFiltersTest {
                 round = NumericRangeModel(3, 1),
                 payloadSize = NumericRangeModel(null, 512),
                 streamBytes = NumericRangeModel(0, null),
+                tcpHasTimestamp = true,
+                tcpWindowBelow = 70_000,
+                tcpMssBelow = 1400,
             )
         val normalized = normalizeActivationFilter(filter)
 
         assertEquals(NumericRangeModel(1, 3), normalized.round)
         assertEquals(NumericRangeModel(512, 512), normalized.payloadSize)
         assertEquals(NumericRangeModel(0, 0), normalized.streamBytes)
+        assertEquals(true, normalized.tcpHasTimestamp)
+        assertNull(normalized.tcpWindowBelow)
+        assertEquals(1400, normalized.tcpMssBelow)
     }
 
     // -- formatNumericRange --
@@ -157,6 +168,19 @@ class ActivationFiltersTest {
                 round = NumericRangeModel(1, 1),
             )
         assertEquals("round=1", formatActivationFilterSummary(filter))
+    }
+
+    @Test
+    fun `formatActivationFilterSummary includes tcp state predicates`() {
+        val filter =
+            ActivationFilterModel(
+                tcpHasTimestamp = true,
+                tcpHasEch = false,
+                tcpWindowBelow = 4096,
+                tcpMssBelow = 1400,
+            )
+
+        assertEquals("ts=yes ech=no win<4096 mss<1400", formatActivationFilterSummary(filter))
     }
 
     // -- parseRoundRange --
@@ -229,10 +253,22 @@ class ActivationFiltersTest {
             ActivationFilterModel(
                 round = NumericRangeModel(1, 3),
                 payloadSize = NumericRangeModel(64, 512),
+                tcpHasTimestamp = true,
+                tcpHasEch = false,
+                tcpWindowBelow = 4096,
+                tcpMssBelow = 1400,
             )
         val proto = model.toProto()
         assertTrue(proto.hasRound())
         assertTrue(proto.hasPayloadSize())
         assertFalse(proto.hasStreamBytes())
+        assertTrue(proto.hasTcpHasTimestamp())
+        assertTrue(proto.tcpHasTimestamp)
+        assertTrue(proto.hasTcpHasEch())
+        assertFalse(proto.tcpHasEch)
+        assertTrue(proto.hasTcpWindowBelow())
+        assertEquals(4096, proto.tcpWindowBelow)
+        assertTrue(proto.hasTcpMssBelow())
+        assertEquals(1400, proto.tcpMssBelow)
     }
 }

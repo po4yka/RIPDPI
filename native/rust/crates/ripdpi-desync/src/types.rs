@@ -69,8 +69,17 @@ pub struct ActivationContext {
     pub seqovl_supported: bool,
     pub transport: ActivationTransport,
     pub tcp_segment_hint: Option<TcpSegmentHint>,
+    pub tcp_state: ActivationTcpState,
     pub resolved_fake_ttl: Option<u8>,
     pub adaptive: AdaptivePlannerHints,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ActivationTcpState {
+    pub has_timestamp: Option<bool>,
+    pub has_ech: Option<bool>,
+    pub window_size: Option<i64>,
+    pub mss: Option<i64>,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -172,4 +181,18 @@ pub fn activation_filter_matches(filter: Option<ActivationFilter>, context: Acti
     filter.round.is_none_or(|range| range_contains(range, context.round))
         && filter.payload_size.is_none_or(|range| range_contains(range, context.payload_size))
         && filter.stream_bytes.is_none_or(|range| range_overlaps(range, context.stream_start, context.stream_end))
+        && filter.tcp_has_timestamp.is_none_or(|expected| {
+            context.transport == ActivationTransport::Tcp && context.tcp_state.has_timestamp == Some(expected)
+        })
+        && filter.tcp_has_ech.is_none_or(|expected| {
+            context.transport == ActivationTransport::Tcp && context.tcp_state.has_ech == Some(expected)
+        })
+        && filter.tcp_window_below.is_none_or(|threshold| {
+            context.transport == ActivationTransport::Tcp
+                && context.tcp_state.window_size.is_some_and(|value| value < i64::from(threshold))
+        })
+        && filter.tcp_mss_below.is_none_or(|threshold| {
+            context.transport == ActivationTransport::Tcp
+                && context.tcp_state.mss.is_some_and(|value| value < i64::from(threshold))
+        })
 }

@@ -179,6 +179,7 @@ fn parse_proxy_numeric_range(
 fn parse_proxy_activation_filter(
     filter: Option<&ProxyUiActivationFilter>,
     field_name: &str,
+    allow_tcp_state_predicates: bool,
 ) -> Result<Option<ActivationFilter>, ProxyConfigError> {
     let Some(filter) = filter else {
         return Ok(None);
@@ -201,7 +202,23 @@ fn parse_proxy_activation_filter(
         .map(|value| parse_proxy_numeric_range(value, &format!("{field_name}.streamBytes"), 0))
         .transpose()?
         .flatten();
-    let filter = ActivationFilter { round, payload_size, stream_bytes };
+    if !allow_tcp_state_predicates
+        && (filter.tcp_has_timestamp.is_some()
+            || filter.tcp_has_ech.is_some()
+            || filter.tcp_window_below.is_some()
+            || filter.tcp_mss_below.is_some())
+    {
+        return Err(ProxyConfigError::InvalidConfig(format!("{field_name} must not declare TCP-state predicates")));
+    }
+    let filter = ActivationFilter {
+        round,
+        payload_size,
+        stream_bytes,
+        tcp_has_timestamp: filter.tcp_has_timestamp,
+        tcp_has_ech: filter.tcp_has_ech,
+        tcp_window_below: filter.tcp_window_below,
+        tcp_mss_below: filter.tcp_mss_below,
+    };
     Ok((!filter.is_unbounded()).then_some(filter))
 }
 
@@ -742,7 +759,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     group.matches.proto = tcp_proto;
     group.matches.any_protocol = chains.any_protocol;
     if let Some(filter) =
-        parse_proxy_activation_filter(chains.group_activation_filter.as_ref(), "chains.groupActivationFilter")?
+        parse_proxy_activation_filter(chains.group_activation_filter.as_ref(), "chains.groupActivationFilter", false)?
     {
         group.set_activation_filter(filter);
     }
@@ -834,6 +851,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             activation_filter: parse_proxy_activation_filter(
                 step.activation_filter.as_ref(),
                 "chains.udpSteps.activationFilter",
+                false,
             )?,
             ip_frag_disorder: false,
             ipv6_hop_by_hop: ipv6_ext.hop_by_hop,
@@ -1094,7 +1112,8 @@ fn parse_proxy_tcp_chain(
                 (0, 0, 0)
             }
         };
-        let activation_filter = parse_proxy_activation_filter(step.activation_filter.as_ref(), &activation_field_name)?;
+        let activation_filter =
+            parse_proxy_activation_filter(step.activation_filter.as_ref(), &activation_field_name, true)?;
         let ipv6_ext = parse_ipv6_extension_profile(&step.ipv6_extension_profile)?;
         parsed.push(TcpChainStep {
             kind,

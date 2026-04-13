@@ -761,6 +761,7 @@ fn plan_tcp_group_activation_filter_can_disable_desync() {
         round: Some(NumericRange::new(2, 4)),
         payload_size: None,
         stream_bytes: None,
+        ..Default::default()
     });
     group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))];
     let payload = b"hello world";
@@ -829,6 +830,7 @@ fn plan_tcp_step_activation_filter_skips_tls_prelude_only() {
                 round: Some(NumericRange::new(2, 3)),
                 payload_size: None,
                 stream_bytes: None,
+                ..Default::default()
             }),
             midhost_offset: None,
             fake_host_template: None,
@@ -852,6 +854,73 @@ fn plan_tcp_step_activation_filter_skips_tls_prelude_only() {
 
     assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 4 }]);
     assert_eq!(plan.tampered, DEFAULT_FAKE_TLS);
+}
+
+#[test]
+fn plan_tcp_step_activation_filter_matches_negotiated_tcp_timestamp_state() {
+    let payload = b"hello world";
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![TcpChainStep {
+        activation_filter: Some(ActivationFilter { tcp_has_timestamp: Some(true), ..Default::default() }),
+        ..TcpChainStep::new(TcpChainStepKind::Split, split_expr(4))
+    }];
+    let mut context = tcp_context(payload);
+
+    context.tcp_state.has_timestamp = Some(true);
+    let matched = plan_tcp(&group, payload, 7, 64, context).expect("plan with tcp timestamps");
+    assert_eq!(matched.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 4 }]);
+
+    context.tcp_state.has_timestamp = Some(false);
+    let skipped = plan_tcp(&group, payload, 7, 64, context).expect("plan without tcp timestamps");
+    assert!(skipped.steps.is_empty());
+}
+
+#[test]
+fn plan_tcp_step_activation_filter_matches_ech_payload_state() {
+    let payload = rust_packet_seeds::tls_client_hello_ech();
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![TcpChainStep {
+        activation_filter: Some(ActivationFilter { tcp_has_ech: Some(true), ..Default::default() }),
+        ..TcpChainStep::new(TcpChainStepKind::Split, split_expr(8))
+    }];
+    let mut context = tcp_context(&payload);
+
+    context.tcp_state.has_ech = Some(true);
+    let matched = plan_tcp(&group, &payload, 7, 64, context).expect("plan with ech");
+    assert_eq!(matched.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 8 }]);
+
+    context.tcp_state.has_ech = Some(false);
+    let skipped = plan_tcp(&group, &payload, 7, 64, context).expect("plan without ech");
+    assert!(skipped.steps.is_empty());
+}
+
+#[test]
+fn plan_tcp_step_activation_filter_uses_window_and_mss_thresholds() {
+    let payload = b"hello world";
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![TcpChainStep {
+        activation_filter: Some(ActivationFilter {
+            tcp_window_below: Some(4096),
+            tcp_mss_below: Some(1400),
+            ..Default::default()
+        }),
+        ..TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))
+    }];
+    let mut context = tcp_context(payload);
+
+    context.tcp_state.window_size = Some(2048);
+    context.tcp_state.mss = Some(1200);
+    let matched = plan_tcp(&group, payload, 7, 64, context).expect("plan below thresholds");
+    assert_eq!(matched.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 5 }]);
+
+    context.tcp_state.window_size = Some(8192);
+    let skipped_window = plan_tcp(&group, payload, 7, 64, context).expect("plan above window threshold");
+    assert!(skipped_window.steps.is_empty());
+
+    context.tcp_state.window_size = Some(2048);
+    context.tcp_state.mss = None;
+    let skipped_mss = plan_tcp(&group, payload, 7, 64, context).expect("plan with unknown mss");
+    assert!(skipped_mss.steps.is_empty());
 }
 
 #[test]

@@ -24,7 +24,7 @@ use ripdpi_ipfrag::{
 };
 use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
-use super::{IpFragmentationCapabilities, TcpStageWait};
+use super::{IpFragmentationCapabilities, TcpActivationState, TcpStageWait};
 
 /// Thin wrapper around `libc::setsockopt` that handles the return-code check
 /// and `io::Error` conversion.
@@ -1540,6 +1540,32 @@ pub fn tcp_segment_hint(stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>
         advmss: (info.tcpi_advmss != 0).then_some(info.tcpi_advmss as i64),
         pmtu: (info.tcpi_pmtu != 0).then_some(info.tcpi_pmtu as i64),
         ip_header_overhead,
+    }))
+}
+
+pub fn tcp_activation_state(stream: &TcpStream) -> io::Result<Option<TcpActivationState>> {
+    let Some(info) = read_tcp_info(stream.as_raw_fd())? else {
+        return Ok(None);
+    };
+    let fd = stream.as_raw_fd();
+    let snapshot = set_tcp_repair(fd, TCP_REPAIR_ON)
+        .and_then(|_| {
+            let snapshot = snapshot_tcp_repair_state(fd);
+            let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+            let _ = disable_tcp_repair(fd);
+            snapshot
+        })
+        .ok();
+
+    Ok(Some(TcpActivationState {
+        has_timestamp: Some(
+            snapshot.as_ref().is_some_and(|value| value.options.timestamp.is_some())
+                || (info.tcpi_options & TCPI_OPT_TIMESTAMPS != 0),
+        ),
+        window_size: snapshot.map(|value| i64::from(value.window_size)),
+        mss: snapshot
+            .and_then(|value| value.options.mss.map(i64::from))
+            .or_else(|| (info.tcpi_snd_mss != 0).then_some(info.tcpi_snd_mss as i64)),
     }))
 }
 

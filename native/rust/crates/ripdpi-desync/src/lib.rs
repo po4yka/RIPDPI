@@ -14,9 +14,9 @@ pub use fake::{
     build_seqovl_fake_prefix, resolve_hostfake_span,
 };
 pub use types::{
-    activation_filter_matches, ActivationContext, ActivationTransport, AdaptivePlannerHints, AdaptiveTlsRandRecProfile,
-    AdaptiveUdpBurstProfile, DesyncAction, DesyncError, DesyncPlan, FakePacketPlan, HostFakeSpan, PlannedStep,
-    ProtoInfo, TamperResult, TcpSegmentHint,
+    activation_filter_matches, ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints,
+    AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile, DesyncAction, DesyncError, DesyncPlan, FakePacketPlan,
+    HostFakeSpan, PlannedStep, ProtoInfo, TamperResult, TcpSegmentHint,
 };
 
 #[cfg(test)]
