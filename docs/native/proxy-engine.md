@@ -95,6 +95,56 @@ Android UI mode, diagnostics recommendation drafts, and automatic-probing candid
 
 The same JSON path is also used to replay validated remembered network policies. `RipDpiProxyJsonPreferences` can apply an exact normalized `proxyConfigJson` with a fresh `networkScopeKey` and runtime context, instead of rebuilding the policy from today's UI settings.
 
+### Circular TCP rotation
+
+The native strategy bridge now supports optional per-connection TCP chain
+rotation through `chains.tcpRotation`.
+
+- Rotation is JSON/config driven only in this slice. There is no new AppSettings
+  field or Compose surface.
+- Only TCP chains rotate. The base group's fake-packet settings, QUIC config,
+  parser evasions, activation filters, and route/group selection remain
+  inherited.
+- Rotation boundaries are per outbound round on the same socket. RIPDPI does
+  not rewrite an in-flight payload mid-send.
+- The relay activates rotation only after the connection has already completed
+  its first successful outbound and first-response exchange. Initial connect and
+  first-response failures still use the existing cross-connection route/group
+  retry path.
+- Failure signals come from the existing first-response classifier
+  (redirect/TLS alert/reset-class style failures), connection close/reset during
+  the first-response window for that round, and `TCP_INFO` retransmission
+  deltas.
+- When a threshold trips, the current round finishes unchanged and the next
+  outbound round swaps `actions.tcp_chain` to the next candidate in the ordered
+  rotation list, wrapping modulo the candidate count.
+
+`chains.tcpRotation` shape:
+
+```json
+{
+  "chains": {
+    "tcpSteps": [
+      { "kind": "tlsrec", "marker": "extlen" },
+      { "kind": "split", "marker": "host+2" }
+    ],
+    "tcpRotation": {
+      "fails": 3,
+      "retrans": 3,
+      "seq": 65536,
+      "rst": 1,
+      "timeSecs": 60,
+      "candidates": [
+        { "tcpSteps": [ /* replacement tcp chain */ ] }
+      ]
+    }
+  }
+}
+```
+
+Each candidate supplies only a replacement `tcpSteps` chain. Everything else is
+inherited from the base group for that connection.
+
 ### Markers and chains
 
 The runtime now supports:

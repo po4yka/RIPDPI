@@ -139,6 +139,7 @@ RIPDPI's current Android and native strategy stack includes:
 - semantic markers such as `host`, `endhost`, `midsld`, `sniext`, and `extlen`
 - adaptive markers such as `auto(balanced)` and `auto(host)` that resolve from live `TCP_INFO` hints
 - ordered TCP and UDP chain steps with per-step activation filters
+- circular mid-connection TCP rotation that swaps fallback chains between outbound rounds on the same socket
 - richer fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
 - built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
 - host-targeted fake chunks (`hostfake`) and Linux/Android-focused `fakedsplit` / `fakeddisorder` approximations

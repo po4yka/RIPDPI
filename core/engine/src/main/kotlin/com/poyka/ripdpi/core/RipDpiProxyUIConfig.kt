@@ -62,8 +62,22 @@ data class RipDpiProtocolConfig(
 data class RipDpiChainConfig(
     val groupActivationFilter: ActivationFilterModel = ActivationFilterModel(),
     val tcpSteps: List<TcpChainStepModel> = canonicalDefaultTcpChainSteps(),
+    val tcpRotation: RipDpiTcpRotationConfig? = null,
     val udpSteps: List<UdpChainStepModel> = emptyList(),
     val anyProtocol: Boolean = false,
+)
+
+data class RipDpiTcpRotationCandidateConfig(
+    val tcpSteps: List<TcpChainStepModel> = emptyList(),
+)
+
+data class RipDpiTcpRotationConfig(
+    val fails: Int = 3,
+    val retrans: Int = 3,
+    val seq: Int = 65_536,
+    val rst: Int = 1,
+    val timeSecs: Long = 60,
+    val candidates: List<RipDpiTcpRotationCandidateConfig> = emptyList(),
 )
 
 data class RipDpiFakePacketConfig(

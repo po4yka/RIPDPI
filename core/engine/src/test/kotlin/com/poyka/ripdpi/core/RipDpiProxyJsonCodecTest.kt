@@ -1,10 +1,72 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.TcpChainStepKind
+import com.poyka.ripdpi.data.TcpChainStepModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Test
 
 class RipDpiProxyJsonCodecTest {
+    @Test
+    fun `ui preferences round trip tcp rotation config`() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(kind = TcpChainStepKind.TlsRec, marker = "extlen"),
+                                TcpChainStepModel(kind = TcpChainStepKind.Split, marker = "host+2"),
+                            ),
+                        tcpRotation =
+                            RipDpiTcpRotationConfig(
+                                candidates =
+                                    listOf(
+                                        RipDpiTcpRotationCandidateConfig(
+                                            tcpSteps =
+                                                listOf(
+                                                    TcpChainStepModel(
+                                                        kind = TcpChainStepKind.TlsRec,
+                                                        marker = "extlen",
+                                                    ),
+                                                    TcpChainStepModel(kind = TcpChainStepKind.Split, marker = "midsld"),
+                                                ),
+                                        ),
+                                    ),
+                            ),
+                    ),
+            )
+
+        val decoded = decodeRipDpiProxyUiPreferences(preferences.toNativeConfigJson())
+        val rotation = decoded?.chains?.tcpRotation
+
+        assertNotNull(rotation)
+        assertEquals(3, rotation?.fails)
+        assertEquals(3, rotation?.retrans)
+        assertEquals(65536, rotation?.seq)
+        assertEquals(1, rotation?.rst)
+        assertEquals(60L, rotation?.timeSecs)
+        assertEquals(1, rotation?.candidates?.size)
+        assertEquals(
+            TcpChainStepKind.TlsRec,
+            rotation
+                ?.candidates
+                ?.firstOrNull()
+                ?.tcpSteps
+                ?.get(0)
+                ?.kind,
+        )
+        assertEquals(
+            "midsld",
+            rotation
+                ?.candidates
+                ?.firstOrNull()
+                ?.tcpSteps
+                ?.get(1)
+                ?.marker,
+        )
+    }
+
     @Test
     fun `ui preferences round trip direct path capabilities through runtime context`() {
         val preferences =
