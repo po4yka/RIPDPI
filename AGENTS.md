@@ -73,7 +73,7 @@ The home analysis runs 4 stages sequentially:
 
 ### Strategy Probe Candidates
 
-**21 TCP candidates** (ordered modern-first for censored networks):
+**24 TCP candidates** (ordered modern-first for censored networks):
 
 | Category | Candidates | requires_fake_ttl |
 |----------|-----------|-------------------|
@@ -85,6 +85,8 @@ The home analysis runs 4 stages sequentially:
 | Disorder + OOB | disoob_host, tlsrec_disoob | true |
 | TLS random record | tlsrandrec_split, tlsrandrec_disorder | mixed |
 | Hostfake | tlsrec_hostfake | true |
+| Hostfake (random) | tlsrec_hostfake_random | false |
+| Delayed split | split_delayed_50ms, split_delayed_150ms | false |
 | Parser (legacy) | parser_only, parser_unixeol, parser_methodeol | false |
 | ECH (specialized) | ech_split, ech_tlsrec | false |
 
@@ -179,7 +181,7 @@ Supporting crates providing shared traits, data structures, and classification:
 
 - **`ripdpi-packets`** -- protocol classification (`ProtocolClassifier` trait + `ClassifierRegistry` with `EnumMap` O(1) dispatch), protocol field extraction (`ProtocolField` + `FieldObserver` + `FieldCache`), TLS/HTTP/QUIC detection and mutation
 - **`ripdpi-failure-classifier`** -- failure classification from pre-extracted fields (`classify_from_fields()` via `FieldCache`), blockpage CSV fingerprints, TLS alert/HTTP blockpage/redirect detection
-- **`ripdpi-monitor`** -- DNS tampering detection (`dns_analysis.rs` with 8 anomaly signals + record-level comparison + compression pointer validation), response parser framework (`response_parser/` with HTTP/TLS/SSH parsers and `FieldObserver` emission)
+- **`ripdpi-monitor`** -- DNS tampering detection (`dns_analysis.rs` with 8 anomaly signals + record-level comparison + compression pointer validation), response parser framework (`response_parser/` with HTTP/TLS/SSH parsers and `FieldObserver` emission), PCAP diagnostic recording
 - **`ripdpi-root-helper`** -- standalone privileged binary for rooted devices; Unix socket IPC with SCM_RIGHTS fd passing for raw socket operations (`send_fake_rst`, `send_seqovl_tcp`, `send_multi_disorder_tcp`, `send_ip_fragmented_tcp/udp`, `probe_capabilities`); IPC client in `ripdpi-runtime/src/platform/root_helper_client.rs`
 - **`android-support`** -- generic data structures: `BoundedHeap<T>` (fixed-capacity min-heap for session eviction), `EnumMap<K,V>` (O(1) enum-keyed dispatch for registries)
 

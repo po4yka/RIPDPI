@@ -109,7 +109,7 @@ Each candidate is a `StrategyCandidateSpec` with an id, label, family,
 eligibility rule, warmup requirements, and a `ProxyUiConfig` describing the
 bypass strategy parameters.
 
-#### TCP candidates (21 total)
+#### TCP candidates (24 total)
 
 | ID | Family | TTL required |
 |----|--------|--------------|
@@ -134,6 +134,9 @@ bypass strategy parameters.
 | `fake_split` | fake | yes |
 | `fake_disorder` | fake | yes |
 | `md5_fake` | fake | yes |
+| `tlsrec_hostfake_random` | hostfake | no |
+| `split_delayed_50ms` | split | no |
+| `split_delayed_150ms` | split | no |
 
 #### QUIC candidates (6 total)
 
@@ -461,3 +464,19 @@ After any wire type change:
    schema version mismatches.
 3. If fields were added: bless goldens with `RIPDPI_BLESS_GOLDENS=1` and
    commit updated fixtures.
+
+## 13. PCAP Diagnostic Recording
+
+On-device packet capture for DPI evasion debugging without external tools.
+
+**Rust components:**
+- `ripdpi-monitor/src/pcap.rs` -- `PcapWriter` (standard pcap format, 10 MB cap) + `PcapRecordingSession` (thread-safe, 50 connection limit, auto-stop)
+- `ripdpi-runtime/src/runtime/desync.rs` -- `PcapHook` callback invoked on each outbound packet during desync execution
+- `ripdpi-android/src/proxy/pcap.rs` -- JNI bridge: `jniStartPcapRecording`, `jniStopPcapRecording`, `jniIsPcapRecording`
+
+**Android components:**
+- `DiagnosticsViewModel` -- `togglePcapRecording()` action, `pcapRecording` state flow
+- `DiagnosticsArchiveFileStore` -- `cleanupPcapFiles()` (24h age-based), `getRecentPcapFiles()` for export
+- `DiagnosticsArchiveRenderer` -- includes up to 3 recent pcap files in diagnostic export bundles
+
+**Storage safety:** 10 MB file cap, 50 connection auto-stop, cache directory storage, 24h cleanup on app start.

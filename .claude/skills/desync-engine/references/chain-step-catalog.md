@@ -150,7 +150,9 @@ bytes. Optionally splits the real host at a midpoint.
 5. Remaining bytes after host region
 
 **Config fields**: `offset`, `midhost_offset` (optional secondary split
-within the host), `fake_host_template` (custom fake hostname pattern).
+within the host), `fake_host_template` (custom fake hostname pattern),
+`random_fake_host` (when true, generate OS-entropy-seeded random domain
+per connection instead of deterministic seed).
 
 **Fallback**: If host range cannot be resolved or is outside the step
 boundaries, degrades to `Split`.
@@ -323,3 +325,12 @@ activates on round 1 for QUIC traffic.
 
 **When to use**: When the DPI does not reassemble IP fragments for UDP.
 Similar to TCP IpFrag2 but for QUIC/UDP traffic.
+
+---
+
+## Cross-cutting notes
+
+All TCP chain steps support `inter_segment_delay_ms` (0-500ms) for
+timer-based evasion via `DesyncAction::Delay`. When set, the execution
+runtime inserts a `tokio::time::sleep()` between segments of that step.
+Used by `split_delayed_50ms` and `split_delayed_150ms` probe candidates.

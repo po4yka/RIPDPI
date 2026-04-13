@@ -157,6 +157,9 @@ Candidates are ordered modern-first (most effective on censored networks tested 
 | `tlsrec_disoob` | `tlsrec` + `disoob` at host+2 | true |
 | `tlsrandrec_split` | `tlsrandrec` at sniext+4 + `split` at host+2 | **false** |
 | `tlsrandrec_disorder` | `tlsrandrec` at sniext+4 + `disorder` at host+2 | true |
+| `tlsrec_hostfake_random` | `tlsrec` + `hostfake` with `random_fake_host=true` | false |
+| `split_delayed_50ms` | `split` at host+2 + `Delay(50)` between segments | false |
+| `split_delayed_150ms` | `split` at host+2 + `Delay(150)` between segments | false |
 
 ### TTL requirements
 
@@ -251,11 +254,24 @@ entropy levels. `Combined` does both. Controlled by
    (`FM_PADENCAP`), and size tuning (`fake_tls_size`).
 3. `fake_offset` determines where in the fake packet to start the overlay.
 
+### Delay
+`DesyncAction::Delay(u16)` sleeps for N milliseconds between steps for
+timer-based evasion. Used by delayed-split variants (`split_delayed_50ms`,
+`split_delayed_150ms`) to exploit DPI timeout windows. Capped at 500ms.
+Implemented via `tokio::time::sleep()` in the async execution path.
+
 ### SeqNum rollback (SeqOverlap)
 `DesyncAction::WriteSeqOverlap` sends overlapping TCP data: a fake prefix
 occupies the sequence space, then the real data retransmits over it. The
 destination's TCP stack uses the first valid data; the DPI may use the fake.
 Gated by `seqovl_hard_gate_matches()` (round 1 only, small payloads).
+
+### PcapHook
+Optional `PcapHook` callback invoked on each outbound packet during
+`execute_tcp_actions()` and `execute_tcp_plan()`. When registered, captures
+raw packet bytes to a `PcapRecordingSession` in `ripdpi-monitor` for
+diagnostic PCAP recording. No-op when not registered; zero overhead on the
+hot path.
 
 ## Adding a new desync technique
 

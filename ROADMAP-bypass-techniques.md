@@ -561,12 +561,12 @@ Threshold: score >= 5 triggers graylist (redirect to fallback, never DROP).
 
 ### Strategy Probe Expansion
 
-Items #1-5 and #12 each introduce new desync behaviors that should be added to
+Items #1-5, #7, and #12 each introduce new desync behaviors that should be added to
 the `full_matrix_v1` probe candidate pool:
 
 | Current candidates | New candidates from this roadmap |
 |--------------------|----------------------------------|
-| 21 TCP + 6 QUIC | +4-8 TCP (flag variants, altorders, delayed, conditional) |
+| 21 TCP + 6 QUIC | +3 TCP (hostfake random, delayed split variants) + flag variants, altorders, conditional |
 
 Update `ripdpi-monitor/src/` candidate lists and tournament bracket logic.
 
