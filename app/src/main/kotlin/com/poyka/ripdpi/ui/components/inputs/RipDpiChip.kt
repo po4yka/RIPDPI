@@ -81,7 +81,7 @@ fun RipDpiChip(
     val borderColor =
         when {
             selected -> colors.foreground
-            enabled -> MaterialTheme.colorScheme.outlineVariant
+            enabled -> colors.outlineVariant
             else -> colors.border
         }
     val contentColor =

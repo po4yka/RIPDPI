@@ -61,4 +61,5 @@ The audit roadmap tracked in this repository is complete. The items below are no
 
 ## Next Work
 
-No remaining work is tracked in this completed roadmap. Add new initiatives as a separate document with its own acceptance criteria and status model.
+- **[DPI Bypass Technique Expansion](ROADMAP-bypass-techniques.md)** -- 15 techniques from field research (ntc.party, Habr, TechnicalVault) not yet in RIPDPI: circular strategy rotation, conditional execution, TCP flag manipulation, IP ID control, fakedsplit ordering, SYN-Hide, UDP-over-ICMP, PCAP recording, and more. Tiered by priority with implementation approaches and vault references.
+- **[UI/UX & Design System Roadmap](ROADMAP-ui-ux.md)** -- 33 audit violations to fix across 6 phases: critical compliance fixes (Phase 0-1), M3 Expressive adoption (Phase 2), navigation and layout improvements (Phase 3), UX enhancements (Phase 4), accessibility and i18n (Phase 5), screenshot test coverage (Phase 6). Derived from full DESIGN.md + M3 audit (April 2026).
