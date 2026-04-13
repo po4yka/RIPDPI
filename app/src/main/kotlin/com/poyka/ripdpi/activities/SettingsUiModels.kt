@@ -327,6 +327,8 @@ data class RoutingProtectionDetectedAppUiState(
     val presetTitle: String,
     val detectionMethod: String,
     val fixCoverage: String,
+    val vpnDetection: Boolean = false,
+    val severity: String = "none",
 )
 
 @Stable
@@ -338,6 +340,7 @@ data class RoutingProtectionPresetUiState(
     val detectionMethod: String = "",
     val fixCoverage: String = "",
     val limitations: String = "",
+    val confirmedDetectorCount: Int = 0,
 )
 
 @Stable

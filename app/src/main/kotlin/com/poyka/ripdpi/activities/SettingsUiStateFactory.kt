@@ -340,6 +340,7 @@ private fun AppSettings.buildRoutingProtectionUiState(
     val enabledPresetIds = effectiveAppRoutingEnabledPresetIds().toSet()
     val presets =
         snapshot.presets.map { preset ->
+            val confirmedCount = snapshot.detectedApps.count { it.presetId == preset.id && it.vpnDetection }
             RoutingProtectionPresetUiState(
                 id = preset.id,
                 title = preset.title,
@@ -348,6 +349,7 @@ private fun AppSettings.buildRoutingProtectionUiState(
                 detectionMethod = preset.detectionMethod,
                 fixCoverage = preset.fixCoverage,
                 limitations = preset.limitations,
+                confirmedDetectorCount = confirmedCount,
             )
         }
     val suggestions = buildRoutingProtectionSuggestions(presets, snapshot, serviceTelemetry)
@@ -365,6 +367,8 @@ private fun AppSettings.buildRoutingProtectionUiState(
                     presetTitle = app.presetTitle,
                     detectionMethod = app.detectionMethod,
                     fixCoverage = app.fixCoverage,
+                    vpnDetection = app.vpnDetection,
+                    severity = app.severity,
                 )
             },
         suggestions = suggestions,
