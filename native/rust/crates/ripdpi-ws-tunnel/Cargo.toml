@@ -8,7 +8,7 @@ license.workspace = true
 aes = { workspace = true }
 boring = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
-ctr = "0.9"
+ctr = "0.10"
 cipher = "0.4"
 tracing = { workspace = true }
 socket2 = { workspace = true }

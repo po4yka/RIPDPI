@@ -40,7 +40,7 @@ io-uring = ["dep:ripdpi-io-uring"]
 [dev-dependencies]
 aes = { workspace = true }
 base64 = { workspace = true }
-ctr = "0.9"
+ctr = "0.10"
 ripdpi-config = { workspace = true }
 ripdpi-packets = { workspace = true }
 ring = { workspace = true }
