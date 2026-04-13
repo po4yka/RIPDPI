@@ -25,6 +25,10 @@ fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         marker: marker.to_string(),
         midhost_marker: String::new(),
         fake_host_template: String::new(),
+        tcp_flags_set: String::new(),
+        tcp_flags_unset: String::new(),
+        tcp_flags_orig_set: String::new(),
+        tcp_flags_orig_unset: String::new(),
         overlap_size: 0,
         fake_mode: String::new(),
         fragment_count: 0,
@@ -42,6 +46,10 @@ fn seqovl_step(marker: &str, overlap_size: i32, fake_mode: &str) -> ProxyUiTcpCh
         marker: marker.to_string(),
         midhost_marker: String::new(),
         fake_host_template: String::new(),
+        tcp_flags_set: String::new(),
+        tcp_flags_unset: String::new(),
+        tcp_flags_orig_set: String::new(),
+        tcp_flags_orig_unset: String::new(),
         overlap_size,
         fake_mode: fake_mode.to_string(),
         fragment_count: 0,
@@ -87,6 +95,10 @@ fn ui_payload_parses_hostfake_and_quic_profile() {
         marker: "endhost+8".to_string(),
         midhost_marker: "midsld".to_string(),
         fake_host_template: "googlevideo.com".to_string(),
+        tcp_flags_set: String::new(),
+        tcp_flags_unset: String::new(),
+        tcp_flags_orig_set: String::new(),
+        tcp_flags_orig_unset: String::new(),
         overlap_size: 0,
         fake_mode: String::new(),
         fragment_count: 0,
@@ -142,6 +154,10 @@ fn ui_payload_preserves_explicit_tlsrec_before_hostfake() {
             marker: "endhost+8".to_string(),
             midhost_marker: "midsld".to_string(),
             fake_host_template: "googlevideo.com".to_string(),
+            tcp_flags_set: String::new(),
+            tcp_flags_unset: String::new(),
+            tcp_flags_orig_set: String::new(),
+            tcp_flags_orig_unset: String::new(),
             overlap_size: 0,
             fake_mode: String::new(),
             fragment_count: 0,
@@ -294,6 +310,10 @@ fn ui_payload_parses_tcp_rotation_policy_defaults() {
                         marker: "endhost+8".to_string(),
                         midhost_marker: "midsld".to_string(),
                         fake_host_template: "googlevideo.com".to_string(),
+                        tcp_flags_set: String::new(),
+                        tcp_flags_unset: String::new(),
+                        tcp_flags_orig_set: String::new(),
+                        tcp_flags_orig_unset: String::new(),
                         overlap_size: 0,
                         fake_mode: String::new(),
                         fragment_count: 0,
@@ -423,6 +443,26 @@ fn ui_payload_maps_fake_tcp_timestamp_settings() {
 }
 
 #[test]
+fn ui_payload_maps_ip_id_mode_seqgroup() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.ip_id_mode = "seqgroup".to_string();
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+
+    assert_eq!(config.groups[0].actions.ip_id_mode, Some(ripdpi_config::IpIdMode::SeqGroup));
+}
+
+#[test]
+fn ui_payload_rejects_invalid_ip_id_mode() {
+    let mut ui = minimal_ui();
+    ui.fake_packets.ip_id_mode = "bogus".to_string();
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("invalid ip id mode");
+
+    assert!(err.to_string().contains("fakePackets.ipIdMode"));
+}
+
+#[test]
 fn ui_payload_maps_extended_http_parser_evasions_into_mod_http() {
     let mut ui = minimal_ui();
     ui.parser_evasions.host_mixed_case = true;
@@ -449,6 +489,10 @@ fn ui_payload_rejects_unknown_ipv6_extension_profile() {
         marker: "host+2".to_string(),
         midhost_marker: String::new(),
         fake_host_template: String::new(),
+        tcp_flags_set: String::new(),
+        tcp_flags_unset: String::new(),
+        tcp_flags_orig_set: String::new(),
+        tcp_flags_orig_unset: String::new(),
         overlap_size: 0,
         fake_mode: String::new(),
         fragment_count: 0,
@@ -597,6 +641,10 @@ fn adaptive_hostfake_midhost_marker_is_rejected() {
         marker: "endhost+8".to_string(),
         midhost_marker: "auto(midsld)".to_string(),
         fake_host_template: String::new(),
+        tcp_flags_set: String::new(),
+        tcp_flags_unset: String::new(),
+        tcp_flags_orig_set: String::new(),
+        tcp_flags_orig_unset: String::new(),
         overlap_size: 0,
         fake_mode: String::new(),
         fragment_count: 0,

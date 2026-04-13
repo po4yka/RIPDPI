@@ -60,8 +60,19 @@ impl RootHelperClient {
     }
 
     /// Send a fake RST packet via the helper.
-    pub fn send_fake_rst(&self, stream_fd: RawFd, default_ttl: u8, flags: TcpFlagOverrides) -> io::Result<()> {
-        let params = serde_json::json!({ "default_ttl": default_ttl, "tcp_flags_set": flags.set, "tcp_flags_unset": flags.unset });
+    pub fn send_fake_rst(
+        &self,
+        stream_fd: RawFd,
+        default_ttl: u8,
+        flags: TcpFlagOverrides,
+        ipv4_identification: Option<u16>,
+    ) -> io::Result<()> {
+        let params = serde_json::json!({
+            "default_ttl": default_ttl,
+            "tcp_flags_set": flags.set,
+            "tcp_flags_unset": flags.unset,
+            "ipv4_identification": ipv4_identification,
+        });
         let (_resp, _fd) = self.send_command("send_fake_rst", params, Some(stream_fd))?;
         Ok(())
     }
@@ -73,6 +84,7 @@ impl RootHelperClient {
         default_ttl: u8,
         md5sig: bool,
         flags: TcpFlagOverrides,
+        ipv4_identification: Option<u16>,
     ) -> io::Result<Option<RawFd>> {
         let params = serde_json::json!({
             "payload": payload,
@@ -80,6 +92,7 @@ impl RootHelperClient {
             "md5sig": md5sig,
             "tcp_flags_set": flags.set,
             "tcp_flags_unset": flags.unset,
+            "ipv4_identification": ipv4_identification,
         });
         let (_resp, fd) = self.send_command("send_flagged_tcp_payload", params, Some(stream_fd))?;
         Ok(fd)
@@ -94,6 +107,7 @@ impl RootHelperClient {
         default_ttl: u8,
         md5sig: bool,
         flags: TcpFlagOverrides,
+        ipv4_identification: Option<u16>,
     ) -> io::Result<Option<RawFd>> {
         let params = serde_json::json!({
             "real_chunk": real_chunk,
@@ -102,6 +116,7 @@ impl RootHelperClient {
             "md5sig": md5sig,
             "tcp_flags_set": flags.set,
             "tcp_flags_unset": flags.unset,
+            "ipv4_identification": ipv4_identification,
         });
         let (_resp, fd) = self.send_command("send_seqovl_tcp", params, Some(stream_fd))?;
         Ok(fd)
@@ -117,6 +132,7 @@ impl RootHelperClient {
         inter_segment_delay_ms: u32,
         md5sig: bool,
         flags: TcpFlagOverrides,
+        ipv4_identifications: &[u16],
     ) -> io::Result<Option<RawFd>> {
         let seg_specs: Vec<serde_json::Value> =
             segments.iter().map(|s| serde_json::json!({ "start": s.start, "end": s.end })).collect();
@@ -128,6 +144,7 @@ impl RootHelperClient {
             "md5sig": md5sig,
             "tcp_flags_set": flags.set,
             "tcp_flags_unset": flags.unset,
+            "ipv4_identifications": ipv4_identifications,
         });
         let (_resp, fd) = self.send_command("send_multi_disorder_tcp", params, Some(stream_fd))?;
         Ok(fd)
@@ -142,6 +159,7 @@ impl RootHelperClient {
         default_ttl: u8,
         disorder: bool,
         flags: TcpFlagOverrides,
+        ipv4_identification: Option<u16>,
     ) -> io::Result<Option<RawFd>> {
         let params = serde_json::json!({
             "payload": payload,
@@ -150,6 +168,7 @@ impl RootHelperClient {
             "disorder": disorder,
             "tcp_flags_set": flags.set,
             "tcp_flags_unset": flags.unset,
+            "ipv4_identification": ipv4_identification,
         });
         let (_resp, fd) = self.send_command("send_ip_fragmented_tcp", params, Some(stream_fd))?;
         Ok(fd)
@@ -164,6 +183,7 @@ impl RootHelperClient {
         split_offset: usize,
         default_ttl: u8,
         disorder: bool,
+        ipv4_identification: Option<u16>,
     ) -> io::Result<()> {
         let params = serde_json::json!({
             "target_addr": target.to_string(),
@@ -171,6 +191,7 @@ impl RootHelperClient {
             "split_offset": split_offset,
             "default_ttl": default_ttl,
             "disorder": disorder,
+            "ipv4_identification": ipv4_identification,
         });
         let (_resp, _fd) = self.send_command("send_ip_fragmented_udp", params, Some(socket_fd))?;
         Ok(())

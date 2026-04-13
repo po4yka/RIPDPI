@@ -31,6 +31,7 @@ import com.poyka.ripdpi.data.normalizeAppRoutingPolicyMode
 import com.poyka.ripdpi.data.normalizeDhtMitigationMode
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
+import com.poyka.ripdpi.data.normalizeIpIdMode
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.data.normalizePayloadSizeRange
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
@@ -1158,6 +1159,11 @@ private val optionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
                 updatePrimaryTcpFlags(uiState, "tcpFlagsOrigUnset", value) { step, normalized ->
                     step.copy(tcpFlagsOrigUnset = normalized)
                 }
+            },
+        AdvancedOptionSetting.IpIdMode to
+            { value, _ ->
+                val normalized = normalizeIpIdMode(value)
+                updateValue("ipIdMode", normalized) { setIpIdMode(normalized) }
             },
         AdvancedOptionSetting.HttpFakeProfile to
             { value, _ -> updateValue("httpFakeProfile", value) { setHttpFakeProfile(value) } },

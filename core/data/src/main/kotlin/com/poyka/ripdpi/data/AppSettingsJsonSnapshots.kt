@@ -83,6 +83,7 @@ internal data class AppSettingsSnapshot(
     val fakeTlsPadEncap: Boolean = defaultSettings.fakeTlsPadEncap,
     val fakeTlsSize: Int = defaultSettings.fakeTlsSize,
     val fakeTlsSniMode: String = defaultSettings.fakeTlsSniMode,
+    val ipIdMode: String = normalizeIpIdMode(defaultSettings.ipIdMode),
     val httpFakeProfile: String = defaultSettings.httpFakeProfile,
     val tlsFakeProfile: String = defaultSettings.tlsFakeProfile,
     val oobData: String = defaultSettings.oobData,

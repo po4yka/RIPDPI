@@ -37,6 +37,7 @@ import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.HostPackPreset
+import com.poyka.ripdpi.data.IpIdModeDefault
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
@@ -414,6 +415,7 @@ data class FakeTransportUiState(
     val udpFakeProfile: String = FakePayloadProfileCompatDefault,
     val oobData: String = "a",
     val dropSack: Boolean = false,
+    val ipIdMode: String = IpIdModeDefault,
 ) {
     val adaptiveFakeTtlMode: String
         get() =

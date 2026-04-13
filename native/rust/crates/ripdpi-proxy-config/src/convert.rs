@@ -5,9 +5,9 @@ use std::{fmt, mem};
 use ripdpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tcp_flag_mask,
     parse_tls_fake_profile as parse_tls_fake_profile_id, parse_udp_fake_profile as parse_udp_fake_profile_id,
-    validate_tcp_flag_masks, ActivationFilter, DesyncGroup, DesyncMode, EntropyMode, FakePacketSource, NumericRange,
-    OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RotationCandidate, RotationPolicy, RuntimeConfig,
-    SeqOverlapFakeMode, StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
+    validate_tcp_flag_masks, ActivationFilter, DesyncGroup, DesyncMode, EntropyMode, FakePacketSource, IpIdMode,
+    NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RotationCandidate, RotationPolicy,
+    RuntimeConfig, SeqOverlapFakeMode, StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
     UpstreamSocksConfig, WsizeConfig, AUTO_RECONN, AUTO_SORT, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR,
     DETECT_TORST, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
@@ -23,9 +23,10 @@ use crate::types::{
     ProxyConfigError, ProxyConfigPayload, ProxyLogContext, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiConfig,
     ProxyUiNumericRange, RuntimeConfigEnvelope, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, FAKE_TLS_SNI_MODE_FIXED,
     FAKE_TLS_SNI_MODE_RANDOMIZED, FAKE_TLS_SOURCE_CAPTURED_CLIENT_HELLO, FAKE_TLS_SOURCE_PROFILE, HOSTS_BLACKLIST,
-    HOSTS_DISABLE, HOSTS_WHITELIST, RELAY_KIND_OFF, SEQOVL_DEFAULT_OVERLAP_SIZE, SEQOVL_FAKE_MODE_PROFILE,
-    SEQOVL_FAKE_MODE_RAND, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT, TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE,
-    TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE, WARP_ROUTE_MODE_RULES,
+    HOSTS_DISABLE, HOSTS_WHITELIST, IP_ID_MODE_RND, IP_ID_MODE_SEQ, IP_ID_MODE_SEQGROUP, IP_ID_MODE_ZERO,
+    RELAY_KIND_OFF, SEQOVL_DEFAULT_OVERLAP_SIZE, SEQOVL_FAKE_MODE_PROFILE, SEQOVL_FAKE_MODE_RAND,
+    TLS_RANDREC_DEFAULT_FRAGMENT_COUNT, TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE,
+    WARP_ROUTE_MODE_RULES,
 };
 
 const WARP_CONTROL_PLANE_HOSTS: &[&str] = &[
@@ -733,6 +734,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         scale: fake_packets.wsize_scale.and_then(|s| if s >= 0 { Some(s as u8) } else { None }),
     });
     group.actions.strip_timestamps = fake_packets.strip_timestamps;
+    group.actions.ip_id_mode = parse_ip_id_mode(&fake_packets.ip_id_mode)?;
     group.actions.quic_bind_low_port = fake_packets.quic_bind_low_port;
     group.actions.quic_migrate_after_handshake = fake_packets.quic_migrate_after_handshake;
     if let Some(v) = fake_packets.quic_fake_version {
@@ -1043,6 +1045,19 @@ fn parse_seqovl_fake_mode(value: &str) -> Result<SeqOverlapFakeMode, ProxyConfig
         SEQOVL_FAKE_MODE_RAND => Ok(SeqOverlapFakeMode::Rand),
         _ => Err(ProxyConfigError::InvalidConfig(
             "tcpChainSteps kind=seqovl fakeMode must be profile or rand".to_string(),
+        )),
+    }
+}
+
+fn parse_ip_id_mode(value: &str) -> Result<Option<IpIdMode>, ProxyConfigError> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "" => Ok(None),
+        IP_ID_MODE_SEQ => Ok(Some(IpIdMode::Seq)),
+        IP_ID_MODE_SEQGROUP => Ok(Some(IpIdMode::SeqGroup)),
+        IP_ID_MODE_RND => Ok(Some(IpIdMode::Rnd)),
+        IP_ID_MODE_ZERO => Ok(Some(IpIdMode::Zero)),
+        _ => Err(ProxyConfigError::InvalidConfig(
+            "fakePackets.ipIdMode must be seq, seqgroup, rnd, zero, or empty".to_string(),
         )),
     }
 }

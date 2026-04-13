@@ -278,6 +278,7 @@ message AppSettings {
   int32 relay_finalmask_fragment_packets = 242;
   int32 relay_finalmask_fragment_min_bytes = 243;
   int32 relay_finalmask_fragment_max_bytes = 244;
+  string ip_id_mode = 245; // "" | "seq" | "seqgroup" | "rnd" | "zero"
   string relay_vless_transport = 214; // "reality_tcp" | "xhttp"
   string relay_xhttp_path = 215;
   string relay_xhttp_host = 216;

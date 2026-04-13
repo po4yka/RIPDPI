@@ -108,6 +108,7 @@ data class RipDpiFakePacketConfig(
     val wsizeWindow: Int? = null,
     val wsizeScale: Int? = null,
     val stripTimestamps: Boolean = false,
+    val ipIdMode: String = "",
     val quicBindLowPort: Boolean = false,
     val quicMigrateAfterHandshake: Boolean = false,
     val entropyMode: String = EntropyModeDisabled,

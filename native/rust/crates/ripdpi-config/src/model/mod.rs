@@ -251,6 +251,14 @@ pub enum FakePacketSource {
     CapturedClientHello,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum IpIdMode {
+    Seq,
+    SeqGroup,
+    Rnd,
+    Zero,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TcpChainStep {
     pub kind: TcpChainStepKind,
@@ -505,6 +513,7 @@ pub struct DesyncGroupActionSettings {
     pub quic_bind_low_port: bool,
     pub quic_migrate_after_handshake: bool,
     pub quic_fake_version: u32,
+    pub ip_id_mode: Option<IpIdMode>,
     pub oob_data: Option<u8>,
     pub tcp_chain: Vec<TcpChainStep>,
     pub rotation_policy: Option<RotationPolicy>,
@@ -1012,6 +1021,7 @@ mod tests {
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
             quic_fake_version: 0x1a2a_3a4a,
+            ip_id_mode: None,
             oob_data: Some(0x42),
             tcp_chain: vec![
                 TcpChainStep::new(TcpChainStepKind::TlsRec, tls_record),

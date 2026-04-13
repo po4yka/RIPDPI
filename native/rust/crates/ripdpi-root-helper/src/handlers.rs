@@ -54,16 +54,19 @@ pub struct FakeRstParams {
     pub tcp_flags_set: u16,
     #[serde(default)]
     pub tcp_flags_unset: u16,
+    #[serde(default)]
+    pub ipv4_identification: Option<u16>,
 }
 
 pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, ttl = params.default_ttl, "send_fake_rst");
     let stream = adopt_tcp_stream(fd);
-    match platform::send_fake_rst(
+    match platform::send_fake_rst_reserved(
         &stream,
         params.default_ttl,
         None,
         platform::TcpFlagOverrides { set: params.tcp_flags_set, unset: params.tcp_flags_unset },
+        params.ipv4_identification,
     ) {
         Ok(()) => {
             // Return the fd back to the caller (don't let Drop close it).
@@ -88,18 +91,21 @@ pub struct FlaggedTcpPayloadParams {
     pub tcp_flags_set: u16,
     #[serde(default)]
     pub tcp_flags_unset: u16,
+    #[serde(default)]
+    pub ipv4_identification: Option<u16>,
 }
 
 pub fn handle_send_flagged_tcp_payload(fd: RawFd, params: FlaggedTcpPayloadParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, len = params.payload.len(), "send_flagged_tcp_payload");
     let stream = adopt_tcp_stream(fd);
-    match platform::send_flagged_tcp_payload(
+    match platform::send_flagged_tcp_payload_reserved(
         &stream,
         &params.payload,
         params.default_ttl,
         None,
         params.md5sig,
         platform::TcpFlagOverrides { set: params.tcp_flags_set, unset: params.tcp_flags_unset },
+        params.ipv4_identification,
     ) {
         Ok(()) => {
             let out_fd = stream.into_raw_fd();
@@ -128,12 +134,14 @@ pub struct SeqOvlParams {
     pub tcp_flags_set: u16,
     #[serde(default)]
     pub tcp_flags_unset: u16,
+    #[serde(default)]
+    pub ipv4_identification: Option<u16>,
 }
 
 pub fn handle_send_seqovl_tcp(fd: RawFd, params: SeqOvlParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, "send_seqovl_tcp");
     let stream = adopt_tcp_stream(fd);
-    match platform::send_seqovl_tcp(
+    match platform::send_seqovl_tcp_reserved(
         &stream,
         &params.real_chunk,
         &params.fake_prefix,
@@ -141,6 +149,7 @@ pub fn handle_send_seqovl_tcp(fd: RawFd, params: SeqOvlParams) -> (HelperRespons
         None,
         params.md5sig,
         platform::TcpFlagOverrides { set: params.tcp_flags_set, unset: params.tcp_flags_unset },
+        params.ipv4_identification,
     ) {
         Ok(()) => {
             // The stream fd may have been replaced via dup2 internally.
@@ -173,6 +182,8 @@ pub struct MultiDisorderParams {
     pub tcp_flags_set: u16,
     #[serde(default)]
     pub tcp_flags_unset: u16,
+    #[serde(default)]
+    pub ipv4_identifications: Vec<u16>,
 }
 
 #[derive(Deserialize)]
@@ -187,7 +198,7 @@ pub fn handle_send_multi_disorder_tcp(fd: RawFd, params: MultiDisorderParams) ->
     let segments: Vec<TcpPayloadSegment> =
         params.segments.iter().map(|s| TcpPayloadSegment { start: s.start, end: s.end }).collect();
 
-    match platform::send_multi_disorder_tcp(
+    match platform::send_multi_disorder_tcp_reserved(
         &stream,
         &params.payload,
         &segments,
@@ -196,6 +207,7 @@ pub fn handle_send_multi_disorder_tcp(fd: RawFd, params: MultiDisorderParams) ->
         params.inter_segment_delay_ms,
         params.md5sig,
         platform::TcpFlagOverrides { set: params.tcp_flags_set, unset: params.tcp_flags_unset },
+        &params.ipv4_identifications,
     ) {
         Ok(()) => {
             let out_fd = stream.into_raw_fd();
@@ -224,12 +236,14 @@ pub struct IpFragTcpParams {
     pub tcp_flags_set: u16,
     #[serde(default)]
     pub tcp_flags_unset: u16,
+    #[serde(default)]
+    pub ipv4_identification: Option<u16>,
 }
 
 pub fn handle_send_ip_fragmented_tcp(fd: RawFd, params: IpFragTcpParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, split = params.split_offset, "send_ip_fragmented_tcp");
     let stream = adopt_tcp_stream(fd);
-    match platform::send_ip_fragmented_tcp(
+    match platform::send_ip_fragmented_tcp_reserved(
         &stream,
         &params.payload,
         params.split_offset,
@@ -238,6 +252,7 @@ pub fn handle_send_ip_fragmented_tcp(fd: RawFd, params: IpFragTcpParams) -> (Hel
         params.disorder,
         ripdpi_ipfrag::Ipv6ExtHeaders::default(),
         platform::TcpFlagOverrides { set: params.tcp_flags_set, unset: params.tcp_flags_unset },
+        params.ipv4_identification,
     ) {
         Ok(()) => {
             let out_fd = stream.into_raw_fd();
@@ -263,6 +278,8 @@ pub struct IpFragUdpParams {
     pub default_ttl: u8,
     #[serde(default)]
     pub disorder: bool,
+    #[serde(default)]
+    pub ipv4_identification: Option<u16>,
 }
 
 pub fn handle_send_ip_fragmented_udp(fd: RawFd, params: IpFragUdpParams) -> (HelperResponse, Option<RawFd>) {
@@ -274,7 +291,7 @@ pub fn handle_send_ip_fragmented_udp(fd: RawFd, params: IpFragUdpParams) -> (Hel
     };
 
     let socket = adopt_udp_socket(fd);
-    match platform::send_ip_fragmented_udp(
+    match platform::send_ip_fragmented_udp_reserved(
         &socket,
         target,
         &params.payload,
@@ -283,6 +300,7 @@ pub fn handle_send_ip_fragmented_udp(fd: RawFd, params: IpFragUdpParams) -> (Hel
         None,
         params.disorder,
         ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+        params.ipv4_identification,
     ) {
         Ok(()) => {
             // Return fd to caller.

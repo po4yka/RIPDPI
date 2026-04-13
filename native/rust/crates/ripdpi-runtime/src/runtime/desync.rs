@@ -244,6 +244,7 @@ pub(super) fn send_with_group(
                     strategy_family,
                     &state.ttl_unavailable,
                     group.actions.md5sig,
+                    effective_group.actions.ip_id_mode,
                 )?;
                 Ok(OutboundSendOutcome { bytes_committed, strategy_family })
             }
@@ -474,6 +475,7 @@ fn execute_tcp_actions(
     strategy_family: Option<&'static str>,
     session_ttl_unavailable: &AtomicBool,
     md5sig: bool,
+    ip_id_mode: Option<ripdpi_config::IpIdMode>,
 ) -> Result<usize, OutboundSendError> {
     // When default_ttl is 0 (auto-detect), lazily read the current TTL on
     // the first SetTtl action so we always have a value to restore.
@@ -617,6 +619,7 @@ fn execute_tcp_actions(
                             *disorder,
                             *ipv6_ext,
                             platform::TcpFlagOverrides::default(),
+                            ip_id_mode,
                             "write_ipfrag2",
                             strategy_family,
                             fallback,
@@ -651,6 +654,7 @@ fn execute_tcp_actions(
                             *disorder,
                             *ipv6_ext,
                             platform::TcpFlagOverrides::default(),
+                            ip_id_mode,
                         ) {
                             Ok(()) => {
                                 bytes_committed += bytes.len();
@@ -672,6 +676,7 @@ fn execute_tcp_actions(
                         None,
                         md5sig,
                         platform::TcpFlagOverrides::default(),
+                        ip_id_mode,
                     ) {
                         Ok(()) => {
                             bytes_committed += real_chunk.len();
@@ -723,7 +728,13 @@ fn execute_tcp_actions(
                     let _ = platform::set_tcp_window_clamp(writer, 0);
                 }
                 DesyncAction::SendFakeRst => {
-                    let _ = platform::send_fake_rst(writer, default_ttl, None, platform::TcpFlagOverrides::default());
+                    let _ = platform::send_fake_rst(
+                        writer,
+                        default_ttl,
+                        None,
+                        platform::TcpFlagOverrides::default(),
+                        ip_id_mode,
+                    );
                 }
             }
         }
@@ -808,7 +819,15 @@ fn execute_tcp_plan(
     let send_steps =
         group.effective_tcp_chain().into_iter().filter(|step| !step.kind.is_tls_prelude()).collect::<Vec<_>>();
     if has_multi_disorder {
-        return execute_multi_disorder_tcp_plan(writer, config, &send_steps, plan, strategy_family, md5sig);
+        return execute_multi_disorder_tcp_plan(
+            writer,
+            config,
+            &send_steps,
+            plan,
+            strategy_family,
+            md5sig,
+            group.actions.ip_id_mode,
+        );
     }
     if send_steps.len() < plan.steps.len() {
         return Err(OutboundSendError::Transport(io::Error::new(
@@ -871,6 +890,7 @@ fn execute_tcp_plan(
                         config.process.protect_path.as_deref(),
                         md5sig,
                         step_original_tcp_flags(configured_step),
+                        group.actions.ip_id_mode,
                         "write_split",
                         step_family,
                         step_fallback,
@@ -968,6 +988,7 @@ fn execute_tcp_plan(
                         config.process.protect_path.as_deref(),
                         md5sig,
                         step_original_tcp_flags(configured_step),
+                        group.actions.ip_id_mode,
                         "write_disorder",
                         step_family,
                         step_fallback,
@@ -1068,7 +1089,9 @@ fn execute_tcp_plan(
                         protect_path: config.process.protect_path.as_deref(),
                         fake_flags: step_fake_tcp_flags(configured_step),
                         orig_flags: step_original_tcp_flags(configured_step),
+                        ..Default::default()
                     },
+                    group.actions.ip_id_mode,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake",
                     step_family,
@@ -1129,7 +1152,9 @@ fn execute_tcp_plan(
                         protect_path: config.process.protect_path.as_deref(),
                         fake_flags: step_fake_tcp_flags(configured_step),
                         orig_flags: step_original_tcp_flags(configured_step),
+                        ..Default::default()
                     },
+                    group.actions.ip_id_mode,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakesplit",
                     step_family,
@@ -1152,7 +1177,9 @@ fn execute_tcp_plan(
                         protect_path: config.process.protect_path.as_deref(),
                         fake_flags: step_fake_tcp_flags(configured_step),
                         orig_flags: step_original_tcp_flags(configured_step),
+                        ..Default::default()
                     },
+                    group.actions.ip_id_mode,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakesplit",
                     step_family,
@@ -1239,7 +1266,9 @@ fn execute_tcp_plan(
                         protect_path: config.process.protect_path.as_deref(),
                         fake_flags: step_fake_tcp_flags(configured_step),
                         orig_flags: step_original_tcp_flags(configured_step),
+                        ..Default::default()
                     },
+                    group.actions.ip_id_mode,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakeddisorder",
                     step_family,
@@ -1267,7 +1296,9 @@ fn execute_tcp_plan(
                                 protect_path: config.process.protect_path.as_deref(),
                                 fake_flags: step_fake_tcp_flags(configured_step),
                                 orig_flags: step_original_tcp_flags(configured_step),
+                                ..Default::default()
                             },
+                            group.actions.ip_id_mode,
                             (
                                 config.timeouts.wait_send,
                                 Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
@@ -1296,7 +1327,9 @@ fn execute_tcp_plan(
                         protect_path: config.process.protect_path.as_deref(),
                         fake_flags: step_fake_tcp_flags(configured_step),
                         orig_flags: step_original_tcp_flags(configured_step),
+                        ..Default::default()
                     },
+                    group.actions.ip_id_mode,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakesplit",
                     "fakedsplit",
@@ -1316,6 +1349,7 @@ fn execute_tcp_plan(
                     false, // disorder not available in legacy plan path
                     ripdpi_ipfrag::Ipv6ExtHeaders::default(),
                     step_original_tcp_flags(configured_step),
+                    group.actions.ip_id_mode,
                     "write_ipfrag2",
                     step_family,
                     step_fallback,
@@ -1398,7 +1432,9 @@ fn execute_tcp_plan(
                         protect_path: config.process.protect_path.as_deref(),
                         fake_flags: step_fake_tcp_flags(configured_step),
                         orig_flags: step_original_tcp_flags(configured_step),
+                        ..Default::default()
                     },
+                    group.actions.ip_id_mode,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_hostfake",
                     step_family,
@@ -1474,7 +1510,9 @@ fn execute_tcp_plan(
                         protect_path: config.process.protect_path.as_deref(),
                         fake_flags: step_fake_tcp_flags(configured_step),
                         orig_flags: step_original_tcp_flags(configured_step),
+                        ..Default::default()
                     },
+                    group.actions.ip_id_mode,
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_hostfake",
                     step_family,
@@ -1508,6 +1546,7 @@ fn execute_tcp_plan(
                     config.network.default_ttl,
                     config.process.protect_path.as_deref(),
                     step_fake_tcp_flags(configured_step),
+                    group.actions.ip_id_mode,
                 );
                 if step_original_tcp_flags(configured_step).is_empty() {
                     bytes_committed = write_strategy_payload_named(
@@ -1526,6 +1565,7 @@ fn execute_tcp_plan(
                         config.process.protect_path.as_deref(),
                         md5sig,
                         step_original_tcp_flags(configured_step),
+                        group.actions.ip_id_mode,
                         "write_fakerst",
                         step_family,
                         step_fallback,
@@ -1576,6 +1616,7 @@ fn execute_multi_disorder_tcp_plan(
     plan: &DesyncPlan,
     strategy_family: Option<&'static str>,
     md5sig: bool,
+    ip_id_mode: Option<ripdpi_config::IpIdMode>,
 ) -> Result<usize, OutboundSendError> {
     if send_steps.len() < 2 || send_steps.iter().any(|step| step.kind != TcpChainStepKind::MultiDisorder) {
         return Err(OutboundSendError::Transport(io::Error::new(
@@ -1628,6 +1669,7 @@ fn execute_multi_disorder_tcp_plan(
             inter_segment_delay_ms,
             md5sig,
             step_original_tcp_flags(send_steps.first().expect("multidisorder send step missing")),
+            ip_id_mode,
         ),
         "write_multidisorder",
         strategy_family,
@@ -1839,6 +1881,7 @@ fn send_fake_tcp_action_named(
     md5sig: bool,
     default_ttl: u8,
     options: platform::FakeTcpOptions<'_>,
+    ip_id_mode: Option<ripdpi_config::IpIdMode>,
     wait: platform::TcpStageWait,
     action: &'static str,
     strategy_family: &'static str,
@@ -1846,7 +1889,17 @@ fn send_fake_tcp_action_named(
     bytes_committed: usize,
 ) -> Result<usize, OutboundSendError> {
     strategy_result(
-        platform::send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, options, wait),
+        platform::send_fake_tcp(
+            stream,
+            original_prefix,
+            fake_prefix,
+            ttl,
+            md5sig,
+            default_ttl,
+            options,
+            ip_id_mode,
+            wait,
+        ),
         action,
         strategy_family,
         fallback,
@@ -1863,13 +1916,14 @@ fn send_flagged_tcp_payload_action_named(
     protect_path: Option<&str>,
     md5sig: bool,
     flags: platform::TcpFlagOverrides,
+    ip_id_mode: Option<ripdpi_config::IpIdMode>,
     action: &'static str,
     strategy_family: &'static str,
     fallback: Option<&'static str>,
     bytes_committed: usize,
 ) -> Result<usize, OutboundSendError> {
     strategy_result(
-        platform::send_flagged_tcp_payload(stream, payload, default_ttl, protect_path, md5sig, flags),
+        platform::send_flagged_tcp_payload(stream, payload, default_ttl, protect_path, md5sig, flags, ip_id_mode),
         action,
         strategy_family,
         fallback,
@@ -1888,6 +1942,7 @@ fn send_ip_fragmented_tcp_action_named(
     disorder: bool,
     ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
     flags: platform::TcpFlagOverrides,
+    ip_id_mode: Option<ripdpi_config::IpIdMode>,
     action: &'static str,
     strategy_family: &'static str,
     fallback: Option<&'static str>,
@@ -1903,6 +1958,7 @@ fn send_ip_fragmented_tcp_action_named(
             disorder,
             ipv6_ext,
             flags,
+            ip_id_mode,
         ),
         action,
         strategy_family,
@@ -2234,6 +2290,7 @@ mod tests {
             },
             Some("multidisorder"),
             false,
+            None,
         )
         .expect_err("reject gapped multidisorder plan");
 
@@ -2260,6 +2317,7 @@ mod tests {
             },
             Some("multidisorder"),
             false,
+            None,
         )
         .expect_err("reject truncated multidisorder plan");
 
@@ -2696,8 +2754,17 @@ mod tests {
         let (mut client, mut server) = connected_pair();
         let unavailable = default_ttl_unavailable();
         let actions = vec![DesyncAction::Write(b"hello".to_vec()), DesyncAction::Write(b"world".to_vec())];
-        let result =
-            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false);
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            None,
+            &unavailable,
+            false,
+            None,
+        );
         // write_transport_payload returns bytes.len() (not accumulated), so last write's len is returned
         assert_eq!(result.unwrap(), 5);
         let mut buf = vec![0u8; 10];
@@ -2720,6 +2787,7 @@ mod tests {
             Some("split"),
             &unavailable,
             false,
+            None,
         );
         assert_eq!(result.unwrap(), 5);
     }
@@ -2739,6 +2807,7 @@ mod tests {
             Some("disorder"),
             &unavailable,
             false,
+            None,
         );
         assert_eq!(result.unwrap(), 1);
     }
@@ -2757,6 +2826,7 @@ mod tests {
             Some("disorder"),
             &unavailable,
             false,
+            None,
         );
         assert_eq!(result.unwrap(), 0);
     }
@@ -2766,8 +2836,17 @@ mod tests {
         let (mut client, _server) = connected_pair();
         let unavailable = default_ttl_unavailable();
         let actions = vec![DesyncAction::WriteUrgent { prefix: b"ab".to_vec(), urgent_byte: b'!' }];
-        let result =
-            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false);
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            None,
+            &unavailable,
+            false,
+            None,
+        );
         assert_eq!(result.unwrap(), 3); // prefix.len() + 1
     }
 
@@ -2785,6 +2864,7 @@ mod tests {
             Some("oob"),
             &unavailable,
             false,
+            None,
         );
         assert_eq!(result.unwrap(), 3);
     }
@@ -2812,6 +2892,7 @@ mod tests {
             Some("ipfrag2"),
             &unavailable,
             false,
+            None,
         );
         assert_eq!(result.unwrap(), 5);
         let mut buf = vec![0u8; 5];
@@ -2831,8 +2912,17 @@ mod tests {
             disorder: false,
             ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default(),
         }];
-        let result =
-            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false);
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            None,
+            &unavailable,
+            false,
+            None,
+        );
         assert_eq!(result.unwrap(), 5);
         let mut buf = vec![0u8; 5];
         use std::io::Read;
@@ -2850,8 +2940,17 @@ mod tests {
             remainder: b"cd".to_vec(),
         }];
         // On macOS, send_seqovl_tcp returns Unsupported -> fallback writes real_chunk + remainder
-        let result =
-            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false);
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            None,
+            &unavailable,
+            false,
+            None,
+        );
         assert_eq!(result.unwrap(), 4);
         let mut buf = vec![0u8; 4];
         use std::io::Read;
@@ -2869,9 +2968,18 @@ mod tests {
             disorder: false,
             ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default(),
         }];
-        let err =
-            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false)
-                .unwrap_err();
+        let err = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            None,
+            &unavailable,
+            false,
+            None,
+        )
+        .unwrap_err();
         assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
         assert!(err.to_string().contains("udp fragmentation action reached tcp executor"));
     }
@@ -2882,8 +2990,17 @@ mod tests {
         let unavailable = default_ttl_unavailable();
         let actions =
             vec![DesyncAction::AttachDropSack, DesyncAction::Write(b"x".to_vec()), DesyncAction::DetachDropSack];
-        let result =
-            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false);
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            None,
+            &unavailable,
+            false,
+            None,
+        );
         assert_eq!(result.unwrap(), 1);
     }
 
@@ -2896,8 +3013,17 @@ mod tests {
             DesyncAction::Write(b"x".to_vec()),
             DesyncAction::RestoreWindowClamp,
         ];
-        let result =
-            execute_tcp_actions(&mut client, &actions, 64, false, Duration::from_millis(10), None, &unavailable, false);
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(10),
+            None,
+            &unavailable,
+            false,
+            None,
+        );
         assert_eq!(result.unwrap(), 1);
     }
 
@@ -2918,6 +3044,7 @@ mod tests {
             Some("split"),
             &unavailable,
             false,
+            None,
         )
         .unwrap_err();
         assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
@@ -2938,6 +3065,7 @@ mod tests {
             Some("split"),
             &unavailable,
             false,
+            None,
         )
         .unwrap_err();
         assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
@@ -2958,6 +3086,7 @@ mod tests {
             Some("disorder"),
             &unavailable,
             false,
+            None,
         );
         assert_eq!(result.unwrap(), 4);
     }
@@ -2977,6 +3106,7 @@ mod tests {
             Some("disorder"),
             &unavailable,
             false,
+            None,
         );
         // Should succeed and safety net restores TTL at lines 590-594
         assert_eq!(result.unwrap(), 1);
@@ -3301,6 +3431,7 @@ mod tests {
             },
             Some("multidisorder"),
             false,
+            None,
         )
         .expect_err("reject mixed chain kinds");
         assert!(err.to_string().contains("invalid multidisorder tcp chain configuration"));
@@ -3326,6 +3457,7 @@ mod tests {
             },
             Some("multidisorder"),
             false,
+            None,
         )
         .expect_err("reject single send step");
         assert!(err.to_string().contains("invalid multidisorder tcp chain configuration"));
@@ -3349,6 +3481,7 @@ mod tests {
             },
             Some("multidisorder"),
             false,
+            None,
         )
         .expect_err("reject fewer than 3 planned segments");
         assert!(err.to_string().contains("multidisorder requires at least three non-empty planned segments"));

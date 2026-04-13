@@ -530,4 +530,17 @@ class AppSettingsJsonTest {
 
         assertTrue(error.message.orEmpty().contains("Unsupported app settings format version"))
     }
+
+    @Test
+    fun `json round trip preserves ip id mode`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setIpIdMode(IpIdModeSeqGroup)
+                .build()
+
+        val decoded = appSettingsFromJson(settings.toJson())
+
+        assertEquals(IpIdModeSeqGroup, decoded.ipIdMode)
+    }
 }

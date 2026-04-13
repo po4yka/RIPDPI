@@ -255,6 +255,7 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
     let ech_tlsrec = build_ech_tlsrec_candidate(base);
     let tlsrec_split_host = build_tlsrec_split_host_candidate(base);
     let tlsrec_fake_rich = build_tlsrec_fake_rich_candidate(base);
+    let tlsrec_fake_seqgroup = build_tlsrec_fake_seqgroup_candidate(base);
     let fake_synfin = build_tlsrec_fake_flag_candidate(base, "syn|fin");
     let fake_pshurg = build_tlsrec_fake_flag_candidate(base, "psh|urg");
     let tlsrec_fakedsplit = build_tlsrec_fake_approx_candidate(base, "fakedsplit");
@@ -279,6 +280,13 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             "tlsrec_fake",
             tlsrec_fake_rich,
             vec!["Randomized fake TLS material with original ClientHello framing"],
+        ),
+        candidate_spec_with_notes(
+            "tlsrec_fake_seqgroup",
+            "TLS record + rich fake (seqgroup)",
+            "tlsrec_fake",
+            tlsrec_fake_seqgroup,
+            vec!["Uses seqgroup IPv4 IDs so fake and original raw packets stay in one exact sequence"],
         ),
         candidate_spec_with_notes(
             "fake_synfin",
@@ -843,6 +851,12 @@ pub(crate) fn build_tlsrec_fake_rich_candidate(base: &ProxyUiConfig) -> ProxyUiC
     config
 }
 
+pub(crate) fn build_tlsrec_fake_seqgroup_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = build_tlsrec_fake_rich_candidate(base);
+    config.fake_packets.ip_id_mode = "seqgroup".to_string();
+    config
+}
+
 pub(crate) fn build_tlsrec_fake_flag_candidate(base: &ProxyUiConfig, flags: &str) -> ProxyUiConfig {
     let mut config = build_tlsrec_fake_rich_candidate(base);
     if let Some(step) = config.chains.tcp_steps.iter_mut().find(|step| step.kind == "fake") {
@@ -1287,6 +1301,14 @@ mod tests {
             build_tlsrec_fake_rich_candidate(&minimal_ui_config()).chains.tcp_steps
         );
         assert_eq!(rotation.candidates[2].tcp_steps, build_split_host_candidate(&minimal_ui_config()).chains.tcp_steps);
+    }
+
+    #[test]
+    fn tlsrec_fake_seqgroup_candidate_sets_seqgroup_ip_id_mode() {
+        let candidate = build_tlsrec_fake_seqgroup_candidate(&minimal_ui_config());
+
+        assert_eq!(candidate.fake_packets.ip_id_mode, "seqgroup");
+        assert_eq!(candidate.chains.tcp_steps, build_tlsrec_fake_rich_candidate(&minimal_ui_config()).chains.tcp_steps);
     }
 
     #[test]

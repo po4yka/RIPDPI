@@ -29,6 +29,7 @@ import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.effectiveGroupActivationFilter
 import com.poyka.ripdpi.data.effectiveHttpFakeProfile
+import com.poyka.ripdpi.data.effectiveIpIdMode
 import com.poyka.ripdpi.data.effectiveQuicFakeHost
 import com.poyka.ripdpi.data.effectiveQuicFakeProfile
 import com.poyka.ripdpi.data.effectiveQuicInitialMode
@@ -185,6 +186,7 @@ private fun AppSettings.buildFakeUiState(): FakeTransportUiState =
         udpFakeProfile = effectiveUdpFakeProfile(),
         oobData = oobData.ifEmpty { "a" },
         dropSack = dropSack,
+        ipIdMode = effectiveIpIdMode(),
     )
 
 private fun AppSettings.buildTlsPreludeUiState(chain: ChainAnalysisResult): TlsPreludeUiState =

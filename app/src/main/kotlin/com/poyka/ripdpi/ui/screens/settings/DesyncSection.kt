@@ -25,6 +25,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeFixed
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
+import com.poyka.ripdpi.data.IpIdModeDefault
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
 import com.poyka.ripdpi.data.isValidFakeOffsetExpression
 import com.poyka.ripdpi.data.isValidOffsetExpression
@@ -57,6 +58,7 @@ internal fun LazyListScope.desyncSection(
     fakeTlsBaseOptions: List<RipDpiDropdownOption<String>>,
     fakeTlsSniModeOptions: List<RipDpiDropdownOption<String>>,
     tlsFakeProfileOptions: List<RipDpiDropdownOption<String>>,
+    ipIdModeOptions: List<RipDpiDropdownOption<String>>,
     udpFakeProfileOptions: List<RipDpiDropdownOption<String>>,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
@@ -722,7 +724,17 @@ internal fun LazyListScope.desyncSection(
                     checked = uiState.fake.dropSack,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DropSack, it) },
                     enabled = visualEditorEnabled,
+                    showDivider = true,
                     testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DropSack),
+                )
+                AdvancedDropdownSetting(
+                    title = stringResource(R.string.ripdpi_ip_id_mode_title),
+                    description = stringResource(R.string.ripdpi_ip_id_mode_body),
+                    value = uiState.fake.ipIdMode.ifBlank { IpIdModeDefault },
+                    options = ipIdModeOptions,
+                    setting = AdvancedOptionSetting.IpIdMode,
+                    onSelected = onOptionSelected,
+                    enabled = visualEditorEnabled,
                 )
             }
         }

@@ -1401,6 +1401,8 @@ Source: %2$s</string>
     <string name="ripdpi_tcp_fast_open_setting">TCP Fast Open</string>
     <string name="ripdpi_fake_offset_setting">Fake offset marker</string>
     <string name="ripdpi_drop_sack_setting">Drop SACK</string>
+    <string name="ripdpi_ip_id_mode_title">IPv4 ID mode</string>
+    <string name="ripdpi_ip_id_mode_body">Controls IPv4 identification values for raw fake and fragment paths. Seqgroup also promotes mixed fake/original TCP sends onto the raw replacement path so IDs stay exact.</string>
     <string name="desync_udp_category">UDP</string>
     <string name="desync_http_category">HTTP</string>
     <string name="desync_https_category">HTTPS</string>

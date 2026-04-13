@@ -170,6 +170,21 @@ class RipDpiProxyJsonCodecTest {
     }
 
     @Test
+    fun `ui preferences round trip fake packet ip id mode`() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                fakePackets =
+                    RipDpiFakePacketConfig(
+                        ipIdMode = "SeqGroup",
+                    ),
+            )
+
+        val decoded = decodeRipDpiProxyUiPreferences(preferences.toNativeConfigJson())
+
+        assertEquals("seqgroup", decoded?.fakePackets?.ipIdMode)
+    }
+
+    @Test
     fun `ui preferences round trip morph policy through runtime context`() {
         val preferences =
             RipDpiProxyUIPreferences(

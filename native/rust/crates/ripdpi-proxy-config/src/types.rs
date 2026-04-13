@@ -27,6 +27,10 @@ pub const ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK: i32 = 8;
 pub const ADAPTIVE_FALLBACK_DEFAULT_CACHE_TTL_SECS: i64 = 90;
 pub const ADAPTIVE_FALLBACK_DEFAULT_CACHE_PREFIX_V4: u8 = 24;
 pub const HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_HOURS: i64 = 6;
+pub const IP_ID_MODE_SEQ: &str = "seq";
+pub const IP_ID_MODE_SEQGROUP: &str = "seqgroup";
+pub const IP_ID_MODE_RND: &str = "rnd";
+pub const IP_ID_MODE_ZERO: &str = "zero";
 #[derive(Debug, thiserror::Error, Clone, PartialEq, Eq)]
 pub enum ProxyConfigError {
     #[error("invalid configuration: {0}")]
@@ -406,6 +410,8 @@ pub struct ProxyUiFakePacketConfig {
     #[serde(default)]
     pub strip_timestamps: bool,
     #[serde(default)]
+    pub ip_id_mode: String,
+    #[serde(default)]
     pub quic_bind_low_port: bool,
     #[serde(default)]
     pub quic_migrate_after_handshake: bool,
@@ -457,6 +463,7 @@ impl Default for ProxyUiFakePacketConfig {
             wsize_window: None,
             wsize_scale: None,
             strip_timestamps: false,
+            ip_id_mode: String::new(),
             quic_bind_low_port: false,
             quic_migrate_after_handshake: false,
             quic_fake_version: None,
