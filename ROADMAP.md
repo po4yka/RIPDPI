@@ -50,6 +50,14 @@ The audit roadmap tracked in this repository is complete. The items below are no
    - mechanical backend-dispatch simplification
    - CI size and bloat attribution reporting
    - size policy documented in [docs/native/size-monitoring.md](docs/native/size-monitoring.md)
+11. UI/UX design system compliance and M3 Expressive adoption
+   - full DESIGN.md + M3 compliance audit (33 violations identified, all resolved)
+   - design token completion: outline, outlineVariant, scrim colors; xs, xlIncreased, xxlIncreased, xxxl shapes; SwitchThumb elevation
+   - M3 Expressive: spring-based motion, shape morphing on press, emphasized typography, contrast level infrastructure
+   - navigation: deep links (ripdpi://), app shortcuts, adaptive layout helper, nested slide transitions
+   - UX: connection quality indicator, settings reset-to-defaults, Quick Settings tile labels
+   - accessibility: live region announcements, RTL fix, pluralization for counters
+   - screenshot test coverage expanded from 26 to 34 catalog entries (multi-config variants)
 
 ## Architecture Documentation
 
@@ -62,4 +70,3 @@ The audit roadmap tracked in this repository is complete. The items below are no
 ## Next Work
 
 - **[DPI Bypass Technique Expansion](ROADMAP-bypass-techniques.md)** -- 15 techniques from field research (ntc.party, Habr, TechnicalVault) not yet in RIPDPI: circular strategy rotation, conditional execution, TCP flag manipulation, IP ID control, fakedsplit ordering, SYN-Hide, UDP-over-ICMP, PCAP recording, and more. Tiered by priority with implementation approaches and vault references.
-- **[UI/UX & Design System Roadmap](ROADMAP-ui-ux.md)** -- 33 audit violations to fix across 6 phases: critical compliance fixes (Phase 0-1), M3 Expressive adoption (Phase 2), navigation and layout improvements (Phase 3), UX enhancements (Phase 4), accessibility and i18n (Phase 5), screenshot test coverage (Phase 6). Derived from full DESIGN.md + M3 audit (April 2026).
