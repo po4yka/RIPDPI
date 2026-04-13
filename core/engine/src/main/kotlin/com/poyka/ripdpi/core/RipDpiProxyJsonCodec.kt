@@ -383,6 +383,21 @@ internal object RipDpiProxyJsonCodec {
     )
 
     @Serializable
+    private data class NativeTcpRotationCandidate(
+        val tcpSteps: List<NativeTcpChainStep> = emptyList(),
+    )
+
+    @Serializable
+    private data class NativeTcpRotationConfig(
+        val fails: Int = 3,
+        val retrans: Int = 3,
+        val seq: Int = 65_536,
+        val rst: Int = 1,
+        val timeSecs: Long = 60,
+        val candidates: List<NativeTcpRotationCandidate> = emptyList(),
+    )
+
+    @Serializable
     private data class NativeChainConfig(
         val groupActivationFilter: NativeActivationFilter? = null,
         val tcpSteps: List<NativeTcpChainStep> =
@@ -399,6 +414,7 @@ internal object RipDpiProxyJsonCodec {
                     maxFragmentSize = 0,
                 ),
             ),
+        val tcpRotation: NativeTcpRotationConfig? = null,
         val udpSteps: List<NativeUdpChainStep> = emptyList(),
         val anyProtocol: Boolean = false,
     )
@@ -866,26 +882,59 @@ internal object RipDpiProxyJsonCodec {
     }
 
     private object ChainCodec {
+        private fun nativeTcpStepToModel(step: NativeTcpChainStep): TcpChainStepModel? {
+            val kind = TcpChainStepKind.fromWireName(step.kind) ?: return null
+            return TcpChainStepModel(
+                kind = kind,
+                marker = step.marker,
+                midhostMarker = step.midhostMarker,
+                fakeHostTemplate = step.fakeHostTemplate,
+                overlapSize = step.overlapSize,
+                fakeMode = step.fakeMode,
+                fragmentCount = step.fragmentCount,
+                minFragmentSize = step.minFragmentSize,
+                maxFragmentSize = step.maxFragmentSize,
+                activationFilter = step.activationFilter?.let(RangeCodec::toModel) ?: ActivationFilterModel(),
+                ipv6ExtensionProfile = step.ipv6ExtensionProfile,
+            )
+        }
+
+        private fun modelTcpStepToNative(stepModel: TcpChainStepModel): NativeTcpChainStep {
+            val step = normalizeTcpChainStepModel(stepModel)
+            return NativeTcpChainStep(
+                kind = step.kind.wireName,
+                marker = step.marker,
+                midhostMarker = step.midhostMarker,
+                fakeHostTemplate = step.fakeHostTemplate,
+                overlapSize = step.overlapSize,
+                fakeMode = step.fakeMode,
+                fragmentCount = step.fragmentCount,
+                minFragmentSize = step.minFragmentSize,
+                maxFragmentSize = step.maxFragmentSize,
+                activationFilter = RangeCodec.toNative(step.activationFilter),
+                ipv6ExtensionProfile = step.ipv6ExtensionProfile,
+            )
+        }
+
         fun toModel(value: NativeChainConfig): RipDpiChainConfig =
             RipDpiChainConfig(
                 groupActivationFilter =
                     value.groupActivationFilter?.let(RangeCodec::toModel) ?: ActivationFilterModel(),
-                tcpSteps =
-                    value.tcpSteps.mapNotNull { step ->
-                        val kind = TcpChainStepKind.fromWireName(step.kind) ?: return@mapNotNull null
-                        TcpChainStepModel(
-                            kind = kind,
-                            marker = step.marker,
-                            midhostMarker = step.midhostMarker,
-                            fakeHostTemplate = step.fakeHostTemplate,
-                            overlapSize = step.overlapSize,
-                            fakeMode = step.fakeMode,
-                            fragmentCount = step.fragmentCount,
-                            minFragmentSize = step.minFragmentSize,
-                            maxFragmentSize = step.maxFragmentSize,
-                            activationFilter =
-                                step.activationFilter?.let(RangeCodec::toModel) ?: ActivationFilterModel(),
-                            ipv6ExtensionProfile = step.ipv6ExtensionProfile,
+                tcpSteps = value.tcpSteps.mapNotNull(::nativeTcpStepToModel),
+                tcpRotation =
+                    value.tcpRotation?.let { rotation ->
+                        RipDpiTcpRotationConfig(
+                            fails = rotation.fails,
+                            retrans = rotation.retrans,
+                            seq = rotation.seq,
+                            rst = rotation.rst,
+                            timeSecs = rotation.timeSecs,
+                            candidates =
+                                rotation.candidates.map { candidate ->
+                                    RipDpiTcpRotationCandidateConfig(
+                                        tcpSteps = candidate.tcpSteps.mapNotNull(::nativeTcpStepToModel),
+                                    )
+                                },
                         )
                     },
                 udpSteps =
@@ -906,21 +955,21 @@ internal object RipDpiProxyJsonCodec {
         fun toNative(value: RipDpiChainConfig): NativeChainConfig =
             NativeChainConfig(
                 groupActivationFilter = RangeCodec.toNative(value.groupActivationFilter),
-                tcpSteps =
-                    value.tcpSteps.map {
-                        val step = normalizeTcpChainStepModel(it)
-                        NativeTcpChainStep(
-                            kind = step.kind.wireName,
-                            marker = step.marker,
-                            midhostMarker = step.midhostMarker,
-                            fakeHostTemplate = step.fakeHostTemplate,
-                            overlapSize = step.overlapSize,
-                            fakeMode = step.fakeMode,
-                            fragmentCount = step.fragmentCount,
-                            minFragmentSize = step.minFragmentSize,
-                            maxFragmentSize = step.maxFragmentSize,
-                            activationFilter = RangeCodec.toNative(step.activationFilter),
-                            ipv6ExtensionProfile = step.ipv6ExtensionProfile,
+                tcpSteps = value.tcpSteps.map(::modelTcpStepToNative),
+                tcpRotation =
+                    value.tcpRotation?.let { rotation ->
+                        NativeTcpRotationConfig(
+                            fails = rotation.fails,
+                            retrans = rotation.retrans,
+                            seq = rotation.seq,
+                            rst = rotation.rst,
+                            timeSecs = rotation.timeSecs,
+                            candidates =
+                                rotation.candidates.map { candidate ->
+                                    NativeTcpRotationCandidate(
+                                        tcpSteps = candidate.tcpSteps.map(::modelTcpStepToNative),
+                                    )
+                                },
                         )
                     },
                 udpSteps =

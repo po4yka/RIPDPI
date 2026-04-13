@@ -14,6 +14,7 @@ class StrategyFamiliesTest {
         assertEquals("TLS record multi-disorder", strategyLaneFamilyLabel("tlsrec_multidisorder"))
         assertEquals("IP fragmentation", strategyLaneFamilyLabel("ipfrag2"))
         assertEquals("QUIC IP fragmentation", strategyLaneFamilyLabel("quic_ipfrag2"))
+        assertEquals("Circular rotation (TLS record split)", strategyLaneFamilyLabel("circular_tlsrec_split"))
     }
 
     @Test
@@ -67,6 +68,21 @@ class StrategyFamiliesTest {
             )
 
         assertEquals("tlsrec_multidisorder", family)
+    }
+
+    @Test
+    fun `tcp lane prefixes circular family when rotation candidates exist`() {
+        val family =
+            deriveTcpStrategyFamily(
+                tcpSteps =
+                    listOf(
+                        TcpChainStepModel(kind = TcpChainStepKind.TlsRec, marker = "extlen"),
+                        TcpChainStepModel(kind = TcpChainStepKind.Split, marker = "host+2"),
+                    ),
+                tcpRotationCandidateCount = 1,
+            )
+
+        assertEquals("circular_tlsrec_split", family)
     }
 
     @Test

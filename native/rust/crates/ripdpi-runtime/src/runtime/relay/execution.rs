@@ -21,7 +21,9 @@ pub(super) fn relay_with_uring_if_available(
     success_host: Option<String>,
 ) -> io::Result<ripdpi_session::SessionState> {
     let uring_driver = ripdpi_io_uring::io_uring_capabilities().send_zc.then(|| state.io_uring.as_ref()).flatten();
-    if let Some(driver) = uring_driver {
+    let rotation_enabled =
+        state.config.groups.get(route.group_index).and_then(|group| group.actions.rotation_policy.as_ref()).is_some();
+    if let Some(driver) = uring_driver.filter(|_| !rotation_enabled) {
         return stream_copy_uring::relay_streams_uring(
             client,
             upstream,

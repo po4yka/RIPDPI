@@ -426,6 +426,7 @@ private fun buildWsTunnelConfig(settings: AppSettings): RipDpiWsTunnelConfig {
 fun RipDpiProxyUIPreferences.deriveStrategyLaneFamilies(activeDns: ActiveDnsSettings? = null): StrategyLaneFamilies =
     deriveStrategyLaneFamilies(
         tcpSteps = chains.tcpSteps,
+        tcpRotationCandidateCount = chains.tcpRotation?.candidates?.size ?: 0,
         udpSteps = chains.udpSteps,
         desyncUdp = protocols.desyncUdp,
         quicInitialMode = quic.initialMode,

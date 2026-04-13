@@ -35,6 +35,7 @@ impl Default for DesyncGroupActionSettings {
             shannon_entropy_target_permil: None,
             fake_sni_list: Vec::new(),
             tcp_chain: Vec::new(),
+            rotation_policy: None,
             udp_chain: Vec::new(),
             fake_mod: 0,
             fake_tls_size: 0,

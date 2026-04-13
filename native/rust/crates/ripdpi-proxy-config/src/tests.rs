@@ -246,6 +246,78 @@ fn ui_payload_parses_ipfrag_steps_and_udp_split_bytes() {
 }
 
 #[test]
+fn ui_payload_parses_tcp_rotation_policy_defaults() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("split", "host+2")];
+    ui.chains.tcp_rotation = Some(ProxyUiTcpRotationConfig {
+        candidates: vec![
+            ProxyUiTcpRotationCandidate {
+                tcp_steps: vec![
+                    tcp_step("tlsrec", "extlen"),
+                    ProxyUiTcpChainStep {
+                        kind: "hostfake".to_string(),
+                        marker: "endhost+8".to_string(),
+                        midhost_marker: "midsld".to_string(),
+                        fake_host_template: "googlevideo.com".to_string(),
+                        overlap_size: 0,
+                        fake_mode: String::new(),
+                        fragment_count: 0,
+                        min_fragment_size: 0,
+                        max_fragment_size: 0,
+                        inter_segment_delay_ms: 0,
+                        activation_filter: None,
+                        ipv6_extension_profile: "none".to_string(),
+                    },
+                    tcp_step("split", "midsld"),
+                ],
+            },
+            ProxyUiTcpRotationCandidate { tcp_steps: vec![tcp_step("split", "host+2")] },
+        ],
+        ..ProxyUiTcpRotationConfig::default()
+    });
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+    let rotation = config.groups[0].actions.rotation_policy.as_ref().expect("rotation policy");
+
+    assert_eq!(rotation.fails, 3);
+    assert_eq!(rotation.retrans, 3);
+    assert_eq!(rotation.seq, 65_536);
+    assert_eq!(rotation.rst, 1);
+    assert_eq!(rotation.time_secs, 60);
+    assert_eq!(rotation.candidates.len(), 2);
+    assert_eq!(rotation.candidates[0].tcp_chain[0].kind, TcpChainStepKind::TlsRec);
+    assert_eq!(rotation.candidates[0].tcp_chain[1].kind, TcpChainStepKind::HostFake);
+    assert_eq!(rotation.candidates[0].tcp_chain[2].kind, TcpChainStepKind::Split);
+    assert_eq!(rotation.candidates[1].tcp_chain[0].kind, TcpChainStepKind::Split);
+}
+
+#[test]
+fn ui_payload_rejects_empty_tcp_rotation_candidates() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_rotation =
+        Some(ProxyUiTcpRotationConfig { candidates: Vec::new(), ..ProxyUiTcpRotationConfig::default() });
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("empty rotation");
+
+    assert!(err.to_string().contains("chains.tcpRotation must declare at least one candidate"));
+}
+
+#[test]
+fn ui_payload_rejects_malformed_tcp_rotation_candidate_chain() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_rotation = Some(ProxyUiTcpRotationConfig {
+        candidates: vec![ProxyUiTcpRotationCandidate {
+            tcp_steps: vec![seqovl_step("host+1", 12, "profile"), seqovl_step("midsld", 16, "rand")],
+        }],
+        ..ProxyUiTcpRotationConfig::default()
+    });
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("invalid rotation candidate");
+
+    assert!(err.to_string().contains("seqovl must appear at most once per tcp chain"));
+}
+
+#[test]
 fn ui_payload_treats_fake_approx_steps_as_fake_payload_consumers() {
     for kind in ["fakedsplit", "fakeddisorder"] {
         let mut ui = minimal_ui();

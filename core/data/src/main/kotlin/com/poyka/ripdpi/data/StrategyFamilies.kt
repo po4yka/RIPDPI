@@ -27,8 +27,27 @@ fun deriveStrategyLaneFamilies(
     quicFakeProfile: String,
     activeDns: ActiveDnsSettings? = null,
 ): StrategyLaneFamilies =
+    deriveStrategyLaneFamilies(
+        tcpSteps = tcpSteps,
+        tcpRotationCandidateCount = 0,
+        udpSteps = udpSteps,
+        desyncUdp = desyncUdp,
+        quicInitialMode = quicInitialMode,
+        quicFakeProfile = quicFakeProfile,
+        activeDns = activeDns,
+    )
+
+fun deriveStrategyLaneFamilies(
+    tcpSteps: List<TcpChainStepModel>,
+    tcpRotationCandidateCount: Int = 0,
+    udpSteps: List<UdpChainStepModel>,
+    desyncUdp: Boolean,
+    quicInitialMode: String,
+    quicFakeProfile: String,
+    activeDns: ActiveDnsSettings? = null,
+): StrategyLaneFamilies =
     StrategyLaneFamilies(
-        tcpStrategyFamily = deriveTcpStrategyFamily(tcpSteps),
+        tcpStrategyFamily = deriveTcpStrategyFamily(tcpSteps, tcpRotationCandidateCount),
         quicStrategyFamily =
             deriveQuicStrategyFamily(
                 udpSteps = udpSteps,
@@ -41,61 +60,74 @@ fun deriveStrategyLaneFamilies(
     )
 
 @Suppress("CyclomaticComplexMethod")
-fun deriveTcpStrategyFamily(tcpSteps: List<TcpChainStepModel>): String? {
+fun deriveTcpStrategyFamily(tcpSteps: List<TcpChainStepModel>): String? = deriveTcpStrategyFamily(tcpSteps, 0)
+
+@Suppress("CyclomaticComplexMethod")
+fun deriveTcpStrategyFamily(
+    tcpSteps: List<TcpChainStepModel>,
+    tcpRotationCandidateCount: Int = 0,
+): String? {
     val primary = primaryTcpChainStep(tcpSteps)
     val tlsPrelude = tlsPreludeTcpChainStep(tcpSteps)
-    if (primary == null) {
-        return when (tlsPrelude?.kind) {
-            TcpChainStepKind.TlsRandRec -> "tlsrandrec"
-            TcpChainStepKind.TlsRec -> "tlsrec"
-            else -> null
-        }
-    }
-    return when {
-        primary.kind == TcpChainStepKind.SeqOverlap && tlsPrelude != null -> {
-            "tlsrec_seqovl"
-        }
+    val baseFamily =
+        if (primary == null) {
+            when (tlsPrelude?.kind) {
+                TcpChainStepKind.TlsRandRec -> "tlsrandrec"
+                TcpChainStepKind.TlsRec -> "tlsrec"
+                else -> null
+            }
+        } else {
+            when {
+                primary.kind == TcpChainStepKind.SeqOverlap && tlsPrelude != null -> {
+                    "tlsrec_seqovl"
+                }
 
-        primary.kind == TcpChainStepKind.SeqOverlap -> {
-            "seqovl"
-        }
+                primary.kind == TcpChainStepKind.SeqOverlap -> {
+                    "seqovl"
+                }
 
-        primary.kind == TcpChainStepKind.HostFake -> {
-            "hostfake"
-        }
+                primary.kind == TcpChainStepKind.HostFake -> {
+                    "hostfake"
+                }
 
-        primary.kind == TcpChainStepKind.IpFrag2 -> {
-            "ipfrag2"
-        }
+                primary.kind == TcpChainStepKind.IpFrag2 -> {
+                    "ipfrag2"
+                }
 
-        primary.kind == TcpChainStepKind.FakeSplit || primary.kind == TcpChainStepKind.FakeDisorder -> {
-            "fake_approx"
-        }
+                primary.kind == TcpChainStepKind.FakeSplit || primary.kind == TcpChainStepKind.FakeDisorder -> {
+                    "fake_approx"
+                }
 
-        primary.kind == TcpChainStepKind.Split && tlsPrelude != null -> {
-            "tlsrec_split"
-        }
+                primary.kind == TcpChainStepKind.Split && tlsPrelude != null -> {
+                    "tlsrec_split"
+                }
 
-        primary.kind == TcpChainStepKind.MultiDisorder && tlsPrelude != null -> {
-            "tlsrec_multidisorder"
-        }
+                primary.kind == TcpChainStepKind.MultiDisorder && tlsPrelude != null -> {
+                    "tlsrec_multidisorder"
+                }
 
-        primary.kind == TcpChainStepKind.Disorder && tlsPrelude != null -> {
-            "tlsrec_disorder"
-        }
+                primary.kind == TcpChainStepKind.Disorder && tlsPrelude != null -> {
+                    "tlsrec_disorder"
+                }
 
-        tlsPrelude != null &&
-            (
-                primary.kind == TcpChainStepKind.Fake ||
-                    primary.kind == TcpChainStepKind.Oob ||
-                    primary.kind == TcpChainStepKind.Disoob
-            ) -> {
-            "tlsrec_fake"
-        }
+                tlsPrelude != null &&
+                    (
+                        primary.kind == TcpChainStepKind.Fake ||
+                            primary.kind == TcpChainStepKind.Oob ||
+                            primary.kind == TcpChainStepKind.Disoob
+                    ) -> {
+                    "tlsrec_fake"
+                }
 
-        else -> {
-            primary.kind.wireName
+                else -> {
+                    primary.kind.wireName
+                }
+            }
         }
+    return if (baseFamily != null && tcpRotationCandidateCount > 0) {
+        "circular_$baseFamily"
+    } else {
+        baseFamily
     }
 }
 
@@ -158,8 +190,12 @@ fun ActiveDnsSettings.strategyLabel(): String =
     }
 
 @Suppress("CyclomaticComplexMethod")
-fun strategyLaneFamilyLabel(family: String): String =
-    when (family.trim().lowercase()) {
+fun strategyLaneFamilyLabel(family: String): String {
+    val normalized = family.trim().lowercase()
+    if (normalized.startsWith("circular_")) {
+        return "Circular rotation (${strategyLaneFamilyLabel(normalized.removePrefix("circular_"))})"
+    }
+    return when (normalized) {
         "hostfake" -> "Hostfake"
         "seqovl" -> "Sequence overlap"
         "tlsrec_seqovl" -> "TLS record + sequence overlap"
@@ -200,3 +236,4 @@ fun strategyLaneFamilyLabel(family: String): String =
         "dns_encrypted" -> "Encrypted DNS"
         else -> family.replace('_', ' ').replaceFirstChar { it.uppercase() }
     }
+}
