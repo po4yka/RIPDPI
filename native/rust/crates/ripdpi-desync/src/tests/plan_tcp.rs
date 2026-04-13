@@ -986,3 +986,45 @@ fn unresolved_markers_fail_planning_safely() {
     let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
     assert!(plan_tcp(&group, payload, 7, 64, tcp_context(payload)).is_err());
 }
+
+#[test]
+fn plan_tcp_emits_delay_action_when_inter_segment_delay_set() {
+    let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![TcpChainStep {
+        inter_segment_delay_ms: 50,
+        ..TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0))
+    }];
+
+    let plan = plan_tcp(&group, payload, 7, 0, tcp_context(payload)).expect("plan with delay");
+    assert!(plan.actions.iter().any(|a| matches!(a, DesyncAction::Delay(50))), "expected Delay(50) action in plan");
+}
+
+#[test]
+fn plan_tcp_no_delay_when_inter_segment_delay_zero() {
+    let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0))];
+
+    let plan = plan_tcp(&group, payload, 7, 0, tcp_context(payload)).expect("plan no delay");
+    assert!(
+        !plan.actions.iter().any(|a| matches!(a, DesyncAction::Delay(_))),
+        "no Delay action expected when inter_segment_delay_ms is 0"
+    );
+}
+
+#[test]
+fn plan_tcp_delay_capped_at_500ms() {
+    let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![TcpChainStep {
+        inter_segment_delay_ms: 1000,
+        ..TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0))
+    }];
+
+    let plan = plan_tcp(&group, payload, 7, 0, tcp_context(payload)).expect("plan capped delay");
+    assert!(
+        plan.actions.iter().any(|a| matches!(a, DesyncAction::Delay(500))),
+        "expected Delay(500) action (capped from 1000)"
+    );
+}

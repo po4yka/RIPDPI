@@ -164,6 +164,7 @@ class RipDpiProxyJsonCodecTest {
         assertEquals(65536, rotation?.seq)
         assertEquals(1, rotation?.rst)
         assertEquals(60L, rotation?.timeSecs)
+        assertEquals(true, rotation?.cancelOnFailure)
         assertEquals(1, rotation?.candidates?.size)
         assertEquals(
             TcpChainStepKind.TlsRec,

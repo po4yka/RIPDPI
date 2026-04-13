@@ -351,6 +351,20 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             build_tlsrec_hostfake_random_candidate(base),
             vec!["Random domain per connection defeats DPI fake-SNI caching"],
         ),
+        candidate_spec_with_notes(
+            "split_delayed_50ms",
+            "Split host + 50ms delay",
+            "split_delayed",
+            build_split_delayed_candidate(base, 50),
+            vec!["50ms inter-segment delay exploits DPI timeout windows"],
+        ),
+        candidate_spec_with_notes(
+            "split_delayed_150ms",
+            "Split host + 150ms delay",
+            "split_delayed",
+            build_split_delayed_candidate(base, 150),
+            vec!["150ms inter-segment delay for longer DPI timeout windows"],
+        ),
         candidate_spec("parser_only", "Parser-only", "parser", parser_only),
         candidate_spec("parser_hostpad", "Parser + Host Pad", "parser", parser_hostpad),
         candidate_spec("parser_unixeol", "Parser + Unix EOL", "parser_aggressive", parser_unixeol),
@@ -852,6 +866,7 @@ pub(crate) fn build_circular_tlsrec_split_candidate(base: &ProxyUiConfig) -> Pro
         seq: 65_536,
         rst: 1,
         time_secs: 60,
+        cancel_on_failure: None,
         candidates: vec![
             ProxyUiTcpRotationCandidate { tcp_steps: build_tlsrec_hostfake_candidate(base, true).chains.tcp_steps },
             ProxyUiTcpRotationCandidate { tcp_steps: build_tlsrec_fake_rich_candidate(base).chains.tcp_steps },
@@ -931,6 +946,14 @@ pub(crate) fn build_tlsrec_hostfake_candidate(base: &ProxyUiConfig, with_split: 
         steps.push(tcp_step("split", "midsld"));
     }
     config.chains.tcp_steps = steps;
+    config
+}
+
+pub(crate) fn build_split_delayed_candidate(base: &ProxyUiConfig, delay_ms: u32) -> ProxyUiConfig {
+    let mut config = strategy_probe_base(base);
+    let mut step = tcp_step("split", "host+2");
+    step.inter_segment_delay_ms = delay_ms;
+    config.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), step];
     config
 }
 

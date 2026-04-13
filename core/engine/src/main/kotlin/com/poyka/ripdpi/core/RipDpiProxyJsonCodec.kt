@@ -426,6 +426,7 @@ internal object RipDpiProxyJsonCodec {
         val rst: Int = 1,
         val timeSecs: Long = 60,
         val candidates: List<NativeTcpRotationCandidate> = emptyList(),
+        val cancelOnFailure: Boolean? = null,
     )
 
     @Serializable
@@ -1034,6 +1035,7 @@ internal object RipDpiProxyJsonCodec {
                                         tcpSteps = candidate.tcpSteps.mapNotNull(::nativeTcpStepToModel),
                                     )
                                 },
+                            cancelOnFailure = rotation.cancelOnFailure ?: true,
                         )
                     },
                 udpSteps =
@@ -1069,6 +1071,7 @@ internal object RipDpiProxyJsonCodec {
                                         tcpSteps = candidate.tcpSteps.map(::modelTcpStepToNative),
                                     )
                                 },
+                            cancelOnFailure = rotation.cancelOnFailure,
                         )
                     },
                 udpSteps =
