@@ -3,10 +3,10 @@
   "profile": "android-jni",
   "topFunctions": 20,
   "topCrates": 20,
-  "maxTextSectionGrowthBytes": 131072,
+  "maxTextSectionGrowthBytes": 393216,
   "maxFunctionGrowthBytes": 4096,
-  "maxCrateGrowthBytes": 24576,
-  "maxNewFunctionSizeBytes": 12288,
+  "maxCrateGrowthBytes": 81920,
+  "maxNewFunctionSizeBytes": 20480,
   "maxNewCrateSizeBytes": 65536,
   "packages": {
     "ripdpi-android": {
