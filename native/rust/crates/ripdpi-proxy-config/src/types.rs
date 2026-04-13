@@ -364,6 +364,8 @@ pub struct ProxyUiChainConfig {
     pub group_activation_filter: Option<ProxyUiActivationFilter>,
     #[serde(default)]
     pub any_protocol: bool,
+    #[serde(default)]
+    pub payload_disable: Vec<String>,
 }
 
 impl Default for ProxyUiChainConfig {
@@ -374,6 +376,7 @@ impl Default for ProxyUiChainConfig {
             udp_steps: Vec::new(),
             group_activation_filter: None,
             any_protocol: false,
+            payload_disable: Vec::new(),
         }
     }
 }

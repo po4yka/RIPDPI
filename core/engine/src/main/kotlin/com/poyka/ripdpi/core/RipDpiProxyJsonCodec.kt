@@ -455,6 +455,7 @@ internal object RipDpiProxyJsonCodec {
         val tcpRotation: NativeTcpRotationConfig? = null,
         val udpSteps: List<NativeUdpChainStep> = emptyList(),
         val anyProtocol: Boolean = false,
+        val payloadDisable: List<String> = emptyList(),
     )
 
     @Serializable
@@ -1051,6 +1052,7 @@ internal object RipDpiProxyJsonCodec {
                         )
                     },
                 anyProtocol = value.anyProtocol,
+                payloadDisable = value.payloadDisable,
             )
 
         fun toNative(value: RipDpiChainConfig): NativeChainConfig =
@@ -1085,6 +1087,7 @@ internal object RipDpiProxyJsonCodec {
                         )
                     },
                 anyProtocol = value.anyProtocol,
+                payloadDisable = value.payloadDisable,
             )
     }
 
