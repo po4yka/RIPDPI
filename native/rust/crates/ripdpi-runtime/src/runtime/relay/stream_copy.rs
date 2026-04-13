@@ -62,6 +62,10 @@ struct CircularTcpRotationController {
     consecutive_rsts: u32,
     last_failure_at: Option<Instant>,
     observed_round: Option<RoundObservation>,
+    /// When true, desync is suppressed for the remainder of this connection
+    /// until rotation completes. Set on failure detection when
+    /// `cancel_on_failure` is enabled.
+    desync_suppressed: bool,
 }
 
 impl CircularTcpRotationController {
@@ -75,7 +79,12 @@ impl CircularTcpRotationController {
             consecutive_rsts: 0,
             last_failure_at: None,
             observed_round: None,
+            desync_suppressed: false,
         })
+    }
+
+    fn is_desync_suppressed(&self) -> bool {
+        self.desync_suppressed
     }
 
     fn current_group(&self) -> DesyncGroup {
@@ -114,6 +123,7 @@ impl CircularTcpRotationController {
             matches!(self.active_candidate_index, Some(current) if current + 1 >= self.policy.candidates.len());
         self.active_candidate_index = Some(next_index);
         self.pending_advance = false;
+        self.desync_suppressed = false;
         tracing::info!(
             host = host.unwrap_or(""),
             target = target.map(|value| value.to_string()).unwrap_or_default(),
@@ -189,6 +199,7 @@ impl CircularTcpRotationController {
         self.consecutive_rsts = 0;
         self.last_failure_at = None;
         self.observed_round = None;
+        self.desync_suppressed = false;
     }
 
     fn observe_round_failure(
@@ -233,6 +244,9 @@ impl CircularTcpRotationController {
                 "circular tcp rotation trigger"
             );
             self.pending_advance = true;
+            if self.policy.cancel_on_failure {
+                self.desync_suppressed = true;
+            }
         }
         self.observed_round = None;
     }
@@ -638,7 +652,11 @@ fn flush_outbound_payload(
         } else {
             rotation.append_request_chunk(&state.config, progress.round, payload);
         }
-        rotation.current_group()
+        let mut group = rotation.current_group();
+        if rotation.is_desync_suppressed() {
+            group.actions.tcp_chain.clear();
+        }
+        group
     } else {
         base_group
     };

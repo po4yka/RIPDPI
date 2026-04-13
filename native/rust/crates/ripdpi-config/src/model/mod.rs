@@ -360,12 +360,24 @@ pub struct RotationPolicy {
     pub seq: u32,
     pub rst: u32,
     pub time_secs: u64,
+    /// When true, suppress desync immediately on failure detection rather than
+    /// waiting for the next round boundary. The connection falls back to plain
+    /// passthrough until rotation completes.
+    pub cancel_on_failure: bool,
     pub candidates: Vec<RotationCandidate>,
 }
 
 impl Default for RotationPolicy {
     fn default() -> Self {
-        Self { fails: 3, retrans: 3, seq: 65_536, rst: 1, time_secs: 60, candidates: Vec::new() }
+        Self {
+            fails: 3,
+            retrans: 3,
+            seq: 65_536,
+            rst: 1,
+            time_secs: 60,
+            cancel_on_failure: true,
+            candidates: Vec::new(),
+        }
     }
 }
 

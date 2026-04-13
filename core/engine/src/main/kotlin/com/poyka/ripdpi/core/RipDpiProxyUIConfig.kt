@@ -78,6 +78,7 @@ data class RipDpiTcpRotationConfig(
     val rst: Int = 1,
     val timeSecs: Long = 60,
     val candidates: List<RipDpiTcpRotationCandidateConfig> = emptyList(),
+    val cancelOnFailure: Boolean = true,
 )
 
 data class RipDpiFakePacketConfig(

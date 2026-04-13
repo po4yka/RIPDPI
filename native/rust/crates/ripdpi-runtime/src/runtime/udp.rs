@@ -541,6 +541,9 @@ fn execute_udp_actions(
             | DesyncAction::RestoreWsize
             | DesyncAction::SendFakeRst
             | DesyncAction::WriteSeqOverlap { .. } => {}
+            DesyncAction::Delay(ms) => {
+                std::thread::sleep(std::time::Duration::from_millis(u64::from(*ms)));
+            }
         }
     }
     Ok(())

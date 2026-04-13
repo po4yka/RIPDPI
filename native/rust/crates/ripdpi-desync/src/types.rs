@@ -125,21 +125,44 @@ pub struct HostFakeSpan {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DesyncAction {
     Write(Vec<u8>),
-    WriteIpFragmentedTcp { bytes: Vec<u8>, split_offset: usize, disorder: bool, ipv6_ext: Ipv6ExtHeaders },
-    WriteIpFragmentedUdp { bytes: Vec<u8>, split_offset: usize, disorder: bool, ipv6_ext: Ipv6ExtHeaders },
-    WriteSeqOverlap { real_chunk: Vec<u8>, fake_prefix: Vec<u8>, remainder: Vec<u8> },
-    WriteUrgent { prefix: Vec<u8>, urgent_byte: u8 },
+    WriteIpFragmentedTcp {
+        bytes: Vec<u8>,
+        split_offset: usize,
+        disorder: bool,
+        ipv6_ext: Ipv6ExtHeaders,
+    },
+    WriteIpFragmentedUdp {
+        bytes: Vec<u8>,
+        split_offset: usize,
+        disorder: bool,
+        ipv6_ext: Ipv6ExtHeaders,
+    },
+    WriteSeqOverlap {
+        real_chunk: Vec<u8>,
+        fake_prefix: Vec<u8>,
+        remainder: Vec<u8>,
+    },
+    WriteUrgent {
+        prefix: Vec<u8>,
+        urgent_byte: u8,
+    },
     SetTtl(u8),
     RestoreDefaultTtl,
-    SetMd5Sig { key_len: u16 },
+    SetMd5Sig {
+        key_len: u16,
+    },
     AttachDropSack,
     DetachDropSack,
     AwaitWritable,
     SetWindowClamp(u32),
     RestoreWindowClamp,
-    SetWsize { window: u32 },
+    SetWsize {
+        window: u32,
+    },
     RestoreWsize,
     SendFakeRst,
+    /// Sleep for the given number of milliseconds between steps.
+    Delay(u16),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

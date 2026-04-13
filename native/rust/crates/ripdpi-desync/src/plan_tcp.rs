@@ -366,6 +366,9 @@ pub fn plan_tcp(
         if matches!(planned_kind, TcpChainStepKind::Oob) {
             actions.push(DesyncAction::AwaitWritable);
         }
+        if step.inter_segment_delay_ms > 0 && !matches!(planned_kind, TcpChainStepKind::MultiDisorder) {
+            actions.push(DesyncAction::Delay(step.inter_segment_delay_ms.min(500) as u16));
+        }
         lp = pos;
     }
 

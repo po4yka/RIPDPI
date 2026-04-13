@@ -284,6 +284,8 @@ pub struct ProxyUiTcpRotationConfig {
     pub time_secs: u64,
     #[serde(default)]
     pub candidates: Vec<ProxyUiTcpRotationCandidate>,
+    #[serde(default)]
+    pub cancel_on_failure: Option<bool>,
 }
 
 impl Default for ProxyUiTcpRotationConfig {
@@ -295,6 +297,7 @@ impl Default for ProxyUiTcpRotationConfig {
             rst: default_rotation_rst_threshold(),
             time_secs: default_rotation_time_secs(),
             candidates: Vec::new(),
+            cancel_on_failure: None,
         }
     }
 }
