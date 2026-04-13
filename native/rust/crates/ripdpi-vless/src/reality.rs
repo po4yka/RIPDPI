@@ -1,7 +1,7 @@
 use std::io;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use aes::cipher::{BlockEncrypt, KeyInit};
+use aes::cipher::{BlockCipherEncrypt, KeyInit};
 use aes::Aes128;
 use boring::rand::rand_bytes;
 use boring::ssl::SslVerifyMode;
@@ -189,8 +189,8 @@ fn build_reality_session_id(config: &VlessRealityConfig, client_random: &[u8; 32
     session_id[16..32].copy_from_slice(&ephemeral_public.as_bytes()[..16]);
 
     // 5. Encrypt first 16 bytes with AES-128-ECB using auth_key[0..16]
-    let cipher = Aes128::new(aes::cipher::generic_array::GenericArray::from_slice(&auth_key[..16]));
-    let block = aes::cipher::generic_array::GenericArray::from_mut_slice(&mut session_id[..16]);
+    let cipher = Aes128::new((&auth_key[..16]).try_into().expect("AES-128 key length"));
+    let block: &mut aes::cipher::array::Array<u8, _> = (&mut session_id[..16]).try_into().expect("AES block length");
     cipher.encrypt_block(block);
 
     Ok(session_id)

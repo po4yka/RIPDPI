@@ -1,4 +1,4 @@
-use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit as BlockKeyInit};
+use aes::cipher::{array::Array, BlockCipherEncrypt, KeyInit as BlockKeyInit};
 use aes::Aes128;
 use ring::aead::{self, Aad, LessSafeKey, UnboundKey, AES_128_GCM};
 use ring::hkdf::{self, KeyType, Salt, HKDF_SHA256};
@@ -276,7 +276,7 @@ fn quic_initial_from_tls(version: u32, client_hello: &[u8], gap_after_split: usi
         sealing_key.seal_in_place_separate_tag(nonce, Aad::from(&aad), &mut ciphertext).expect("quic seed encrypt");
 
     let hp_cipher = Aes128::new_from_slice(&hp).expect("quic seed hp");
-    let mut sample = GenericArray::clone_from_slice(&ciphertext[..16]);
+    let mut sample: Array<u8, _> = (&ciphertext[..16]).try_into().expect("sample length");
     hp_cipher.encrypt_block(&mut sample);
 
     let mut packet = header;
