@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+rand = { workspace = true }
 ripdpi-config = { workspace = true }
 ripdpi-ipfrag = { workspace = true }
 ripdpi-packets = { workspace = true }

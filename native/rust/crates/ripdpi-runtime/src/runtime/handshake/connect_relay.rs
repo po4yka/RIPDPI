@@ -549,6 +549,7 @@ mod tests {
             control: None,
             ttl_unavailable: crate::sync::Arc::new(crate::sync::AtomicBool::new(false)),
             reprobe_tracker: std::sync::Arc::new(crate::runtime::reprobe::ReprobeTracker::new()),
+            pcap_hook: None,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,
         }

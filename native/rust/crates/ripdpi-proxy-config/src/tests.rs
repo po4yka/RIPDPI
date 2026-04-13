@@ -39,6 +39,7 @@ fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         inter_segment_delay_ms: 0,
         activation_filter: None,
         ipv6_extension_profile: "none".to_string(),
+        random_fake_host: false,
     }
 }
 
@@ -62,6 +63,7 @@ fn seqovl_step(marker: &str, overlap_size: i32, fake_mode: &str) -> ProxyUiTcpCh
         inter_segment_delay_ms: 0,
         activation_filter: None,
         ipv6_extension_profile: "none".to_string(),
+        random_fake_host: false,
     }
 }
 
@@ -119,6 +121,7 @@ fn ui_payload_parses_hostfake_and_quic_profile() {
         inter_segment_delay_ms: 0,
         activation_filter: None,
         ipv6_extension_profile: "none".to_string(),
+        random_fake_host: false,
     }];
     ui.chains.udp_steps.push(udp_step("fake_burst", 3));
     ui.quic.fake_profile = "realistic_initial".to_string();
@@ -180,6 +183,7 @@ fn ui_payload_preserves_explicit_tlsrec_before_hostfake() {
             inter_segment_delay_ms: 0,
             activation_filter: None,
             ipv6_extension_profile: "none".to_string(),
+            random_fake_host: false,
         },
     ];
 
@@ -338,6 +342,7 @@ fn ui_payload_parses_tcp_rotation_policy_defaults() {
                         inter_segment_delay_ms: 0,
                         activation_filter: None,
                         ipv6_extension_profile: "none".to_string(),
+                        random_fake_host: false,
                     },
                     tcp_step("split", "midsld"),
                 ],
@@ -559,6 +564,7 @@ fn ui_payload_rejects_unknown_ipv6_extension_profile() {
         inter_segment_delay_ms: 0,
         activation_filter: None,
         ipv6_extension_profile: "bogus".to_string(),
+        random_fake_host: false,
     }];
 
     let err = runtime_config_from_payload(ui_payload(ui)).expect_err("invalid ipv6 extension profile");
@@ -750,6 +756,7 @@ fn adaptive_hostfake_midhost_marker_is_rejected() {
         inter_segment_delay_ms: 0,
         activation_filter: None,
         ipv6_extension_profile: "none".to_string(),
+        random_fake_host: false,
     });
 
     let err = runtime_config_from_payload(ui_payload(ui)).expect_err("adaptive hostfake midhost");

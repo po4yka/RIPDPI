@@ -87,8 +87,8 @@ fn normalize_fake_host_template(value: &str) -> Option<String> {
     Some(trimmed)
 }
 
-pub fn build_hostfake_bytes(real_host: &[u8], template: Option<&str>, seed: u32) -> Vec<u8> {
-    let mut rng = OracleRng::seeded(seed);
+pub fn build_hostfake_bytes(real_host: &[u8], template: Option<&str>, seed: u32, random: bool) -> Vec<u8> {
+    let mut rng = if random { OracleRng::seeded(rand::random::<u32>()) } else { OracleRng::seeded(seed) };
     let mut output = vec![0; real_host.len()];
     fill_random_host_like(&mut output, &mut rng);
 

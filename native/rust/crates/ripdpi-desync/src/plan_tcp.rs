@@ -334,7 +334,8 @@ pub fn plan_tcp(
                 }
 
                 let real_host = &tampered.bytes[span.host_start..span.host_end];
-                let fake_host = build_hostfake_bytes(real_host, step.fake_host_template.as_deref(), seed);
+                let fake_host =
+                    build_hostfake_bytes(real_host, step.fake_host_template.as_deref(), seed, step.random_fake_host);
                 push_fake_actions(&mut actions, real_host, fake_host.clone(), group, default_ttl, fake_ttl);
 
                 if let Some(midhost) = span.midhost {

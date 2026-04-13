@@ -1074,6 +1074,7 @@ mod tests {
                 ipv6_dest_opt2: false,
                 ipv6_routing: false,
                 ipv6_frag_next_override: None,
+                random_fake_host: false,
             },
         ];
 
@@ -1216,6 +1217,7 @@ mod tests {
                 ipv6_dest_opt2: false,
                 ipv6_routing: false,
                 ipv6_frag_next_override: None,
+                random_fake_host: false,
             },
         ];
         let target = addr(443);

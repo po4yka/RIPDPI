@@ -292,7 +292,7 @@ injection path.
 
 ### 7. Hostfakesplit with Random Domain Generation
 
-**Status:** [ ] Not started
+**Status:** [x] Implemented -- random_fake_host field on HostFake step; OS-entropy seeded per connection; tlsrec_hostfake_random probe candidate added
 **Priority:** Medium-High
 **Crate:** `ripdpi-desync`, `ripdpi-packets`
 
@@ -320,7 +320,7 @@ variant adds unpredictability that defeats DPI caching fake SNI values.
 
 ### 8. PCAP Diagnostic Recording
 
-**Status:** [ ] Not started
+**Status:** [x] Implemented -- PcapWriter in ripdpi-monitor, PcapHook in desync execution pipeline, JNI bridge for start/stop/query recording, 10 MB cap with auto-stop
 **Priority:** Medium
 **Crate:** `ripdpi-monitor`, `ripdpi-desync`
 

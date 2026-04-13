@@ -29,6 +29,7 @@ internal class DefaultDiagnosticsArchiveExporter
     ) : DiagnosticsArchiveExporter {
         override fun cleanupCache() {
             fileStore.cleanup()
+            fileStore.cleanupPcapFiles()
         }
 
         override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive {
@@ -59,15 +60,16 @@ internal class DefaultDiagnosticsArchiveExporter
                 }
             val primaryResults = primarySession?.id?.let { sourceLoader.getProbeResults(it) }.orEmpty()
             val selection =
-                sessionSelector.buildSelection(
-                    request = request,
-                    primarySession = primarySession,
-                    primaryResults = primaryResults,
-                    sourceData = sourceData,
-                    compositeOutcome = compositeOutcome,
-                    compositeSessions = compositeSessions,
-                    loadProbeResults = { sessionId -> sourceLoader.getProbeResults(sessionId) },
-                )
+                sessionSelector
+                    .buildSelection(
+                        request = request,
+                        primarySession = primarySession,
+                        primaryResults = primaryResults,
+                        sourceData = sourceData,
+                        compositeOutcome = compositeOutcome,
+                        compositeSessions = compositeSessions,
+                        loadProbeResults = { sessionId -> sourceLoader.getProbeResults(sessionId) },
+                    ).copy(pcapFiles = fileStore.getRecentPcapFiles())
             val target = fileStore.createTarget()
             zipWriter.write(target.file, renderer.render(target, selection))
             artifactWriteStore.insertExportRecord(
