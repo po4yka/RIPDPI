@@ -52,13 +52,17 @@ data class RipDpiLayout(
 @Immutable
 data class RipDpiComponentMetrics(
     val controlHeight: Dp = 48.dp,
+    val extraSmallCornerRadius: Dp = 4.dp,
     val compactCornerRadius: Dp = 8.dp,
     val mediumCornerRadius: Dp = 10.dp,
     val largeCornerRadius: Dp = 12.dp,
     val controlCornerRadius: Dp = 16.dp,
+    val controlIncreasedCornerRadius: Dp = 20.dp,
     val cardCornerRadius: Dp = 16.dp,
     val chipCornerRadius: Dp = 12.dp,
     val pillCornerRadius: Dp = 28.dp,
+    val pillIncreasedCornerRadius: Dp = 32.dp,
+    val heroCornerRadius: Dp = 48.dp,
     val buttonMinHeight: Dp = 48.dp,
     val buttonHorizontalPadding: Dp = 20.dp,
     val buttonVerticalPadding: Dp = 10.dp,
