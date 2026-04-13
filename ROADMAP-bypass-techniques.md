@@ -370,7 +370,7 @@ strategy for the entire connection lifetime.
 
 ### 10. DNS Hostname-to-IP Cache for Strategy Decisions
 
-**Status:** [ ] Not started
+**Status:** [x] Implemented -- DnsHostnameCache LRU in ripdpi-runtime with TTL-based eviction; populated from encrypted DNS resolution; consumed in connect_target for ECH hostname recovery
 **Priority:** Medium
 **Crate:** `ripdpi-dns-resolver`, `ripdpi-runtime`
 
@@ -395,7 +395,7 @@ right strategy, but can't read it from the ClientHello.
 
 ### 11. Payload Detection Exclusions
 
-**Status:** [ ] Not started
+**Status:** [x] Implemented -- payload_disable bitmask on DesyncGroupMatchSettings gates is_http/is_tls checks; per-group config via Vec of String in JSON bridge
 **Priority:** Medium
 **Crate:** `ripdpi-packets`, `ripdpi-config`
 
