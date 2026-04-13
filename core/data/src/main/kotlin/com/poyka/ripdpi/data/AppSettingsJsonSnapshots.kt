@@ -22,6 +22,10 @@ internal data class AppSettingsTcpChainSnapshot(
     val maxFragmentSize: Int = 0,
     val activationFilter: ActivationFilterModel = ActivationFilterModel(),
     val ipv6ExtensionProfile: String = StrategyIpv6ExtensionProfileNone,
+    val tcpFlagsSet: String? = null,
+    val tcpFlagsUnset: String? = null,
+    val tcpFlagsOrigSet: String? = null,
+    val tcpFlagsOrigUnset: String? = null,
 )
 
 @Serializable

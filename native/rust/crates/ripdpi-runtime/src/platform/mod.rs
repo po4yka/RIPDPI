@@ -18,10 +18,24 @@ pub mod root_helper_client;
 pub type TcpStageWait = (bool, Duration);
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct TcpFlagOverrides {
+    pub set: u16,
+    pub unset: u16,
+}
+
+impl TcpFlagOverrides {
+    pub const fn is_empty(self) -> bool {
+        self.set == 0 && self.unset == 0
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct FakeTcpOptions<'a> {
     pub secondary_fake_prefix: Option<&'a [u8]>,
     pub timestamp_delta_ticks: Option<i32>,
     pub protect_path: Option<&'a str>,
+    pub fake_flags: TcpFlagOverrides,
+    pub orig_flags: TcpFlagOverrides,
 }
 
 static SEQOVL_SUPPORTED: OnceLock<bool> = OnceLock::new();
@@ -243,15 +257,25 @@ pub fn set_rcvbuf(_fd: &impl AsRawFd, _size: u32) -> io::Result<()> {
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub fn send_fake_rst(stream: &TcpStream, default_ttl: u8, protect_path: Option<&str>) -> io::Result<()> {
-    if let Some(result) = root_helper::with_root_helper(|h| h.send_fake_rst(stream.as_raw_fd(), default_ttl)) {
+pub fn send_fake_rst(
+    stream: &TcpStream,
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    flags: TcpFlagOverrides,
+) -> io::Result<()> {
+    if let Some(result) = root_helper::with_root_helper(|h| h.send_fake_rst(stream.as_raw_fd(), default_ttl, flags)) {
         return result;
     }
-    linux::send_fake_rst(stream, default_ttl, protect_path)
+    linux::send_fake_rst(stream, default_ttl, protect_path, flags)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
-pub fn send_fake_rst(_stream: &TcpStream, _default_ttl: u8, _protect_path: Option<&str>) -> io::Result<()> {
+pub fn send_fake_rst(
+    _stream: &TcpStream,
+    _default_ttl: u8,
+    _protect_path: Option<&str>,
+    _flags: TcpFlagOverrides,
+) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
 
@@ -299,6 +323,39 @@ pub fn send_fake_tcp(
     _default_ttl: u8,
     _options: FakeTcpOptions<'_>,
     _wait: TcpStageWait,
+) -> io::Result<()> {
+    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn send_flagged_tcp_payload(
+    stream: &TcpStream,
+    payload: &[u8],
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    md5sig: bool,
+    flags: TcpFlagOverrides,
+) -> io::Result<()> {
+    if let Some(result) = root_helper::with_root_helper(|h| {
+        let res = h.send_flagged_tcp_payload(stream.as_raw_fd(), payload, default_ttl, md5sig, flags)?;
+        if let Some(replacement_fd) = res {
+            swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
+        }
+        Ok(())
+    }) {
+        return result;
+    }
+    linux::send_flagged_tcp_payload(stream, payload, default_ttl, protect_path, md5sig, flags)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn send_flagged_tcp_payload(
+    _stream: &TcpStream,
+    _payload: &[u8],
+    _default_ttl: u8,
+    _protect_path: Option<&str>,
+    _md5sig: bool,
+    _flags: TcpFlagOverrides,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
@@ -367,9 +424,10 @@ pub fn send_ip_fragmented_tcp(
     protect_path: Option<&str>,
     disorder: bool,
     ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
+    flags: TcpFlagOverrides,
 ) -> io::Result<()> {
     if let Some(result) = root_helper::with_root_helper(|h| {
-        let res = h.send_ip_fragmented_tcp(stream.as_raw_fd(), payload, split_offset, default_ttl, disorder)?;
+        let res = h.send_ip_fragmented_tcp(stream.as_raw_fd(), payload, split_offset, default_ttl, disorder, flags)?;
         if let Some(replacement_fd) = res {
             swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
         }
@@ -377,7 +435,7 @@ pub fn send_ip_fragmented_tcp(
     }) {
         return result;
     }
-    linux::send_ip_fragmented_tcp(stream, payload, split_offset, default_ttl, protect_path, disorder, ipv6_ext)
+    linux::send_ip_fragmented_tcp(stream, payload, split_offset, default_ttl, protect_path, disorder, ipv6_ext, flags)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -389,6 +447,7 @@ pub fn send_ip_fragmented_tcp(
     _protect_path: Option<&str>,
     _disorder: bool,
     _ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
+    _flags: TcpFlagOverrides,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
@@ -402,6 +461,7 @@ pub fn send_multi_disorder_tcp(
     protect_path: Option<&str>,
     inter_segment_delay_ms: u32,
     md5sig: bool,
+    flags: TcpFlagOverrides,
 ) -> io::Result<()> {
     if let Some(result) = root_helper::with_root_helper(|h| {
         let res = h.send_multi_disorder_tcp(
@@ -411,6 +471,7 @@ pub fn send_multi_disorder_tcp(
             default_ttl,
             inter_segment_delay_ms,
             md5sig,
+            flags,
         )?;
         if let Some(replacement_fd) = res {
             swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
@@ -419,7 +480,16 @@ pub fn send_multi_disorder_tcp(
     }) {
         return result;
     }
-    linux::send_multi_disorder_tcp(stream, payload, segments, default_ttl, protect_path, inter_segment_delay_ms, md5sig)
+    linux::send_multi_disorder_tcp(
+        stream,
+        payload,
+        segments,
+        default_ttl,
+        protect_path,
+        inter_segment_delay_ms,
+        md5sig,
+        flags,
+    )
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -431,6 +501,7 @@ pub fn send_multi_disorder_tcp(
     _protect_path: Option<&str>,
     _inter_segment_delay_ms: u32,
     _md5sig: bool,
+    _flags: TcpFlagOverrides,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
@@ -443,9 +514,10 @@ pub fn send_seqovl_tcp(
     default_ttl: u8,
     protect_path: Option<&str>,
     md5sig: bool,
+    flags: TcpFlagOverrides,
 ) -> io::Result<()> {
     if let Some(result) = root_helper::with_root_helper(|h| {
-        let res = h.send_seqovl_tcp(stream.as_raw_fd(), real_chunk, fake_prefix, default_ttl, md5sig)?;
+        let res = h.send_seqovl_tcp(stream.as_raw_fd(), real_chunk, fake_prefix, default_ttl, md5sig, flags)?;
         if let Some(replacement_fd) = res {
             swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
         }
@@ -453,7 +525,7 @@ pub fn send_seqovl_tcp(
     }) {
         return result;
     }
-    linux::send_seqovl_tcp(stream, real_chunk, fake_prefix, default_ttl, protect_path, md5sig)
+    linux::send_seqovl_tcp(stream, real_chunk, fake_prefix, default_ttl, protect_path, md5sig, flags)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -464,6 +536,7 @@ pub fn send_seqovl_tcp(
     _default_ttl: u8,
     _protect_path: Option<&str>,
     _md5sig: bool,
+    _flags: TcpFlagOverrides,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }

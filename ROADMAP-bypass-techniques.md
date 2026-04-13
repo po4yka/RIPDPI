@@ -106,9 +106,9 @@ connection state.
 
 ### 3. TCP Flag Manipulation (General)
 
-**Status:** [ ] Not started
+**Status:** [x] Implemented (2026-04-13)
 **Priority:** High
-**Crate:** `ripdpi-desync`, `ripdpi-packets`
+**Crate:** `ripdpi-config`, `ripdpi-runtime`, `ripdpi-root-helper`
 
 **What:** zapret2 allows arbitrary TCP flag setting/unsetting on fake and real
 packets: `--dpi-desync-tcp-flags-set` / `--dpi-desync-tcp-flags-unset` with
@@ -117,14 +117,30 @@ currently has `FakeRst` (sends RST) but no general flag crafting. Different DPI
 implementations react differently to unusual flag combinations (e.g., SYN+FIN,
 PSH+URG on fakes).
 
-**Approach:**
-1. Add `tcp_flags_set: u16` and `tcp_flags_unset: u16` fields to
-   `TcpChainStep` actions (bitmask)
-2. Add `tcp_flags_orig_set/unset` variants for modifying the original packet
-3. In `ripdpi-desync` packet builder, apply flag masks after constructing
-   fake/real TCP headers
-4. Support both numeric (0x002) and named flag parsing in config
-5. Add to strategy probe candidates: `fake_synfin`, `fake_pshurg` variants
+**Implemented design:**
+1. Added four step-local TCP flag mask fields across the shared Rust model,
+   AppSettings proto, Kotlin typed chain model, JSON bridge, and chain DSL:
+   `tcp_flags_set`, `tcp_flags_unset`, `tcp_flags_orig_set`,
+   `tcp_flags_orig_unset`.
+2. Import accepts both numeric masks and named masks, but canonical storage and
+   formatting normalize to lower-case zapret-style names in fixed bit order:
+   `fin|syn|rst|psh|ack|urg|ece|cwr|ae|r1|r2|r3`.
+3. Validation is centralized and explicit. Fake masks are allowed only on steps
+   that emit fake TCP packets, original masks are allowed only on steps that
+   emit original payload bytes, `fakerst` is fake-only, and `oob` / `disoob`
+   reject all four mask fields in v1.
+4. Reworked the raw TCP packet builder so fake packet sends, fake RST,
+   seq-overlap, multi-disorder, and TCP IP fragmentation share the same flag
+   override path.
+5. Original-payload flag overrides now force the raw-send + replacement-socket
+   execution path rather than normal kernel stream writes. When the required raw
+   capability is unavailable, the runtime fails closed instead of silently
+   sending unmodified packets.
+6. Root-helper IPC gained generalized flagged TCP payload support so rooted and
+   non-rooted raw paths apply the same TCP flag overrides.
+7. Added `fake_synfin` and `fake_pshurg` to the `full_matrix_v1` TCP strategy
+   audit set, and added a primary-step Compose chip editor for fake/original
+   flag masks in Advanced Settings when the chain shape is visually editable.
 
 **Vault references:**
 - `Censorship/dpi-bypass-techniques.md` -- "TCP Flag Manipulation" section

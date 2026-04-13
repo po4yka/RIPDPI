@@ -208,6 +208,75 @@ Equivalent JSON fragment:
 }
 ```
 
+### TCP flag manipulation
+
+TCP chain steps now support explicit TCP flag overrides on both fake packets
+and original payload packets.
+
+- Shared fields across proto, Kotlin, JSON, and Rust config:
+  - `tcp_flags_set`
+  - `tcp_flags_unset`
+  - `tcp_flags_orig_set`
+  - `tcp_flags_orig_unset`
+- Supported flag names: `fin`, `syn`, `rst`, `psh`, `ack`, `urg`, `ece`,
+  `cwr`, `ae`, `r1`, `r2`, `r3`
+- Import accepts decimal or hex numeric masks as well as named masks, but the
+  stored representation is always normalized to lower-case pipe-separated names
+  in canonical bit order.
+
+Validation rules:
+
+- Fake masks are allowed only on steps that emit synthetic TCP packets:
+  `fake`, `fakesplit`, `fakedisorder`, `hostfake`, `seqovl`, and `fakerst`
+- Original masks are allowed only on steps that emit original payload bytes:
+  `split`, `syndata`, `disorder`, `multidisorder`, `fake`, `fakesplit`,
+  `fakedisorder`, `hostfake`, and `ipfrag2`
+- `fakerst` is fake-only
+- `oob` and `disoob` reject all four mask fields in v1
+- Set and unset masks for the same target must not overlap
+
+Runtime semantics:
+
+- Fake packet flag overrides are applied by the shared raw TCP segment builder
+  used by fake sends, fake RST, seq-overlap helpers, multi-disorder, and TCP
+  IP fragmentation.
+- Original-payload flag overrides do not use normal stream writes. The runtime
+  sends the payload through the raw TCP / TCP_REPAIR path and swaps to a
+  replacement socket exactly like other raw original-payload techniques.
+- If the required raw capability is unavailable, RIPDPI fails closed instead of
+  silently sending the original payload with the kernel's default flags.
+
+Example DSL:
+
+```text
+[tcp]
+fake host+1 tcp_flags=fin|syn tcp_flags_unset=ack
+split host+1 tcp_flags_orig=psh|urg tcp_flags_orig_unset=ece
+```
+
+Equivalent JSON fragment:
+
+```json
+{
+  "chains": {
+    "tcpSteps": [
+      {
+        "kind": "fake",
+        "marker": "host+1",
+        "tcpFlagsSet": "fin|syn",
+        "tcpFlagsUnset": "ack"
+      },
+      {
+        "kind": "split",
+        "marker": "host+1",
+        "tcpFlagsOrigSet": "psh|urg",
+        "tcpFlagsOrigUnset": "ece"
+      }
+    ]
+  }
+}
+```
+
 ### Markers and chains
 
 The runtime now supports:
@@ -215,6 +284,7 @@ The runtime now supports:
 - semantic marker offsets such as `host`, `endhost`, `midsld`, `method`, `extlen`, and `sniext`
 - adaptive markers such as `auto(balanced)` and `auto(host)` that resolve per payload from live `TCP_INFO`
 - ordered TCP and UDP chain steps with per-step activation filters, runtime TCP-state predicates on TCP steps, and group activation windows
+- general TCP flag crafting for both fake packets and original payload packets through per-step set/unset masks
 - grouped `multidisorder` TCP runs where each contiguous terminal step contributes one marker and the runtime sends the resulting regions in reverse order
 
 #### TCP chain step kinds (complete reference)

@@ -78,6 +78,13 @@ fun deriveTcpStrategyFamily(
             }
         } else {
             when {
+                primary.tcpFlagsSet.isNotBlank() ||
+                    primary.tcpFlagsUnset.isNotBlank() ||
+                    primary.tcpFlagsOrigSet.isNotBlank() ||
+                    primary.tcpFlagsOrigUnset.isNotBlank() -> {
+                    "fake_flags"
+                }
+
                 primary.kind == TcpChainStepKind.SeqOverlap && tlsPrelude != null -> {
                     "tlsrec_seqovl"
                 }
@@ -215,6 +222,7 @@ fun strategyLaneFamilyLabel(family: String): String {
         "tlsrec_multidisorder" -> "TLS record multi-disorder"
         "tlsrec_disorder" -> "TLS record disorder"
         "tlsrec_fake" -> "TLS record fake"
+        "fake_flags" -> "TCP flag crafting"
         "quic_ipfrag2" -> "QUIC IP fragmentation"
         "quic_disabled" -> "QUIC disabled"
         "quic_compat_burst" -> "QUIC compat burst"

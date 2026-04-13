@@ -36,6 +36,7 @@ import com.poyka.ripdpi.data.normalizePayloadSizeRange
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeRoundRange
 import com.poyka.ripdpi.data.normalizeStreamBytesRange
+import com.poyka.ripdpi.data.normalizeTcpFlagMask
 import com.poyka.ripdpi.data.normalizeWarpAmneziaPreset
 import com.poyka.ripdpi.data.normalizeWarpEndpointSelectionMode
 import com.poyka.ripdpi.data.normalizeWarpRouteMode
@@ -303,6 +304,31 @@ private class AdvancedSettingsMutationWriter(
                             kind = TcpChainStepKind.Split,
                             marker = normalized,
                         ),
+                udpSteps = uiState.desync.udpChainSteps,
+            )
+        }
+    }
+
+    fun updatePrimaryTcpFlags(
+        uiState: SettingsUiState,
+        key: String,
+        value: String,
+        transform: (TcpChainStepModel, String) -> TcpChainStepModel,
+    ) {
+        val primaryStep = primaryTcpChainStep(uiState.desync.tcpChainSteps) ?: return
+        if (!uiState.desync.tcpFlagVisualEditorSupported) {
+            return
+        }
+        val normalized = normalizeTcpFlagMask(value)
+        val index = uiState.desync.tcpChainSteps.indexOf(primaryStep)
+        if (index < 0) {
+            return
+        }
+        updateValue(key, normalized) {
+            val updated = uiState.desync.tcpChainSteps.toMutableList()
+            updated[index] = transform(primaryStep, normalized)
+            setStrategyChains(
+                tcpSteps = updated,
                 udpSteps = uiState.desync.udpChainSteps,
             )
         }
@@ -1108,6 +1134,30 @@ private val optionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
                     value = value,
                     mode = value,
                 )
+            },
+        AdvancedOptionSetting.TcpFlagsSet to
+            { value, uiState ->
+                updatePrimaryTcpFlags(uiState, "tcpFlagsSet", value) { step, normalized ->
+                    step.copy(tcpFlagsSet = normalized)
+                }
+            },
+        AdvancedOptionSetting.TcpFlagsUnset to
+            { value, uiState ->
+                updatePrimaryTcpFlags(uiState, "tcpFlagsUnset", value) { step, normalized ->
+                    step.copy(tcpFlagsUnset = normalized)
+                }
+            },
+        AdvancedOptionSetting.TcpFlagsOrigSet to
+            { value, uiState ->
+                updatePrimaryTcpFlags(uiState, "tcpFlagsOrigSet", value) { step, normalized ->
+                    step.copy(tcpFlagsOrigSet = normalized)
+                }
+            },
+        AdvancedOptionSetting.TcpFlagsOrigUnset to
+            { value, uiState ->
+                updatePrimaryTcpFlags(uiState, "tcpFlagsOrigUnset", value) { step, normalized ->
+                    step.copy(tcpFlagsOrigUnset = normalized)
+                }
             },
         AdvancedOptionSetting.HttpFakeProfile to
             { value, _ -> updateValue("httpFakeProfile", value) { setHttpFakeProfile(value) } },

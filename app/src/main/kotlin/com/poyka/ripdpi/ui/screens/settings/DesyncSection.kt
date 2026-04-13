@@ -154,8 +154,20 @@ internal fun LazyListScope.desyncSection(
                     showDivider =
                         showHostFakeSection ||
                             showSeqOverlapSection ||
+                            uiState.desync.primaryTcpFlagStep != null ||
                             showFakeOrOobSections,
                 )
+                if (uiState.desync.primaryTcpFlagStep != null) {
+                    TcpFlagProfileCard(
+                        uiState = uiState,
+                        visualEditorEnabled = visualEditorEnabled,
+                        onOptionSelected = onOptionSelected,
+                        modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
+                    )
+                    if (showHostFakeSection || showSeqOverlapSection || showFakeOrOobSections) {
+                        HorizontalDivider(color = colors.divider)
+                    }
+                }
                 if (showHostFakeSection) {
                     HostFakeProfileCard(
                         uiState = uiState,

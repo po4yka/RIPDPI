@@ -201,6 +201,14 @@ pub struct ProxyUiTcpChainStep {
     #[serde(default)]
     pub fake_host_template: String,
     #[serde(default)]
+    pub tcp_flags_set: String,
+    #[serde(default)]
+    pub tcp_flags_unset: String,
+    #[serde(default)]
+    pub tcp_flags_orig_set: String,
+    #[serde(default)]
+    pub tcp_flags_orig_unset: String,
+    #[serde(default)]
     pub overlap_size: i32,
     #[serde(default = "default_seqovl_fake_mode")]
     pub fake_mode: String,
@@ -1045,6 +1053,10 @@ fn default_tcp_chain_steps() -> Vec<ProxyUiTcpChainStep> {
             marker: "extlen".to_string(),
             midhost_marker: String::new(),
             fake_host_template: String::new(),
+            tcp_flags_set: String::new(),
+            tcp_flags_unset: String::new(),
+            tcp_flags_orig_set: String::new(),
+            tcp_flags_orig_unset: String::new(),
             overlap_size: 0,
             fake_mode: String::new(),
             fragment_count: 0,
@@ -1059,6 +1071,10 @@ fn default_tcp_chain_steps() -> Vec<ProxyUiTcpChainStep> {
             marker: "host+1".to_string(),
             midhost_marker: String::new(),
             fake_host_template: String::new(),
+            tcp_flags_set: String::new(),
+            tcp_flags_unset: String::new(),
+            tcp_flags_orig_set: String::new(),
+            tcp_flags_orig_unset: String::new(),
             overlap_size: 0,
             fake_mode: default_seqovl_fake_mode(),
             fragment_count: 0,

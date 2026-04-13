@@ -3,12 +3,13 @@ use std::str::FromStr;
 use std::{fmt, mem};
 
 use ripdpi_config::{
-    parse_http_fake_profile as parse_http_fake_profile_id, parse_tls_fake_profile as parse_tls_fake_profile_id,
-    parse_udp_fake_profile as parse_udp_fake_profile_id, ActivationFilter, DesyncGroup, DesyncMode, EntropyMode,
-    FakePacketSource, NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RotationCandidate,
-    RotationPolicy, RuntimeConfig, SeqOverlapFakeMode, StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep,
-    UdpChainStepKind, UpstreamSocksConfig, WsizeConfig, AUTO_RECONN, AUTO_SORT, DETECT_CONNECT, DETECT_HTTP_LOCAT,
-    DETECT_TLS_ERR, DETECT_TORST, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    parse_http_fake_profile as parse_http_fake_profile_id, parse_tcp_flag_mask,
+    parse_tls_fake_profile as parse_tls_fake_profile_id, parse_udp_fake_profile as parse_udp_fake_profile_id,
+    validate_tcp_flag_masks, ActivationFilter, DesyncGroup, DesyncMode, EntropyMode, FakePacketSource, NumericRange,
+    OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RotationCandidate, RotationPolicy, RuntimeConfig,
+    SeqOverlapFakeMode, StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
+    UpstreamSocksConfig, WsizeConfig, AUTO_RECONN, AUTO_SORT, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR,
+    DETECT_TORST, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{
@@ -142,6 +143,10 @@ fn synthesize_tlsrec_prelude_for_bare_hostfake(chain: &mut Vec<TcpChainStep>) {
             activation_filter: None,
             midhost_offset: None,
             fake_host_template: None,
+            tcp_flags_set: None,
+            tcp_flags_unset: None,
+            tcp_flags_orig_set: None,
+            tcp_flags_orig_unset: None,
             overlap_size: 0,
             seqovl_fake_mode: SeqOverlapFakeMode::Profile,
             fragment_count: 0,
@@ -1071,6 +1076,35 @@ fn parse_proxy_tcp_chain(
             .map(ripdpi_config::normalize_fake_host_template)
             .transpose()
             .map_err(|_| ProxyConfigError::InvalidConfig(format!("Invalid {field_name} fakeHostTemplate")))?;
+        let tcp_flags_set = Some(str::trim(step.tcp_flags_set.as_str()))
+            .filter(|value| !value.is_empty())
+            .map(parse_tcp_flag_mask)
+            .transpose()
+            .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid {field_name} tcpFlags: {err}")))?;
+        let tcp_flags_unset = Some(str::trim(step.tcp_flags_unset.as_str()))
+            .filter(|value| !value.is_empty())
+            .map(parse_tcp_flag_mask)
+            .transpose()
+            .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid {field_name} tcpFlagsUnset: {err}")))?;
+        let tcp_flags_orig_set = Some(str::trim(step.tcp_flags_orig_set.as_str()))
+            .filter(|value| !value.is_empty())
+            .map(parse_tcp_flag_mask)
+            .transpose()
+            .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid {field_name} tcpFlagsOrig: {err}")))?;
+        let tcp_flags_orig_unset = Some(str::trim(step.tcp_flags_orig_unset.as_str()))
+            .filter(|value| !value.is_empty())
+            .map(parse_tcp_flag_mask)
+            .transpose()
+            .map_err(|err| ProxyConfigError::InvalidConfig(format!("Invalid {field_name} tcpFlagsOrigUnset: {err}")))?;
+        validate_tcp_flag_masks(
+            kind,
+            tcp_flags_set,
+            tcp_flags_unset,
+            tcp_flags_orig_set,
+            tcp_flags_orig_unset,
+            field_name,
+        )
+        .map_err(|err| ProxyConfigError::InvalidConfig(err.to_string()))?;
         let (overlap_size, seqovl_fake_mode) = match kind {
             TcpChainStepKind::SeqOverlap => {
                 let overlap_size = normalize_seqovl_overlap_size(step.overlap_size);
@@ -1121,6 +1155,10 @@ fn parse_proxy_tcp_chain(
             activation_filter,
             midhost_offset,
             fake_host_template,
+            tcp_flags_set,
+            tcp_flags_unset,
+            tcp_flags_orig_set,
+            tcp_flags_orig_unset,
             overlap_size,
             seqovl_fake_mode,
             fragment_count,

@@ -13,7 +13,7 @@ use std::time::Duration;
 use nix::sys::socket::{self, ControlMessage, MsgFlags};
 use serde::{Deserialize, Serialize};
 
-use super::{recv_line_with_optional_fd, IpFragmentationCapabilities};
+use super::{recv_line_with_optional_fd, IpFragmentationCapabilities, TcpFlagOverrides};
 
 /// Client for communicating with the root helper process.
 pub struct RootHelperClient {
@@ -60,10 +60,29 @@ impl RootHelperClient {
     }
 
     /// Send a fake RST packet via the helper.
-    pub fn send_fake_rst(&self, stream_fd: RawFd, default_ttl: u8) -> io::Result<()> {
-        let params = serde_json::json!({ "default_ttl": default_ttl });
+    pub fn send_fake_rst(&self, stream_fd: RawFd, default_ttl: u8, flags: TcpFlagOverrides) -> io::Result<()> {
+        let params = serde_json::json!({ "default_ttl": default_ttl, "tcp_flags_set": flags.set, "tcp_flags_unset": flags.unset });
         let (_resp, _fd) = self.send_command("send_fake_rst", params, Some(stream_fd))?;
         Ok(())
+    }
+
+    pub fn send_flagged_tcp_payload(
+        &self,
+        stream_fd: RawFd,
+        payload: &[u8],
+        default_ttl: u8,
+        md5sig: bool,
+        flags: TcpFlagOverrides,
+    ) -> io::Result<Option<RawFd>> {
+        let params = serde_json::json!({
+            "payload": payload,
+            "default_ttl": default_ttl,
+            "md5sig": md5sig,
+            "tcp_flags_set": flags.set,
+            "tcp_flags_unset": flags.unset,
+        });
+        let (_resp, fd) = self.send_command("send_flagged_tcp_payload", params, Some(stream_fd))?;
+        Ok(fd)
     }
 
     /// Perform TCP sequence overlap via the helper. Returns replacement fd.
@@ -74,12 +93,15 @@ impl RootHelperClient {
         fake_prefix: &[u8],
         default_ttl: u8,
         md5sig: bool,
+        flags: TcpFlagOverrides,
     ) -> io::Result<Option<RawFd>> {
         let params = serde_json::json!({
             "real_chunk": real_chunk,
             "fake_prefix": fake_prefix,
             "default_ttl": default_ttl,
             "md5sig": md5sig,
+            "tcp_flags_set": flags.set,
+            "tcp_flags_unset": flags.unset,
         });
         let (_resp, fd) = self.send_command("send_seqovl_tcp", params, Some(stream_fd))?;
         Ok(fd)
@@ -94,6 +116,7 @@ impl RootHelperClient {
         default_ttl: u8,
         inter_segment_delay_ms: u32,
         md5sig: bool,
+        flags: TcpFlagOverrides,
     ) -> io::Result<Option<RawFd>> {
         let seg_specs: Vec<serde_json::Value> =
             segments.iter().map(|s| serde_json::json!({ "start": s.start, "end": s.end })).collect();
@@ -103,6 +126,8 @@ impl RootHelperClient {
             "default_ttl": default_ttl,
             "inter_segment_delay_ms": inter_segment_delay_ms,
             "md5sig": md5sig,
+            "tcp_flags_set": flags.set,
+            "tcp_flags_unset": flags.unset,
         });
         let (_resp, fd) = self.send_command("send_multi_disorder_tcp", params, Some(stream_fd))?;
         Ok(fd)
@@ -116,12 +141,15 @@ impl RootHelperClient {
         split_offset: usize,
         default_ttl: u8,
         disorder: bool,
+        flags: TcpFlagOverrides,
     ) -> io::Result<Option<RawFd>> {
         let params = serde_json::json!({
             "payload": payload,
             "split_offset": split_offset,
             "default_ttl": default_ttl,
             "disorder": disorder,
+            "tcp_flags_set": flags.set,
+            "tcp_flags_unset": flags.unset,
         });
         let (_resp, fd) = self.send_command("send_ip_fragmented_tcp", params, Some(stream_fd))?;
         Ok(fd)

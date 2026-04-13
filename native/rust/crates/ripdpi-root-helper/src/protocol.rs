@@ -42,6 +42,7 @@ impl HelperResponse {
 
 pub const CMD_PROBE_CAPABILITIES: &str = "probe_capabilities";
 pub const CMD_SEND_FAKE_RST: &str = "send_fake_rst";
+pub const CMD_SEND_FLAGGED_TCP_PAYLOAD: &str = "send_flagged_tcp_payload";
 pub const CMD_SEND_SEQOVL_TCP: &str = "send_seqovl_tcp";
 pub const CMD_SEND_MULTI_DISORDER_TCP: &str = "send_multi_disorder_tcp";
 pub const CMD_SEND_IP_FRAGMENTED_TCP: &str = "send_ip_fragmented_tcp";

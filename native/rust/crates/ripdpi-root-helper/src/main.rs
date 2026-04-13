@@ -11,8 +11,8 @@ use std::sync::Arc;
 use tracing::{error, info, warn};
 
 use protocol::{
-    HelperRequest, CMD_PROBE_CAPABILITIES, CMD_SEND_FAKE_RST, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP,
-    CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_SEQOVL_TCP, CMD_SHUTDOWN,
+    HelperRequest, CMD_PROBE_CAPABILITIES, CMD_SEND_FAKE_RST, CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_IP_FRAGMENTED_TCP,
+    CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_SEQOVL_TCP, CMD_SHUTDOWN,
 };
 
 fn main() {
@@ -125,6 +125,16 @@ fn dispatch_command(
             };
             match serde_json::from_value(request.params.clone()) {
                 Ok(params) => handlers::handle_send_fake_rst(fd, params),
+                Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
+            }
+        }
+
+        CMD_SEND_FLAGGED_TCP_PAYLOAD => {
+            let Some(fd) = received_fd else {
+                return (protocol::HelperResponse::error("send_flagged_tcp_payload requires a stream fd"), None);
+            };
+            match serde_json::from_value(request.params.clone()) {
+                Ok(params) => handlers::handle_send_flagged_tcp_payload(fd, params),
                 Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
             }
         }
