@@ -49,6 +49,8 @@ pub enum ProxyConfigPayload {
         runtime_context: Option<ProxyRuntimeContext>,
         #[serde(default)]
         log_context: Option<ProxyLogContext>,
+        #[serde(default)]
+        session_overrides: Option<ProxySessionOverrides>,
     },
     Ui {
         #[serde(default)]
@@ -59,7 +61,18 @@ pub enum ProxyConfigPayload {
         runtime_context: Option<ProxyRuntimeContext>,
         #[serde(default)]
         log_context: Option<ProxyLogContext>,
+        #[serde(default)]
+        session_overrides: Option<ProxySessionOverrides>,
     },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxySessionOverrides {
+    #[serde(default)]
+    pub listen_port_override: Option<i32>,
+    #[serde(default)]
+    pub auth_token: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]

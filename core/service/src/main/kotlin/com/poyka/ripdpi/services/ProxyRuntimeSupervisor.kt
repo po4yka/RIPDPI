@@ -29,7 +29,7 @@ internal class ProxyRuntimeSupervisor(
     suspend fun start(
         preferences: RipDpiProxyPreferences,
         onUnexpectedExit: suspend (Result<Int>) -> Unit,
-    ) {
+    ): LocalProxyEndpoint {
         check(proxyJob == null) { "Proxy fields not null" }
 
         val proxyInstance = ripDpiProxyFactory.create()
@@ -49,27 +49,32 @@ internal class ProxyRuntimeSupervisor(
         proxyJob = job
 
         @Suppress("TooGenericExceptionCaught")
-        try {
-            proxyInstance.awaitReady()
-        } catch (readinessError: Exception) {
-            val proxyStartWasActive = job.isActive
+        val endpoint =
             try {
-                runCatching {
-                    if (proxyStartWasActive) {
-                        proxyInstance.stopProxy()
+                proxyInstance.awaitReady()
+                resolveLocalProxyEndpoint(
+                    telemetry = proxyInstance.pollTelemetry(),
+                    authToken = preferences.localAuthToken,
+                )
+            } catch (readinessError: Exception) {
+                val proxyStartWasActive = job.isActive
+                try {
+                    runCatching {
+                        if (proxyStartWasActive) {
+                            proxyInstance.stopProxy()
+                        }
                     }
+                    job.join()
+                } finally {
+                    proxyJob = null
+                    proxyRuntime = null
                 }
-                job.join()
-            } finally {
-                proxyJob = null
-                proxyRuntime = null
+                throw resolveProxyStartupFailure(
+                    readinessError = readinessError,
+                    proxyStartWasActive = proxyStartWasActive,
+                    proxyStartResult = exitResult.await(),
+                )
             }
-            throw resolveProxyStartupFailure(
-                readinessError = readinessError,
-                proxyStartWasActive = proxyStartWasActive,
-                proxyStartResult = exitResult.await(),
-            )
-        }
 
         job.invokeOnCompletion {
             scope.launch(dispatcher) {
@@ -78,6 +83,7 @@ internal class ProxyRuntimeSupervisor(
         }
 
         runCatching { proxyInstance.updateNetworkSnapshot(networkSnapshotProvider.capture()) }
+        return endpoint
     }
 
     suspend fun stop() {

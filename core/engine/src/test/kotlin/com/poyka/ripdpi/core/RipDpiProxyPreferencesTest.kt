@@ -34,6 +34,7 @@ class RipDpiProxyPreferencesTest {
     private companion object {
         const val LegacyCommandLineProgram = "cia" + "dpi"
         const val LegacyStrategyPreset = "bye" + "dpi_default"
+        const val TestLocalProxyAuth = "alpha-123"
     }
 
     @Test
@@ -47,6 +48,22 @@ class RipDpiProxyPreferencesTest {
         assertEquals("ripdpi", args[0].jsonPrimitive.content)
         assertTrue("--port" in args.map { it.jsonPrimitive.content })
         assertTrue("--no-domain" in args.map { it.jsonPrimitive.content })
+    }
+
+    @Test
+    fun commandLinePreferencesRewriteSessionLocalProxyOverrides() {
+        val preferences =
+            RipDpiProxyJsonPreferences(
+                configJson = RipDpiProxyCmdPreferences("--port 1081 --no-domain").toNativeConfigJson(),
+                localListenPortOverride = 0,
+                localAuthToken = TestLocalProxyAuth,
+            )
+
+        val payload = preferences.toNativeConfigJson().parseJsonObject()
+        val overrides = payload.objectAt("sessionOverrides")
+
+        assertEquals(0, overrides.int("listenPortOverride"))
+        assertEquals(TestLocalProxyAuth, overrides.string("authToken"))
     }
 
     @Test

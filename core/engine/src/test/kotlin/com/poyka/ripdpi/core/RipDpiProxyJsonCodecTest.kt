@@ -4,11 +4,89 @@ import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Test
 
+private const val TestLocalProxyAuth = "alpha-123"
+
 class RipDpiProxyJsonCodecTest {
+    @Test
+    fun `ui preferences encode session local proxy overrides without mutating persisted listen config`() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                listen = RipDpiListenConfig(port = 1080),
+            )
+
+        val payload =
+            RipDpiProxyJsonCodec.encodeUiPreferences(
+                preferences = preferences,
+                localListenPortOverride = 0,
+                localAuthToken = TestLocalProxyAuth,
+            )
+
+        val objectValue =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(payload)
+                .jsonObject
+        val sessionOverrides = objectValue["sessionOverrides"]?.jsonObject
+        val listen = objectValue["listen"]?.jsonObject
+
+        assertNotNull(sessionOverrides)
+        assertEquals(
+            0,
+            sessionOverrides
+                ?.get("listenPortOverride")
+                ?.jsonPrimitive
+                ?.content
+                ?.toInt(),
+        )
+        assertEquals(TestLocalProxyAuth, sessionOverrides?.get("authToken")?.jsonPrimitive?.content)
+        assertEquals(
+            1080,
+            listen
+                ?.get("port")
+                ?.jsonPrimitive
+                ?.content
+                ?.toInt(),
+        )
+        assertNull(listen?.get("authToken")?.jsonPrimitive?.contentOrNull)
+    }
+
+    @Test
+    fun `command line preferences encode session local proxy overrides`() {
+        val payload =
+            RipDpiProxyJsonCodec.encodeCommandLinePreferences(
+                args = listOf("ripdpi", "--port", "1081"),
+                hostAutolearnStorePath = null,
+                runtimeContext = null,
+                logContext = null,
+                localListenPortOverride = 0,
+                localAuthToken = TestLocalProxyAuth,
+            )
+
+        val objectValue =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(payload)
+                .jsonObject
+        val sessionOverrides = objectValue["sessionOverrides"]?.jsonObject
+
+        assertNotNull(sessionOverrides)
+        assertEquals(
+            0,
+            sessionOverrides
+                ?.get("listenPortOverride")
+                ?.jsonPrimitive
+                ?.content
+                ?.toInt(),
+        )
+        assertEquals(TestLocalProxyAuth, sessionOverrides?.get("authToken")?.jsonPrimitive?.content)
+    }
+
     @Test
     fun `ui preferences round trip tcp state activation filters`() {
         val preferences =

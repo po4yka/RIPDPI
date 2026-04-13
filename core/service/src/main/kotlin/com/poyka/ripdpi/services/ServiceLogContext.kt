@@ -27,8 +27,15 @@ internal fun RipDpiProxyPreferences.withLogContext(logContext: RipDpiLogContext?
         )
     }
 
-internal fun RipDpiProxyPreferences.withLocalAuthToken(token: String?): RipDpiProxyPreferences =
+internal fun RipDpiProxyPreferences.withSessionLocalProxyOverrides(
+    listenPortOverride: Int? = null,
+    authToken: String? = null,
+): RipDpiProxyPreferences =
     RipDpiProxyJsonPreferences(
         configJson = toNativeConfigJson(),
-        localAuthToken = token,
+        localListenPortOverride = listenPortOverride,
+        localAuthToken = authToken,
     )
+
+internal fun RipDpiProxyPreferences.withLocalAuthToken(token: String?): RipDpiProxyPreferences =
+    withSessionLocalProxyOverrides(authToken = token)

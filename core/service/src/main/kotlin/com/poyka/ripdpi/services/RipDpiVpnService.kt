@@ -313,16 +313,16 @@ class RipDpiVpnService :
         internal fun buildTun2SocksConfig(
             activeDns: ActiveDnsSettings,
             overrideReason: String?,
-            socks5Port: Int,
+            localProxyEndpoint: LocalProxyEndpoint,
             ipv6Enabled: Boolean,
             logContext: RipDpiLogContext? = null,
-            localAuthToken: String? = null,
         ): Tun2SocksConfig =
             Tun2SocksConfig(
                 tunnelMtu = defaultTun2SocksTunnelMtu,
                 tunnelIpv4 = TUNNEL_IPV4_CIDR,
                 tunnelIpv6 = if (ipv6Enabled) TUNNEL_IPV6_CIDR else null,
-                socks5Port = socks5Port,
+                socks5Address = localProxyEndpoint.host,
+                socks5Port = localProxyEndpoint.port,
                 socks5Udp = "udp",
                 mapdnsAddress = if (activeDns.mode == DnsModeEncrypted) MAPDNS_ADDRESS else null,
                 mapdnsPort = if (activeDns.mode == DnsModeEncrypted) MAPDNS_PORT else null,
@@ -367,8 +367,8 @@ class RipDpiVpnService :
                 resolverFallbackActive = overrideReason != null,
                 resolverFallbackReason = overrideReason,
                 logContext = logContext,
-                username = if (localAuthToken != null) "ripdpi" else null,
-                password = localAuthToken,
+                username = localProxyEndpoint.username,
+                password = localProxyEndpoint.password,
             )
     }
 }

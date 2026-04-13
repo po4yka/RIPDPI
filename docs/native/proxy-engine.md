@@ -46,6 +46,42 @@ Relevant sources:
 
 `RipDpiVpnService.startProxy()` -> `ConnectionPolicyResolver.resolve()` -> `RipDpiProxy.startProxy()` -> `jniCreate(configJson)` -> `jniStart(handle)` -> `runtime::create_listener()` -> `runtime::run_proxy_with_embedded_control()`
 
+### VPN localhost hardening
+
+VPN mode now treats the local proxy endpoint as a session-local runtime detail
+instead of reusing the persisted manual proxy port.
+
+- Proxy mode still binds the configured `proxyPort` and exposes it directly to
+  the user.
+- VPN mode applies runtime-only `sessionOverrides` after payload parsing:
+  `listenPortOverride=0` for an ephemeral localhost bind and `authToken=<fresh
+  token>` for mandatory local auth.
+- The same override layer is applied to both UI-config and command-line-config
+  VPN sessions. No AppSettings schema change and no new CLI flag were added.
+- `ProxyRuntimeSupervisor.start()` waits for readiness, polls proxy telemetry,
+  and resolves the actual `listenerAddress` into a concrete localhost endpoint
+  before tun2socks starts.
+- If the proxy becomes ready but never publishes a listener address, VPN
+  startup fails closed instead of falling back to `1080`.
+- Initial VPN start and handover restart rotate both the auth token and the
+  ephemeral listener port. DNS-only tunnel rebuilds reuse the current endpoint
+  because the proxy is not restarted.
+
+Resolved endpoint shape handed from proxy startup to the TUN bridge:
+
+```text
+host=127.0.0.1
+port=<telemetry-reported ephemeral port>
+username=ripdpi
+password=<session auth token>
+```
+
+That same token is enforced on all localhost proxy protocols already guarded by
+the native `auth_token` path:
+
+- SOCKS5 requires RFC 1929 username/password auth
+- HTTP CONNECT requires valid `Proxy-Authorization`
+
 Relevant sources:
 
 - `core/service/src/main/kotlin/com/poyka/ripdpi/services/RipDpiProxyService.kt`

@@ -16,7 +16,6 @@ internal class VpnTunnelRuntime(
 ) {
     private companion object {
         private const val MapDnsAddress = "198.18.0.53"
-        private const val DefaultProxyPort = 1080
     }
 
     private var tun2SocksBridge: Tun2SocksBridge? = null
@@ -37,22 +36,20 @@ internal class VpnTunnelRuntime(
         activeDns: ActiveDnsSettings,
         overrideReason: String?,
         logContext: RipDpiLogContext?,
-        localAuthToken: String? = null,
+        localProxyEndpoint: LocalProxyEndpoint,
     ) {
         check(tunSession == null) { "VPN field not null" }
 
         val settings = appSettingsRepository.snapshot()
-        val port = if (settings.proxyPort > 0) settings.proxyPort else DefaultProxyPort
         val dns = if (activeDns.mode == DnsModeEncrypted) MapDnsAddress else activeDns.dnsIp
         val ipv6 = settings.ipv6Enable
         val config =
             RipDpiVpnService.buildTun2SocksConfig(
                 activeDns = activeDns,
                 overrideReason = overrideReason,
-                socks5Port = port,
+                localProxyEndpoint = localProxyEndpoint,
                 ipv6Enabled = ipv6,
                 logContext = logContext,
-                localAuthToken = localAuthToken,
             )
 
         val tunnelSession = vpnTunnelSessionProvider.establish(vpnHost, dns, ipv6)

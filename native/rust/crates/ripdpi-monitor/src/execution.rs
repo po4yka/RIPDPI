@@ -544,6 +544,7 @@ pub(crate) fn candidate_proxy_config_json(spec: &StrategyCandidateSpec) -> Optio
         config: spec.config.clone(),
         runtime_context: None,
         log_context: None,
+        session_overrides: None,
     })
     .ok()
 }

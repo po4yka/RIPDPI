@@ -11,6 +11,18 @@ import org.junit.Test
 import java.io.IOException
 
 class VpnTunnelRuntimeTest {
+    private companion object {
+        const val TestLocalProxyAuth = "alpha-123"
+
+        val localProxyEndpoint =
+            LocalProxyEndpoint(
+                host = "127.0.0.1",
+                port = 18080,
+                username = VpnLocalProxyUsername,
+                password = TestLocalProxyAuth,
+            )
+    }
+
     @Test
     fun successfulStartStoresDnsSignatureAndSyncsHost() =
         runTest {
@@ -32,6 +44,7 @@ class VpnTunnelRuntimeTest {
                 activeDns = AppSettingsSerializer.defaultValue.activeDnsSettings(),
                 overrideReason = null,
                 logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
             )
 
             assertTrue(runtime.isRunning)
@@ -64,12 +77,14 @@ class VpnTunnelRuntimeTest {
                 AppSettingsSerializer.defaultValue.activeDnsSettings(),
                 overrideReason = null,
                 logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
             )
             runtime.stop()
             runtime.start(
                 AppSettingsSerializer.defaultValue.activeDnsSettings(),
                 overrideReason = null,
                 logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
             )
 
             assertEquals(1L, runtime.tunnelRecoveryRetryCount)
@@ -98,6 +113,7 @@ class VpnTunnelRuntimeTest {
                     AppSettingsSerializer.defaultValue.activeDnsSettings(),
                     overrideReason = null,
                     logContext = null,
+                    localProxyEndpoint = localProxyEndpoint,
                 )
             }
 
@@ -127,6 +143,7 @@ class VpnTunnelRuntimeTest {
                 AppSettingsSerializer.defaultValue.activeDnsSettings(),
                 overrideReason = null,
                 logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
             )
             val failure = runCatching { runtime.stop() }.exceptionOrNull()
 
@@ -152,9 +169,14 @@ class VpnTunnelRuntimeTest {
                 AppSettingsSerializer.defaultValue.activeDnsSettings(),
                 overrideReason = null,
                 logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
             )
 
             assertEquals("udp", bridge.startedConfig?.socks5Udp)
+            assertEquals(localProxyEndpoint.host, bridge.startedConfig?.socks5Address)
+            assertEquals(localProxyEndpoint.port, bridge.startedConfig?.socks5Port)
+            assertEquals(localProxyEndpoint.username, bridge.startedConfig?.username)
+            assertEquals(localProxyEndpoint.password, bridge.startedConfig?.password)
         }
 
     @Test
@@ -174,7 +196,12 @@ class VpnTunnelRuntimeTest {
                     vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
                 )
 
-            runtime.start(settings.activeDnsSettings(), overrideReason = null, logContext = null)
+            runtime.start(
+                settings.activeDnsSettings(),
+                overrideReason = null,
+                logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
+            )
 
             assertEquals("udp", bridge.startedConfig?.socks5Udp)
         }
@@ -196,6 +223,7 @@ class VpnTunnelRuntimeTest {
                 AppSettingsSerializer.defaultValue.activeDnsSettings(),
                 overrideReason = null,
                 logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
             )
             val error =
                 runCatching {
@@ -203,6 +231,7 @@ class VpnTunnelRuntimeTest {
                         AppSettingsSerializer.defaultValue.activeDnsSettings(),
                         overrideReason = null,
                         logContext = null,
+                        localProxyEndpoint = localProxyEndpoint,
                     )
                 }.exceptionOrNull()
 
@@ -225,6 +254,7 @@ class VpnTunnelRuntimeTest {
                 AppSettingsSerializer.defaultValue.activeDnsSettings(),
                 overrideReason = null,
                 logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
             )
             val result = runtime.pollTelemetry()
 
@@ -262,12 +292,14 @@ class VpnTunnelRuntimeTest {
                 AppSettingsSerializer.defaultValue.activeDnsSettings(),
                 overrideReason = null,
                 logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
             )
             runtime.stop()
             runtime.start(
                 AppSettingsSerializer.defaultValue.activeDnsSettings(),
                 overrideReason = null,
                 logContext = null,
+                localProxyEndpoint = localProxyEndpoint,
             )
             assertEquals(1L, runtime.tunnelRecoveryRetryCount)
 

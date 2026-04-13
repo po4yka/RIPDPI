@@ -559,7 +559,13 @@ internal class TestProxyRuntime(
     var awaitReadyFailure: Exception? = null
     var stopFailure: Throwable? = null
     var telemetryFailure: Throwable? = null
-    var telemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy")
+    var telemetry: NativeRuntimeSnapshot =
+        NativeRuntimeSnapshot(
+            source = "proxy",
+            state = "running",
+            health = "healthy",
+            listenerAddress = "127.0.0.1:1080",
+        )
     var lastPreferences: RipDpiProxyPreferences? = null
         private set
     var stopCount: Int = 0
@@ -873,6 +879,7 @@ internal class TestTun2SocksBridge(
 ) : Tun2SocksBridge {
     var startedConfig: Tun2SocksConfig? = null
         private set
+    val startedConfigs = mutableListOf<Tun2SocksConfig>()
     var startedTunFd: Int? = null
         private set
     var stopCount: Int = 0
@@ -894,6 +901,7 @@ internal class TestTun2SocksBridge(
     ) {
         events += "tunnel:start"
         startedConfig = config
+        startedConfigs += config
         startedTunFd = tunFd
         startFailure?.let { throw it }
     }

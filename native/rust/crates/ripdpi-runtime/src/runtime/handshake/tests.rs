@@ -286,3 +286,60 @@ fn validate_http_proxy_auth_invalid_base64() {
     let request = b"CONNECT example.com:443 HTTP/1.1\r\nProxy-Authorization: Basic !!!invalid!!!\r\n\r\n";
     assert!(!validate_http_proxy_auth(request, "abc123"));
 }
+
+#[test]
+fn negotiate_socks5_rejects_unauthenticated_method_when_token_required() {
+    let (mut client, mut server) = connected_pair();
+    client.write_all(&[0x01, 0x00]).expect("write socks5 methods");
+
+    let err = negotiate_socks5(&mut server, Some("alpha-123")).expect_err("missing userpass method should fail");
+    assert_eq!(err.kind(), std::io::ErrorKind::PermissionDenied);
+
+    let mut reply = [0u8; 2];
+    client.read_exact(&mut reply).expect("read auth method reply");
+    assert_eq!(reply, [S_VER5, ripdpi_session::S_AUTH_BAD]);
+}
+
+#[test]
+fn negotiate_socks5_rejects_wrong_password() {
+    let (mut client, mut server) = connected_pair();
+    let mut request = vec![0x01, ripdpi_session::S_AUTH_USERPASS];
+    request.extend([0x01, 0x06]);
+    request.extend_from_slice(b"ripdpi");
+    request.push(0x05);
+    request.extend_from_slice(b"wrong");
+    client.write_all(&request).expect("write socks5 auth exchange");
+
+    let err = negotiate_socks5(&mut server, Some("alpha-123")).expect_err("wrong password should fail");
+    assert_eq!(err.kind(), std::io::ErrorKind::PermissionDenied);
+
+    let mut method_reply = [0u8; 2];
+    client.read_exact(&mut method_reply).expect("read method reply");
+    assert_eq!(method_reply, [S_VER5, ripdpi_session::S_AUTH_USERPASS]);
+
+    let mut auth_reply = [0u8; 2];
+    client.read_exact(&mut auth_reply).expect("read auth status");
+    assert_eq!(auth_reply, [0x01, 0x01]);
+}
+
+#[test]
+fn handle_http_connect_rejects_missing_proxy_auth_when_token_required() {
+    let mut config = RuntimeConfig { groups: vec![DesyncGroup::new(0)], ..Default::default() };
+    config.network.http_connect = true;
+    config.network.listen.auth_token = Some("alpha-123".to_string());
+    let state = runtime_state(config);
+    let (mut client, server) = connected_pair();
+    client.set_read_timeout(Some(Duration::from_secs(1))).expect("set read timeout");
+    client
+        .write_all(b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n")
+        .expect("write http connect request");
+
+    let err = super::handle_client(server, &state).expect_err("missing auth should fail");
+    assert_eq!(err.kind(), std::io::ErrorKind::PermissionDenied);
+
+    let mut reply = Vec::new();
+    client.read_to_end(&mut reply).expect("read http auth failure reply");
+    let reply = String::from_utf8(reply).expect("utf8 reply");
+    assert!(reply.contains("407 Proxy Authentication Required"));
+    assert!(reply.contains("Proxy-Authenticate: Basic realm=\"ripdpi\""));
+}

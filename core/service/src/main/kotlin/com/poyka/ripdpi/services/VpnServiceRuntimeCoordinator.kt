@@ -66,7 +66,7 @@ internal class VpnServiceRuntimeCoordinator(
         private const val TelemetryPollIntervalBackgroundMs = 5_000L
     }
 
-    private var currentProxyAuthToken: String? = null
+    private var currentLocalProxyEndpoint: LocalProxyEndpoint? = null
 
     override val serviceLabel: String = "VPN"
 
@@ -126,7 +126,6 @@ internal class VpnServiceRuntimeCoordinator(
                 .randomUUID()
                 .toString()
                 .replace("-", "")
-        currentProxyAuthToken = authToken
         val relayQuicMigrationConfig = resolution.proxyPreferences.ownedRelayQuicMigrationConfig()
         resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
             upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, ::handleRelayExit)
@@ -134,15 +133,20 @@ internal class VpnServiceRuntimeCoordinator(
         resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
             warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
         }
-        proxyRuntimeSupervisor.start(
-            resolution.proxyPreferences.withLogContext(logContext).withLocalAuthToken(authToken),
-            ::handleProxyExit,
-        )
+        val localProxyEndpoint =
+            proxyRuntimeSupervisor.start(
+                resolution
+                    .proxyPreferences
+                    .withLogContext(logContext)
+                    .withSessionLocalProxyOverrides(listenPortOverride = 0, authToken = authToken),
+                ::handleProxyExit,
+            )
+        currentLocalProxyEndpoint = localProxyEndpoint
         vpnTunnelRuntime.start(
             activeDns = resolution.activeDns,
             overrideReason = resolution.resolverFallbackReason,
             logContext = logContext,
-            localAuthToken = authToken,
+            localProxyEndpoint = localProxyEndpoint,
         )
         updateRuntimeDnsState(session, resolution)
     }
@@ -212,7 +216,10 @@ internal class VpnServiceRuntimeCoordinator(
                 activeDns = latestResolution.activeDns,
                 overrideReason = latestResolution.resolverFallbackReason,
                 logContext = refreshSession.buildLogContext(refreshSession.currentActiveConnectionPolicy),
-                localAuthToken = currentProxyAuthToken,
+                localProxyEndpoint =
+                    checkNotNull(currentLocalProxyEndpoint) {
+                        "VPN tunnel refresh requires an active local proxy endpoint"
+                    },
             )
             updateRuntimeDnsState(refreshSession, latestResolution)
         }
@@ -325,7 +332,6 @@ internal class VpnServiceRuntimeCoordinator(
                 .randomUUID()
                 .toString()
                 .replace("-", "")
-        currentProxyAuthToken = authToken
         val relayQuicMigrationConfig = resolution.proxyPreferences.ownedRelayQuicMigrationConfig()
         resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
             upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, ::handleRelayExit)
@@ -333,15 +339,20 @@ internal class VpnServiceRuntimeCoordinator(
         resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
             warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
         }
-        proxyRuntimeSupervisor.start(
-            resolution.proxyPreferences.withLogContext(logContext).withLocalAuthToken(authToken),
-            ::handleProxyExit,
-        )
+        val localProxyEndpoint =
+            proxyRuntimeSupervisor.start(
+                resolution
+                    .proxyPreferences
+                    .withLogContext(logContext)
+                    .withSessionLocalProxyOverrides(listenPortOverride = 0, authToken = authToken),
+                ::handleProxyExit,
+            )
+        currentLocalProxyEndpoint = localProxyEndpoint
         vpnTunnelRuntime.start(
             activeDns = resolution.activeDns,
             overrideReason = resolution.resolverFallbackReason,
             logContext = logContext,
-            localAuthToken = authToken,
+            localProxyEndpoint = localProxyEndpoint,
         )
         updateRuntimeDnsState(session, resolution)
     }
@@ -384,6 +395,7 @@ internal class VpnServiceRuntimeCoordinator(
     override fun onAfterStopCleanup(session: VpnRuntimeSession?) {
         resolverOverrideStore.clear()
         vpnTunnelRuntime.resetRuntimeState()
+        currentLocalProxyEndpoint = null
         session?.encryptedDnsFailoverState?.resetAll()
     }
 

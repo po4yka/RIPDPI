@@ -327,6 +327,7 @@ fn minimal_proxy_config_json() -> String {
         config: test_ui_config(),
         runtime_context: None,
         log_context: None,
+        session_overrides: None,
     })
     .expect("proxy config json")
 }
