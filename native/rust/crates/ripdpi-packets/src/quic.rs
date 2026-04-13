@@ -1,4 +1,4 @@
-use aes::cipher::{generic_array::GenericArray, BlockEncrypt, KeyInit as BlockKeyInit};
+use aes::cipher::{array::Array, BlockCipherEncrypt, KeyInit as BlockKeyInit};
 use aes::Aes128;
 use ring::aead::{self, Aad, LessSafeKey, UnboundKey, AES_128_GCM};
 use ring::hkdf::{self, KeyType, Salt, HKDF_SHA256};
@@ -191,7 +191,7 @@ fn build_quic_initial_raw(
     let tag = sealing_key.seal_in_place_separate_tag(nonce, Aad::from(&aad), &mut ciphertext).ok()?;
 
     let hp_cipher = Aes128::new_from_slice(&hp).ok()?;
-    let mut sample = GenericArray::clone_from_slice(ciphertext.get(..QUIC_HP_SAMPLE_LEN)?);
+    let mut sample = Array::try_from(ciphertext.get(..QUIC_HP_SAMPLE_LEN)?).ok()?;
     hp_cipher.encrypt_block(&mut sample);
 
     let mut packet = header;
@@ -297,7 +297,7 @@ fn decrypt_quic_initial_payload(buffer: &[u8], header: QuicInitialHeader<'_>) ->
 
     let sample = buffer.get(header.pn_offset + 4..header.pn_offset + 4 + QUIC_HP_SAMPLE_LEN)?;
     let hp_cipher = Aes128::new_from_slice(&hp).ok()?;
-    let mut sample_block = GenericArray::clone_from_slice(sample);
+    let mut sample_block = Array::try_from(sample).ok()?;
     hp_cipher.encrypt_block(&mut sample_block);
 
     let unprotected_first = buffer[0] ^ (sample_block[0] & 0x0f);
