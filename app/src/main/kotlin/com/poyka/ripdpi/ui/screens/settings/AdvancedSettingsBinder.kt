@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultAppRoutingRussianPresetId
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
+import com.poyka.ripdpi.data.FakeOrderDefault
 import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
@@ -29,6 +30,8 @@ import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCachePrefixV4
 import com.poyka.ripdpi.data.normalizeAdaptiveFallbackCacheTtlSeconds
 import com.poyka.ripdpi.data.normalizeAppRoutingPolicyMode
 import com.poyka.ripdpi.data.normalizeDhtMitigationMode
+import com.poyka.ripdpi.data.normalizeFakeOrder
+import com.poyka.ripdpi.data.normalizeFakeSeqMode
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.normalizeIpIdMode
@@ -321,6 +324,40 @@ private class AdvancedSettingsMutationWriter(
             return
         }
         val normalized = normalizeTcpFlagMask(value)
+        val index = uiState.desync.tcpChainSteps.indexOf(primaryStep)
+        if (index < 0) {
+            return
+        }
+        updateValue(key, normalized) {
+            val updated = uiState.desync.tcpChainSteps.toMutableList()
+            updated[index] = transform(primaryStep, normalized)
+            setStrategyChains(
+                tcpSteps = updated,
+                udpSteps = uiState.desync.udpChainSteps,
+            )
+        }
+    }
+
+    fun updatePrimaryFakeOrdering(
+        uiState: SettingsUiState,
+        key: String,
+        value: String,
+        normalize: (String) -> String,
+        transform: (TcpChainStepModel, String) -> TcpChainStepModel,
+    ) {
+        val primaryStep = uiState.desync.primaryFakeOrderingStep ?: return
+        if (!uiState.desync.fakeOrderingVisualEditorSupported) {
+            return
+        }
+        val normalized = normalize(value)
+        if (
+            key == "fakeOrder" &&
+            primaryStep.kind == TcpChainStepKind.HostFake &&
+            primaryStep.midhostMarker.isBlank() &&
+            normalized != FakeOrderDefault
+        ) {
+            return
+        }
         val index = uiState.desync.tcpChainSteps.indexOf(primaryStep)
         if (index < 0) {
             return
@@ -1135,6 +1172,28 @@ private val optionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
                     value = value,
                     mode = value,
                 )
+            },
+        AdvancedOptionSetting.FakeOrder to
+            { value, uiState ->
+                updatePrimaryFakeOrdering(
+                    uiState = uiState,
+                    key = "fakeOrder",
+                    value = value,
+                    normalize = ::normalizeFakeOrder,
+                ) { step, normalized ->
+                    step.copy(fakeOrder = normalized)
+                }
+            },
+        AdvancedOptionSetting.FakeSeqMode to
+            { value, uiState ->
+                updatePrimaryFakeOrdering(
+                    uiState = uiState,
+                    key = "fakeSeqMode",
+                    value = value,
+                    normalize = ::normalizeFakeSeqMode,
+                ) { step, normalized ->
+                    step.copy(fakeSeqMode = normalized)
+                }
             },
         AdvancedOptionSetting.TcpFlagsSet to
             { value, uiState ->

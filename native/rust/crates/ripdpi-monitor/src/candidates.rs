@@ -459,6 +459,20 @@ fn allows_direct_tfo_candidates(base: &ProxyUiConfig) -> bool {
 pub(crate) fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let mut candidates = build_tcp_candidates(base);
     candidates.push(build_circular_tlsrec_split_spec(base));
+    candidates.push(candidate_spec_with_notes(
+        "tlsrec_fakedsplit_altorder1",
+        "TLS record + fakedsplit (altorder 1)",
+        "fake_approx",
+        build_tlsrec_fakedsplit_altorder_candidate(base, "1"),
+        vec!["Emits both fake regions before both genuine fakedsplit regions"],
+    ));
+    candidates.push(candidate_spec_with_notes(
+        "tlsrec_fakedsplit_altorder2",
+        "TLS record + fakedsplit (altorder 2)",
+        "fake_approx",
+        build_tlsrec_fakedsplit_altorder_candidate(base, "2"),
+        vec!["Interleaves genuine then fake for each fakedsplit region pair"],
+    ));
     candidates.extend([
         build_activation_window_split_spec(base),
         build_activation_window_hostfake_spec(base),
@@ -871,6 +885,14 @@ pub(crate) fn build_tlsrec_fake_approx_candidate(base: &ProxyUiConfig, kind: &st
     config
 }
 
+pub(crate) fn build_tlsrec_fakedsplit_altorder_candidate(base: &ProxyUiConfig, fake_order: &str) -> ProxyUiConfig {
+    let mut config = build_tlsrec_fake_approx_candidate(base, "fakedsplit");
+    if let Some(step) = config.chains.tcp_steps.iter_mut().find(|step| step.kind == "fakedsplit") {
+        step.fake_order = fake_order.to_string();
+    }
+    config
+}
+
 pub(crate) fn build_tlsrec_hostfake_candidate(base: &ProxyUiConfig, with_split: bool) -> ProxyUiConfig {
     let mut config = strategy_probe_base(base);
     let mut steps = vec![
@@ -880,6 +902,8 @@ pub(crate) fn build_tlsrec_hostfake_candidate(base: &ProxyUiConfig, with_split: 
             marker: "endhost+8".to_string(),
             midhost_marker: "midsld".to_string(),
             fake_host_template: "googlevideo.com".to_string(),
+            fake_order: String::new(),
+            fake_seq_mode: String::new(),
             tcp_flags_set: String::new(),
             tcp_flags_unset: String::new(),
             tcp_flags_orig_set: String::new(),
@@ -910,6 +934,8 @@ pub(crate) fn build_tlsrec_seqovl_candidate(base: &ProxyUiConfig, marker: &str) 
             marker: marker.to_string(),
             midhost_marker: String::new(),
             fake_host_template: String::new(),
+            fake_order: String::new(),
+            fake_seq_mode: String::new(),
             tcp_flags_set: String::new(),
             tcp_flags_unset: String::new(),
             tcp_flags_orig_set: String::new(),
@@ -1220,6 +1246,8 @@ pub(crate) fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         marker: marker.to_string(),
         midhost_marker: String::new(),
         fake_host_template: String::new(),
+        fake_order: String::new(),
+        fake_seq_mode: String::new(),
         tcp_flags_set: String::new(),
         tcp_flags_unset: String::new(),
         tcp_flags_orig_set: String::new(),
@@ -1275,6 +1303,9 @@ mod tests {
         assert!(!full.short_circuit_quic_burst);
         assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "circular_tlsrec_split"));
         assert!(!quick.tcp_candidates.iter().any(|candidate| candidate.id == "circular_tlsrec_split"));
+        assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_fakedsplit_altorder1"));
+        assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_fakedsplit_altorder2"));
+        assert!(!quick.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_fakedsplit_altorder1"));
     }
 
     #[test]
@@ -1374,6 +1405,17 @@ mod tests {
         assert_eq!(fake_synfin.config.chains.tcp_steps[1].tcp_flags_set, "syn|fin");
         assert_eq!(fake_pshurg.family, "fake_flags");
         assert_eq!(fake_pshurg.config.chains.tcp_steps[1].tcp_flags_set, "psh|urg");
+    }
+
+    #[test]
+    fn fakedsplit_altorder_candidates_set_expected_order() {
+        let alt1 = build_tlsrec_fakedsplit_altorder_candidate(&minimal_ui_config(), "1");
+        let alt2 = build_tlsrec_fakedsplit_altorder_candidate(&minimal_ui_config(), "2");
+
+        assert_eq!(alt1.chains.tcp_steps[1].kind, "fakedsplit");
+        assert_eq!(alt1.chains.tcp_steps[1].fake_order, "1");
+        assert_eq!(alt2.chains.tcp_steps[1].kind, "fakedsplit");
+        assert_eq!(alt2.chains.tcp_steps[1].fake_order, "2");
     }
 
     #[test]

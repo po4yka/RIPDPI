@@ -222,6 +222,81 @@ pub fn handle_send_multi_disorder_tcp(fd: RawFd, params: MultiDisorderParams) ->
 }
 
 // ---------------------------------------------------------------------------
+// send_ordered_tcp_segments
+// ---------------------------------------------------------------------------
+
+#[derive(Deserialize)]
+pub struct OrderedTcpSegmentParams {
+    pub payload: Vec<u8>,
+    pub ttl: u8,
+    #[serde(default)]
+    pub tcp_flags_set: u16,
+    #[serde(default)]
+    pub tcp_flags_unset: u16,
+    pub sequence_offset: usize,
+    #[serde(default)]
+    pub use_fake_timestamp: bool,
+}
+
+#[derive(Deserialize)]
+pub struct OrderedTcpSegmentsParams {
+    pub segments: Vec<OrderedTcpSegmentParams>,
+    pub original_payload_len: usize,
+    pub default_ttl: u8,
+    #[serde(default)]
+    pub md5sig: bool,
+    #[serde(default)]
+    pub timestamp_delta_ticks: Option<i32>,
+    #[serde(default)]
+    pub ipv4_identifications: Vec<u16>,
+    #[serde(default)]
+    pub wait_enabled: bool,
+    #[serde(default)]
+    pub wait_poll_ms: u64,
+}
+
+pub fn handle_send_ordered_tcp_segments(
+    fd: RawFd,
+    params: OrderedTcpSegmentsParams,
+) -> (HelperResponse, Option<RawFd>) {
+    debug!(fd, segments = params.segments.len(), "send_ordered_tcp_segments");
+    let stream = adopt_tcp_stream(fd);
+    let segments: Vec<platform::OrderedTcpSegment<'_>> = params
+        .segments
+        .iter()
+        .map(|segment| platform::OrderedTcpSegment {
+            payload: segment.payload.as_slice(),
+            ttl: segment.ttl,
+            flags: platform::TcpFlagOverrides { set: segment.tcp_flags_set, unset: segment.tcp_flags_unset },
+            sequence_offset: segment.sequence_offset,
+            use_fake_timestamp: segment.use_fake_timestamp,
+        })
+        .collect();
+
+    match platform::send_ordered_tcp_segments_reserved(
+        &stream,
+        &segments,
+        params.original_payload_len,
+        params.default_ttl,
+        None,
+        params.md5sig,
+        params.timestamp_delta_ticks,
+        &params.ipv4_identifications,
+        (params.wait_enabled, std::time::Duration::from_millis(params.wait_poll_ms.max(1))),
+    ) {
+        Ok(()) => {
+            let out_fd = stream.into_raw_fd();
+            (HelperResponse::success(serde_json::Value::Null), Some(out_fd))
+        }
+        Err(e) => {
+            let _ = stream.into_raw_fd();
+            error!(%e, "send_ordered_tcp_segments failed");
+            (HelperResponse::error(e.to_string()), None)
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // send_ip_fragmented_tcp
 // ---------------------------------------------------------------------------
 

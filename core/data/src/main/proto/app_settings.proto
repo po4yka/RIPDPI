@@ -33,6 +33,8 @@ message StrategyTcpStep {
   string tcp_flags_unset = 13;
   string tcp_flags_orig_set = 14;
   string tcp_flags_orig_unset = 15;
+  string fake_order = 16;
+  string fake_seq_mode = 17;
 }
 
 message StrategyUdpStep {

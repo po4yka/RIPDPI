@@ -166,6 +166,82 @@ class StrategyChainsTest {
     }
 
     @Test
+    fun `fake ordering dsl round trip preserves altorder and seqmode`() {
+        val dsl =
+            """
+            [tcp]
+            tlsrec extlen
+            fakedsplit host+1 altorder=2 seqmode=sequential
+            """.trimIndent()
+
+        val parsed = parseStrategyChainDsl(dsl).getOrThrow()
+        val step = parsed.tcpSteps.last()
+
+        assertEquals(TcpChainStepKind.FakeSplit, step.kind)
+        assertEquals(FakeOrderInterleaveRealFirst, step.fakeOrder)
+        assertEquals(FakeSeqModeSequential, step.fakeSeqMode)
+        assertEquals(dsl, formatStrategyChainDsl(parsed.tcpSteps, parsed.udpSteps))
+        assertEquals(
+            "tcp: tlsrec(extlen) -> fakedsplit(host+1 altorder=2 seqmode=sequential)",
+            formatChainSummary(parsed.tcpSteps, parsed.udpSteps),
+        )
+    }
+
+    @Test
+    fun `fake ordering proto defaults normalize unsupported step fields away`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .addTcpChainSteps(
+                    com.poyka.ripdpi.proto.StrategyTcpStep
+                        .newBuilder()
+                        .setKind("split")
+                        .setMarker("host+1")
+                        .setFakeOrder("3")
+                        .setFakeSeqMode("sequential")
+                        .build(),
+                ).build()
+
+        val step = settings.effectiveTcpChainSteps().single()
+
+        assertEquals(TcpChainStepKind.Split, step.kind)
+        assertEquals(FakeOrderDefault, step.fakeOrder)
+        assertEquals(FakeSeqModeDuplicate, step.fakeSeqMode)
+    }
+
+    @Test
+    fun `hostfake validation rejects non default order without midhost`() {
+        val steps =
+            listOf(
+                TcpChainStepModel(
+                    kind = TcpChainStepKind.HostFake,
+                    marker = "endhost+8",
+                    fakeOrder = FakeOrderAllFakesFirst,
+                ),
+            )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            AppSettings.newBuilder().setStrategyChains(steps, emptyList())
+        }
+    }
+
+    @Test
+    fun `hostfake allows sequential mode without midhost`() {
+        val steps =
+            listOf(
+                TcpChainStepModel(
+                    kind = TcpChainStepKind.HostFake,
+                    marker = "endhost+8",
+                    fakeSeqMode = FakeSeqModeSequential,
+                ),
+            )
+
+        val settings = AppSettings.newBuilder().setStrategyChains(steps, emptyList()).build()
+
+        assertEquals(FakeSeqModeSequential, settings.effectiveTcpChainSteps().single().fakeSeqMode)
+    }
+
+    @Test
     fun `multidisorder dsl round trip preserves grouped markers and summary`() {
         val dsl =
             """

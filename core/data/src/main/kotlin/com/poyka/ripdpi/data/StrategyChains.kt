@@ -117,6 +117,8 @@ data class TcpChainStepModel(
     val marker: String,
     val midhostMarker: String = "",
     val fakeHostTemplate: String = "",
+    val fakeOrder: String = FakeOrderDefault,
+    val fakeSeqMode: String = FakeSeqModeDuplicate,
     val overlapSize: Int = 0,
     val fakeMode: String = "",
     val fragmentCount: Int = 0,
@@ -421,6 +423,8 @@ private fun StrategyTcpStep.toModelOrNull(): TcpChainStepModel? {
             marker = normalizeTcpMarker(kind, marker),
             midhostMarker = normalizeMidhostMarker(kind, midhostMarker),
             fakeHostTemplate = normalizeFakeHostTemplate(kind, fakeHostTemplate),
+            fakeOrder = normalizeFakeOrderForModel(kind, fakeOrder),
+            fakeSeqMode = normalizeFakeSeqModeForModel(kind, fakeSeqMode),
             overlapSize = overlapSize,
             fakeMode = fakeMode,
             fragmentCount = fragmentCount,
@@ -457,6 +461,8 @@ private fun TcpChainStepModel.toProto(): StrategyTcpStep =
             .setMarker(normalizeTcpMarker(step))
             .setMidhostMarker(normalizeMidhostMarker(step.kind, step.midhostMarker))
             .setFakeHostTemplate(normalizeFakeHostTemplate(step.kind, step.fakeHostTemplate))
+            .setFakeOrder(normalizeFakeOrderForProto(step.kind, step.fakeOrder))
+            .setFakeSeqMode(normalizeFakeSeqModeForProto(step.kind, step.fakeSeqMode))
             .setOverlapSize(normalizeSeqOverlapSize(step.kind, step.overlapSize))
             .setFakeMode(normalizeSeqOverlapFakeModeForProto(step.kind, step.fakeMode))
             .setFragmentCount(normalizeFragmentCount(step.kind, step.fragmentCount))
@@ -569,6 +575,14 @@ private fun formatTcpStepSummary(step: TcpChainStepModel): String =
             append(" host=")
             append(normalizedTemplate)
         }
+        if (normalized.kind.supportsFakeOrdering && normalized.fakeOrder != FakeOrderDefault) {
+            append(" altorder=")
+            append(normalized.fakeOrder)
+        }
+        if (normalized.kind.supportsFakeOrdering && normalized.fakeSeqMode != FakeSeqModeDuplicate) {
+            append(" seqmode=")
+            append(normalized.fakeSeqMode)
+        }
         if (normalized.kind == TcpChainStepKind.SeqOverlap) {
             append(" overlap=")
             append(normalized.overlapSize)
@@ -617,6 +631,14 @@ private fun formatTcpStepDsl(step: TcpChainStepModel): String =
         if (normalizedTemplate.isNotEmpty()) {
             append(" host=")
             append(normalizedTemplate)
+        }
+        if (normalized.kind.supportsFakeOrdering && normalized.fakeOrder != FakeOrderDefault) {
+            append(" altorder=")
+            append(normalized.fakeOrder)
+        }
+        if (normalized.kind.supportsFakeOrdering && normalized.fakeSeqMode != FakeSeqModeDuplicate) {
+            append(" seqmode=")
+            append(normalized.fakeSeqMode)
         }
         if (normalized.kind == TcpChainStepKind.SeqOverlap) {
             append(" overlap=")
@@ -701,6 +723,8 @@ private fun parseTcpStep(
 
     var midhostMarker = ""
     var fakeHostTemplate = ""
+    var fakeOrder = FakeOrderDefault
+    var fakeSeqMode = FakeSeqModeDuplicate
     var overlapSize = 0
     var overlapSpecified = false
     var fakeMode = SeqOverlapFakeModeProfile
@@ -739,6 +763,26 @@ private fun parseTcpStep(
                 val normalized = normalizeFakeHostTemplate(kind, value)
                 require(normalized.isNotEmpty()) { "Invalid host template on line $lineNumber" }
                 fakeHostTemplate = normalized
+            }
+
+            "altorder" -> {
+                require(kind.supportsFakeOrdering) {
+                    "altorder is only supported for fake, fakedsplit, fakeddisorder, and hostfake on line $lineNumber"
+                }
+                val normalized = canonicalFakeOrder(value)
+                require(normalized in SupportedFakeOrderValues) { "Invalid altorder on line $lineNumber" }
+                fakeOrder = normalized
+            }
+
+            "seqmode" -> {
+                require(kind.supportsFakeOrdering) {
+                    "seqmode is only supported for fake, fakedsplit, fakeddisorder, and hostfake on line $lineNumber"
+                }
+                val normalized = canonicalFakeSeqMode(value)
+                require(
+                    normalized == FakeSeqModeDuplicate || normalized == FakeSeqModeSequential,
+                ) { "Invalid seqmode on line $lineNumber" }
+                fakeSeqMode = normalized
             }
 
             "overlap" -> {
@@ -844,6 +888,8 @@ private fun parseTcpStep(
             marker = marker,
             midhostMarker = midhostMarker,
             fakeHostTemplate = fakeHostTemplate,
+            fakeOrder = fakeOrder,
+            fakeSeqMode = fakeSeqMode,
             overlapSize = overlapSize,
             fakeMode = fakeMode,
             fragmentCount = fragmentCount,
@@ -880,6 +926,21 @@ private fun validateTcpStepOptions(step: TcpChainStepModel) {
     }
     require(step.kind != TcpChainStepKind.HostFake || !isAdaptiveOffsetExpression(step.midhostMarker)) {
         "hostfake must not declare an adaptive midhost marker"
+    }
+    if (step.kind.supportsFakeOrdering) {
+        require(step.fakeOrder in SupportedFakeOrderValues) {
+            "${step.kind.wireName} altorder must be 0, 1, 2, or 3"
+        }
+        require(
+            step.fakeSeqMode == FakeSeqModeDuplicate || step.fakeSeqMode == FakeSeqModeSequential,
+        ) { "${step.kind.wireName} seqmode must be duplicate or sequential" }
+        require(
+            step.kind != TcpChainStepKind.HostFake || step.fakeOrder == FakeOrderDefault ||
+                step.midhostMarker.isNotBlank(),
+        ) { "hostfake altorder requires midhost" }
+    } else {
+        require(step.fakeOrder == FakeOrderDefault) { "${step.kind.wireName} must not declare fakeOrder" }
+        require(step.fakeSeqMode == FakeSeqModeDuplicate) { "${step.kind.wireName} must not declare fakeSeqMode" }
     }
     when (step.kind) {
         TcpChainStepKind.SeqOverlap -> {
@@ -923,6 +984,26 @@ private fun normalizeSeqOverlapSize(
     value: Int,
 ): Int = if (kind == TcpChainStepKind.SeqOverlap) value.takeIf { it > 0 } ?: DefaultSeqOverlapSize else 0
 
+private fun normalizeFakeOrderForProto(
+    kind: TcpChainStepKind,
+    value: String,
+): String = if (kind.supportsFakeOrdering) normalizeFakeOrder(value) else ""
+
+private fun normalizeFakeOrderForModel(
+    kind: TcpChainStepKind,
+    value: String,
+): String = if (kind.supportsFakeOrdering) normalizeFakeOrder(value) else FakeOrderDefault
+
+private fun normalizeFakeSeqModeForProto(
+    kind: TcpChainStepKind,
+    value: String,
+): String = if (kind.supportsFakeOrdering) normalizeFakeSeqMode(value) else ""
+
+private fun normalizeFakeSeqModeForModel(
+    kind: TcpChainStepKind,
+    value: String,
+): String = if (kind.supportsFakeOrdering) normalizeFakeSeqMode(value) else FakeSeqModeDuplicate
+
 private fun normalizeSeqOverlapFakeModeForProto(
     kind: TcpChainStepKind,
     value: String,
@@ -948,6 +1029,8 @@ fun normalizeTcpChainStepModel(step: TcpChainStepModel): TcpChainStepModel =
         marker = normalizeTcpMarker(step.kind, step.marker),
         midhostMarker = normalizeMidhostMarker(step.kind, step.midhostMarker),
         fakeHostTemplate = normalizeFakeHostTemplate(step.kind, step.fakeHostTemplate),
+        fakeOrder = normalizeFakeOrderForModel(step.kind, step.fakeOrder),
+        fakeSeqMode = normalizeFakeSeqModeForModel(step.kind, step.fakeSeqMode),
         overlapSize = normalizeSeqOverlapSize(step.kind, step.overlapSize),
         fakeMode = normalizeSeqOverlapFakeModeForProto(step.kind, step.fakeMode),
         fragmentCount = normalizeFragmentCount(step.kind, step.fragmentCount),

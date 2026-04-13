@@ -2036,6 +2036,18 @@ Source: %2$s</string>
     <string name="tcp_flag_card_runtime_label">Current profile</string>
     <string name="tcp_flag_card_runtime_default">Kernel defaults</string>
     <string name="tcp_flag_card_runtime_custom">Custom TCP flags</string>
+    <string name="fake_order_card_title">Fake ordering</string>
+    <string name="fake_order_card_body">Control how fake and genuine spans are interleaved on the primary fake-family step without editing the full chain DSL.</string>
+    <string name="fake_order_card_dsl_only">This chain shape is not editable with the primary-step fake ordering card. Use the chain DSL to change altorder or seqmode.</string>
+    <string name="fake_order_card_step_label">Primary step</string>
+    <string name="fake_order_card_runtime_label">Current profile</string>
+    <string name="fake_order_card_runtime_default">Default ordering</string>
+    <string name="fake_order_card_runtime_custom">Custom ordering</string>
+    <string name="fake_order_card_order_title">Emission order</string>
+    <string name="fake_order_card_order_body">Choose how fake and genuine spans are interleaved for this send step.</string>
+    <string name="fake_order_card_hostfake_order_locked">Non-default hostfake ordering requires a midhost split marker. Add `midhost=` in the chain DSL to unlock altorder changes.</string>
+    <string name="fake_order_card_seqmode_title">Fake sequence mode</string>
+    <string name="fake_order_card_seqmode_body">Duplicate reuses the original stream sequence. Sequential advances later fake packets in emission order.</string>
     <string name="tcp_flag_fake_set_title">Fake packet: set flags</string>
     <string name="tcp_flag_fake_clear_title">Fake packet: clear flags</string>
     <string name="tcp_flag_orig_set_title">Original packet: set flags</string>

@@ -277,6 +277,95 @@ Equivalent JSON fragment:
 }
 ```
 
+### Fake ordering variants
+
+Fake-family TCP steps also support zapret-style ordering control for how fake
+and genuine spans are emitted on a single outbound write.
+
+- Shared fields across proto, Kotlin, JSON, and Rust config:
+  - `fake_order`
+  - `fake_seq_mode`
+- DSL tokens:
+  - `altorder=<0|1|2|3>`
+  - `seqmode=<duplicate|sequential>`
+- Supported step kinds:
+  - `fake`
+  - `fakedsplit`
+  - `fakeddisorder`
+  - `hostfake`
+
+Ordering semantics:
+
+- `altorder=0`: fake before each genuine span
+- `altorder=1`: all fake spans first, then all genuine spans
+- `altorder=2`: genuine span first, then its corresponding fake span
+- `altorder=3`: all genuine spans first, then all fake spans
+
+Step-specific behavior:
+
+- `fake` is treated as a one-region case:
+  - `0` and `1` both collapse to fake(s) before the original payload
+  - `2` and `3` both collapse to the original payload before fake(s)
+- `fakedsplit` and `fakeddisorder` use the full two-region ordering model
+- `hostfake` uses the full two-region ordering model only when `midhost=` is
+  present. Prefix bytes before the host and suffix bytes after the host stay in
+  their normal positions, while the host-region block is reordered internally.
+
+Sequence behavior:
+
+- `duplicate` preserves current behavior: every fake packet reuses the original
+  stream sequence for its target region
+- `sequential` advances later fake packet sequence numbers in emission order by
+  the byte lengths of earlier fake packets
+- genuine/original packets keep the normal real stream sequence
+
+Runtime policy:
+
+- Non-default `altorder` can still use the normal fake/original execution path
+  when exact raw sequence control is not required.
+- `seqmode=sequential` and any combination with other raw-only features
+  (original TCP flag overrides, exact `seqgroup`, and similar settings) are
+  executed through the generalized raw TCP batch sender.
+- If exact sequential fake sequencing would require raw/TCP_REPAIR support and
+  that capability is unavailable, RIPDPI fails closed instead of silently
+  degrading to duplicate mode.
+- `hostfake` rejects non-default `altorder` without `midhost=` in both Kotlin
+  and native validation.
+
+Example DSL:
+
+```text
+[tcp]
+tlsrec extlen
+fakedsplit host+1 altorder=1
+```
+
+```text
+[tcp]
+hostfake endhost+8 midhost=midsld host=googlevideo.com altorder=2 seqmode=sequential
+```
+
+Equivalent JSON fragment:
+
+```json
+{
+  "chains": {
+    "tcpSteps": [
+      {
+        "kind": "tlsrec",
+        "marker": "extlen"
+      },
+      {
+        "kind": "fakedsplit",
+        "marker": "host+1",
+        "fakeOrder": "1",
+        "fakeSeqMode": "duplicate"
+      }
+    ]
+  }
+}
+```
+
 ### IPv4 ID control
 
 RIPDPI also exposes a group-wide IPv4 Identification mode on the fake-packet
@@ -332,6 +421,7 @@ The runtime now supports:
 - semantic marker offsets such as `host`, `endhost`, `midsld`, `method`, `extlen`, and `sniext`
 - adaptive markers such as `auto(balanced)` and `auto(host)` that resolve per payload from live `TCP_INFO`
 - ordered TCP and UDP chain steps with per-step activation filters, runtime TCP-state predicates on TCP steps, and group activation windows
+- fake-family ordering control through `altorder` and `seqmode`, including raw sequential fake sequencing when requested
 - general TCP flag crafting for both fake packets and original payload packets through per-step set/unset masks
 - group-wide IPv4 ID control for raw IPv4 TCP and fragmentation paths, including exact `seqgroup` promotion for mixed fake/original flows
 - grouped `multidisorder` TCP runs where each contiguous terminal step contributes one marker and the runtime sends the resulting regions in reverse order

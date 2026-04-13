@@ -1,7 +1,7 @@
 use crate::types::ProxyMorphPolicy;
 use ripdpi_config::{
-    AutoTtlConfig, DesyncMode, FakePacketSource, OffsetBase, OffsetExpr, OffsetProto, QuicFakeProfile,
-    TcpChainStepKind, UdpChainStepKind, WsTunnelMode, DETECT_CONNECT, FM_DUPSID, FM_ORIG,
+    AutoTtlConfig, DesyncMode, FakeOrder, FakePacketSource, FakeSeqMode, OffsetBase, OffsetExpr, OffsetProto,
+    QuicFakeProfile, TcpChainStepKind, UdpChainStepKind, WsTunnelMode, DETECT_CONNECT, FM_DUPSID, FM_ORIG,
     HOST_AUTOLEARN_DEFAULT_MAX_HOSTS,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
@@ -25,6 +25,8 @@ fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         marker: marker.to_string(),
         midhost_marker: String::new(),
         fake_host_template: String::new(),
+        fake_order: String::new(),
+        fake_seq_mode: String::new(),
         tcp_flags_set: String::new(),
         tcp_flags_unset: String::new(),
         tcp_flags_orig_set: String::new(),
@@ -46,6 +48,8 @@ fn seqovl_step(marker: &str, overlap_size: i32, fake_mode: &str) -> ProxyUiTcpCh
         marker: marker.to_string(),
         midhost_marker: String::new(),
         fake_host_template: String::new(),
+        fake_order: String::new(),
+        fake_seq_mode: String::new(),
         tcp_flags_set: String::new(),
         tcp_flags_unset: String::new(),
         tcp_flags_orig_set: String::new(),
@@ -95,6 +99,8 @@ fn ui_payload_parses_hostfake_and_quic_profile() {
         marker: "endhost+8".to_string(),
         midhost_marker: "midsld".to_string(),
         fake_host_template: "googlevideo.com".to_string(),
+        fake_order: String::new(),
+        fake_seq_mode: String::new(),
         tcp_flags_set: String::new(),
         tcp_flags_unset: String::new(),
         tcp_flags_orig_set: String::new(),
@@ -154,6 +160,8 @@ fn ui_payload_preserves_explicit_tlsrec_before_hostfake() {
             marker: "endhost+8".to_string(),
             midhost_marker: "midsld".to_string(),
             fake_host_template: "googlevideo.com".to_string(),
+            fake_order: String::new(),
+            fake_seq_mode: String::new(),
             tcp_flags_set: String::new(),
             tcp_flags_unset: String::new(),
             tcp_flags_orig_set: String::new(),
@@ -310,6 +318,8 @@ fn ui_payload_parses_tcp_rotation_policy_defaults() {
                         marker: "endhost+8".to_string(),
                         midhost_marker: "midsld".to_string(),
                         fake_host_template: "googlevideo.com".to_string(),
+                        fake_order: String::new(),
+                        fake_seq_mode: String::new(),
                         tcp_flags_set: String::new(),
                         tcp_flags_unset: String::new(),
                         tcp_flags_orig_set: String::new(),
@@ -463,6 +473,46 @@ fn ui_payload_rejects_invalid_ip_id_mode() {
 }
 
 #[test]
+fn ui_payload_parses_fake_order_and_seq_mode() {
+    let mut ui = minimal_ui();
+    let mut step = tcp_step("fakedsplit", "host+1");
+    step.fake_order = "2".to_string();
+    step.fake_seq_mode = "sequential".to_string();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), step];
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
+    let parsed = &config.groups[0].actions.tcp_chain[1];
+
+    assert_eq!(parsed.kind, TcpChainStepKind::FakeSplit);
+    assert_eq!(parsed.fake_order, FakeOrder::RealFakeRealFake);
+    assert_eq!(parsed.fake_seq_mode, FakeSeqMode::Sequential);
+}
+
+#[test]
+fn ui_payload_rejects_fake_order_on_unsupported_step_kind() {
+    let mut ui = minimal_ui();
+    let mut step = tcp_step("split", "host+1");
+    step.fake_order = "1".to_string();
+    ui.chains.tcp_steps = vec![step];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("unsupported fake ordering");
+
+    assert!(err.to_string().contains("must not declare fake ordering fields"));
+}
+
+#[test]
+fn ui_payload_rejects_hostfake_non_default_order_without_midhost() {
+    let mut ui = minimal_ui();
+    let mut step = tcp_step("hostfake", "endhost+8");
+    step.fake_order = "1".to_string();
+    ui.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), step];
+
+    let err = runtime_config_from_payload(ui_payload(ui)).expect_err("hostfake altorder without midhost");
+
+    assert!(err.to_string().contains("hostfake fakeOrder requires midhostMarker"));
+}
+
+#[test]
 fn ui_payload_maps_extended_http_parser_evasions_into_mod_http() {
     let mut ui = minimal_ui();
     ui.parser_evasions.host_mixed_case = true;
@@ -489,6 +539,8 @@ fn ui_payload_rejects_unknown_ipv6_extension_profile() {
         marker: "host+2".to_string(),
         midhost_marker: String::new(),
         fake_host_template: String::new(),
+        fake_order: String::new(),
+        fake_seq_mode: String::new(),
         tcp_flags_set: String::new(),
         tcp_flags_unset: String::new(),
         tcp_flags_orig_set: String::new(),
@@ -641,6 +693,8 @@ fn adaptive_hostfake_midhost_marker_is_rejected() {
         marker: "endhost+8".to_string(),
         midhost_marker: "auto(midsld)".to_string(),
         fake_host_template: String::new(),
+        fake_order: String::new(),
+        fake_seq_mode: String::new(),
         tcp_flags_set: String::new(),
         tcp_flags_unset: String::new(),
         tcp_flags_orig_set: String::new(),

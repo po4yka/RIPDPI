@@ -49,6 +49,7 @@ internal fun LazyListScope.desyncSection(
     showHostFakeSection: Boolean,
     showSeqOverlapSection: Boolean,
     showFakeApproxSection: Boolean,
+    showFakeOrderingSection: Boolean,
     showAdaptiveFakeTtlSection: Boolean,
     showFakePayloadLibrary: Boolean,
     showFakeTlsSection: Boolean,
@@ -58,6 +59,8 @@ internal fun LazyListScope.desyncSection(
     fakeTlsBaseOptions: List<RipDpiDropdownOption<String>>,
     fakeTlsSniModeOptions: List<RipDpiDropdownOption<String>>,
     tlsFakeProfileOptions: List<RipDpiDropdownOption<String>>,
+    fakeOrderOptions: List<RipDpiDropdownOption<String>>,
+    fakeSeqModeOptions: List<RipDpiDropdownOption<String>>,
     ipIdModeOptions: List<RipDpiDropdownOption<String>>,
     udpFakeProfileOptions: List<RipDpiDropdownOption<String>>,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
@@ -148,7 +151,11 @@ internal fun LazyListScope.desyncSection(
                     HorizontalDivider(color = colors.divider)
                 }
                 val showFakeOrOobSections =
-                    showFakeApproxSection || showAdaptiveFakeTtlSection || showFakeTlsSection || uiState.isOob
+                    showFakeOrderingSection ||
+                        showFakeApproxSection ||
+                        showAdaptiveFakeTtlSection ||
+                        showFakeTlsSection ||
+                        uiState.isOob
                 ChainEditorWithCollapsibleHelp(
                     uiState = uiState,
                     visualEditorEnabled = visualEditorEnabled,
@@ -167,6 +174,23 @@ internal fun LazyListScope.desyncSection(
                         modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
                     )
                     if (showHostFakeSection || showSeqOverlapSection || showFakeOrOobSections) {
+                        HorizontalDivider(color = colors.divider)
+                    }
+                }
+                if (showFakeOrderingSection && uiState.desync.primaryFakeOrderingStep != null) {
+                    FakeOrderingProfileCard(
+                        uiState = uiState,
+                        visualEditorEnabled = visualEditorEnabled,
+                        fakeOrderOptions = fakeOrderOptions,
+                        fakeSeqModeOptions = fakeSeqModeOptions,
+                        onOptionSelected = onOptionSelected,
+                        modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
+                    )
+                    if (showHostFakeSection || showSeqOverlapSection || showFakeApproxSection ||
+                        showAdaptiveFakeTtlSection ||
+                        showFakeTlsSection ||
+                        uiState.isOob
+                    ) {
                         HorizontalDivider(color = colors.divider)
                     }
                 }

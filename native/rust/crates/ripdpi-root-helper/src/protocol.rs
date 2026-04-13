@@ -45,6 +45,7 @@ pub const CMD_SEND_FAKE_RST: &str = "send_fake_rst";
 pub const CMD_SEND_FLAGGED_TCP_PAYLOAD: &str = "send_flagged_tcp_payload";
 pub const CMD_SEND_SEQOVL_TCP: &str = "send_seqovl_tcp";
 pub const CMD_SEND_MULTI_DISORDER_TCP: &str = "send_multi_disorder_tcp";
+pub const CMD_SEND_ORDERED_TCP_SEGMENTS: &str = "send_ordered_tcp_segments";
 pub const CMD_SEND_IP_FRAGMENTED_TCP: &str = "send_ip_fragmented_tcp";
 pub const CMD_SEND_IP_FRAGMENTED_UDP: &str = "send_ip_fragmented_udp";
 pub const CMD_SHUTDOWN: &str = "shutdown";

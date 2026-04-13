@@ -205,6 +205,10 @@ pub struct ProxyUiTcpChainStep {
     #[serde(default)]
     pub fake_host_template: String,
     #[serde(default)]
+    pub fake_order: String,
+    #[serde(default)]
+    pub fake_seq_mode: String,
+    #[serde(default)]
     pub tcp_flags_set: String,
     #[serde(default)]
     pub tcp_flags_unset: String,
@@ -1060,6 +1064,8 @@ fn default_tcp_chain_steps() -> Vec<ProxyUiTcpChainStep> {
             marker: "extlen".to_string(),
             midhost_marker: String::new(),
             fake_host_template: String::new(),
+            fake_order: String::new(),
+            fake_seq_mode: String::new(),
             tcp_flags_set: String::new(),
             tcp_flags_unset: String::new(),
             tcp_flags_orig_set: String::new(),
@@ -1078,6 +1084,8 @@ fn default_tcp_chain_steps() -> Vec<ProxyUiTcpChainStep> {
             marker: "host+1".to_string(),
             midhost_marker: String::new(),
             fake_host_template: String::new(),
+            fake_order: String::new(),
+            fake_seq_mode: String::new(),
             tcp_flags_set: String::new(),
             tcp_flags_unset: String::new(),
             tcp_flags_orig_set: String::new(),

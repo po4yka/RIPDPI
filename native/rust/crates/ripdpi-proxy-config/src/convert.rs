@@ -5,11 +5,11 @@ use std::{fmt, mem};
 use ripdpi_config::{
     parse_http_fake_profile as parse_http_fake_profile_id, parse_tcp_flag_mask,
     parse_tls_fake_profile as parse_tls_fake_profile_id, parse_udp_fake_profile as parse_udp_fake_profile_id,
-    validate_tcp_flag_masks, ActivationFilter, DesyncGroup, DesyncMode, EntropyMode, FakePacketSource, IpIdMode,
-    NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RotationCandidate, RotationPolicy,
-    RuntimeConfig, SeqOverlapFakeMode, StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
-    UpstreamSocksConfig, WsizeConfig, AUTO_RECONN, AUTO_SORT, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_ERR,
-    DETECT_TORST, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    validate_tcp_flag_masks, ActivationFilter, DesyncGroup, DesyncMode, EntropyMode, FakeOrder, FakePacketSource,
+    FakeSeqMode, IpIdMode, NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, QuicInitialMode, RotationCandidate,
+    RotationPolicy, RuntimeConfig, SeqOverlapFakeMode, StartupEnv, TcpChainStep, TcpChainStepKind, UdpChainStep,
+    UdpChainStepKind, UpstreamSocksConfig, WsizeConfig, AUTO_RECONN, AUTO_SORT, DETECT_CONNECT, DETECT_HTTP_LOCAT,
+    DETECT_TLS_ERR, DETECT_TORST, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use ripdpi_packets::{
@@ -144,6 +144,8 @@ fn synthesize_tlsrec_prelude_for_bare_hostfake(chain: &mut Vec<TcpChainStep>) {
             activation_filter: None,
             midhost_offset: None,
             fake_host_template: None,
+            fake_order: FakeOrder::BeforeEach,
+            fake_seq_mode: FakeSeqMode::Duplicate,
             tcp_flags_set: None,
             tcp_flags_unset: None,
             tcp_flags_orig_set: None,
@@ -1049,6 +1051,26 @@ fn parse_seqovl_fake_mode(value: &str) -> Result<SeqOverlapFakeMode, ProxyConfig
     }
 }
 
+fn parse_fake_order(value: &str) -> Result<FakeOrder, ProxyConfigError> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "" | "0" => Ok(FakeOrder::BeforeEach),
+        "1" => Ok(FakeOrder::AllFakesFirst),
+        "2" => Ok(FakeOrder::RealFakeRealFake),
+        "3" => Ok(FakeOrder::AllRealsFirst),
+        _ => Err(ProxyConfigError::InvalidConfig("tcpChainSteps fakeOrder must be 0, 1, 2, 3, or empty".to_string())),
+    }
+}
+
+fn parse_fake_seq_mode(value: &str) -> Result<FakeSeqMode, ProxyConfigError> {
+    match value.trim().to_ascii_lowercase().as_str() {
+        "" | "duplicate" => Ok(FakeSeqMode::Duplicate),
+        "sequential" => Ok(FakeSeqMode::Sequential),
+        _ => Err(ProxyConfigError::InvalidConfig(
+            "tcpChainSteps fakeSeqMode must be duplicate, sequential, or empty".to_string(),
+        )),
+    }
+}
+
 fn parse_ip_id_mode(value: &str) -> Result<Option<IpIdMode>, ProxyConfigError> {
     match value.trim().to_ascii_lowercase().as_str() {
         "" => Ok(None),
@@ -1091,6 +1113,8 @@ fn parse_proxy_tcp_chain(
             .map(ripdpi_config::normalize_fake_host_template)
             .transpose()
             .map_err(|_| ProxyConfigError::InvalidConfig(format!("Invalid {field_name} fakeHostTemplate")))?;
+        let fake_order = parse_fake_order(&step.fake_order)?;
+        let fake_seq_mode = parse_fake_seq_mode(&step.fake_seq_mode)?;
         let tcp_flags_set = Some(str::trim(step.tcp_flags_set.as_str()))
             .filter(|value| !value.is_empty())
             .map(parse_tcp_flag_mask)
@@ -1170,6 +1194,8 @@ fn parse_proxy_tcp_chain(
             activation_filter,
             midhost_offset,
             fake_host_template,
+            fake_order,
+            fake_seq_mode,
             tcp_flags_set,
             tcp_flags_unset,
             tcp_flags_orig_set,
@@ -1251,6 +1277,37 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
                     TcpChainStepKind::FakeSplit => "fakedsplit",
                     TcpChainStepKind::FakeDisorder => "fakeddisorder",
                     _ => unreachable!(),
+                }
+            )));
+        }
+        if step.kind.supports_fake_ordering() {
+            if step.kind == TcpChainStepKind::HostFake
+                && step.fake_order != FakeOrder::BeforeEach
+                && step.midhost_offset.is_none()
+            {
+                return Err(ProxyConfigError::InvalidConfig("hostfake fakeOrder requires midhostMarker".to_string()));
+            }
+        } else if step.fake_order != FakeOrder::BeforeEach || step.fake_seq_mode != FakeSeqMode::Duplicate {
+            return Err(ProxyConfigError::InvalidConfig(format!(
+                "{} must not declare fake ordering fields",
+                match step.kind {
+                    TcpChainStepKind::Split => "split",
+                    TcpChainStepKind::SynData => "syndata",
+                    TcpChainStepKind::SeqOverlap => "seqovl",
+                    TcpChainStepKind::Disorder => "disorder",
+                    TcpChainStepKind::MultiDisorder => "multidisorder",
+                    TcpChainStepKind::Oob => "oob",
+                    TcpChainStepKind::Disoob => "disoob",
+                    TcpChainStepKind::TlsRec => "tlsrec",
+                    TcpChainStepKind::TlsRandRec => "tlsrandrec",
+                    TcpChainStepKind::IpFrag2 => "ipfrag2",
+                    TcpChainStepKind::FakeRst => "fakerst",
+                    TcpChainStepKind::Fake
+                    | TcpChainStepKind::FakeSplit
+                    | TcpChainStepKind::FakeDisorder
+                    | TcpChainStepKind::HostFake => {
+                        unreachable!()
+                    }
                 }
             )));
         }
