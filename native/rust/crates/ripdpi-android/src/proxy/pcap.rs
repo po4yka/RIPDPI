@@ -22,12 +22,9 @@ fn lock_session() -> Option<MutexGuard<'static, Option<Arc<PcapRecordingSession>
 }
 
 fn pcap_start(env: &mut Env<'_>, dir_path: JString, max_bytes: jlong) -> jboolean {
-    let dir_str = match dir_path.try_to_string(env) {
-        Ok(s) => s,
-        Err(_) => {
-            throw_runtime_exception_env(env, "PCAP start failed: invalid dir_path");
-            return false;
-        }
+    let Ok(dir_str) = dir_path.try_to_string(env) else {
+        throw_runtime_exception_env(env, "PCAP start failed: invalid dir_path");
+        return false;
     };
 
     let max_bytes: u64 = if max_bytes > 0 { max_bytes as u64 } else { DEFAULT_MAX_BYTES };
@@ -35,12 +32,9 @@ fn pcap_start(env: &mut Env<'_>, dir_path: JString, max_bytes: jlong) -> jboolea
 
     match PcapRecordingSession::start(dir, max_bytes, DEFAULT_MAX_CONNECTIONS) {
         Ok(session) => {
-            let mut guard = match lock_session() {
-                Some(g) => g,
-                None => {
-                    throw_runtime_exception_env(env, "PCAP start failed: session mutex poisoned");
-                    return false;
-                }
+            let Some(mut guard) = lock_session() else {
+                throw_runtime_exception_env(env, "PCAP start failed: session mutex poisoned");
+                return false;
             };
             *guard = Some(Arc::new(session));
             log::info!("PCAP recording started in {dir_str}");

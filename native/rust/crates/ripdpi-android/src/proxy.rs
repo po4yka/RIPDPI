@@ -64,7 +64,7 @@ pub(crate) fn proxy_stop_entry(mut env: EnvUnowned<'_>, handle: jlong) {
         Outcome::Ok(()) => {}
         Outcome::Err(err) => log_and_throw(&mut env, "Proxy session stop failed", &err.to_string()),
         Outcome::Panic(payload) => {
-            log_and_throw(&mut env, "Proxy session stop panicked", &extract_panic_message(payload))
+            log_and_throw(&mut env, "Proxy session stop panicked", &extract_panic_message(payload));
         }
     }
 }
@@ -99,7 +99,7 @@ pub(crate) fn proxy_destroy_entry(mut env: EnvUnowned<'_>, handle: jlong) {
         Outcome::Ok(()) => {}
         Outcome::Err(err) => log_and_throw(&mut env, "Proxy session destroy failed", &err.to_string()),
         Outcome::Panic(payload) => {
-            log_and_throw(&mut env, "Proxy session destroy panicked", &extract_panic_message(payload))
+            log_and_throw(&mut env, "Proxy session destroy panicked", &extract_panic_message(payload));
         }
     }
 }
@@ -116,7 +116,7 @@ pub(crate) fn proxy_update_network_snapshot_entry(mut env: EnvUnowned<'_>, handl
         Outcome::Ok(()) => {}
         Outcome::Err(err) => log_and_throw(&mut env, "Proxy network snapshot update failed", &err.to_string()),
         Outcome::Panic(payload) => {
-            log_and_throw(&mut env, "Proxy network snapshot update panicked", &extract_panic_message(payload))
+            log_and_throw(&mut env, "Proxy network snapshot update panicked", &extract_panic_message(payload));
         }
     }
 }
