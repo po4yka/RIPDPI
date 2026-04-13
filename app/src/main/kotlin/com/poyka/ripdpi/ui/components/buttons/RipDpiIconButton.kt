@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.components.buttons
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -125,11 +124,7 @@ fun RipDpiIconButton(
     )
     val pressedScale by animateFloatAsState(
         targetValue = if (isPressed && isInteractive) motion.pressScale else 1f,
-        animationSpec =
-            tween(
-                durationMillis = motion.duration(motion.quickDurationMillis),
-                easing = FastOutSlowInEasing,
-            ),
+        animationSpec = motion.motionAwareSpring(),
         label = "iconButtonScale",
     )
 

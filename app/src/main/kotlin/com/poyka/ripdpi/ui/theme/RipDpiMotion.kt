@@ -2,6 +2,8 @@ package com.poyka.ripdpi.ui.theme
 
 import android.animation.ValueAnimator
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -40,6 +42,30 @@ data class RipDpiMotion(
     val allowsInfiniteMotion: Boolean
         get() = animationsEnabled && !reducedMotion
 
+    /** Spring spec for interactive press/release animations (M3 Expressive standard scheme). */
+    fun <T> standardSpring(): SpringSpec<T> =
+        spring(
+            dampingRatio = StandardSpringDamping,
+            stiffness = StandardSpringStiffness,
+        )
+
+    /** Spring spec for selection pops and emphasis animations (M3 Expressive expressive scheme). */
+    fun <T> expressiveSpring(): SpringSpec<T> =
+        spring(
+            dampingRatio = ExpressiveSpringDamping,
+            stiffness = ExpressiveSpringStiffness,
+        )
+
+    /** Spring spec that respects reducedMotion -- falls back to critically-damped (no bounce). */
+    fun <T> motionAwareSpring(expressive: Boolean = false): SpringSpec<T> =
+        if (reducedMotion || !animationsEnabled) {
+            spring(dampingRatio = 1f, stiffness = StandardSpringStiffness)
+        } else if (expressive) {
+            expressiveSpring()
+        } else {
+            standardSpring()
+        }
+
     companion object {
         /** M3 emphasized decelerate -- use for entering elements. */
         val EmphasizedDecelerate = CubicBezierEasing(0.05f, 0.7f, 0.1f, 1.0f)
@@ -49,6 +75,14 @@ data class RipDpiMotion(
 
         /** M3 standard -- use for on-screen property changes (color, opacity). */
         val StandardEasing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
+
+        /** M3 Expressive standard spring -- critically damped, no overshoot. */
+        const val StandardSpringDamping = 1f
+        const val StandardSpringStiffness = 500f
+
+        /** M3 Expressive expressive spring -- under-damped, slight bounce. */
+        const val ExpressiveSpringDamping = 0.7f
+        const val ExpressiveSpringStiffness = 400f
     }
 }
 

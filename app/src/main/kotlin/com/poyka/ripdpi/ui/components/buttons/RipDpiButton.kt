@@ -2,7 +2,7 @@ package com.poyka.ripdpi.ui.components.buttons
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -79,11 +80,23 @@ fun RipDpiButton(
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
     val type = RipDpiThemeTokens.type
-    val shape = RipDpiThemeTokens.shapes.xl
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
     val isPressed by resolvedInteractionSource.collectIsPressedAsState()
     val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
     val isInteractive = enabled && !loading
+    val cornerRadius by animateDpAsState(
+        targetValue =
+            if (isPressed &&
+                isInteractive
+            ) {
+                components.controlIncreasedCornerRadius
+            } else {
+                components.controlCornerRadius
+            },
+        animationSpec = motion.motionAwareSpring(),
+        label = "buttonCorner",
+    )
+    val shape = RoundedCornerShape(cornerRadius)
     val base = buttonPalette(variant = variant, enabled = isInteractive, isPressed = isPressed)
     val horizontalPadding =
         when (density) {
@@ -121,11 +134,7 @@ fun RipDpiButton(
     )
     val pressedScale by animateFloatAsState(
         targetValue = if (isPressed && isInteractive) motion.pressScale else 1f,
-        animationSpec =
-            tween(
-                durationMillis = motion.duration(motion.quickDurationMillis),
-                easing = FastOutSlowInEasing,
-            ),
+        animationSpec = motion.motionAwareSpring(),
         label = "buttonScale",
     )
     val contentAlpha by animateFloatAsState(
