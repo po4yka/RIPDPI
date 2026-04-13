@@ -343,6 +343,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly
+          components: rust-src
 
       - uses: Swatinem/rust-cache@v2
         with:
