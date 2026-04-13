@@ -18,6 +18,9 @@ data class RoutingProtectionDetectedApp(
     val presetTitle: String,
     val detectionMethod: String,
     val fixCoverage: String,
+    val vpnDetection: Boolean = false,
+    val packageDetectionMethods: List<String> = emptyList(),
+    val severity: String = "none",
 )
 
 data class RoutingProtectionCatalogSnapshot(
@@ -38,8 +41,9 @@ class DefaultRoutingProtectionCatalogService
     ) : RoutingProtectionCatalogService {
         override fun snapshot(): RoutingProtectionCatalogSnapshot {
             val installedPackages = installedPackagesProvider.installedPackages()
+            val catalog = appRoutingCatalogProvider.load()
             val presets =
-                appRoutingCatalogProvider.load().presets.map { preset ->
+                catalog.presets.map { preset ->
                     val matchedPackages = preset.resolvePackages(installedPackages).toList().sorted()
                     RoutingProtectionMatchedPreset(
                         id = preset.id,
@@ -53,13 +57,20 @@ class DefaultRoutingProtectionCatalogService
             val detectedApps =
                 presets
                     .flatMap { preset ->
+                        val catalogPreset = catalog.presets.find { it.id == preset.id }
                         preset.matchedPackages.map { packageName ->
+                            val entry = catalogPreset?.findPackageEntry(packageName)
                             RoutingProtectionDetectedApp(
                                 packageName = packageName,
                                 presetId = preset.id,
                                 presetTitle = preset.title,
-                                detectionMethod = preset.detectionMethod,
+                                detectionMethod =
+                                    entry?.detectionMethods?.firstOrNull()
+                                        ?: preset.detectionMethod,
                                 fixCoverage = preset.fixCoverage,
+                                vpnDetection = entry?.vpnDetection ?: false,
+                                packageDetectionMethods = entry?.detectionMethods ?: emptyList(),
+                                severity = entry?.severity ?: "none",
                             )
                         }
                     }.sortedBy(RoutingProtectionDetectedApp::packageName)

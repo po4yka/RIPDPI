@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "policyFile": "core/data/src/main/assets/integrations/app-routing-policy.json",
+  "presetId": "russian-mainstream",
+  "sources": [
+    {
+      "name": "ripdpi-app-routing",
+      "repo": "AnyKnew/ripdpi-app-routing",
+      "ref": "main",
+      "path": "russian-apps.json",
+      "rawUrl": "https://raw.githubusercontent.com/AnyKnew/ripdpi-app-routing/main/russian-apps.json"
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -75,17 +76,32 @@ data class AsnRoutingMapEntry(
 )
 
 @Serializable
+data class AppRoutingPackageEntry(
+    @SerialName("package") val packageName: String,
+    val vpnDetection: Boolean = false,
+    val detectionMethods: List<String> = emptyList(),
+    val severity: String = "none",
+)
+
+@Serializable
 data class AppRoutingPolicyPreset(
     val id: String,
     val title: String,
     val exactPackages: List<String> = emptyList(),
+    val packages: List<AppRoutingPackageEntry> = emptyList(),
     val packageRegexes: List<String> = emptyList(),
     val detectionMethod: String = "",
     val fixCoverage: String = "",
     val limitations: String = "",
 ) {
     fun resolvePackages(installedPackages: Set<String>): Set<String> {
-        val matches = exactPackages.map(String::trim).filter(String::isNotEmpty).toMutableSet()
+        val exactNames =
+            if (packages.isNotEmpty()) {
+                packages.map { it.packageName }
+            } else {
+                exactPackages
+            }
+        val matches = exactNames.map(String::trim).filter(String::isNotEmpty).toMutableSet()
         val regexes = packageRegexes.map(String::trim).filter(String::isNotEmpty).map(::Regex)
         if (regexes.isEmpty()) {
             return matches
@@ -97,6 +113,8 @@ data class AppRoutingPolicyPreset(
         }
         return matches
     }
+
+    fun findPackageEntry(packageName: String): AppRoutingPackageEntry? = packages.find { it.packageName == packageName }
 }
 
 private val appRoutingPolicyJson =

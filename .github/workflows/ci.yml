@@ -98,6 +98,9 @@ jobs:
       - name: Verify diagnostics-service boundary
         run: python3 scripts/ci/verify_diagnostics_boundary.py
 
+      - name: Run sync script unit tests
+        run: python3 -m unittest discover -s scripts/tests -p "test_sync_*.py"
+
       - name: Verify screenshot baselines
         run: ./gradlew verifyRoborazziDebug
 
