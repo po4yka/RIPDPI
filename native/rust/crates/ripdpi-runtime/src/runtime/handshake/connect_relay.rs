@@ -3,6 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 use std::time::Duration;
 
 use ripdpi_config::DETECT_CONNECT;
+use ripdpi_packets::{IS_HTTP, IS_HTTPS};
 use ripdpi_session::{encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply};
 
 use crate::runtime_policy::{extract_host, group_requires_payload, route_matches_payload, TransportProtocol};
@@ -152,8 +153,13 @@ where
     WriteSuccessReply: FnMut(&mut TcpStream, &SuccessReply, Option<&TcpStream>) -> io::Result<()>,
     RunWsTunnel: FnMut(TcpStream, &RuntimeState) -> WsTunnelResult,
     RunWsTunnelWithSeed: FnMut(TcpStream, Vec<u8>, &RuntimeState) -> WsTunnelResult,
-    MaybeDelayConnect:
-        FnMut(&mut TcpStream, &RuntimeState, SocketAddr, HandshakeKind) -> Result<DelayConnect, ConnectRelayError>,
+    MaybeDelayConnect: FnMut(
+        &mut TcpStream,
+        &RuntimeState,
+        SocketAddr,
+        Option<&str>,
+        HandshakeKind,
+    ) -> Result<DelayConnect, ConnectRelayError>,
     ImmediateConnectRelay: FnMut(
         &mut TcpStream,
         SocketAddr,
@@ -220,7 +226,7 @@ where
     };
 
     let desync_result = match handshake_kind {
-        Some(kind) => match maybe_delay_connect_fn(client, state, target, kind)? {
+        Some(kind) => match maybe_delay_connect_fn(client, state, target, host_hint.as_deref(), kind)? {
             DelayConnect::Immediate => immediate_connect_relay_fn(client, target, state, host_hint, &reply),
             DelayConnect::Delayed { route, payload } => {
                 delayed_connect_relay_fn(client, target, state, host_hint, route, payload)
@@ -414,6 +420,7 @@ fn maybe_delay_connect(
     client: &mut TcpStream,
     state: &RuntimeState,
     target: SocketAddr,
+    host_hint: Option<&str>,
     handshake: HandshakeKind,
 ) -> Result<DelayConnect, ConnectRelayError> {
     if !state.config.network.delay_conn {
@@ -435,11 +442,11 @@ fn maybe_delay_connect(
         return Ok(DelayConnect::Closed);
     };
 
-    let route = if route_matches_payload(&state.config, route.group_index, target, &payload, TransportProtocol::Tcp) {
+    let host = extract_host(&state.config, &payload).or_else(|| host_hint.map(ToOwned::to_owned));
+    let route = if delayed_route_matches(&state.config, route.group_index, target, &payload, host.as_deref()) {
         route
     } else {
         let cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
-        let host = extract_host(&state.config, &payload);
         cache
             .select_next(
                 &state.config,
@@ -461,6 +468,30 @@ fn maybe_delay_connect(
     };
 
     Ok(DelayConnect::Delayed { route, payload })
+}
+
+fn delayed_route_matches(
+    config: &ripdpi_config::RuntimeConfig,
+    group_index: usize,
+    target: SocketAddr,
+    payload: &[u8],
+    host_hint: Option<&str>,
+) -> bool {
+    if route_matches_payload(config, group_index, target, payload, TransportProtocol::Tcp) {
+        return true;
+    }
+
+    let Some(host) = host_hint else {
+        return false;
+    };
+    let Some(group) = config.groups.get(group_index) else {
+        return false;
+    };
+    if !group.matches.filters.hosts_match(host) {
+        return false;
+    }
+
+    group.matches.any_protocol || group.matches.proto == 0 || (group.matches.proto & (IS_HTTP | IS_HTTPS)) == 0
 }
 
 fn read_blocking_first_request(client: &mut TcpStream, buffer_size: usize) -> io::Result<Option<Vec<u8>>> {
@@ -605,7 +636,7 @@ mod tests {
             },
             move |_client, _state| WsTunnelResult::NotMtproto { seed_request: sniff_seed.clone() },
             |_client, _seed_request, _state| unreachable!("fallback WS should not be used"),
-            |_client, _state, _target, _handshake| unreachable!("desync path should not run"),
+            |_client, _state, _target, _host_hint, _handshake| unreachable!("desync path should not run"),
             |_client, _target, _state, _dc_host, _reply| unreachable!("plain immediate relay should not run"),
             |_client, _target, _state, _dc_host, _route, _payload| unreachable!("plain delayed relay should not run"),
             move |_client, replay_target, _state, dc_host, replay_seed| {
@@ -644,7 +675,7 @@ mod tests {
                 error: io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out"),
             },
             |_client, _seed_request, _state| unreachable!("fallback WS should not be used"),
-            |_client, _state, _target, _handshake| unreachable!("desync path should not run"),
+            |_client, _state, _target, _host_hint, _handshake| unreachable!("desync path should not run"),
             |_client, _target, _state, _dc_host, _reply| unreachable!("plain immediate relay should not run"),
             |_client, _target, _state, _dc_host, _route, _payload| unreachable!("plain delayed relay should not run"),
             move |_client, replay_target, _state, dc_host, replay_seed| {
@@ -689,7 +720,7 @@ mod tests {
                 assert_eq!(replay_seed, fallback_seed);
                 WsTunnelResult::ValidatedMtproto { dc: TelegramDc::production(2) }
             },
-            |_client, _state, _target, _handshake| Ok(DelayConnect::Immediate),
+            |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate),
             move |_client, _target, _state, _dc_host, _reply| {
                 Err(ConnectRelayError::with_seed_request(
                     io::Error::other("desync exhausted"),
@@ -737,7 +768,7 @@ mod tests {
                 assert_eq!(replay_seed, fallback_seed);
                 WsTunnelResult::NotMtproto { seed_request: replay_seed }
             },
-            |_client, _state, _target, _handshake| Ok(DelayConnect::Immediate),
+            |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate),
             move |_client, _target, _state, _dc_host, _reply| {
                 Err(ConnectRelayError::with_seed_request(
                     io::Error::new(io::ErrorKind::TimedOut, "desync timeout"),
@@ -783,7 +814,7 @@ mod tests {
                     error: io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out"),
                 }
             },
-            |_client, _state, _target, _handshake| Ok(DelayConnect::Immediate),
+            |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate),
             move |_client, _target, _state, _dc_host, _reply| {
                 Err(ConnectRelayError::with_seed_request(
                     io::Error::new(io::ErrorKind::TimedOut, "desync timeout"),
