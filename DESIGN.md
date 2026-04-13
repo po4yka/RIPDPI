@@ -597,7 +597,7 @@ Animated and focus-driven samples are excluded from screenshot catalogs.
 
 ## 15. M3 Expressive Adoption Status
 
-This section tracks RIPDPI's alignment with the Material 3 Expressive update (May 2025).
+This section tracks RIPDPI's alignment with the Material 3 Expressive update (May 2025). All planned features have been adopted as of April 2026.
 
 ### Adopted
 
@@ -605,18 +605,18 @@ This section tracks RIPDPI's alignment with the Material 3 Expressive update (Ma
 |---------|--------|-------|
 | M3 easing curves | Fully adopted | `EmphasizedDecelerate`, `EmphasizedAccelerate`, `StandardEasing` in `RipDpiMotion` |
 | Interaction scales | Fully adopted | `pressScale` (0.98), `selectionScale` (1.02), `emphasisScale` (1.04) |
-| Expressive shape tokens | Tokens defined | `xlIncreased` (20dp), `xxlIncreased` (32dp), `xxxl` (48dp) added to `RipDpiShapeTokens` |
-| Emphasized typography | Convention defined | Weight promotion (400->500->700) via `bodyEmphasis` and inline overrides |
+| Expressive shape tokens | Implemented | `xs` (4dp), `xlIncreased` (20dp), `xxlIncreased` (32dp), `xxxl` (48dp) in `RipDpiShapeTokens` |
+| Emphasized typography | Implemented | `screenTitleEmphasis` (Bold 700), `bodyEmphasisBold` (Bold 700) + weight promotion convention |
 | Button size scale | Mapped | XS-XL mapped to RIPDPI density system; default remains 48dp |
-| Reduced motion | Fully adopted | Durations halve, infinite animations disabled, respects system setting |
+| Reduced motion | Fully adopted | Durations halve, infinite animations disabled, springs use critically-damped fallback |
+| Spring-based motion | Adopted | `motionAwareSpring()` in `RipDpiMotion`; standard (critically damped) + expressive (under-damped) schemes. Used for press scale in Button, IconButton, Chip |
+| Shape morphing | Adopted | Button morphs xl->xlIncreased on press; Chip morphs lg->xl on press. Uses `animateDpAsState` + spring |
+| 3 contrast levels | Infrastructure ready | `RipDpiContrastLevel` enum (Standard/Medium/High), `adjustForContrast()` in Color.kt, wired into `RipDpiTheme` via `contrastLevel` parameter, exposed via `RipDpiThemeTokens.contrastLevel` |
 
 ### Deferred
 
 | Feature | Reason | Adopt when |
 |---------|--------|------------|
-| Spring-based motion (`spring()`) | `@ExperimentalMaterial3ExpressiveApi` | API stabilizes in Compose BOM |
-| Shape morphing | Experimental, requires `animateShape()` | API stabilizes; start with button press morph |
-| 3 contrast levels (standard/medium/high) | Requires `ColorScheme` contrast parameter | User demand or accessibility audit requires it |
 | `MaterialExpressiveTheme` | Experimental wrapper | Becomes stable in Compose Material3 |
 | Toggle buttons | Covered by `RipDpiChip` and `RipDpiIconButton` toggle | If distinct toggle-button UX is needed |
 
@@ -626,8 +626,8 @@ M3 Expressive introduces 3 user-controlled contrast levels:
 
 | Level | Effect | RIPDPI approach |
 |-------|--------|-----------------|
-| Standard | Default tonal pairing | Current behavior |
-| Medium | Increased container/content contrast | Not yet exposed; achievable via `RipDpiExtendedColors` variant |
-| High | Maximum contrast, thicker borders | Not yet exposed; useful for accessibility settings |
+| Standard | Default tonal pairing | Current behavior (default) |
+| Medium | Increased container/content contrast | `adjustForContrast(Medium)` blends mutedForeground, border, cardBorder, outlineVariant toward foreground |
+| High | Maximum contrast, thicker borders | `adjustForContrast(High)` applies stronger blending + inputBackground adjustment in dark theme |
 
-When adopting, expose contrast as a user preference in Settings and generate adjusted `RipDpiExtendedColors` palettes per level. Do not hardcode high-contrast overrides in individual components.
+Pass `contrastLevel` to `RipDpiTheme()` to activate. Expose as a user preference in Settings > Accessibility when user demand warrants it.
