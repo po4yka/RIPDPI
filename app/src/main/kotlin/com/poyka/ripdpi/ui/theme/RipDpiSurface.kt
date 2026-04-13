@@ -16,6 +16,7 @@ enum class RipDpiSurfaceRole {
     Sheet,
     Banner,
     Snackbar,
+    SwitchThumb,
 }
 
 @Immutable
@@ -97,6 +98,15 @@ fun ripDpiSurfaceStyle(role: RipDpiSurfaceRole): RipDpiSurfaceStyle {
                 border = Color.Transparent,
                 content = MaterialTheme.colorScheme.inverseOnSurface,
                 shadowElevation = 18.dp,
+            )
+        }
+
+        RipDpiSurfaceRole.SwitchThumb -> {
+            RipDpiSurfaceStyle(
+                container = colors.foreground,
+                border = Color.Transparent,
+                content = colors.background,
+                shadowElevation = 3.dp,
             )
         }
     }

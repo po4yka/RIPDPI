@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,7 +33,7 @@ fun StageProgressIndicator(
     val typeScale = RipDpiThemeTokens.type
     val pendingCount = (totalCount - completedCount - failedCount).coerceAtLeast(0)
 
-    val segmentShape = RoundedCornerShape(3.dp)
+    val segmentShape = RipDpiThemeTokens.shapes.xs
     val animSpec =
         tween<androidx.compose.ui.graphics.Color>(
             durationMillis = motion.duration(motion.stateDurationMillis),

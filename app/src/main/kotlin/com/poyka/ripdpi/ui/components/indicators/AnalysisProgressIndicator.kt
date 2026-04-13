@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,9 +44,7 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private val SegmentHeight = 6.dp
-private val SegmentCornerRadius = 3.dp
 private val SegmentGap = 4.dp
-private val ContainerCornerRadius = 12.dp
 private const val ContainerBgAlpha = 0.06f
 private const val PulseTargetAlpha = 0.45f
 private const val PulseDurationMs = 1200
@@ -72,7 +69,7 @@ fun AnalysisProgressIndicator(
     val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
     val typeScale = RipDpiThemeTokens.type
-    val containerShape = RoundedCornerShape(ContainerCornerRadius)
+    val containerShape = RipDpiThemeTokens.shapes.lg
     val (pulseAlpha, shimmerAlpha) = rememberPipelineAlphas(motion.allowsInfiniteMotion)
     val description = buildStageDescription(stages)
 
@@ -267,7 +264,7 @@ private fun PipelineSegment(
 ) {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
-    val segmentShape = RoundedCornerShape(SegmentCornerRadius)
+    val segmentShape = RipDpiThemeTokens.shapes.xs
     val targetColor =
         when (stage.status) {
             AnalysisStageStatus.COMPLETED -> colors.success

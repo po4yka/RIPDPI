@@ -37,7 +37,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -778,7 +777,7 @@ private fun HomeDiagnosticsBottomSheetHost(
                             .fillMaxWidth()
                             .background(
                                 color = colors.muted.copy(alpha = stageContainerAlpha),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RipDpiThemeTokens.shapes.lg,
                             ).padding(RipDpiThemeTokens.spacing.sm),
                     verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
                 ) {
@@ -814,7 +813,7 @@ private fun HomeDiagnosticsBottomSheetHost(
                             .fillMaxWidth()
                             .background(
                                 color = colors.muted.copy(alpha = stageContainerAlpha),
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RipDpiThemeTokens.shapes.lg,
                             ).padding(RipDpiThemeTokens.spacing.sm),
                     verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
                 ) {
@@ -899,7 +898,7 @@ private fun StageResultRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .background(containerColor, RoundedCornerShape(8.dp))
+                .background(containerColor, RipDpiThemeTokens.shapes.sm)
                 .padding(horizontal = spacing.sm, vertical = spacing.sm),
         horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         verticalAlignment = Alignment.Top,

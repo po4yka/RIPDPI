@@ -122,6 +122,7 @@ data class RipDpiExtendedColors(
     val hairline: Color,
     val outline: Color,
     val outlineVariant: Color,
+    val scrim: Color,
 )
 
 val LightRipDpiExtendedColors =
@@ -158,6 +159,7 @@ val LightRipDpiExtendedColors =
         hairline = RipDpiHairlineColor,
         outline = LightOutline,
         outlineVariant = LightOutlineVariant,
+        scrim = LightScrim,
     )
 
 val DarkRipDpiExtendedColors =
@@ -194,6 +196,7 @@ val DarkRipDpiExtendedColors =
         hairline = RipDpiHairlineColor,
         outline = DarkOutline,
         outlineVariant = DarkOutlineVariant,
+        scrim = DarkScrim,
     )
 
 fun ripDpiLightColorScheme(): ColorScheme =

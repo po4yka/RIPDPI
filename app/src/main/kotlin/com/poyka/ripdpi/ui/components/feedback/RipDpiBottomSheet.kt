@@ -74,9 +74,9 @@ fun RipDpiBottomSheet(
                 bottomStart = ZeroCornerSize,
                 bottomEnd = ZeroCornerSize,
             ),
-        containerColor = MaterialTheme.colorScheme.surface,
+        containerColor = RipDpiThemeTokens.colors.card,
         contentColor = RipDpiThemeTokens.colors.foreground,
-        scrimColor = MaterialTheme.colorScheme.scrim,
+        scrimColor = RipDpiThemeTokens.colors.scrim,
         dragHandle = { RipDpiBottomSheetHandle() },
     ) {
         RipDpiBottomSheetCard(
@@ -294,7 +294,7 @@ private fun RipDpiBottomSheetPreview(themePreference: String) {
                 Modifier
                     .fillMaxWidth()
                     .height(560.dp)
-                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.24f)),
+                    .background(RipDpiThemeTokens.colors.scrim.copy(alpha = 0.24f)),
             contentAlignment = Alignment.BottomCenter,
         ) {
             RipDpiBottomSheetCard(
