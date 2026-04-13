@@ -123,6 +123,7 @@ impl RootHelperClient {
     }
 
     /// Send multi-disorder TCP segments via the helper. Returns replacement fd.
+    #[allow(clippy::too_many_arguments)]
     pub fn send_multi_disorder_tcp(
         &self,
         stream_fd: RawFd,
@@ -151,6 +152,7 @@ impl RootHelperClient {
     }
 
     /// Send an ordered raw TCP batch via the helper. Returns replacement fd.
+    #[allow(clippy::too_many_arguments)]
     pub fn send_ordered_tcp_segments(
         &self,
         stream_fd: RawFd,
