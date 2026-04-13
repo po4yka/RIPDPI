@@ -92,6 +92,7 @@ mod tests {
             inter_segment_delay_ms: 0,
             activation_filter: None,
             ipv6_extension_profile: "none".to_string(),
+            random_fake_host: false,
         }
     }
 
@@ -285,8 +286,10 @@ mod tests {
                             inter_segment_delay_ms: 0,
                             activation_filter: use_activation_filter.then_some(ProxyUiActivationFilter::default()),
                             ipv6_extension_profile: "none".to_string(),
+                            random_fake_host: false,
                         }]
                     },
+                    tcp_rotation: None,
                     udp_steps: if udp_fake_count > 0 {
                         vec![udp_step("fake_burst", udp_fake_count)]
                     } else {
@@ -405,6 +408,7 @@ mod tests {
             inter_segment_delay_ms: 0,
             activation_filter: Some(ProxyUiActivationFilter::default()),
             ipv6_extension_profile: "none".to_string(),
+            random_fake_host: false,
         }];
 
         let config = runtime_config_from_payload(ui_payload(ui)).expect("hostfake ui config");
