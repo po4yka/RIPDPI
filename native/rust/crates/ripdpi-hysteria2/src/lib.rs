@@ -15,7 +15,7 @@ use blake2::Blake2b;
 use bytes::{BufMut, Bytes, BytesMut};
 use http::Request;
 use quinn::{AsyncUdpSocket, UdpPoller};
-use rand::{Rng, RngCore};
+use rand::{Rng, RngExt};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, RootCertStore, SignatureScheme};

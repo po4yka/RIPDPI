@@ -2,7 +2,7 @@ use std::io;
 use std::sync::{Arc, OnceLock};
 
 use hex::FromHex;
-use rand::Rng;
+use rand::RngExt;
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
