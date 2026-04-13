@@ -143,6 +143,7 @@ private fun StageProgressSummary(
     }
 }
 
+@Composable
 private fun stageSegmentColor(
     index: Int,
     completedCount: Int,
