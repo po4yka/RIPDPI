@@ -1,9 +1,13 @@
+use std::collections::HashMap;
 use std::io;
+use std::net::SocketAddrV4;
 use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::{AsRawFd, RawFd};
 use std::sync::OnceLock;
 use std::time::Duration;
 
+use crate::sync::Mutex;
+use ripdpi_config::IpIdMode;
 use ripdpi_desync::TcpSegmentHint;
 use socket2::{Domain, Protocol, Socket, Type};
 
@@ -29,16 +33,21 @@ impl TcpFlagOverrides {
     }
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FakeTcpOptions<'a> {
     pub secondary_fake_prefix: Option<&'a [u8]>,
     pub timestamp_delta_ticks: Option<i32>,
     pub protect_path: Option<&'a str>,
     pub fake_flags: TcpFlagOverrides,
     pub orig_flags: TcpFlagOverrides,
+    pub require_raw_path: bool,
+    pub force_raw_original: bool,
+    pub ipv4_identifications: Vec<u16>,
 }
 
 static SEQOVL_SUPPORTED: OnceLock<bool> = OnceLock::new();
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+static IPV4_ID_ALLOCATOR: OnceLock<Mutex<Ipv4IdAllocator>> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TcpPayloadSegment {
@@ -58,6 +67,101 @@ pub struct IpFragmentationCapabilities {
     pub raw_ipv4: bool,
     pub raw_ipv6: bool,
     pub tcp_repair: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+struct Ipv4FlowKey {
+    source: SocketAddrV4,
+    target: SocketAddrV4,
+}
+
+#[derive(Debug, Default)]
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+struct Ipv4IdAllocator {
+    next_seq_by_flow: HashMap<Ipv4FlowKey, u16>,
+    rnd_state: u32,
+}
+
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+impl Ipv4IdAllocator {
+    fn reserve(&mut self, source: SocketAddrV4, target: SocketAddrV4, mode: IpIdMode, count: usize) -> Vec<u16> {
+        match mode {
+            IpIdMode::Seq | IpIdMode::SeqGroup => {
+                let key = Ipv4FlowKey { source, target };
+                let next = self.next_seq_by_flow.entry(key).or_insert(1);
+                let mut ids = Vec::with_capacity(count);
+                for _ in 0..count {
+                    let current = *next;
+                    ids.push(current);
+                    *next = advance_ipv4_identification(current);
+                }
+                ids
+            }
+            IpIdMode::Rnd => (0..count).map(|_| self.next_random_non_zero()).collect(),
+            IpIdMode::Zero => vec![0; count],
+        }
+    }
+
+    fn next_random_non_zero(&mut self) -> u16 {
+        if self.rnd_state == 0 {
+            self.rnd_state = 0x9e37_79b9;
+        }
+        loop {
+            self.rnd_state ^= self.rnd_state << 13;
+            self.rnd_state ^= self.rnd_state >> 17;
+            self.rnd_state ^= self.rnd_state << 5;
+            let candidate = (self.rnd_state & u32::from(u16::MAX)) as u16;
+            if candidate != 0 {
+                return candidate;
+            }
+        }
+    }
+}
+
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+fn advance_ipv4_identification(value: u16) -> u16 {
+    if value == u16::MAX {
+        1
+    } else {
+        value + 1
+    }
+}
+
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+fn reserve_ipv4_identifications(
+    source: SocketAddr,
+    target: SocketAddr,
+    mode: Option<IpIdMode>,
+    count: usize,
+) -> Vec<u16> {
+    let Some(mode) = mode else {
+        return Vec::new();
+    };
+    let (SocketAddr::V4(source), SocketAddr::V4(target)) = (source, target) else {
+        return Vec::new();
+    };
+    let allocator = IPV4_ID_ALLOCATOR.get_or_init(|| Mutex::new(Ipv4IdAllocator::default()));
+    allocator.lock().map(|mut guard| guard.reserve(source, target, mode, count)).unwrap_or_default()
+}
+
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+fn reserve_stream_ipv4_identifications(
+    stream: &TcpStream,
+    mode: Option<IpIdMode>,
+    count: usize,
+) -> io::Result<Vec<u16>> {
+    Ok(reserve_ipv4_identifications(stream.local_addr()?, stream.peer_addr()?, mode, count))
+}
+
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+fn reserve_udp_ipv4_identifications(
+    socket: &UdpSocket,
+    target: SocketAddr,
+    mode: Option<IpIdMode>,
+    count: usize,
+) -> io::Result<Vec<u16>> {
+    Ok(reserve_ipv4_identifications(socket.local_addr()?, target, mode, count))
 }
 
 impl IpFragmentationCapabilities {
@@ -257,16 +361,31 @@ pub fn set_rcvbuf(_fd: &impl AsRawFd, _size: u32) -> io::Result<()> {
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn send_fake_rst_reserved(
+    stream: &TcpStream,
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    flags: TcpFlagOverrides,
+    ipv4_identification: Option<u16>,
+) -> io::Result<()> {
+    if let Some(result) =
+        root_helper::with_root_helper(|h| h.send_fake_rst(stream.as_raw_fd(), default_ttl, flags, ipv4_identification))
+    {
+        return result;
+    }
+    linux::send_fake_rst(stream, default_ttl, protect_path, flags, ipv4_identification)
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn send_fake_rst(
     stream: &TcpStream,
     default_ttl: u8,
     protect_path: Option<&str>,
     flags: TcpFlagOverrides,
+    ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
-    if let Some(result) = root_helper::with_root_helper(|h| h.send_fake_rst(stream.as_raw_fd(), default_ttl, flags)) {
-        return result;
-    }
-    linux::send_fake_rst(stream, default_ttl, protect_path, flags)
+    let ipv4_identification = reserve_stream_ipv4_identifications(stream, ip_id_mode, 1)?.into_iter().next();
+    send_fake_rst_reserved(stream, default_ttl, protect_path, flags, ipv4_identification)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -275,6 +394,7 @@ pub fn send_fake_rst(
     _default_ttl: u8,
     _protect_path: Option<&str>,
     _flags: TcpFlagOverrides,
+    _ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
@@ -307,9 +427,26 @@ pub fn send_fake_tcp(
     ttl: u8,
     md5sig: bool,
     default_ttl: u8,
-    options: FakeTcpOptions<'_>,
+    mut options: FakeTcpOptions<'_>,
+    ip_id_mode: Option<IpIdMode>,
     wait: TcpStageWait,
 ) -> io::Result<()> {
+    let source = stream.local_addr()?;
+    let target = stream.peer_addr()?;
+    let supports_ipv4_ids = matches!((source, target), (SocketAddr::V4(_), SocketAddr::V4(_)));
+    let require_raw_path = supports_ipv4_ids && ip_id_mode.is_some();
+    let force_raw_original = matches!(ip_id_mode, Some(IpIdMode::SeqGroup)) && supports_ipv4_ids;
+    let packet_count = usize::from(!fake_prefix.is_empty())
+        + usize::from(options.secondary_fake_prefix.is_some_and(|payload| !payload.is_empty()))
+        + usize::from(force_raw_original || !options.orig_flags.is_empty());
+    let ids = if require_raw_path {
+        reserve_ipv4_identifications(source, target, ip_id_mode, packet_count)
+    } else {
+        Vec::new()
+    };
+    options.require_raw_path = require_raw_path;
+    options.force_raw_original = force_raw_original;
+    options.ipv4_identifications = ids;
     linux::send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, options, wait)
 }
 
@@ -322,9 +459,33 @@ pub fn send_fake_tcp(
     _md5sig: bool,
     _default_ttl: u8,
     _options: FakeTcpOptions<'_>,
+    _ip_id_mode: Option<IpIdMode>,
     _wait: TcpStageWait,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn send_flagged_tcp_payload_reserved(
+    stream: &TcpStream,
+    payload: &[u8],
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    md5sig: bool,
+    flags: TcpFlagOverrides,
+    ipv4_identification: Option<u16>,
+) -> io::Result<()> {
+    if let Some(result) = root_helper::with_root_helper(|h| {
+        let res =
+            h.send_flagged_tcp_payload(stream.as_raw_fd(), payload, default_ttl, md5sig, flags, ipv4_identification)?;
+        if let Some(replacement_fd) = res {
+            swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
+        }
+        Ok(())
+    }) {
+        return result;
+    }
+    linux::send_flagged_tcp_payload(stream, payload, default_ttl, protect_path, md5sig, flags, ipv4_identification)
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -335,17 +496,10 @@ pub fn send_flagged_tcp_payload(
     protect_path: Option<&str>,
     md5sig: bool,
     flags: TcpFlagOverrides,
+    ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
-    if let Some(result) = root_helper::with_root_helper(|h| {
-        let res = h.send_flagged_tcp_payload(stream.as_raw_fd(), payload, default_ttl, md5sig, flags)?;
-        if let Some(replacement_fd) = res {
-            swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
-        }
-        Ok(())
-    }) {
-        return result;
-    }
-    linux::send_flagged_tcp_payload(stream, payload, default_ttl, protect_path, md5sig, flags)
+    let ipv4_identification = reserve_stream_ipv4_identifications(stream, ip_id_mode, 1)?.into_iter().next();
+    send_flagged_tcp_payload_reserved(stream, payload, default_ttl, protect_path, md5sig, flags, ipv4_identification)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -356,6 +510,7 @@ pub fn send_flagged_tcp_payload(
     _protect_path: Option<&str>,
     _md5sig: bool,
     _flags: TcpFlagOverrides,
+    _ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
@@ -374,7 +529,7 @@ pub fn probe_ip_fragmentation_capabilities(_protect_path: Option<&str>) -> io::R
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub fn send_ip_fragmented_udp(
+pub fn send_ip_fragmented_udp_reserved(
     upstream: &UdpSocket,
     target: SocketAddr,
     payload: &[u8],
@@ -383,9 +538,18 @@ pub fn send_ip_fragmented_udp(
     protect_path: Option<&str>,
     disorder: bool,
     ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
+    ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
     if let Some(result) = root_helper::with_root_helper(|h| {
-        h.send_ip_fragmented_udp(upstream.as_raw_fd(), target, payload, split_offset, default_ttl, disorder)
+        h.send_ip_fragmented_udp(
+            upstream.as_raw_fd(),
+            target,
+            payload,
+            split_offset,
+            default_ttl,
+            disorder,
+            ipv4_identification,
+        )
     }) {
         return result;
     }
@@ -398,6 +562,33 @@ pub fn send_ip_fragmented_udp(
         protect_path,
         disorder,
         ipv6_ext,
+        ipv4_identification,
+    )
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn send_ip_fragmented_udp(
+    upstream: &UdpSocket,
+    target: SocketAddr,
+    payload: &[u8],
+    split_offset: usize,
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    disorder: bool,
+    ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
+    ip_id_mode: Option<IpIdMode>,
+) -> io::Result<()> {
+    let ipv4_identification = reserve_udp_ipv4_identifications(upstream, target, ip_id_mode, 1)?.into_iter().next();
+    send_ip_fragmented_udp_reserved(
+        upstream,
+        target,
+        payload,
+        split_offset,
+        default_ttl,
+        protect_path,
+        disorder,
+        ipv6_ext,
+        ipv4_identification,
     )
 }
 
@@ -411,8 +602,51 @@ pub fn send_ip_fragmented_udp(
     _protect_path: Option<&str>,
     _disorder: bool,
     _ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
+    _ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn send_ip_fragmented_tcp_reserved(
+    stream: &TcpStream,
+    payload: &[u8],
+    split_offset: usize,
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    disorder: bool,
+    ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
+    flags: TcpFlagOverrides,
+    ipv4_identification: Option<u16>,
+) -> io::Result<()> {
+    if let Some(result) = root_helper::with_root_helper(|h| {
+        let res = h.send_ip_fragmented_tcp(
+            stream.as_raw_fd(),
+            payload,
+            split_offset,
+            default_ttl,
+            disorder,
+            flags,
+            ipv4_identification,
+        )?;
+        if let Some(replacement_fd) = res {
+            swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
+        }
+        Ok(())
+    }) {
+        return result;
+    }
+    linux::send_ip_fragmented_tcp(
+        stream,
+        payload,
+        split_offset,
+        default_ttl,
+        protect_path,
+        disorder,
+        ipv6_ext,
+        flags,
+        ipv4_identification,
+    )
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -425,17 +659,20 @@ pub fn send_ip_fragmented_tcp(
     disorder: bool,
     ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
     flags: TcpFlagOverrides,
+    ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
-    if let Some(result) = root_helper::with_root_helper(|h| {
-        let res = h.send_ip_fragmented_tcp(stream.as_raw_fd(), payload, split_offset, default_ttl, disorder, flags)?;
-        if let Some(replacement_fd) = res {
-            swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
-        }
-        Ok(())
-    }) {
-        return result;
-    }
-    linux::send_ip_fragmented_tcp(stream, payload, split_offset, default_ttl, protect_path, disorder, ipv6_ext, flags)
+    let ipv4_identification = reserve_stream_ipv4_identifications(stream, ip_id_mode, 1)?.into_iter().next();
+    send_ip_fragmented_tcp_reserved(
+        stream,
+        payload,
+        split_offset,
+        default_ttl,
+        protect_path,
+        disorder,
+        ipv6_ext,
+        flags,
+        ipv4_identification,
+    )
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -448,12 +685,13 @@ pub fn send_ip_fragmented_tcp(
     _disorder: bool,
     _ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
     _flags: TcpFlagOverrides,
+    _ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub fn send_multi_disorder_tcp(
+pub fn send_multi_disorder_tcp_reserved(
     stream: &TcpStream,
     payload: &[u8],
     segments: &[TcpPayloadSegment],
@@ -462,6 +700,7 @@ pub fn send_multi_disorder_tcp(
     inter_segment_delay_ms: u32,
     md5sig: bool,
     flags: TcpFlagOverrides,
+    ipv4_identifications: &[u16],
 ) -> io::Result<()> {
     if let Some(result) = root_helper::with_root_helper(|h| {
         let res = h.send_multi_disorder_tcp(
@@ -472,6 +711,7 @@ pub fn send_multi_disorder_tcp(
             inter_segment_delay_ms,
             md5sig,
             flags,
+            ipv4_identifications,
         )?;
         if let Some(replacement_fd) = res {
             swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
@@ -489,6 +729,33 @@ pub fn send_multi_disorder_tcp(
         inter_segment_delay_ms,
         md5sig,
         flags,
+        ipv4_identifications,
+    )
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn send_multi_disorder_tcp(
+    stream: &TcpStream,
+    payload: &[u8],
+    segments: &[TcpPayloadSegment],
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    inter_segment_delay_ms: u32,
+    md5sig: bool,
+    flags: TcpFlagOverrides,
+    ip_id_mode: Option<IpIdMode>,
+) -> io::Result<()> {
+    let ipv4_identifications = reserve_stream_ipv4_identifications(stream, ip_id_mode, segments.len())?;
+    send_multi_disorder_tcp_reserved(
+        stream,
+        payload,
+        segments,
+        default_ttl,
+        protect_path,
+        inter_segment_delay_ms,
+        md5sig,
+        flags,
+        &ipv4_identifications,
     )
 }
 
@@ -502,8 +769,49 @@ pub fn send_multi_disorder_tcp(
     _inter_segment_delay_ms: u32,
     _md5sig: bool,
     _flags: TcpFlagOverrides,
+    _ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn send_seqovl_tcp_reserved(
+    stream: &TcpStream,
+    real_chunk: &[u8],
+    fake_prefix: &[u8],
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    md5sig: bool,
+    flags: TcpFlagOverrides,
+    ipv4_identification: Option<u16>,
+) -> io::Result<()> {
+    if let Some(result) = root_helper::with_root_helper(|h| {
+        let res = h.send_seqovl_tcp(
+            stream.as_raw_fd(),
+            real_chunk,
+            fake_prefix,
+            default_ttl,
+            md5sig,
+            flags,
+            ipv4_identification,
+        )?;
+        if let Some(replacement_fd) = res {
+            swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
+        }
+        Ok(())
+    }) {
+        return result;
+    }
+    linux::send_seqovl_tcp(
+        stream,
+        real_chunk,
+        fake_prefix,
+        default_ttl,
+        protect_path,
+        md5sig,
+        flags,
+        ipv4_identification,
+    )
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -515,17 +823,19 @@ pub fn send_seqovl_tcp(
     protect_path: Option<&str>,
     md5sig: bool,
     flags: TcpFlagOverrides,
+    ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
-    if let Some(result) = root_helper::with_root_helper(|h| {
-        let res = h.send_seqovl_tcp(stream.as_raw_fd(), real_chunk, fake_prefix, default_ttl, md5sig, flags)?;
-        if let Some(replacement_fd) = res {
-            swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
-        }
-        Ok(())
-    }) {
-        return result;
-    }
-    linux::send_seqovl_tcp(stream, real_chunk, fake_prefix, default_ttl, protect_path, md5sig, flags)
+    let ipv4_identification = reserve_stream_ipv4_identifications(stream, ip_id_mode, 1)?.into_iter().next();
+    send_seqovl_tcp_reserved(
+        stream,
+        real_chunk,
+        fake_prefix,
+        default_ttl,
+        protect_path,
+        md5sig,
+        flags,
+        ipv4_identification,
+    )
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -537,6 +847,7 @@ pub fn send_seqovl_tcp(
     _protect_path: Option<&str>,
     _md5sig: bool,
     _flags: TcpFlagOverrides,
+    _ip_id_mode: Option<IpIdMode>,
 ) -> io::Result<()> {
     Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
 }
@@ -624,9 +935,12 @@ pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(us
 #[cfg(test)]
 mod tests {
     use std::mem::{size_of, zeroed};
+    use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
     use std::ptr;
 
-    use super::{extract_scm_rights_fd, read_unaligned_raw_fd};
+    use ripdpi_config::IpIdMode;
+
+    use super::{extract_scm_rights_fd, read_unaligned_raw_fd, reserve_ipv4_identifications, Ipv4IdAllocator};
 
     #[test]
     fn read_unaligned_raw_fd_reads_i32_payload() {
@@ -684,5 +998,54 @@ mod tests {
         }
 
         assert_eq!(extract_scm_rights_fd(&msg), None);
+    }
+
+    #[test]
+    fn ipv4_id_allocator_seq_is_contiguous_per_flow() {
+        let source = SocketAddrV4::new(Ipv4Addr::new(192, 0, 2, 10), 40000);
+        let target = SocketAddrV4::new(Ipv4Addr::new(198, 51, 100, 20), 443);
+        let mut allocator = Ipv4IdAllocator::default();
+
+        assert_eq!(allocator.reserve(source, target, IpIdMode::Seq, 3), vec![1, 2, 3]);
+        assert_eq!(allocator.reserve(source, target, IpIdMode::Seq, 2), vec![4, 5]);
+    }
+
+    #[test]
+    fn ipv4_id_allocator_seqgroup_uses_same_sequential_scheme() {
+        let source = SocketAddrV4::new(Ipv4Addr::new(192, 0, 2, 11), 40001);
+        let target = SocketAddrV4::new(Ipv4Addr::new(198, 51, 100, 21), 443);
+        let mut allocator = Ipv4IdAllocator::default();
+
+        assert_eq!(allocator.reserve(source, target, IpIdMode::SeqGroup, 2), vec![1, 2]);
+        assert_eq!(allocator.reserve(source, target, IpIdMode::SeqGroup, 1), vec![3]);
+    }
+
+    #[test]
+    fn ipv4_id_allocator_zero_returns_zeroes() {
+        let source = SocketAddrV4::new(Ipv4Addr::new(192, 0, 2, 12), 40002);
+        let target = SocketAddrV4::new(Ipv4Addr::new(198, 51, 100, 22), 443);
+        let mut allocator = Ipv4IdAllocator::default();
+
+        assert_eq!(allocator.reserve(source, target, IpIdMode::Zero, 3), vec![0, 0, 0]);
+    }
+
+    #[test]
+    fn ipv4_id_allocator_rnd_returns_non_zero_values() {
+        let source = SocketAddrV4::new(Ipv4Addr::new(192, 0, 2, 13), 40003);
+        let target = SocketAddrV4::new(Ipv4Addr::new(198, 51, 100, 23), 443);
+        let mut allocator = Ipv4IdAllocator::default();
+
+        let values = allocator.reserve(source, target, IpIdMode::Rnd, 8);
+
+        assert_eq!(values.len(), 8);
+        assert!(values.iter().all(|value| *value != 0));
+    }
+
+    #[test]
+    fn reserve_ipv4_identifications_skips_ipv6_flows() {
+        let source = SocketAddr::from((Ipv4Addr::new(192, 0, 2, 14), 40004));
+        let target = SocketAddr::from(([0u16, 0, 0, 0, 0, 0, 0, 1], 443));
+
+        assert!(reserve_ipv4_identifications(source, target, Some(IpIdMode::SeqGroup), 2).is_empty());
     }
 }

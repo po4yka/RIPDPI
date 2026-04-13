@@ -61,6 +61,7 @@ import com.poyka.ripdpi.data.normalizeFakeTlsSniMode
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.normalizeHttpFakeProfile
+import com.poyka.ripdpi.data.normalizeIpIdMode
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeQuicFakeProfile
@@ -124,6 +125,7 @@ internal fun normalizeFakePacketConfig(config: RipDpiFakePacketConfig): RipDpiFa
         wsizeWindow = config.wsizeWindow?.takeIf { it > 0 },
         wsizeScale = config.wsizeScale?.takeIf { it in WsizeScaleMin..WsizeScaleMax },
         stripTimestamps = config.stripTimestamps,
+        ipIdMode = normalizeIpIdMode(config.ipIdMode),
         quicBindLowPort = config.quicBindLowPort,
         quicMigrateAfterHandshake = config.quicMigrateAfterHandshake,
         entropyMode = normalizeEntropyMode(config.entropyMode),

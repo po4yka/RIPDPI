@@ -150,31 +150,42 @@ PSH+URG on fakes).
 
 ### 4. IP Identification Field Control
 
-**Status:** [ ] Not started
+**Status:** [x] Implemented
 **Priority:** High
-**Crate:** `ripdpi-desync`, `ripdpi-ipfrag`
+**Crate:** `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-runtime`, `ripdpi-monitor`
 
-**What:** The IPv4 Identification field can betray fake packets when it has a
-discontinuous sequence relative to real packets. zapret2's
-`--ip-id=seq|seqgroup|rnd|zero` controls this. `seqgroup` is most important: it
-makes fake packets share the same IP ID sequence as originals, preventing DPI
-from distinguishing them by IP ID gap.
+**What shipped:** RIPDPI now exposes a group-wide IPv4 ID mode on the
+fake-packet surface with full AppSettings, JSON/native bridge, and Advanced
+Settings wiring. Supported modes are `seq`, `seqgroup`, `rnd`, and `zero`, with
+the default empty value preserving previous behavior.
 
 **Modes:**
-- `seq` -- sequential increments (default OS behavior)
-- `seqgroup` -- fakes get IDs adjacent to the original's ID
+- `seq` -- per-flow monotonic IDs for raw-built IPv4 datagrams
+- `seqgroup` -- exact shared sequence across fake and promoted original raw TCP packets
 - `rnd` -- randomized non-zero
-- `zero` -- all zeros (platform may override)
+- `zero` -- all zeros
 
-**Approach:**
-1. Add `ip_id_mode: IpIdMode` enum to `DesyncGroup.actions`
-2. In `ripdpi-desync` raw socket packet builder:
-   - `seq`: increment a per-connection counter
-   - `seqgroup`: read original packet's IP ID, assign ID-1/ID+1 to fakes
-   - `rnd`: `rand::random::<u16>() | 1` (avoid zero)
-   - `zero`: set to 0
-3. Applies to all fake packet types (Fake, FakeSplit, FakeDisorder, HostFake,
-   FakeRst) and IpFrag2 fragments
+**Runtime behavior:**
+1. The main runtime owns the IPv4 ID allocator. Root-helper IPC now accepts
+   explicit IPv4 IDs so rooted and non-rooted sends consume the same reserved
+   sequence.
+2. Allocation is per IPv4 datagram:
+   - one unfragmented packet consumes one ID
+   - an IPv4 fragment pair shares one ID
+   - multi-packet fake batches consume contiguous IDs in transmit order
+3. `seqgroup` is exact rather than approximate:
+   - mixed fake+original TCP paths promote the original send onto the existing
+     raw/TCP_REPAIR replacement-socket path
+   - if that exact raw path is unavailable, the send fails closed instead of
+     silently falling back to a kernel-stream original with mismatched IDs
+4. IPv6 is unaffected.
+
+**Surface:**
+- top-level fake-packet setting `ip_id_mode` / `ipIdMode`
+- Advanced Settings dropdown: `Default`, `Sequential`, `Seqgroup`, `Random`,
+  `Zero`
+- `full_matrix_v1` adds `tlsrec_fake_seqgroup` as a dedicated diagnostic
+  candidate without introducing a new strategy family taxonomy
 
 **Vault references:**
 - `Censorship/dpi-bypass-techniques.md` -- "IP ID Handling (v72+)"

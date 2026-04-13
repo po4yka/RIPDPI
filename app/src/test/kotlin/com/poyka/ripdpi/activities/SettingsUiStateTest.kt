@@ -32,6 +32,7 @@ import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
+import com.poyka.ripdpi.data.IpIdModeSeqGroup
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.QuicFakeProfileCompatDefault
 import com.poyka.ripdpi.data.QuicFakeProfileDisabled
@@ -240,6 +241,18 @@ class SettingsUiStateTest {
         assertTrue(state.tlsFakeProfileActiveInStrategy)
         assertFalse(state.udpFakeProfileActiveInStrategy)
         assertTrue(state.desyncEnabled)
+    }
+
+    @Test
+    fun `fake ui state exposes configured ip id mode`() {
+        val state =
+            defaults
+                .toBuilder()
+                .setIpIdMode(IpIdModeSeqGroup)
+                .build()
+                .toUiState()
+
+        assertEquals(IpIdModeSeqGroup, state.fake.ipIdMode)
     }
 
     @Test

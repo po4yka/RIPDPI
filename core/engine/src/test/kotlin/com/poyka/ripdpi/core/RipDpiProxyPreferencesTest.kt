@@ -110,6 +110,7 @@ class RipDpiProxyPreferencesTest {
                         entropyPaddingMax = 384,
                         shannonEntropyTargetPermil = 7900,
                         tlsFingerprintProfile = TlsFingerprintProfileChromeStable,
+                        ipIdMode = "seqgroup",
                     ),
                 quic =
                     RipDpiQuicConfig(
@@ -155,6 +156,7 @@ class RipDpiProxyPreferencesTest {
         assertEquals(384, fakePackets.int("entropyPaddingMax"))
         assertEquals(7900, fakePackets.int("shannonEntropyTargetPermil"))
         assertEquals(TlsFingerprintProfileChromeStable, fakePackets.string("tlsFingerprintProfile"))
+        assertEquals("seqgroup", fakePackets.string("ipIdMode"))
         assertEquals(QuicFakeProfileRealisticInitial, quic.string("fakeProfile"))
         assertEquals("video.example.test", quic.string("fakeHost"))
         assertEquals("true", hostAutolearn.string("enabled"))

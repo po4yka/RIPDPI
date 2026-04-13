@@ -38,6 +38,7 @@ import com.poyka.ripdpi.data.effectiveFakeOffsetMarker
 import com.poyka.ripdpi.data.effectiveFakeTlsSniMode
 import com.poyka.ripdpi.data.effectiveGroupActivationFilter
 import com.poyka.ripdpi.data.effectiveHttpFakeProfile
+import com.poyka.ripdpi.data.effectiveIpIdMode
 import com.poyka.ripdpi.data.effectiveQuicFakeHost
 import com.poyka.ripdpi.data.effectiveQuicFakeProfile
 import com.poyka.ripdpi.data.effectiveQuicInitialMode
@@ -61,6 +62,7 @@ import com.poyka.ripdpi.data.normalizeFakeTlsSniMode
 import com.poyka.ripdpi.data.normalizeHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.normalizeHttpFakeProfile
+import com.poyka.ripdpi.data.normalizeIpIdMode
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.data.normalizeQuicFakeHost
 import com.poyka.ripdpi.data.normalizeQuicFakeProfile
@@ -219,6 +221,7 @@ class RipDpiProxyUIPreferences(
                 wsizeWindow = settings.wsizeWindow.takeIf { it > 0 },
                 wsizeScale = settings.wsizeScale.takeIf { it >= -1 },
                 stripTimestamps = settings.stripTimestamps,
+                ipIdMode = settings.effectiveIpIdMode(),
                 quicBindLowPort = settings.quicBindLowPort,
                 quicMigrateAfterHandshake = settings.quicMigrateAfterHandshake,
                 entropyMode =
@@ -487,6 +490,7 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
             setWsizeWindow(fakePackets.wsizeWindow ?: 0)
             setWsizeScale(fakePackets.wsizeScale ?: 0)
             setStripTimestamps(fakePackets.stripTimestamps)
+            setIpIdMode(normalizeIpIdMode(fakePackets.ipIdMode))
             setQuicBindLowPort(fakePackets.quicBindLowPort)
             setQuicMigrateAfterHandshake(fakePackets.quicMigrateAfterHandshake)
             setEntropyMode(

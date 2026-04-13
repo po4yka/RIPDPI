@@ -226,6 +226,7 @@ pub(super) fn udp_associate_loop(
                         &actions,
                         state.config.network.default_ttl,
                         protect_path.as_deref(),
+                        state.config.groups[entry.route.group_index].actions.ip_id_mode,
                     )?;
                 }
             }
@@ -498,6 +499,7 @@ fn execute_udp_actions(
     actions: &[DesyncAction],
     default_ttl: u8,
     protect_path: Option<&str>,
+    ip_id_mode: Option<ripdpi_config::IpIdMode>,
 ) -> io::Result<()> {
     for action in actions {
         match action {
@@ -514,6 +516,7 @@ fn execute_udp_actions(
                     protect_path,
                     *disorder,
                     *ipv6_ext,
+                    ip_id_mode,
                 ) {
                     Ok(()) => {}
                     Err(err) if err.kind() == io::ErrorKind::InvalidInput => {
@@ -697,6 +700,7 @@ fn try_advance_udp_preferred_target(
             &actions,
             state.config.network.default_ttl,
             protect_path,
+            state.config.groups[entry.route.group_index].actions.ip_id_mode,
         ) {
             Ok(()) => return Ok(true),
             Err(_) => next_index = entry.target_index + 1,

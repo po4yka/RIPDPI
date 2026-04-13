@@ -123,6 +123,21 @@
         <item name="randomized">randomized</item>
     </array>
 
+    <array name="ip_id_modes">
+        <item name="">Default</item>
+        <item name="seq">Sequential</item>
+        <item name="seqgroup">Seqgroup</item>
+        <item name="rnd">Random</item>
+        <item name="zero">Zero</item>
+    </array>
+    <array name="ip_id_modes_entries">
+        <item name=""></item>
+        <item name="seq">seq</item>
+        <item name="seqgroup">seqgroup</item>
+        <item name="rnd">rnd</item>
+        <item name="zero">zero</item>
+    </array>
+
     <array name="tls_fake_profiles">
         <item name="compat_default">Compatibility default</item>
         <item name="iana_firefox">IANA Firefox</item>
