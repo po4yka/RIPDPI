@@ -248,23 +248,39 @@ numbers across multiple fakes (instead of all sharing the original's seq).
 
 ### 6. SOCKS5 Localhost Hardening
 
-**Status:** [x] Partially implemented (`auth_token` exists)
+**Status:** [x] Implemented (2026-04-13)
 **Priority:** High (security)
-**Crate:** `ripdpi-runtime`
+**Crate:** `ripdpi-runtime`, `ripdpi-proxy-config`, `core:service`
 
 **What:** The vault documents a critical vulnerability (ntc.party/t/23871, 56
 replies) affecting ALL Android VLESS clients: unauthenticated SOCKS5 on a
 predictable port lets any app discover the VPN exit IP. RIPDPI already has
-`auth_token` support in `negotiate_socks5()`. Remaining gaps:
+`auth_token` support in `negotiate_socks5()`. The remaining gaps were VPN-mode
+random port handoff and command-line payloads bypassing the local auth
+injection path.
 
-**Remaining work:**
-1. **Random port binding** -- bind SOCKS5 listener to a random high port
-   instead of a fixed one. TeapodStream demonstrates this approach.
-2. **Per-session credential rotation** -- generate fresh random auth_token on
-   each VPN session start, pass to tun2socks bridge via the authenticated proxy
-   URL
-3. **Verify auth is enforced by default** -- ensure no code path allows
-   unauthenticated SOCKS5 connections when VPN mode is active
+**What shipped:**
+1. **VPN-only ephemeral localhost binding** -- the VPN-managed proxy now starts
+   with a session-local `listenPortOverride=0`, while standalone Proxy mode
+   still uses the persisted `proxyPort`.
+2. **Telemetry-resolved port handoff** -- `ProxyRuntimeSupervisor.start()`
+   waits for proxy readiness, reads the reported `listenerAddress`, and returns
+   a resolved localhost endpoint to the TUN-to-SOCKS runtime instead of
+   assuming the configured fixed port.
+3. **Per-session token and port rotation** -- initial VPN start and network
+   handover restart both generate a fresh auth token and a fresh ephemeral
+   listener port. DNS-only tunnel rebuilds reuse the current proxy endpoint
+   because the proxy itself is not restarted.
+4. **Shared session override layer for UI and command-line payloads** --
+   runtime-only `sessionOverrides` now apply the local auth token and ephemeral
+   port after payload parsing for both UI-config and command-line-config VPN
+   sessions, without changing AppSettings or public CLI syntax.
+5. **Mandatory localhost auth in VPN mode** -- SOCKS5 RFC 1929 auth and HTTP
+   CONNECT `Proxy-Authorization` are both enforced whenever the VPN session
+   injects a local auth token.
+6. **Fail-closed startup behavior** -- if the proxy reports ready but does not
+   publish a listener address, VPN startup aborts instead of silently falling
+   back to a predictable port.
 
 **Vault references:**
 - `Censorship/vless-client-android-vulnerability.md` -- full vulnerability chain

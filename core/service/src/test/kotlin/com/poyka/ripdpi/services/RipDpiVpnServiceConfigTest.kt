@@ -10,13 +10,26 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RipDpiVpnServiceConfigTest {
+    private companion object {
+        const val TestLocalProxyAuth = "alpha-123"
+        const val TestRotatedLocalProxyAuth = "beta-456"
+
+        val localProxyEndpoint =
+            LocalProxyEndpoint(
+                host = "127.0.0.1",
+                port = 1080,
+                username = VpnLocalProxyUsername,
+                password = TestLocalProxyAuth,
+            )
+    }
+
     @Test
     fun buildTun2SocksConfigIncludesIpv6TunnelAddressWhenEnabled() {
         val config =
             RipDpiVpnService.buildTun2SocksConfig(
                 activeDns = plainDns("2606:4700:4700::1111"),
                 overrideReason = null,
-                socks5Port = 1080,
+                localProxyEndpoint = localProxyEndpoint,
                 ipv6Enabled = true,
             )
 
@@ -25,6 +38,9 @@ class RipDpiVpnServiceConfigTest {
         assertEquals(defaultTun2SocksTunnelMtu, config.tunnelMtu)
         assertEquals("udp", config.socks5Udp)
         assertEquals(1080, config.socks5Port)
+        assertEquals("127.0.0.1", config.socks5Address)
+        assertEquals(VpnLocalProxyUsername, config.username)
+        assertEquals(TestLocalProxyAuth, config.password)
         assertNull(config.mapdnsAddress)
     }
 
@@ -34,7 +50,8 @@ class RipDpiVpnServiceConfigTest {
             RipDpiVpnService.buildTun2SocksConfig(
                 activeDns = encryptedDns(),
                 overrideReason = "dns_probe_failed",
-                socks5Port = 2080,
+                localProxyEndpoint =
+                    localProxyEndpoint.copy(port = 2080, password = TestRotatedLocalProxyAuth),
                 ipv6Enabled = false,
             )
 
@@ -42,6 +59,7 @@ class RipDpiVpnServiceConfigTest {
         assertNull(config.tunnelIpv6)
         assertEquals(defaultTun2SocksTunnelMtu, config.tunnelMtu)
         assertEquals("udp", config.socks5Udp)
+        assertEquals(2080, config.socks5Port)
         assertEquals("198.18.0.53", config.mapdnsAddress)
         assertEquals(53, config.mapdnsPort)
         assertEquals("198.18.0.0", config.mapdnsNetwork)
@@ -49,6 +67,7 @@ class RipDpiVpnServiceConfigTest {
         assertEquals("cloudflare", config.encryptedDnsResolverId)
         assertTrue(config.resolverFallbackActive == true)
         assertEquals("dns_probe_failed", config.resolverFallbackReason)
+        assertEquals(TestRotatedLocalProxyAuth, config.password)
     }
 
     private fun plainDns(dnsIp: String): ActiveDnsSettings =

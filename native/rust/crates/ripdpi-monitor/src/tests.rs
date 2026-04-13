@@ -95,6 +95,7 @@ fn strategy_probe_request_with_runtime_context(
                     config: base_ui,
                     runtime_context,
                     log_context: None,
+                    session_overrides: None,
                 })
                 .expect("serialize probe ui config"),
             ),
@@ -523,6 +524,7 @@ fn strategy_probe_request_rejects_command_line_config_payload() {
                 host_autolearn_store_path: None,
                 runtime_context: None,
                 log_context: None,
+                session_overrides: None,
             })
             .expect("serialize command line payload"),
         ),

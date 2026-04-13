@@ -20,13 +20,13 @@ use serde::de::{Deserializer, IgnoredAny, MapAccess, Visitor};
 
 use crate::presets;
 use crate::types::{
-    ProxyConfigError, ProxyConfigPayload, ProxyLogContext, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiConfig,
-    ProxyUiNumericRange, RuntimeConfigEnvelope, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, FAKE_TLS_SNI_MODE_FIXED,
-    FAKE_TLS_SNI_MODE_RANDOMIZED, FAKE_TLS_SOURCE_CAPTURED_CLIENT_HELLO, FAKE_TLS_SOURCE_PROFILE, HOSTS_BLACKLIST,
-    HOSTS_DISABLE, HOSTS_WHITELIST, IP_ID_MODE_RND, IP_ID_MODE_SEQ, IP_ID_MODE_SEQGROUP, IP_ID_MODE_ZERO,
-    RELAY_KIND_OFF, SEQOVL_DEFAULT_OVERLAP_SIZE, SEQOVL_FAKE_MODE_PROFILE, SEQOVL_FAKE_MODE_RAND,
-    TLS_RANDREC_DEFAULT_FRAGMENT_COUNT, TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE,
-    WARP_ROUTE_MODE_RULES,
+    ProxyConfigError, ProxyConfigPayload, ProxyLogContext, ProxyRuntimeContext, ProxySessionOverrides,
+    ProxyUiActivationFilter, ProxyUiConfig, ProxyUiNumericRange, RuntimeConfigEnvelope,
+    ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, FAKE_TLS_SNI_MODE_FIXED, FAKE_TLS_SNI_MODE_RANDOMIZED,
+    FAKE_TLS_SOURCE_CAPTURED_CLIENT_HELLO, FAKE_TLS_SOURCE_PROFILE, HOSTS_BLACKLIST, HOSTS_DISABLE, HOSTS_WHITELIST,
+    IP_ID_MODE_RND, IP_ID_MODE_SEQ, IP_ID_MODE_SEQGROUP, IP_ID_MODE_ZERO, RELAY_KIND_OFF, SEQOVL_DEFAULT_OVERLAP_SIZE,
+    SEQOVL_FAKE_MODE_PROFILE, SEQOVL_FAKE_MODE_RAND, TLS_RANDREC_DEFAULT_FRAGMENT_COUNT,
+    TLS_RANDREC_DEFAULT_MAX_FRAGMENT_SIZE, TLS_RANDREC_DEFAULT_MIN_FRAGMENT_SIZE, WARP_ROUTE_MODE_RULES,
 };
 
 const WARP_CONTROL_PLANE_HOSTS: &[&str] = &[
@@ -123,6 +123,34 @@ fn sanitize_log_context(log_context: Option<ProxyLogContext>) -> Option<ProxyLog
     } else {
         Some(log_context)
     }
+}
+
+fn sanitize_session_overrides(session_overrides: Option<ProxySessionOverrides>) -> Option<ProxySessionOverrides> {
+    let mut session_overrides = session_overrides?;
+    session_overrides.auth_token = trim_non_empty(session_overrides.auth_token);
+    if session_overrides.listen_port_override.is_none() && session_overrides.auth_token.is_none() {
+        None
+    } else {
+        Some(session_overrides)
+    }
+}
+
+fn apply_session_overrides(
+    config: &mut RuntimeConfig,
+    session_overrides: Option<ProxySessionOverrides>,
+) -> Result<(), ProxyConfigError> {
+    let Some(session_overrides) = sanitize_session_overrides(session_overrides) else {
+        return Ok(());
+    };
+
+    if let Some(port_override) = session_overrides.listen_port_override {
+        config.network.listen.listen_port = u16::try_from(port_override)
+            .map_err(|_| ProxyConfigError::InvalidConfig("Invalid sessionOverrides.listenPortOverride".to_string()))?;
+    }
+    if let Some(auth_token) = session_overrides.auth_token {
+        config.network.listen.auth_token = Some(auth_token);
+    }
+    Ok(())
 }
 
 fn group_needs_delayed_connect(group: &DesyncGroup) -> bool {
@@ -251,13 +279,20 @@ pub fn runtime_config_envelope_from_payload(
     payload: ProxyConfigPayload,
 ) -> Result<RuntimeConfigEnvelope, ProxyConfigError> {
     match payload {
-        ProxyConfigPayload::CommandLine { args, host_autolearn_store_path, runtime_context, log_context } => {
+        ProxyConfigPayload::CommandLine {
+            args,
+            host_autolearn_store_path,
+            runtime_context,
+            log_context,
+            session_overrides,
+        } => {
             let mut config = runtime_config_from_command_line(args)?;
             config.host_autolearn.store_path = host_autolearn_store_path
                 .as_deref()
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
                 .map(ToOwned::to_owned);
+            apply_session_overrides(&mut config, session_overrides)?;
             Ok(RuntimeConfigEnvelope {
                 config,
                 runtime_context: sanitize_runtime_context(runtime_context),
@@ -265,7 +300,7 @@ pub fn runtime_config_envelope_from_payload(
                 native_log_level: None,
             })
         }
-        ProxyConfigPayload::Ui { strategy_preset, mut config, runtime_context, log_context } => {
+        ProxyConfigPayload::Ui { strategy_preset, mut config, runtime_context, log_context, session_overrides } => {
             let preset_id_opt = strategy_preset.as_deref().map(str::to_owned);
             if let Some(ref preset_id) = preset_id_opt {
                 presets::apply_preset(preset_id, &mut config)?;
@@ -274,6 +309,7 @@ pub fn runtime_config_envelope_from_payload(
             let mut runtime_config = runtime_config_from_ui(config)?;
             let runtime_preset_id = preset_id_opt.as_deref().unwrap_or("ripdpi_default");
             presets::apply_runtime_preset(runtime_preset_id, &mut runtime_config)?;
+            apply_session_overrides(&mut runtime_config, session_overrides)?;
             Ok(RuntimeConfigEnvelope {
                 config: runtime_config,
                 runtime_context: sanitize_runtime_context(runtime_context),
