@@ -35,11 +35,18 @@ RIPDPI локально запускает SOCKS5-прокси из встрое
 ## Скриншоты
 
 <p align="center">
-  <img src="docs/screenshots/main.png" width="270" alt="Главный экран"/>
-  &nbsp;&nbsp;
-  <img src="docs/screenshots/diagnostics.png" width="270" alt="Диагностика"/>
-  &nbsp;&nbsp;
-  <img src="docs/screenshots/settings.png" width="270" alt="Настройки"/>
+  <img src="docs/screenshots/01-hero.png" width="200" alt="Свободный интернет"/>
+  &nbsp;
+  <img src="docs/screenshots/02-no-root.png" width="200" alt="Одно нажатие. Без root."/>
+  &nbsp;
+  <img src="docs/screenshots/03-privacy.png" width="200" alt="Ваша приватность. Ваши правила."/>
+  &nbsp;
+  <img src="docs/screenshots/04-controls.png" width="200" alt="Тонкая настройка каждого пакета"/>
+</p>
+<p align="center">
+  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="Встроенная диагностика"/>
+  &nbsp;
+  <img src="docs/screenshots/06-more-features.png" width="200" alt="И многое другое"/>
 </p>
 
 ## Архитектура

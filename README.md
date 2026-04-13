@@ -35,11 +35,18 @@ RIPDPI runs a local SOCKS5 proxy built from in-repository Rust modules. In VPN m
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/main.png" width="270" alt="Main screen"/>
-  &nbsp;&nbsp;
-  <img src="docs/screenshots/diagnostics.png" width="270" alt="Diagnostics"/>
-  &nbsp;&nbsp;
-  <img src="docs/screenshots/settings.png" width="270" alt="Settings"/>
+  <img src="docs/screenshots/01-hero.png" width="200" alt="Browse without borders"/>
+  &nbsp;
+  <img src="docs/screenshots/02-no-root.png" width="200" alt="One tap. No root."/>
+  &nbsp;
+  <img src="docs/screenshots/03-privacy.png" width="200" alt="Your privacy. Your rules."/>
+  &nbsp;
+  <img src="docs/screenshots/04-controls.png" width="200" alt="Fine-tune every packet"/>
+</p>
+<p align="center">
+  <img src="docs/screenshots/05-diagnostics.png" width="200" alt="Built-in diagnostics"/>
+  &nbsp;
+  <img src="docs/screenshots/06-more-features.png" width="200" alt="And so much more"/>
 </p>
 
 ## Architecture
@@ -139,6 +146,7 @@ RIPDPI's current Android and native strategy stack includes:
 - semantic markers such as `host`, `endhost`, `midsld`, `sniext`, and `extlen`
 - adaptive markers such as `auto(balanced)` and `auto(host)` that resolve from live `TCP_INFO` hints
 - ordered TCP and UDP chain steps with per-step activation filters
+- runtime TCP-state branching on TCP steps through `ActivationFilter` predicates such as timestamp, ECH, window, and MSS checks
 - circular mid-connection TCP rotation that swaps fallback chains between outbound rounds on the same socket
 - richer fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
 - built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
