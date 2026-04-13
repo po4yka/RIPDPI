@@ -1139,6 +1139,62 @@ class SettingsUiStateTest {
     }
 
     @Test
+    fun `tcp flag overrides surface primary step editor state`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setStrategyChains(
+                    tcpSteps =
+                        listOf(
+                            TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                            TcpChainStepModel(
+                                kind = TcpChainStepKind.Fake,
+                                marker = "host+1",
+                                tcpFlagsSet = "syn|fin",
+                                tcpFlagsOrigUnset = "ack",
+                            ),
+                        ),
+                    udpSteps = emptyList(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.desync.hasTcpFlagOverrides)
+        assertEquals(1, state.desync.tcpFlagOverrideStepCount)
+        assertEquals(TcpChainStepKind.Fake, state.desync.primaryTcpFlagStep?.kind)
+        assertTrue(state.desync.tcpFlagVisualEditorSupported)
+    }
+
+    @Test
+    fun `tcp flag editor disables visual editing for unsupported chain shapes`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setStrategyChains(
+                    tcpSteps =
+                        listOf(
+                            TcpChainStepModel(
+                                kind = TcpChainStepKind.MultiDisorder,
+                                marker = "sniext",
+                                tcpFlagsOrigSet = "ack",
+                            ),
+                            TcpChainStepModel(
+                                kind = TcpChainStepKind.MultiDisorder,
+                                marker = "host",
+                                tcpFlagsOrigSet = "psh",
+                            ),
+                        ),
+                    udpSteps = emptyList(),
+                ).build()
+
+        val state = settings.toUiState()
+
+        assertTrue(state.desync.hasTcpFlagOverrides)
+        assertEquals(2, state.desync.tcpFlagOverrideStepCount)
+        assertFalse(state.desync.tcpFlagVisualEditorSupported)
+    }
+
+    @Test
     fun `command line mode keeps activation profile visible but reset disabled`() {
         val settings =
             defaults

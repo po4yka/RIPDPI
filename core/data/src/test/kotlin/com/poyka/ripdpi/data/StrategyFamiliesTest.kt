@@ -86,6 +86,22 @@ class StrategyFamiliesTest {
     }
 
     @Test
+    fun `tcp lane derives fake flags family when primary step sets tcp flags`() {
+        val family =
+            deriveTcpStrategyFamily(
+                listOf(
+                    TcpChainStepModel(
+                        kind = TcpChainStepKind.Fake,
+                        marker = "host+1",
+                        tcpFlagsSet = "syn|fin",
+                    ),
+                ),
+            )
+
+        assertEquals("fake_flags", family)
+    }
+
+    @Test
     fun `quic lane distinguishes compat burst from realistic burst`() {
         assertEquals(
             "quic_compat_burst",

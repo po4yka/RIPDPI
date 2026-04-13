@@ -2022,4 +2022,15 @@ Source: %2$s</string>
     <string name="routing_protection_dht_bypass_title">Direct bypass</string>
     <string name="routing_protection_dht_drop_warn_title">Drop and warn</string>
     <string name="routing_protection_detected_packages">Detected packages: %1$s</string>
+    <string name="tcp_flag_card_title">TCP flag crafting</string>
+    <string name="tcp_flag_card_body">Adjust fake and original TCP flags on the primary send step without dropping into the chain DSL.</string>
+    <string name="tcp_flag_card_dsl_only">This chain shape is not editable with the primary-step TCP flag card. Use the chain DSL to change flag masks.</string>
+    <string name="tcp_flag_card_step_label">Primary step</string>
+    <string name="tcp_flag_card_runtime_label">Current profile</string>
+    <string name="tcp_flag_card_runtime_default">Kernel defaults</string>
+    <string name="tcp_flag_card_runtime_custom">Custom TCP flags</string>
+    <string name="tcp_flag_fake_set_title">Fake packet: set flags</string>
+    <string name="tcp_flag_fake_clear_title">Fake packet: clear flags</string>
+    <string name="tcp_flag_orig_set_title">Original packet: set flags</string>
+    <string name="tcp_flag_orig_clear_title">Original packet: clear flags</string>
 </resources>

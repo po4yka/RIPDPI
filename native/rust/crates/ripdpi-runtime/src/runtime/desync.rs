@@ -4,7 +4,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
 use crate::platform;
-use ripdpi_config::{DesyncGroup, EntropyMode, RuntimeConfig, TcpChainStepKind};
+use ripdpi_config::{DesyncGroup, EntropyMode, RuntimeConfig, TcpChainStep, TcpChainStepKind};
 use ripdpi_desync::{
     activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes,
     build_secondary_fake_packet, plan_tcp, resolve_hostfake_span, ActivationContext, ActivationTcpState,
@@ -440,7 +440,29 @@ pub(super) fn requires_special_tcp_execution(group: &DesyncGroup) -> bool {
         matches!(step.kind, TcpChainStepKind::MultiDisorder | TcpChainStepKind::Fake | TcpChainStepKind::IpFrag2)
             || (supports_fake_retransmit
                 && matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder))
+            || tcp_step_has_flag_overrides(step)
     })
+}
+
+fn tcp_step_has_flag_overrides(step: &TcpChainStep) -> bool {
+    step.tcp_flags_set.unwrap_or_default() != 0
+        || step.tcp_flags_unset.unwrap_or_default() != 0
+        || step.tcp_flags_orig_set.unwrap_or_default() != 0
+        || step.tcp_flags_orig_unset.unwrap_or_default() != 0
+}
+
+fn step_fake_tcp_flags(step: &TcpChainStep) -> platform::TcpFlagOverrides {
+    platform::TcpFlagOverrides {
+        set: step.tcp_flags_set.unwrap_or_default(),
+        unset: step.tcp_flags_unset.unwrap_or_default(),
+    }
+}
+
+fn step_original_tcp_flags(step: &TcpChainStep) -> platform::TcpFlagOverrides {
+    platform::TcpFlagOverrides {
+        set: step.tcp_flags_orig_set.unwrap_or_default(),
+        unset: step.tcp_flags_orig_unset.unwrap_or_default(),
+    }
 }
 
 fn execute_tcp_actions(
@@ -594,6 +616,7 @@ fn execute_tcp_actions(
                             None,
                             *disorder,
                             *ipv6_ext,
+                            platform::TcpFlagOverrides::default(),
                             "write_ipfrag2",
                             strategy_family,
                             fallback,
@@ -627,6 +650,7 @@ fn execute_tcp_actions(
                             None,
                             *disorder,
                             *ipv6_ext,
+                            platform::TcpFlagOverrides::default(),
                         ) {
                             Ok(()) => {
                                 bytes_committed += bytes.len();
@@ -640,7 +664,15 @@ fn execute_tcp_actions(
                     }
                 }
                 DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
-                    match platform::send_seqovl_tcp(writer, real_chunk, fake_prefix, default_ttl, None, md5sig) {
+                    match platform::send_seqovl_tcp(
+                        writer,
+                        real_chunk,
+                        fake_prefix,
+                        default_ttl,
+                        None,
+                        md5sig,
+                        platform::TcpFlagOverrides::default(),
+                    ) {
                         Ok(()) => {
                             bytes_committed += real_chunk.len();
                             if !remainder.is_empty() {
@@ -691,7 +723,7 @@ fn execute_tcp_actions(
                     let _ = platform::set_tcp_window_clamp(writer, 0);
                 }
                 DesyncAction::SendFakeRst => {
-                    let _ = platform::send_fake_rst(writer, default_ttl, None);
+                    let _ = platform::send_fake_rst(writer, default_ttl, None, platform::TcpFlagOverrides::default());
                 }
             }
         }
@@ -822,14 +854,29 @@ fn execute_tcp_plan(
 
         match step.kind {
             TcpChainStepKind::Split | TcpChainStepKind::SynData => {
-                bytes_committed = write_strategy_payload_named(
-                    writer,
-                    chunk,
-                    "write_split",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
+                if step_original_tcp_flags(configured_step).is_empty() {
+                    bytes_committed = write_strategy_payload_named(
+                        writer,
+                        chunk,
+                        "write_split",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                } else {
+                    bytes_committed = send_flagged_tcp_payload_action_named(
+                        writer,
+                        chunk,
+                        config.network.default_ttl,
+                        config.process.protect_path.as_deref(),
+                        md5sig,
+                        step_original_tcp_flags(configured_step),
+                        "write_split",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                }
                 await_writable_action_named(
                     writer,
                     config.timeouts.wait_send,
@@ -889,18 +936,55 @@ fn execute_tcp_plan(
                     step_fallback,
                     bytes_committed,
                 )?;
-                let (should_restore_ttl, committed) = write_payload_with_android_ttl_fallback(
-                    writer,
-                    chunk,
-                    restore_ttl,
-                    ttl_modified,
-                    &mut ttl_actions_unavailable,
-                    "write_disorder",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-                bytes_committed = committed;
+                if step_original_tcp_flags(configured_step).is_empty() {
+                    let (should_restore_ttl, committed) = write_payload_with_android_ttl_fallback(
+                        writer,
+                        chunk,
+                        restore_ttl,
+                        ttl_modified,
+                        &mut ttl_actions_unavailable,
+                        "write_disorder",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                    bytes_committed = committed;
+                    if should_restore_ttl {
+                        let _ = restore_default_ttl_with_android_fallback_named(
+                            writer,
+                            restore_ttl,
+                            &mut ttl_actions_unavailable,
+                            "restore_default_ttl_disorder",
+                            step_family,
+                            step_fallback,
+                            bytes_committed,
+                        )?;
+                    }
+                } else {
+                    bytes_committed = send_flagged_tcp_payload_action_named(
+                        writer,
+                        chunk,
+                        config.network.default_ttl,
+                        config.process.protect_path.as_deref(),
+                        md5sig,
+                        step_original_tcp_flags(configured_step),
+                        "write_disorder",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                    if ttl_modified {
+                        let _ = restore_default_ttl_with_android_fallback_named(
+                            writer,
+                            restore_ttl,
+                            &mut ttl_actions_unavailable,
+                            "restore_default_ttl_disorder",
+                            step_family,
+                            step_fallback,
+                            bytes_committed,
+                        )?;
+                    }
+                }
                 await_writable_action_named(
                     writer,
                     config.timeouts.wait_send,
@@ -910,17 +994,6 @@ fn execute_tcp_plan(
                     step_fallback,
                     bytes_committed,
                 )?;
-                if should_restore_ttl {
-                    let _ = restore_default_ttl_with_android_fallback_named(
-                        writer,
-                        restore_ttl,
-                        &mut ttl_actions_unavailable,
-                        "restore_default_ttl_disorder",
-                        step_family,
-                        step_fallback,
-                        bytes_committed,
-                    )?;
-                }
             }
             TcpChainStepKind::Disoob => {
                 let ttl_modified = set_ttl_with_android_fallback_named(
@@ -993,6 +1066,8 @@ fn execute_tcp_plan(
                             .fake_tcp_timestamp_enabled
                             .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
                         protect_path: config.process.protect_path.as_deref(),
+                        fake_flags: step_fake_tcp_flags(configured_step),
+                        orig_flags: step_original_tcp_flags(configured_step),
                     },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake",
@@ -1052,6 +1127,8 @@ fn execute_tcp_plan(
                             .fake_tcp_timestamp_enabled
                             .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
                         protect_path: config.process.protect_path.as_deref(),
+                        fake_flags: step_fake_tcp_flags(configured_step),
+                        orig_flags: step_original_tcp_flags(configured_step),
                     },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakesplit",
@@ -1073,6 +1150,8 @@ fn execute_tcp_plan(
                             .fake_tcp_timestamp_enabled
                             .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
                         protect_path: config.process.protect_path.as_deref(),
+                        fake_flags: step_fake_tcp_flags(configured_step),
+                        orig_flags: step_original_tcp_flags(configured_step),
                     },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakesplit",
@@ -1158,6 +1237,8 @@ fn execute_tcp_plan(
                             .fake_tcp_timestamp_enabled
                             .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
                         protect_path: config.process.protect_path.as_deref(),
+                        fake_flags: step_fake_tcp_flags(configured_step),
+                        orig_flags: step_original_tcp_flags(configured_step),
                     },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakeddisorder",
@@ -1184,6 +1265,8 @@ fn execute_tcp_plan(
                                     .fake_tcp_timestamp_enabled
                                     .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
                                 protect_path: config.process.protect_path.as_deref(),
+                                fake_flags: step_fake_tcp_flags(configured_step),
+                                orig_flags: step_original_tcp_flags(configured_step),
                             },
                             (
                                 config.timeouts.wait_send,
@@ -1211,6 +1294,8 @@ fn execute_tcp_plan(
                             .fake_tcp_timestamp_enabled
                             .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
                         protect_path: config.process.protect_path.as_deref(),
+                        fake_flags: step_fake_tcp_flags(configured_step),
+                        orig_flags: step_original_tcp_flags(configured_step),
                     },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_fakesplit",
@@ -1230,6 +1315,7 @@ fn execute_tcp_plan(
                     config.process.protect_path.as_deref(),
                     false, // disorder not available in legacy plan path
                     ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+                    step_original_tcp_flags(configured_step),
                     "write_ipfrag2",
                     step_family,
                     step_fallback,
@@ -1310,6 +1396,8 @@ fn execute_tcp_plan(
                         secondary_fake_prefix: None,
                         timestamp_delta_ticks: None,
                         protect_path: config.process.protect_path.as_deref(),
+                        fake_flags: step_fake_tcp_flags(configured_step),
+                        orig_flags: step_original_tcp_flags(configured_step),
                     },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_hostfake",
@@ -1384,6 +1472,8 @@ fn execute_tcp_plan(
                         secondary_fake_prefix: None,
                         timestamp_delta_ticks: None,
                         protect_path: config.process.protect_path.as_deref(),
+                        fake_flags: step_fake_tcp_flags(configured_step),
+                        orig_flags: step_original_tcp_flags(configured_step),
                     },
                     (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
                     "send_fake_hostfake",
@@ -1413,16 +1503,35 @@ fn execute_tcp_plan(
                 }
             }
             TcpChainStepKind::FakeRst => {
-                let _ =
-                    platform::send_fake_rst(writer, config.network.default_ttl, config.process.protect_path.as_deref());
-                bytes_committed = write_strategy_payload_named(
+                let _ = platform::send_fake_rst(
                     writer,
-                    chunk,
-                    "write_fakerst",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
+                    config.network.default_ttl,
+                    config.process.protect_path.as_deref(),
+                    step_fake_tcp_flags(configured_step),
+                );
+                if step_original_tcp_flags(configured_step).is_empty() {
+                    bytes_committed = write_strategy_payload_named(
+                        writer,
+                        chunk,
+                        "write_fakerst",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                } else {
+                    bytes_committed = send_flagged_tcp_payload_action_named(
+                        writer,
+                        chunk,
+                        config.network.default_ttl,
+                        config.process.protect_path.as_deref(),
+                        md5sig,
+                        step_original_tcp_flags(configured_step),
+                        "write_fakerst",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                }
             }
             TcpChainStepKind::MultiDisorder => {
                 return Err(OutboundSendError::Transport(io::Error::new(
@@ -1518,6 +1627,7 @@ fn execute_multi_disorder_tcp_plan(
             config.process.protect_path.as_deref(),
             inter_segment_delay_ms,
             md5sig,
+            step_original_tcp_flags(send_steps.first().expect("multidisorder send step missing")),
         ),
         "write_multidisorder",
         strategy_family,
@@ -1746,6 +1856,29 @@ fn send_fake_tcp_action_named(
 }
 
 #[allow(clippy::too_many_arguments)]
+fn send_flagged_tcp_payload_action_named(
+    stream: &TcpStream,
+    payload: &[u8],
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    md5sig: bool,
+    flags: platform::TcpFlagOverrides,
+    action: &'static str,
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<usize, OutboundSendError> {
+    strategy_result(
+        platform::send_flagged_tcp_payload(stream, payload, default_ttl, protect_path, md5sig, flags),
+        action,
+        strategy_family,
+        fallback,
+        bytes_committed,
+    )
+    .map(|()| bytes_committed + payload.len())
+}
+
+#[allow(clippy::too_many_arguments)]
 fn send_ip_fragmented_tcp_action_named(
     stream: &TcpStream,
     payload: &[u8],
@@ -1754,13 +1887,23 @@ fn send_ip_fragmented_tcp_action_named(
     protect_path: Option<&str>,
     disorder: bool,
     ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
+    flags: platform::TcpFlagOverrides,
     action: &'static str,
     strategy_family: &'static str,
     fallback: Option<&'static str>,
     bytes_committed: usize,
 ) -> Result<usize, OutboundSendError> {
     strategy_result(
-        platform::send_ip_fragmented_tcp(stream, payload, split_offset, default_ttl, protect_path, disorder, ipv6_ext),
+        platform::send_ip_fragmented_tcp(
+            stream,
+            payload,
+            split_offset,
+            default_ttl,
+            protect_path,
+            disorder,
+            ipv6_ext,
+            flags,
+        ),
         action,
         strategy_family,
         fallback,

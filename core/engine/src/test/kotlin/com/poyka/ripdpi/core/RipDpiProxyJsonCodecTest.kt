@@ -140,6 +140,36 @@ class RipDpiProxyJsonCodecTest {
     }
 
     @Test
+    fun `ui preferences round trip tcp flag masks`() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.Fake,
+                                    marker = "host+1",
+                                    tcpFlagsSet = "syn|fin",
+                                    tcpFlagsUnset = "ack",
+                                    tcpFlagsOrigSet = "psh|urg",
+                                    tcpFlagsOrigUnset = "ece",
+                                ),
+                            ),
+                    ),
+            )
+
+        val decoded = decodeRipDpiProxyUiPreferences(preferences.toNativeConfigJson())
+        val step = decoded?.chains?.tcpSteps?.singleOrNull()
+
+        assertNotNull(step)
+        assertEquals("fin|syn", step?.tcpFlagsSet)
+        assertEquals("ack", step?.tcpFlagsUnset)
+        assertEquals("psh|urg", step?.tcpFlagsOrigSet)
+        assertEquals("ece", step?.tcpFlagsOrigUnset)
+    }
+
+    @Test
     fun `ui preferences round trip morph policy through runtime context`() {
         val preferences =
             RipDpiProxyUIPreferences(

@@ -65,6 +65,7 @@ enum class TcpChainStepKind(
     FakeSplit("fakedsplit"),
     FakeDisorder("fakeddisorder"),
     HostFake("hostfake"),
+    FakeRst("fakerst"),
     Oob("oob"),
     Disoob("disoob"),
     TlsRec("tlsrec"),
@@ -102,6 +103,7 @@ fun TcpChainStepKind.desyncMethodLabel(): String? =
         TcpChainStepKind.FakeSplit -> "fake"
         TcpChainStepKind.FakeDisorder -> "disorder"
         TcpChainStepKind.HostFake -> "fake"
+        TcpChainStepKind.FakeRst -> "fakerst"
         TcpChainStepKind.Oob -> "oob"
         TcpChainStepKind.Disoob -> "disoob"
         TcpChainStepKind.TlsRec -> null
@@ -122,6 +124,10 @@ data class TcpChainStepModel(
     val maxFragmentSize: Int = 0,
     val activationFilter: ActivationFilterModel = ActivationFilterModel(),
     val ipv6ExtensionProfile: String = StrategyIpv6ExtensionProfileNone,
+    val tcpFlagsSet: String = "",
+    val tcpFlagsUnset: String = "",
+    val tcpFlagsOrigSet: String = "",
+    val tcpFlagsOrigUnset: String = "",
 )
 
 @Serializable
@@ -422,6 +428,10 @@ private fun StrategyTcpStep.toModelOrNull(): TcpChainStepModel? {
             maxFragmentSize = maxFragmentSize,
             activationFilter = if (hasActivationFilter()) activationFilter.toModel() else ActivationFilterModel(),
             ipv6ExtensionProfile = normalizeStrategyIpv6ExtensionProfile(ipv6ExtensionProfile),
+            tcpFlagsSet = normalizeTcpFlagMask(tcpFlagsSet),
+            tcpFlagsUnset = normalizeTcpFlagMask(tcpFlagsUnset),
+            tcpFlagsOrigSet = normalizeTcpFlagMask(tcpFlagsOrigSet),
+            tcpFlagsOrigUnset = normalizeTcpFlagMask(tcpFlagsOrigUnset),
         ),
     )
 }
@@ -453,6 +463,10 @@ private fun TcpChainStepModel.toProto(): StrategyTcpStep =
             .setMinFragmentSize(normalizeMinFragmentSize(step.kind, step.minFragmentSize))
             .setMaxFragmentSize(normalizeMaxFragmentSize(step.kind, step.maxFragmentSize))
             .setIpv6ExtensionProfile(normalizeStrategyIpv6ExtensionProfile(step.ipv6ExtensionProfile))
+            .setTcpFlagsSet(step.tcpFlagsSet)
+            .setTcpFlagsUnset(step.tcpFlagsUnset)
+            .setTcpFlagsOrigSet(step.tcpFlagsOrigSet)
+            .setTcpFlagsOrigUnset(step.tcpFlagsOrigUnset)
             .apply {
                 if (!step.activationFilter.isEmpty) {
                     setActivationFilter(step.activationFilter.toProto())
@@ -569,6 +583,13 @@ private fun formatTcpStepSummary(step: TcpChainStepModel): String =
             append(" max=")
             append(normalized.maxFragmentSize)
         }
+        appendTcpFlagSummary(
+            builder = this,
+            tcpFlagsSet = normalized.tcpFlagsSet,
+            tcpFlagsUnset = normalized.tcpFlagsUnset,
+            tcpFlagsOrigSet = normalized.tcpFlagsOrigSet,
+            tcpFlagsOrigUnset = normalized.tcpFlagsOrigUnset,
+        )
         if (normalized.ipv6ExtensionProfile != StrategyIpv6ExtensionProfileNone) {
             append(" ipv6ext=")
             append(normalized.ipv6ExtensionProfile)
@@ -611,6 +632,13 @@ private fun formatTcpStepDsl(step: TcpChainStepModel): String =
             append(" max=")
             append(normalized.maxFragmentSize)
         }
+        appendTcpFlagDsl(
+            builder = this,
+            tcpFlagsSet = normalized.tcpFlagsSet,
+            tcpFlagsUnset = normalized.tcpFlagsUnset,
+            tcpFlagsOrigSet = normalized.tcpFlagsOrigSet,
+            tcpFlagsOrigUnset = normalized.tcpFlagsOrigUnset,
+        )
         if (normalized.ipv6ExtensionProfile != StrategyIpv6ExtensionProfileNone) {
             append(" ipv6ext=")
             append(normalized.ipv6ExtensionProfile)
@@ -681,6 +709,10 @@ private fun parseTcpStep(
     var maxFragmentSize = 0
     var ipv6ExtensionProfile = StrategyIpv6ExtensionProfileNone
     var activationFilter = ActivationFilterModel()
+    var tcpFlagsSet = ""
+    var tcpFlagsUnset = ""
+    var tcpFlagsOrigSet = ""
+    var tcpFlagsOrigUnset = ""
     tokens.drop(1).forEach { token ->
         val (key, value) =
             token.split('=', limit = 2).takeIf { it.size == 2 }
@@ -750,6 +782,22 @@ private fun parseTcpStep(
                 maxFragmentSize = value.toIntOrNull() ?: error("Invalid max on line $lineNumber")
             }
 
+            "tcp_flags" -> {
+                tcpFlagsSet = normalizeTcpFlagMask(value)
+            }
+
+            "tcp_flags_unset" -> {
+                tcpFlagsUnset = normalizeTcpFlagMask(value)
+            }
+
+            "tcp_flags_orig" -> {
+                tcpFlagsOrigSet = normalizeTcpFlagMask(value)
+            }
+
+            "tcp_flags_orig_unset" -> {
+                tcpFlagsOrigUnset = normalizeTcpFlagMask(value)
+            }
+
             "when_round",
             "when_size",
             "when_stream",
@@ -803,6 +851,10 @@ private fun parseTcpStep(
             maxFragmentSize = maxFragmentSize,
             activationFilter = activationFilter,
             ipv6ExtensionProfile = ipv6ExtensionProfile,
+            tcpFlagsSet = tcpFlagsSet,
+            tcpFlagsUnset = tcpFlagsUnset,
+            tcpFlagsOrigSet = tcpFlagsOrigSet,
+            tcpFlagsOrigUnset = tcpFlagsOrigUnset,
         ),
     )
 }
@@ -816,6 +868,13 @@ private fun normalizeTcpMarker(
 }
 
 private fun validateTcpStepOptions(step: TcpChainStepModel) {
+    validateTcpFlagMasks(
+        kind = step.kind,
+        tcpFlagsSet = step.tcpFlagsSet,
+        tcpFlagsUnset = step.tcpFlagsUnset,
+        tcpFlagsOrigSet = step.tcpFlagsOrigSet,
+        tcpFlagsOrigUnset = step.tcpFlagsOrigUnset,
+    )
     require(step.kind.supportsAdaptiveMarker || !isAdaptiveOffsetExpression(step.marker)) {
         "${step.kind.wireName} must not declare an adaptive marker"
     }
@@ -895,6 +954,10 @@ fun normalizeTcpChainStepModel(step: TcpChainStepModel): TcpChainStepModel =
         minFragmentSize = normalizeMinFragmentSize(step.kind, step.minFragmentSize),
         maxFragmentSize = normalizeMaxFragmentSize(step.kind, step.maxFragmentSize),
         activationFilter = normalizeActivationFilter(step.activationFilter),
+        tcpFlagsSet = normalizeTcpFlagMask(step.tcpFlagsSet),
+        tcpFlagsUnset = normalizeTcpFlagMask(step.tcpFlagsUnset),
+        tcpFlagsOrigSet = normalizeTcpFlagMask(step.tcpFlagsOrigSet),
+        tcpFlagsOrigUnset = normalizeTcpFlagMask(step.tcpFlagsOrigUnset),
         ipv6ExtensionProfile =
             if (step.kind == TcpChainStepKind.IpFrag2) {
                 normalizeStrategyIpv6ExtensionProfile(step.ipv6ExtensionProfile)
@@ -1028,6 +1091,56 @@ private fun appendActivationDsl(
     }
     activationFilter.tcpMssBelow?.let {
         builder.append(" tcp_mss_lt=")
+        builder.append(it)
+    }
+}
+
+private fun appendTcpFlagSummary(
+    builder: StringBuilder,
+    tcpFlagsSet: String,
+    tcpFlagsUnset: String,
+    tcpFlagsOrigSet: String,
+    tcpFlagsOrigUnset: String,
+) {
+    tcpFlagsSet.takeIf(String::isNotBlank)?.let {
+        builder.append(" fake+=")
+        builder.append(it)
+    }
+    tcpFlagsUnset.takeIf(String::isNotBlank)?.let {
+        builder.append(" fake-=")
+        builder.append(it)
+    }
+    tcpFlagsOrigSet.takeIf(String::isNotBlank)?.let {
+        builder.append(" orig+=")
+        builder.append(it)
+    }
+    tcpFlagsOrigUnset.takeIf(String::isNotBlank)?.let {
+        builder.append(" orig-=")
+        builder.append(it)
+    }
+}
+
+private fun appendTcpFlagDsl(
+    builder: StringBuilder,
+    tcpFlagsSet: String,
+    tcpFlagsUnset: String,
+    tcpFlagsOrigSet: String,
+    tcpFlagsOrigUnset: String,
+) {
+    tcpFlagsSet.takeIf(String::isNotBlank)?.let {
+        builder.append(" tcp_flags=")
+        builder.append(it)
+    }
+    tcpFlagsUnset.takeIf(String::isNotBlank)?.let {
+        builder.append(" tcp_flags_unset=")
+        builder.append(it)
+    }
+    tcpFlagsOrigSet.takeIf(String::isNotBlank)?.let {
+        builder.append(" tcp_flags_orig=")
+        builder.append(it)
+    }
+    tcpFlagsOrigUnset.takeIf(String::isNotBlank)?.let {
+        builder.append(" tcp_flags_orig_unset=")
         builder.append(it)
     }
 }

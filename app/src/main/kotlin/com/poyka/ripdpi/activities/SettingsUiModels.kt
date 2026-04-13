@@ -58,6 +58,7 @@ import com.poyka.ripdpi.data.WarpSetupStateNotConfigured
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.data.formatActivationFilterSummary
 import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
+import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.supportsAdaptiveMarker
 import com.poyka.ripdpi.proto.AppSettings
@@ -465,6 +466,29 @@ data class DesyncCoreUiState(
     val seqOverlapSteps: List<TcpChainStepModel> = tcpChainSteps.filter { it.kind == TcpChainStepKind.SeqOverlap },
     val hasUdpFakeBurst: Boolean = udpChainSteps.any { it.count.coerceAtLeast(0) > 0 },
 ) {
+    val primaryTcpFlagStep: TcpChainStepModel?
+        get() = primaryTcpChainStep(tcpChainSteps)
+
+    val tcpFlagOverrideStepCount: Int
+        get() =
+            tcpChainSteps.count {
+                it.tcpFlagsSet.isNotBlank() ||
+                    it.tcpFlagsUnset.isNotBlank() ||
+                    it.tcpFlagsOrigSet.isNotBlank() ||
+                    it.tcpFlagsOrigUnset.isNotBlank()
+            }
+
+    val hasTcpFlagOverrides: Boolean
+        get() = tcpFlagOverrideStepCount > 0
+
+    val tcpFlagVisualEditorSupported: Boolean
+        get() {
+            val primaryStep = primaryTcpFlagStep ?: return false
+            return tcpChainSteps.count { !it.kind.isTlsPrelude } == 1 &&
+                primaryStep.kind != TcpChainStepKind.Oob &&
+                primaryStep.kind != TcpChainStepKind.Disoob
+        }
+
     val hostFakeStepCount: Int
         get() = hostFakeSteps.size
 

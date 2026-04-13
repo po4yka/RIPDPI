@@ -39,6 +39,7 @@ internal object DiagnosticsScanWorkflow {
             "tlsrec_seqovl",
             "tlsrec_disorder",
             "tlsrec_fake",
+            "fake_flags",
         )
     private val DerivableQuicStrategyFamilies =
         setOf(

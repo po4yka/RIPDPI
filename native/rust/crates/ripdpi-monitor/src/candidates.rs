@@ -255,6 +255,8 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
     let ech_tlsrec = build_ech_tlsrec_candidate(base);
     let tlsrec_split_host = build_tlsrec_split_host_candidate(base);
     let tlsrec_fake_rich = build_tlsrec_fake_rich_candidate(base);
+    let fake_synfin = build_tlsrec_fake_flag_candidate(base, "syn|fin");
+    let fake_pshurg = build_tlsrec_fake_flag_candidate(base, "psh|urg");
     let tlsrec_fakedsplit = build_tlsrec_fake_approx_candidate(base, "fakedsplit");
     let tlsrec_fakeddisorder = build_tlsrec_fake_approx_candidate(base, "fakeddisorder");
     let tlsrec_hostfake = build_tlsrec_hostfake_candidate(base, false);
@@ -277,6 +279,20 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             "tlsrec_fake",
             tlsrec_fake_rich,
             vec!["Randomized fake TLS material with original ClientHello framing"],
+        ),
+        candidate_spec_with_notes(
+            "fake_synfin",
+            "Fake packet + SYN|FIN",
+            "fake_flags",
+            fake_synfin,
+            vec!["Applies SYN and FIN on the fake packet while preserving the normal payload flow"],
+        ),
+        candidate_spec_with_notes(
+            "fake_pshurg",
+            "Fake packet + PSH|URG",
+            "fake_flags",
+            fake_pshurg,
+            vec!["Applies PSH and URG on the fake packet while preserving the normal payload flow"],
         ),
         candidate_spec("split_host", "Split Host", "split", split_host.clone()),
         candidate_spec("disorder_host", "Disorder host", "disorder", disorder_host),
@@ -827,6 +843,14 @@ pub(crate) fn build_tlsrec_fake_rich_candidate(base: &ProxyUiConfig) -> ProxyUiC
     config
 }
 
+pub(crate) fn build_tlsrec_fake_flag_candidate(base: &ProxyUiConfig, flags: &str) -> ProxyUiConfig {
+    let mut config = build_tlsrec_fake_rich_candidate(base);
+    if let Some(step) = config.chains.tcp_steps.iter_mut().find(|step| step.kind == "fake") {
+        step.tcp_flags_set = flags.to_string();
+    }
+    config
+}
+
 pub(crate) fn build_tlsrec_fake_approx_candidate(base: &ProxyUiConfig, kind: &str) -> ProxyUiConfig {
     let mut config = build_tlsrec_fake_rich_candidate(base);
     config.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step(kind, "host+1")];
@@ -842,6 +866,10 @@ pub(crate) fn build_tlsrec_hostfake_candidate(base: &ProxyUiConfig, with_split: 
             marker: "endhost+8".to_string(),
             midhost_marker: "midsld".to_string(),
             fake_host_template: "googlevideo.com".to_string(),
+            tcp_flags_set: String::new(),
+            tcp_flags_unset: String::new(),
+            tcp_flags_orig_set: String::new(),
+            tcp_flags_orig_unset: String::new(),
             overlap_size: 0,
             fake_mode: String::new(),
             fragment_count: 0,
@@ -868,6 +896,10 @@ pub(crate) fn build_tlsrec_seqovl_candidate(base: &ProxyUiConfig, marker: &str) 
             marker: marker.to_string(),
             midhost_marker: String::new(),
             fake_host_template: String::new(),
+            tcp_flags_set: String::new(),
+            tcp_flags_unset: String::new(),
+            tcp_flags_orig_set: String::new(),
+            tcp_flags_orig_unset: String::new(),
             overlap_size: 12,
             fake_mode: "profile".to_string(),
             fragment_count: 0,
@@ -877,6 +909,10 @@ pub(crate) fn build_tlsrec_seqovl_candidate(base: &ProxyUiConfig, marker: &str) 
                 round: Some(ProxyUiNumericRange { start: Some(1), end: Some(1) }),
                 payload_size: None,
                 stream_bytes: Some(ProxyUiNumericRange { start: Some(0), end: Some(1500) }),
+                tcp_has_timestamp: None,
+                tcp_has_ech: None,
+                tcp_window_below: None,
+                tcp_mss_below: None,
             }),
             inter_segment_delay_ms: 0,
             ipv6_extension_profile: "none".to_string(),
@@ -1157,6 +1193,10 @@ pub(crate) fn default_audit_activation_filter() -> ProxyUiActivationFilter {
         round: Some(ProxyUiNumericRange { start: Some(1), end: Some(2) }),
         payload_size: Some(ProxyUiNumericRange { start: Some(64), end: Some(512) }),
         stream_bytes: Some(ProxyUiNumericRange { start: Some(0), end: Some(2047) }),
+        tcp_has_timestamp: None,
+        tcp_has_ech: None,
+        tcp_window_below: None,
+        tcp_mss_below: None,
     }
 }
 
@@ -1166,6 +1206,10 @@ pub(crate) fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         marker: marker.to_string(),
         midhost_marker: String::new(),
         fake_host_template: String::new(),
+        tcp_flags_set: String::new(),
+        tcp_flags_unset: String::new(),
+        tcp_flags_orig_set: String::new(),
+        tcp_flags_orig_unset: String::new(),
         overlap_size: 0,
         fake_mode: String::new(),
         fragment_count: 0,
@@ -1295,6 +1339,19 @@ mod tests {
         assert_eq!(ech_tlsrec.config.chains.tcp_steps[0].kind, "tlsrec");
         assert_eq!(ech_tlsrec.config.chains.tcp_steps[0].marker, "echext");
         assert!(ech_tlsrec.notes.iter().any(|note| note.contains("ECH-capable HTTPS path")));
+    }
+
+    #[test]
+    fn build_tcp_candidates_includes_fake_flag_variants() {
+        let candidates = build_tcp_candidates(&minimal_ui_config());
+        let fake_synfin = candidates.iter().find(|candidate| candidate.id == "fake_synfin").expect("fake_synfin");
+        let fake_pshurg = candidates.iter().find(|candidate| candidate.id == "fake_pshurg").expect("fake_pshurg");
+
+        assert_eq!(fake_synfin.family, "fake_flags");
+        assert_eq!(fake_synfin.config.chains.tcp_steps[1].kind, "fake");
+        assert_eq!(fake_synfin.config.chains.tcp_steps[1].tcp_flags_set, "syn|fin");
+        assert_eq!(fake_pshurg.family, "fake_flags");
+        assert_eq!(fake_pshurg.config.chains.tcp_steps[1].tcp_flags_set, "psh|urg");
     }
 
     #[test]

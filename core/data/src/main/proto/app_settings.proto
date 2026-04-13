@@ -29,6 +29,10 @@ message StrategyTcpStep {
   int32 overlap_size = 9;
   string fake_mode = 10;
   string ipv6_extension_profile = 11;
+  string tcp_flags_set = 12;
+  string tcp_flags_unset = 13;
+  string tcp_flags_orig_set = 14;
+  string tcp_flags_orig_unset = 15;
 }
 
 message StrategyUdpStep {

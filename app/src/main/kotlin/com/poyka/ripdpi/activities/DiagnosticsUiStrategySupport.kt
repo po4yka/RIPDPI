@@ -441,6 +441,7 @@ private fun strategyProbeFamilyLabel(family: String): String =
         "tlsrec_split" -> "TLS record split"
         "tlsrec_seqovl" -> "TLS record sequence overlap"
         "tlsrec_fake" -> "TLS record fake"
+        "fake_flags" -> "TCP flag crafting"
         "fake_approx" -> "Fake approximation"
         "hostfake" -> "Hostfake"
         "seqovl" -> "Sequence overlap"
