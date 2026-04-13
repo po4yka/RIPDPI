@@ -116,6 +116,10 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
                         activationFilter =
                             if (it.hasActivationFilter()) it.activationFilter.toModel() else ActivationFilterModel(),
                         ipv6ExtensionProfile = normalizeStrategyIpv6ExtensionProfile(it.ipv6ExtensionProfile),
+                        tcpFlagsSet = it.tcpFlagsSet.takeIf(String::isNotBlank),
+                        tcpFlagsUnset = it.tcpFlagsUnset.takeIf(String::isNotBlank),
+                        tcpFlagsOrigSet = it.tcpFlagsOrigSet.takeIf(String::isNotBlank),
+                        tcpFlagsOrigUnset = it.tcpFlagsOrigUnset.takeIf(String::isNotBlank),
                     )
                 },
             udpChainSteps =
@@ -504,6 +508,10 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
                         .setMinFragmentSize(step.minFragmentSize)
                         .setMaxFragmentSize(step.maxFragmentSize)
                         .setIpv6ExtensionProfile(normalizeStrategyIpv6ExtensionProfile(step.ipv6ExtensionProfile))
+                        .setTcpFlagsSet(step.tcpFlagsSet.orEmpty())
+                        .setTcpFlagsUnset(step.tcpFlagsUnset.orEmpty())
+                        .setTcpFlagsOrigSet(step.tcpFlagsOrigSet.orEmpty())
+                        .setTcpFlagsOrigUnset(step.tcpFlagsOrigUnset.orEmpty())
                         .apply {
                             val normalizedFilter = normalizeActivationFilter(step.activationFilter)
                             if (!normalizedFilter.isEmpty) {

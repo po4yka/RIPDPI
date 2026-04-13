@@ -214,6 +214,49 @@ class AdvancedSettingsRouteBinderTest {
     }
 
     @Test
+    fun `binder normalizes primary tcp fake flags through visual editor`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+        val uiState =
+            SettingsUiState(
+                desync =
+                    DesyncCoreUiState(
+                        tcpChainSteps =
+                            listOf(
+                                TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                                TcpChainStepModel(TcpChainStepKind.Fake, "host+1"),
+                            ),
+                    ),
+            )
+
+        binder.onOptionSelected(
+            setting = AdvancedOptionSetting.TcpFlagsSet,
+            value = "18",
+            uiState = uiState,
+        )
+
+        val update = recorder.singleUpdate()
+        assertEquals("tcpFlagsSet", update.key)
+        assertEquals("syn|ack", update.value)
+        assertEquals("syn|ack", update.settings.tcpChainStepsList[1].tcpFlagsSet)
+    }
+
+    @Test
+    fun `binder ignores tcp flag edits when visual editor is unsupported`() {
+        val recorder = RecordingSettingsMutations()
+        val binder = AdvancedSettingsBinder(recorder::updateSetting)
+        val uiState = multidisorderUiState()
+
+        binder.onOptionSelected(
+            setting = AdvancedOptionSetting.TcpFlagsOrigSet,
+            value = "psh|urg",
+            uiState = uiState,
+        )
+
+        assertTrue(recorder.updates.isEmpty())
+    }
+
+    @Test
     fun `binder preserves saved seqovl when desync method is replayed`() {
         val recorder = RecordingSettingsMutations()
         val binder = AdvancedSettingsBinder(recorder::updateSetting)

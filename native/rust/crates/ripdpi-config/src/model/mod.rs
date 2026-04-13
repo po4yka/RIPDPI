@@ -213,6 +213,28 @@ impl TcpChainStepKind {
     pub const fn is_tls_prelude(self) -> bool {
         matches!(self, Self::TlsRec | Self::TlsRandRec)
     }
+
+    pub const fn supports_fake_tcp_flags(self) -> bool {
+        matches!(
+            self,
+            Self::SeqOverlap | Self::Fake | Self::FakeSplit | Self::FakeDisorder | Self::HostFake | Self::FakeRst
+        )
+    }
+
+    pub const fn supports_orig_tcp_flags(self) -> bool {
+        matches!(
+            self,
+            Self::Split
+                | Self::SynData
+                | Self::Disorder
+                | Self::MultiDisorder
+                | Self::Fake
+                | Self::FakeSplit
+                | Self::FakeDisorder
+                | Self::HostFake
+                | Self::IpFrag2
+        )
+    }
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -236,6 +258,10 @@ pub struct TcpChainStep {
     pub activation_filter: Option<ActivationFilter>,
     pub midhost_offset: Option<OffsetExpr>,
     pub fake_host_template: Option<String>,
+    pub tcp_flags_set: Option<u16>,
+    pub tcp_flags_unset: Option<u16>,
+    pub tcp_flags_orig_set: Option<u16>,
+    pub tcp_flags_orig_unset: Option<u16>,
     pub overlap_size: i32,
     pub seqovl_fake_mode: SeqOverlapFakeMode,
     pub fragment_count: i32,
@@ -265,6 +291,10 @@ impl TcpChainStep {
             activation_filter: None,
             midhost_offset: None,
             fake_host_template: None,
+            tcp_flags_set: None,
+            tcp_flags_unset: None,
+            tcp_flags_orig_set: None,
+            tcp_flags_orig_unset: None,
             overlap_size: 0,
             seqovl_fake_mode: SeqOverlapFakeMode::Profile,
             fragment_count: 0,
@@ -952,6 +982,10 @@ mod tests {
                 round: Some(NumericRange::new(2, 4)),
                 payload_size: Some(NumericRange::new(64, 512)),
                 stream_bytes: Some(NumericRange::new(0, 2048)),
+                tcp_has_timestamp: None,
+                tcp_has_ech: None,
+                tcp_window_below: None,
+                tcp_mss_below: None,
             }),
         };
         let split_offset = OffsetExpr::marker(OffsetBase::Host, 1);
@@ -983,6 +1017,7 @@ mod tests {
                 TcpChainStep::new(TcpChainStepKind::TlsRec, tls_record),
                 TcpChainStep::new(TcpChainStepKind::Split, split_offset),
             ],
+            rotation_policy: None,
             udp_chain: vec![UdpChainStep {
                 kind: UdpChainStepKind::FakeBurst,
                 count: 2,
@@ -1028,6 +1063,10 @@ mod tests {
                 round: Some(NumericRange::new(2, 4)),
                 payload_size: Some(NumericRange::new(64, 512)),
                 stream_bytes: Some(NumericRange::new(0, 2048)),
+                tcp_has_timestamp: None,
+                tcp_has_ech: None,
+                tcp_window_below: None,
+                tcp_mss_below: None,
             })
         );
     }

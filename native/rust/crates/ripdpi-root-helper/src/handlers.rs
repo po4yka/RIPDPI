@@ -50,12 +50,21 @@ pub fn handle_probe_capabilities() -> (HelperResponse, Option<RawFd>) {
 #[derive(Deserialize)]
 pub struct FakeRstParams {
     pub default_ttl: u8,
+    #[serde(default)]
+    pub tcp_flags_set: u16,
+    #[serde(default)]
+    pub tcp_flags_unset: u16,
 }
 
 pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, ttl = params.default_ttl, "send_fake_rst");
     let stream = adopt_tcp_stream(fd);
-    match platform::send_fake_rst(&stream, params.default_ttl, None) {
+    match platform::send_fake_rst(
+        &stream,
+        params.default_ttl,
+        None,
+        platform::TcpFlagOverrides { set: params.tcp_flags_set, unset: params.tcp_flags_unset },
+    ) {
         Ok(()) => {
             // Return the fd back to the caller (don't let Drop close it).
             let _ = stream.into_raw_fd();
@@ -64,6 +73,41 @@ pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse
         Err(e) => {
             let _ = stream.into_raw_fd();
             error!(%e, "send_fake_rst failed");
+            (HelperResponse::error(e.to_string()), None)
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct FlaggedTcpPayloadParams {
+    pub payload: Vec<u8>,
+    pub default_ttl: u8,
+    #[serde(default)]
+    pub md5sig: bool,
+    #[serde(default)]
+    pub tcp_flags_set: u16,
+    #[serde(default)]
+    pub tcp_flags_unset: u16,
+}
+
+pub fn handle_send_flagged_tcp_payload(fd: RawFd, params: FlaggedTcpPayloadParams) -> (HelperResponse, Option<RawFd>) {
+    debug!(fd, len = params.payload.len(), "send_flagged_tcp_payload");
+    let stream = adopt_tcp_stream(fd);
+    match platform::send_flagged_tcp_payload(
+        &stream,
+        &params.payload,
+        params.default_ttl,
+        None,
+        params.md5sig,
+        platform::TcpFlagOverrides { set: params.tcp_flags_set, unset: params.tcp_flags_unset },
+    ) {
+        Ok(()) => {
+            let out_fd = stream.into_raw_fd();
+            (HelperResponse::success(serde_json::Value::Null), Some(out_fd))
+        }
+        Err(e) => {
+            let _ = stream.into_raw_fd();
+            error!(%e, "send_flagged_tcp_payload failed");
             (HelperResponse::error(e.to_string()), None)
         }
     }
@@ -80,6 +124,10 @@ pub struct SeqOvlParams {
     pub default_ttl: u8,
     #[serde(default)]
     pub md5sig: bool,
+    #[serde(default)]
+    pub tcp_flags_set: u16,
+    #[serde(default)]
+    pub tcp_flags_unset: u16,
 }
 
 pub fn handle_send_seqovl_tcp(fd: RawFd, params: SeqOvlParams) -> (HelperResponse, Option<RawFd>) {
@@ -92,6 +140,7 @@ pub fn handle_send_seqovl_tcp(fd: RawFd, params: SeqOvlParams) -> (HelperRespons
         params.default_ttl,
         None,
         params.md5sig,
+        platform::TcpFlagOverrides { set: params.tcp_flags_set, unset: params.tcp_flags_unset },
     ) {
         Ok(()) => {
             // The stream fd may have been replaced via dup2 internally.
@@ -120,6 +169,10 @@ pub struct MultiDisorderParams {
     pub inter_segment_delay_ms: u32,
     #[serde(default)]
     pub md5sig: bool,
+    #[serde(default)]
+    pub tcp_flags_set: u16,
+    #[serde(default)]
+    pub tcp_flags_unset: u16,
 }
 
 #[derive(Deserialize)]
@@ -142,6 +195,7 @@ pub fn handle_send_multi_disorder_tcp(fd: RawFd, params: MultiDisorderParams) ->
         None,
         params.inter_segment_delay_ms,
         params.md5sig,
+        platform::TcpFlagOverrides { set: params.tcp_flags_set, unset: params.tcp_flags_unset },
     ) {
         Ok(()) => {
             let out_fd = stream.into_raw_fd();
@@ -166,6 +220,10 @@ pub struct IpFragTcpParams {
     pub default_ttl: u8,
     #[serde(default)]
     pub disorder: bool,
+    #[serde(default)]
+    pub tcp_flags_set: u16,
+    #[serde(default)]
+    pub tcp_flags_unset: u16,
 }
 
 pub fn handle_send_ip_fragmented_tcp(fd: RawFd, params: IpFragTcpParams) -> (HelperResponse, Option<RawFd>) {
@@ -179,6 +237,7 @@ pub fn handle_send_ip_fragmented_tcp(fd: RawFd, params: IpFragTcpParams) -> (Hel
         None,
         params.disorder,
         ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+        platform::TcpFlagOverrides { set: params.tcp_flags_set, unset: params.tcp_flags_unset },
     ) {
         Ok(()) => {
             let out_fd = stream.into_raw_fd();

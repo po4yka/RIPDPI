@@ -17,14 +17,18 @@ use std::ptr;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use etherparse::{ip_number, Ipv4Header, Ipv6FlowLabel, Ipv6Header, TcpHeader};
+use etherparse::{ip_number, Ipv4Header, Ipv6FlowLabel, Ipv6Header, TcpHeader, TcpHeaderSlice};
+use ripdpi_config::{
+    TCP_FLAG_ACK, TCP_FLAG_AE, TCP_FLAG_CWR, TCP_FLAG_ECE, TCP_FLAG_FIN, TCP_FLAG_PSH, TCP_FLAG_R1, TCP_FLAG_R2,
+    TCP_FLAG_R3, TCP_FLAG_RST, TCP_FLAG_SYN, TCP_FLAG_URG,
+};
 use ripdpi_desync::TcpSegmentHint;
 use ripdpi_ipfrag::{
     build_tcp_fragment_pair, build_udp_fragment_pair, TcpFragmentSpec, TcpTimestampOption, UdpFragmentSpec,
 };
 use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
-use super::{IpFragmentationCapabilities, TcpActivationState, TcpStageWait};
+use super::{IpFragmentationCapabilities, TcpActivationState, TcpFlagOverrides, TcpStageWait};
 
 /// Thin wrapper around `libc::setsockopt` that handles the return-code check
 /// and `io::Error` conversion.
@@ -412,7 +416,12 @@ pub fn get_rcvbuf(fd: &impl AsRawFd) -> io::Result<u32> {
 /// a raw RST+ACK packet, and sends it via a raw socket.  The TTL should already
 /// be set to a low fake value by a preceding `SetTtl` action so the packet
 /// expires before reaching the server while DPI processes it.
-pub fn send_fake_rst(stream: &TcpStream, default_ttl: u8, protect_path: Option<&str>) -> io::Result<()> {
+pub fn send_fake_rst(
+    stream: &TcpStream,
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    flags: TcpFlagOverrides,
+) -> io::Result<()> {
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
     let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
@@ -421,7 +430,7 @@ pub fn send_fake_rst(stream: &TcpStream, default_ttl: u8, protect_path: Option<&
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
         let snapshot = snapshot_tcp_repair_state(fd)?;
-        let packet = ripdpi_ipfrag::build_fake_rst_packet(&ripdpi_ipfrag::TcpFragmentSpec {
+        let mut packet = ripdpi_ipfrag::build_fake_rst_packet(&ripdpi_ipfrag::TcpFragmentSpec {
             src: source,
             dst: target,
             ttl,
@@ -433,6 +442,7 @@ pub fn send_fake_rst(stream: &TcpStream, default_ttl: u8, protect_path: Option<&
             ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default(),
         })
         .map_err(build_error_to_io)?;
+        apply_tcp_flag_overrides_to_packet(&mut packet, source, target, 0, flags)?;
         send_raw_packets(target, [packet.as_slice()], protect_path)
     })();
     let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
@@ -544,9 +554,11 @@ pub fn send_fake_tcp(
         return Ok(());
     }
 
-    if options.secondary_fake_prefix.is_some() || options.timestamp_delta_ticks.is_some() {
+    let requires_raw_flags = !options.fake_flags.is_empty() || !options.orig_flags.is_empty();
+    if requires_raw_flags || options.secondary_fake_prefix.is_some() || options.timestamp_delta_ticks.is_some() {
         match send_fake_tcp_via_raw_packets(stream, original_prefix, fake_prefix, ttl, md5sig, options, wait) {
             Ok(()) => return Ok(()),
+            Err(error) if requires_raw_flags => return Err(error),
             Err(error) if should_fallback_raw_fake_tcp(error.kind()) => {
                 tracing::debug!("falling back to stream fake TCP path after raw fake downgrade: {error}");
             }
@@ -656,49 +668,80 @@ fn send_fake_tcp_via_raw_packets(
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
     let fd = stream.as_raw_fd();
+    let settings = capture_stream_socket_settings(stream);
 
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
-    let snapshot_result = snapshot_tcp_repair_state(fd);
-    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    let snapshot = snapshot_result?;
+    let result = (|| -> io::Result<()> {
+        let snapshot = snapshot_tcp_repair_state(fd)?;
 
-    let timestamp = mutate_fake_timestamp(snapshot.options.timestamp, options.timestamp_delta_ticks)?;
-    let mut packets = Vec::with_capacity(1 + usize::from(options.secondary_fake_prefix.is_some()));
-    let base_identification = fragment_identification(source, target, original_prefix.len());
-    packets.push(build_tcp_segment_packet(
-        source,
-        target,
-        ttl,
-        base_identification,
-        snapshot.sequence_number,
-        snapshot.acknowledgment_number,
-        snapshot.window_size,
-        timestamp,
-        true,
-        fake_prefix,
-        md5sig,
-    )?);
-    if let Some(secondary_fake_prefix) = options.secondary_fake_prefix.filter(|payload| !payload.is_empty()) {
+        let timestamp = mutate_fake_timestamp(snapshot.options.timestamp, options.timestamp_delta_ticks)?;
+        let mut packets = Vec::with_capacity(
+            1 + usize::from(options.secondary_fake_prefix.is_some()) + usize::from(!options.orig_flags.is_empty()),
+        );
+        let base_identification = fragment_identification(source, target, original_prefix.len());
         packets.push(build_tcp_segment_packet(
             source,
             target,
             ttl,
-            base_identification.wrapping_add(1),
+            base_identification,
             snapshot.sequence_number,
             snapshot.acknowledgment_number,
             snapshot.window_size,
             timestamp,
             true,
-            secondary_fake_prefix,
+            fake_prefix,
             md5sig,
+            options.fake_flags,
         )?);
-    }
+        if let Some(secondary_fake_prefix) = options.secondary_fake_prefix.filter(|payload| !payload.is_empty()) {
+            packets.push(build_tcp_segment_packet(
+                source,
+                target,
+                ttl,
+                base_identification.wrapping_add(1),
+                snapshot.sequence_number,
+                snapshot.acknowledgment_number,
+                snapshot.window_size,
+                timestamp,
+                true,
+                secondary_fake_prefix,
+                md5sig,
+                options.fake_flags,
+            )?);
+        }
 
-    send_raw_packets(target, packets.iter().map(Vec::as_slice), options.protect_path)?;
-    use std::io::Write;
-    (&*stream).write_all(original_prefix)?;
-    wait_tcp_stage_fd(fd, wait.0, wait.1)
+        if options.orig_flags.is_empty() {
+            send_raw_packets(target, packets.iter().map(Vec::as_slice), options.protect_path)?;
+            use std::io::Write;
+            (&*stream).write_all(original_prefix)?;
+        } else {
+            let original_packet = build_tcp_segment_packet(
+                source,
+                target,
+                ttl,
+                base_identification.wrapping_add(2),
+                snapshot.sequence_number,
+                snapshot.acknowledgment_number,
+                snapshot.window_size,
+                snapshot.options.timestamp,
+                true,
+                original_prefix,
+                md5sig,
+                options.orig_flags,
+            )?;
+            packets.push(original_packet);
+            let replacement =
+                build_replacement_tcp_socket(source, target, original_prefix.len(), &snapshot, options.protect_path)?;
+            send_raw_packets(target, packets.iter().map(Vec::as_slice), options.protect_path)?;
+            swap_stream_to_replacement(stream, &replacement, settings)?;
+            set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
+            disable_tcp_repair(fd)?;
+        }
+        wait_tcp_stage_fd(fd, wait.0, wait.1)
+    })();
+    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+    let _ = disable_tcp_repair(fd);
+    result
 }
 
 fn mutate_fake_timestamp(
@@ -720,6 +763,58 @@ fn mutate_fake_timestamp(
         timestamp.value.wrapping_sub(delta_ticks.unsigned_abs())
     };
     Ok(Some(timestamp))
+}
+
+pub fn send_flagged_tcp_payload(
+    stream: &TcpStream,
+    payload: &[u8],
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    md5sig: bool,
+    flags: TcpFlagOverrides,
+) -> io::Result<()> {
+    if payload.is_empty() {
+        return Ok(());
+    }
+    if flags.is_empty() {
+        use std::io::Write;
+        (&*stream).write_all(payload)?;
+        return Ok(());
+    }
+
+    let source = stream.local_addr()?;
+    let target = stream.peer_addr()?;
+    let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
+    let fd = stream.as_raw_fd();
+    let settings = capture_stream_socket_settings(stream);
+
+    set_tcp_repair(fd, TCP_REPAIR_ON)?;
+    let result = (|| -> io::Result<()> {
+        let snapshot = snapshot_tcp_repair_state(fd)?;
+        let packet = build_tcp_segment_packet(
+            source,
+            target,
+            ttl,
+            fragment_identification(source, target, payload.len()),
+            snapshot.sequence_number,
+            snapshot.acknowledgment_number,
+            snapshot.window_size,
+            snapshot.options.timestamp,
+            true,
+            payload,
+            md5sig,
+            flags,
+        )?;
+        let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
+        send_raw_packets(target, std::iter::once(packet.as_slice()), protect_path)?;
+        swap_stream_to_replacement(stream, &replacement, settings)?;
+        set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
+        disable_tcp_repair(fd)
+    })();
+
+    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+    let _ = disable_tcp_repair(fd);
+    result
 }
 
 pub fn probe_ip_fragmentation_capabilities(protect_path: Option<&str>) -> io::Result<IpFragmentationCapabilities> {
@@ -770,6 +865,7 @@ pub fn send_ip_fragmented_tcp(
     protect_path: Option<&str>,
     disorder: bool,
     ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
+    flags: TcpFlagOverrides,
 ) -> io::Result<()> {
     if payload.is_empty() {
         return Ok(());
@@ -798,6 +894,8 @@ pub fn send_ip_fragmented_tcp(
                     .options
                     .timestamp
                     .map(|timestamp| TcpTimestampOption { value: timestamp.value, echo_reply: timestamp.echo_reply }),
+                tcp_flags_set: flags.set,
+                tcp_flags_unset: flags.unset,
                 ipv6_ext,
             },
             payload,
@@ -829,6 +927,7 @@ pub fn send_multi_disorder_tcp(
     protect_path: Option<&str>,
     inter_segment_delay_ms: u32,
     md5sig: bool,
+    flags: TcpFlagOverrides,
 ) -> io::Result<()> {
     if payload.is_empty() {
         return Ok(());
@@ -849,7 +948,7 @@ pub fn send_multi_disorder_tcp(
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
         let snapshot = snapshot_tcp_repair_state(fd)?;
-        let packets = build_multi_disorder_packets(source, target, ttl, payload, segments, &snapshot, md5sig)?;
+        let packets = build_multi_disorder_packets(source, target, ttl, payload, segments, &snapshot, md5sig, flags)?;
         let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
         send_raw_packets_with_delay(
             target,
@@ -874,6 +973,7 @@ pub fn send_seqovl_tcp(
     default_ttl: u8,
     protect_path: Option<&str>,
     md5sig: bool,
+    flags: TcpFlagOverrides,
 ) -> io::Result<()> {
     if real_chunk.is_empty() {
         return Ok(());
@@ -911,6 +1011,7 @@ pub fn send_seqovl_tcp(
             true,
             &overlap_payload,
             md5sig,
+            flags,
         )?;
         send_raw_packets(target, std::iter::once(packet.as_slice()), protect_path)?;
 
@@ -970,6 +1071,82 @@ fn resolve_raw_ttl(default_ttl: u8) -> u8 {
     } else {
         64
     }
+}
+
+fn apply_tcp_flag_overrides_to_bytes(flags_bytes: &mut [u8], overrides: TcpFlagOverrides) {
+    if overrides.is_empty() {
+        return;
+    }
+    let mut upper = flags_bytes[0] & 0xF0;
+    let mut reserved = flags_bytes[0] & 0x0F;
+    let mut control = flags_bytes[1];
+
+    apply_single_flag(&mut control, overrides, TCP_FLAG_FIN, 0x01);
+    apply_single_flag(&mut control, overrides, TCP_FLAG_SYN, 0x02);
+    apply_single_flag(&mut control, overrides, TCP_FLAG_RST, 0x04);
+    apply_single_flag(&mut control, overrides, TCP_FLAG_PSH, 0x08);
+    apply_single_flag(&mut control, overrides, TCP_FLAG_ACK, 0x10);
+    apply_single_flag(&mut control, overrides, TCP_FLAG_URG, 0x20);
+    apply_single_flag(&mut control, overrides, TCP_FLAG_ECE, 0x40);
+    apply_single_flag(&mut control, overrides, TCP_FLAG_CWR, 0x80);
+    apply_single_flag(&mut reserved, overrides, TCP_FLAG_AE, 0x01);
+    apply_single_flag(&mut reserved, overrides, TCP_FLAG_R1, 0x02);
+    apply_single_flag(&mut reserved, overrides, TCP_FLAG_R2, 0x04);
+    apply_single_flag(&mut reserved, overrides, TCP_FLAG_R3, 0x08);
+
+    upper |= reserved & 0x0F;
+    flags_bytes[0] = upper;
+    flags_bytes[1] = control;
+}
+
+fn apply_single_flag(byte: &mut u8, overrides: TcpFlagOverrides, flag_mask: u16, wire_bit: u8) {
+    if (overrides.set & flag_mask) != 0 {
+        *byte |= wire_bit;
+    }
+    if (overrides.unset & flag_mask) != 0 {
+        *byte &= !wire_bit;
+    }
+}
+
+fn apply_tcp_flag_overrides_to_packet(
+    packet: &mut [u8],
+    source: SocketAddr,
+    target: SocketAddr,
+    payload_len: usize,
+    overrides: TcpFlagOverrides,
+) -> io::Result<()> {
+    if overrides.is_empty() {
+        return Ok(());
+    }
+    let tcp_offset = match source {
+        SocketAddr::V4(_) => Ipv4Header::MIN_LEN,
+        SocketAddr::V6(_) => Ipv6Header::LEN,
+    };
+    if packet.len() < tcp_offset + 20 {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "raw TCP packet too short"));
+    }
+    let flags = &mut packet[tcp_offset + 12..tcp_offset + 14];
+    apply_tcp_flag_overrides_to_bytes(flags, overrides);
+    packet[tcp_offset + 16] = 0;
+    packet[tcp_offset + 17] = 0;
+    let header = TcpHeaderSlice::from_slice(&packet[tcp_offset..]).map_err(io::Error::other)?;
+    let payload = &packet[packet.len().saturating_sub(payload_len)..];
+    let checksum = match (source, target) {
+        (SocketAddr::V4(src), SocketAddr::V4(dst)) => header
+            .calc_checksum_ipv4_raw(src.ip().octets(), dst.ip().octets(), payload)
+            .map_err(|_| value_too_large_io("raw TCP payload exceeds IPv4 checksum limits"))?,
+        (SocketAddr::V6(src), SocketAddr::V6(dst)) => header
+            .calc_checksum_ipv6_raw(src.ip().octets(), dst.ip().octets(), payload)
+            .map_err(|_| value_too_large_io("raw TCP payload exceeds IPv6 checksum limits"))?,
+        _ => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "raw TCP send requires matching source and destination IP families",
+            ));
+        }
+    };
+    packet[tcp_offset + 16..tcp_offset + 18].copy_from_slice(&checksum.to_be_bytes());
+    Ok(())
 }
 
 fn fragment_identification(source: SocketAddr, target: SocketAddr, payload_len: usize) -> u32 {
@@ -1242,6 +1419,7 @@ fn build_multi_disorder_packets(
     segments: &[super::TcpPayloadSegment],
     snapshot: &TcpRepairSnapshot,
     md5sig: bool,
+    flags: TcpFlagOverrides,
 ) -> io::Result<Vec<Vec<u8>>> {
     let mut cursor = 0usize;
     let base_identification = fragment_identification(source, target, payload.len());
@@ -1264,6 +1442,7 @@ fn build_multi_disorder_packets(
             segment.end == payload.len(),
             &payload[segment.start..segment.end],
             md5sig,
+            flags,
         )?);
         cursor = segment.end;
     }
@@ -1291,6 +1470,7 @@ fn build_tcp_segment_packet(
     push_flag: bool,
     payload: &[u8],
     inject_md5: bool,
+    tcp_flags: TcpFlagOverrides,
 ) -> io::Result<Vec<u8>> {
     let mut tcp = TcpHeader::new(source.port(), target.port(), sequence_number, window_size);
     tcp.ack = true;
@@ -1345,6 +1525,7 @@ fn build_tcp_segment_packet(
             ip.write(&mut bytes).map_err(io::Error::other)?;
             tcp.write(&mut bytes).map_err(io::Error::other)?;
             bytes.extend_from_slice(payload);
+            apply_tcp_flag_overrides_to_packet(&mut bytes, source, target, payload.len(), tcp_flags)?;
             Ok(bytes)
         }
         (SocketAddr::V6(src), SocketAddr::V6(dst)) => {
@@ -1367,6 +1548,7 @@ fn build_tcp_segment_packet(
             ip.write(&mut bytes).map_err(io::Error::other)?;
             tcp.write(&mut bytes).map_err(io::Error::other)?;
             bytes.extend_from_slice(payload);
+            apply_tcp_flag_overrides_to_packet(&mut bytes, source, target, payload.len(), tcp_flags)?;
             Ok(bytes)
         }
         _ => Err(io::Error::new(

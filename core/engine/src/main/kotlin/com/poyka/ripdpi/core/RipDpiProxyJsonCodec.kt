@@ -375,6 +375,10 @@ internal object RipDpiProxyJsonCodec {
         val maxFragmentSize: Int,
         val activationFilter: NativeActivationFilter? = null,
         val ipv6ExtensionProfile: String = "none",
+        val tcpFlagsSet: String = "",
+        val tcpFlagsUnset: String = "",
+        val tcpFlagsOrigSet: String = "",
+        val tcpFlagsOrigUnset: String = "",
     )
 
     @Serializable
@@ -416,6 +420,10 @@ internal object RipDpiProxyJsonCodec {
                     fragmentCount = 0,
                     minFragmentSize = 0,
                     maxFragmentSize = 0,
+                    tcpFlagsSet = "",
+                    tcpFlagsUnset = "",
+                    tcpFlagsOrigSet = "",
+                    tcpFlagsOrigUnset = "",
                 ),
             ),
         val tcpRotation: NativeTcpRotationConfig? = null,
@@ -920,6 +928,10 @@ internal object RipDpiProxyJsonCodec {
                 maxFragmentSize = step.maxFragmentSize,
                 activationFilter = step.activationFilter?.let(RangeCodec::toModel) ?: ActivationFilterModel(),
                 ipv6ExtensionProfile = step.ipv6ExtensionProfile,
+                tcpFlagsSet = step.tcpFlagsSet,
+                tcpFlagsUnset = step.tcpFlagsUnset,
+                tcpFlagsOrigSet = step.tcpFlagsOrigSet,
+                tcpFlagsOrigUnset = step.tcpFlagsOrigUnset,
             )
         }
 
@@ -937,6 +949,10 @@ internal object RipDpiProxyJsonCodec {
                 maxFragmentSize = step.maxFragmentSize,
                 activationFilter = RangeCodec.toNative(step.activationFilter),
                 ipv6ExtensionProfile = step.ipv6ExtensionProfile,
+                tcpFlagsSet = step.tcpFlagsSet,
+                tcpFlagsUnset = step.tcpFlagsUnset,
+                tcpFlagsOrigSet = step.tcpFlagsOrigSet,
+                tcpFlagsOrigUnset = step.tcpFlagsOrigUnset,
             )
         }
 
