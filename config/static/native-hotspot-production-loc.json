@@ -53,6 +53,10 @@
       "maxProductionLoc": 618
     },
     {
+      "path": "native/rust/crates/ripdpi-config/src/model/offset.rs",
+      "maxProductionLoc": 122
+    },
+    {
       "path": "native/rust/crates/ripdpi-config/src/parse/cli.rs",
       "maxProductionLoc": 694
     },
@@ -113,8 +117,24 @@
       "maxProductionLoc": 165
     },
     {
-      "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/stream_copy.rs",
+      "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/stream_copy/mod.rs",
       "maxProductionLoc": 242
+    },
+    {
+      "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/stream_copy/rotation.rs",
+      "maxProductionLoc": 240
+    },
+    {
+      "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/stream_copy/freeze.rs",
+      "maxProductionLoc": 50
+    },
+    {
+      "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/stream_copy/observers.rs",
+      "maxProductionLoc": 138
+    },
+    {
+      "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/stream_copy/copy_halves.rs",
+      "maxProductionLoc": 189
     },
     {
       "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/tls_boundary.rs",
