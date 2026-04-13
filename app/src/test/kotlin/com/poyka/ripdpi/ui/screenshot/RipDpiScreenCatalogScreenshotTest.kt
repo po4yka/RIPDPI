@@ -7,6 +7,8 @@ import com.poyka.ripdpi.ui.components.RipDpiBiometricPromptPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiConfigPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiCustomizationPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiDataTransparencyPreviewScene
+import com.poyka.ripdpi.ui.components.RipDpiDetectionCheckDarkPreviewScene
+import com.poyka.ripdpi.ui.components.RipDpiDetectionCheckPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiDiagnosticsScanPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiDiagnosticsSharePreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiDnsSettingsPreviewScene
@@ -17,9 +19,11 @@ import com.poyka.ripdpi.ui.components.RipDpiHomeDarkPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiHomeDisconnectedPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiHomeErrorPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiHomeExpandedPreviewScene
+import com.poyka.ripdpi.ui.components.RipDpiHomeHighContrastPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiIntroLargeFontPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiLogsEmptyDarkPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiLogsPreviewScene
+import com.poyka.ripdpi.ui.components.RipDpiModeEditorPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiSettingsDarkPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiSettingsMediumPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiVpnPermissionDialogPreviewScene
@@ -206,6 +210,66 @@ class RipDpiScreenCatalogScreenshotTest {
     fun vpnPermissionDialog() {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 600) {
             RipDpiVpnPermissionDialogPreviewScene()
+        }
+    }
+
+    // -- Phase 6: New screen coverage ------------------------------------------
+
+    @Test
+    fun detectionCheckScreen() {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
+            RipDpiDetectionCheckPreviewScene()
+        }
+    }
+
+    @Test
+    fun detectionCheckDarkScreen() {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
+            RipDpiDetectionCheckDarkPreviewScene()
+        }
+    }
+
+    @Test
+    fun modeEditorScreen() {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = 1200) {
+            RipDpiModeEditorPreviewScene()
+        }
+    }
+
+    // -- Phase 6: Multi-configuration variants ---------------------------------
+
+    @Test
+    fun homeHighContrastScreen() {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = 800) {
+            RipDpiHomeHighContrastPreviewScene()
+        }
+    }
+
+    @Test
+    fun homeLargeFontScreen() {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = 900, fontScale = 1.5f) {
+            RipDpiHomeCompactPreviewScene()
+        }
+    }
+
+    @Test
+    fun settingsLargeFontScreen() {
+        captureRipDpiScreenshot(widthDp = 420, heightDp = 1200, fontScale = 1.5f) {
+            RipDpiSettingsMediumPreviewScene()
+        }
+    }
+
+    @Test
+    fun configMediumScreen() {
+        captureRipDpiScreenshot(widthDp = 720, heightDp = 900) {
+            RipDpiConfigPreviewScene()
+        }
+    }
+
+    @Test
+    fun detectionCheckMediumScreen() {
+        captureRipDpiScreenshot(widthDp = 720, heightDp = 900) {
+            RipDpiDetectionCheckPreviewScene()
         }
     }
 }

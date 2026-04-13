@@ -455,3 +455,81 @@ internal fun RipDpiVpnPermissionDialogPreviewScene() {
         )
     }
 }
+
+// -- Detection Check ------------------------------------------------------------
+
+@Composable
+internal fun RipDpiDetectionCheckPreviewScene() {
+    RipDpiTheme(themePreference = "light") {
+        com.poyka.ripdpi.ui.screens.detection.DetectionCheckScreen(
+            uiState =
+                com.poyka.ripdpi.ui.screens.detection.DetectionCheckUiState(
+                    stealthScore = 78,
+                    stealthLabel = "Good",
+                ),
+            onStart = {},
+            onStop = {},
+            onBack = {},
+            onDismissOnboarding = {},
+            onApplyFixes = {},
+            onRequestPermissions = {},
+        )
+    }
+}
+
+@Composable
+internal fun RipDpiDetectionCheckDarkPreviewScene() {
+    RipDpiTheme(themePreference = "dark") {
+        com.poyka.ripdpi.ui.screens.detection.DetectionCheckScreen(
+            uiState =
+                com.poyka.ripdpi.ui.screens.detection.DetectionCheckUiState(
+                    stealthScore = 42,
+                    stealthLabel = "Moderate",
+                ),
+            onStart = {},
+            onStop = {},
+            onBack = {},
+            onDismissOnboarding = {},
+            onApplyFixes = {},
+            onRequestPermissions = {},
+        )
+    }
+}
+
+// -- Mode Editor ----------------------------------------------------------------
+
+@Composable
+internal fun RipDpiModeEditorPreviewScene() {
+    val draft = AppSettingsSerializer.defaultValue.toConfigDraft()
+    com.poyka.ripdpi.ui.screens.config.ModeEditorScreenWithNoOpCallbacks(
+        uiState =
+            ConfigUiState(
+                activeMode = Mode.VPN,
+                presets = buildConfigPresets(draft),
+                draft = draft,
+            ),
+    )
+}
+
+// -- Home high contrast ---------------------------------------------------------
+
+@Composable
+internal fun RipDpiHomeHighContrastPreviewScene() {
+    RipDpiTheme(
+        themePreference = "light",
+        contrastLevel = com.poyka.ripdpi.ui.theme.RipDpiContrastLevel.High,
+    ) {
+        HomeScreen(
+            uiState =
+                MainUiState(
+                    appStatus = AppStatus.Running,
+                    connectionState = ConnectionState.Connected,
+                ),
+            onToggleConnection = {},
+            onOpenDiagnostics = {},
+            onOpenHistory = {},
+            onRepairPermission = {},
+            onOpenVpnPermissionDialog = {},
+        )
+    }
+}

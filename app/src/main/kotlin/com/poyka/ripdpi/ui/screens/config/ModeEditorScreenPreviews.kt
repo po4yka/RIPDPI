@@ -122,7 +122,7 @@ internal fun editorPresetKind(uiState: ConfigUiState): ConfigPresetKind =
     uiState.editingPreset?.kind ?: ConfigPresetKind.Custom
 
 @Composable
-private fun ModeEditorScreenWithNoOpCallbacks(
+internal fun ModeEditorScreenWithNoOpCallbacks(
     uiState: ConfigUiState,
     themePreference: String = "light",
 ) {
