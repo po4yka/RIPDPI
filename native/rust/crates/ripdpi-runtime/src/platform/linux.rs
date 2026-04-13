@@ -440,6 +440,8 @@ pub fn send_fake_rst(
             acknowledgment_number: snapshot.acknowledgment_number,
             window_size: 0,
             timestamp: None,
+            tcp_flags_set: flags.set,
+            tcp_flags_unset: flags.unset,
             ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default(),
         })
         .map_err(build_error_to_io)?;
@@ -757,7 +759,7 @@ pub fn send_ordered_tcp_segments(
     stream: &TcpStream,
     segments: &[super::OrderedTcpSegment<'_>],
     original_payload_len: usize,
-    default_ttl: u8,
+    _default_ttl: u8,
     protect_path: Option<&str>,
     md5sig: bool,
     timestamp_delta_ticks: Option<i32>,

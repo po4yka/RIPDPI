@@ -320,14 +320,10 @@ private class AdvancedSettingsMutationWriter(
         transform: (TcpChainStepModel, String) -> TcpChainStepModel,
     ) {
         val primaryStep = primaryTcpChainStep(uiState.desync.tcpChainSteps) ?: return
-        if (!uiState.desync.tcpFlagVisualEditorSupported) {
-            return
-        }
-        val normalized = normalizeTcpFlagMask(value)
         val index = uiState.desync.tcpChainSteps.indexOf(primaryStep)
-        if (index < 0) {
-            return
-        }
+        val canUpdate = uiState.desync.tcpFlagVisualEditorSupported && index >= 0
+        if (!canUpdate) return
+        val normalized = normalizeTcpFlagMask(value)
         updateValue(key, normalized) {
             val updated = uiState.desync.tcpChainSteps.toMutableList()
             updated[index] = transform(primaryStep, normalized)
@@ -346,22 +342,13 @@ private class AdvancedSettingsMutationWriter(
         transform: (TcpChainStepModel, String) -> TcpChainStepModel,
     ) {
         val primaryStep = uiState.desync.primaryFakeOrderingStep ?: return
-        if (!uiState.desync.fakeOrderingVisualEditorSupported) {
-            return
-        }
         val normalized = normalize(value)
-        if (
-            key == "fakeOrder" &&
-            primaryStep.kind == TcpChainStepKind.HostFake &&
-            primaryStep.midhostMarker.isBlank() &&
-            normalized != FakeOrderDefault
-        ) {
-            return
-        }
         val index = uiState.desync.tcpChainSteps.indexOf(primaryStep)
-        if (index < 0) {
-            return
-        }
+        val canUpdate =
+            uiState.desync.fakeOrderingVisualEditorSupported &&
+                index >= 0 &&
+                !isUnsupportedHostFakeOrder(key, primaryStep, normalized)
+        if (!canUpdate) return
         updateValue(key, normalized) {
             val updated = uiState.desync.tcpChainSteps.toMutableList()
             updated[index] = transform(primaryStep, normalized)
@@ -419,21 +406,6 @@ private class AdvancedSettingsMutationWriter(
     ) {
         val normalized = normalizeOffsetExpression(value, fallback)
         updateValue(key, normalized, transform)
-    }
-
-    fun updateQuicFakeHost(value: String) {
-        val normalized = normalizeQuicFakeHost(value)
-        updateValue("quicFakeHost", normalized) {
-            setQuicFakeHost(normalized)
-        }
-    }
-
-    fun updateOobData(value: String) {
-        if (value.length <= MaxOobDataLength) {
-            updateValue("oobData", value) {
-                setOobData(value)
-            }
-        }
     }
 
     fun updateTlsPreludeProfile(
@@ -583,6 +555,31 @@ private fun updateNumericRangeBoundary(
     } else {
         range.copy(end = parseOptionalRangeValue(value))
     }
+
+private fun isUnsupportedHostFakeOrder(
+    key: String,
+    primaryStep: TcpChainStepModel,
+    normalized: String,
+): Boolean =
+    key == "fakeOrder" &&
+        primaryStep.kind == TcpChainStepKind.HostFake &&
+        primaryStep.midhostMarker.isBlank() &&
+        normalized != FakeOrderDefault
+
+private fun AdvancedSettingsMutationWriter.updateQuicFakeHost(value: String) {
+    val normalized = normalizeQuicFakeHost(value)
+    updateValue("quicFakeHost", normalized) {
+        setQuicFakeHost(normalized)
+    }
+}
+
+private fun AdvancedSettingsMutationWriter.updateOobData(value: String) {
+    if (value.length <= MaxOobDataLength) {
+        updateValue("oobData", value) {
+            setOobData(value)
+        }
+    }
+}
 
 private fun AdvancedSettingsMutationWriter.updateHostAutolearnPenaltyTtlHours(value: String) {
     value.toIntOrNull()?.let { ttl ->

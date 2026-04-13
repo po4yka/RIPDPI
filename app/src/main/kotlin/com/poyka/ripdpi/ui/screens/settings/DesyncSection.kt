@@ -186,11 +186,11 @@ internal fun LazyListScope.desyncSection(
                         onOptionSelected = onOptionSelected,
                         modifier = Modifier.padding(top = spacing.xs, bottom = spacing.sm),
                     )
-                    if (showHostFakeSection || showSeqOverlapSection || showFakeApproxSection ||
-                        showAdaptiveFakeTtlSection ||
-                        showFakeTlsSection ||
-                        uiState.isOob
-                    ) {
+                    val showFakeOrderingDivider =
+                        showHostFakeSection ||
+                            showSeqOverlapSection ||
+                            showFakeOrOobSections
+                    if (showFakeOrderingDivider) {
                         HorizontalDivider(color = colors.divider)
                     }
                 }
