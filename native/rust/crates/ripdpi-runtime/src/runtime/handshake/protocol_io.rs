@@ -166,6 +166,9 @@ pub(in crate::runtime) fn resolve_name(
     if let Ok(ip) = host.parse::<IpAddr>() {
         return Some(SocketAddr::new(ip, 0));
     }
+    if let Some(loopback) = resolve_localhost(host, state.config.network.ipv6) {
+        return Some(loopback);
+    }
     if !state.config.network.resolve {
         return None;
     }
@@ -176,6 +179,15 @@ pub(in crate::runtime) fn resolve_name(
         state.config.network.ipv6,
     )
     .ok()
+}
+
+fn resolve_localhost(host: &str, ipv6_enabled: bool) -> Option<SocketAddr> {
+    if !host.eq_ignore_ascii_case("localhost") && !host.eq_ignore_ascii_case("localhost.") {
+        return None;
+    }
+
+    let ip = if ipv6_enabled { IpAddr::V6(Ipv6Addr::LOCALHOST) } else { IpAddr::V4(Ipv4Addr::LOCALHOST) };
+    Some(SocketAddr::new(ip, 0))
 }
 
 pub(super) fn send_success_reply(client: &mut TcpStream, handshake: HandshakeKind) -> io::Result<()> {
