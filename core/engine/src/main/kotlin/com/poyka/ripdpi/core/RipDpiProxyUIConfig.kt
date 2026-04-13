@@ -65,6 +65,7 @@ data class RipDpiChainConfig(
     val tcpRotation: RipDpiTcpRotationConfig? = null,
     val udpSteps: List<UdpChainStepModel> = emptyList(),
     val anyProtocol: Boolean = false,
+    val payloadDisable: List<String> = emptyList(),
 )
 
 data class RipDpiTcpRotationCandidateConfig(

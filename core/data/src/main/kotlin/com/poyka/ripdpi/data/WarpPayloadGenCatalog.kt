@@ -19,6 +19,7 @@ const val WarpAmneziaPresetCustom = "custom"
 // Backward-compatible aliases for older persisted values.
 const val WarpAmneziaPresetBalanced = WarpAmneziaPresetQuicImitation
 const val WarpAmneziaPresetAggressive = WarpAmneziaPresetTlsImitation
+private val warpPayloadGenCatalogJson = Json { ignoreUnknownKeys = true }
 
 @Serializable
 internal data class WarpPayloadGenCatalogPayload(
@@ -64,7 +65,7 @@ data class WarpPayloadGenSuggestion(
 )
 
 internal fun decodeWarpPayloadGenCatalog(json: String): List<WarpPayloadGenPresetDefinition> =
-    Json { ignoreUnknownKeys = true }
+    warpPayloadGenCatalogJson
         .decodeFromString(WarpPayloadGenCatalogPayload.serializer(), json)
         .presets
 
@@ -76,7 +77,7 @@ internal fun suggestWarpPayloadGenPreset(
     val cellular = snapshot?.cellular
     val isCellular = snapshot?.transport == "cellular" && cellular != null
     if (!isCellular) return null
-    val cellularSnapshot = cellular ?: return null
+    val cellularSnapshot = cellular
     val presetId =
         when {
             cellularSnapshot.operatorCode.startsWith("250") -> WarpAmneziaPresetQuicImitation
