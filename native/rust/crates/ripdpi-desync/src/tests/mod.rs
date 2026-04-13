@@ -37,6 +37,7 @@ pub(super) fn tcp_context(payload: &[u8]) -> ActivationContext {
         seqovl_supported: false,
         transport: ActivationTransport::Tcp,
         tcp_segment_hint: None,
+        tcp_state: ActivationTcpState::default(),
         resolved_fake_ttl: None,
         adaptive: AdaptivePlannerHints::default(),
     }

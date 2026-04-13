@@ -33,6 +33,13 @@ pub struct TcpPayloadSegment {
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct TcpActivationState {
+    pub has_timestamp: Option<bool>,
+    pub window_size: Option<i64>,
+    pub mss: Option<i64>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct IpFragmentationCapabilities {
     pub raw_ipv4: bool,
     pub raw_ipv6: bool,
@@ -487,6 +494,16 @@ pub fn tcp_segment_hint(stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn tcp_segment_hint(_stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>> {
+    Ok(None)
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn tcp_activation_state(stream: &TcpStream) -> io::Result<Option<TcpActivationState>> {
+    linux::tcp_activation_state(stream)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn tcp_activation_state(_stream: &TcpStream) -> io::Result<Option<TcpActivationState>> {
     Ok(None)
 }
 

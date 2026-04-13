@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.core
 
+import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import org.junit.Assert.assertEquals
@@ -7,6 +9,44 @@ import org.junit.Assert.assertNotNull
 import org.junit.Test
 
 class RipDpiProxyJsonCodecTest {
+    @Test
+    fun `ui preferences round trip tcp state activation filters`() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.Fake,
+                                    marker = "host",
+                                    activationFilter =
+                                        ActivationFilterModel(
+                                            round = NumericRangeModel(1, 2),
+                                            tcpHasTimestamp = true,
+                                            tcpHasEch = false,
+                                            tcpWindowBelow = 4096,
+                                            tcpMssBelow = 1400,
+                                        ),
+                                ),
+                            ),
+                    ),
+            )
+
+        val decoded = decodeRipDpiProxyUiPreferences(preferences.toNativeConfigJson())
+
+        assertEquals(
+            preferences.chains.tcpSteps
+                .first()
+                .activationFilter,
+            decoded
+                ?.chains
+                ?.tcpSteps
+                ?.firstOrNull()
+                ?.activationFilter,
+        )
+    }
+
     @Test
     fun `ui preferences round trip tcp rotation config`() {
         val preferences =

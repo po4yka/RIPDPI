@@ -363,6 +363,7 @@ fun parseStrategyChainDsl(source: String): Result<StrategyChainSet> =
                                 key = key,
                                 value = value,
                                 lineNumber = index + 1,
+                                allowTcpStatePredicates = false,
                             )
                     }
                     udpSteps +=
@@ -752,6 +753,10 @@ private fun parseTcpStep(
             "when_round",
             "when_size",
             "when_stream",
+            "tcp_has_ts",
+            "tcp_has_ech",
+            "tcp_window_lt",
+            "tcp_mss_lt",
             -> {
                 activationFilter =
                     parseActivationToken(
@@ -759,6 +764,7 @@ private fun parseTcpStep(
                         key = key,
                         value = value,
                         lineNumber = lineNumber,
+                        allowTcpStatePredicates = true,
                     )
             }
 
@@ -951,6 +957,7 @@ private fun normalizeFakeHostTemplate(
 }
 
 private fun validateUdpStepOptions(step: UdpChainStepModel) {
+    validateNoTcpStatePredicates(step.activationFilter, "${step.kind.wireName} activationFilter")
     when (step.kind) {
         UdpChainStepKind.FakeBurst -> {
             require(step.count >= 0) { "fake_burst count must be non-negative" }
@@ -1007,6 +1014,22 @@ private fun appendActivationDsl(
         builder.append(" when_stream=")
         builder.append(it)
     }
+    activationFilter.tcpHasTimestamp?.let {
+        builder.append(" tcp_has_ts=")
+        builder.append(it)
+    }
+    activationFilter.tcpHasEch?.let {
+        builder.append(" tcp_has_ech=")
+        builder.append(it)
+    }
+    activationFilter.tcpWindowBelow?.let {
+        builder.append(" tcp_window_lt=")
+        builder.append(it)
+    }
+    activationFilter.tcpMssBelow?.let {
+        builder.append(" tcp_mss_lt=")
+        builder.append(it)
+    }
 }
 
 private fun parseActivationToken(
@@ -1014,6 +1037,7 @@ private fun parseActivationToken(
     key: String,
     value: String,
     lineNumber: Int,
+    allowTcpStatePredicates: Boolean,
 ): ActivationFilterModel =
     when (key.lowercase()) {
         "when_round" -> {
@@ -1043,7 +1067,84 @@ private fun parseActivationToken(
             )
         }
 
+        "tcp_has_ts" -> {
+            require(allowTcpStatePredicates) {
+                "tcp_has_ts is only supported for tcp steps on line $lineNumber"
+            }
+            activationFilter.copy(
+                tcpHasTimestamp =
+                    parseActivationBooleanToken(
+                        key = key,
+                        value = value,
+                        lineNumber = lineNumber,
+                    ),
+            )
+        }
+
+        "tcp_has_ech" -> {
+            require(allowTcpStatePredicates) {
+                "tcp_has_ech is only supported for tcp steps on line $lineNumber"
+            }
+            activationFilter.copy(
+                tcpHasEch =
+                    parseActivationBooleanToken(
+                        key = key,
+                        value = value,
+                        lineNumber = lineNumber,
+                    ),
+            )
+        }
+
+        "tcp_window_lt" -> {
+            require(allowTcpStatePredicates) {
+                "tcp_window_lt is only supported for tcp steps on line $lineNumber"
+            }
+            activationFilter.copy(
+                tcpWindowBelow =
+                    parseActivationThresholdToken(
+                        key = key,
+                        value = value,
+                        lineNumber = lineNumber,
+                    ),
+            )
+        }
+
+        "tcp_mss_lt" -> {
+            require(allowTcpStatePredicates) {
+                "tcp_mss_lt is only supported for tcp steps on line $lineNumber"
+            }
+            activationFilter.copy(
+                tcpMssBelow =
+                    parseActivationThresholdToken(
+                        key = key,
+                        value = value,
+                        lineNumber = lineNumber,
+                    ),
+            )
+        }
+
         else -> {
             error("Unknown activation filter '$key' on line $lineNumber")
         }
     }
+
+private fun parseActivationBooleanToken(
+    key: String,
+    value: String,
+    lineNumber: Int,
+): Boolean =
+    when (value.trim().lowercase()) {
+        "true" -> true
+        "false" -> false
+        else -> error("Invalid $key filter on line $lineNumber")
+    }
+
+private fun parseActivationThresholdToken(
+    key: String,
+    value: String,
+    lineNumber: Int,
+): Int {
+    val parsed = value.toIntOrNull() ?: error("Invalid $key filter on line $lineNumber")
+    require(parsed in 1..65_535) { "Invalid $key filter on line $lineNumber" }
+    return parsed
+}

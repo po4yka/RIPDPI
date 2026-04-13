@@ -655,8 +655,15 @@ fn plan_udp_flow_actions(
     entry.payload.extend_from_slice(payload);
     entry.awaiting_response = true;
     let progress = entry.session.observe_datagram_outbound(payload);
-    let activation =
-        super::desync::activation_context_from_progress(progress, ActivationTransport::Udp, None, None, adaptive_hints);
+    let activation = super::desync::activation_context_from_progress(
+        progress,
+        ActivationTransport::Udp,
+        Some(payload),
+        None,
+        None,
+        None,
+        adaptive_hints,
+    );
     Ok(plan_udp(group, payload, state.config.network.default_ttl, activation))
 }
 

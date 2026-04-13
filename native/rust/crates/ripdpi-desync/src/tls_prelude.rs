@@ -1,7 +1,7 @@
 use crate::offset::{gen_offset, insert_boundary, random_tail_fragment_lengths, resolve_adaptive_offset};
 use crate::types::{
-    activation_filter_matches, ActivationContext, ActivationTransport, AdaptivePlannerHints, AdaptiveTlsRandRecProfile,
-    DesyncError, ProtoInfo, TamperResult, TcpSegmentHint,
+    activation_filter_matches, ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints,
+    AdaptiveTlsRandRecProfile, DesyncError, ProtoInfo, TamperResult, TcpSegmentHint,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind};
 use ripdpi_packets::{is_http, is_tls_client_hello, mod_http_inplace, OracleRng};
@@ -253,6 +253,12 @@ pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<Tamp
             seqovl_supported: false,
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
+            tcp_state: ActivationTcpState {
+                has_ech: Some(
+                    ripdpi_packets::tls_marker_info(input).and_then(|markers| markers.ech_ext_start).is_some(),
+                ),
+                ..ActivationTcpState::default()
+            },
             resolved_fake_ttl: None,
             adaptive: AdaptivePlannerHints::default(),
         },

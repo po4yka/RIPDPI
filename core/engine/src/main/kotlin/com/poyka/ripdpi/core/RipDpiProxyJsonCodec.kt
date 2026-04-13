@@ -267,6 +267,10 @@ internal object RipDpiProxyJsonCodec {
         val round: NativeNumericRange? = null,
         val payloadSize: NativeNumericRange? = null,
         val streamBytes: NativeNumericRange? = null,
+        val tcpHasTimestamp: Boolean? = null,
+        val tcpHasEch: Boolean? = null,
+        val tcpWindowBelow: Int? = null,
+        val tcpMssBelow: Int? = null,
     )
 
     @Serializable
@@ -667,6 +671,10 @@ internal object RipDpiProxyJsonCodec {
                     round = value.round?.let(::toModel) ?: NumericRangeModel(),
                     payloadSize = value.payloadSize?.let(::toModel) ?: NumericRangeModel(),
                     streamBytes = value.streamBytes?.let(::toModel) ?: NumericRangeModel(),
+                    tcpHasTimestamp = value.tcpHasTimestamp,
+                    tcpHasEch = value.tcpHasEch,
+                    tcpWindowBelow = value.tcpWindowBelow,
+                    tcpMssBelow = value.tcpMssBelow,
                 ),
             )
 
@@ -675,10 +683,26 @@ internal object RipDpiProxyJsonCodec {
                 val round = toNative(normalized.round)
                 val payloadSize = toNative(normalized.payloadSize)
                 val streamBytes = toNative(normalized.streamBytes)
-                if (round == null && payloadSize == null && streamBytes == null) {
+                if (
+                    round == null &&
+                    payloadSize == null &&
+                    streamBytes == null &&
+                    normalized.tcpHasTimestamp == null &&
+                    normalized.tcpHasEch == null &&
+                    normalized.tcpWindowBelow == null &&
+                    normalized.tcpMssBelow == null
+                ) {
                     null
                 } else {
-                    NativeActivationFilter(round = round, payloadSize = payloadSize, streamBytes = streamBytes)
+                    NativeActivationFilter(
+                        round = round,
+                        payloadSize = payloadSize,
+                        streamBytes = streamBytes,
+                        tcpHasTimestamp = normalized.tcpHasTimestamp,
+                        tcpHasEch = normalized.tcpHasEch,
+                        tcpWindowBelow = normalized.tcpWindowBelow,
+                        tcpMssBelow = normalized.tcpMssBelow,
+                    )
                 }
             }
     }

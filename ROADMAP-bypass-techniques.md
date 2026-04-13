@@ -57,9 +57,9 @@ it stays. This misses the case where middlebox adapts mid-session.
 
 ### 2. Conditional Strategy Execution
 
-**Status:** [ ] Not started
+**Status:** [x] Implemented (2026-04-13)
 **Priority:** Critical
-**Crate:** `ripdpi-desync`, `ripdpi-config`
+**Crate:** `ripdpi-desync`, `ripdpi-config`, `ripdpi-runtime`
 
 **What:** zapret2 supports runtime branching: `per_instance_condition` runs a
 desync step only when a `cond` function evaluates to true. Example: use
@@ -75,17 +75,28 @@ connection state.
 --lua-desync=fake:blob=fake_default_tls:ip_ttl=7:cond=cond_tcp_has_ts:cond_neg
 ```
 
-**Approach:**
-1. Define a `StepCondition` enum in `ripdpi-config`:
-   - `TcpHasTimestamp` -- SYN-ACK contained TCP timestamp option
-   - `TcpHasEch` -- ClientHello contains ECH extension
-   - `TcpWindowBelow(u16)` -- server advertised window below threshold
-   - `MssBelow(u16)` -- server MSS below threshold
-   - `Not(Box<StepCondition>)` -- negation
-2. Add optional `condition: Option<StepCondition>` to `TcpChainStep`
-3. In desync planner, evaluate condition against `ConnState` (already tracked)
-   before including the step in the plan
-4. Wire through UI as an advanced per-step toggle
+**Implemented design:**
+1. Extended the existing shared `ActivationFilter` model instead of adding a new
+   planner-only condition enum. TCP steps now support
+   `tcp_has_timestamp`, `tcp_has_ech`, `tcp_window_below`, and
+   `tcp_mss_below` predicates alongside the existing round / payload-size /
+   stream-window filters.
+2. Threaded the same fields through AppSettings protobuf, Kotlin data models,
+   chain DSL, JSON bridge, and native config conversion so remembered policies,
+   diagnostics overlays, and exact JSON payloads preserve the predicates
+   losslessly.
+3. Restricted the new predicates to TCP step activation filters. Group-level
+   activation windows and UDP steps reject them in both Kotlin validation and
+   native config conversion to avoid ambiguous semantics.
+4. Extended the desync planner's `ActivationContext` with a TCP-state snapshot:
+   negotiated TCP timestamp support, current advertised window, negotiated MSS,
+   and whether the current outbound TLS payload contains an ECH extension.
+5. Planner evaluation is per outbound TCP write. Unknown TCP-state values fail
+   closed for that predicate, so steps are skipped rather than misapplied, and
+   later steps continue to run normally.
+6. V1 editing remains DSL/JSON-driven. The Android advanced settings surface
+   reports these predicates in activation summaries and counts, but does not add
+   a dedicated visual per-step condition editor.
 
 **Vault references:**
 - `Censorship/adaptive-strategy-selection.md` -- "Оркестраторы" section

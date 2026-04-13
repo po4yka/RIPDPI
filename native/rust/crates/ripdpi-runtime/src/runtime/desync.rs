@@ -7,10 +7,11 @@ use crate::platform;
 use ripdpi_config::{DesyncGroup, EntropyMode, RuntimeConfig, TcpChainStepKind};
 use ripdpi_desync::{
     activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes,
-    build_secondary_fake_packet, plan_tcp, resolve_hostfake_span, ActivationContext, ActivationTransport,
-    AdaptivePlannerHints, DesyncAction, DesyncPlan,
+    build_secondary_fake_packet, plan_tcp, resolve_hostfake_span, ActivationContext, ActivationTcpState,
+    ActivationTransport, AdaptivePlannerHints, DesyncAction, DesyncPlan,
 };
 use ripdpi_packets::entropy;
+use ripdpi_packets::tls_marker_info;
 use ripdpi_proxy_config::ProxyDirectPathCapability;
 use ripdpi_session::OutboundProgress;
 use socket2::SockRef;
@@ -103,10 +104,22 @@ struct WriteProgressError {
 pub(super) fn activation_context_from_progress(
     progress: OutboundProgress,
     transport: ActivationTransport,
+    payload: Option<&[u8]>,
     tcp_segment_hint: Option<ripdpi_desync::TcpSegmentHint>,
+    tcp_activation_state: Option<platform::TcpActivationState>,
     resolved_fake_ttl: Option<u8>,
     adaptive: AdaptivePlannerHints,
 ) -> ActivationContext {
+    let has_ech = payload.and_then(|bytes| tls_marker_info(bytes)).and_then(|markers| markers.ech_ext_start).is_some();
+    let tcp_state = tcp_activation_state.map_or(
+        ActivationTcpState { has_ech: Some(has_ech), ..ActivationTcpState::default() },
+        |state| ActivationTcpState {
+            has_timestamp: state.has_timestamp,
+            has_ech: Some(has_ech),
+            window_size: state.window_size,
+            mss: state.mss.or_else(|| tcp_segment_hint.and_then(|hint| hint.snd_mss.or(hint.advmss))),
+        },
+    );
     ActivationContext {
         round: progress.round as i64,
         payload_size: progress.payload_size as i64,
@@ -115,6 +128,7 @@ pub(super) fn activation_context_from_progress(
         seqovl_supported: platform::seqovl_supported(),
         transport,
         tcp_segment_hint,
+        tcp_state,
         resolved_fake_ttl,
         adaptive,
     }
@@ -192,7 +206,9 @@ pub(super) fn send_with_group(
     let context = activation_context_from_progress(
         progress,
         ActivationTransport::Tcp,
+        Some(payload),
         platform::tcp_segment_hint(writer).ok().flatten(),
+        platform::tcp_activation_state(writer).ok().flatten(),
         resolved_fake_ttl,
         adaptive_hints,
     );
@@ -1871,6 +1887,11 @@ mod tests {
     use ripdpi_desync::{PlannedStep, ProtoInfo};
     use std::net::{Ipv4Addr, TcpListener};
 
+    #[allow(dead_code)]
+    mod rust_packet_seeds {
+        include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../ripdpi-packets/tests/rust_packet_seeds.rs"));
+    }
+
     fn test_group() -> DesyncGroup {
         DesyncGroup::new(0)
     }
@@ -1906,6 +1927,7 @@ mod tests {
             seqovl_supported: false,
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
+            tcp_state: ActivationTcpState::default(),
             resolved_fake_ttl: None,
             adaptive: AdaptivePlannerHints::default(),
         };
@@ -1920,6 +1942,38 @@ mod tests {
         assert!(has_tcp_actions(&group));
         assert!(should_desync_tcp(&group, in_range));
         assert!(!should_desync_tcp(&group, out_of_range));
+    }
+
+    #[test]
+    fn activation_context_from_progress_maps_tcp_state_and_ech_from_payload() {
+        let payload = rust_packet_seeds::tls_client_hello_ech();
+        let progress = OutboundProgress {
+            round: 2,
+            payload_size: payload.len(),
+            stream_start: 32,
+            stream_end: 32 + payload.len() - 1,
+        };
+        let context = activation_context_from_progress(
+            progress,
+            ActivationTransport::Tcp,
+            Some(&payload),
+            Some(ripdpi_desync::TcpSegmentHint {
+                snd_mss: Some(1300),
+                advmss: Some(1400),
+                pmtu: Some(1500),
+                ip_header_overhead: 40,
+            }),
+            Some(platform::TcpActivationState { has_timestamp: Some(true), window_size: Some(2048), mss: None }),
+            Some(9),
+            AdaptivePlannerHints::default(),
+        );
+
+        assert_eq!(context.round, 2);
+        assert_eq!(context.tcp_state.has_timestamp, Some(true));
+        assert_eq!(context.tcp_state.has_ech, Some(true));
+        assert_eq!(context.tcp_state.window_size, Some(2048));
+        assert_eq!(context.tcp_state.mss, Some(1300));
+        assert_eq!(context.resolved_fake_ttl, Some(9));
     }
 
     #[test]
