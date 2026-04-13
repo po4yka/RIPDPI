@@ -87,7 +87,7 @@ ripdpi-tunnel-config = { path = "crates/ripdpi-tunnel-config" }
 ripdpi-tunnel-core = { path = "crates/ripdpi-tunnel-core" }
 
 hdrhistogram = "7"
-aes = "0.8"
+aes = "0.9"
 arc-swap = "1"
 android_logger = "0.15"
 anyhow = "1"
