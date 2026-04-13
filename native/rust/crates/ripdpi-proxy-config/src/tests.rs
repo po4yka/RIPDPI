@@ -88,7 +88,13 @@ fn activation_filter_with_tcp_state() -> ProxyUiActivationFilter {
 }
 
 fn ui_payload(config: ProxyUiConfig) -> ProxyConfigPayload {
-    ProxyConfigPayload::Ui { strategy_preset: None, config, runtime_context: None, log_context: None }
+    ProxyConfigPayload::Ui {
+        strategy_preset: None,
+        config,
+        runtime_context: None,
+        log_context: None,
+        session_overrides: None,
+    }
 }
 
 #[test]
@@ -583,10 +589,46 @@ fn command_line_payload_requires_runnable_config() {
         host_autolearn_store_path: None,
         runtime_context: None,
         log_context: None,
+        session_overrides: None,
     })
     .expect_err("help should not produce runnable config");
 
     assert!(err.to_string().contains("runnable"));
+}
+
+#[test]
+fn command_line_session_overrides_apply_ephemeral_port_and_auth_token() {
+    let envelope = runtime_config_envelope_from_payload(ProxyConfigPayload::CommandLine {
+        args: vec!["ripdpi".to_string(), "--port".to_string(), "1081".to_string()],
+        host_autolearn_store_path: None,
+        runtime_context: None,
+        log_context: None,
+        session_overrides: Some(ProxySessionOverrides {
+            listen_port_override: Some(0),
+            auth_token: Some("alpha-123".to_string()),
+        }),
+    })
+    .expect("runtime config envelope");
+
+    assert_eq!(envelope.config.network.listen.listen_port, 0);
+    assert_eq!(envelope.config.network.listen.auth_token.as_deref(), Some("alpha-123"));
+}
+
+#[test]
+fn invalid_session_override_listen_port_is_rejected() {
+    let err = runtime_config_envelope_from_payload(ProxyConfigPayload::CommandLine {
+        args: vec!["ripdpi".to_string(), "--port".to_string(), "1081".to_string()],
+        host_autolearn_store_path: None,
+        runtime_context: None,
+        log_context: None,
+        session_overrides: Some(ProxySessionOverrides {
+            listen_port_override: Some(-1),
+            auth_token: Some("alpha-123".to_string()),
+        }),
+    })
+    .expect_err("invalid listen port override");
+
+    assert!(err.to_string().contains("listenPortOverride"));
 }
 
 #[test]
@@ -630,6 +672,7 @@ fn runtime_context_sanitizes_direct_path_capabilities() {
             }),
         }),
         log_context: None,
+        session_overrides: None,
     })
     .expect("runtime config envelope");
 
@@ -890,6 +933,7 @@ fn preset_field_in_ui_config_round_trips_json() {
         config: cfg,
         runtime_context: None,
         log_context: None,
+        session_overrides: None,
     };
     let json = serde_json::to_string(&payload).unwrap();
     let decoded: ProxyConfigPayload = serde_json::from_str(&json).unwrap();

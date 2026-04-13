@@ -121,6 +121,8 @@ internal object RipDpiProxyJsonCodec {
         hostAutolearnStorePath: String?,
         runtimeContext: RipDpiRuntimeContext?,
         logContext: RipDpiLogContext?,
+        localListenPortOverride: Int? = null,
+        localAuthToken: String? = null,
     ): String =
         encode(
             NativeProxyConfig.CommandLine(
@@ -128,6 +130,7 @@ internal object RipDpiProxyJsonCodec {
                 hostAutolearnStorePath = hostAutolearnStorePath,
                 runtimeContext = ProxyRuntimeContextCodec.toNative(runtimeContext),
                 logContext = ProxyLogContextCodec.toNative(logContext),
+                sessionOverrides = SessionOverrideCodec.toNative(localListenPortOverride, localAuthToken),
             ),
         )
 
@@ -136,12 +139,14 @@ internal object RipDpiProxyJsonCodec {
         strategyPreset: String? = null,
         rootMode: Boolean = false,
         rootHelperSocketPath: String? = null,
+        listenAuthToken: String? = null,
+        localListenPortOverride: Int? = null,
         localAuthToken: String? = null,
     ): String =
         encode(
             NativeProxyConfig.Ui(
                 strategyPreset = strategyPreset,
-                listen = ConfigSectionCodec.toNative(preferences.listen).copy(authToken = localAuthToken),
+                listen = ConfigSectionCodec.toNative(preferences.listen).copy(authToken = listenAuthToken),
                 protocols = ConfigSectionCodec.toNative(preferences.protocols),
                 chains = ChainCodec.toNative(preferences.chains),
                 fakePackets = PacketCodec.toNative(preferences.fakePackets),
@@ -158,6 +163,7 @@ internal object RipDpiProxyJsonCodec {
                 rootHelperSocketPath = rootHelperSocketPath,
                 runtimeContext = ProxyRuntimeContextCodec.toNative(preferences.runtimeContext),
                 logContext = ProxyLogContextCodec.toNative(preferences.logContext),
+                sessionOverrides = SessionOverrideCodec.toNative(localListenPortOverride, localAuthToken),
             ),
         )
 
@@ -180,6 +186,7 @@ internal object RipDpiProxyJsonCodec {
         logContext: RipDpiLogContext?,
         rootMode: Boolean = false,
         rootHelperSocketPath: String? = null,
+        localListenPortOverride: Int? = null,
         localAuthToken: String? = null,
     ): String =
         when (val payload = decode(configJson)) {
@@ -188,6 +195,12 @@ internal object RipDpiProxyJsonCodec {
                     payload.copy(
                         runtimeContext = ProxyRuntimeContextCodec.toNative(runtimeContext) ?: payload.runtimeContext,
                         logContext = ProxyLogContextCodec.toNative(logContext) ?: payload.logContext,
+                        sessionOverrides =
+                            SessionOverrideCodec.merge(
+                                existing = payload.sessionOverrides,
+                                listenPortOverride = localListenPortOverride,
+                                authToken = localAuthToken,
+                            ),
                     ),
                 )
             }
@@ -207,7 +220,9 @@ internal object RipDpiProxyJsonCodec {
                     strategyPreset = payload.strategyPreset,
                     rootMode = rootMode,
                     rootHelperSocketPath = rootHelperSocketPath,
-                    localAuthToken = localAuthToken,
+                    listenAuthToken = payload.listen.authToken,
+                    localListenPortOverride = localListenPortOverride ?: payload.sessionOverrides?.listenPortOverride,
+                    localAuthToken = localAuthToken ?: payload.sessionOverrides?.authToken,
                 )
             }
         }
@@ -339,6 +354,12 @@ internal object RipDpiProxyJsonCodec {
         val policySignature: String? = null,
         val fingerprintHash: String? = null,
         val diagnosticsSessionId: String? = null,
+    )
+
+    @Serializable
+    private data class NativeSessionLocalProxyOverrides(
+        val listenPortOverride: Int? = null,
+        val authToken: String? = null,
     )
 
     @Serializable
@@ -636,6 +657,7 @@ internal object RipDpiProxyJsonCodec {
             val hostAutolearnStorePath: String? = null,
             val runtimeContext: NativeRuntimeContext? = null,
             val logContext: NativeLogContext? = null,
+            val sessionOverrides: NativeSessionLocalProxyOverrides? = null,
         ) : NativeProxyConfig
 
         @Serializable
@@ -661,7 +683,35 @@ internal object RipDpiProxyJsonCodec {
             val rootHelperSocketPath: String? = null,
             val runtimeContext: NativeRuntimeContext? = null,
             val logContext: NativeLogContext? = null,
+            val sessionOverrides: NativeSessionLocalProxyOverrides? = null,
         ) : NativeProxyConfig
+    }
+
+    private object SessionOverrideCodec {
+        fun toNative(
+            listenPortOverride: Int?,
+            authToken: String?,
+        ): NativeSessionLocalProxyOverrides? {
+            val normalizedToken = authToken?.takeIf { it.isNotBlank() }
+            return if (listenPortOverride == null && normalizedToken == null) {
+                null
+            } else {
+                NativeSessionLocalProxyOverrides(
+                    listenPortOverride = listenPortOverride,
+                    authToken = normalizedToken,
+                )
+            }
+        }
+
+        fun merge(
+            existing: NativeSessionLocalProxyOverrides?,
+            listenPortOverride: Int?,
+            authToken: String?,
+        ): NativeSessionLocalProxyOverrides? =
+            toNative(
+                listenPortOverride = listenPortOverride ?: existing?.listenPortOverride,
+                authToken = authToken ?: existing?.authToken,
+            )
     }
 
     private object RangeCodec {

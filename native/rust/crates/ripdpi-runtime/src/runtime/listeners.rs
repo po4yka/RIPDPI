@@ -324,17 +324,14 @@ pub(super) fn run_proxy_with_listener_internal(
         adaptive_tuning: state.adaptive_tuning.clone(),
     };
     let worker_pool = ClientWorkerPool::new(state.config.network.max_open.max(1) as usize)?;
+    let listener_addr = listener.local_addr()?;
     listener.set_nonblocking(true)?;
     let mut listener = MioTcpListener::from_std(listener);
     let mut poll = Poll::new()?;
     poll.registry().register(&mut listener, LISTENER, Interest::READABLE)?;
     let mut events = Events::with_capacity(256);
     if let Some(telemetry) = &state.telemetry {
-        telemetry.on_listener_started(
-            SocketAddr::new(state.config.network.listen.listen_ip, state.config.network.listen.listen_port),
-            state.config.network.max_open as usize,
-            state.config.groups.len(),
-        );
+        telemetry.on_listener_started(listener_addr, state.config.network.max_open as usize, state.config.groups.len());
     }
     if let Ok(mut cache) = state.cache.lock() {
         flush_autolearn_updates(&state, &mut cache);

@@ -30,7 +30,7 @@ Android application for optimizing network connectivity with:
 - integrated diagnostics and passive telemetry
 - in-repository Rust native modules
 
-RIPDPI runs a local SOCKS5 proxy built from in-repository Rust modules. In VPN mode it redirects Android traffic through that local proxy using a local TUN-to-SOCKS bridge.
+RIPDPI runs a local SOCKS5 proxy built from in-repository Rust modules. In manual Proxy mode it binds the configured fixed localhost port. In VPN mode it starts an internal ephemeral localhost proxy endpoint, protects it with per-session local auth, and routes Android traffic through that endpoint using a local TUN-to-SOCKS bridge.
 
 ## Screenshots
 
@@ -151,6 +151,7 @@ RIPDPI's current Android and native strategy stack includes:
 - zapret-style fake ordering variants (`altorder=0..3`) plus `duplicate` / `sequential` fake sequence control on `fake`, `fakedsplit`, `fakeddisorder`, and `hostfake`
 - per-step TCP flag crafting for both fake packets and original payload packets, with canonical named masks and a primary-step Advanced Settings chip editor when the chain is visually representable
 - group-wide IPv4 ID control for raw IPv4 packets, including exact `seqgroup` promotion so mixed fake/original TCP flows share one real ID sequence
+- VPN-only localhost hardening with telemetry-resolved ephemeral SOCKS5 bind ports and per-session auth rotation shared by UI-config and command-line-config sessions
 - richer fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
 - built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
 - host-targeted fake chunks (`hostfake`) and Linux/Android-focused `fakedsplit` / `fakeddisorder` approximations

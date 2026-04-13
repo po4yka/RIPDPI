@@ -20,6 +20,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -160,6 +161,144 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(1, env.factory.runtimes.size)
             assertEquals(1, env.bridgeFactory.bridge.stopCount)
             assertEquals("8.8.8.8", env.tunnelProvider.lastDns)
+        }
+
+    @Test
+    fun vpnTunnelUsesTelemetryResolvedProxyEndpointInsteadOfPersistedProxyPort() =
+        runTest {
+            val settings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setProxyPort(4545)
+                    .build()
+            val env =
+                newEnv(
+                    resolutions = listOf(sampleResolution(mode = Mode.VPN, settings = settings)),
+                    runtimeFactory = { events ->
+                        TestProxyRuntime(events).apply {
+                            telemetry = telemetry.copy(listenerAddress = "127.0.0.1:18443")
+                        }
+                    },
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            assertEquals(
+                18443,
+                env.bridgeFactory.bridge.startedConfig
+                    ?.socks5Port,
+            )
+            assertEquals(
+                "127.0.0.1",
+                env.bridgeFactory.bridge.startedConfig
+                    ?.socks5Address,
+            )
+            assertNotEquals(
+                4545,
+                env.bridgeFactory.bridge.startedConfig
+                    ?.socks5Port,
+            )
+        }
+
+    @Test
+    fun handoverRestartRotatesProxyCredentialsAndEndpoint() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.4.4"))
+            var runtimeCount = 0
+            val env =
+                newEnv(
+                    fingerprint = initialFingerprint,
+                    resolutions =
+                        listOf(
+                            sampleResolution(mode = Mode.VPN, policySignature = "initial"),
+                            sampleResolution(mode = Mode.VPN, policySignature = "handover"),
+                        ),
+                    runtimeFactory = { events ->
+                        runtimeCount += 1
+                        TestProxyRuntime(events).apply {
+                            telemetry = telemetry.copy(listenerAddress = "127.0.0.1:${18080 + runtimeCount}")
+                        }
+                    },
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = 2_000L,
+                ),
+            )
+            repeat(3) { runCurrent() }
+
+            assertEquals(2, env.factory.runtimes.size)
+            assertEquals(2, env.bridgeFactory.bridge.startedConfigs.size)
+            assertNotEquals(
+                env.factory.runtimes[0]
+                    .lastPreferences
+                    ?.localAuthToken,
+                env.factory.runtimes[1]
+                    .lastPreferences
+                    ?.localAuthToken,
+            )
+            assertNotEquals(
+                env.bridgeFactory.bridge.startedConfigs[0]
+                    .password,
+                env.bridgeFactory.bridge.startedConfigs[1]
+                    .password,
+            )
+            assertNotEquals(
+                env.bridgeFactory.bridge.startedConfigs[0]
+                    .socks5Port,
+                env.bridgeFactory.bridge.startedConfigs[1]
+                    .socks5Port,
+            )
+        }
+
+    @Test
+    fun dnsRefreshReusesCurrentProxyEndpointAndCredentials() =
+        runTest {
+            val env =
+                newEnv(
+                    runtimeFactory = { events ->
+                        TestProxyRuntime(events).apply {
+                            telemetry = telemetry.copy(listenerAddress = "127.0.0.1:19090")
+                        }
+                    },
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            val initialTunnelConfig = requireNotNull(env.bridgeFactory.bridge.startedConfig)
+            val updatedSettings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setDnsMode(DnsModePlainUdp)
+                    .setDnsIp("8.8.8.8")
+                    .build()
+            env.resolver.enqueue(
+                sampleResolution(
+                    mode = Mode.VPN,
+                    settings = updatedSettings,
+                    activeDns = updatedSettings.activeDnsSettings(),
+                ),
+            )
+
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            val refreshedTunnelConfig =
+                env.bridgeFactory.bridge.startedConfigs
+                    .last()
+            assertEquals(1, env.factory.runtimes.size)
+            assertEquals(initialTunnelConfig.socks5Port, refreshedTunnelConfig.socks5Port)
+            assertEquals(initialTunnelConfig.password, refreshedTunnelConfig.password)
         }
 
     @Test

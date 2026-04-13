@@ -81,6 +81,7 @@ class RipDpiProxyJsonPreferences(
     private val logContext: RipDpiLogContext? = null,
     private val rootMode: Boolean = false,
     private val rootHelperSocketPath: String? = null,
+    private val localListenPortOverride: Int? = null,
     override val localAuthToken: String? = null,
 ) : RipDpiProxyPreferences {
     override fun toNativeConfigJson(): String =
@@ -92,6 +93,7 @@ class RipDpiProxyJsonPreferences(
             logContext = logContext,
             rootMode = rootMode,
             rootHelperSocketPath = rootHelperSocketPath,
+            localListenPortOverride = localListenPortOverride,
             localAuthToken = localAuthToken,
         )
 }

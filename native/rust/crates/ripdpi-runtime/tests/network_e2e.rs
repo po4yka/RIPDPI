@@ -48,6 +48,50 @@ const FIXTURE_DNS_DOQ_PORT: u16 = 47157;
 const FIXTURE_SOCKS5_PORT: u16 = 47180;
 const FIXTURE_CONTROL_PORT: u16 = 47190;
 
+#[derive(Default)]
+struct ListenerAddressCapture {
+    listener_address: Mutex<Option<SocketAddr>>,
+}
+
+impl RuntimeTelemetrySink for ListenerAddressCapture {
+    fn on_listener_started(&self, bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {
+        *self.listener_address.lock().unwrap_or_else(PoisonError::into_inner) = Some(bind_addr);
+    }
+
+    fn on_listener_stopped(&self) {}
+    fn on_client_accepted(&self) {}
+    fn on_client_finished(&self) {}
+    fn on_client_error(&self, _error: &std::io::Error) {}
+    fn on_route_selected(&self, _target: SocketAddr, _group_index: usize, _host: Option<&str>, _phase: &'static str) {}
+    fn on_failure_classified(
+        &self,
+        _target: SocketAddr,
+        _failure: &ripdpi_failure_classifier::ClassifiedFailure,
+        _host: Option<&str>,
+    ) {
+    }
+    fn on_route_advanced(
+        &self,
+        _target: SocketAddr,
+        _from_group: usize,
+        _to_group: usize,
+        _trigger: u32,
+        _host: Option<&str>,
+    ) {
+    }
+    fn on_host_autolearn_state(
+        &self,
+        _enabled: bool,
+        _learned_host_count: usize,
+        _penalized_host_count: usize,
+        _blocked_host_count: usize,
+        _last_block_signal: Option<&str>,
+        _last_block_provider: Option<&str>,
+    ) {
+    }
+    fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
+}
+
 // ── Tests ──
 
 #[test]
@@ -55,6 +99,24 @@ fn socks5_tcp_round_trip_reaches_fixture() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
     socks5_tcp_round_trip(&fixture);
+}
+
+#[test]
+fn ephemeral_listener_reports_non_zero_port_through_telemetry() {
+    let _guard = test_guard();
+    let telemetry = Arc::new(ListenerAddressCapture::default());
+
+    let proxy = start_proxy(
+        ephemeral_proxy_config(&["--ip", "127.0.0.1"]),
+        Some(telemetry.clone() as Arc<dyn RuntimeTelemetrySink>),
+    );
+
+    let reported = telemetry.listener_address.lock().unwrap_or_else(PoisonError::into_inner).clone();
+    let reported = reported.expect("listener address");
+
+    assert_eq!(reported.ip(), std::net::IpAddr::V4(Ipv4Addr::LOCALHOST));
+    assert_eq!(reported.port(), proxy.port);
+    assert_ne!(reported.port(), 0);
 }
 
 #[test]

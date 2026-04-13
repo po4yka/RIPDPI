@@ -14,6 +14,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.IOException
 
+private const val TestLocalProxyAuth = "alpha-123"
+
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProxyRuntimeSupervisorTest {
     @Test
@@ -31,10 +33,12 @@ class ProxyRuntimeSupervisorTest {
                 )
             val exits = mutableListOf<Result<Int>>()
 
-            supervisor.start(RipDpiProxyUIPreferences()) { exits += it }
+            val endpoint = supervisor.start(RipDpiProxyUIPreferences()) { exits += it }
 
             assertSame(runtime, supervisor.runtime)
             assertEquals(1, runtime.updatedSnapshots)
+            assertEquals("127.0.0.1", endpoint.host)
+            assertEquals(1080, endpoint.port)
 
             supervisor.stop()
             advanceUntilIdle()
@@ -95,7 +99,7 @@ class ProxyRuntimeSupervisorTest {
     fun pollTelemetryReturnsNullWhenRuntimeThrows() =
         runTest {
             val dispatcher = StandardTestDispatcher(testScheduler)
-            val runtime = TestProxyRuntime().apply { telemetryFailure = IOException("telemetry crash") }
+            val runtime = TestProxyRuntime()
             val factory = TestRipDpiProxyFactory { runtime }
             val supervisor =
                 ProxyRuntimeSupervisor(
@@ -106,6 +110,7 @@ class ProxyRuntimeSupervisorTest {
                 )
 
             supervisor.start(RipDpiProxyUIPreferences()) {}
+            runtime.telemetryFailure = IOException("telemetry crash")
 
             val telemetry = supervisor.pollTelemetry()
 
@@ -173,6 +178,61 @@ class ProxyRuntimeSupervisorTest {
 
             assertNotNull(error)
             assertNull(supervisor.runtime)
+        }
+
+    @Test
+    fun startupFailsWhenReadyProxyDoesNotReportListenerAddress() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val runtime =
+                TestProxyRuntime().apply {
+                    telemetry = telemetry.copy(listenerAddress = null)
+                }
+            val factory = TestRipDpiProxyFactory { runtime }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = factory,
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+
+            val error =
+                runCatching {
+                    supervisor.start(RipDpiProxyUIPreferences()) {}
+                }.exceptionOrNull()
+
+            assertTrue(error is IllegalArgumentException)
+            assertNull(supervisor.runtime)
+            assertEquals(1, runtime.stopCount)
+        }
+
+    @Test
+    fun resolvedEndpointCarriesVpnSessionCredentials() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val runtime = TestProxyRuntime()
+            val factory = TestRipDpiProxyFactory { runtime }
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = factory,
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+
+            val endpoint =
+                supervisor.start(
+                    RipDpiProxyUIPreferences().withSessionLocalProxyOverrides(
+                        listenPortOverride = 0,
+                        authToken = TestLocalProxyAuth,
+                    ),
+                ) {}
+
+            assertEquals("127.0.0.1", endpoint.host)
+            assertEquals(1080, endpoint.port)
+            assertEquals(VpnLocalProxyUsername, endpoint.username)
+            assertEquals(TestLocalProxyAuth, endpoint.password)
         }
 
     @Test
