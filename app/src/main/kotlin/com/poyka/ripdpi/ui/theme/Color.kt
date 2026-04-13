@@ -94,6 +94,13 @@ enum class RipDpiContrastLevel {
     High,
 }
 
+private const val MediumMutedBlend = 0.2f
+private const val MediumBorderBlend = 0.15f
+private const val HighMutedBlend = 0.45f
+private const val HighBorderBlend = 0.35f
+private const val HighOutlineBlend = 0.4f
+private const val HighInputBackgroundBlend = 0.08f
+
 fun RipDpiExtendedColors.adjustForContrast(
     level: RipDpiContrastLevel,
     isDark: Boolean,
@@ -105,20 +112,25 @@ fun RipDpiExtendedColors.adjustForContrast(
 
         RipDpiContrastLevel.Medium -> {
             copy(
-                mutedForeground = blendToward(mutedForeground, foreground, 0.2f),
-                border = blendToward(border, foreground, 0.15f),
-                cardBorder = blendToward(cardBorder, foreground, 0.15f),
-                outlineVariant = blendToward(outlineVariant, foreground, 0.2f),
+                mutedForeground = blendToward(mutedForeground, foreground, MediumMutedBlend),
+                border = blendToward(border, foreground, MediumBorderBlend),
+                cardBorder = blendToward(cardBorder, foreground, MediumBorderBlend),
+                outlineVariant = blendToward(outlineVariant, foreground, MediumMutedBlend),
             )
         }
 
         RipDpiContrastLevel.High -> {
             copy(
-                mutedForeground = blendToward(mutedForeground, foreground, 0.45f),
-                border = blendToward(border, foreground, 0.35f),
-                cardBorder = blendToward(cardBorder, foreground, 0.35f),
-                outlineVariant = blendToward(outlineVariant, foreground, 0.4f),
-                inputBackground = if (isDark) blendToward(inputBackground, foreground, 0.08f) else inputBackground,
+                mutedForeground = blendToward(mutedForeground, foreground, HighMutedBlend),
+                border = blendToward(border, foreground, HighBorderBlend),
+                cardBorder = blendToward(cardBorder, foreground, HighBorderBlend),
+                outlineVariant = blendToward(outlineVariant, foreground, HighOutlineBlend),
+                inputBackground =
+                    if (isDark) {
+                        blendToward(inputBackground, foreground, HighInputBackgroundBlend)
+                    } else {
+                        inputBackground
+                    },
             )
         }
     }

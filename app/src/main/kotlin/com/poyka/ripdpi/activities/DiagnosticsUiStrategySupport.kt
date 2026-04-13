@@ -431,27 +431,29 @@ private fun strategyProbeCandidateTone(
     }
 
 private fun strategyProbeFamilyLabel(family: String): String =
-    when (family) {
-        "baseline" -> "Baseline"
-        "parser" -> "Parser"
-        "parser_aggressive" -> "Parser aggressive"
-        "split" -> "Host split"
-        "ech_split" -> "ECH extension split"
-        "ech_tlsrec" -> "ECH TLS record split"
-        "tlsrec_split" -> "TLS record split"
-        "tlsrec_seqovl" -> "TLS record sequence overlap"
-        "tlsrec_fake" -> "TLS record fake"
-        "fake_flags" -> "TCP flag crafting"
-        "fake_approx" -> "Fake approximation"
-        "hostfake" -> "Hostfake"
-        "seqovl" -> "Sequence overlap"
-        "activation_window" -> "Activation window"
-        "adaptive_fake_ttl" -> "Adaptive fake TTL"
-        "fake_payload_library" -> "Fake payload library"
-        "quic_disabled" -> "QUIC disabled"
-        "quic_burst" -> "QUIC burst"
-        else -> family.replace('_', ' ').replaceFirstChar { it.uppercase() }
-    }
+    strategyProbeFamilyLabels[family] ?: family.replace('_', ' ').replaceFirstChar { it.uppercase() }
+
+private val strategyProbeFamilyLabels =
+    mapOf(
+        "baseline" to "Baseline",
+        "parser" to "Parser",
+        "parser_aggressive" to "Parser aggressive",
+        "split" to "Host split",
+        "ech_split" to "ECH extension split",
+        "ech_tlsrec" to "ECH TLS record split",
+        "tlsrec_split" to "TLS record split",
+        "tlsrec_seqovl" to "TLS record sequence overlap",
+        "tlsrec_fake" to "TLS record fake",
+        "fake_flags" to "TCP flag crafting",
+        "fake_approx" to "Fake approximation",
+        "hostfake" to "Hostfake",
+        "seqovl" to "Sequence overlap",
+        "activation_window" to "Activation window",
+        "adaptive_fake_ttl" to "Adaptive fake TTL",
+        "fake_payload_library" to "Fake payload library",
+        "quic_disabled" to "QUIC disabled",
+        "quic_burst" to "QUIC burst",
+    )
 
 private fun parseServiceModeOrDefault(serviceMode: String?): Mode =
     when (serviceMode?.uppercase(Locale.US)) {
