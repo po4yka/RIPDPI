@@ -11,7 +11,7 @@
         "ru.rostel",
         "ru.vk.store",
         "ru.mts.mtstv",
-        "ru.kinopoisk.tv",
+        "ru.kinopoisk",
         "ru.ivi.client",
         "ru.yandex.taxi",
         "com.yandex.browser",
@@ -34,7 +34,14 @@
         "ru.zen.android",
         "ru.foodfox.client",
         "com.octopod.russianpost.client.android",
-        "com.logistic.sdek"
+        "com.logistic.sdek",
+        "ru.megamarket.marketplace",
+        "ru.nspk.mirpay",
+        "ru.ok.android",
+        "ru.oneme.app",
+        "ru.rutube.app",
+        "ru.vtb24.mobilebanking.android",
+        "com.uma.musicvk"
       ],
       "packageRegexes": [
         "^ru\\.yandex\\..+",

@@ -157,6 +157,18 @@ fn group_needs_delayed_connect(group: &DesyncGroup) -> bool {
     !group.matches.filters.hosts.is_empty() || (group.matches.proto & (IS_HTTP | IS_HTTPS)) != 0
 }
 
+fn parse_payload_disable(names: &[String]) -> u32 {
+    let mut mask = 0u32;
+    for name in names {
+        match name.as_str() {
+            "http" => mask |= IS_HTTP,
+            "tls" | "https" => mask |= IS_HTTPS,
+            _ => {}
+        }
+    }
+    mask
+}
+
 fn synthesize_tlsrec_prelude_for_bare_hostfake(chain: &mut Vec<TcpChainStep>) {
     let has_hostfake = chain.iter().any(|step| step.kind == TcpChainStepKind::HostFake);
     let has_tls_prelude = chain.iter().any(|step| step.kind.is_tls_prelude());
@@ -804,6 +816,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
     let udp_enabled = protocols.desync_udp;
     group.matches.proto = tcp_proto;
     group.matches.any_protocol = chains.any_protocol;
+    group.matches.payload_disable = parse_payload_disable(&chains.payload_disable);
     if let Some(filter) =
         parse_proxy_activation_filter(chains.group_activation_filter.as_ref(), "chains.groupActivationFilter", false)?
     {
