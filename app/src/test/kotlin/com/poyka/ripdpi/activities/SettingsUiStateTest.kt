@@ -29,6 +29,7 @@ import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
+import com.poyka.ripdpi.data.FakeSeqModeSequential
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
@@ -253,6 +254,31 @@ class SettingsUiStateTest {
                 .toUiState()
 
         assertEquals(IpIdModeSeqGroup, state.fake.ipIdMode)
+    }
+
+    @Test
+    fun `desync ui state exposes primary fake ordering step and visual editor support`() {
+        val state =
+            defaults
+                .toBuilder()
+                .setStrategyChains(
+                    listOf(
+                        TcpChainStepModel(TcpChainStepKind.TlsRec, "extlen"),
+                        TcpChainStepModel(
+                            kind = TcpChainStepKind.FakeSplit,
+                            marker = "host+1",
+                            fakeSeqMode = FakeSeqModeSequential,
+                        ),
+                    ),
+                    emptyList(),
+                ).build()
+                .toUiState()
+
+        assertEquals(TcpChainStepKind.FakeSplit, state.desync.primaryFakeOrderingStep?.kind)
+        assertEquals(FakeSeqModeSequential, state.desync.primaryFakeOrderingStep?.fakeSeqMode)
+        assertTrue(state.desync.fakeOrderingVisualEditorSupported)
+        assertTrue(state.desync.hasFakeOrderingOverrides)
+        assertTrue(state.showFakeOrderingProfile)
     }
 
     @Test

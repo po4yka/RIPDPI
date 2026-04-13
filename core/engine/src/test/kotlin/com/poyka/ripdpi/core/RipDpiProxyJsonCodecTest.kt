@@ -170,6 +170,33 @@ class RipDpiProxyJsonCodecTest {
     }
 
     @Test
+    fun `ui preferences round trip fake ordering fields`() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(kind = TcpChainStepKind.TlsRec, marker = "extlen"),
+                                TcpChainStepModel(
+                                    kind = TcpChainStepKind.FakeSplit,
+                                    marker = "host+1",
+                                    fakeOrder = "2",
+                                    fakeSeqMode = "sequential",
+                                ),
+                            ),
+                    ),
+            )
+
+        val decoded = decodeRipDpiProxyUiPreferences(preferences.toNativeConfigJson())
+        val step = decoded?.chains?.tcpSteps?.lastOrNull()
+
+        assertNotNull(step)
+        assertEquals("2", step?.fakeOrder)
+        assertEquals("sequential", step?.fakeSeqMode)
+    }
+
+    @Test
     fun `ui preferences round trip fake packet ip id mode`() {
         val preferences =
             RipDpiProxyUIPreferences(

@@ -753,6 +753,75 @@ fn send_fake_tcp_via_raw_packets(
     result
 }
 
+pub fn send_ordered_tcp_segments(
+    stream: &TcpStream,
+    segments: &[super::OrderedTcpSegment<'_>],
+    original_payload_len: usize,
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    md5sig: bool,
+    timestamp_delta_ticks: Option<i32>,
+    ipv4_identifications: &[u16],
+    wait: TcpStageWait,
+) -> io::Result<()> {
+    if segments.is_empty() {
+        return Ok(());
+    }
+
+    let source = stream.local_addr()?;
+    let target = stream.peer_addr()?;
+    let fd = stream.as_raw_fd();
+    let settings = capture_stream_socket_settings(stream);
+
+    set_tcp_repair(fd, TCP_REPAIR_ON)?;
+    let result = (|| -> io::Result<()> {
+        let snapshot = snapshot_tcp_repair_state(fd)?;
+        let fake_timestamp = if segments.iter().any(|segment| segment.use_fake_timestamp) {
+            mutate_fake_timestamp(snapshot.options.timestamp, timestamp_delta_ticks)?
+        } else {
+            snapshot.options.timestamp
+        };
+        let mut packets = Vec::with_capacity(segments.len());
+        let mut identifications = ipv4_identifications.iter().copied();
+        for segment in segments {
+            let sequence_number = sequence_after_payload(snapshot.sequence_number, segment.sequence_offset)?;
+            packets.push(build_tcp_segment_packet(
+                source,
+                target,
+                segment.ttl,
+                identifications
+                    .next()
+                    .map_or_else(|| fragment_identification(source, target, segment.payload.len()), u32::from),
+                sequence_number,
+                snapshot.acknowledgment_number,
+                snapshot.window_size,
+                if segment.use_fake_timestamp { fake_timestamp } else { snapshot.options.timestamp },
+                true,
+                segment.payload,
+                md5sig,
+                segment.flags,
+            )?);
+        }
+
+        if original_payload_len == 0 {
+            send_raw_packets(target, packets.iter().map(Vec::as_slice), protect_path)?;
+            set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
+            disable_tcp_repair(fd)?;
+            return wait_tcp_stage_fd(fd, wait.0, wait.1);
+        }
+
+        let replacement = build_replacement_tcp_socket(source, target, original_payload_len, &snapshot, protect_path)?;
+        send_raw_packets(target, packets.iter().map(Vec::as_slice), protect_path)?;
+        swap_stream_to_replacement(stream, &replacement, settings)?;
+        set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
+        disable_tcp_repair(fd)?;
+        wait_tcp_stage_fd(fd, wait.0, wait.1)
+    })();
+    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+    let _ = disable_tcp_repair(fd);
+    result
+}
+
 fn mutate_fake_timestamp(
     timestamp: Option<TcpTimestampSnapshot>,
     delta_ticks: Option<i32>,

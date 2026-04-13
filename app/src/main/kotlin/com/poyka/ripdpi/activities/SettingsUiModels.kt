@@ -33,7 +33,9 @@ import com.poyka.ripdpi.data.DefaultWarpProfileId
 import com.poyka.ripdpi.data.DefaultWarpScannerMaxRttMs
 import com.poyka.ripdpi.data.DefaultWarpScannerParallelism
 import com.poyka.ripdpi.data.EntropyModeDisabled
+import com.poyka.ripdpi.data.FakeOrderDefault
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
+import com.poyka.ripdpi.data.FakeSeqModeDuplicate
 import com.poyka.ripdpi.data.FakeTlsSniModeFixed
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.HostPackPreset
@@ -62,6 +64,7 @@ import com.poyka.ripdpi.data.isAdaptiveOffsetExpression
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.supportsAdaptiveMarker
+import com.poyka.ripdpi.data.supportsFakeOrdering
 import com.poyka.ripdpi.proto.AppSettings
 
 private val DefaultDnsUiSeed = canonicalDefaultEncryptedDnsSettings()
@@ -461,6 +464,7 @@ data class DesyncCoreUiState(
     val defaultTtl: Int = 0,
     val customTtl: Boolean = false,
     val hostFakeSteps: List<TcpChainStepModel> = tcpChainSteps.filter { it.kind == TcpChainStepKind.HostFake },
+    val fakeOrderingSteps: List<TcpChainStepModel> = tcpChainSteps.filter { it.kind.supportsFakeOrdering },
     val fakeApproximationSteps: List<TcpChainStepModel> =
         tcpChainSteps.filter {
             it.kind == TcpChainStepKind.FakeSplit || it.kind == TcpChainStepKind.FakeDisorder
@@ -496,6 +500,21 @@ data class DesyncCoreUiState(
 
     val primaryHostFakeStep: TcpChainStepModel?
         get() = hostFakeSteps.firstOrNull()
+
+    val fakeOrderingStepCount: Int
+        get() = fakeOrderingSteps.size
+
+    val hasFakeOrderingOverrides: Boolean
+        get() =
+            fakeOrderingSteps.any {
+                it.fakeOrder != FakeOrderDefault || it.fakeSeqMode != FakeSeqModeDuplicate
+            }
+
+    val primaryFakeOrderingStep: TcpChainStepModel?
+        get() = primaryTcpChainStep(tcpChainSteps)?.takeIf { it.kind.supportsFakeOrdering }
+
+    val fakeOrderingVisualEditorSupported: Boolean
+        get() = primaryFakeOrderingStep != null && tcpChainSteps.count { !it.kind.isTlsPrelude } == 1
 
     val fakeApproximationStepCount: Int
         get() = fakeApproximationSteps.size
@@ -724,6 +743,12 @@ data class SettingsUiState(
 
     val showFakeApproximationProfile: Boolean
         get() = enableCmdSettings || desync.hasFakeApproximation || fakeApproximationControlsRelevant
+
+    val fakeOrderingControlsRelevant: Boolean
+        get() = desyncHttpEnabled || desyncHttpsEnabled
+
+    val showFakeOrderingProfile: Boolean
+        get() = enableCmdSettings || desync.hasFakeOrderingOverrides || fakeOrderingControlsRelevant
 
     val httpParserControlsRelevant: Boolean
         get() = desyncHttpEnabled

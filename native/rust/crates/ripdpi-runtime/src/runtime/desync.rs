@@ -4,7 +4,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
 use crate::platform;
-use ripdpi_config::{DesyncGroup, EntropyMode, RuntimeConfig, TcpChainStep, TcpChainStepKind};
+use ripdpi_config::{DesyncGroup, EntropyMode, FakeOrder, FakeSeqMode, RuntimeConfig, TcpChainStep, TcpChainStepKind};
 use ripdpi_desync::{
     activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes,
     build_secondary_fake_packet, plan_tcp, resolve_hostfake_span, ActivationContext, ActivationTcpState,
@@ -99,6 +99,138 @@ impl From<io::Error> for OutboundSendError {
 struct WriteProgressError {
     written: usize,
     source: io::Error,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FakeEmissionRole {
+    Fake,
+    Genuine,
+}
+
+#[derive(Debug)]
+struct FakeEmission<'a> {
+    role: FakeEmissionRole,
+    payload: &'a [u8],
+    ttl: u8,
+    flags: platform::TcpFlagOverrides,
+    original_offset: usize,
+}
+
+fn build_ordered_fake_split_emissions<'a>(
+    order: FakeOrder,
+    first_real: &'a [u8],
+    first_fake: &'a [u8],
+    second_real: &'a [u8],
+    second_fake: &'a [u8],
+    first_real_ttl: u8,
+    fake_ttl: u8,
+    fake_flags: platform::TcpFlagOverrides,
+    original_flags: platform::TcpFlagOverrides,
+) -> Vec<FakeEmission<'a>> {
+    let second_offset = first_real.len();
+    let fake_a = FakeEmission {
+        role: FakeEmissionRole::Fake,
+        payload: first_fake,
+        ttl: fake_ttl,
+        flags: fake_flags,
+        original_offset: 0,
+    };
+    let real_a = FakeEmission {
+        role: FakeEmissionRole::Genuine,
+        payload: first_real,
+        ttl: first_real_ttl,
+        flags: original_flags,
+        original_offset: 0,
+    };
+    let fake_b = FakeEmission {
+        role: FakeEmissionRole::Fake,
+        payload: second_fake,
+        ttl: fake_ttl,
+        flags: fake_flags,
+        original_offset: second_offset,
+    };
+    let real_b = FakeEmission {
+        role: FakeEmissionRole::Genuine,
+        payload: second_real,
+        ttl: fake_ttl,
+        flags: original_flags,
+        original_offset: second_offset,
+    };
+
+    match order {
+        FakeOrder::BeforeEach => vec![fake_a, real_a, fake_b, real_b],
+        FakeOrder::AllFakesFirst => vec![fake_a, fake_b, real_a, real_b],
+        FakeOrder::RealFakeRealFake => vec![real_a, fake_a, real_b, fake_b],
+        FakeOrder::AllRealsFirst => vec![real_a, real_b, fake_a, fake_b],
+    }
+}
+
+fn build_plain_fake_emissions<'a>(
+    order: FakeOrder,
+    original: &'a [u8],
+    fake_segments: &[&'a [u8]],
+    fake_ttl: u8,
+    fake_flags: platform::TcpFlagOverrides,
+    original_flags: platform::TcpFlagOverrides,
+) -> Vec<FakeEmission<'a>> {
+    let mut fakes: Vec<FakeEmission<'a>> = fake_segments
+        .iter()
+        .map(|payload| FakeEmission {
+            role: FakeEmissionRole::Fake,
+            payload,
+            ttl: fake_ttl,
+            flags: fake_flags,
+            original_offset: 0,
+        })
+        .collect();
+    let original = FakeEmission {
+        role: FakeEmissionRole::Genuine,
+        payload: original,
+        ttl: fake_ttl,
+        flags: original_flags,
+        original_offset: 0,
+    };
+    match order {
+        FakeOrder::BeforeEach | FakeOrder::AllFakesFirst => {
+            fakes.push(original);
+            fakes
+        }
+        FakeOrder::RealFakeRealFake | FakeOrder::AllRealsFirst => {
+            let mut result = vec![original];
+            result.extend(fakes);
+            result
+        }
+    }
+}
+
+fn ordered_segments_from_emissions<'a>(
+    emissions: &'a [FakeEmission<'a>],
+    fake_seq_mode: FakeSeqMode,
+) -> Vec<platform::OrderedTcpSegment<'a>> {
+    let mut fake_sequence_offset = 0usize;
+    emissions
+        .iter()
+        .map(|emission| {
+            let sequence_offset = match emission.role {
+                FakeEmissionRole::Genuine => emission.original_offset,
+                FakeEmissionRole::Fake => match fake_seq_mode {
+                    FakeSeqMode::Duplicate => emission.original_offset,
+                    FakeSeqMode::Sequential => {
+                        let current = fake_sequence_offset;
+                        fake_sequence_offset = fake_sequence_offset.saturating_add(emission.payload.len());
+                        current
+                    }
+                },
+            };
+            platform::OrderedTcpSegment {
+                payload: emission.payload,
+                ttl: emission.ttl,
+                flags: emission.flags,
+                sequence_offset,
+                use_fake_timestamp: emission.role == FakeEmissionRole::Fake,
+            }
+        })
+        .collect()
 }
 
 pub(super) fn activation_context_from_progress(
@@ -1073,31 +1205,71 @@ fn execute_tcp_plan(
                     (0..span).map(|i| fake.bytes[(fake.fake_offset + i) % fake.bytes.len()]).collect();
                 let secondary_fake_chunk =
                     fake_packets.secondary.as_ref().map(|secondary| build_fake_region_bytes(secondary, start, span));
-                bytes_committed = send_fake_tcp_action_named(
-                    writer,
-                    chunk,
-                    &fake_chunk,
-                    resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8),
-                    md5sig,
-                    config.network.default_ttl,
-                    platform::FakeTcpOptions {
-                        secondary_fake_prefix: secondary_fake_chunk.as_deref(),
-                        timestamp_delta_ticks: group
-                            .actions
-                            .fake_tcp_timestamp_enabled
-                            .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
-                        protect_path: config.process.protect_path.as_deref(),
-                        fake_flags: step_fake_tcp_flags(configured_step),
-                        orig_flags: step_original_tcp_flags(configured_step),
-                        ..Default::default()
-                    },
-                    group.actions.ip_id_mode,
-                    (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
-                    "send_fake",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
+                let fake_ttl = resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
+                let fake_flags = step_fake_tcp_flags(configured_step);
+                let original_flags = step_original_tcp_flags(configured_step);
+                let timestamp_delta_ticks =
+                    group.actions.fake_tcp_timestamp_enabled.then_some(group.actions.fake_tcp_timestamp_delta_ticks);
+                let custom_order = configured_step.fake_order != FakeOrder::BeforeEach
+                    || configured_step.fake_seq_mode != FakeSeqMode::Duplicate;
+                if custom_order {
+                    let fake_refs: Vec<&[u8]> = std::iter::once(fake_chunk.as_slice())
+                        .chain(secondary_fake_chunk.iter().map(Vec::as_slice))
+                        .collect();
+                    let emissions = build_plain_fake_emissions(
+                        configured_step.fake_order,
+                        chunk,
+                        &fake_refs,
+                        fake_ttl,
+                        fake_flags,
+                        original_flags,
+                    );
+                    let ordered_segments = ordered_segments_from_emissions(&emissions, configured_step.fake_seq_mode);
+                    bytes_committed = send_ordered_fake_segments_action_named(
+                        writer,
+                        &ordered_segments,
+                        chunk.len(),
+                        config.network.default_ttl,
+                        config.process.protect_path.as_deref(),
+                        md5sig,
+                        timestamp_delta_ticks,
+                        group.actions.ip_id_mode,
+                        (
+                            config.timeouts.wait_send,
+                            Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        ),
+                        "send_fake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                } else {
+                    bytes_committed = send_fake_tcp_action_named(
+                        writer,
+                        chunk,
+                        &fake_chunk,
+                        fake_ttl,
+                        md5sig,
+                        config.network.default_ttl,
+                        platform::FakeTcpOptions {
+                            secondary_fake_prefix: secondary_fake_chunk.as_deref(),
+                            timestamp_delta_ticks,
+                            protect_path: config.process.protect_path.as_deref(),
+                            fake_flags,
+                            orig_flags: original_flags,
+                            ..Default::default()
+                        },
+                        group.actions.ip_id_mode,
+                        (
+                            config.timeouts.wait_send,
+                            Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        ),
+                        "send_fake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                }
             }
             TcpChainStepKind::FakeSplit => {
                 let second = &plan.tampered[end..];
@@ -1136,56 +1308,95 @@ fn execute_tcp_plan(
                     .as_ref()
                     .map(|secondary| build_fake_region_bytes(secondary, end, second.len()));
                 let fake_ttl = resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
-                bytes_committed = send_fake_tcp_action_named(
-                    writer,
-                    chunk,
-                    &first_fake,
-                    fake_ttl,
-                    md5sig,
-                    config.network.default_ttl,
-                    platform::FakeTcpOptions {
-                        secondary_fake_prefix: first_secondary_fake.as_deref(),
-                        timestamp_delta_ticks: group
-                            .actions
-                            .fake_tcp_timestamp_enabled
-                            .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
-                        protect_path: config.process.protect_path.as_deref(),
-                        fake_flags: step_fake_tcp_flags(configured_step),
-                        orig_flags: step_original_tcp_flags(configured_step),
-                        ..Default::default()
-                    },
-                    group.actions.ip_id_mode,
-                    (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
-                    "send_fake_fakesplit",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-                bytes_committed = send_fake_tcp_action_named(
-                    writer,
-                    second,
-                    &second_fake,
-                    fake_ttl,
-                    md5sig,
-                    config.network.default_ttl,
-                    platform::FakeTcpOptions {
-                        secondary_fake_prefix: second_secondary_fake.as_deref(),
-                        timestamp_delta_ticks: group
-                            .actions
-                            .fake_tcp_timestamp_enabled
-                            .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
-                        protect_path: config.process.protect_path.as_deref(),
-                        fake_flags: step_fake_tcp_flags(configured_step),
-                        orig_flags: step_original_tcp_flags(configured_step),
-                        ..Default::default()
-                    },
-                    group.actions.ip_id_mode,
-                    (config.timeouts.wait_send, Duration::from_millis(config.timeouts.await_interval.max(1) as u64)),
-                    "send_fake_fakesplit",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
+                let fake_flags = step_fake_tcp_flags(configured_step);
+                let original_flags = step_original_tcp_flags(configured_step);
+                let timestamp_delta_ticks =
+                    group.actions.fake_tcp_timestamp_enabled.then_some(group.actions.fake_tcp_timestamp_delta_ticks);
+                let custom_order = configured_step.fake_order != FakeOrder::BeforeEach
+                    || configured_step.fake_seq_mode != FakeSeqMode::Duplicate;
+                if custom_order {
+                    let emissions = build_ordered_fake_split_emissions(
+                        configured_step.fake_order,
+                        chunk,
+                        &first_fake,
+                        second,
+                        &second_fake,
+                        fake_ttl,
+                        fake_ttl,
+                        fake_flags,
+                        original_flags,
+                    );
+                    let ordered_segments = ordered_segments_from_emissions(&emissions, configured_step.fake_seq_mode);
+                    bytes_committed = send_ordered_fake_segments_action_named(
+                        writer,
+                        &ordered_segments,
+                        chunk.len() + second.len(),
+                        config.network.default_ttl,
+                        config.process.protect_path.as_deref(),
+                        md5sig,
+                        timestamp_delta_ticks,
+                        group.actions.ip_id_mode,
+                        (
+                            config.timeouts.wait_send,
+                            Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        ),
+                        "send_fake_fakesplit",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                } else {
+                    bytes_committed = send_fake_tcp_action_named(
+                        writer,
+                        chunk,
+                        &first_fake,
+                        fake_ttl,
+                        md5sig,
+                        config.network.default_ttl,
+                        platform::FakeTcpOptions {
+                            secondary_fake_prefix: first_secondary_fake.as_deref(),
+                            timestamp_delta_ticks,
+                            protect_path: config.process.protect_path.as_deref(),
+                            fake_flags,
+                            orig_flags: original_flags,
+                            ..Default::default()
+                        },
+                        group.actions.ip_id_mode,
+                        (
+                            config.timeouts.wait_send,
+                            Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        ),
+                        "send_fake_fakesplit",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                    bytes_committed = send_fake_tcp_action_named(
+                        writer,
+                        second,
+                        &second_fake,
+                        fake_ttl,
+                        md5sig,
+                        config.network.default_ttl,
+                        platform::FakeTcpOptions {
+                            secondary_fake_prefix: second_secondary_fake.as_deref(),
+                            timestamp_delta_ticks,
+                            protect_path: config.process.protect_path.as_deref(),
+                            fake_flags,
+                            orig_flags: original_flags,
+                            ..Default::default()
+                        },
+                        group.actions.ip_id_mode,
+                        (
+                            config.timeouts.wait_send,
+                            Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        ),
+                        "send_fake_fakesplit",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                }
                 cursor = plan.tampered.len();
                 break;
             }
@@ -1250,6 +1461,158 @@ fn execute_tcp_plan(
                     .as_ref()
                     .map(|secondary| build_fake_region_bytes(secondary, end, second.len()));
                 let fake_ttl = resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
+                let fake_flags = step_fake_tcp_flags(configured_step);
+                let original_flags = step_original_tcp_flags(configured_step);
+                let timestamp_delta_ticks =
+                    group.actions.fake_tcp_timestamp_enabled.then_some(group.actions.fake_tcp_timestamp_delta_ticks);
+                let custom_order = configured_step.fake_order != FakeOrder::BeforeEach
+                    || configured_step.fake_seq_mode != FakeSeqMode::Duplicate;
+                if custom_order {
+                    let second_offset = chunk.len();
+                    let emissions = match configured_step.fake_order {
+                        FakeOrder::BeforeEach => vec![
+                            FakeEmission {
+                                role: FakeEmissionRole::Fake,
+                                payload: &first_fake,
+                                ttl: 1,
+                                flags: fake_flags,
+                                original_offset: 0,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Genuine,
+                                payload: chunk,
+                                ttl: 1,
+                                flags: original_flags,
+                                original_offset: 0,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Fake,
+                                payload: &second_fake,
+                                ttl: fake_ttl,
+                                flags: fake_flags,
+                                original_offset: second_offset,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Genuine,
+                                payload: second,
+                                ttl: fake_ttl,
+                                flags: original_flags,
+                                original_offset: second_offset,
+                            },
+                        ],
+                        FakeOrder::AllFakesFirst => vec![
+                            FakeEmission {
+                                role: FakeEmissionRole::Fake,
+                                payload: &first_fake,
+                                ttl: 1,
+                                flags: fake_flags,
+                                original_offset: 0,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Fake,
+                                payload: &second_fake,
+                                ttl: fake_ttl,
+                                flags: fake_flags,
+                                original_offset: second_offset,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Genuine,
+                                payload: chunk,
+                                ttl: 1,
+                                flags: original_flags,
+                                original_offset: 0,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Genuine,
+                                payload: second,
+                                ttl: fake_ttl,
+                                flags: original_flags,
+                                original_offset: second_offset,
+                            },
+                        ],
+                        FakeOrder::RealFakeRealFake => vec![
+                            FakeEmission {
+                                role: FakeEmissionRole::Genuine,
+                                payload: chunk,
+                                ttl: 1,
+                                flags: original_flags,
+                                original_offset: 0,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Fake,
+                                payload: &first_fake,
+                                ttl: 1,
+                                flags: fake_flags,
+                                original_offset: 0,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Genuine,
+                                payload: second,
+                                ttl: fake_ttl,
+                                flags: original_flags,
+                                original_offset: second_offset,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Fake,
+                                payload: &second_fake,
+                                ttl: fake_ttl,
+                                flags: fake_flags,
+                                original_offset: second_offset,
+                            },
+                        ],
+                        FakeOrder::AllRealsFirst => vec![
+                            FakeEmission {
+                                role: FakeEmissionRole::Genuine,
+                                payload: chunk,
+                                ttl: 1,
+                                flags: original_flags,
+                                original_offset: 0,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Genuine,
+                                payload: second,
+                                ttl: fake_ttl,
+                                flags: original_flags,
+                                original_offset: second_offset,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Fake,
+                                payload: &first_fake,
+                                ttl: 1,
+                                flags: fake_flags,
+                                original_offset: 0,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Fake,
+                                payload: &second_fake,
+                                ttl: fake_ttl,
+                                flags: fake_flags,
+                                original_offset: second_offset,
+                            },
+                        ],
+                    };
+                    let ordered_segments = ordered_segments_from_emissions(&emissions, configured_step.fake_seq_mode);
+                    bytes_committed = send_ordered_fake_segments_action_named(
+                        writer,
+                        &ordered_segments,
+                        chunk.len() + second.len(),
+                        config.network.default_ttl,
+                        config.process.protect_path.as_deref(),
+                        md5sig,
+                        timestamp_delta_ticks,
+                        group.actions.ip_id_mode,
+                        (
+                            config.timeouts.wait_send,
+                            Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        ),
+                        "send_fake_fakeddisorder",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                    cursor = plan.tampered.len();
+                    break;
+                }
                 match send_fake_tcp_action_named(
                     writer,
                     chunk,
@@ -1259,13 +1622,10 @@ fn execute_tcp_plan(
                     config.network.default_ttl,
                     platform::FakeTcpOptions {
                         secondary_fake_prefix: first_secondary_fake.as_deref(),
-                        timestamp_delta_ticks: group
-                            .actions
-                            .fake_tcp_timestamp_enabled
-                            .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
+                        timestamp_delta_ticks,
                         protect_path: config.process.protect_path.as_deref(),
-                        fake_flags: step_fake_tcp_flags(configured_step),
-                        orig_flags: step_original_tcp_flags(configured_step),
+                        fake_flags,
+                        orig_flags: original_flags,
                         ..Default::default()
                     },
                     group.actions.ip_id_mode,
@@ -1289,13 +1649,10 @@ fn execute_tcp_plan(
                             config.network.default_ttl,
                             platform::FakeTcpOptions {
                                 secondary_fake_prefix: first_secondary_fake.as_deref(),
-                                timestamp_delta_ticks: group
-                                    .actions
-                                    .fake_tcp_timestamp_enabled
-                                    .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
+                                timestamp_delta_ticks,
                                 protect_path: config.process.protect_path.as_deref(),
-                                fake_flags: step_fake_tcp_flags(configured_step),
-                                orig_flags: step_original_tcp_flags(configured_step),
+                                fake_flags,
+                                orig_flags: original_flags,
                                 ..Default::default()
                             },
                             group.actions.ip_id_mode,
@@ -1320,13 +1677,10 @@ fn execute_tcp_plan(
                     config.network.default_ttl,
                     platform::FakeTcpOptions {
                         secondary_fake_prefix: second_secondary_fake.as_deref(),
-                        timestamp_delta_ticks: group
-                            .actions
-                            .fake_tcp_timestamp_enabled
-                            .then_some(group.actions.fake_tcp_timestamp_delta_ticks),
+                        timestamp_delta_ticks,
                         protect_path: config.process.protect_path.as_deref(),
-                        fake_flags: step_fake_tcp_flags(configured_step),
-                        orig_flags: step_original_tcp_flags(configured_step),
+                        fake_flags,
+                        orig_flags: original_flags,
                         ..Default::default()
                     },
                     group.actions.ip_id_mode,
@@ -1419,19 +1773,110 @@ fn execute_tcp_plan(
 
                 let real_host = &plan.tampered[span.host_start..span.host_end];
                 let fake_host = build_hostfake_bytes(real_host, configured_step.fake_host_template.as_deref(), seed);
+                let fake_ttl = resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
+                let fake_flags = step_fake_tcp_flags(configured_step);
+                let original_flags = step_original_tcp_flags(configured_step);
+                let timestamp_delta_ticks =
+                    group.actions.fake_tcp_timestamp_enabled.then_some(group.actions.fake_tcp_timestamp_delta_ticks);
+                let custom_order = configured_step.fake_seq_mode != FakeSeqMode::Duplicate
+                    || (span.midhost.is_some() && configured_step.fake_order != FakeOrder::BeforeEach);
+                if custom_order {
+                    let emissions = if let Some(midhost) = span.midhost {
+                        let split = midhost - span.host_start;
+                        let first_real = &plan.tampered[span.host_start..midhost];
+                        let second_real = &plan.tampered[midhost..span.host_end];
+                        let first_fake = &fake_host[..split];
+                        let second_fake = &fake_host[split..];
+                        build_ordered_fake_split_emissions(
+                            configured_step.fake_order,
+                            first_real,
+                            first_fake,
+                            second_real,
+                            second_fake,
+                            fake_ttl,
+                            fake_ttl,
+                            fake_flags,
+                            original_flags,
+                        )
+                    } else {
+                        vec![
+                            FakeEmission {
+                                role: FakeEmissionRole::Fake,
+                                payload: &fake_host,
+                                ttl: fake_ttl,
+                                flags: fake_flags,
+                                original_offset: 0,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Genuine,
+                                payload: real_host,
+                                ttl: fake_ttl,
+                                flags: original_flags,
+                                original_offset: 0,
+                            },
+                            FakeEmission {
+                                role: FakeEmissionRole::Fake,
+                                payload: &fake_host,
+                                ttl: fake_ttl,
+                                flags: fake_flags,
+                                original_offset: 0,
+                            },
+                        ]
+                    };
+                    let ordered_segments = ordered_segments_from_emissions(&emissions, configured_step.fake_seq_mode);
+                    bytes_committed = send_ordered_fake_segments_action_named(
+                        writer,
+                        &ordered_segments,
+                        real_host.len(),
+                        config.network.default_ttl,
+                        config.process.protect_path.as_deref(),
+                        md5sig,
+                        timestamp_delta_ticks,
+                        group.actions.ip_id_mode,
+                        (
+                            config.timeouts.wait_send,
+                            Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                        ),
+                        "send_fake_hostfake",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                    if span.host_end < end {
+                        bytes_committed = write_strategy_payload_named(
+                            writer,
+                            &plan.tampered[span.host_end..end],
+                            "write_hostfake",
+                            step_family,
+                            step_fallback,
+                            bytes_committed,
+                        )?;
+                        await_writable_action_named(
+                            writer,
+                            config.timeouts.wait_send,
+                            Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
+                            "await_writable_hostfake",
+                            step_family,
+                            step_fallback,
+                            bytes_committed,
+                        )?;
+                    }
+                    cursor = end;
+                    continue;
+                }
                 bytes_committed = send_fake_tcp_action_named(
                     writer,
                     real_host,
                     &fake_host,
-                    resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8),
+                    fake_ttl,
                     md5sig,
                     config.network.default_ttl,
                     platform::FakeTcpOptions {
                         secondary_fake_prefix: None,
                         timestamp_delta_ticks: None,
                         protect_path: config.process.protect_path.as_deref(),
-                        fake_flags: step_fake_tcp_flags(configured_step),
-                        orig_flags: step_original_tcp_flags(configured_step),
+                        fake_flags,
+                        orig_flags: original_flags,
                         ..Default::default()
                     },
                     group.actions.ip_id_mode,
@@ -1501,15 +1946,15 @@ fn execute_tcp_plan(
                     writer,
                     real_host,
                     &fake_host,
-                    resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8),
+                    fake_ttl,
                     md5sig,
                     config.network.default_ttl,
                     platform::FakeTcpOptions {
                         secondary_fake_prefix: None,
                         timestamp_delta_ticks: None,
                         protect_path: config.process.protect_path.as_deref(),
-                        fake_flags: step_fake_tcp_flags(configured_step),
-                        orig_flags: step_original_tcp_flags(configured_step),
+                        fake_flags,
+                        orig_flags: original_flags,
                         ..Default::default()
                     },
                     group.actions.ip_id_mode,
@@ -1906,6 +2351,42 @@ fn send_fake_tcp_action_named(
         bytes_committed,
     )
     .map(|()| bytes_committed + original_prefix.len())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn send_ordered_fake_segments_action_named(
+    stream: &TcpStream,
+    segments: &[platform::OrderedTcpSegment<'_>],
+    original_payload_len: usize,
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    md5sig: bool,
+    timestamp_delta_ticks: Option<i32>,
+    ip_id_mode: Option<ripdpi_config::IpIdMode>,
+    wait: platform::TcpStageWait,
+    action: &'static str,
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<usize, OutboundSendError> {
+    strategy_result(
+        platform::send_ordered_tcp_segments(
+            stream,
+            segments,
+            original_payload_len,
+            default_ttl,
+            protect_path,
+            md5sig,
+            timestamp_delta_ticks,
+            ip_id_mode,
+            wait,
+        ),
+        action,
+        strategy_family,
+        fallback,
+        bytes_committed,
+    )
+    .map(|()| bytes_committed + original_payload_len)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -3485,5 +3966,78 @@ mod tests {
         )
         .expect_err("reject fewer than 3 planned segments");
         assert!(err.to_string().contains("multidisorder requires at least three non-empty planned segments"));
+    }
+
+    #[test]
+    fn fake_ordering_plain_fake_collapses_expected_sides() {
+        let before = build_plain_fake_emissions(
+            FakeOrder::AllFakesFirst,
+            b"real",
+            &[b"fake-a".as_slice(), b"fake-b".as_slice()],
+            7,
+            platform::TcpFlagOverrides::default(),
+            platform::TcpFlagOverrides::default(),
+        );
+        let after = build_plain_fake_emissions(
+            FakeOrder::AllRealsFirst,
+            b"real",
+            &[b"fake-a".as_slice(), b"fake-b".as_slice()],
+            7,
+            platform::TcpFlagOverrides::default(),
+            platform::TcpFlagOverrides::default(),
+        );
+
+        assert_eq!(
+            before.iter().map(|emission| emission.role).collect::<Vec<_>>(),
+            vec![FakeEmissionRole::Fake, FakeEmissionRole::Fake, FakeEmissionRole::Genuine]
+        );
+        assert_eq!(
+            after.iter().map(|emission| emission.role).collect::<Vec<_>>(),
+            vec![FakeEmissionRole::Genuine, FakeEmissionRole::Fake, FakeEmissionRole::Fake]
+        );
+    }
+
+    #[test]
+    fn fake_ordering_split_variants_emit_expected_order() {
+        let emissions = build_ordered_fake_split_emissions(
+            FakeOrder::AllFakesFirst,
+            b"A",
+            b"FA",
+            b"B",
+            b"FB",
+            3,
+            9,
+            platform::TcpFlagOverrides::default(),
+            platform::TcpFlagOverrides::default(),
+        );
+
+        let labels =
+            emissions.iter().map(|emission| std::str::from_utf8(emission.payload).unwrap()).collect::<Vec<_>>();
+
+        assert_eq!(labels, vec!["FA", "FB", "A", "B"]);
+        assert_eq!(emissions[2].ttl, 3);
+        assert_eq!(emissions[3].original_offset, 1);
+    }
+
+    #[test]
+    fn fake_sequence_sequential_advances_only_fake_offsets() {
+        let emissions = build_ordered_fake_split_emissions(
+            FakeOrder::BeforeEach,
+            b"AAA",
+            b"F1",
+            b"BBBB",
+            b"F222",
+            5,
+            9,
+            platform::TcpFlagOverrides::default(),
+            platform::TcpFlagOverrides::default(),
+        );
+
+        let segments = ordered_segments_from_emissions(&emissions, FakeSeqMode::Sequential);
+
+        assert_eq!(segments[0].sequence_offset, 0);
+        assert_eq!(segments[1].sequence_offset, 0);
+        assert_eq!(segments[2].sequence_offset, 2);
+        assert_eq!(segments[3].sequence_offset, 3);
     }
 }
