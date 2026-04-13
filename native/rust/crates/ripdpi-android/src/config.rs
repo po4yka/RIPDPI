@@ -262,6 +262,7 @@ mod tests {
                 config.protocols = ProxyUiProtocolConfig { resolve_domains, desync_http, desync_https, desync_udp };
                 config.chains = ProxyUiChainConfig {
                     any_protocol: false,
+                    payload_disable: Vec::new(),
                     tcp_steps: if desync_method == "none" {
                         Vec::new()
                     } else {
