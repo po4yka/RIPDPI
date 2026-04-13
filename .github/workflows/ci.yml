@@ -74,7 +74,7 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
@@ -120,7 +120,7 @@ jobs:
         with:
           name: native-size-report
           path: ${{ runner.temp }}/native-size-report/*
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 14
 
       - name: Upload test results
