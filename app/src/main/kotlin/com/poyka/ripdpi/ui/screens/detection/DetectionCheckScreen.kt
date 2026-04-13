@@ -133,7 +133,7 @@ internal fun DetectionCheckRoute(
 @OptIn(ExperimentalMaterial3Api::class)
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
-private fun DetectionCheckScreen(
+internal fun DetectionCheckScreen(
     uiState: DetectionCheckUiState,
     onStart: () -> Unit,
     onStop: () -> Unit,
