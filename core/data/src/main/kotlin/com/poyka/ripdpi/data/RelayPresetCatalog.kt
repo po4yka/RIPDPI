@@ -28,6 +28,7 @@ private const val NaivePresetAcceptedScore = 50
 private const val NaivePresetFallbackScore = 3
 private const val DefaultRussianPresetScore = 2
 private const val GenericPresetScore = 1
+private val relayPresetCatalogJson = Json { ignoreUnknownKeys = true }
 
 @Serializable
 internal data class RelayPresetCatalogPayload(
@@ -73,7 +74,7 @@ internal data class RelayCapabilitySummary(
 )
 
 internal fun decodeRelayPresetCatalog(json: String): List<RelayPresetDefinition> =
-    Json { ignoreUnknownKeys = true }
+    relayPresetCatalogJson
         .decodeFromString(RelayPresetCatalogPayload.serializer(), json)
         .presets
 
