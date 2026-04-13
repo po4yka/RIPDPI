@@ -88,6 +88,53 @@ private val DarkScrim = Color(0xCC000000)
 
 val RipDpiHairlineColor = Color(0xFF666666)
 
+enum class RipDpiContrastLevel {
+    Standard,
+    Medium,
+    High,
+}
+
+fun RipDpiExtendedColors.adjustForContrast(
+    level: RipDpiContrastLevel,
+    isDark: Boolean,
+): RipDpiExtendedColors =
+    when (level) {
+        RipDpiContrastLevel.Standard -> {
+            this
+        }
+
+        RipDpiContrastLevel.Medium -> {
+            copy(
+                mutedForeground = blendToward(mutedForeground, foreground, 0.2f),
+                border = blendToward(border, foreground, 0.15f),
+                cardBorder = blendToward(cardBorder, foreground, 0.15f),
+                outlineVariant = blendToward(outlineVariant, foreground, 0.2f),
+            )
+        }
+
+        RipDpiContrastLevel.High -> {
+            copy(
+                mutedForeground = blendToward(mutedForeground, foreground, 0.45f),
+                border = blendToward(border, foreground, 0.35f),
+                cardBorder = blendToward(cardBorder, foreground, 0.35f),
+                outlineVariant = blendToward(outlineVariant, foreground, 0.4f),
+                inputBackground = if (isDark) blendToward(inputBackground, foreground, 0.08f) else inputBackground,
+            )
+        }
+    }
+
+private fun blendToward(
+    from: Color,
+    to: Color,
+    fraction: Float,
+): Color =
+    Color(
+        red = from.red + (to.red - from.red) * fraction,
+        green = from.green + (to.green - from.green) * fraction,
+        blue = from.blue + (to.blue - from.blue) * fraction,
+        alpha = from.alpha,
+    )
+
 @Immutable
 data class RipDpiExtendedColors(
     val background: Color,
@@ -266,3 +313,4 @@ fun ripDpiDarkColorScheme(): ColorScheme =
     )
 
 internal val LocalRipDpiExtendedColors = staticCompositionLocalOf { LightRipDpiExtendedColors }
+internal val LocalRipDpiContrastLevel = staticCompositionLocalOf { RipDpiContrastLevel.Standard }

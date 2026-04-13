@@ -2,7 +2,7 @@ package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -62,6 +63,12 @@ fun RipDpiChip(
     val scheme = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val chipCornerRadius by animateDpAsState(
+        targetValue = if (isPressed && enabled) components.controlCornerRadius else components.largeCornerRadius,
+        animationSpec = motion.motionAwareSpring(),
+        label = "chipCorner",
+    )
+    val chipShape = RoundedCornerShape(chipCornerRadius)
     val horizontalPadding =
         when (density) {
             RipDpiControlDensity.Default -> components.chipHorizontalPadding
@@ -112,11 +119,7 @@ fun RipDpiChip(
                 selected -> motion.selectionScale
                 else -> 1f
             },
-        animationSpec =
-            tween(
-                durationMillis = motion.duration(motion.quickDurationMillis),
-                easing = FastOutSlowInEasing,
-            ),
+        animationSpec = motion.motionAwareSpring(expressive = selected),
         label = "chipScale",
     )
 
@@ -126,8 +129,8 @@ fun RipDpiChip(
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
-                }.background(animatedContainer, RipDpiThemeTokens.shapes.lg)
-                .border(1.dp, animatedBorderColor, RipDpiThemeTokens.shapes.lg)
+                }.background(animatedContainer, chipShape)
+                .border(1.dp, animatedBorderColor, chipShape)
                 .focusable(enabled = enabled, interactionSource = interactionSource)
                 .ripDpiSelectable(
                     selected = selected,
