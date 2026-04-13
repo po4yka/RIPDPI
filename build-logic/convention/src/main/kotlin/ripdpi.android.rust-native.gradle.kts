@@ -745,7 +745,10 @@ abstract class BuildPluggableTransportAssetsTask
             outputFile.parentFile.mkdirs()
             cacheDir.mkdirs()
             val goArch = abiToGoArch(abi)
-            val cgoEnvironment = buildGoCgoEnvironment(source, abi)
+            // Go requires the external Android linker for android/arm source builds.
+            val requiresExternalAndroidLinker = abi == "armeabi-v7a"
+            val enableCgo = source.cgoEnabled || requiresExternalAndroidLinker
+            val cgoEnvironment = buildGoCgoEnvironment(enableCgo, abi)
             execOperations
                 .exec {
                     workingDir = repoDir
@@ -753,7 +756,7 @@ abstract class BuildPluggableTransportAssetsTask
                     environment("GOARCH", goArch.arch)
                     goArch.goarm?.let { environment("GOARM", it) }
                     cgoEnvironment.forEach(::environment)
-                    if (!source.cgoEnabled) {
+                    if (!enableCgo) {
                         environment("CGO_ENABLED", "0")
                     }
                     environment("GOCACHE", cacheDir.absolutePath)
@@ -780,10 +783,10 @@ abstract class BuildPluggableTransportAssetsTask
         }
 
         private fun buildGoCgoEnvironment(
-            source: PluggableTransportSource,
+            enableCgo: Boolean,
             abi: String,
         ): Map<String, String> {
-            if (!source.cgoEnabled) {
+            if (!enableCgo) {
                 return emptyMap()
             }
             val hostBinDir = resolveNdkToolchainBinDir()
@@ -792,10 +795,10 @@ abstract class BuildPluggableTransportAssetsTask
             val clang = hostBinDir.resolve("${clangTarget}$apiLevel-clang")
             val clangxx = hostBinDir.resolve("${clangTarget}$apiLevel-clang++")
             require(clang.isFile) {
-                "Android clang linker not found for ${source.id} ($abi): ${clang.absolutePath}"
+                "Android clang linker not found for pluggable transport build ($abi): ${clang.absolutePath}"
             }
             require(clangxx.isFile) {
-                "Android clang++ linker not found for ${source.id} ($abi): ${clangxx.absolutePath}"
+                "Android clang++ linker not found for pluggable transport build ($abi): ${clangxx.absolutePath}"
             }
             return mapOf(
                 "CGO_ENABLED" to "1",
