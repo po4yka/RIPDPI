@@ -243,6 +243,9 @@ mod tests {
             control: None,
             ttl_unavailable: Arc::new(crate::sync::AtomicBool::new(false)),
             reprobe_tracker: std::sync::Arc::new(crate::runtime::reprobe::ReprobeTracker::new()),
+            dns_hostname_cache: std::sync::Arc::new(
+                crate::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
+            ),
             pcap_hook: None,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,

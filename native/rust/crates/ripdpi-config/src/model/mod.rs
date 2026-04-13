@@ -515,6 +515,9 @@ pub struct DesyncGroupMatchSettings {
     pub filters: FilterSet,
     pub port_filter: Option<(u16, u16)>,
     pub activation_filter: Option<ActivationFilter>,
+    /// Bitmask of protocol flags (IS_HTTP, IS_HTTPS) to skip during payload
+    /// classification, preventing false-positive protocol detection.
+    pub payload_disable: u32,
 }
 
 /// Which entropy-based DPI detection model to counter with padding.
@@ -1023,6 +1026,7 @@ mod tests {
             detect: DETECT_CONNECT | DETECT_HTTP_LOCAT,
             proto: 0x22,
             any_protocol: false,
+            payload_disable: 0,
             filters: FilterSet {
                 hosts: vec!["video.example.test".to_string()],
                 ipset: vec![Cidr { addr: IpAddr::from_str("203.0.113.10").expect("ip"), bits: 24 }],

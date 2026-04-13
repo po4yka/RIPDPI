@@ -14,6 +14,7 @@ use ripdpi_proxy_config::{NetworkSnapshot, ProxyRuntimeContext};
 
 pub(crate) mod adaptive_fake_ttl;
 pub(crate) mod adaptive_tuning;
+pub(crate) mod dns_hostname_cache;
 pub mod platform;
 pub mod process;
 pub(crate) mod retry_stealth;

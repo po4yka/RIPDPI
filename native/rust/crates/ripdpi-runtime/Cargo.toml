@@ -29,6 +29,7 @@ ring = { workspace = true }
 socket2 = { workspace = true }
 libc = { workspace = true }
 etherparse = { workspace = true }
+lru = { workspace = true }
 loom = { workspace = true, optional = true }
 nix = { workspace = true }
 ripdpi-io-uring = { workspace = true, optional = true }

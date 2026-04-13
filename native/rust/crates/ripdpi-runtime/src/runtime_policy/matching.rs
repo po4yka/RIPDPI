@@ -24,7 +24,8 @@ pub(crate) fn extract_host(config: &RuntimeConfig, payload: &[u8]) -> Option<Str
 }
 
 pub(crate) fn group_requires_payload(group: &DesyncGroup) -> bool {
-    !group.matches.filters.hosts.is_empty() || (group.matches.proto & (IS_HTTP | IS_HTTPS)) != 0
+    let active_proto = group.matches.proto & !group.matches.payload_disable;
+    !group.matches.filters.hosts.is_empty() || (active_proto & (IS_HTTP | IS_HTTPS)) != 0
 }
 
 pub(crate) fn route_matches_payload(
@@ -94,8 +95,9 @@ fn matches_payload(config: &RuntimeConfig, group: &DesyncGroup, payload: &[u8]) 
     if group.matches.proto != 0 {
         let l7 = group.matches.proto & !(IS_TCP | IS_UDP | IS_IPV4);
         if l7 != 0 {
-            let http = is_http(payload);
-            let tls = is_tls_client_hello(payload);
+            let disable = group.matches.payload_disable;
+            let http = (disable & IS_HTTP) == 0 && is_http(payload);
+            let tls = (disable & IS_HTTPS) == 0 && is_tls_client_hello(payload);
             if ((l7 & IS_HTTP) != 0 && http) || ((l7 & IS_HTTPS) != 0 && tls) {
             } else {
                 return false;
