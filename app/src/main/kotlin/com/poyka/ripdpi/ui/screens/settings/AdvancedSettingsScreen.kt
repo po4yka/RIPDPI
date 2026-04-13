@@ -320,91 +320,138 @@ private fun rememberAdvancedSettingsContentState(uiState: SettingsUiState): Adva
         showQuicFakeSection = uiState.showQuicFakeProfile,
         showFakePayloadLibrary = uiState.showFakePayloadLibrary,
         showAdaptiveFakeTtlSection = uiState.showAdaptiveFakeTtlProfile,
-        showFakeTlsSection =
-            uiState.desyncHttpsEnabled ||
-                uiState.isFake ||
-                uiState.usesSeqOverlapFakeProfile ||
-                uiState.fake.hasCustomFakeTlsProfile ||
-                uiState.enableCmdSettings,
-        fakeTlsBaseOptions =
-            rememberSettingsOptions(
-                labelArrayRes = R.array.fake_tls_base_modes,
-                valueArrayRes = R.array.fake_tls_base_modes_entries,
-            ),
-        httpFakeProfileOptions =
-            rememberSettingsOptions(
-                labelArrayRes = R.array.http_fake_profiles,
-                valueArrayRes = R.array.http_fake_profiles_entries,
-            ),
-        fakeTlsSniModeOptions =
-            rememberSettingsOptions(
-                labelArrayRes = R.array.fake_tls_sni_modes,
-                valueArrayRes = R.array.fake_tls_sni_modes_entries,
-            ),
-        tlsFakeProfileOptions =
-            rememberSettingsOptions(
-                labelArrayRes = R.array.tls_fake_profiles,
-                valueArrayRes = R.array.tls_fake_profiles_entries,
-            ),
-        fakeOrderOptions =
-            listOf(
-                RipDpiDropdownOption(FakeOrderDefault, "Altorder 0"),
-                RipDpiDropdownOption(FakeOrderAllFakesFirst, "Altorder 1"),
-                RipDpiDropdownOption(FakeOrderInterleaveRealFirst, "Altorder 2"),
-                RipDpiDropdownOption(FakeOrderAllRealsFirst, "Altorder 3"),
-            ),
-        fakeSeqModeOptions =
-            listOf(
-                RipDpiDropdownOption(FakeSeqModeDuplicate, "Duplicate"),
-                RipDpiDropdownOption(FakeSeqModeSequential, "Sequential"),
-            ),
-        ipIdModeOptions =
-            rememberSettingsOptions(
-                labelArrayRes = R.array.ip_id_modes,
-                valueArrayRes = R.array.ip_id_modes_entries,
-            ),
-        hostsOptions =
-            rememberSettingsOptions(
-                labelArrayRes = R.array.ripdpi_hosts_modes,
-                valueArrayRes = R.array.ripdpi_hosts_modes_entries,
-            ),
-        warpRouteModeOptions =
-            rememberSettingsOptions(
-                labelArrayRes = R.array.warp_route_modes,
-                valueArrayRes = R.array.warp_route_modes_entries,
-            ),
-        warpEndpointSelectionOptions =
-            rememberSettingsOptions(
-                labelArrayRes = R.array.warp_endpoint_selection_modes,
-                valueArrayRes = R.array.warp_endpoint_selection_modes_entries,
-            ),
-        warpAmneziaPresetOptions =
-            rememberSettingsOptions(
-                labelArrayRes = R.array.warp_amnezia_presets,
-                valueArrayRes = R.array.warp_amnezia_presets_entries,
-            ),
-        quicModeOptions =
-            rememberSettingsOptions(
-                labelArrayRes = R.array.quic_initial_modes,
-                valueArrayRes = R.array.quic_initial_modes_entries,
-            ),
-        tlsFingerprintOptions =
-            rememberSettingsOptions(
-                labelArrayRes = R.array.tls_fingerprint_profiles,
-                valueArrayRes = R.array.tls_fingerprint_profiles_entries,
-            ),
-        entropyModeOptions =
-            rememberSettingsOptions(
-                labelArrayRes = R.array.entropy_modes,
-                valueArrayRes = R.array.entropy_modes_entries,
-            ),
-        udpFakeProfileOptions =
-            rememberSettingsOptions(
-                labelArrayRes = R.array.udp_fake_profiles,
-                valueArrayRes = R.array.udp_fake_profiles_entries,
-            ),
+        showFakeTlsSection = shouldShowFakeTlsSection(uiState),
+        fakeTlsBaseOptions = rememberFakeTlsBaseOptions(),
+        httpFakeProfileOptions = rememberHttpFakeProfileOptions(),
+        fakeTlsSniModeOptions = rememberFakeTlsSniModeOptions(),
+        tlsFakeProfileOptions = rememberTlsFakeProfileOptions(),
+        fakeOrderOptions = rememberFakeOrderOptions(),
+        fakeSeqModeOptions = rememberFakeSeqModeOptions(),
+        ipIdModeOptions = rememberIpIdModeOptions(),
+        hostsOptions = rememberHostsOptions(),
+        warpRouteModeOptions = rememberWarpRouteModeOptions(),
+        warpEndpointSelectionOptions = rememberWarpEndpointSelectionOptions(),
+        warpAmneziaPresetOptions = rememberWarpAmneziaPresetOptions(),
+        quicModeOptions = rememberQuicModeOptions(),
+        tlsFingerprintOptions = rememberTlsFingerprintOptions(),
+        entropyModeOptions = rememberEntropyModeOptions(),
+        udpFakeProfileOptions = rememberUdpFakeProfileOptions(),
         adaptiveSplitPresetOptions = rememberAdaptiveSplitPresetOptions(uiState),
         adaptiveFakeTtlModeOptions = rememberAdaptiveFakeTtlModeOptions(uiState),
+    )
+
+private fun shouldShowFakeTlsSection(uiState: SettingsUiState): Boolean =
+    uiState.desyncHttpsEnabled ||
+        uiState.isFake ||
+        uiState.usesSeqOverlapFakeProfile ||
+        uiState.fake.hasCustomFakeTlsProfile ||
+        uiState.enableCmdSettings
+
+@Composable
+private fun rememberFakeTlsBaseOptions() =
+    rememberSettingsOptions(
+        labelArrayRes = R.array.fake_tls_base_modes,
+        valueArrayRes = R.array.fake_tls_base_modes_entries,
+    )
+
+@Composable
+private fun rememberHttpFakeProfileOptions() =
+    rememberSettingsOptions(
+        labelArrayRes = R.array.http_fake_profiles,
+        valueArrayRes = R.array.http_fake_profiles_entries,
+    )
+
+@Composable
+private fun rememberFakeTlsSniModeOptions() =
+    rememberSettingsOptions(
+        labelArrayRes = R.array.fake_tls_sni_modes,
+        valueArrayRes = R.array.fake_tls_sni_modes_entries,
+    )
+
+@Composable
+private fun rememberTlsFakeProfileOptions() =
+    rememberSettingsOptions(
+        labelArrayRes = R.array.tls_fake_profiles,
+        valueArrayRes = R.array.tls_fake_profiles_entries,
+    )
+
+@Composable
+private fun rememberFakeOrderOptions() =
+    listOf(
+        RipDpiDropdownOption(FakeOrderDefault, "Altorder 0"),
+        RipDpiDropdownOption(FakeOrderAllFakesFirst, "Altorder 1"),
+        RipDpiDropdownOption(FakeOrderInterleaveRealFirst, "Altorder 2"),
+        RipDpiDropdownOption(FakeOrderAllRealsFirst, "Altorder 3"),
+    )
+
+@Composable
+private fun rememberFakeSeqModeOptions() =
+    listOf(
+        RipDpiDropdownOption(FakeSeqModeDuplicate, "Duplicate"),
+        RipDpiDropdownOption(FakeSeqModeSequential, "Sequential"),
+    )
+
+@Composable
+private fun rememberIpIdModeOptions() =
+    rememberSettingsOptions(
+        labelArrayRes = R.array.ip_id_modes,
+        valueArrayRes = R.array.ip_id_modes_entries,
+    )
+
+@Composable
+private fun rememberHostsOptions() =
+    rememberSettingsOptions(
+        labelArrayRes = R.array.ripdpi_hosts_modes,
+        valueArrayRes = R.array.ripdpi_hosts_modes_entries,
+    )
+
+@Composable
+private fun rememberWarpRouteModeOptions() =
+    rememberSettingsOptions(
+        labelArrayRes = R.array.warp_route_modes,
+        valueArrayRes = R.array.warp_route_modes_entries,
+    )
+
+@Composable
+private fun rememberWarpEndpointSelectionOptions() =
+    rememberSettingsOptions(
+        labelArrayRes = R.array.warp_endpoint_selection_modes,
+        valueArrayRes = R.array.warp_endpoint_selection_modes_entries,
+    )
+
+@Composable
+private fun rememberWarpAmneziaPresetOptions() =
+    rememberSettingsOptions(
+        labelArrayRes = R.array.warp_amnezia_presets,
+        valueArrayRes = R.array.warp_amnezia_presets_entries,
+    )
+
+@Composable
+private fun rememberQuicModeOptions() =
+    rememberSettingsOptions(
+        labelArrayRes = R.array.quic_initial_modes,
+        valueArrayRes = R.array.quic_initial_modes_entries,
+    )
+
+@Composable
+private fun rememberTlsFingerprintOptions() =
+    rememberSettingsOptions(
+        labelArrayRes = R.array.tls_fingerprint_profiles,
+        valueArrayRes = R.array.tls_fingerprint_profiles_entries,
+    )
+
+@Composable
+private fun rememberEntropyModeOptions() =
+    rememberSettingsOptions(
+        labelArrayRes = R.array.entropy_modes,
+        valueArrayRes = R.array.entropy_modes_entries,
+    )
+
+@Composable
+private fun rememberUdpFakeProfileOptions() =
+    rememberSettingsOptions(
+        labelArrayRes = R.array.udp_fake_profiles,
+        valueArrayRes = R.array.udp_fake_profiles_entries,
     )
 
 @Composable
