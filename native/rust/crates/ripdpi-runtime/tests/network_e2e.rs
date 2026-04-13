@@ -111,7 +111,7 @@ fn ephemeral_listener_reports_non_zero_port_through_telemetry() {
         Some(telemetry.clone() as Arc<dyn RuntimeTelemetrySink>),
     );
 
-    let reported = telemetry.listener_address.lock().unwrap_or_else(PoisonError::into_inner).clone();
+    let reported = *telemetry.listener_address.lock().unwrap_or_else(PoisonError::into_inner);
     let reported = reported.expect("listener address");
 
     assert_eq!(reported.ip(), std::net::IpAddr::V4(Ipv4Addr::LOCALHOST));

@@ -121,6 +121,7 @@ struct FakeEmission<'a> {
     original_offset: usize,
 }
 
+#[allow(clippy::too_many_arguments)]
 fn build_ordered_fake_split_emissions<'a>(
     order: FakeOrder,
     first_real: &'a [u8],
@@ -247,7 +248,7 @@ pub(super) fn activation_context_from_progress(
     resolved_fake_ttl: Option<u8>,
     adaptive: AdaptivePlannerHints,
 ) -> ActivationContext {
-    let has_ech = payload.and_then(|bytes| tls_marker_info(bytes)).and_then(|markers| markers.ech_ext_start).is_some();
+    let has_ech = payload.and_then(tls_marker_info).and_then(|markers| markers.ech_ext_start).is_some();
     let tcp_state = tcp_activation_state.map_or(
         ActivationTcpState { has_ech: Some(has_ech), ..ActivationTcpState::default() },
         |state| ActivationTcpState {
@@ -604,6 +605,7 @@ fn step_original_tcp_flags(step: &TcpChainStep) -> platform::TcpFlagOverrides {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn execute_tcp_actions(
     writer: &mut TcpStream,
     actions: &[DesyncAction],

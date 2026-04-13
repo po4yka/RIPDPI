@@ -1,3 +1,4 @@
+mod entry_error;
 mod lifecycle;
 mod pcap;
 mod registry;
@@ -8,21 +9,17 @@ mod loom_tests;
 #[cfg(test)]
 mod tests;
 
-use android_support::{init_android_logging, sanitize_error_message, throw_runtime_exception};
+use android_support::init_android_logging;
 use jni::objects::JString;
 use jni::sys::{jint, jlong, jstring};
 use jni::{EnvUnowned, Outcome};
 
 use crate::errors::extract_panic_message;
 
+use entry_error::log_and_throw;
 use lifecycle::{create_session, destroy_session, start_session, stop_session, update_network_snapshot};
 pub(crate) use pcap::{pcap_is_recording_entry, pcap_start_entry, pcap_stop_entry};
 use telemetry::poll_proxy_telemetry;
-
-fn log_and_throw(env: &mut EnvUnowned<'_>, label: &str, message: &str) {
-    log::error!("{label}: {message}");
-    throw_runtime_exception(env, sanitize_error_message(message, label));
-}
 
 pub(crate) fn proxy_create_entry(mut env: EnvUnowned<'_>, config_json: JString) -> jlong {
     init_android_logging("ripdpi-native");

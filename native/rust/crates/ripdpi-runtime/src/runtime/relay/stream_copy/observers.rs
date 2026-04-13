@@ -1,6 +1,6 @@
 use crate::platform;
 use crate::sync::{Arc, Mutex};
-use ripdpi_failure_classifier::{classify_transport_error, FailureClass, FailureStage};
+use ripdpi_failure_classifier::{classify_transport_error, FailureStage};
 use ripdpi_session::SessionState;
 use std::io;
 use std::net::TcpStream;
