@@ -271,6 +271,27 @@ impl TcpChainStep {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct RotationCandidate {
+    pub tcp_chain: Vec<TcpChainStep>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RotationPolicy {
+    pub fails: usize,
+    pub retrans: u32,
+    pub seq: u32,
+    pub rst: u32,
+    pub time_secs: u64,
+    pub candidates: Vec<RotationCandidate>,
+}
+
+impl Default for RotationPolicy {
+    fn default() -> Self {
+        Self { fails: 3, retrans: 3, seq: 65_536, rst: 1, time_secs: 60, candidates: Vec::new() }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UdpChainStepKind {
     FakeBurst,
@@ -446,6 +467,7 @@ pub struct DesyncGroupActionSettings {
     pub quic_fake_version: u32,
     pub oob_data: Option<u8>,
     pub tcp_chain: Vec<TcpChainStep>,
+    pub rotation_policy: Option<RotationPolicy>,
     pub udp_chain: Vec<UdpChainStep>,
     pub mod_http: u32,
     pub tlsminor: Option<u8>,

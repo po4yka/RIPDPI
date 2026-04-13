@@ -2,8 +2,9 @@ use ripdpi_dns_resolver::EncryptedDnsEndpoint;
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_proxy_config::{
     ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiActivationFilter, ProxyUiConfig,
-    ProxyUiNumericRange, ProxyUiTcpChainStep, ProxyUiUdpChainStep, ADAPTIVE_FAKE_TTL_DEFAULT_DELTA,
-    ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK, ADAPTIVE_FAKE_TTL_DEFAULT_MAX, ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
+    ProxyUiNumericRange, ProxyUiTcpChainStep, ProxyUiTcpRotationCandidate, ProxyUiTcpRotationConfig,
+    ProxyUiUdpChainStep, ADAPTIVE_FAKE_TTL_DEFAULT_DELTA, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
+    ADAPTIVE_FAKE_TTL_DEFAULT_MAX, ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
 };
 use socket2::{Domain, Protocol, Socket, Type};
 
@@ -433,6 +434,7 @@ fn allows_direct_tfo_candidates(base: &ProxyUiConfig) -> bool {
 
 pub(crate) fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let mut candidates = build_tcp_candidates(base);
+    candidates.push(build_circular_tlsrec_split_spec(base));
     candidates.extend([
         build_activation_window_split_spec(base),
         build_activation_window_hostfake_spec(base),
@@ -622,9 +624,13 @@ pub(crate) fn candidate_spec_with_notes_and_eligibility(
 /// this set send a segment with a short TTL that expires before it reaches the
 /// target server, so it is essential that `setsockopt(IP_TTL)` succeeds.
 fn config_requires_fake_ttl(config: &ProxyUiConfig) -> bool {
-    config.chains.tcp_steps.iter().any(|step| {
+    let step_requires_fake_ttl = |step: &ProxyUiTcpChainStep| {
         matches!(step.kind.as_str(), "fake" | "fakedsplit" | "fakeddisorder" | "hostfake" | "disorder" | "disoob")
-    })
+    };
+    config.chains.tcp_steps.iter().any(step_requires_fake_ttl)
+        || config.chains.tcp_rotation.as_ref().is_some_and(|rotation| {
+            rotation.candidates.iter().flat_map(|candidate| candidate.tcp_steps.iter()).any(step_requires_fake_ttl)
+        })
 }
 
 /// Probes whether the current process is allowed to set a custom IP TTL on TCP
@@ -789,6 +795,23 @@ pub(crate) fn build_ech_tlsrec_candidate(base: &ProxyUiConfig) -> ProxyUiConfig 
 pub(crate) fn build_tlsrec_split_host_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = strategy_probe_base(base);
     config.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("split", "host+2")];
+    config
+}
+
+pub(crate) fn build_circular_tlsrec_split_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = build_tlsrec_split_host_candidate(base);
+    config.chains.tcp_rotation = Some(ProxyUiTcpRotationConfig {
+        fails: 3,
+        retrans: 3,
+        seq: 65_536,
+        rst: 1,
+        time_secs: 60,
+        candidates: vec![
+            ProxyUiTcpRotationCandidate { tcp_steps: build_tlsrec_hostfake_candidate(base, true).chains.tcp_steps },
+            ProxyUiTcpRotationCandidate { tcp_steps: build_tlsrec_fake_rich_candidate(base).chains.tcp_steps },
+            ProxyUiTcpRotationCandidate { tcp_steps: build_split_host_candidate(base).chains.tcp_steps },
+        ],
+    });
     config
 }
 
@@ -1053,6 +1076,19 @@ pub(crate) fn probe_tcp_fast_open_capability() -> bool {
     ripdpi_runtime::platform::enable_tcp_fastopen_connect(&socket).is_ok()
 }
 
+pub(crate) fn build_circular_tlsrec_split_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
+    candidate_spec_with_notes(
+        "circular_tlsrec_split",
+        "Circular TLS record split",
+        "circular_tlsrec_split",
+        build_circular_tlsrec_split_candidate(base),
+        vec![
+            "Rotates TLS record strategies between outbound rounds on the same TCP socket",
+            "Fallback order: hostfake split -> rich fake -> split host",
+        ],
+    )
+}
+
 pub(crate) fn build_activation_window_split_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
     let mut config = build_split_host_candidate(base);
     config.chains.group_activation_filter = Some(default_audit_activation_filter());
@@ -1179,6 +1215,34 @@ mod tests {
         assert!(full.tcp_candidates.len() > quick.tcp_candidates.len());
         assert!(!full.short_circuit_hostfake);
         assert!(!full.short_circuit_quic_burst);
+        assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "circular_tlsrec_split"));
+        assert!(!quick.tcp_candidates.iter().any(|candidate| candidate.id == "circular_tlsrec_split"));
+    }
+
+    #[test]
+    fn circular_tlsrec_split_candidate_uses_expected_rotation_defaults() {
+        let candidate = build_circular_tlsrec_split_candidate(&minimal_ui_config());
+        let rotation = candidate.chains.tcp_rotation.as_ref().expect("tcp rotation");
+
+        assert_eq!(
+            candidate.chains.tcp_steps,
+            build_tlsrec_split_host_candidate(&minimal_ui_config()).chains.tcp_steps
+        );
+        assert_eq!(rotation.fails, 3);
+        assert_eq!(rotation.retrans, 3);
+        assert_eq!(rotation.seq, 65_536);
+        assert_eq!(rotation.rst, 1);
+        assert_eq!(rotation.time_secs, 60);
+        assert_eq!(rotation.candidates.len(), 3);
+        assert_eq!(
+            rotation.candidates[0].tcp_steps,
+            build_tlsrec_hostfake_candidate(&minimal_ui_config(), true).chains.tcp_steps
+        );
+        assert_eq!(
+            rotation.candidates[1].tcp_steps,
+            build_tlsrec_fake_rich_candidate(&minimal_ui_config()).chains.tcp_steps
+        );
+        assert_eq!(rotation.candidates[2].tcp_steps, build_split_host_candidate(&minimal_ui_config()).chains.tcp_steps);
     }
 
     #[test]
