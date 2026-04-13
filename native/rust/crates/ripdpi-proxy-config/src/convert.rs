@@ -864,6 +864,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
             seq: rotation.seq,
             rst: rotation.rst,
             time_secs: rotation.time_secs,
+            cancel_on_failure: rotation.cancel_on_failure.unwrap_or(true),
             candidates,
         });
     }
@@ -1242,7 +1243,7 @@ fn parse_proxy_tcp_chain(
             fragment_count,
             min_fragment_size,
             max_fragment_size,
-            inter_segment_delay_ms: step.inter_segment_delay_ms.min(100),
+            inter_segment_delay_ms: step.inter_segment_delay_ms.min(500),
             ip_frag_disorder: false,
             ipv6_hop_by_hop: ipv6_ext.hop_by_hop,
             ipv6_dest_opt: ipv6_ext.dest_opt,

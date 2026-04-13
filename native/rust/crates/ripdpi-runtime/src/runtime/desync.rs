@@ -878,6 +878,9 @@ fn execute_tcp_actions(
                         ip_id_mode,
                     );
                 }
+                DesyncAction::Delay(ms) => {
+                    std::thread::sleep(Duration::from_millis(u64::from(*ms)));
+                }
             }
         }
         Ok(bytes_committed)
@@ -2045,6 +2048,9 @@ fn execute_tcp_plan(
                     "tls prelude step must not appear in tcp send plan",
                 )));
             }
+        }
+        if configured_step.inter_segment_delay_ms > 0 && index + 1 < plan.steps.len() {
+            std::thread::sleep(Duration::from_millis(u64::from(configured_step.inter_segment_delay_ms.min(500))));
         }
         cursor = end;
     }
@@ -4070,5 +4076,35 @@ mod tests {
         assert_eq!(segments[1].sequence_offset, 0);
         assert_eq!(segments[2].sequence_offset, 2);
         assert_eq!(segments[3].sequence_offset, 3);
+    }
+
+    #[test]
+    fn actions_delay_does_not_affect_bytes_committed() {
+        let (mut client, mut server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let actions = vec![
+            DesyncAction::Write(b"hello".to_vec()),
+            DesyncAction::Delay(1), // 1ms delay
+            DesyncAction::Write(b"world".to_vec()),
+        ];
+        let result = execute_tcp_actions(
+            &mut client,
+            &actions,
+            64,
+            false,
+            Duration::from_millis(50),
+            None,
+            &unavailable,
+            false,
+            None,
+            None,
+        );
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), 5); // last write's len (write_transport_payload returns per-call bytes)
+
+        let mut buf = vec![0u8; 10];
+        use std::io::Read;
+        server.read_exact(&mut buf).expect("read_exact");
+        assert_eq!(&buf, b"helloworld");
     }
 }

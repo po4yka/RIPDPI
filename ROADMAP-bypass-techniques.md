@@ -344,7 +344,7 @@ on constrained Android devices where tcpdump isn't available.
 
 ### 9. Execution Plan Cancellation (mid-stream)
 
-**Status:** [ ] Not started
+**Status:** [x] Implemented -- desync_suppressed flag on CircularTcpRotationController; cancel_on_failure policy field (default true); suppresses desync on failure until rotation completes
 **Priority:** Medium
 **Crate:** `ripdpi-desync`, `ripdpi-runtime`
 
@@ -417,7 +417,7 @@ has no exclusion mechanism.
 
 ### 12. Timer/Delay-Based Evasion
 
-**Status:** [ ] Not started
+**Status:** [x] Implemented -- DesyncAction::Delay(u16) in planner and both execution paths; extends inter_segment_delay_ms to all step kinds; config cap raised to 500ms; delayed split probe candidates added
 **Priority:** Medium
 **Crate:** `ripdpi-desync`
 
