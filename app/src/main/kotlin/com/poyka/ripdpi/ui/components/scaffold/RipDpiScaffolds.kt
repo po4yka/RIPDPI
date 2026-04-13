@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
+import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 enum class RipDpiScaffoldWidth {
@@ -242,6 +245,42 @@ fun RipDpiIntroScaffold(
             horizontalAlignment = Alignment.CenterHorizontally,
             content = footer,
         )
+    }
+}
+
+@Composable
+fun RipDpiAdaptiveColumns(
+    modifier: Modifier = Modifier,
+    primaryWeight: Float = 0.55f,
+    spacing: androidx.compose.ui.unit.Dp = RipDpiThemeTokens.spacing.lg,
+    primary: @Composable ColumnScope.() -> Unit,
+    secondary: @Composable ColumnScope.() -> Unit,
+) {
+    val grouping = RipDpiThemeTokens.layout.contentGrouping
+    if (grouping == RipDpiContentGrouping.SplitColumns) {
+        Row(
+            modifier = modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing),
+        ) {
+            Column(
+                modifier = Modifier.weight(primaryWeight).fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.layout.sectionGap),
+                content = primary,
+            )
+            Column(
+                modifier = Modifier.weight(1f - primaryWeight).fillMaxHeight(),
+                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.layout.sectionGap),
+                content = secondary,
+            )
+        }
+    } else {
+        Column(
+            modifier = modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.layout.sectionGap),
+        ) {
+            primary()
+            secondary()
+        }
     }
 }
 
