@@ -13,10 +13,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -39,11 +43,20 @@ fun StageProgressIndicator(
             durationMillis = motion.duration(motion.stateDurationMillis),
         )
 
+    val resources = LocalContext.current.resources
     val description =
         buildString {
-            append("$completedCount passed")
-            if (failedCount > 0) append(", $failedCount failed")
-            if (pendingCount > 0) append(", $pendingCount pending")
+            append(resources.getQuantityString(R.plurals.stage_passed_count, completedCount, completedCount))
+            if (failedCount >
+                0
+            ) {
+                append(resources.getQuantityString(R.plurals.stage_failed_count, failedCount, failedCount))
+            }
+            if (pendingCount >
+                0
+            ) {
+                append(resources.getQuantityString(R.plurals.stage_pending_count, pendingCount, pendingCount))
+            }
         }
 
     Column(
@@ -52,6 +65,7 @@ fun StageProgressIndicator(
                 .fillMaxWidth()
                 .semantics(mergeDescendants = true) {
                     contentDescription = description
+                    liveRegion = LiveRegionMode.Polite
                 },
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {

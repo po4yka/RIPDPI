@@ -124,7 +124,6 @@ private fun IconOptionCell(
                     modifier =
                         Modifier
                             .align(Alignment.TopEnd)
-                            .offset(x = 2.dp, y = (-2).dp)
                             .size(18.dp)
                             .clip(RipDpiThemeTokens.shapes.full)
                             .background(colors.foreground),
