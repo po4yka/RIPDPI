@@ -13,6 +13,7 @@ import androidx.compose.ui.platform.LocalWindowInfo
 @Composable
 fun RipDpiTheme(
     themePreference: String = "system",
+    contrastLevel: RipDpiContrastLevel = RipDpiContrastLevel.Standard,
     content: @Composable () -> Unit,
 ) {
     val isDark =
@@ -35,7 +36,8 @@ fun RipDpiTheme(
     }
 
     val colorScheme = if (isDark) ripDpiDarkColorScheme() else ripDpiLightColorScheme()
-    val extendedColors = if (isDark) DarkRipDpiExtendedColors else LightRipDpiExtendedColors
+    val baseColors = if (isDark) DarkRipDpiExtendedColors else LightRipDpiExtendedColors
+    val extendedColors = baseColors.adjustForContrast(contrastLevel, isDark)
     val density = LocalDensity.current
     val screenWidthDp =
         with(density) {
@@ -49,6 +51,7 @@ fun RipDpiTheme(
 
     CompositionLocalProvider(
         LocalRipDpiExtendedColors provides extendedColors,
+        LocalRipDpiContrastLevel provides contrastLevel,
         LocalRipDpiTextStyles provides RipDpiTypeScale,
         LocalRipDpiSpacing provides DefaultRipDpiSpacing,
         LocalRipDpiLayout provides layout,
@@ -86,4 +89,7 @@ object RipDpiThemeTokens {
 
     val motion: RipDpiMotion
         @Composable get() = LocalRipDpiMotion.current
+
+    val contrastLevel: RipDpiContrastLevel
+        @Composable get() = LocalRipDpiContrastLevel.current
 }
