@@ -1441,6 +1441,32 @@ private fun HomeStatsGrid(uiState: MainUiState) {
                 value = routeValue,
             )
         }
+        HomeStatCard(
+            modifier = Modifier.fillMaxWidth(),
+            label = stringResource(R.string.home_stat_quality),
+            value = connectionQualityLabel(uiState.connectionState),
+            valueColor = connectionQualityColor(uiState.connectionState),
+        )
+    }
+}
+
+@Composable
+private fun connectionQualityLabel(state: ConnectionState): String =
+    when (state) {
+        ConnectionState.Connected -> stringResource(R.string.home_quality_excellent)
+        ConnectionState.Connecting -> stringResource(R.string.home_quality_connecting)
+        ConnectionState.Disconnected -> stringResource(R.string.home_quality_offline)
+        ConnectionState.Error -> stringResource(R.string.home_quality_offline)
+    }
+
+@Composable
+private fun connectionQualityColor(state: ConnectionState): Color {
+    val colors = RipDpiThemeTokens.colors
+    return when (state) {
+        ConnectionState.Connected -> colors.success
+        ConnectionState.Connecting -> colors.warning
+        ConnectionState.Disconnected -> colors.mutedForeground
+        ConnectionState.Error -> colors.destructive
     }
 }
 
@@ -1449,6 +1475,7 @@ private fun HomeStatCard(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
+    valueColor: Color? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -1464,7 +1491,7 @@ private fun HomeStatCard(
             Text(
                 text = value,
                 style = type.monoValue,
-                color = colors.foreground,
+                color = valueColor ?: colors.foreground,
             )
         }
     }

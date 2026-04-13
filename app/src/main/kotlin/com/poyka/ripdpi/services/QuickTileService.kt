@@ -91,6 +91,19 @@ class QuickTileService :
             }
         qsTile.apply {
             this.state = tileState
+            label =
+                when (state) {
+                    QuickTileVisualState.Active -> getString(R.string.qs_tile_label_connected)
+                    else -> getString(R.string.qs_tile_label_disconnected)
+                }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                subtitle =
+                    when (state) {
+                        QuickTileVisualState.Active -> getString(R.string.qs_tile_subtitle_tap_disconnect)
+                        QuickTileVisualState.Inactive -> getString(R.string.qs_tile_subtitle_tap_connect)
+                        QuickTileVisualState.Unavailable -> null
+                    }
+            }
             updateTile()
         }
     }

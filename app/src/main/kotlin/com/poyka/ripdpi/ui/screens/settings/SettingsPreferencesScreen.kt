@@ -42,6 +42,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -98,6 +99,7 @@ fun SettingsRoute(
         onFullTunnelModeChanged = viewModel::setFullTunnelMode,
         onBiometricChanged = viewModel::setBiometricEnabled,
         onSaveBackupPin = viewModel::setBackupPin,
+        onResetSettings = viewModel::resetSettings,
         modifier = modifier,
     )
 }
@@ -124,6 +126,7 @@ internal fun SettingsScreen(
     onFullTunnelModeChanged: (Boolean) -> Unit,
     onBiometricChanged: (Boolean) -> Unit,
     onSaveBackupPin: (String) -> Unit,
+    onResetSettings: () -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
@@ -136,6 +139,7 @@ internal fun SettingsScreen(
                 RipDpiDropdownOption(value = value, label = label)
             }
         }
+    var showResetConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var showBiometricConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var showPinRequiredDialog by rememberSaveable { mutableStateOf(false) }
     var backupPinDraft by rememberSaveable { mutableStateOf("") }
@@ -511,6 +515,43 @@ internal fun SettingsScreen(
                 )
             }
         }
+        item {
+            SettingsSection(
+                title = stringResource(R.string.settings_danger_section),
+            ) {
+                SettingsRow(
+                    title = stringResource(R.string.settings_reset_title),
+                    subtitle = stringResource(R.string.settings_reset_body),
+                    value = stringResource(R.string.settings_reset_action),
+                    onClick = { showResetConfirmDialog = true },
+                )
+            }
+        }
+    }
+
+    if (showResetConfirmDialog) {
+        RipDpiDialog(
+            onDismissRequest = { showResetConfirmDialog = false },
+            title = stringResource(R.string.settings_reset_dialog_title),
+            visuals =
+                RipDpiDialogVisuals(
+                    message = stringResource(R.string.settings_reset_dialog_body),
+                    tone = RipDpiDialogTone.Destructive,
+                ),
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.settings_reset_confirm),
+                    onClick = {
+                        onResetSettings()
+                        showResetConfirmDialog = false
+                    },
+                ),
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.config_cancel),
+                    onClick = { showResetConfirmDialog = false },
+                ),
+        )
     }
 }
 

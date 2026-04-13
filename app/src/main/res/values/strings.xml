@@ -306,6 +306,11 @@
     <string name="home_stat_traffic">Traffic</string>
     <string name="home_stat_mode">Mode</string>
     <string name="home_stat_route">Route</string>
+    <string name="home_stat_quality">Quality</string>
+    <string name="home_quality_excellent">Excellent</string>
+    <string name="home_quality_good">Good</string>
+    <string name="home_quality_connecting">Connecting</string>
+    <string name="home_quality_offline">Offline</string>
     <string name="home_mode_vpn">Local VPN</string>
     <string name="home_mode_proxy">Local proxy</string>
     <string name="home_route_local">On-device</string>
@@ -2039,4 +2044,15 @@ Source: %2$s</string>
     <string name="shortcut_diagnostics">Run Diagnostics</string>
     <string name="shortcut_diagnostics_short">Diagnostics</string>
     <string name="shortcut_diagnostics_disabled">Diagnostics unavailable</string>
+    <string name="settings_danger_section">Danger Zone</string>
+    <string name="settings_reset_title">Reset all settings</string>
+    <string name="settings_reset_body">Restore all settings to their default values</string>
+    <string name="settings_reset_action">Reset</string>
+    <string name="settings_reset_dialog_title">Reset all settings?</string>
+    <string name="settings_reset_dialog_body">This will restore all settings to their default values. Your connection will be stopped and all customizations will be lost.</string>
+    <string name="settings_reset_confirm">Reset</string>
+    <string name="qs_tile_label_connected">RIPDPI: Connected</string>
+    <string name="qs_tile_label_disconnected">RIPDPI</string>
+    <string name="qs_tile_subtitle_tap_connect">Tap to connect</string>
+    <string name="qs_tile_subtitle_tap_disconnect">Tap to disconnect</string>
 </resources>
