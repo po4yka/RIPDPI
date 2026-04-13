@@ -209,12 +209,9 @@ jobs:
         if: failure()
         run: |
           if ! python3 scripts/ci/verify_native_bloat.py --dump-current > /tmp/native-bloat-baseline.json; then
-            python3 - <<'PY' > /tmp/native-bloat-baseline.json
-            import json
-            print(json.dumps({
-                "error": "verify_native_bloat.py --dump-current failed; see job log for compiler output",
-            }, indent=2))
-            PY
+            printf '%s\n' '{' \
+              '  "error": "verify_native_bloat.py --dump-current failed; see job log for compiler output"' \
+              '}' > /tmp/native-bloat-baseline.json
           fi
 
       - name: Upload native bloat baseline (on failure)
