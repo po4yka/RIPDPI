@@ -266,7 +266,7 @@ private fun <T> rememberDropdownVisualState(
             when {
                 errorText != null -> colors.destructive
                 (expanded || isFocused) && isInteractive -> colors.foreground
-                else -> MaterialTheme.colorScheme.outlineVariant
+                else -> colors.outlineVariant
             },
         supportingText = errorText ?: helperText,
         supportingColor = if (errorText != null) colors.destructive else colors.mutedForeground,

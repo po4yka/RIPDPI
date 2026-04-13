@@ -26,30 +26,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Dns
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.NetworkCheck
-import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.Videocam
-import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,7 +47,6 @@ import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -86,6 +66,7 @@ import com.poyka.ripdpi.core.detection.community.CommunityStats
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
@@ -96,8 +77,10 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val historyEntryLimit = 5
@@ -209,27 +192,20 @@ private fun DetectionCheckScreen(
         )
     }
 
-    Scaffold(
+    RipDpiScreenScaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.title_detection_check)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = null)
-                    }
-                },
+            com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar(
+                title = stringResource(R.string.title_detection_check),
+                navigationIcon = RipDpiIcons.Back,
+                onNavigationClick = onBack,
+                navigationContentDescription = stringResource(R.string.navigation_back),
                 actions = {
-                    IconButton(onClick = { showMethodologyDialog = true }) {
-                        Icon(
-                            Icons.Filled.Info,
-                            contentDescription =
-                                stringResource(
-                                    R.string.detection_methodology_info,
-                                ),
-                        )
-                    }
+                    RipDpiIconButton(
+                        icon = RipDpiIcons.Info,
+                        contentDescription = stringResource(R.string.detection_methodology_info),
+                        onClick = { showMethodologyDialog = true },
+                    )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = colors.background),
             )
         },
     ) { innerPadding ->
@@ -506,7 +482,6 @@ private fun VerdictScoreCard(
                     Text(
                         text = "$animatedScore",
                         style = type.screenTitle,
-                        fontWeight = FontWeight.Bold,
                         color = scoreColor,
                     )
                 }
@@ -592,7 +567,7 @@ private fun CollapsibleCategoryCards(result: DetectionCheckResult) {
                     stringResource(R.string.detection_check_category_geoip),
                     result.geoIp,
                     "geoip",
-                    Icons.Filled.Public,
+                    RipDpiIcons.Public,
                 ),
             )
             add(
@@ -600,7 +575,7 @@ private fun CollapsibleCategoryCards(result: DetectionCheckResult) {
                     stringResource(R.string.detection_check_category_direct),
                     result.directSigns,
                     "direct",
-                    Icons.Filled.Visibility,
+                    RipDpiIcons.Visibility,
                 ),
             )
             add(
@@ -608,7 +583,7 @@ private fun CollapsibleCategoryCards(result: DetectionCheckResult) {
                     stringResource(R.string.detection_check_category_indirect),
                     result.indirectSigns,
                     "indirect",
-                    Icons.Filled.NetworkCheck,
+                    RipDpiIcons.NetworkCheck,
                 ),
             )
             add(
@@ -616,7 +591,7 @@ private fun CollapsibleCategoryCards(result: DetectionCheckResult) {
                     stringResource(R.string.detection_check_category_location),
                     result.locationSignals,
                     "location",
-                    Icons.Filled.LocationOn,
+                    RipDpiIcons.LocationOn,
                 ),
             )
             result.dnsLeak?.let {
@@ -625,7 +600,7 @@ private fun CollapsibleCategoryCards(result: DetectionCheckResult) {
                         stringResource(R.string.detection_check_category_dns_leak),
                         it,
                         "dns",
-                        Icons.Filled.Dns,
+                        RipDpiIcons.Dns,
                     ),
                 )
             }
@@ -635,7 +610,7 @@ private fun CollapsibleCategoryCards(result: DetectionCheckResult) {
                         stringResource(R.string.detection_check_category_webrtc),
                         it,
                         "webrtc",
-                        Icons.Filled.Videocam,
+                        RipDpiIcons.Videocam,
                     ),
                 )
             }
@@ -645,7 +620,7 @@ private fun CollapsibleCategoryCards(result: DetectionCheckResult) {
                         stringResource(R.string.detection_check_category_tls),
                         it,
                         "tls",
-                        Icons.Filled.Lock,
+                        RipDpiIcons.Lock,
                     ),
                 )
             }
@@ -655,7 +630,7 @@ private fun CollapsibleCategoryCards(result: DetectionCheckResult) {
                         stringResource(R.string.detection_check_category_timing),
                         it,
                         "timing",
-                        Icons.Filled.Timer,
+                        RipDpiIcons.Timer,
                     ),
                 )
             }
@@ -663,7 +638,7 @@ private fun CollapsibleCategoryCards(result: DetectionCheckResult) {
 
     CollapsibleCard(
         title = stringResource(R.string.detection_check_category_bypass),
-        icon = Icons.Filled.Shield,
+        icon = RipDpiIcons.Shield,
         detected = result.bypassResult.detected,
         needsReview = result.bypassResult.needsReview,
         key = "bypass",
@@ -800,7 +775,7 @@ private fun HistoryCard(entries: List<DetectionHistoryEntry>) {
                             when {
                                 diff > 0 -> {
                                     Triple(
-                                        Icons.Filled.KeyboardArrowUp,
+                                        RipDpiIcons.KeyboardArrowUp,
                                         stringResource(R.string.detection_score_improved),
                                         colors.success,
                                     )
@@ -808,14 +783,14 @@ private fun HistoryCard(entries: List<DetectionHistoryEntry>) {
 
                                 diff < 0 -> {
                                     Triple(
-                                        Icons.Filled.KeyboardArrowDown,
+                                        RipDpiIcons.KeyboardArrowDown,
                                         stringResource(R.string.detection_score_degraded),
                                         colors.destructive,
                                     )
                                 }
 
                                 else -> {
-                                    Triple(Icons.Filled.Remove, null, colors.mutedForeground)
+                                    Triple(RipDpiIcons.Remove, null, colors.mutedForeground)
                                 }
                             }
                         Icon(icon, contentDescription = desc, modifier = Modifier.size(16.dp), tint = tint)
@@ -823,7 +798,6 @@ private fun HistoryCard(entries: List<DetectionHistoryEntry>) {
                     Text(
                         "${entry.stealthScore}",
                         style = type.bodyEmphasis,
-                        fontWeight = FontWeight.Bold,
                         color = scoreColor,
                     )
                 }

@@ -100,7 +100,7 @@ fun RipDpiButton(
     val borderColor =
         when {
             !isInteractive && variant == RipDpiButtonVariant.Outline -> colors.border
-            isFocused -> MaterialTheme.colorScheme.outline
+            isFocused -> colors.outline
             variant == RipDpiButtonVariant.Outline -> colors.border
             else -> Color.Transparent
         }

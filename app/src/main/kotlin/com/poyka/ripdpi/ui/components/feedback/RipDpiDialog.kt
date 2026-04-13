@@ -176,7 +176,7 @@ private fun RipDpiModalIconBadge(
     val components = RipDpiThemeTokens.components
     val containerColor =
         when (tone) {
-            RipDpiDialogTone.Destructive -> MaterialTheme.colorScheme.error.copy(alpha = 0.12f)
+            RipDpiDialogTone.Destructive -> colors.destructiveContainer
 
             RipDpiDialogTone.Info,
             RipDpiDialogTone.Default,
@@ -184,7 +184,7 @@ private fun RipDpiModalIconBadge(
         }
     val iconTint =
         when (tone) {
-            RipDpiDialogTone.Destructive -> MaterialTheme.colorScheme.error
+            RipDpiDialogTone.Destructive -> colors.destructive
 
             RipDpiDialogTone.Info,
             RipDpiDialogTone.Default,

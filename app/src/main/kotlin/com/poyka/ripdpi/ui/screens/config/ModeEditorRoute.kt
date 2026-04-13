@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -81,6 +80,8 @@ import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -187,44 +188,40 @@ fun ModeEditorRoute(
     }
 
     pendingPkcs12Uri?.let { uri ->
-        AlertDialog(
+        RipDpiDialog(
             onDismissRequest = {
                 pendingPkcs12Uri = null
                 pkcs12Password = ""
             },
-            title = { Text(text = stringResource(R.string.config_relay_masque_pkcs12_dialog_title)) },
-            text = {
-                RipDpiTextField(
-                    value = pkcs12Password,
-                    onValueChange = { pkcs12Password = it },
-                    decoration =
-                        RipDpiTextFieldDecoration(
-                            label = stringResource(R.string.config_relay_masque_pkcs12_password),
-                            helperText = stringResource(R.string.config_relay_masque_pkcs12_password_helper),
-                        ),
-                )
-            },
-            confirmButton = {
-                RipDpiButton(
-                    text = stringResource(R.string.config_relay_import),
+            title = stringResource(R.string.config_relay_masque_pkcs12_dialog_title),
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.config_relay_import),
                     onClick = {
                         viewModel.importRelayMasquePkcs12(uri, pkcs12Password)
                         pendingPkcs12Uri = null
                         pkcs12Password = ""
                     },
-                )
-            },
-            dismissButton = {
-                RipDpiButton(
-                    text = stringResource(R.string.config_cancel),
+                ),
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.config_cancel),
                     onClick = {
                         pendingPkcs12Uri = null
                         pkcs12Password = ""
                     },
-                    variant = RipDpiButtonVariant.Outline,
-                )
-            },
-        )
+                ),
+        ) {
+            RipDpiTextField(
+                value = pkcs12Password,
+                onValueChange = { pkcs12Password = it },
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = stringResource(R.string.config_relay_masque_pkcs12_password),
+                        helperText = stringResource(R.string.config_relay_masque_pkcs12_password_helper),
+                    ),
+            )
+        }
     }
 
     ModeEditorScreen(
