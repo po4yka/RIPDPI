@@ -149,6 +149,7 @@ RIPDPI's current Android and native strategy stack includes:
 - runtime TCP-state branching on TCP steps through `ActivationFilter` predicates such as timestamp, ECH, window, and MSS checks
 - circular mid-connection TCP rotation that swaps fallback chains between outbound rounds on the same socket
 - per-step TCP flag crafting for both fake packets and original payload packets, with canonical named masks and a primary-step Advanced Settings chip editor when the chain is visually representable
+- group-wide IPv4 ID control for raw IPv4 packets, including exact `seqgroup` promotion so mixed fake/original TCP flows share one real ID sequence
 - richer fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
 - built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
 - host-targeted fake chunks (`hostfake`) and Linux/Android-focused `fakedsplit` / `fakeddisorder` approximations

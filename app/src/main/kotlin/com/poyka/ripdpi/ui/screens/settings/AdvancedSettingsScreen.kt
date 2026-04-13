@@ -151,6 +151,7 @@ internal enum class AdvancedOptionSetting {
     TcpFlagsUnset,
     TcpFlagsOrigSet,
     TcpFlagsOrigUnset,
+    IpIdMode,
     HttpFakeProfile,
     FakeTlsBase,
     FakeTlsSniMode,
@@ -233,6 +234,7 @@ private data class AdvancedSettingsContentState(
     val httpFakeProfileOptions: List<RipDpiDropdownOption<String>>,
     val fakeTlsSniModeOptions: List<RipDpiDropdownOption<String>>,
     val tlsFakeProfileOptions: List<RipDpiDropdownOption<String>>,
+    val ipIdModeOptions: List<RipDpiDropdownOption<String>>,
     val hostsOptions: List<RipDpiDropdownOption<String>>,
     val warpRouteModeOptions: List<RipDpiDropdownOption<String>>,
     val warpEndpointSelectionOptions: List<RipDpiDropdownOption<String>>,
@@ -331,6 +333,11 @@ private fun rememberAdvancedSettingsContentState(uiState: SettingsUiState): Adva
             rememberSettingsOptions(
                 labelArrayRes = R.array.tls_fake_profiles,
                 valueArrayRes = R.array.tls_fake_profiles_entries,
+            ),
+        ipIdModeOptions =
+            rememberSettingsOptions(
+                labelArrayRes = R.array.ip_id_modes,
+                valueArrayRes = R.array.ip_id_modes_entries,
             ),
         hostsOptions =
             rememberSettingsOptions(
@@ -469,6 +476,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsPrima
         fakeTlsBaseOptions = contentState.fakeTlsBaseOptions,
         fakeTlsSniModeOptions = contentState.fakeTlsSniModeOptions,
         tlsFakeProfileOptions = contentState.tlsFakeProfileOptions,
+        ipIdModeOptions = contentState.ipIdModeOptions,
         udpFakeProfileOptions = contentState.udpFakeProfileOptions,
         onToggleChanged = actions.onToggleChanged,
         onTextConfirmed = actions.onTextConfirmed,

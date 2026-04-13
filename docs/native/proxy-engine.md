@@ -277,6 +277,54 @@ Equivalent JSON fragment:
 }
 ```
 
+### IPv4 ID control
+
+RIPDPI also exposes a group-wide IPv4 Identification mode on the fake-packet
+surface. This is intentionally not a per-step DSL field because the policy
+belongs to the shared raw IPv4 packet builders.
+
+- Supported values: empty/default, `seq`, `seqgroup`, `rnd`, `zero`
+- Kotlin / JSON field: `ipIdMode`
+- Proto field: `ip_id_mode`
+- UI surface: Advanced Settings fake-packet selector
+
+Allocator semantics:
+
+- The main runtime owns a per-flow IPv4 ID allocator.
+- One unfragmented IPv4 datagram consumes one ID.
+- One IPv4 fragment pair consumes one shared ID.
+- Multi-packet fake batches consume contiguous IDs in transmit order.
+- IPv6 ignores this setting because there is no IPv6 IP ID field.
+
+Mode behavior:
+
+- `seq`: monotonic per-flow IDs for raw-built IPv4 datagrams
+- `seqgroup`: same monotonic sequence, but mixed fake+original TCP paths
+  promote the original payload onto the raw/TCP_REPAIR replacement-socket path
+  so fake and original packets participate in the exact same ID stream
+- `rnd`: randomized non-zero IDs
+- `zero`: always write ID `0`
+
+Fail-closed behavior:
+
+- `seqgroup` correctness is prioritized over partial compatibility.
+- If a mixed fake+original TCP technique would need raw promotion to keep exact
+  sequencing and the required raw/TCP_REPAIR path is unavailable, RIPDPI fails
+  that send closed instead of silently emitting a kernel-stream original with a
+  mismatched ID.
+- Root-helper IPC takes explicit IPv4 identification values from the main
+  runtime so rooted and non-rooted paths consume the same reserved sequence.
+
+Example JSON:
+
+```json
+{
+  "fakePackets": {
+    "ipIdMode": "seqgroup"
+  }
+}
+```
+
 ### Markers and chains
 
 The runtime now supports:
@@ -285,6 +333,7 @@ The runtime now supports:
 - adaptive markers such as `auto(balanced)` and `auto(host)` that resolve per payload from live `TCP_INFO`
 - ordered TCP and UDP chain steps with per-step activation filters, runtime TCP-state predicates on TCP steps, and group activation windows
 - general TCP flag crafting for both fake packets and original payload packets through per-step set/unset masks
+- group-wide IPv4 ID control for raw IPv4 TCP and fragmentation paths, including exact `seqgroup` promotion for mixed fake/original flows
 - grouped `multidisorder` TCP runs where each contiguous terminal step contributes one marker and the runtime sends the resulting regions in reverse order
 
 #### TCP chain step kinds (complete reference)
@@ -475,6 +524,7 @@ The fake-transport path now includes:
 - built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
 - richer fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
 - fixed or adaptive fake TTL for TCP fake sends (see Auto TTL above)
+- optional IPv4 ID control (`seq`, `seqgroup`, `rnd`, `zero`) for raw IPv4 fake and fragmentation paths
 - `md5sig`, fake offset markers, and QUIC fake Initial profile selection
 - `fake_host_template` for custom SNI in hostfake steps
 - `midhost_offset` for precise host-field split positioning in hostfake

@@ -74,6 +74,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             fakeTlsPadEncap = fakeTlsPadEncap,
             fakeTlsSize = fakeTlsSize,
             fakeTlsSniMode = effectiveFakeTlsSniMode(),
+            ipIdMode = effectiveIpIdMode(),
             httpFakeProfile = effectiveHttpFakeProfile(),
             tlsFakeProfile = effectiveTlsFakeProfile(),
             oobData = oobData,
@@ -335,6 +336,7 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setFakeTlsPadEncap(fakeTlsPadEncap)
         .setFakeTlsSize(fakeTlsSize)
         .setFakeTlsSniMode(normalizeFakeTlsSniMode(fakeTlsSniMode))
+        .setIpIdMode(normalizeIpIdMode(ipIdMode))
         .setHttpFakeProfile(normalizeHttpFakeProfile(httpFakeProfile))
         .setTlsFakeProfile(normalizeTlsFakeProfile(tlsFakeProfile))
         .setOobData(oobData)

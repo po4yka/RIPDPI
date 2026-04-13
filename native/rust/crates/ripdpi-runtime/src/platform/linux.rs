@@ -421,6 +421,7 @@ pub fn send_fake_rst(
     default_ttl: u8,
     protect_path: Option<&str>,
     flags: TcpFlagOverrides,
+    ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
     let source = stream.local_addr()?;
     let target = stream.peer_addr()?;
@@ -434,7 +435,7 @@ pub fn send_fake_rst(
             src: source,
             dst: target,
             ttl,
-            identification: fragment_identification(source, target, 0),
+            identification: ipv4_identification.map_or_else(|| fragment_identification(source, target, 0), u32::from),
             sequence_number: snapshot.sequence_number,
             acknowledgment_number: snapshot.acknowledgment_number,
             window_size: 0,
@@ -554,11 +555,12 @@ pub fn send_fake_tcp(
         return Ok(());
     }
 
-    let requires_raw_flags = !options.fake_flags.is_empty() || !options.orig_flags.is_empty();
-    if requires_raw_flags || options.secondary_fake_prefix.is_some() || options.timestamp_delta_ticks.is_some() {
+    let requires_exact_raw_path =
+        !options.fake_flags.is_empty() || !options.orig_flags.is_empty() || options.require_raw_path;
+    if requires_exact_raw_path || options.secondary_fake_prefix.is_some() || options.timestamp_delta_ticks.is_some() {
         match send_fake_tcp_via_raw_packets(stream, original_prefix, fake_prefix, ttl, md5sig, options, wait) {
             Ok(()) => return Ok(()),
-            Err(error) if requires_raw_flags => return Err(error),
+            Err(error) if requires_exact_raw_path => return Err(error),
             Err(error) if should_fallback_raw_fake_tcp(error.kind()) => {
                 tracing::debug!("falling back to stream fake TCP path after raw fake downgrade: {error}");
             }
@@ -676,14 +678,17 @@ fn send_fake_tcp_via_raw_packets(
 
         let timestamp = mutate_fake_timestamp(snapshot.options.timestamp, options.timestamp_delta_ticks)?;
         let mut packets = Vec::with_capacity(
-            1 + usize::from(options.secondary_fake_prefix.is_some()) + usize::from(!options.orig_flags.is_empty()),
+            1 + usize::from(options.secondary_fake_prefix.is_some())
+                + usize::from(options.force_raw_original || !options.orig_flags.is_empty()),
         );
-        let base_identification = fragment_identification(source, target, original_prefix.len());
+        let mut identifications = options.ipv4_identifications.iter().copied();
         packets.push(build_tcp_segment_packet(
             source,
             target,
             ttl,
-            base_identification,
+            identifications
+                .next()
+                .map_or_else(|| fragment_identification(source, target, original_prefix.len()), u32::from),
             snapshot.sequence_number,
             snapshot.acknowledgment_number,
             snapshot.window_size,
@@ -698,7 +703,9 @@ fn send_fake_tcp_via_raw_packets(
                 source,
                 target,
                 ttl,
-                base_identification.wrapping_add(1),
+                identifications
+                    .next()
+                    .map_or_else(|| fragment_identification(source, target, secondary_fake_prefix.len()), u32::from),
                 snapshot.sequence_number,
                 snapshot.acknowledgment_number,
                 snapshot.window_size,
@@ -710,7 +717,7 @@ fn send_fake_tcp_via_raw_packets(
             )?);
         }
 
-        if options.orig_flags.is_empty() {
+        if options.orig_flags.is_empty() && !options.force_raw_original {
             send_raw_packets(target, packets.iter().map(Vec::as_slice), options.protect_path)?;
             use std::io::Write;
             (&*stream).write_all(original_prefix)?;
@@ -719,7 +726,9 @@ fn send_fake_tcp_via_raw_packets(
                 source,
                 target,
                 ttl,
-                base_identification.wrapping_add(2),
+                identifications
+                    .next()
+                    .map_or_else(|| fragment_identification(source, target, original_prefix.len()), u32::from),
                 snapshot.sequence_number,
                 snapshot.acknowledgment_number,
                 snapshot.window_size,
@@ -772,6 +781,7 @@ pub fn send_flagged_tcp_payload(
     protect_path: Option<&str>,
     md5sig: bool,
     flags: TcpFlagOverrides,
+    ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
     if payload.is_empty() {
         return Ok(());
@@ -795,7 +805,7 @@ pub fn send_flagged_tcp_payload(
             source,
             target,
             ttl,
-            fragment_identification(source, target, payload.len()),
+            ipv4_identification.map_or_else(|| fragment_identification(source, target, payload.len()), u32::from),
             snapshot.sequence_number,
             snapshot.acknowledgment_number,
             snapshot.window_size,
@@ -835,6 +845,7 @@ pub fn send_ip_fragmented_udp(
     protect_path: Option<&str>,
     disorder: bool,
     ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
+    ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
     let source = upstream.local_addr()?;
     let ttl = resolve_raw_ttl(default_ttl);
@@ -843,7 +854,8 @@ pub fn send_ip_fragmented_udp(
             src: source,
             dst: target,
             ttl,
-            identification: fragment_identification(source, target, payload.len()),
+            identification: ipv4_identification
+                .map_or_else(|| fragment_identification(source, target, payload.len()), u32::from),
             ipv6_ext,
         },
         payload,
@@ -866,6 +878,7 @@ pub fn send_ip_fragmented_tcp(
     disorder: bool,
     ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
     flags: TcpFlagOverrides,
+    ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
     if payload.is_empty() {
         return Ok(());
@@ -886,7 +899,8 @@ pub fn send_ip_fragmented_tcp(
                 src: source,
                 dst: target,
                 ttl,
-                identification: fragment_identification(source, target, payload.len()),
+                identification: ipv4_identification
+                    .map_or_else(|| fragment_identification(source, target, payload.len()), u32::from),
                 sequence_number: snapshot.sequence_number,
                 acknowledgment_number: snapshot.acknowledgment_number,
                 window_size: snapshot.window_size,
@@ -928,6 +942,7 @@ pub fn send_multi_disorder_tcp(
     inter_segment_delay_ms: u32,
     md5sig: bool,
     flags: TcpFlagOverrides,
+    ipv4_identifications: &[u16],
 ) -> io::Result<()> {
     if payload.is_empty() {
         return Ok(());
@@ -948,7 +963,17 @@ pub fn send_multi_disorder_tcp(
     set_tcp_repair(fd, TCP_REPAIR_ON)?;
     let result = (|| -> io::Result<()> {
         let snapshot = snapshot_tcp_repair_state(fd)?;
-        let packets = build_multi_disorder_packets(source, target, ttl, payload, segments, &snapshot, md5sig, flags)?;
+        let packets = build_multi_disorder_packets(
+            source,
+            target,
+            ttl,
+            payload,
+            segments,
+            &snapshot,
+            md5sig,
+            flags,
+            ipv4_identifications,
+        )?;
         let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
         send_raw_packets_with_delay(
             target,
@@ -974,6 +999,7 @@ pub fn send_seqovl_tcp(
     protect_path: Option<&str>,
     md5sig: bool,
     flags: TcpFlagOverrides,
+    ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
     if real_chunk.is_empty() {
         return Ok(());
@@ -998,7 +1024,7 @@ pub fn send_seqovl_tcp(
         overlap_payload.extend_from_slice(fake_prefix);
         overlap_payload.extend_from_slice(real_chunk);
 
-        let identification = snapshot.sequence_number;
+        let identification = ipv4_identification.map_or(snapshot.sequence_number, u32::from);
         let packet = build_tcp_segment_packet(
             source,
             target,
@@ -1420,6 +1446,7 @@ fn build_multi_disorder_packets(
     snapshot: &TcpRepairSnapshot,
     md5sig: bool,
     flags: TcpFlagOverrides,
+    ipv4_identifications: &[u16],
 ) -> io::Result<Vec<Vec<u8>>> {
     let mut cursor = 0usize;
     let base_identification = fragment_identification(source, target, payload.len());
@@ -1434,7 +1461,10 @@ fn build_multi_disorder_packets(
             source,
             target,
             ttl,
-            base_identification.wrapping_add(index as u32),
+            ipv4_identifications
+                .get(index)
+                .copied()
+                .map_or_else(|| base_identification.wrapping_add(index as u32), u32::from),
             sequence_number,
             snapshot.acknowledgment_number,
             snapshot.window_size,
