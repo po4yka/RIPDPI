@@ -90,6 +90,16 @@ class RipDpiProxyNativeBindings
             jniUpdateNetworkSnapshot(handle, snapshotJson)
         }
 
+        external fun jniStartPcapRecording(
+            handle: Long,
+            dirPath: String,
+            maxBytes: Long,
+        ): Boolean
+
+        external fun jniStopPcapRecording(handle: Long): String?
+
+        external fun jniIsPcapRecording(handle: Long): Boolean
+
         private external fun jniCreate(configJson: String): Long
 
         private external fun jniStart(handle: Long): Int

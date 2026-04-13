@@ -124,6 +124,7 @@ internal data class DiagnosticsArchiveSelection(
     val sessionContextModel: DiagnosticContextModel?,
     val buildProvenance: DiagnosticsArchiveBuildProvenance,
     val sessionSelectionStatus: DiagnosticsArchiveSessionSelectionStatus,
+    val pcapFiles: List<File> = emptyList(),
     val homeRunId: String? = null,
     val homeCompositeOutcome: DiagnosticsHomeCompositeOutcome? = null,
     val compositeStages: List<DiagnosticsArchiveCompositeStageSelection> = emptyList(),

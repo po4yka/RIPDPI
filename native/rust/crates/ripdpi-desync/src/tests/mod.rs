@@ -45,22 +45,9 @@ pub(super) fn tcp_context(payload: &[u8]) -> ActivationContext {
 
 pub(super) fn tlsrandrec_step(marker: i64, count: i32, min_size: i32, max_size: i32) -> TcpChainStep {
     TcpChainStep {
-        kind: TcpChainStepKind::TlsRandRec,
-        offset: OffsetExpr::absolute(marker),
-        activation_filter: None,
-        midhost_offset: None,
-        fake_host_template: None,
-        overlap_size: 0,
-        seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
         fragment_count: count,
         min_fragment_size: min_size,
         max_fragment_size: max_size,
-        inter_segment_delay_ms: 0,
-        ip_frag_disorder: false,
-        ipv6_hop_by_hop: false,
-        ipv6_dest_opt: false,
-        ipv6_dest_opt2: false,
-        ipv6_routing: false,
-        ipv6_frag_next_override: None,
+        ..TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::absolute(marker))
     }
 }

@@ -86,11 +86,38 @@ fn build_fake_packet_padencap_keeps_valid_tls() {
 
 #[test]
 fn build_hostfake_bytes_preserves_length_and_template_suffix() {
-    let fake = build_hostfake_bytes(b"video.example.com", Some("googlevideo.com"), 17);
+    let fake = build_hostfake_bytes(b"video.example.com", Some("googlevideo.com"), 17, false);
 
     assert_eq!(fake.len(), b"video.example.com".len());
     assert!(fake.iter().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-')));
     assert!(std::str::from_utf8(&fake).unwrap().ends_with("video.com"));
+}
+
+#[test]
+fn build_hostfake_bytes_random_produces_varying_output() {
+    let host = b"video.example.com";
+    let a = build_hostfake_bytes(host, None, 42, true);
+    let b = build_hostfake_bytes(host, None, 42, true);
+    assert_ne!(a, b);
+    assert_eq!(a.len(), host.len());
+    assert_eq!(b.len(), host.len());
+}
+
+#[test]
+fn build_hostfake_bytes_random_preserves_length_with_template() {
+    let host = b"long.subdomain.example.com";
+    let fake = build_hostfake_bytes(host, Some("cdn.net"), 0, true);
+    assert_eq!(fake.len(), host.len());
+    assert!(fake.iter().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'.' | b'-')));
+    assert!(std::str::from_utf8(&fake).unwrap().ends_with("cdn.net"));
+}
+
+#[test]
+fn build_hostfake_bytes_deterministic_unchanged_with_false() {
+    let host = b"video.example.com";
+    let a = build_hostfake_bytes(host, Some("googlevideo.com"), 17, false);
+    let b = build_hostfake_bytes(host, Some("googlevideo.com"), 17, false);
+    assert_eq!(a, b);
 }
 
 #[test]

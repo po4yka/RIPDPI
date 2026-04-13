@@ -197,6 +197,7 @@ fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         tcp_flags_set: String::new(),
         tcp_flags_unset: String::new(),
         tcp_flags_orig_set: String::new(),
+        random_fake_host: false,
         tcp_flags_orig_unset: String::new(),
         overlap_size: 0,
         fake_mode: String::new(),

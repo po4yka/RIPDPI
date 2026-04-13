@@ -344,6 +344,13 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
         candidate_spec("tlsrec_fakeddisorder", "TLS record + fakeddisorder", "fake_approx", tlsrec_fakeddisorder),
         candidate_spec("tlsrec_fakedsplit", "TLS record + fakedsplit", "fake_approx", tlsrec_fakedsplit),
         candidate_spec("tlsrec_hostfake", "TLS record + hostfake", "hostfake", tlsrec_hostfake),
+        candidate_spec_with_notes(
+            "tlsrec_hostfake_random",
+            "TLS record + hostfake (random)",
+            "hostfake",
+            build_tlsrec_hostfake_random_candidate(base),
+            vec!["Random domain per connection defeats DPI fake-SNI caching"],
+        ),
         candidate_spec("parser_only", "Parser-only", "parser", parser_only),
         candidate_spec("parser_hostpad", "Parser + Host Pad", "parser", parser_hostpad),
         candidate_spec("parser_unixeol", "Parser + Unix EOL", "parser_aggressive", parser_unixeol),
@@ -917,12 +924,21 @@ pub(crate) fn build_tlsrec_hostfake_candidate(base: &ProxyUiConfig, with_split: 
             activation_filter: None,
             inter_segment_delay_ms: 0,
             ipv6_extension_profile: "none".to_string(),
+            random_fake_host: false,
         },
     ];
     if with_split {
         steps.push(tcp_step("split", "midsld"));
     }
     config.chains.tcp_steps = steps;
+    config
+}
+
+pub(crate) fn build_tlsrec_hostfake_random_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = build_tlsrec_hostfake_candidate(base, false);
+    if let Some(step) = config.chains.tcp_steps.iter_mut().find(|s| s.kind == "hostfake") {
+        step.random_fake_host = true;
+    }
     config
 }
 
@@ -957,6 +973,7 @@ pub(crate) fn build_tlsrec_seqovl_candidate(base: &ProxyUiConfig, marker: &str) 
             }),
             inter_segment_delay_ms: 0,
             ipv6_extension_profile: "none".to_string(),
+            random_fake_host: false,
         },
     ];
     config
@@ -1261,6 +1278,7 @@ pub(crate) fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
         activation_filter: None,
         inter_segment_delay_ms: 0,
         ipv6_extension_profile: "none".to_string(),
+        random_fake_host: false,
     }
 }
 

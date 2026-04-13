@@ -245,6 +245,8 @@ pub struct ProxyUiTcpChainStep {
     pub activation_filter: Option<ProxyUiActivationFilter>,
     #[serde(default = "default_ipv6_extension_profile")]
     pub ipv6_extension_profile: String,
+    #[serde(default)]
+    pub random_fake_host: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -1091,6 +1093,7 @@ fn default_tcp_chain_steps() -> Vec<ProxyUiTcpChainStep> {
             inter_segment_delay_ms: 0,
             activation_filter: None,
             ipv6_extension_profile: default_ipv6_extension_profile(),
+            random_fake_host: false,
         },
         ProxyUiTcpChainStep {
             kind: "fake".to_string(),
@@ -1111,6 +1114,7 @@ fn default_tcp_chain_steps() -> Vec<ProxyUiTcpChainStep> {
             inter_segment_delay_ms: 0,
             activation_filter: None,
             ipv6_extension_profile: default_ipv6_extension_profile(),
+            random_fake_host: false,
         },
     ]
 }

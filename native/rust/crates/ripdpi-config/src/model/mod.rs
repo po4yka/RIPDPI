@@ -311,6 +311,10 @@ pub struct TcpChainStep {
     pub ipv6_routing: bool,
     /// Override second fragment's next_header (IPv6 only, RFC 8200 forgery).
     pub ipv6_frag_next_override: Option<u8>,
+    /// When true, seed fake hostname generation from OS entropy instead of the
+    /// deterministic connection seed, producing a different domain per connection
+    /// that cannot be predicted or cached by DPI.
+    pub random_fake_host: bool,
 }
 
 impl TcpChainStep {
@@ -339,6 +343,7 @@ impl TcpChainStep {
             ipv6_dest_opt2: false,
             ipv6_routing: false,
             ipv6_frag_next_override: None,
+            random_fake_host: false,
         }
     }
 }

@@ -5,25 +5,7 @@ fn tcp_context_with_hint(payload: &[u8], tcp_segment_hint: TcpSegmentHint) -> Ac
 }
 
 fn seqovl_step(pos: i64) -> TcpChainStep {
-    TcpChainStep {
-        kind: TcpChainStepKind::SeqOverlap,
-        offset: split_expr(pos),
-        activation_filter: None,
-        midhost_offset: None,
-        fake_host_template: None,
-        overlap_size: 12,
-        seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
-        fragment_count: 0,
-        min_fragment_size: 0,
-        max_fragment_size: 0,
-        inter_segment_delay_ms: 0,
-        ip_frag_disorder: false,
-        ipv6_hop_by_hop: false,
-        ipv6_dest_opt: false,
-        ipv6_dest_opt2: false,
-        ipv6_routing: false,
-        ipv6_frag_next_override: None,
-    }
+    TcpChainStep { overlap_size: 12, ..TcpChainStep::new(TcpChainStepKind::SeqOverlap, split_expr(pos)) }
 }
 
 #[test]
@@ -150,43 +132,17 @@ fn plan_tcp_tlsrandrec_supports_adaptive_marker_resolution() {
     let markers = tls_marker_info(DEFAULT_FAKE_TLS).expect("tls markers");
     let mut auto_group = DesyncGroup::new(0);
     auto_group.actions.tcp_chain = vec![TcpChainStep {
-        kind: TcpChainStepKind::TlsRandRec,
-        offset: OffsetExpr::adaptive(OffsetBase::AutoSniExt),
-        activation_filter: None,
-        midhost_offset: None,
-        fake_host_template: None,
-        overlap_size: 0,
-        seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
         fragment_count: 4,
         min_fragment_size: 16,
         max_fragment_size: 32,
-        inter_segment_delay_ms: 0,
-        ip_frag_disorder: false,
-        ipv6_hop_by_hop: false,
-        ipv6_dest_opt: false,
-        ipv6_dest_opt2: false,
-        ipv6_routing: false,
-        ipv6_frag_next_override: None,
+        ..TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))
     }];
     let mut explicit_group = DesyncGroup::new(0);
     explicit_group.actions.tcp_chain = vec![TcpChainStep {
-        kind: TcpChainStepKind::TlsRandRec,
-        offset: OffsetExpr::marker(OffsetBase::SniExt, 0),
-        activation_filter: None,
-        midhost_offset: None,
-        fake_host_template: None,
-        overlap_size: 0,
-        seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
         fragment_count: 4,
         min_fragment_size: 16,
         max_fragment_size: 32,
-        inter_segment_delay_ms: 0,
-        ip_frag_disorder: false,
-        ipv6_hop_by_hop: false,
-        ipv6_dest_opt: false,
-        ipv6_dest_opt2: false,
-        ipv6_routing: false,
-        ipv6_frag_next_override: None,
+        ..TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::marker(OffsetBase::SniExt, 0))
     }];
 
     let auto_plan = plan_tcp(
@@ -824,28 +780,13 @@ fn plan_tcp_step_activation_filter_skips_tls_prelude_only() {
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain = vec![
         TcpChainStep {
-            kind: TcpChainStepKind::TlsRec,
-            offset: OffsetExpr::marker(OffsetBase::ExtLen, 0),
             activation_filter: Some(ActivationFilter {
                 round: Some(NumericRange::new(2, 3)),
                 payload_size: None,
                 stream_bytes: None,
                 ..Default::default()
             }),
-            midhost_offset: None,
-            fake_host_template: None,
-            overlap_size: 0,
-            seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
-            fragment_count: 0,
-            min_fragment_size: 0,
-            max_fragment_size: 0,
-            inter_segment_delay_ms: 0,
-            ip_frag_disorder: false,
-            ipv6_hop_by_hop: false,
-            ipv6_dest_opt: false,
-            ipv6_dest_opt2: false,
-            ipv6_routing: false,
-            ipv6_frag_next_override: None,
+            ..TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0))
         },
         TcpChainStep::new(TcpChainStepKind::Split, split_expr(4)),
     ];
@@ -970,23 +911,9 @@ fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
     let mut group = DesyncGroup::new(0);
     group.actions.ttl = Some(9);
     group.actions.tcp_chain = vec![TcpChainStep {
-        kind: TcpChainStepKind::HostFake,
-        offset: OffsetExpr::marker(OffsetBase::PayloadEnd, 0),
-        activation_filter: None,
         midhost_offset: Some(OffsetExpr::marker(OffsetBase::MidSld, 0)),
         fake_host_template: Some("googlevideo.com".to_string()),
-        overlap_size: 0,
-        seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
-        fragment_count: 0,
-        min_fragment_size: 0,
-        max_fragment_size: 0,
-        inter_segment_delay_ms: 0,
-        ip_frag_disorder: false,
-        ipv6_hop_by_hop: false,
-        ipv6_dest_opt: false,
-        ipv6_dest_opt2: false,
-        ipv6_routing: false,
-        ipv6_frag_next_override: None,
+        ..TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0))
     }];
 
     let plan = plan_tcp(&group, payload, 23, 32, tcp_context(payload)).expect("plan hostfake");
@@ -1001,7 +928,8 @@ fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
             DesyncAction::Write(build_hostfake_bytes(
                 &payload[markers.host_start..markers.host_end],
                 Some("googlevideo.com"),
-                23
+                23,
+                false,
             )),
             DesyncAction::AwaitWritable,
             DesyncAction::RestoreDefaultTtl,
@@ -1014,7 +942,8 @@ fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
             DesyncAction::Write(build_hostfake_bytes(
                 &payload[markers.host_start..markers.host_end],
                 Some("googlevideo.com"),
-                23
+                23,
+                false,
             )),
             DesyncAction::AwaitWritable,
             DesyncAction::RestoreDefaultTtl,
@@ -1030,25 +959,8 @@ fn hostfake_degrades_to_split_when_step_ends_before_endhost() {
     let payload = b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
     let markers = http_marker_info(payload).expect("http markers");
     let mut group = DesyncGroup::new(0);
-    group.actions.tcp_chain = vec![TcpChainStep {
-        kind: TcpChainStepKind::HostFake,
-        offset: OffsetExpr::marker(OffsetBase::Host, 0),
-        activation_filter: None,
-        midhost_offset: None,
-        fake_host_template: None,
-        overlap_size: 0,
-        seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
-        fragment_count: 0,
-        min_fragment_size: 0,
-        max_fragment_size: 0,
-        inter_segment_delay_ms: 0,
-        ip_frag_disorder: false,
-        ipv6_hop_by_hop: false,
-        ipv6_dest_opt: false,
-        ipv6_dest_opt2: false,
-        ipv6_routing: false,
-        ipv6_frag_next_override: None,
-    }];
+    group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::Host, 0))];
 
     let plan = plan_tcp(&group, payload, 9, 32, tcp_context(payload)).expect("plan degraded hostfake");
 

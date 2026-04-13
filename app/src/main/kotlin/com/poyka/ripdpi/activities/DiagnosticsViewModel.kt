@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -242,6 +243,9 @@ class DiagnosticsViewModel
                 initialValue = DiagnosticsUiState(),
             )
 
+        private val _pcapRecording = MutableStateFlow(false)
+        val pcapRecording: StateFlow<Boolean> = _pcapRecording.asStateFlow()
+
         private val mutations =
             DiagnosticsMutationRunner(
                 scope = viewModelScope,
@@ -361,6 +365,10 @@ class DiagnosticsViewModel
         fun shareArchive(sessionId: String? = null) = shareActions.shareArchive(sessionId)
 
         fun saveArchive(sessionId: String? = null) = shareActions.saveArchive(sessionId)
+
+        fun togglePcapRecording() {
+            _pcapRecording.value = !_pcapRecording.value
+        }
     }
 
 private fun buildCurrentServiceTelemetry(

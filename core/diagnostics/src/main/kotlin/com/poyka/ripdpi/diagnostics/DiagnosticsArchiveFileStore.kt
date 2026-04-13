@@ -33,6 +33,30 @@ class DiagnosticsArchiveFileStore(
             .forEach { it.delete() }
     }
 
+    internal fun getRecentPcapFiles(maxFiles: Int = 3): List<File> {
+        val pcapDir = File(cacheDir, "diagnostics")
+        if (!pcapDir.exists()) return emptyList()
+        return pcapDir
+            .listFiles()
+            .orEmpty()
+            .filter { it.isFile && it.extension == "pcap" }
+            .sortedByDescending { it.lastModified() }
+            .take(maxFiles)
+    }
+
+    fun cleanupPcapFiles() {
+        val pcapDir = File(cacheDir, "diagnostics")
+        if (!pcapDir.exists()) return
+        val now = clock.now()
+        val maxAge = 24L * 60L * 60L * 1000L
+        pcapDir
+            .listFiles()
+            .orEmpty()
+            .filter { it.isFile && it.extension == "pcap" }
+            .filter { now - it.lastModified() > maxAge }
+            .forEach { it.delete() }
+    }
+
     internal fun createTarget(): DiagnosticsArchiveTarget {
         val createdAt = clock.now()
         val fileName = "${DiagnosticsArchiveFormat.fileNamePrefix}$createdAt.zip"
