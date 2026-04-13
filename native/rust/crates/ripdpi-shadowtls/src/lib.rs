@@ -6,7 +6,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use rand::RngCore;
+use rand::Rng;
 #[cfg(test)]
 use ring::digest::{Context as DigestContext, SHA256};
 use ring::hmac::{self, Key};
