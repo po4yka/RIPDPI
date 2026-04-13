@@ -78,9 +78,12 @@ def cargo_environment(repo_root: Path, target: str) -> dict[str, str]:
         raise ValueError(f"Unsupported Android Rust target for cargo-bloat: {target}")
 
     linker = ndk_bin_dir / f"{clang_target}{min_sdk}-clang"
+    cxx_linker = ndk_bin_dir / f"{clang_target}{min_sdk}-clang++"
     ar = ndk_bin_dir / "llvm-ar"
     if not linker.is_file():
         raise ValueError(f"Android linker not found: {linker}")
+    if not cxx_linker.is_file():
+        raise ValueError(f"Android C++ linker not found: {cxx_linker}")
     if not ar.is_file():
         raise ValueError(f"Android archiver not found: {ar}")
 
@@ -89,6 +92,7 @@ def cargo_environment(repo_root: Path, target: str) -> dict[str, str]:
     env.update(
         {
             f"CC_{target_env}": str(linker),
+            f"CXX_{target_env}": str(cxx_linker),
             f"AR_{target_env}": str(ar),
             f"CARGO_TARGET_{target_env.upper()}_LINKER": str(linker),
             f"CARGO_TARGET_{target_env.upper()}_AR": str(ar),
@@ -96,6 +100,16 @@ def cargo_environment(repo_root: Path, target: str) -> dict[str, str]:
         },
     )
     return env
+
+
+def build_error_report(target: str, profile: str, error: Exception) -> dict:
+    return {
+        "target": target,
+        "profile": profile,
+        "packages": {},
+        "failures": [str(error)],
+        "analysisError": str(error),
+    }
 
 
 def parse_bloat_output(output: str) -> dict:
@@ -451,10 +465,22 @@ def main() -> int:
         raise ValueError(f"Native bloat baseline not found: {baseline_path}")
 
     baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
-    report = build_bloat_report(repo_root, baseline)
+    try:
+        report = build_bloat_report(repo_root, baseline)
+    except Exception as exc:
+        report = build_error_report(baseline["target"], baseline["profile"], exc)
+        if args.report_json:
+            Path(args.report_json).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.report_json).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+        if args.report_md:
+            Path(args.report_md).parent.mkdir(parents=True, exist_ok=True)
+            Path(args.report_md).write_text(render_bloat_report_markdown(report), encoding="utf-8")
+        raise
     if args.report_json:
+        Path(args.report_json).parent.mkdir(parents=True, exist_ok=True)
         Path(args.report_json).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     if args.report_md:
+        Path(args.report_md).parent.mkdir(parents=True, exist_ok=True)
         Path(args.report_md).write_text(render_bloat_report_markdown(report), encoding="utf-8")
     if report["failures"]:
         raise ValueError("\n".join(report["failures"]))
