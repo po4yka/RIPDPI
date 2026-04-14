@@ -372,7 +372,9 @@ class StubDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunServic
 
     override suspend fun evictCachedOutcome(fingerprintHash: String) = Unit
 
-    override suspend fun startQuickAnalysis(): DiagnosticsHomeCompositeRunStarted {
+    override suspend fun startQuickAnalysis(
+        options: com.poyka.ripdpi.diagnostics.DiagnosticsHomeRunOptions,
+    ): DiagnosticsHomeCompositeRunStarted {
         startFailure?.let { throw it }
         val runId = nextRunId
         startedRunIds += runId
@@ -387,7 +389,9 @@ class StubDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunServic
         return DiagnosticsHomeCompositeRunStarted(runId)
     }
 
-    override suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted {
+    override suspend fun startHomeAnalysis(
+        options: com.poyka.ripdpi.diagnostics.DiagnosticsHomeRunOptions,
+    ): DiagnosticsHomeCompositeRunStarted {
         startFailure?.let { throw it }
         val runId = nextRunId
         startedRunIds += runId

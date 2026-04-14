@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeProgress
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunService
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeRunStatus
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageStatus
+import com.poyka.ripdpi.diagnostics.DiagnosticsHomeRunOptions
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeVerificationOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
@@ -48,6 +49,7 @@ internal data class HomeDiagnosticsRuntimeState(
     val currentFingerprintHash: String? = null,
     val externalScanActive: Boolean = false,
     val externalScanMessage: String? = null,
+    val pcapRecordingRequested: Boolean = false,
 )
 
 internal class MainHomeDiagnosticsActions(
@@ -247,6 +249,7 @@ internal class MainHomeDiagnosticsActions(
     fun runFullAnalysis() {
         mutations.launch {
             activeRunObservation?.cancel()
+            val pcapRequested = homeDiagnosticsState.value.pcapRecordingRequested
             homeDiagnosticsState.update {
                 it.copy(
                     activeRunId = null,
@@ -262,7 +265,9 @@ internal class MainHomeDiagnosticsActions(
                 )
             }
             runCatching {
-                diagnosticsHomeCompositeRunService.startHomeAnalysis()
+                diagnosticsHomeCompositeRunService.startHomeAnalysis(
+                    DiagnosticsHomeRunOptions(pcapRecordingRequested = pcapRequested),
+                )
             }.onSuccess { started ->
                 homeDiagnosticsState.update {
                     it.copy(
@@ -312,6 +317,7 @@ internal class MainHomeDiagnosticsActions(
     fun runQuickAnalysis() {
         mutations.launch {
             activeRunObservation?.cancel()
+            val pcapRequested = homeDiagnosticsState.value.pcapRecordingRequested
             homeDiagnosticsState.update {
                 it.copy(
                     activeRunId = null,
@@ -327,7 +333,9 @@ internal class MainHomeDiagnosticsActions(
                 )
             }
             runCatching {
-                diagnosticsHomeCompositeRunService.startQuickAnalysis()
+                diagnosticsHomeCompositeRunService.startQuickAnalysis(
+                    DiagnosticsHomeRunOptions(pcapRecordingRequested = pcapRequested),
+                )
             }.onSuccess { started ->
                 homeDiagnosticsState.update {
                     it.copy(
@@ -371,6 +379,12 @@ internal class MainHomeDiagnosticsActions(
                     }
                 mutations.emit(MainEffect.ShowError(message))
             }
+        }
+    }
+
+    fun togglePcapRecording() {
+        homeDiagnosticsState.update { current ->
+            current.copy(pcapRecordingRequested = !current.pcapRecordingRequested)
         }
     }
 
@@ -602,7 +616,10 @@ internal fun buildHomeDiagnosticsUiState(
         }
 
     val quickScanBusy = analysisBusy && runtime.quickScanActive
+    val pcapToggleVisible = settings.rootModeEnabled
     return HomeDiagnosticsUiState(
+        pcapRecordingRequested = runtime.pcapRecordingRequested,
+        pcapToggleVisible = pcapToggleVisible,
         analysisAction =
             HomeDiagnosticsActionUiState(
                 label = stringResolver.getString(R.string.home_diagnostics_run_analysis),
@@ -696,6 +713,23 @@ internal fun buildHomeDiagnosticsUiState(
                         completedStageCount = outcome.completedStageCount,
                         failedStageCount = outcome.failedStageCount,
                         shareBusy = runtime.shareBusy,
+                        detectionVerdict =
+                            outcome.detectionVerdict?.let { verdict ->
+                                stringResolver.getString(
+                                    when (verdict) {
+                                        com.poyka.ripdpi.diagnostics.DiagnosticsHomeDetectionVerdict.DETECTED ->
+                                            R.string.home_diagnostics_detection_detected
+                                        com.poyka.ripdpi.diagnostics.DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW ->
+                                            R.string.home_diagnostics_detection_needs_review
+                                        com.poyka.ripdpi.diagnostics.DiagnosticsHomeDetectionVerdict.NOT_DETECTED ->
+                                            R.string.home_diagnostics_detection_not_detected
+                                    },
+                                )
+                            },
+                        detectionFindings = outcome.detectionFindings,
+                        installedVpnDetectorCount = outcome.installedVpnDetectorCount,
+                        installedVpnDetectorTopApps = outcome.installedVpnDetectorTopApps,
+                        pcapRecordingRequested = outcome.pcapRecordingRequested,
                     )
                 },
         verificationSheet =

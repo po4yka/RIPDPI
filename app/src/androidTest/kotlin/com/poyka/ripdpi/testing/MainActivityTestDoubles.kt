@@ -409,10 +409,14 @@ class StubInstrumentedDiagnosticsHomeWorkflowService : DiagnosticsHomeWorkflowSe
 }
 
 class StubInstrumentedDiagnosticsHomeCompositeRunService : DiagnosticsHomeCompositeRunService {
-    override suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted =
+    override suspend fun startHomeAnalysis(
+        options: com.poyka.ripdpi.diagnostics.DiagnosticsHomeRunOptions,
+    ): DiagnosticsHomeCompositeRunStarted =
         DiagnosticsHomeCompositeRunStarted(runId = "test-run")
 
-    override suspend fun startQuickAnalysis(): DiagnosticsHomeCompositeRunStarted =
+    override suspend fun startQuickAnalysis(
+        options: com.poyka.ripdpi.diagnostics.DiagnosticsHomeRunOptions,
+    ): DiagnosticsHomeCompositeRunStarted =
         DiagnosticsHomeCompositeRunStarted(runId = "test-quick-run")
 
     override fun observeHomeRun(runId: String): Flow<DiagnosticsHomeCompositeProgress> =

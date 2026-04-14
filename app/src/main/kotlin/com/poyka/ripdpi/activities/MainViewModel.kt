@@ -137,6 +137,11 @@ data class HomeDiagnosticsAnalysisSheetUiState(
     val completedStageCount: Int = 0,
     val failedStageCount: Int = 0,
     val shareBusy: Boolean = false,
+    val detectionVerdict: String? = null,
+    val detectionFindings: List<String> = emptyList(),
+    val installedVpnDetectorCount: Int? = null,
+    val installedVpnDetectorTopApps: List<String> = emptyList(),
+    val pcapRecordingRequested: Boolean = false,
 )
 
 @Immutable
@@ -157,6 +162,8 @@ data class HomeDiagnosticsUiState(
     val quickScanBusy: Boolean = false,
     val analysisSheet: HomeDiagnosticsAnalysisSheetUiState? = null,
     val verificationSheet: HomeDiagnosticsVerificationSheetUiState? = null,
+    val pcapRecordingRequested: Boolean = false,
+    val pcapToggleVisible: Boolean = false,
 )
 
 @Stable
@@ -443,6 +450,8 @@ class MainViewModel
         fun onRunHomeQuickAnalysis() = homeDiagnosticsActions.runQuickAnalysis()
 
         fun onStartVerifiedVpn() = homeDiagnosticsActions.startVerifiedVpn()
+
+        fun onToggleHomePcapRecording() = homeDiagnosticsActions.togglePcapRecording()
 
         fun onShareHomeAnalysis() = homeDiagnosticsActions.shareLatestHomeAnalysis()
 

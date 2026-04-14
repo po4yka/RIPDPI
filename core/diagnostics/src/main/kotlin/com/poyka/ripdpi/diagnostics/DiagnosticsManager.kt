@@ -175,6 +175,12 @@ data class DiagnosticsHomeCompositeStageSummary(
     val recommendationContributor: Boolean = false,
 )
 
+enum class DiagnosticsHomeDetectionVerdict {
+    NOT_DETECTED,
+    NEEDS_REVIEW,
+    DETECTED,
+}
+
 data class DiagnosticsHomeCompositeOutcome(
     val runId: String,
     val fingerprintHash: String? = null,
@@ -192,6 +198,11 @@ data class DiagnosticsHomeCompositeOutcome(
     val failedStageCount: Int = 0,
     val skippedStageCount: Int = 0,
     val bundleSessionIds: List<String> = emptyList(),
+    val detectionVerdict: DiagnosticsHomeDetectionVerdict? = null,
+    val detectionFindings: List<String> = emptyList(),
+    val installedVpnDetectorCount: Int? = null,
+    val installedVpnDetectorTopApps: List<String> = emptyList(),
+    val pcapRecordingRequested: Boolean = false,
 )
 
 data class DiagnosticsHomeCompositeProgress(
@@ -205,9 +216,9 @@ data class DiagnosticsHomeCompositeProgress(
 )
 
 interface DiagnosticsHomeCompositeRunService {
-    suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted
+    suspend fun startHomeAnalysis(options: DiagnosticsHomeRunOptions = DiagnosticsHomeRunOptions()): DiagnosticsHomeCompositeRunStarted
 
-    suspend fun startQuickAnalysis(): DiagnosticsHomeCompositeRunStarted
+    suspend fun startQuickAnalysis(options: DiagnosticsHomeRunOptions = DiagnosticsHomeRunOptions()): DiagnosticsHomeCompositeRunStarted
 
     fun observeHomeRun(runId: String): Flow<DiagnosticsHomeCompositeProgress>
 
@@ -219,6 +230,10 @@ interface DiagnosticsHomeCompositeRunService {
 
     suspend fun evictCachedOutcome(fingerprintHash: String)
 }
+
+data class DiagnosticsHomeRunOptions(
+    val pcapRecordingRequested: Boolean = false,
+)
 
 @Module
 @InstallIn(SingletonComponent::class)

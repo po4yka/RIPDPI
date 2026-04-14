@@ -131,7 +131,7 @@ internal suspend fun crossValidateHomeStrategy(
     val dpiFullReport =
         decodeReport(
             scanRecordStore,
-            stages.firstOrNull { it.stageKey == HomeCompositeStageSpecs[2].key }?.sessionId,
+            stages.firstOrNull { it.stageKey == "dpi_full" }?.sessionId,
             json,
         )
     val auditProbeHosts =
