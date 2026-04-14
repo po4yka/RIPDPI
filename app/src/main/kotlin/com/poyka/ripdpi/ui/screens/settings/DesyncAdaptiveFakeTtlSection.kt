@@ -29,6 +29,8 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 private data class AdaptiveFakeTtlStatusContent(
     val label: String,
@@ -40,8 +42,8 @@ private data class AdaptiveFakeTtlStatusContent(
 internal fun rememberAdaptiveFakeTtlModeOptions(
     uiState: SettingsUiState,
     includeCustom: Boolean = uiState.fake.hasCustomAdaptiveFakeTtl,
-): List<AdaptiveFakeTtlModeUiModel> =
-    buildList {
+): ImmutableList<AdaptiveFakeTtlModeUiModel> =
+    buildList<AdaptiveFakeTtlModeUiModel> {
         add(
             AdaptiveFakeTtlModeUiModel(
                 value = AdaptiveFakeTtlModeFixed,
@@ -73,7 +75,7 @@ internal fun rememberAdaptiveFakeTtlModeOptions(
                 ),
             )
         }
-    }
+    }.toImmutableList()
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
@@ -313,7 +315,7 @@ private fun rememberAdaptiveFakeTtlStatus(uiState: SettingsUiState): AdaptiveFak
 @Composable
 internal fun AdaptiveFakeTtlModeSelector(
     uiState: SettingsUiState,
-    presets: List<AdaptiveFakeTtlModeUiModel>,
+    presets: ImmutableList<AdaptiveFakeTtlModeUiModel>,
     enabled: Boolean,
     onModeSelected: (String) -> Unit,
     modifier: Modifier = Modifier,

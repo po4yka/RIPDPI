@@ -34,6 +34,8 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 private data class AdaptiveSplitStatusContent(
     val label: String,
@@ -45,8 +47,8 @@ private data class AdaptiveSplitStatusContent(
 internal fun rememberAdaptiveSplitPresetOptions(
     uiState: SettingsUiState,
     includeCustom: Boolean = uiState.desync.hasCustomAdaptiveSplitPreset,
-): List<AdaptiveSplitPresetUiModel> =
-    buildList {
+): ImmutableList<AdaptiveSplitPresetUiModel> =
+    buildList<AdaptiveSplitPresetUiModel> {
         add(
             AdaptiveSplitPresetUiModel(
                 value = AdaptiveSplitPresetManual,
@@ -97,7 +99,7 @@ internal fun rememberAdaptiveSplitPresetOptions(
                 ),
             )
         }
-    }
+    }.toImmutableList()
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
@@ -343,7 +345,7 @@ private fun rememberAdaptiveSplitStatus(uiState: SettingsUiState): AdaptiveSplit
 @Composable
 internal fun AdaptiveSplitPresetSelector(
     uiState: SettingsUiState,
-    presets: List<AdaptiveSplitPresetUiModel>,
+    presets: ImmutableList<AdaptiveSplitPresetUiModel>,
     enabled: Boolean,
     onPresetSelected: (String) -> Unit,
     modifier: Modifier = Modifier,

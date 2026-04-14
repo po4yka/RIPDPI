@@ -67,7 +67,7 @@ private fun RipDpiDesignSystemCatalog(
     includeInteractiveStates: Boolean,
 ) {
     val dropdownOptions =
-        listOf(
+        kotlinx.collections.immutable.persistentListOf(
             RipDpiDropdownOption("auto", "Auto"),
             RipDpiDropdownOption("fake", "desync (fake)"),
             RipDpiDropdownOption("proxy", "SOCKS5 proxy"),

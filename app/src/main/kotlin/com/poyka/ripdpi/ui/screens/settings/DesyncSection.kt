@@ -38,6 +38,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.validateIntRange
+import kotlinx.collections.immutable.ImmutableList
 
 private const val ttlMax = 255
 private const val ttlMin = 1
@@ -53,16 +54,16 @@ internal fun LazyListScope.desyncSection(
     showAdaptiveFakeTtlSection: Boolean,
     showFakePayloadLibrary: Boolean,
     showFakeTlsSection: Boolean,
-    adaptiveSplitPresetOptions: List<AdaptiveSplitPresetUiModel>,
-    adaptiveFakeTtlModeOptions: List<AdaptiveFakeTtlModeUiModel>,
-    httpFakeProfileOptions: List<RipDpiDropdownOption<String>>,
-    fakeTlsBaseOptions: List<RipDpiDropdownOption<String>>,
-    fakeTlsSniModeOptions: List<RipDpiDropdownOption<String>>,
-    tlsFakeProfileOptions: List<RipDpiDropdownOption<String>>,
-    fakeOrderOptions: List<RipDpiDropdownOption<String>>,
-    fakeSeqModeOptions: List<RipDpiDropdownOption<String>>,
-    ipIdModeOptions: List<RipDpiDropdownOption<String>>,
-    udpFakeProfileOptions: List<RipDpiDropdownOption<String>>,
+    adaptiveSplitPresetOptions: ImmutableList<AdaptiveSplitPresetUiModel>,
+    adaptiveFakeTtlModeOptions: ImmutableList<AdaptiveFakeTtlModeUiModel>,
+    httpFakeProfileOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    fakeTlsBaseOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    fakeTlsSniModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    tlsFakeProfileOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    fakeOrderOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    fakeSeqModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    ipIdModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    udpFakeProfileOptions: ImmutableList<RipDpiDropdownOption<String>>,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
     onOptionSelected: (AdvancedOptionSetting, String) -> Unit,

@@ -59,6 +59,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.toImmutableList
 
 private const val backupPinLength = 4
 
@@ -135,9 +136,11 @@ internal fun SettingsScreen(
     val themeEntries = stringArrayResource(R.array.themes_entries)
     val themeOptions =
         remember(themeLabels, themeEntries) {
-            themeLabels.zip(themeEntries).map { (label, value) ->
-                RipDpiDropdownOption(value = value, label = label)
-            }
+            themeLabels
+                .zip(themeEntries)
+                .map { (label, value) ->
+                    RipDpiDropdownOption(value = value, label = label)
+                }.toImmutableList()
         }
     var showResetConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var showBiometricConfirmDialog by rememberSaveable { mutableStateOf(false) }

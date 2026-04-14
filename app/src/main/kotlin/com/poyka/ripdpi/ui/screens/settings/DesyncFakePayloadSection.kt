@@ -27,6 +27,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
 
 private data class FakePayloadLibraryStatusContent(
     val label: String,
@@ -179,7 +180,7 @@ internal fun FakePayloadProfileCard(
     appliesSummary: String,
     interactionSummary: String,
     value: String,
-    options: List<RipDpiDropdownOption<String>>,
+    options: ImmutableList<RipDpiDropdownOption<String>>,
     setting: AdvancedOptionSetting,
     onSelected: (AdvancedOptionSetting, String) -> Unit,
     enabled: Boolean,

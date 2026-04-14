@@ -40,6 +40,8 @@ import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 private const val dropdownDisabledAlpha = 0.38f
 private const val dropdownItemSpacingDp = 8
@@ -52,7 +54,7 @@ data class RipDpiDropdownOption<T>(
 
 @Composable
 fun <T> RipDpiDropdown(
-    options: List<RipDpiDropdownOption<T>>,
+    options: ImmutableList<RipDpiDropdownOption<T>>,
     selectedValue: T?,
     onValueSelected: (T) -> Unit,
     modifier: Modifier = Modifier,
@@ -203,7 +205,7 @@ private fun DropdownField(
 
 @Composable
 private fun <T> DropdownOptionsMenu(
-    options: List<RipDpiDropdownOption<T>>,
+    options: ImmutableList<RipDpiDropdownOption<T>>,
     expanded: Boolean,
     isInteractive: Boolean,
     onValueSelected: (T) -> Unit,
@@ -243,7 +245,7 @@ private fun <T> DropdownOptionsMenu(
 @Composable
 private fun <T> rememberDropdownVisualState(
     selectedValue: T?,
-    options: List<RipDpiDropdownOption<T>>,
+    options: ImmutableList<RipDpiDropdownOption<T>>,
     errorText: String?,
     helperText: String?,
     density: RipDpiControlDensity,
@@ -314,7 +316,7 @@ private fun dropdownHorizontalPadding(
 @Composable
 private fun RipDpiDropdownPreview() {
     val options =
-        listOf(
+        persistentListOf(
             RipDpiDropdownOption("auto", "Auto"),
             RipDpiDropdownOption("fake", "desync (fake)"),
             RipDpiDropdownOption("proxy", "SOCKS5 proxy"),

@@ -45,6 +45,8 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 internal enum class SummaryCapsuleTone {
     Neutral,
@@ -57,14 +59,15 @@ internal enum class SummaryCapsuleTone {
 internal fun rememberSettingsOptions(
     labelArrayRes: Int,
     valueArrayRes: Int,
-): List<RipDpiDropdownOption<String>> {
+): ImmutableList<RipDpiDropdownOption<String>> {
     val labels = stringArrayResource(labelArrayRes)
     val values = stringArrayResource(valueArrayRes)
 
     return remember(labels, values) {
-        labels.zip(values) { label, value ->
-            RipDpiDropdownOption(value = value, label = label)
-        }
+        labels
+            .zip(values) { label, value ->
+                RipDpiDropdownOption(value = value, label = label)
+            }.toImmutableList()
     }
 }
 
@@ -72,7 +75,7 @@ internal fun rememberSettingsOptions(
 internal fun AdvancedDropdownSetting(
     title: String,
     value: String,
-    options: List<RipDpiDropdownOption<String>>,
+    options: ImmutableList<RipDpiDropdownOption<String>>,
     setting: AdvancedOptionSetting,
     onSelected: (AdvancedOptionSetting, String) -> Unit,
     modifier: Modifier = Modifier,

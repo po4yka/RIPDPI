@@ -17,6 +17,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
+import kotlinx.collections.immutable.ImmutableList
 
 private const val warpScannerParallelismMax = 64
 private const val warpScannerRttMinMs = 50
@@ -26,9 +27,9 @@ private const val warpScannerRttMaxMs = 10_000
 internal fun LazyListScope.warpSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
-    routeModeOptions: List<RipDpiDropdownOption<String>>,
-    endpointSelectionOptions: List<RipDpiDropdownOption<String>>,
-    amneziaPresetOptions: List<RipDpiDropdownOption<String>>,
+    routeModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    endpointSelectionOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    amneziaPresetOptions: ImmutableList<RipDpiDropdownOption<String>>,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
