@@ -90,6 +90,10 @@ data class RipDpiComponentMetrics(
     val bottomNavIndicatorHeight: Dp = 28.dp,
     val bottomNavHorizontalPadding: Dp = 0.dp,
     val bottomNavIndicatorTopOffset: Dp = 10.dp,
+    val statusMarkerSmall: Dp = 8.dp,
+    val statusMarkerMedium: Dp = 9.dp,
+    val statusMarkerLarge: Dp = 10.dp,
+    val statusMarkerSpacing: Dp = 8.dp,
 )
 
 object RipDpiStroke {

@@ -482,12 +482,12 @@ data class DiagnosticsLiveUiModel(
     val modeLabel: String? = null,
     val signalLabel: String = "No transfer observed yet",
     val eventSummaryLabel: String = "Runtime feed is quiet",
-    val highlights: List<DiagnosticsMetricUiModel> = emptyList(),
-    val metrics: List<DiagnosticsMetricUiModel> = emptyList(),
-    val trends: List<DiagnosticsSparklineUiModel> = emptyList(),
+    val highlights: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
+    val metrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
+    val trends: ImmutableList<DiagnosticsSparklineUiModel> = persistentListOf(),
     val snapshot: DiagnosticsNetworkSnapshotUiModel? = null,
-    val contextGroups: List<DiagnosticsContextGroupUiModel> = emptyList(),
-    val passiveEvents: List<DiagnosticsEventUiModel> = emptyList(),
+    val contextGroups: ImmutableList<DiagnosticsContextGroupUiModel> = persistentListOf(),
+    val passiveEvents: ImmutableList<DiagnosticsEventUiModel> = persistentListOf(),
 )
 
 @Immutable

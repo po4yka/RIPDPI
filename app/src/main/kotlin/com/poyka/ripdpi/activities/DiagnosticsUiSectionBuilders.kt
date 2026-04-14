@@ -18,6 +18,7 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.rttBand
 import com.poyka.ripdpi.diagnostics.winningStrategyFamily
+import kotlinx.collections.immutable.toImmutableList
 
 private const val MaxOverviewRememberedNetworks = 6
 private const val MaxPassiveEvents = 8
@@ -226,12 +227,12 @@ internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
         modeLabel = currentTelemetry?.activeMode ?: activeConnectionSession?.serviceMode,
         signalLabel = buildLiveSignalLabel(currentTelemetry),
         eventSummaryLabel = buildLiveEventSummaryLabel(nativeEvents),
-        highlights = buildLiveHighlights(currentTelemetry, nativeEvents),
-        metrics = buildLiveMetrics(currentTelemetry),
-        trends = buildLiveTrends(telemetry),
+        highlights = buildLiveHighlights(currentTelemetry, nativeEvents).toImmutableList(),
+        metrics = buildLiveMetrics(currentTelemetry).toImmutableList(),
+        trends = buildLiveTrends(telemetry).toImmutableList(),
         snapshot = latestSnapshot,
-        contextGroups = latestContext?.let(::toLiveContextGroups).orEmpty(),
-        passiveEvents = nativeEvents.take(MaxPassiveEvents).map(::toEventUiModel),
+        contextGroups = latestContext?.let(::toLiveContextGroups).orEmpty().toImmutableList(),
+        passiveEvents = nativeEvents.take(MaxPassiveEvents).map(::toEventUiModel).toImmutableList(),
     )
 }
 

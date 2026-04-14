@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
@@ -32,6 +33,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -107,6 +109,8 @@ private fun LabeledRipDpiSwitch(
     val type = RipDpiThemeTokens.type
     val labelColor = if (errorText != null) colors.destructive else colors.foreground
     val supportingColor = if (errorText != null) colors.destructive else colors.mutedForeground
+    val onLabel = stringResource(R.string.semantic_state_on)
+    val offLabel = stringResource(R.string.semantic_state_off)
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
@@ -145,7 +149,7 @@ private fun LabeledRipDpiSwitch(
                 modifier =
                     Modifier.semantics {
                         label?.let { contentDescription = it }
-                        stateDescription = if (checked) "On" else "Off"
+                        stateDescription = if (checked) onLabel else offLabel
                         errorText?.let { error(it) }
                     },
             )
