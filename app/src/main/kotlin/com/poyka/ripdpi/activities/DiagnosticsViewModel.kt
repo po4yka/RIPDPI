@@ -22,14 +22,15 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -57,9 +58,13 @@ class DiagnosticsViewModel
         private val filterState = MutableStateFlow(FilterState())
         private val sessionDetailState = MutableStateFlow(SessionDetailState())
         private val scanLifecycleState = MutableStateFlow(ScanLifecycleState())
-        private val _effects = Channel<DiagnosticsEffect>(Channel.BUFFERED)
+        private val _effects =
+            MutableSharedFlow<DiagnosticsEffect>(
+                extraBufferCapacity = 1,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
 
-        val effects: Flow<DiagnosticsEffect> = _effects.receiveAsFlow()
+        val effects: SharedFlow<DiagnosticsEffect> = _effects.asSharedFlow()
 
         // --- Tier 1: Group raw flows by emission frequency ---
 

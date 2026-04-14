@@ -10,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.HomeDnsResolverClass
 import com.poyka.ripdpi.diagnostics.HomeNetworkCharacterSummary
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.collections.immutable.toImmutableList
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun buildHomeDiagnosticsUiState(
@@ -146,34 +147,35 @@ internal fun buildHomeDiagnosticsUiState(
             runtime.activeRunProgress?.takeIf { analysisBusy }?.let { progress ->
                 AnalysisProgressUiState(
                     stages =
-                        progress.stages.mapIndexed { stageIndex, stage ->
-                            val stageStatus =
-                                when (stage.status) {
-                                    DiagnosticsHomeCompositeStageStatus.PENDING -> AnalysisStageStatus.PENDING
+                        progress.stages
+                            .mapIndexed { stageIndex, stage ->
+                                val stageStatus =
+                                    when (stage.status) {
+                                        DiagnosticsHomeCompositeStageStatus.PENDING -> AnalysisStageStatus.PENDING
 
-                                    DiagnosticsHomeCompositeStageStatus.RUNNING -> AnalysisStageStatus.RUNNING
+                                        DiagnosticsHomeCompositeStageStatus.RUNNING -> AnalysisStageStatus.RUNNING
 
-                                    DiagnosticsHomeCompositeStageStatus.COMPLETED,
-                                    DiagnosticsHomeCompositeStageStatus.SKIPPED,
-                                    -> AnalysisStageStatus.COMPLETED
+                                        DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                                        DiagnosticsHomeCompositeStageStatus.SKIPPED,
+                                        -> AnalysisStageStatus.COMPLETED
 
-                                    DiagnosticsHomeCompositeStageStatus.FAILED,
-                                    DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
-                                    -> AnalysisStageStatus.FAILED
-                                }
-                            AnalysisStageUiState(
-                                status = stageStatus,
-                                progress =
-                                    if (stageIndex == progress.activeStageIndex) {
-                                        runtime.activeStageStepProgress
-                                    } else {
-                                        when (stageStatus) {
-                                            AnalysisStageStatus.COMPLETED, AnalysisStageStatus.FAILED -> 1f
-                                            else -> 0f
-                                        }
-                                    },
-                            )
-                        },
+                                        DiagnosticsHomeCompositeStageStatus.FAILED,
+                                        DiagnosticsHomeCompositeStageStatus.UNAVAILABLE,
+                                        -> AnalysisStageStatus.FAILED
+                                    }
+                                AnalysisStageUiState(
+                                    status = stageStatus,
+                                    progress =
+                                        if (stageIndex == progress.activeStageIndex) {
+                                            runtime.activeStageStepProgress
+                                        } else {
+                                            when (stageStatus) {
+                                                AnalysisStageStatus.COMPLETED, AnalysisStageStatus.FAILED -> 1f
+                                                else -> 0f
+                                            }
+                                        },
+                                )
+                            }.toImmutableList(),
                     activeStageIndex = progress.activeStageIndex,
                 )
             },

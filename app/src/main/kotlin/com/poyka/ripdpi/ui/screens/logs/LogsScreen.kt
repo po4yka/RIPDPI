@@ -66,7 +66,9 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toPersistentList
 import kotlinx.coroutines.launch
 
 @Composable
@@ -464,6 +466,7 @@ private fun LogsStreamCard(
             itemsIndexed(
                 items = entries,
                 key = { _, entry -> entry.id },
+                contentType = { _, _ -> "log_entry" },
             ) { index, entry ->
                 Column(
                     modifier =
@@ -491,7 +494,7 @@ private fun LogsStreamCard(
     }
 }
 
-private fun metadataChips(entry: LogEntry): List<String> =
+private fun metadataChips(entry: LogEntry): ImmutableList<String> =
     buildList {
         add(entry.source.lowercase())
         add(severityLabelValue(entry.severity))
@@ -500,7 +503,7 @@ private fun metadataChips(entry: LogEntry): List<String> =
         if (entry.isActiveSession) {
             add("active")
         }
-    }
+    }.toPersistentList()
 
 @Composable
 private fun LogsEmptyStateCard(

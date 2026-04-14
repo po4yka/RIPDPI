@@ -44,6 +44,8 @@ import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 private val SegmentHeight = 6.dp
 private val SegmentGap = 4.dp
@@ -62,7 +64,7 @@ private const val FillOriginY = 0.5f
 
 @Composable
 fun AnalysisProgressIndicator(
-    stages: List<AnalysisStageUiState>,
+    stages: ImmutableList<AnalysisStageUiState>,
     activeStageIndex: Int?,
     stageLabel: String,
     modifier: Modifier = Modifier,
@@ -119,7 +121,7 @@ fun AnalysisProgressIndicator(
     }
 }
 
-private fun buildStageDescription(stages: List<AnalysisStageUiState>): String =
+private fun buildStageDescription(stages: ImmutableList<AnalysisStageUiState>): String =
     buildString {
         val completed = stages.count { it.status == AnalysisStageStatus.COMPLETED }
         val failed = stages.count { it.status == AnalysisStageStatus.FAILED }
@@ -183,7 +185,7 @@ private fun rememberPipelineAlphas(allowsInfiniteMotion: Boolean): Pair<Float, F
 
 @Composable
 private fun PipelineRow(
-    stages: List<AnalysisStageUiState>,
+    stages: ImmutableList<AnalysisStageUiState>,
     activeStageIndex: Int?,
     pulseAlpha: Float,
     shimmerAlpha: Float,
@@ -351,7 +353,7 @@ private fun AnalysisProgressIndicatorPreview() {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.lg)) {
             AnalysisProgressIndicator(
                 stages =
-                    listOf(
+                    persistentListOf(
                         AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
                         AnalysisStageUiState(AnalysisStageStatus.RUNNING, progress = 0.6f),
                         AnalysisStageUiState(AnalysisStageStatus.PENDING),
@@ -362,7 +364,7 @@ private fun AnalysisProgressIndicatorPreview() {
             )
             AnalysisProgressIndicator(
                 stages =
-                    listOf(
+                    persistentListOf(
                         AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
                         AnalysisStageUiState(AnalysisStageStatus.FAILED, progress = 1f),
                         AnalysisStageUiState(AnalysisStageStatus.COMPLETED, progress = 1f),
@@ -373,7 +375,7 @@ private fun AnalysisProgressIndicatorPreview() {
             )
             AnalysisProgressIndicator(
                 stages =
-                    listOf(
+                    persistentListOf(
                         AnalysisStageUiState(AnalysisStageStatus.RUNNING, progress = 0.15f),
                         AnalysisStageUiState(AnalysisStageStatus.PENDING),
                         AnalysisStageUiState(AnalysisStageStatus.PENDING),
