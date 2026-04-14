@@ -29,6 +29,8 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 private const val liveHighlightsMaxCount = 4
 
@@ -168,7 +170,7 @@ internal fun LiveHeroCard(live: DiagnosticsLiveUiModel) {
                 color = colors.foreground.copy(alpha = 0.92f),
             )
             if (live.highlights.isNotEmpty()) {
-                LiveHighlightsGrid(highlights = live.highlights.take(liveHighlightsMaxCount))
+                LiveHighlightsGrid(highlights = live.highlights.take(liveHighlightsMaxCount).toImmutableList())
             }
             HorizontalDivider(color = animatedAccent.copy(alpha = 0.14f))
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
@@ -195,7 +197,7 @@ internal fun LiveHeroCard(live: DiagnosticsLiveUiModel) {
 }
 
 @Composable
-internal fun LiveHighlightsGrid(highlights: List<DiagnosticsMetricUiModel>) {
+internal fun LiveHighlightsGrid(highlights: ImmutableList<DiagnosticsMetricUiModel>) {
     TrackRecomposition("LiveHighlightsGrid")
     val spacing = RipDpiThemeTokens.spacing
     val rows = remember(highlights) { highlights.chunked(2) }
