@@ -20,6 +20,8 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 @Suppress("LongMethod")
 internal fun LazyListScope.routingProtectionSection(
@@ -96,8 +98,8 @@ internal fun LazyListScope.routingProtectionSection(
 }
 
 @Composable
-private fun routingProtectionPolicyOptions(): List<RipDpiDropdownOption<String>> =
-    listOf(
+private fun routingProtectionPolicyOptions(): ImmutableList<RipDpiDropdownOption<String>> =
+    persistentListOf(
         RipDpiDropdownOption(
             value = AppRoutingPolicyModePrompt,
             label = stringResource(R.string.routing_protection_policy_prompt_title),
@@ -109,8 +111,8 @@ private fun routingProtectionPolicyOptions(): List<RipDpiDropdownOption<String>>
     )
 
 @Composable
-private fun routingProtectionDhtOptions(): List<RipDpiDropdownOption<String>> =
-    listOf(
+private fun routingProtectionDhtOptions(): ImmutableList<RipDpiDropdownOption<String>> =
+    persistentListOf(
         RipDpiDropdownOption(
             value = DhtMitigationModeOff,
             label = stringResource(R.string.routing_protection_dht_off_title),

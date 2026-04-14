@@ -475,7 +475,7 @@ internal fun LazyListScope.wsTunnelSection(
                 val fallbackLabel = stringResource(R.string.ws_tunnel_mode_fallback)
                 val options =
                     remember(offLabel, alwaysLabel, fallbackLabel) {
-                        listOf(
+                        kotlinx.collections.immutable.persistentListOf(
                             RipDpiDropdownOption("off", offLabel),
                             RipDpiDropdownOption("always", alwaysLabel),
                             RipDpiDropdownOption("fallback", fallbackLabel),

@@ -14,13 +14,14 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
 
 @Composable
 internal fun FakeOrderingProfileCard(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
-    fakeOrderOptions: List<RipDpiDropdownOption<String>>,
-    fakeSeqModeOptions: List<RipDpiDropdownOption<String>>,
+    fakeOrderOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    fakeSeqModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
     onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
