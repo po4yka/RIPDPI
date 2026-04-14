@@ -41,6 +41,8 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 internal const val TlsPreludeModeDisabled = "disabled"
 internal const val HostPackApplyDialogDefaultMode = HostPackApplyModeMerge
@@ -239,23 +241,23 @@ private data class AdvancedSettingsContentState(
     val showFakePayloadLibrary: Boolean,
     val showAdaptiveFakeTtlSection: Boolean,
     val showFakeTlsSection: Boolean,
-    val fakeTlsBaseOptions: List<RipDpiDropdownOption<String>>,
-    val httpFakeProfileOptions: List<RipDpiDropdownOption<String>>,
-    val fakeTlsSniModeOptions: List<RipDpiDropdownOption<String>>,
-    val tlsFakeProfileOptions: List<RipDpiDropdownOption<String>>,
-    val fakeOrderOptions: List<RipDpiDropdownOption<String>>,
-    val fakeSeqModeOptions: List<RipDpiDropdownOption<String>>,
-    val ipIdModeOptions: List<RipDpiDropdownOption<String>>,
-    val hostsOptions: List<RipDpiDropdownOption<String>>,
-    val warpRouteModeOptions: List<RipDpiDropdownOption<String>>,
-    val warpEndpointSelectionOptions: List<RipDpiDropdownOption<String>>,
-    val warpAmneziaPresetOptions: List<RipDpiDropdownOption<String>>,
-    val quicModeOptions: List<RipDpiDropdownOption<String>>,
-    val tlsFingerprintOptions: List<RipDpiDropdownOption<String>>,
-    val entropyModeOptions: List<RipDpiDropdownOption<String>>,
-    val udpFakeProfileOptions: List<RipDpiDropdownOption<String>>,
-    val adaptiveSplitPresetOptions: List<AdaptiveSplitPresetUiModel>,
-    val adaptiveFakeTtlModeOptions: List<AdaptiveFakeTtlModeUiModel>,
+    val fakeTlsBaseOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val httpFakeProfileOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val fakeTlsSniModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val tlsFakeProfileOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val fakeOrderOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val fakeSeqModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val ipIdModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val hostsOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val warpRouteModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val warpEndpointSelectionOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val warpAmneziaPresetOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val quicModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val tlsFingerprintOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val entropyModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val udpFakeProfileOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    val adaptiveSplitPresetOptions: ImmutableList<AdaptiveSplitPresetUiModel>,
+    val adaptiveFakeTtlModeOptions: ImmutableList<AdaptiveFakeTtlModeUiModel>,
 )
 
 @Composable
@@ -377,7 +379,7 @@ private fun rememberTlsFakeProfileOptions() =
 
 @Composable
 private fun rememberFakeOrderOptions() =
-    listOf(
+    persistentListOf(
         RipDpiDropdownOption(FakeOrderDefault, "Altorder 0"),
         RipDpiDropdownOption(FakeOrderAllFakesFirst, "Altorder 1"),
         RipDpiDropdownOption(FakeOrderInterleaveRealFirst, "Altorder 2"),
@@ -386,7 +388,7 @@ private fun rememberFakeOrderOptions() =
 
 @Composable
 private fun rememberFakeSeqModeOptions() =
-    listOf(
+    persistentListOf(
         RipDpiDropdownOption(FakeSeqModeDuplicate, "Duplicate"),
         RipDpiDropdownOption(FakeSeqModeSequential, "Sequential"),
     )

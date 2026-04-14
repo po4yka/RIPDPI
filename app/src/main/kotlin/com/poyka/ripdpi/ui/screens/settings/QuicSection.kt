@@ -27,6 +27,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
 
 internal fun LazyListScope.udpSection() {
     item(key = "advanced_udp") {
@@ -49,7 +50,7 @@ internal fun LazyListScope.quicSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
     showQuicFakeSection: Boolean,
-    quicModeOptions: List<RipDpiDropdownOption<String>>,
+    quicModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,

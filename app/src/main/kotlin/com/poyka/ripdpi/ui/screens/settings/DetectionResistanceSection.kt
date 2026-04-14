@@ -24,13 +24,14 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
 
 @Suppress("LongMethod")
 internal fun LazyListScope.detectionResistanceSection(
     uiState: SettingsUiState,
     visualEditorEnabled: Boolean,
-    tlsFingerprintOptions: List<RipDpiDropdownOption<String>>,
-    entropyModeOptions: List<RipDpiDropdownOption<String>>,
+    tlsFingerprintOptions: ImmutableList<RipDpiDropdownOption<String>>,
+    entropyModeOptions: ImmutableList<RipDpiDropdownOption<String>>,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,

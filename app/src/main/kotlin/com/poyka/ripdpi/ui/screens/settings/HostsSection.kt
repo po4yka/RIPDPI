@@ -34,13 +34,15 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 internal fun LazyListScope.hostsSection(
     uiState: SettingsUiState,
     hostPackCatalog: HostPackCatalogUiState,
     visualEditorEnabled: Boolean,
     hostPackApplyControlsEnabled: Boolean,
-    hostsOptions: List<RipDpiDropdownOption<String>>,
+    hostsOptions: ImmutableList<RipDpiDropdownOption<String>>,
     pendingHostPack: HostPackPreset?,
     onPresetSelected: (HostPackPreset) -> Unit,
     onRefreshHostPackCatalog: () -> Unit,
@@ -410,11 +412,11 @@ private fun HostPackApplyDialogContent(
 }
 
 @Composable
-private fun rememberHostPackTargetOptions(): List<RipDpiDropdownOption<String>> {
+private fun rememberHostPackTargetOptions(): ImmutableList<RipDpiDropdownOption<String>> {
     val blacklistLabel = stringResource(R.string.host_pack_target_blacklist)
     val whitelistLabel = stringResource(R.string.host_pack_target_whitelist)
     return remember(blacklistLabel, whitelistLabel) {
-        listOf(
+        persistentListOf(
             RipDpiDropdownOption(value = HostPackTargetBlacklist, label = blacklistLabel),
             RipDpiDropdownOption(value = HostPackTargetWhitelist, label = whitelistLabel),
         )
@@ -422,11 +424,11 @@ private fun rememberHostPackTargetOptions(): List<RipDpiDropdownOption<String>> 
 }
 
 @Composable
-private fun rememberHostPackApplyModeOptions(): List<RipDpiDropdownOption<String>> {
+private fun rememberHostPackApplyModeOptions(): ImmutableList<RipDpiDropdownOption<String>> {
     val mergeLabel = stringResource(R.string.host_pack_apply_merge)
     val replaceLabel = stringResource(R.string.host_pack_apply_replace)
     return remember(mergeLabel, replaceLabel) {
-        listOf(
+        persistentListOf(
             RipDpiDropdownOption(value = HostPackApplyModeMerge, label = mergeLabel),
             RipDpiDropdownOption(value = HostPackApplyModeReplace, label = replaceLabel),
         )
@@ -448,7 +450,7 @@ private fun hostPackApplySummary(preset: HostPackPreset): String {
 private fun HostPackDialogDropdown(
     title: String,
     value: String,
-    options: List<RipDpiDropdownOption<String>>,
+    options: ImmutableList<RipDpiDropdownOption<String>>,
     onSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
     testTag: String? = null,
