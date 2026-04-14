@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import kotlinx.collections.immutable.toImmutableList
 import javax.inject.Inject
 
 internal class HistoryUiStateFactory
@@ -49,9 +50,9 @@ internal class HistoryUiStateFactory
                                 status = diagnosticsFilters.statusFilter,
                                 query = diagnosticsFilters.search,
                             ),
-                        sessions = filteredDiagnostics,
-                        pathModes = diagnosticsRows.map { it.pathMode }.distinct(),
-                        statuses = diagnosticsRows.map { it.status }.distinct(),
+                        sessions = filteredDiagnostics.toImmutableList(),
+                        pathModes = diagnosticsRows.map { it.pathMode }.distinct().toImmutableList(),
+                        statuses = diagnosticsRows.map { it.status }.distinct().toImmutableList(),
                         focusedSessionId = detailState.selectedDiagnosticsDetail?.session?.id,
                     ),
                 events =
@@ -63,9 +64,9 @@ internal class HistoryUiStateFactory
                                 search = eventFilters.search,
                                 autoScroll = eventFilters.autoScroll,
                             ),
-                        events = filteredEvents,
-                        availableSources = eventModels.map { it.source }.distinct(),
-                        availableSeverities = eventModels.map { it.severity }.distinct(),
+                        events = filteredEvents.toImmutableList(),
+                        availableSources = eventModels.map { it.source }.distinct().toImmutableList(),
+                        availableSeverities = eventModels.map { it.severity }.distinct().toImmutableList(),
                         focusedEventId = detailState.selectedEventId,
                     ),
                 groupedEvents = groupedEvents,

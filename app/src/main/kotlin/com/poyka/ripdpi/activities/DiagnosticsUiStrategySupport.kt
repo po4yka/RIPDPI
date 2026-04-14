@@ -21,6 +21,9 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlinx.collections.immutable.toImmutableMap
 import java.util.Locale
 
 private const val PercentageMultiplier = 100
@@ -38,22 +41,30 @@ internal fun DiagnosticsUiFactorySupport.toApproachDetailUiModel(
                         BypassApproachKind.Strategy -> DiagnosticsApproachMode.Strategies
                     },
             ),
-        signature = buildList { detail.strategySignature?.let { addAll(strategySignatureFields(it)) } },
+        signature =
+            buildList {
+                detail.strategySignature?.let {
+                    addAll(
+                        strategySignatureFields(it),
+                    )
+                }
+            }.toImmutableList(),
         breakdown =
-            detail.summary.outcomeBreakdown.map { breakdown ->
-                DiagnosticsMetricUiModel(
-                    label = breakdown.probeType,
-                    value = "${breakdown.successCount}/${breakdown.failureCount}",
-                    tone =
-                        when {
-                            breakdown.failureCount > 0 -> DiagnosticsTone.Warning
-                            breakdown.successCount > 0 -> DiagnosticsTone.Positive
-                            else -> DiagnosticsTone.Neutral
-                        },
-                )
-            },
+            detail.summary.outcomeBreakdown
+                .map { breakdown ->
+                    DiagnosticsMetricUiModel(
+                        label = breakdown.probeType,
+                        value = "${breakdown.successCount}/${breakdown.failureCount}",
+                        tone =
+                            when {
+                                breakdown.failureCount > 0 -> DiagnosticsTone.Warning
+                                breakdown.successCount > 0 -> DiagnosticsTone.Positive
+                                else -> DiagnosticsTone.Neutral
+                            },
+                    )
+                }.toImmutableList(),
         runtimeSummary =
-            listOf(
+            persistentListOf(
                 DiagnosticsMetricUiModel("Usage", detail.summary.usageCount.toString(), DiagnosticsTone.Info),
                 DiagnosticsMetricUiModel(
                     "Runtime",
@@ -73,16 +84,17 @@ internal fun DiagnosticsUiFactorySupport.toApproachDetailUiModel(
                     DiagnosticsTone.Info,
                 ),
             ),
-        recentSessions = detail.recentValidatedSessions.map(::toSessionRowUiModel),
+        recentSessions = detail.recentValidatedSessions.map(::toSessionRowUiModel).toImmutableList(),
         recentUsageNotes =
-            detail.recentUsageSessions.map { usage ->
-                "${usage.serviceMode} · ${usage.networkType} · ${
-                    formatDurationMs(
-                        (usage.finishedAt ?: usage.startedAt) - usage.startedAt,
-                    )
-                }"
-            },
-        failureNotes = detail.recentFailureNotes,
+            detail.recentUsageSessions
+                .map { usage ->
+                    "${usage.serviceMode} · ${usage.networkType} · ${
+                        formatDurationMs(
+                            (usage.finishedAt ?: usage.startedAt) - usage.startedAt,
+                        )
+                    }"
+                }.toImmutableList(),
+        failureNotes = detail.recentFailureNotes.toImmutableList(),
     )
 
 internal fun DiagnosticsUiFactorySupport.toApproachRowUiModel(
@@ -130,7 +142,7 @@ internal fun DiagnosticsUiFactorySupport.toApproachRowUiModel(
                         tone = DiagnosticsTone.Neutral,
                     ),
                 )
-            },
+            }.toImmutableList(),
         tone = summary.toDiagnosticsTone(),
     )
 
@@ -157,7 +169,7 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
                         compareByDescending<DiagnosticsStrategyProbeCandidateUiModel> { it.recommended }
                             .thenBy { it.skipped }
                             .thenBy { it.label },
-                    ),
+                    ).toImmutableList(),
         )
 
     val candidateDetails =
@@ -202,7 +214,7 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
     return DiagnosticsStrategyProbeReportUiModel(
         suiteId = report.suiteId,
         suiteLabel = strategyProbeSuiteLabel(report.suiteId),
-        summaryMetrics = buildStrategyProbeSummaryMetrics(report),
+        summaryMetrics = buildStrategyProbeSummaryMetrics(report).toImmutableList(),
         completionKind = report.completionKind,
         auditAssessment = report.auditAssessment,
         recommendation =
@@ -212,7 +224,7 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
             ),
         winningPath = winningPath,
         families =
-            listOf(
+            persistentListOf(
                 mapFamily(
                     title =
                         if (report.suiteId == StrategyProbeSuiteFullMatrixV1) {
@@ -234,7 +246,7 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
                     recommendedId = report.recommendation.quicCandidateId,
                 ),
             ),
-        candidateDetails = candidateDetails,
+        candidateDetails = candidateDetails.toImmutableMap(),
     )
 }
 
@@ -543,7 +555,7 @@ private fun StrategyProbeCandidateSummary.toCandidateUiModel(
         label = label,
         outcome = strategyProbeOutcomeLabel(outcome = outcome, skipped = skipped),
         rationale = rationale,
-        metrics = buildStrategyProbeCandidateMetrics(this, recommended),
+        metrics = buildStrategyProbeCandidateMetrics(this, recommended).toImmutableList(),
         tone = strategyProbeCandidateTone(outcome = outcome, skipped = skipped, recommended = recommended),
         skipped = skipped,
         recommended = recommended,
@@ -570,10 +582,14 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
                 recommended = recommended,
             ),
         recommended = recommended,
-        notes = candidate.notes,
-        metrics = buildStrategyProbeCandidateMetrics(candidate, recommended),
-        signature = deriveSignature(candidate, serviceMode)?.let(::strategySignatureFields).orEmpty(),
-        resultGroups = buildStrategyProbeResultGroups(reportResults = reportResults, candidateId = candidate.id),
+        notes = candidate.notes.toImmutableList(),
+        metrics = buildStrategyProbeCandidateMetrics(candidate, recommended).toImmutableList(),
+        signature = deriveSignature(candidate, serviceMode)?.let(::strategySignatureFields).orEmpty().toImmutableList(),
+        resultGroups =
+            buildStrategyProbeResultGroups(
+                reportResults = reportResults,
+                candidateId = candidate.id,
+            ).toImmutableList(),
     )
 
 private fun DiagnosticsUiFactorySupport.toStrategyProbeRecommendationUiModel(

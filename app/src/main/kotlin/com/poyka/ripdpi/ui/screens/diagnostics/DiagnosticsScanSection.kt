@@ -1770,8 +1770,8 @@ private fun auditConfidenceTone(level: StrategyProbeAuditConfidenceLevel): Diagn
 
 private fun auditAssessmentMetrics(
     assessment: StrategyProbeAuditAssessment,
-): List<com.poyka.ripdpi.activities.DiagnosticsMetricUiModel> =
-    listOf(
+): kotlinx.collections.immutable.ImmutableList<com.poyka.ripdpi.activities.DiagnosticsMetricUiModel> =
+    kotlinx.collections.immutable.persistentListOf(
         com.poyka.ripdpi.activities.DiagnosticsMetricUiModel(
             label = "Confidence",
             value = "${auditConfidenceLabel(assessment.confidence.level)} (${assessment.confidence.score}/100)",

@@ -76,6 +76,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
 import kotlin.math.roundToInt
 
 private const val bytesPerMegabyte = 1_000_000L
@@ -275,7 +276,7 @@ internal fun ContextGroupCard(group: DiagnosticsContextGroupUiModel) {
 }
 
 @Composable
-internal fun MetricsRow(metrics: List<DiagnosticsMetricUiModel>) {
+internal fun MetricsRow(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
     TrackRecomposition("MetricsRow")
     val spacing = RipDpiThemeTokens.spacing
     if (metrics.isEmpty()) {
@@ -1053,7 +1054,7 @@ internal fun EventBadge(
 internal fun DiagnosticsPreviewCard(
     title: String,
     body: String,
-    metrics: List<DiagnosticsMetricUiModel>,
+    metrics: ImmutableList<DiagnosticsMetricUiModel>,
     archiveStateMessage: String?,
     archiveStateTone: DiagnosticsTone,
 ) {
