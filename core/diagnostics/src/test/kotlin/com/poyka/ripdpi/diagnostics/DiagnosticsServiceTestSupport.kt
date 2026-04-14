@@ -43,8 +43,10 @@ import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceRecordStore
+import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceRecordStore
+import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
@@ -1107,4 +1109,37 @@ private fun <T, K> List<T>.upsertById(
     val key = keySelector(item)
     val remaining = filterNot { keySelector(it) == key }
     return remaining + item
+}
+
+internal object NoopNetworkEdgePreferenceStore : NetworkEdgePreferenceStore {
+    override suspend fun getPreferredEdges(
+        fingerprintHash: String,
+        host: String,
+        transportKind: String,
+    ): List<PreferredEdgeCandidate> = emptyList()
+
+    override suspend fun getPreferredEdgesForRuntime(
+        fingerprintHash: String,
+    ): Map<String, List<PreferredEdgeCandidate>> = emptyMap()
+
+    override suspend fun clearAll() = Unit
+
+    override suspend fun rememberPreferredEdges(
+        fingerprint: NetworkFingerprint,
+        host: String,
+        transportKind: String,
+        edges: List<PreferredEdgeCandidate>,
+        recordedAt: Long?,
+    ): NetworkEdgePreferenceEntity = error("unused")
+
+    override suspend fun recordEdgeResult(
+        fingerprint: NetworkFingerprint,
+        host: String,
+        transportKind: String,
+        ip: String,
+        success: Boolean,
+        recordedAt: Long?,
+        echCapable: Boolean,
+        cdnProvider: String?,
+    ): NetworkEdgePreferenceEntity = error("unused")
 }

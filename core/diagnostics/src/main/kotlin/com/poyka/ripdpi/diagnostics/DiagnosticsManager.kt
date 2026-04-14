@@ -181,6 +181,76 @@ enum class DiagnosticsHomeDetectionVerdict {
     DETECTED,
 }
 
+enum class HomeBufferbloatGrade {
+    A,
+    B,
+    C,
+    D,
+    F,
+    UNKNOWN,
+}
+
+enum class HomeDnsResolverClass {
+    SYSTEM_RESOLVER_OK,
+    DOH_PREFERRED,
+    POSSIBLE_TRANSPARENT_PROXY,
+    POSSIBLE_POISONING,
+    DOH_UNREACHABLE,
+    UNKNOWN,
+}
+
+data class HomeNetworkCharacterSummary(
+    val transport: String? = null,
+    val operatorOrSsid: String? = null,
+    val asn: String? = null,
+    val publicIp: String? = null,
+    val ipv6Reachable: Boolean? = null,
+    val captivePortalDetected: Boolean? = null,
+    val mtu: Int? = null,
+    val transparentProxyDetected: Boolean? = null,
+    val notes: List<String> = emptyList(),
+)
+
+data class HomeStrategyEffectivenessEntry(
+    val label: String,
+    val successCount: Int,
+    val failureCount: Int,
+)
+
+data class HomeRoutingSanityFinding(
+    val packageName: String,
+    val severity: String,
+    val description: String,
+)
+
+data class HomeRoutingSanitySummary(
+    val totalConfiguredApps: Int = 0,
+    val confirmedDetectorCount: Int = 0,
+    val findings: List<HomeRoutingSanityFinding> = emptyList(),
+)
+
+data class HomeRegressionDelta(
+    val previousRunId: String,
+    val newlyFailedStageKeys: List<String> = emptyList(),
+    val newlyRecoveredStageKeys: List<String> = emptyList(),
+    val unchangedStageCount: Int = 0,
+)
+
+data class HomeBufferbloatResult(
+    val grade: HomeBufferbloatGrade,
+    val idleRttMs: Int? = null,
+    val loadedRttMs: Int? = null,
+    val deltaMs: Int? = null,
+)
+
+data class HomeDnsCharacterization(
+    val resolverClass: HomeDnsResolverClass,
+    val systemResolver: String? = null,
+    val dohEndpoint: String? = null,
+    val poisonedHosts: List<String> = emptyList(),
+    val notes: List<String> = emptyList(),
+)
+
 data class DiagnosticsHomeCompositeOutcome(
     val runId: String,
     val fingerprintHash: String? = null,
@@ -203,6 +273,14 @@ data class DiagnosticsHomeCompositeOutcome(
     val installedVpnDetectorCount: Int? = null,
     val installedVpnDetectorTopApps: List<String> = emptyList(),
     val pcapRecordingRequested: Boolean = false,
+    val actionableHeadline: String? = null,
+    val actionableNextSteps: List<String> = emptyList(),
+    val networkCharacter: HomeNetworkCharacterSummary? = null,
+    val strategyEffectiveness: List<HomeStrategyEffectivenessEntry> = emptyList(),
+    val routingSanity: HomeRoutingSanitySummary? = null,
+    val regressionDelta: HomeRegressionDelta? = null,
+    val bufferbloat: HomeBufferbloatResult? = null,
+    val dnsCharacterization: HomeDnsCharacterization? = null,
 )
 
 data class DiagnosticsHomeCompositeProgress(

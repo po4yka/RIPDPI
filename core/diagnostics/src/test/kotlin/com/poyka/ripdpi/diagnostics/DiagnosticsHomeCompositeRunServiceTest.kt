@@ -61,6 +61,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -147,6 +149,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -218,6 +222,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -315,6 +321,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -415,6 +423,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -489,6 +499,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -637,6 +649,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -701,6 +715,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,

@@ -124,6 +124,12 @@ data class HomeDiagnosticsStageUiState(
 )
 
 @Immutable
+data class HomeAnalysisLabeledRow(
+    val label: String,
+    val value: String,
+)
+
+@Immutable
 data class HomeDiagnosticsAnalysisSheetUiState(
     val runId: String,
     val headline: String,
@@ -142,6 +148,19 @@ data class HomeDiagnosticsAnalysisSheetUiState(
     val installedVpnDetectorCount: Int? = null,
     val installedVpnDetectorTopApps: List<String> = emptyList(),
     val pcapRecordingRequested: Boolean = false,
+    val actionableHeadline: String? = null,
+    val actionableNextSteps: List<String> = emptyList(),
+    val networkCharacterRows: List<HomeAnalysisLabeledRow> = emptyList(),
+    val networkCharacterNotes: List<String> = emptyList(),
+    val strategyEffectivenessRows: List<HomeAnalysisLabeledRow> = emptyList(),
+    val routingSanitySummary: String? = null,
+    val routingSanityFindings: List<HomeAnalysisLabeledRow> = emptyList(),
+    val regressionDeltaSummary: String? = null,
+    val regressionDeltaFailures: List<String> = emptyList(),
+    val regressionDeltaRecoveries: List<String> = emptyList(),
+    val bufferbloatSummary: String? = null,
+    val dnsCharacterizationSummary: String? = null,
+    val dnsCharacterizationNotes: List<String> = emptyList(),
 )
 
 @Immutable
