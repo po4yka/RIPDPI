@@ -730,6 +730,88 @@ internal fun buildHomeDiagnosticsUiState(
                         installedVpnDetectorCount = outcome.installedVpnDetectorCount,
                         installedVpnDetectorTopApps = outcome.installedVpnDetectorTopApps,
                         pcapRecordingRequested = outcome.pcapRecordingRequested,
+                        actionableHeadline = outcome.actionableHeadline,
+                        actionableNextSteps = outcome.actionableNextSteps,
+                        networkCharacterRows = buildNetworkCharacterRows(outcome.networkCharacter, stringResolver),
+                        networkCharacterNotes = outcome.networkCharacter?.notes.orEmpty(),
+                        strategyEffectivenessRows =
+                            outcome.strategyEffectiveness.map { entry ->
+                                HomeAnalysisLabeledRow(
+                                    label = entry.label,
+                                    value =
+                                        stringResolver.getString(
+                                            R.string.home_diagnostics_effectiveness_row_value,
+                                            entry.successCount,
+                                            entry.failureCount,
+                                        ),
+                                )
+                            },
+                        routingSanitySummary =
+                            outcome.routingSanity?.let { sanity ->
+                                stringResolver.getString(
+                                    R.string.home_diagnostics_routing_sanity_summary,
+                                    sanity.confirmedDetectorCount,
+                                    sanity.totalConfiguredApps,
+                                )
+                            },
+                        routingSanityFindings =
+                            outcome.routingSanity?.findings?.map { finding ->
+                                HomeAnalysisLabeledRow(
+                                    label = finding.packageName,
+                                    value = "${finding.severity}: ${finding.description}",
+                                )
+                            }.orEmpty(),
+                        regressionDeltaSummary =
+                            outcome.regressionDelta?.let { delta ->
+                                stringResolver.getString(
+                                    R.string.home_diagnostics_regression_summary,
+                                    delta.newlyFailedStageKeys.size,
+                                    delta.newlyRecoveredStageKeys.size,
+                                    delta.unchangedStageCount,
+                                )
+                            },
+                        regressionDeltaFailures = outcome.regressionDelta?.newlyFailedStageKeys.orEmpty(),
+                        regressionDeltaRecoveries = outcome.regressionDelta?.newlyRecoveredStageKeys.orEmpty(),
+                        bufferbloatSummary =
+                            outcome.bufferbloat?.let { result ->
+                                val gradeLabel = result.grade.name
+                                val idle = result.idleRttMs?.let { "${it}ms" } ?: "—"
+                                val loaded = result.loadedRttMs?.let { "${it}ms" } ?: "—"
+                                stringResolver.getString(
+                                    R.string.home_diagnostics_bufferbloat_summary,
+                                    gradeLabel,
+                                    idle,
+                                    loaded,
+                                )
+                            },
+                        dnsCharacterizationSummary =
+                            outcome.dnsCharacterization?.let { dns ->
+                                stringResolver.getString(
+                                    when (dns.resolverClass) {
+                                        com.poyka.ripdpi.diagnostics.HomeDnsResolverClass.SYSTEM_RESOLVER_OK ->
+                                            R.string.home_diagnostics_dns_resolver_ok
+                                        com.poyka.ripdpi.diagnostics.HomeDnsResolverClass.DOH_PREFERRED ->
+                                            R.string.home_diagnostics_dns_resolver_doh_preferred
+                                        com.poyka.ripdpi.diagnostics.HomeDnsResolverClass.POSSIBLE_TRANSPARENT_PROXY ->
+                                            R.string.home_diagnostics_dns_resolver_transparent_proxy
+                                        com.poyka.ripdpi.diagnostics.HomeDnsResolverClass.POSSIBLE_POISONING ->
+                                            R.string.home_diagnostics_dns_resolver_poisoning
+                                        com.poyka.ripdpi.diagnostics.HomeDnsResolverClass.DOH_UNREACHABLE ->
+                                            R.string.home_diagnostics_dns_resolver_doh_unreachable
+                                        com.poyka.ripdpi.diagnostics.HomeDnsResolverClass.UNKNOWN ->
+                                            R.string.home_diagnostics_dns_resolver_unknown
+                                    },
+                                )
+                            },
+                        dnsCharacterizationNotes =
+                            outcome.dnsCharacterization?.let { dns ->
+                                buildList {
+                                    addAll(dns.notes)
+                                    if (dns.poisonedHosts.isNotEmpty()) {
+                                        add("Poisoned hosts: ${dns.poisonedHosts.joinToString(", ")}")
+                                    }
+                                }
+                            }.orEmpty(),
                     )
                 },
         verificationSheet =
@@ -759,3 +841,45 @@ private fun toCapabilityEvidenceUiModel(
                 }
             },
     )
+
+private fun buildNetworkCharacterRows(
+    summary: com.poyka.ripdpi.diagnostics.HomeNetworkCharacterSummary?,
+    stringResolver: StringResolver,
+): List<HomeAnalysisLabeledRow> {
+    summary ?: return emptyList()
+    val rows = mutableListOf<HomeAnalysisLabeledRow>()
+    summary.transport?.takeIf { it.isNotBlank() }?.let {
+        rows += HomeAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_transport), it)
+    }
+    summary.operatorOrSsid?.takeIf { it.isNotBlank() }?.let {
+        rows += HomeAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_operator), it)
+    }
+    summary.asn?.takeIf { it.isNotBlank() }?.let {
+        rows += HomeAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_asn), it)
+    }
+    summary.publicIp?.takeIf { it.isNotBlank() }?.let {
+        rows += HomeAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_public_ip), it)
+    }
+    summary.captivePortalDetected?.let {
+        rows += HomeAnalysisLabeledRow(
+            stringResolver.getString(R.string.home_diagnostics_network_captive_portal),
+            if (it) "yes" else "no",
+        )
+    }
+    summary.ipv6Reachable?.let {
+        rows += HomeAnalysisLabeledRow(
+            stringResolver.getString(R.string.home_diagnostics_network_ipv6),
+            if (it) "reachable" else "unreachable",
+        )
+    }
+    summary.mtu?.let {
+        rows += HomeAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_mtu), "$it")
+    }
+    summary.transparentProxyDetected?.let {
+        rows += HomeAnalysisLabeledRow(
+            stringResolver.getString(R.string.home_diagnostics_network_transparent_proxy),
+            if (it) "detected" else "none",
+        )
+    }
+    return rows
+}

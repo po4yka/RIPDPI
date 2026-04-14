@@ -739,6 +739,36 @@ private fun HomeDiagnosticsBottomSheetHost(
                     variant = RipDpiButtonVariant.Outline,
                 ),
         ) {
+            sheet.actionableHeadline?.takeIf { it.isNotBlank() }?.let { headline ->
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = colors.muted.copy(alpha = stageContainerAlpha),
+                                shape = RipDpiThemeTokens.shapes.lg,
+                            ).padding(RipDpiThemeTokens.spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+                ) {
+                    Text(
+                        text = stringResource(R.string.home_diagnostics_actionable_section),
+                        style = RipDpiThemeTokens.type.bodyEmphasis,
+                        color = colors.foreground,
+                    )
+                    Text(
+                        text = headline,
+                        style = RipDpiThemeTokens.type.body,
+                        color = colors.foreground,
+                    )
+                    sheet.actionableNextSteps.forEach { step ->
+                        Text(
+                            text = "• $step",
+                            style = RipDpiThemeTokens.type.secondaryBody,
+                            color = colors.mutedForeground,
+                        )
+                    }
+                }
+            }
             Text(
                 text = sheet.summary,
                 style = RipDpiThemeTokens.type.body,
@@ -898,6 +928,171 @@ private fun HomeDiagnosticsBottomSheetHost(
                             text = pkg,
                             style = RipDpiThemeTokens.type.secondaryBody,
                             color = colors.mutedForeground,
+                        )
+                    }
+                }
+            }
+            if (sheet.networkCharacterRows.isNotEmpty() || sheet.networkCharacterNotes.isNotEmpty()) {
+                HorizontalDivider(color = colors.divider)
+                Text(
+                    text = stringResource(R.string.home_diagnostics_network_section),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = colors.muted.copy(alpha = stageContainerAlpha),
+                                shape = RipDpiThemeTokens.shapes.lg,
+                            ).padding(RipDpiThemeTokens.spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+                ) {
+                    sheet.networkCharacterRows.forEach { row ->
+                        SettingsRow(title = row.label, value = row.value, monospaceValue = false)
+                    }
+                    sheet.networkCharacterNotes.forEach { note ->
+                        Text(
+                            text = "• $note",
+                            style = RipDpiThemeTokens.type.secondaryBody,
+                            color = colors.mutedForeground,
+                        )
+                    }
+                }
+            }
+            if (sheet.bufferbloatSummary != null || sheet.dnsCharacterizationSummary != null) {
+                HorizontalDivider(color = colors.divider)
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = colors.muted.copy(alpha = stageContainerAlpha),
+                                shape = RipDpiThemeTokens.shapes.lg,
+                            ).padding(RipDpiThemeTokens.spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+                ) {
+                    sheet.bufferbloatSummary?.let { bloat ->
+                        Text(
+                            text = stringResource(R.string.home_diagnostics_bufferbloat_section),
+                            style = RipDpiThemeTokens.type.bodyEmphasis,
+                            color = colors.foreground,
+                        )
+                        Text(
+                            text = bloat,
+                            style = RipDpiThemeTokens.type.body,
+                            color = colors.foreground,
+                        )
+                    }
+                    sheet.dnsCharacterizationSummary?.let { dns ->
+                        Text(
+                            text = stringResource(R.string.home_diagnostics_dns_section),
+                            style = RipDpiThemeTokens.type.bodyEmphasis,
+                            color = colors.foreground,
+                        )
+                        Text(
+                            text = dns,
+                            style = RipDpiThemeTokens.type.body,
+                            color = colors.foreground,
+                        )
+                        sheet.dnsCharacterizationNotes.forEach { note ->
+                            Text(
+                                text = "• $note",
+                                style = RipDpiThemeTokens.type.secondaryBody,
+                                color = colors.mutedForeground,
+                            )
+                        }
+                    }
+                }
+            }
+            if (sheet.strategyEffectivenessRows.isNotEmpty()) {
+                HorizontalDivider(color = colors.divider)
+                Text(
+                    text = stringResource(R.string.home_diagnostics_effectiveness_section),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = colors.muted.copy(alpha = stageContainerAlpha),
+                                shape = RipDpiThemeTokens.shapes.lg,
+                            ).padding(RipDpiThemeTokens.spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+                ) {
+                    sheet.strategyEffectivenessRows.forEach { row ->
+                        SettingsRow(title = row.label, value = row.value, monospaceValue = false)
+                    }
+                }
+            }
+            if (sheet.routingSanitySummary != null || sheet.routingSanityFindings.isNotEmpty()) {
+                HorizontalDivider(color = colors.divider)
+                Text(
+                    text = stringResource(R.string.home_diagnostics_routing_sanity_section),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = colors.muted.copy(alpha = stageContainerAlpha),
+                                shape = RipDpiThemeTokens.shapes.lg,
+                            ).padding(RipDpiThemeTokens.spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+                ) {
+                    sheet.routingSanitySummary?.let { summary ->
+                        Text(
+                            text = summary,
+                            style = RipDpiThemeTokens.type.body,
+                            color = colors.foreground,
+                        )
+                    }
+                    sheet.routingSanityFindings.forEach { row ->
+                        SettingsRow(title = row.label, value = row.value, monospaceValue = false)
+                    }
+                }
+            }
+            sheet.regressionDeltaSummary?.let { summary ->
+                HorizontalDivider(color = colors.divider)
+                Text(
+                    text = stringResource(R.string.home_diagnostics_regression_section),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .background(
+                                color = colors.muted.copy(alpha = stageContainerAlpha),
+                                shape = RipDpiThemeTokens.shapes.lg,
+                            ).padding(RipDpiThemeTokens.spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+                ) {
+                    Text(
+                        text = summary,
+                        style = RipDpiThemeTokens.type.body,
+                        color = colors.foreground,
+                    )
+                    if (sheet.regressionDeltaFailures.isNotEmpty()) {
+                        Text(
+                            text = stringResource(R.string.home_diagnostics_regression_failed_label) +
+                                ": " + sheet.regressionDeltaFailures.joinToString(", "),
+                            style = RipDpiThemeTokens.type.secondaryBody,
+                            color = colors.destructive,
+                        )
+                    }
+                    if (sheet.regressionDeltaRecoveries.isNotEmpty()) {
+                        Text(
+                            text = stringResource(R.string.home_diagnostics_regression_recovered_label) +
+                                ": " + sheet.regressionDeltaRecoveries.joinToString(", "),
+                            style = RipDpiThemeTokens.type.secondaryBody,
+                            color = colors.success,
                         )
                     }
                 }
