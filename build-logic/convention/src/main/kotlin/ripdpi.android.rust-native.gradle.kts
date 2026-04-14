@@ -745,8 +745,8 @@ abstract class BuildPluggableTransportAssetsTask
             outputFile.parentFile.mkdirs()
             cacheDir.mkdirs()
             val goArch = abiToGoArch(abi)
-            // Go requires the external Android linker for android/arm source builds.
-            val requiresExternalAndroidLinker = abi == "armeabi-v7a"
+            // Go requires the external Android linker for android/arm and android/386 source builds.
+            val requiresExternalAndroidLinker = abi == "armeabi-v7a" || abi == "x86"
             val enableCgo = source.cgoEnabled || requiresExternalAndroidLinker
             val cgoEnvironment = buildGoCgoEnvironment(enableCgo, abi)
             execOperations
