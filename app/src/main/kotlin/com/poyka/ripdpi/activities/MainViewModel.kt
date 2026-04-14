@@ -254,14 +254,14 @@ internal fun shouldPollConnectionMetrics(connectionState: ConnectionState): Bool
 data class MainStartupState(
     val isReady: Boolean = false,
     val theme: String = "system",
-    val startDestination: String = Route.Home.route,
+    val startDestination: Route = Route.Home,
 )
 
-internal fun resolveStartupDestination(settings: AppSettings): String =
+internal fun resolveStartupDestination(settings: AppSettings): Route =
     when {
-        !settings.onboardingComplete -> Route.Onboarding.route
-        settings.biometricEnabled -> Route.BiometricPrompt.route
-        else -> Route.Home.route
+        !settings.onboardingComplete -> Route.Onboarding
+        settings.biometricEnabled -> Route.BiometricPrompt
+        else -> Route.Home
     }
 
 @HiltViewModel

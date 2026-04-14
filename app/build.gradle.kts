@@ -8,6 +8,7 @@ plugins {
     id("ripdpi.android.hilt")
     id("ripdpi.android.quality")
     id("ripdpi.android.roborazzi")
+    id("ripdpi.android.serialization")
 }
 
 val localProps =
