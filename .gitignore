@@ -52,6 +52,7 @@ PROMPT.md
 .worktrees/
 .claude/worktrees/
 .claude/settings.json
+.claude/scheduled_tasks.lock
 security-audit-report.*
 .omc/
 docs/superpowers/
