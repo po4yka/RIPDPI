@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
@@ -10,6 +11,11 @@ import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import java.util.UUID
+
+// Must stay in sync with the same threshold used in DiagnosticsDao queries.
+// CursorWindow caps a single row at ~2MB; reports above this never fit and
+// previously caused SQLiteBlobTooBigException on read.
+private const val MaxInlineReportJsonBytes = 1_500_000
 
 internal object DiagnosticsReportPersister {
     suspend fun persistScanReport(
@@ -24,6 +30,16 @@ internal object DiagnosticsReportPersister {
                 results = report.results.map { result -> result.withDerivedProbeRetryCount() },
             )
         val existing = scanRecordStore.getScanSession(report.sessionId)
+        val encodedReport = json.encodeToString(EngineScanReportWire.serializer(), normalizedReport)
+        val safeReportJson =
+            if (encodedReport.length <= MaxInlineReportJsonBytes) {
+                encodedReport
+            } else {
+                Logger.withTag("DiagnosticsReportPersister").w {
+                    "dropping oversized reportJson session=${normalizedReport.sessionId} chars=${encodedReport.length}"
+                }
+                null
+            }
         scanRecordStore.upsertScanSession(
             ScanSessionEntity(
                 id = normalizedReport.sessionId,
@@ -37,7 +53,7 @@ internal object DiagnosticsReportPersister {
                 serviceMode = serviceStateStore.status.value.second.name,
                 status = "completed",
                 summary = normalizedReport.summary,
-                reportJson = json.encodeToString(EngineScanReportWire.serializer(), normalizedReport),
+                reportJson = safeReportJson,
                 startedAt = normalizedReport.startedAt,
                 finishedAt = normalizedReport.finishedAt,
                 launchOrigin = existing?.launchOrigin,

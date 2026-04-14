@@ -389,10 +389,40 @@ interface DiagnosticsDao {
     @Query("SELECT * FROM target_pack_versions WHERE packId = :packId LIMIT 1")
     suspend fun getPackVersion(packId: String): TargetPackVersionEntity?
 
-    @Query("SELECT * FROM scan_sessions ORDER BY startedAt DESC LIMIT :limit")
+    // reportJson is projected through a CASE that nulls payloads larger than
+    // ~1.5MB (kept in sync with DiagnosticsReportPersister.MaxInlineReportJsonBytes).
+    // Android's CursorWindow caps a single row at ~2MB, so an oversized payload
+    // would otherwise crash the cursor with SQLiteBlobTooBigException.
+    @Query(
+        """
+        SELECT id, profileId, approachProfileId, approachProfileName, strategyId,
+               strategyLabel, strategyJson, pathMode, serviceMode, status, summary,
+               CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000
+                    THEN reportJson ELSE NULL END AS reportJson,
+               startedAt, finishedAt, launchOrigin, triggerType,
+               triggerClassification, triggerOccurredAt,
+               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash
+        FROM scan_sessions
+        ORDER BY startedAt DESC
+        LIMIT :limit
+        """,
+    )
     fun observeRecentScanSessions(limit: Int = 50): Flow<List<ScanSessionEntity>>
 
-    @Query("SELECT * FROM scan_sessions WHERE id = :sessionId LIMIT 1")
+    @Query(
+        """
+        SELECT id, profileId, approachProfileId, approachProfileName, strategyId,
+               strategyLabel, strategyJson, pathMode, serviceMode, status, summary,
+               CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000
+                    THEN reportJson ELSE NULL END AS reportJson,
+               startedAt, finishedAt, launchOrigin, triggerType,
+               triggerClassification, triggerOccurredAt,
+               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash
+        FROM scan_sessions
+        WHERE id = :sessionId
+        LIMIT 1
+        """,
+    )
     suspend fun getScanSession(sessionId: String): ScanSessionEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
