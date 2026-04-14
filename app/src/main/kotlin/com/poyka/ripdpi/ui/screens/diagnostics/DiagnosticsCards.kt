@@ -107,6 +107,10 @@ internal fun CollapsibleSection(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     var expanded by remember { mutableStateOf(defaultExpanded) }
+    val expandedLabel = stringResource(R.string.semantic_state_expanded)
+    val collapsedLabel = stringResource(R.string.semantic_state_collapsed)
+    val expandActionLabel = stringResource(R.string.semantic_action_expand)
+    val collapseActionLabel = stringResource(R.string.semantic_action_collapse)
     val rotationAngle by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
         animationSpec = tween(durationMillis = CollapsibleSectionAnimDurationMs),
@@ -119,10 +123,10 @@ internal fun CollapsibleSection(
                 Modifier
                     .fillMaxWidth()
                     .semantics {
-                        stateDescription = if (expanded) "Expanded" else "Collapsed"
+                        stateDescription = if (expanded) expandedLabel else collapsedLabel
                     }.clickable(
                         role = Role.Button,
-                        onClickLabel = if (expanded) "Collapse" else "Expand",
+                        onClickLabel = if (expanded) collapseActionLabel else expandActionLabel,
                     ) { expanded = !expanded }
                     .padding(vertical = spacing.sm),
             horizontalArrangement = Arrangement.SpaceBetween,

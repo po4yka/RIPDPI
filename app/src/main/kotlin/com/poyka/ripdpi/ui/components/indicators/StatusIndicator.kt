@@ -102,13 +102,14 @@ fun StatusIndicator(
     )
 
     val statusDescription = stringResource(R.string.status_indicator_description, label)
+    val components = RipDpiThemeTokens.components
     Row(
         modifier =
             modifier.semantics(mergeDescendants = true) {
                 contentDescription = statusDescription
                 liveRegion = LiveRegionMode.Polite
             },
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(components.statusMarkerSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -116,7 +117,7 @@ fun StatusIndicator(
                 Box(
                     modifier =
                         Modifier
-                            .size(8.dp)
+                            .size(components.statusMarkerSmall)
                             .scale(pulseScale)
                             .background(animatedIndicatorColor.copy(alpha = pulseAlpha), CircleShape),
                 )
@@ -126,13 +127,13 @@ fun StatusIndicator(
                     Box(
                         modifier =
                             Modifier
-                                .size(8.dp)
+                                .size(components.statusMarkerSmall)
                                 .background(animatedIndicatorColor, CircleShape),
                     )
                 }
 
                 StatusIndicatorTone.Warning -> {
-                    Canvas(modifier = Modifier.size(10.dp)) {
+                    Canvas(modifier = Modifier.size(components.statusMarkerLarge)) {
                         val path =
                             Path().apply {
                                 moveTo(size.width / 2f, 0f)
@@ -145,13 +146,13 @@ fun StatusIndicator(
                 }
 
                 StatusIndicatorTone.Error -> {
-                    Canvas(modifier = Modifier.size(8.dp)) {
+                    Canvas(modifier = Modifier.size(components.statusMarkerSmall)) {
                         drawRect(animatedIndicatorColor)
                     }
                 }
 
                 StatusIndicatorTone.Idle -> {
-                    Canvas(modifier = Modifier.size(9.dp)) {
+                    Canvas(modifier = Modifier.size(components.statusMarkerMedium)) {
                         val cx = size.width / 2f
                         val cy = size.height / 2f
                         val r = size.width / 2f

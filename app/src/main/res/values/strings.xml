@@ -2117,4 +2117,10 @@ Source: %2$s</string>
     <string name="qs_tile_label_disconnected">RIPDPI</string>
     <string name="qs_tile_subtitle_tap_connect">Tap to connect</string>
     <string name="qs_tile_subtitle_tap_disconnect">Tap to disconnect</string>
+    <string name="semantic_state_on">On</string>
+    <string name="semantic_state_off">Off</string>
+    <string name="semantic_state_expanded">Expanded</string>
+    <string name="semantic_state_collapsed">Collapsed</string>
+    <string name="semantic_action_expand">Expand</string>
+    <string name="semantic_action_collapse">Collapse</string>
 </resources>
