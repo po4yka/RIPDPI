@@ -26,6 +26,7 @@ internal class DefaultDiagnosticsArchiveExporter
         private val fileStore: DiagnosticsArchiveFileStore,
         private val zipWriter: DiagnosticsArchiveZipWriter,
         private val idGenerator: DiagnosticsArchiveIdGenerator,
+        private val developerAnalyticsSource: DeveloperAnalyticsSource,
     ) : DiagnosticsArchiveExporter {
         override fun cleanupCache() {
             fileStore.cleanup()
@@ -71,7 +72,25 @@ internal class DefaultDiagnosticsArchiveExporter
                         loadProbeResults = { sessionId -> sourceLoader.getProbeResults(sessionId) },
                     ).copy(pcapFiles = fileStore.getRecentPcapFiles())
             val target = fileStore.createTarget()
-            zipWriter.write(target.file, renderer.render(target, selection))
+            val analyticsContext =
+                DeveloperAnalyticsContext(
+                    archiveCreatedAtMs = target.createdAt,
+                    archiveFileName = target.fileName,
+                    homeRunId = selection.homeRunId,
+                    homeCompositeOutcome = selection.homeCompositeOutcome,
+                    primarySessionId = primarySession?.id,
+                    primaryProfileId = primarySession?.profileId,
+                    pcapFiles = selection.pcapFiles,
+                    compositeSessionIds = selection.compositeStages.mapNotNull { it.session?.id },
+                )
+            val developerAnalytics =
+                runCatching { developerAnalyticsSource.collect(analyticsContext) }
+                    .getOrDefault(
+                        DeveloperAnalyticsPayload(
+                            notes = listOf("Developer analytics collection failed — payload is empty."),
+                        ),
+                    )
+            zipWriter.write(target.file, renderer.render(target, selection, developerAnalytics))
             artifactWriteStore.insertExportRecord(
                 ExportRecordEntity(
                     id = idGenerator.nextId(),
