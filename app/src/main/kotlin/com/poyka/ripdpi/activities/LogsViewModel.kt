@@ -83,6 +83,7 @@ data class LogEntry(
 
 data class LogsUiState(
     val logs: ImmutableList<LogEntry> = persistentListOf(),
+    val filteredLogs: ImmutableList<LogEntry> = persistentListOf(),
     val activeSubsystems: ImmutableSet<LogSubsystem> = LogSubsystem.entries.toImmutableSet(),
     val activeSeverities: ImmutableSet<LogSeverity> = LogSeverity.entries.toImmutableSet(),
     val showActiveSessionOnly: Boolean = false,
@@ -90,14 +91,6 @@ data class LogsUiState(
     val bufferCapacity: Int = MaxLogEntries,
     val isRefreshing: Boolean = false,
 ) {
-    val filteredLogs: List<LogEntry>
-        get() =
-            logs.filter { entry ->
-                entry.subsystem in activeSubsystems &&
-                    entry.severity in activeSeverities &&
-                    (!showActiveSessionOnly || entry.isActiveSession)
-            }
-
     val latestLog: LogEntry?
         get() = logs.lastOrNull()
 }
@@ -196,11 +189,28 @@ class LogsViewModel
                 refreshing,
             ) { values ->
                 @Suppress("UNCHECKED_CAST")
+                val logs = (values[0] as List<LogEntry>)
+
+                @Suppress("UNCHECKED_CAST")
+                val subsystems = (values[1] as Set<LogSubsystem>)
+
+                @Suppress("UNCHECKED_CAST")
+                val severities = (values[2] as Set<LogSeverity>)
+                val activeSessionOnly = values[3] as Boolean
+                val filtered =
+                    logs
+                        .asSequence()
+                        .filter { entry ->
+                            entry.subsystem in subsystems &&
+                                entry.severity in severities &&
+                                (!activeSessionOnly || entry.isActiveSession)
+                        }.toList()
                 LogsUiState(
-                    logs = (values[0] as List<LogEntry>).toImmutableList(),
-                    activeSubsystems = (values[1] as Set<LogSubsystem>).toImmutableSet(),
-                    activeSeverities = (values[2] as Set<LogSeverity>).toImmutableSet(),
-                    showActiveSessionOnly = values[3] as Boolean,
+                    logs = logs.toImmutableList(),
+                    filteredLogs = filtered.toImmutableList(),
+                    activeSubsystems = subsystems.toImmutableSet(),
+                    activeSeverities = severities.toImmutableSet(),
+                    showActiveSessionOnly = activeSessionOnly,
                     isAutoScroll = values[4] as Boolean,
                     isRefreshing = values[5] as Boolean,
                 )

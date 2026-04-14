@@ -3,13 +3,13 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 
 internal class SettingsMutationRunner(
     private val scope: CoroutineScope,
     private val appSettingsRepository: AppSettingsRepository,
-    private val effects: SendChannel<SettingsEffect>,
+    private val effects: MutableSharedFlow<SettingsEffect>,
 ) {
     fun update(transform: SettingsMutation) {
         mutate(effect = null, transform = transform)
@@ -39,11 +39,11 @@ internal class SettingsMutationRunner(
         effect: SettingsEffect? = null,
     ) {
         appSettingsRepository.replace(settings)
-        effect?.let { effects.send(it) }
+        effect?.let { effects.emit(it) }
     }
 
     suspend fun emit(effect: SettingsEffect) {
-        effects.send(effect)
+        effects.emit(effect)
     }
 
     private fun mutate(
@@ -52,7 +52,7 @@ internal class SettingsMutationRunner(
     ) {
         scope.launch {
             appSettingsRepository.update(transform)
-            effect?.let { effects.send(it) }
+            effect?.let { effects.emit(it) }
         }
     }
 }

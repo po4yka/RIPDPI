@@ -28,15 +28,17 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.navigation.Route
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
@@ -109,7 +111,7 @@ data class AnalysisStageUiState(
 
 @Immutable
 data class AnalysisProgressUiState(
-    val stages: List<AnalysisStageUiState>,
+    val stages: ImmutableList<AnalysisStageUiState>,
     val activeStageIndex: Int?,
 )
 
@@ -277,9 +279,13 @@ class MainViewModel
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
         private val permissionState = MutableStateFlow(PermissionRuntimeState())
         private val homeDiagnosticsState = MutableStateFlow(HomeDiagnosticsRuntimeState())
-        private val _effects = Channel<MainEffect>(Channel.BUFFERED)
+        private val _effects =
+            MutableSharedFlow<MainEffect>(
+                extraBufferCapacity = 1,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
 
-        val effects: Flow<MainEffect> = _effects.receiveAsFlow()
+        val effects: SharedFlow<MainEffect> = _effects.asSharedFlow()
 
         private val _pendingCrashReport = MutableStateFlow<CrashReport?>(null)
         val pendingCrashReport: StateFlow<CrashReport?> = _pendingCrashReport.asStateFlow()
@@ -409,7 +415,7 @@ class MainViewModel
             mainLifecycleDependencies.appLockLifecycleCoordinator.start(
                 isBiometricEnabled = { settingsState.value.biometricEnabled },
             ) {
-                _effects.trySend(MainEffect.RelockRequested)
+                _effects.tryEmit(MainEffect.RelockRequested)
             }
             mainLifecycleDependencies.startupSideEffectsCoordinator.start(
                 scope = viewModelScope,

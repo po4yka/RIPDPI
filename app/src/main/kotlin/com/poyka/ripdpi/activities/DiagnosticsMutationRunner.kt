@@ -6,7 +6,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 
 internal class DiagnosticsMutationRunner(
@@ -17,7 +17,7 @@ internal class DiagnosticsMutationRunner(
     val diagnosticsShareService: DiagnosticsShareService,
     val diagnosticsResolverActions: DiagnosticsResolverActions,
     val uiStateFactory: DiagnosticsUiStateFactory,
-    private val effects: SendChannel<DiagnosticsEffect>,
+    private val effects: MutableSharedFlow<DiagnosticsEffect>,
     val currentUiState: () -> DiagnosticsUiState,
 ) {
     fun launch(block: suspend DiagnosticsMutationRunner.() -> Unit) {
@@ -25,6 +25,6 @@ internal class DiagnosticsMutationRunner(
     }
 
     suspend fun emit(effect: DiagnosticsEffect) {
-        effects.send(effect)
+        effects.emit(effect)
     }
 }
