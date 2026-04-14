@@ -15,6 +15,7 @@ private const val MaxIpv4LabelCount = 4
 private const val MaxSeqOverlapSize = 32
 private const val MaxHostLabelLength = 16
 private const val MaxDnsTlsRandRecFragmentSize = 4096
+private const val MaxTcpActivationThreshold = 65_535
 
 private fun hasInvalidHostnameStructure(trimmed: String): Boolean =
     trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') ||
@@ -1234,95 +1235,53 @@ private fun parseActivationToken(
     value: String,
     lineNumber: Int,
     allowTcpStatePredicates: Boolean,
-): ActivationFilterModel =
-    when (key.lowercase()) {
+): ActivationFilterModel {
+    val normalizedKey = key.lowercase()
+    return when (normalizedKey) {
         "when_round" -> {
-            activationFilter.copy(
-                round =
-                    runCatching { parseRoundRange(value) }.getOrElse {
-                        error("Invalid round filter on line $lineNumber")
-                    },
-            )
+            activationFilter.copy(round = parseRange(::parseRoundRange, value, "round", lineNumber))
         }
 
         "when_size" -> {
-            activationFilter.copy(
-                payloadSize =
-                    runCatching { parsePayloadSizeRange(value) }.getOrElse {
-                        error("Invalid payload size filter on line $lineNumber")
-                    },
-            )
+            activationFilter.copy(payloadSize = parseRange(::parsePayloadSizeRange, value, "payload size", lineNumber))
         }
 
         "when_stream" -> {
-            activationFilter.copy(
-                streamBytes =
-                    runCatching { parseStreamBytesRange(value) }.getOrElse {
-                        error("Invalid stream byte filter on line $lineNumber")
-                    },
-            )
+            activationFilter.copy(streamBytes = parseRange(::parseStreamBytesRange, value, "stream byte", lineNumber))
         }
 
-        "tcp_has_ts" -> {
-            require(allowTcpStatePredicates) {
-                "tcp_has_ts is only supported for tcp steps on line $lineNumber"
-            }
-            activationFilter.copy(
-                tcpHasTimestamp =
-                    parseActivationBooleanToken(
-                        key = key,
-                        value = value,
-                        lineNumber = lineNumber,
-                    ),
-            )
-        }
-
-        "tcp_has_ech" -> {
-            require(allowTcpStatePredicates) {
-                "tcp_has_ech is only supported for tcp steps on line $lineNumber"
-            }
-            activationFilter.copy(
-                tcpHasEch =
-                    parseActivationBooleanToken(
-                        key = key,
-                        value = value,
-                        lineNumber = lineNumber,
-                    ),
-            )
-        }
-
-        "tcp_window_lt" -> {
-            require(allowTcpStatePredicates) {
-                "tcp_window_lt is only supported for tcp steps on line $lineNumber"
-            }
-            activationFilter.copy(
-                tcpWindowBelow =
-                    parseActivationThresholdToken(
-                        key = key,
-                        value = value,
-                        lineNumber = lineNumber,
-                    ),
-            )
-        }
-
-        "tcp_mss_lt" -> {
-            require(allowTcpStatePredicates) {
-                "tcp_mss_lt is only supported for tcp steps on line $lineNumber"
-            }
-            activationFilter.copy(
-                tcpMssBelow =
-                    parseActivationThresholdToken(
-                        key = key,
-                        value = value,
-                        lineNumber = lineNumber,
-                    ),
-            )
+        "tcp_has_ts", "tcp_has_ech", "tcp_window_lt", "tcp_mss_lt" -> {
+            activationFilter.applyTcpStatePredicate(normalizedKey, value, lineNumber, allowTcpStatePredicates)
         }
 
         else -> {
             error("Unknown activation filter '$key' on line $lineNumber")
         }
     }
+}
+
+private fun <R> parseRange(
+    parser: (String) -> R,
+    value: String,
+    label: String,
+    lineNumber: Int,
+): R = runCatching { parser(value) }.getOrElse { error("Invalid $label filter on line $lineNumber") }
+
+private fun ActivationFilterModel.applyTcpStatePredicate(
+    key: String,
+    value: String,
+    lineNumber: Int,
+    allowTcpStatePredicates: Boolean,
+): ActivationFilterModel {
+    require(allowTcpStatePredicates) { "$key is only supported for tcp steps on line $lineNumber" }
+    return when (key) {
+        "tcp_has_ts" -> copy(tcpHasTimestamp = parseActivationBooleanToken(key, value, lineNumber))
+        "tcp_has_ech" -> copy(tcpHasEch = parseActivationBooleanToken(key, value, lineNumber))
+        "tcp_window_lt" -> copy(tcpWindowBelow = parseActivationThresholdToken(key, value, lineNumber))
+        "tcp_mss_lt" -> copy(tcpMssBelow = parseActivationThresholdToken(key, value, lineNumber))
+        else -> error("Unknown tcp state activation filter '$key' on line $lineNumber")
+    }
+}
 
 private fun parseActivationBooleanToken(
     key: String,
@@ -1341,6 +1300,6 @@ private fun parseActivationThresholdToken(
     lineNumber: Int,
 ): Int {
     val parsed = value.toIntOrNull() ?: error("Invalid $key filter on line $lineNumber")
-    require(parsed in 1..65_535) { "Invalid $key filter on line $lineNumber" }
+    require(parsed in 1..MaxTcpActivationThreshold) { "Invalid $key filter on line $lineNumber" }
     return parsed
 }
