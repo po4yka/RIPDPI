@@ -6,6 +6,7 @@
       "repoUrl": "https://gitlab.torproject.org/tpo/anti-censorship/pluggable-transports/lyrebird.git",
       "commit": "fc105a03c0e0acc2479301c361c012ffed359c43",
       "goToolchain": "go1.22.12",
+      "cgoEnabled": true,
       "packagePath": "./cmd/lyrebird",
       "sourceBinaryName": "lyrebird",
       "outputNames": [
