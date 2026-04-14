@@ -164,6 +164,7 @@ internal fun createDiagnosticsServices(
                         .randomUUID()
                         .toString()
                 },
+            developerAnalyticsSource = NoopDeveloperAnalyticsSource,
         ),
     serverCapabilityStore: FakeServerCapabilityStore = FakeServerCapabilityStore(),
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),

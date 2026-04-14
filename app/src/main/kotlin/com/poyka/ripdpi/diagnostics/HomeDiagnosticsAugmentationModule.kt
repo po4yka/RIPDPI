@@ -124,4 +124,10 @@ abstract class HomeDiagnosticsAugmentationModule {
     abstract fun bindHomeAnalysisAugmentationSource(
         source: DefaultHomeAnalysisAugmentationSource,
     ): HomeAnalysisAugmentationSource
+
+    @Binds
+    @Singleton
+    abstract fun bindDeveloperAnalyticsSource(
+        source: DefaultDeveloperAnalyticsSource,
+    ): DeveloperAnalyticsSource
 }

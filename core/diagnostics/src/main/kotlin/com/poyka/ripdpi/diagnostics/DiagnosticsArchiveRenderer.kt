@@ -31,6 +31,7 @@ class DiagnosticsArchiveRenderer
         internal fun render(
             target: DiagnosticsArchiveTarget,
             selection: DiagnosticsArchiveSelection,
+            developerAnalytics: DeveloperAnalyticsPayload = DeveloperAnalyticsPayload(),
         ): List<DiagnosticsArchiveEntry> {
             val snapshotPayload = buildSnapshotPayload(selection)
             val contextPayload = buildContextPayload(selection)
@@ -57,6 +58,7 @@ class DiagnosticsArchiveRenderer
                     contextPayload = contextPayload,
                     completeness = completeness,
                     compositeEntries = compositeEntries,
+                    developerAnalytics = developerAnalytics,
                 )
             return baseEntries +
                 jsonEntry(
@@ -74,6 +76,7 @@ class DiagnosticsArchiveRenderer
             contextPayload: DiagnosticsArchiveContextPayload,
             completeness: DiagnosticsArchiveCompletenessPayload,
             compositeEntries: List<DiagnosticsArchiveEntry>,
+            developerAnalytics: DeveloperAnalyticsPayload,
         ): List<DiagnosticsArchiveEntry> =
             buildList {
                 addAll(
@@ -85,6 +88,7 @@ class DiagnosticsArchiveRenderer
                         contextPayload = contextPayload,
                         completeness = completeness,
                         compositeEntries = compositeEntries,
+                        developerAnalytics = developerAnalytics,
                     ),
                 )
                 addAll(
@@ -102,6 +106,7 @@ class DiagnosticsArchiveRenderer
             contextPayload: DiagnosticsArchiveContextPayload,
             completeness: DiagnosticsArchiveCompletenessPayload,
             compositeEntries: List<DiagnosticsArchiveEntry>,
+            developerAnalytics: DeveloperAnalyticsPayload,
         ): List<DiagnosticsArchiveEntry> =
             buildList {
                 add(
@@ -176,6 +181,13 @@ class DiagnosticsArchiveRenderer
                         name = "diagnostic-context.json",
                         serializer = DiagnosticsArchiveContextPayload.serializer(),
                         value = contextPayload,
+                    ),
+                )
+                add(
+                    jsonEntry(
+                        name = "developer-analytics.json",
+                        serializer = DeveloperAnalyticsPayload.serializer(),
+                        value = developerAnalytics,
                     ),
                 )
             }
