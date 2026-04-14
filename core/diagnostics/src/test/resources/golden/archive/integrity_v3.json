@@ -51,6 +51,11 @@
             "sha256": "35dc2146179457a40375ef983928f2b75c1fad6fc7e4b456e61a4f13dd388303"
         },
         {
+            "byteCount": 201,
+            "name": "developer-analytics.json",
+            "sha256": "16f4ba3f0524bcbf8159d66a88f72a0b7ddf252a4a2ed4b35764711cbc38ae41"
+        },
+        {
             "byteCount": 229,
             "name": "probe-results.csv",
             "sha256": "83d8824108a030c98bd7ecc737e6437f81d5073b17a49325ae2d254e18cdc8c5"

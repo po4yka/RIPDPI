@@ -415,6 +415,7 @@ class DiagnosticsArchiveExporterTest {
                 ),
             zipWriter = DiagnosticsArchiveZipWriter(),
             idGenerator = DiagnosticsArchiveIdGenerator { "export-1" },
+            developerAnalyticsSource = NoopDeveloperAnalyticsSource,
         )
     }
 
