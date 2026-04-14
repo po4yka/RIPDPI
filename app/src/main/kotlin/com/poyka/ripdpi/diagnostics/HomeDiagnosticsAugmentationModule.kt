@@ -118,4 +118,10 @@ abstract class HomeDiagnosticsAugmentationModule {
     @Binds
     @Singleton
     abstract fun bindHomeDetectorCatalogSource(source: DefaultHomeDetectorCatalogSource): HomeDetectorCatalogSource
+
+    @Binds
+    @Singleton
+    abstract fun bindHomeAnalysisAugmentationSource(
+        source: DefaultHomeAnalysisAugmentationSource,
+    ): HomeAnalysisAugmentationSource
 }

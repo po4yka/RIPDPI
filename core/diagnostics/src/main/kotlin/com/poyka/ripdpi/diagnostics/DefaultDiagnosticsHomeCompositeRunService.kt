@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -173,6 +174,8 @@ class DefaultDiagnosticsHomeCompositeRunService
     constructor(
         private val detectionStageRunner: HomeDetectionStageRunner,
         private val detectorCatalogSource: HomeDetectorCatalogSource,
+        private val analysisAugmentationSource: HomeAnalysisAugmentationSource,
+        private val networkEdgePreferenceStore: NetworkEdgePreferenceStore,
         private val diagnosticsScanController: DiagnosticsScanController,
         private val diagnosticsTimelineSource: DiagnosticsTimelineSource,
         private val diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
@@ -567,10 +570,19 @@ class DefaultDiagnosticsHomeCompositeRunService
         ) {
             val detectionResult = runDetectionResults.remove(runId)
             val pcapRequested = runPcapRequested.remove(runId) ?: false
+            val previousOutcome = mostRecentCompletedRunBefore(runId)
             val catalogSnapshot =
                 withContext(Dispatchers.Default) {
                     runCatching { detectorCatalogSource.snapshot() }.getOrDefault(HomeDetectorCatalogSnapshot())
                 }
+            val networkCharacter =
+                runCatching { analysisAugmentationSource.networkCharacter() }.getOrNull()
+            val routingSanity =
+                runCatching { analysisAugmentationSource.routingSanity() }.getOrNull()
+            val bufferbloat =
+                runCatching { analysisAugmentationSource.bufferbloat() }.getOrNull()
+            val dnsCharacterization =
+                runCatching { analysisAugmentationSource.dnsCharacterization() }.getOrNull()
             val baseOutcome =
                 withContext(Dispatchers.Default) {
                     buildHomeCompositeOutcome(
@@ -582,13 +594,34 @@ class DefaultDiagnosticsHomeCompositeRunService
                         progressState,
                     )
                 }
-            val outcome =
+            val effectivenessLedger =
+                baseOutcome.fingerprintHash?.let { fingerprint ->
+                    runCatching {
+                        loadStrategyEffectiveness(
+                            networkEdgePreferenceStore = networkEdgePreferenceStore,
+                            fingerprintHash = fingerprint,
+                        )
+                    }.getOrDefault(emptyList())
+                }.orEmpty()
+            val outcomeWithoutSynthesis =
                 baseOutcome.copy(
                     detectionVerdict = detectionResult?.verdict,
                     detectionFindings = detectionResult?.findings.orEmpty(),
                     installedVpnDetectorCount = catalogSnapshot.installedVpnDetectorCount.takeIf { it >= 0 },
                     installedVpnDetectorTopApps = catalogSnapshot.topDetectorPackages,
                     pcapRecordingRequested = pcapRequested,
+                    networkCharacter = networkCharacter,
+                    strategyEffectiveness = effectivenessLedger,
+                    routingSanity = routingSanity,
+                    regressionDelta = computeRegressionDelta(baseOutcome, previousOutcome),
+                    bufferbloat = bufferbloat,
+                    dnsCharacterization = dnsCharacterization,
+                )
+            val (synthHeadline, synthSteps) = synthesizeActionableSummary(outcomeWithoutSynthesis)
+            val outcome =
+                outcomeWithoutSynthesis.copy(
+                    actionableHeadline = synthHeadline,
+                    actionableNextSteps = synthSteps,
                 )
             completedRuns[runId] = outcome
             if (outcome.fingerprintHash != null && outcome.completedStageCount > 0) {
@@ -780,5 +813,38 @@ class DefaultDiagnosticsHomeCompositeRunService
                 }
             }
         }
+
+        private fun mostRecentCompletedRunBefore(currentRunId: String): DiagnosticsHomeCompositeOutcome? =
+            completedRuns.entries
+                .asSequence()
+                .filter { (key, _) -> key != currentRunId }
+                .map { (_, value) -> value }
+                .maxByOrNull { it.bundleSessionIds.size }
     }
+
+private const val EffectivenessLedgerLimit = 5
+private const val EffectivenessIpDisplayLength = 24
+
+internal suspend fun loadStrategyEffectiveness(
+    networkEdgePreferenceStore: NetworkEdgePreferenceStore,
+    fingerprintHash: String,
+): List<HomeStrategyEffectivenessEntry> {
+    val byHost = networkEdgePreferenceStore.getPreferredEdgesForRuntime(fingerprintHash)
+    if (byHost.isEmpty()) return emptyList()
+    return byHost
+        .flatMap { (host, edges) ->
+            edges.map { candidate ->
+                val ipPreview = candidate.ip.take(EffectivenessIpDisplayLength)
+                val transportSuffix = candidate.transportKind.takeIf { it.isNotBlank() }?.let { " ($it)" }.orEmpty()
+                HomeStrategyEffectivenessEntry(
+                    label = "$host → $ipPreview$transportSuffix",
+                    successCount = candidate.successCount,
+                    failureCount = candidate.failureCount,
+                )
+            }
+        }.sortedWith(
+            compareByDescending<HomeStrategyEffectivenessEntry> { it.successCount - it.failureCount }
+                .thenByDescending { it.successCount },
+        ).take(EffectivenessLedgerLimit)
+}
 
