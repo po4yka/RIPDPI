@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 private const val TcpFlagMaskAll = 0x0FFF
+private const val HexRadix = 16
 
 private data class TcpFlagDescriptor(
     val name: String,
@@ -60,17 +61,22 @@ val TcpChainStepKind.supportsOriginalTcpFlags: Boolean
 
 fun parseTcpFlagMask(spec: String): Int {
     val trimmed = spec.trim()
-    if (trimmed.isEmpty()) {
-        return 0
-    }
-    parseNumericTcpFlagMask(trimmed)?.let { return it }
-    return trimmed
-        .split('|')
-        .map(String::trim)
-        .onEach { require(it.isNotEmpty()) { "TCP flag masks must not contain empty tokens" } }
-        .fold(0) { acc, token ->
-            acc or requireNotNull(tcpFlagMaskByName[token.lowercase()]) { "Unknown TCP flag '$token'" }
+    return when {
+        trimmed.isEmpty() -> {
+            0
         }
+
+        else -> {
+            parseNumericTcpFlagMask(trimmed)
+                ?: trimmed
+                    .split('|')
+                    .map(String::trim)
+                    .onEach { require(it.isNotEmpty()) { "TCP flag masks must not contain empty tokens" } }
+                    .fold(0) { acc, token ->
+                        acc or requireNotNull(tcpFlagMaskByName[token.lowercase()]) { "Unknown TCP flag '$token'" }
+                    }
+        }
+    }
 }
 
 fun formatTcpFlagMask(mask: Int): String {
@@ -116,7 +122,7 @@ private fun parseMaskOrZero(value: String): Int = value.takeIf(String::isNotBlan
 private fun parseNumericTcpFlagMask(value: String): Int? {
     val parsed =
         when {
-            value.startsWith("0x", ignoreCase = true) -> value.substring(2).toIntOrNull(16)
+            value.startsWith("0x", ignoreCase = true) -> value.substring(2).toIntOrNull(HexRadix)
             value.all(Char::isDigit) -> value.toIntOrNull()
             else -> null
         } ?: return null

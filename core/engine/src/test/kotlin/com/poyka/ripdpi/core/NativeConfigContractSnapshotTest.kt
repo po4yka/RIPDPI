@@ -66,6 +66,7 @@ class NativeConfigContractSnapshotTest {
                     put("hostAutolearnStorePath", JsonNull)
                     put("logContext", JsonNull)
                     put("runtimeContext", JsonNull)
+                    put("sessionOverrides", JsonNull)
                 },
         )
     }
@@ -631,6 +632,7 @@ class NativeConfigContractSnapshotTest {
             put("rootMode", JsonPrimitive(false))
             put("logContext", JsonNull)
             put("runtimeContext", JsonNull)
+            put("sessionOverrides", JsonNull)
         }
 
     private fun listenExpected(
@@ -672,6 +674,7 @@ class NativeConfigContractSnapshotTest {
     private fun chainsExpected(
         anyProtocol: Boolean = false,
         groupActivationFilter: JsonObject? = null,
+        payloadDisable: List<String> = emptyList(),
         tcpRotation: JsonObject? = null,
         tcpSteps: List<JsonObject> = listOf(tcpStepExpected(kind = "split", marker = "host+1")),
         udpSteps: List<JsonObject> = emptyList(),
@@ -679,6 +682,7 @@ class NativeConfigContractSnapshotTest {
         buildJsonObject {
             put("anyProtocol", JsonPrimitive(anyProtocol))
             put("groupActivationFilter", groupActivationFilter ?: JsonNull)
+            put("payloadDisable", JsonArray(payloadDisable.map(::JsonPrimitive)))
             put("tcpRotation", tcpRotation ?: JsonNull)
             put("tcpSteps", JsonArray(tcpSteps))
             put("udpSteps", JsonArray(udpSteps))
@@ -691,6 +695,8 @@ class NativeConfigContractSnapshotTest {
         fakeHostTemplate: String = "",
         overlapSize: Int = 0,
         fakeMode: String = "",
+        fakeOrder: String = "0",
+        fakeSeqMode: String = "duplicate",
         fragmentCount: Int = 0,
         minFragmentSize: Int = 0,
         maxFragmentSize: Int = 0,
@@ -708,6 +714,8 @@ class NativeConfigContractSnapshotTest {
             put("fakeHostTemplate", JsonPrimitive(fakeHostTemplate))
             put("overlapSize", JsonPrimitive(overlapSize))
             put("fakeMode", JsonPrimitive(fakeMode))
+            put("fakeOrder", JsonPrimitive(fakeOrder))
+            put("fakeSeqMode", JsonPrimitive(fakeSeqMode))
             put("fragmentCount", JsonPrimitive(fragmentCount))
             put("minFragmentSize", JsonPrimitive(minFragmentSize))
             put("maxFragmentSize", JsonPrimitive(maxFragmentSize))
@@ -767,6 +775,7 @@ class NativeConfigContractSnapshotTest {
         fakeTcpTimestampEnabled: Boolean = false,
         fakeTcpTimestampDeltaTicks: Int = 0,
         stripTimestamps: Boolean = false,
+        ipIdMode: String = "",
         windowClamp: Int? = null,
         wsizeWindow: Int? = null,
         wsizeScale: Int? = null,
@@ -803,6 +812,7 @@ class NativeConfigContractSnapshotTest {
             put("shannonEntropyTargetPermil", JsonPrimitive(shannonEntropyTargetPermil))
             put("tlsFingerprintProfile", JsonPrimitive(tlsFingerprintProfile))
             put("stripTimestamps", stripTimestamps.let(::JsonPrimitive))
+            put("ipIdMode", JsonPrimitive(ipIdMode))
             put("windowClamp", windowClamp?.let(::JsonPrimitive) ?: JsonNull)
             put("wsizeWindow", wsizeWindow?.let(::JsonPrimitive) ?: JsonNull)
             put("wsizeScale", wsizeScale?.let(::JsonPrimitive) ?: JsonNull)
