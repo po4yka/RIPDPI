@@ -19,6 +19,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
 
 enum class LogRowTone {
     Dns,
@@ -34,7 +36,7 @@ fun LogRow(
     message: String,
     modifier: Modifier = Modifier,
     tone: LogRowTone = LogRowTone.Connection,
-    metadataChips: List<String> = emptyList(),
+    metadataChips: ImmutableList<String> = persistentListOf(),
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
@@ -170,7 +172,7 @@ private fun LogRowPreview() {
                 type = "dns",
                 message = "DNS resolver switched to 1.1.1.1",
                 tone = LogRowTone.Dns,
-                metadataChips = listOf("runtime:vpn-1", "scan:diag-7"),
+                metadataChips = persistentListOf("runtime:vpn-1", "scan:diag-7"),
             )
             LogRow(
                 timestamp = "02:14:42",

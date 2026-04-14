@@ -1,12 +1,13 @@
 package com.poyka.ripdpi.activities
 
 import android.content.Intent
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 
 internal data class MainActivityShellState(
@@ -33,12 +34,20 @@ internal class MainActivityShellController(
                 startConfiguredModeRequested = MainActivity.requestsConfiguredStart(initialIntent),
             ),
         )
-    private val _uiEvents = Channel<MainActivityUiEvent>(Channel.BUFFERED)
-    private val _hostCommands = Channel<MainActivityHostCommand>(Channel.BUFFERED)
+    private val _uiEvents =
+        MutableSharedFlow<MainActivityUiEvent>(
+            extraBufferCapacity = 1,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
+    private val _hostCommands =
+        MutableSharedFlow<MainActivityHostCommand>(
+            extraBufferCapacity = 1,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
 
     val state: StateFlow<MainActivityShellState> = _state.asStateFlow()
-    val uiEvents: Flow<MainActivityUiEvent> = _uiEvents.receiveAsFlow()
-    val hostCommands: Flow<MainActivityHostCommand> = _hostCommands.receiveAsFlow()
+    val uiEvents: SharedFlow<MainActivityUiEvent> = _uiEvents.asSharedFlow()
+    val hostCommands: SharedFlow<MainActivityHostCommand> = _hostCommands.asSharedFlow()
 
     fun onNewIntent(intent: Intent?) {
         _state.update { current ->
@@ -59,25 +68,25 @@ internal class MainActivityShellController(
             is MainEffect.RequestPermission -> {
                 when (effect.kind) {
                     com.poyka.ripdpi.permissions.PermissionKind.Notifications -> {
-                        _hostCommands.trySend(MainActivityHostCommand.RequestNotificationsPermission)
+                        _hostCommands.tryEmit(MainActivityHostCommand.RequestNotificationsPermission)
                     }
 
                     com.poyka.ripdpi.permissions.PermissionKind.VpnConsent -> {
                         effect.payload?.let { intent ->
-                            _hostCommands.trySend(MainActivityHostCommand.RequestVpnConsent(intent))
+                            _hostCommands.tryEmit(MainActivityHostCommand.RequestVpnConsent(intent))
                         }
                     }
 
                     com.poyka.ripdpi.permissions.PermissionKind.BatteryOptimization -> {
                         effect.payload?.let { intent ->
-                            _hostCommands.trySend(MainActivityHostCommand.RequestBatteryOptimization(intent))
+                            _hostCommands.tryEmit(MainActivityHostCommand.RequestBatteryOptimization(intent))
                         }
                     }
                 }
             }
 
             is MainEffect.OpenAppSettings -> {
-                _hostCommands.trySend(MainActivityHostCommand.OpenIntent(effect.intent))
+                _hostCommands.tryEmit(MainActivityHostCommand.OpenIntent(effect.intent))
             }
 
             MainEffect.ShowVpnPermissionDialog -> {
@@ -85,7 +94,7 @@ internal class MainActivityShellController(
             }
 
             is MainEffect.ShowError -> {
-                _uiEvents.trySend(MainActivityUiEvent.ShowErrorSnackbar(effect.message))
+                _uiEvents.tryEmit(MainActivityUiEvent.ShowErrorSnackbar(effect.message))
             }
 
             is MainEffect.ShareDiagnosticsArchive -> {
@@ -132,18 +141,18 @@ internal class MainActivityShellController(
     }
 
     fun requestSaveLogs() {
-        _hostCommands.trySend(MainActivityHostCommand.SaveLogs)
+        _hostCommands.tryEmit(MainActivityHostCommand.SaveLogs)
     }
 
     fun requestShareDebugBundle() {
-        _hostCommands.trySend(MainActivityHostCommand.ShareDebugBundle)
+        _hostCommands.tryEmit(MainActivityHostCommand.ShareDebugBundle)
     }
 
     fun requestSaveDiagnosticsArchive(
         filePath: String,
         fileName: String,
     ) {
-        _hostCommands.trySend(
+        _hostCommands.tryEmit(
             MainActivityHostCommand.SaveDiagnosticsArchive(
                 filePath = filePath,
                 fileName = fileName,
@@ -155,7 +164,7 @@ internal class MainActivityShellController(
         filePath: String,
         fileName: String,
     ) {
-        _hostCommands.trySend(
+        _hostCommands.tryEmit(
             MainActivityHostCommand.ShareDiagnosticsArchive(
                 filePath = filePath,
                 fileName = fileName,
@@ -167,7 +176,7 @@ internal class MainActivityShellController(
         title: String,
         body: String,
     ) {
-        _hostCommands.trySend(
+        _hostCommands.tryEmit(
             MainActivityHostCommand.ShareDiagnosticsSummary(
                 title = title,
                 body = body,

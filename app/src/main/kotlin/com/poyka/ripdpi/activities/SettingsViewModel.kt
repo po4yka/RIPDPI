@@ -24,15 +24,16 @@ import com.poyka.ripdpi.security.PinVerifyResult
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import com.poyka.ripdpi.strategy.StrategyPackService
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -61,13 +62,17 @@ class SettingsViewModel
         private val application: Application,
     ) : ViewModel() {
         private val biometricAuthManager = BiometricAuthManager()
-        private val _effects = Channel<SettingsEffect>(Channel.BUFFERED)
+        private val _effects =
+            MutableSharedFlow<SettingsEffect>(
+                extraBufferCapacity = 1,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
         private val hostAutolearnStoreRefresh = MutableStateFlow(0)
         private val hostPackCatalogState = MutableStateFlow(HostPackCatalogUiState())
         private val strategyPackCatalogState = MutableStateFlow(StrategyPackCatalogUiState())
         private val mutations = SettingsMutationRunner(viewModelScope, appSettingsRepository, _effects)
 
-        val effects: Flow<SettingsEffect> = _effects.receiveAsFlow()
+        val effects: SharedFlow<SettingsEffect> = _effects.asSharedFlow()
         val hostPackCatalog: StateFlow<HostPackCatalogUiState> = hostPackCatalogState
         val strategyPackCatalog: StateFlow<StrategyPackCatalogUiState> = strategyPackCatalogState
 
@@ -166,7 +171,7 @@ class SettingsViewModel
                         setBackupPin("")
                         setBiometricEnabled(false)
                     }
-                    _effects.send(
+                    _effects.emit(
                         SettingsEffect.Notice(
                             title = stringResolver.getString(R.string.notice_pin_key_lost_title),
                             message = stringResolver.getString(R.string.notice_pin_key_lost_message),
@@ -281,7 +286,7 @@ class SettingsViewModel
         fun rotateTelemetrySalt() {
             viewModelScope.launch {
                 telemetrySaltStore.rotateSalt()
-                _effects.send(
+                _effects.emit(
                     SettingsEffect.Notice(
                         title = stringResolver.getString(R.string.notice_telemetry_salt_reset_title),
                         message = stringResolver.getString(R.string.notice_telemetry_salt_reset_message),

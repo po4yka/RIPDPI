@@ -85,13 +85,14 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -118,8 +119,12 @@ class ConfigViewModel
         private val supportsMasquePrivacyPass = masquePrivacyPassAvailability.isAvailable()
         private val masquePrivacyPassBuildStatus = masquePrivacyPassAvailability.buildStatus()
 
-        private val _effects = Channel<ConfigEffect>(Channel.BUFFERED)
-        val effects: Flow<ConfigEffect> = _effects.receiveAsFlow()
+        private val _effects =
+            MutableSharedFlow<ConfigEffect>(
+                extraBufferCapacity = 1,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
+        val effects: SharedFlow<ConfigEffect> = _effects.asSharedFlow()
 
         init {
             observeCapabilityEvidence()
@@ -260,7 +265,7 @@ class ConfigViewModel
                     .onSuccess { certificateChain ->
                         updateDraft { copy(relayMasqueClientCertificateChainPem = certificateChain) }
                     }.onFailure { error ->
-                        _effects.send(ConfigEffect.Message(error.message ?: "Certificate import failed."))
+                        _effects.emit(ConfigEffect.Message(error.message ?: "Certificate import failed."))
                     }
             }
         }
@@ -271,7 +276,7 @@ class ConfigViewModel
                     .onSuccess { privateKey ->
                         updateDraft { copy(relayMasqueClientPrivateKeyPem = privateKey) }
                     }.onFailure { error ->
-                        _effects.send(ConfigEffect.Message(error.message ?: "Private key import failed."))
+                        _effects.emit(ConfigEffect.Message(error.message ?: "Private key import failed."))
                     }
             }
         }
@@ -284,7 +289,7 @@ class ConfigViewModel
                 runCatching { masqueClientCredentialImporter.importPkcs12Identity(uri, password) }
                     .onSuccess(::applyImportedMasqueIdentity)
                     .onFailure { error ->
-                        _effects.send(ConfigEffect.Message(error.message ?: "PKCS#12 import failed."))
+                        _effects.emit(ConfigEffect.Message(error.message ?: "PKCS#12 import failed."))
                     }
             }
         }
@@ -292,7 +297,7 @@ class ConfigViewModel
         fun saveDraft() {
             val draft = editorSession.value.draft ?: uiState.value.draft
             if (validateConfigDraft(draft, supportsMasquePrivacyPass).isNotEmpty()) {
-                _effects.trySend(ConfigEffect.ValidationFailed)
+                _effects.tryEmit(ConfigEffect.ValidationFailed)
                 return
             }
 
@@ -308,7 +313,7 @@ class ConfigViewModel
                 }
                 persistRelayArtifacts(persistedDraft)
                 editorSession.value = ConfigEditorSession()
-                _effects.send(ConfigEffect.SaveSuccess)
+                _effects.emit(ConfigEffect.SaveSuccess)
             }
         }
 

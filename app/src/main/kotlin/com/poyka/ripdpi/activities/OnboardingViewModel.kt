@@ -8,12 +8,13 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingConnectionTestRunner
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -56,8 +57,12 @@ class OnboardingViewModel
         private val _uiState = MutableStateFlow(OnboardingUiState())
         val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
 
-        private val _effects = Channel<OnboardingEffect>(Channel.BUFFERED)
-        val effects: Flow<OnboardingEffect> = _effects.receiveAsFlow()
+        private val _effects =
+            MutableSharedFlow<OnboardingEffect>(
+                extraBufferCapacity = 1,
+                onBufferOverflow = BufferOverflow.DROP_OLDEST,
+            )
+        val effects: SharedFlow<OnboardingEffect> = _effects.asSharedFlow()
 
         fun setCurrentPage(page: Int) {
             _uiState.update { state ->
@@ -105,7 +110,7 @@ class OnboardingViewModel
                     setRipdpiMode(state.selectedMode.preferenceValue)
                     setDnsProviderId(state.selectedDnsProviderId)
                 }
-                _effects.send(OnboardingEffect.OnboardingComplete)
+                _effects.emit(OnboardingEffect.OnboardingComplete)
             }
         }
     }

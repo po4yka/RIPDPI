@@ -2,21 +2,21 @@ package com.poyka.ripdpi.activities
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
 
 internal class MainMutationRunner(
     private val scope: CoroutineScope,
-    private val effects: SendChannel<MainEffect>,
+    private val effects: MutableSharedFlow<MainEffect>,
     val currentUiState: () -> MainUiState,
 ) {
     fun launch(block: suspend MainMutationRunner.() -> Unit): Job = scope.launch { block() }
 
     fun trySend(effect: MainEffect) {
-        effects.trySend(effect)
+        effects.tryEmit(effect)
     }
 
     suspend fun emit(effect: MainEffect) {
-        effects.send(effect)
+        effects.emit(effect)
     }
 }
