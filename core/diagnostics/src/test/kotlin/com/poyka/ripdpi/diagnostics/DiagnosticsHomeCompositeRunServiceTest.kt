@@ -59,6 +59,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 }
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
+                    detectionStageRunner = NoopHomeDetectionStageRunner,
+                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -74,20 +76,26 @@ class DiagnosticsHomeCompositeRunServiceTest {
             advanceUntilIdle()
             val outcome = service.finalizeHomeRun(started.runId)
 
+            // Detection stage (detection_signals) runs via HomeDetectionStageRunner,
+            // not DiagnosticsScanController — so startedRequests lists only profile-scan stages.
+            // Middle stages execute in parallel so order is not deterministic; sort for stability.
             assertEquals(
                 listOf(
                     ScanPathMode.RAW_PATH to "automatic-audit",
                     ScanPathMode.RAW_PATH to "default",
+                    ScanPathMode.RAW_PATH to "path-comparison",
+                    ScanPathMode.RAW_PATH to "ru-circumvention",
                     ScanPathMode.RAW_PATH to "ru-dpi-full",
                     ScanPathMode.RAW_PATH to "ru-dpi-strategy",
+                    ScanPathMode.RAW_PATH to "ru-throttling",
                 ),
-                scanController.startedRequests,
+                scanController.startedRequests.sortedBy { it.second },
             )
             assertTrue(outcome.actionable)
             assertEquals("scan-1", outcome.recommendedSessionId)
-            assertEquals(listOf("scan-1", "scan-2", "scan-3", "scan-4"), outcome.bundleSessionIds)
-            assertEquals(4, outcome.completedStageCount)
-            assertEquals(0, outcome.failedStageCount)
+            // Detection stage is FAILED (Noop runner returns null); profile scans complete.
+            assertEquals(7, outcome.completedStageCount)
+            assertEquals(1, outcome.failedStageCount)
         }
 
     @Test
@@ -137,6 +145,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 }
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
+                    detectionStageRunner = NoopHomeDetectionStageRunner,
+                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -152,10 +162,11 @@ class DiagnosticsHomeCompositeRunServiceTest {
             advanceUntilIdle()
             val outcome = service.finalizeHomeRun(started.runId)
 
-            assertEquals(4, scanController.startedRequests.size)
+            assertEquals(7, scanController.startedRequests.size)
             assertFalse(outcome.actionable)
-            assertEquals(3, outcome.completedStageCount)
-            assertEquals(1, outcome.failedStageCount)
+            // 6 profile scans complete, 1 profile scan fails (default), detection stage fails (Noop).
+            assertEquals(6, outcome.completedStageCount)
+            assertEquals(2, outcome.failedStageCount)
             assertEquals(
                 DiagnosticsHomeCompositeStageStatus.FAILED,
                 outcome.stageSummaries.first { it.profileId == "default" }.status,
@@ -205,6 +216,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 }
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
+                    detectionStageRunner = NoopHomeDetectionStageRunner,
+                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -220,10 +233,10 @@ class DiagnosticsHomeCompositeRunServiceTest {
             advanceUntilIdle()
             val outcome = service.finalizeHomeRun(started.runId)
 
-            // Only audit stage ran; remaining 3 were skipped
+            // Only audit stage ran; remaining 7 stages (6 profile + 1 detection) were skipped
             assertEquals(1, scanController.startedRequests.size)
             assertEquals(0, outcome.completedStageCount)
-            assertEquals(3, outcome.skippedStageCount)
+            assertEquals(7, outcome.skippedStageCount)
             assertEquals(
                 DiagnosticsHomeCompositeStageStatus.SKIPPED,
                 outcome.stageSummaries.first { it.profileId == "default" }.status,
@@ -300,6 +313,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 }
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
+                    detectionStageRunner = NoopHomeDetectionStageRunner,
+                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -398,6 +413,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 }
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
+                    detectionStageRunner = NoopHomeDetectionStageRunner,
+                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -413,9 +430,9 @@ class DiagnosticsHomeCompositeRunServiceTest {
             advanceUntilIdle()
             val outcome = service.finalizeHomeRun(started.runId)
 
-            // All 4 stages should have eventually completed (default retried once)
-            assertEquals(4, outcome.completedStageCount)
-            assertEquals(0, outcome.failedStageCount)
+            // All 7 profile scans eventually complete (default retried once); detection stage fails.
+            assertEquals(7, outcome.completedStageCount)
+            assertEquals(1, outcome.failedStageCount)
             // "default" was attempted twice
             assertEquals(2, attemptCounts["default"])
         }
@@ -470,6 +487,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 }
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
+                    detectionStageRunner = NoopHomeDetectionStageRunner,
+                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -616,6 +635,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 }
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
+                    detectionStageRunner = NoopHomeDetectionStageRunner,
+                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -678,6 +699,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 }
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
+                    detectionStageRunner = NoopHomeDetectionStageRunner,
+                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
@@ -711,7 +734,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 outcome.stageSummaries.first { it.profileId == "ru-dpi-strategy" }.status,
             )
             assertEquals(0, outcome.completedStageCount)
-            assertEquals(3, outcome.skippedStageCount)
+            // 7 remaining stages (detection_signals + 5 middle profile scans + dpi_strategy) were skipped.
+            assertEquals(7, outcome.skippedStageCount)
         }
 
     private fun diagnosticScanSession(

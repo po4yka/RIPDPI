@@ -295,6 +295,15 @@
     <string name="home_diagnostics_capability_evidence_label">Observed capability evidence</string>
     <string name="home_diagnostics_no_settings_applied">No settings were applied automatically.</string>
     <string name="home_diagnostics_stage_results_label">Stage results</string>
+    <string name="home_diagnostics_detection_section_label">Detection signals</string>
+    <string name="home_diagnostics_detection_detected">VPN likely detectable on this network</string>
+    <string name="home_diagnostics_detection_needs_review">Detection results need review</string>
+    <string name="home_diagnostics_detection_not_detected">No detection signals observed</string>
+    <string name="home_diagnostics_vpn_detectors_title">Apps that detect VPNs</string>
+    <string name="home_diagnostics_vpn_detectors_summary">%1$d installed apps are known VPN detectors.</string>
+    <string name="home_diagnostics_pcap_toggle">Capture packets (advanced)</string>
+    <string name="home_diagnostics_pcap_helper">Root required. Saves a PCAP for this run.</string>
+    <string name="home_diagnostics_detection_permission_required">Some detection checks need location/phone permissions.</string>
     <string name="home_diagnostics_stage_recommendation_marker">active recommendation</string>
     <string name="home_diagnostics_stage_failed_marker">failed</string>
     <string name="home_diagnostics_quick_scan">Quick Scan</string>

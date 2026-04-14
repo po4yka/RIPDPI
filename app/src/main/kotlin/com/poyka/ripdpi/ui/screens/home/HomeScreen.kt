@@ -41,6 +41,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -117,6 +118,7 @@ private const val haloAlphaError = 0.12f
 
 // Alpha values for stage result row backgrounds
 private const val stageContainerAlpha = 0.06f
+private const val HomeDiagnosticsDetectorsShown = 5
 
 // Mode label text alpha
 private const val modeLabelAlpha = 0.72f
@@ -191,6 +193,7 @@ fun HomeRoute(
         onShareAnalysis = viewModel::onShareHomeAnalysis,
         onDismissAnalysisSheet = viewModel::dismissHomeAnalysisSheet,
         onDismissVerificationSheet = viewModel::dismissHomeVerificationSheet,
+        onTogglePcapRecording = viewModel::onToggleHomePcapRecording,
     )
 }
 
@@ -213,6 +216,7 @@ fun HomeScreen(
     onShareAnalysis: () -> Unit = {},
     onDismissAnalysisSheet: () -> Unit = {},
     onDismissVerificationSheet: () -> Unit = {},
+    onTogglePcapRecording: () -> Unit = {},
 ) {
     TrackRecomposition("HomeScreen")
     val colors = RipDpiThemeTokens.colors
@@ -353,6 +357,7 @@ fun HomeScreen(
                         onRunFullAnalysis = onRunFullAnalysis,
                         onRunQuickAnalysis = onRunQuickAnalysis,
                         onStartVerifiedVpn = onStartVerifiedVpn,
+                        onTogglePcapRecording = onTogglePcapRecording,
                     )
 
                     uiState.approachSummary?.let { summary ->
@@ -501,6 +506,7 @@ private fun HomeDiagnosticsCard(
     onRunFullAnalysis: () -> Unit,
     onRunQuickAnalysis: () -> Unit,
     onStartVerifiedVpn: () -> Unit,
+    onTogglePcapRecording: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -641,6 +647,35 @@ private fun HomeDiagnosticsCard(
             variant = RipDpiButtonVariant.Secondary,
             modifier = Modifier.fillMaxWidth(),
         )
+        if (uiState.homeDiagnostics.pcapToggleVisible) {
+            Spacer(modifier = Modifier.height(spacing.sm))
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsPcapToggle),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.home_diagnostics_pcap_toggle),
+                        style = RipDpiThemeTokens.type.body,
+                        color = colors.foreground,
+                    )
+                    Text(
+                        text = stringResource(R.string.home_diagnostics_pcap_helper),
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = colors.mutedForeground,
+                    )
+                }
+                Switch(
+                    checked = uiState.homeDiagnostics.pcapRecordingRequested,
+                    onCheckedChange = { onTogglePcapRecording() },
+                    enabled = uiState.homeDiagnostics.analysisAction.enabled,
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(spacing.md))
         Text(
             text = uiState.homeDiagnostics.verifiedVpnAction.supportingText,
@@ -799,6 +834,70 @@ private fun HomeDiagnosticsBottomSheetHost(
                                 SettingsRow(title = field.label, value = field.value, monospaceValue = false)
                             }
                         }
+                    }
+                }
+            }
+            if (sheet.detectionVerdict != null) {
+                HorizontalDivider(color = colors.divider)
+                Text(
+                    text = stringResource(R.string.home_diagnostics_detection_section_label),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsDetectionSummary)
+                            .background(
+                                color = colors.muted.copy(alpha = stageContainerAlpha),
+                                shape = RipDpiThemeTokens.shapes.lg,
+                            ).padding(RipDpiThemeTokens.spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+                ) {
+                    Text(
+                        text = sheet.detectionVerdict,
+                        style = RipDpiThemeTokens.type.bodyEmphasis,
+                        color = colors.foreground,
+                    )
+                    sheet.detectionFindings.forEach { finding ->
+                        Text(
+                            text = "• $finding",
+                            style = RipDpiThemeTokens.type.secondaryBody,
+                            color = colors.mutedForeground,
+                        )
+                    }
+                }
+            }
+            sheet.installedVpnDetectorCount?.let { count ->
+                HorizontalDivider(color = colors.divider)
+                Text(
+                    text = stringResource(R.string.home_diagnostics_vpn_detectors_title),
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = colors.foreground,
+                )
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsVpnDetectorsCard)
+                            .background(
+                                color = colors.muted.copy(alpha = stageContainerAlpha),
+                                shape = RipDpiThemeTokens.shapes.lg,
+                            ).padding(RipDpiThemeTokens.spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+                ) {
+                    Text(
+                        text = stringResource(R.string.home_diagnostics_vpn_detectors_summary, count),
+                        style = RipDpiThemeTokens.type.body,
+                        color = colors.foreground,
+                    )
+                    sheet.installedVpnDetectorTopApps.take(HomeDiagnosticsDetectorsShown).forEach { pkg ->
+                        Text(
+                            text = pkg,
+                            style = RipDpiThemeTokens.type.secondaryBody,
+                            color = colors.mutedForeground,
+                        )
                     }
                 }
             }
