@@ -12,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
+import kotlinx.collections.immutable.toImmutableList
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -97,7 +98,7 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
                 report?.results?.size?.let {
                     add(DiagnosticsMetricUiModel(label = "Probes", value = it.toString()))
                 }
-            },
+            }.toImmutableList(),
         tone =
             report
                 ?.results

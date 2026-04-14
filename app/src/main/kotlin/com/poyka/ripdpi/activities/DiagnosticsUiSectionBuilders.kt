@@ -48,9 +48,9 @@ internal fun DiagnosticsUiFactorySupport.buildOverviewUiModel(
         latestSnapshot = latestSnapshot,
         latestSession = sessionRows.firstOrNull(),
         contextSummary = latestContext?.let(::toOverviewContextGroup),
-        metrics = buildOverviewMetrics(health, sessions, nativeEvents, currentTelemetry),
-        warnings = warnings,
-        rememberedNetworks = rememberedNetworkRows.take(MaxOverviewRememberedNetworks),
+        metrics = buildOverviewMetrics(health, sessions, nativeEvents, currentTelemetry).toImmutableList(),
+        warnings = warnings.toImmutableList(),
+        rememberedNetworks = rememberedNetworkRows.take(MaxOverviewRememberedNetworks).toImmutableList(),
     )
 
 internal data class BuildScanUiModelParams(
@@ -257,9 +257,9 @@ internal fun DiagnosticsUiFactorySupport.buildSessionsUiModel(
                 status = sessionStatus,
                 query = sessionSearch,
             ),
-        sessions = filteredSessions,
-        pathModes = sessions.map { it.pathMode }.distinct(),
-        statuses = sessions.map { it.status }.distinct(),
+        sessions = filteredSessions.toImmutableList(),
+        pathModes = sessions.map { it.pathMode }.distinct().toImmutableList(),
+        statuses = sessions.map { it.status }.distinct().toImmutableList(),
         focusedSessionId = selectedSessionDetail?.session?.id,
     )
 }
@@ -280,7 +280,7 @@ internal fun DiagnosticsUiFactorySupport.buildApproachesUiModel(
             .map { summary -> toApproachRowUiModel(summary, selectedApproachMode) }
     return DiagnosticsApproachesUiModel(
         selectedMode = selectedApproachMode,
-        rows = rows,
+        rows = rows.toImmutableList(),
         focusedApproachId = selectedApproachDetail?.approach?.id,
     )
 }
@@ -308,9 +308,9 @@ internal fun DiagnosticsUiFactorySupport.buildEventsUiModel(
                 search = eventSearch,
                 autoScroll = eventAutoScroll,
             ),
-        events = filteredEvents,
-        availableSources = eventModels.map { it.source }.distinct(),
-        availableSeverities = eventModels.map { it.severity }.distinct(),
+        events = filteredEvents.toImmutableList(),
+        availableSources = eventModels.map { it.source }.distinct().toImmutableList(),
+        availableSeverities = eventModels.map { it.severity }.distinct().toImmutableList(),
         focusedEventId = selectedEvent?.id,
     ) to selectedEvent
 }
@@ -356,18 +356,20 @@ internal fun DiagnosticsUiFactorySupport.buildShareUiModel(
                     }
             },
         metrics =
-            sharePreview.compactMetrics.map { DiagnosticsMetricUiModel(it.label, it.value) } +
-                listOfNotNull(
-                    approachStats
-                        .firstOrNull { it.approachId.kind == BypassApproachKind.Strategy }
-                        ?.let { summary ->
-                            DiagnosticsMetricUiModel(
-                                label = context.getString(R.string.diagnostics_metric_approach),
-                                value = summary.displayName,
-                                tone = summary.toDiagnosticsTone(),
-                            )
-                        },
-                ),
+            (
+                sharePreview.compactMetrics.map { DiagnosticsMetricUiModel(it.label, it.value) } +
+                    listOfNotNull(
+                        approachStats
+                            .firstOrNull { it.approachId.kind == BypassApproachKind.Strategy }
+                            ?.let { summary ->
+                                DiagnosticsMetricUiModel(
+                                    label = context.getString(R.string.diagnostics_metric_approach),
+                                    value = summary.displayName,
+                                    tone = summary.toDiagnosticsTone(),
+                                )
+                            },
+                    )
+            ).toImmutableList(),
         latestArchiveFileName = archiveActionState.latestArchiveFileName ?: exports.firstOrNull()?.fileName,
         archiveStateMessage = archiveActionState.message,
         archiveStateTone = archiveActionState.tone,
