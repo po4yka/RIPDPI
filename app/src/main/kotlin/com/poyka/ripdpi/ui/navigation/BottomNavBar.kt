@@ -45,7 +45,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @Suppress("LongMethod")
 @Composable
 fun BottomNavBar(
-    currentRoute: String?,
+    selectedRoute: Route?,
     onNavigate: (Route) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -54,7 +54,7 @@ fun BottomNavBar(
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
     val destinations = Route.topLevel
-    val selectedIndex = destinations.indexOfFirst { currentRoute == it.route }.takeIf { it >= 0 }
+    val selectedIndex = destinations.indexOfFirst { it == selectedRoute }.takeIf { it >= 0 }
 
     Column(
         modifier =
@@ -139,7 +139,7 @@ fun BottomNavBar(
                         destinations.forEach { destination ->
                             BottomNavItem(
                                 destination = destination,
-                                selected = currentRoute == destination.route,
+                                selected = destination == selectedRoute,
                                 onClick = { onNavigate(destination) },
                             )
                         }
@@ -237,7 +237,7 @@ private fun RowScope.BottomNavItem(
 private fun BottomNavBarLightPreview() {
     RipDpiTheme(themePreference = "light") {
         BottomNavBar(
-            currentRoute = Route.Home.route,
+            selectedRoute = Route.Home,
             onNavigate = {},
         )
     }
@@ -249,7 +249,7 @@ private fun BottomNavBarLightPreview() {
 private fun BottomNavBarDarkPreview() {
     RipDpiTheme(themePreference = "dark") {
         BottomNavBar(
-            currentRoute = Route.Settings.route,
+            selectedRoute = Route.Settings,
             onNavigate = {},
         )
     }

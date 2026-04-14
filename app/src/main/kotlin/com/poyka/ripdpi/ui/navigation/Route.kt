@@ -4,100 +4,131 @@ import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import kotlinx.serialization.Serializable
 
-internal val topLevelRouteOrder =
-    listOf(
-        "home",
-        "config",
-        "diagnostics",
-        "settings",
-    )
+/**
+ * Navigation destinations for [RipDpiNavHost].
+ *
+ * Each leaf is a `@Serializable data object`, which Navigation Compose 2.8+ consumes as
+ * a type-safe route. The sealed hierarchy keeps `titleRes` + `icon` metadata attached so
+ * [BottomNavBar] and [com.poyka.ripdpi.ui.testing.RipDpiTestTags] can continue to read them
+ * from the same source of truth.
+ *
+ * `route` is preserved as a stable string key for tests, telemetry, and top-level-tab
+ * identification. It is not the serialized route key consumed by the navigation graph.
+ */
+sealed class Route {
+    abstract val route: String
 
-internal fun String?.isTopLevelRoute(): Boolean = this != null && this in topLevelRouteOrder
+    @get:StringRes
+    abstract val titleRes: Int
 
-sealed class Route(
-    val route: String,
-    @param:StringRes val titleRes: Int,
-    val icon: ImageVector? = null,
-) {
-    data object Onboarding : Route(
-        route = "onboarding",
-        titleRes = R.string.title_onboarding,
-    )
+    abstract val icon: ImageVector?
 
-    data object Home : Route(
-        route = "home",
-        titleRes = R.string.home,
-        icon = RipDpiIcons.Home,
-    )
+    @Serializable
+    data object Onboarding : Route() {
+        override val route = "onboarding"
+        override val titleRes = R.string.title_onboarding
+        override val icon: ImageVector? = null
+    }
 
-    data object Config : Route(
-        route = "config",
-        titleRes = R.string.config,
-        icon = RipDpiIcons.Config,
-    )
+    @Serializable
+    data object Home : Route() {
+        override val route = "home"
+        override val titleRes = R.string.home
+        override val icon: ImageVector = RipDpiIcons.Home
+    }
 
-    data object Settings : Route(
-        route = "settings",
-        titleRes = R.string.settings,
-        icon = RipDpiIcons.Settings,
-    )
+    @Serializable
+    data object Config : Route() {
+        override val route = "config"
+        override val titleRes = R.string.config
+        override val icon: ImageVector = RipDpiIcons.Config
+    }
 
-    data object Diagnostics : Route(
-        route = "diagnostics",
-        titleRes = R.string.diagnostics,
-        icon = RipDpiIcons.Logs,
-    )
+    @Serializable
+    data object Settings : Route() {
+        override val route = "settings"
+        override val titleRes = R.string.settings
+        override val icon: ImageVector = RipDpiIcons.Settings
+    }
 
-    data object History : Route(
-        route = "history",
-        titleRes = R.string.history_title,
-    )
+    @Serializable
+    data object Diagnostics : Route() {
+        override val route = "diagnostics"
+        override val titleRes = R.string.diagnostics
+        override val icon: ImageVector = RipDpiIcons.Logs
+    }
 
-    data object Logs : Route(
-        route = "logs",
-        titleRes = R.string.logs,
-    )
+    @Serializable
+    data object History : Route() {
+        override val route = "history"
+        override val titleRes = R.string.history_title
+        override val icon: ImageVector? = null
+    }
 
-    data object ModeEditor : Route(
-        route = "mode_editor",
-        titleRes = R.string.title_mode_editor,
-    )
+    @Serializable
+    data object Logs : Route() {
+        override val route = "logs"
+        override val titleRes = R.string.logs
+        override val icon: ImageVector? = null
+    }
 
-    data object DnsSettings : Route(
-        route = "dns_settings",
-        titleRes = R.string.title_dns_settings,
-    )
+    @Serializable
+    data object ModeEditor : Route() {
+        override val route = "mode_editor"
+        override val titleRes = R.string.title_mode_editor
+        override val icon: ImageVector? = null
+    }
 
-    data object AdvancedSettings : Route(
-        route = "advanced_settings",
-        titleRes = R.string.title_advanced_settings,
-    )
+    @Serializable
+    data object DnsSettings : Route() {
+        override val route = "dns_settings"
+        override val titleRes = R.string.title_dns_settings
+        override val icon: ImageVector? = null
+    }
 
-    data object BiometricPrompt : Route(
-        route = "biometric_prompt",
-        titleRes = R.string.title_biometric_prompt,
-    )
+    @Serializable
+    data object AdvancedSettings : Route() {
+        override val route = "advanced_settings"
+        override val titleRes = R.string.title_advanced_settings
+        override val icon: ImageVector? = null
+    }
 
-    data object AppCustomization : Route(
-        route = "app_customization",
-        titleRes = R.string.title_app_icon,
-    )
+    @Serializable
+    data object BiometricPrompt : Route() {
+        override val route = "biometric_prompt"
+        override val titleRes = R.string.title_biometric_prompt
+        override val icon: ImageVector? = null
+    }
 
-    data object About : Route(
-        route = "about",
-        titleRes = R.string.about_category,
-    )
+    @Serializable
+    data object AppCustomization : Route() {
+        override val route = "app_customization"
+        override val titleRes = R.string.title_app_icon
+        override val icon: ImageVector? = null
+    }
 
-    data object DataTransparency : Route(
-        route = "data_transparency",
-        titleRes = R.string.title_data_transparency,
-    )
+    @Serializable
+    data object About : Route() {
+        override val route = "about"
+        override val titleRes = R.string.about_category
+        override val icon: ImageVector? = null
+    }
 
-    data object DetectionCheck : Route(
-        route = "detection_check",
-        titleRes = R.string.title_detection_check,
-    )
+    @Serializable
+    data object DataTransparency : Route() {
+        override val route = "data_transparency"
+        override val titleRes = R.string.title_data_transparency
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
+    data object DetectionCheck : Route() {
+        override val route = "detection_check"
+        override val titleRes = R.string.title_detection_check
+        override val icon: ImageVector? = null
+    }
 
     companion object {
         val topLevel: List<Route>
@@ -122,5 +153,12 @@ sealed class Route(
                     DataTransparency,
                     DetectionCheck,
                 )
+
+        fun fromStableRoute(route: String?): Route? = route?.let { key -> all.firstOrNull { it.route == key } }
     }
 }
+
+internal val topLevelStableRoutes: Set<String> =
+    Route.topLevel.map(Route::route).toSet()
+
+internal fun String?.isTopLevelRoute(): Boolean = this != null && this in topLevelStableRoutes
