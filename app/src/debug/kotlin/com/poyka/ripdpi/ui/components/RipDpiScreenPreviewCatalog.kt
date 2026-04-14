@@ -327,7 +327,7 @@ private val diagnosticsShareState =
         previewTitle = "RIPDPI diagnostics",
         previewBody = "DPI Full scan completed. 42 probes, 8 diagnoses.",
         metrics =
-            listOf(
+            kotlinx.collections.immutable.persistentListOf(
                 DiagnosticsMetricUiModel("Probes", "42", DiagnosticsTone.Info),
                 DiagnosticsMetricUiModel("Blocked", "12", DiagnosticsTone.Negative),
                 DiagnosticsMetricUiModel("DNS poisoned", "3", DiagnosticsTone.Warning),
