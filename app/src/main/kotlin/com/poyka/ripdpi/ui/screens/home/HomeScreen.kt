@@ -390,6 +390,7 @@ fun HomeScreen(
                 onRunFullAnalysis = onRunFullAnalysis,
                 onRunQuickAnalysis = onRunQuickAnalysis,
                 onStartVerifiedVpn = onStartVerifiedVpn,
+                onTogglePcapRecording = onTogglePcapRecording,
             )
 
             if (uiState.connectionState == ConnectionState.Connected) {
