@@ -22,6 +22,7 @@ internal class DiagnosticsQuickScanRunner(
             Boolean,
             Int?,
         ) -> Pair<String, DiagnosticScanSession>?,
+        runDetectionStage: suspend (String, Int, HomeCompositeStageSpec) -> Unit,
         markStageFailure: (String, Int, String, String) -> Unit,
         updateStage: (
             String,
@@ -49,22 +50,29 @@ internal class DiagnosticsQuickScanRunner(
             c.copy(headline = audit.headline, summary = audit.summary, recommendationContributor = audit.actionable)
         }
 
-        val sSpec = QuickScanStageSpecs[1]
-        var sResult = executeStage(runId, 1, sSpec, true, QuickScanMaxCandidates)
+        // Detection stage (index 1) runs after audit. Uses DetectionRunner, not a profile scan.
+        val detectionSpec = QuickScanStageSpecs[1]
+        if (detectionSpec.kind == HomeCompositeStageKind.DETECTION_SIGNALS) {
+            runDetectionStage(runId, 1, detectionSpec)
+        }
+
+        val sSpec = QuickScanStageSpecs.last()
+        val sIndex = QuickScanStageSpecs.lastIndex
+        var sResult = executeStage(runId, sIndex, sSpec, true, QuickScanMaxCandidates)
         if (sResult == null) {
             delay(StageRetryDelayMs)
-            sResult = executeStage(runId, 1, sSpec, true, QuickScanMaxCandidates)
+            sResult = executeStage(runId, sIndex, sSpec, true, QuickScanMaxCandidates)
         }
         var auditOutcome: DiagnosticsHomeAuditOutcome? = audit
         if (sResult != null) {
             val (sId, sSession) = sResult
             val sSummary = buildCompletedStageSummary(sSpec, sId, sSession, scanRecordStore, json)
-            updateStage(runId, 1) { sSummary }
+            updateStage(runId, sIndex) { sSummary }
             if (auditOutcome?.actionable != true && sSession.status == "completed") {
                 val sa = diagnosticsHomeWorkflowService.finalizeHomeAudit(sId)
                 if (sa.actionable) {
                     auditOutcome = sa
-                    updateStage(runId, 1) { c ->
+                    updateStage(runId, sIndex) { c ->
                         c.copy(headline = sa.headline, summary = sa.summary, recommendationContributor = true)
                     }
                 }

@@ -34,15 +34,27 @@ import javax.inject.Singleton
 private const val DpiFullStageTimeoutMs = 240_000L
 private const val StrategyProbeStageTimeoutMs = 300_000L
 private const val DefaultStageTimeoutMs = 120_000L
+private const val PathComparisonStageTimeoutMs = 180_000L
+private const val ThrottlingStageTimeoutMs = 240_000L
+private const val CircumventionStageTimeoutMs = 240_000L
+private const val DetectionStageTimeoutMs = 90_000L
 internal const val StageRetryDelayMs = 2_000L
 private const val QuickScanStrategyProbeTimeoutMs = 90_000L
 internal const val QuickScanMaxCandidates = 5
+
+internal enum class HomeCompositeStageKind {
+    PROFILE_SCAN,
+    DETECTION_SIGNALS,
+}
+
+internal const val DetectionStageProfileId = "detection-signals"
 
 internal data class HomeCompositeStageSpec(
     val key: String,
     val label: String,
     val profileId: String,
     val pathMode: ScanPathMode,
+    val kind: HomeCompositeStageKind = HomeCompositeStageKind.PROFILE_SCAN,
 )
 
 internal val HomeCompositeStageSpecs =
@@ -54,9 +66,34 @@ internal val HomeCompositeStageSpecs =
             pathMode = ScanPathMode.RAW_PATH,
         ),
         HomeCompositeStageSpec(
+            key = "detection_signals",
+            label = "Detection signals",
+            profileId = DetectionStageProfileId,
+            pathMode = ScanPathMode.RAW_PATH,
+            kind = HomeCompositeStageKind.DETECTION_SIGNALS,
+        ),
+        HomeCompositeStageSpec(
             key = "default_connectivity",
             label = "Default diagnostics",
             profileId = "default",
+            pathMode = ScanPathMode.RAW_PATH,
+        ),
+        HomeCompositeStageSpec(
+            key = "ru_throttling",
+            label = "Throttling check",
+            profileId = "ru-throttling",
+            pathMode = ScanPathMode.RAW_PATH,
+        ),
+        HomeCompositeStageSpec(
+            key = "ru_circumvention",
+            label = "Circumvention reach",
+            profileId = "ru-circumvention",
+            pathMode = ScanPathMode.RAW_PATH,
+        ),
+        HomeCompositeStageSpec(
+            key = "path_comparison",
+            label = "VPN vs direct path",
+            profileId = "path-comparison",
             pathMode = ScanPathMode.RAW_PATH,
         ),
         HomeCompositeStageSpec(
@@ -82,6 +119,13 @@ internal val QuickScanStageSpecs =
             pathMode = ScanPathMode.RAW_PATH,
         ),
         HomeCompositeStageSpec(
+            key = "detection_signals",
+            label = "Detection signals",
+            profileId = DetectionStageProfileId,
+            pathMode = ScanPathMode.RAW_PATH,
+            kind = HomeCompositeStageKind.DETECTION_SIGNALS,
+        ),
+        HomeCompositeStageSpec(
             key = "dpi_strategy",
             label = "DPI strategy probe",
             profileId = "ru-dpi-strategy",
@@ -102,9 +146,13 @@ private fun stageTimeoutMs(
     quickScan: Boolean = false,
 ): Long =
     when {
+        spec.kind == HomeCompositeStageKind.DETECTION_SIGNALS -> DetectionStageTimeoutMs
         quickScan && spec.profileId == "ru-dpi-strategy" -> QuickScanStrategyProbeTimeoutMs
         spec.profileId == "ru-dpi-full" -> DpiFullStageTimeoutMs
         spec.profileId in listOf("automatic-audit", "ru-dpi-strategy") -> StrategyProbeStageTimeoutMs
+        spec.profileId == "path-comparison" -> PathComparisonStageTimeoutMs
+        spec.profileId == "ru-throttling" -> ThrottlingStageTimeoutMs
+        spec.profileId == "ru-circumvention" -> CircumventionStageTimeoutMs
         else -> DefaultStageTimeoutMs
     }
 
@@ -123,6 +171,8 @@ private inline fun List<DiagnosticsHomeCompositeStageSummary>.updated(
 class DefaultDiagnosticsHomeCompositeRunService
     @Inject
     constructor(
+        private val detectionStageRunner: HomeDetectionStageRunner,
+        private val detectorCatalogSource: HomeDetectorCatalogSource,
         private val diagnosticsScanController: DiagnosticsScanController,
         private val diagnosticsTimelineSource: DiagnosticsTimelineSource,
         private val diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
@@ -141,9 +191,12 @@ class DefaultDiagnosticsHomeCompositeRunService
 
         private val progressState = MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>(emptyMap())
         private val completedRuns = ConcurrentHashMap<String, DiagnosticsHomeCompositeOutcome>()
+        private val runDetectionResults = ConcurrentHashMap<String, HomeDetectionStageOutcome>()
+        private val runPcapRequested = ConcurrentHashMap<String, Boolean>()
 
-        override suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted {
+        override suspend fun startHomeAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted {
             val runId = UUID.randomUUID().toString()
+            runPcapRequested[runId] = options.pcapRecordingRequested
             progressState.update { current ->
                 current +
                     (
@@ -192,8 +245,9 @@ class DefaultDiagnosticsHomeCompositeRunService
 
         override suspend fun evictCachedOutcome(fingerprintHash: String) = probeResultCache.evict(fingerprintHash)
 
-        override suspend fun startQuickAnalysis(): DiagnosticsHomeCompositeRunStarted {
+        override suspend fun startQuickAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted {
             val runId = UUID.randomUUID().toString()
+            runPcapRequested[runId] = options.pcapRecordingRequested
             progressState.update { current ->
                 current +
                     (
@@ -221,6 +275,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                     .execute(
                         runId = runId,
                         executeStage = ::executeStageWithTimeout,
+                        runDetectionStage = ::runDetectionStage,
                         markStageFailure = ::markStageFailure,
                         updateStage = ::updateStage,
                         isAuditRunning = {
@@ -354,12 +409,16 @@ class DefaultDiagnosticsHomeCompositeRunService
             return auditOutcome
         }
 
-        /** Runs default_connectivity (index 1) and dpi_full (index 2) in parallel with one retry each. */
+        /** Runs middle stages (between audit and dpi_strategy) in parallel with one retry each. */
         private suspend fun runParallelMiddleStages(runId: String) {
             coroutineScope {
                 HomeCompositeStageSpecs.drop(1).dropLast(1).forEachIndexed { i, spec ->
                     val stageIndex = i + 1
                     launch {
+                        if (spec.kind == HomeCompositeStageKind.DETECTION_SIGNALS) {
+                            runDetectionStage(runId, stageIndex, spec)
+                            return@launch
+                        }
                         var result = executeStage(runId, stageIndex, spec)
                         if (result == null) {
                             delay(StageRetryDelayMs)
@@ -379,6 +438,63 @@ class DefaultDiagnosticsHomeCompositeRunService
                         }
                     }
                 }
+            }
+        }
+
+        private suspend fun runDetectionStage(
+            runId: String,
+            stageIndex: Int,
+            spec: HomeCompositeStageSpec,
+        ) {
+            updateStage(runId, stageIndex) { stage ->
+                stage.copy(
+                    status = DiagnosticsHomeCompositeStageStatus.RUNNING,
+                    headline = "${spec.label} running",
+                    summary = "Starting ${spec.label.lowercase()}.",
+                )
+            }
+            log.i { "stage ${spec.key} started (detection-runner)" }
+            val outcome =
+                runCatching {
+                    withTimeoutOrNull(DetectionStageTimeoutMs) {
+                        detectionStageRunner.run { label, detail ->
+                            updateStage(runId, stageIndex) { current ->
+                                current.copy(summary = "$label: $detail")
+                            }
+                        }
+                    }
+                }.getOrNull()
+            if (outcome == null) {
+                log.w { "detection stage failed or timed out" }
+                updateStage(runId, stageIndex) { current ->
+                    current.copy(
+                        status = DiagnosticsHomeCompositeStageStatus.FAILED,
+                        headline = "${spec.label} failed",
+                        summary = "Detection checks did not complete within the allowed time.",
+                    )
+                }
+                return
+            }
+            runDetectionResults[runId] = outcome
+            val verdictText =
+                when (outcome.verdict) {
+                    DiagnosticsHomeDetectionVerdict.DETECTED -> "VPN likely detectable on this network"
+                    DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW -> "Detection results need review"
+                    DiagnosticsHomeDetectionVerdict.NOT_DETECTED -> "No detection signals observed"
+                }
+            val summaryLine =
+                if (outcome.detectedSignalCount > 0) {
+                    "$verdictText. ${outcome.detectedSignalCount} detection signal" +
+                        "${if (outcome.detectedSignalCount == 1) "" else "s"} observed."
+                } else {
+                    "$verdictText."
+                }
+            updateStage(runId, stageIndex) { current ->
+                current.copy(
+                    status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                    headline = "${spec.label} complete",
+                    summary = summaryLine,
+                )
             }
         }
 
@@ -449,7 +565,13 @@ class DefaultDiagnosticsHomeCompositeRunService
             dnsIssuesDetected: Boolean,
             networkChanged: Boolean,
         ) {
-            val outcome =
+            val detectionResult = runDetectionResults.remove(runId)
+            val pcapRequested = runPcapRequested.remove(runId) ?: false
+            val catalogSnapshot =
+                withContext(Dispatchers.Default) {
+                    runCatching { detectorCatalogSource.snapshot() }.getOrDefault(HomeDetectorCatalogSnapshot())
+                }
+            val baseOutcome =
                 withContext(Dispatchers.Default) {
                     buildHomeCompositeOutcome(
                         runId,
@@ -460,6 +582,14 @@ class DefaultDiagnosticsHomeCompositeRunService
                         progressState,
                     )
                 }
+            val outcome =
+                baseOutcome.copy(
+                    detectionVerdict = detectionResult?.verdict,
+                    detectionFindings = detectionResult?.findings.orEmpty(),
+                    installedVpnDetectorCount = catalogSnapshot.installedVpnDetectorCount.takeIf { it >= 0 },
+                    installedVpnDetectorTopApps = catalogSnapshot.topDetectorPackages,
+                    pcapRecordingRequested = pcapRequested,
+                )
             completedRuns[runId] = outcome
             if (outcome.fingerprintHash != null && outcome.completedStageCount > 0) {
                 scope.launch {
@@ -651,3 +781,4 @@ class DefaultDiagnosticsHomeCompositeRunService
             }
         }
     }
+

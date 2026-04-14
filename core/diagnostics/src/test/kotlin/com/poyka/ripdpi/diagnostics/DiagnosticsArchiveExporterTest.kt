@@ -22,9 +22,9 @@ class DiagnosticsArchiveExporterTest {
         object : DiagnosticsHomeCompositeRunService {
             private val completedRuns = mutableMapOf<String, DiagnosticsHomeCompositeOutcome>()
 
-            override suspend fun startHomeAnalysis(): DiagnosticsHomeCompositeRunStarted = error("unused")
+            override suspend fun startHomeAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted = error("unused")
 
-            override suspend fun startQuickAnalysis(): DiagnosticsHomeCompositeRunStarted = error("unused")
+            override suspend fun startQuickAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted = error("unused")
 
             override fun observeHomeRun(runId: String) = error("unused")
 
