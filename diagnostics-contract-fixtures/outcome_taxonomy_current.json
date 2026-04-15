@@ -78,6 +78,7 @@
     {"probeType": "strategy_failure_classification", "pathMode": "RAW_PATH", "outcome": "tls_handshake_failure", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false},
     {"probeType": "strategy_failure_classification", "pathMode": "RAW_PATH", "outcome": "connect_failure", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false},
     {"probeType": "strategy_failure_classification", "pathMode": "RAW_PATH", "outcome": "connection_freeze", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false},
-    {"probeType": "strategy_failure_classification", "pathMode": "RAW_PATH", "outcome": "strategy_execution_failure", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false}
+    {"probeType": "strategy_failure_classification", "pathMode": "RAW_PATH", "outcome": "strategy_execution_failure", "bucket": "Failed", "uiTone": "Negative", "eventLevel": "error", "healthyEnoughForSummary": false},
+    {"probeType": "strategy_failure_classification", "pathMode": "RAW_PATH", "outcome": "capability_skipped", "bucket": "Inconclusive", "uiTone": "Neutral", "eventLevel": "warn", "healthyEnoughForSummary": false}
   ]
 }

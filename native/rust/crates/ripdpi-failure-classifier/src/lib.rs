@@ -29,6 +29,11 @@ pub enum FailureClass {
     ConnectFailure,
     StrategyExecutionFailure,
     ConnectionFreeze,
+    /// The strategy candidate was skipped because a required platform
+    /// capability was unavailable at runtime (e.g. TTL write, raw TCP).
+    /// Distinct from `Failed` (which implies the probe ran and lost) and
+    /// from `NetworkBlocked` (which implies external censorship).
+    CapabilitySkipped,
 }
 
 impl FailureClass {
@@ -46,6 +51,7 @@ impl FailureClass {
             Self::ConnectFailure => "connect_failure",
             Self::StrategyExecutionFailure => "strategy_execution_failure",
             Self::ConnectionFreeze => "connection_freeze",
+            Self::CapabilitySkipped => "capability_skipped",
         }
     }
 }
