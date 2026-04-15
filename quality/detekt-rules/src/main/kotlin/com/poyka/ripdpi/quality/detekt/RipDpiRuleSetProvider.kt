@@ -13,6 +13,7 @@ class RipDpiRuleSetProvider : RuleSetProvider {
             listOf(
                 InjectConstructorDefaultParameter(config),
                 HiltViewModelApplicationContext(config),
+                DisallowNewSuppression(config),
             ),
         )
 
