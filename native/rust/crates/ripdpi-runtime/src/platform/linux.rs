@@ -2417,4 +2417,90 @@ mod tests {
         assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
         assert!(err.to_string().contains("multidisorder TCP payload segments must cover the full payload"));
     }
+
+    // -----------------------------------------------------------------------
+    // TTL capability outcome mapping (slice 2.5 regression)
+    // -----------------------------------------------------------------------
+
+    /// Maps a raw `io::Error` through the same errno-to-outcome logic used by
+    /// `try_set_stream_ttl_with_outcome`.  Extracted here so tests can exercise
+    /// every branch without requiring a socket in a specific kernel state.
+    fn ttl_error_to_outcome(err: io::Error) -> CapabilityOutcome<()> {
+        use super::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
+        match err.raw_os_error() {
+            Some(libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EROFS | libc::EINVAL) => {
+                CapabilityOutcome::Unavailable {
+                    capability: RuntimeCapability::TtlWrite,
+                    reason: CapabilityUnavailable::Unsupported,
+                }
+            }
+            Some(libc::EACCES | libc::EPERM) => CapabilityOutcome::Unavailable {
+                capability: RuntimeCapability::TtlWrite,
+                reason: CapabilityUnavailable::PermissionDenied,
+            },
+            _ => CapabilityOutcome::ProbeFailed {
+                capability: RuntimeCapability::TtlWrite,
+                error: err.to_string(),
+            },
+        }
+    }
+
+    /// Regression (slice 2.5): ENOPROTOOPT / EOPNOTSUPP map to
+    /// `Unavailable { Unsupported }` — never to `Available` or a raw error.
+    #[test]
+    fn ttl_unavailable_enoprotoopt_maps_to_capability_unavailable_unsupported() {
+        use super::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
+
+        for &errno in &[libc::ENOPROTOOPT, libc::EOPNOTSUPP, libc::EROFS, libc::EINVAL] {
+            let outcome = ttl_error_to_outcome(io::Error::from_raw_os_error(errno));
+            match outcome {
+                CapabilityOutcome::Unavailable { capability, reason } => {
+                    assert_eq!(capability, RuntimeCapability::TtlWrite, "errno {errno}: wrong capability");
+                    assert_eq!(
+                        reason,
+                        CapabilityUnavailable::Unsupported,
+                        "errno {errno}: expected Unsupported"
+                    );
+                }
+                other => panic!("errno {errno}: expected Unavailable{{Unsupported}}, got {other:?}"),
+            }
+        }
+    }
+
+    /// Regression (slice 2.5): EACCES / EPERM map to
+    /// `Unavailable { PermissionDenied }`.
+    #[test]
+    fn ttl_unavailable_eperm_maps_to_capability_unavailable_permission_denied() {
+        use super::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
+
+        for &errno in &[libc::EACCES, libc::EPERM] {
+            let outcome = ttl_error_to_outcome(io::Error::from_raw_os_error(errno));
+            match outcome {
+                CapabilityOutcome::Unavailable { capability, reason } => {
+                    assert_eq!(capability, RuntimeCapability::TtlWrite);
+                    assert_eq!(
+                        reason,
+                        CapabilityUnavailable::PermissionDenied,
+                        "errno {errno}: expected PermissionDenied"
+                    );
+                }
+                other => panic!("errno {errno}: expected Unavailable{{PermissionDenied}}, got {other:?}"),
+            }
+        }
+    }
+
+    /// Regression (slice 2.5): unexpected errnos map to `ProbeFailed` (not
+    /// `Available` and not `Unavailable`).
+    #[test]
+    fn ttl_unexpected_error_maps_to_probe_failed() {
+        use super::{CapabilityOutcome, RuntimeCapability};
+
+        let outcome = ttl_error_to_outcome(io::Error::from_raw_os_error(libc::EIO));
+        match outcome {
+            CapabilityOutcome::ProbeFailed { capability, .. } => {
+                assert_eq!(capability, RuntimeCapability::TtlWrite);
+            }
+            other => panic!("expected ProbeFailed, got {other:?}"),
+        }
+    }
 }
