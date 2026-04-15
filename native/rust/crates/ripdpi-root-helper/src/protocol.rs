@@ -40,6 +40,20 @@ impl HelperResponse {
 // Command constants
 // ---------------------------------------------------------------------------
 
+/// Request the helper to probe what privileged capabilities are available.
+///
+/// Response `data` shape (all fields are JSON booleans):
+/// ```json
+/// { "raw_ipv4": true, "raw_ipv6": false, "tcp_repair": true }
+/// ```
+/// - `raw_ipv4`  — helper can open `AF_INET  / SOCK_RAW` sockets.
+/// - `raw_ipv6`  — helper can open `AF_INET6 / SOCK_RAW` sockets.
+/// - `tcp_repair` — helper can set `TCP_REPAIR` socket option.
+///
+/// The runtime-side conversion from this JSON shape to `CapabilityOutcome<bool>`
+/// lives in `ripdpi-runtime::platform::root_helper_client::capability_outcome_from_probe_json`
+/// (dependency direction: ripdpi-root-helper → ripdpi-runtime, so the typed
+/// helper cannot live here).
 pub const CMD_PROBE_CAPABILITIES: &str = "probe_capabilities";
 pub const CMD_SEND_FAKE_RST: &str = "send_fake_rst";
 pub const CMD_SEND_FLAGGED_TCP_PAYLOAD: &str = "send_flagged_tcp_payload";
