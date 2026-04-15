@@ -4,18 +4,59 @@ This document now tracks open integration work only.
 
 The earlier phase split (`P0` through `P3`) was useful while the transport and control-plane program was landing, but it is now removed. Current shipped behavior is summarized here and in the companion native/runtime notes.
 
+## Related Roadmaps
+
+This roadmap covers the **transport and control-plane layer** underneath bypass
+tactics. It is mostly shipped; remaining work is rollout validation and catalog
+freshness. Three sibling roadmaps drive the surfaces above and around it:
+
+- [../ROADMAP.md](../ROADMAP.md) -- master index and cross-roadmap sequencing.
+- [../ROADMAP-bypass-modernization.md](../ROADMAP-bypass-modernization.md) --
+  strategic bypass roadmap. Its Workstream 5 (TLS shaping, browser-family
+  templates, ECH) depends on the TLS fingerprint and strategy-pack rollout
+  pipeline tracked here. Browser-family templates ship through the catalog
+  system, not hardcoded client defaults.
+- [../ROADMAP-bypass-techniques.md](../ROADMAP-bypass-techniques.md) -- tactical
+  bypass checklist. Finalmask coverage and NaiveProxy validation here sit beside
+  the TCP-level and QUIC-level tactics catalogued there.
+- [../ROADMAP-architecture-refactor.md](../ROADMAP-architecture-refactor.md) --
+  structural cleanup roadmap. Its Workstream 4 (service and relay orchestration
+  decomposition) refactors `UpstreamRelaySupervisor.resolveRuntimeConfig()` into
+  per-relay-kind resolvers for MASQUE, Snowflake, Cloudflare Tunnel, ShadowTLS,
+  and local SOCKS variants. Relay-kind interface changes there must stay
+  compatible with the field validation tracks below.
+
+### Ownership Notes
+
+This roadmap owns **integration-layer delivery and rollout**; bypass and refactor
+roadmaps own the client tactics and code structure that consume these transports.
+
+| Topic | This roadmap owns | Sibling owner |
+|-------|-------------------|---------------|
+| TLS fingerprint catalog distribution | strategy-pack rollout + signing | modernization Workstream 5 defines template families |
+| Finalmask modes on xHTTP | parity + validation per mode | bypass-techniques catalogues client-side behaviors |
+| Cloudflare MASQUE + Tunnel operations | field validation, credential handling | refactor Workstream 4 owns resolver code split |
+| NaiveProxy helper lifecycle | watchdog + error classification | refactor Workstream 4 owns resolver interface |
+| Relay-kind resolver interface | consumer of refactor Workstream 4 output | refactor Workstream 4 owns the split |
+
 ## Current Platform Baseline
 
-RIPDPI already ships the following integration stack in-repo:
+RIPDPI already ships the following integration stack in-repo. Crate ownership
+captured 2026-04-15:
 
-- WARP with native runtime support, endpoint selection, and AmneziaWG-compatible obfuscation controls.
-- Relay transports for VLESS Reality over xHTTP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, and NaiveProxy.
-- Cloudflare Tunnel in both `consume_existing` and `publish_local_origin` modes, with import-backed credential storage and Android-managed publish helpers.
-- Cloudflare-direct MASQUE with mTLS client identity, optional `sec-ch-geohash`, Privacy Pass provider wiring, and HTTP/3 to HTTP/2 fallback.
-- Finalmask on the xHTTP transport family for supported relay kinds and modes, with runtime validation for unsupported combinations.
-- Signed strategy-pack delivery, rollout flags, bundled fallback catalogs, and versioned TLS profile catalogs.
-- Relay credential storage through `RelayCredentialStore`, keeping secrets out of protobuf settings.
-- Automatic probing, automatic audit, remembered per-network policies, and relay/runtime telemetry that feed rollout and validation work.
+- **WARP** with native runtime support, endpoint selection, and AmneziaWG-compatible obfuscation controls.
+- **Relay transports** for VLESS Reality over xHTTP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, and NaiveProxy.
+  - xHTTP + Reality + Finalmask: `native/rust/crates/ripdpi-xhttp/`
+  - MASQUE: `native/rust/crates/ripdpi-masque/`
+  - Cloudflare Tunnel publish-mode origin: `native/rust/crates/ripdpi-cloudflare-origin/`
+  - NaiveProxy subprocess helper: `native/rust/crates/ripdpi-naiveproxy/`
+  - Relay orchestration: `native/rust/crates/ripdpi-relay-core/`
+- **Cloudflare Tunnel** in both `consume_existing` and `publish_local_origin` modes, with import-backed credential storage and Android-managed publish helpers. Kotlin lifecycle in `core/service/.../CloudflarePublishRuntime.kt`; readiness signal `RIPDPI-READY|cloudflare-origin|...`.
+- **Cloudflare-direct MASQUE** with mTLS client identity (`ripdpi-masque/src/lib.rs:load_client_identity()`, line ~719), optional `sec-ch-geohash`, Privacy Pass provider wiring (`ripdpi-masque/src/auth.rs:39-72`), and HTTP/3 to HTTP/2 fallback (`apply_h2_client_auth()`, line ~744). Auth mode enum: `MasqueAuthMode::CloudflareMtls` (`config.rs:7`).
+- **Finalmask** on the xHTTP transport family (`ripdpi-xhttp/src/finalmask.rs`). Three modes today: `header_custom` (line 18), `fragment` (line 20), `sudoku` (line 21). Enumeration: `enum FinalmaskSpec` (lines 18-22). Dual-stream bridge pattern with `TcpOutboundMask` / `TcpInboundMask` (lines 112-115). 3 unit tests cover mode encoding/decoding.
+- **Signed strategy-pack delivery** (SHA256withECDSA, trusted key id `ripdpi-prod-p256`, schema v3), rollout flags, bundled fallback catalogs, and versioned TLS profile catalogs. See `docs/strategy-pack-operations.md`.
+- **Relay credential storage** through `KeystoreRelayCredentialStore` at `core/data/.../RelayStores.kt:142-176` (Android Keystore-backed, alias `ripdpi_relay_credentials`, storage `relay_credentials_secure`). Protects VLESS UUID, Cloudflare Tunnel token and credentials JSON, MASQUE client cert chain and private key PEM, plus transport auth fields.
+- **Automatic probing, automatic audit, remembered per-network policies**, and relay/runtime telemetry that feed rollout and validation work.
 
 ## Current Documentation Set
 
@@ -41,7 +82,18 @@ The roadmap is now limited to ongoing validation, transport expansion, and opera
 | Finalmask expansion | Extend Finalmask beyond current xHTTP coverage | `header-custom`, `fragment`, and `Sudoku` work on supported xHTTP transports | Upstream-parity tests and live transport support for any newly added mode or transport family |
 | NaiveProxy operational confidence | Continue field validation of subprocess helper behavior | Version probing, readiness handshake, error classification, redaction, and bounded restarts are implemented | Low-noise watchdog behavior and validated upstream compatibility across common auth and TLS edge cases |
 | TLS and strategy-pack freshness | Keep remote control-plane data current | Signed catalogs, compatibility checks, and bundled fallbacks are implemented | Catalog rotation remains routine and does not require code changes for ordinary fingerprint and rollout updates |
-| Relay interoperability matrix | Expand cross-transport test confidence | Unit and service coverage exist for relay config, MASQUE, xHTTP, Finalmask, and helper lifecycles | CI coverage closes the remaining provider and transport edge cases without relying on manual hand checks |
+| Relay interoperability matrix | Expand cross-transport test confidence | Unit and service coverage exist for relay config, MASQUE, xHTTP, Finalmask, and helper lifecycles via `scripts/ci/run-rust-relay-interoperability.sh` + `ripdpi-runtime --test network_e2e` (gated on `RIPDPI_RUN_NESTED_PROXY_E2E=1`) | CI coverage closes the remaining provider and transport edge cases without relying on manual hand checks |
+
+### Relay Kind Registry
+
+The current dispatch lives in `core/service/.../UpstreamRelaySupervisor.kt`
+at `resolveRuntimeConfig()` (line 97, 469-line file). Relay kinds enumerated:
+`VlessReality`, `Hysteria2`, `Masque` (with auth-mode routing), `CloudflareTunnel`
+(with `PublishLocalOrigin` mode), `NaiveProxy`, `TuicV5`, `ShadowTlsV3`,
+`ChainRelay`, plus pluggable `Snowflake`, `WebTunnel`, `Obfs4` at lines 21-30.
+Architecture-refactor Workstream 4 owns decomposing this switchboard into
+per-relay-kind resolvers. Field-validation tracks above must stay compatible
+with that split.
 
 ## Near-Term Work
 
