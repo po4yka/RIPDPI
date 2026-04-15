@@ -75,3 +75,8 @@ fn tcp_heavy_chain_round_trips() {
 fn udp_quic_chain_round_trips() {
     round_trip_assert("round-trip-udp-quic.json");
 }
+
+#[test]
+fn relay_heavy_config_round_trips() {
+    round_trip_assert("round-trip-relay-heavy.json");
+}
