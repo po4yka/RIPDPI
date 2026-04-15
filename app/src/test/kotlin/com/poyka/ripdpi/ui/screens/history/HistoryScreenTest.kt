@@ -14,6 +14,7 @@ import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -40,7 +41,7 @@ class HistoryScreenTest {
                                 DiagnosticsSessionsUiModel(
                                     filters = DiagnosticsSessionFiltersUiModel(),
                                     sessions =
-                                        listOf(
+                                        persistentListOf(
                                             DiagnosticsSessionRowUiModel(
                                                 id = "scan-auto",
                                                 profileId = "automatic-probing",
@@ -51,14 +52,14 @@ class HistoryScreenTest {
                                                 status = "completed",
                                                 startedAtLabel = "Mar 27",
                                                 summary = "Automatic probe summary",
-                                                metrics = emptyList(),
+                                                metrics = persistentListOf(),
                                                 tone = DiagnosticsTone.Positive,
                                                 launchOrigin = DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND,
                                                 triggerClassification = "transport_switch",
                                             ),
                                         ),
-                                    pathModes = listOf("RAW_PATH"),
-                                    statuses = listOf("completed"),
+                                    pathModes = persistentListOf("RAW_PATH"),
+                                    statuses = persistentListOf("completed"),
                                 ),
                         ),
                     onBack = {},
@@ -104,7 +105,7 @@ class HistoryScreenTest {
                             connections =
                                 HistoryConnectionsUiModel(
                                     sessions =
-                                        listOf(
+                                        persistentListOf(
                                             HistoryConnectionRowUiModel(
                                                 id = "connection-remembered",
                                                 title = "VPN running",
@@ -115,12 +116,12 @@ class HistoryScreenTest {
                                                 startedAtLabel = "Mar 27",
                                                 summary = "Remembered policy reused",
                                                 rememberedPolicyBadge = "Remembered policy",
-                                                metrics = emptyList(),
+                                                metrics = persistentListOf(),
                                                 tone = DiagnosticsTone.Positive,
                                             ),
                                         ),
                                     modes = listOf("VPN"),
-                                    statuses = listOf("Running"),
+                                    statuses = persistentListOf("Running"),
                                 ),
                         ),
                     onBack = {},

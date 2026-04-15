@@ -55,6 +55,8 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeAuditCoverage
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.persistentMapOf
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -99,7 +101,7 @@ class DiagnosticsScreenTest {
                                             status = "completed",
                                             startedAtLabel = "now",
                                             summary = "DNS substitution detected",
-                                            metrics = emptyList(),
+                                            metrics = persistentListOf(),
                                             tone = DiagnosticsTone.Warning,
                                         ),
                                     resolverRecommendation =
@@ -1160,7 +1162,7 @@ class DiagnosticsScreenTest {
         suiteId = suiteId,
         suiteLabel = suiteLabel,
         summaryMetrics =
-            listOf(
+            persistentListOf(
                 DiagnosticsMetricUiModel(label = "Worked", value = "2", tone = DiagnosticsTone.Positive),
                 DiagnosticsMetricUiModel(label = "Partial", value = "1", tone = DiagnosticsTone.Warning),
                 DiagnosticsMetricUiModel(label = "Failed", value = "1", tone = DiagnosticsTone.Negative),
@@ -1202,7 +1204,7 @@ class DiagnosticsScreenTest {
                         ),
                     ),
                 signature =
-                    listOf(
+                    persistentListOf(
                         DiagnosticsFieldUiModel("Chain", "tlsrec(extlen) -> hostfake(endhost+8)"),
                     ),
             ),
@@ -1237,11 +1239,11 @@ class DiagnosticsScreenTest {
                 null
             },
         families =
-            listOf(
+            persistentListOf(
                 DiagnosticsStrategyProbeFamilyUiModel(
                     title = "TCP / HTTP / HTTPS matrix",
                     candidates =
-                        listOf(
+                        persistentListOf(
                             DiagnosticsStrategyProbeCandidateUiModel(
                                 id = candidateDetail.id,
                                 label = candidateDetail.label,
@@ -1257,7 +1259,7 @@ class DiagnosticsScreenTest {
                 DiagnosticsStrategyProbeFamilyUiModel(
                     title = "QUIC matrix",
                     candidates =
-                        listOf(
+                        persistentListOf(
                             DiagnosticsStrategyProbeCandidateUiModel(
                                 id = quicCandidateDetail.id,
                                 label = quicCandidateDetail.label,
@@ -1272,7 +1274,7 @@ class DiagnosticsScreenTest {
                 ),
             ),
         candidateDetails =
-            mapOf(
+            persistentMapOf(
                 candidateDetail.id to candidateDetail,
                 quicCandidateDetail.id to quicCandidateDetail,
             ),
@@ -1564,7 +1566,7 @@ class DiagnosticsScreenTest {
                                             status = "completed",
                                             startedAtLabel = "now",
                                             summary = "All probes passed",
-                                            metrics = emptyList(),
+                                            metrics = persistentListOf(),
                                             tone = DiagnosticsTone.Neutral,
                                         ),
                                     probeGroups = emptyList(),
@@ -1692,9 +1694,9 @@ class DiagnosticsScreenTest {
                 },
             tone = if (skipped) DiagnosticsTone.Info else DiagnosticsTone.Positive,
             recommended = true,
-            notes = listOf("Adaptive warm-up applied"),
+            notes = persistentListOf("Adaptive warm-up applied"),
             metrics =
-                listOf(
+                persistentListOf(
                     DiagnosticsMetricUiModel(label = "Targets", value = "3/3"),
                     DiagnosticsMetricUiModel(label = "Latency", value = "180 ms", tone = DiagnosticsTone.Info),
                     DiagnosticsMetricUiModel(
@@ -1704,12 +1706,12 @@ class DiagnosticsScreenTest {
                     ),
                 ),
             signature =
-                listOf(
+                persistentListOf(
                     DiagnosticsFieldUiModel("Chain", "tlsrec(extlen) -> hostfake(endhost+8)"),
                     DiagnosticsFieldUiModel("QUIC fake profile", "realistic_initial"),
                 ),
             resultGroups =
-                listOf(
+                persistentListOf(
                     DiagnosticsProbeGroupUiModel(
                         title = "HTTPS results",
                         items =
@@ -1746,9 +1748,9 @@ class DiagnosticsScreenTest {
                 },
             tone = if (skipped) DiagnosticsTone.Info else DiagnosticsTone.Positive,
             recommended = true,
-            notes = listOf("Selected after TCP winner was fixed"),
+            notes = persistentListOf("Selected after TCP winner was fixed"),
             metrics =
-                listOf(
+                persistentListOf(
                     DiagnosticsMetricUiModel(label = "Targets", value = "1/1"),
                     DiagnosticsMetricUiModel(label = "Latency", value = "95 ms", tone = DiagnosticsTone.Info),
                     DiagnosticsMetricUiModel(
@@ -1758,11 +1760,11 @@ class DiagnosticsScreenTest {
                     ),
                 ),
             signature =
-                listOf(
+                persistentListOf(
                     DiagnosticsFieldUiModel("QUIC fake profile", "realistic_initial"),
                 ),
             resultGroups =
-                listOf(
+                persistentListOf(
                     DiagnosticsProbeGroupUiModel(
                         title = "QUIC results",
                         items =

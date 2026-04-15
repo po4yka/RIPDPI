@@ -25,6 +25,7 @@ import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -286,7 +287,7 @@ class HomeScreenTest {
                                     analysisProgress =
                                         AnalysisProgressUiState(
                                             stages =
-                                                listOf(
+                                                persistentListOf(
                                                     AnalysisStageUiState(AnalysisStageStatus.COMPLETED),
                                                     AnalysisStageUiState(AnalysisStageStatus.RUNNING),
                                                     AnalysisStageUiState(AnalysisStageStatus.PENDING),

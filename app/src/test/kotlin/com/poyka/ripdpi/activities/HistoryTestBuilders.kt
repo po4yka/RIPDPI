@@ -32,6 +32,7 @@ import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -322,7 +323,7 @@ internal fun historyConnectionDetailUi(id: String = "connection-1"): HistoryConn
                 networkType = "wifi",
                 startedAtLabel = "Jan 1",
                 summary = "VPN on wifi",
-                metrics = listOf(DiagnosticsMetricUiModel("Duration", "1m 0s")),
+                metrics = persistentListOf(DiagnosticsMetricUiModel("Duration", "1m 0s")),
                 tone = DiagnosticsTone.Positive,
             ),
         highlights = listOf(DiagnosticsMetricUiModel("Health", "Healthy")),
@@ -344,7 +345,7 @@ internal fun historyDiagnosticsDetailUi(id: String = "scan-1"): DiagnosticsSessi
                 status = "completed",
                 startedAtLabel = "Jan 1",
                 summary = "Scan summary",
-                metrics = emptyList(),
+                metrics = persistentListOf(),
                 tone = DiagnosticsTone.Positive,
                 launchOrigin = DiagnosticsScanLaunchOrigin.UNKNOWN,
                 triggerClassification = null,
