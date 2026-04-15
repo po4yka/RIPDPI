@@ -1,0 +1,169 @@
+#!/usr/bin/env python3
+"""Generate docs/architecture/hotspots.md from live LoC counts.
+
+Reads config/static/file-loc-baseline.json to determine which files are
+hotspots, computes raw and code-only LoC, then writes a deterministic
+markdown table sorted by (kind, path).
+"""
+
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from datetime import date
+from pathlib import Path
+
+# Import helpers from the sibling check script.
+sys.path.insert(0, str(Path(__file__).parent))
+from check_file_loc_limits import count_code_lines, strip_comments  # noqa: E402
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+BASELINE_PATH = REPO_ROOT / "config" / "static" / "file-loc-baseline.json"
+OUTPUT_PATH = REPO_ROOT / "docs" / "architecture" / "hotspots.md"
+
+# Default budgets per kind (matches check_file_loc_limits.py LIMITS).
+BUDGETS: dict[str, int] = {
+    "kotlin": 700,
+    "compose": 1000,
+    "rust": 1500,
+}
+
+
+def git_head_sha(repo_root: Path) -> str:
+    result = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def raw_loc(abs_path: Path) -> int:
+    """Return the raw line count (wc -l semantics: number of newlines)."""
+    text = abs_path.read_text(encoding="utf-8", errors="replace")
+    return len(text.splitlines())
+
+
+def code_only_loc(abs_path: Path, kind: str) -> int:
+    """Return code-only LoC using the same logic as check_file_loc_limits.py."""
+    text = abs_path.read_text(encoding="utf-8", errors="replace")
+    language = "rust" if kind == "rust" else "kotlin"
+    return sum(1 for line in strip_comments(text, language).splitlines() if line.strip())
+
+
+def build_rows(
+    entries: list[dict],
+    repo_root: Path,
+) -> list[dict]:
+    rows: list[dict] = []
+    for entry in entries:
+        rel_path = entry["path"]
+        kind = entry["kind"]
+        abs_path = repo_root / rel_path
+        budget = int(entry.get("limit", BUDGETS.get(kind, 700)))
+
+        if not abs_path.is_file():
+            print(f"WARNING: hotspot file not found, skipping: {rel_path}", file=sys.stderr)
+            continue
+
+        raw = raw_loc(abs_path)
+        code = code_only_loc(abs_path, kind)
+        delta = code - budget
+
+        rows.append(
+            {
+                "kind": kind,
+                "path": rel_path,
+                "raw": raw,
+                "code": code,
+                "budget": budget,
+                "delta": delta,
+            }
+        )
+
+    # Deterministic sort: (kind, path)
+    rows.sort(key=lambda r: (r["kind"], r["path"]))
+    return rows
+
+
+def format_delta(delta: int) -> str:
+    if delta > 0:
+        return f"+{delta}"
+    return str(delta)
+
+
+def render_markdown(rows: list[dict], sha: str, today: date) -> str:
+    lines: list[str] = []
+    lines.append(f"# Hotspot Inventory")
+    lines.append("")
+    lines.append(f"Generated: {today.isoformat()}  commit: `{sha}`")
+    lines.append("")
+    lines.append(
+        "Code-only line counts (blanks and comments stripped) derived from"
+        " `config/static/file-loc-baseline.json`."
+    )
+    lines.append("")
+
+    # Group by kind for section headers.
+    kind_order = ["compose", "kotlin", "rust"]
+    kind_labels = {
+        "compose": "Compose (UI)",
+        "kotlin": "Kotlin",
+        "rust": "Rust",
+    }
+
+    for kind in kind_order:
+        kind_rows = [r for r in rows if r["kind"] == kind]
+        if not kind_rows:
+            continue
+
+        lines.append(f"## {kind_labels[kind]}")
+        lines.append("")
+        lines.append("| File | Raw LoC | Code-only LoC | Budget | Delta |")
+        lines.append("| ---- | -------: | ------------: | -----: | ----: |")
+        for r in kind_rows:
+            file_name = Path(r["path"]).name
+            delta_str = format_delta(r["delta"])
+            lines.append(
+                f"| `{file_name}` | {r['raw']} | {r['code']} | {r['budget']} | {delta_str} |"
+            )
+        lines.append("")
+
+    return "\n".join(lines) + "\n"
+
+
+def main() -> int:
+    if not BASELINE_PATH.is_file():
+        print(f"ERROR: baseline not found: {BASELINE_PATH}", file=sys.stderr)
+        return 1
+
+    raw_data = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
+    entries: list[dict] = raw_data.get("entries", [])
+    if not entries:
+        print("ERROR: baseline entries list is empty", file=sys.stderr)
+        return 1
+
+    sha = git_head_sha(REPO_ROOT)
+    today = date.today()
+
+    rows = build_rows(entries, REPO_ROOT)
+    content = render_markdown(rows, sha, today)
+
+    # Enforce LF line endings and no trailing whitespace per line.
+    normalized_lines = [line.rstrip() for line in content.split("\n")]
+    normalized = "\n".join(normalized_lines)
+    # Ensure single trailing newline.
+    normalized = normalized.rstrip("\n") + "\n"
+
+    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    OUTPUT_PATH.write_text(normalized, encoding="utf-8", newline="\n")
+
+    print(f"Written: {OUTPUT_PATH}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
