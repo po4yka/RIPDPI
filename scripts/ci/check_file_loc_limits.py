@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -414,6 +415,113 @@ def build_baseline(measurements: Iterable[SourceMeasurement]) -> dict[str, objec
     return {"entries": entries}
 
 
+_KT_FUN_RE = re.compile(r"^\s*((?:(?:private|internal|public|protected|inline|suspend|override|open|abstract|operator|infix|tailrec|external|actual|expect)\s+)*)fun\s+(\w+)", re.MULTILINE)
+_RS_FN_RE = re.compile(r"^\s*((?:(?:pub(?:\([^)]*\))?|async|unsafe|extern(?:\s+\"[^\"]*\")?|const|default)\s+)*)fn\s+(\w+)", re.MULTILINE)
+
+_KT_SUPPRESS_RE = re.compile(r"@(?:file:)?Suppress\s*\(")
+_RS_ALLOW_RE = re.compile(r"#\[allow\(")
+
+
+def _measure_function_lines(text: str, match_start: int) -> int:
+    """Count lines from the function signature to the end of its body (balanced braces)."""
+    start_line = text.count("\n", 0, match_start)
+    brace_pos = text.find("{", match_start)
+    if brace_pos == -1:
+        # Single-expression or abstract function with no body
+        end_of_line = text.find("\n", match_start)
+        end_line = text.count("\n", 0, end_of_line) if end_of_line != -1 else text.count("\n")
+        return max(1, end_line - start_line + 1)
+
+    depth = 0
+    index = brace_pos
+    while index < len(text):
+        ch = text[index]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                end_line = text.count("\n", 0, index)
+                return max(1, end_line - start_line + 1)
+        index += 1
+
+    # Unbalanced — count to end of file
+    return max(1, text.count("\n", match_start) + 1)
+
+
+def top_functions(path: Path, language: str, top_n: int = 5) -> list[tuple[str, int]]:
+    """Return the top_n longest functions as (name, line_count) pairs, descending."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return []
+
+    pattern = _KT_FUN_RE if language == "kotlin" else _RS_FN_RE
+    results: list[tuple[str, int]] = []
+    for match in pattern.finditer(text):
+        name = match.group(2)
+        line_count = _measure_function_lines(text, match.start())
+        results.append((name, line_count))
+
+    results.sort(key=lambda item: item[1], reverse=True)
+    return results[:top_n]
+
+
+def count_suppressions(path: Path, language: str) -> int:
+    """Count suppression annotations in a source file."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return 0
+
+    if language == "kotlin":
+        return len(_KT_SUPPRESS_RE.findall(text))
+    return len(_RS_ALLOW_RE.findall(text))
+
+
+def report_hotspots(repo_root: Path, baseline_path: Path) -> None:
+    """Emit a markdown hotspot report to stdout."""
+    raw_data = json.loads(baseline_path.read_text(encoding="utf-8"))
+    entries = raw_data.get("entries", [])
+
+    suppression_rows: list[tuple[str, int]] = []
+
+    for entry in entries:
+        rel_path = entry["path"]
+        abs_path = repo_root / rel_path
+        kind = entry["kind"]
+        language = "kotlin" if kind in ("kotlin", "compose") else "rust"
+
+        if not abs_path.is_file():
+            print(f"WARNING: hotspot file not found, skipping: {rel_path}", file=sys.stderr)
+            continue
+
+        filename = abs_path.name
+        funcs = top_functions(abs_path, language)
+        suppressions = count_suppressions(abs_path, language)
+        suppression_rows.append((rel_path, suppressions))
+
+        print(f"### {filename}")
+        print(f"`{rel_path}`")
+        print()
+        print("| Function | Lines |")
+        print("| --- | --- |")
+        if funcs:
+            for name, lines in funcs:
+                print(f"| `{name}` | {lines} |")
+        else:
+            print("| _(no functions detected)_ | — |")
+        print()
+
+    print("### Suppression summary")
+    print()
+    print("| File | Suppressions |")
+    print("| --- | --- |")
+    for rel_path, count in suppression_rows:
+        print(f"| `{rel_path}` | {count} |")
+    print()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify code-only LoC limits for repo-owned Rust and Kotlin sources.")
     parser.add_argument("--baseline", default=DEFAULT_BASELINE, help="Checked-in JSON baseline file.")
@@ -423,9 +531,22 @@ def main() -> int:
         action="store_true",
         help="Print the current baseline payload to stdout instead of validating it.",
     )
+    parser.add_argument(
+        "--report-hotspots",
+        action="store_true",
+        help="Emit a markdown hotspot report (top-5 functions + suppression counts) for each baseline entry.",
+    )
     args = parser.parse_args()
 
     repo_root = Path(__file__).resolve().parents[2]
+
+    if args.report_hotspots:
+        baseline_path = (repo_root / args.baseline).resolve()
+        if not baseline_path.is_file():
+            raise ValueError(f"LoC baseline not found: {baseline_path}")
+        report_hotspots(repo_root, baseline_path)
+        return 0
+
     measurements = collect_measurements(repo_root)
 
     if args.dump_baseline:
