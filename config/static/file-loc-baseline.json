@@ -55,12 +55,6 @@
       "limit": 700
     },
     {
-      "path": "core/data/src/main/kotlin/com/poyka/ripdpi/data/StrategyChains.kt",
-      "kind": "kotlin",
-      "measuredLoc": 822,
-      "limit": 700
-    },
-    {
       "path": "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsArchiveRenderer.kt",
       "kind": "kotlin",
       "measuredLoc": 1188,
