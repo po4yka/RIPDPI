@@ -19,13 +19,17 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.tooling.preview.Preview
+import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 enum class RipDpiScaffoldWidth {
@@ -280,6 +284,66 @@ fun RipDpiAdaptiveColumns(
         ) {
             primary()
             secondary()
+        }
+    }
+}
+
+@Suppress("UnusedPrivateMember")
+@Preview(showBackground = true)
+@Composable
+private fun RipDpiScreenScaffoldPreview() {
+    RipDpiComponentPreview {
+        RipDpiScreenScaffold(
+            topBar = {
+                RipDpiTopAppBar(title = "Screen")
+            },
+        ) {
+            Text(text = "Content", modifier = Modifier.padding(it))
+        }
+    }
+}
+
+@Suppress("UnusedPrivateMember")
+@Preview(showBackground = true)
+@Composable
+private fun RipDpiSettingsScaffoldPreview() {
+    RipDpiComponentPreview {
+        RipDpiSettingsScaffold(
+            title = "Settings",
+            navigationIcon = RipDpiIcons.Back,
+            onNavigationClick = {},
+        ) {
+            item { Text(text = "Setting row") }
+        }
+    }
+}
+
+@Suppress("UnusedPrivateMember")
+@Preview(showBackground = true)
+@Composable
+private fun RipDpiDashboardScaffoldPreview() {
+    RipDpiComponentPreview {
+        RipDpiDashboardScaffold(
+            topBar = {
+                RipDpiTopAppBar(title = "Dashboard")
+            },
+        ) {
+            Text(text = "Dashboard content")
+        }
+    }
+}
+
+@Suppress("UnusedPrivateMember")
+@Preview(showBackground = true)
+@Composable
+private fun RipDpiContentScreenScaffoldPreview() {
+    RipDpiComponentPreview {
+        RipDpiContentScreenScaffold(
+            title = "Details",
+            navigationIcon = RipDpiIcons.Back,
+            onNavigationClick = {},
+        ) {
+            Text(text = "Detail content")
         }
     }
 }

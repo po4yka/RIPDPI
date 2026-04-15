@@ -170,7 +170,7 @@ private fun RipDpiBottomSheetHandle() {
     Box(
         modifier =
             Modifier
-                .padding(top = 12.dp)
+                .padding(top = components.sheetHandleTopPadding)
                 .size(width = components.sheetHandleWidth, height = components.sheetHandleHeight)
                 .background(color = colors.border, shape = RipDpiThemeTokens.shapes.full),
     )

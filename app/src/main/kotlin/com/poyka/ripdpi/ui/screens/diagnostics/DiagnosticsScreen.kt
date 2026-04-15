@@ -120,7 +120,7 @@ fun DiagnosticsRoute(
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.selectedSection) {
-        if (pagerState.currentPage != uiState.selectedSection.ordinal) {
+        if (!pagerState.isScrollInProgress && pagerState.currentPage != uiState.selectedSection.ordinal) {
             pagerState.animateScrollToPage(uiState.selectedSection.ordinal)
         }
     }
