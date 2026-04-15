@@ -70,3 +70,4 @@ The audit roadmap tracked in this repository is complete. The items below are no
 ## Next Work
 
 - **[DPI Bypass Technique Expansion](ROADMAP-bypass-techniques.md)** -- 15 techniques from field research (ntc.party, Habr, TechnicalVault) not yet in RIPDPI: circular strategy rotation, conditional execution, TCP flag manipulation, IP ID control, fakedsplit ordering, SYN-Hide, UDP-over-ICMP, PCAP recording, and more. Tiered by priority with implementation approaches and vault references.
+- **[DPI Bypass Modernization](ROADMAP-bypass-modernization.md)** -- active roadmap for the next generation of RIPDPI bypass work: capability hygiene, unified first-flight IR, QUIC Initial shaping, DNS oracle hardening, TLS/ECH modernization, contextual evaluation, root/non-root emitter rationalization, Android hardening, and rollout gates.
