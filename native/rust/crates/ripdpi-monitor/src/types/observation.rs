@@ -7,6 +7,7 @@ use super::scan::{ObservationKind, TransportFailureKind};
 pub enum DnsObservationStatus {
     Match,
     ExpectedMismatch,
+    AnswerDivergence,
     Substitution,
     Nxdomain,
     EncryptedBlocked,

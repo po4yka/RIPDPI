@@ -5,6 +5,7 @@
 *.keystore
 *.jks
 *.pem
+!native/rust/crates/ripdpi-tls-profiles/ca-bundle/mozilla-ca.pem
 *.key
 *.p12
 .env

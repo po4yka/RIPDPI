@@ -31,7 +31,7 @@ object DiagnosticsOutcomeTaxonomy {
         return DiagnosticsOutcomeClassification(
             bucket = bucket,
             uiTone = bucket.uiTone(),
-            eventLevel = bucket.eventLevel(),
+            eventLevel = eventLevelOverride(probeType, outcome) ?: bucket.eventLevel(),
             healthyEnoughForSummary = bucket == DiagnosticsOutcomeBucket.Healthy,
         )
     }
@@ -99,7 +99,7 @@ private fun bucketDnsIntegrity(
             DiagnosticsOutcomeBucket.Healthy
         }
 
-        "dns_expected_mismatch" -> {
+        "dns_expected_mismatch", "dns_answer_divergence" -> {
             DiagnosticsOutcomeBucket.Attention
         }
 
@@ -263,6 +263,34 @@ private fun DiagnosticsOutcomeBucket.eventLevel(): String =
         -> "warn"
 
         DiagnosticsOutcomeBucket.Failed -> "error"
+    }
+
+/**
+ * Some "Failed" outcomes are expected censorship / policy findings rather
+ * than infrastructure faults. Logging them at ERROR makes logcat look like the
+ * app is crashing; they belong at WARN. Mirrors
+ * `ripdpi-monitor/src/util.rs::event_level_override`.
+ */
+private fun eventLevelOverride(
+    probeType: String,
+    outcome: String,
+): String? =
+    when (probeType to outcome) {
+        "dns_integrity" to "dns_substitution",
+        "dns_integrity" to "encrypted_dns_blocked",
+        "dns_integrity" to "dns_nxdomain",
+        "domain_reachability" to "tls_cert_invalid",
+        "domain_reachability" to "http_blockpage",
+        "service_reachability" to "service_blocked",
+        "circumvention_reachability" to "circumvention_blocked",
+        "telegram_availability" to "blocked",
+        "strategy_http" to "http_blockpage",
+        "strategy_https" to "tls_cert_invalid",
+        "strategy_failure_classification" to "http_blockpage",
+        "strategy_failure_classification" to "dns_tampering",
+        -> "warn"
+
+        else -> null
     }
 
 private fun DiagnosticsOutcomeBucket.uiTone(): DiagnosticsOutcomeTone =
