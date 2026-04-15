@@ -189,6 +189,7 @@ enum class TransportFailureKind {
 enum class DnsObservationStatus {
     MATCH,
     EXPECTED_MISMATCH,
+    ANSWER_DIVERGENCE,
     SUBSTITUTION,
     NXDOMAIN,
     ENCRYPTED_BLOCKED,

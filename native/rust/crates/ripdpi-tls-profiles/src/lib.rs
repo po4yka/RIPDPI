@@ -9,6 +9,7 @@ mod edge;
 mod firefox;
 mod profile;
 mod safari;
+mod trust;
 
 pub use profile::{
     profile_catalog, profile_metadata, ProfileCatalog, ProfileConfig, ProfileInvariantStatus, ProfileMetadata,
@@ -31,6 +32,7 @@ pub fn configure_builder(profile: &str) -> Result<SslConnectorBuilder, Error> {
     let config = profile::lookup_profile(profile);
     validate_profile_config(config)?;
     apply::apply_profile(&mut builder, config)?;
+    trust::seed_default_trust(&mut builder)?;
     Ok(builder)
 }
 

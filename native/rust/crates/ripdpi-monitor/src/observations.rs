@@ -371,6 +371,7 @@ fn dns_status(outcome: &str) -> DnsObservationStatus {
     match outcome {
         "dns_match" => DnsObservationStatus::Match,
         "dns_expected_mismatch" => DnsObservationStatus::ExpectedMismatch,
+        "dns_answer_divergence" => DnsObservationStatus::AnswerDivergence,
         "dns_substitution" => DnsObservationStatus::Substitution,
         "dns_nxdomain" => DnsObservationStatus::Nxdomain,
         "encrypted_dns_blocked" => DnsObservationStatus::EncryptedBlocked,
@@ -520,6 +521,7 @@ mod tests {
     fn dns_status_maps_all_variants() {
         assert_eq!(dns_status("dns_match"), DnsObservationStatus::Match);
         assert_eq!(dns_status("dns_expected_mismatch"), DnsObservationStatus::ExpectedMismatch);
+        assert_eq!(dns_status("dns_answer_divergence"), DnsObservationStatus::AnswerDivergence);
         assert_eq!(dns_status("dns_substitution"), DnsObservationStatus::Substitution);
         assert_eq!(dns_status("dns_nxdomain"), DnsObservationStatus::Nxdomain);
         assert_eq!(dns_status("encrypted_dns_blocked"), DnsObservationStatus::EncryptedBlocked);

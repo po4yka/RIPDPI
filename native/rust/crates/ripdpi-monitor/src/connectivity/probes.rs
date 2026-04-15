@@ -102,14 +102,17 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
     let expected: BTreeSet<String> = target.expected_ips.iter().cloned().collect();
 
     let outcome = match (&udp_result, &encrypted_result) {
-        (Ok(udp_ips), Ok(encrypted_ips)) if ip_set(udp_ips) == ip_set(encrypted_ips) => {
-            if !expected.is_empty() && ip_set(udp_ips) != expected {
-                "dns_expected_mismatch".to_string()
-            } else {
-                "dns_match".to_string()
+        (Ok(udp_ips), Ok(encrypted_ips)) => match classify_dns_answer_overlap(udp_ips, encrypted_ips) {
+            DnsAnswerOverlap::Match => {
+                if !expected.is_empty() && ip_set(udp_ips) != expected {
+                    "dns_expected_mismatch".to_string()
+                } else {
+                    "dns_match".to_string()
+                }
             }
-        }
-        (Ok(_), Ok(_)) => "dns_substitution".to_string(),
+            DnsAnswerOverlap::Divergence => "dns_answer_divergence".to_string(),
+            DnsAnswerOverlap::Substitution => "dns_substitution".to_string(),
+        },
         (Ok(_), Err(_)) => "encrypted_dns_blocked".to_string(),
         (Err(err), Ok(_)) if err == "dns_nxdomain" => "dns_nxdomain".to_string(),
         (Err(_), Ok(_)) => {
