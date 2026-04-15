@@ -1352,4 +1352,50 @@ mod tests {
         };
         assert_eq!(failed.capability(), Some(RuntimeCapability::ReplacementSocket));
     }
+
+    // -----------------------------------------------------------------------
+    // VpnProtectCallback unavailable (slice 2.5 regression)
+    // -----------------------------------------------------------------------
+
+    /// Maps the result of `protect_socket_via_callback` when no callback is
+    /// registered to a typed `CapabilityOutcome`.  This mirrors what production
+    /// code will do once slice 2.6 wires the emitter path.
+    fn vpn_protect_outcome_when_unregistered() -> CapabilityOutcome<()> {
+        use ripdpi_native_protect::protect_socket_via_callback;
+        match protect_socket_via_callback(-1) {
+            Ok(()) => CapabilityOutcome::Available(()),
+            Err(err) if err.kind() == std::io::ErrorKind::NotConnected => CapabilityOutcome::Unavailable {
+                capability: RuntimeCapability::VpnProtectCallback,
+                reason: CapabilityUnavailable::NotProbed,
+            },
+            Err(err) => CapabilityOutcome::ProbeFailed {
+                capability: RuntimeCapability::VpnProtectCallback,
+                error: err.to_string(),
+            },
+        }
+    }
+
+    /// Regression (slice 2.5): when no VPN protect callback is registered,
+    /// the outcome is `Unavailable { VpnProtectCallback, NotProbed }` — never
+    /// `Available` and never a raw `io::Error` propagated upstream.
+    #[test]
+    fn vpn_protect_callback_absent_produces_unavailable_outcome() {
+        use std::sync::Mutex;
+
+        // Serialise against other tests that touch the global protect callback.
+        static PROTECT_TEST_MUTEX: Mutex<()> = Mutex::new(());
+        let _guard = PROTECT_TEST_MUTEX.lock().expect("protect test mutex");
+
+        ripdpi_native_protect::unregister_protect_callback();
+        assert!(!ripdpi_native_protect::has_protect_callback(), "precondition: no callback registered");
+
+        let outcome = vpn_protect_outcome_when_unregistered();
+        match outcome {
+            CapabilityOutcome::Unavailable { capability, reason } => {
+                assert_eq!(capability, RuntimeCapability::VpnProtectCallback);
+                assert_eq!(reason, CapabilityUnavailable::NotProbed);
+            }
+            other => panic!("expected Unavailable{{VpnProtectCallback, NotProbed}}, got {other:?}"),
+        }
+    }
 }

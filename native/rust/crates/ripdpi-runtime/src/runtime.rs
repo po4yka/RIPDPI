@@ -272,6 +272,43 @@ mod tests {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // CapabilitySkipped routing invariants (slice 2.5 regression)
+    // -----------------------------------------------------------------------
+
+    /// Regression (slice 2.5): `FailureClass::CapabilitySkipped` must:
+    ///   1. produce zero `failure_trigger_mask` (no wire-visible block signal),
+    ///   2. return `false` from `failure_penalizes_strategy` (capability-skipped
+    ///      runs must not penalise the strategy in downstream learning), and
+    ///   3. serialize to the exact string `"capability_skipped"`.
+    ///
+    /// This pins the no-penalty contract that slice 2.6 will consume when
+    /// excluding capability-skipped runs from strategy learning.
+    #[test]
+    fn capability_skipped_has_zero_trigger_mask_no_penalty_and_correct_str() {
+        let failure = ClassifiedFailure::new(
+            FailureClass::CapabilitySkipped,
+            FailureStage::FirstWrite,
+            FailureAction::RetryWithMatchingGroup,
+            "capability unavailable: ttl_write",
+        );
+
+        assert_eq!(
+            failure_trigger_mask(&failure),
+            0,
+            "CapabilitySkipped must not trigger any block-detection signal"
+        );
+        assert!(
+            !failure_penalizes_strategy(&failure),
+            "CapabilitySkipped must not penalise the strategy"
+        );
+        assert_eq!(
+            failure.class.as_str(),
+            "capability_skipped",
+            "CapabilitySkipped string form must be stable"
+        );
+    }
+
     fn runtime_config_with_ipfrag(tcp: bool, udp: bool, ipv6: bool) -> RuntimeConfig {
         let mut config = RuntimeConfig::default();
         config.network.ipv6 = ipv6;
