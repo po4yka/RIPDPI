@@ -20,7 +20,7 @@ import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -44,7 +44,7 @@ class MainHomeDiagnosticsActionsTest {
     @Test
     fun `verified vpn flow starts in-path verification scan`() =
         runTest {
-            val effects = Channel<MainEffect>(Channel.BUFFERED)
+            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
             val diagnosticsTimelineSource = StubDiagnosticsTimelineSource()
             val diagnosticsScanController =
                 StubDiagnosticsScanController().apply {
@@ -150,7 +150,7 @@ class MainHomeDiagnosticsActionsTest {
     @Test
     fun `run full analysis clears stale state and starts composite run`() =
         runTest {
-            val effects = Channel<MainEffect>(Channel.BUFFERED)
+            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
             val compositeRunService = StubDiagnosticsHomeCompositeRunService()
             val homeWorkflowService = StubDiagnosticsHomeWorkflowService().apply { currentFingerprint = "fp-1" }
             val homeDiagnosticsState =
@@ -188,13 +188,13 @@ class MainHomeDiagnosticsActionsTest {
             assertNull(homeDiagnosticsState.value.activeVerificationSessionId)
             assertFalse(homeDiagnosticsState.value.waitingForVerifiedVpnStart)
             assertNull(homeDiagnosticsState.value.verificationSheet)
-            assertTrue(effects.tryReceive().isFailure)
+            assertTrue(effects.replayCache.isEmpty())
         }
 
     @Test
     fun `run full analysis surfaces start failures`() =
         runTest {
-            val effects = Channel<MainEffect>(Channel.BUFFERED)
+            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
             val compositeRunService =
                 StubDiagnosticsHomeCompositeRunService().apply {
                     startFailure =
@@ -221,7 +221,7 @@ class MainHomeDiagnosticsActionsTest {
     @Test
     fun `start verified vpn blocks stale composite results`() =
         runTest {
-            val effects = Channel<MainEffect>(Channel.BUFFERED)
+            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
             val homeWorkflowService = StubDiagnosticsHomeWorkflowService().apply { currentFingerprint = "fp-2" }
             val homeDiagnosticsState =
                 MutableStateFlow(
@@ -251,7 +251,7 @@ class MainHomeDiagnosticsActionsTest {
     @Test
     fun `verified vpn flow surfaces hidden probe conflicts`() =
         runTest {
-            val effects = Channel<MainEffect>(Channel.BUFFERED)
+            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
             val diagnosticsTimelineSource = StubDiagnosticsTimelineSource()
             val diagnosticsScanController =
                 StubDiagnosticsScanController().apply {
@@ -308,7 +308,7 @@ class MainHomeDiagnosticsActionsTest {
             assertNull(homeDiagnosticsState.value.activeVerificationSessionId)
             assertFalse(homeDiagnosticsState.value.waitingForVerifiedVpnStart)
             assertEquals("VPN verification is busy", homeDiagnosticsState.value.verificationSheet?.headline)
-            assertTrue(effects.tryReceive().isFailure)
+            assertTrue(effects.replayCache.isEmpty())
         }
 
     @Test
@@ -340,7 +340,7 @@ class MainHomeDiagnosticsActionsTest {
     @Test
     fun `share failure keeps analysis sheet open and emits error`() =
         runTest {
-            val effects = Channel<MainEffect>(Channel.BUFFERED)
+            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
             val shareService =
                 StubDiagnosticsShareService().apply {
                     archiveFailure = IllegalStateException("archive creation failed")
@@ -372,7 +372,7 @@ class MainHomeDiagnosticsActionsTest {
                 "shareBusy should be false after share failure",
                 homeDiagnosticsState.value.shareBusy,
             )
-            val effect = effects.tryReceive().getOrNull()
+            val effect = effects.replayCache.firstOrNull()
             assertTrue(
                 "expected ShowError effect but got $effect",
                 effect is MainEffect.ShowError,
@@ -545,7 +545,7 @@ class MainHomeDiagnosticsActionsTest {
 
     private fun createActions(
         scope: CoroutineScope,
-        effects: Channel<MainEffect> = Channel(Channel.BUFFERED),
+        effects: MutableSharedFlow<MainEffect> = MutableSharedFlow(replay = 16, extraBufferCapacity = 16),
         diagnosticsTimelineSource: StubDiagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
         diagnosticsScanController: StubDiagnosticsScanController = StubDiagnosticsScanController(),
         diagnosticsShareService: StubDiagnosticsShareService = StubDiagnosticsShareService(),

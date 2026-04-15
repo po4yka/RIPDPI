@@ -5,6 +5,7 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.StrategyProbeLiveProgress
 import com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -471,7 +472,7 @@ class DiagnosticsProgressModelTest {
             status = "ok",
             startedAtLabel = "",
             summary = "ok",
-            metrics = emptyList(),
+            metrics = persistentListOf(),
             tone = tone,
         )
 }
