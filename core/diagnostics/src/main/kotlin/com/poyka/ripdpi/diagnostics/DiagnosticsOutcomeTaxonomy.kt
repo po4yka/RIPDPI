@@ -231,6 +231,11 @@ private fun bucketStrategyFailureClassification(outcome: String): DiagnosticsOut
         "strategy_execution_failure",
         -> DiagnosticsOutcomeBucket.Failed
 
+        // Capability-skipped is not a network failure; a required platform
+        // feature was absent at runtime (e.g. TTL write unavailable). Surface
+        // as Inconclusive so the UI does not show a false negative outcome.
+        "capability_skipped" -> DiagnosticsOutcomeBucket.Inconclusive
+
         else -> DiagnosticsOutcomeBucket.Inconclusive
     }
 
