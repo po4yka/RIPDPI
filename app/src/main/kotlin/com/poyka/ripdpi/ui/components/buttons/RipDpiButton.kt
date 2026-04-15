@@ -100,8 +100,14 @@ fun RipDpiButton(
     val base = buttonPalette(variant = variant, enabled = isInteractive, isPressed = isPressed)
     val horizontalPadding =
         when (density) {
-            RipDpiControlDensity.Default -> components.buttonHorizontalPadding
-            RipDpiControlDensity.Compact -> components.buttonHorizontalPadding - 4.dp
+            RipDpiControlDensity.Default -> {
+                components.buttonHorizontalPadding
+            }
+
+            RipDpiControlDensity.Compact -> {
+                components.buttonHorizontalPadding -
+                    components.buttonFocusedHorizontalPaddingOffset
+            }
         }
     val borderWidth =
         when {
@@ -170,7 +176,7 @@ fun RipDpiButton(
                         horizontal = horizontalPadding,
                         vertical = components.buttonVerticalPadding,
                     ),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(components.buttonIconGap),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (loading || leadingIcon != null) {

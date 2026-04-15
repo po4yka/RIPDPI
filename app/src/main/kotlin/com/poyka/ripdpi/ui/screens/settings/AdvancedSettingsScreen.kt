@@ -35,6 +35,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
+import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -268,6 +269,7 @@ internal fun AdvancedSettingsScreen(
     actions: AdvancedSettingsActions,
     modifier: Modifier = Modifier,
 ) {
+    TrackRecomposition("AdvancedSettingsScreen")
     val contentState = rememberAdvancedSettingsContentState(uiState)
     var pendingHostPackId by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedHostPackTargetMode by rememberSaveable { mutableStateOf(defaultHostPackTargetMode(uiState)) }
