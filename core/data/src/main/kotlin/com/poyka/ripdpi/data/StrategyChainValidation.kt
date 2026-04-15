@@ -1,6 +1,3 @@
-// ROADMAP-architecture-refactor W1 -- carry-over until Phase 1 slice 1.5
-@file:Suppress("TooManyFunctions")
-
 package com.poyka.ripdpi.data
 
 internal const val MaxSeqOverlapSize = 32
