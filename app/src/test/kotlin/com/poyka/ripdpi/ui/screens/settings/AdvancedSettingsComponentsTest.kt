@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -134,7 +135,7 @@ class AdvancedSettingsComponentsTest {
                     title = "Desync method",
                     value = "fake",
                     options =
-                        listOf(
+                        persistentListOf(
                             RipDpiDropdownOption(value = "fake", label = "Fake"),
                             RipDpiDropdownOption(value = "split", label = "Split"),
                         ),

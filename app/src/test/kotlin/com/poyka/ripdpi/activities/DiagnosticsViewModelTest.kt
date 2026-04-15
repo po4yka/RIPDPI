@@ -55,6 +55,7 @@ import com.poyka.ripdpi.diagnostics.contract.profile.ProbePersistencePolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
@@ -1639,7 +1640,7 @@ class DiagnosticsViewModelTest {
                                     status = "finished",
                                     startedAtLabel = "Mar 27, 16:45",
                                     summary = rawSummary,
-                                    metrics = emptyList(),
+                                    metrics = persistentListOf(),
                                     tone = DiagnosticsTone.Warning,
                                 ),
                             resolverRecommendation =
