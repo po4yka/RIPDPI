@@ -1,5 +1,5 @@
 use std::collections::BTreeSet;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::ScanKind;
@@ -105,6 +105,81 @@ pub(crate) fn ip_set(values: &[String]) -> BTreeSet<String> {
     values.iter().cloned().collect()
 }
 
+pub(crate) fn ipv4_prefix_24(value: &str) -> Option<[u8; 3]> {
+    match value.parse::<IpAddr>().ok()? {
+        IpAddr::V4(addr) => {
+            let octets = addr.octets();
+            Some([octets[0], octets[1], octets[2]])
+        }
+        IpAddr::V6(_) => None,
+    }
+}
+
+pub(crate) fn ipv6_prefix_48(value: &str) -> Option<[u16; 3]> {
+    match value.parse::<IpAddr>().ok()? {
+        IpAddr::V4(_) => None,
+        IpAddr::V6(addr) => {
+            let segments = addr.segments();
+            Some([segments[0], segments[1], segments[2]])
+        }
+    }
+}
+
+/// True when an IP belongs to a bogon / sinkhole / private space that cannot
+/// legitimately answer for a public domain.
+pub(crate) fn looks_like_sinkhole(value: &str) -> bool {
+    match value.parse::<IpAddr>() {
+        Ok(IpAddr::V4(addr)) => {
+            addr.is_unspecified()
+                || addr.is_loopback()
+                || addr.is_link_local()
+                || addr.is_broadcast()
+                || addr.is_private()
+                || addr.is_documentation()
+                || addr.is_multicast()
+        }
+        Ok(IpAddr::V6(addr)) => {
+            addr.is_unspecified() || addr.is_loopback() || addr.is_multicast() || addr.segments()[0] == 0xfc00
+        }
+        Err(_) => true,
+    }
+}
+
+/// Outcome of comparing UDP and encrypted DNS answer sets. Distinguishes
+/// legitimate anycast divergence (separate public IPs from the same CDN) from
+/// real poisoning (disjoint sets where one side returns a sinkhole/private IP).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DnsAnswerOverlap {
+    /// Any shared IP or shared /24 (v4) / /48 (v6) prefix.
+    Match,
+    /// Disjoint answers but both sides are plausibly public.
+    Divergence,
+    /// Disjoint answers and at least one side returns a sinkhole / private IP.
+    Substitution,
+}
+
+pub(crate) fn classify_dns_answer_overlap(udp: &[String], encrypted: &[String]) -> DnsAnswerOverlap {
+    let udp_set = ip_set(udp);
+    let enc_set = ip_set(encrypted);
+    if !udp_set.is_disjoint(&enc_set) {
+        return DnsAnswerOverlap::Match;
+    }
+    let udp_v4: BTreeSet<[u8; 3]> = udp_set.iter().filter_map(|ip| ipv4_prefix_24(ip)).collect();
+    let enc_v4: BTreeSet<[u8; 3]> = enc_set.iter().filter_map(|ip| ipv4_prefix_24(ip)).collect();
+    if !udp_v4.is_disjoint(&enc_v4) {
+        return DnsAnswerOverlap::Match;
+    }
+    let udp_v6: BTreeSet<[u16; 3]> = udp_set.iter().filter_map(|ip| ipv6_prefix_48(ip)).collect();
+    let enc_v6: BTreeSet<[u16; 3]> = enc_set.iter().filter_map(|ip| ipv6_prefix_48(ip)).collect();
+    if !udp_v6.is_disjoint(&enc_v6) {
+        return DnsAnswerOverlap::Match;
+    }
+    if udp_set.iter().any(|ip| looks_like_sinkhole(ip)) || enc_set.iter().any(|ip| looks_like_sinkhole(ip)) {
+        return DnsAnswerOverlap::Substitution;
+    }
+    DnsAnswerOverlap::Divergence
+}
+
 pub(crate) fn format_result_set(result: &Result<Vec<String>, String>) -> String {
     match result {
         Ok(values) => values.join("|"),
@@ -169,14 +244,37 @@ pub(crate) fn classify_probe_outcome(
     outcome: &str,
 ) -> ProbeOutcomeClassification {
     let bucket = probe_outcome_bucket(probe_type, path_mode, outcome);
+    let default_level = match bucket {
+        ProbeOutcomeBucket::Healthy => "info",
+        ProbeOutcomeBucket::Failed => "error",
+        ProbeOutcomeBucket::Attention | ProbeOutcomeBucket::Inconclusive => "warn",
+    };
     ProbeOutcomeClassification {
         bucket,
-        event_level: match bucket {
-            ProbeOutcomeBucket::Healthy => "info",
-            ProbeOutcomeBucket::Failed => "error",
-            ProbeOutcomeBucket::Attention | ProbeOutcomeBucket::Inconclusive => "warn",
-        },
+        event_level: event_level_override(probe_type, outcome).unwrap_or(default_level),
         healthy_enough_for_summary: matches!(bucket, ProbeOutcomeBucket::Healthy),
+    }
+}
+
+/// Some "failed" outcomes represent expected censorship/policy **findings**
+/// rather than infrastructure faults. Logging them at ERROR makes logcat look
+/// like the app is crashing; they belong at WARN. Returns `Some("warn")` for
+/// those cases, `None` otherwise.
+fn event_level_override(probe_type: &str, outcome: &str) -> Option<&'static str> {
+    match (probe_type, outcome) {
+        ("dns_integrity", "dns_substitution")
+        | ("dns_integrity", "encrypted_dns_blocked")
+        | ("dns_integrity", "dns_nxdomain")
+        | ("domain_reachability", "tls_cert_invalid")
+        | ("domain_reachability", "http_blockpage")
+        | ("service_reachability", "service_blocked")
+        | ("circumvention_reachability", "circumvention_blocked")
+        | ("telegram_availability", "blocked")
+        | ("strategy_http", "http_blockpage")
+        | ("strategy_https", "tls_cert_invalid")
+        | ("strategy_failure_classification", "http_blockpage")
+        | ("strategy_failure_classification", "dns_tampering") => Some("warn"),
+        _ => None,
     }
 }
 
@@ -194,7 +292,7 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
         },
         "dns_integrity" => match outcome {
             "dns_match" => ProbeOutcomeBucket::Healthy,
-            "dns_expected_mismatch" => ProbeOutcomeBucket::Attention,
+            "dns_expected_mismatch" | "dns_answer_divergence" => ProbeOutcomeBucket::Attention,
             "udp_blocked" if matches!(path_mode, ScanPathMode::RawPath) => ProbeOutcomeBucket::Attention,
             "udp_blocked" => ProbeOutcomeBucket::Inconclusive,
             "udp_skipped_or_blocked" if matches!(path_mode, ScanPathMode::InPath) => ProbeOutcomeBucket::Attention,
@@ -443,6 +541,103 @@ mod tests {
             classify_probe_outcome("domain_reachability", &ScanPathMode::RawPath, "tls_experimental").bucket,
             ProbeOutcomeBucket::Inconclusive,
         );
+    }
+
+    #[test]
+    fn dns_answer_divergence_classification_is_attention() {
+        let classification = classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "dns_answer_divergence");
+        assert_eq!(classification.bucket, ProbeOutcomeBucket::Attention);
+        assert_eq!(classification.event_level, "warn");
+    }
+
+    #[test]
+    fn event_level_is_warn_for_censorship_findings() {
+        // These are Failed bucket (severity-wise) but belong at warn because
+        // they report expected censorship outcomes, not infra failures.
+        for (probe, outcome) in [
+            ("dns_integrity", "encrypted_dns_blocked"),
+            ("dns_integrity", "dns_substitution"),
+            ("dns_integrity", "dns_nxdomain"),
+            ("domain_reachability", "tls_cert_invalid"),
+            ("domain_reachability", "http_blockpage"),
+            ("service_reachability", "service_blocked"),
+            ("circumvention_reachability", "circumvention_blocked"),
+            ("telegram_availability", "blocked"),
+        ] {
+            let c = classify_probe_outcome(probe, &ScanPathMode::RawPath, outcome);
+            assert_eq!(c.bucket, ProbeOutcomeBucket::Failed, "{probe}/{outcome} should stay Failed");
+            assert_eq!(c.event_level, "warn", "{probe}/{outcome} should log at warn");
+        }
+    }
+
+    #[test]
+    fn event_level_stays_error_for_infra_faults() {
+        for (probe, outcome) in [
+            ("network_environment", "network_unavailable"),
+            ("dns_integrity", "dns_unavailable"),
+            ("domain_reachability", "unreachable"),
+            ("quic_reachability", "quic_error"),
+            ("throughput_window", "throughput_failed"),
+        ] {
+            assert_eq!(
+                classify_probe_outcome(probe, &ScanPathMode::RawPath, outcome).event_level,
+                "error",
+                "{probe}/{outcome} should log at error",
+            );
+        }
+    }
+
+    #[test]
+    fn answer_overlap_matches_on_shared_ip() {
+        let overlap = classify_dns_answer_overlap(
+            &["1.2.3.4".to_string(), "5.6.7.8".to_string()],
+            &["5.6.7.8".to_string(), "9.9.9.9".to_string()],
+        );
+        assert_eq!(overlap, DnsAnswerOverlap::Match);
+    }
+
+    #[test]
+    fn answer_overlap_matches_on_shared_slash24() {
+        let overlap = classify_dns_answer_overlap(&["104.16.132.229".to_string()], &["104.16.132.12".to_string()]);
+        assert_eq!(overlap, DnsAnswerOverlap::Match);
+    }
+
+    #[test]
+    fn answer_overlap_diverges_for_disjoint_public_anycast() {
+        // Google anycast edges: UDP sees 142.250.x, encrypted sees 172.217.x.
+        let overlap = classify_dns_answer_overlap(&["142.250.75.78".to_string()], &["172.217.20.206".to_string()]);
+        assert_eq!(overlap, DnsAnswerOverlap::Divergence);
+    }
+
+    #[test]
+    fn answer_overlap_flags_substitution_on_private_ip() {
+        let overlap = classify_dns_answer_overlap(&["10.1.1.1".to_string()], &["142.250.75.78".to_string()]);
+        assert_eq!(overlap, DnsAnswerOverlap::Substitution);
+    }
+
+    #[test]
+    fn answer_overlap_flags_substitution_on_loopback() {
+        let overlap = classify_dns_answer_overlap(&["127.0.0.1".to_string()], &["104.16.132.229".to_string()]);
+        assert_eq!(overlap, DnsAnswerOverlap::Substitution);
+    }
+
+    #[test]
+    fn answer_overlap_matches_on_shared_v6_slash48() {
+        let overlap =
+            classify_dns_answer_overlap(&["2606:4700:4700::1111".to_string()], &["2606:4700:4700::1001".to_string()]);
+        assert_eq!(overlap, DnsAnswerOverlap::Match);
+    }
+
+    #[test]
+    fn sinkhole_detects_unspecified_and_private() {
+        assert!(looks_like_sinkhole("0.0.0.0"));
+        assert!(looks_like_sinkhole("127.0.0.1"));
+        assert!(looks_like_sinkhole("10.1.2.3"));
+        assert!(looks_like_sinkhole("192.168.0.1"));
+        assert!(looks_like_sinkhole("::1"));
+        assert!(!looks_like_sinkhole("142.250.75.78"));
+        assert!(!looks_like_sinkhole("2606:4700:4700::1111"));
+        assert!(looks_like_sinkhole("not-an-ip"));
     }
 
     #[test]
