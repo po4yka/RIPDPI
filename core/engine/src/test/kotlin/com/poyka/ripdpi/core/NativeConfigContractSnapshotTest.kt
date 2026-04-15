@@ -688,6 +688,13 @@ class NativeConfigContractSnapshotTest {
             put("udpSteps", JsonArray(udpSteps))
         }
 
+    private data class TcpStepFlagOverrides(
+        val tcpFlagsSet: String = "",
+        val tcpFlagsUnset: String = "",
+        val tcpFlagsOrigSet: String = "",
+        val tcpFlagsOrigUnset: String = "",
+    )
+
     private fun tcpStepExpected(
         kind: String,
         marker: String,
@@ -702,10 +709,7 @@ class NativeConfigContractSnapshotTest {
         maxFragmentSize: Int = 0,
         activationFilter: JsonObject? = null,
         ipv6ExtensionProfile: String = "none",
-        tcpFlagsSet: String = "",
-        tcpFlagsUnset: String = "",
-        tcpFlagsOrigSet: String = "",
-        tcpFlagsOrigUnset: String = "",
+        flags: TcpStepFlagOverrides = TcpStepFlagOverrides(),
     ): JsonObject =
         buildJsonObject {
             put("kind", JsonPrimitive(kind))
@@ -721,10 +725,10 @@ class NativeConfigContractSnapshotTest {
             put("maxFragmentSize", JsonPrimitive(maxFragmentSize))
             put("activationFilter", activationFilter ?: JsonNull)
             put("ipv6ExtensionProfile", JsonPrimitive(ipv6ExtensionProfile))
-            put("tcpFlagsSet", JsonPrimitive(tcpFlagsSet))
-            put("tcpFlagsUnset", JsonPrimitive(tcpFlagsUnset))
-            put("tcpFlagsOrigSet", JsonPrimitive(tcpFlagsOrigSet))
-            put("tcpFlagsOrigUnset", JsonPrimitive(tcpFlagsOrigUnset))
+            put("tcpFlagsSet", JsonPrimitive(flags.tcpFlagsSet))
+            put("tcpFlagsUnset", JsonPrimitive(flags.tcpFlagsUnset))
+            put("tcpFlagsOrigSet", JsonPrimitive(flags.tcpFlagsOrigSet))
+            put("tcpFlagsOrigUnset", JsonPrimitive(flags.tcpFlagsOrigUnset))
         }
 
     private fun udpStepExpected(
