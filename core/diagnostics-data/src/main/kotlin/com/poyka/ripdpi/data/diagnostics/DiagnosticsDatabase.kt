@@ -389,38 +389,28 @@ interface DiagnosticsDao {
     @Query("SELECT * FROM target_pack_versions WHERE packId = :packId LIMIT 1")
     suspend fun getPackVersion(packId: String): TargetPackVersionEntity?
 
-    // reportJson is projected through a CASE that nulls payloads larger than
-    // ~1.5MB (kept in sync with DiagnosticsReportPersister.MaxInlineReportJsonBytes).
-    // Android's CursorWindow caps a single row at ~2MB, so an oversized payload
-    // would otherwise crash the cursor with SQLiteBlobTooBigException.
+    // reportJson is projected via CASE (see DiagnosticsReportPersister.MaxInlineReportJsonBytes)
+    // to null payloads above ~1.5MB; larger rows overflow Android's 2MB CursorWindow.
     @Query(
         """
-        SELECT id, profileId, approachProfileId, approachProfileName, strategyId,
-               strategyLabel, strategyJson, pathMode, serviceMode, status, summary,
-               CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000
-                    THEN reportJson ELSE NULL END AS reportJson,
-               startedAt, finishedAt, launchOrigin, triggerType,
-               triggerClassification, triggerOccurredAt,
+        SELECT id, profileId, approachProfileId, approachProfileName, strategyId, strategyLabel, strategyJson,
+               pathMode, serviceMode, status, summary,
+               CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
+               startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
                triggerPreviousFingerprintHash, triggerCurrentFingerprintHash
-        FROM scan_sessions
-        ORDER BY startedAt DESC
-        LIMIT :limit
+        FROM scan_sessions ORDER BY startedAt DESC LIMIT :limit
         """,
     )
     fun observeRecentScanSessions(limit: Int = 50): Flow<List<ScanSessionEntity>>
 
     @Query(
         """
-        SELECT id, profileId, approachProfileId, approachProfileName, strategyId,
-               strategyLabel, strategyJson, pathMode, serviceMode, status, summary,
-               CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000
-                    THEN reportJson ELSE NULL END AS reportJson,
-               startedAt, finishedAt, launchOrigin, triggerType,
-               triggerClassification, triggerOccurredAt,
+        SELECT id, profileId, approachProfileId, approachProfileName, strategyId, strategyLabel, strategyJson,
+               pathMode, serviceMode, status, summary,
+               CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
+               startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
                triggerPreviousFingerprintHash, triggerCurrentFingerprintHash
-        FROM scan_sessions
-        WHERE id = :sessionId
-        LIMIT 1
+        FROM scan_sessions WHERE id = :sessionId LIMIT 1
         """,
     )
     suspend fun getScanSession(sessionId: String): ScanSessionEntity?
