@@ -7,6 +7,16 @@
 //!
 //! Standard socket options use `socket2::SockRef` (see [`set_stream_ttl`]).
 //! Last audited: 2026-03-24 against socket2 0.5.10.
+//!
+//! # TTL write capability
+//!
+//! [`try_set_stream_ttl_with_outcome`] is the preferred entry point for new
+//! code that needs to set a per-socket TTL.  It returns a typed
+//! [`CapabilityOutcome`] rather than an `io::Result`, making the
+//! unavailable / permission-denied cases explicit at the call site.
+//! The lower-level [`set_stream_ttl`] helper (returning `io::Result`) is kept
+//! for internal use by the restore path where fire-and-forget semantics are
+//! acceptable.
 
 use std::io::{self, Read};
 use std::mem::{size_of, zeroed};
@@ -28,7 +38,10 @@ use ripdpi_ipfrag::{
 };
 use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
-use super::{IpFragmentationCapabilities, TcpActivationState, TcpFlagOverrides, TcpStageWait};
+use super::{
+    CapabilityOutcome, CapabilityUnavailable, IpFragmentationCapabilities, RuntimeCapability, TcpActivationState,
+    TcpFlagOverrides, TcpStageWait,
+};
 
 /// Thin wrapper around `libc::setsockopt` that handles the return-code check
 /// and `io::Error` conversion.
@@ -584,21 +597,31 @@ pub fn send_fake_tcp(
         let (pipe_r, pipe_w) = nix::unistd::pipe().map_err(io::Error::from)?;
         // pipe_r and pipe_w are OwnedFd -- closed automatically on drop.
 
-        match set_stream_ttl(stream, ttl) {
-            Ok(()) => {
+        match try_set_stream_ttl_with_outcome(stream, ttl) {
+            CapabilityOutcome::Available(()) => {
                 tracing::debug!(ttl = ttl, size = original_prefix.len(), "send_fake_tcp: fake packet with custom TTL");
             }
-            Err(err) if should_ignore_android_ttl_error(&err) => {
-                // TTL unavailable on this Android VPN/tun interface — skip the
-                // fake packet entirely and send only the original data so the
-                // TLS handshake is not left half-written.
-                tracing::warn!(error = %err, "send_fake_tcp: TTL unavailable on this platform, sending original data");
-                use std::io::Write;
-                (&*stream).write_all(original_prefix)?;
-                wait_tcp_stage_fd(fd, wait.0, wait.1)?;
-                return Ok(());
+            CapabilityOutcome::Unavailable { reason, .. } => {
+                // TTL write is not permitted on this platform (e.g. Android
+                // VPN/tun interface).  Surface the failure as an explicit Err
+                // so the caller in desync.rs can detect it via its
+                // should_ignore_android_ttl_error check and apply the
+                // appropriate Android fallback, rather than silently receiving
+                // Ok(()) and believing TTL customization succeeded.
+                let os_err = match reason {
+                    CapabilityUnavailable::PermissionDenied => libc::EPERM,
+                    _ => libc::ENOPROTOOPT,
+                };
+                tracing::warn!(
+                    ttl = ttl,
+                    reason = ?reason,
+                    "send_fake_tcp: TTL write unavailable on this platform (capability: ttl_write)"
+                );
+                return Err(io::Error::from_raw_os_error(os_err));
             }
-            Err(err) => return Err(err),
+            CapabilityOutcome::ProbeFailed { error, .. } => {
+                return Err(io::Error::new(io::ErrorKind::Other, error));
+            }
         }
         if md5sig {
             set_tcp_md5sig(stream, 5)?;
@@ -1755,21 +1778,6 @@ fn storage_to_socket_addr(storage: &libc::sockaddr_storage) -> io::Result<Socket
     }
 }
 
-/// Returns true for TTL-related errors that are expected on Android VPN/tun
-/// interfaces where `setsockopt(IP_TTL)` is not permitted.
-#[cfg(any(test, target_os = "android"))]
-fn should_ignore_android_ttl_error(err: &io::Error) -> bool {
-    matches!(
-        err.raw_os_error(),
-        Some(libc::EROFS | libc::EINVAL | libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EPERM | libc::EACCES)
-    )
-}
-
-#[cfg(not(any(test, target_os = "android")))]
-fn should_ignore_android_ttl_error(_err: &io::Error) -> bool {
-    false
-}
-
 /// Read the current TTL (IPv4) or hop limit (IPv6) from a TCP socket.
 /// Tries IPv4 first; falls back to IPv6. Returns the value from whichever
 /// succeeds first.
@@ -1789,6 +1797,42 @@ fn set_stream_ttl(stream: &TcpStream, ttl: u8) -> io::Result<()> {
     match (ipv4, ipv6) {
         (Ok(()), _) | (_, Ok(())) => Ok(()),
         (Err(err), _) => Err(err),
+    }
+}
+
+/// Attempt to set the IP TTL (IPv4) or unicast hop limit (IPv6) on a TCP
+/// stream, returning a typed [`CapabilityOutcome`] rather than an
+/// `io::Result`.
+///
+/// Error mapping:
+/// - `ENOPROTOOPT` / `EOPNOTSUPP` / `EROFS` / `EINVAL` (kernel unsupported)
+///   → `Unavailable { reason: Unsupported }`
+/// - `EACCES` / `EPERM` (permission denied)
+///   → `Unavailable { reason: PermissionDenied }`
+/// - any other `io::Error`
+///   → `ProbeFailed { error: err.to_string() }`
+///
+/// New code that needs to write a TTL should call this function rather than
+/// [`set_stream_ttl`] directly (see module-level doc comment).
+pub(super) fn try_set_stream_ttl_with_outcome(stream: &TcpStream, ttl: u8) -> CapabilityOutcome<()> {
+    match set_stream_ttl(stream, ttl) {
+        Ok(()) => CapabilityOutcome::Available(()),
+        Err(err) => match err.raw_os_error() {
+            Some(libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EROFS | libc::EINVAL) => {
+                CapabilityOutcome::Unavailable {
+                    capability: RuntimeCapability::TtlWrite,
+                    reason: CapabilityUnavailable::Unsupported,
+                }
+            }
+            Some(libc::EACCES | libc::EPERM) => CapabilityOutcome::Unavailable {
+                capability: RuntimeCapability::TtlWrite,
+                reason: CapabilityUnavailable::PermissionDenied,
+            },
+            _ => CapabilityOutcome::ProbeFailed {
+                capability: RuntimeCapability::TtlWrite,
+                error: err.to_string(),
+            },
+        },
     }
 }
 
