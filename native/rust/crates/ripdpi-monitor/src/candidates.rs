@@ -6,6 +6,7 @@ use ripdpi_proxy_config::{
     ProxyUiUdpChainStep, ADAPTIVE_FAKE_TTL_DEFAULT_DELTA, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
     ADAPTIVE_FAKE_TTL_DEFAULT_MAX, ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
 };
+use ripdpi_runtime::platform::RuntimeCapability;
 use socket2::{Domain, Protocol, Socket, Type};
 
 use crate::dns::encrypted_dns_protocol;
@@ -37,6 +38,13 @@ pub(crate) struct StrategyCandidateSpec {
     /// skipped when TTL capability is unavailable.
     pub(crate) requires_fake_ttl: bool,
     pub(crate) requires_tcp_fast_open: bool,
+    /// Runtime capabilities that must be available for this candidate to emit
+    /// packets as designed. An empty slice means the candidate works on every
+    /// platform without special privileges.
+    ///
+    /// Use [`enumerate_capable_candidates`] to filter a pool against a live
+    /// capability lookup before promoting a winner.
+    pub(crate) requires_capabilities: &'static [RuntimeCapability],
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -665,6 +673,7 @@ pub(crate) fn candidate_spec_with_notes_and_eligibility(
 ) -> StrategyCandidateSpec {
     let requires_fake_ttl = config_requires_fake_ttl(&config);
     let requires_tcp_fast_open = config.listen.tcp_fast_open;
+    let requires_capabilities = config_requires_capabilities(&config);
     StrategyCandidateSpec {
         id,
         label,
@@ -676,6 +685,7 @@ pub(crate) fn candidate_spec_with_notes_and_eligibility(
         warmup: CandidateWarmup::None,
         requires_fake_ttl,
         requires_tcp_fast_open,
+        requires_capabilities,
     }
 }
 
@@ -691,6 +701,86 @@ fn config_requires_fake_ttl(config: &ProxyUiConfig) -> bool {
         || config.chains.tcp_rotation.as_ref().is_some_and(|rotation| {
             rotation.candidates.iter().flat_map(|candidate| candidate.tcp_steps.iter()).any(step_requires_fake_ttl)
         })
+}
+
+/// Maps a candidate config to the set of [`RuntimeCapability`] entries that
+/// must be available for the candidate to emit packets as designed.
+///
+/// Step-kind → capability mapping:
+/// - `fake`, `fakedsplit`, `fakeddisorder`, `hostfake`, `disorder`, `disoob`
+///   → [`RuntimeCapability::TtlWrite`] (TTL manipulation to expire fakes before target).
+/// - `fakerst` → [`RuntimeCapability::RawTcpFakeSend`] (raw-socket fake RST path).
+/// - `multidisorder` → [`RuntimeCapability::RootHelperAvailable`] (TCP_REPAIR / root).
+///
+/// Returns a `'static` slice so it can be stored in [`StrategyCandidateSpec`]
+/// without allocation.
+fn config_requires_capabilities(config: &ProxyUiConfig) -> &'static [RuntimeCapability] {
+    static TTL_WRITE: &[RuntimeCapability] = &[RuntimeCapability::TtlWrite];
+    static RAW_TCP: &[RuntimeCapability] = &[RuntimeCapability::RawTcpFakeSend];
+    static ROOT_HELPER: &[RuntimeCapability] = &[RuntimeCapability::RootHelperAvailable];
+
+    let all_steps = config.chains.tcp_steps.iter().chain(
+        config
+            .chains
+            .tcp_rotation
+            .as_ref()
+            .into_iter()
+            .flat_map(|r| r.candidates.iter())
+            .flat_map(|c| c.tcp_steps.iter()),
+    );
+
+    let mut needs_ttl = false;
+    let mut needs_raw_tcp = false;
+    let mut needs_root = false;
+
+    for step in all_steps {
+        match step.kind.as_str() {
+            "fake" | "fakedsplit" | "fakeddisorder" | "hostfake" | "disorder" | "disoob" => {
+                needs_ttl = true;
+            }
+            "fakerst" => {
+                needs_raw_tcp = true;
+            }
+            "multidisorder" => {
+                needs_root = true;
+            }
+            _ => {}
+        }
+    }
+
+    // Return the most specific static slice. When multiple capabilities are
+    // required we conservatively return the highest-privilege one; in practice
+    // no single candidate currently needs more than one capability class.
+    if needs_root {
+        ROOT_HELPER
+    } else if needs_raw_tcp {
+        RAW_TCP
+    } else if needs_ttl {
+        TTL_WRITE
+    } else {
+        &[]
+    }
+}
+
+/// Filters `candidates` to those whose required capabilities are all available
+/// according to `lookup`.
+///
+/// `lookup` receives a [`RuntimeCapability`] and returns `true` when that
+/// capability is confirmed available. Candidates with an empty
+/// `requires_capabilities` slice always pass through.
+///
+/// This function is intentionally a pure filter: it does not perform its own
+/// platform probes and does not consult any global cache. The caller supplies
+/// the lookup so that real execution (slice 2.4) and tests can each provide the
+/// appropriate source.
+pub(crate) fn enumerate_capable_candidates(
+    candidates: Vec<StrategyCandidateSpec>,
+    lookup: &dyn Fn(RuntimeCapability) -> bool,
+) -> Vec<StrategyCandidateSpec> {
+    candidates
+        .into_iter()
+        .filter(|c| c.requires_capabilities.iter().all(|&cap| lookup(cap)))
+        .collect()
 }
 
 /// Probes whether the current process is allowed to set a custom IP TTL on TCP
@@ -1238,6 +1328,7 @@ pub(crate) fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCand
     config.fake_packets.adaptive_fake_ttl_max = ADAPTIVE_FAKE_TTL_DEFAULT_MAX;
     config.fake_packets.adaptive_fake_ttl_fallback = ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK;
     let requires_fake_ttl = config_requires_fake_ttl(&config);
+    let requires_capabilities = config_requires_capabilities(&config);
     StrategyCandidateSpec {
         id: "adaptive_fake_ttl",
         label: "Adaptive fake TTL",
@@ -1252,6 +1343,7 @@ pub(crate) fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCand
         warmup: CandidateWarmup::AdaptiveFakeTtl,
         requires_fake_ttl,
         requires_tcp_fast_open: false,
+        requires_capabilities,
     }
 }
 
@@ -1605,5 +1697,51 @@ mod tests {
         assert!(ids.contains(&"quic_packet_number_gap"));
         assert!(ids.contains(&"quic_version_negotiation_decoy"));
         assert!(ids.contains(&"quic_multi_initial_realistic"));
+    }
+
+    #[test]
+    fn enumerate_capable_candidates_demotes_ttl_write_when_unavailable() {
+        // Build a pool that contains both TTL-dependent and TTL-free candidates.
+        let base = minimal_ui_config();
+        let all_candidates = build_tcp_candidates(&base);
+
+        // Sanity: the pool must contain at least one TtlWrite-tagged candidate
+        // and at least one untagged candidate before filtering.
+        assert!(
+            all_candidates.iter().any(|c| c.requires_capabilities.contains(&RuntimeCapability::TtlWrite)),
+            "pool must contain at least one TtlWrite-tagged candidate"
+        );
+        assert!(
+            all_candidates.iter().any(|c| c.requires_capabilities.is_empty()),
+            "pool must contain at least one capability-free candidate"
+        );
+
+        // Simulate TtlWrite being Unavailable; everything else is available.
+        let capable = enumerate_capable_candidates(all_candidates, &|cap| cap != RuntimeCapability::TtlWrite);
+
+        // No TtlWrite-tagged candidate should survive the filter.
+        assert!(
+            !capable.iter().any(|c| c.requires_capabilities.contains(&RuntimeCapability::TtlWrite)),
+            "no TtlWrite-tagged candidate should appear when TtlWrite is unavailable"
+        );
+
+        // At least one untagged candidate must remain.
+        assert!(
+            capable.iter().any(|c| c.requires_capabilities.is_empty()),
+            "at least one capability-free candidate must survive"
+        );
+    }
+
+    #[test]
+    fn ttl_dependent_candidates_tagged_with_ttl_write_capability() {
+        let candidates = build_tcp_candidates(&minimal_ui_config());
+
+        // Disorder uses TTL → must be tagged.
+        let disorder = candidates.iter().find(|c| c.id == "disorder_host").expect("disorder_host");
+        assert!(disorder.requires_capabilities.contains(&RuntimeCapability::TtlWrite));
+
+        // Split does not use TTL → must not be tagged.
+        let split = candidates.iter().find(|c| c.id == "split_host").expect("split_host");
+        assert!(!split.requires_capabilities.contains(&RuntimeCapability::TtlWrite));
     }
 }
