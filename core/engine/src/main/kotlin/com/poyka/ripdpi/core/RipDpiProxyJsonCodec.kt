@@ -748,15 +748,16 @@ internal object RipDpiProxyJsonCodec {
                 val round = toNative(normalized.round)
                 val payloadSize = toNative(normalized.payloadSize)
                 val streamBytes = toNative(normalized.streamBytes)
-                if (
-                    round == null &&
-                    payloadSize == null &&
-                    streamBytes == null &&
-                    normalized.tcpHasTimestamp == null &&
-                    normalized.tcpHasEch == null &&
-                    normalized.tcpWindowBelow == null &&
-                    normalized.tcpMssBelow == null
-                ) {
+                val allFields = sequenceOf(
+                    round,
+                    payloadSize,
+                    streamBytes,
+                    normalized.tcpHasTimestamp,
+                    normalized.tcpHasEch,
+                    normalized.tcpWindowBelow,
+                    normalized.tcpMssBelow,
+                )
+                if (allFields.all { it == null }) {
                     null
                 } else {
                     NativeActivationFilter(
