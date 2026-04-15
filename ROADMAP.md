@@ -69,6 +69,50 @@ The audit roadmap tracked in this repository is complete. The items below are no
 
 ## Next Work
 
-- **[DPI Bypass Technique Expansion](ROADMAP-bypass-techniques.md)** -- 15 techniques from field research (ntc.party, Habr, TechnicalVault) not yet in RIPDPI: circular strategy rotation, conditional execution, TCP flag manipulation, IP ID control, fakedsplit ordering, SYN-Hide, UDP-over-ICMP, PCAP recording, and more. Tiered by priority with implementation approaches and vault references.
-- **[DPI Bypass Modernization](ROADMAP-bypass-modernization.md)** -- active roadmap for the next generation of RIPpath optimization work: capability hygiene, unified first-flight IR, QUIC Initial shaping, DNS oracle hardening, TLS/ECH modernization, contextual evaluation, root/non-root emitter rationalization, Android hardening, and rollout gates.
-- **[Architecture Refactor And Modularization](ROADMAP-architecture-refactor.md)** -- active roadmap derived from the architecture audit: config-contract unification, diagnostics bounded-context split, native runtime/desync decomposition, service and relay orchestration cleanup, settings/screen decomposition, ViewModel dependency shaping, and CI complexity guardrails.
+Four active roadmaps continue the work past the audit baseline. See [Document Map](#document-map) below for how they relate and which owns what.
+
+- **[DPI Bypass Technique Expansion](ROADMAP-bypass-techniques.md)** -- 15 techniques from field research (ntc.party, Habr, TechnicalVault). Tier 1 and Tier 2 shipped on 2026-04-13; Tier 3 (SYN-Hide, UDP-over-ICMP, server-side scoring) remains experimental. Tactical checklist: circular rotation, conditional execution, TCP flags, IP ID, fakedsplit ordering, PCAP, and more.
+- **[DPI Bypass Modernization](ROADMAP-bypass-modernization.md)** -- strategic roadmap for the next generation of RIPpath optimization work: capability hygiene, unified first-flight IR, QUIC Initial shaping subsystem, DNS oracle hardening, TLS/ECH modernization, contextual evaluation, root/non-root emitter rationalization, Android hardening, and rollout gates.
+- **[Architecture Refactor And Modularization](ROADMAP-architecture-refactor.md)** -- structural roadmap derived from the architecture audit: config-contract unification, diagnostics bounded-context split, native runtime/desync decomposition, service and relay orchestration cleanup, settings/screen decomposition, ViewModel dependency shaping, and CI complexity guardrails.
+- **[Integrations Roadmap](docs/roadmap-integrations.md)** -- ongoing validation and operational refresh for shipped transports: Cloudflare-direct MASQUE, Cloudflare Tunnel publish mode, Finalmask expansion, NaiveProxy, TLS/strategy-pack freshness, relay interoperability.
+
+## Document Map
+
+```
+ROADMAP.md  (index, audit complete)
+|
++-- ROADMAP-bypass-techniques.md      tactical checklist (what to ship)
+|
++-- ROADMAP-bypass-modernization.md   strategic design (how to architect bypass)
+|
++-- ROADMAP-architecture-refactor.md  structural cleanup (how code supports it)
+|
++-- docs/roadmap-integrations.md      transport/relay operations
+```
+
+The three strategic roadmaps interlock and should not be read in isolation:
+
+- **techniques** defines the tactics catalog. It is ~60 percent done and covers concrete step kinds, parameters, and probe candidates.
+- **modernization** defines the planner, emitter, and measurement architecture those tactics must fit into. It supersedes isolated tactic design going forward.
+- **architecture-refactor** defines the code seams that let the other two land without regressing diagnostics, service lifecycle, or settings.
+- **integrations** is the transport/control-plane layer underneath bypass tactics. It is largely shipped but interacts with bypass-modernization Workstream 5 (TLS catalog freshness feeds template rollout) and architecture-refactor Workstream 4 (relay orchestration cleanup).
+
+### Sequencing Across Roadmaps
+
+1. **architecture-refactor Workstream 0-1** (guardrails, config contract) unblocks everything else -- both bypass work and settings splits depend on the canonical config seam.
+2. **bypass-modernization Workstream 1** (capability hygiene) must land before further expansion of bypass-techniques Tier 3, otherwise new tactics cannot be evaluated honestly.
+3. **architecture-refactor Workstream 3** (runtime/desync decomposition) and **bypass-modernization Workstream 2** (first-flight IR) touch the same files. Refactor goes first; IR migration follows on the new seams.
+4. **bypass-modernization Workstream 3** (QUIC subsystem) owns the QUIC evolution. New QUIC probe candidates in bypass-techniques must route through it rather than extending ad hoc packet families.
+5. **integrations Finalmask/TLS tracks** should align TLS catalog revisions with bypass-modernization Workstream 5 (browser-family templates and ECH).
+
+### Ownership Collisions Resolved
+
+| Topic | Tactical owner | Architectural owner |
+|-------|---------------|---------------------|
+| QUIC Initial shaping | bypass-techniques (probe candidates) | bypass-modernization Workstream 3 (subsystem) |
+| Root/non-root emitter split | bypass-techniques #6 (SOCKS5 hardening, shipped) | bypass-modernization Workstream 7 (tier definition) |
+| DNS hostname recovery | bypass-techniques #10 (LRU cache, shipped) | bypass-modernization Workstream 4 (multi-oracle scoring) |
+| Runtime/desync code layout | architecture-refactor Workstream 3 | bypass-modernization Workstream 2 (IR) lowers onto new seams |
+| TLS template delivery | integrations (strategy-pack catalogs) | bypass-modernization Workstream 5 (browser-family templates) |
+
+New tactic proposals belong in **bypass-techniques**. New architectural contracts belong in **bypass-modernization** or **architecture-refactor** depending on scope.

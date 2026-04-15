@@ -4,10 +4,77 @@
 > (TechnicalVault/Censorship/) and RIPDPI's current implementation.
 > Each item includes rationale, technical approach, and vault references.
 
+## Related Roadmaps
+
+This roadmap is the **tactical checklist** of bypass techniques to ship. It sits
+under the master index and interlocks with three sibling roadmaps:
+
+- [ROADMAP.md](ROADMAP.md) -- master index and sequencing across all four active roadmaps.
+- [ROADMAP-bypass-modernization.md](ROADMAP-bypass-modernization.md) -- **strategic** companion.
+  New tactics must fit the capability, planner, and measurement architecture defined there.
+  - Modernization Workstream 1 (capability hygiene) gates honest evaluation of any new tactic here.
+  - Modernization Workstream 2 (first-flight IR) is where new TCP/TLS/QUIC planning logic must land.
+  - Modernization Workstream 3 (QUIC subsystem) owns QUIC Initial shaping; QUIC probe candidates in
+    this roadmap should route through it rather than extending ad hoc packet families.
+  - Modernization Workstream 7 (emitter tiers) supersedes ad hoc root/non-root decisions for new tactics.
+- [ROADMAP-architecture-refactor.md](ROADMAP-architecture-refactor.md) -- **structural** companion.
+  Refactor Workstream 3 (native runtime/desync decomposition) cleans the code seams this roadmap's
+  Tier 3 work will need. New step-family executors land on the decomposed layout, not on today's
+  central `desync.rs`.
+- [docs/roadmap-integrations.md](docs/roadmap-integrations.md) -- transport layer beneath bypass tactics.
+
+### Ownership Notes
+
+Where this roadmap and a sibling roadmap both touch the same topic, this roadmap
+owns the **concrete tactic + probe candidate**; the sibling roadmap owns the
+**framework**.
+
+| Topic | This roadmap | Sibling owner |
+|-------|--------------|---------------|
+| QUIC Initial shaping | probe candidates, step kinds | modernization Workstream 3 (subsystem) |
+| DNS hostname recovery | LRU cache (shipped, item 10) | modernization Workstream 4 (multi-oracle scoring) |
+| Root/non-root emitter split | SOCKS5 hardening (shipped, item 6) | modernization Workstream 7 (tier definition) |
+| TCP flag mask execution | flag mask fields (shipped, item 3) | refactor Workstream 3 (executor split) |
+
 ## Status Legend
 
 - [ ] Not started
 - [x] Already implemented or not applicable
+
+## Verification Evidence (2026-04-15 audit)
+
+Items 1-12 have been audited against the codebase. All claims verified with
+high confidence. Test coverage: 47 unit tests for planning logic in
+`ripdpi-desync/src/tests/plan_tcp.rs` (1030 lines) plus targeted tests for
+DNS cache, proxy hardening, and protocol matching.
+
+| # | Item | Primary symbol | File | Line |
+|---|------|----------------|------|------|
+| 1 | Circular rotation | `RotationPolicy` / `CircularTcpRotationController` | `ripdpi-config/src/model/mod.rs` / `ripdpi-runtime/src/runtime/relay/stream_copy/rotation.rs` | 219 / 42 |
+| 2 | Conditional execution | `tcp_has_timestamp` / `tcp_has_ech` / `ActivationTcpState` | `ripdpi-config/src/model/offset.rs` / `ripdpi-desync/src/types.rs` | - / 78 |
+| 3 | TCP flag manipulation | `tcp_flags_set` / `fake_synfin` / `fake_pshurg` | `ripdpi-config/src/model/mod.rs` / `ripdpi-monitor/src/candidates.rs` | 153 / 260 |
+| 4 | IP ID control | `IpIdMode` / `tlsrec_fake_seqgroup` | `ripdpi-config/src/model/mod.rs` / `ripdpi-monitor/src/candidates.rs` | 137 / 259 |
+| 5 | Fakedsplit ordering | `FakeOrder` / `FakeSeqMode` | `ripdpi-config/src/model/mod.rs` | 121, 130 |
+| 6 | SOCKS5 hardening | `ProxySessionOverrides` / `ProxyRuntimeSupervisor` | `ripdpi-proxy-config/src/types.rs` / `core/service/.../ProxyRuntimeSupervisor.kt` | 71 / 16 |
+| 7 | Random fake host | `random_fake_host` / `tlsrec_hostfake_random` | `ripdpi-config/src/model/mod.rs` / `ripdpi-monitor/src/candidates.rs` | 179 / 347 |
+| 8 | PCAP recording | `PcapWriter` / `PcapRecordingSession` | `ripdpi-monitor/src/pcap.rs` | 18, 75 |
+| 9 | Plan cancellation | `desync_suppressed` / `cancel_on_failure` | `ripdpi-runtime/.../rotation.rs` / `ripdpi-config/src/model/mod.rs` | 54 / 228 |
+| 10 | DNS hostname cache | `DnsHostnameCache` (LRU cap 4096, TTL 60-7200s) | `ripdpi-runtime/src/dns_hostname_cache.rs` | 27 |
+| 11 | Payload exclusions | `payload_disable` bitmask | `ripdpi-config/src/model/mod.rs` + `ripdpi-runtime/src/runtime_policy/matching.rs` | - / 98 |
+| 12 | Timer/Delay | `DesyncAction::Delay` / `inter_segment_delay_ms` (capped 500ms) | `ripdpi-desync/src/types.rs` / `ripdpi-config/src/model/mod.rs` | 165 / 162 |
+
+### Surprises Discovered During Audit
+
+The following are present in code but not catalogued in this roadmap. Decide
+whether to promote them to first-class items or leave as implementation detail.
+
+- **IPv6 Extension Headers** -- `TcpChainStep` fields `ipv6_hop_by_hop`,
+  `ipv6_dest_opt`, `ipv6_dest_opt2`, `ipv6_routing`, `ipv6_frag_next_override`
+  in `ripdpi-config/src/model/mod.rs:166-175`. No probe candidates yet.
+- **Seq-overlap fake mode** -- `SeqOverlapFakeMode` enum (`Profile` / `Rand`)
+  at `ripdpi-config/src/model/mod.rs:107-111`. Not referenced in roadmap.
+- **DNS cache metrics** -- `DnsHostnameCache::stats()` returns `(size, hits, misses)`;
+  available for telemetry but not yet surfaced in diagnostics exports.
 
 ---
 
@@ -453,6 +520,13 @@ synchronous packet manipulation can't achieve.
 **Priority:** Experimental
 **Crate:** `ripdpi-desync`, `ripdpi-root-helper`
 **Requires:** Root access
+**Estimated LoC:** ~140 (IPC handler ~80, root-helper plumbing ~40, config struct ~20)
+**Scaffolding base:** `ripdpi-root-helper/src/handlers.rs` already has 7 handlers
+(`fake_rst`, `flagged_tcp_payload`, `seqovl`, `multi_disorder`, `ordered_tcp`,
+`ip_frag_tcp`, `ip_frag_udp`). IPC protocol in `protocol.rs:58-83` uses JSON
+command + optional fd; new `CMD_SEND_SYN_HIDE_TCP` fits the existing pattern.
+**Depends on:** bypass-modernization Workstream 7 (emitter tier definition)
+before shipping as production.
 
 **What:** Experimental zapret2 technique that hides TCP SYN from DPI by
 removing the SYN flag and inserting a "magic" marker that the server
@@ -492,6 +566,14 @@ recognizes. The server strips the magic and echoes back a proper SYN.
 **Priority:** Experimental
 **Crate:** `ripdpi-desync` or new `ripdpi-icmp-tunnel`
 **Requires:** Root access (ICMP raw sockets)
+**Estimated LoC:** ~450 (ICMP socket wrapper ~150, IPC send/recv handlers ~100,
+tunnel wrapper ~200)
+**Scaffolding base:** Follows the existing `ripdpi-root-helper` IPC pattern;
+new commands `CMD_SEND_ICMP_WRAPPED_UDP` / `CMD_RECV_ICMP_WRAPPED_UDP` fit the
+scheme. Tunnel wrapper layers above `ripdpi-runtime` UDP relay path
+(`runtime/udp.rs` 964 lines).
+**Depends on:** cooperating server component (nfqws2 with `--server` mode or
+custom daemon). Not deliverable standalone from the client roadmap.
 
 **What:** zapret2 can wrap UDP traffic (e.g., WireGuard, QUIC) in ICMP echo
 request/reply packets. middlebox does not inspect ICMP payloads, making this

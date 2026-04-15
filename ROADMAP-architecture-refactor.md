@@ -5,6 +5,48 @@
 > modularization, and maintainability. It is separate from the completed audit
 > roadmap and from the bypass-technique modernization roadmap.
 
+## Related Roadmaps
+
+This roadmap defines the **code seams** that the rest of the active work needs to
+land cleanly. It runs largely in parallel with bypass work, but certain steps
+must precede specific sibling-roadmap milestones:
+
+- [ROADMAP.md](ROADMAP.md) -- master index and cross-roadmap sequencing.
+- [ROADMAP-bypass-modernization.md](ROADMAP-bypass-modernization.md) -- strategic
+  bypass roadmap. It consumes the seams this roadmap creates.
+  - This roadmap's Workstream 1 (config contract unification) must land before
+    modernization Workstream 2 (first-flight IR) introduces a new planner.
+  - This roadmap's Workstream 3 (native runtime/desync decomposition) creates
+    the emitter/lowering layout that modernization Workstreams 2, 3, and 7 lower
+    onto. Do not migrate the IR onto the current monolith.
+  - This roadmap's Workstream 4 (service and relay orchestration) overlaps with
+    modernization Workstream 8 (Android hardening); coordinate on VPN lifecycle
+    and handover events.
+- [ROADMAP-bypass-techniques.md](ROADMAP-bypass-techniques.md) -- tactical bypass
+  checklist. Tier 3 items (SYN-Hide, UDP-over-ICMP) extend `ripdpi-root-helper`
+  and `ripdpi-runtime`; schedule them after this roadmap's Workstream 3 so new
+  step-family executors land on the decomposed layout, not on today's
+  `execute_tcp_plan`.
+- [docs/roadmap-integrations.md](docs/roadmap-integrations.md) -- transport
+  operations. This roadmap's Workstream 4 (service/relay orchestration cleanup)
+  refactors the relay resolvers that the integrations roadmap drives field
+  validation for; align relay-kind interface changes with the transports it
+  tracks (MASQUE, Cloudflare Tunnel, Finalmask, NaiveProxy).
+
+### Ownership Notes
+
+This roadmap owns the **code structure**; the sibling roadmaps own the feature
+semantics that live inside it.
+
+| Topic | This roadmap owns | Sibling roadmap owns |
+|-------|-------------------|---------------------|
+| Config contract shape | Workstream 1 (file split, round-trip tests) | bypass roadmaps consume the canonical contract |
+| Diagnostics classifier authority | Workstream 2 (single-source decision) | modernization Workstream 4 defines DNS oracle outputs |
+| Runtime/desync file layout | Workstream 3 | modernization Workstream 2 (IR) and techniques (step kinds) |
+| Service lifecycle | Workstream 4 | modernization Workstream 8 (Android hardening events) |
+| Relay resolver interface | Workstream 4 | integrations (per-transport field validation) |
+| Settings surface split | Workstream 5 | bypass roadmaps contribute the fields that sections render |
+
 ## Design Direction
 
 The audit's main conclusions are the planning baseline for this roadmap:
@@ -40,8 +82,8 @@ The audit's main conclusions are the planning baseline for this roadmap:
 
 These are review targets, not immediate CI failures on day one:
 
-- Production Kotlin file soft cap: 800 lines
-- Production Rust file soft cap: 1,000 lines
+- Production Kotlin file soft cap: 800 lines (1,000 for Compose screens)
+- Production Rust file soft cap: 1,000 lines (1,500 for platform / runtime hubs)
 - Production Kotlin function soft cap: 120 lines
 - Production Rust function soft cap: 150 lines
 - No new blanket production suppressions for:
@@ -51,6 +93,71 @@ These are review targets, not immediate CI failures on day one:
   - `LongParameterList`
 - New architecture exceptions must be tracked by named roadmap item or issue,
   not hidden behind file-level suppressions.
+
+## Existing Guardrail Infrastructure
+
+The repo already ships the following CI pieces. Workstream 0 extends rather than replaces them:
+
+- `scripts/ci/check_file_loc_limits.py` (456 lines) -- code-only LoC enforcement
+  (strips comments/blanks), fails on new violations against the baseline.
+- `config/static/file-loc-baseline.json` -- 15 tracked hotspot entries with
+  per-file code-only LoC snapshots (Kotlin 700 / Compose 1000 / Rust 1500).
+- `scripts/ci/verify_native_sizes.py` (257 lines) + `scripts/ci/native-size-baseline.json`
+  -- .so size guard per ABI for `libripdpi.so` and `libripdpi-tunnel.so`.
+- `scripts/ci/verify_diagnostics_boundary.py` -- enforces that `:core:diagnostics`
+  does not depend on `:core:service`.
+
+**Missing** (Workstream 0 tasks):
+- No rule blocking new `@Suppress` / `@file:Suppress` in production Kotlin.
+- No rule blocking new `#[allow]` in production Rust outside baseline-grandfathered files.
+- No module-dependency-growth guard for `:app`, `:core:diagnostics`, `:core:service`.
+- No architecture authority ADRs for the three ownership questions.
+
+## Hotspot Inventory (2026-04-15 snapshot)
+
+Code-only line counts (blanks and comments stripped). Suppression counts reflect
+`@Suppress` (Kotlin) or `#[allow]` (Rust) annotations in each file.
+
+### Kotlin (Workstream 1, 2, 4, 5, 6, 7)
+
+| File | Raw / Code-only | Budget | Delta | Suppressions | Owner Workstream |
+|------|-----------------|--------|-------|-------|------------------|
+| `StrategyChains.kt` | 1305 / 822 | 800 | **+22** | 5 | W1 |
+| `RipDpiProxyJsonCodec.kt` | 1494 / 708 | 800 | -92 | 0 | W1 |
+| `DiagnosticsArchiveRenderer.kt` | 1474 / **1188** | 800 | **+388 (+48%)** | 0 | W2 |
+| `Models.kt` (diagnostics) | 872 / 769 | 800 | -31 | 1 | W2 |
+| `DiagnosticsServicesImpl.kt` | 741 / - | 800 | -59 | 0 | W2 |
+| `ServiceRuntimeCoordinator.kt` | 383 / - | 800 | -417 | 2 | W4 |
+| `VpnServiceRuntimeCoordinator.kt` | 542 / - | 800 | -258 | 2 | W4 |
+| `ProxyServiceRuntimeCoordinator.kt` | 309 / - | 800 | -491 | 0 | W4 |
+| `UpstreamRelaySupervisor.kt` | 469 / - | 800 | -331 | 2 | W4 |
+| `AdvancedSettingsBinder.kt` | 1262 / 775 | 800 | -25 | 1 | W5 |
+| `DesyncSection.kt` | 845 / - | 800 | **+45** | 1 | W5 |
+| `HomeScreen.kt` | 1945 / **1314** | 1000 | **+314 (+31%)** | 7 | W6 |
+| `DiagnosticsScreen.kt` | 1364 / **1254** | 1000 | **+254 (+25%)** | 7 | W6 |
+| `DnsSettingsScreen.kt` | 1518 / **1437** | 1000 | **+437 (+44%)** | 5 | W6 |
+| `DiagnosticsViewModel.kt` | 464 / - | 800 | -336 | 1 | W7 |
+| `SettingsViewModel.kt` | 298 / - | 800 | -502 | 2 | W7 |
+| `MainViewModel.kt` (reference) | 499 / - | 800 | -301 | 0 | - |
+
+### Rust (Workstream 3)
+
+| File | Raw / Code-only | Budget | Delta | Suppressions | Top Offender |
+|------|-----------------|--------|-------|-------|--------------|
+| `runtime/desync.rs` | **4112 / 1538** | 1500 | +38 | 9 | `execute_tcp_plan` = **1139 lines** (7.6x fn budget) |
+| `runtime/udp.rs` | 964 / - | 1000 | -36 | 0 | action handlers 50-150 each |
+| `platform/linux.rs` | **2376 / 1557** | 1500 | +57 | 6 | `send_fake_tcp` 106, `build_tcp_segment_packet` 99, `send_fake_tcp_via_raw_packets` 94 |
+| `platform/mod.rs` | 1176 / - | 1000 | +176 | 15 | platform-variant dispatch |
+| `ripdpi-proxy-config/src/convert.rs` | 1464 / - | 1000 | +464 | 0 | `runtime_config_from_ui` + section builders |
+
+### Critical Blocker
+
+**`execute_tcp_plan` in `native/rust/crates/ripdpi-runtime/src/runtime/desync.rs` lines ~940-2078 (1139 lines).** This one function is the primary blocker for Workstream 3 and indirectly for bypass-modernization Workstreams 2 and 3. It mixes tactic families (fake, hostfake, disorder, fragmentation, flags, TTL, IP ID), platform fallbacks, and tracing in a single switch. Decomposition here is a prerequisite for introducing the first-flight IR on new seams.
+
+### Suppression Totals
+
+- Kotlin: **35 `@Suppress`** across hotspots (19 concentrated in the three Compose screens).
+- Rust: **30 `#[allow]`** across hotspots (15 in `platform/mod.rs` alone).
 
 ## Priority Order
 
@@ -69,34 +176,41 @@ These are review targets, not immediate CI failures on day one:
 **Status:** [ ] Not started
 **Priority:** P0
 **Why now:** The codebase already contains blanket suppressions in the exact
-files that need refactoring. Without budgets, ownership rules, and a migration
-plan, the larger splits will stall or regress.
+files that need refactoring (35 Kotlin + 30 Rust across named hotspots).
+Existing LoC guards cover files but not suppressions or module-dep growth.
 
 **Primary areas:**
 
 - `quality:detekt-rules`
-- `scripts/ci/`
+- `scripts/ci/check_file_loc_limits.py` (extend)
+- `scripts/ci/verify_diagnostics_boundary.py` (mirror pattern)
 - `config/detekt/`
-- repo documentation
+- `config/static/file-loc-baseline.json` (reference baseline)
+- repo documentation: `docs/architecture/` (new)
 
 **Tasks**
 
 - [ ] Write a short architecture ADR for each authority boundary that must end
-  with a single owner:
-  - canonical proxy/runtime config contract
-  - canonical diagnosis engine
-  - service lifecycle orchestration boundary
-- [ ] Create a hotspot inventory document with the current oversized files and
-  functions that this roadmap is expected to shrink.
-- [ ] Add a lightweight CI/report script for:
-  - largest Kotlin files
-  - largest Rust files
-  - files with blanket suppressions
-  - files exceeding agreed review thresholds
-- [ ] Add a rule or verification script preventing new blanket suppressions in
-  production source unless explicitly allowlisted.
-- [ ] Add a rule that new architecture work must not increase the direct module
-  dependency count of `:app`, `:core:diagnostics`, or `:core:service`.
+  with a single owner. Commit as `docs/architecture/adr-00N-*.md`:
+  - canonical proxy/runtime config contract (Kotlin `StrategyChains.kt` vs Rust
+    `convert.rs` vs JSON codec)
+  - canonical diagnosis engine (Rust `ripdpi-monitor/src/classification/diagnosis.rs`
+    vs Kotlin `DiagnosticsServicesImpl` + `DiagnosticsFindingProjector`)
+  - service lifecycle orchestration boundary (`BaseServiceRuntimeCoordinator`
+    and its VPN/Proxy subclasses)
+- [ ] Embed the Hotspot Inventory table (above) as `docs/architecture/hotspots.md`
+  and wire a generator script so the table stays current.
+- [ ] Extend `check_file_loc_limits.py` with a reporting mode that also emits:
+  - top-5 longest functions per hotspot file
+  - suppression counts per file
+- [ ] Add a detekt custom rule (`quality:detekt-rules`) rejecting new
+  `@Suppress(...)` / `@file:Suppress(...)` in production Kotlin unless a
+  grandfathered allowlist entry references this roadmap's item number.
+- [ ] Add a clippy-or-equivalent rule rejecting new `#[allow(...)]` in production
+  Rust unless tied to a baseline entry.
+- [ ] Add a module-dependency guard modeled on `verify_diagnostics_boundary.py`
+  that fails CI if the direct `project(...)` count for `:app`,
+  `:core:diagnostics`, or `:core:service` grows beyond snapshotted baseline.
 - [ ] Document the sequencing rules for architecture refactors:
   - extract interfaces first
   - move implementation second
@@ -252,14 +366,25 @@ the largest source-of-truth problem in the project.
 **Why now:** The native runtime is functionally rich but too centralized.
 `desync.rs` and platform files mix tactic semantics, emitter selection, Android
 fallbacks, raw-packet details, and logging in a way that blocks further
-evolution.
+evolution. This is also the single largest blocker for bypass-modernization
+Workstreams 2 (first-flight IR) and 3 (QUIC subsystem).
 
-**Primary areas:**
+**Primary areas (2026-04-15 snapshot):**
 
-- `native/rust/crates/ripdpi-runtime/src/runtime/desync.rs`
-- `native/rust/crates/ripdpi-runtime/src/runtime/udp.rs`
-- `native/rust/crates/ripdpi-runtime/src/platform/linux.rs`
-- `native/rust/crates/ripdpi-runtime/src/platform/mod.rs`
+- `native/rust/crates/ripdpi-runtime/src/runtime/desync.rs` -- 4112 raw / 1538 code-only
+  - `execute_tcp_plan` -- **1139 lines** (critical blocker; 7.6x the 150-line fn budget)
+  - `execute_tcp_actions` -- 297 lines
+  - `execute_multi_disorder_tcp_plan` -- 69 lines
+  - `build_ordered_fake_split_emissions` -- 48 lines
+  - `apply_entropy_padding` -- 46 lines
+- `native/rust/crates/ripdpi-runtime/src/runtime/udp.rs` -- 964 lines
+- `native/rust/crates/ripdpi-runtime/src/platform/linux.rs` -- 2376 raw / 1557 code-only
+  - `send_fake_tcp` -- 106 lines
+  - `build_tcp_segment_packet` -- 99 lines
+  - `send_fake_tcp_via_raw_packets` -- 94 lines
+  - `send_ordered_tcp_segments` -- 68 lines
+  - `send_ip_fragmented_tcp` -- 63 lines
+- `native/rust/crates/ripdpi-runtime/src/platform/mod.rs` -- 1176 lines, 15 `#[allow]` annotations
 
 **Tasks**
 
