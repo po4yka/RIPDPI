@@ -210,6 +210,9 @@ pub(super) fn failure_trigger_mask(failure: &ClassifiedFailure) -> u32 {
         FailureClass::StrategyExecutionFailure => DETECT_CONNECT,
         FailureClass::ConnectionFreeze => DETECT_CONNECTION_FREEZE,
         FailureClass::Unknown => 0,
+        // Capability-skipped runs were never actually emitted; they emit no
+        // wire-visible block signals and must not trigger block detection.
+        FailureClass::CapabilitySkipped => 0,
     }
 }
 
