@@ -1,0 +1,163 @@
+package com.poyka.ripdpi.core.codec
+
+import com.poyka.ripdpi.core.RipDpiFakePacketConfig
+import com.poyka.ripdpi.core.RipDpiParserEvasionConfig
+import kotlinx.serialization.Serializable
+
+@Serializable
+internal data class NativeFakePacketConfig(
+    val fakeTtl: Int = 8,
+    val adaptiveFakeTtlEnabled: Boolean = false,
+    val adaptiveFakeTtlDelta: Int = -1,
+    val adaptiveFakeTtlMin: Int = 3,
+    val adaptiveFakeTtlMax: Int = 12,
+    val adaptiveFakeTtlFallback: Int = 8,
+    val fakeSni: String = "www.iana.org",
+    val httpFakeProfile: String = "compat_default",
+    val fakeTlsSource: String = "profile",
+    val fakeTlsSecondaryProfile: String = "",
+    val fakeTcpTimestampEnabled: Boolean = false,
+    val fakeTcpTimestampDeltaTicks: Int = 0,
+    val fakeTlsUseOriginal: Boolean = false,
+    val fakeTlsRandomize: Boolean = false,
+    val fakeTlsDupSessionId: Boolean = false,
+    val fakeTlsPadEncap: Boolean = false,
+    val fakeTlsSize: Int = 0,
+    val fakeTlsSniMode: String = "fixed",
+    val tlsFakeProfile: String = "compat_default",
+    val udpFakeProfile: String = "compat_default",
+    val fakeOffsetMarker: String = "0",
+    val oobChar: Int = 'a'.code,
+    val dropSack: Boolean = false,
+    val windowClamp: Int? = null,
+    val wsizeWindow: Int? = null,
+    val wsizeScale: Int? = null,
+    val stripTimestamps: Boolean = false,
+    val ipIdMode: String = "",
+    val quicBindLowPort: Boolean = false,
+    val quicMigrateAfterHandshake: Boolean = false,
+    val entropyMode: String = "disabled",
+    val entropyPaddingTargetPermil: Int = 3400,
+    val entropyPaddingMax: Int = 256,
+    val shannonEntropyTargetPermil: Int = 7920,
+    val tlsFingerprintProfile: String = "chrome_stable",
+)
+
+@Serializable
+internal data class NativeParserEvasionConfig(
+    val hostMixedCase: Boolean = false,
+    val domainMixedCase: Boolean = false,
+    val hostRemoveSpaces: Boolean = false,
+    val httpMethodEol: Boolean = false,
+    val httpMethodSpace: Boolean = false,
+    val httpUnixEol: Boolean = false,
+    val httpHostPad: Boolean = false,
+    val httpHostExtraSpace: Boolean = false,
+    val httpHostTab: Boolean = false,
+)
+
+internal object PacketCodec {
+    fun toModel(value: NativeFakePacketConfig): RipDpiFakePacketConfig =
+        RipDpiFakePacketConfig(
+            fakeTtl = value.fakeTtl,
+            adaptiveFakeTtlEnabled = value.adaptiveFakeTtlEnabled,
+            adaptiveFakeTtlDelta = value.adaptiveFakeTtlDelta,
+            adaptiveFakeTtlMin = value.adaptiveFakeTtlMin,
+            adaptiveFakeTtlMax = value.adaptiveFakeTtlMax,
+            adaptiveFakeTtlFallback = value.adaptiveFakeTtlFallback,
+            fakeSni = value.fakeSni,
+            httpFakeProfile = value.httpFakeProfile,
+            fakeTlsSource = value.fakeTlsSource,
+            fakeTlsSecondaryProfile = value.fakeTlsSecondaryProfile,
+            fakeTcpTimestampEnabled = value.fakeTcpTimestampEnabled,
+            fakeTcpTimestampDeltaTicks = value.fakeTcpTimestampDeltaTicks,
+            fakeTlsUseOriginal = value.fakeTlsUseOriginal,
+            fakeTlsRandomize = value.fakeTlsRandomize,
+            fakeTlsDupSessionId = value.fakeTlsDupSessionId,
+            fakeTlsPadEncap = value.fakeTlsPadEncap,
+            fakeTlsSize = value.fakeTlsSize,
+            fakeTlsSniMode = value.fakeTlsSniMode,
+            tlsFakeProfile = value.tlsFakeProfile,
+            udpFakeProfile = value.udpFakeProfile,
+            fakeOffsetMarker = value.fakeOffsetMarker,
+            oobChar = value.oobChar.toChar(),
+            dropSack = value.dropSack,
+            windowClamp = value.windowClamp,
+            wsizeWindow = value.wsizeWindow,
+            wsizeScale = value.wsizeScale,
+            stripTimestamps = value.stripTimestamps,
+            ipIdMode = value.ipIdMode,
+            quicBindLowPort = value.quicBindLowPort,
+            quicMigrateAfterHandshake = value.quicMigrateAfterHandshake,
+            entropyMode = value.entropyMode,
+            entropyPaddingTargetPermil = value.entropyPaddingTargetPermil,
+            entropyPaddingMax = value.entropyPaddingMax,
+            shannonEntropyTargetPermil = value.shannonEntropyTargetPermil,
+            tlsFingerprintProfile = value.tlsFingerprintProfile,
+        )
+
+    fun toNative(value: RipDpiFakePacketConfig): NativeFakePacketConfig =
+        NativeFakePacketConfig(
+            fakeTtl = value.fakeTtl,
+            adaptiveFakeTtlEnabled = value.adaptiveFakeTtlEnabled,
+            adaptiveFakeTtlDelta = value.adaptiveFakeTtlDelta,
+            adaptiveFakeTtlMin = value.adaptiveFakeTtlMin,
+            adaptiveFakeTtlMax = value.adaptiveFakeTtlMax,
+            adaptiveFakeTtlFallback = value.adaptiveFakeTtlFallback,
+            fakeSni = value.fakeSni,
+            httpFakeProfile = value.httpFakeProfile,
+            fakeTlsSource = value.fakeTlsSource,
+            fakeTlsSecondaryProfile = value.fakeTlsSecondaryProfile,
+            fakeTcpTimestampEnabled = value.fakeTcpTimestampEnabled,
+            fakeTcpTimestampDeltaTicks = value.fakeTcpTimestampDeltaTicks,
+            fakeTlsUseOriginal = value.fakeTlsUseOriginal,
+            fakeTlsRandomize = value.fakeTlsRandomize,
+            fakeTlsDupSessionId = value.fakeTlsDupSessionId,
+            fakeTlsPadEncap = value.fakeTlsPadEncap,
+            fakeTlsSize = value.fakeTlsSize,
+            fakeTlsSniMode = value.fakeTlsSniMode,
+            tlsFakeProfile = value.tlsFakeProfile,
+            udpFakeProfile = value.udpFakeProfile,
+            fakeOffsetMarker = value.fakeOffsetMarker,
+            oobChar = value.oobChar.code,
+            dropSack = value.dropSack,
+            windowClamp = value.windowClamp,
+            wsizeWindow = value.wsizeWindow,
+            wsizeScale = value.wsizeScale,
+            stripTimestamps = value.stripTimestamps,
+            ipIdMode = value.ipIdMode,
+            quicBindLowPort = value.quicBindLowPort,
+            quicMigrateAfterHandshake = value.quicMigrateAfterHandshake,
+            entropyMode = value.entropyMode,
+            entropyPaddingTargetPermil = value.entropyPaddingTargetPermil,
+            entropyPaddingMax = value.entropyPaddingMax,
+            shannonEntropyTargetPermil = value.shannonEntropyTargetPermil,
+            tlsFingerprintProfile = value.tlsFingerprintProfile,
+        )
+
+    fun toModel(value: NativeParserEvasionConfig): RipDpiParserEvasionConfig =
+        RipDpiParserEvasionConfig(
+            hostMixedCase = value.hostMixedCase,
+            domainMixedCase = value.domainMixedCase,
+            hostRemoveSpaces = value.hostRemoveSpaces,
+            httpMethodEol = value.httpMethodEol,
+            httpMethodSpace = value.httpMethodSpace,
+            httpUnixEol = value.httpUnixEol,
+            httpHostPad = value.httpHostPad,
+            httpHostExtraSpace = value.httpHostExtraSpace,
+            httpHostTab = value.httpHostTab,
+        )
+
+    fun toNative(value: RipDpiParserEvasionConfig): NativeParserEvasionConfig =
+        NativeParserEvasionConfig(
+            hostMixedCase = value.hostMixedCase,
+            domainMixedCase = value.domainMixedCase,
+            hostRemoveSpaces = value.hostRemoveSpaces,
+            httpMethodEol = value.httpMethodEol,
+            httpMethodSpace = value.httpMethodSpace,
+            httpUnixEol = value.httpUnixEol,
+            httpHostPad = value.httpHostPad,
+            httpHostExtraSpace = value.httpHostExtraSpace,
+            httpHostTab = value.httpHostTab,
+        )
+}
