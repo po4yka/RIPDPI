@@ -78,6 +78,114 @@ pub struct IpFragmentationCapabilities {
     pub tcp_repair: bool,
 }
 
+// ---------------------------------------------------------------------------
+// Typed capability surface (Phase 2 slice 2.1 — additive only)
+// ---------------------------------------------------------------------------
+
+/// A discrete runtime capability that the engine can probe and report.
+///
+/// Variants map one-to-one to testable platform features; the string ids
+/// returned by `as_str()` are stable for telemetry / serialization.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum RuntimeCapability {
+    /// Ability to set IP TTL on outbound TCP packets via raw sockets.
+    TtlWrite,
+    /// Ability to send fake TCP segments via a raw socket (non-root path).
+    RawTcpFakeSend,
+    /// Ability to send IP-fragmented UDP via a raw socket (non-root path).
+    RawUdpFragmentation,
+    /// Ability to create a replacement (protected) socket for the VPN path.
+    ReplacementSocket,
+    /// Root-helper process is reachable and authenticated.
+    RootHelperAvailable,
+    /// Android VPN protect callback is wired up and callable.
+    VpnProtectCallback,
+    /// Socket can be bound to a specific network interface.
+    NetworkBinding,
+}
+
+impl RuntimeCapability {
+    /// Returns a stable, lowercase-snake-case identifier suitable for
+    /// telemetry keys and JSON field names.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::TtlWrite => "ttl_write",
+            Self::RawTcpFakeSend => "raw_tcp_fake_send",
+            Self::RawUdpFragmentation => "raw_udp_fragmentation",
+            Self::ReplacementSocket => "replacement_socket",
+            Self::RootHelperAvailable => "root_helper_available",
+            Self::VpnProtectCallback => "vpn_protect_callback",
+            Self::NetworkBinding => "network_binding",
+        }
+    }
+}
+
+/// Reason a capability is definitively unavailable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CapabilityUnavailable {
+    /// The capability has not been probed yet.
+    NotProbed,
+    /// The platform does not support this capability at all.
+    Unsupported,
+    /// The process lacks the required permissions.
+    PermissionDenied,
+    /// The root-helper binary is missing or unreachable.
+    MissingRootHelper,
+    /// The capability is known but not yet implemented on this platform.
+    NotImplemented,
+}
+
+/// Result of probing a single runtime capability.
+///
+/// `T` is the payload type when the capability is `Available` — for boolean
+/// capabilities this is `bool`, for richer probes it may be a struct.
+///
+/// `io::Error` is intentionally not stored directly because it does not impl
+/// `Clone` or `PartialEq`; the human-readable message is captured instead.
+#[derive(Debug, Clone)]
+pub enum CapabilityOutcome<T> {
+    /// The capability is present and usable; `T` holds the probed state.
+    Available(T),
+    /// The capability is definitively unavailable for the given reason.
+    Unavailable {
+        capability: RuntimeCapability,
+        reason: CapabilityUnavailable,
+    },
+    /// Probing itself failed with a transient or unexpected error.
+    ProbeFailed {
+        capability: RuntimeCapability,
+        /// Human-readable error message (not the raw `io::Error`).
+        error: String,
+    },
+}
+
+impl<T> CapabilityOutcome<T> {
+    /// Returns `true` only when the capability is `Available`.
+    pub fn is_available(&self) -> bool {
+        matches!(self, Self::Available(_))
+    }
+
+    /// Returns the `RuntimeCapability` tag for `Unavailable` and `ProbeFailed`
+    /// variants; returns `None` for `Available` (the tag is not stored there).
+    pub fn capability(&self) -> Option<RuntimeCapability> {
+        match self {
+            Self::Available(_) => None,
+            Self::Unavailable { capability, .. } => Some(*capability),
+            Self::ProbeFailed { capability, .. } => Some(*capability),
+        }
+    }
+
+    /// Consumes the outcome and returns `Some(T)` if `Available`, else `None`.
+    pub fn take(self) -> Option<T> {
+        match self {
+            Self::Available(v) => Some(v),
+            _ => None,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 struct Ipv4FlowKey {
@@ -1172,5 +1280,76 @@ mod tests {
         let target = SocketAddr::from(([0u16, 0, 0, 0, 0, 0, 0, 1], 443));
 
         assert!(reserve_ipv4_identifications(source, target, Some(IpIdMode::SeqGroup), 2).is_empty());
+    }
+
+    // -----------------------------------------------------------------------
+    // RuntimeCapability / CapabilityOutcome tests
+    // -----------------------------------------------------------------------
+
+    use super::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
+
+    #[test]
+    fn runtime_capability_as_str_stable() {
+        assert_eq!(RuntimeCapability::TtlWrite.as_str(), "ttl_write");
+        assert_eq!(RuntimeCapability::RawTcpFakeSend.as_str(), "raw_tcp_fake_send");
+        assert_eq!(RuntimeCapability::RawUdpFragmentation.as_str(), "raw_udp_fragmentation");
+        assert_eq!(RuntimeCapability::ReplacementSocket.as_str(), "replacement_socket");
+        assert_eq!(RuntimeCapability::RootHelperAvailable.as_str(), "root_helper_available");
+        assert_eq!(RuntimeCapability::VpnProtectCallback.as_str(), "vpn_protect_callback");
+        assert_eq!(RuntimeCapability::NetworkBinding.as_str(), "network_binding");
+    }
+
+    #[test]
+    fn capability_outcome_is_available() {
+        let avail: CapabilityOutcome<bool> = CapabilityOutcome::Available(true);
+        assert!(avail.is_available());
+
+        let unavail: CapabilityOutcome<bool> = CapabilityOutcome::Unavailable {
+            capability: RuntimeCapability::TtlWrite,
+            reason: CapabilityUnavailable::Unsupported,
+        };
+        assert!(!unavail.is_available());
+
+        let failed: CapabilityOutcome<bool> = CapabilityOutcome::ProbeFailed {
+            capability: RuntimeCapability::RawTcpFakeSend,
+            error: "test error".to_owned(),
+        };
+        assert!(!failed.is_available());
+    }
+
+    #[test]
+    fn capability_outcome_take() {
+        let avail: CapabilityOutcome<u32> = CapabilityOutcome::Available(42);
+        assert_eq!(avail.take(), Some(42));
+
+        let unavail: CapabilityOutcome<u32> = CapabilityOutcome::Unavailable {
+            capability: RuntimeCapability::NetworkBinding,
+            reason: CapabilityUnavailable::PermissionDenied,
+        };
+        assert_eq!(unavail.take(), None);
+
+        let failed: CapabilityOutcome<u32> = CapabilityOutcome::ProbeFailed {
+            capability: RuntimeCapability::RootHelperAvailable,
+            error: "oops".to_owned(),
+        };
+        assert_eq!(failed.take(), None);
+    }
+
+    #[test]
+    fn capability_outcome_capability_accessor() {
+        let avail: CapabilityOutcome<bool> = CapabilityOutcome::Available(true);
+        assert_eq!(avail.capability(), None);
+
+        let unavail: CapabilityOutcome<bool> = CapabilityOutcome::Unavailable {
+            capability: RuntimeCapability::VpnProtectCallback,
+            reason: CapabilityUnavailable::NotProbed,
+        };
+        assert_eq!(unavail.capability(), Some(RuntimeCapability::VpnProtectCallback));
+
+        let failed: CapabilityOutcome<bool> = CapabilityOutcome::ProbeFailed {
+            capability: RuntimeCapability::ReplacementSocket,
+            error: "err".to_owned(),
+        };
+        assert_eq!(failed.capability(), Some(RuntimeCapability::ReplacementSocket));
     }
 }
