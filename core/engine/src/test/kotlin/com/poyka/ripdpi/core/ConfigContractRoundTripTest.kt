@@ -2,6 +2,8 @@ package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.NumericRangeModel
+import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
+import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepKind
@@ -144,6 +146,54 @@ class ConfigContractRoundTripTest {
     }
 
     // ---------------------------------------------------------------------------
+    // Scenario 3: Relay-heavy config
+    // Exercises three relay kinds' field groups in one payload:
+    //   - MASQUE: masqueUrl, masqueUseHttp2Fallback, masqueCloudflareGeohashEnabled
+    //   - Cloudflare Tunnel (consume_existing): cloudflareTunnelMode +
+    //     cloudflareCredentialsRef (ref to RelayCredentialStore, NOT inline)
+    //   - NaiveProxy: naivePath
+    // Plus chain-relay entry/exit fields to exercise the chained-relay branch.
+    // The active `kind` is chain_relay; the other kinds' fields live in the
+    // same schema but are only selected at runtime. The round-trip gate asserts
+    // the JSON shape survives for every field group, not which kind is active.
+    // ---------------------------------------------------------------------------
+
+    @Test
+    fun `relay heavy config round trips through json codec`() {
+        val relay = relayHeavyConfig()
+        val preferences = RipDpiProxyUIPreferences(relay = relay)
+
+        val json = preferences.toNativeConfigJson()
+        val decoded = decodeRipDpiProxyUiPreferences(json)
+
+        assertNotNull("decoded preferences must not be null", decoded)
+
+        val actual = decoded!!.relay
+        assertEquals("relay enabled", relay.enabled, actual.enabled)
+        assertEquals("relay kind", relay.kind, actual.kind)
+        // MASQUE fields
+        assertEquals("masqueUrl", relay.masqueUrl, actual.masqueUrl)
+        assertEquals("masqueUseHttp2Fallback", relay.masqueUseHttp2Fallback, actual.masqueUseHttp2Fallback)
+        assertEquals(
+            "masqueCloudflareGeohashEnabled",
+            relay.masqueCloudflareGeohashEnabled,
+            actual.masqueCloudflareGeohashEnabled,
+        )
+        // Cloudflare Tunnel: credentials via ref only -- never inline secrets
+        assertEquals("cloudflareTunnelMode", relay.cloudflareTunnelMode, actual.cloudflareTunnelMode)
+        assertEquals("cloudflareCredentialsRef", relay.cloudflareCredentialsRef, actual.cloudflareCredentialsRef)
+        // NaiveProxy
+        assertEquals("naivePath", relay.naivePath, actual.naivePath)
+        // Chain-relay entry/exit
+        assertEquals("chainEntryServer", relay.chainEntryServer, actual.chainEntryServer)
+        assertEquals("chainEntryPort", relay.chainEntryPort, actual.chainEntryPort)
+        assertEquals("chainExitServer", relay.chainExitServer, actual.chainExitServer)
+        assertEquals("chainExitPort", relay.chainExitPort, actual.chainExitPort)
+
+        writeFixture("round-trip-relay-heavy.json", json)
+    }
+
+    // ---------------------------------------------------------------------------
     // Fixture builders
     // ---------------------------------------------------------------------------
 
@@ -197,6 +247,40 @@ class ConfigContractRoundTripTest {
                 kind = TcpChainStepKind.Split,
                 marker = "host+4",
             ),
+        )
+
+    /**
+     * Relay config touching three relay kinds' field groups with a non-inline
+     * credential reference (ref points into RelayCredentialStore; no secrets
+     * land in the JSON payload).
+     */
+    private fun relayHeavyConfig(): RipDpiRelayConfig =
+        RipDpiRelayConfig(
+            enabled = true,
+            kind = RelayKindChainRelay,
+            profileId = "chain-heavy-primary",
+            // MASQUE group
+            masqueUrl = "https://example.cloudflare.com/.well-known/masque/udp/203.0.113.5/443/",
+            masqueUseHttp2Fallback = true,
+            masqueCloudflareGeohashEnabled = true,
+            // Cloudflare Tunnel group -- credential ref only, never inline
+            cloudflareTunnelMode = RelayCloudflareTunnelModeConsumeExisting,
+            cloudflareCredentialsRef = "relay-cred::cloudflare-tunnel::primary",
+            // NaiveProxy group
+            naivePath = "/data/local/tmp/ripdpi-naive",
+            // Chain-relay entry + exit
+            chainEntryServer = "entry.example.com",
+            chainEntryPort = 8443,
+            chainEntryServerName = "entry.example.com",
+            chainEntryPublicKey = "A".repeat(44),
+            chainEntryShortId = "deadbeef",
+            chainEntryProfileId = "chain-entry-ref",
+            chainExitServer = "exit.example.com",
+            chainExitPort = 8443,
+            chainExitServerName = "exit.example.com",
+            chainExitPublicKey = "B".repeat(44),
+            chainExitShortId = "cafebabe",
+            chainExitProfileId = "chain-exit-ref",
         )
 
     /**
