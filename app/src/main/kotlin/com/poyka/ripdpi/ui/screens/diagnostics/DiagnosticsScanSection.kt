@@ -189,7 +189,7 @@ internal fun ScanSection(
                 }
                 itemsIndexed(
                     items = progress.completedProbes.reversed().take(LiveProbePreviewCount),
-                    key = { index, probe -> "$index-${probe.target}-${probe.outcome}" },
+                    key = { _, probe -> "${probe.target}-${probe.outcome}" },
                 ) { _, probe ->
                     AnimatedVisibility(
                         visible = true,

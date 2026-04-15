@@ -70,6 +70,7 @@ fun <T> RipDpiDropdown(
     optionTagForValue: ((T) -> String)? = null,
 ) {
     val type = RipDpiThemeTokens.type
+    val components = RipDpiThemeTokens.components
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
     val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
     val isInteractive = enabled && !readOnly
@@ -88,7 +89,7 @@ fun <T> RipDpiDropdown(
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(components.textFieldLabelGap),
     ) {
         label?.let {
             Text(text = it, style = type.smallLabel, color = visualState.labelColor)

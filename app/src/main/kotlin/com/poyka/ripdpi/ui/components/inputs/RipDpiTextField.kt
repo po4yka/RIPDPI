@@ -40,6 +40,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 private const val textFieldDisabledAlpha = 0.38f
 private const val textFieldContentSpacingDp = 8
 
+// Internal threshold for detecting a focused/thickened border — not a design token.
+private val FocusedPaddingMinimumDp = 1.dp
+
 data class RipDpiTextFieldDecoration(
     val label: String? = null,
     val placeholder: String? = null,
@@ -85,7 +88,7 @@ fun RipDpiTextField(
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(components.textFieldLabelGap),
     ) {
         decoration.label?.let {
             Text(
@@ -193,7 +196,7 @@ private fun RipDpiTextFieldShell(
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val basePadding =
-        if (borderWidth > 1.dp) {
+        if (borderWidth > FocusedPaddingMinimumDp) {
             components.fieldFocusedHorizontalPadding
         } else {
             components.fieldHorizontalPadding

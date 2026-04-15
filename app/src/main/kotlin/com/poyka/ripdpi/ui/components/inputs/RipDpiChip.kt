@@ -71,13 +71,19 @@ fun RipDpiChip(
     val chipShape = RoundedCornerShape(chipCornerRadius)
     val horizontalPadding =
         when (density) {
-            RipDpiControlDensity.Default -> components.chipHorizontalPadding
-            RipDpiControlDensity.Compact -> components.chipHorizontalPadding - 4.dp
+            RipDpiControlDensity.Default -> {
+                components.chipHorizontalPadding
+            }
+
+            RipDpiControlDensity.Compact -> {
+                components.chipHorizontalPadding -
+                    components.chipFocusedHorizontalPaddingOffset
+            }
         }
     val verticalPadding =
         when (density) {
             RipDpiControlDensity.Default -> components.chipVerticalPadding
-            RipDpiControlDensity.Compact -> components.chipVerticalPadding - 2.dp
+            RipDpiControlDensity.Compact -> components.chipVerticalPadding - components.chipFocusedVerticalPaddingOffset
         }
     val container =
         when {
@@ -156,7 +162,7 @@ fun RipDpiChip(
                     imageVector = it,
                     contentDescription = null,
                     tint = animatedContentColor,
-                    modifier = Modifier.size(14.dp),
+                    modifier = Modifier.size(components.chipIconSize),
                 )
             }
         }

@@ -26,6 +26,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
@@ -62,43 +63,22 @@ fun WarningBanner(
             .ripDpiTestTag(testTag)
             .semantics { liveRegion = LiveRegionMode.Polite }
 
-    if (onClick != null) {
-        Surface(
-            onClick = onClick,
-            modifier = surfaceModifier,
-            shape = RipDpiThemeTokens.shapes.xl,
-            color = palette.container,
-            border = BorderStroke(RipDpiStroke.Thin, palette.border),
-            contentColor = palette.title,
-            shadowElevation = surfaceStyle.shadowElevation,
-        ) {
-            WarningBannerContent(
-                title = title,
-                message = message,
-                icon = resolvedIcon,
-                iconContentDescription = tone.name,
-                palette = palette,
-                onDismiss = onDismiss,
-            )
-        }
-    } else {
-        Surface(
-            modifier = surfaceModifier,
-            shape = RipDpiThemeTokens.shapes.xl,
-            color = palette.container,
-            border = BorderStroke(RipDpiStroke.Thin, palette.border),
-            contentColor = palette.title,
-            shadowElevation = surfaceStyle.shadowElevation,
-        ) {
-            WarningBannerContent(
-                title = title,
-                message = message,
-                icon = resolvedIcon,
-                iconContentDescription = tone.name,
-                palette = palette,
-                onDismiss = onDismiss,
-            )
-        }
+    Surface(
+        modifier = onClick?.let { surfaceModifier.ripDpiClickable(onClick = it) } ?: surfaceModifier,
+        shape = RipDpiThemeTokens.shapes.xl,
+        color = palette.container,
+        border = BorderStroke(RipDpiStroke.Thin, palette.border),
+        contentColor = palette.title,
+        shadowElevation = surfaceStyle.shadowElevation,
+    ) {
+        WarningBannerContent(
+            title = title,
+            message = message,
+            icon = resolvedIcon,
+            iconContentDescription = tone.name,
+            palette = palette,
+            onDismiss = onDismiss,
+        )
     }
 }
 
