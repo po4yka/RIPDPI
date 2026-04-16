@@ -510,7 +510,17 @@ impl StrategyEvolver {
     }
 
     /// Record failed connection with failure class.
+    ///
+    /// `FailureClass::CapabilitySkipped` is a no-op: the tactic was never
+    /// emitted, so it must not affect arm counts or reward estimates.
     pub fn record_failure(&mut self, class: FailureClass) {
+        if class == FailureClass::CapabilitySkipped {
+            // Discard the pending experiment without touching bandit state.
+            // The run was skipped before any packet was sent, so it carries
+            // no signal about the strategy's quality.
+            self.current_experiment = None;
+            return;
+        }
         let Some(combo) = self.current_experiment.take() else {
             return;
         };
@@ -1166,5 +1176,54 @@ mod tests {
 
         let (best, _) = e.best_combo().expect("should have a best combo");
         assert_eq!(best.entropy_mode, Some(EntropyMode::Shannon), "Shannon combo should be best");
+    }
+
+    // ---- Slice 2.6: capability-skipped runs must not update bandit arms ----
+
+    #[test]
+    fn capability_skipped_does_not_update_bandit_arms() {
+        // Session A: 1 successful run only.
+        let mut session_a = StrategyEvolver::new(true, 0.0);
+        session_a.rng_state = 99;
+        let combo = StrategyCombo::default_combo();
+        session_a.combos.insert(combo.clone(), ComboStats::new());
+
+        session_a.current_experiment = Some(combo.clone());
+        session_a.record_success(50);
+
+        let stats_a = session_a.combos.get(&combo).expect("stats_a must exist");
+
+        // Session B: 3 capability-skipped runs, then the same 1 successful run.
+        let mut session_b = StrategyEvolver::new(true, 0.0);
+        session_b.rng_state = 99;
+        session_b.combos.insert(combo.clone(), ComboStats::new());
+
+        for _ in 0..3 {
+            session_b.current_experiment = Some(combo.clone());
+            session_b.record_failure(FailureClass::CapabilitySkipped);
+        }
+
+        session_b.current_experiment = Some(combo.clone());
+        session_b.record_success(50);
+
+        let stats_b = session_b.combos.get(&combo).expect("stats_b must exist");
+
+        assert_eq!(
+            stats_a.attempts, stats_b.attempts,
+            "capability-skipped runs must not increment attempt count \
+             (session_a={}, session_b={})",
+            stats_a.attempts, stats_b.attempts,
+        );
+        assert_eq!(
+            stats_a.successes, stats_b.successes,
+            "capability-skipped runs must not alter success count",
+        );
+        assert!(
+            (stats_a.fitness() - stats_b.fitness()).abs() < f64::EPSILON,
+            "capability-skipped runs must not change fitness: \
+             session_a={:.4}, session_b={:.4}",
+            stats_a.fitness(),
+            stats_b.fitness(),
+        );
     }
 }
