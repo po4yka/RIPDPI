@@ -31,6 +31,12 @@ Source roadmaps:
 
 ## Phase 0 -- Guardrails (parallel)
 
+**Status: COMPLETE (2026-04-15).** All 6 slices landed via Ultrawork.
+Commits: `2c38d5bb` `a98425a6` `c13c24ad` (ADRs), `8e88a182` (LoC reporter),
+`f97a8861` (DisallowNewSuppression detekt rule), `dc2151e6` (Rust allow-guard
++ baseline), `4ac8d9a4` (module-dep guard), `13f77db8` + `619503ca`
+(hotspots generator + determinism fix).
+
 Mode: `Ultrawork`. Prerequisite for every other phase. These slices are
 independent and safe to run concurrently.
 
@@ -44,6 +50,17 @@ independent and safe to run concurrently.
 | 0.6 | Generator script + embedded `docs/architecture/hotspots.md` regenerated from live LoC counts | 0.2 | `docs/architecture/hotspots.md` regenerates deterministically |
 
 ## Phase 1 -- Config Contract (architecture W1)
+
+**Status: PARTIAL (2026-04-15).** Slices 1.1-1.5 landed via Ralph;
+1.6-1.8 deferred to a follow-up Phase 1b.
+Commits: `7bfd9a29` + `d5e6c9fb` (StrategyChains split + deletion),
+`6421b0c6` + `10885de6` (Slice 1.0 prereq fixes for pre-existing
+`:core:engine:detekt` debt -- ComplexCondition + LongParameterList
+fixed at source, not suppressed), `0f6a2bb7` (codec split: ChainsCodec
+285L + FakePacketCodec 163L; parent 1494->1063L), `08ddee78` (round-trip
+harness Kotlin + Rust), `3d06ea31` (relay-heavy fixture covering MASQUE,
+Cloudflare Tunnel, NaiveProxy with credential ref), `d0b87adf` (drop
+TooManyFunctions suppression from StrategyChainValidation.kt).
 
 Mode: `Ralph`. Implements the "First Recommended Slice" of architecture-refactor.
 
@@ -59,6 +76,21 @@ Mode: `Ralph`. Implements the "First Recommended Slice" of architecture-refactor
 | 1.8 | Isolate legacy payload compatibility into dedicated adapter | 1.7 | Main config path has no compat branches; adapter tested independently |
 
 ## Phase 2 -- Capability Hygiene (bypass-modernization W1)
+
+**Status: COMPLETE (2026-04-15 to 2026-04-16).** All 7 slices landed via Ralph.
+Commits: `ece113a8` (RuntimeCapability + CapabilityOutcome types),
+`056cacdb` (TTL outcomes via `try_set_stream_ttl_with_outcome`),
+`6f113f0e` (~20 candidates tagged TtlWrite, 1 RawTcpFakeSend, 1
+RootHelperAvailable + `enumerate_capable_candidates` filter),
+`de09c65d` (`FailureClass::CapabilitySkipped` + Kotlin
+`DiagnosticsOutcomeBucket.Inconclusive` mapping +
+`record_capability_skipped` telemetry recorder),
+`65fea440` (5 regression tests pinning TTL/protect/raw-path outcomes),
+`81fcba05` (evolver `record_failure(CapabilitySkipped)` short-circuits;
+3-skipped + 1-success ranks identical to 1-success), `55b1aab4` (split
+into primary / opportunistic / rooted pools; probe matrix preserved
+across HTTP/TLS/TLS-ECH/QUIC v1/QUIC v2; `tlsrec_hostfake_split` and
+`tlsrec_hostfake_random` stay in primary via graceful-fallback allowlist).
 
 Mode: `Ralph`. Implements the "First Implementation Slice" of bypass-modernization.
 
@@ -310,10 +342,14 @@ Phase 0 (guardrails) ---+-> Phase 1 (config) ---+-> Phase 9 (UI)
 
 ## Priority Entry Points
 
-If starting fresh, these are the three OMC kickoff prompts in order:
+**Phases 0 + 2 complete; Phase 1 partial (1.1-1.5 done, 1.6-1.8 deferred).**
+22 commits ahead of `origin/main` as of 2026-04-16.
 
-1. `/ultrawork "execute Phase 0 slices 0.1-0.6 from docs/roadmap-execution-queue.md in parallel; verify each against the gate column; do not touch files outside the named scope"`
-2. `/ralph "execute Phase 1 slices 1.1-1.5 from docs/roadmap-execution-queue.md; gate on rust-test-runner + kotlin tests for touched modules; do not extend any baseline"`
-3. `/ralph "execute Phase 2 slices 2.1-2.7 from docs/roadmap-execution-queue.md; gate on packet-smoke-debugger for TTL-dependent strategies; ensure no silent io::Error degradation remains"`
+Next OMC kickoff prompts in priority order:
 
-After those three land, parallelism opens up significantly (Phase 3, 6, 7, 8, 9, 10, 14, S are all reachable).
+1. `/ralph "execute Phase 3 slices 3.1-3.5 from docs/roadmap-execution-queue.md; this is the critical path to decompose execute_tcp_plan (1139 lines, 7.6x function budget) into focused step-family executors. Capabilities flow as RuntimeCapability outcomes per Phase 2; consume them at the new lowering layer. Gate on packet-smoke-debugger for every fake/hostfake/disorder/fragmentation tactic. Do not extend any baseline."`
+2. (Parallel-safe with Phase 3) `/ralph "execute Phase 6 slices 6.1-6.7 from docs/roadmap-execution-queue.md; replace dns_substitution single no-overlap rule with multi-oracle confidence scoring. Gate on cargo test -p ripdpi-dns-resolver and cargo test -p ripdpi-monitor."`
+3. (Parallel-safe with Phase 3) `/ralph "execute Phase 7 slices 7.1-7.5; decompose UpstreamRelaySupervisor.resolveRuntimeConfig into per-relay-kind resolvers; mirror the per-section split pattern proven in Phase 1 slice 1.1."`
+4. Phase 1b later: finish slices 1.6-1.8 (RipDpiProxyJsonCodec remaining sections + convert.rs split + legacy compat adapter).
+
+Phase 4 (first-flight IR) and Phase 5 (QUIC subsystem) only become safe to start AFTER Phase 3 lands -- they depend on the new runtime decomposition seams.

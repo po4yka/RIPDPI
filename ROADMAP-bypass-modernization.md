@@ -6,6 +6,25 @@
 > measurement, and product hardening needed to keep RIPDPI effective on modern
 > Android networks.
 
+## Execution Status (2026-04-16)
+
+- **Workstream 1 (Capability Hygiene):** COMPLETE. `RuntimeCapability` /
+  `CapabilityUnavailable` / `CapabilityOutcome<T>` types in
+  `ripdpi-runtime::platform`; TTL write failures surface explicitly via
+  `try_set_stream_ttl_with_outcome` in `platform/linux.rs`; ~22 candidates
+  in `ripdpi-monitor/src/candidates.rs` carry `requires_capabilities` tags;
+  `FailureClass::CapabilitySkipped` variant landed cross-language (Rust
+  + Kotlin `DiagnosticsOutcomeBucket.Inconclusive`); `record_capability_skipped`
+  telemetry recorder available; strategy evolver `record_failure` short-circuits
+  on `CapabilitySkipped` so 3-skipped + 1-success ranks identical to 1-success;
+  candidate enumeration split into primary / opportunistic / rooted pools with
+  graceful-fallback allowlist preserving HTTP / TLS / TLS-ECH / QUIC v1 /
+  QUIC v2 probe matrix coverage on non-rooted Android.
+- **Workstream 2-9:** Not started. Workstream 3 (QUIC Initial subsystem) and
+  Workstream 2 (first-flight IR) depend on architecture-refactor Workstream 3
+  (native runtime decomposition) landing first. See
+  `docs/roadmap-execution-queue.md`.
+
 ## Related Roadmaps
 
 This roadmap is the **strategic** counterpart to the tactical technique list. It
