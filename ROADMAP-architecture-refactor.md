@@ -5,6 +5,23 @@
 > modularization, and maintainability. It is separate from the completed audit
 > roadmap and from the bypass-technique modernization roadmap.
 
+## Execution Status (2026-04-16)
+
+- **Workstream 0 (Guardrails):** COMPLETE. ADRs 001-003 committed under
+  `docs/architecture/`; LoC hotspot reporter, DisallowNewSuppression detekt
+  rule, Rust allow-guard with baseline, module-dep guard, and deterministic
+  hotspots generator all live in `scripts/ci/` and `quality/detekt-rules/`.
+- **Workstream 1 (Config Contract):** PARTIAL. `StrategyChains.kt` split into
+  five sibling files (Model / Validation / Dsl / Parser / Protobuf);
+  `RipDpiProxyJsonCodec.kt` chains + fake-packet sections extracted into
+  `core/engine/.../codec/`; cross-language round-trip harness with
+  chain-heavy + UDP/QUIC + relay-heavy fixtures landed; one
+  `@file:Suppress(TooManyFunctions)` removed. Remaining: codec listen /
+  protocols / adaptive / relay/warp/wsTunnel / runtime-context split, plus
+  `convert.rs` section builders, plus legacy payload compat adapter.
+- **Workstream 2-8:** Not started. See `docs/roadmap-execution-queue.md` for
+  the unified slice list and dependency graph.
+
 ## Related Roadmaps
 
 This roadmap defines the **code seams** that the rest of the active work needs to
