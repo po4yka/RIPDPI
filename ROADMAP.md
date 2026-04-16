@@ -8,6 +8,16 @@ The audit roadmap tracked in this repository is complete. The items below are no
 - There are no remaining open items from the original audit backlog.
 - New work should be tracked as a separate roadmap or issue list instead of reopening this completed checklist.
 
+### Post-Audit Workstream Progress (2026-04-16)
+
+- Architecture refactor Workstream 0 (Guardrails): COMPLETE.
+- Architecture refactor Workstream 1 (Config Contract): PARTIAL (slices 1.1-1.5 of 8 done).
+- Bypass modernization Workstream 1 (Capability Hygiene): COMPLETE.
+
+See [`docs/roadmap-execution-queue.md`](docs/roadmap-execution-queue.md) for the
+unified slice list, dependency graph, and the next priority entry points
+(Phases 3, 6, 7).
+
 ## Completed Workstreams
 
 1. Baseline and guardrails
