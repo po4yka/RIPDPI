@@ -248,7 +248,14 @@ fn strategy_probe_audit_confidence_label(level: StrategyProbeAuditConfidenceLeve
     }
 }
 
-pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
+/// Builds the primary TCP candidate set: candidates that work on every platform
+/// without special runtime capabilities (no TTL write, no raw socket, no root).
+///
+/// This is the default pool for non-root Android contexts. It covers HTTP
+/// parser evasions, TLS record splitting, split-host, delayed-split, OOB,
+/// seq-overlap, hostfake-with-split, hostfake-random, and ECH variants.
+/// Every candidate here has an empty `requires_capabilities` slice.
+pub(crate) fn build_primary_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let baseline = sanitize_current_probe_config(base);
     let parser_only = build_parser_only_candidate(base);
     let parser_unixeol = build_parser_unixeol_candidate(base);
@@ -258,18 +265,9 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
     let parser_host_extra_space = build_parser_host_extra_space_candidate(base);
     let parser_host_tab = build_parser_host_tab_candidate(base);
     let split_host = build_split_host_candidate(base);
-    let disorder_host = build_disorder_host_candidate(base);
-    let tlsrec_disorder = build_tlsrec_disorder_candidate(base);
     let ech_split = build_ech_split_candidate(base);
     let ech_tlsrec = build_ech_tlsrec_candidate(base);
     let tlsrec_split_host = build_tlsrec_split_host_candidate(base);
-    let tlsrec_fake_rich = build_tlsrec_fake_rich_candidate(base);
-    let tlsrec_fake_seqgroup = build_tlsrec_fake_seqgroup_candidate(base);
-    let fake_synfin = build_tlsrec_fake_flag_candidate(base, "syn|fin");
-    let fake_pshurg = build_tlsrec_fake_flag_candidate(base, "psh|urg");
-    let tlsrec_fakedsplit = build_tlsrec_fake_approx_candidate(base, "fakedsplit");
-    let tlsrec_fakeddisorder = build_tlsrec_fake_approx_candidate(base, "fakeddisorder");
-    let tlsrec_hostfake = build_tlsrec_hostfake_candidate(base, false);
     let tlsrec_hostfake_split = build_tlsrec_hostfake_candidate(base, true);
     let ipfrag_capable = supports_tcp_ip_fragmentation();
 
@@ -284,56 +282,20 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             vec!["Adds a follow-up split after hostfake midhost reconstruction"],
         ),
         candidate_spec_with_notes(
-            "tlsrec_fake_rich",
-            "TLS record + rich fake",
-            "tlsrec_fake",
-            tlsrec_fake_rich,
-            vec!["Randomized fake TLS material with original ClientHello framing"],
-        ),
-        candidate_spec_with_notes(
-            "tlsrec_fake_seqgroup",
-            "TLS record + rich fake (seqgroup)",
-            "tlsrec_fake",
-            tlsrec_fake_seqgroup,
-            vec!["Uses seqgroup IPv4 IDs so fake and original raw packets stay in one exact sequence"],
-        ),
-        candidate_spec_with_notes(
-            "fake_synfin",
-            "Fake packet + SYN|FIN",
-            "fake_flags",
-            fake_synfin,
-            vec!["Applies SYN and FIN on the fake packet while preserving the normal payload flow"],
-        ),
-        candidate_spec_with_notes(
-            "fake_pshurg",
-            "Fake packet + PSH|URG",
-            "fake_flags",
-            fake_pshurg,
-            vec!["Applies PSH and URG on the fake packet while preserving the normal payload flow"],
+            "tlsrec_hostfake_random",
+            "TLS record + hostfake (random)",
+            "hostfake",
+            build_tlsrec_hostfake_random_candidate(base),
+            vec!["Random domain per connection defeats DPI fake-SNI caching"],
         ),
         candidate_spec("split_host", "Split Host", "split", split_host.clone()),
-        candidate_spec("disorder_host", "Disorder host", "disorder", disorder_host),
-        candidate_spec("tlsrec_disorder", "TLS record + disorder", "tlsrec_disorder", tlsrec_disorder),
         candidate_spec("oob_host", "OOB host", "oob", build_oob_host_candidate(base)),
         candidate_spec("tlsrec_oob", "TLS record + OOB", "tlsrec_oob", build_tlsrec_oob_candidate(base)),
-        candidate_spec("disoob_host", "Disorder + OOB host", "disoob", build_disoob_host_candidate(base)),
-        candidate_spec(
-            "tlsrec_disoob",
-            "TLS record + disorder OOB",
-            "tlsrec_disoob",
-            build_tlsrec_disoob_candidate(base),
-        ),
         candidate_spec(
             "tlsrandrec_split",
             "TLS random record + split",
             "tlsrandrec_split",
             build_tlsrandrec_split_candidate(base),
-        ),
-        candidate_spec(
-            "tlsrandrec_disorder",
-            "TLS random record + disorder",
-            "tlsrandrec_disorder",
-            build_tlsrandrec_disorder_candidate(base),
         ),
         candidate_spec_with_notes(
             "tlsrec_seqovl_midsld",
@@ -348,16 +310,6 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             "tlsrec_seqovl",
             build_tlsrec_seqovl_candidate(base, "sniext"),
             vec!["Sequence overlap at sniext; falls back to split if TCP_REPAIR unavailable"],
-        ),
-        candidate_spec("tlsrec_fakeddisorder", "TLS record + fakeddisorder", "fake_approx", tlsrec_fakeddisorder),
-        candidate_spec("tlsrec_fakedsplit", "TLS record + fakedsplit", "fake_approx", tlsrec_fakedsplit),
-        candidate_spec("tlsrec_hostfake", "TLS record + hostfake", "hostfake", tlsrec_hostfake),
-        candidate_spec_with_notes(
-            "tlsrec_hostfake_random",
-            "TLS record + hostfake (random)",
-            "hostfake",
-            build_tlsrec_hostfake_random_candidate(base),
-            vec!["Random domain per connection defeats DPI fake-SNI caching"],
         ),
         candidate_spec_with_notes(
             "split_delayed_50ms",
@@ -461,24 +413,130 @@ pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidat
             ));
         }
     }
-    // Root-only candidates: require TCP_REPAIR + SOCK_RAW via the root helper.
+    candidates
+}
+
+/// Builds the opportunistic TCP candidate set: candidates that require
+/// [`RuntimeCapability::TtlWrite`] (IP TTL socket option) to emit packets as
+/// designed, plus the fixed-duplicate HostFake variant that depends on the
+/// same TTL path.
+///
+/// These are excluded from the default non-root pool but are included in
+/// the full probe suite so that probers can discover their effectiveness
+/// where the capability is available. Use [`enumerate_capable_candidates`]
+/// with a live capability lookup before promoting a winner from this set.
+pub(crate) fn build_opportunistic_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
+    let disorder_host = build_disorder_host_candidate(base);
+    let tlsrec_disorder = build_tlsrec_disorder_candidate(base);
+    let tlsrec_fake_rich = build_tlsrec_fake_rich_candidate(base);
+    let tlsrec_fake_seqgroup = build_tlsrec_fake_seqgroup_candidate(base);
+    let fake_synfin = build_tlsrec_fake_flag_candidate(base, "syn|fin");
+    let fake_pshurg = build_tlsrec_fake_flag_candidate(base, "psh|urg");
+    let tlsrec_fakedsplit = build_tlsrec_fake_approx_candidate(base, "fakedsplit");
+    let tlsrec_fakeddisorder = build_tlsrec_fake_approx_candidate(base, "fakeddisorder");
+    // Fixed-duplicate HostFake (no follow-up split, no random host): demoted
+    // from primary because it relies on TTL expiry of the fake segment and
+    // produces no differentiation over tlsrec_hostfake_split on capable hosts.
+    let tlsrec_hostfake = build_tlsrec_hostfake_candidate(base, false);
+
+    vec![
+        candidate_spec("disorder_host", "Disorder host", "disorder", disorder_host),
+        candidate_spec("tlsrec_disorder", "TLS record + disorder", "tlsrec_disorder", tlsrec_disorder),
+        candidate_spec("disoob_host", "Disorder + OOB host", "disoob", build_disoob_host_candidate(base)),
+        candidate_spec(
+            "tlsrec_disoob",
+            "TLS record + disorder OOB",
+            "tlsrec_disoob",
+            build_tlsrec_disoob_candidate(base),
+        ),
+        candidate_spec(
+            "tlsrandrec_disorder",
+            "TLS random record + disorder",
+            "tlsrandrec_disorder",
+            build_tlsrandrec_disorder_candidate(base),
+        ),
+        candidate_spec_with_notes(
+            "tlsrec_fake_rich",
+            "TLS record + rich fake",
+            "tlsrec_fake",
+            tlsrec_fake_rich,
+            vec!["Randomized fake TLS material with original ClientHello framing"],
+        ),
+        candidate_spec_with_notes(
+            "tlsrec_fake_seqgroup",
+            "TLS record + rich fake (seqgroup)",
+            "tlsrec_fake",
+            tlsrec_fake_seqgroup,
+            vec!["Uses seqgroup IPv4 IDs so fake and original raw packets stay in one exact sequence"],
+        ),
+        candidate_spec_with_notes(
+            "fake_synfin",
+            "Fake packet + SYN|FIN",
+            "fake_flags",
+            fake_synfin,
+            vec!["Applies SYN and FIN on the fake packet while preserving the normal payload flow"],
+        ),
+        candidate_spec_with_notes(
+            "fake_pshurg",
+            "Fake packet + PSH|URG",
+            "fake_flags",
+            fake_pshurg,
+            vec!["Applies PSH and URG on the fake packet while preserving the normal payload flow"],
+        ),
+        candidate_spec("tlsrec_fakeddisorder", "TLS record + fakeddisorder", "fake_approx", tlsrec_fakeddisorder),
+        candidate_spec("tlsrec_fakedsplit", "TLS record + fakedsplit", "fake_approx", tlsrec_fakedsplit),
+        candidate_spec_with_notes(
+            "tlsrec_hostfake",
+            "TLS record + hostfake",
+            "hostfake",
+            tlsrec_hostfake,
+            vec!["Fixed-duplicate HostFake; demoted to opportunistic pool (requires TtlWrite)"],
+        ),
+    ]
+}
+
+/// Builds the rooted TCP candidate set: candidates that require
+/// [`RuntimeCapability::RawTcpFakeSend`] or
+/// [`RuntimeCapability::RootHelperAvailable`] (TCP_REPAIR / SOCK_RAW via the
+/// root helper). These are only added to the probe suite when the platform
+/// probe confirms root-level access is available (`root_mode_enabled`).
+///
+/// Nothing is deleted: callers that need the full superset (e.g. the probe
+/// suite) combine primary + opportunistic + rooted. Non-root contexts use
+/// `build_primary_candidates()` alone (optionally extended by
+/// `build_opportunistic_candidates()` after a capability check).
+pub(crate) fn build_rooted_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let tcp_repair_capable = probe_ip_fragmentation_capabilities().tcp_repair;
-    if tcp_repair_capable {
-        candidates.push(candidate_spec_with_notes(
+    if !tcp_repair_capable {
+        return Vec::new();
+    }
+    vec![
+        candidate_spec_with_notes(
             "fake_rst",
             "Fake RST (TTL trick)",
             "fake_rst",
             build_fake_rst_candidate(base),
             vec!["Sends a fake RST with low TTL to clear DPI state; requires root"],
-        ));
-        candidates.push(candidate_spec_with_notes(
+        ),
+        candidate_spec_with_notes(
             "multi_disorder",
             "Multi-disorder (3+ segments)",
             "multi_disorder",
             build_multi_disorder_candidate(base),
             vec!["3+ out-of-order TCP segments via TCP_REPAIR; requires root"],
-        ));
-    }
+        ),
+    ]
+}
+
+/// Builds the full TCP candidate set for strategy probing: primary +
+/// opportunistic + rooted. The probe runner needs all candidates so it can
+/// measure effectiveness across platforms; capability filtering (via
+/// [`enumerate_capable_candidates`]) is the caller's responsibility when
+/// *promoting* a winner for a non-root context.
+pub(crate) fn build_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
+    let mut candidates = build_primary_candidates(base);
+    candidates.extend(build_opportunistic_candidates(base));
+    candidates.extend(build_rooted_candidates(base));
     candidates
 }
 
@@ -1258,23 +1316,23 @@ fn build_quic_step_candidate(
     config
 }
 
-fn probe_ip_fragmentation_capabilities() -> ripdpi_runtime::platform::IpFragmentationCapabilities {
+pub(crate) fn probe_ip_fragmentation_capabilities() -> ripdpi_runtime::platform::IpFragmentationCapabilities {
     ripdpi_runtime::platform::probe_ip_fragmentation_capabilities(None).unwrap_or_default()
 }
 
-fn supports_tcp_ip_fragmentation_for(capabilities: ripdpi_runtime::platform::IpFragmentationCapabilities) -> bool {
+pub(crate) fn supports_tcp_ip_fragmentation_for(capabilities: ripdpi_runtime::platform::IpFragmentationCapabilities) -> bool {
     capabilities.supports_tcp_ip_fragmentation(true)
 }
 
-fn supports_udp_ip_fragmentation_for(capabilities: ripdpi_runtime::platform::IpFragmentationCapabilities) -> bool {
+pub(crate) fn supports_udp_ip_fragmentation_for(capabilities: ripdpi_runtime::platform::IpFragmentationCapabilities) -> bool {
     capabilities.supports_udp_ip_fragmentation(true)
 }
 
-fn supports_tcp_ip_fragmentation() -> bool {
+pub(crate) fn supports_tcp_ip_fragmentation() -> bool {
     supports_tcp_ip_fragmentation_for(probe_ip_fragmentation_capabilities())
 }
 
-fn supports_udp_ip_fragmentation() -> bool {
+pub(crate) fn supports_udp_ip_fragmentation() -> bool {
     supports_udp_ip_fragmentation_for(probe_ip_fragmentation_capabilities())
 }
 
@@ -1398,350 +1456,5 @@ pub(crate) fn tcp_step(kind: &str, marker: &str) -> ProxyUiTcpChainStep {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn minimal_ui_config() -> ProxyUiConfig {
-        let mut config = ProxyUiConfig::default();
-        config.protocols.desync_udp = true;
-        config.chains.tcp_steps = vec![tcp_step("disorder", "host+1")];
-        config.fake_packets.fake_sni = "www.wikipedia.org".to_string();
-        config
-    }
-
-    #[test]
-    fn build_strategy_probe_suite_unknown_id_returns_error() {
-        let base = minimal_ui_config();
-        let result = build_strategy_probe_suite("nonexistent_v99", &base);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().contains("Unsupported"));
-    }
-
-    #[test]
-    fn build_strategy_probe_suite_quick_v1_returns_candidates() {
-        let base = minimal_ui_config();
-        let suite = build_strategy_probe_suite("quick_v1", &base).expect("quick_v1 suite");
-        assert!(!suite.tcp_candidates.is_empty());
-        assert!(!suite.quic_candidates.is_empty());
-        assert!(suite.short_circuit_hostfake);
-        assert!(suite.short_circuit_quic_burst);
-    }
-
-    #[test]
-    fn build_strategy_probe_suite_full_matrix_has_extra_candidates() {
-        let base = minimal_ui_config();
-        let quick = build_strategy_probe_suite("quick_v1", &base).expect("quick_v1");
-        let full = build_strategy_probe_suite("full_matrix_v1", &base).expect("full_matrix_v1");
-        assert!(full.tcp_candidates.len() > quick.tcp_candidates.len());
-        assert!(!full.short_circuit_hostfake);
-        assert!(!full.short_circuit_quic_burst);
-        assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "circular_tlsrec_split"));
-        assert!(!quick.tcp_candidates.iter().any(|candidate| candidate.id == "circular_tlsrec_split"));
-        assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_fakedsplit_altorder1"));
-        assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_fakedsplit_altorder2"));
-        assert!(!quick.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_fakedsplit_altorder1"));
-    }
-
-    #[test]
-    fn circular_tlsrec_split_candidate_uses_expected_rotation_defaults() {
-        let candidate = build_circular_tlsrec_split_candidate(&minimal_ui_config());
-        let rotation = candidate.chains.tcp_rotation.as_ref().expect("tcp rotation");
-
-        assert_eq!(
-            candidate.chains.tcp_steps,
-            build_tlsrec_split_host_candidate(&minimal_ui_config()).chains.tcp_steps
-        );
-        assert_eq!(rotation.fails, 3);
-        assert_eq!(rotation.retrans, 3);
-        assert_eq!(rotation.seq, 65_536);
-        assert_eq!(rotation.rst, 1);
-        assert_eq!(rotation.time_secs, 60);
-        assert_eq!(rotation.candidates.len(), 3);
-        assert_eq!(
-            rotation.candidates[0].tcp_steps,
-            build_tlsrec_hostfake_candidate(&minimal_ui_config(), true).chains.tcp_steps
-        );
-        assert_eq!(
-            rotation.candidates[1].tcp_steps,
-            build_tlsrec_fake_rich_candidate(&minimal_ui_config()).chains.tcp_steps
-        );
-        assert_eq!(rotation.candidates[2].tcp_steps, build_split_host_candidate(&minimal_ui_config()).chains.tcp_steps);
-    }
-
-    #[test]
-    fn tlsrec_fake_seqgroup_candidate_sets_seqgroup_ip_id_mode() {
-        let candidate = build_tlsrec_fake_seqgroup_candidate(&minimal_ui_config());
-
-        assert_eq!(candidate.fake_packets.ip_id_mode, "seqgroup");
-        assert_eq!(candidate.chains.tcp_steps, build_tlsrec_fake_rich_candidate(&minimal_ui_config()).chains.tcp_steps);
-    }
-
-    #[test]
-    fn seqovl_candidates_always_included() {
-        let base = minimal_ui_config();
-        let quick = build_strategy_probe_suite("quick_v1", &base).expect("quick_v1");
-        let full = build_strategy_probe_suite("full_matrix_v1", &base).expect("full_matrix_v1");
-
-        // SeqOverlap candidates are now unconditionally included; the runtime
-        // falls back to split when TCP_REPAIR/CAP_NET_ADMIN is unavailable.
-        assert!(quick.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_midsld"));
-        assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_midsld"));
-        assert!(full.tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_seqovl_sniext"));
-    }
-
-    #[test]
-    fn build_tlsrec_seqovl_candidate_sets_hard_gate_and_fields() {
-        let config = build_tlsrec_seqovl_candidate(&minimal_ui_config(), "midsld");
-        let steps = &config.chains.tcp_steps;
-
-        assert_eq!(steps.len(), 2);
-        assert_eq!(steps[0].kind, "tlsrec");
-        assert_eq!(steps[0].marker, "extlen");
-        assert_eq!(steps[1].kind, "seqovl");
-        assert_eq!(steps[1].marker, "midsld");
-        assert_eq!(steps[1].overlap_size, 12);
-        assert_eq!(steps[1].fake_mode, "profile");
-        let filter = steps[1].activation_filter.as_ref().expect("seqovl activation filter");
-        assert_eq!(filter.round.as_ref().and_then(|value| value.start), Some(1));
-        assert_eq!(filter.round.as_ref().and_then(|value| value.end), Some(1));
-        assert_eq!(filter.stream_bytes.as_ref().and_then(|value| value.start), Some(0));
-        assert_eq!(filter.stream_bytes.as_ref().and_then(|value| value.end), Some(1500));
-    }
-
-    #[test]
-    fn build_tcp_candidates_marks_ech_candidates_as_ech_only_and_targets_echext() {
-        let candidates = build_tcp_candidates(&minimal_ui_config());
-        let ech_split = candidates.iter().find(|candidate| candidate.id == "ech_split").expect("ech_split candidate");
-        let ech_tlsrec =
-            candidates.iter().find(|candidate| candidate.id == "ech_tlsrec").expect("ech_tlsrec candidate");
-
-        assert_eq!(ech_split.eligibility, CandidateEligibility::RequiresEchCapability);
-        assert_eq!(ech_split.config.chains.tcp_steps.len(), 1);
-        assert_eq!(ech_split.config.chains.tcp_steps[0].kind, "split");
-        assert_eq!(ech_split.config.chains.tcp_steps[0].marker, "echext");
-        assert!(ech_split.notes.iter().any(|note| note.contains("ECH-capable HTTPS path")));
-
-        assert_eq!(ech_tlsrec.eligibility, CandidateEligibility::RequiresEchCapability);
-        assert_eq!(ech_tlsrec.config.chains.tcp_steps.len(), 1);
-        assert_eq!(ech_tlsrec.config.chains.tcp_steps[0].kind, "tlsrec");
-        assert_eq!(ech_tlsrec.config.chains.tcp_steps[0].marker, "echext");
-        assert!(ech_tlsrec.notes.iter().any(|note| note.contains("ECH-capable HTTPS path")));
-    }
-
-    #[test]
-    fn build_tcp_candidates_includes_fake_flag_variants() {
-        let candidates = build_tcp_candidates(&minimal_ui_config());
-        let fake_synfin = candidates.iter().find(|candidate| candidate.id == "fake_synfin").expect("fake_synfin");
-        let fake_pshurg = candidates.iter().find(|candidate| candidate.id == "fake_pshurg").expect("fake_pshurg");
-
-        assert_eq!(fake_synfin.family, "fake_flags");
-        assert_eq!(fake_synfin.config.chains.tcp_steps[1].kind, "fake");
-        assert_eq!(fake_synfin.config.chains.tcp_steps[1].tcp_flags_set, "syn|fin");
-        assert_eq!(fake_pshurg.family, "fake_flags");
-        assert_eq!(fake_pshurg.config.chains.tcp_steps[1].tcp_flags_set, "psh|urg");
-    }
-
-    #[test]
-    fn fakedsplit_altorder_candidates_set_expected_order() {
-        let alt1 = build_tlsrec_fakedsplit_altorder_candidate(&minimal_ui_config(), "1");
-        let alt2 = build_tlsrec_fakedsplit_altorder_candidate(&minimal_ui_config(), "2");
-
-        assert_eq!(alt1.chains.tcp_steps[1].kind, "fakedsplit");
-        assert_eq!(alt1.chains.tcp_steps[1].fake_order, "1");
-        assert_eq!(alt2.chains.tcp_steps[1].kind, "fakedsplit");
-        assert_eq!(alt2.chains.tcp_steps[1].fake_order, "2");
-    }
-
-    #[test]
-    fn ipfrag_candidates_follow_platform_capability_probe() {
-        let base = minimal_ui_config();
-        let tcp_candidates = build_tcp_candidates(&base);
-        let quic_candidates = build_quic_candidates(&base);
-        let tcp_ipfrag_capable = supports_tcp_ip_fragmentation();
-        let udp_ipfrag_capable = supports_udp_ip_fragmentation();
-
-        assert_eq!(tcp_candidates.iter().any(|candidate| candidate.id == "ipfrag2"), tcp_ipfrag_capable);
-        assert_eq!(tcp_candidates.iter().any(|candidate| candidate.id == "ipfrag2_ipv6_ext"), tcp_ipfrag_capable);
-        assert_eq!(quic_candidates.iter().any(|candidate| candidate.id == "quic_ipfrag2"), udp_ipfrag_capable);
-        assert_eq!(quic_candidates.iter().any(|candidate| candidate.id == "quic_ipfrag2_ipv6_ext"), udp_ipfrag_capable);
-    }
-
-    #[test]
-    fn root_only_candidates_follow_tcp_repair_capability() {
-        let base = minimal_ui_config();
-        let tcp_candidates = build_tcp_candidates(&base);
-        let tcp_repair_capable = probe_ip_fragmentation_capabilities().tcp_repair;
-
-        assert_eq!(tcp_candidates.iter().any(|c| c.id == "fake_rst"), tcp_repair_capable);
-        assert_eq!(tcp_candidates.iter().any(|c| c.id == "multi_disorder"), tcp_repair_capable);
-    }
-
-    #[test]
-    fn tfo_candidates_are_suppressed_for_upstream_relay_routes() {
-        let mut base = minimal_ui_config();
-        base.upstream_relay.enabled = true;
-        base.upstream_relay.kind = "vless_reality".to_string();
-
-        let tcp_candidates = build_tcp_candidates(&base);
-
-        assert!(!tcp_candidates.iter().any(|candidate| candidate.id == "tlsrec_split_host_tfo"));
-        assert!(!tcp_candidates.iter().any(|candidate| candidate.id == "split_host_tfo"));
-    }
-
-    #[test]
-    fn ipfrag_capability_helpers_split_tcp_and_udp_requirements() {
-        let udp_only =
-            ripdpi_runtime::platform::IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: true, tcp_repair: false };
-        assert!(!supports_tcp_ip_fragmentation_for(udp_only));
-        assert!(supports_udp_ip_fragmentation_for(udp_only));
-
-        let tcp_and_udp =
-            ripdpi_runtime::platform::IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: true, tcp_repair: true };
-        assert!(supports_tcp_ip_fragmentation_for(tcp_and_udp));
-        assert!(supports_udp_ip_fragmentation_for(tcp_and_udp));
-    }
-
-    #[test]
-    fn default_runtime_encrypted_dns_context_returns_adguard_doh() {
-        let ctx = default_runtime_encrypted_dns_context();
-        assert_eq!(ctx.protocol, "doh");
-        assert_eq!(ctx.host, "dns.adguard-dns.com");
-        assert!(ctx.doh_url.as_deref().unwrap_or("").contains("dns.adguard-dns.com"));
-        assert!(!ctx.bootstrap_ips.is_empty());
-        assert!(ctx.bootstrap_ips.iter().any(|ip| ip == "94.140.14.14"));
-    }
-
-    #[test]
-    fn strategy_probe_encrypted_dns_label_uses_doh_url_when_present() {
-        let ctx = default_runtime_encrypted_dns_context();
-        let label = strategy_probe_encrypted_dns_label(&ctx);
-        assert!(label.contains("dns.adguard-dns.com"));
-    }
-
-    #[test]
-    fn strategy_probe_encrypted_dns_label_falls_back_to_host_port() {
-        let ctx = ProxyEncryptedDnsContext {
-            resolver_id: None,
-            protocol: "dot".to_string(),
-            host: "example.com".to_string(),
-            port: 853,
-            tls_server_name: None,
-            bootstrap_ips: Vec::new(),
-            doh_url: None,
-            dnscrypt_provider_name: None,
-            dnscrypt_public_key: None,
-        };
-        let label = strategy_probe_encrypted_dns_label(&ctx);
-        assert_eq!(label, "example.com:853");
-    }
-
-    #[test]
-    fn candidate_pause_ms_failed_is_larger() {
-        let spec = candidate_spec("test", "Test", "test", minimal_ui_config());
-        let ok_pause = candidate_pause_ms(42, &spec, false);
-        let fail_pause = candidate_pause_ms(42, &spec, true);
-        assert!(fail_pause > ok_pause, "failed pause {fail_pause} should exceed ok pause {ok_pause}");
-    }
-
-    #[test]
-    fn sanitize_current_probe_config_disables_autolearn() {
-        let mut base = minimal_ui_config();
-        base.host_autolearn.enabled = true;
-        base.host_autolearn.store_path = Some("/tmp/test".to_string());
-        let sanitized = sanitize_current_probe_config(&base);
-        assert!(!sanitized.host_autolearn.enabled);
-        assert!(sanitized.host_autolearn.store_path.is_none());
-    }
-
-    #[test]
-    fn strategy_probe_base_resets_desync_fields() {
-        let mut base = minimal_ui_config();
-        base.chains.tcp_steps = vec![tcp_step("fake", "host+1")];
-        let probe = strategy_probe_base(&base);
-        assert!(probe.chains.tcp_steps.is_empty());
-        assert!(probe.protocols.desync_http);
-        assert!(probe.protocols.desync_https);
-        assert!(!probe.protocols.desync_udp);
-    }
-
-    #[test]
-    fn build_quic_candidates_for_suite_unknown_id_returns_error() {
-        let base = minimal_ui_config();
-        let result = build_quic_candidates_for_suite("nonexistent_v99", &base);
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn quick_v1_suite_has_threshold_2() {
-        let base = minimal_ui_config();
-        let suite = build_strategy_probe_suite("quick_v1", &base).expect("quick_v1 suite");
-        assert_eq!(suite.family_failure_threshold, 2);
-    }
-
-    #[test]
-    fn full_matrix_v1_suite_has_threshold_4() {
-        let base = minimal_ui_config();
-        let suite = build_strategy_probe_suite("full_matrix_v1", &base).expect("full_matrix_v1 suite");
-        assert_eq!(suite.family_failure_threshold, 4);
-    }
-
-    #[test]
-    fn build_quic_candidates_prioritize_active_techniques_and_keep_disabled_last() {
-        let candidates = build_quic_candidates(&minimal_ui_config());
-        let ids = candidates.iter().map(|candidate| candidate.id).collect::<Vec<_>>();
-
-        assert_eq!(ids.last().copied(), Some("quic_disabled"));
-        assert!(ids.contains(&"quic_crypto_split"));
-        assert!(ids.contains(&"quic_padding_ladder"));
-        assert!(ids.contains(&"quic_cid_churn"));
-        assert!(ids.contains(&"quic_packet_number_gap"));
-        assert!(ids.contains(&"quic_version_negotiation_decoy"));
-        assert!(ids.contains(&"quic_multi_initial_realistic"));
-    }
-
-    #[test]
-    fn enumerate_capable_candidates_demotes_ttl_write_when_unavailable() {
-        // Build a pool that contains both TTL-dependent and TTL-free candidates.
-        let base = minimal_ui_config();
-        let all_candidates = build_tcp_candidates(&base);
-
-        // Sanity: the pool must contain at least one TtlWrite-tagged candidate
-        // and at least one untagged candidate before filtering.
-        assert!(
-            all_candidates.iter().any(|c| c.requires_capabilities.contains(&RuntimeCapability::TtlWrite)),
-            "pool must contain at least one TtlWrite-tagged candidate"
-        );
-        assert!(
-            all_candidates.iter().any(|c| c.requires_capabilities.is_empty()),
-            "pool must contain at least one capability-free candidate"
-        );
-
-        // Simulate TtlWrite being Unavailable; everything else is available.
-        let capable = enumerate_capable_candidates(all_candidates, &|cap| cap != RuntimeCapability::TtlWrite);
-
-        // No TtlWrite-tagged candidate should survive the filter.
-        assert!(
-            !capable.iter().any(|c| c.requires_capabilities.contains(&RuntimeCapability::TtlWrite)),
-            "no TtlWrite-tagged candidate should appear when TtlWrite is unavailable"
-        );
-
-        // At least one untagged candidate must remain.
-        assert!(
-            capable.iter().any(|c| c.requires_capabilities.is_empty()),
-            "at least one capability-free candidate must survive"
-        );
-    }
-
-    #[test]
-    fn ttl_dependent_candidates_tagged_with_ttl_write_capability() {
-        let candidates = build_tcp_candidates(&minimal_ui_config());
-
-        // Disorder uses TTL → must be tagged.
-        let disorder = candidates.iter().find(|c| c.id == "disorder_host").expect("disorder_host");
-        assert!(disorder.requires_capabilities.contains(&RuntimeCapability::TtlWrite));
-
-        // Split does not use TTL → must not be tagged.
-        let split = candidates.iter().find(|c| c.id == "split_host").expect("split_host");
-        assert!(!split.requires_capabilities.contains(&RuntimeCapability::TtlWrite));
-    }
-}
+#[path = "candidates_tests.rs"]
+mod tests;
