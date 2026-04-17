@@ -102,7 +102,7 @@ ROADMAP.md  (index, audit complete)
 
 The three strategic roadmaps interlock and should not be read in isolation:
 
-- **techniques** defines the tactics catalog. It is ~60 percent done and covers concrete step kinds, parameters, and probe candidates.
+- **techniques** defines the tactics catalog. It has 12 of 15 items shipped and audited; only Tier 3 experimental items remain open.
 - **modernization** defines the planner, emitter, and measurement architecture those tactics must fit into. It supersedes isolated tactic design going forward.
 - **architecture-refactor** defines the code seams that let the other two land without regressing diagnostics, service lifecycle, or settings.
 - **integrations** is the transport/control-plane layer underneath bypass tactics. It is largely shipped but interacts with bypass-modernization Workstream 5 (TLS catalog freshness feeds template rollout) and architecture-refactor Workstream 4 (relay orchestration cleanup).
