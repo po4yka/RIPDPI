@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
@@ -92,6 +93,44 @@ class UpstreamRelaySupervisorTest {
             assertEquals("edge", resolved?.profileId)
             assertEquals("relay.example", resolved?.server)
             assertEquals("00000000-0000-0000-0000-000000000000", resolved?.vlessUuid)
+
+            supervisor.stop()
+        }
+
+    @Test
+    fun `start delegates runtime config resolution before selecting runtime`() =
+        runTest {
+            val relayFactory = TestRipDpiRelayFactory()
+            val naiveFactory = TestNaiveProxyRuntimeFactory()
+            val runtimeConfigResolver =
+                TestUpstreamRelayRuntimeConfigResolver(
+                    resolvedConfig = sampleResolvedRelayConfig(kind = RelayKindNaiveProxy),
+                )
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = naiveFactory,
+                    runtimeConfigResolver = runtimeConfigResolver,
+                )
+            val requestedConfig =
+                RipDpiRelayConfig(
+                    enabled = true,
+                    kind = RelayKindNaiveProxy,
+                    profileId = "edge",
+                )
+            val quicMigrationConfig = OwnedRelayQuicMigrationConfig(bindLowPort = true)
+
+            supervisor.start(
+                config = requestedConfig,
+                quicMigrationConfig = quicMigrationConfig,
+                onUnexpectedExit = {},
+            )
+
+            assertEquals(listOf(requestedConfig to quicMigrationConfig), runtimeConfigResolver.requests)
+            assertEquals(1, naiveFactory.runtimes.size)
+            assertEquals(0, relayFactory.runtimes.size)
 
             supervisor.stop()
         }
