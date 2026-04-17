@@ -5,11 +5,11 @@ This document now tracks open integration work only.
 The earlier phase split (`P0` through `P3`) was useful while the transport and control-plane program was landing, but it is now removed. Current shipped behavior is summarized here and in the companion native/runtime notes.
 
 Cross-roadmap status (2026-04-17): bypass-modernization Workstream 1 is
-complete, bypass-modernization Workstream 2 is partial, architecture-refactor
-Workstream 1 is partial, architecture-refactor Workstream 3 is complete, and
-architecture-refactor Workstream 4 is now partial after the relay-kind resolver
-split landed. The active work here remains rollout validation, operational
-hardening, and catalog freshness.
+complete, bypass-modernization Workstream 2 is partial, bypass-modernization
+Workstream 4 is complete, architecture-refactor Workstream 1 is partial,
+architecture-refactor Workstream 3 is complete, and architecture-refactor
+Workstream 4 is complete. The active work here remains rollout validation,
+operational hardening, and catalog freshness.
 
 ## Related Roadmaps
 
@@ -30,9 +30,10 @@ freshness. Three sibling roadmaps drive the surfaces above and around it:
   structural cleanup roadmap. Its Workstream 4 (service and relay orchestration
   decomposition) has now split relay runtime-config resolution into per-relay-kind
   resolvers for MASQUE, Snowflake, Cloudflare Tunnel, ShadowTLS, NaiveProxy,
-  chain relay, local-path transports, and default relay families. Remaining
-  lifecycle/start-stop work there must stay compatible with the field
-  validation tracks below.
+  chain relay, local-path transports, and default relay families, and has also
+  completed the lifecycle/handover/start-stop collaborator split in the service
+  coordinators. Future work here should consume that completed seam rather than
+  reopening it.
 
 ### Ownership Notes
 
