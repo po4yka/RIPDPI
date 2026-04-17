@@ -10,11 +10,13 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -136,6 +138,68 @@ class BaseServiceRuntimeCoordinatorTest {
             assertEquals(1, env.handoverEvents.published.size)
         }
 
+    @Test
+    fun captivePortalHandoverIsDeferredWithoutRestart() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val captivePortalFingerprint =
+                sampleFingerprint(dnsServers = listOf("8.8.8.8")).copy(captivePortalDetected = true)
+            val env = newEnv(fingerprint = initialFingerprint)
+
+            env.coordinator.start()
+            runCurrent()
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = captivePortalFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            runCurrent()
+
+            assertEquals(0, env.coordinator.restartCalls)
+            assertTrue(env.handoverEvents.published.isEmpty())
+        }
+
+    @Test
+    fun handoverRetryExhaustionTransitionsToFailedAndStops() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val env =
+                newEnv(fingerprint = initialFingerprint).also {
+                    it.coordinator.handoverFailuresRemaining = 5
+                }
+
+            env.coordinator.start()
+            runCurrent()
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            advanceTimeBy(31_000L)
+            repeat(6) { runCurrent() }
+
+            assertEquals(5, env.coordinator.restartCalls)
+            assertEquals(1, env.coordinator.stopCalls)
+            assertEquals(
+                listOf(
+                    ServiceStatus.Connected,
+                    ServiceStatus.Failed,
+                    ServiceStatus.Disconnected,
+                ),
+                env.coordinator.statusTransitions,
+            )
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
     @Suppress("UnusedParameter")
     private fun TestScope.newEnv(fingerprint: NetworkFingerprint? = sampleFingerprint()): Env {
         val dispatcher = StandardTestDispatcher(testScheduler)
@@ -205,6 +269,7 @@ private class TestCoordinator(
     var startCalls: Int = 0
     var stopCalls: Int = 0
     var restartCalls: Int = 0
+    var handoverFailuresRemaining: Int = 0
     val statusTransitions = mutableListOf<ServiceStatus>()
 
     override val serviceLabel: String = "test"
@@ -264,6 +329,10 @@ private class TestCoordinator(
         appliedAt: Long,
     ) {
         restartCalls += 1
+        if (handoverFailuresRemaining > 0) {
+            handoverFailuresRemaining -= 1
+            error("handover boom")
+        }
         applyActiveConnectionPolicy(
             session = session,
             resolution = resolution,

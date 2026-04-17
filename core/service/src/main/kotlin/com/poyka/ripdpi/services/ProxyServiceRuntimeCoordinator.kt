@@ -1,9 +1,6 @@
 package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.core.ownedRelayQuicMigrationConfig
-import com.poyka.ripdpi.core.relayConfigOrNull
-import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
@@ -54,6 +51,13 @@ internal class ProxyServiceRuntimeCoordinator(
         private const val TelemetryPollIntervalBackgroundMs = 5_000L
     }
 
+    private val proxyRuntimeStack =
+        SharedProxyRuntimeStack(
+            upstreamRelaySupervisor = upstreamRelaySupervisor,
+            warpRuntimeSupervisor = warpRuntimeSupervisor,
+            proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+        )
+
     override val serviceLabel: String = "proxy"
 
     override fun createRuntimeSession(): ProxyRuntimeSession = ProxyRuntimeSession()
@@ -102,31 +106,19 @@ internal class ProxyServiceRuntimeCoordinator(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
     ) {
-        val relayQuicMigrationConfig = resolution.proxyPreferences.ownedRelayQuicMigrationConfig()
-        resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
-            upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, ::handleRelayExit)
-        }
-        resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
-            warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
-        }
-        proxyRuntimeSupervisor.start(
-            resolution.proxyPreferences.withLogContext(
-                session.buildLogContext(session.currentActiveConnectionPolicy),
-            ),
-            ::handleProxyExit,
+        proxyRuntimeStack.start(
+            proxyPreferences =
+                resolution.proxyPreferences.withLogContext(
+                    session.buildLogContext(session.currentActiveConnectionPolicy),
+                ),
+            onRelayExit = ::handleRelayExit,
+            onWarpExit = ::handleWarpExit,
+            onProxyExit = ::handleProxyExit,
         )
     }
 
     override suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
-        if (skipRuntimeShutdown) {
-            upstreamRelaySupervisor.detach()
-            warpRuntimeSupervisor.detach()
-            proxyRuntimeSupervisor.detach()
-        } else {
-            proxyRuntimeSupervisor.stop()
-            warpRuntimeSupervisor.stop()
-            upstreamRelaySupervisor.stop()
-        }
+        proxyRuntimeStack.stop(skipRuntimeShutdown)
     }
 
     override fun startModeTelemetryUpdates() {
@@ -180,27 +172,21 @@ internal class ProxyServiceRuntimeCoordinator(
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
     ) {
-        upstreamRelaySupervisor.stop()
-        warpRuntimeSupervisor.stop()
-        proxyRuntimeSupervisor.stop()
+        proxyRuntimeStack.stop(skipRuntimeShutdown = false)
         applyActiveConnectionPolicy(
             session = session,
             resolution = resolution,
             restartReason = "network_handover",
             appliedAt = appliedAt,
         )
-        val relayQuicMigrationConfig = resolution.proxyPreferences.ownedRelayQuicMigrationConfig()
-        resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
-            upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, ::handleRelayExit)
-        }
-        resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
-            warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
-        }
-        proxyRuntimeSupervisor.start(
-            resolution.proxyPreferences.withLogContext(
-                session.buildLogContext(session.currentActiveConnectionPolicy),
-            ),
-            ::handleProxyExit,
+        proxyRuntimeStack.start(
+            proxyPreferences =
+                resolution.proxyPreferences.withLogContext(
+                    session.buildLogContext(session.currentActiveConnectionPolicy),
+                ),
+            onRelayExit = ::handleRelayExit,
+            onWarpExit = ::handleWarpExit,
+            onProxyExit = ::handleProxyExit,
         )
     }
 
