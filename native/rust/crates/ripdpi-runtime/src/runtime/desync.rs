@@ -21,7 +21,7 @@ use ripdpi_proxy_config::ProxyDirectPathCapability;
 use ripdpi_session::OutboundProgress;
 use socket2::SockRef;
 
-use crate::sync::{AtomicBool, Ordering};
+use crate::sync::AtomicBool;
 
 use super::adaptive::{
     capability_requires_desync_fallback, direct_path_capability_for_route, resolve_adaptive_fake_ttl,
@@ -29,6 +29,7 @@ use super::adaptive::{
 };
 use super::morph::{apply_tcp_morph_policy_to_group, emit_morph_hint_applied, tcp_morph_hint_family};
 use super::state::{RuntimeState, DESYNC_SEED_BASE};
+use super::tcp_lowering::{should_ignore_android_ttl_error, TcpLoweringCapabilities};
 
 #[derive(Debug)]
 pub(super) struct OutboundSendOutcome {
@@ -618,15 +619,11 @@ fn execute_tcp_actions(
     ip_id_mode: Option<ripdpi_config::IpIdMode>,
     pcap_hook: Option<&PcapHook>,
 ) -> Result<usize, OutboundSendError> {
-    // When default_ttl is 0 (auto-detect), lazily read the current TTL on
-    // the first SetTtl action so we always have a value to restore.
-    let mut cached_restore_ttl: Option<u8> = if default_ttl != 0 { Some(default_ttl) } else { None };
+    // Snapshot the per-connection TTL lowering capabilities once so action
+    // execution and plan execution share the same degradation behavior.
+    let mut lowering_caps = TcpLoweringCapabilities::snapshot(default_ttl, session_ttl_unavailable);
+    let cached_restore_ttl: Option<u8> = Some(lowering_caps.restore_ttl);
     let mut ttl_modified = false;
-    // Some Android builds reject per-socket TTL rewrites at runtime. In that
-    // case, continue without the TTL mutation so the connection can still
-    // progress instead of failing the whole request. Pre-seeded from the
-    // session-level flag so subsequent connections skip TTL immediately.
-    let mut ttl_actions_unavailable = session_ttl_unavailable.load(Ordering::Relaxed);
     let mut bytes_committed = 0usize;
     let fallback = strategy_family.and_then(strategy_fallback_family);
 
@@ -641,7 +638,7 @@ fn execute_tcp_actions(
                                 bytes,
                                 cached_restore_ttl.unwrap_or(default_ttl.max(1)),
                                 ttl_modified,
-                                &mut ttl_actions_unavailable,
+                                &mut lowering_caps.ttl_actions_unavailable,
                                 write_action_name(strategy_family),
                                 strategy_family,
                                 fallback,
@@ -675,7 +672,7 @@ fn execute_tcp_actions(
                                 *urgent_byte,
                                 cached_restore_ttl.unwrap_or(default_ttl.max(1)),
                                 ttl_modified,
-                                &mut ttl_actions_unavailable,
+                                &mut lowering_caps.ttl_actions_unavailable,
                                 match strategy_family {
                                     "disoob" => "send_oob_disoob",
                                     _ => "send_oob",
@@ -705,14 +702,10 @@ fn execute_tcp_actions(
                     }
                 }
                 DesyncAction::SetTtl(ttl) => {
-                    // Capture current TTL before first modification when auto-detecting.
-                    if cached_restore_ttl.is_none() {
-                        cached_restore_ttl = platform::detect_default_ttl().ok();
-                    }
                     if set_ttl_with_android_fallback_named(
                         writer,
                         *ttl,
-                        &mut ttl_actions_unavailable,
+                        &mut lowering_caps.ttl_actions_unavailable,
                         strategy_family.map_or("set_ttl", set_ttl_action_name),
                         strategy_family.unwrap_or("split"),
                         fallback,
@@ -726,7 +719,7 @@ fn execute_tcp_actions(
                         if restore_default_ttl_with_android_fallback_named(
                             writer,
                             restore,
-                            &mut ttl_actions_unavailable,
+                            &mut lowering_caps.ttl_actions_unavailable,
                             strategy_family.map_or("restore_default_ttl", restore_ttl_action_name),
                             strategy_family.unwrap_or("split"),
                             fallback,
@@ -897,29 +890,9 @@ fn execute_tcp_actions(
 
     // Propagate per-connection discovery to the session-level flag so
     // subsequent connections skip TTL actions immediately.
-    if ttl_actions_unavailable {
-        session_ttl_unavailable.store(true, Ordering::Relaxed);
-    }
+    lowering_caps.persist(session_ttl_unavailable);
 
     result
-}
-
-#[cfg(any(test, target_os = "android"))]
-fn should_ignore_android_ttl_error(err: &io::Error) -> bool {
-    matches!(
-        extract_os_error(err),
-        Some(libc::EROFS | libc::EINVAL | libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EPERM | libc::EACCES)
-    )
-}
-
-#[cfg(not(any(test, target_os = "android")))]
-fn should_ignore_android_ttl_error(_err: &io::Error) -> bool {
-    false
-}
-
-#[cfg(any(test, target_os = "android"))]
-fn extract_os_error(err: &io::Error) -> Option<i32> {
-    err.raw_os_error()
 }
 
 #[derive(Debug)]
@@ -2280,13 +2253,7 @@ fn execute_tcp_plan(
     } else {
         None
     };
-    // When default_ttl is 0 (auto-detect), use the system default so that
-    // Disorder/Disoob/FakeDisorder handlers always restore the TTL.
-    let restore_ttl = if config.network.default_ttl != 0 {
-        config.network.default_ttl
-    } else {
-        platform::detect_default_ttl().unwrap_or(64)
-    };
+    let mut lowering_caps = TcpLoweringCapabilities::snapshot(config.network.default_ttl, session_ttl_unavailable);
     let md5sig = group.actions.md5sig;
     let send_steps =
         group.effective_tcp_chain().into_iter().filter(|step| !step.kind.is_tls_prelude()).collect::<Vec<_>>();
@@ -2309,7 +2276,6 @@ fn execute_tcp_plan(
     }
 
     let mut cursor = 0usize;
-    let mut ttl_actions_unavailable = session_ttl_unavailable.load(Ordering::Relaxed);
     let mut bytes_committed = 0usize;
     for (index, step) in plan.steps.iter().enumerate() {
         let start = usize::try_from(step.start).map_err(|_| {
@@ -2335,10 +2301,10 @@ fn execute_tcp_plan(
             plan,
             seed,
             resolved_fake_ttl,
-            restore_ttl,
+            restore_ttl: lowering_caps.restore_ttl,
             md5sig,
             fake_packets: fake_packets.as_ref(),
-            ttl_actions_unavailable: &mut ttl_actions_unavailable,
+            ttl_actions_unavailable: &mut lowering_caps.ttl_actions_unavailable,
         };
         let (next_bytes_committed, control) = execute_tcp_plan_step(
             &mut step_ctx,
@@ -2384,9 +2350,7 @@ fn execute_tcp_plan(
 
     // Propagate per-connection discovery to the session-level flag so
     // subsequent connections skip TTL actions immediately.
-    if ttl_actions_unavailable {
-        session_ttl_unavailable.store(true, Ordering::Relaxed);
-    }
+    lowering_caps.persist(session_ttl_unavailable);
 
     Ok(bytes_committed)
 }
