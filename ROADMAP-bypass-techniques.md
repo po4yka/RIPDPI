@@ -41,10 +41,13 @@ owns the **concrete tactic + probe candidate**; the sibling roadmap owns the
 - [ ] Not started
 - [x] Already implemented or not applicable
 
-## Execution Status (2026-04-16)
+## Execution Status (2026-04-17)
 
 - Items 1-12 are shipped and audited against the codebase.
 - Items 13-15 remain open and experimental; none are production defaults.
+- Architecture-refactor Workstream 3 is now partial, so any future runtime-side
+  Tier 3 work should land on the extracted family/lowering seams rather than
+  reopening the old central `desync.rs` executor shape.
 
 ## Verification Evidence (2026-04-15 audit)
 
