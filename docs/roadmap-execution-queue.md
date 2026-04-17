@@ -226,9 +226,11 @@ proxy-runtime seam through smaller collaborators.
 **Status: COMPLETE (2026-04-17).** Rust-engine diagnosis authority now owns
 final diagnoses during scan finalization, `DiagnosticsArchiveRenderer` has
 split JSON / CSV builder seams under `export/`, diagnostics contracts are split
-across `model/` files, and the home-audit workflow now lives in
-`workflow/DiagnosticsHomeWorkflowServiceImpl.kt` with focused collaborators.
-Verification: `./gradlew :core:diagnostics:testDebugUnitTest --rerun-tasks`.
+across `model/` files, home-audit workflow lives in
+`workflow/DiagnosticsHomeWorkflowServiceImpl.kt`, and the package reorg now
+includes `application/`, `queries/`, and `recommendation/` seams guarded by
+`verify_diagnostics_boundary.py`. Verification:
+`./gradlew :core:diagnostics:testDebugUnitTest --rerun-tasks`.
 
 Mode: `Team`. Parallel-safe with Phases 6-7.
 
