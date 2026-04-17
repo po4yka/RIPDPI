@@ -132,16 +132,23 @@ Mode: `Ralph`. Critical path -- unblocks Phases 4, 5, 13.
 
 ## Phase 4 -- First-Flight IR (bypass-modernization W2)
 
+**Status: PARTIAL (2026-04-17).** Foundation and the first planner migration
+wave are landed: `docs/architecture/first-flight-ir.md`, IR types and
+normalizers in `ripdpi-desync::first_flight_ir`, additive layout surfaces in
+`ripdpi-packets`, IR-driven TLS prelude record fragmentation, and IR-driven
+QUIC UDP split planning. Remaining work is the broader planner migration,
+lowering cleanup, and dedicated golden rewrite coverage.
+
 Mode: `Team` with `/deep-interview` on 4.1. Must not start on old monolith.
 
 | Slice | Scope | Depends on | Verify gate |
 |-------|-------|------------|-------------|
-| 4.1 | `/deep-interview` to pin down IR module boundary + invariants; commit design doc `docs/architecture/first-flight-ir.md` | Phase 1, Phase 3 | Design review; invariants explicit |
-| 4.2 | Implement IR types covering SNI/host, ALPN, TLS record boundaries, QUIC CRYPTO layout, GREASE, ECH, desired datagram/segment boundaries | 4.1 | `cargo test -p ripdpi-desync`; type-level invariants checked |
-| 4.3 | Normalize TLS ClientHello into IR (consume `tls_client_hello_marker_info_in_handshake`) | 4.2 | TLS fixture round-trip preserves IR |
-| 4.4 | Normalize QUIC Initial into IR (consume `parse_quic_initial`) | 4.2 | QUIC fixture round-trip preserves IR |
-| 4.5 | Migrate `TlsRec`, `TlsRandRec`, split, fake logic onto IR | 4.3 | `packet-smoke-debugger` TLS scenarios unchanged |
-| 4.6 | Migrate QUIC prelude logic onto IR | 4.4 | `packet-smoke-debugger` QUIC scenarios unchanged |
+| 4.1 | Complete | `/deep-interview` to pin down IR module boundary + invariants; commit design doc `docs/architecture/first-flight-ir.md` | Phase 1, Phase 3 | Design review; invariants explicit |
+| 4.2 | Complete | Implement IR types covering SNI/host, ALPN, TLS record boundaries, QUIC CRYPTO layout, GREASE, ECH, desired datagram/segment boundaries | 4.1 | `cargo test -p ripdpi-desync`; type-level invariants checked |
+| 4.3 | Complete | Normalize TLS ClientHello into IR (consume `tls_client_hello_marker_info_in_handshake`) | 4.2 | TLS fixture round-trip preserves IR |
+| 4.4 | Complete | Normalize QUIC Initial into IR (consume `parse_quic_initial`) | 4.2 | QUIC fixture round-trip preserves IR |
+| 4.5 | In progress | Migrate `TlsRec`, `TlsRandRec`, split, fake logic onto IR | 4.3 | `packet-smoke-debugger` TLS scenarios unchanged |
+| 4.6 | In progress | Migrate QUIC prelude logic onto IR | 4.4 | `packet-smoke-debugger` QUIC scenarios unchanged |
 | 4.7 | Move terminal-step and emitter-specific restrictions from planner to lowering | 4.5, 4.6 | Planner has no emitter-specific branches |
 | 4.8 | Golden fixtures: TLS record fragmentation, ALPN changes, QUIC CRYPTO splits, ECH/GREASE-preserving rewrites | 4.5, 4.6 | Golden-blesser workflow; fixtures committed |
 

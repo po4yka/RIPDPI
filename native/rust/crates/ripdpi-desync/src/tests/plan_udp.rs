@@ -273,8 +273,9 @@ fn plan_udp_quic_sni_split_emits_tampered_quic_initials() {
         ipv6_frag_next_override: None,
     }];
     let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("docs.example.test")).expect("input quic");
-    let parsed = parse_quic_initial(&payload).expect("parse input quic");
-    let expected = tamper_quic_initial_split_sni(&payload, parsed.tls_info.host_start).expect("tamper split");
+    let ir = normalize_quic_initial(&payload).expect("normalize input quic");
+    let expected =
+        tamper_quic_initial_split_sni(&payload, ir.tls_client_hello.authority_span.start).expect("tamper split");
 
     let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
 
@@ -287,6 +288,39 @@ fn plan_udp_quic_sni_split_emits_tampered_quic_initials() {
             DesyncAction::RestoreDefaultTtl,
             DesyncAction::SetTtl(64),
             DesyncAction::Write(payload.clone()),
+        ]
+    );
+}
+
+#[test]
+fn plan_udp_quic_crypto_split_uses_first_flight_ir_boundary() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain = vec![UdpChainStep {
+        kind: UdpChainStepKind::QuicCryptoSplit,
+        count: 1,
+        split_bytes: 0,
+        activation_filter: None,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_frag_next_override: None,
+    }];
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("docs.example.test")).expect("input quic");
+    let ir = normalize_quic_initial(&payload).expect("normalize input quic");
+    let split_at = ir.desired.crypto_frame_boundaries[0];
+    let expected = tamper_quic_initial_split_sni(&payload, split_at).expect("tamper crypto split");
+
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+
+    assert_eq!(
+        actions,
+        vec![
+            DesyncAction::SetTtl(8),
+            DesyncAction::Write(expected),
+            DesyncAction::RestoreDefaultTtl,
+            DesyncAction::SetTtl(64),
+            DesyncAction::Write(payload),
         ]
     );
 }

@@ -66,6 +66,22 @@ pub struct TlsMarkerInfo {
     pub host_end: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TlsExtensionInfo {
+    pub ext_type: u16,
+    pub type_offset: usize,
+    pub data_offset: usize,
+    pub data_len: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TlsClientHelloLayout {
+    pub markers: TlsMarkerInfo,
+    pub record_payload_len: usize,
+    pub handshake_payload_len: usize,
+    pub extensions: Vec<TlsExtensionInfo>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QuicInitialInfo {
     pub version: u32,
@@ -78,6 +94,19 @@ impl QuicInitialInfo {
     pub fn host(&self) -> &[u8] {
         &self.client_hello[self.tls_info.host_start..self.tls_info.host_end]
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct QuicCryptoFrameInfo {
+    pub crypto_offset: usize,
+    pub data_offset: usize,
+    pub data_len: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuicInitialLayout {
+    pub info: QuicInitialInfo,
+    pub crypto_frames: Vec<QuicCryptoFrameInfo>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -20,11 +20,16 @@
   candidate enumeration split into primary / opportunistic / rooted pools with
   graceful-fallback allowlist preserving HTTP / TLS / TLS-ECH / QUIC v1 /
   QUIC v2 probe matrix coverage on non-rooted Android.
-- **Workstream 2-9:** Not started in this roadmap. Their main runtime
-  prerequisite is now **partially** landed: architecture-refactor Workstream 3
-  has extracted the major TCP family executors plus the dispatcher/control
-  helpers in `desync.rs`, but the remaining lowering/capability/UDP/platform
-  split still gates Workstreams 2 and 3 here. See
+- **Workstream 2 (First-Flight IR):** PARTIAL. The design doc now lives in
+  `docs/architecture/first-flight-ir.md`; `ripdpi-desync` exports a shared
+  first-flight IR for TLS ClientHello and QUIC Initial; `ripdpi-packets`
+  exposes `TlsClientHelloLayout` / `QuicInitialLayout`; and the TLS prelude
+  plus QUIC UDP planner now consume the IR for record-boundary, authority,
+  and CRYPTO-frame decisions. The remaining work is planner-wide migration,
+  lowering cleanup, and dedicated golden rewrite coverage.
+- **Workstream 3-9:** Not started in this roadmap. Their main runtime
+  prerequisite is now landed: architecture-refactor Workstream 3 completed the
+  runtime decomposition, which is why Workstream 2 could start here. See
   `docs/roadmap-execution-queue.md`.
 
 ## Related Roadmaps
@@ -176,7 +181,7 @@ planner or tactic work could be evaluated credibly.
 
 ## Workstream 2: Unified First-Flight IR And Planner Refactor
 
-**Status:** [ ] Not started
+**Status:** [~] In progress
 **Priority:** P0
 **Why now:** TLS prelude mutation, TCP step planning, and QUIC packet shaping
 currently live in separate planners. That makes cross-layer strategies harder
@@ -193,9 +198,26 @@ wait until the remaining lowering/capability/UDP/platform work there is done.
   `QuicInitialInfo`, QUIC v1 and v2 salt constants at lines 27-34).
 - TCP step planner: `ripdpi-desync/src/plan_tcp.rs` (380 lines, `plan_tcp()` entry).
 - UDP step planner: `ripdpi-desync/src/plan_udp.rs` (296 lines, `plan_udp()` entry).
-- Runtime prerequisite status: architecture-refactor Workstream 3 is partial.
-  `desync.rs` now has extracted TCP family executors plus dispatcher/control
-  helpers, but lowering policy is still not isolated enough for IR migration.
+- Runtime prerequisite status: architecture-refactor Workstream 3 is complete.
+  The first-flight IR can now lower onto the smaller runtime seams instead of
+  the old monolith.
+
+**Shipped scope (2026-04-17):**
+
+- `docs/architecture/first-flight-ir.md` defines the IR boundary, invariants,
+  and the separation between semantic shaping and lowering.
+- `ripdpi-packets` now exposes `TlsClientHelloLayout`, `TlsExtensionInfo`,
+  `QuicCryptoFrameInfo`, and `QuicInitialLayout` so parser structure is
+  available without duplicating byte-walking logic in planners.
+- `ripdpi-desync::first_flight_ir` now normalizes TLS ClientHello and QUIC
+  Initial packets into a shared IR carrying authority, ALPN, ECH/GREASE state,
+  TLS record boundaries, QUIC CRYPTO frame boundaries, and desired TCP/UDP
+  boundary hints.
+- `tls_prelude.rs` now consumes the IR when constructing TLS record
+  fragmentation state, including truncated fake-TLS inputs such as
+  `DEFAULT_FAKE_TLS`.
+- `plan_udp.rs` now consumes the QUIC IR for SNI split and CRYPTO split
+  decisions instead of re-reading the old `QuicInitialInfo` parser surface.
 
 **Primary areas:**
 - `native/rust/crates/ripdpi-desync/src/plan_tcp.rs` (380 lines)
@@ -234,21 +256,22 @@ wait until the remaining lowering/capability/UDP/platform work there is done.
 
 **Tasks**
 
-- [ ] Define a shared first-flight IR crate or module boundary.
-- [ ] Add parsers that normalize HTTP, TLS ClientHello, and QUIC Initial into
+- [x] Define a shared first-flight IR module boundary.
+- [~] Add parsers that normalize TLS ClientHello and QUIC Initial into
   the same high-level representation.
-- [ ] Migrate existing `TlsRec`, `TlsRandRec`, split, fake, and QUIC prelude
-  logic onto the new IR.
+- [~] Migrate existing `TlsRec`, `TlsRandRec`, and QUIC prelude logic onto the
+  new IR.
+- [ ] Migrate the remaining split/fake planner logic onto the IR.
 - [ ] Move terminal-step and emitter-specific restrictions out of semantic
   planning and into lowering.
 - [ ] Preserve existing JSON / DSL / strategy-pack compatibility while adding a
   richer internal representation.
-- [ ] Add golden fixtures for:
+- [~] Add golden fixtures and regressions for:
   - TLS record fragmentation
-  - ALPN changes
+  - existing TLS golden ClientHello vectors
   - QUIC CRYPTO frame splits
   - ECH / GREASE-preserving rewrites
-- [ ] Document the new planner stages and invariants.
+- [x] Document the new planner stages and invariants.
 
 **Done when**
 
