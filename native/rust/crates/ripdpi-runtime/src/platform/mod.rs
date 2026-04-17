@@ -1,18 +1,15 @@
-use std::collections::HashMap;
 use std::io;
-use std::net::SocketAddrV4;
 use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::{AsRawFd, RawFd};
 use std::sync::OnceLock;
 use std::time::Duration;
 
-use crate::sync::Mutex;
-use ripdpi_config::IpIdMode;
 use ripdpi_desync::TcpSegmentHint;
-use socket2::{Domain, Protocol, Socket, Type};
 
+mod capabilities;
 mod fake_send;
 mod ip_fragmentation;
+mod ipv4_ids;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub(crate) mod linux;
 pub mod protect;
@@ -21,6 +18,9 @@ pub mod root_helper;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub mod root_helper_client;
 
+pub use self::capabilities::{
+    detect_default_ttl, try_set_stream_ttl_with_outcome, CapabilityOutcome, CapabilityUnavailable, RuntimeCapability,
+};
 pub use fake_send::{
     send_fake_rst, send_fake_rst_reserved, send_fake_tcp, send_flagged_tcp_payload, send_flagged_tcp_payload_reserved,
     send_ordered_tcp_segments, send_ordered_tcp_segments_reserved, send_seqovl_tcp, send_seqovl_tcp_reserved,
@@ -66,8 +66,6 @@ pub struct FakeTcpOptions<'a> {
 }
 
 static SEQOVL_SUPPORTED: OnceLock<bool> = OnceLock::new();
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
-static IPV4_ID_ALLOCATOR: OnceLock<Mutex<Ipv4IdAllocator>> = OnceLock::new();
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TcpPayloadSegment {
@@ -87,206 +85,6 @@ pub struct IpFragmentationCapabilities {
     pub raw_ipv4: bool,
     pub raw_ipv6: bool,
     pub tcp_repair: bool,
-}
-
-// ---------------------------------------------------------------------------
-// Typed capability surface (Phase 2 slice 2.1 — additive only)
-// ---------------------------------------------------------------------------
-
-/// A discrete runtime capability that the engine can probe and report.
-///
-/// Variants map one-to-one to testable platform features; the string ids
-/// returned by `as_str()` are stable for telemetry / serialization.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum RuntimeCapability {
-    /// Ability to set IP TTL on outbound TCP packets via raw sockets.
-    TtlWrite,
-    /// Ability to send fake TCP segments via a raw socket (non-root path).
-    RawTcpFakeSend,
-    /// Ability to send IP-fragmented UDP via a raw socket (non-root path).
-    RawUdpFragmentation,
-    /// Ability to create a replacement (protected) socket for the VPN path.
-    ReplacementSocket,
-    /// Root-helper process is reachable and authenticated.
-    RootHelperAvailable,
-    /// Android VPN protect callback is wired up and callable.
-    VpnProtectCallback,
-    /// Socket can be bound to a specific network interface.
-    NetworkBinding,
-}
-
-impl RuntimeCapability {
-    /// Returns a stable, lowercase-snake-case identifier suitable for
-    /// telemetry keys and JSON field names.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::TtlWrite => "ttl_write",
-            Self::RawTcpFakeSend => "raw_tcp_fake_send",
-            Self::RawUdpFragmentation => "raw_udp_fragmentation",
-            Self::ReplacementSocket => "replacement_socket",
-            Self::RootHelperAvailable => "root_helper_available",
-            Self::VpnProtectCallback => "vpn_protect_callback",
-            Self::NetworkBinding => "network_binding",
-        }
-    }
-}
-
-/// Reason a capability is definitively unavailable.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CapabilityUnavailable {
-    /// The capability has not been probed yet.
-    NotProbed,
-    /// The platform does not support this capability at all.
-    Unsupported,
-    /// The process lacks the required permissions.
-    PermissionDenied,
-    /// The root-helper binary is missing or unreachable.
-    MissingRootHelper,
-    /// The capability is known but not yet implemented on this platform.
-    NotImplemented,
-}
-
-/// Result of probing a single runtime capability.
-///
-/// `T` is the payload type when the capability is `Available` — for boolean
-/// capabilities this is `bool`, for richer probes it may be a struct.
-///
-/// `io::Error` is intentionally not stored directly because it does not impl
-/// `Clone` or `PartialEq`; the human-readable message is captured instead.
-#[derive(Debug, Clone)]
-pub enum CapabilityOutcome<T> {
-    /// The capability is present and usable; `T` holds the probed state.
-    Available(T),
-    /// The capability is definitively unavailable for the given reason.
-    Unavailable { capability: RuntimeCapability, reason: CapabilityUnavailable },
-    /// Probing itself failed with a transient or unexpected error.
-    ProbeFailed {
-        capability: RuntimeCapability,
-        /// Human-readable error message (not the raw `io::Error`).
-        error: String,
-    },
-}
-
-impl<T> CapabilityOutcome<T> {
-    /// Returns `true` only when the capability is `Available`.
-    pub fn is_available(&self) -> bool {
-        matches!(self, Self::Available(_))
-    }
-
-    /// Returns the `RuntimeCapability` tag for `Unavailable` and `ProbeFailed`
-    /// variants; returns `None` for `Available` (the tag is not stored there).
-    pub fn capability(&self) -> Option<RuntimeCapability> {
-        match self {
-            Self::Available(_) => None,
-            Self::Unavailable { capability, .. } => Some(*capability),
-            Self::ProbeFailed { capability, .. } => Some(*capability),
-        }
-    }
-
-    /// Consumes the outcome and returns `Some(T)` if `Available`, else `None`.
-    pub fn take(self) -> Option<T> {
-        match self {
-            Self::Available(v) => Some(v),
-            _ => None,
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
-struct Ipv4FlowKey {
-    source: SocketAddrV4,
-    target: SocketAddrV4,
-}
-
-#[derive(Debug, Default)]
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
-struct Ipv4IdAllocator {
-    next_seq_by_flow: HashMap<Ipv4FlowKey, u16>,
-    rnd_state: u32,
-}
-
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
-impl Ipv4IdAllocator {
-    fn reserve(&mut self, source: SocketAddrV4, target: SocketAddrV4, mode: IpIdMode, count: usize) -> Vec<u16> {
-        match mode {
-            IpIdMode::Seq | IpIdMode::SeqGroup => {
-                let key = Ipv4FlowKey { source, target };
-                let next = self.next_seq_by_flow.entry(key).or_insert(1);
-                let mut ids = Vec::with_capacity(count);
-                for _ in 0..count {
-                    let current = *next;
-                    ids.push(current);
-                    *next = advance_ipv4_identification(current);
-                }
-                ids
-            }
-            IpIdMode::Rnd => (0..count).map(|_| self.next_random_non_zero()).collect(),
-            IpIdMode::Zero => vec![0; count],
-        }
-    }
-
-    fn next_random_non_zero(&mut self) -> u16 {
-        if self.rnd_state == 0 {
-            self.rnd_state = 0x9e37_79b9;
-        }
-        loop {
-            self.rnd_state ^= self.rnd_state << 13;
-            self.rnd_state ^= self.rnd_state >> 17;
-            self.rnd_state ^= self.rnd_state << 5;
-            let candidate = (self.rnd_state & u32::from(u16::MAX)) as u16;
-            if candidate != 0 {
-                return candidate;
-            }
-        }
-    }
-}
-
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
-fn advance_ipv4_identification(value: u16) -> u16 {
-    if value == u16::MAX {
-        1
-    } else {
-        value + 1
-    }
-}
-
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
-fn reserve_ipv4_identifications(
-    source: SocketAddr,
-    target: SocketAddr,
-    mode: Option<IpIdMode>,
-    count: usize,
-) -> Vec<u16> {
-    let Some(mode) = mode else {
-        return Vec::new();
-    };
-    let (SocketAddr::V4(source), SocketAddr::V4(target)) = (source, target) else {
-        return Vec::new();
-    };
-    let allocator = IPV4_ID_ALLOCATOR.get_or_init(|| Mutex::new(Ipv4IdAllocator::default()));
-    allocator.lock().map(|mut guard| guard.reserve(source, target, mode, count)).unwrap_or_default()
-}
-
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
-fn reserve_stream_ipv4_identifications(
-    stream: &TcpStream,
-    mode: Option<IpIdMode>,
-    count: usize,
-) -> io::Result<Vec<u16>> {
-    Ok(reserve_ipv4_identifications(stream.local_addr()?, stream.peer_addr()?, mode, count))
-}
-
-#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
-fn reserve_udp_ipv4_identifications(
-    socket: &UdpSocket,
-    target: SocketAddr,
-    mode: Option<IpIdMode>,
-    count: usize,
-) -> io::Result<Vec<u16>> {
-    Ok(reserve_ipv4_identifications(socket.local_addr()?, target, mode, count))
 }
 
 impl IpFragmentationCapabilities {
@@ -373,12 +171,6 @@ pub const fn supports_fake_retransmit() -> bool {
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub const fn supports_fake_retransmit() -> bool {
     false
-}
-
-pub fn detect_default_ttl() -> io::Result<u8> {
-    let socket = Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP))?;
-    let ttl = socket.ttl_v4()?;
-    u8::try_from(ttl).map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "socket ttl exceeds u8"))
 }
 
 pub fn seqovl_supported() -> bool {
@@ -585,7 +377,8 @@ mod tests {
 
     use ripdpi_config::IpIdMode;
 
-    use super::{extract_scm_rights_fd, read_unaligned_raw_fd, reserve_ipv4_identifications, Ipv4IdAllocator};
+    use super::ipv4_ids::{reserve_ipv4_identifications, Ipv4IdAllocator};
+    use super::{extract_scm_rights_fd, read_unaligned_raw_fd};
 
     #[test]
     fn read_unaligned_raw_fd_reads_i32_payload() {
