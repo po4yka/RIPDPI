@@ -25,7 +25,8 @@
   capability / IPv4-identification submodules on top of the earlier TCP family
   executor extraction work. `desync.rs` is still large, but the architectural
   seam this workstream was meant to create is now in place.
-- **Workstream 2, 4-8:** Not started. See `docs/roadmap-execution-queue.md`
+- **Workstream 4 (Service And Relay Orchestration):** COMPLETE.
+- **Workstream 2, 5-8:** Not started. See `docs/roadmap-execution-queue.md`
   for the unified slice list and dependency graph.
 
 ## Related Roadmaps
@@ -342,7 +343,7 @@ the largest source-of-truth problem in the project.
 
 ## Workstream 2: Diagnostics Bounded-Context Split And Classifier Authority
 
-**Status:** [ ] Not started
+**Status:** [x] Complete (2026-04-17)
 **Priority:** P0
 **Why now:** `:core:diagnostics` currently behaves like a mini-application:
   it owns classification, workflow orchestration, recommendation application,
@@ -352,47 +353,55 @@ the largest source-of-truth problem in the project.
 **Primary areas:**
 
 - `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/Models.kt`
+- `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/model/`
 - `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsServicesImpl.kt`
 - `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsArchiveRenderer.kt`
+- `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/`
 - `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsScanFinalizationServices.kt`
+- `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/finalization/`
+- `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/workflow/`
 - `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsFindingProjector.kt`
 - `native/rust/crates/ripdpi-monitor/src/classification/diagnosis.rs`
 
-**Tasks**
+**Completed scope**
 
-- [ ] Make an explicit decision on canonical diagnosis authority:
-  - Rust classifications are authoritative and Kotlin decorates, or
-  - Rust emits observations only and Kotlin classifies
-- [ ] Remove dual-classification behavior from scan finalization.
-- [ ] Split `:core:diagnostics` packages into clear layers:
-  - `domain/`
-  - `application/`
-  - `finalization/`
-  - `recommendation/`
-  - `export/`
-  - `presentation/`
-  - `queries/`
-- [ ] Break `DiagnosticsArchiveRenderer` into dedicated builders:
-  - JSON entry builders
-  - CSV entry builders
-  - integrity/provenance builders
-  - redaction layer
-  - file attachment packers
-- [ ] Extract `DefaultDiagnosticsHomeWorkflowService` from the giant services
-  file into a dedicated workflow package with smaller collaborators:
+- [x] Locked canonical diagnosis authority to the Rust engine per ADR 0.1 and
+  removed Kotlin-side dual classification from scan finalization.
+- [x] Added a focused `finalization/` seam so final-diagnosis ownership is
+  explicit instead of being buried in a giant service file.
+- [x] Split archive rendering into dedicated entry builders under `export/`:
+  - JSON entry builder
+  - CSV entry builder
+  - shared integrity / provenance helpers
+- [x] Extracted `DefaultDiagnosticsHomeWorkflowService` into `workflow/` with
+  smaller collaborators:
   - recommendation applier
   - resolver action coordinator
   - capability evidence summarizer
   - audit outcome builder
-- [ ] Split `Models.kt` by concern:
+- [x] Split the old diagnostics model monolith into `model/` files for:
   - core scan/report contracts
-  - home-audit models
+  - context/runtime models
   - export/share models
-  - projection models
-- [ ] Ensure persistence stores and artifact adapters stay at the edge, not
-  inside workflow decision logic.
-- [ ] Add tests proving that one classification source owns final diagnosis
-  output for both stored sessions and live scans.
+  - projection-facing models
+- [x] Reduced `Models.kt` to compatibility helpers instead of a shared dumping
+  ground, and reduced `DiagnosticsServicesImpl.kt` to the remaining bootstrap /
+  share / detail / resolver service ownership.
+- [x] Kept persistence stores and artifact adapters at the workflow edge rather
+  than inside diagnosis-authority decisions.
+- [x] Added regression coverage proving engine-authored diagnoses and
+  classifier-version metadata survive finalization instead of being rewritten by
+  Kotlin-side projection logic.
+
+**Residual follow-up**
+
+- If diagnostics growth continues, prefer further narrowing of the shipped
+  `export/`, `finalization/`, `workflow/`, and `model/` seams over a
+  repo-wide package-rename exercise.
+- Keep new archive/export behavior out of workflow/finalization files; the
+  parent renderer should remain an orchestrator rather than regrowing helpers.
+- If recommendation logic grows materially, extract an explicit
+  `recommendation/` package rather than widening `workflow/` again.
 
 **Improvements expected**
 

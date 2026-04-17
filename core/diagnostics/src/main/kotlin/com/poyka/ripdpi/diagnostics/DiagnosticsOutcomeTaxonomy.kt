@@ -99,7 +99,11 @@ private fun bucketDnsIntegrity(
             DiagnosticsOutcomeBucket.Healthy
         }
 
-        "dns_expected_mismatch", "dns_answer_divergence" -> {
+        "dns_expected_mismatch",
+        "dns_answer_divergence",
+        "dns_compatible_divergence",
+        "dns_suspicious_divergence",
+        -> {
             DiagnosticsOutcomeBucket.Attention
         }
 
@@ -119,8 +123,18 @@ private fun bucketDnsIntegrity(
             }
         }
 
-        "dns_substitution", "dns_nxdomain", "encrypted_dns_blocked", "dns_unavailable" -> {
+        "dns_substitution",
+        "dns_sinkhole_substitution",
+        "dns_nxdomain",
+        "dns_nxdomain_mismatch",
+        "encrypted_dns_blocked",
+        "dns_unavailable",
+        -> {
             DiagnosticsOutcomeBucket.Failed
+        }
+
+        "dns_oracle_unavailable" -> {
+            DiagnosticsOutcomeBucket.Inconclusive
         }
 
         else -> {
@@ -282,8 +296,10 @@ private fun eventLevelOverride(
 ): String? =
     when (probeType to outcome) {
         "dns_integrity" to "dns_substitution",
+        "dns_integrity" to "dns_sinkhole_substitution",
         "dns_integrity" to "encrypted_dns_blocked",
         "dns_integrity" to "dns_nxdomain",
+        "dns_integrity" to "dns_nxdomain_mismatch",
         "domain_reachability" to "tls_cert_invalid",
         "domain_reachability" to "http_blockpage",
         "service_reachability" to "service_blocked",

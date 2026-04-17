@@ -45,9 +45,11 @@ owns the **concrete tactic + probe candidate**; the sibling roadmap owns the
 
 - Items 1-12 are shipped and audited against the codebase.
 - Items 13-15 remain open and experimental; none are production defaults.
-- Architecture-refactor Workstream 3 is now partial, so any future runtime-side
+- Architecture-refactor Workstream 3 is now complete, so any future runtime-side
   Tier 3 work should land on the extracted family/lowering seams rather than
-  reopening the old central `desync.rs` executor shape.
+  reopening the old central `desync.rs` executor shape, and any QUIC-side
+  candidates should reuse the shipped packetizer/layout families from
+  modernization Workstream 3.
 
 ## Verification Evidence (2026-04-15 audit)
 

@@ -620,7 +620,6 @@ internal fun executionCoordinatorFixtures(
             networkEdgePreferenceStore = networkEdgePreferenceStore,
             networkDnsPathPreferenceStore = preferredPathStore,
             serverCapabilityStore = FakeServerCapabilityStore(),
-            findingProjector = DiagnosticsFindingProjector(),
             json = json,
         )
     val appSettingsRepository = FakeAppSettingsRepository()

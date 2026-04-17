@@ -223,6 +223,13 @@ proxy-runtime seam through smaller collaborators.
 
 ## Phase 8 -- Diagnostics Bounded Context (architecture W2)
 
+**Status: COMPLETE (2026-04-17).** Rust-engine diagnosis authority now owns
+final diagnoses during scan finalization, `DiagnosticsArchiveRenderer` has
+split JSON / CSV builder seams under `export/`, diagnostics contracts are split
+across `model/` files, and the home-audit workflow now lives in
+`workflow/DiagnosticsHomeWorkflowServiceImpl.kt` with focused collaborators.
+Verification: `./gradlew :core:diagnostics:testDebugUnitTest --rerun-tasks`.
+
 Mode: `Team`. Parallel-safe with Phases 6-7.
 
 | Slice | Scope | Depends on | Verify gate |

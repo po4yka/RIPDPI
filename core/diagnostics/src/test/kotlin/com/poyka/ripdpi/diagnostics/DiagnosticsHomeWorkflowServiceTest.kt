@@ -409,12 +409,13 @@ class DiagnosticsHomeWorkflowServiceTest {
                 resolverOverrideStore = FakeResolverOverrideStore(),
             )
         return DefaultDiagnosticsHomeWorkflowService(
-            appSettingsRepository = appSettingsRepository,
             scanRecordStore = stores,
             artifactQueryStore = stores,
             networkFingerprintProvider = networkFingerprintProvider,
-            serverCapabilityStore = serverCapabilityStore,
-            resolverActions = resolverActions,
+            recommendationApplier = DiagnosticsHomeRecommendationApplier(appSettingsRepository),
+            resolverActionCoordinator = DiagnosticsHomeResolverActionCoordinator(resolverActions),
+            capabilityEvidenceSummarizer = DiagnosticsHomeCapabilityEvidenceSummarizer(serverCapabilityStore),
+            auditOutcomeBuilder = DiagnosticsHomeAuditOutcomeBuilder(),
             json = json,
         )
     }

@@ -294,9 +294,13 @@ data class DiagnosticsHomeCompositeProgress(
 )
 
 interface DiagnosticsHomeCompositeRunService {
-    suspend fun startHomeAnalysis(options: DiagnosticsHomeRunOptions = DiagnosticsHomeRunOptions()): DiagnosticsHomeCompositeRunStarted
+    suspend fun startHomeAnalysis(
+        options: DiagnosticsHomeRunOptions = DiagnosticsHomeRunOptions(),
+    ): DiagnosticsHomeCompositeRunStarted
 
-    suspend fun startQuickAnalysis(options: DiagnosticsHomeRunOptions = DiagnosticsHomeRunOptions()): DiagnosticsHomeCompositeRunStarted
+    suspend fun startQuickAnalysis(
+        options: DiagnosticsHomeRunOptions = DiagnosticsHomeRunOptions(),
+    ): DiagnosticsHomeCompositeRunStarted
 
     fun observeHomeRun(runId: String): Flow<DiagnosticsHomeCompositeProgress>
 
@@ -366,7 +370,7 @@ abstract class DiagnosticsManagerModule {
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsHomeWorkflowService(
+    internal abstract fun bindDiagnosticsHomeWorkflowService(
         service: DefaultDiagnosticsHomeWorkflowService,
     ): DiagnosticsHomeWorkflowService
 

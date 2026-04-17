@@ -1,17 +1,11 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
-import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.data.diagnostics.retryCount
 import com.poyka.ripdpi.data.diagnostics.rttBand
 import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
-import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
 import java.io.File
 import java.security.MessageDigest
 import javax.inject.Inject
@@ -28,13 +22,16 @@ class DiagnosticsArchiveRenderer
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
+        private val jsonEntryBuilder = DiagnosticsArchiveJsonEntryBuilder(redactor, projector, json)
+        private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json)
+
         internal fun render(
             target: DiagnosticsArchiveTarget,
             selection: DiagnosticsArchiveSelection,
             developerAnalytics: DeveloperAnalyticsPayload = DeveloperAnalyticsPayload(),
         ): List<DiagnosticsArchiveEntry> {
-            val snapshotPayload = buildSnapshotPayload(selection)
-            val contextPayload = buildContextPayload(selection)
+            val snapshotPayload = jsonEntryBuilder.buildSnapshotPayload(selection)
+            val contextPayload = jsonEntryBuilder.buildContextPayload(selection)
             val sectionStatuses = buildSectionStatuses(selection)
             val completeness =
                 buildCompleteness(
@@ -45,7 +42,7 @@ class DiagnosticsArchiveRenderer
                 )
             val compositeEntries =
                 if (selection.runType == DiagnosticsArchiveRunType.HOME_COMPOSITE) {
-                    buildCompositeEntries(selection)
+                    jsonEntryBuilder.buildCompositeEntries(selection)
                 } else {
                     emptyList()
                 }
@@ -61,10 +58,14 @@ class DiagnosticsArchiveRenderer
                     developerAnalytics = developerAnalytics,
                 )
             return baseEntries +
-                jsonEntry(
+                DiagnosticsArchiveEntry(
                     name = "integrity.json",
-                    serializer = DiagnosticsArchiveIntegrityPayload.serializer(),
-                    value = buildIntegrityPayload(target, baseEntries),
+                    bytes =
+                        json
+                            .encodeToString(
+                                DiagnosticsArchiveIntegrityPayload.serializer(),
+                                buildIntegrityPayload(target, baseEntries),
+                            ).toByteArray(),
                 )
         }
 
@@ -80,7 +81,7 @@ class DiagnosticsArchiveRenderer
         ): List<DiagnosticsArchiveEntry> =
             buildList {
                 addAll(
-                    buildJsonEntries(
+                    jsonEntryBuilder.buildJsonEntries(
                         target = target,
                         selection = selection,
                         sectionStatuses = sectionStatuses,
@@ -92,522 +93,31 @@ class DiagnosticsArchiveRenderer
                     ),
                 )
                 addAll(
-                    buildCsvEntries(
+                    csvEntryBuilder.buildCsvEntries(
                         selection = selection,
                     ),
                 )
             }
 
-        private fun buildJsonEntries(
-            target: DiagnosticsArchiveTarget,
-            selection: DiagnosticsArchiveSelection,
-            sectionStatuses: Map<String, DiagnosticsArchiveSectionStatus>,
-            snapshotPayload: DiagnosticsArchiveSnapshotPayload,
-            contextPayload: DiagnosticsArchiveContextPayload,
-            completeness: DiagnosticsArchiveCompletenessPayload,
-            compositeEntries: List<DiagnosticsArchiveEntry>,
-            developerAnalytics: DeveloperAnalyticsPayload,
-        ): List<DiagnosticsArchiveEntry> =
-            buildList {
-                add(
-                    textEntry(
-                        name = "summary.txt",
-                        content = buildSummary(createdAt = target.createdAt, selection = selection),
-                    ),
-                )
-                add(
-                    DiagnosticsArchiveEntry(
-                        name = "manifest.json",
-                        bytes = encodeManifest(target, selection, sectionStatuses).toByteArray(),
-                    ),
-                )
-                add(
-                    jsonEntry(
-                        name = "report.json",
-                        serializer = DiagnosticsArchivePayload.serializer(),
-                        value = buildRedactedPayload(selection),
-                    ),
-                )
-                add(
-                    jsonEntry(
-                        name = "strategy-matrix.json",
-                        serializer = StrategyMatrixArchivePayload.serializer(),
-                        value =
-                            StrategyMatrixArchivePayload(
-                                sessionId = selection.primarySession?.id,
-                                profileId = selection.primarySession?.profileId,
-                                strategyProbeReport = selection.primaryReport?.strategyProbeReport,
-                            ),
-                    ),
-                )
-                addAll(compositeEntries)
-                add(
-                    jsonEntry(
-                        name = "archive-provenance.json",
-                        serializer = DiagnosticsArchiveProvenancePayload.serializer(),
-                        value = buildArchiveProvenance(target, selection),
-                    ),
-                )
-                add(
-                    jsonEntry(
-                        name = "runtime-config.json",
-                        serializer = DiagnosticsArchiveRuntimeConfigPayload.serializer(),
-                        value = buildRuntimeConfig(selection),
-                    ),
-                )
-                add(
-                    jsonEntry(
-                        name = "analysis.json",
-                        serializer = DiagnosticsArchiveAnalysisPayload.serializer(),
-                        value = buildAnalysis(selection),
-                    ),
-                )
-                add(
-                    jsonEntry(
-                        name = "completeness.json",
-                        serializer = DiagnosticsArchiveCompletenessPayload.serializer(),
-                        value = completeness,
-                    ),
-                )
-                add(
-                    jsonEntry(
-                        name = "network-snapshots.json",
-                        serializer = DiagnosticsArchiveSnapshotPayload.serializer(),
-                        value = snapshotPayload,
-                    ),
-                )
-                add(
-                    jsonEntry(
-                        name = "diagnostic-context.json",
-                        serializer = DiagnosticsArchiveContextPayload.serializer(),
-                        value = contextPayload,
-                    ),
-                )
-                add(
-                    jsonEntry(
-                        name = "developer-analytics.json",
-                        serializer = DeveloperAnalyticsPayload.serializer(),
-                        value = developerAnalytics,
-                    ),
-                )
-            }
-
-        private fun buildCsvEntries(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveEntry> =
-            buildList {
-                add(textEntry(name = "probe-results.csv", content = buildProbeResultsCsv(selection.primaryResults)))
-                add(
-                    textEntry(
-                        name = "native-events.csv",
-                        content = buildNativeEventsCsv(selection.primaryEvents, selection.globalEvents),
-                    ),
-                )
-                add(textEntry(name = "telemetry.csv", content = buildTelemetryCsv(selection.payload)))
-                selection.logcatSnapshot?.let { snapshot ->
-                    add(DiagnosticsArchiveEntry(name = "logcat.txt", bytes = snapshot.content.toByteArray()))
-                }
-                selection.fileLogSnapshot?.let { content ->
-                    add(DiagnosticsArchiveEntry(name = "app-log.txt", bytes = content.toByteArray()))
-                }
-                selection.pcapFiles.forEach { pcapFile ->
-                    add(DiagnosticsArchiveEntry(name = pcapFile.name, bytes = pcapFile.readBytes()))
-                }
-            }
-
-        private fun buildRedactedPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchivePayload =
-            selection.payload.copy(
-                primaryReport = selection.primaryReport,
-                sessionSnapshots = selection.payload.sessionSnapshots.map(redactor::redact),
-                sessionContexts = selection.payload.sessionContexts.map(redactor::redact),
-                latestPassiveSnapshot = selection.payload.latestPassiveSnapshot?.let(redactor::redact),
-                latestPassiveContext = selection.payload.latestPassiveContext?.let(redactor::redact),
-                telemetry =
-                    selection.payload.telemetry.map { sample ->
-                        sample.copy(publicIp = if (sample.publicIp != null) "redacted" else null)
-                    },
-            )
-
-        private fun buildSnapshotPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveSnapshotPayload =
-            DiagnosticsArchiveSnapshotPayload(
-                sessionSnapshots =
-                    selection.primarySnapshots
-                        .mapNotNull(redactor::decodeNetworkSnapshot)
-                        .map(redactor::redact),
-                latestPassiveSnapshot =
-                    redactor
-                        .decodeNetworkSnapshot(selection.latestPassiveSnapshot)
-                        ?.let(redactor::redact),
-            )
-
-        private fun buildContextPayload(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveContextPayload =
-            DiagnosticsArchiveContextPayload(
-                sessionContexts =
-                    selection.primaryContexts
-                        .mapNotNull(redactor::decodeDiagnosticContext)
-                        .map(redactor::redact),
-                latestPassiveContext =
-                    redactor
-                        .decodeDiagnosticContext(selection.latestPassiveContext)
-                        ?.let(redactor::redact),
-            )
-
-        private fun <T> jsonEntry(
-            name: String,
-            serializer: kotlinx.serialization.KSerializer<T>,
-            value: T,
-        ): DiagnosticsArchiveEntry =
-            DiagnosticsArchiveEntry(
-                name = name,
-                bytes = json.encodeToString(serializer, value).toByteArray(),
-            )
-
-        private fun encodeManifest(
-            target: DiagnosticsArchiveTarget,
-            selection: DiagnosticsArchiveSelection,
-            sectionStatuses: Map<String, DiagnosticsArchiveSectionStatus>,
-        ): String {
-            val manifest = buildManifest(target, selection, sectionStatuses)
-            val manifestElement = json.encodeToJsonElement(DiagnosticsArchiveManifest.serializer(), manifest)
-            val normalizedManifest =
-                if (selection.selectedApproachSummary == null && manifestElement is JsonObject) {
-                    JsonObject(manifestElement + ("selectedApproach" to JsonNull))
-                } else {
-                    manifestElement
-                }
-            return json.encodeToString(JsonElement.serializer(), normalizedManifest)
-        }
-
-        private fun buildManifest(
-            target: DiagnosticsArchiveTarget,
-            selection: DiagnosticsArchiveSelection,
-            sectionStatuses: Map<String, DiagnosticsArchiveSectionStatus>,
-        ): DiagnosticsArchiveManifest {
-            val summaryDocument = buildSummaryDocument(selection)
-            val allEvents = selection.primaryEvents + selection.globalEvents
-            val runtimeId = allEvents.latestCorrelation { it.runtimeId }
-            val mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode }
-            val policySignature = allEvents.latestCorrelation { it.policySignature }
-            val fingerprintHash =
-                selection.payload.telemetry
-                    .firstOrNull()
-                    ?.telemetryNetworkFingerprintHash
-                    ?: allEvents.latestCorrelation { it.fingerprintHash }
-            val recentWarnings = allEvents.recentWarningPreview()
-            val isSingleSession = selection.runType == DiagnosticsArchiveRunType.SINGLE_SESSION
-            return DiagnosticsArchiveManifest(
-                fileName = target.fileName,
-                createdAt = target.createdAt,
-                schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
-                privacyMode = DiagnosticsArchiveFormat.privacyMode,
-                scope = DiagnosticsArchiveFormat.scope,
-                runType = selection.runType,
-                homeRunId = selection.homeRunId,
-                archiveReason = selection.request.reason,
-                requestedSessionId = if (isSingleSession) selection.request.requestedSessionId else null,
-                selectedSessionId = if (isSingleSession) selection.primarySession?.id else null,
-                sessionSelectionStatus = selection.sessionSelectionStatus,
-                recommendedSessionId = selection.homeCompositeOutcome?.recommendedSessionId,
-                stageIndex = buildStageIndexEntries(selection),
-                includedSessionId = selection.primarySession?.id,
-                sessionResultCount = selection.primaryResults.size,
-                sessionSnapshotCount = selection.primarySnapshots.size,
-                contextSnapshotCount = selection.primaryContexts.size,
-                sessionEventCount = selection.primaryEvents.size,
-                telemetrySampleCount = selection.payload.telemetry.size,
-                globalEventCount = selection.globalEvents.size,
-                approachCount = selection.payload.approachSummaries.size,
-                selectedApproach = selection.selectedApproachSummary,
-                networkSummary = selection.latestSnapshotModel?.let(redactor::redact)?.toRedactedSummary(),
-                contextSummary =
-                    (selection.sessionContextModel ?: selection.latestContextModel)
-                        ?.let(redactor::redact)
-                        ?.toRedactedSummary(),
-                latestTelemetrySummary =
-                    selection.payload.telemetry
-                        .firstOrNull()
-                        ?.toArchiveTelemetrySummary(),
-                runtimeId = runtimeId,
-                mode = mode,
-                policySignature = policySignature,
-                fingerprintHash = fingerprintHash,
-                networkScope = fingerprintHash,
-                lastFailure = recentWarnings.firstOrNull(),
-                lifecycleMilestones = allEvents.lifecycleMilestones(),
-                recentNativeWarnings = recentWarnings,
-                classifierVersion = summaryDocument.classifierVersion,
-                diagnosisCount = summaryDocument.diagnoses.size,
-                packVersions = summaryDocument.packVersions,
-                buildProvenance = selection.buildProvenance.toSummary(),
-                sectionStatusSummary = sectionStatuses,
-                integrityAlgorithm = "sha256",
-                includedFiles = selection.includedFiles,
-                logcatIncluded = selection.logcatSnapshot != null,
-                logcatCaptureScope =
-                    selection.logcatSnapshot?.captureScope
-                        ?: LogcatSnapshotCollector.AppVisibleSnapshotScope,
-                logcatByteCount = selection.logcatSnapshot?.byteCount ?: 0,
-            )
-        }
-
         internal fun buildSummary(
             createdAt: Long,
             selection: DiagnosticsArchiveSelection,
-        ): String {
-            val summaryDocument = buildSummaryDocument(selection)
-            val allEvents = selection.primaryEvents + selection.globalEvents
-            val runtimeId = allEvents.latestCorrelation { it.runtimeId }
-            val mode = selection.primarySession?.serviceMode ?: allEvents.latestCorrelation { it.mode }
-            val policySignature = allEvents.latestCorrelation { it.policySignature }
-            val fingerprintHash =
-                selection.payload.telemetry
-                    .firstOrNull()
-                    ?.telemetryNetworkFingerprintHash
-                    ?: allEvents.latestCorrelation { it.fingerprintHash }
-            val recentWarnings = allEvents.recentWarningPreview()
-            return DiagnosticsSummaryTextRenderer.render(
-                document = summaryDocument,
-                preludeLines =
-                    buildList {
-                        add("RIPDPI diagnostics archive")
-                        add("generatedAt=$createdAt")
-                        add("scope=${DiagnosticsArchiveFormat.scope}")
-                        add("runType=${selection.runType.name.lowercase()}")
-                        add("privacyMode=${DiagnosticsArchiveFormat.privacyMode}")
-                        add("logcatIncluded=${selection.logcatSnapshot != null}")
-                        val logcatScope =
-                            selection.logcatSnapshot?.captureScope
-                                ?: LogcatSnapshotCollector.AppVisibleSnapshotScope
-                        add("logcatCaptureScope=$logcatScope")
-                        add("logcatByteCount=${selection.logcatSnapshot?.byteCount ?: 0}")
-                        add("selectedSession=${selection.primarySession?.id ?: "latest-live"}")
-                        selection.homeRunId?.let { add("homeRunId=$it") }
-                        selection.homeCompositeOutcome?.recommendedSessionId?.let { add("recommendedSession=$it") }
-                        selection.homeCompositeOutcome?.let { outcome ->
-                            add("stageCount=${outcome.stageSummaries.size}")
-                            add("completedStageCount=${outcome.completedStageCount}")
-                            add("failedStageCount=${outcome.failedStageCount}")
-                        }
-                        runtimeId?.let { add("runtimeId=$it") }
-                        mode?.let { add("mode=$it") }
-                        policySignature?.let { add("policySignature=$it") }
-                        fingerprintHash?.let {
-                            add("fingerprintHash=$it")
-                            add("networkScope=$it")
-                        }
-                        recentWarnings.firstOrNull()?.let { add("lastFailure=$it") }
-                        allEvents.lifecycleMilestones().forEach { add("lifecycle=$it") }
-                        selection.selectedApproachSummary?.let {
-                            add("approach=${it.displayName}")
-                            add("approachVerification=${it.verificationState}")
-                            add("approachSuccessRate=${it.successRateLabel()}")
-                            add("approachUsageCount=${it.usageCount}")
-                            add("approachRuntimeMs=${it.totalRuntimeDurationMs}")
-                        }
-                        selection.homeCompositeOutcome
-                            ?.stageSummaries
-                            ?.forEach { stage ->
-                                add(
-                                    "stage=${stage.stageKey}:${stage.status.name.lowercase()}:" +
-                                        (stage.sessionId ?: "no-session"),
-                                )
-                            }
-                    },
-            )
-        }
+        ): String = jsonEntryBuilder.buildSummary(createdAt, selection)
 
-        private fun buildCompositeEntries(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveEntry> {
-            val outcome = selection.homeCompositeOutcome ?: return emptyList()
-            return buildList {
-                add(
-                    jsonEntry(
-                        name = "home-analysis.json",
-                        serializer = DiagnosticsArchiveHomeAnalysisPayload.serializer(),
-                        value =
-                            DiagnosticsArchiveHomeAnalysisPayload(
-                                runId = outcome.runId,
-                                fingerprintHash = outcome.fingerprintHash,
-                                actionable = outcome.actionable,
-                                headline = outcome.headline,
-                                summary = outcome.summary,
-                                recommendationSummary = outcome.recommendationSummary,
-                                confidenceSummary = outcome.confidenceSummary,
-                                coverageSummary = outcome.coverageSummary,
-                                recommendedSessionId = outcome.recommendedSessionId,
-                                appliedSettings = outcome.appliedSettings,
-                                completedStageCount = outcome.completedStageCount,
-                                failedStageCount = outcome.failedStageCount,
-                                skippedStageCount = outcome.skippedStageCount,
-                                bundleSessionIds = outcome.bundleSessionIds,
-                            ),
-                    ),
-                )
-                add(
-                    jsonEntry(
-                        name = "stage-index.json",
-                        serializer = DiagnosticsArchiveStageIndexPayload.serializer(),
-                        value =
-                            DiagnosticsArchiveStageIndexPayload(
-                                runId = outcome.runId,
-                                stages = buildStageIndexEntries(selection),
-                            ),
-                    ),
-                )
-                add(
-                    jsonEntry(
-                        name = "stage-summaries.json",
-                        serializer = DiagnosticsArchiveStageSummariesPayload.serializer(),
-                        value =
-                            DiagnosticsArchiveStageSummariesPayload(
-                                runId = outcome.runId,
-                                stages = buildStageIndexEntries(selection),
-                            ),
-                    ),
-                )
-                selection.compositeStages.forEach { stage ->
-                    addAll(buildStageEntries(stage, selection))
-                }
-            }
-        }
-
-        private fun buildStageEntries(
-            stage: DiagnosticsArchiveCompositeStageSelection,
-            selection: DiagnosticsArchiveSelection,
-        ): List<DiagnosticsArchiveEntry> {
-            val prefix = "stages/${stage.stageSummary.stageKey}"
-            val snapshotPayload = buildStageSnapshotPayload(stage)
-            val contextPayload = buildStageContextPayload(stage)
-            val stagePayload = buildStageArchivePayload(stage, selection)
-            return buildList {
-                add(
-                    jsonEntry(
-                        name = "$prefix/report.json",
-                        serializer = DiagnosticsArchivePayload.serializer(),
-                        value = stagePayload,
-                    ),
-                )
-                add(
-                    jsonEntry(
-                        name = "$prefix/strategy-matrix.json",
-                        serializer = StrategyMatrixArchivePayload.serializer(),
-                        value =
-                            StrategyMatrixArchivePayload(
-                                sessionId = stage.session?.id,
-                                profileId = stage.session?.profileId,
-                                strategyProbeReport = stage.report?.strategyProbeReport,
-                            ),
-                    ),
-                )
-                add(textEntry(name = "$prefix/probe-results.csv", content = buildProbeResultsCsv(stage.results)))
-                add(
-                    jsonEntry(
-                        name = "$prefix/network-snapshots.json",
-                        serializer = DiagnosticsArchiveSnapshotPayload.serializer(),
-                        value = snapshotPayload,
-                    ),
-                )
-                add(
-                    jsonEntry(
-                        name = "$prefix/diagnostic-context.json",
-                        serializer = DiagnosticsArchiveContextPayload.serializer(),
-                        value = contextPayload,
-                    ),
-                )
-                add(
-                    textEntry(
-                        name = "$prefix/native-events.csv",
-                        content = buildNativeEventsCsv(stage.events, emptyList()),
-                    ),
-                )
-                add(textEntry(name = "$prefix/telemetry.csv", content = buildTelemetryCsv(stagePayload)))
-            }
-        }
-
-        private fun buildStageSnapshotPayload(
-            stage: DiagnosticsArchiveCompositeStageSelection,
-        ): DiagnosticsArchiveSnapshotPayload =
-            DiagnosticsArchiveSnapshotPayload(
-                sessionSnapshots = stage.snapshots.mapNotNull(redactor::decodeNetworkSnapshot).map(redactor::redact),
-                latestPassiveSnapshot = null,
-            )
-
-        private fun buildStageContextPayload(
-            stage: DiagnosticsArchiveCompositeStageSelection,
-        ): DiagnosticsArchiveContextPayload =
-            DiagnosticsArchiveContextPayload(
-                sessionContexts = stage.contexts.mapNotNull(redactor::decodeDiagnosticContext).map(redactor::redact),
-                latestPassiveContext = null,
-            )
-
-        private fun buildStageArchivePayload(
-            stage: DiagnosticsArchiveCompositeStageSelection,
-            selection: DiagnosticsArchiveSelection,
-        ): DiagnosticsArchivePayload =
-            DiagnosticsArchivePayload(
-                schemaVersion = DiagnosticsArchiveFormat.schemaVersion,
-                scope = DiagnosticsArchiveFormat.scope,
-                privacyMode = DiagnosticsArchiveFormat.privacyMode,
-                session = stage.session,
-                primaryReport = stage.report,
-                results = stage.results,
-                sessionSnapshots = stage.snapshots.map(redactor::redact),
-                sessionContexts = stage.contexts.map(redactor::redact),
-                sessionEvents = stage.events,
-                latestPassiveSnapshot = null,
-                latestPassiveContext = null,
-                telemetry = selection.payload.telemetry,
-                globalEvents = emptyList(),
-                approachSummaries = selection.payload.approachSummaries,
-            )
-
-        private fun buildSummaryDocument(selection: DiagnosticsArchiveSelection) =
-            projector.project(
-                session = selection.primarySession,
-                report = selection.primaryReport?.toSessionProjection(),
-                latestSnapshotModel = selection.latestSnapshotModel?.let(redactor::redact),
-                latestContextModel =
-                    (selection.sessionContextModel ?: selection.latestContextModel)
-                        ?.let(redactor::redact),
-                latestTelemetry = selection.payload.telemetry.firstOrNull(),
-                selectedResults = selection.primaryResults,
-                warnings =
-                    (selection.primaryEvents + selection.globalEvents).filter { event ->
-                        event.level.equals("warn", ignoreCase = true) || event.level.equals("error", ignoreCase = true)
-                    },
-            )
-
-        internal fun buildProbeResultsCsv(results: List<ProbeResultEntity>): String =
-            buildString {
-                appendLine("sessionId,probeType,target,outcome,probeRetryCount,createdAt,detailJson")
-                results.forEach { result ->
-                    appendLine(
-                        listOf(
-                            csvField(result.sessionId),
-                            csvField(result.probeType),
-                            csvField(result.target),
-                            csvField(result.outcome),
-                            csvField(result.probeRetryCount().orEmpty()),
-                            csvField(result.createdAt),
-                            csvField(result.detailJson),
-                        ).joinToString(","),
-                    )
-                }
-            }
-
-        private fun ProbeResultEntity.probeRetryCount(): String? =
-            runCatching {
-                json.decodeFromString(ListSerializer(ProbeDetail.serializer()), detailJson)
-            }.getOrNull()?.let(::deriveProbeRetryCount)?.toString()
+        internal fun buildProbeResultsCsv(results: List<com.poyka.ripdpi.data.diagnostics.ProbeResultEntity>): String =
+            csvEntryBuilder.buildProbeResultsCsv(results)
     }
 
 // ---------------------------------------------------------------------------
 // File-level private functions (not part of the class — reduces LargeClass / TooManyFunctions)
 // ---------------------------------------------------------------------------
 
-private fun textEntry(
+internal fun textEntry(
     name: String,
     content: String,
 ): DiagnosticsArchiveEntry = DiagnosticsArchiveEntry(name = name, bytes = content.toByteArray())
 
-private fun buildArchiveProvenance(
+internal fun buildArchiveProvenance(
     target: DiagnosticsArchiveTarget,
     selection: DiagnosticsArchiveSelection,
 ): DiagnosticsArchiveProvenancePayload {
@@ -663,7 +173,7 @@ private fun buildArchiveProvenance(
     )
 }
 
-private fun buildRuntimeConfig(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveRuntimeConfigPayload {
+internal fun buildRuntimeConfig(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveRuntimeConfigPayload {
     val context = selection.sessionContextModel ?: selection.latestContextModel
     val snapshot = selection.latestSnapshotModel
     val telemetry = selection.payload.telemetry.firstOrNull()
@@ -852,7 +362,7 @@ private fun resolveEnvironmentConfig(
         roamingState = environment?.roamingState ?: "unavailable",
     )
 
-private fun buildAnalysis(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveAnalysisPayload {
+internal fun buildAnalysis(selection: DiagnosticsArchiveSelection): DiagnosticsArchiveAnalysisPayload {
     val telemetry = selection.payload.telemetry.sortedBy { it.createdAt }
     val failureSamples =
         telemetry.filter {
@@ -1115,7 +625,7 @@ private fun buildIntegrityPayload(
             },
     )
 
-private fun buildStageIndexEntries(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveStageIndexEntry> =
+internal fun buildStageIndexEntries(selection: DiagnosticsArchiveSelection): List<DiagnosticsArchiveStageIndexEntry> =
     selection.compositeStages.map { stage ->
         stage.stageSummary.toArchiveStageIndexEntry()
     }
@@ -1227,7 +737,7 @@ internal fun buildNativeEventsCsv(
         }
     }
 
-private fun csvField(value: Any?): String =
+internal fun csvField(value: Any?): String =
     buildString {
         append('"')
         append(value?.toString().orEmpty().replace("\"", "\"\""))
@@ -1348,13 +858,15 @@ private fun stageSectionStatusForFileName(
         }
     }
 
-private fun List<NativeSessionEventEntity>.latestCorrelation(selector: (NativeSessionEventEntity) -> String?): String? =
+internal fun List<NativeSessionEventEntity>.latestCorrelation(
+    selector: (NativeSessionEventEntity) -> String?,
+): String? =
     asSequence()
         .sortedByDescending(NativeSessionEventEntity::createdAt)
         .mapNotNull(selector)
         .firstOrNull()
 
-private fun List<NativeSessionEventEntity>.lifecycleMilestones(limit: Int = 6): List<String> =
+internal fun List<NativeSessionEventEntity>.lifecycleMilestones(limit: Int = 6): List<String> =
     asSequence()
         .sortedByDescending(NativeSessionEventEntity::createdAt)
         .filter { event ->
@@ -1372,7 +884,7 @@ private fun List<NativeSessionEventEntity>.lifecycleMilestones(limit: Int = 6): 
         .map { event -> "${event.subsystem ?: event.source}: ${event.message}" }
         .toList()
 
-private fun List<NativeSessionEventEntity>.recentWarningPreview(limit: Int = 5): List<String> =
+internal fun List<NativeSessionEventEntity>.recentWarningPreview(limit: Int = 5): List<String> =
     asSequence()
         .sortedByDescending(NativeSessionEventEntity::createdAt)
         .filter { event ->
@@ -1381,12 +893,12 @@ private fun List<NativeSessionEventEntity>.recentWarningPreview(limit: Int = 5):
         .map { event -> "${event.subsystem ?: event.source}: ${event.message}" }
         .toList()
 
-private fun BypassApproachSummary.successRateLabel(): String =
+internal fun BypassApproachSummary.successRateLabel(): String =
     validatedSuccessRate?.let { rate ->
         "${(rate * SuccessRatePercentScale).toInt()}%"
     } ?: "unverified"
 
-private fun DiagnosticsArchiveBuildProvenance.toSummary(): DiagnosticsArchiveBuildProvenanceSummary =
+internal fun DiagnosticsArchiveBuildProvenance.toSummary(): DiagnosticsArchiveBuildProvenanceSummary =
     DiagnosticsArchiveBuildProvenanceSummary(
         applicationId = applicationId,
         appVersionName = appVersionName,

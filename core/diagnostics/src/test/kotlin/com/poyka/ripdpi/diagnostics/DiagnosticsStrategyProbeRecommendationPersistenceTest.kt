@@ -28,6 +28,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -129,6 +130,61 @@ class DiagnosticsStrategyProbeRecommendationPersistenceTest {
             assertNull(recommendation.dnsStrategyLabel)
             assertNull(recommendation.strategySignature)
         }
+
+    @Test
+    fun `background finalization preserves engine diagnoses and classifier version`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock()
+            val finalizationService = scanFinalizationService(stores, clock)
+            val prepared =
+                preparedStrategyProbeScan(
+                    sessionId = "session-diagnosis-authority",
+                    settings = defaultDiagnosticsAppSettings(),
+                    fingerprint = networkFingerprint(ssid = "authority-network"),
+                )
+            val engineDiagnosis =
+                Diagnosis(
+                    code = "dns_tampering",
+                    summary = "Engine diagnosis should be preserved",
+                    evidence = listOf("engine"),
+                )
+            val reportJson =
+                json.encodeToString(
+                    strategyProbeReport(
+                        sessionId = prepared.sessionId,
+                        proxyConfigJson = validRecommendedProxyConfigJson(),
+                        tcpFamily = "hostfake",
+                        quicFamily = "quic_multi_initial_realistic",
+                        auditAssessment = auditAssessment(),
+                    ).copy(
+                        diagnoses = listOf(engineDiagnosis),
+                        classifierVersion = "rust_diag_v2",
+                        observations =
+                            listOf(
+                                ObservationFact(
+                                    kind = ObservationKind.DOMAIN,
+                                    target = "blocked.example",
+                                    domain =
+                                        DomainObservationFact(
+                                            host = "blocked.example",
+                                            httpStatus = HttpProbeStatus.BLOCKPAGE,
+                                        ),
+                                ),
+                            ),
+                    ).toEngineScanReportWire(),
+                )
+
+            finalizationService.finalize(prepared, reportJson)
+
+            val persistedWire =
+                json.decodeEngineScanReportWire(
+                    requireNotNull(stores.getScanSession(prepared.sessionId)?.reportJson),
+                )
+            assertEquals(listOf(engineDiagnosis), persistedWire.diagnoses)
+            assertEquals("rust_diag_v2", persistedWire.classifierVersion)
+            assertFalse(persistedWire.diagnoses.any { it.code == "http_blockpage_detected" })
+        }
 }
 
 private fun scanFinalizationService(
@@ -150,7 +206,6 @@ private fun scanFinalizationService(
                 .DefaultNetworkEdgePreferenceStore(stores, clock),
         networkDnsPathPreferenceStore = DefaultNetworkDnsPathPreferenceStore(stores, clock),
         serverCapabilityStore = FakeServerCapabilityStore(),
-        findingProjector = DiagnosticsFindingProjector(),
         json = diagnosticsTestJson(),
     )
 

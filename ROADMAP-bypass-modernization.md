@@ -64,8 +64,9 @@ work must fit into. See the three sibling roadmaps below for connected work:
     seams instead of widening the old config contract surface.
   - Refactor Workstream 3 (runtime/desync decomposition) created the seams that
     this roadmap's Workstream 2 (first-flight IR) and Workstream 3 (QUIC subsystem)
-    lower onto. That runtime split is now complete, so the remaining blocker is
-    Workstream 3's QUIC packetizer work rather than missing runtime
+    lower onto. That runtime split and the follow-on QUIC packetizer work are
+    now complete, so the next blocker is Workstream 5's TLS shaping and
+    browser-family template work rather than missing runtime
     lowering/capability/UDP/platform seams or residual planner migration.
   - Refactor Workstream 4 (service/relay orchestration) interacts with Workstream 8
     (Android hardening) -- VPN lifecycle, handover, and relay-kind resolvers are
