@@ -1,19 +1,24 @@
+mod actions;
+mod codec;
+mod sockets;
+
 use crate::sync::{Arc, AtomicBool, Ordering};
 use std::collections::HashMap;
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
+use std::net::{SocketAddr, UdpSocket};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::platform;
 use crate::runtime_policy::{
     extract_host_info, route_matches_payload, ConnectionRoute, HostSource, RouteAdvance, TransportProtocol,
 };
 use ripdpi_config::{QuicInitialMode, RuntimeConfig, DETECT_CONNECT};
 use ripdpi_desync::{plan_udp, ActivationTransport, DesyncAction};
-use ripdpi_session::{SessionState, SocketType, S_ATP_I4, S_ATP_I6};
-use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+use ripdpi_session::SessionState;
 
+use self::actions::{execute_udp_actions, UdpActionExecContext};
+pub(crate) use self::codec::{encode_socks5_udp_packet, parse_socks5_udp_packet};
+pub(crate) use self::sockets::{build_udp_relay_sockets, build_udp_upstream_socket};
 use super::adaptive::{
     note_adaptive_udp_failure, note_adaptive_udp_success, note_evolver_failure, note_evolver_success,
     resolve_udp_hints_with_evolver,
@@ -27,10 +32,6 @@ use super::routing::{
     select_route_for_transport,
 };
 use super::state::{flush_autolearn_updates, RuntimeState, UDP_FLOW_IDLE_TIMEOUT};
-
-pub(super) struct UdpRelaySockets {
-    pub(super) client: UdpSocket,
-}
 
 struct UdpFlowActivationState {
     session: SessionState,
@@ -52,60 +53,6 @@ struct UdpFlowSelection {
     target_index: usize,
     route: ConnectionRoute,
     upstream: UdpSocket,
-}
-
-pub(super) fn build_udp_relay_sockets(ip: IpAddr, _protect_path: Option<&str>) -> io::Result<UdpRelaySockets> {
-    let client = bind_udp_socket(SocketAddr::new(ip, 0), None)?;
-    client.set_nonblocking(true)?;
-    Ok(UdpRelaySockets { client })
-}
-
-fn bind_udp_socket(bind_addr: SocketAddr, protect_path: Option<&str>) -> io::Result<UdpSocket> {
-    let domain = match bind_addr {
-        SocketAddr::V4(_) => Domain::IPV4,
-        SocketAddr::V6(_) => Domain::IPV6,
-    };
-    let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
-    socket.set_reuse_address(true)?;
-    if let Some(path) = protect_path {
-        platform::protect_socket(&socket, Some(path))?;
-    }
-    socket.bind(&SockAddr::from(bind_addr))?;
-    let socket: UdpSocket = socket.into();
-    socket.set_read_timeout(Some(Duration::from_millis(250)))?;
-    socket.set_write_timeout(Some(Duration::from_secs(5)))?;
-    Ok(socket)
-}
-
-fn build_udp_upstream_socket(
-    target: SocketAddr,
-    protect_path: Option<&str>,
-    bind_low_port: bool,
-) -> io::Result<UdpSocket> {
-    let domain = match target {
-        SocketAddr::V4(_) => Domain::IPV4,
-        SocketAddr::V6(_) => Domain::IPV6,
-    };
-    let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
-    socket.set_reuse_address(true)?;
-    if let Some(path) = protect_path {
-        platform::protect_socket(&socket, Some(path))?;
-    }
-    let socket: UdpSocket = socket.into();
-    socket.set_read_timeout(Some(Duration::from_millis(250)))?;
-    socket.set_write_timeout(Some(Duration::from_secs(5)))?;
-    if bind_low_port {
-        let local_ip = match target {
-            SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-            SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-        };
-        if let Err(err) = platform::bind_udp_low_port(&socket, local_ip, 4_096) {
-            tracing::warn!(%target, %err, "failed to bind UDP flow to a low source port");
-        }
-    }
-    socket.connect(target)?;
-    socket.set_nonblocking(true)?;
-    Ok(socket)
 }
 
 pub(super) fn udp_associate_loop(
@@ -219,15 +166,7 @@ pub(super) fn udp_associate_loop(
                         entry.quic_migrated = false;
                         store_udp_route_hint(&state, entry)?;
                     }
-                    let actions = plan_udp_flow_actions(&state, entry, payload, now)?;
-                    execute_udp_actions(
-                        &entry.upstream,
-                        entry.current_target,
-                        &actions,
-                        state.config.network.default_ttl,
-                        protect_path.as_deref(),
-                        state.config.groups[entry.route.group_index].actions.ip_id_mode,
-                    )?;
+                    send_udp_flow_payload(&state, entry, payload, now, protect_path.as_deref())?;
                 }
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
@@ -436,126 +375,6 @@ fn expire_udp_flows(
     Ok(())
 }
 
-pub(super) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], state: &RuntimeState) -> Option<(SocketAddr, &'a [u8])> {
-    let config = &state.config;
-    if packet.len() < 4 || packet[2] != 0 {
-        return None;
-    }
-    let atyp = packet[3];
-    match atyp {
-        S_ATP_I4 => {
-            if packet.len() < 10 {
-                return None;
-            }
-            let ip = Ipv4Addr::new(packet[4], packet[5], packet[6], packet[7]);
-            let port = u16::from_be_bytes([packet[8], packet[9]]);
-            Some((SocketAddr::new(IpAddr::V4(ip), port), &packet[10..]))
-        }
-        S_ATP_I6 => {
-            if packet.len() < 22 || !config.network.ipv6 {
-                return None;
-            }
-            let mut raw = [0u8; 16];
-            raw.copy_from_slice(&packet[4..20]);
-            let port = u16::from_be_bytes([packet[20], packet[21]]);
-            Some((SocketAddr::new(IpAddr::V6(Ipv6Addr::from(raw)), port), &packet[22..]))
-        }
-        0x03 => {
-            let len = *packet.get(4)? as usize;
-            let offset = 5 + len;
-            if packet.len() < offset + 2 || !config.network.resolve {
-                return None;
-            }
-            let host = std::str::from_utf8(&packet[5..offset]).ok()?;
-            let port = u16::from_be_bytes([packet[offset], packet[offset + 1]]);
-            let resolved = super::handshake::resolve_name(host, SocketType::Datagram, state)?;
-            Some((SocketAddr::new(resolved.ip(), port), &packet[offset + 2..]))
-        }
-        _ => None,
-    }
-}
-
-pub(super) fn encode_socks5_udp_packet(sender: SocketAddr, payload: &[u8]) -> Vec<u8> {
-    let mut packet = vec![0, 0, 0];
-    match sender {
-        SocketAddr::V4(addr) => {
-            packet.push(S_ATP_I4);
-            packet.extend_from_slice(&addr.ip().octets());
-            packet.extend_from_slice(&addr.port().to_be_bytes());
-        }
-        SocketAddr::V6(addr) => {
-            packet.push(S_ATP_I6);
-            packet.extend_from_slice(&addr.ip().octets());
-            packet.extend_from_slice(&addr.port().to_be_bytes());
-        }
-    }
-    packet.extend_from_slice(payload);
-    packet
-}
-
-fn execute_udp_actions(
-    upstream: &UdpSocket,
-    target: SocketAddr,
-    actions: &[DesyncAction],
-    default_ttl: u8,
-    protect_path: Option<&str>,
-    ip_id_mode: Option<ripdpi_config::IpIdMode>,
-) -> io::Result<()> {
-    for action in actions {
-        match action {
-            DesyncAction::Write(bytes) => {
-                upstream.send(bytes)?;
-            }
-            DesyncAction::WriteIpFragmentedUdp { bytes, split_offset, disorder, ipv6_ext } => {
-                match platform::send_ip_fragmented_udp(
-                    upstream,
-                    target,
-                    bytes,
-                    *split_offset,
-                    default_ttl,
-                    protect_path,
-                    *disorder,
-                    *ipv6_ext,
-                    ip_id_mode,
-                ) {
-                    Ok(()) => {}
-                    Err(err) if err.kind() == io::ErrorKind::InvalidInput => {
-                        upstream.send(bytes)?;
-                    }
-                    Err(err) => return Err(err),
-                }
-            }
-            DesyncAction::SetTtl(ttl) => {
-                set_udp_ttl(upstream, target, *ttl)?;
-            }
-            DesyncAction::RestoreDefaultTtl => {}
-            DesyncAction::WriteIpFragmentedTcp { .. }
-            | DesyncAction::WriteUrgent { .. }
-            | DesyncAction::SetMd5Sig { .. }
-            | DesyncAction::AttachDropSack
-            | DesyncAction::DetachDropSack
-            | DesyncAction::AwaitWritable
-            | DesyncAction::SetWindowClamp(_)
-            | DesyncAction::RestoreWindowClamp
-            | DesyncAction::SetWsize { .. }
-            | DesyncAction::RestoreWsize
-            | DesyncAction::SendFakeRst
-            | DesyncAction::WriteSeqOverlap { .. } => {}
-            DesyncAction::Delay(ms) => {
-                std::thread::sleep(std::time::Duration::from_millis(u64::from(*ms)));
-            }
-        }
-    }
-    Ok(())
-}
-
-fn set_udp_ttl(relay: &UdpSocket, target: SocketAddr, ttl: u8) -> io::Result<()> {
-    match target {
-        SocketAddr::V4(_) => relay.set_ttl(ttl as u32),
-        SocketAddr::V6(_) => Ok(()),
-    }
-}
-
 fn should_migrate_quic_flow(config: &RuntimeConfig, route: &ConnectionRoute) -> bool {
     config.groups.get(route.group_index).is_some_and(|group| group.actions.quic_migrate_after_handshake)
 }
@@ -673,6 +492,24 @@ fn plan_udp_flow_actions(
     Ok(plan_udp(group, payload, state.config.network.default_ttl, activation))
 }
 
+fn send_udp_flow_payload(
+    state: &RuntimeState,
+    entry: &mut UdpFlowActivationState,
+    payload: &[u8],
+    now: Instant,
+    protect_path: Option<&str>,
+) -> io::Result<()> {
+    let actions = plan_udp_flow_actions(state, entry, payload, now)?;
+    let exec_ctx = UdpActionExecContext {
+        upstream: &entry.upstream,
+        target: entry.current_target,
+        default_ttl: state.config.network.default_ttl,
+        protect_path,
+        ip_id_mode: state.config.groups[entry.route.group_index].actions.ip_id_mode,
+    };
+    execute_udp_actions(exec_ctx, &actions)
+}
+
 fn try_advance_udp_preferred_target(
     state: &RuntimeState,
     protect_path: Option<&str>,
@@ -696,15 +533,7 @@ fn try_advance_udp_preferred_target(
         entry.target_index = selection.target_index;
         entry.quic_migrated = false;
         store_udp_route_hint(state, entry)?;
-        let actions = plan_udp_flow_actions(state, entry, payload.as_slice(), now)?;
-        match execute_udp_actions(
-            &entry.upstream,
-            entry.current_target,
-            &actions,
-            state.config.network.default_ttl,
-            protect_path,
-            state.config.groups[entry.route.group_index].actions.ip_id_mode,
-        ) {
+        match send_udp_flow_payload(state, entry, payload.as_slice(), now, protect_path) {
             Ok(()) => return Ok(true),
             Err(_) => next_index = entry.target_index + 1,
         }
@@ -724,7 +553,8 @@ mod tests {
     use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex};
     use local_network_fixture::{FixtureConfig, FixtureStack};
     use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
-    use std::net::IpAddr;
+    use ripdpi_session::S_ATP_I4;
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
     fn test_runtime_state(config: RuntimeConfig) -> RuntimeState {
         test_runtime_state_with_context(config, None)
