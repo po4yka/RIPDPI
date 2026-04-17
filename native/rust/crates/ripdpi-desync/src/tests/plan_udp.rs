@@ -160,6 +160,34 @@ fn plan_udp_uses_generated_quic_fake_initial_when_profile_is_active() {
 }
 
 #[test]
+fn plan_udp_realistic_quic_fake_defaults_to_input_authority_from_ir() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.ttl = Some(7);
+    group.actions.quic_fake_profile = QuicFakeProfile::RealisticInitial;
+    group.actions.udp_chain = vec![UdpChainStep {
+        kind: UdpChainStepKind::FakeBurst,
+        count: 1,
+        split_bytes: 0,
+        activation_filter: None,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_frag_next_override: None,
+    }];
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("source.example.test")).expect("input quic");
+
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+    let DesyncAction::Write(fake_packet) = &actions[1] else {
+        panic!("expected first fake write");
+    };
+    let parsed = parse_quic_initial(fake_packet).expect("parse generated fake");
+
+    assert_eq!(parsed.version, QUIC_V2_VERSION);
+    assert_eq!(parsed.host(), b"source.example.test");
+}
+
+#[test]
 fn plan_udp_adaptive_profiles_tune_burst_count_and_quic_fake_payload() {
     let mut group = DesyncGroup::new(0);
     group.actions.quic_fake_profile = QuicFakeProfile::RealisticInitial;
@@ -323,6 +351,36 @@ fn plan_udp_quic_crypto_split_uses_first_flight_ir_boundary() {
             DesyncAction::Write(payload),
         ]
     );
+}
+
+#[test]
+fn plan_udp_quic_multi_initial_realistic_uses_ir_authority_when_no_override_is_set() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain = vec![UdpChainStep {
+        kind: UdpChainStepKind::QuicMultiInitialRealistic,
+        count: 1,
+        split_bytes: 0,
+        activation_filter: None,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_frag_next_override: None,
+    }];
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("media.example.test")).expect("input quic");
+
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+
+    assert_eq!(actions.len(), 6);
+    assert_eq!(actions[0], DesyncAction::SetTtl(8));
+    let DesyncAction::Write(first_packet) = &actions[1] else {
+        panic!("expected first realistic initial write");
+    };
+    let parsed = parse_quic_initial(first_packet).expect("parse realistic initial");
+    assert_eq!(parsed.version, QUIC_V2_VERSION);
+    assert_eq!(parsed.host(), b"media.example.test");
+    assert_eq!(actions[4], DesyncAction::SetTtl(64));
+    assert_eq!(actions[5], DesyncAction::Write(payload));
 }
 
 #[test]

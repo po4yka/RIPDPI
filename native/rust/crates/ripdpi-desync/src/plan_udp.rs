@@ -8,12 +8,13 @@ use ripdpi_packets::{
     udp_fake_profile_bytes,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct NormalizedQuicPlannerInput {
     version: u32,
     authority_split_offset: usize,
     crypto_split_offset: usize,
     client_hello_len: usize,
+    authority_host: String,
 }
 
 fn normalized_quic_plan_input(payload: &[u8]) -> Option<NormalizedQuicPlannerInput> {
@@ -32,7 +33,15 @@ fn normalized_quic_plan_input(payload: &[u8]) -> Option<NormalizedQuicPlannerInp
         authority_split_offset: ir.tls_client_hello.authority_span.start,
         crypto_split_offset,
         client_hello_len,
+        authority_host: String::from_utf8(ir.tls_client_hello.authority).ok()?,
     })
+}
+
+fn effective_quic_realistic_host<'a>(
+    group: &'a DesyncGroup,
+    normalized_quic: Option<&'a NormalizedQuicPlannerInput>,
+) -> Option<&'a str> {
+    group.actions.quic_fake_host.as_deref().or(normalized_quic.map(|quic| quic.authority_host.as_str()))
 }
 
 fn ipv6_ext_from_udp_step(step: &UdpChainStep) -> Ipv6ExtHeaders {
@@ -282,9 +291,11 @@ fn build_quic_multi_initial_realistic_packets(
     let Some(normalized_quic) = normalized_quic else {
         return Vec::new();
     };
-    let fake_host = group.actions.quic_fake_host.as_deref();
-    let realistic =
-        build_realistic_quic_initial(normalized_quic.version, fake_host).unwrap_or_else(|| payload.to_vec());
+    let realistic = build_realistic_quic_initial(
+        normalized_quic.version,
+        effective_quic_realistic_host(group, Some(normalized_quic)),
+    )
+    .unwrap_or_else(|| payload.to_vec());
     (0..count.max(2) as usize)
         .map(|idx| {
             if idx % 2 == 0 {
@@ -313,9 +324,10 @@ fn udp_fake_payload(
                 QuicFakeProfile::Disabled => {}
                 QuicFakeProfile::CompatDefault => return default_fake_quic_compat(),
                 QuicFakeProfile::RealisticInitial => {
-                    if let Some(fake) =
-                        build_realistic_quic_initial(quic.version, group.actions.quic_fake_host.as_deref())
-                    {
+                    if let Some(fake) = build_realistic_quic_initial(
+                        quic.version,
+                        effective_quic_realistic_host(group, normalized_quic),
+                    ) {
                         return fake;
                     }
                 }
