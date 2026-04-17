@@ -937,6 +937,104 @@ fn build_tcp_fake_packets(group: &DesyncGroup, tampered: &[u8], seed: u32) -> io
     Ok(Some(BuiltFakePackets { primary, secondary }))
 }
 
+struct TcpBasicStreamExecContext<'a> {
+    writer: &'a mut TcpStream,
+    config: &'a RuntimeConfig,
+    group: &'a DesyncGroup,
+    md5sig: bool,
+}
+
+fn execute_basic_tcp_stream_step(
+    ctx: &mut TcpBasicStreamExecContext<'_>,
+    kind: TcpChainStepKind,
+    configured_step: &TcpChainStep,
+    chunk: &[u8],
+    step_family: &'static str,
+    step_fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<usize, OutboundSendError> {
+    match kind {
+        TcpChainStepKind::Split | TcpChainStepKind::SynData => {
+            let bytes_committed = if step_original_tcp_flags(configured_step).is_empty() {
+                write_strategy_payload_named(
+                    ctx.writer,
+                    chunk,
+                    "write_split",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
+                )?
+            } else {
+                send_flagged_tcp_payload_action_named(
+                    ctx.writer,
+                    chunk,
+                    ctx.config.network.default_ttl,
+                    ctx.config.process.protect_path.as_deref(),
+                    ctx.md5sig,
+                    step_original_tcp_flags(configured_step),
+                    ctx.group.actions.ip_id_mode,
+                    "write_split",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
+                )?
+            };
+            await_writable_action_named(
+                ctx.writer,
+                ctx.config.timeouts.wait_send,
+                Duration::from_millis(ctx.config.timeouts.await_interval.max(1) as u64),
+                "await_writable_split",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
+            Ok(bytes_committed)
+        }
+        TcpChainStepKind::SeqOverlap => {
+            let bytes_committed = write_strategy_payload_named(
+                ctx.writer,
+                chunk,
+                "write_seqovl",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
+            await_writable_action_named(
+                ctx.writer,
+                ctx.config.timeouts.wait_send,
+                Duration::from_millis(ctx.config.timeouts.await_interval.max(1) as u64),
+                "await_writable_seqovl",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
+            Ok(bytes_committed)
+        }
+        TcpChainStepKind::Oob => {
+            let bytes_committed = send_oob_action_named(
+                ctx.writer,
+                chunk,
+                ctx.group.actions.oob_data.unwrap_or(b'a'),
+                "send_oob",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
+            await_writable_action_named(
+                ctx.writer,
+                ctx.config.timeouts.wait_send,
+                Duration::from_millis(ctx.config.timeouts.await_interval.max(1) as u64),
+                "await_writable_oob",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
+            Ok(bytes_committed)
+        }
+        _ => unreachable!("non-basic tcp step dispatched to basic stream executor"),
+    }
+}
+
 fn execute_tcp_plan(
     writer: &mut TcpStream,
     config: &RuntimeConfig,
@@ -1019,75 +1117,16 @@ fn execute_tcp_plan(
         let step_fallback = strategy_fallback_family(step_family);
 
         match step.kind {
-            TcpChainStepKind::Split | TcpChainStepKind::SynData => {
-                if step_original_tcp_flags(configured_step).is_empty() {
-                    bytes_committed = write_strategy_payload_named(
-                        writer,
-                        chunk,
-                        "write_split",
-                        step_family,
-                        step_fallback,
-                        bytes_committed,
-                    )?;
-                } else {
-                    bytes_committed = send_flagged_tcp_payload_action_named(
-                        writer,
-                        chunk,
-                        config.network.default_ttl,
-                        config.process.protect_path.as_deref(),
-                        md5sig,
-                        step_original_tcp_flags(configured_step),
-                        group.actions.ip_id_mode,
-                        "write_split",
-                        step_family,
-                        step_fallback,
-                        bytes_committed,
-                    )?;
-                }
-                await_writable_action_named(
-                    writer,
-                    config.timeouts.wait_send,
-                    Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
-                    "await_writable_split",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-            }
-            TcpChainStepKind::SeqOverlap => {
-                bytes_committed = write_strategy_payload_named(
-                    writer,
+            TcpChainStepKind::Split
+            | TcpChainStepKind::SynData
+            | TcpChainStepKind::SeqOverlap
+            | TcpChainStepKind::Oob => {
+                let mut basic_stream_ctx = TcpBasicStreamExecContext { writer, config, group, md5sig };
+                bytes_committed = execute_basic_tcp_stream_step(
+                    &mut basic_stream_ctx,
+                    step.kind,
+                    configured_step,
                     chunk,
-                    "write_seqovl",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-                await_writable_action_named(
-                    writer,
-                    config.timeouts.wait_send,
-                    Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
-                    "await_writable_seqovl",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-            }
-            TcpChainStepKind::Oob => {
-                bytes_committed = send_oob_action_named(
-                    writer,
-                    chunk,
-                    group.actions.oob_data.unwrap_or(b'a'),
-                    "send_oob",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-                await_writable_action_named(
-                    writer,
-                    config.timeouts.wait_send,
-                    Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
-                    "await_writable_oob",
                     step_family,
                     step_fallback,
                     bytes_committed,
