@@ -2037,6 +2037,45 @@ fn execute_tcp_ipfrag2_step(
     Ok((bytes_committed, TcpStepControl::BreakPlan))
 }
 
+fn execute_tcp_fakerst_step(
+    writer: &mut TcpStream,
+    config: &RuntimeConfig,
+    group: &DesyncGroup,
+    configured_step: &TcpChainStep,
+    chunk: &[u8],
+    end: usize,
+    step_family: &'static str,
+    step_fallback: Option<&'static str>,
+    md5sig: bool,
+    bytes_committed: usize,
+) -> Result<(usize, TcpStepControl), OutboundSendError> {
+    let _ = platform::send_fake_rst(
+        writer,
+        config.network.default_ttl,
+        config.process.protect_path.as_deref(),
+        step_fake_tcp_flags(configured_step),
+        group.actions.ip_id_mode,
+    );
+    let bytes_committed = if step_original_tcp_flags(configured_step).is_empty() {
+        write_strategy_payload_named(writer, chunk, "write_fakerst", step_family, step_fallback, bytes_committed)?
+    } else {
+        send_flagged_tcp_payload_action_named(
+            writer,
+            chunk,
+            config.network.default_ttl,
+            config.process.protect_path.as_deref(),
+            md5sig,
+            step_original_tcp_flags(configured_step),
+            group.actions.ip_id_mode,
+            "write_fakerst",
+            step_family,
+            step_fallback,
+            bytes_committed,
+        )?
+    };
+    Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
+}
+
 fn execute_tcp_plan(
     writer: &mut TcpStream,
     config: &RuntimeConfig,
@@ -2204,10 +2243,7 @@ fn execute_tcp_plan(
                 )?;
                 bytes_committed = next_bytes_committed;
                 match control {
-                    TcpStepControl::ContinueAt(next_cursor) => {
-                        cursor = next_cursor;
-                        continue;
-                    }
+                    TcpStepControl::ContinueAt(_next_cursor) => {}
                     TcpStepControl::BreakPlan => {
                         cursor = plan.tampered.len();
                         break;
@@ -2240,36 +2276,28 @@ fn execute_tcp_plan(
                 }
             }
             TcpChainStepKind::FakeRst => {
-                let _ = platform::send_fake_rst(
+                let (next_bytes_committed, control) = execute_tcp_fakerst_step(
                     writer,
-                    config.network.default_ttl,
-                    config.process.protect_path.as_deref(),
-                    step_fake_tcp_flags(configured_step),
-                    group.actions.ip_id_mode,
-                );
-                if step_original_tcp_flags(configured_step).is_empty() {
-                    bytes_committed = write_strategy_payload_named(
-                        writer,
-                        chunk,
-                        "write_fakerst",
-                        step_family,
-                        step_fallback,
-                        bytes_committed,
-                    )?;
-                } else {
-                    bytes_committed = send_flagged_tcp_payload_action_named(
-                        writer,
-                        chunk,
-                        config.network.default_ttl,
-                        config.process.protect_path.as_deref(),
-                        md5sig,
-                        step_original_tcp_flags(configured_step),
-                        group.actions.ip_id_mode,
-                        "write_fakerst",
-                        step_family,
-                        step_fallback,
-                        bytes_committed,
-                    )?;
+                    config,
+                    group,
+                    configured_step,
+                    chunk,
+                    end,
+                    step_family,
+                    step_fallback,
+                    md5sig,
+                    bytes_committed,
+                )?;
+                bytes_committed = next_bytes_committed;
+                match control {
+                    TcpStepControl::ContinueAt(next_cursor) => {
+                        cursor = next_cursor;
+                        continue;
+                    }
+                    TcpStepControl::BreakPlan => {
+                        cursor = plan.tampered.len();
+                        break;
+                    }
                 }
             }
             TcpChainStepKind::MultiDisorder => {
@@ -4166,6 +4194,37 @@ mod tests {
         use std::io::Read;
         server.read_exact(&mut buf).expect("ipfrag2 fallback should write full payload");
         assert_eq!(&buf, b"hello");
+    }
+
+    #[test]
+    #[cfg(not(target_os = "linux"))]
+    fn plan_fakerst_writes_payload_after_fake_reset_attempt() {
+        let (mut client, mut server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let mut group = test_group();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeRst, test_offset()));
+
+        let result = execute_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &group,
+            &DesyncPlan {
+                tampered: b"ping".to_vec(),
+                steps: vec![PlannedStep { kind: TcpChainStepKind::FakeRst, start: 0, end: 4 }],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            0,
+            None,
+            Some("fakerst"),
+            &unavailable,
+        );
+        assert_eq!(result.unwrap(), 4);
+        server.set_read_timeout(Some(Duration::from_millis(100))).ok();
+        let mut buf = vec![0u8; 4];
+        use std::io::Read;
+        server.read_exact(&mut buf).expect("fakerst branch should still write payload");
+        assert_eq!(&buf, b"ping");
     }
 
     #[test]
