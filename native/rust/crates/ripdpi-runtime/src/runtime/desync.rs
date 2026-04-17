@@ -2076,6 +2076,169 @@ fn execute_tcp_fakerst_step(
     Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
 }
 
+struct TcpPlanStepExecContext<'a> {
+    writer: &'a mut TcpStream,
+    config: &'a RuntimeConfig,
+    group: &'a DesyncGroup,
+    plan: &'a DesyncPlan,
+    seed: u32,
+    resolved_fake_ttl: Option<u8>,
+    restore_ttl: u8,
+    md5sig: bool,
+    fake_packets: Option<&'a BuiltFakePackets>,
+    ttl_actions_unavailable: &'a mut bool,
+}
+
+fn tcp_step_strategy_family(kind: TcpChainStepKind, strategy_family: Option<&'static str>) -> &'static str {
+    match kind {
+        TcpChainStepKind::Split | TcpChainStepKind::SynData => "split",
+        TcpChainStepKind::SeqOverlap => strategy_family.unwrap_or("seqovl"),
+        TcpChainStepKind::MultiDisorder => strategy_family.unwrap_or("multidisorder"),
+        TcpChainStepKind::Oob => "oob",
+        TcpChainStepKind::Disorder => "disorder",
+        TcpChainStepKind::Disoob => "disoob",
+        TcpChainStepKind::Fake => "fake",
+        TcpChainStepKind::FakeSplit => "fakedsplit",
+        TcpChainStepKind::FakeDisorder => "fakeddisorder",
+        TcpChainStepKind::HostFake => "hostfake",
+        TcpChainStepKind::IpFrag2 => "ipfrag2",
+        TcpChainStepKind::FakeRst => "fakerst",
+        TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => strategy_family.unwrap_or("tlsrec"),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_tcp_plan_step(
+    ctx: &mut TcpPlanStepExecContext<'_>,
+    kind: TcpChainStepKind,
+    configured_step: &TcpChainStep,
+    chunk: &[u8],
+    start: usize,
+    end: usize,
+    step_family: &'static str,
+    step_fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<(usize, TcpStepControl), OutboundSendError> {
+    match kind {
+        TcpChainStepKind::Split | TcpChainStepKind::SynData | TcpChainStepKind::SeqOverlap | TcpChainStepKind::Oob => {
+            let mut basic_stream_ctx = TcpBasicStreamExecContext {
+                writer: ctx.writer,
+                config: ctx.config,
+                group: ctx.group,
+                md5sig: ctx.md5sig,
+            };
+            let bytes_committed = execute_basic_tcp_stream_step(
+                &mut basic_stream_ctx,
+                kind,
+                configured_step,
+                chunk,
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
+            Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
+        }
+        TcpChainStepKind::Disorder | TcpChainStepKind::Disoob => {
+            let mut ttl_sensitive_ctx = TcpTtlSensitiveExecContext {
+                writer: ctx.writer,
+                config: ctx.config,
+                group: ctx.group,
+                restore_ttl: ctx.restore_ttl,
+                md5sig: ctx.md5sig,
+            };
+            let bytes_committed = execute_ttl_sensitive_tcp_step(
+                &mut ttl_sensitive_ctx,
+                kind,
+                configured_step,
+                chunk,
+                step_family,
+                step_fallback,
+                ctx.ttl_actions_unavailable,
+                bytes_committed,
+            )?;
+            Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
+        }
+        TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder => {
+            let fake_packets =
+                ctx.fake_packets.ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
+            let mut fake_family_ctx = TcpFakeFamilyExecContext {
+                writer: ctx.writer,
+                config: ctx.config,
+                group: ctx.group,
+                plan: ctx.plan,
+                fake_packets,
+                resolved_fake_ttl: ctx.resolved_fake_ttl,
+                restore_ttl: ctx.restore_ttl,
+                md5sig: ctx.md5sig,
+            };
+            execute_tcp_fake_family_step(
+                &mut fake_family_ctx,
+                kind,
+                configured_step,
+                chunk,
+                start,
+                end,
+                step_family,
+                step_fallback,
+                ctx.ttl_actions_unavailable,
+                bytes_committed,
+            )
+        }
+        TcpChainStepKind::IpFrag2 => execute_tcp_ipfrag2_step(
+            ctx.writer,
+            ctx.config,
+            ctx.group,
+            ctx.plan,
+            end,
+            configured_step,
+            step_family,
+            step_fallback,
+            bytes_committed,
+        ),
+        TcpChainStepKind::HostFake => {
+            let mut hostfake_ctx = TcpHostFakeExecContext {
+                writer: ctx.writer,
+                config: ctx.config,
+                group: ctx.group,
+                plan: ctx.plan,
+                seed: ctx.seed,
+                resolved_fake_ttl: ctx.resolved_fake_ttl,
+                md5sig: ctx.md5sig,
+            };
+            execute_tcp_hostfake_step(
+                &mut hostfake_ctx,
+                configured_step,
+                chunk,
+                start,
+                end,
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )
+        }
+        TcpChainStepKind::FakeRst => execute_tcp_fakerst_step(
+            ctx.writer,
+            ctx.config,
+            ctx.group,
+            configured_step,
+            chunk,
+            end,
+            step_family,
+            step_fallback,
+            ctx.md5sig,
+            bytes_committed,
+        ),
+        TcpChainStepKind::MultiDisorder => Err(OutboundSendError::Transport(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "multidisorder must be executed as a grouped tcp plan",
+        ))),
+        TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => Err(OutboundSendError::Transport(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "tls prelude step must not appear in tcp send plan",
+        ))),
+    }
+}
+
 fn execute_tcp_plan(
     writer: &mut TcpStream,
     config: &RuntimeConfig,
@@ -2140,177 +2303,57 @@ fn execute_tcp_plan(
         }
         let chunk = &plan.tampered[start..end];
         let configured_step = &send_steps[index];
-        let step_family = match step.kind {
-            TcpChainStepKind::Split | TcpChainStepKind::SynData => "split",
-            TcpChainStepKind::SeqOverlap => strategy_family.unwrap_or("seqovl"),
-            TcpChainStepKind::MultiDisorder => strategy_family.unwrap_or("multidisorder"),
-            TcpChainStepKind::Oob => "oob",
-            TcpChainStepKind::Disorder => "disorder",
-            TcpChainStepKind::Disoob => "disoob",
-            TcpChainStepKind::Fake => "fake",
-            TcpChainStepKind::FakeSplit => "fakedsplit",
-            TcpChainStepKind::FakeDisorder => "fakeddisorder",
-            TcpChainStepKind::HostFake => "hostfake",
-            TcpChainStepKind::IpFrag2 => "ipfrag2",
-            TcpChainStepKind::FakeRst => "fakerst",
-            TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => strategy_family.unwrap_or("tlsrec"),
-        };
+        let step_family = tcp_step_strategy_family(step.kind, strategy_family);
         let step_fallback = strategy_fallback_family(step_family);
-
-        match step.kind {
-            TcpChainStepKind::Split
-            | TcpChainStepKind::SynData
-            | TcpChainStepKind::SeqOverlap
-            | TcpChainStepKind::Oob => {
-                let mut basic_stream_ctx = TcpBasicStreamExecContext { writer, config, group, md5sig };
-                bytes_committed = execute_basic_tcp_stream_step(
-                    &mut basic_stream_ctx,
+        let mut step_ctx = TcpPlanStepExecContext {
+            writer,
+            config,
+            group,
+            plan,
+            seed,
+            resolved_fake_ttl,
+            restore_ttl,
+            md5sig,
+            fake_packets: fake_packets.as_ref(),
+            ttl_actions_unavailable: &mut ttl_actions_unavailable,
+        };
+        let (next_bytes_committed, control) = execute_tcp_plan_step(
+            &mut step_ctx,
+            step.kind,
+            configured_step,
+            chunk,
+            start,
+            end,
+            step_family,
+            step_fallback,
+            bytes_committed,
+        )?;
+        bytes_committed = next_bytes_committed;
+        match control {
+            TcpStepControl::ContinueAt(next_cursor)
+                if matches!(
                     step.kind,
-                    configured_step,
-                    chunk,
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-            }
-            TcpChainStepKind::Disorder | TcpChainStepKind::Disoob => {
-                let mut ttl_sensitive_ctx = TcpTtlSensitiveExecContext { writer, config, group, restore_ttl, md5sig };
-                bytes_committed = execute_ttl_sensitive_tcp_step(
-                    &mut ttl_sensitive_ctx,
-                    step.kind,
-                    configured_step,
-                    chunk,
-                    step_family,
-                    step_fallback,
-                    &mut ttl_actions_unavailable,
-                    bytes_committed,
-                )?;
-            }
-            TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder => {
-                let fake_packets = fake_packets
-                    .as_ref()
-                    .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
-                let mut fake_family_ctx = TcpFakeFamilyExecContext {
-                    writer,
-                    config,
-                    group,
-                    plan,
-                    fake_packets,
-                    resolved_fake_ttl,
-                    restore_ttl,
-                    md5sig,
-                };
-                let (next_bytes_committed, control) = execute_tcp_fake_family_step(
-                    &mut fake_family_ctx,
-                    step.kind,
-                    configured_step,
-                    chunk,
-                    start,
-                    end,
-                    step_family,
-                    step_fallback,
-                    &mut ttl_actions_unavailable,
-                    bytes_committed,
-                )?;
-                bytes_committed = next_bytes_committed;
-                match control {
-                    TcpStepControl::ContinueAt(next_cursor) => {
-                        cursor = next_cursor;
-                        if configured_step.inter_segment_delay_ms > 0 && index + 1 < plan.steps.len() {
-                            std::thread::sleep(Duration::from_millis(u64::from(
-                                configured_step.inter_segment_delay_ms.min(500),
-                            )));
-                        }
-                        continue;
-                    }
-                    TcpStepControl::BreakPlan => {
-                        cursor = plan.tampered.len();
-                        break;
-                    }
+                    TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder
+                ) =>
+            {
+                cursor = next_cursor;
+                if configured_step.inter_segment_delay_ms > 0 && index + 1 < plan.steps.len() {
+                    std::thread::sleep(Duration::from_millis(u64::from(
+                        configured_step.inter_segment_delay_ms.min(500),
+                    )));
                 }
+                continue;
             }
-            TcpChainStepKind::IpFrag2 => {
-                let (next_bytes_committed, control) = execute_tcp_ipfrag2_step(
-                    writer,
-                    config,
-                    group,
-                    plan,
-                    end,
-                    configured_step,
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-                bytes_committed = next_bytes_committed;
-                match control {
-                    TcpStepControl::ContinueAt(_next_cursor) => {}
-                    TcpStepControl::BreakPlan => {
-                        cursor = plan.tampered.len();
-                        break;
-                    }
-                }
+            TcpStepControl::ContinueAt(next_cursor)
+                if matches!(step.kind, TcpChainStepKind::HostFake | TcpChainStepKind::FakeRst) =>
+            {
+                cursor = next_cursor;
+                continue;
             }
-            TcpChainStepKind::HostFake => {
-                let mut hostfake_ctx =
-                    TcpHostFakeExecContext { writer, config, group, plan, seed, resolved_fake_ttl, md5sig };
-                let (next_bytes_committed, control) = execute_tcp_hostfake_step(
-                    &mut hostfake_ctx,
-                    configured_step,
-                    chunk,
-                    start,
-                    end,
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-                bytes_committed = next_bytes_committed;
-                match control {
-                    TcpStepControl::ContinueAt(next_cursor) => {
-                        cursor = next_cursor;
-                        continue;
-                    }
-                    TcpStepControl::BreakPlan => {
-                        cursor = plan.tampered.len();
-                        break;
-                    }
-                }
-            }
-            TcpChainStepKind::FakeRst => {
-                let (next_bytes_committed, control) = execute_tcp_fakerst_step(
-                    writer,
-                    config,
-                    group,
-                    configured_step,
-                    chunk,
-                    end,
-                    step_family,
-                    step_fallback,
-                    md5sig,
-                    bytes_committed,
-                )?;
-                bytes_committed = next_bytes_committed;
-                match control {
-                    TcpStepControl::ContinueAt(next_cursor) => {
-                        cursor = next_cursor;
-                        continue;
-                    }
-                    TcpStepControl::BreakPlan => {
-                        cursor = plan.tampered.len();
-                        break;
-                    }
-                }
-            }
-            TcpChainStepKind::MultiDisorder => {
-                return Err(OutboundSendError::Transport(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "multidisorder must be executed as a grouped tcp plan",
-                )));
-            }
-            TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => {
-                return Err(OutboundSendError::Transport(io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "tls prelude step must not appear in tcp send plan",
-                )));
+            TcpStepControl::ContinueAt(_) => {}
+            TcpStepControl::BreakPlan => {
+                cursor = plan.tampered.len();
+                break;
             }
         }
         if configured_step.inter_segment_delay_ms > 0 && index + 1 < plan.steps.len() {
