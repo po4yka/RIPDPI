@@ -955,30 +955,19 @@ fn execute_basic_tcp_stream_step(
 ) -> Result<usize, OutboundSendError> {
     match kind {
         TcpChainStepKind::Split | TcpChainStepKind::SynData => {
-            let bytes_committed = if step_original_tcp_flags(configured_step).is_empty() {
-                write_strategy_payload_named(
-                    ctx.writer,
-                    chunk,
-                    "write_split",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?
-            } else {
-                send_flagged_tcp_payload_action_named(
-                    ctx.writer,
-                    chunk,
-                    ctx.config.network.default_ttl,
-                    ctx.config.process.protect_path.as_deref(),
-                    ctx.md5sig,
-                    step_original_tcp_flags(configured_step),
-                    ctx.group.actions.ip_id_mode,
-                    "write_split",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?
-            };
+            let bytes_committed = write_strategy_payload_with_optional_flags_named(
+                ctx.writer,
+                chunk,
+                ctx.config.network.default_ttl,
+                ctx.config.process.protect_path.as_deref(),
+                ctx.md5sig,
+                step_original_tcp_flags(configured_step),
+                ctx.group.actions.ip_id_mode,
+                "write_split",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
             await_writable_action_named(
                 ctx.writer,
                 ctx.config.timeouts.wait_send,
@@ -1064,57 +1053,33 @@ fn execute_ttl_sensitive_tcp_step(
                 step_fallback,
                 bytes_committed,
             )?;
-            let bytes_committed = if step_original_tcp_flags(configured_step).is_empty() {
-                let (should_restore_ttl, bytes_committed) = write_payload_with_android_ttl_fallback(
+            let (should_restore_ttl, bytes_committed) = write_ttl_sensitive_payload_with_optional_flags_named(
+                ctx.writer,
+                chunk,
+                ctx.restore_ttl,
+                ttl_modified,
+                ttl_actions_unavailable,
+                ctx.config.network.default_ttl,
+                ctx.config.process.protect_path.as_deref(),
+                ctx.md5sig,
+                step_original_tcp_flags(configured_step),
+                ctx.group.actions.ip_id_mode,
+                "write_disorder",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
+            if should_restore_ttl {
+                let _ = restore_default_ttl_with_android_fallback_named(
                     ctx.writer,
-                    chunk,
                     ctx.restore_ttl,
-                    ttl_modified,
                     ttl_actions_unavailable,
-                    "write_disorder",
+                    "restore_default_ttl_disorder",
                     step_family,
                     step_fallback,
                     bytes_committed,
                 )?;
-                if should_restore_ttl {
-                    let _ = restore_default_ttl_with_android_fallback_named(
-                        ctx.writer,
-                        ctx.restore_ttl,
-                        ttl_actions_unavailable,
-                        "restore_default_ttl_disorder",
-                        step_family,
-                        step_fallback,
-                        bytes_committed,
-                    )?;
-                }
-                bytes_committed
-            } else {
-                let bytes_committed = send_flagged_tcp_payload_action_named(
-                    ctx.writer,
-                    chunk,
-                    ctx.config.network.default_ttl,
-                    ctx.config.process.protect_path.as_deref(),
-                    ctx.md5sig,
-                    step_original_tcp_flags(configured_step),
-                    ctx.group.actions.ip_id_mode,
-                    "write_disorder",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-                if ttl_modified {
-                    let _ = restore_default_ttl_with_android_fallback_named(
-                        ctx.writer,
-                        ctx.restore_ttl,
-                        ttl_actions_unavailable,
-                        "restore_default_ttl_disorder",
-                        step_family,
-                        step_fallback,
-                        bytes_committed,
-                    )?;
-                }
-                bytes_committed
-            };
+            }
             await_writable_action_named(
                 ctx.writer,
                 ctx.config.timeouts.wait_send,
@@ -1288,9 +1253,14 @@ fn execute_tcp_fake_family_step(
         TcpChainStepKind::FakeSplit => {
             let second = &ctx.plan.tampered[end..];
             if second.is_empty() {
-                let bytes_committed = write_strategy_payload_named(
+                let bytes_committed = write_strategy_payload_with_optional_flags_named(
                     ctx.writer,
                     chunk,
+                    ctx.config.network.default_ttl,
+                    ctx.config.process.protect_path.as_deref(),
+                    ctx.md5sig,
+                    step_original_tcp_flags(configured_step),
+                    ctx.group.actions.ip_id_mode,
                     "write_fakesplit",
                     step_family,
                     step_fallback,
@@ -1426,12 +1396,17 @@ fn execute_tcp_fake_family_step(
                     step_fallback,
                     bytes_committed,
                 )?;
-                let (should_restore_ttl, bytes_committed) = write_payload_with_android_ttl_fallback(
+                let (should_restore_ttl, bytes_committed) = write_ttl_sensitive_payload_with_optional_flags_named(
                     ctx.writer,
                     chunk,
                     ctx.restore_ttl,
                     ttl_modified,
                     ttl_actions_unavailable,
+                    ctx.config.network.default_ttl,
+                    ctx.config.process.protect_path.as_deref(),
+                    ctx.md5sig,
+                    step_original_tcp_flags(configured_step),
+                    ctx.group.actions.ip_id_mode,
                     "write_fakeddisorder",
                     step_family,
                     step_fallback,
@@ -1734,9 +1709,14 @@ fn execute_tcp_hostfake_step(
     bytes_committed: usize,
 ) -> Result<(usize, TcpStepControl), OutboundSendError> {
     let Some(span) = resolve_hostfake_span(configured_step, &ctx.plan.tampered, start, end, ctx.seed) else {
-        let bytes_committed = write_strategy_payload_named(
+        let bytes_committed = write_strategy_payload_with_optional_flags_named(
             ctx.writer,
             chunk,
+            ctx.config.network.default_ttl,
+            ctx.config.process.protect_path.as_deref(),
+            ctx.md5sig,
+            step_original_tcp_flags(configured_step),
+            ctx.group.actions.ip_id_mode,
             "write_hostfake",
             step_family,
             step_fallback,
@@ -2023,9 +2003,14 @@ fn execute_tcp_ipfrag2_step(
         Ok(committed) => committed,
         Err(err) if should_fallback_ipfrag2_tcp_error_kind(err.kind()) => {
             log_ipfrag2_flow_fallback(&err);
-            write_strategy_payload_named(
+            write_strategy_payload_with_optional_flags_named(
                 writer,
                 &plan.tampered,
+                config.network.default_ttl,
+                config.process.protect_path.as_deref(),
+                false,
+                step_original_tcp_flags(configured_step),
+                group.actions.ip_id_mode,
                 "write_ipfrag2",
                 step_family,
                 step_fallback,
@@ -2056,23 +2041,19 @@ fn execute_tcp_fakerst_step(
         step_fake_tcp_flags(configured_step),
         group.actions.ip_id_mode,
     );
-    let bytes_committed = if step_original_tcp_flags(configured_step).is_empty() {
-        write_strategy_payload_named(writer, chunk, "write_fakerst", step_family, step_fallback, bytes_committed)?
-    } else {
-        send_flagged_tcp_payload_action_named(
-            writer,
-            chunk,
-            config.network.default_ttl,
-            config.process.protect_path.as_deref(),
-            md5sig,
-            step_original_tcp_flags(configured_step),
-            group.actions.ip_id_mode,
-            "write_fakerst",
-            step_family,
-            step_fallback,
-            bytes_committed,
-        )?
-    };
+    let bytes_committed = write_strategy_payload_with_optional_flags_named(
+        writer,
+        chunk,
+        config.network.default_ttl,
+        config.process.protect_path.as_deref(),
+        md5sig,
+        step_original_tcp_flags(configured_step),
+        group.actions.ip_id_mode,
+        "write_fakerst",
+        step_family,
+        step_fallback,
+        bytes_committed,
+    )?;
     Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
 }
 
@@ -2581,6 +2562,39 @@ fn write_strategy_payload_named(
     })
 }
 
+#[allow(clippy::too_many_arguments)]
+fn write_strategy_payload_with_optional_flags_named(
+    stream: &mut TcpStream,
+    bytes: &[u8],
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    md5sig: bool,
+    flags: platform::TcpFlagOverrides,
+    ip_id_mode: Option<ripdpi_config::IpIdMode>,
+    action: &'static str,
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<usize, OutboundSendError> {
+    if flags.is_empty() {
+        write_strategy_payload_named(stream, bytes, action, strategy_family, fallback, bytes_committed)
+    } else {
+        send_flagged_tcp_payload_action_named(
+            stream,
+            bytes,
+            default_ttl,
+            protect_path,
+            md5sig,
+            flags,
+            ip_id_mode,
+            action,
+            strategy_family,
+            fallback,
+            bytes_committed,
+        )
+    }
+}
+
 fn send_transport_oob_payload(writer: &TcpStream, prefix: &[u8], urgent_byte: u8) -> Result<usize, OutboundSendError> {
     send_out_of_band(writer, prefix, urgent_byte).map(|()| prefix.len() + 1).map_err(OutboundSendError::Transport)
 }
@@ -2640,6 +2654,53 @@ fn write_payload_with_android_ttl_fallback(
             bytes_committed + progress.written,
             progress.source,
         )),
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn write_ttl_sensitive_payload_with_optional_flags_named(
+    writer: &mut TcpStream,
+    bytes: &[u8],
+    restore_ttl: u8,
+    ttl_modified: bool,
+    ttl_actions_unavailable: &mut bool,
+    default_ttl: u8,
+    protect_path: Option<&str>,
+    md5sig: bool,
+    flags: platform::TcpFlagOverrides,
+    ip_id_mode: Option<ripdpi_config::IpIdMode>,
+    action: &'static str,
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<(bool, usize), OutboundSendError> {
+    if flags.is_empty() {
+        write_payload_with_android_ttl_fallback(
+            writer,
+            bytes,
+            restore_ttl,
+            ttl_modified,
+            ttl_actions_unavailable,
+            action,
+            strategy_family,
+            fallback,
+            bytes_committed,
+        )
+    } else {
+        let committed = write_strategy_payload_with_optional_flags_named(
+            writer,
+            bytes,
+            default_ttl,
+            protect_path,
+            md5sig,
+            flags,
+            ip_id_mode,
+            action,
+            strategy_family,
+            fallback,
+            bytes_committed,
+        )?;
+        Ok((ttl_modified, committed))
     }
 }
 
@@ -4323,6 +4384,40 @@ mod tests {
 
     #[test]
     #[cfg(not(target_os = "linux"))]
+    fn plan_ipfrag2_fallback_with_original_flags_fails_closed() {
+        let (mut client, mut server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let mut step = TcpChainStep::new(TcpChainStepKind::IpFrag2, test_offset());
+        step.tcp_flags_orig_set = Some(0x12);
+        let mut group = test_group();
+        group.actions.tcp_chain.push(step);
+
+        let err = execute_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &group,
+            &DesyncPlan {
+                tampered: b"hello".to_vec(),
+                steps: vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 2 }],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            0,
+            None,
+            Some("ipfrag2"),
+            &unavailable,
+        )
+        .expect_err("ipfrag2 fallback with original flags should fail closed");
+        assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
+        server.set_read_timeout(Some(Duration::from_millis(100))).ok();
+        let mut buf = vec![0u8; 5];
+        use std::io::Read;
+        let read_err = server.read(&mut buf).expect_err("payload should not be written");
+        assert!(matches!(read_err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut));
+    }
+
+    #[test]
+    #[cfg(not(target_os = "linux"))]
     fn plan_fakerst_writes_payload_after_fake_reset_attempt() {
         let (mut client, mut server) = connected_pair();
         let unavailable = default_ttl_unavailable();
@@ -4385,6 +4480,76 @@ mod tests {
         let read_result = server.read_exact(&mut buf);
         assert!(read_result.is_ok(), "hostfake fallback should write the unresolved span chunk");
         assert_eq!(&buf, &payload[..markers.host_start]);
+    }
+
+    #[test]
+    #[cfg(not(target_os = "linux"))]
+    fn plan_hostfake_without_resolved_span_with_original_flags_fails_closed() {
+        let (mut client, mut server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let payload = b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
+        let markers = http_marker_info(payload).expect("http markers");
+        let mut step = TcpChainStep::new(TcpChainStepKind::HostFake, test_offset());
+        step.tcp_flags_orig_set = Some(0x12);
+        let mut group = test_group();
+        group.actions.tcp_chain.push(step);
+
+        let err = execute_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &group,
+            &DesyncPlan {
+                tampered: payload.to_vec(),
+                steps: vec![PlannedStep { kind: TcpChainStepKind::HostFake, start: 0, end: markers.host_start as i64 }],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            23,
+            Some(9),
+            Some("hostfake"),
+            &unavailable,
+        )
+        .expect_err("hostfake unresolved-span fallback with original flags should fail closed");
+        assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
+        server.set_read_timeout(Some(Duration::from_millis(100))).ok();
+        let mut buf = vec![0u8; markers.host_start];
+        use std::io::Read;
+        let read_err = server.read(&mut buf).expect_err("payload should not be written");
+        assert!(matches!(read_err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut));
+    }
+
+    #[test]
+    #[cfg(not(target_os = "linux"))]
+    fn plan_fakesplit_terminal_step_with_original_flags_fails_closed() {
+        let (mut client, mut server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let mut step = TcpChainStep::new(TcpChainStepKind::FakeSplit, test_offset());
+        step.tcp_flags_orig_set = Some(0x12);
+        let mut group = test_group();
+        group.actions.tcp_chain.push(step);
+
+        let err = execute_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &group,
+            &DesyncPlan {
+                tampered: b"hello".to_vec(),
+                steps: vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 5 }],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            0,
+            Some(9),
+            Some("fakesplit"),
+            &unavailable,
+        )
+        .expect_err("terminal fakesplit with original flags should fail closed");
+        assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
+        server.set_read_timeout(Some(Duration::from_millis(100))).ok();
+        let mut buf = vec![0u8; 5];
+        use std::io::Read;
+        let read_err = server.read(&mut buf).expect_err("payload should not be written");
+        assert!(matches!(read_err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut));
     }
 
     #[test]
