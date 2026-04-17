@@ -4,6 +4,7 @@ use ripdpi_failure_classifier::{ClassifiedFailure, FailureAction, FailureClass, 
 
 use crate::observations::observation_for_probe;
 use crate::types::{Diagnosis, ProbeResult, ScanRequest};
+use crate::util::is_suspected_dns_tampering_outcome;
 
 use super::strategy::{
     classify_strategy_probe_baseline_observations, strategy_probe_failure_priority, strategy_probe_observation_weight,
@@ -81,9 +82,12 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
     }
 
     for result in results.iter().filter(|result| result.probe_type == "dns_integrity") {
-        if matches!(result.outcome.as_str(), "dns_substitution" | "dns_expected_mismatch" | "dns_nxdomain") {
+        if matches!(
+            result.outcome.as_str(),
+            "dns_sinkhole_substitution" | "dns_expected_mismatch" | "dns_nxdomain_mismatch"
+        ) {
             let injection_suspected = failure_detail_value(result, "dnsInjectionSuspected") == Some("true");
-            let (mechanism, summary) = if result.outcome == "dns_nxdomain" {
+            let (mechanism, summary) = if result.outcome == "dns_nxdomain_mismatch" {
                 (
                     "record_deletion",
                     format!(
@@ -256,9 +260,57 @@ pub(crate) fn classify_connectivity_diagnoses(request: &ScanRequest, results: &[
                                 "Enable encrypted DNS to bypass DNS-level censorship".to_string(),
                             ),
                             control_validated: None,
-                        },
-                    );
+                    },
+                );
                 }
+            } else if result.outcome == "dns_suspicious_divergence" {
+                push_diagnosis(
+                &mut diagnoses,
+                &mut seen,
+                Diagnosis {
+                    code: "dns_divergence_suspected".to_string(),
+                    summary: format!(
+                        "DNS answers for {} diverged suspiciously from the encrypted oracle without a direct sinkhole match",
+                        result.target
+                    ),
+                    severity: "warning".to_string(),
+                    target: Some(result.target.clone()),
+                    evidence: diagnosis_evidence(
+                        result,
+                        &["udpAddresses", "encryptedAddresses", "udpLatencyMs", "encryptedLatencyMs"],
+                    ),
+                    recommendation: Some("Re-run with multiple resolvers or encrypted DNS enabled".to_string()),
+                    control_validated: None,
+                },
+            );
+            }
+
+            if is_suspected_dns_tampering_outcome(result.outcome.as_str())
+                && failure_detail_value(result, "dnsInjectionSuspected") == Some("true")
+                && !diagnoses.iter().any(|diagnosis| {
+                    diagnosis.code == "dns_injection_suspected"
+                        && diagnosis.target.as_deref() == Some(result.target.as_str())
+                })
+            {
+                push_diagnosis(
+                &mut diagnoses,
+                &mut seen,
+                Diagnosis {
+                    code: "dns_injection_suspected".to_string(),
+                    summary: format!(
+                        "DNS response for {} arrived in under 5ms with substituted or suspiciously divergent answers, suggesting in-path injection",
+                        result.target
+                    ),
+                    severity: "negative".to_string(),
+                    target: Some(result.target.clone()),
+                    evidence: diagnosis_evidence(
+                        result,
+                        &["udpAddresses", "encryptedAddresses", "udpLatencyMs", "encryptedLatencyMs"],
+                    ),
+                    recommendation: None,
+                    control_validated: None,
+                },
+            );
             }
         }
     }
@@ -828,7 +880,7 @@ mod tests {
                 connectivity_probe(
                     "dns_integrity",
                     "meduza.io",
-                    "dns_substitution",
+                    "dns_sinkhole_substitution",
                     &[("udpAddresses", "203.0.113.10"), ("encryptedAddresses", "104.22.1.1")],
                 ),
                 connectivity_probe(

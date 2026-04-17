@@ -153,9 +153,9 @@ pub(crate) enum DnsAnswerOverlap {
     /// Any shared IP or shared /24 (v4) / /48 (v6) prefix.
     Match,
     /// Disjoint answers but both sides are plausibly public.
-    Divergence,
+    CompatibleDivergence,
     /// Disjoint answers and at least one side returns a sinkhole / private IP.
-    Substitution,
+    SinkholeSubstitution,
 }
 
 pub(crate) fn classify_dns_answer_overlap(udp: &[String], encrypted: &[String]) -> DnsAnswerOverlap {
@@ -175,9 +175,13 @@ pub(crate) fn classify_dns_answer_overlap(udp: &[String], encrypted: &[String]) 
         return DnsAnswerOverlap::Match;
     }
     if udp_set.iter().any(|ip| looks_like_sinkhole(ip)) || enc_set.iter().any(|ip| looks_like_sinkhole(ip)) {
-        return DnsAnswerOverlap::Substitution;
+        return DnsAnswerOverlap::SinkholeSubstitution;
     }
-    DnsAnswerOverlap::Divergence
+    DnsAnswerOverlap::CompatibleDivergence
+}
+
+pub(crate) fn is_suspected_dns_tampering_outcome(outcome: &str) -> bool {
+    matches!(outcome, "dns_suspicious_divergence" | "dns_sinkhole_substitution" | "dns_nxdomain_mismatch")
 }
 
 pub(crate) fn format_result_set(result: &Result<Vec<String>, String>) -> String {
@@ -262,9 +266,9 @@ pub(crate) fn classify_probe_outcome(
 /// those cases, `None` otherwise.
 fn event_level_override(probe_type: &str, outcome: &str) -> Option<&'static str> {
     match (probe_type, outcome) {
-        ("dns_integrity", "dns_substitution")
-        | ("dns_integrity", "encrypted_dns_blocked")
-        | ("dns_integrity", "dns_nxdomain")
+        ("dns_integrity", "dns_sinkhole_substitution")
+        | ("dns_integrity", "dns_nxdomain_mismatch")
+        | ("dns_integrity", "dns_suspicious_divergence")
         | ("domain_reachability", "tls_cert_invalid")
         | ("domain_reachability", "http_blockpage")
         | ("service_reachability", "service_blocked")
@@ -292,14 +296,15 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
         },
         "dns_integrity" => match outcome {
             "dns_match" => ProbeOutcomeBucket::Healthy,
-            "dns_expected_mismatch" | "dns_answer_divergence" => ProbeOutcomeBucket::Attention,
+            "dns_expected_mismatch" | "dns_compatible_divergence" | "dns_suspicious_divergence" => {
+                ProbeOutcomeBucket::Attention
+            }
             "udp_blocked" if matches!(path_mode, ScanPathMode::RawPath) => ProbeOutcomeBucket::Attention,
             "udp_blocked" => ProbeOutcomeBucket::Inconclusive,
             "udp_skipped_or_blocked" if matches!(path_mode, ScanPathMode::InPath) => ProbeOutcomeBucket::Attention,
             "udp_skipped_or_blocked" => ProbeOutcomeBucket::Inconclusive,
-            "dns_substitution" | "dns_nxdomain" | "encrypted_dns_blocked" | "dns_unavailable" => {
-                ProbeOutcomeBucket::Failed
-            }
+            "dns_sinkhole_substitution" | "dns_nxdomain_mismatch" | "dns_unavailable" => ProbeOutcomeBucket::Failed,
+            "dns_oracle_unavailable" => ProbeOutcomeBucket::Inconclusive,
             _ => legacy_outcome_bucket(outcome),
         },
         "domain_reachability" => match outcome {
@@ -522,8 +527,8 @@ mod tests {
             ProbeOutcomeBucket::Attention,
         );
         assert_eq!(
-            classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "encrypted_dns_blocked").bucket,
-            ProbeOutcomeBucket::Failed,
+            classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "dns_oracle_unavailable").bucket,
+            ProbeOutcomeBucket::Inconclusive,
         );
         assert_eq!(
             classify_probe_outcome("tcp_fat_header", &ScanPathMode::RawPath, "whitelist_sni_ok").bucket,
@@ -544,8 +549,9 @@ mod tests {
     }
 
     #[test]
-    fn dns_answer_divergence_classification_is_attention() {
-        let classification = classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "dns_answer_divergence");
+    fn dns_divergence_classification_is_attention() {
+        let classification =
+            classify_probe_outcome("dns_integrity", &ScanPathMode::RawPath, "dns_compatible_divergence");
         assert_eq!(classification.bucket, ProbeOutcomeBucket::Attention);
         assert_eq!(classification.event_level, "warn");
     }
@@ -554,18 +560,18 @@ mod tests {
     fn event_level_is_warn_for_censorship_findings() {
         // These are Failed bucket (severity-wise) but belong at warn because
         // they report expected censorship outcomes, not infra failures.
-        for (probe, outcome) in [
-            ("dns_integrity", "encrypted_dns_blocked"),
-            ("dns_integrity", "dns_substitution"),
-            ("dns_integrity", "dns_nxdomain"),
-            ("domain_reachability", "tls_cert_invalid"),
-            ("domain_reachability", "http_blockpage"),
-            ("service_reachability", "service_blocked"),
-            ("circumvention_reachability", "circumvention_blocked"),
-            ("telegram_availability", "blocked"),
+        for (probe, outcome, bucket) in [
+            ("dns_integrity", "dns_sinkhole_substitution", ProbeOutcomeBucket::Failed),
+            ("dns_integrity", "dns_nxdomain_mismatch", ProbeOutcomeBucket::Failed),
+            ("dns_integrity", "dns_suspicious_divergence", ProbeOutcomeBucket::Attention),
+            ("domain_reachability", "tls_cert_invalid", ProbeOutcomeBucket::Failed),
+            ("domain_reachability", "http_blockpage", ProbeOutcomeBucket::Failed),
+            ("service_reachability", "service_blocked", ProbeOutcomeBucket::Failed),
+            ("circumvention_reachability", "circumvention_blocked", ProbeOutcomeBucket::Failed),
+            ("telegram_availability", "blocked", ProbeOutcomeBucket::Failed),
         ] {
             let c = classify_probe_outcome(probe, &ScanPathMode::RawPath, outcome);
-            assert_eq!(c.bucket, ProbeOutcomeBucket::Failed, "{probe}/{outcome} should stay Failed");
+            assert_eq!(c.bucket, bucket, "{probe}/{outcome} should keep its expected bucket");
             assert_eq!(c.event_level, "warn", "{probe}/{outcome} should log at warn");
         }
     }
@@ -606,19 +612,19 @@ mod tests {
     fn answer_overlap_diverges_for_disjoint_public_anycast() {
         // Google anycast edges: UDP sees 142.250.x, encrypted sees 172.217.x.
         let overlap = classify_dns_answer_overlap(&["142.250.75.78".to_string()], &["172.217.20.206".to_string()]);
-        assert_eq!(overlap, DnsAnswerOverlap::Divergence);
+        assert_eq!(overlap, DnsAnswerOverlap::CompatibleDivergence);
     }
 
     #[test]
     fn answer_overlap_flags_substitution_on_private_ip() {
         let overlap = classify_dns_answer_overlap(&["10.1.1.1".to_string()], &["142.250.75.78".to_string()]);
-        assert_eq!(overlap, DnsAnswerOverlap::Substitution);
+        assert_eq!(overlap, DnsAnswerOverlap::SinkholeSubstitution);
     }
 
     #[test]
     fn answer_overlap_flags_substitution_on_loopback() {
         let overlap = classify_dns_answer_overlap(&["127.0.0.1".to_string()], &["104.16.132.229".to_string()]);
-        assert_eq!(overlap, DnsAnswerOverlap::Substitution);
+        assert_eq!(overlap, DnsAnswerOverlap::SinkholeSubstitution);
     }
 
     #[test]
