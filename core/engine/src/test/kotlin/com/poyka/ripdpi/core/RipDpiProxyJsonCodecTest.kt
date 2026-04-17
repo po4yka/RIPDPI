@@ -327,4 +327,88 @@ class RipDpiProxyJsonCodecTest {
         assertEquals("compat_burst", morphPolicy?.quicBurstProfile)
         assertEquals("compat_default", morphPolicy?.fakePacketShapeProfile)
     }
+
+    @Test
+    fun `ui preferences round trip warp ws tunnel and log context sections`() {
+        val preferences =
+            RipDpiProxyUIPreferences(
+                warp =
+                    RipDpiWarpConfig(
+                        enabled = true,
+                        routeMode = "rules",
+                        routeHosts = "example.org\nexample.net",
+                        builtInRulesEnabled = false,
+                        endpointSelectionMode = "manual",
+                        manualEndpoint =
+                            RipDpiWarpManualEndpointConfig(
+                                host = "engage.cloudflareclient.com",
+                                ipv4 = "162.159.193.10",
+                                ipv6 = "2606:4700:d0::a29f:c10a",
+                                port = 2409,
+                            ),
+                        scannerEnabled = false,
+                        scannerParallelism = 4,
+                        scannerMaxRttMs = 900,
+                        amneziaPreset = "custom",
+                        amnezia =
+                            RipDpiWarpAmneziaConfig(
+                                enabled = true,
+                                jc = 5,
+                                jmin = 2,
+                                jmax = 7,
+                                h1 = 11L,
+                                h2 = 12L,
+                                h3 = 13L,
+                                h4 = 14L,
+                                s1 = 21,
+                                s2 = 22,
+                                s3 = 23,
+                                s4 = 24,
+                            ),
+                        localSocksHost = "127.0.0.9",
+                        localSocksPort = 12090,
+                    ),
+                wsTunnel = RipDpiWsTunnelConfig(enabled = true, mode = "telegram"),
+                logContext =
+                    RipDpiLogContext(
+                        runtimeId = " runtime-1 ",
+                        mode = " Audit ",
+                        policySignature = " policy-v1 ",
+                        fingerprintHash = " fp-123 ",
+                        diagnosticsSessionId = " diag-321 ",
+                    ),
+            )
+
+        val decoded = decodeRipDpiProxyUiPreferences(preferences.toNativeConfigJson())
+        val warp = decoded?.warp
+        val wsTunnel = decoded?.wsTunnel
+        val logContext = decoded?.logContext
+
+        assertNotNull(warp)
+        assertEquals(true, warp?.enabled)
+        assertEquals("rules", warp?.routeMode)
+        assertEquals("example.org\nexample.net", warp?.routeHosts)
+        assertEquals(false, warp?.builtInRulesEnabled)
+        assertEquals("manual", warp?.endpointSelectionMode)
+        assertEquals("engage.cloudflareclient.com", warp?.manualEndpoint?.host)
+        assertEquals("162.159.193.10", warp?.manualEndpoint?.ipv4)
+        assertEquals("2606:4700:d0::a29f:c10a", warp?.manualEndpoint?.ipv6)
+        assertEquals(2409, warp?.manualEndpoint?.port)
+        assertEquals(false, warp?.scannerEnabled)
+        assertEquals(4, warp?.scannerParallelism)
+        assertEquals(900, warp?.scannerMaxRttMs)
+        assertEquals("custom", warp?.amneziaPreset)
+        assertEquals(true, warp?.amnezia?.enabled)
+        assertEquals(5, warp?.amnezia?.jc)
+        assertEquals(24, warp?.amnezia?.s4)
+        assertEquals("127.0.0.9", warp?.localSocksHost)
+        assertEquals(12090, warp?.localSocksPort)
+        assertEquals(true, wsTunnel?.enabled)
+        assertEquals("telegram", wsTunnel?.mode)
+        assertEquals("runtime-1", logContext?.runtimeId)
+        assertEquals("audit", logContext?.mode)
+        assertEquals("policy-v1", logContext?.policySignature)
+        assertEquals("fp-123", logContext?.fingerprintHash)
+        assertEquals("diag-321", logContext?.diagnosticsSessionId)
+    }
 }
