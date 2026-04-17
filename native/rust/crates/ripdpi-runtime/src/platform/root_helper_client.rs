@@ -13,7 +13,10 @@ use std::time::Duration;
 use nix::sys::socket::{self, ControlMessage, MsgFlags};
 use serde::{Deserialize, Serialize};
 
-use super::{recv_line_with_optional_fd, CapabilityOutcome, CapabilityUnavailable, IpFragmentationCapabilities, RuntimeCapability, TcpFlagOverrides};
+use super::{
+    recv_line_with_optional_fd, CapabilityOutcome, CapabilityUnavailable, IpFragmentationCapabilities,
+    RuntimeCapability, TcpFlagOverrides,
+};
 
 /// Client for communicating with the root helper process.
 pub struct RootHelperClient {
@@ -322,9 +325,24 @@ pub fn capability_outcome_from_probe_json(json: &str) -> Vec<(RuntimeCapability,
         Err(e) => {
             let msg = e.to_string();
             return vec![
-                (RuntimeCapability::RawTcpFakeSend, CapabilityOutcome::ProbeFailed { capability: RuntimeCapability::RawTcpFakeSend, error: msg.clone() }),
-                (RuntimeCapability::RawUdpFragmentation, CapabilityOutcome::ProbeFailed { capability: RuntimeCapability::RawUdpFragmentation, error: msg.clone() }),
-                (RuntimeCapability::TtlWrite, CapabilityOutcome::ProbeFailed { capability: RuntimeCapability::TtlWrite, error: msg }),
+                (
+                    RuntimeCapability::RawTcpFakeSend,
+                    CapabilityOutcome::ProbeFailed {
+                        capability: RuntimeCapability::RawTcpFakeSend,
+                        error: msg.clone(),
+                    },
+                ),
+                (
+                    RuntimeCapability::RawUdpFragmentation,
+                    CapabilityOutcome::ProbeFailed {
+                        capability: RuntimeCapability::RawUdpFragmentation,
+                        error: msg.clone(),
+                    },
+                ),
+                (
+                    RuntimeCapability::TtlWrite,
+                    CapabilityOutcome::ProbeFailed { capability: RuntimeCapability::TtlWrite, error: msg },
+                ),
             ];
         }
     };
