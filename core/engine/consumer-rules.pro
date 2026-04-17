@@ -11,3 +11,11 @@
 -keepclasseswithmembernames class com.poyka.ripdpi.core.NetworkDiagnosticsNativeBindings {
     native <methods>;
 }
+
+-keepclasseswithmembernames class com.poyka.ripdpi.core.RipDpiRelayNativeBindings {
+    native <methods>;
+}
+
+-keepclasseswithmembernames class com.poyka.ripdpi.core.RipDpiWarpNativeBindings {
+    native <methods>;
+}
