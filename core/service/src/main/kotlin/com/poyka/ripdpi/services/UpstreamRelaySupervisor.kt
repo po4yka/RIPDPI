@@ -81,7 +81,7 @@ internal class UpstreamRelaySupervisor(
         cloudflarePublishRuntimeFactory = cloudflarePublishRuntimeFactory,
         pluggableTransportRuntimeFactory = pluggableTransportRuntimeFactory,
         runtimeConfigResolver =
-            DefaultUpstreamRelayRuntimeConfigResolver(
+            createDefaultUpstreamRelayRuntimeConfigResolver(
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
                 cloudflareMasqueGeohashResolver = cloudflareMasqueGeohashResolver,
@@ -204,7 +204,7 @@ internal open class UpstreamRelaySupervisorFactory
                 override fun create(): RipDpiRelayRuntime =
                     error("Pluggable transport runtime factory is not configured in this test harness")
             },
-            DefaultUpstreamRelayRuntimeConfigResolver(
+            createDefaultUpstreamRelayRuntimeConfigResolver(
                 relayProfileStore = relayProfileStore,
                 relayCredentialStore = relayCredentialStore,
                 cloudflareMasqueGeohashResolver =
