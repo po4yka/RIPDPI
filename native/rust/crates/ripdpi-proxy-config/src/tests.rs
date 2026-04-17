@@ -589,6 +589,14 @@ fn legacy_flat_ui_json_is_rejected() {
 }
 
 #[test]
+fn grouped_ui_json_requires_at_least_one_nested_section() {
+    let err = parse_proxy_config_json(&serde_json::json!({ "kind": "ui" }).to_string())
+        .expect_err("ui payload without grouped sections should be rejected");
+
+    assert!(err.to_string().contains("at least one nested section"));
+}
+
+#[test]
 fn command_line_payload_requires_runnable_config() {
     let err = runtime_config_from_payload(ProxyConfigPayload::CommandLine {
         args: vec!["ripdpi".to_string(), "--help".to_string()],
@@ -773,6 +781,17 @@ fn adaptive_fake_offset_marker_is_rejected() {
     let err = runtime_config_from_payload(ui_payload(ui)).expect_err("adaptive fake offset");
 
     assert!(err.to_string().contains("fakeOffsetMarker"));
+}
+
+#[test]
+fn empty_fake_offset_marker_uses_compat_default_offset() {
+    let mut ui = minimal_ui();
+    ui.chains.tcp_steps = vec![tcp_step("fake", "host+1")];
+    ui.fake_packets.fake_offset_marker.clear();
+
+    let config = runtime_config_from_payload(ui_payload(ui)).expect("fake offset fallback");
+
+    assert_eq!(config.groups[0].actions.fake_offset, Some(OffsetExpr::absolute(0)));
 }
 
 #[test]
