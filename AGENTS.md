@@ -279,3 +279,23 @@ Additional Rust/native skills in `.claude/skills/`:
 | `ws-tunnel-telegram` | Working with MTProto WebSocket tunnel for Telegram traffic, ripdpi-ws-tunnel crate, DC IP database, or obfuscated2 classification |
 
 Treat the tables above as an index only. The source of truth for each skill is its own `SKILL.md`.
+
+## Repo-local Codex subagents
+
+Project-local Codex subagents live in `.codex/agents/` and should be delegated explicitly.
+
+| Agent | Prefer when |
+|-------|-------------|
+| `dpi-desync-specialist` | Packet evasion semantics, candidate behavior, desync config-to-plan-to-execution flow, TTL/fake/OOB/IP fragmentation logic, or strategy-probe desync regressions are the core problem. Prefer this over `rust-engineer` when the issue is specifically about path optimization behavior rather than general Rust implementation work. |
+| `dns-resilience-specialist` | Encrypted DNS, bootstrap/failover, DNS tampering classification, runtime resolver context, or Kotlin VPN DNS failover logic are the core problem. Prefer this over `network-engineer` when the issue is primarily resolver resilience and DNS-path behavior inside RIPDPI. |
+
+Pair these agents with companion specialists instead of stretching one agent across every concern:
+- `packet-smoke-debugger` for packet-capture or on-wire desync verification
+- `rust-test-runner` for Rust behavior changes that need targeted test execution
+- `jni-bridge-verifier` for Kotlin/Rust engine contract changes
+- `network-engineer` for live-path or infrastructure-network reasoning
+- `android-test-runner` for Kotlin service/runtime validation on Android paths
+
+Explicit delegation examples:
+- Delegate to `dpi-desync-specialist`: "Trace why `tlsrec_disorder` regressed on Android VPN path, update the smallest safe runtime/planner logic, and identify which packet-smoke scenario should confirm the fix."
+- Delegate to `dns-resilience-specialist`: "Trace why strategy probes short-circuit into `dns_tampering`, fix the smallest safe resolver/failover path across Rust and service logic, and list the exact tests needed to validate bootstrap and failover behavior."
