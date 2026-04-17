@@ -19,6 +19,16 @@ JNI adapter crates:
 
 Kotlin JNI declarations: `app/src/main/kotlin/` (search for `external fun` and `companion object { init { System.loadLibrary`)
 
+## `android docs` pre-flight (hard-required)
+
+Before flagging a JNI contract issue or citing a JNI function signature, verify the CLI is present:
+
+```bash
+command -v android >/dev/null 2>&1 || { echo "ERROR: Android CLI missing -- see d.android.com/tools/agents"; exit 2; }
+```
+
+If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back to training-data knowledge for JNI / libnativehelper contracts — the JNI spec is stable but Android-specific guarantees (`AttachCurrentThread` behaviour under bionic, `CallJNI_OnLoad` timing, `DetachCurrentThread` required-by-release-N) change. For each finding, first run `android docs "<jni function>"` (e.g. `android docs "AttachCurrentThreadAsDaemon"`, `android docs "NewGlobalRef"`) and cite the current Android-specific contract. The pinned NDK is `29.0.14206865`; verify the function exists at that NDK version before flagging.
+
 ## Audit Workflow
 
 1. Find all JNI exports: `rg '#\[unsafe\(no_mangle\)\]' native/rust/crates/ripdpi-*android* --type rust -l`
