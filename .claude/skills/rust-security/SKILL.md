@@ -73,7 +73,7 @@ cargo deny --manifest-path native/rust/Cargo.toml check sources
 
 The project config enforces:
 
-- **advisories**: vulnerabilities denied by default; `ignore = []` (no exemptions)
+- **advisories**: vulnerabilities denied by default; current ignore list has **one** entry — `RUSTSEC-2024-0436` (paste 1.0.15 proc-macro, unmaintained, pulled transitively via `netlink-packet-core`; no upstream replacement available as of this writing). Any new `ignore` entry requires a tracking issue and an SLA for re-evaluation (see "RUSTSEC triage SLA" below).
 - **licenses**: allowlist of permissive licenses (MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, Zlib, CDLA-Permissive-2.0, Unicode-3.0, OpenSSL); confidence threshold 0.8
 - **bans**: `multiple-versions = "warn"`, `wildcards = "warn"`, `highlight = "all"`
 - **sources**: `unknown-registry = "deny"`, `unknown-git = "warn"`, only crates.io allowed via `allow-registry`
@@ -98,6 +98,39 @@ ls ~/.cargo/advisory-db/crates/
 # unsound     -- documented unsoundness in safe API
 # yanked      -- crate version yanked from crates.io
 ```
+
+### 3a. Supply-chain incidents to learn from (2025)
+
+Three confirmed malicious-crate incidents hit crates.io in RIPDPI's exact dependency namespace in the second half of 2025. Read them before dismissing a new dep addition as low-risk:
+
+- **September 2025** — `faster_log` and `async_println` (typosquat of popular async-logging names). Payload exfiltrated CI tokens and SSH keys. See <https://blog.rust-lang.org/2025/09/24/crates.io-malicious-crates-fasterlog-and-asyncprintln/>.
+- **December 2025** — `finch-rust` and `sha-rust` (typosquat of crypto/hash utilities). Same attack class. See <https://blog.rust-lang.org/2025/12/05/crates.io-malicious-crates-finch-rust-and-sha-rust>.
+
+Attack class: typosquatting against async and crypto utility names — the exact dependency category RIPDPI pulls from. Every new crate addition to `Cargo.toml` must:
+
+1. Verify the crate name against the intended upstream (typo check).
+2. Run `cargo deny check bans advisories sources` locally **before** the first `cargo update`.
+3. Scan the published crate's `build.rs` / `src/lib.rs` for network calls, shell-out, or process spawns. A utility crate that opens sockets is a red flag.
+4. Pin to a specific version (`=1.2.3`) for the first adoption commit; loosen to `^1.2` only after the crate has been in the tree for at least one release cycle without incident.
+
+`cargo-deny 0.19.0` (Jan 2026, the version pinned in CI) improved `bans` and `sources` rule expressiveness — use `allow = [...]` / `deny = [...]` lists rather than relying solely on `multiple-versions` detection.
+
+### 3b. RUSTSEC triage SLA
+
+Any advisory ID added to `deny.toml`'s `[advisories].ignore` list is a **time-boxed commitment**, not a permanent exemption:
+
+| Severity | SLA before the ignore becomes blocking |
+|---|---|
+| Low / informational (unmaintained, no runtime exploit) | 90 days |
+| Medium (exploit requires specific conditions not met in RIPDPI) | 30 days |
+| High / Critical | 7 days — no ignore should exist; patch or pin |
+
+Each `ignore` entry MUST include:
+- `id` — the RUSTSEC ID
+- `reason` — one sentence explaining why it's safe to ignore *in this project*
+- A tracking issue link in a trailing comment
+
+The `RUSTSEC-2024-0436` entry meets the bar because `paste` is a proc-macro (compile-time only, no runtime code path) and there is no published fix. When a fix ships, remove the entry in the same PR that upgrades `netlink-packet-core`.
 
 ### 4. Responding to a new advisory
 

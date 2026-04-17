@@ -59,9 +59,36 @@ use_small_heuristics = "Max"
 ### deny.toml
 
 - **Licenses**: allow-list (MIT, Apache-2.0, BSD-2/3-Clause, ISC, 0BSD, Zlib, CDLA-Permissive-2.0, Unicode-3.0, OpenSSL)
-- **Advisories**: deny all, no ignores
+- **Advisories**: deny all except one explicit ignore (`RUSTSEC-2024-0436` — `paste` proc-macro, no runtime risk)
 - **Bans**: `multiple-versions = "warn"`, `wildcards = "warn"`
 - **Sources**: only crates.io registry allowed
+
+## Recommended escalations (2026-04)
+
+The current configuration is intentionally permissive — it prioritizes shipping velocity over strict enforcement. Three escalations are ready to land once the cleanup work they gate has happened:
+
+### 1. `multiple-versions = "warn"` → `"deny"`
+
+Current state allows duplicate dep versions to silently accumulate. This masks transitive-dep drift and complicates supply-chain audits. **Precondition for escalation**: run `cargo tree --duplicates` inside `native/rust`, resolve all existing duplicates (typically by patching workspace dep versions or adding `[patch.crates-io]` entries), then flip the level. Do not flip the level before the duplicates are clean — the first CI run will explode.
+
+### 2. Add `clippy::expect_used` and `clippy::unwrap_used` at `"warn"`
+
+Production `.rs` files contain ~1,727 `.unwrap()` / `.expect()` call sites as of 2026-04-17 (see `rust-panic-safety` skill for the full policy). Landing these lints at `warn` forces new code to justify each `.unwrap()` while leaving the existing sites compiling. **Precondition**: confirm every new usage in a PR gets a `#[allow(clippy::unwrap_used)] // Infallible: …` comment, not a workspace-wide allow.
+
+Suggested addition to `[workspace.lints.clippy]`:
+
+```toml
+# Force new .unwrap()/.expect() to justify their safety via a //-comment.
+# Existing sites are grandfathered via per-site #[allow] until they're migrated.
+unwrap_used = "warn"
+expect_used = "warn"
+```
+
+Exempt test code via `#[cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]` on the test module.
+
+### 3. Lower `type-complexity-threshold`
+
+`300` is far above Clippy's default (`250`) and masks genuinely unreadable types — nested `HashMap<_, Arc<Mutex<HashMap<_, _>>>>` style. Target `250` as a first step; lower to the default `100` only after the workspace compiles cleanly at `200`. Each step reveals a different tier of type-complexity smells.
 
 ## Running Lints
 

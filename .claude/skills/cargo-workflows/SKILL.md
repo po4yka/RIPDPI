@@ -9,7 +9,7 @@ description: Cargo workflow skill for the RIPDPI Rust workspace (23 crates, Andr
 
 ```text
 native/rust/
-  Cargo.toml              # Virtual workspace manifest (23 crates)
+  Cargo.toml              # Virtual workspace manifest (40 crates as of 2026-04)
   Cargo.lock              # Checked in -- reproducible builds
   .cargo/config.toml      # Per-target rustflags for Android NDK
   .config/nextest.toml    # nextest profiles (default + ci)
@@ -17,9 +17,11 @@ native/rust/
   crates/
     ripdpi-android/       # cdylib -- JNI entry point (libripdpi.so)
     ripdpi-tunnel-android/# cdylib -- JNI tunnel entry point (libripdpi-tunnel.so)
+    ripdpi-warp-android/  # cdylib -- JNI WARP entry point (libripdpi-warp.so)
+    ripdpi-relay-android/ # cdylib -- JNI relay entry point (libripdpi-relay.so)
     ripdpi-cli/           # Host-only CLI binary
     ripdpi-bench/         # Criterion benchmarks
-    ... (19 more library crates)
+    ... (34 more library crates)
 ```
 
 ## Android NDK cross-compilation
@@ -161,7 +163,7 @@ cargo deny check
 - **Licenses**: MIT, Apache-2.0, BSD-2/3-Clause, ISC, 0BSD, Zlib, Unicode-3.0, OpenSSL allowed
 - **Bans**: multiple-versions=warn, wildcards=warn
 - **Sources**: unknown registries denied, unknown git warned
-- **Advisories**: no ignored advisories (empty ignore list)
+- **Advisories**: one explicit ignore — `RUSTSEC-2024-0436` (`paste` proc-macro, unmaintained, no runtime risk). See `rust-security` skill for RUSTSEC triage SLA.
 
 ## CI caching
 
@@ -199,6 +201,48 @@ cargo deny check                        # Run full deny policy
 cargo audit                             # Security advisories only
 ```
 
+## Rust Edition 2024 migration
+
+Edition 2024 stabilized in Rust 1.85.0 (Feb 2025) — see <https://blog.rust-lang.org/2025/02/20/Rust-1.85.0/>. The workspace is currently on edition 2021 (check `rustfmt.toml:edition` and per-crate `Cargo.toml`). Migrate **one leaf crate at a time** — do not bump the workspace-wide edition in a single commit.
+
+### Per-crate migration workflow
+
+```bash
+cd native/rust
+# Pick a leaf crate (no other workspace crate depends on it, e.g. ripdpi-cli or ripdpi-bench).
+cd crates/<leaf-crate>
+cargo fix --edition
+# Inspect diff: cargo fix may edit .rs files in place.
+git diff
+# Bump the crate's Cargo.toml:
+#   edition = "2024"
+# Run per-crate lint + test to verify:
+cargo clippy -p <leaf-crate> --all-targets -- -D warnings
+cargo nextest run -p <leaf-crate>
+```
+
+### Breaking changes that bite
+
+- **Stricter `unsafe` in `extern` blocks.** Every item declared in `extern "C" { ... }` or `extern "system" { ... }` now requires explicit `unsafe {}` at the declaration site. `ripdpi-runtime/platform/linux.rs` (83 unsafe blocks) and the JNI adapter crates must be reviewed carefully. The `#[unsafe(no_mangle)]` syntax (used in JNI entry points) is already 2024-style.
+- **`gen` keyword reserved.** Any identifier named `gen` needs renaming before migration. Check for `let gen = …`, `fn gen(…)`, `mod gen`.
+- **Precise-capturing `impl Trait`.** Functions returning `impl Trait` that should capture only a subset of input lifetimes now need `use<'a, T>` syntax. Most affected: the tokio task spawners in `ripdpi-runtime` that return `impl Future + Send + 'static`. `cargo fix --edition` usually handles this but check the diff.
+- **`if let` / `while let` chains stabilize.** No breaking change, but existing nested `if let Some(…) = … { if let Some(…) = … { … } }` patterns can be collapsed to `if let Some(…) = … && let Some(…) = … { … }`. Do not do this in the migration commit — keep the migration diff surgical.
+- **`async || {}` closures** are now stable. You don't have to rewrite `|| async { … }` patterns, but new code should prefer the closure form. Do not mass-rewrite — violates `rust-unsafe` surgical-changes discipline.
+
+### Migration order
+
+Leaf crates first (no internal dependents). Suggested order:
+
+1. `ripdpi-bench`, `ripdpi-cli` — host-only, low blast radius.
+2. `ripdpi-desync`, `ripdpi-packets`, `ripdpi-ipfrag` — pure-logic crates under `#![forbid(unsafe_code)]`.
+3. `ripdpi-tls-profiles`, `ripdpi-config`, `ripdpi-failure-classifier` — cross-crate consumers but still leaf-ish.
+4. `ripdpi-runtime` — large, has the 83 unsafe blocks; allocate at least a day for the `extern` block review.
+5. JNI adapter crates (`ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-warp-android`, `ripdpi-relay-android`) — last, because they depend on everything else and most affected by the stricter `extern` rules.
+
+### Don't bump rustfmt edition
+
+`rustfmt.toml:edition = "2021"` controls how rustfmt formats code. Bump it only AFTER every crate is on edition 2024 and the workspace builds. Bumping it early re-formats edition-2021 code with edition-2024 rules, producing spurious diffs.
+
 ## Related skills
 
 - `rust-debugging` -- GDB/LLDB, async debugging, backtraces
@@ -206,3 +250,4 @@ cargo audit                             # Security advisories only
 - `rust-build-times` -- cargo-timings, sccache, Cranelift, LTO tuning
 - `rust-profiling` -- flamegraphs, cargo-bloat, Criterion benchmarks
 - `rust-unsafe` -- unsafe code review, JNI safety patterns
+- `rust-panic-safety` -- `.unwrap()` / `.expect()` policy (1,727 call sites to grandfather through edition migration)
