@@ -675,20 +675,38 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Install emulator system image
+        run: |
+          set -euo pipefail
+          android sdk install "system-images;android-34;aosp_atd;x86_64"
+
+      - name: Create and start emulator
+        run: |
+          set -euo pipefail
+          android emulator create \
+            --name macrobench \
+            --api 34 \
+            --arch x86_64 \
+            --target aosp_atd \
+            --ram 4096M \
+            --heap 1024M \
+            --disk 8G
+          android emulator start \
+            --avd macrobench \
+            --gpu swiftshader_indirect \
+            --no-window --no-audio --no-boot-anim --no-snapshot-save \
+            --boot-timeout 600 \
+            --detach
+          android emulator wait-for-boot --timeout 600
+
       - name: Run macrobenchmarks
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          target: aosp_atd
-          ram-size: 4096M
-          heap-size: 1024M
-          disk-size: 8G
-          emulator-boot-timeout: 600
-          emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
-          script: bash scripts/ci/run-android-macrobenchmark.sh
+        run: bash scripts/ci/run-android-macrobenchmark.sh
         env:
           RUSTC_WRAPPER: sccache
+
+      - name: Stop emulator
+        if: always()
+        run: android emulator stop --avd macrobench || true
 
       - name: Check for regressions
         run: |
@@ -730,18 +748,36 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Install emulator system image
+        run: |
+          set -euo pipefail
+          android sdk install "system-images;android-34;aosp_atd;x86_64"
+
+      - name: Create and start emulator
+        run: |
+          set -euo pipefail
+          android emulator create \
+            --name integration \
+            --api 34 \
+            --arch x86_64 \
+            --target aosp_atd \
+            --ram 4096M \
+            --heap 1024M \
+            --disk 8G
+          android emulator start \
+            --avd integration \
+            --gpu swiftshader_indirect \
+            --no-window --no-audio --no-boot-anim --no-snapshot-save \
+            --boot-timeout 600 \
+            --detach
+          android emulator wait-for-boot --timeout 600
+
       - name: Run connected Android integration tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          target: aosp_atd
-          ram-size: 4096M
-          heap-size: 1024M
-          disk-size: 8G
-          emulator-boot-timeout: 600
-          emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
-          script: bash scripts/ci/run-android-integration-emulator.sh
+        run: bash scripts/ci/run-android-integration-emulator.sh
+
+      - name: Stop emulator
+        if: always()
+        run: android emulator stop --avd integration || true
 
       - name: Capture emulator logcat
         if: always()
@@ -957,18 +993,36 @@ jobs:
             "$RUNNER_TEMP/local-network-fixture/fixture.pid"
           cat "$RUNNER_TEMP/local-network-fixture/fixture-manifest.json"
 
+      - name: Install emulator system image
+        run: |
+          set -euo pipefail
+          android sdk install "system-images;android-34;google_apis;x86_64"
+
+      - name: Create and start emulator
+        run: |
+          set -euo pipefail
+          android emulator create \
+            --name network-e2e \
+            --api 34 \
+            --arch x86_64 \
+            --target google_apis \
+            --ram 4096M \
+            --heap 1024M \
+            --disk 8G
+          android emulator start \
+            --avd network-e2e \
+            --gpu swiftshader_indirect \
+            --no-window --no-audio --no-boot-anim --no-snapshot-save \
+            --boot-timeout 600 \
+            --detach
+          android emulator wait-for-boot --timeout 600
+
       - name: Run connected Android network E2E tests
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          target: google_apis
-          ram-size: 4096M
-          heap-size: 1024M
-          disk-size: 8G
-          emulator-boot-timeout: 600
-          emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
-          script: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}"
+        run: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}"
+
+      - name: Stop emulator
+        if: always()
+        run: android emulator stop --avd network-e2e || true
 
       - name: Capture fixture state
         if: always()
@@ -1030,18 +1084,32 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Install emulator system image
+        run: |
+          set -euo pipefail
+          android sdk install "system-images;android-34;aosp_atd;x86_64"
+
+      - name: Create and start emulator
+        run: |
+          set -euo pipefail
+          android emulator create \
+            --name relay-smoke \
+            --api 34 \
+            --arch x86_64 \
+            --target aosp_atd \
+            --ram 4096M \
+            --heap 1024M \
+            --disk 8G
+          android emulator start \
+            --avd relay-smoke \
+            --gpu swiftshader_indirect \
+            --no-window --no-audio --no-boot-anim --no-snapshot-save \
+            --boot-timeout 600 \
+            --detach
+          android emulator wait-for-boot --timeout 600
+
       - name: Run Android relay emulator smoke
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 34
-          arch: x86_64
-          target: aosp_atd
-          ram-size: 4096M
-          heap-size: 1024M
-          disk-size: 8G
-          emulator-boot-timeout: 600
-          emulator-options: -no-snapshot-save -no-window -noaudio -no-boot-anim -gpu swiftshader_indirect
-          script: bash scripts/ci/run-android-relay-emulator-smoke.sh
+        run: bash scripts/ci/run-android-relay-emulator-smoke.sh
 
       - name: Capture emulator logcat
         if: always()
@@ -1051,6 +1119,11 @@ jobs:
           else
             touch android-relay-logcat.txt
           fi
+
+      - name: Stop emulator
+        if: always()
+        run: |
+          android emulator stop --avd relay-smoke || true
 
       - name: Upload Android relay smoke artifacts
         if: always()
