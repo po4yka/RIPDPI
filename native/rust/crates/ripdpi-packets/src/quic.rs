@@ -7,10 +7,11 @@ use crate::tls::{
     change_tls_sni_seeded_like_c, is_tls_client_hello, tls_client_hello_marker_info_in_handshake, TLS_RECORD_HEADER_LEN,
 };
 use crate::types::{
-    QuicCryptoFrameInfo, QuicInitialInfo, QuicInitialLayout, DEFAULT_FAKE_QUIC_COMPAT_LEN, DEFAULT_FAKE_TLS,
-    QUIC_V1_VERSION, QUIC_V2_VERSION,
+    QuicCryptoFrameInfo, QuicInitialBrowserProfile, QuicInitialInfo, QuicInitialLayout, QuicInitialPacketLayout,
+    QuicInitialSeed, DEFAULT_FAKE_QUIC_COMPAT_LEN, QUIC_V1_VERSION, QUIC_V2_VERSION,
 };
 use crate::util::{read_u16, read_u32};
+use crate::{tls_fake_profile_bytes, TlsFakeProfile};
 
 struct HkdfLen(usize);
 impl KeyType for HkdfLen {
@@ -122,6 +123,24 @@ fn append_quic_crypto_frame(out: &mut Vec<u8>, offset: u64, data: &[u8]) {
     out.extend_from_slice(data);
 }
 
+fn append_segmented_quic_crypto_frames(out: &mut Vec<u8>, client_hello: &[u8], split_offsets: &[usize]) -> Option<()> {
+    let mut cursor = 0usize;
+    let mut offsets =
+        split_offsets.iter().copied().filter(|offset| *offset > 0 && *offset < client_hello.len()).collect::<Vec<_>>();
+    offsets.sort_unstable();
+    offsets.dedup();
+
+    for boundary in offsets.into_iter().chain(std::iter::once(client_hello.len())) {
+        let chunk = client_hello.get(cursor..boundary)?;
+        if chunk.is_empty() {
+            return None;
+        }
+        append_quic_crypto_frame(out, cursor as u64, chunk);
+        cursor = boundary;
+    }
+    Some(())
+}
+
 pub fn default_fake_quic_compat() -> Vec<u8> {
     let mut packet = vec![0; DEFAULT_FAKE_QUIC_COMPAT_LEN];
     packet[0] = 0x40;
@@ -141,6 +160,7 @@ fn build_quic_initial_raw(
     token: &[u8],
     mut plaintext: Vec<u8>,
     min_total_len: usize,
+    packet_number: u32,
 ) -> Option<Vec<u8>> {
     let token_varint = encode_quic_varint(token.len() as u64);
 
@@ -170,7 +190,7 @@ fn build_quic_initial_raw(
     header.extend_from_slice(&token_varint);
     header.extend_from_slice(&payload_len_varint);
 
-    let packet_number = [0u8; 4];
+    let packet_number = packet_number.to_be_bytes();
     let mut aad = header.clone();
     aad.extend_from_slice(&packet_number);
 
@@ -217,21 +237,42 @@ pub fn build_quic_initial_from_tls(version: u32, tls_client_hello: &[u8], gap_af
     append_quic_crypto_frame(&mut plaintext, 0, &crypto[..split]);
     append_quic_crypto_frame(&mut plaintext, (split + gap_after_split) as u64, &crypto[split..]);
 
-    build_quic_initial_raw(version, &QUIC_FAKE_DCID, &QUIC_FAKE_SCID, &[], plaintext, QUIC_FAKE_INITIAL_TARGET_LEN)
+    build_quic_initial_raw(version, &QUIC_FAKE_DCID, &QUIC_FAKE_SCID, &[], plaintext, QUIC_FAKE_INITIAL_TARGET_LEN, 0)
 }
 
-fn padded_default_fake_tls_client_hello() -> Vec<u8> {
-    let mut client_hello = DEFAULT_FAKE_TLS.to_vec();
-    let target_len =
-        read_u16(DEFAULT_FAKE_TLS, 3).map_or(client_hello.len(), |record_len| record_len + TLS_RECORD_HEADER_LEN);
+fn padded_tls_client_hello(template: &[u8]) -> Vec<u8> {
+    let mut client_hello = template.to_vec();
+    let target_len = read_u16(template, 3).map_or(client_hello.len(), |record_len| record_len + TLS_RECORD_HEADER_LEN);
     if client_hello.len() < target_len {
         client_hello.resize(target_len, 0);
     }
     client_hello
 }
 
-pub fn build_realistic_quic_initial(version: u32, host_override: Option<&str>) -> Option<Vec<u8>> {
-    let mut client_hello = padded_default_fake_tls_client_hello();
+fn tls_record_from_handshake(handshake: &[u8]) -> Option<Vec<u8>> {
+    if handshake.len() > u16::MAX as usize || handshake.first().copied()? != 0x01 {
+        return None;
+    }
+    let mut record = Vec::with_capacity(TLS_RECORD_HEADER_LEN + handshake.len());
+    record.extend_from_slice(&[0x16, 0x03, 0x01]);
+    record.extend_from_slice(&(handshake.len() as u16).to_be_bytes());
+    record.extend_from_slice(handshake);
+    Some(record)
+}
+
+fn tls_profile_for_quic_browser(profile: QuicInitialBrowserProfile) -> TlsFakeProfile {
+    match profile {
+        QuicInitialBrowserProfile::ChromeAndroid => TlsFakeProfile::GoogleChrome,
+        QuicInitialBrowserProfile::FirefoxAndroid => TlsFakeProfile::IanaFirefox,
+    }
+}
+
+pub fn build_browser_like_quic_initial_seed(
+    version: u32,
+    host_override: Option<&str>,
+    profile: QuicInitialBrowserProfile,
+) -> Option<QuicInitialSeed> {
+    let mut client_hello = padded_tls_client_hello(tls_fake_profile_bytes(tls_profile_for_quic_browser(profile)));
     if let Some(host) = host_override {
         let capacity = client_hello.len().saturating_add(host.len()).saturating_add(64);
         let mutation = change_tls_sni_seeded_like_c(&client_hello, host.as_bytes(), capacity, 7);
@@ -239,7 +280,64 @@ pub fn build_realistic_quic_initial(version: u32, host_override: Option<&str>) -
             client_hello = mutation.bytes;
         }
     }
-    build_quic_initial_from_tls(version, &client_hello, 0)
+    Some(QuicInitialSeed {
+        version: if supported_quic_version(version) { version } else { QUIC_V1_VERSION },
+        dcid: QUIC_FAKE_DCID.to_vec(),
+        scid: QUIC_FAKE_SCID.to_vec(),
+        token: Vec::new(),
+        client_hello,
+    })
+}
+
+pub fn packetize_quic_initial(seed: &QuicInitialSeed, layout: &QuicInitialPacketLayout) -> Option<Vec<u8>> {
+    if !is_tls_client_hello(&seed.client_hello) {
+        return None;
+    }
+    let mut plaintext = Vec::new();
+    append_segmented_quic_crypto_frames(
+        &mut plaintext,
+        &seed.client_hello[TLS_RECORD_HEADER_LEN..],
+        &layout.crypto_frame_offsets,
+    )?;
+    plaintext.extend(std::iter::repeat_n(0u8, layout.extra_tail_padding));
+    build_quic_initial_raw(
+        seed.version,
+        &seed.dcid,
+        &seed.scid,
+        &seed.token,
+        plaintext,
+        layout.min_datagram_len.max(QUIC_INITIAL_MIN_LEN),
+        layout.packet_number,
+    )
+}
+
+pub fn parse_quic_initial_seed(packet: &[u8]) -> Option<QuicInitialSeed> {
+    let header = parse_quic_initial_header(packet)?;
+    let payload = decrypt_quic_initial_payload(packet, header)?;
+    let (client_hello, is_complete) = defrag_quic_crypto_frames(&payload)?;
+    if !is_complete {
+        return None;
+    }
+    Some(QuicInitialSeed {
+        version: header.version,
+        dcid: header.dcid.to_vec(),
+        scid: header.scid.to_vec(),
+        token: header.token.to_vec(),
+        client_hello: tls_record_from_handshake(&client_hello)?,
+    })
+}
+
+pub fn build_browser_like_quic_initial(
+    version: u32,
+    host_override: Option<&str>,
+    profile: QuicInitialBrowserProfile,
+) -> Option<Vec<u8>> {
+    let seed = build_browser_like_quic_initial_seed(version, host_override, profile)?;
+    packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(QUIC_FAKE_INITIAL_TARGET_LEN))
+}
+
+pub fn build_realistic_quic_initial(version: u32, host_override: Option<&str>) -> Option<Vec<u8>> {
+    build_browser_like_quic_initial(version, host_override, QuicInitialBrowserProfile::ChromeAndroid)
 }
 
 fn parse_quic_initial_header(buffer: &[u8]) -> Option<QuicInitialHeader<'_>> {
@@ -457,6 +555,7 @@ pub fn tamper_quic_initial_split_crypto(packet: &[u8], split_offset: usize) -> O
         header.token,
         plaintext,
         QUIC_FAKE_INITIAL_TARGET_LEN,
+        0,
     )
 }
 
@@ -514,7 +613,7 @@ mod tests {
         let parsed = parse_quic_initial(&packet).expect("parse realistic fake");
 
         assert_eq!(parsed.version, QUIC_V1_VERSION);
-        assert_eq!(parsed.host(), b"www.wikipedia.org");
+        assert_eq!(parsed.host(), b"www.google.com");
         assert_eq!(packet.len(), QUIC_FAKE_INITIAL_TARGET_LEN);
     }
 
@@ -860,6 +959,84 @@ mod tests {
         let reparsed = parse_quic_initial(&tampered).expect("parse tampered");
 
         assert_eq!(reparsed.client_hello, original.client_hello);
+    }
+
+    #[test]
+    fn parse_quic_initial_seed_round_trips_original_header_material() {
+        let packet = build_realistic_quic_initial(QUIC_V2_VERSION, Some("seed.example.test")).expect("build packet");
+        let seed = parse_quic_initial_seed(&packet).expect("parse seed");
+        let reparsed = parse_quic_initial(&packet).expect("parse original");
+
+        assert_eq!(seed.version, QUIC_V2_VERSION);
+        assert_eq!(seed.dcid, QUIC_FAKE_DCID);
+        assert_eq!(seed.scid, QUIC_FAKE_SCID);
+        assert!(seed.token.is_empty());
+        assert!(is_tls_client_hello(&seed.client_hello));
+        assert_eq!(&seed.client_hello[TLS_RECORD_HEADER_LEN..], reparsed.client_hello.as_slice());
+    }
+
+    #[test]
+    fn browser_like_quic_initial_supports_firefox_profile() {
+        let packet = build_browser_like_quic_initial(
+            QUIC_V1_VERSION,
+            Some("firefox.example.test"),
+            QuicInitialBrowserProfile::FirefoxAndroid,
+        )
+        .expect("build firefox-like packet");
+        let parsed = parse_quic_initial(&packet).expect("parse firefox-like packet");
+
+        assert_eq!(parsed.version, QUIC_V1_VERSION);
+        assert_eq!(parsed.host(), b"firefox.example.test");
+    }
+
+    #[test]
+    fn packetize_quic_initial_split_layout_rewrites_crypto_frame_boundaries() {
+        let packet = build_realistic_quic_initial(QUIC_V2_VERSION, Some("layout.example.test")).expect("build packet");
+        let seed = parse_quic_initial_seed(&packet).expect("seed");
+        let split_offset = parse_quic_initial(&packet).expect("parse").tls_info.host_start;
+        let packetized = packetize_quic_initial(&seed, &QuicInitialPacketLayout::split_at(split_offset, packet.len()))
+            .expect("packetize split layout");
+        let layout = parse_quic_initial_layout(&packetized).expect("parse packetized layout");
+
+        assert_eq!(layout.info.host(), b"layout.example.test");
+        assert_eq!(layout.crypto_frames.len(), 2);
+        assert_eq!(layout.crypto_frames[0].crypto_offset + layout.crypto_frames[0].data_len, split_offset);
+        assert_eq!(layout.crypto_frames[1].crypto_offset, split_offset);
+    }
+
+    #[test]
+    fn packetize_quic_initial_respects_padding_target() {
+        let seed = build_browser_like_quic_initial_seed(
+            QUIC_V2_VERSION,
+            Some("padding.example.test"),
+            QuicInitialBrowserProfile::ChromeAndroid,
+        )
+        .expect("seed");
+        let mut layout = QuicInitialPacketLayout::contiguous(1408);
+        layout.extra_tail_padding = 32;
+        let packetized = packetize_quic_initial(&seed, &layout).expect("packetize");
+        let reparsed = parse_quic_initial(&packetized).expect("parse packetized");
+
+        assert!(packetized.len() >= 1408);
+        assert_eq!(reparsed.version, QUIC_V2_VERSION);
+        assert_eq!(reparsed.host(), b"padding.example.test");
+    }
+
+    #[test]
+    fn packetize_quic_initial_packet_number_changes_wire_image() {
+        let seed = build_browser_like_quic_initial_seed(
+            QUIC_V2_VERSION,
+            Some("pn.example.test"),
+            QuicInitialBrowserProfile::ChromeAndroid,
+        )
+        .expect("seed");
+        let baseline = packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(1200)).expect("baseline");
+        let mut with_gap = QuicInitialPacketLayout::contiguous(1200);
+        with_gap.packet_number = 2;
+        let gapped = packetize_quic_initial(&seed, &with_gap).expect("gapped");
+
+        assert_ne!(baseline, gapped);
+        assert_eq!(&gapped[1..5], &QUIC_V2_VERSION.to_be_bytes());
     }
 
     #[test]

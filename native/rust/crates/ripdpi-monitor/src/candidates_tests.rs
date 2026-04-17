@@ -288,10 +288,12 @@ fn build_quic_candidates_prioritize_active_techniques_and_keep_disabled_last() {
     assert_eq!(ids.last().copied(), Some("quic_disabled"));
     assert!(ids.contains(&"quic_crypto_split"));
     assert!(ids.contains(&"quic_padding_ladder"));
-    assert!(ids.contains(&"quic_cid_churn"));
-    assert!(ids.contains(&"quic_packet_number_gap"));
     assert!(ids.contains(&"quic_version_negotiation_decoy"));
     assert!(ids.contains(&"quic_multi_initial_realistic"));
+    assert!(!ids.contains(&"quic_compat_burst"));
+    assert!(!ids.contains(&"quic_realistic_burst"));
+    assert!(!ids.contains(&"quic_cid_churn"));
+    assert!(!ids.contains(&"quic_packet_number_gap"));
 }
 
 #[test]
@@ -368,8 +370,8 @@ fn primary_pool_covers_probe_matrix() {
     );
 
     assert!(
-        quic.iter().any(|c| matches!(c.id, "quic_compat_burst" | "quic_realistic_burst")),
-        "QUIC v1 bucket: quic pool must contain at least one burst candidate"
+        quic.iter().any(|c| matches!(c.id, "quic_multi_initial_realistic" | "quic_sni_split" | "quic_crypto_split")),
+        "QUIC bucket: quic pool must contain at least one packetizer-backed Initial layout candidate"
     );
 
     assert!(

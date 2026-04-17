@@ -360,6 +360,7 @@ mod tests {
                     id: "baseline_current".to_string(),
                     label: "Current strategy".to_string(),
                     family: "baseline_current".to_string(),
+                    quic_layout_family: None,
                     outcome: "skipped".to_string(),
                     rationale: "DNS tampering detected before fallback; TCP strategy escalation skipped".to_string(),
                     succeeded_targets: 0,
@@ -377,6 +378,7 @@ mod tests {
                     id: "quic_disabled".to_string(),
                     label: "Current QUIC strategy".to_string(),
                     family: "quic_disabled".to_string(),
+                    quic_layout_family: None,
                     outcome: "skipped".to_string(),
                     rationale: "DNS tampering detected before fallback; QUIC strategy escalation skipped".to_string(),
                     succeeded_targets: 0,
@@ -395,6 +397,7 @@ mod tests {
                     tcp_candidate_label: "Current strategy".to_string(),
                     quic_candidate_id: "quic_disabled".to_string(),
                     quic_candidate_label: "Current QUIC strategy".to_string(),
+                    quic_candidate_layout_family: None,
                     rationale:
                         "dns_tampering classified before fallback; keep current strategy and prefer resolver override"
                             .to_string(),

@@ -25,8 +25,13 @@ The audit roadmap tracked in this repository is complete. The items below are no
   (IR types, parser normalization, TCP semantic offsets, semantic fake-family
   handling after TLS prelude, IR-seeded QUIC prelude packet builders, planner-
   owned seqovl capability downgrade removal, terminal fake-step lowering
-  migration, and rewrite goldens are now all landed. The next blocker is Phase
-  5 QUIC packetizer work, not residual planner migration).
+  migration, and rewrite goldens are now all landed).
+- Bypass modernization Workstream 3 (QUIC Initial Shaping): COMPLETE
+  (`docs/architecture/quic-initial-packetizer.md`, packetizer-owned QUIC
+  Initial layouts in `ripdpi-packets`, planner migration of QUIC layout tactics
+  in `plan_udp.rs`, production-pool demotion of weak QUIC mutation families,
+  and exact QUIC layout-family export through monitor and Kotlin diagnostics are
+  now landed).
 - Bypass modernization Workstream 4 (DNS Oracle Hardening): COMPLETE
   (monitor-side multi-oracle trust scoring, oracle-health gating, resolver-side
   oracle quarantine, and network-scoped resolver ranking/fallback memory are
@@ -40,8 +45,8 @@ The audit roadmap tracked in this repository is complete. The items below are no
 
 See [`docs/roadmap-execution-queue.md`](docs/roadmap-execution-queue.md) for the
 unified slice list, dependency graph, and the next priority entry points
-(begin Phase 5 QUIC packetizer work on top of the now-complete Phase 4 IR
-seams).
+(begin Phase 11 TLS shaping and browser-family template work on top of the
+now-complete Phase 5 QUIC packetizer seams).
 
 ## Completed Workstreams
 
@@ -137,8 +142,8 @@ The three strategic roadmaps interlock and should not be read in isolation:
 1. **architecture-refactor Workstream 0-1** (guardrails, config contract) unblocks everything else -- both are now complete, so bypass work and settings splits should consume the shipped canonical config seam rather than reopening it.
 2. **bypass-modernization Workstream 1** (capability hygiene) must land before further expansion of bypass-techniques Tier 3, otherwise new tactics cannot be evaluated honestly.
 3. **architecture-refactor Workstream 3** (runtime/desync decomposition) and **bypass-modernization Workstream 2** (first-flight IR) touched the same files. Both are now complete, so follow-on planner and packetizer work should build on the shipped lowering/runtime/IR seams rather than reintroducing planner-specific logic into the old monolith.
-4. **bypass-modernization Workstream 3** (QUIC subsystem) is now the next QUIC-critical path. New QUIC probe candidates in bypass-techniques must route through it rather than extending ad hoc packet families.
-5. **integrations Finalmask/TLS tracks** should align TLS catalog revisions with bypass-modernization Workstream 5 (browser-family templates and ECH).
+4. **bypass-modernization Workstream 3** (QUIC subsystem) is now complete, so new QUIC probe candidates in bypass-techniques should reuse the shipped packetizer/layout families rather than reintroducing ad hoc packet construction.
+5. **integrations Finalmask/TLS tracks** are now the next cross-roadmap dependency: TLS catalog revisions should align with bypass-modernization Workstream 5 (browser-family templates and ECH).
 
 ### Ownership Collisions Resolved
 

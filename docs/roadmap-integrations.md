@@ -4,12 +4,11 @@ This document now tracks open integration work only.
 
 The earlier phase split (`P0` through `P3`) was useful while the transport and control-plane program was landing, but it is now removed. Current shipped behavior is summarized here and in the companion native/runtime notes.
 
-Cross-roadmap status (2026-04-17): bypass-modernization Workstream 1 is
-complete, bypass-modernization Workstream 2 is complete, bypass-modernization
-Workstream 4 is complete, architecture-refactor Workstream 1 is complete,
-architecture-refactor Workstream 3 is complete, and architecture-refactor
-Workstream 4 is complete. The active work here remains rollout validation,
-operational hardening, and catalog freshness.
+Cross-roadmap status (2026-04-17): bypass-modernization Workstreams 1, 2, 3,
+and 4 are complete, architecture-refactor Workstreams 1, 3, and 4 are
+complete, and the next cross-roadmap dependency is bypass-modernization
+Workstream 5's TLS/browser-family template rollout. The active work here
+remains rollout validation, operational hardening, and catalog freshness.
 
 ## Related Roadmaps
 

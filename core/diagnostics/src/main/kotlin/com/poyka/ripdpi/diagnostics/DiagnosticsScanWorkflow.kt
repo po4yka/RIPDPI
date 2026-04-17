@@ -289,6 +289,7 @@ internal object DiagnosticsScanWorkflow {
                     baseRecommendation.copy(
                         tcpCandidateFamily = validTcpCandidate.family,
                         quicCandidateFamily = validQuicCandidate.family,
+                        quicCandidateLayoutFamily = validQuicCandidate.quicLayoutFamily,
                         dnsStrategyFamily = activeDns.strategyFamily(),
                         dnsStrategyLabel = activeDns.strategyLabel(),
                         strategySignature = strategySignature,
@@ -333,6 +334,7 @@ internal object DiagnosticsScanWorkflow {
         copy(
             tcpCandidateFamily = null,
             quicCandidateFamily = null,
+            quicCandidateLayoutFamily = null,
             dnsStrategyFamily = null,
             dnsStrategyLabel = null,
             strategySignature = null,

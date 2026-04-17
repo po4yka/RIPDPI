@@ -251,7 +251,7 @@ fn plan_udp_falls_back_to_raw_fake_payload_for_non_quic_input() {
 }
 
 #[test]
-fn plan_udp_dummy_prepend_emits_random_non_quic_datagrams() {
+fn plan_udp_dummy_prepend_emits_compact_browser_like_quic_decoys() {
     let mut group = DesyncGroup::new(0);
     group.actions.ttl = Some(6);
     group.actions.udp_chain = vec![UdpChainStep {
@@ -265,8 +265,9 @@ fn plan_udp_dummy_prepend_emits_random_non_quic_datagrams() {
         ipv6_dest_opt2: false,
         ipv6_frag_next_override: None,
     }];
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("dummy.example.test")).expect("input quic");
 
-    let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
 
     assert_eq!(actions.len(), 6);
     assert_eq!(actions[0], DesyncAction::SetTtl(6));
@@ -276,14 +277,16 @@ fn plan_udp_dummy_prepend_emits_random_non_quic_datagrams() {
     let DesyncAction::Write(second) = &actions[2] else {
         panic!("expected second dummy prepend packet");
     };
-    assert_eq!(first.len(), 64);
-    assert_eq!(second.len(), 64);
-    assert_eq!(first[0] & 0x80, 0);
-    assert_eq!(second[0] & 0x80, 0);
-    assert_ne!(first, second, "dummy prepend packets should be independently randomized");
+    let first_parsed = parse_quic_initial(first).expect("parse first decoy");
+    let second_parsed = parse_quic_initial(second).expect("parse second decoy");
+    assert!(first.len() >= 256);
+    assert!(second.len() >= 256);
+    assert_eq!(first_parsed.host(), b"dummy.example.test");
+    assert_eq!(second_parsed.host(), b"dummy.example.test");
+    assert_ne!(first, second, "dummy prepend decoys should vary by packet number/profile");
     assert_eq!(actions[3], DesyncAction::RestoreDefaultTtl);
     assert_eq!(actions[4], DesyncAction::SetTtl(64));
-    assert_eq!(actions[5], DesyncAction::Write(b"payload".to_vec()));
+    assert_eq!(actions[5], DesyncAction::Write(payload));
 }
 
 #[test]
@@ -301,23 +304,26 @@ fn plan_udp_quic_sni_split_emits_tampered_quic_initials() {
         ipv6_frag_next_override: None,
     }];
     let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("docs.example.test")).expect("input quic");
-    let ir = normalize_quic_initial(&payload).expect("normalize input quic");
-    let expected =
-        tamper_quic_initial_split_sni(&payload, ir.tls_client_hello.authority_span.start).expect("tamper split");
-
     let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
 
+    assert_eq!(actions[0], DesyncAction::SetTtl(8));
+    let DesyncAction::Write(first_packet) = &actions[1] else {
+        panic!("expected first split packet");
+    };
+    let DesyncAction::Write(second_packet) = &actions[2] else {
+        panic!("expected second split packet");
+    };
+    let layout = parse_quic_initial_layout(first_packet).expect("parse split layout");
+    assert_eq!(layout.info.host(), b"docs.example.test");
+    assert_eq!(layout.crypto_frames.len(), 2);
     assert_eq!(
-        actions,
-        vec![
-            DesyncAction::SetTtl(8),
-            DesyncAction::Write(expected.clone()),
-            DesyncAction::Write(expected),
-            DesyncAction::RestoreDefaultTtl,
-            DesyncAction::SetTtl(64),
-            DesyncAction::Write(payload.clone()),
-        ]
+        layout.crypto_frames[0].crypto_offset + layout.crypto_frames[0].data_len,
+        layout.info.tls_info.host_start
     );
+    assert_eq!(first_packet, second_packet);
+    assert_eq!(actions[3], DesyncAction::RestoreDefaultTtl);
+    assert_eq!(actions[4], DesyncAction::SetTtl(64));
+    assert_eq!(actions[5], DesyncAction::Write(payload));
 }
 
 #[test]
@@ -336,21 +342,26 @@ fn plan_udp_quic_crypto_split_uses_first_flight_ir_boundary() {
     }];
     let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("docs.example.test")).expect("input quic");
     let ir = normalize_quic_initial(&payload).expect("normalize input quic");
-    let split_at = ir.desired.crypto_frame_boundaries[0];
-    let expected = tamper_quic_initial_split_sni(&payload, split_at).expect("tamper crypto split");
+    let client_hello_len = ir.tls_client_hello.raw.len();
+    let split_at = ir
+        .desired
+        .crypto_frame_boundaries
+        .first()
+        .copied()
+        .filter(|offset| *offset > 0 && *offset < client_hello_len)
+        .unwrap_or_else(|| (client_hello_len / 2).max(1));
 
     let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
 
-    assert_eq!(
-        actions,
-        vec![
-            DesyncAction::SetTtl(8),
-            DesyncAction::Write(expected),
-            DesyncAction::RestoreDefaultTtl,
-            DesyncAction::SetTtl(64),
-            DesyncAction::Write(payload),
-        ]
-    );
+    let DesyncAction::Write(packet) = &actions[1] else {
+        panic!("expected split packet");
+    };
+    let layout = parse_quic_initial_layout(packet).expect("parse crypto split layout");
+    assert_eq!(layout.info.host(), b"docs.example.test");
+    assert_eq!(layout.crypto_frames.len(), 2);
+    assert_eq!(layout.crypto_frames[0].crypto_offset + layout.crypto_frames[0].data_len, split_at);
+    assert_eq!(layout.crypto_frames[1].crypto_offset, split_at);
+    assert_eq!(actions[4], DesyncAction::Write(payload));
 }
 
 #[test]
@@ -376,9 +387,15 @@ fn plan_udp_quic_multi_initial_realistic_uses_ir_authority_when_no_override_is_s
     let DesyncAction::Write(first_packet) = &actions[1] else {
         panic!("expected first realistic initial write");
     };
-    let parsed = parse_quic_initial(first_packet).expect("parse realistic initial");
-    assert_eq!(parsed.version, QUIC_V2_VERSION);
-    assert_eq!(parsed.host(), b"media.example.test");
+    let DesyncAction::Write(second_packet) = &actions[2] else {
+        panic!("expected second realistic initial write");
+    };
+    let first = parse_quic_initial(first_packet).expect("parse first realistic initial");
+    let second = parse_quic_initial(second_packet).expect("parse second realistic initial");
+    assert_eq!(first.version, QUIC_V2_VERSION);
+    assert_eq!(first.host(), b"media.example.test");
+    assert_eq!(second.host(), b"media.example.test");
+    assert_ne!(first_packet, second_packet, "multi-initial realistic should vary browser profile or packet number");
     assert_eq!(actions[4], DesyncAction::SetTtl(64));
     assert_eq!(actions[5], DesyncAction::Write(payload));
 }
@@ -399,21 +416,19 @@ fn plan_udp_quic_fake_version_emits_tampered_long_headers() {
         ipv6_frag_next_override: None,
     }];
     let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("docs.example.test")).expect("input quic");
-    let expected = tamper_quic_version(&payload, group.actions.quic_fake_version).expect("tamper version");
 
     let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
 
-    assert_eq!(
-        actions,
-        vec![
-            DesyncAction::SetTtl(8),
-            DesyncAction::Write(expected.clone()),
-            DesyncAction::Write(expected),
-            DesyncAction::RestoreDefaultTtl,
-            DesyncAction::SetTtl(64),
-            DesyncAction::Write(payload.clone()),
-        ]
-    );
+    let DesyncAction::Write(first_packet) = &actions[1] else {
+        panic!("expected first fake-version packet");
+    };
+    let DesyncAction::Write(second_packet) = &actions[2] else {
+        panic!("expected second fake-version packet");
+    };
+    assert_eq!(&first_packet[1..5], &group.actions.quic_fake_version.to_be_bytes());
+    assert_eq!(first_packet, second_packet);
+    assert!(parse_quic_initial(first_packet).is_none());
+    assert_eq!(actions[5], DesyncAction::Write(payload));
 }
 
 #[test]
@@ -439,7 +454,7 @@ fn plan_udp_quic_padding_ladder_uses_ir_seed_authority() {
     };
     let parsed = parse_quic_initial(packet).expect("parse ladder packet");
     assert_eq!(parsed.host(), b"padding.example.test");
-    assert!(packet.len() > payload.len());
+    assert!(packet.len() >= payload.len());
 }
 
 #[test]
@@ -457,18 +472,15 @@ fn plan_udp_quic_version_negotiation_decoy_uses_ir_seed_authority() {
         ipv6_frag_next_override: None,
     }];
     let seed_payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("decoy.example.test")).expect("input quic");
-    let ir = normalize_quic_initial(&seed_payload).expect("normalize quic");
-    let payload =
-        tamper_quic_initial_split_sni(&seed_payload, ir.tls_client_hello.authority_span.start).expect("split input");
-    let expected =
-        tamper_quic_version(&seed_payload, QUIC_V2_VERSION ^ 0x0f0f_0f0f).expect("version-decoy expected bytes");
+    let payload = seed_payload.clone();
 
     let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
 
     let DesyncAction::Write(packet) = &actions[1] else {
         panic!("expected version-negotiation decoy packet");
     };
-    assert_eq!(packet, &expected);
+    assert_eq!(&packet[1..5], &(QUIC_V2_VERSION ^ 0x0f0f_0f0f).to_be_bytes());
+    assert!(parse_quic_initial(packet).is_none());
 }
 
 #[test]
@@ -561,16 +573,7 @@ fn plan_udp_skips_quic_specific_steps_when_payload_is_not_quic() {
 
     let actions = plan_udp(&group, b"payload", 64, udp_context(b"payload"));
 
-    assert_eq!(actions.len(), 5);
-    assert_eq!(actions[0], DesyncAction::SetTtl(8));
-    let DesyncAction::Write(dummy) = &actions[1] else {
-        panic!("expected dummy prepend packet");
-    };
-    assert_eq!(dummy.len(), 64);
-    assert_eq!(dummy[0] & 0x80, 0);
-    assert_eq!(actions[2], DesyncAction::RestoreDefaultTtl);
-    assert_eq!(actions[3], DesyncAction::SetTtl(64));
-    assert_eq!(actions[4], DesyncAction::Write(b"payload".to_vec()));
+    assert_eq!(actions, vec![DesyncAction::Write(b"payload".to_vec())]);
 }
 
 #[test]

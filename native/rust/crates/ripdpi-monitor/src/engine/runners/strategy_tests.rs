@@ -63,6 +63,7 @@ fn quic_candidate_summary(proxy_config_json: Option<String>) -> StrategyProbeCan
         id: s("quic_realistic_burst"),
         label: s("QUIC realistic burst"),
         family: s("quic_burst"),
+        quic_layout_family: None,
         outcome: s("success"),
         rationale: s("Recovered QUIC"),
         succeeded_targets: 1,
@@ -92,6 +93,7 @@ fn strategy_candidate_summary(
         id: s(id),
         label: id.replace('_', " "),
         family: s(family),
+        quic_layout_family: None,
         outcome: s(outcome),
         rationale: s("candidate result"),
         succeeded_targets,
@@ -113,6 +115,7 @@ fn recommendation() -> StrategyProbeRecommendation {
         tcp_candidate_label: s("tcp winner"),
         quic_candidate_id: s("quic_winner"),
         quic_candidate_label: s("quic winner"),
+        quic_candidate_layout_family: None,
         rationale: s("best"),
         recommended_proxy_config_json: s("{}"),
     }
@@ -391,6 +394,7 @@ fn test_audit_assessment_penalizes_all_tied_candidates() {
         tcp_candidate_label: s("tcp 0"),
         quic_candidate_id: s("quic_0"),
         quic_candidate_label: s("quic 0"),
+        quic_candidate_layout_family: None,
         rationale: s("all tied"),
         recommended_proxy_config_json: String::new(),
     };
@@ -418,6 +422,7 @@ fn test_audit_assessment_high_when_baseline_tied_high_coverage() {
         tcp_candidate_label: s("Current strategy"),
         quic_candidate_id: s("baseline_current"),
         quic_candidate_label: s("Current QUIC strategy"),
+        quic_candidate_layout_family: None,
         rationale: s("all tied"),
         recommended_proxy_config_json: String::new(),
     };
@@ -445,6 +450,7 @@ fn test_audit_assessment_low_when_baseline_tied_low_coverage() {
         tcp_candidate_label: s("Current strategy"),
         quic_candidate_id: s("baseline_current"),
         quic_candidate_label: s("Current QUIC strategy"),
+        quic_candidate_layout_family: None,
         rationale: s("all tied"),
         recommended_proxy_config_json: String::new(),
     };
