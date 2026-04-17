@@ -955,6 +955,65 @@ fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
 }
 
 #[test]
+fn plan_tcp_hostfake_resolves_fragmented_tls_host_after_tlsrec_prelude() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.ttl = Some(9);
+    group.actions.tcp_chain = vec![
+        TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::MidSld, 0)),
+        TcpChainStep {
+            midhost_offset: Some(OffsetExpr::marker(OffsetBase::MidSld, 0)),
+            fake_host_template: Some("googlevideo.com".to_string()),
+            ..TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0))
+        },
+    ];
+
+    let tampered = apply_tls_prelude_steps(
+        &group,
+        &group.actions.tcp_chain[..1],
+        DEFAULT_FAKE_TLS,
+        23,
+        tcp_context(DEFAULT_FAKE_TLS),
+    )
+    .expect("tampered tlsrec payload");
+    let step = &group.actions.tcp_chain[1];
+    let span =
+        resolve_hostfake_span(step, &tampered.bytes, 0, tampered.bytes.len(), 23).expect("resolve fragmented hostfake");
+    let fake_host =
+        build_hostfake_bytes(&tampered.bytes[span.host_start..span.host_end], Some("googlevideo.com"), 23, false);
+
+    let plan = plan_tcp(&group, DEFAULT_FAKE_TLS, 23, 32, tcp_context(DEFAULT_FAKE_TLS)).expect("plan tls hostfake");
+
+    assert_eq!(
+        plan.steps,
+        vec![PlannedStep { kind: TcpChainStepKind::HostFake, start: 0, end: tampered.bytes.len() as i64 }]
+    );
+    assert_eq!(plan.tampered, tampered.bytes);
+    assert_eq!(
+        plan.actions,
+        vec![
+            DesyncAction::Write(tampered.bytes[..span.host_start].to_vec()),
+            DesyncAction::AwaitWritable,
+            DesyncAction::SetTtl(9),
+            DesyncAction::Write(fake_host.clone()),
+            DesyncAction::AwaitWritable,
+            DesyncAction::RestoreDefaultTtl,
+            DesyncAction::SetTtl(32),
+            DesyncAction::Write(tampered.bytes[span.host_start..span.midhost.expect("midhost")].to_vec()),
+            DesyncAction::AwaitWritable,
+            DesyncAction::Write(tampered.bytes[span.midhost.expect("midhost")..span.host_end].to_vec()),
+            DesyncAction::AwaitWritable,
+            DesyncAction::SetTtl(9),
+            DesyncAction::Write(fake_host),
+            DesyncAction::AwaitWritable,
+            DesyncAction::RestoreDefaultTtl,
+            DesyncAction::SetTtl(32),
+            DesyncAction::Write(tampered.bytes[span.host_end..].to_vec()),
+            DesyncAction::AwaitWritable,
+        ]
+    );
+}
+
+#[test]
 fn hostfake_degrades_to_split_when_step_ends_before_endhost() {
     let payload = b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
     let markers = http_marker_info(payload).expect("http markers");

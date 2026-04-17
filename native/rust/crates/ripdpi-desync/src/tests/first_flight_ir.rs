@@ -1,5 +1,5 @@
 use crate::{normalize_quic_initial, normalize_tls_client_hello};
-use ripdpi_packets::{build_quic_initial_from_tls, QUIC_V1_VERSION};
+use ripdpi_packets::{build_quic_initial_from_tls, tls_marker_info, QUIC_V1_VERSION};
 
 use super::rust_packet_seeds;
 
@@ -52,6 +52,18 @@ fn normalize_tls_client_hello_extracts_authority_alpn_and_record_boundary() {
     assert!(!ir.record_boundaries.is_empty());
     assert_eq!(ir.record_boundaries[0].header, 0..5);
     assert_eq!(ir.desired.tcp_segment_boundaries, vec![517]);
+}
+
+#[test]
+fn normalize_tls_client_hello_preserves_legacy_marker_offsets() {
+    let packet = rust_packet_seeds::tls_client_hello();
+    let ir = normalize_tls_client_hello(&packet).expect("normalize tls client hello");
+    let markers = tls_marker_info(&packet).expect("legacy tls markers");
+    let sni_ext = ir.extensions.iter().find(|extension| extension.ext_type == 0x0000).expect("sni extension");
+
+    assert_eq!(ir.extensions_len_offset, markers.ext_len_start);
+    assert_eq!(sni_ext.type_range.start + 4, markers.sni_ext_start);
+    assert_eq!(ir.authority_span, markers.host_start..markers.host_end);
 }
 
 #[test]
