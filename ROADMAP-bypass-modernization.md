@@ -356,7 +356,7 @@ Packet construction (HKDF key derivation, packet number encryption,
 
 ## Workstream 4: DNS Oracle And Resolver-Policy Hardening
 
-**Status:** [~] In progress
+**Status:** [x] Complete
 **Priority:** P1
 **Why now:** The current system treats encrypted DNS too much like a ground
 truth oracle. That risks false positives on CDN-heavy targets and makes oracle
@@ -371,9 +371,11 @@ per-resolver attempts for diagnostics. Probe and strategy-baseline paths no
 longer treat fallback-only encrypted DNS success as a trusted oracle, which
 reduces false positives on CDN-heavy or partially degraded networks.
 
-`ripdpi-dns-resolver` still uses global health-weighted ordering rather than a
-network-identity-keyed ranking model, and resolver policy is still chosen by
-the first acceptable response rather than a wider per-network oracle memory.
+`ripdpi-dns-resolver` now folds oracle trust into resolver health, quarantines
+repeatedly divergent or poisoned endpoints, and scopes resolver ranking plus
+fallback memory by an opaque network identity token so callers can separate
+Wi-Fi/cellular, IPv4/IPv6, operator, or transport memory without teaching the
+crate Android-specific network semantics.
 
 **Primary areas:**
 - `native/rust/crates/ripdpi-dns-resolver/src/resolver.rs` (1406 lines)
@@ -390,11 +392,11 @@ the first acceptable response rather than a wider per-network oracle memory.
 
 - [x] Replace single-oracle logic in `ripdpi-monitor` with multi-oracle trust
   scoring and confidence metadata.
-- [ ] Extend that oracle scoring into resolver selection and ranking policy in
+- [x] Extend that oracle scoring into resolver selection and ranking policy in
   `ripdpi-dns-resolver`.
-- [ ] Key resolver health and fallback memory by network identity instead of a
+- [x] Key resolver health and fallback memory by network identity instead of a
   global process-wide ordering.
-- [ ] Track ranking separately for:
+- [x] Track ranking separately for:
   - Wi-Fi vs cellular
   - IPv4 vs IPv6
   - resolver operator
@@ -410,11 +412,15 @@ the first acceptable response rather than a wider per-network oracle memory.
   reference in probe and strategy-baseline classification.
 - [x] Quarantine untrusted oracle outcomes so they do not retrain the strategy
   system from strategy-baseline DNS evidence.
-- [ ] Add DDR / HTTPS / SVCB-driven resolver discovery where practical.
-- [ ] Use hedged queries only for bootstrap, failover, and diagnostics rather
+- [x] Use hedged queries only for bootstrap, failover, and diagnostics rather
   than as the default resolution path.
-- [ ] Add tests for CDN variance, IPv4/IPv6 asymmetry, partial overlap, and
+- [x] Add tests for CDN variance, IPv4/IPv6 asymmetry, partial overlap, and
   multi-resolver disagreement.
+
+**Follow-on ideas (non-gating)**
+
+- Evaluate DDR / HTTPS / SVCB-driven resolver discovery on top of the existing
+  HTTPS-record parsing surface where it materially improves bootstrap coverage.
 
 **Done when**
 
