@@ -56,6 +56,15 @@ Key rules for this pattern:
   Android VpnService can revoke the original fd at any time.
 - Wrap `block_on` in `catch_unwind` -- a panic must not unwind through JNI.
 
+### Required tokio version floor
+
+Do **not** downgrade tokio below these versions:
+
+- **≥ 1.42.1** — fixes a `broadcast::Sender::clone()` soundness bug (missing synchronization for `Send + !Sync` payloads) and a `CancellationToken` race where futures that polled to `Ready` before the token fired were not cancelled. RIPDPI's connection-level abort paths rely on the cancellation fix. See the tokio [CHANGELOG](https://github.com/tokio-rs/tokio/blob/master/tokio/CHANGELOG.md) and [PR #7462](https://github.com/tokio-rs/tokio/pull/7462).
+- **≥ 1.51.1** — fixes a file-descriptor leak when an `io_uring` `open` operation is cancelled before completion. `ripdpi-tunnel-core` cancels in-flight FS/IO operations on session teardown; below this version the leaked fds accumulate until the process exits. See [PR #7983](https://github.com/tokio-rs/tokio/pull/7983).
+
+If `cargo tree -i tokio` shows a version below the floor, promote it in `native/rust/Cargo.toml` workspace dependencies (never downgrade a transitive dep to work around a breaking change — open an upstream issue instead).
+
 ### Runtime configuration for Android NDK
 
 ```rust
@@ -104,6 +113,8 @@ tokio::select! {
 This is NOT a typical "spawn per connection" design. One task owns the entire
 smoltcp stack. Individual TCP/UDP sessions ARE spawned as separate tokio tasks
 that communicate back via `mpsc` channels and `tokio::io::duplex` pairs.
+
+**The smoltcp ↔ duplex bridge uses a `NoopWaker`-based manual poll pattern**: see `rust-io-loop` skill for the full treatment of `try_read_duplex` / `try_write_duplex` in `io_loop/bridge.rs:19-45`. The short version: the bridge calls `poll_read` / `poll_write` directly from the io_loop tick with a discarded waker. Consequence: the `try_*_duplex` family must NEVER be called from inside an async `await` — a `Poll::Pending` under the NoopWaker stalls the task permanently. If you find yourself writing `async fn` wrappers around duplex streams in this crate, stop and consult the io_loop skill.
 
 ## Blocking in async -- common mistakes
 
