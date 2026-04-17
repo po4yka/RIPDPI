@@ -25,11 +25,16 @@
   first-flight IR for TLS ClientHello and QUIC Initial; `ripdpi-packets`
   exposes `TlsClientHelloLayout` / `QuicInitialLayout`; and the TLS prelude
   plus QUIC UDP planner now consume the IR for record-boundary, authority,
-  and CRYPTO-frame decisions. The remaining work is planner-wide migration,
-  lowering cleanup, and dedicated golden rewrite coverage.
+  and CRYPTO-frame decisions. Terminal fake-step lowering now routes through
+  runtime lowering instead of planner degradation, and dedicated rewrite
+  goldens now live under `ripdpi-desync/tests/golden/phase4_*.json`. The
+  remaining work is planner-wide migration, lowering cleanup, and the QUIC
+  packetizer work in Workstream 3.
 - **Workstream 3-9:** Not started in this roadmap. Their main runtime
-  prerequisite is now landed: architecture-refactor Workstream 3 completed the
-  runtime decomposition, which is why Workstream 2 could start here. See
+  prerequisite is still partial: architecture-refactor Workstream 3 removed the
+  old `execute_tcp_plan` monolith shape and made Workstream 2 viable, but the
+  remaining lowering/capability/UDP/platform slices are still the main blocker
+  before more Workstream 2 expansion or Workstream 3 packetizer work. See
   `docs/roadmap-execution-queue.md`.
 
 ## Related Roadmaps
@@ -50,7 +55,8 @@ work must fit into. See the three sibling roadmaps below for connected work:
   - Refactor Workstream 3 (runtime/desync decomposition) creates the seams that
     this roadmap's Workstream 2 (first-flight IR) and Workstream 3 (QUIC subsystem)
     lower onto. The old central `execute_tcp_plan` monolith has been reduced
-    substantially, but IR migration should still wait for the remaining
+    substantially and some Workstream 2 slices are already landed, but the
+    remaining planner migration should still wait for the unresolved
     lowering/capability/UDP/platform split work.
   - Refactor Workstream 4 (service/relay orchestration) interacts with Workstream 8
     (Android hardening) -- VPN lifecycle, handover, and relay-kind resolvers are
@@ -198,9 +204,11 @@ wait until the remaining lowering/capability/UDP/platform work there is done.
   `QuicInitialInfo`, QUIC v1 and v2 salt constants at lines 27-34).
 - TCP step planner: `ripdpi-desync/src/plan_tcp.rs` (380 lines, `plan_tcp()` entry).
 - UDP step planner: `ripdpi-desync/src/plan_udp.rs` (296 lines, `plan_udp()` entry).
-- Runtime prerequisite status: architecture-refactor Workstream 3 is complete.
-  The first-flight IR can now lower onto the smaller runtime seams instead of
-  the old monolith.
+- Runtime prerequisite status: architecture-refactor Workstream 3 is partial
+  but far enough along for the landed IR foundation, TCP semantic offset
+  migration, terminal fake-step lowering migration, and rewrite goldens. The
+  remaining Workstream 2 planner migration should still wait for Workstream 3's
+  lowering/capability/UDP/platform completion.
 
 **Shipped scope (2026-04-17):**
 
