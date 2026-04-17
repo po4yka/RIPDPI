@@ -11,6 +11,7 @@ use crate::connectivity::{classify_dns_latency_quality, is_dns_injection_suspect
 use crate::dns::{build_fallback_encrypted_dns_endpoints, resolve_via_encrypted_dns};
 use crate::transport::{domain_connect_target, resolve_addresses, TargetAddress, TransportConfig};
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
+use crate::util::{classify_dns_answer_overlap, DnsAnswerOverlap};
 
 pub(crate) fn detect_strategy_probe_dns_tampering(
     targets: &[DomainTarget],
@@ -72,10 +73,8 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
 
         let system_ips = system_targets.iter().map(SocketAddr::ip).collect::<Vec<_>>();
 
-        // DNS record deletion (NXDOMAIN): system returns nothing but encrypted resolves fine.
-        // DNS substitution: system returns IPs that don't match encrypted answers.
         let (tampering_detected, outcome) = if system_resolution_failed && !encrypted_ips.is_empty() {
-            (true, "dns_nxdomain")
+            (true, "dns_nxdomain_mismatch")
         } else if system_resolution_failed {
             // Both failed or encrypted also empty -- skip this target.
             continue;
@@ -83,10 +82,20 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
             // All encrypted resolvers (primary + fallbacks) failed -- cannot determine
             // substitution without a trusted reference.  Skip to avoid false positives.
             continue;
-        } else if system_ips.iter().all(|ip| !encrypted_ips.iter().any(|answer| answer == ip)) {
-            (true, "dns_substitution")
         } else {
-            (false, "dns_match")
+            let system_ip_strings = system_ips.iter().map(ToString::to_string).collect::<Vec<_>>();
+            let encrypted_ip_strings = encrypted_ips.iter().map(ToString::to_string).collect::<Vec<_>>();
+            match classify_dns_answer_overlap(&system_ip_strings, &encrypted_ip_strings) {
+                DnsAnswerOverlap::Match => (false, "dns_match"),
+                DnsAnswerOverlap::CompatibleDivergence => {
+                    if system_latency_ms.parse::<u64>().unwrap_or(u64::MAX) <= 5 {
+                        (false, "dns_suspicious_divergence")
+                    } else {
+                        (false, "dns_compatible_divergence")
+                    }
+                }
+                DnsAnswerOverlap::SinkholeSubstitution => (true, "dns_sinkhole_substitution"),
+            }
         };
 
         results.push(ProbeResult {

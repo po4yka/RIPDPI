@@ -242,7 +242,7 @@ fn dns_probe_reports_substitution_when_udp_and_doh_differ() {
     };
 
     let result = run_dns_probe(&target, &TransportConfig::Direct, &ScanPathMode::RawPath);
-    assert_eq!(result.outcome, "dns_substitution");
+    assert_eq!(result.outcome, "dns_sinkhole_substitution");
 }
 
 #[test]
@@ -265,7 +265,7 @@ fn dns_probe_reports_doh_blocked_when_udp_works_and_doh_fails() {
     };
 
     let result = run_dns_probe(&target, &TransportConfig::Direct, &ScanPathMode::RawPath);
-    assert_eq!(result.outcome, "encrypted_dns_blocked");
+    assert_eq!(result.outcome, "dns_oracle_unavailable");
 }
 
 #[test]
@@ -766,7 +766,7 @@ fn baseline_dns_tampering_uses_runtime_context_before_candidate_trials() {
 
     assert_eq!(baseline.failure.class, FailureClass::DnsTampering);
     assert_eq!(baseline.failure.action, FailureAction::ResolverOverrideRecommended);
-    assert_eq!(baseline.results.first().map(|result| result.outcome.as_str()), Some("dns_substitution"));
+    assert_eq!(baseline.results.first().map(|result| result.outcome.as_str()), Some("dns_sinkhole_substitution"));
 }
 
 #[test]

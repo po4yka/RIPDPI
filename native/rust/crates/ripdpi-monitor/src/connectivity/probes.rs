@@ -54,7 +54,7 @@ pub(crate) fn classify_dns_latency_quality(udp_latency_ms: &str, encrypted_laten
 /// of in-path DNS injection (e.g., middlebox DPI equipment racing forged responses).
 pub(crate) fn is_dns_injection_suspected(udp_latency_ms: &str, outcome: &str) -> bool {
     let udp: u64 = udp_latency_ms.parse().unwrap_or(u64::MAX);
-    udp <= 5 && matches!(outcome, "dns_substitution" | "dns_nxdomain")
+    udp <= 5 && is_suspected_dns_tampering_outcome(outcome)
 }
 
 pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &ScanPathMode) -> ProbeResult {
@@ -110,11 +110,17 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
                     "dns_match".to_string()
                 }
             }
-            DnsAnswerOverlap::Divergence => "dns_answer_divergence".to_string(),
-            DnsAnswerOverlap::Substitution => "dns_substitution".to_string(),
+            DnsAnswerOverlap::CompatibleDivergence => {
+                if udp_latency_ms.parse::<u64>().unwrap_or(u64::MAX) <= 5 {
+                    "dns_suspicious_divergence".to_string()
+                } else {
+                    "dns_compatible_divergence".to_string()
+                }
+            }
+            DnsAnswerOverlap::SinkholeSubstitution => "dns_sinkhole_substitution".to_string(),
         },
-        (Ok(_), Err(_)) => "encrypted_dns_blocked".to_string(),
-        (Err(err), Ok(_)) if err == "dns_nxdomain" => "dns_nxdomain".to_string(),
+        (Ok(_), Err(_)) => "dns_oracle_unavailable".to_string(),
+        (Err(err), Ok(_)) if err == "dns_nxdomain" => "dns_nxdomain_mismatch".to_string(),
         (Err(_), Ok(_)) => {
             if matches!(path_mode, ScanPathMode::InPath) {
                 "udp_skipped_or_blocked".to_string()
@@ -191,8 +197,8 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
         ],
     };
 
-    // Injection profiling: only populated for substitution/nxdomain outcomes.
-    if matches!(result.outcome.as_str(), "dns_substitution" | "dns_nxdomain") {
+    // Injection profiling: only populated for tampering/suspicious-divergence outcomes.
+    if is_suspected_dns_tampering_outcome(result.outcome.as_str()) {
         let udp_ms: u64 = udp_latency_ms.parse().unwrap_or(0);
         let enc_ms: u64 = encrypted_latency_ms.parse().unwrap_or(0);
         // Fixed-point ratio * 100 (e.g. 4000 = 40.00x).
