@@ -17,7 +17,8 @@ pub use resolver::EncryptedDnsResolver;
 pub use transport::extract_ip_answers;
 pub use types::{
     EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsErrorKind,
-    EncryptedDnsExchangeSuccess, EncryptedDnsProtocol, EncryptedDnsTransport,
+    EncryptedDnsExchangeSuccess, EncryptedDnsProtocol, EncryptedDnsTransport, ResolverNetworkScope,
+    ResolverOracleObservation,
 };
 
 // Internal re-exports for test access
