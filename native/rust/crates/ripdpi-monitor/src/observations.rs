@@ -371,10 +371,11 @@ fn dns_status(outcome: &str) -> DnsObservationStatus {
     match outcome {
         "dns_match" => DnsObservationStatus::Match,
         "dns_expected_mismatch" => DnsObservationStatus::ExpectedMismatch,
-        "dns_answer_divergence" => DnsObservationStatus::AnswerDivergence,
-        "dns_substitution" => DnsObservationStatus::Substitution,
-        "dns_nxdomain" => DnsObservationStatus::Nxdomain,
-        "encrypted_dns_blocked" => DnsObservationStatus::EncryptedBlocked,
+        "dns_compatible_divergence" => DnsObservationStatus::CompatibleDivergence,
+        "dns_suspicious_divergence" => DnsObservationStatus::SuspiciousDivergence,
+        "dns_sinkhole_substitution" => DnsObservationStatus::SinkholeSubstitution,
+        "dns_nxdomain_mismatch" => DnsObservationStatus::NxdomainMismatch,
+        "dns_oracle_unavailable" => DnsObservationStatus::OracleUnavailable,
         "udp_blocked" | "udp_skipped_or_blocked" => DnsObservationStatus::UdpBlocked,
         _ => DnsObservationStatus::Unavailable,
     }
@@ -521,10 +522,11 @@ mod tests {
     fn dns_status_maps_all_variants() {
         assert_eq!(dns_status("dns_match"), DnsObservationStatus::Match);
         assert_eq!(dns_status("dns_expected_mismatch"), DnsObservationStatus::ExpectedMismatch);
-        assert_eq!(dns_status("dns_answer_divergence"), DnsObservationStatus::AnswerDivergence);
-        assert_eq!(dns_status("dns_substitution"), DnsObservationStatus::Substitution);
-        assert_eq!(dns_status("dns_nxdomain"), DnsObservationStatus::Nxdomain);
-        assert_eq!(dns_status("encrypted_dns_blocked"), DnsObservationStatus::EncryptedBlocked);
+        assert_eq!(dns_status("dns_compatible_divergence"), DnsObservationStatus::CompatibleDivergence);
+        assert_eq!(dns_status("dns_suspicious_divergence"), DnsObservationStatus::SuspiciousDivergence);
+        assert_eq!(dns_status("dns_sinkhole_substitution"), DnsObservationStatus::SinkholeSubstitution);
+        assert_eq!(dns_status("dns_nxdomain_mismatch"), DnsObservationStatus::NxdomainMismatch);
+        assert_eq!(dns_status("dns_oracle_unavailable"), DnsObservationStatus::OracleUnavailable);
         assert_eq!(dns_status("udp_blocked"), DnsObservationStatus::UdpBlocked);
         assert_eq!(dns_status("udp_skipped_or_blocked"), DnsObservationStatus::UdpBlocked);
         assert_eq!(dns_status("unknown"), DnsObservationStatus::Unavailable);
@@ -692,14 +694,14 @@ mod tests {
         let result = probe(
             "dns_integrity",
             "example.com",
-            "dns_substitution",
+            "dns_sinkhole_substitution",
             &[("udpAddresses", "1.2.3.4|5.6.7.8"), ("encryptedAddresses", "9.10.11.12"), ("udpLatencyMs", "42")],
         );
         let obs = observation_for_probe(&result).expect("dns observation");
         assert_eq!(obs.kind, ObservationKind::Dns);
         assert_eq!(obs.target, "example.com");
         let dns = obs.dns.expect("dns payload");
-        assert_eq!(dns.status, DnsObservationStatus::Substitution);
+        assert_eq!(dns.status, DnsObservationStatus::SinkholeSubstitution);
         assert_eq!(dns.udp_addresses, vec!["1.2.3.4", "5.6.7.8"]);
         assert_eq!(dns.encrypted_addresses, vec!["9.10.11.12"]);
         assert_eq!(dns.udp_latency_ms, Some(42));
@@ -944,7 +946,7 @@ mod tests {
         let result = probe(
             "dns_integrity",
             "example.com",
-            "dns_substitution",
+            "dns_sinkhole_substitution",
             &[("injectionLatencyRatio", "4000"), ("forgedAddresses", "1.2.3.4,5.6.7.8")],
         );
         let dns = observation_for_probe(&result).expect("obs").dns.expect("dns");
@@ -964,9 +966,9 @@ mod tests {
     #[test]
     fn dns_injection_pool_detected_for_three_plus_domains() {
         let results = vec![
-            probe("dns_integrity", "a.com", "dns_substitution", &[("forgedAddresses", "10.0.0.1")]),
-            probe("dns_integrity", "b.com", "dns_substitution", &[("forgedAddresses", "10.0.0.1")]),
-            probe("dns_integrity", "c.com", "dns_substitution", &[("forgedAddresses", "10.0.0.1")]),
+            probe("dns_integrity", "a.com", "dns_sinkhole_substitution", &[("forgedAddresses", "10.0.0.1")]),
+            probe("dns_integrity", "b.com", "dns_sinkhole_substitution", &[("forgedAddresses", "10.0.0.1")]),
+            probe("dns_integrity", "c.com", "dns_sinkhole_substitution", &[("forgedAddresses", "10.0.0.1")]),
         ];
         let observations = observations_for_results(&results);
         assert_eq!(observations.len(), 3);
@@ -980,8 +982,8 @@ mod tests {
     #[test]
     fn dns_injection_pool_not_detected_for_two_domains() {
         let results = vec![
-            probe("dns_integrity", "a.com", "dns_substitution", &[("forgedAddresses", "10.0.0.1")]),
-            probe("dns_integrity", "b.com", "dns_substitution", &[("forgedAddresses", "10.0.0.1")]),
+            probe("dns_integrity", "a.com", "dns_sinkhole_substitution", &[("forgedAddresses", "10.0.0.1")]),
+            probe("dns_integrity", "b.com", "dns_sinkhole_substitution", &[("forgedAddresses", "10.0.0.1")]),
         ];
         let observations = observations_for_results(&results);
         for obs in &observations {
