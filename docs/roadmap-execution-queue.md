@@ -136,9 +136,10 @@ Mode: `Ralph`. Critical path -- unblocks Phases 4, 5, 13.
 wave are landed: `docs/architecture/first-flight-ir.md`, IR types and
 normalizers in `ripdpi-desync::first_flight_ir`, additive layout surfaces in
 `ripdpi-packets`, IR-driven TLS prelude record fragmentation, IR-backed TCP
-semantic offset resolution through `proto.rs`, and IR-driven QUIC UDP split
-planning. Remaining work is the broader planner migration, lowering cleanup,
-and dedicated golden rewrite coverage.
+semantic offset resolution through `proto.rs`, IR-driven QUIC UDP split
+planning, terminal fake-step lowering migration, and dedicated rewrite
+goldens. Remaining work is the broader planner migration, lowering cleanup,
+and QUIC packetizer follow-through.
 
 Mode: `Team` with `/deep-interview` on 4.1. Must not start on old monolith.
 
@@ -363,7 +364,7 @@ Phase 0 (guardrails) ---+-> Phase 1 (config) ---+-> Phase 9 (UI)
 
 ## Priority Entry Points
 
-**Phases 0 + 2 complete; Phase 1 partial (1.1-1.5 done, 1.6-1.8 deferred); Phase 3 partial.**
+**Phases 0 + 2 complete; Phase 1 partial (1.1-1.5 done, 1.6-1.8 deferred); Phase 3 partial; Phase 4 partial with 4.8 complete.**
 19 commits ahead of `origin/main` as of 2026-04-17.
 
 Next OMC kickoff prompts in priority order:
@@ -371,6 +372,7 @@ Next OMC kickoff prompts in priority order:
 1. `/ralph "finish the remaining Phase 3 work from docs/roadmap-execution-queue.md: close 3.5 flag-override cleanup, then land 3.6-3.10. The old execute_tcp_plan monolith is already reduced; the real blocker now is lowering/capability centralization plus udp/platform splits. Gate on cargo test -p ripdpi-runtime and the targeted runtime regressions for every moved family. Do not extend any baseline."`
 2. (Parallel-safe with Phase 3) `/ralph "execute Phase 6 slices 6.1-6.7 from docs/roadmap-execution-queue.md; replace dns_substitution single no-overlap rule with multi-oracle confidence scoring. Gate on cargo test -p ripdpi-dns-resolver and cargo test -p ripdpi-monitor."`
 3. (Parallel-safe with Phase 3) `/ralph "execute Phase 7 slices 7.1-7.5; decompose UpstreamRelaySupervisor.resolveRuntimeConfig into per-relay-kind resolvers; mirror the per-section split pattern proven in Phase 1 slice 1.1."`
-4. Phase 1b later: finish slices 1.6-1.8 (RipDpiProxyJsonCodec remaining sections + convert.rs split + legacy compat adapter).
+4. After Phases 3, 6, and 7 stabilize: finish Phase 1b (1.6-1.8 -- remaining codec sections, `convert.rs` split, legacy compat adapter).
+5. Then return to the remaining Phase 4 slices: finish 4.5 planner migration breadth, 4.6 residual QUIC migration, and 4.7 non-terminal emitter restrictions before starting Phase 5.
 
-Phase 4 (first-flight IR) and Phase 5 (QUIC subsystem) only become safe to start AFTER the remaining Phase 3 lowering/capability/UDP/platform work lands -- they depend on the runtime decomposition being complete enough to lower onto stable seams.
+Phase 5 (QUIC subsystem) is still blocked on the remaining Phase 3 lowering/capability/UDP/platform work and the unresolved Phase 4 planner/lowering migration. Do not start the packetizer on top of partially migrated planner seams.
