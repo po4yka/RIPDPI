@@ -293,20 +293,9 @@ mod tests {
             "capability unavailable: ttl_write",
         );
 
-        assert_eq!(
-            failure_trigger_mask(&failure),
-            0,
-            "CapabilitySkipped must not trigger any block-detection signal"
-        );
-        assert!(
-            !failure_penalizes_strategy(&failure),
-            "CapabilitySkipped must not penalise the strategy"
-        );
-        assert_eq!(
-            failure.class.as_str(),
-            "capability_skipped",
-            "CapabilitySkipped string form must be stable"
-        );
+        assert_eq!(failure_trigger_mask(&failure), 0, "CapabilitySkipped must not trigger any block-detection signal");
+        assert!(!failure_penalizes_strategy(&failure), "CapabilitySkipped must not penalise the strategy");
+        assert_eq!(failure.class.as_str(), "capability_skipped", "CapabilitySkipped string form must be stable");
     }
 
     fn runtime_config_with_ipfrag(tcp: bool, udp: bool, ipv6: bool) -> RuntimeConfig {

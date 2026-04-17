@@ -1818,20 +1818,15 @@ pub(super) fn try_set_stream_ttl_with_outcome(stream: &TcpStream, ttl: u8) -> Ca
     match set_stream_ttl(stream, ttl) {
         Ok(()) => CapabilityOutcome::Available(()),
         Err(err) => match err.raw_os_error() {
-            Some(libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EROFS | libc::EINVAL) => {
-                CapabilityOutcome::Unavailable {
-                    capability: RuntimeCapability::TtlWrite,
-                    reason: CapabilityUnavailable::Unsupported,
-                }
-            }
+            Some(libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EROFS | libc::EINVAL) => CapabilityOutcome::Unavailable {
+                capability: RuntimeCapability::TtlWrite,
+                reason: CapabilityUnavailable::Unsupported,
+            },
             Some(libc::EACCES | libc::EPERM) => CapabilityOutcome::Unavailable {
                 capability: RuntimeCapability::TtlWrite,
                 reason: CapabilityUnavailable::PermissionDenied,
             },
-            _ => CapabilityOutcome::ProbeFailed {
-                capability: RuntimeCapability::TtlWrite,
-                error: err.to_string(),
-            },
+            _ => CapabilityOutcome::ProbeFailed { capability: RuntimeCapability::TtlWrite, error: err.to_string() },
         },
     }
 }
@@ -2428,20 +2423,15 @@ mod tests {
     fn ttl_error_to_outcome(err: io::Error) -> CapabilityOutcome<()> {
         use super::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
         match err.raw_os_error() {
-            Some(libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EROFS | libc::EINVAL) => {
-                CapabilityOutcome::Unavailable {
-                    capability: RuntimeCapability::TtlWrite,
-                    reason: CapabilityUnavailable::Unsupported,
-                }
-            }
+            Some(libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EROFS | libc::EINVAL) => CapabilityOutcome::Unavailable {
+                capability: RuntimeCapability::TtlWrite,
+                reason: CapabilityUnavailable::Unsupported,
+            },
             Some(libc::EACCES | libc::EPERM) => CapabilityOutcome::Unavailable {
                 capability: RuntimeCapability::TtlWrite,
                 reason: CapabilityUnavailable::PermissionDenied,
             },
-            _ => CapabilityOutcome::ProbeFailed {
-                capability: RuntimeCapability::TtlWrite,
-                error: err.to_string(),
-            },
+            _ => CapabilityOutcome::ProbeFailed { capability: RuntimeCapability::TtlWrite, error: err.to_string() },
         }
     }
 
@@ -2456,11 +2446,7 @@ mod tests {
             match outcome {
                 CapabilityOutcome::Unavailable { capability, reason } => {
                     assert_eq!(capability, RuntimeCapability::TtlWrite, "errno {errno}: wrong capability");
-                    assert_eq!(
-                        reason,
-                        CapabilityUnavailable::Unsupported,
-                        "errno {errno}: expected Unsupported"
-                    );
+                    assert_eq!(reason, CapabilityUnavailable::Unsupported, "errno {errno}: expected Unsupported");
                 }
                 other => panic!("errno {errno}: expected Unavailable{{Unsupported}}, got {other:?}"),
             }
