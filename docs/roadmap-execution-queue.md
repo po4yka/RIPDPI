@@ -152,7 +152,8 @@ Mode: `Team` with `/deep-interview` on 4.1. Must not start on old monolith.
 Current landed scope: `tls_prelude.rs` now uses the IR for record splitting, and `proto.rs` now resolves TLS semantic offsets (`Host`, `MidSld`, `EndHost`, `SniExt`, `ExtLen`, `EchExt`) from IR-backed `TlsProtoInfo` for both single-record and fragmented multi-record ClientHello payloads.
 | 4.6 | In progress | Migrate QUIC prelude logic onto IR | 4.4 | `packet-smoke-debugger` QUIC scenarios unchanged |
 Current landed scope: `plan_udp.rs` now routes QUIC SNI split, CRYPTO split, realistic fake-burst generation, and `QuicMultiInitialRealistic` default host/version selection through the normalized QUIC IR instead of falling back to the generic fake TLS host when no explicit override is set.
-| 4.7 | Move terminal-step and emitter-specific restrictions from planner to lowering | 4.5, 4.6 | Planner has no emitter-specific branches |
+| 4.7 | In progress | Move terminal-step and emitter-specific restrictions from planner to lowering | 4.5, 4.6 | Planner has no emitter-specific branches |
+Current landed scope: terminal `FakeSplit` / `FakeDisorder` degradation now stays semantic in `plan_tcp.rs`, while runtime routing in `ripdpi-runtime::runtime::desync` switches those terminal plans into lowering so fail-closed/original-flag behavior is owned by the lowerer rather than the planner.
 | 4.8 | Golden fixtures: TLS record fragmentation, ALPN changes, QUIC CRYPTO splits, ECH/GREASE-preserving rewrites | 4.5, 4.6 | Golden-blesser workflow; fixtures committed |
 
 ## Phase 5 -- QUIC Initial Shaping Subsystem (bypass-modernization W3)

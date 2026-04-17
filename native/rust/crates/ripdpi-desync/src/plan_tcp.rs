@@ -293,25 +293,16 @@ pub fn plan_tcp(
                 );
             }
             TcpChainStepKind::FakeSplit => {
-                // Graceful degradation: when the offset falls at a boundary
-                // (pos <= lp or pos >= total), FakeSplit cannot inject a fake
-                // copy of the second segment. Fall back to plain Split which
-                // still provides packet-level evasion without the fake
-                // injection property.
-                if pos <= lp || pos >= tampered.bytes.len() as i64 {
-                    planned_kind = TcpChainStepKind::Split;
-                }
+                // Keep the semantic fake step even when the split lands on the
+                // terminal boundary. Runtime lowering decides whether the plan
+                // can still emit a true fake split or must degrade to a plain
+                // write/await approximation.
                 push_split_actions(&mut actions, chunk);
             }
             TcpChainStepKind::FakeDisorder => {
-                // Graceful degradation: when the offset falls at a boundary
-                // (pos <= lp or pos >= total), FakeDisorder cannot inject a
-                // fake copy of the second segment. Fall back to plain Disorder
-                // which still provides packet-level evasion without the fake
-                // injection property.
-                if pos <= lp || pos >= tampered.bytes.len() as i64 {
-                    planned_kind = TcpChainStepKind::Disorder;
-                }
+                // Keep the semantic fake step even when the split lands on the
+                // terminal boundary. Runtime lowering owns the emitter
+                // restriction and any fallback behavior.
                 actions.push(DesyncAction::SetTtl(disorder_ttl(fake_ttl)));
                 actions.push(DesyncAction::Write(chunk));
                 actions.push(DesyncAction::AwaitWritable);

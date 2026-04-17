@@ -13,7 +13,7 @@ use ripdpi_config::{DesyncGroup, EntropyMode, FakeOrder, FakeSeqMode, RuntimeCon
 use ripdpi_desync::{
     activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes,
     build_secondary_fake_packet, plan_tcp, resolve_hostfake_span, ActivationContext, ActivationTcpState,
-    ActivationTransport, AdaptivePlannerHints, DesyncAction, DesyncPlan,
+    ActivationTransport, AdaptivePlannerHints, DesyncAction, DesyncPlan, PlannedStep,
 };
 use ripdpi_packets::entropy;
 use ripdpi_packets::tls_marker_info;
@@ -360,7 +360,7 @@ pub(super) fn send_with_group(
     if should_desync_tcp(effective_group, context) {
         let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
         match plan_tcp(effective_group, &effective_payload, seed, state.config.network.default_ttl, context) {
-            Ok(plan) if requires_special_tcp_execution(effective_group) => {
+            Ok(plan) if requires_special_tcp_execution(effective_group, &plan) => {
                 let bytes_committed = execute_tcp_plan(
                     writer,
                     &state.config,
@@ -575,13 +575,19 @@ fn restore_ttl_action_name(strategy_family: &'static str) -> &'static str {
     }
 }
 
-pub(super) fn requires_special_tcp_execution(group: &DesyncGroup) -> bool {
+fn fake_approximation_step_requires_terminal_lowering(step: &PlannedStep, payload_len: usize) -> bool {
+    step.end == payload_len as i64
+}
+
+pub(super) fn requires_special_tcp_execution(group: &DesyncGroup, plan: &DesyncPlan) -> bool {
     let supports_fake_retransmit = platform::supports_fake_retransmit();
     group.effective_tcp_chain().iter().any(|step| {
         matches!(step.kind, TcpChainStepKind::MultiDisorder | TcpChainStepKind::Fake | TcpChainStepKind::IpFrag2)
-            || (supports_fake_retransmit
-                && matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder))
             || tcp_step_has_flag_overrides(step)
+    }) || plan.steps.iter().any(|step| {
+        matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
+            && (supports_fake_retransmit
+                || fake_approximation_step_requires_terminal_lowering(step, plan.tampered.len()))
     })
 }
 
@@ -3059,21 +3065,54 @@ mod tests {
     #[test]
     fn special_tcp_execution_includes_fake_approximation_steps() {
         let mut group = test_group();
+        let non_terminal_fake_step_plan = DesyncPlan {
+            tampered: b"payload".to_vec(),
+            steps: vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 3 }],
+            proto: ProtoInfo::default(),
+            actions: Vec::new(),
+        };
+        let terminal_fake_step_plan = DesyncPlan {
+            tampered: b"payload".to_vec(),
+            steps: vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 7 }],
+            proto: ProtoInfo::default(),
+            actions: Vec::new(),
+        };
+
         group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeSplit, test_offset()));
-        assert_eq!(requires_special_tcp_execution(&group), platform::supports_fake_retransmit());
+        assert_eq!(
+            requires_special_tcp_execution(&group, &non_terminal_fake_step_plan),
+            platform::supports_fake_retransmit()
+        );
+        assert!(requires_special_tcp_execution(&group, &terminal_fake_step_plan));
 
         group.actions.tcp_chain.clear();
         group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeDisorder, test_offset()));
-        assert_eq!(requires_special_tcp_execution(&group), platform::supports_fake_retransmit());
+        let non_terminal_fake_disorder_plan = DesyncPlan {
+            tampered: b"payload".to_vec(),
+            steps: vec![PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: 3 }],
+            proto: ProtoInfo::default(),
+            actions: Vec::new(),
+        };
+        let terminal_fake_disorder_plan = DesyncPlan {
+            tampered: b"payload".to_vec(),
+            steps: vec![PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: 7 }],
+            proto: ProtoInfo::default(),
+            actions: Vec::new(),
+        };
+        assert_eq!(
+            requires_special_tcp_execution(&group, &non_terminal_fake_disorder_plan),
+            platform::supports_fake_retransmit()
+        );
+        assert!(requires_special_tcp_execution(&group, &terminal_fake_disorder_plan));
 
         group.actions.tcp_chain.clear();
         group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Fake, test_offset()));
-        assert!(requires_special_tcp_execution(&group));
+        assert!(requires_special_tcp_execution(&group, &non_terminal_fake_step_plan));
 
         group.actions.tcp_chain.clear();
         group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::MultiDisorder, test_offset()));
         group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(4)));
-        assert!(requires_special_tcp_execution(&group));
+        assert!(requires_special_tcp_execution(&group, &non_terminal_fake_step_plan));
     }
 
     #[test]
@@ -4508,6 +4547,40 @@ mod tests {
             &unavailable,
         )
         .expect_err("terminal fakesplit with original flags should fail closed");
+        assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
+        server.set_read_timeout(Some(Duration::from_millis(100))).ok();
+        let mut buf = vec![0u8; 5];
+        use std::io::Read;
+        let read_err = server.read(&mut buf).expect_err("payload should not be written");
+        assert!(matches!(read_err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut));
+    }
+
+    #[test]
+    #[cfg(not(target_os = "linux"))]
+    fn plan_fakeddisorder_terminal_step_with_original_flags_fails_closed() {
+        let (mut client, mut server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let mut step = TcpChainStep::new(TcpChainStepKind::FakeDisorder, test_offset());
+        step.tcp_flags_orig_set = Some(0x12);
+        let mut group = test_group();
+        group.actions.tcp_chain.push(step);
+
+        let err = execute_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &group,
+            &DesyncPlan {
+                tampered: b"hello".to_vec(),
+                steps: vec![PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: 5 }],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            0,
+            Some(9),
+            Some("fakeddisorder"),
+            &unavailable,
+        )
+        .expect_err("terminal fakeddisorder with original flags should fail closed");
         assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
         server.set_read_timeout(Some(Duration::from_millis(100))).ok();
         let mut buf = vec![0u8; 5];
