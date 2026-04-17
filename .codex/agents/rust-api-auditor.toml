@@ -23,6 +23,14 @@ Run: rg 'pub trait' native/rust/ --type rust -n
 - rg '\\.unwrap\\(\\)|\\.expect\\(' native/rust/crates/<name>/src/ --type rust -c
 - rg 'panic!\\(|todo!\\(|unimplemented!\\(' native/rust/crates/<name>/src/ --type rust -n
 - Flag crates using anyhow/Box<dyn Error> in public APIs. Flag > 5 unwraps per crate.
+- Flag anyhow::Result in lib.rs public API -- library crates MUST use thiserror typed errors. Current anyhow crates: ripdpi-warp-core, ripdpi-dns-resolver (verify each is actually application-tier, not library).
+- Flag Result<_, String> as code smell -- String error discards structure. Propose thiserror enum.
+
+### 3a. Performance-Hint Misuse Audit
+- rg '#\\[inline\\(always\\)\\]|#\\[cold\\]|#\\[target_feature' native/rust/ --type rust -n
+- Workspace has ZERO manual perf hints as of 2026-04; any addition MUST be justified with a Criterion benchmark diff.
+- #[inline(always)] on branching logic or a large body is almost always wrong.
+- #[target_feature] requires cfg_feature!-guarded call sites; bare usage is a portability bug on ARMv7 vs ARMv8.
 
 ### 4. Hot-Path Contention Audit
 Focus on ripdpi-runtime and ripdpi-relay-core:
