@@ -105,6 +105,22 @@ Two backends via `chrome-fingerprint` feature flag:
 - **chrome-fingerprint (BoringSSL):** `WebSocket<SslStream<TcpStream>>`,
   Chrome-native ClientHello defeating JA3/JA4 fingerprinting
 
+### Why two backends (2026 perspective)
+
+The `ripdpi-tls-profiles` crate (wrapping `boring`) is the fingerprint-sensitive path. The rustls path is the standard-TLS path where fingerprinting isn't a concern (DNS-over-TLS bootstrap, host-verification-only targets). Rationale as of April 2026:
+
+- **rustls narrowed the perf gap**: the Q1 2026 Prossimo benchmark showed rustls handshake throughput within ~5% of BoringSSL on x86_64. See <https://www.memorysafety.org/blog/26q1-rustls-performance/>. The historical perf argument for BoringSSL is weak.
+- **TLS fingerprint mimicry still requires BoringSSL**: no Rust crate (as of April 2026) offers byte-precise ClientHello construction for JA3/JA4 mimicry. The `ripdpi-tls-profiles` crate wraps `SSL_CTX` at the BoringSSL C level to control extension order, GREASE values, and cipher suite ordering. When a uTLS-in-Rust equivalent lands, this backend can migrate.
+- **`aws-lc-rs` not ready on Android**: the FIPS-validated provider for rustls (`rustls-aws-lc-rs`) has open Android cross-compile issues as of Jan 2026 (see <https://github.com/aws/aws-lc-rs/issues/1006>), so switching the default backend isn't viable yet.
+
+### The 517-byte ClientHello invariant
+
+`ripdpi-tls-profiles` enforces an invariant named `AvoidsBlocked517ByteClientHello` across all four profiles (`chrome_stable`, `firefox_stable`, `safari_stable`, `edge_stable`). A ClientHello with exactly 517 bytes total length is known to be flagged by certain DPI implementations (the length sits right at a common buffer boundary that triggers deep-inspection heuristics).
+
+**Rule**: any new profile added to the set must maintain this invariant. The crate's test suite asserts it; do not bypass the assertion. Profile weights: Chrome 65%, Firefox 20%, Safari 10%, Edge 5% — this distribution matches plausible real traffic and must not drift without a corresponding threat-model review.
+
+See the `desync-engine` skill for adjacent QUIC anti-fingerprinting concerns (quinn `pad_to_mtu`, USENIX 2025 GFW research).
+
 **Connection flow:** resolve target (pre-resolved or DNS) -> TCP connect with
 optional VPN protect + timeout -> bootstrap timeouts for handshake -> TLS ->
 `build_ws_request` (Sec-WebSocket-Protocol: binary) -> tungstenite WS handshake ->
