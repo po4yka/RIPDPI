@@ -45,7 +45,33 @@ runs:
         toolchain: "1.94.0"
         components: ${{ inputs.rust-components }}
 
-    - uses: android-actions/setup-android@v4
+    # Pinned Android CLI from d.android.com/tools/agents. Agents rely on
+    # `android docs` to ground SDK/NDK reasoning; a missing binary must fail
+    # the job loudly. Version is pinned; do NOT run `android update`.
+    - name: Install Android CLI
+      shell: bash
+      env:
+        ANDROID_CLI_VERSION: "1.0.0-preview.1"
+      run: |
+        set -euo pipefail
+        curl -fsSL "https://d.android.com/tools/agents/install.sh" \
+          | bash -s -- --version "$ANDROID_CLI_VERSION"
+        android --version
+
+    - name: Read native toolchain policy
+      id: native-toolchain
+      shell: bash
+      run: |
+        echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+        echo "compile-sdk=$(grep '^ripdpi.compileSdk=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
+
+    - name: Install Android SDK baseline via android CLI
+      shell: bash
+      run: |
+        set -euo pipefail
+        android sdk install \
+          "platform-tools" \
+          "platforms;android-${{ steps.native-toolchain.outputs.compile-sdk }}"
 
     - uses: Swatinem/rust-cache@v2
       with:
@@ -54,20 +80,14 @@ runs:
         shared-key: ${{ inputs.rust-cache-shared-key }}
         save-if: ${{ inputs.rust-cache-save }}
 
-    - name: Read native toolchain policy
-      id: native-toolchain
-      shell: bash
-      run: |
-        echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
-
     - name: Install Rust Android targets
       if: inputs.rust-targets != ''
       shell: bash
       run: rustup target add ${{ inputs.rust-targets }}
 
-    - name: Install NDK
+    - name: Install NDK via android CLI
       shell: bash
-      run: sdkmanager --install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
+      run: android sdk install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
     - uses: mozilla-actions/sccache-action@v0.0.9
       env:
