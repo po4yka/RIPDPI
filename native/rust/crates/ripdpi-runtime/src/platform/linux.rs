@@ -43,6 +43,16 @@ use super::{
     TcpFlagOverrides, TcpStageWait,
 };
 
+mod fake_send;
+mod ip_fragmentation;
+
+pub(crate) use fake_send::{
+    send_fake_rst, send_fake_tcp, send_flagged_tcp_payload, send_ordered_tcp_segments, send_seqovl_tcp,
+};
+pub(crate) use ip_fragmentation::{
+    probe_ip_fragmentation_capabilities, send_ip_fragmented_tcp, send_ip_fragmented_udp, send_multi_disorder_tcp,
+};
+
 /// Thin wrapper around `libc::setsockopt` that handles the return-code check
 /// and `io::Error` conversion.
 ///
@@ -423,49 +433,6 @@ pub fn get_rcvbuf(fd: &impl AsRawFd) -> io::Result<u32> {
     Ok(get_c_int_sockopt(fd.as_raw_fd(), libc::SOL_SOCKET, libc::SO_RCVBUF)? as u32)
 }
 
-/// Send a fake TCP RST packet with the current (fake) TTL to clear DPI state.
-///
-/// Uses `TCP_REPAIR` to snapshot the live connection's seq/ack numbers, builds
-/// a raw RST+ACK packet, and sends it via a raw socket.  The TTL should already
-/// be set to a low fake value by a preceding `SetTtl` action so the packet
-/// expires before reaching the server while DPI processes it.
-pub fn send_fake_rst(
-    stream: &TcpStream,
-    default_ttl: u8,
-    protect_path: Option<&str>,
-    flags: TcpFlagOverrides,
-    ipv4_identification: Option<u16>,
-) -> io::Result<()> {
-    let source = stream.local_addr()?;
-    let target = stream.peer_addr()?;
-    let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
-    let fd = stream.as_raw_fd();
-
-    set_tcp_repair(fd, TCP_REPAIR_ON)?;
-    let result = (|| -> io::Result<()> {
-        let snapshot = snapshot_tcp_repair_state(fd)?;
-        let mut packet = ripdpi_ipfrag::build_fake_rst_packet(&ripdpi_ipfrag::TcpFragmentSpec {
-            src: source,
-            dst: target,
-            ttl,
-            identification: ipv4_identification.map_or_else(|| fragment_identification(source, target, 0), u32::from),
-            sequence_number: snapshot.sequence_number,
-            acknowledgment_number: snapshot.acknowledgment_number,
-            window_size: 0,
-            timestamp: None,
-            tcp_flags_set: flags.set,
-            tcp_flags_unset: flags.unset,
-            ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default(),
-        })
-        .map_err(build_error_to_io)?;
-        apply_tcp_flag_overrides_to_packet(&mut packet, source, target, 0, flags)?;
-        send_raw_packets(target, [packet.as_slice()], protect_path)
-    })();
-    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
-}
-
 /// Bind a UDP socket to a source port that is at most `max_port`.
 ///
 /// Tries random ports in `[1024, max_port]` until one binds successfully.
@@ -554,602 +521,6 @@ pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(us
         cmsg = unsafe { libc::CMSG_NXTHDR(&msg, cmsg) };
     }
     Ok((n as usize, ttl))
-}
-
-pub fn send_fake_tcp(
-    stream: &TcpStream,
-    original_prefix: &[u8],
-    fake_prefix: &[u8],
-    ttl: u8,
-    md5sig: bool,
-    default_ttl: u8,
-    options: super::FakeTcpOptions<'_>,
-    wait: TcpStageWait,
-) -> io::Result<()> {
-    if original_prefix.is_empty() {
-        return Ok(());
-    }
-
-    let requires_exact_raw_path =
-        !options.fake_flags.is_empty() || !options.orig_flags.is_empty() || options.require_raw_path;
-    if requires_exact_raw_path || options.secondary_fake_prefix.is_some() || options.timestamp_delta_ticks.is_some() {
-        match send_fake_tcp_via_raw_packets(stream, original_prefix, fake_prefix, ttl, md5sig, options, wait) {
-            Ok(()) => return Ok(()),
-            Err(error) if requires_exact_raw_path => return Err(error),
-            Err(error) if should_fallback_raw_fake_tcp(error.kind()) => {
-                tracing::debug!("falling back to stream fake TCP path after raw fake downgrade: {error}");
-            }
-            Err(error) => return Err(error),
-        }
-    }
-
-    let fd = stream.as_raw_fd();
-    let region_len = original_prefix.len().max(fake_prefix.len());
-    let region = alloc_region(region_len)?;
-
-    // When default_ttl is 0 (auto-detect), read the current TTL before
-    // modifying so we can always restore the original value afterward.
-    let restore_ttl = if default_ttl != 0 { default_ttl } else { get_stream_ttl(stream).unwrap_or(64) };
-
-    let result = (|| {
-        write_region(region, fake_prefix, region_len);
-
-        let (pipe_r, pipe_w) = nix::unistd::pipe().map_err(io::Error::from)?;
-        // pipe_r and pipe_w are OwnedFd -- closed automatically on drop.
-
-        match try_set_stream_ttl_with_outcome(stream, ttl) {
-            CapabilityOutcome::Available(()) => {
-                tracing::debug!(ttl = ttl, size = original_prefix.len(), "send_fake_tcp: fake packet with custom TTL");
-            }
-            CapabilityOutcome::Unavailable { reason, .. } => {
-                // TTL write is not permitted on this platform (e.g. Android
-                // VPN/tun interface).  Surface the failure as an explicit Err
-                // so the caller in desync.rs can detect it via its
-                // should_ignore_android_ttl_error check and apply the
-                // appropriate Android fallback, rather than silently receiving
-                // Ok(()) and believing TTL customization succeeded.
-                let os_err = match reason {
-                    CapabilityUnavailable::PermissionDenied => libc::EPERM,
-                    _ => libc::ENOPROTOOPT,
-                };
-                tracing::warn!(
-                    ttl = ttl,
-                    reason = ?reason,
-                    "send_fake_tcp: TTL write unavailable on this platform (capability: ttl_write)"
-                );
-                return Err(io::Error::from_raw_os_error(os_err));
-            }
-            CapabilityOutcome::ProbeFailed { error, .. } => {
-                return Err(io::Error::new(io::ErrorKind::Other, error));
-            }
-        }
-        if md5sig {
-            set_tcp_md5sig(stream, 5)?;
-        }
-
-        let iov = libc::iovec { iov_base: region.cast(), iov_len: original_prefix.len() };
-        // SAFETY: `iov` references an anonymous writable mapping whose lifetime
-        // extends until after the splice loop completes. We do NOT use
-        // SPLICE_F_GIFT because the caller sends the real data separately;
-        // gifting pages and mutating them afterward is unsound.
-        let queued = unsafe { libc::vmsplice(pipe_w.as_raw_fd(), &iov, 1, 0) };
-        if queued < 0 {
-            return Err(io::Error::last_os_error());
-        }
-        if queued as usize != original_prefix.len() {
-            return Err(io::Error::new(io::ErrorKind::WriteZero, "partial vmsplice during fake tcp send"));
-        }
-
-        let mut moved = 0usize;
-        while moved < original_prefix.len() {
-            let chunk = nix::fcntl::splice(
-                &pipe_r,
-                None,
-                stream,
-                None,
-                original_prefix.len() - moved,
-                nix::fcntl::SpliceFFlags::empty(),
-            )
-            .map_err(io::Error::from)?;
-            if chunk == 0 {
-                return Err(io::Error::new(io::ErrorKind::WriteZero, "partial splice during fake tcp send"));
-            }
-            moved += chunk;
-        }
-
-        wait_tcp_stage_fd(fd, wait.0, wait.1)?;
-        if md5sig {
-            set_tcp_md5sig(stream, 0)?;
-        }
-        set_stream_ttl(stream, restore_ttl)?;
-        Ok(())
-    })();
-
-    if md5sig {
-        let _ = set_tcp_md5sig(stream, 0);
-    }
-    let _ = set_stream_ttl(stream, restore_ttl);
-    free_region(region, region_len);
-    result
-}
-
-fn should_fallback_raw_fake_tcp(kind: io::ErrorKind) -> bool {
-    matches!(
-        kind,
-        io::ErrorKind::Unsupported
-            | io::ErrorKind::PermissionDenied
-            | io::ErrorKind::WouldBlock
-            | io::ErrorKind::InvalidInput
-    )
-}
-
-fn send_fake_tcp_via_raw_packets(
-    stream: &TcpStream,
-    original_prefix: &[u8],
-    fake_prefix: &[u8],
-    ttl: u8,
-    md5sig: bool,
-    options: super::FakeTcpOptions<'_>,
-    wait: TcpStageWait,
-) -> io::Result<()> {
-    let source = stream.local_addr()?;
-    let target = stream.peer_addr()?;
-    let fd = stream.as_raw_fd();
-    let settings = capture_stream_socket_settings(stream);
-
-    set_tcp_repair(fd, TCP_REPAIR_ON)?;
-    let result = (|| -> io::Result<()> {
-        let snapshot = snapshot_tcp_repair_state(fd)?;
-
-        let timestamp = mutate_fake_timestamp(snapshot.options.timestamp, options.timestamp_delta_ticks)?;
-        let mut packets = Vec::with_capacity(
-            1 + usize::from(options.secondary_fake_prefix.is_some())
-                + usize::from(options.force_raw_original || !options.orig_flags.is_empty()),
-        );
-        let mut identifications = options.ipv4_identifications.iter().copied();
-        packets.push(build_tcp_segment_packet(
-            source,
-            target,
-            ttl,
-            identifications
-                .next()
-                .map_or_else(|| fragment_identification(source, target, original_prefix.len()), u32::from),
-            snapshot.sequence_number,
-            snapshot.acknowledgment_number,
-            snapshot.window_size,
-            timestamp,
-            true,
-            fake_prefix,
-            md5sig,
-            options.fake_flags,
-        )?);
-        if let Some(secondary_fake_prefix) = options.secondary_fake_prefix.filter(|payload| !payload.is_empty()) {
-            packets.push(build_tcp_segment_packet(
-                source,
-                target,
-                ttl,
-                identifications
-                    .next()
-                    .map_or_else(|| fragment_identification(source, target, secondary_fake_prefix.len()), u32::from),
-                snapshot.sequence_number,
-                snapshot.acknowledgment_number,
-                snapshot.window_size,
-                timestamp,
-                true,
-                secondary_fake_prefix,
-                md5sig,
-                options.fake_flags,
-            )?);
-        }
-
-        if options.orig_flags.is_empty() && !options.force_raw_original {
-            send_raw_packets(target, packets.iter().map(Vec::as_slice), options.protect_path)?;
-            use std::io::Write;
-            (&*stream).write_all(original_prefix)?;
-        } else {
-            let original_packet = build_tcp_segment_packet(
-                source,
-                target,
-                ttl,
-                identifications
-                    .next()
-                    .map_or_else(|| fragment_identification(source, target, original_prefix.len()), u32::from),
-                snapshot.sequence_number,
-                snapshot.acknowledgment_number,
-                snapshot.window_size,
-                snapshot.options.timestamp,
-                true,
-                original_prefix,
-                md5sig,
-                options.orig_flags,
-            )?;
-            packets.push(original_packet);
-            let replacement =
-                build_replacement_tcp_socket(source, target, original_prefix.len(), &snapshot, options.protect_path)?;
-            send_raw_packets(target, packets.iter().map(Vec::as_slice), options.protect_path)?;
-            swap_stream_to_replacement(stream, &replacement, settings)?;
-            set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
-            disable_tcp_repair(fd)?;
-        }
-        wait_tcp_stage_fd(fd, wait.0, wait.1)
-    })();
-    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn send_ordered_tcp_segments(
-    stream: &TcpStream,
-    segments: &[super::OrderedTcpSegment<'_>],
-    original_payload_len: usize,
-    _default_ttl: u8,
-    protect_path: Option<&str>,
-    md5sig: bool,
-    timestamp_delta_ticks: Option<i32>,
-    ipv4_identifications: &[u16],
-    wait: TcpStageWait,
-) -> io::Result<()> {
-    if segments.is_empty() {
-        return Ok(());
-    }
-
-    let source = stream.local_addr()?;
-    let target = stream.peer_addr()?;
-    let fd = stream.as_raw_fd();
-    let settings = capture_stream_socket_settings(stream);
-
-    set_tcp_repair(fd, TCP_REPAIR_ON)?;
-    let result = (|| -> io::Result<()> {
-        let snapshot = snapshot_tcp_repair_state(fd)?;
-        let fake_timestamp = if segments.iter().any(|segment| segment.use_fake_timestamp) {
-            mutate_fake_timestamp(snapshot.options.timestamp, timestamp_delta_ticks)?
-        } else {
-            snapshot.options.timestamp
-        };
-        let mut packets = Vec::with_capacity(segments.len());
-        let mut identifications = ipv4_identifications.iter().copied();
-        for segment in segments {
-            let sequence_number = sequence_after_payload(snapshot.sequence_number, segment.sequence_offset)?;
-            packets.push(build_tcp_segment_packet(
-                source,
-                target,
-                segment.ttl,
-                identifications
-                    .next()
-                    .map_or_else(|| fragment_identification(source, target, segment.payload.len()), u32::from),
-                sequence_number,
-                snapshot.acknowledgment_number,
-                snapshot.window_size,
-                if segment.use_fake_timestamp { fake_timestamp } else { snapshot.options.timestamp },
-                true,
-                segment.payload,
-                md5sig,
-                segment.flags,
-            )?);
-        }
-
-        if original_payload_len == 0 {
-            send_raw_packets(target, packets.iter().map(Vec::as_slice), protect_path)?;
-            set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
-            disable_tcp_repair(fd)?;
-            return wait_tcp_stage_fd(fd, wait.0, wait.1);
-        }
-
-        let replacement = build_replacement_tcp_socket(source, target, original_payload_len, &snapshot, protect_path)?;
-        send_raw_packets(target, packets.iter().map(Vec::as_slice), protect_path)?;
-        swap_stream_to_replacement(stream, &replacement, settings)?;
-        set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
-        disable_tcp_repair(fd)?;
-        wait_tcp_stage_fd(fd, wait.0, wait.1)
-    })();
-    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
-}
-
-fn mutate_fake_timestamp(
-    timestamp: Option<TcpTimestampSnapshot>,
-    delta_ticks: Option<i32>,
-) -> io::Result<Option<TcpTimestampSnapshot>> {
-    let Some(delta_ticks) = delta_ticks else {
-        return Ok(timestamp);
-    };
-    let Some(mut timestamp) = timestamp else {
-        return Err(io::Error::new(
-            io::ErrorKind::Unsupported,
-            "fake TCP timestamp corruption requires negotiated TCP timestamps",
-        ));
-    };
-    timestamp.value = if delta_ticks >= 0 {
-        timestamp.value.wrapping_add(delta_ticks as u32)
-    } else {
-        timestamp.value.wrapping_sub(delta_ticks.unsigned_abs())
-    };
-    Ok(Some(timestamp))
-}
-
-pub fn send_flagged_tcp_payload(
-    stream: &TcpStream,
-    payload: &[u8],
-    default_ttl: u8,
-    protect_path: Option<&str>,
-    md5sig: bool,
-    flags: TcpFlagOverrides,
-    ipv4_identification: Option<u16>,
-) -> io::Result<()> {
-    if payload.is_empty() {
-        return Ok(());
-    }
-    if flags.is_empty() {
-        use std::io::Write;
-        (&*stream).write_all(payload)?;
-        return Ok(());
-    }
-
-    let source = stream.local_addr()?;
-    let target = stream.peer_addr()?;
-    let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
-    let fd = stream.as_raw_fd();
-    let settings = capture_stream_socket_settings(stream);
-
-    set_tcp_repair(fd, TCP_REPAIR_ON)?;
-    let result = (|| -> io::Result<()> {
-        let snapshot = snapshot_tcp_repair_state(fd)?;
-        let packet = build_tcp_segment_packet(
-            source,
-            target,
-            ttl,
-            ipv4_identification.map_or_else(|| fragment_identification(source, target, payload.len()), u32::from),
-            snapshot.sequence_number,
-            snapshot.acknowledgment_number,
-            snapshot.window_size,
-            snapshot.options.timestamp,
-            true,
-            payload,
-            md5sig,
-            flags,
-        )?;
-        let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
-        send_raw_packets(target, std::iter::once(packet.as_slice()), protect_path)?;
-        swap_stream_to_replacement(stream, &replacement, settings)?;
-        set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
-        disable_tcp_repair(fd)
-    })();
-
-    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
-}
-
-pub fn probe_ip_fragmentation_capabilities(protect_path: Option<&str>) -> io::Result<IpFragmentationCapabilities> {
-    let raw_ipv4 =
-        probe_raw_socket(Domain::IPV4, libc::IPPROTO_RAW, protect_path, libc::IPPROTO_IP, libc::IP_HDRINCL).is_ok();
-    let raw_ipv6 =
-        probe_raw_socket(Domain::IPV6, libc::IPPROTO_RAW, protect_path, libc::IPPROTO_IPV6, libc::IPV6_HDRINCL).is_ok();
-    let tcp_repair = probe_tcp_repair(protect_path).is_ok();
-    Ok(IpFragmentationCapabilities { raw_ipv4, raw_ipv6, tcp_repair })
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn send_ip_fragmented_udp(
-    upstream: &UdpSocket,
-    target: SocketAddr,
-    payload: &[u8],
-    split_offset: usize,
-    default_ttl: u8,
-    protect_path: Option<&str>,
-    disorder: bool,
-    ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
-    ipv4_identification: Option<u16>,
-) -> io::Result<()> {
-    let source = upstream.local_addr()?;
-    let ttl = resolve_raw_ttl(default_ttl);
-    let pair = build_udp_fragment_pair(
-        UdpFragmentSpec {
-            src: source,
-            dst: target,
-            ttl,
-            identification: ipv4_identification
-                .map_or_else(|| fragment_identification(source, target, payload.len()), u32::from),
-            ipv6_ext,
-        },
-        payload,
-        split_offset,
-    )
-    .map_err(build_error_to_io)?;
-    if disorder {
-        send_raw_fragments(target, [&pair.second, &pair.first], protect_path)
-    } else {
-        send_raw_fragments(target, [&pair.first, &pair.second], protect_path)
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn send_ip_fragmented_tcp(
-    stream: &TcpStream,
-    payload: &[u8],
-    split_offset: usize,
-    default_ttl: u8,
-    protect_path: Option<&str>,
-    disorder: bool,
-    ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
-    flags: TcpFlagOverrides,
-    ipv4_identification: Option<u16>,
-) -> io::Result<()> {
-    if payload.is_empty() {
-        return Ok(());
-    }
-
-    let source = stream.local_addr()?;
-    let target = stream.peer_addr()?;
-    let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
-    let fd = stream.as_raw_fd();
-    let settings = capture_stream_socket_settings(stream);
-
-    set_tcp_repair(fd, TCP_REPAIR_ON)?;
-    let result = (|| -> io::Result<()> {
-        let snapshot = snapshot_tcp_repair_state(fd)?;
-
-        let pair = build_tcp_fragment_pair(
-            TcpFragmentSpec {
-                src: source,
-                dst: target,
-                ttl,
-                identification: ipv4_identification
-                    .map_or_else(|| fragment_identification(source, target, payload.len()), u32::from),
-                sequence_number: snapshot.sequence_number,
-                acknowledgment_number: snapshot.acknowledgment_number,
-                window_size: snapshot.window_size,
-                timestamp: snapshot
-                    .options
-                    .timestamp
-                    .map(|timestamp| TcpTimestampOption { value: timestamp.value, echo_reply: timestamp.echo_reply }),
-                tcp_flags_set: flags.set,
-                tcp_flags_unset: flags.unset,
-                ipv6_ext,
-            },
-            payload,
-            split_offset,
-        )
-        .map_err(build_error_to_io)?;
-
-        let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
-        if disorder {
-            send_raw_fragments(target, [&pair.second, &pair.first], protect_path)?;
-        } else {
-            send_raw_fragments(target, [&pair.first, &pair.second], protect_path)?;
-        }
-        swap_stream_to_replacement(stream, &replacement, settings)?;
-        set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
-        disable_tcp_repair(fd)
-    })();
-
-    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn send_multi_disorder_tcp(
-    stream: &TcpStream,
-    payload: &[u8],
-    segments: &[super::TcpPayloadSegment],
-    default_ttl: u8,
-    protect_path: Option<&str>,
-    inter_segment_delay_ms: u32,
-    md5sig: bool,
-    flags: TcpFlagOverrides,
-    ipv4_identifications: &[u16],
-) -> io::Result<()> {
-    if payload.is_empty() {
-        return Ok(());
-    }
-    if segments.len() < 3 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "multidisorder requires at least three non-empty TCP segments",
-        ));
-    }
-
-    let source = stream.local_addr()?;
-    let target = stream.peer_addr()?;
-    let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
-    let fd = stream.as_raw_fd();
-    let settings = capture_stream_socket_settings(stream);
-
-    set_tcp_repair(fd, TCP_REPAIR_ON)?;
-    let result = (|| -> io::Result<()> {
-        let snapshot = snapshot_tcp_repair_state(fd)?;
-        let packets = build_multi_disorder_packets(
-            source,
-            target,
-            ttl,
-            payload,
-            segments,
-            &snapshot,
-            md5sig,
-            flags,
-            ipv4_identifications,
-        )?;
-        let replacement = build_replacement_tcp_socket(source, target, payload.len(), &snapshot, protect_path)?;
-        send_raw_packets_with_delay(
-            target,
-            packets.iter().rev().map(Vec::as_slice),
-            protect_path,
-            inter_segment_delay_ms,
-        )?;
-        swap_stream_to_replacement(stream, &replacement, settings)?;
-        set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
-        disable_tcp_repair(fd)
-    })();
-
-    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
-}
-
-pub fn send_seqovl_tcp(
-    stream: &TcpStream,
-    real_chunk: &[u8],
-    fake_prefix: &[u8],
-    default_ttl: u8,
-    protect_path: Option<&str>,
-    md5sig: bool,
-    flags: TcpFlagOverrides,
-    ipv4_identification: Option<u16>,
-) -> io::Result<()> {
-    if real_chunk.is_empty() {
-        return Ok(());
-    }
-
-    let source = stream.local_addr()?;
-    let target = stream.peer_addr()?;
-    let ttl = get_stream_ttl(stream).unwrap_or_else(|_| resolve_raw_ttl(default_ttl));
-    let fd = stream.as_raw_fd();
-    let settings = capture_stream_socket_settings(stream);
-
-    set_tcp_repair(fd, TCP_REPAIR_ON)?;
-    let result = (|| -> io::Result<()> {
-        let snapshot = snapshot_tcp_repair_state(fd)?;
-
-        // Build overlapping packet: seq shifted back by fake_prefix length,
-        // payload = [fake_prefix][real_chunk]. Server accepts only bytes at
-        // seq >= snapshot.sequence_number, discarding the fake prefix. DPI
-        // typically caches "first received" and sees the fake data.
-        let overlap_seq = snapshot.sequence_number.wrapping_sub(fake_prefix.len() as u32);
-        let mut overlap_payload = Vec::with_capacity(fake_prefix.len() + real_chunk.len());
-        overlap_payload.extend_from_slice(fake_prefix);
-        overlap_payload.extend_from_slice(real_chunk);
-
-        let identification = ipv4_identification.map_or(snapshot.sequence_number, u32::from);
-        let packet = build_tcp_segment_packet(
-            source,
-            target,
-            ttl,
-            identification,
-            overlap_seq,
-            snapshot.acknowledgment_number,
-            snapshot.window_size,
-            snapshot.options.timestamp,
-            true,
-            &overlap_payload,
-            md5sig,
-            flags,
-        )?;
-        send_raw_packets(target, std::iter::once(packet.as_slice()), protect_path)?;
-
-        // Advance stream seq past real_chunk so the remainder can be written
-        // normally through the replacement socket.
-        let replacement = build_replacement_tcp_socket(source, target, real_chunk.len(), &snapshot, protect_path)?;
-        swap_stream_to_replacement(stream, &replacement, settings)?;
-        set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
-        disable_tcp_repair(fd)
-    })();
-
-    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-    let _ = disable_tcp_repair(fd);
-    result
 }
 
 pub fn wait_tcp_stage(stream: &TcpStream, wait_send: bool, await_interval: Duration) -> io::Result<()> {
@@ -1533,57 +904,6 @@ fn open_raw_socket(target: SocketAddr, protect_path: Option<&str>) -> io::Result
 
 fn set_tcp_repair(fd: libc::c_int, value: libc::c_int) -> io::Result<()> {
     set_c_int_sockopt(fd, libc::IPPROTO_TCP, TCP_REPAIR, value)
-}
-
-#[allow(clippy::too_many_arguments)]
-fn build_multi_disorder_packets(
-    source: SocketAddr,
-    target: SocketAddr,
-    ttl: u8,
-    payload: &[u8],
-    segments: &[super::TcpPayloadSegment],
-    snapshot: &TcpRepairSnapshot,
-    md5sig: bool,
-    flags: TcpFlagOverrides,
-    ipv4_identifications: &[u16],
-) -> io::Result<Vec<Vec<u8>>> {
-    let mut cursor = 0usize;
-    let base_identification = fragment_identification(source, target, payload.len());
-    let mut packets = Vec::with_capacity(segments.len());
-
-    for (index, segment) in segments.iter().enumerate() {
-        if segment.start != cursor || segment.end <= segment.start || segment.end > payload.len() {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid multidisorder TCP payload segments"));
-        }
-        let sequence_number = sequence_after_payload(snapshot.sequence_number, segment.start)?;
-        packets.push(build_tcp_segment_packet(
-            source,
-            target,
-            ttl,
-            ipv4_identifications
-                .get(index)
-                .copied()
-                .map_or_else(|| base_identification.wrapping_add(index as u32), u32::from),
-            sequence_number,
-            snapshot.acknowledgment_number,
-            snapshot.window_size,
-            snapshot.options.timestamp,
-            segment.end == payload.len(),
-            &payload[segment.start..segment.end],
-            md5sig,
-            flags,
-        )?);
-        cursor = segment.end;
-    }
-
-    if cursor != payload.len() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "multidisorder TCP payload segments must cover the full payload",
-        ));
-    }
-
-    Ok(packets)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2295,16 +1615,17 @@ mod tests {
     fn mutate_fake_timestamp_applies_signed_delta_with_wrapping() {
         let original = Some(TcpTimestampSnapshot { value: 10, echo_reply: 20, usec_ts: false });
 
-        let increased = mutate_fake_timestamp(original, Some(7)).expect("increase timestamp");
+        let increased = fake_send::mutate_fake_timestamp(original, Some(7)).expect("increase timestamp");
         assert_eq!(increased.unwrap().value, 17);
 
-        let decreased = mutate_fake_timestamp(original, Some(-15)).expect("decrease timestamp");
+        let decreased = fake_send::mutate_fake_timestamp(original, Some(-15)).expect("decrease timestamp");
         assert_eq!(decreased.unwrap().value, u32::MAX - 4);
     }
 
     #[test]
     fn mutate_fake_timestamp_requires_negotiated_timestamp_option() {
-        let err = mutate_fake_timestamp(None, Some(1)).expect_err("missing negotiated timestamp should fail");
+        let err =
+            fake_send::mutate_fake_timestamp(None, Some(1)).expect_err("missing negotiated timestamp should fail");
         assert_eq!(err.kind(), io::ErrorKind::Unsupported);
     }
 
@@ -2320,7 +1641,7 @@ mod tests {
         ];
         let snapshot = sample_tcp_repair_snapshot();
 
-        let packets = build_multi_disorder_packets(
+        let packets = ip_fragmentation::build_multi_disorder_packets(
             source,
             target,
             37,
@@ -2368,7 +1689,7 @@ mod tests {
             crate::platform::TcpPayloadSegment { start: 5, end: payload.len() },
         ];
 
-        let err = build_multi_disorder_packets(
+        let err = ip_fragmentation::build_multi_disorder_packets(
             source,
             target,
             37,
@@ -2396,7 +1717,7 @@ mod tests {
             crate::platform::TcpPayloadSegment { start: 8, end: 11 },
         ];
 
-        let err = build_multi_disorder_packets(
+        let err = ip_fragmentation::build_multi_disorder_packets(
             source,
             target,
             37,
