@@ -55,6 +55,22 @@ If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back t
 - Long-lived Java object references must use `env.new_global_ref()` -> `GlobalRef`
 - Verify `GlobalRef` is stored in `OnceCell`/`OnceLock`, not in raw statics
 - Check for use-after-free: `GlobalRef` must outlive any thread that uses it
+- `JavaVM::from_raw(vm.get_raw())` clones MUST carry a formal `// SAFETY:` comment documenting liveness (typically: "`vm` is held by the static `JVM: OnceCell<JavaVM>` so its raw pointer is valid for program lifetime"). Current known gap: `ripdpi-android/src/vpn_protect.rs:58-60` has an informal parenthetical rather than the required `SAFETY:` block -- flag this if the diff does not fix it.
+
+### `JNI_OnLoad` uniform pattern (all 4 adapter crates)
+
+As of 2026-04-17, all four JNI adapter crates wrap `JNI_OnLoad` in `std::panic::catch_unwind`:
+- `ripdpi-android/src/lib.rs:32-40`
+- `ripdpi-tunnel-android/src/lib.rs:20-27`
+- `ripdpi-warp-android/src/lib.rs:21-27`
+- `ripdpi-relay-android/src/lib.rs:17-27`
+
+When reviewing a diff that adds a new JNI adapter crate OR modifies an existing `JNI_OnLoad`, verify the diff preserves this pattern:
+- `install_panic_hook()` runs INSIDE `catch_unwind` (so hooks are installed even if earlier init fails).
+- The outer match returns `JNI_ERR` on the panic arm, not 0 (0 means "requested JNI version unsupported" which is a different failure mode).
+- Any new `extern "system" fn Java_*` method uses `EnvUnowned::with_env` + `into_outcome` per the `rust-panic-safety` skill.
+
+A new `JNI_OnLoad` or `Java_*` method without panic containment is a CRITICAL finding.
 
 ### Type Marshaling
 - `jlong` (i64) used for pointer-sized handles (not `jint` on 64-bit)

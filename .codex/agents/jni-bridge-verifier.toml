@@ -35,6 +35,22 @@ If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back t
 - JObject must not be cached across JNI calls (local refs are frame-scoped)
 - Long-lived references must use env.new_global_ref() -> GlobalRef
 - GlobalRef stored in OnceCell/OnceLock, not raw statics
+- JavaVM::from_raw(vm.get_raw()) clones MUST carry a formal // SAFETY: comment documenting liveness. Current known gap: ripdpi-android/src/vpn_protect.rs:58-60 has an informal parenthetical rather than the required SAFETY: block -- flag if diff does not fix.
+
+### JNI_OnLoad uniform pattern (all 4 adapter crates)
+
+As of 2026-04-17 all four JNI adapter crates wrap JNI_OnLoad in std::panic::catch_unwind:
+- ripdpi-android/src/lib.rs:32-40
+- ripdpi-tunnel-android/src/lib.rs:20-27
+- ripdpi-warp-android/src/lib.rs:21-27
+- ripdpi-relay-android/src/lib.rs:17-27
+
+When reviewing a diff adding a new JNI adapter crate or modifying an existing JNI_OnLoad, verify:
+- install_panic_hook() runs INSIDE catch_unwind.
+- Outer match returns JNI_ERR on panic arm, not 0.
+- New extern "system" fn Java_* methods use EnvUnowned::with_env + into_outcome per rust-panic-safety skill.
+
+A new JNI_OnLoad or Java_* without panic containment is CRITICAL.
 
 ### Type Marshaling
 - jlong (i64) used for pointer-sized handles (not jint on 64-bit)

@@ -47,6 +47,15 @@ If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back t
 - New code must pass `./gradlew staticAnalysis` without baseline changes
 - Check: `config/detekt/detekt.yml`, any `*baseline*.xml` files
 
+### Rust Panic-Safety Policy
+- Flag any new `.unwrap()` / `.expect()` / `panic!()` / `todo!()` / `unimplemented!()` in non-test Rust code (paths outside `tests/`, `benches/`, `fuzz/`, or `#[cfg(test)]` blocks) as WARNING unless the diff includes a line-level `// Infallible: <proof>` comment directly above the call — see `rust-panic-safety` skill for the policy.
+- Flag any new `extern "system" fn Java_*` or `extern "C" fn` body that lacks a `catch_unwind` or `EnvUnowned::with_env + into_outcome` guard as CRITICAL.
+
+### Rust Supply Chain Policy
+- Any new dependency added to `native/rust/*/Cargo.toml` or `workspace.dependencies` requires a PR comment confirming `cargo deny --manifest-path native/rust/Cargo.toml check` ran cleanly locally.
+- Any new entry added to `native/rust/deny.toml`'s `[advisories].ignore` list MUST include: (a) RUSTSEC ID, (b) `reason` string, (c) a PR-trailing issue link or TODO(author) tracking comment, (d) an SLA note referencing the `rust-security` skill's severity table. Missing any of these is a CRITICAL finding.
+- Flag typosquat-prone crate names (async-*, *-log, *-rust, *-print*, crypto/hash utilities) for extra scrutiny per the September and December 2025 crates.io incidents documented in `rust-security`.
+
 ### Protobuf Schema Evolution
 - Field numbers never reused in `.proto` files
 - Removed fields have `reserved` declarations
