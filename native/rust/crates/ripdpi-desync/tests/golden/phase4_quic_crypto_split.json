@@ -1,0 +1,110 @@
+{
+  "input": {
+    "crypto_frame_boundaries": [
+      296,
+      593
+    ],
+    "crypto_frames": [
+      {
+        "crypto_range": [
+          0,
+          296
+        ],
+        "packet_payload_range": [
+          4,
+          300
+        ]
+      },
+      {
+        "crypto_range": [
+          296,
+          593
+        ],
+        "packet_payload_range": [
+          305,
+          602
+        ]
+      }
+    ],
+    "packet_len": 1200,
+    "tls": {
+      "alpn": [
+        "h2",
+        "http/1.1"
+      ],
+      "authority": "docs.example.test",
+      "authority_span": [
+        148,
+        165
+      ],
+      "grease": {
+        "cipher_suites": [],
+        "extensions": [],
+        "supported_groups": [],
+        "supported_versions": []
+      },
+      "has_ech": false,
+      "record_boundaries": [],
+      "record_payload_lengths": [],
+      "tcp_segment_boundaries": []
+    },
+    "udp_datagram_boundaries": [
+      1200
+    ],
+    "version": "0x6b3343cf"
+  },
+  "rewritten": {
+    "crypto_frame_boundaries": [
+      296,
+      593
+    ],
+    "crypto_frames": [
+      {
+        "crypto_range": [
+          0,
+          296
+        ],
+        "packet_payload_range": [
+          4,
+          300
+        ]
+      },
+      {
+        "crypto_range": [
+          296,
+          593
+        ],
+        "packet_payload_range": [
+          305,
+          602
+        ]
+      }
+    ],
+    "packet_len": 1200,
+    "tls": {
+      "alpn": [
+        "h2",
+        "http/1.1"
+      ],
+      "authority": "docs.example.test",
+      "authority_span": [
+        148,
+        165
+      ],
+      "grease": {
+        "cipher_suites": [],
+        "extensions": [],
+        "supported_groups": [],
+        "supported_versions": []
+      },
+      "has_ech": false,
+      "record_boundaries": [],
+      "record_payload_lengths": [],
+      "tcp_segment_boundaries": []
+    },
+    "udp_datagram_boundaries": [
+      1200
+    ],
+    "version": "0x6b3343cf"
+  }
+}

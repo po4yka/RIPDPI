@@ -269,11 +269,14 @@ wait until the remaining lowering/capability/UDP/platform work there is done.
   its fail-closed behavior for original TCP flag overrides.
 - [ ] Preserve existing JSON / DSL / strategy-pack compatibility while adding a
   richer internal representation.
-- [~] Add golden fixtures and regressions for:
+- [x] Add golden fixtures and regressions for:
   - TLS record fragmentation
   - existing TLS golden ClientHello vectors
   - QUIC CRYPTO frame splits
   - ECH / GREASE-preserving rewrites
+  Landed in `ripdpi-desync/tests/golden/phase4_*.json`, blessed from the
+  dedicated Phase 4 golden tests so TLS/QUIC rewrite outputs stay committed and
+  reproducible.
 - [x] Document the new planner stages and invariants.
 
 **Done when**

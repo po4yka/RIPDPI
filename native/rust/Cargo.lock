@@ -3109,6 +3109,7 @@ name = "ripdpi-desync"
 version = "0.1.0"
 dependencies = [
  "aes",
+ "golden-test-support",
  "rand 0.10.1",
  "ring",
  "ripdpi-config",
