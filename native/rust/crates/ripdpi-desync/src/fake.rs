@@ -1,14 +1,14 @@
 use crate::offset::gen_offset;
-use crate::proto::resolve_host_range;
+use crate::proto::{init_proto_info, resolve_host_range};
 use crate::types::{DesyncError, FakePacketPlan, HostFakeSpan, ProtoInfo};
 use ripdpi_config::{
     DesyncGroup, FakePacketSource, OffsetProto, SeqOverlapFakeMode, TcpChainStep, FM_DUPSID, FM_ORIG, FM_PADENCAP,
     FM_RAND, FM_RNDSNI,
 };
 use ripdpi_packets::{
-    change_tls_sni_seeded_like_c, duplicate_tls_session_id_inplace, http_fake_profile_bytes, is_http,
-    is_tls_client_hello, padencap_tls_into, randomize_tls_seeded_inplace, randomize_tls_sni_seeded_inplace,
-    tls_fake_profile_bytes, tls_marker_info, tune_tls_padding_size_into, OracleRng, PacketMutation, IS_HTTP, IS_HTTPS,
+    change_tls_sni_seeded_like_c, duplicate_tls_session_id_inplace, http_fake_profile_bytes, is_tls_client_hello,
+    padencap_tls_into, randomize_tls_seeded_inplace, randomize_tls_sni_seeded_inplace, tls_fake_profile_bytes,
+    tune_tls_padding_size_into, OracleRng, PacketMutation, IS_HTTP, IS_HTTPS,
 };
 
 pub fn resolve_hostfake_span(
@@ -161,10 +161,11 @@ fn apply_tls_mutation(output: &mut Vec<u8>, mutation: PacketMutation) {
 }
 
 fn tls_sni_capacity(current: &[u8], target_size: usize, new_host: &[u8]) -> usize {
-    let Some(markers) = tls_marker_info(current) else {
+    let mut info = ProtoInfo::default();
+    let Some(host) = resolve_host_range(current, &mut info, OffsetProto::TlsOnly) else {
         return current.len().max(target_size);
     };
-    let current_host_len = markers.host_end.saturating_sub(markers.host_start);
+    let current_host_len = host.host.len();
     current.len().max(target_size).max(current.len().saturating_add(new_host.len().saturating_sub(current_host_len)))
 }
 
@@ -199,13 +200,7 @@ fn build_fake_packet_internal(
         Some(group.actions.fake_sni_list[rng.next_mod(group.actions.fake_sni_list.len())].as_bytes())
     };
 
-    if info.kind == 0 {
-        if is_tls_client_hello(input) {
-            info.kind = IS_HTTPS;
-        } else if is_http(input) {
-            info.kind = IS_HTTP;
-        }
-    }
+    init_proto_info(input, &mut info);
 
     let base =
         if allow_raw_fake_data { group.actions.fake_data.as_ref().cloned() } else { None }.unwrap_or_else(|| {
@@ -278,7 +273,9 @@ pub fn build_secondary_fake_packet(
     let Some(secondary_profile) = group.actions.fake_tls_secondary_profile else {
         return Ok(None);
     };
-    if !is_tls_client_hello(input) {
+    let mut info = ProtoInfo::default();
+    init_proto_info(input, &mut info);
+    if info.kind != IS_HTTPS {
         return Ok(None);
     }
     build_fake_packet_internal(group, input, seed, FakePacketSource::Profile, secondary_profile, false, false).map(Some)

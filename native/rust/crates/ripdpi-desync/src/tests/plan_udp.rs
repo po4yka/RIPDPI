@@ -417,6 +417,61 @@ fn plan_udp_quic_fake_version_emits_tampered_long_headers() {
 }
 
 #[test]
+fn plan_udp_quic_padding_ladder_uses_ir_seed_authority() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain = vec![UdpChainStep {
+        kind: UdpChainStepKind::QuicPaddingLadder,
+        count: 1,
+        split_bytes: 0,
+        activation_filter: None,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_frag_next_override: None,
+    }];
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("padding.example.test")).expect("input quic");
+
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+
+    let DesyncAction::Write(packet) = &actions[1] else {
+        panic!("expected padding ladder packet");
+    };
+    let parsed = parse_quic_initial(packet).expect("parse ladder packet");
+    assert_eq!(parsed.host(), b"padding.example.test");
+    assert!(packet.len() > payload.len());
+}
+
+#[test]
+fn plan_udp_quic_version_negotiation_decoy_uses_ir_seed_authority() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain = vec![UdpChainStep {
+        kind: UdpChainStepKind::QuicVersionNegotiationDecoy,
+        count: 1,
+        split_bytes: 0,
+        activation_filter: None,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_frag_next_override: None,
+    }];
+    let seed_payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("decoy.example.test")).expect("input quic");
+    let ir = normalize_quic_initial(&seed_payload).expect("normalize quic");
+    let payload =
+        tamper_quic_initial_split_sni(&seed_payload, ir.tls_client_hello.authority_span.start).expect("split input");
+    let expected =
+        tamper_quic_version(&seed_payload, QUIC_V2_VERSION ^ 0x0f0f_0f0f).expect("version-decoy expected bytes");
+
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+
+    let DesyncAction::Write(packet) = &actions[1] else {
+        panic!("expected version-negotiation decoy packet");
+    };
+    assert_eq!(packet, &expected);
+}
+
+#[test]
 fn plan_udp_ipfrag2_emits_fragmented_write_for_quic_initial() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_chain = vec![UdpChainStep {

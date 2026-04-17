@@ -428,6 +428,14 @@ pub fn parse_quic_initial_layout(buffer: &[u8]) -> Option<QuicInitialLayout> {
 ///
 /// Returns `None` if the packet is not a valid QUIC Initial or cannot be parsed.
 pub fn tamper_quic_initial_split_sni(packet: &[u8], split_offset: usize) -> Option<Vec<u8>> {
+    tamper_quic_initial_split_crypto(packet, split_offset)
+}
+
+/// Re-encrypt a QUIC Initial packet with the TLS ClientHello split across
+/// two CRYPTO frames at the given split offset within the ClientHello.
+///
+/// Returns `None` if the packet is not a valid QUIC Initial or cannot be parsed.
+pub fn tamper_quic_initial_split_crypto(packet: &[u8], split_offset: usize) -> Option<Vec<u8>> {
     let header = parse_quic_initial_header(packet)?;
     let payload = decrypt_quic_initial_payload(packet, header)?;
     let (client_hello, is_complete) = defrag_quic_crypto_frames(&payload)?;

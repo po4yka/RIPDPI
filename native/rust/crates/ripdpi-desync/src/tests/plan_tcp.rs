@@ -265,22 +265,23 @@ fn plan_tcp_seqovl_keeps_kind_when_supported_in_first_window() {
 }
 
 #[test]
-fn plan_tcp_seqovl_degrades_to_split_when_capability_is_absent() {
+fn plan_tcp_seqovl_keeps_semantic_step_when_capability_is_absent() {
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain.push(seqovl_step(5));
     let payload = b"hello world";
 
-    let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan seqovl fallback");
+    let plan = plan_tcp(&group, payload, 7, 64, tcp_context(payload)).expect("plan seqovl semantic fallback");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 5 }]);
-    assert_eq!(
-        plan.actions,
-        vec![
-            DesyncAction::Write(b"hello".to_vec()),
-            DesyncAction::AwaitWritable,
-            DesyncAction::Write(b" world".to_vec()),
-        ]
-    );
+    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::SeqOverlap, start: 0, end: 5 }]);
+    assert_eq!(plan.actions.len(), 1);
+    match &plan.actions[0] {
+        DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
+            assert_eq!(real_chunk, b"hello");
+            assert_eq!(fake_prefix.len(), 12);
+            assert_eq!(remainder, b" world");
+        }
+        other => panic!("expected WriteSeqOverlap, got {other:?}"),
+    }
 }
 
 #[test]
