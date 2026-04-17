@@ -78,6 +78,23 @@ Used in tests to convert a raw `JNIEnv` pointer. The resulting `EnvUnowned` must
 unsafe { EnvUnowned::from_raw(env.get_raw()) }
 ```
 
+### JavaVM::from_raw — liveness invariant
+
+`JavaVM::from_raw(vm.get_raw())` clones the VM handle without incrementing a refcount. The resulting handle is a plain pointer copy; the JVM retains ownership.
+
+Every call MUST have a `// SAFETY:` comment documenting:
+1. **Liveness** — the JVM is guaranteed alive for the full lifetime of the clone (typically: the original `JavaVM` is held by a `'static OnceCell`, so the pointer is valid for program lifetime).
+2. **Non-aliasing** — the clone is used only to call `attach_current_thread`, which is thread-safe on the JVM side. No mutation of VM state occurs through the clone.
+
+```rust
+// SAFETY: `vm` is held by the static `JVM: OnceCell<JavaVM>` in lib.rs, so its
+// raw pointer is valid for program lifetime. `JavaVM::from_raw` copies the
+// pointer only; the JVM manages its own lifetime.
+let vm_clone = unsafe { JavaVM::from_raw(vm.get_raw()) };
+```
+
+Anchor: `native/rust/crates/ripdpi-android/src/vpn_protect.rs:58-60` (currently lacks a formal `SAFETY:` block — flag in review).
+
 ### Raw fd across JNI
 
 When receiving a file descriptor from Java (e.g., TUN fd from VpnService), always dup before taking ownership:
@@ -141,6 +158,40 @@ unsafe {
 }
 ```
 
+## Syscall FFI wrappers (ripdpi-runtime/platform/linux.rs)
+
+The Linux platform module (`native/rust/crates/ripdpi-runtime/src/platform/linux.rs`, 83 unsafe blocks — the largest concentration in the workspace) wraps raw `libc::setsockopt` / `getsockopt` / `recvmsg` for kernel-specific options unavailable in `socket2`: `TCP_INFO`, `TCP_MD5SIG`, `TCP_FASTOPEN_CONNECT`, `SO_ORIGINAL_DST`, `IP_RECVTTL`, and CMSG-carrying `recvmsg`.
+
+The canonical wrapper idiom — `zeroed::<T>() + cast-to-*mut-T` for variadic kernel structs:
+
+```rust
+/// # Safety
+/// `fd` must be a live socket descriptor; `T` must match the kernel's expected
+/// output layout for the given `level`/`name` combination.
+unsafe fn getsockopt_raw<T>(
+    fd: libc::c_int,
+    level: libc::c_int,
+    name: libc::c_int,
+) -> io::Result<(T, libc::socklen_t)> {
+    let mut val: T = unsafe { zeroed() };
+    let mut len = size_of::<T>() as libc::socklen_t;
+    let rc = unsafe { libc::getsockopt(fd, level, name, (&mut val as *mut T).cast(), &mut len) };
+    if rc == 0 { Ok((val, len)) } else { Err(io::Error::last_os_error()) }
+}
+```
+
+**Rule**: every new syscall wrapper in this module MUST:
+
+1. Carry a `# Safety` rustdoc block on the `unsafe fn` signature listing the fd-validity and layout-match invariants.
+2. Use `zeroed()` only for plain C structs (no Rust-level invariants — no `bool`, `enum`, `NonNull`, or references).
+3. Cast `&mut val as *mut T` via `.cast()` rather than `as *mut _` — the method preserves pointer provenance and plays well with Miri's Tree Borrows checker.
+4. Check the syscall return value and convert `io::Error::last_os_error()` — never discard `errno`.
+5. Preserve the module's `Last audited: <date> against socket2 <ver>` header when adding new wrappers. The header signals a human has reconciled the kernel-ABI-vs-socket2 boundary; bumping the date on each audit is mandatory.
+
+Anchors:
+- `native/rust/crates/ripdpi-runtime/src/platform/linux.rs:46-60` — `setsockopt_raw` reference
+- `native/rust/crates/ripdpi-runtime/src/platform/linux.rs:69-83` — `getsockopt_raw` reference
+
 ## Signal handling (android-support)
 
 ```rust
@@ -177,7 +228,7 @@ When reviewing an `unsafe` block:
 - [ ] For union access: was the field written before being read?
 - [ ] For `Send`/`Sync` impl: is thread safety actually guaranteed?
 - [ ] Is the unsafe block as small as possible?
-- [ ] Can this be tested under Miri? (`MIRIFLAGS="-Zmiri-strict-provenance" cargo +nightly miri test`)
+- [ ] Can this be tested under Miri with Tree Borrows? (`MIRIFLAGS="-Zmiri-tree-borrows" cargo +nightly miri test`) — Tree Borrows is the formal aliasing model published at PLDI 2025 and is now the recommended default. It permits more valid unsafe patterns than Stacked Borrows, so code that failed the older model may pass now.
 
 ## When to use unsafe in RIPDPI
 
