@@ -119,77 +119,75 @@ internal fun mergeRelayConfig(
     )
 }
 
-internal fun validateRelayCredentials(
+internal fun validateCloudflareTunnelCredentials(
+    profileId: String,
+    credentials: RelayCredentialRecord?,
+) {
+    requireRelayCredentials(profileId, !credentials?.vlessUuid.isNullOrBlank())
+}
+
+internal fun validateDefaultRelayCredentials(
     profileId: String,
     relayKind: String,
+    credentials: RelayCredentialRecord?,
+) {
+    val hasRequiredCredentials =
+        when (relayKind) {
+            RelayKindVlessReality -> !credentials?.vlessUuid.isNullOrBlank()
+            RelayKindHysteria2 -> !credentials?.hysteriaPassword.isNullOrBlank()
+            RelayKindTuicV5 -> !credentials?.tuicUuid.isNullOrBlank() && !credentials.tuicPassword.isNullOrBlank()
+            else -> true
+        }
+    requireRelayCredentials(profileId, hasRequiredCredentials)
+}
+
+internal fun validateMasqueRelayCredentials(
+    profileId: String,
     masqueAuthMode: String?,
     credentials: RelayCredentialRecord?,
 ) {
-    val isValid =
-        when (relayKind) {
-            RelayKindVlessReality, RelayKindCloudflareTunnel -> {
-                !credentials?.vlessUuid.isNullOrBlank()
+    val hasRequiredCredentials =
+        when (masqueAuthMode) {
+            RelayMasqueAuthModeBearer, RelayMasqueAuthModePreshared -> {
+                !credentials?.masqueAuthToken.isNullOrBlank()
             }
 
-            RelayKindHysteria2 -> {
-                !credentials?.hysteriaPassword.isNullOrBlank()
+            RelayMasqueAuthModeCloudflareMtls -> {
+                !credentials?.masqueClientCertificateChainPem.isNullOrBlank() &&
+                    !credentials.masqueClientPrivateKeyPem.isNullOrBlank()
             }
 
-            RelayKindTuicV5 -> {
-                !credentials?.tuicUuid.isNullOrBlank() && !credentials.tuicPassword.isNullOrBlank()
-            }
-
-            RelayKindShadowTlsV3 -> {
-                !credentials?.shadowTlsPassword.isNullOrBlank()
-            }
-
-            RelayKindNaiveProxy -> {
-                !credentials?.naiveUsername.isNullOrBlank() &&
-                    !credentials.naivePassword.isNullOrBlank()
-            }
-
-            RelayKindSnowflake, RelayKindWebTunnel, RelayKindObfs4, RelayKindChainRelay -> {
+            RelayMasqueAuthModePrivacyPass -> {
                 true
-            }
-
-            RelayKindMasque -> {
-                when (masqueAuthMode) {
-                    RelayMasqueAuthModeBearer, RelayMasqueAuthModePreshared -> {
-                        !credentials?.masqueAuthToken.isNullOrBlank()
-                    }
-
-                    RelayMasqueAuthModeCloudflareMtls -> {
-                        !credentials?.masqueClientCertificateChainPem.isNullOrBlank() &&
-                            !credentials.masqueClientPrivateKeyPem.isNullOrBlank()
-                    }
-
-                    RelayMasqueAuthModePrivacyPass -> {
-                        true
-                    }
-
-                    else -> {
-                        false
-                    }
-                }
             }
 
             else -> {
-                true
+                false
             }
         }
-    require(isValid) { "Relay credentials missing for profile $profileId" }
+    requireRelayCredentials(profileId, hasRequiredCredentials)
 }
 
-internal fun validateSupportedRelayFeatures(
+internal fun validateNaiveRelayCredentials(
     profileId: String,
-    config: RipDpiRelayConfig,
     credentials: RelayCredentialRecord?,
-    masqueAuthMode: String?,
-    privacyPassRuntime: MasquePrivacyPassRuntimeConfig?,
-    privacyPassReadiness: MasquePrivacyPassReadiness?,
-    tlsFingerprintProfile: String,
-    featureFlags: Map<String, Boolean>,
 ) {
+    requireRelayCredentials(
+        profileId = profileId,
+        hasRequiredCredentials =
+            !credentials?.naiveUsername.isNullOrBlank() &&
+                !credentials.naivePassword.isNullOrBlank(),
+    )
+}
+
+internal fun validateShadowTlsRelayCredentials(
+    profileId: String,
+    credentials: RelayCredentialRecord?,
+) {
+    requireRelayCredentials(profileId, !credentials?.shadowTlsPassword.isNullOrBlank())
+}
+
+internal fun validateSharedRelayTransportFeatures(config: RipDpiRelayConfig) {
     require(
         !config.udpEnabled || config.kind == RelayKindHysteria2 || config.kind == RelayKindMasque ||
             config.kind == RelayKindTuicV5,
@@ -199,65 +197,50 @@ internal fun validateSupportedRelayFeatures(
     require(!(config.vlessTransport == RelayVlessTransportXhttp && config.udpEnabled)) {
         "xHTTP transport does not support UDP mode"
     }
-    if (config.kind == RelayKindShadowTlsV3) {
-        require(!config.udpEnabled) { "ShadowTLS v3 is TCP-only" }
-        require(config.shadowTlsInnerProfileId.isNotBlank()) { "ShadowTLS v3 requires an inner profile reference" }
-        require(config.vlessTransport == RelayVlessTransportRealityTcp) {
-            "ShadowTLS outer profile must use direct TCP transport"
-        }
-    }
-    if (config.kind == RelayKindNaiveProxy) {
-        require(!config.udpEnabled) { "NaiveProxy does not support UDP mode" }
-        if (!featureFlags.isEnabled(StrategyFeatureNaiveProxyWatchdog)) {
-            require(config.naivePath.isBlank() || config.naivePath.startsWith("/")) {
-                "NaiveProxy custom path must be absolute"
-            }
-        }
-    }
-    if (isPluggableTransportRelay(config.kind)) {
-        require(!config.udpEnabled) { "Pluggable transports are exposed as TCP SOCKS5 loopback relays" }
-    }
-    if (config.kind == RelayKindSnowflake) {
-        require(config.ptSnowflakeBrokerUrl.isNotBlank()) { "Snowflake requires a broker URL" }
-    }
-    if (config.kind == RelayKindWebTunnel) {
-        require(config.ptWebTunnelUrl.isNotBlank()) { "WebTunnel requires a target URL" }
-    }
-    if (config.kind == RelayKindObfs4) {
-        require(config.ptBridgeLine.isNotBlank()) { "obfs4 requires a bridge line" }
-    }
-    if (config.kind == RelayKindCloudflareTunnel && tlsFingerprintProfile != TlsFingerprintProfileChromeStable) {
+}
+
+internal fun validateCloudflareTunnelFeatures(
+    config: RipDpiRelayConfig,
+    credentials: RelayCredentialRecord?,
+    tlsFingerprintProfile: String,
+    featureFlags: Map<String, Boolean>,
+) {
+    if (tlsFingerprintProfile != TlsFingerprintProfileChromeStable) {
         throw ServiceStartupRejectedException(
             FailureReason.RelayFingerprintPolicyRejected(
                 "Cloudflare Tunnel requires the Chrome stable TLS fingerprint profile",
             ),
         )
     }
-    if (config.kind == RelayKindCloudflareTunnel) {
-        require(config.server.isNotBlank()) { "Cloudflare Tunnel requires a tunnel hostname" }
-        require(config.serverName.isNotBlank()) { "Cloudflare Tunnel requires a TLS server name" }
-        if (config.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin &&
-            !featureFlags.isEnabled(StrategyFeatureCloudflarePublish)
-        ) {
-            throw ServiceStartupRejectedException(
-                FailureReason.RelayConfigRejected("Cloudflare local-origin publish mode is feature-gated"),
-            )
-        }
-        if (config.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin) {
-            require(config.cloudflarePublishLocalOriginUrl.isNotBlank()) {
-                "Cloudflare publish mode requires a local origin URL"
-            }
-            parseCloudflareLocalOriginSpec(config.cloudflarePublishLocalOriginUrl)
-            require(
-                !credentials?.cloudflareTunnelToken.isNullOrBlank() ||
-                    !credentials?.cloudflareTunnelCredentialsJson.isNullOrBlank(),
-            ) {
-                "Cloudflare publish mode requires a tunnel token or named-tunnel credentials"
-            }
-        } else if (!featureFlags.isEnabled(StrategyFeatureCloudflareConsumeValidation)) {
-            require(config.server.isNotBlank()) { "Cloudflare Tunnel requires a tunnel hostname" }
-        }
+    require(config.server.isNotBlank()) { "Cloudflare Tunnel requires a tunnel hostname" }
+    require(config.serverName.isNotBlank()) { "Cloudflare Tunnel requires a TLS server name" }
+    if (config.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin &&
+        !featureFlags.isEnabled(StrategyFeatureCloudflarePublish)
+    ) {
+        throw ServiceStartupRejectedException(
+            FailureReason.RelayConfigRejected("Cloudflare local-origin publish mode is feature-gated"),
+        )
     }
+    if (config.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin) {
+        require(config.cloudflarePublishLocalOriginUrl.isNotBlank()) {
+            "Cloudflare publish mode requires a local origin URL"
+        }
+        parseCloudflareLocalOriginSpec(config.cloudflarePublishLocalOriginUrl)
+        require(
+            !credentials?.cloudflareTunnelToken.isNullOrBlank() ||
+                !credentials?.cloudflareTunnelCredentialsJson.isNullOrBlank(),
+        ) {
+            "Cloudflare publish mode requires a tunnel token or named-tunnel credentials"
+        }
+    } else if (!featureFlags.isEnabled(StrategyFeatureCloudflareConsumeValidation)) {
+        require(config.server.isNotBlank()) { "Cloudflare Tunnel requires a tunnel hostname" }
+    }
+}
+
+internal fun validateDefaultRelayFeatures(
+    config: RipDpiRelayConfig,
+    tlsFingerprintProfile: String,
+) {
     if (config.kind == RelayKindHysteria2 && tlsFingerprintProfile == TlsFingerprintProfileChromeStable) {
         throw ServiceStartupRejectedException(
             FailureReason.RelayFingerprintPolicyRejected(
@@ -265,29 +248,82 @@ internal fun validateSupportedRelayFeatures(
             ),
         )
     }
-    if (config.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModeCloudflareMtls &&
+}
+
+internal fun validateMasqueRelayFeatures(
+    profileId: String,
+    config: RipDpiRelayConfig,
+    masqueAuthMode: String?,
+    privacyPassRuntime: MasquePrivacyPassRuntimeConfig?,
+    privacyPassReadiness: MasquePrivacyPassReadiness?,
+    featureFlags: Map<String, Boolean>,
+) {
+    if (masqueAuthMode == RelayMasqueAuthModeCloudflareMtls &&
         !featureFlags.isEnabled(StrategyFeatureMasqueCloudflareDirect)
     ) {
         throw ServiceStartupRejectedException(
             FailureReason.RelayConfigRejected("Cloudflare-direct MASQUE is feature-gated"),
         )
     }
-    if (config.kind == RelayKindMasque) {
-        validateMasqueRelayUrl(config.masqueUrl)
-    }
-    if (config.kind == RelayKindMasque && masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
+    validateMasqueRelayUrl(config.masqueUrl)
+    if (masqueAuthMode == RelayMasqueAuthModePrivacyPass) {
         requireNotNull(privacyPassRuntime) {
             masquePrivacyPassReadinessMessage(profileId, privacyPassReadiness)
         }
     }
+}
+
+internal fun validateNaiveRelayFeatures(
+    config: RipDpiRelayConfig,
+    featureFlags: Map<String, Boolean>,
+) {
+    require(!config.udpEnabled) { "NaiveProxy does not support UDP mode" }
+    if (!featureFlags.isEnabled(StrategyFeatureNaiveProxyWatchdog)) {
+        require(config.naivePath.isBlank() || config.naivePath.startsWith("/")) {
+            "NaiveProxy custom path must be absolute"
+        }
+    }
+}
+
+internal fun validatePluggableTransportLoopbackFeatures(config: RipDpiRelayConfig) {
+    require(!config.udpEnabled) { "Pluggable transports are exposed as TCP SOCKS5 loopback relays" }
+}
+
+internal fun validateSnowflakeRelayFeatures(config: RipDpiRelayConfig) {
+    require(config.ptSnowflakeBrokerUrl.isNotBlank()) { "Snowflake requires a broker URL" }
+}
+
+internal fun validateWebTunnelRelayFeatures(config: RipDpiRelayConfig) {
+    require(config.ptWebTunnelUrl.isNotBlank()) { "WebTunnel requires a target URL" }
+}
+
+internal fun validateObfs4RelayFeatures(config: RipDpiRelayConfig) {
+    require(config.ptBridgeLine.isNotBlank()) { "obfs4 requires a bridge line" }
+}
+
+internal fun validateShadowTlsRelayFeatures(
+    profileId: String,
+    config: RipDpiRelayConfig,
+) {
+    require(!config.udpEnabled) { "ShadowTLS v3 is TCP-only" }
+    require(config.shadowTlsInnerProfileId.isNotBlank()) { "ShadowTLS v3 requires an inner profile reference" }
+    require(config.vlessTransport == RelayVlessTransportRealityTcp) {
+        "ShadowTLS outer profile must use direct TCP transport"
+    }
+    if (config.shadowTlsInnerProfileId == profileId) {
+        throw ServiceStartupRejectedException(
+            FailureReason.RelayConfigRejected("ShadowTLS inner profile cannot reference itself"),
+        )
+    }
+}
+
+internal fun validateFinalmaskFeature(
+    config: RipDpiRelayConfig,
+    featureFlags: Map<String, Boolean>,
+) {
     if (config.finalmask.type != RelayFinalmaskTypeOff && !featureFlags.isEnabled(StrategyFeatureFinalmask)) {
         throw ServiceStartupRejectedException(
             FailureReason.RelayConfigRejected("Finalmask is feature-gated"),
-        )
-    }
-    if (config.kind == RelayKindShadowTlsV3 && config.shadowTlsInnerProfileId == profileId) {
-        throw ServiceStartupRejectedException(
-            FailureReason.RelayConfigRejected("ShadowTLS inner profile cannot reference itself"),
         )
     }
 }
@@ -428,6 +464,13 @@ internal fun masquePrivacyPassReadinessMessage(
             "MASQUE privacy_pass auth requires a configured provider for profile $profileId"
         }
     }
+
+private fun requireRelayCredentials(
+    profileId: String,
+    hasRequiredCredentials: Boolean,
+) {
+    require(hasRequiredCredentials) { "Relay credentials missing for profile $profileId" }
+}
 
 private suspend fun resolveChainRelayHopSupport(
     hopName: String,
