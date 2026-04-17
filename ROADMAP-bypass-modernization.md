@@ -356,20 +356,24 @@ Packet construction (HKDF key derivation, packet number encryption,
 
 ## Workstream 4: DNS Oracle And Resolver-Policy Hardening
 
-**Status:** [ ] Not started
+**Status:** [~] In progress
 **Priority:** P1
 **Why now:** The current system treats encrypted DNS too much like a ground
 truth oracle. That risks false positives on CDN-heavy targets and makes oracle
 failures feed bad data back into strategy selection.
 
-**Current state:** `ripdpi-dns-resolver` is 3086 lines across 4 files:
-`resolver.rs` (1406 lines, main `DnsResolver`, query execution, transport
-abstraction), `pool.rs` (392 lines, nameserver pool + health), `health.rs`
-(296 lines, probe logic), `dnscrypt.rs` (330 lines, DNSCrypt transport).
-The pool returns the first responsive resolver; there is no multi-oracle voting
-or consensus mechanism. Strategy classification in
-`ripdpi-monitor/src/classification/strategy.rs` (269 lines) aggregates failures
-via `FailureClass` but does not score oracle diversity.
+**Current state:** `ripdpi-monitor` now ships the richer DNS outcome taxonomy
+(`dns_compatible_divergence`, `dns_suspicious_divergence`,
+`dns_sinkhole_substitution`, `dns_nxdomain_mismatch`,
+`dns_oracle_unavailable`) plus a dedicated `dns_oracle.rs` assessment layer
+that records oracle trust, confidence score, agreement/disagreement sets, and
+per-resolver attempts for diagnostics. Probe and strategy-baseline paths no
+longer treat fallback-only encrypted DNS success as a trusted oracle, which
+reduces false positives on CDN-heavy or partially degraded networks.
+
+`ripdpi-dns-resolver` still uses global health-weighted ordering rather than a
+network-identity-keyed ranking model, and resolver policy is still chosen by
+the first acceptable response rather than a wider per-network oracle memory.
 
 **Primary areas:**
 - `native/rust/crates/ripdpi-dns-resolver/src/resolver.rs` (1406 lines)
@@ -384,7 +388,10 @@ via `FailureClass` but does not score oracle diversity.
 
 **Tasks**
 
-- [ ] Replace single-oracle logic with multi-oracle confidence scoring.
+- [x] Replace single-oracle logic in `ripdpi-monitor` with multi-oracle trust
+  scoring and confidence metadata.
+- [ ] Extend that oracle scoring into resolver selection and ranking policy in
+  `ripdpi-dns-resolver`.
 - [ ] Key resolver health and fallback memory by network identity instead of a
   global process-wide ordering.
 - [ ] Track ranking separately for:
@@ -392,16 +399,17 @@ via `FailureClass` but does not score oracle diversity.
   - IPv4 vs IPv6
   - resolver operator
   - transport protocol
-- [ ] Add RRset-aware comparison classes:
+- [x] Add RRset-aware comparison classes:
   - exact match
   - compatible divergence
   - suspicious divergence
   - likely sinkhole
   - NXDOMAIN mismatch
   - oracle unavailable
-- [ ] Score oracle health before using an encrypted result as a diagnostic
-  reference.
-- [ ] Quarantine oracle failures so they do not retrain the strategy system.
+- [x] Score oracle health before using an encrypted result as a diagnostic
+  reference in probe and strategy-baseline classification.
+- [x] Quarantine untrusted oracle outcomes so they do not retrain the strategy
+  system from strategy-baseline DNS evidence.
 - [ ] Add DDR / HTTPS / SVCB-driven resolver discovery where practical.
 - [ ] Use hedged queries only for bootstrap, failover, and diagnostics rather
   than as the default resolution path.

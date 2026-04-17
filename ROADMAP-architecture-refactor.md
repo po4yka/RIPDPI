@@ -501,7 +501,7 @@ Workstreams 2 (first-flight IR) and 3 (QUIC subsystem).
 
 ## Workstream 4: Service And Relay Orchestration Decomposition
 
-**Status:** [ ] Not started
+**Status:** [~] In progress
 **Priority:** P1
 **Why now:** Service runtime coordination currently relies on large base classes
 and large relay-resolution switchboards. Lifecycle, handover, retries,
@@ -527,7 +527,7 @@ coupled.
   - stop/start command executor
 - [ ] Replace inheritance-driven optional behavior with composition where
   feasible, especially around handover and restart policy.
-- [ ] Split `UpstreamRelaySupervisor.resolveRuntimeConfig()` into per-relay-kind
+- [x] Split relay runtime-config resolution into per-relay-kind
   resolvers:
   - MASQUE
   - Snowflake
@@ -535,8 +535,11 @@ coupled.
   - Chain relay
   - ShadowTLS
   - local SOCKS/naive/TUIC/Hysteria variants as needed
-- [ ] Introduce a relay resolver interface so per-kind validation, credential
+- [x] Introduce a relay resolver interface so per-kind validation, credential
   rules, and defaulting logic are not all in one function.
+- [x] Keep `UpstreamRelaySupervisor` on the same shared default resolver
+  composition in both constructor paths so runtime config assembly is no longer
+  duplicated.
 - [ ] Extract shared runtime start/stop logic from VPN and proxy coordinators
   only where the seam is stable; do not force false sharing.
 - [ ] Add focused tests for:
@@ -544,6 +547,16 @@ coupled.
   - retry exhaustion
   - relay-kind validation
   - config normalization per relay kind
+
+**Current landed slice**
+
+- `DefaultUpstreamRelayRuntimeConfigResolver` now dispatches through dedicated
+  relay-kind resolvers for MASQUE, Cloudflare Tunnel, Snowflake, Chain relay,
+  ShadowTLS, NaiveProxy, local-path transports, and default relay families.
+- Credential checks, feature gates, and runtime defaults are split into focused
+  helpers instead of one mixed `when` chain.
+- Focused unit coverage now exercises relay-kind normalization and validation
+  for the shipped resolver families.
 
 **Improvements expected**
 

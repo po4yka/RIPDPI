@@ -21,11 +21,22 @@ The audit roadmap tracked in this repository is complete. The items below are no
   parser normalization, TCP semantic offsets, QUIC planner migration slices,
   terminal fake-step lowering migration, and rewrite goldens landed; broader
   planner migration and QUIC packetizer work remain).
+- Bypass modernization Workstream 4 (DNS Oracle Hardening): PARTIAL
+  (richer DNS outcome taxonomy is shipped, and monitor-side multi-oracle trust
+  scoring plus oracle-health gating now prevent fallback-only encrypted DNS
+  success from acting as a trusted diagnostic reference; resolver ranking,
+  network-identity memory, and broader oracle-variance coverage remain).
+- Architecture refactor Workstream 4 (Service + Relay Orchestration): PARTIAL
+  (relay runtime-config resolution is now split behind per-kind resolvers for
+  MASQUE, Cloudflare Tunnel, Snowflake, Chain relay, ShadowTLS, NaiveProxy,
+  local-path transports, and default relay families; service lifecycle
+  coordinator decomposition remains open).
 
 See [`docs/roadmap-execution-queue.md`](docs/roadmap-execution-queue.md) for the
 unified slice list, dependency graph, and the next priority entry points
-(Phase 3 remainder first; Phases 6 and 7 in parallel; then Phase 1b and the
-remaining Phase 4 planner migration before Phase 5).
+(finish the remaining Phase 4 planner migration, continue Phase 6 resolver
+ranking work and Phase 7 lifecycle decomposition in parallel, then return to
+Phase 1b before Phase 5).
 
 ## Completed Workstreams
 
