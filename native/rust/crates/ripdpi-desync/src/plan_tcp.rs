@@ -236,7 +236,7 @@ pub fn plan_tcp(
                 push_split_actions(&mut actions, chunk);
             }
             TcpChainStepKind::SeqOverlap => {
-                if !context.seqovl_supported || !seqovl_hard_gate_matches(context, pos) {
+                if !seqovl_hard_gate_matches(context, pos) {
                     planned_kind = TcpChainStepKind::Split;
                     push_split_actions(&mut actions, chunk);
                 } else {

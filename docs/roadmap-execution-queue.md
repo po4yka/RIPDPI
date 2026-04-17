@@ -132,14 +132,14 @@ Mode: `Ralph`. Critical path -- unblocks Phases 4, 5, 13.
 
 ## Phase 4 -- First-Flight IR (bypass-modernization W2)
 
-**Status: PARTIAL (2026-04-17).** Foundation and the first planner migration
-wave are landed: `docs/architecture/first-flight-ir.md`, IR types and
-normalizers in `ripdpi-desync::first_flight_ir`, additive layout surfaces in
-`ripdpi-packets`, IR-driven TLS prelude record fragmentation, IR-backed TCP
-semantic offset resolution through `proto.rs`, IR-driven QUIC UDP split
-planning, terminal fake-step lowering migration, and dedicated rewrite
-goldens. Remaining work is the broader planner migration, lowering cleanup,
-and QUIC packetizer follow-through.
+**Status: COMPLETE (2026-04-17).** The Phase 4 foundation and the remaining
+planner migration are landed: `docs/architecture/first-flight-ir.md`, IR types
+and normalizers in `ripdpi-desync::first_flight_ir`, additive layout surfaces
+in `ripdpi-packets`, IR-driven TLS prelude record fragmentation, IR-backed TCP
+semantic offset resolution through `proto.rs`, semantic fake-family handling
+after TLS prelude, IR-seeded QUIC UDP prelude builders, planner removal of the
+seqovl capability downgrade, terminal fake-step lowering migration, and the
+dedicated rewrite goldens.
 
 Mode: `Team` with `/deep-interview` on 4.1. Must not start on old monolith.
 
@@ -149,12 +149,12 @@ Mode: `Team` with `/deep-interview` on 4.1. Must not start on old monolith.
 | 4.2 | Complete | Implement IR types covering SNI/host, ALPN, TLS record boundaries, QUIC CRYPTO layout, GREASE, ECH, desired datagram/segment boundaries | 4.1 | `cargo test -p ripdpi-desync`; type-level invariants checked |
 | 4.3 | Complete | Normalize TLS ClientHello into IR (consume `tls_client_hello_marker_info_in_handshake`) | 4.2 | TLS fixture round-trip preserves IR |
 | 4.4 | Complete | Normalize QUIC Initial into IR (consume `parse_quic_initial`) | 4.2 | QUIC fixture round-trip preserves IR |
-| 4.5 | In progress | Migrate `TlsRec`, `TlsRandRec`, split, fake logic onto IR | 4.3 | `packet-smoke-debugger` TLS scenarios unchanged |
-Current landed scope: `tls_prelude.rs` now uses the IR for record splitting, and `proto.rs` now resolves TLS semantic offsets (`Host`, `MidSld`, `EndHost`, `SniExt`, `ExtLen`, `EchExt`) from IR-backed `TlsProtoInfo` for both single-record and fragmented multi-record ClientHello payloads.
-| 4.6 | In progress | Migrate QUIC prelude logic onto IR | 4.4 | `packet-smoke-debugger` QUIC scenarios unchanged |
-Current landed scope: `plan_udp.rs` now routes QUIC SNI split, CRYPTO split, realistic fake-burst generation, and `QuicMultiInitialRealistic` default host/version selection through the normalized QUIC IR instead of falling back to the generic fake TLS host when no explicit override is set.
-| 4.7 | In progress | Move terminal-step and emitter-specific restrictions from planner to lowering | 4.5, 4.6 | Planner has no emitter-specific branches |
-Current landed scope: terminal `FakeSplit` / `FakeDisorder` degradation now stays semantic in `plan_tcp.rs`, while runtime routing in `ripdpi-runtime::runtime::desync` switches those terminal plans into lowering so fail-closed/original-flag behavior is owned by the lowerer rather than the planner.
+| 4.5 | Complete | Migrate `TlsRec`, `TlsRandRec`, split, fake logic onto IR | 4.3 | `packet-smoke-debugger` TLS scenarios unchanged |
+Current landed scope: `tls_prelude.rs` now uses the IR for record splitting and carries semantic proto state forward; `proto.rs` resolves TLS semantic offsets (`Host`, `MidSld`, `EndHost`, `SniExt`, `ExtLen`, `EchExt`) from IR-backed `TlsProtoInfo`; and fake-family helpers now classify prelude-rewritten TLS payloads semantically instead of falling back to raw `is_tls_client_hello()` checks.
+| 4.6 | Complete | Migrate QUIC prelude logic onto IR | 4.4 | `packet-smoke-debugger` QUIC scenarios unchanged |
+Current landed scope: `plan_udp.rs` routes QUIC SNI split, dedicated CRYPTO split, realistic fake-burst generation, `QuicMultiInitialRealistic` default host/version selection, padding ladder, CID churn, packet-number-gap, and version-negotiation decoy seed packets through the normalized QUIC IR instead of defaulting to arbitrary payload-local bytes.
+| 4.7 | Complete | Move terminal-step and emitter-specific restrictions from planner to lowering | 4.5, 4.6 | Planner has no emitter-specific branches |
+Current landed scope: terminal `FakeSplit` / `FakeDisorder` degradation stays semantic in `plan_tcp.rs`; runtime routing in `ripdpi-runtime::runtime::desync` owns terminal fake-step fallback; and planner-owned seqovl capability downgrade is removed so lower/execution fallback, not semantic planning, owns unsupported-emitter behavior.
 | 4.8 | Complete | Golden fixtures: TLS record fragmentation, ALPN changes, QUIC CRYPTO splits, ECH/GREASE-preserving rewrites | 4.5, 4.6 | Golden-blesser workflow; fixtures committed |
 Current landed scope: `ripdpi-desync/tests/golden/phase4_tls_record_fragmentation.json`, `phase4_tls_alpn_preservation.json`, `phase4_quic_crypto_split.json`, and `phase4_tls_ech_grease_preservation.json` now pin the IR-visible rewrite outputs for TLS fragmentation, ALPN-preserving fragmentation, QUIC CRYPTO split layout, and ECH/GREASE-preserving TLS fragmentation.
 
@@ -379,12 +379,10 @@ Phase 0 (guardrails) ---+-> Phase 1 (config) ---+-> Phase 9 (UI)
 
 ## Priority Entry Points
 
-**Phases 0 + 1 + 2 complete; Phase 3 complete; Phase 4 partial with 4.8 complete.**
+**Phases 0 + 1 + 2 + 3 + 4 complete.**
 
 Next OMC kickoff prompts in priority order:
 
-1. `/ralph "finish the remaining Phase 4 work from docs/roadmap-execution-queue.md: complete planner-wide first-flight IR migration and the remaining lowering cleanup before Phase 5 packetizer work. Gate on cargo test -p ripdpi-desync and rewrite golden coverage. Do not extend any baseline."`
-2. `/ralph "execute the remaining Phase 4 slices 4.5-4.7 breadth work: migrate the rest of the TCP planner onto first-flight IR, finish the residual QUIC planner migration, and remove non-terminal emitter restrictions from planner code. Gate on cargo test -p ripdpi-desync and cargo test -p ripdpi-runtime."`
-3. `/ralph "begin Phase 5 only after Phase 4 is closed: build the QUIC Initial packetizer/subsystem on top of the landed IR and runtime seams. Gate on cargo test -p ripdpi-desync, cargo test -p ripdpi-runtime, and focused QUIC smoke coverage."`
-
-Phase 5 (QUIC subsystem) is still blocked on the unresolved Phase 4 planner/lowering migration. Do not start the packetizer on top of partially migrated planner seams.
+1. `/ralph "begin Phase 5: build the QUIC Initial packetizer/subsystem on top of the landed IR and runtime seams. Gate on cargo test -p ripdpi-packets, cargo test -p ripdpi-desync, cargo test -p ripdpi-runtime, and focused QUIC smoke coverage."`
+2. `/ralph "/deep-interview Phase 5.1 from docs/roadmap-execution-queue.md: commit the QUIC Initial packetizer design doc and golden-fixture plan before changing packet construction."`
+3. `/ralph "after the packetizer lands, rework DummyPrepend, QuicSniSplit, QuicCryptoSplit, and QuicMultiInitialRealistic onto it, then demote weak QUIC mutation families from the production path."`
