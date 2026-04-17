@@ -6,9 +6,10 @@ The earlier phase split (`P0` through `P3`) was useful while the transport and c
 
 Cross-roadmap status (2026-04-17): bypass-modernization Workstream 1 is
 complete, bypass-modernization Workstream 2 is partial, architecture-refactor
-Workstream 1 is partial, and architecture-refactor Workstream 3 is partial but
-still not the main blocker for this transport-focused roadmap. The active work
-here remains rollout validation, operational hardening, and catalog freshness.
+Workstream 1 is partial, architecture-refactor Workstream 3 is complete, and
+architecture-refactor Workstream 4 is now partial after the relay-kind resolver
+split landed. The active work here remains rollout validation, operational
+hardening, and catalog freshness.
 
 ## Related Roadmaps
 
@@ -27,10 +28,11 @@ freshness. Three sibling roadmaps drive the surfaces above and around it:
   the TCP-level and QUIC-level tactics catalogued there.
 - [../ROADMAP-architecture-refactor.md](../ROADMAP-architecture-refactor.md) --
   structural cleanup roadmap. Its Workstream 4 (service and relay orchestration
-  decomposition) refactors `UpstreamRelaySupervisor.resolveRuntimeConfig()` into
-  per-relay-kind resolvers for MASQUE, Snowflake, Cloudflare Tunnel, ShadowTLS,
-  and local SOCKS variants. Relay-kind interface changes there must stay
-  compatible with the field validation tracks below.
+  decomposition) has now split relay runtime-config resolution into per-relay-kind
+  resolvers for MASQUE, Snowflake, Cloudflare Tunnel, ShadowTLS, NaiveProxy,
+  chain relay, local-path transports, and default relay families. Remaining
+  lifecycle/start-stop work there must stay compatible with the field
+  validation tracks below.
 
 ### Ownership Notes
 
@@ -92,14 +94,13 @@ The roadmap is now limited to ongoing validation, transport expansion, and opera
 
 ### Relay Kind Registry
 
-The current dispatch lives in `core/service/.../UpstreamRelaySupervisor.kt`
-at `resolveRuntimeConfig()` (line 97, 469-line file). Relay kinds enumerated:
-`VlessReality`, `Hysteria2`, `Masque` (with auth-mode routing), `CloudflareTunnel`
-(with `PublishLocalOrigin` mode), `NaiveProxy`, `TuicV5`, `ShadowTlsV3`,
-`ChainRelay`, plus pluggable `Snowflake`, `WebTunnel`, `Obfs4` at lines 21-30.
-Architecture-refactor Workstream 4 owns decomposing this switchboard into
-per-relay-kind resolvers. Field-validation tracks above must stay compatible
-with that split.
+Runtime-config dispatch now lives in
+`core/service/.../UpstreamRelayRuntimeConfigResolver.kt` behind
+`RelayKindResolver`. The current split covers MASQUE, Cloudflare Tunnel,
+Snowflake, Chain relay, ShadowTLS, NaiveProxy, local-path transports
+(`Snowflake`, `WebTunnel`, `Obfs4` family handling), and a default resolver for
+the remaining direct relay kinds. Field-validation tracks above must stay
+compatible with that resolver boundary.
 
 ## Near-Term Work
 
