@@ -6,6 +6,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::dns::*;
 use crate::dns_analysis::{analyze_dns_response, compare_dns_responses, parse_record_set};
+use crate::dns_oracle::{evaluate_dns_oracles, DnsOracleAssessment, DnsOracleTrust};
 use crate::fat_header::*;
 use crate::http::*;
 use crate::tls::*;
@@ -57,6 +58,12 @@ pub(crate) fn is_dns_injection_suspected(udp_latency_ms: &str, outcome: &str) ->
     udp <= 5 && is_suspected_dns_tampering_outcome(outcome)
 }
 
+#[derive(Clone, Debug)]
+struct ResolvedEncryptedDnsAnswer {
+    addresses: Vec<String>,
+    raw_response: Option<Vec<u8>>,
+}
+
 pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &ScanPathMode) -> ProbeResult {
     let udp_server = target.udp_server.clone().unwrap_or_else(|| DEFAULT_DNS_SERVER.to_string());
     let (encrypted_endpoint, encrypted_bootstrap_ips) = match encrypted_dns_endpoint_for_target(target) {
@@ -73,64 +80,40 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
     let udp_started = std::time::Instant::now();
     let (udp_result, raw_udp_response) = resolve_via_udp_with_raw(&target.domain, &udp_server, transport);
     let udp_latency_ms = udp_started.elapsed().as_millis().to_string();
-    let encrypted_started = std::time::Instant::now();
-    let (mut encrypted_result, mut raw_encrypted_response) =
-        resolve_via_encrypted_dns_with_raw(&target.domain, encrypted_endpoint.clone(), transport);
-    let encrypted_latency_ms = encrypted_started.elapsed().as_millis().to_string();
-
-    // When the primary encrypted resolver fails and the target doesn't
-    // explicitly configure its own endpoint, try fallback resolvers before
-    // declaring encrypted_dns_blocked.
-    let mut fallback_resolver_used: Option<String> = None;
     let target_uses_default_resolver =
         target.encrypted_host.is_none() && target.encrypted_doh_url.is_none() && target.encrypted_protocol.is_none();
-    if encrypted_result.is_err() && target_uses_default_resolver {
-        let fallback_endpoints = build_fallback_encrypted_dns_endpoints(encrypted_endpoint.resolver_id.as_deref());
-        // Cap fallback attempts to avoid flooding probe results when encrypted
-        // DNS is broadly blocked at the network level.
-        for fallback_ep in fallback_endpoints.iter().take(2) {
-            let (result, raw) = resolve_via_encrypted_dns_with_raw(&target.domain, fallback_ep.clone(), transport);
-            if result.is_ok() {
-                encrypted_result = result;
-                raw_encrypted_response = raw;
-                fallback_resolver_used = fallback_ep.resolver_id.clone();
-                break;
-            }
-        }
-    }
+    let fallback_endpoints = if target_uses_default_resolver {
+        build_fallback_encrypted_dns_endpoints(encrypted_endpoint.resolver_id.as_deref())
+    } else {
+        Vec::new()
+    };
+    let oracle_assessment = evaluate_dns_oracles(
+        encrypted_endpoint.clone(),
+        &fallback_endpoints,
+        2,
+        |endpoint| {
+            let (result, raw_response) =
+                resolve_via_encrypted_dns_with_raw(&target.domain, endpoint.clone(), transport);
+            result.map(|addresses| ResolvedEncryptedDnsAnswer { addresses, raw_response })
+        },
+        |answer| answer.addresses.clone(),
+    );
+    let encrypted_result = oracle_result_for_probe(&oracle_assessment);
+    let raw_encrypted_response =
+        oracle_assessment.selected.as_ref().and_then(|selected| selected.value.raw_response.clone());
+    let encrypted_latency_ms = oracle_assessment.preferred_latency_ms().to_string();
 
     let expected: BTreeSet<String> = target.expected_ips.iter().cloned().collect();
-
-    let outcome = match (&udp_result, &encrypted_result) {
-        (Ok(udp_ips), Ok(encrypted_ips)) => match classify_dns_answer_overlap(udp_ips, encrypted_ips) {
-            DnsAnswerOverlap::Match => {
-                if !expected.is_empty() && ip_set(udp_ips) != expected {
-                    "dns_expected_mismatch".to_string()
-                } else {
-                    "dns_match".to_string()
-                }
-            }
-            DnsAnswerOverlap::CompatibleDivergence => {
-                if udp_latency_ms.parse::<u64>().unwrap_or(u64::MAX) <= 5 {
-                    "dns_suspicious_divergence".to_string()
-                } else {
-                    "dns_compatible_divergence".to_string()
-                }
-            }
-            DnsAnswerOverlap::SinkholeSubstitution => "dns_sinkhole_substitution".to_string(),
-        },
-        (Ok(_), Err(_)) => "dns_oracle_unavailable".to_string(),
-        (Err(err), Ok(_)) if err == "dns_nxdomain" => "dns_nxdomain_mismatch".to_string(),
-        (Err(_), Ok(_)) => {
-            if matches!(path_mode, ScanPathMode::InPath) {
-                "udp_skipped_or_blocked".to_string()
-            } else {
-                "udp_blocked".to_string()
-            }
-        }
-        (Err(_), Err(_)) => "dns_unavailable".to_string(),
-    };
+    let outcome = classify_dns_probe_outcome(&udp_result, &encrypted_result, path_mode, &udp_latency_ms, &expected);
     let injection_suspected = is_dns_injection_suspected(&udp_latency_ms, &outcome);
+    let selected_endpoint =
+        oracle_assessment.selected.as_ref().map(|selected| &selected.endpoint).unwrap_or(&encrypted_endpoint);
+    let selected_bootstrap_ips = selected_endpoint.bootstrap_ips.iter().map(ToString::to_string).collect::<Vec<_>>();
+    let encrypted_addresses = match &encrypted_result {
+        Ok(addresses) if !addresses.is_empty() => addresses.join("|"),
+        Ok(_) => "[]".to_string(),
+        Err(err) => err.clone(),
+    };
 
     let mut result = ProbeResult {
         probe_type: "dns_integrity".to_string(),
@@ -164,7 +147,7 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
             ProbeDetail { key: "encryptedBootstrapIps".to_string(), value: encrypted_bootstrap_ips.join("|") },
             ProbeDetail {
                 key: "encryptedBootstrapValidated".to_string(),
-                value: (encrypted_result.is_ok() && !encrypted_bootstrap_ips.is_empty()).to_string(),
+                value: (oracle_assessment.selected.is_some() && !selected_bootstrap_ips.is_empty()).to_string(),
             },
             ProbeDetail {
                 key: "encryptedDohUrl".to_string(),
@@ -178,11 +161,11 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
                 key: "encryptedDnscryptPublicKey".to_string(),
                 value: encrypted_endpoint.dnscrypt_public_key.clone().unwrap_or_default(),
             },
-            ProbeDetail { key: "encryptedAddresses".to_string(), value: format_result_set(&encrypted_result) },
+            ProbeDetail { key: "encryptedAddresses".to_string(), value: encrypted_addresses },
             ProbeDetail { key: "encryptedLatencyMs".to_string(), value: encrypted_latency_ms.clone() },
             ProbeDetail {
                 key: "dnsLatencyQuality".to_string(),
-                value: classify_dns_latency_quality(&udp_latency_ms, &encrypted_latency_ms),
+                value: classify_dns_latency_quality(udp_latency_ms.as_str(), encrypted_latency_ms.as_str()),
             },
             ProbeDetail { key: "dnsInjectionSuspected".to_string(), value: injection_suspected.to_string() },
             ProbeDetail {
@@ -193,9 +176,13 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
                     expected.iter().cloned().collect::<Vec<_>>().join("|")
                 },
             },
-            ProbeDetail { key: "resolverFallbackUsed".to_string(), value: fallback_resolver_used.unwrap_or_default() },
+            ProbeDetail {
+                key: "resolverFallbackUsed".to_string(),
+                value: oracle_assessment.fallback_resolver_used().unwrap_or_default(),
+            },
         ],
     };
+    result.details.extend(oracle_assessment.detail_entries());
 
     // Injection profiling: only populated for tampering/suspicious-divergence outcomes.
     if is_suspected_dns_tampering_outcome(result.outcome.as_str()) {
@@ -270,6 +257,59 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
     }
 
     result
+}
+
+fn oracle_result_for_probe(
+    assessment: &DnsOracleAssessment<ResolvedEncryptedDnsAnswer>,
+) -> Result<Vec<String>, String> {
+    match assessment.trust {
+        DnsOracleTrust::TrustedAgreement | DnsOracleTrust::PrimaryOnly => assessment
+            .selected
+            .as_ref()
+            .map(|selected| selected.value.addresses.clone())
+            .ok_or_else(|| "dns_oracle_unavailable".to_string()),
+        DnsOracleTrust::SingleFallback => Err("dns_oracle_unavailable".to_string()),
+        DnsOracleTrust::Disagreement => Err("dns_oracle_disagreement".to_string()),
+        DnsOracleTrust::Unavailable => Err("dns_oracle_unavailable".to_string()),
+    }
+}
+
+fn classify_dns_probe_outcome(
+    udp_result: &Result<Vec<String>, String>,
+    encrypted_result: &Result<Vec<String>, String>,
+    path_mode: &ScanPathMode,
+    udp_latency_ms: &str,
+    expected: &BTreeSet<String>,
+) -> String {
+    match (udp_result, encrypted_result) {
+        (Ok(udp_ips), Ok(encrypted_ips)) => match classify_dns_answer_overlap(udp_ips, encrypted_ips) {
+            DnsAnswerOverlap::Match => {
+                if !expected.is_empty() && ip_set(udp_ips) != expected.clone() {
+                    "dns_expected_mismatch".to_string()
+                } else {
+                    "dns_match".to_string()
+                }
+            }
+            DnsAnswerOverlap::CompatibleDivergence => {
+                if udp_latency_ms.parse::<u64>().unwrap_or(u64::MAX) <= 5 {
+                    "dns_suspicious_divergence".to_string()
+                } else {
+                    "dns_compatible_divergence".to_string()
+                }
+            }
+            DnsAnswerOverlap::SinkholeSubstitution => "dns_sinkhole_substitution".to_string(),
+        },
+        (Ok(_), Err(_)) => "dns_oracle_unavailable".to_string(),
+        (Err(err), Ok(_)) if err == "dns_nxdomain" => "dns_nxdomain_mismatch".to_string(),
+        (Err(_), Ok(_)) => {
+            if matches!(path_mode, ScanPathMode::InPath) {
+                "udp_skipped_or_blocked".to_string()
+            } else {
+                "udp_blocked".to_string()
+            }
+        }
+        (Err(_), Err(_)) => "dns_unavailable".to_string(),
+    }
 }
 
 pub(crate) fn run_domain_probe(
@@ -735,7 +775,30 @@ pub(crate) fn run_throughput_probe(target: &ThroughputTarget, transport: &Transp
 
 #[cfg(test)]
 mod tests {
-    use super::classify_dns_latency_quality;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol};
+
+    use crate::dns_oracle::evaluate_dns_oracles;
+    use crate::types::ScanPathMode;
+
+    use super::{
+        classify_dns_latency_quality, classify_dns_probe_outcome, oracle_result_for_probe, ResolvedEncryptedDnsAnswer,
+    };
+
+    fn endpoint(id: &str) -> EncryptedDnsEndpoint {
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doh,
+            resolver_id: Some(id.to_string()),
+            host: format!("{id}.example"),
+            port: 443,
+            tls_server_name: None,
+            bootstrap_ips: Vec::new(),
+            doh_url: Some(format!("https://{id}.example/dns-query")),
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        }
+    }
 
     #[test]
     fn dns_latency_quality_throttled_for_slow_udp() {
@@ -777,5 +840,38 @@ mod tests {
     fn dns_latency_quality_not_injected_below_threshold() {
         // UDP 10ms, encrypted 99ms => ratio 9.9 => "fast" (below 20x)
         assert_eq!(classify_dns_latency_quality("10", "99"), "fast");
+    }
+
+    #[test]
+    fn dns_probe_gates_single_fallback_success_as_oracle_unavailable() {
+        let answers = BTreeMap::from([
+            ("primary".to_string(), Err("connection reset".to_string())),
+            (
+                "fallback".to_string(),
+                Ok(ResolvedEncryptedDnsAnswer { addresses: vec!["198.51.100.77".to_string()], raw_response: None }),
+            ),
+        ]);
+        let assessment = evaluate_dns_oracles(
+            endpoint("primary"),
+            &[endpoint("fallback")],
+            1,
+            |endpoint| {
+                answers
+                    .get(endpoint.resolver_id.as_deref().unwrap_or_default())
+                    .cloned()
+                    .unwrap_or_else(|| Err("missing".to_string()))
+            },
+            |answer| answer.addresses.clone(),
+        );
+        let encrypted_result = oracle_result_for_probe(&assessment);
+        let outcome = classify_dns_probe_outcome(
+            &Ok(vec!["203.0.113.10".to_string()]),
+            &encrypted_result,
+            &ScanPathMode::RawPath,
+            "25",
+            &BTreeSet::new(),
+        );
+
+        assert_eq!(outcome, "dns_oracle_unavailable");
     }
 }
