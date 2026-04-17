@@ -51,8 +51,8 @@ independent and safe to run concurrently.
 
 ## Phase 1 -- Config Contract (architecture W1)
 
-**Status: PARTIAL (2026-04-15).** Slices 1.1-1.5 landed via Ralph;
-1.6-1.8 deferred to a follow-up Phase 1b.
+**Status: COMPLETE (2026-04-17).** Slices 1.1-1.5 landed via Ralph, and
+Phase 1b closed 1.6-1.8 in `52e4fe2c`.
 Commits: `7bfd9a29` + `d5e6c9fb` (StrategyChains split + deletion),
 `6421b0c6` + `10885de6` (Slice 1.0 prereq fixes for pre-existing
 `:core:engine:detekt` debt -- ComplexCondition + LongParameterList
@@ -60,7 +60,9 @@ fixed at source, not suppressed), `0f6a2bb7` (codec split: ChainsCodec
 285L + FakePacketCodec 163L; parent 1494->1063L), `08ddee78` (round-trip
 harness Kotlin + Rust), `3d06ea31` (relay-heavy fixture covering MASQUE,
 Cloudflare Tunnel, NaiveProxy with credential ref), `d0b87adf` (drop
-TooManyFunctions suppression from StrategyChainValidation.kt).
+TooManyFunctions suppression from StrategyChainValidation.kt), `52e4fe2c`
+(`RipDpiProxyJsonCodec.kt` 345L orchestrator + remaining section codecs,
+`convert.rs` 147L dispatcher + `convert/` builders, legacy payload adapter).
 
 Mode: `Ralph`. Implements the "First Recommended Slice" of architecture-refactor.
 
@@ -71,9 +73,9 @@ Mode: `Ralph`. Implements the "First Recommended Slice" of architecture-refactor
 | 1.3 | Add round-trip test harness: AppSettings -> Kotlin model -> JSON -> Rust UI payload -> runtime config | 1.2 | New tests pass; `rust-test-runner` for native side |
 | 1.4 | Golden fixtures for one chain-heavy + one relay-heavy config | 1.3 | Fixtures committed; round-trip tests compare stable output |
 | 1.5 | Remove at least one blanket suppression from files touched in 1.1-1.2 | 1.1 | Detekt baseline unchanged elsewhere |
-| 1.6 | Split `RipDpiProxyJsonCodec.kt` remaining sections (listen/protocols, adaptive fallback, relay/warp/ws-tunnel, runtime context) | 1.2 | Codec object remains thin; section tests pass |
-| 1.7 | Split `convert.rs` (1464 LoC) into section builders: listen, protocol, chain, fake-packet, relay, warp, adaptive | 1.6 | `cargo test -p ripdpi-proxy-config`; LoC baseline shrinks |
-| 1.8 | Isolate legacy payload compatibility into dedicated adapter | 1.7 | Main config path has no compat branches; adapter tested independently |
+| 1.6 | Complete: split `RipDpiProxyJsonCodec.kt` remaining sections (listen/protocols, adaptive fallback, relay/warp/ws-tunnel, runtime context) | 1.2 | Codec object remains thin; section tests pass |
+| 1.7 | Complete: split `convert.rs` (1464 LoC) into section builders: listen, protocol, chain, fake-packet, relay, warp, adaptive | 1.6 | `cargo test -p ripdpi-proxy-config`; LoC baseline shrinks |
+| 1.8 | Complete: isolate legacy payload compatibility into dedicated adapter | 1.7 | Main config path has no compat branches; adapter tested independently |
 
 ## Phase 2 -- Capability Hygiene (bypass-modernization W1)
 
@@ -377,15 +379,12 @@ Phase 0 (guardrails) ---+-> Phase 1 (config) ---+-> Phase 9 (UI)
 
 ## Priority Entry Points
 
-**Phases 0 + 2 complete; Phase 1 partial (1.1-1.5 done, 1.6-1.8 deferred); Phase 3 complete; Phase 4 partial with 4.8 complete.**
-19 commits ahead of `origin/main` as of 2026-04-17.
+**Phases 0 + 1 + 2 complete; Phase 3 complete; Phase 4 partial with 4.8 complete.**
 
 Next OMC kickoff prompts in priority order:
 
 1. `/ralph "finish the remaining Phase 4 work from docs/roadmap-execution-queue.md: complete planner-wide first-flight IR migration and the remaining lowering cleanup before Phase 5 packetizer work. Gate on cargo test -p ripdpi-desync and rewrite golden coverage. Do not extend any baseline."`
-2. `/ralph "execute Phase 6 slices 6.1-6.7 from docs/roadmap-execution-queue.md; replace dns_substitution single no-overlap rule with multi-oracle confidence scoring. Gate on cargo test -p ripdpi-dns-resolver and cargo test -p ripdpi-monitor."`
-3. `/ralph "execute Phase 7 slices 7.1-7.5; decompose UpstreamRelaySupervisor.resolveRuntimeConfig into per-relay-kind resolvers; mirror the per-section split pattern proven in Phase 1 slice 1.1."`
-4. After Phases 4, 6, and 7 stabilize: finish Phase 1b (1.6-1.8 -- remaining codec sections, `convert.rs` split, legacy compat adapter).
-5. Then return to the remaining Phase 4 slices: finish 4.5 planner migration breadth, 4.6 residual QUIC migration, and 4.7 non-terminal emitter restrictions before starting Phase 5.
+2. `/ralph "execute the remaining Phase 4 slices 4.5-4.7 breadth work: migrate the rest of the TCP planner onto first-flight IR, finish the residual QUIC planner migration, and remove non-terminal emitter restrictions from planner code. Gate on cargo test -p ripdpi-desync and cargo test -p ripdpi-runtime."`
+3. `/ralph "begin Phase 5 only after Phase 4 is closed: build the QUIC Initial packetizer/subsystem on top of the landed IR and runtime seams. Gate on cargo test -p ripdpi-desync, cargo test -p ripdpi-runtime, and focused QUIC smoke coverage."`
 
 Phase 5 (QUIC subsystem) is still blocked on the unresolved Phase 4 planner/lowering migration. Do not start the packetizer on top of partially migrated planner seams.

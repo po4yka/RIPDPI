@@ -11,7 +11,11 @@ The audit roadmap tracked in this repository is complete. The items below are no
 ### Post-Audit Workstream Progress (2026-04-17)
 
 - Architecture refactor Workstream 0 (Guardrails): COMPLETE.
-- Architecture refactor Workstream 1 (Config Contract): PARTIAL (slices 1.1-1.5 of 8 done).
+- Architecture refactor Workstream 1 (Config Contract): COMPLETE
+  (`StrategyChains.kt` split, `RipDpiProxyJsonCodec.kt` reduced to a 345-line
+  orchestrator with section codecs, `ripdpi-proxy-config/src/convert.rs`
+  reduced to a 147-line dispatcher with dedicated `convert/` builders and a
+  legacy payload adapter; Phase 1b landed in `52e4fe2c`).
 - Architecture refactor Workstream 3 (Native Runtime Decomposition): COMPLETE
   (TCP lowering layer, typed capability snapshot, UDP flow split, and platform
   capability / IPv4-id submodules now sit on top of the earlier executor
@@ -34,8 +38,8 @@ The audit roadmap tracked in this repository is complete. The items below are no
 
 See [`docs/roadmap-execution-queue.md`](docs/roadmap-execution-queue.md) for the
 unified slice list, dependency graph, and the next priority entry points
-(finish the remaining Phase 4 planner migration, return to Phase 1b config
-contract cleanup, then begin Phase 5 once the planner migration is closed).
+(finish the remaining Phase 4 planner migration, then begin Phase 5 once the
+planner migration is closed).
 
 ## Completed Workstreams
 
@@ -128,9 +132,9 @@ The three strategic roadmaps interlock and should not be read in isolation:
 
 ### Sequencing Across Roadmaps
 
-1. **architecture-refactor Workstream 0-1** (guardrails, config contract) unblocks everything else -- both bypass work and settings splits depend on the canonical config seam.
+1. **architecture-refactor Workstream 0-1** (guardrails, config contract) unblocks everything else -- both are now complete, so bypass work and settings splits should consume the shipped canonical config seam rather than reopening it.
 2. **bypass-modernization Workstream 1** (capability hygiene) must land before further expansion of bypass-techniques Tier 3, otherwise new tactics cannot be evaluated honestly.
-3. **architecture-refactor Workstream 3** (runtime/desync decomposition) and **bypass-modernization Workstream 2** (first-flight IR) touch the same files. Workstream 2 already has partial landed scope, but the remaining planner/lowering migration should still wait for Workstream 3 slices 3.5-3.10 rather than expanding on a half-decomposed runtime.
+3. **architecture-refactor Workstream 3** (runtime/desync decomposition) and **bypass-modernization Workstream 2** (first-flight IR) touch the same files. Workstream 3 is now complete, so the remaining Phase 4 work should build on the shipped lowering/runtime seams rather than reintroducing planner-specific logic into the old monolith.
 4. **bypass-modernization Workstream 3** (QUIC subsystem) owns the QUIC evolution. New QUIC probe candidates in bypass-techniques must route through it rather than extending ad hoc packet families.
 5. **integrations Finalmask/TLS tracks** should align TLS catalog revisions with bypass-modernization Workstream 5 (browser-family templates and ECH).
 
