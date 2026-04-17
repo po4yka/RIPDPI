@@ -11,14 +11,14 @@
   `docs/architecture/`; LoC hotspot reporter, DisallowNewSuppression detekt
   rule, Rust allow-guard with baseline, module-dep guard, and deterministic
   hotspots generator all live in `scripts/ci/` and `quality/detekt-rules/`.
-- **Workstream 1 (Config Contract):** PARTIAL. `StrategyChains.kt` split into
-  five sibling files (Model / Validation / Dsl / Parser / Protobuf);
-  `RipDpiProxyJsonCodec.kt` chains + fake-packet sections extracted into
-  `core/engine/.../codec/`; cross-language round-trip harness with
-  chain-heavy + UDP/QUIC + relay-heavy fixtures landed; one
-  `@file:Suppress(TooManyFunctions)` removed. Remaining: codec listen /
-  protocols / adaptive / relay/warp/wsTunnel / runtime-context split, plus
-  `convert.rs` section builders, plus legacy payload compat adapter.
+- **Workstream 1 (Config Contract):** COMPLETE. `StrategyChains.kt` is split
+  into focused sibling files; `RipDpiProxyJsonCodec.kt` is down to a 345-line
+  orchestration layer with dedicated network/adaptive/relay/warp/runtime
+  section codecs under `core/engine/.../codec/`; and
+  `ripdpi-proxy-config/src/convert.rs` is down to a 147-line dispatcher on top
+  of dedicated `convert/` section builders plus a legacy payload adapter.
+  Cross-language round-trip harness and committed fixtures cover the canonical
+  contract, and the Phase 1b completion landed in `52e4fe2c`.
 - **Workstream 3 (Native Runtime And Desync Decomposition):** COMPLETE.
   The runtime now has a dedicated TCP lowering layer, a typed per-connection
   TTL/capability snapshot, a split UDP flow module, and split platform
@@ -37,8 +37,9 @@ must precede specific sibling-roadmap milestones:
 - [ROADMAP.md](ROADMAP.md) -- master index and cross-roadmap sequencing.
 - [ROADMAP-bypass-modernization.md](ROADMAP-bypass-modernization.md) -- strategic
   bypass roadmap. It consumes the seams this roadmap creates.
-  - This roadmap's Workstream 1 (config contract unification) must land before
-    modernization Workstream 2 (first-flight IR) introduces a new planner.
+  - This roadmap's Workstream 1 (config contract unification) is now complete,
+    so modernization Workstream 2 should consume the shipped config seam rather
+    than reopening Kotlin/Rust contract drift.
   - This roadmap's Workstream 3 (native runtime/desync decomposition) creates
     the emitter/lowering layout that modernization Workstreams 2, 3, and 7 lower
     onto. Do not migrate the IR onto the current monolith.
@@ -177,7 +178,7 @@ Code-only line counts (blanks and comments stripped). Suppression counts reflect
 | `runtime/udp.rs` | 499 | 1000 | flow policy moved into `runtime/udp/flow.rs`; main file is now orchestration-first |
 | `platform/linux.rs` | **1813** | 1500 | fake-send and fragmentation helpers are split; remaining size is mostly Linux socket substrate |
 | `platform/mod.rs` | 606 | 1000 | capability and IPv4-id helpers moved to dedicated submodules |
-| `ripdpi-proxy-config/src/convert.rs` | 1464 | 1000 | unchanged follow-up for Workstream 1b |
+| `ripdpi-proxy-config/src/convert.rs` | 147 | 1000 | now an orchestration-only dispatcher; section builders live in `src/convert/` |
 
 ### Critical Blocker
 
@@ -254,7 +255,7 @@ before more structural refactors could land safely.
 
 ## Workstream 1: Config Contract Unification
 
-**Status:** [~] In progress (slices 1.1-1.5 of 1.1-1.8 complete)
+**Status:** [x] Complete (2026-04-17)
 **Priority:** P0
 **Why now:** The same config semantics currently exist in multiple forms across
 Kotlin data models, Kotlin JSON encoding, and Rust runtime conversion. This is
@@ -266,9 +267,10 @@ the largest source-of-truth problem in the project.
 - `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxyJsonCodec.kt`
 - `core/engine/src/main/kotlin/com/poyka/ripdpi/core/codec/`
 - `native/rust/crates/ripdpi-proxy-config/src/convert.rs`
+- `native/rust/crates/ripdpi-proxy-config/src/convert/`
 - `native/rust/crates/ripdpi-config/`
 
-**Shipped so far**
+**Completed scope**
 
 - [x] Defined the canonical config authority layer and froze the slice boundary
   for chain-step semantics, fake-packet settings, relay-heavy fixtures, and
@@ -283,8 +285,16 @@ the largest source-of-truth problem in the project.
 - [x] Split `RipDpiProxyJsonCodec.kt` into section codecs for:
   - chains
   - fake packets
+- [x] Split `RipDpiProxyJsonCodec.kt` remaining sections into dedicated codecs
+  for:
+  - listen / protocols / QUIC / hosts / host-autolearn
+  - adaptive fallback
+  - relay
+  - warp / ws-tunnel
+  - runtime / log / session context
 - [x] Reduced the parent JSON codec toward orchestration-only ownership for the
-  sections already extracted.
+  full config surface; the parent now owns encode/decode orchestration, payload
+  shape validation, and runtime-context rewrite/strip flows only.
 - [x] Added round-trip tests covering:
   - AppSettings -> typed Kotlin model
   - typed Kotlin model -> JSON
@@ -294,23 +304,7 @@ the largest source-of-truth problem in the project.
   configurations.
 - [x] Removed one blanket `@file:Suppress(TooManyFunctions)` from the split
   Kotlin config surface.
-
-**Remaining tasks**
-
-- [ ] Keep the canonical config authority layer explicit for the remaining
-  sections:
-  - chain-step model
-  - relay settings
-  - QUIC settings already exercised by fixtures
-  - runtime context metadata
-- [ ] Split `RipDpiProxyJsonCodec.kt` remaining sections into codecs:
-  - listen/protocols
-  - adaptive fallback
-  - relay/warp/ws tunnel
-  - runtime/log context
-- [ ] Reduce the JSON codec object fully to orchestration only; nested serializable
-  data classes should move into section-scoped files.
-- [ ] Split Rust `runtime_config_from_ui` into section builders so the top-level
+- [x] Split Rust `runtime_config_from_ui` into section builders so the top-level
   function only validates envelope shape and delegates:
   - listen builder
   - protocol builder
@@ -319,10 +313,18 @@ the largest source-of-truth problem in the project.
   - relay builder
   - warp builder
   - adaptive/runtime-context builder
-- [ ] Isolate legacy payload compatibility into a dedicated adapter so the main
-  config path is not polluted by backward-compatibility branches.
-- [ ] Extend the round-trip coverage to runtime-context/export projection once
-  the remaining codec and Rust builder splits land.
+- [x] Isolated legacy payload compatibility into a dedicated adapter so the
+  main config path is not polluted by backward-compatibility branches.
+- [x] Extended round-trip coverage with the completed Kotlin/Rust split so
+  runtime-context, warp, ws-tunnel, and log-context normalization are pinned by
+  focused tests in addition to the existing heavy fixtures.
+
+**Residual follow-up**
+
+- Keep new config fields routed through the section codecs / section builders
+  instead of regrowing cross-language inline mapping logic in the parent files.
+- If runtime-context export projection grows further, keep it as a new focused
+  codec or adapter rather than widening `RipDpiProxyJsonCodec.kt` again.
 
 **Improvements expected**
 

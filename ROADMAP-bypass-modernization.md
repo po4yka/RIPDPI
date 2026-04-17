@@ -50,14 +50,14 @@ work must fit into. See the three sibling roadmaps below for connected work:
 - [ROADMAP-architecture-refactor.md](ROADMAP-architecture-refactor.md) -- structural
   cleanup that must land first for Workstreams 2 and 3 of this roadmap to have a
   clean base. Specifically:
-  - Refactor Workstream 0 (guardrails) and Workstream 1 (config contract) precede
-    any new planner or IR work introduced here.
-  - Refactor Workstream 3 (runtime/desync decomposition) creates the seams that
+  - Refactor Workstream 0 (guardrails) and Workstream 1 (config contract) are
+    now complete; new planner or IR work here should consume those shipped
+    seams instead of widening the old config contract surface.
+  - Refactor Workstream 3 (runtime/desync decomposition) created the seams that
     this roadmap's Workstream 2 (first-flight IR) and Workstream 3 (QUIC subsystem)
-    lower onto. The old central `execute_tcp_plan` monolith has been reduced
-    substantially and some Workstream 2 slices are already landed, but the
-    remaining planner migration should still wait for the unresolved
-    lowering/capability/UDP/platform split work.
+    lower onto. That runtime split is now complete, so the remaining blocker is
+    planner-wide IR migration inside this roadmap rather than missing runtime
+    lowering/capability/UDP/platform seams.
   - Refactor Workstream 4 (service/relay orchestration) interacts with Workstream 8
     (Android hardening) -- VPN lifecycle, handover, and relay-kind resolvers are
     the same code paths under different lenses.
