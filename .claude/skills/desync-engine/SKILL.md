@@ -366,3 +366,41 @@ where the kernel's TCP state makes overlap unreliable.
 `plan_multi_disorder_steps()` requires at least 3 resulting segments
 (from the resolved offsets + payload boundaries). If fewer offsets
 resolve, it returns `DesyncError`. Configure at least 2 offset points.
+
+## QUIC anti-fingerprinting (2026)
+
+New in the 2025-2026 QUIC-evasion research cycle:
+
+### quinn `pad_to_mtu` option
+
+`quinn` 0.11.x merged [PR #2274](https://github.com/quinn-rs/quinn/pull/2274) (June 2025) adding a `pad_to_mtu` transport config flag. When enabled, every application-data QUIC packet is padded to the path MTU regardless of payload size. This defeats size-based QUIC flow fingerprinting on censoring middleboxes that profile short application packets as distinct from Initial/Handshake packets.
+
+**RIPDPI applicability**: the QUIC-carrying crates (`ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, and the optional QUIC probe path in `ripdpi-monitor`) should expose `pad_to_mtu` as a `QuicFakeProfile` variant or a per-session toggle. Size normalisation is cheap at the quinn layer — no application changes needed once the flag is set.
+
+### USENIX Security 2025: GFW QUIC censorship
+
+Peer-reviewed research at USENIX Security 2025 (see [net4people/bbs#505](https://github.com/net4people/bbs/issues/505)) documented the Great Firewall's current QUIC censorship techniques:
+
+- SNI fingerprinting on the QUIC Initial packet (same attack class as TLS SNI blocking; the QUIC Initial carries an unencrypted ClientHello).
+- Initial-packet size/shape profiling (the motivation for `pad_to_mtu` above).
+- QUIC version negotiation probing.
+
+Implications for `DesyncMode` extensions:
+
+- New QUIC Initial-packet fragmentation variant (`UdpChainStepKind`-level) should mirror the TCP split / fake-TTL approach adapted for QUIC Initial framing.
+- QUIC SNI scrambling must coordinate with the TLS layer — splitting the ClientHello across multiple QUIC Initial packets requires the TLS record boundary to align with a QUIC frame boundary.
+- Version negotiation: do not advertise a QUIC version that the censor flags; RIPDPI's current `QuicFakeProfile` enum should gain a `VersionPolicy` field.
+
+### No uTLS in Rust yet
+
+TLS ClientHello fingerprint mimicry (JA3/JA4 evasion) requires byte-precise control over the TLS ClientHello extension order, GREASE values, and cipher suite ordering. As of April 2026, **no Rust crate offers this as a library** — the Go ecosystem (`tlsmask`, `httpcloak`, `mic`) still dominates the space.
+
+RIPDPI's answer is `ripdpi-tls-profiles` wrapping BoringSSL directly (via the `boring` crate) with profiles for `chrome_stable`, `firefox_stable`, `safari_stable`, `edge_stable`. The profile set carries an invariant `AvoidsBlocked517ByteClientHello` which all profile weights respect — a ClientHello with a total length of exactly 517 bytes is known to be flagged by certain DPI implementations. New profiles added to the set MUST maintain this invariant; the `desync-engine` test suite enforces it.
+
+If a Rust-native uTLS equivalent emerges (a port of utls to rustls or a ClientHello-builder crate over BoringSSL), it replaces `ripdpi-tls-profiles`' manual boring wrapping. Until then, this is the known gap.
+
+## Related skills
+
+- `ws-tunnel-telegram` — the WS-over-TLS tunnel consumes the same TLS fingerprint profiles and shares the 517-byte invariant concern.
+- `rust-panic-safety` — desync execution paths must handle all panic cases at the JNI boundary; `ripdpi-desync` errors are typed via `thiserror`.
+- `rust-io-loop` — UDP desync interacts with the tunnel io_loop; when adding UDP fake-packet injection, consult the io_loop skill for the correct integration point.
