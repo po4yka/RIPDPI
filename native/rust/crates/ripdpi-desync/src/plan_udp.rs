@@ -1,11 +1,11 @@
 use crate::normalize_quic_initial;
 use crate::types::{activation_filter_matches, ActivationContext, AdaptiveUdpBurstProfile, DesyncAction};
-use ring::rand::{SecureRandom, SystemRandom};
 use ripdpi_config::{DesyncGroup, QuicFakeProfile, UdpChainStep, UdpChainStepKind};
 use ripdpi_ipfrag::Ipv6ExtHeaders;
 use ripdpi_packets::{
-    build_realistic_quic_initial, default_fake_quic_compat, tamper_quic_initial_split_crypto,
-    tamper_quic_initial_split_sni, tamper_quic_version, udp_fake_profile_bytes,
+    build_browser_like_quic_initial_seed, build_realistic_quic_initial, default_fake_quic_compat,
+    packetize_quic_initial, parse_quic_initial_seed, tamper_quic_version, udp_fake_profile_bytes,
+    QuicInitialBrowserProfile, QuicInitialPacketLayout, QuicInitialSeed,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -15,10 +15,13 @@ struct NormalizedQuicPlannerInput {
     crypto_split_offset: usize,
     client_hello_len: usize,
     authority_host: String,
+    datagram_len: usize,
+    seed: QuicInitialSeed,
 }
 
 fn normalized_quic_plan_input(payload: &[u8]) -> Option<NormalizedQuicPlannerInput> {
     let ir = normalize_quic_initial(payload)?;
+    let seed = parse_quic_initial_seed(payload)?;
     let client_hello_len = ir.tls_client_hello.raw.len();
     let crypto_split_offset = ir
         .desired
@@ -34,6 +37,8 @@ fn normalized_quic_plan_input(payload: &[u8]) -> Option<NormalizedQuicPlannerInp
         crypto_split_offset,
         client_hello_len,
         authority_host: String::from_utf8(ir.tls_client_hello.authority).ok()?,
+        datagram_len: payload.len(),
+        seed,
     })
 }
 
@@ -44,14 +49,42 @@ fn effective_quic_realistic_host<'a>(
     group.actions.quic_fake_host.as_deref().or(normalized_quic.map(|quic| quic.authority_host.as_str()))
 }
 
-fn ir_seeded_quic_initial_packet(
+fn browser_like_quic_seed(
     group: &DesyncGroup,
-    payload: &[u8],
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
-) -> Option<Vec<u8>> {
+    profile: QuicInitialBrowserProfile,
+) -> Option<QuicInitialSeed> {
     let normalized_quic = normalized_quic?;
-    build_realistic_quic_initial(normalized_quic.version, effective_quic_realistic_host(group, Some(normalized_quic)))
-        .or_else(|| (!payload.is_empty()).then(|| payload.to_vec()))
+    build_browser_like_quic_initial_seed(
+        normalized_quic.version,
+        effective_quic_realistic_host(group, Some(normalized_quic)),
+        profile,
+    )
+}
+
+fn packetize_input_quic_initial(
+    normalized_quic: &NormalizedQuicPlannerInput,
+    layout: QuicInitialPacketLayout,
+) -> Option<Vec<u8>> {
+    packetize_quic_initial(&normalized_quic.seed, &layout)
+}
+
+fn packetize_browser_like_quic_initial(
+    group: &DesyncGroup,
+    normalized_quic: Option<&NormalizedQuicPlannerInput>,
+    profile: QuicInitialBrowserProfile,
+    layout: QuicInitialPacketLayout,
+) -> Option<Vec<u8>> {
+    let seed = browser_like_quic_seed(group, normalized_quic, profile)?;
+    packetize_quic_initial(&seed, &layout)
+}
+
+fn quic_browser_profile_for_index(idx: usize) -> QuicInitialBrowserProfile {
+    if idx % 2 == 0 {
+        QuicInitialBrowserProfile::ChromeAndroid
+    } else {
+        QuicInitialBrowserProfile::FirefoxAndroid
+    }
 }
 
 fn ipv6_ext_from_udp_step(step: &UdpChainStep) -> Ipv6ExtHeaders {
@@ -92,30 +125,30 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
                     let burst_count = adjusted_udp_burst_count(step.count, context) as usize;
                     vec![fake; burst_count]
                 }
-                UdpChainStepKind::DummyPrepend => build_dummy_prepend_packets(step.count as usize),
-                UdpChainStepKind::QuicSniSplit => {
-                    build_quic_sni_split_packets(payload, normalized_quic.as_ref(), step.count)
+                UdpChainStepKind::DummyPrepend => {
+                    build_dummy_prepend_packets(group, normalized_quic.as_ref(), step.count)
                 }
+                UdpChainStepKind::QuicSniSplit => build_quic_sni_split_packets(normalized_quic.as_ref(), step.count),
                 UdpChainStepKind::QuicFakeVersion => {
-                    build_quic_fake_version_packets(group, payload, normalized_quic.as_ref(), step.count)
+                    build_quic_fake_version_packets(group, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::QuicCryptoSplit => {
-                    build_quic_crypto_split_packets(payload, normalized_quic.as_ref(), step.count)
+                    build_quic_crypto_split_packets(normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::QuicPaddingLadder => {
-                    build_quic_padding_ladder_packets(group, payload, normalized_quic.as_ref(), step.count)
+                    build_quic_padding_ladder_packets(group, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::QuicCidChurn => {
-                    build_quic_cid_churn_packets(group, payload, normalized_quic.as_ref(), step.count)
+                    build_quic_cid_churn_packets(group, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::QuicPacketNumberGap => {
-                    build_quic_packet_number_gap_packets(group, payload, normalized_quic.as_ref(), step.count)
+                    build_quic_packet_number_gap_packets(group, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::QuicVersionNegotiationDecoy => {
-                    build_quic_version_negotiation_decoy_packets(group, payload, normalized_quic.as_ref(), step.count)
+                    build_quic_version_negotiation_decoy_packets(group, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::QuicMultiInitialRealistic => {
-                    build_quic_multi_initial_realistic_packets(group, payload, normalized_quic.as_ref(), step.count)
+                    build_quic_multi_initial_realistic_packets(group, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::IpFrag2Udp => {
                     if context.round == 1 && normalized_quic.is_some() && step.split_bytes > 0 {
@@ -161,31 +194,37 @@ fn adjusted_udp_burst_count(base_count: i32, context: ActivationContext) -> i32 
     }
 }
 
-fn build_dummy_prepend_packets(count: usize) -> Vec<Vec<u8>> {
-    let rng = SystemRandom::new();
-    (0..count)
-        .map(|seed| {
-            let mut packet = vec![0u8; 64];
-            if rng.fill(&mut packet).is_err() {
-                for (idx, byte) in packet.iter_mut().enumerate() {
-                    *byte = (seed as u8).wrapping_add((idx as u8).wrapping_mul(31));
-                }
-            }
-            packet[0] &= 0x7f;
-            packet
-        })
-        .collect()
-}
-
-fn build_quic_sni_split_packets(
-    payload: &[u8],
+fn build_dummy_prepend_packets(
+    group: &DesyncGroup,
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
     let Some(normalized_quic) = normalized_quic else {
         return Vec::new();
     };
-    let Some(packet) = tamper_quic_initial_split_sni(payload, normalized_quic.authority_split_offset) else {
+    (0..count.max(1) as usize)
+        .filter_map(|idx| {
+            let mut layout = QuicInitialPacketLayout::contiguous(QUIC_INITIAL_MIN_PREFIX + (idx * 32));
+            layout.extra_tail_padding = idx * 8;
+            packetize_browser_like_quic_initial(
+                group,
+                Some(normalized_quic),
+                quic_browser_profile_for_index(idx),
+                layout,
+            )
+        })
+        .collect()
+}
+
+const QUIC_INITIAL_MIN_PREFIX: usize = 256;
+
+fn build_quic_sni_split_packets(normalized_quic: Option<&NormalizedQuicPlannerInput>, count: i32) -> Vec<Vec<u8>> {
+    let Some(normalized_quic) = normalized_quic else {
+        return Vec::new();
+    };
+    let layout =
+        QuicInitialPacketLayout::split_at(normalized_quic.authority_split_offset, normalized_quic.datagram_len);
+    let Some(packet) = packetize_input_quic_initial(normalized_quic, layout) else {
         return Vec::new();
     };
     vec![packet; count as usize]
@@ -193,11 +232,13 @@ fn build_quic_sni_split_packets(
 
 fn build_quic_fake_version_packets(
     group: &DesyncGroup,
-    payload: &[u8],
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
-    let Some(seed_packet) = ir_seeded_quic_initial_packet(group, payload, normalized_quic) else {
+    let layout = QuicInitialPacketLayout::contiguous(normalized_quic.map_or(1200, |quic| quic.datagram_len.max(1200)));
+    let Some(seed_packet) =
+        packetize_browser_like_quic_initial(group, normalized_quic, QuicInitialBrowserProfile::ChromeAndroid, layout)
+    else {
         return Vec::new();
     };
     let Some(packet) = tamper_quic_version(&seed_packet, group.actions.quic_fake_version) else {
@@ -206,16 +247,13 @@ fn build_quic_fake_version_packets(
     vec![packet; count as usize]
 }
 
-fn build_quic_crypto_split_packets(
-    payload: &[u8],
-    normalized_quic: Option<&NormalizedQuicPlannerInput>,
-    count: i32,
-) -> Vec<Vec<u8>> {
+fn build_quic_crypto_split_packets(normalized_quic: Option<&NormalizedQuicPlannerInput>, count: i32) -> Vec<Vec<u8>> {
     let Some(normalized_quic) = normalized_quic else {
         return Vec::new();
     };
     let split_at = normalized_quic.crypto_split_offset.min(normalized_quic.client_hello_len.saturating_sub(1));
-    let Some(packet) = tamper_quic_initial_split_crypto(payload, split_at) else {
+    let layout = QuicInitialPacketLayout::split_at(split_at, normalized_quic.datagram_len);
+    let Some(packet) = packetize_input_quic_initial(normalized_quic, layout) else {
         return Vec::new();
     };
     vec![packet; count.max(1) as usize]
@@ -223,82 +261,81 @@ fn build_quic_crypto_split_packets(
 
 fn build_quic_padding_ladder_packets(
     group: &DesyncGroup,
-    payload: &[u8],
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
-    let Some(seed_packet) = ir_seeded_quic_initial_packet(group, payload, normalized_quic) else {
-        return Vec::new();
-    };
     (0..count.max(1) as usize)
-        .map(|idx| {
-            let mut packet = seed_packet.clone();
-            packet.extend(std::iter::repeat_n(0u8, 8 * (idx + 1)));
-            packet
+        .filter_map(|idx| {
+            let mut layout =
+                QuicInitialPacketLayout::contiguous(normalized_quic.map_or(1200, |quic| quic.datagram_len.max(1200)));
+            layout.extra_tail_padding = 8 * (idx + 1);
+            packetize_browser_like_quic_initial(
+                group,
+                normalized_quic,
+                QuicInitialBrowserProfile::ChromeAndroid,
+                layout,
+            )
         })
         .collect()
 }
 
 fn build_quic_cid_churn_packets(
     group: &DesyncGroup,
-    payload: &[u8],
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
     let Some(normalized_quic) = normalized_quic else {
         return Vec::new();
     };
-    let Some(seed_packet) = ir_seeded_quic_initial_packet(group, payload, Some(normalized_quic)) else {
-        return Vec::new();
-    };
-    let base_offset = 6usize.min(seed_packet.len().saturating_sub(1));
     (0..count.max(1) as usize)
-        .map(|idx| {
-            let mut packet = seed_packet.clone();
-            let mutate_at = base_offset.min(packet.len().saturating_sub(1));
-            if !packet.is_empty() {
-                packet[mutate_at] ^= (idx as u8).wrapping_add(normalized_quic.version as u8).max(1);
+        .filter_map(|idx| {
+            let mut seed =
+                browser_like_quic_seed(group, Some(normalized_quic), QuicInitialBrowserProfile::ChromeAndroid)?;
+            if let Some(last) = seed.dcid.last_mut() {
+                *last ^= (idx as u8).wrapping_add(normalized_quic.version as u8).max(1);
             }
-            packet
+            packetize_quic_initial(&seed, &QuicInitialPacketLayout::contiguous(normalized_quic.datagram_len.max(1200)))
         })
         .collect()
 }
 
 fn build_quic_packet_number_gap_packets(
     group: &DesyncGroup,
-    payload: &[u8],
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
     if normalized_quic.is_none() {
         return Vec::new();
     }
-    let Some(seed_packet) = ir_seeded_quic_initial_packet(group, payload, normalized_quic) else {
-        return Vec::new();
-    };
-    if seed_packet.is_empty() {
-        return Vec::new();
-    }
     (0..count.max(1) as usize)
-        .map(|idx| {
-            let mut packet = seed_packet.clone();
-            let last = packet.len() - 1;
-            packet[last] = packet[last].wrapping_add(16u8.wrapping_mul((idx as u8).wrapping_add(1)));
-            packet
+        .filter_map(|idx| {
+            let mut layout =
+                QuicInitialPacketLayout::contiguous(normalized_quic.map_or(1200, |quic| quic.datagram_len.max(1200)));
+            layout.packet_number = ((idx as u32) + 1) * 2;
+            packetize_browser_like_quic_initial(
+                group,
+                normalized_quic,
+                QuicInitialBrowserProfile::ChromeAndroid,
+                layout,
+            )
         })
         .collect()
 }
 
 fn build_quic_version_negotiation_decoy_packets(
     group: &DesyncGroup,
-    payload: &[u8],
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
     let Some(normalized_quic) = normalized_quic else {
         return Vec::new();
     };
-    let Some(seed_packet) = ir_seeded_quic_initial_packet(group, payload, Some(normalized_quic)) else {
+    let Some(seed_packet) = packetize_browser_like_quic_initial(
+        group,
+        Some(normalized_quic),
+        QuicInitialBrowserProfile::ChromeAndroid,
+        QuicInitialPacketLayout::contiguous(normalized_quic.datagram_len.max(1200)),
+    ) else {
         return Vec::new();
     };
     let version = normalized_quic.version ^ 0x0f0f_0f0f;
@@ -310,29 +347,22 @@ fn build_quic_version_negotiation_decoy_packets(
 
 fn build_quic_multi_initial_realistic_packets(
     group: &DesyncGroup,
-    payload: &[u8],
     normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
     let Some(normalized_quic) = normalized_quic else {
         return Vec::new();
     };
-    let realistic = build_realistic_quic_initial(
-        normalized_quic.version,
-        effective_quic_realistic_host(group, Some(normalized_quic)),
-    )
-    .unwrap_or_else(|| payload.to_vec());
     (0..count.max(2) as usize)
-        .map(|idx| {
-            if idx % 2 == 0 {
-                realistic.clone()
-            } else {
-                let mut packet = realistic.clone();
-                if let Some(last) = packet.last_mut() {
-                    *last ^= idx as u8;
-                }
-                packet
-            }
+        .filter_map(|idx| {
+            let mut layout = QuicInitialPacketLayout::contiguous(normalized_quic.datagram_len.max(1200));
+            layout.extra_tail_padding = idx * 8;
+            packetize_browser_like_quic_initial(
+                group,
+                Some(normalized_quic),
+                quic_browser_profile_for_index(idx),
+                layout,
+            )
         })
         .collect()
 }

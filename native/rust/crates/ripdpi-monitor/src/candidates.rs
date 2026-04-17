@@ -26,6 +26,7 @@ pub(crate) struct StrategyCandidateSpec {
     pub(crate) id: &'static str,
     pub(crate) label: &'static str,
     pub(crate) family: &'static str,
+    pub(crate) quic_layout_family: Option<&'static str>,
     pub(crate) eligibility: CandidateEligibility,
     pub(crate) config: ProxyUiConfig,
     pub(crate) notes: Vec<&'static str>,
@@ -571,84 +572,78 @@ pub(crate) fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<Stra
 }
 
 pub(crate) fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
-    let mut candidates = vec![
-        candidate_spec_with_notes(
-            "quic_compat_burst",
-            "QUIC compat burst",
-            "quic_burst",
-            build_quic_candidate(base_tcp, true, "compat_default"),
-            vec!["Uses fixed compatibility QUIC fake packets"],
-        ),
-        candidate_spec_with_notes(
-            "quic_realistic_burst",
-            "QUIC realistic burst",
-            "quic_burst",
-            build_quic_candidate(base_tcp, true, "realistic_initial"),
-            vec!["Uses realistic QUIC Initial packets with the target SNI"],
-        ),
+    let mut candidates = vec![with_quic_layout_family(
         candidate_spec_with_notes(
             "quic_multi_initial_realistic",
             "QUIC multi-initial realistic",
             "quic_multi_initial_realistic",
             build_quic_multi_initial_realistic_candidate(base_tcp),
-            vec!["Sends multiple realistic QUIC Initials to pressure parser state tracking"],
+            vec![
+                "Sends multiple browser-like QUIC Initials to pressure parser state tracking",
+                "Alternates Chrome-like and Firefox-like Initial layouts",
+            ],
         ),
-    ];
-    candidates.push(candidate_spec_with_notes(
+        "quic_multi_initial_realistic",
+    )];
+    candidates.push(with_quic_layout_family(
+        candidate_spec_with_notes(
+            "quic_sni_split",
+            "QUIC SNI split",
+            "quic_sni_split",
+            build_quic_sni_split_candidate(base_tcp),
+            vec!["Splits QUIC Initial at the authority boundary via the packetizer"],
+        ),
         "quic_sni_split",
-        "QUIC SNI split",
-        "quic_sni_split",
-        build_quic_sni_split_candidate(base_tcp),
-        vec!["Splits QUIC Initial at SNI boundary"],
     ));
-    candidates.push(candidate_spec_with_notes(
+    candidates.push(with_quic_layout_family(
+        candidate_spec_with_notes(
+            "quic_crypto_split",
+            "QUIC CRYPTO split",
+            "quic_crypto_split",
+            build_quic_crypto_split_candidate(base_tcp),
+            vec!["Splits the QUIC CRYPTO payload into two packetizer-owned frame regions"],
+        ),
         "quic_crypto_split",
-        "QUIC CRYPTO split",
-        "quic_crypto_split",
-        build_quic_crypto_split_candidate(base_tcp),
-        vec!["Splits the QUIC CRYPTO payload into two application-visible pieces"],
     ));
-    candidates.push(candidate_spec_with_notes(
+    candidates.push(with_quic_layout_family(
+        candidate_spec_with_notes(
+            "quic_padding_ladder",
+            "QUIC padding ladder",
+            "quic_padding_ladder",
+            build_quic_padding_ladder_candidate(base_tcp),
+            vec!["Builds browser-like Initials with progressively larger padding envelopes"],
+        ),
         "quic_padding_ladder",
-        "QUIC padding ladder",
-        "quic_padding_ladder",
-        build_quic_padding_ladder_candidate(base_tcp),
-        vec!["Adds multiple padded dummy packets before the real QUIC Initial"],
     ));
-    candidates.push(candidate_spec_with_notes(
-        "quic_cid_churn",
-        "QUIC CID churn",
-        "quic_cid_churn",
-        build_quic_cid_churn_candidate(base_tcp),
-        vec!["Mutates QUIC connection ID state before the first real Initial"],
-    ));
-    candidates.push(candidate_spec_with_notes(
-        "quic_packet_number_gap",
-        "QUIC packet number gap",
-        "quic_packet_number_gap",
-        build_quic_packet_number_gap_candidate(base_tcp),
-        vec!["Injects short packets to force a packet-number discontinuity"],
-    ));
-    candidates.push(candidate_spec_with_notes(
+    candidates.push(with_quic_layout_family(
+        candidate_spec_with_notes(
+            "quic_version_negotiation_decoy",
+            "QUIC version negotiation decoy",
+            "quic_version_negotiation_decoy",
+            build_quic_version_negotiation_decoy_candidate(base_tcp),
+            vec!["Injects a browser-like header-version decoy before the real Initial"],
+        ),
         "quic_version_negotiation_decoy",
-        "QUIC version negotiation decoy",
-        "quic_version_negotiation_decoy",
-        build_quic_version_negotiation_decoy_candidate(base_tcp),
-        vec!["Injects a fake version-negotiation style prelude before the Initial"],
     ));
-    candidates.push(candidate_spec_with_notes(
+    candidates.push(with_quic_layout_family(
+        candidate_spec_with_notes(
+            "quic_fake_version",
+            "QUIC fake version",
+            "quic_fake_version",
+            build_quic_fake_version_candidate(base_tcp),
+            vec!["Sends a browser-like QUIC Initial with an unrecognized version field"],
+        ),
         "quic_fake_version",
-        "QUIC fake version",
-        "quic_fake_version",
-        build_quic_fake_version_candidate(base_tcp),
-        vec!["Sends QUIC packet with unrecognized version field"],
     ));
-    candidates.push(candidate_spec_with_notes(
+    candidates.push(with_quic_layout_family(
+        candidate_spec_with_notes(
+            "quic_dummy_prepend",
+            "QUIC dummy prepend",
+            "quic_dummy_prepend",
+            build_quic_dummy_prepend_candidate(base_tcp),
+            vec!["Prepends compact browser-like QUIC Initial decoys before the real Initial"],
+        ),
         "quic_dummy_prepend",
-        "QUIC dummy prepend",
-        "quic_dummy_prepend",
-        build_quic_dummy_prepend_candidate(base_tcp),
-        vec!["Prepends random short-header packets before real Initial"],
     ));
     if supports_udp_ip_fragmentation() {
         candidates.push(candidate_spec_with_notes(
@@ -736,6 +731,7 @@ pub(crate) fn candidate_spec_with_notes_and_eligibility(
         id,
         label,
         family,
+        quic_layout_family: None,
         eligibility,
         config,
         notes,
@@ -745,6 +741,11 @@ pub(crate) fn candidate_spec_with_notes_and_eligibility(
         requires_tcp_fast_open,
         requires_capabilities,
     }
+}
+
+fn with_quic_layout_family(mut spec: StrategyCandidateSpec, quic_layout_family: &'static str) -> StrategyCandidateSpec {
+    spec.quic_layout_family = Some(quic_layout_family);
+    spec
 }
 
 /// Returns `true` when the config contains at least one TCP step that relies on
@@ -1276,14 +1277,6 @@ fn build_quic_padding_ladder_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfi
     build_quic_step_candidate(base_tcp, "quic_padding_ladder", 4, 0, "compat_default")
 }
 
-fn build_quic_cid_churn_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
-    build_quic_step_candidate(base_tcp, "quic_cid_churn", 2, 0, "realistic_initial")
-}
-
-fn build_quic_packet_number_gap_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
-    build_quic_step_candidate(base_tcp, "quic_packet_number_gap", 2, 0, "realistic_initial")
-}
-
 fn build_quic_version_negotiation_decoy_candidate(base_tcp: &ProxyUiConfig) -> ProxyUiConfig {
     build_quic_step_candidate(base_tcp, "quic_version_negotiation_decoy", 1, 0, "compat_default")
 }
@@ -1392,6 +1385,7 @@ pub(crate) fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCand
         id: "adaptive_fake_ttl",
         label: "Adaptive fake TTL",
         family: "adaptive_fake_ttl",
+        quic_layout_family: None,
         eligibility: CandidateEligibility::Always,
         config,
         notes: vec![
