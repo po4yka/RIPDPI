@@ -67,14 +67,36 @@ Known concentrations (verify current state before auditing):
 
 ## Miri Execution
 
+Default Miri aliasing model: **Tree Borrows** (PLDI 2025, recommended as of Dec 2025 Miri update). Tree Borrows permits more valid unsafe patterns than Stacked Borrows; code that failed the older model may pass now.
+
 ```bash
 # Run Miri on a specific crate (requires nightly)
 cd native/rust
-MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-symbolic-alignment-check" \
+MIRIFLAGS="-Zmiri-tree-borrows -Zmiri-disable-isolation -Zmiri-symbolic-alignment-check" \
   cargo +nightly miri test -p <crate-name> --no-default-features
 ```
 
 Known Miri limitations: cannot test io-uring, raw sockets, or JNI. Focus on pure logic crates.
+
+## Syscall FFI wrapper protocol (ripdpi-runtime/platform/linux.rs)
+
+When auditing a diff that touches `ripdpi-runtime/src/platform/linux.rs` (83 unsafe blocks — the largest concentration in the workspace), apply the syscall FFI wrapper checklist from `rust-unsafe` skill:
+
+1. Every `unsafe fn` with a syscall wrapper has a `# Safety` rustdoc block naming the fd-validity and layout-match invariants.
+2. `zeroed::<T>()` is used only for plain C structs (no `bool`, `enum`, `NonNull`, or references).
+3. Pointer casts use `(&mut val as *mut T).cast()` rather than `as *mut _` (preserves provenance for Tree Borrows).
+4. The `Last audited: <date> against socket2 <ver>` header is bumped when a new wrapper lands.
+
+## `extern` boundary `catch_unwind` audit
+
+Every `pub extern "C" fn` / `pub extern "system" fn` body MUST terminate a panic before the function returns (a panic unwinding across an `extern` boundary is UB).
+
+Grep pattern: `rg 'pub extern "(C|system)"' native/rust/ --type rust -B 2 -A 10`
+
+Check each match against the audit-checklist protocol from `rust-panic-safety`:
+- `JNI_OnLoad` and `Java_*` bodies: either use `std::panic::catch_unwind` explicitly OR wrap the work in `EnvUnowned::with_env` + `into_outcome` (the Outcome tri-state catches panics internally).
+- C-ABI entry points (non-JNI): `std::panic::catch_unwind` is the only acceptable pattern; there is no Outcome equivalent.
+- A bare `extern "system" fn` body with no panic guard is a CRITICAL finding.
 
 ## Risk Scoring
 
