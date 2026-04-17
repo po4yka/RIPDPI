@@ -11,6 +11,7 @@ use crate::resolver::EncryptedDnsResolver;
 use crate::transport::DEFAULT_TIMEOUT;
 use crate::types::{
     EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsErrorKind, EncryptedDnsExchangeSuccess, EncryptedDnsTransport,
+    ResolverNetworkScope, ResolverOracleObservation,
 };
 
 const DEFAULT_FALLBACK_CACHE_SIZE: usize = 8;
@@ -24,16 +25,20 @@ struct PoolInner {
     resolvers: Vec<EncryptedDnsResolver>,
     labels: Vec<String>,
     health: HealthRegistry,
+    network_scope: ResolverNetworkScope,
     rotation_counter: AtomicUsize,
     fallback_cache: Mutex<LruCache<String, FallbackEntry>>,
 }
 
 /// Multi-endpoint encrypted DNS resolver pool with health-weighted rotation and fallback memory.
 ///
-/// The pool tries endpoints in order of composite health score (success rate + latency).
-/// On cold start (no health data), it consults the fallback cache to prefer a recently
-/// successful endpoint. A round-robin injection ensures that endpoints beyond rank-1 are
-/// periodically re-evaluated rather than being permanently starved.
+/// The pool tries endpoints in order of composite health score (transport success,
+/// latency, and oracle trust when available). On cold start (no health data), it
+/// consults the fallback cache to prefer a recently successful endpoint within
+/// the current network scope. A round-robin injection ensures that endpoints
+/// beyond rank-1 are periodically re-evaluated rather than being permanently
+/// starved. Steady-state exchange remains sequential and single-path; this type
+/// does not hedge or query multiple resolvers unless rank-0 fails.
 ///
 /// The pool is cheap to clone — all state is behind an `Arc`.
 #[derive(Clone)]
@@ -49,9 +54,23 @@ impl ResolverPool {
     /// Returns the shared `HealthRegistry` used by this pool.
     ///
     /// Callers can pass this to a future pool via `ResolverPoolBuilder::health_registry` to
-    /// preserve fallback memory across pool recreations.
+    /// preserve health history across pool recreations for the same network scope.
     pub fn health_registry(&self) -> &HealthRegistry {
         &self.inner.health
+    }
+
+    /// Returns the opaque network scope token used to partition resolver memory.
+    pub fn network_scope(&self) -> &ResolverNetworkScope {
+        &self.inner.network_scope
+    }
+
+    /// Records an oracle trust signal for a specific resolver label in this pool's scope.
+    ///
+    /// This is intended for bootstrap, failover, or diagnostics paths that already
+    /// compare multiple resolvers. The default steady-state exchange path remains
+    /// a single-resolver request flow.
+    pub fn record_oracle_observation(&self, label: &str, observation: ResolverOracleObservation) {
+        self.inner.health.record_oracle_observation_in_scope(&self.inner.network_scope, label, observation);
     }
 
     /// Returns the number of resolvers in the pool.
@@ -70,18 +89,20 @@ impl ResolverPool {
         }
 
         let label_refs: Vec<&str> = self.inner.labels.iter().map(String::as_str).collect();
-        let mut ranked = self.inner.health.rank_indices(&label_refs);
+        let mut ranked = self.inner.health.rank_indices_in_scope(&self.inner.network_scope, &label_refs);
 
         // Cold start: if the top-ranked endpoint has no observations, prefer a cached success.
-        if self.inner.health.observation_count(&self.inner.labels[ranked[0]]) == 0 {
+        if self.inner.health.observation_count_in_scope(&self.inner.network_scope, &self.inner.labels[ranked[0]]) == 0 {
             if let Ok(cache) = self.inner.fallback_cache.lock() {
                 let best = self
                     .inner
                     .labels
                     .iter()
                     .enumerate()
-                    .filter_map(|(i, label)| cache.peek(label.as_str()).map(|entry| (i, entry.last_success)))
-                    .max_by_key(|(_, t)| *t);
+                    .filter_map(|(i, label)| {
+                        cache.peek(&fallback_key(&self.inner.network_scope, label)).map(|entry| (i, entry.last_success))
+                    })
+                    .max_by_key(|(_, timestamp)| *timestamp);
                 if let Some((cached_idx, _)) = best {
                     if ranked[0] != cached_idx {
                         ranked.retain(|&i| i != cached_idx);
@@ -108,19 +129,19 @@ impl ResolverPool {
 
     fn record_success(&self, idx: usize, success: &EncryptedDnsExchangeSuccess) {
         let label = &self.inner.labels[idx];
-        self.inner.health.record_endpoint_outcome(label, true, success.latency_ms);
+        self.inner.health.record_endpoint_outcome_in_scope(&self.inner.network_scope, label, true, success.latency_ms);
         if let Ok(mut cache) = self.inner.fallback_cache.lock() {
-            cache.put(label.clone(), FallbackEntry { last_success: Instant::now() });
+            cache.put(fallback_key(&self.inner.network_scope, label), FallbackEntry { last_success: Instant::now() });
         }
     }
 
     fn record_failure(&self, idx: usize, error: &EncryptedDnsError) {
         let label = &self.inner.labels[idx];
         if error.kind() == EncryptedDnsErrorKind::SniBlocked {
-            self.inner.health.record_sni_blocked(label);
+            self.inner.health.record_sni_blocked_in_scope(&self.inner.network_scope, label);
         } else {
             let timeout_ms = DEFAULT_TIMEOUT.as_millis().try_into().unwrap_or(u64::MAX);
-            self.inner.health.record_endpoint_outcome(label, false, timeout_ms);
+            self.inner.health.record_endpoint_outcome_in_scope(&self.inner.network_scope, label, false, timeout_ms);
         }
     }
 
@@ -171,7 +192,10 @@ impl ResolverPool {
 
 impl std::fmt::Debug for ResolverPool {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ResolverPool").field("resolvers", &self.inner.resolvers.len()).finish()
+        f.debug_struct("ResolverPool")
+            .field("resolvers", &self.inner.resolvers.len())
+            .field("network_scope", &self.inner.network_scope)
+            .finish()
     }
 }
 
@@ -183,6 +207,7 @@ pub struct ResolverPoolBuilder {
     fallback_cache_size: usize,
     tls_roots: Vec<CertificateDer<'static>>,
     health_registry: Option<HealthRegistry>,
+    network_scope: ResolverNetworkScope,
 }
 
 impl Default for ResolverPoolBuilder {
@@ -200,6 +225,7 @@ impl ResolverPoolBuilder {
             fallback_cache_size: DEFAULT_FALLBACK_CACHE_SIZE,
             tls_roots: Vec::new(),
             health_registry: None,
+            network_scope: ResolverNetworkScope::global(),
         }
     }
 
@@ -228,10 +254,19 @@ impl ResolverPoolBuilder {
         self
     }
 
+    /// Selects the opaque network scope used to partition resolver memory.
+    ///
+    /// This crate only owns the scope token itself. Platform-specific identity
+    /// plumbing such as SSID/BSSID or operator ID remains outside this crate.
+    pub fn network_scope(mut self, scope: ResolverNetworkScope) -> Self {
+        self.network_scope = scope;
+        self
+    }
+
     /// Provide a pre-existing `HealthRegistry` to share observations across pool recreations.
     ///
-    /// When a pool is dropped and a new one built with the same registry, the new pool starts
-    /// with all previous health data intact — making cold-start fallback unnecessary.
+    /// When a pool is dropped and a new one built with the same registry and the same scope,
+    /// the new pool starts with all previous health data intact.
     pub fn health_registry(mut self, registry: HealthRegistry) -> Self {
         self.health_registry = Some(registry);
         self
@@ -263,11 +298,16 @@ impl ResolverPoolBuilder {
                 resolvers,
                 labels,
                 health,
+                network_scope: self.network_scope,
                 rotation_counter: AtomicUsize::new(0),
                 fallback_cache: Mutex::new(LruCache::new(cache_size)),
             }),
         })
     }
+}
+
+fn fallback_key(scope: &ResolverNetworkScope, label: &str) -> String {
+    format!("{}::{label}", scope.as_str())
 }
 
 #[cfg(test)]
@@ -327,7 +367,6 @@ mod tests {
     fn shared_health_registry_has_same_arc_identity() {
         let pool =
             ResolverPool::builder().add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct).build().unwrap();
-        // Record an observation and verify it's visible on the returned registry.
         pool.health_registry().record_endpoint_outcome("test", true, 100);
         assert_eq!(pool.health_registry().observation_count("test"), 1);
     }
@@ -341,7 +380,6 @@ mod tests {
             .health_registry(shared.clone())
             .build()
             .unwrap();
-        // The pool should see the pre-existing observation.
         assert_eq!(pool.health_registry().observation_count("https://dns.google/dns-query"), 1);
     }
 
@@ -353,15 +391,13 @@ mod tests {
             .build()
             .unwrap();
 
-        // Seed the fallback cache manually by simulating a success on index 1.
         {
             let cf_label = &pool.inner.labels[1];
             if let Ok(mut cache) = pool.inner.fallback_cache.lock() {
-                cache.put(cf_label.clone(), FallbackEntry { last_success: Instant::now() });
+                cache.put(fallback_key(pool.network_scope(), cf_label), FallbackEntry { last_success: Instant::now() });
             }
         }
 
-        // With no health observations, cold-start logic should prefer the cached resolver.
         let order = pool.try_order();
         assert_eq!(order[0], 1, "cached resolver should be tried first on cold start");
     }
@@ -374,19 +410,80 @@ mod tests {
             .build()
             .unwrap();
 
-        // Make index 0 look very healthy.
         let g_label = &pool.inner.labels[0];
         for _ in 0..50 {
-            pool.inner.health.record_endpoint_outcome(g_label, true, 20);
+            pool.inner.health.record_endpoint_outcome_in_scope(pool.network_scope(), g_label, true, 20);
         }
-        // Put index 1 in the fallback cache.
         let cf_label = &pool.inner.labels[1];
         if let Ok(mut cache) = pool.inner.fallback_cache.lock() {
-            cache.put(cf_label.clone(), FallbackEntry { last_success: Instant::now() });
+            cache.put(fallback_key(pool.network_scope(), cf_label), FallbackEntry { last_success: Instant::now() });
         }
 
-        // Health data exists for index 0, so the fallback cache should not override it.
         let order = pool.try_order();
         assert_eq!(order[0], 0, "healthy endpoint should be tried first");
+    }
+
+    #[test]
+    fn oracle_quarantine_changes_pool_selection_order() {
+        let pool = ResolverPool::builder()
+            .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
+            .add_endpoint(cloudflare_doh_endpoint(), EncryptedDnsTransport::Direct)
+            .network_scope(ResolverNetworkScope::new("wifi:lab"))
+            .build()
+            .unwrap();
+
+        let google_label = pool.inner.labels[0].clone();
+        let cloudflare_label = pool.inner.labels[1].clone();
+        for _ in 0..20 {
+            pool.inner.health.record_endpoint_outcome_in_scope(pool.network_scope(), &google_label, true, 15);
+            pool.inner.health.record_endpoint_outcome_in_scope(pool.network_scope(), &cloudflare_label, true, 30);
+        }
+
+        pool.record_oracle_observation(&google_label, ResolverOracleObservation::Disagreement);
+        pool.record_oracle_observation(&google_label, ResolverOracleObservation::Poisoned);
+
+        let order = pool.try_order();
+        assert_eq!(order[0], 1, "quarantined resolver should not dominate rank 0");
+    }
+
+    #[test]
+    fn ranking_persists_only_within_the_same_network_scope() {
+        let shared = HealthRegistry::new(Duration::from_secs(60));
+        let wifi = ResolverNetworkScope::new("wifi:alpha");
+        let cellular = ResolverNetworkScope::new("cell:beta");
+        let google_label = "https://dns.google/dns-query";
+        let cloudflare_label = "https://cloudflare-dns.com/dns-query";
+
+        for _ in 0..30 {
+            shared.record_endpoint_outcome_in_scope(&wifi, google_label, false, 4000);
+            shared.record_endpoint_outcome_in_scope(&wifi, cloudflare_label, true, 20);
+        }
+
+        let wifi_pool = ResolverPool::builder()
+            .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
+            .add_endpoint(cloudflare_doh_endpoint(), EncryptedDnsTransport::Direct)
+            .health_registry(shared.clone())
+            .network_scope(wifi.clone())
+            .build()
+            .unwrap();
+        assert_eq!(wifi_pool.try_order()[0], 1);
+
+        let rebuilt_wifi_pool = ResolverPool::builder()
+            .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
+            .add_endpoint(cloudflare_doh_endpoint(), EncryptedDnsTransport::Direct)
+            .health_registry(shared.clone())
+            .network_scope(wifi)
+            .build()
+            .unwrap();
+        assert_eq!(rebuilt_wifi_pool.try_order()[0], 1);
+
+        let cellular_pool = ResolverPool::builder()
+            .add_endpoint(google_doh_endpoint(), EncryptedDnsTransport::Direct)
+            .add_endpoint(cloudflare_doh_endpoint(), EncryptedDnsTransport::Direct)
+            .health_registry(shared)
+            .network_scope(cellular)
+            .build()
+            .unwrap();
+        assert_eq!(cellular_pool.try_order()[0], 0, "different scope should not inherit wifi ranking");
     }
 }
