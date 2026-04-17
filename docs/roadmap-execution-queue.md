@@ -135,9 +135,10 @@ Mode: `Ralph`. Critical path -- unblocks Phases 4, 5, 13.
 **Status: PARTIAL (2026-04-17).** Foundation and the first planner migration
 wave are landed: `docs/architecture/first-flight-ir.md`, IR types and
 normalizers in `ripdpi-desync::first_flight_ir`, additive layout surfaces in
-`ripdpi-packets`, IR-driven TLS prelude record fragmentation, and IR-driven
-QUIC UDP split planning. Remaining work is the broader planner migration,
-lowering cleanup, and dedicated golden rewrite coverage.
+`ripdpi-packets`, IR-driven TLS prelude record fragmentation, IR-backed TCP
+semantic offset resolution through `proto.rs`, and IR-driven QUIC UDP split
+planning. Remaining work is the broader planner migration, lowering cleanup,
+and dedicated golden rewrite coverage.
 
 Mode: `Team` with `/deep-interview` on 4.1. Must not start on old monolith.
 
@@ -148,6 +149,7 @@ Mode: `Team` with `/deep-interview` on 4.1. Must not start on old monolith.
 | 4.3 | Complete | Normalize TLS ClientHello into IR (consume `tls_client_hello_marker_info_in_handshake`) | 4.2 | TLS fixture round-trip preserves IR |
 | 4.4 | Complete | Normalize QUIC Initial into IR (consume `parse_quic_initial`) | 4.2 | QUIC fixture round-trip preserves IR |
 | 4.5 | In progress | Migrate `TlsRec`, `TlsRandRec`, split, fake logic onto IR | 4.3 | `packet-smoke-debugger` TLS scenarios unchanged |
+Current landed scope: `tls_prelude.rs` now uses the IR for record splitting, and `proto.rs` now resolves TLS semantic offsets (`Host`, `MidSld`, `EndHost`, `SniExt`, `ExtLen`, `EchExt`) from IR-backed `TlsProtoInfo` for both single-record and fragmented multi-record ClientHello payloads.
 | 4.6 | In progress | Migrate QUIC prelude logic onto IR | 4.4 | `packet-smoke-debugger` QUIC scenarios unchanged |
 | 4.7 | Move terminal-step and emitter-specific restrictions from planner to lowering | 4.5, 4.6 | Planner has no emitter-specific branches |
 | 4.8 | Golden fixtures: TLS record fragmentation, ALPN changes, QUIC CRYPTO splits, ECH/GREASE-preserving rewrites | 4.5, 4.6 | Golden-blesser workflow; fixtures committed |
