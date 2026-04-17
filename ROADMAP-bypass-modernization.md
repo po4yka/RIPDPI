@@ -262,8 +262,11 @@ wait until the remaining lowering/capability/UDP/platform work there is done.
 - [~] Migrate existing `TlsRec`, `TlsRandRec`, and QUIC prelude logic onto the
   new IR.
 - [ ] Migrate the remaining split/fake planner logic onto the IR.
-- [ ] Move terminal-step and emitter-specific restrictions out of semantic
+- [~] Move terminal-step and emitter-specific restrictions out of semantic
   planning and into lowering.
+  Current landed scope: terminal `FakeSplit` / `FakeDisorder` no longer
+  degrade in `plan_tcp.rs`; runtime lowering now owns that fallback path and
+  its fail-closed behavior for original TCP flag overrides.
 - [ ] Preserve existing JSON / DSL / strategy-pack compatibility while adding a
   richer internal representation.
 - [~] Add golden fixtures and regressions for:

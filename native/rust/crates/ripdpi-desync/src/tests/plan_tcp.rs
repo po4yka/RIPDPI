@@ -420,14 +420,14 @@ fn plan_tcp_fakedsplit_keeps_fake_step_when_split_is_valid() {
 }
 
 #[test]
-fn plan_tcp_fakedsplit_degrades_to_split_when_second_region_is_empty() {
+fn plan_tcp_fakedsplit_preserves_fake_step_when_second_region_is_empty() {
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeSplit, split_expr(8))];
     let payload = b"abcdefgh";
 
     let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakedsplit tcp");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Split, start: 0, end: 8 }]);
+    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::FakeSplit, start: 0, end: 8 }]);
 }
 
 #[test]
@@ -453,14 +453,14 @@ fn plan_tcp_fakeddisorder_keeps_fake_step_when_split_is_valid() {
 }
 
 #[test]
-fn plan_tcp_fakeddisorder_degrades_to_disorder_when_second_region_is_empty() {
+fn plan_tcp_fakeddisorder_preserves_fake_step_when_second_region_is_empty() {
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::FakeDisorder, split_expr(6))];
     let payload = b"abcdef";
 
     let plan = plan_tcp(&group, payload, 5, 32, tcp_context(payload)).expect("plan fakeddisorder tcp");
 
-    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::Disorder, start: 0, end: 6 }]);
+    assert_eq!(plan.steps, vec![PlannedStep { kind: TcpChainStepKind::FakeDisorder, start: 0, end: 6 }]);
 }
 
 #[test]
