@@ -1035,6 +1035,145 @@ fn execute_basic_tcp_stream_step(
     }
 }
 
+struct TcpTtlSensitiveExecContext<'a> {
+    writer: &'a mut TcpStream,
+    config: &'a RuntimeConfig,
+    group: &'a DesyncGroup,
+    restore_ttl: u8,
+    md5sig: bool,
+}
+
+fn execute_ttl_sensitive_tcp_step(
+    ctx: &mut TcpTtlSensitiveExecContext<'_>,
+    kind: TcpChainStepKind,
+    configured_step: &TcpChainStep,
+    chunk: &[u8],
+    step_family: &'static str,
+    step_fallback: Option<&'static str>,
+    ttl_actions_unavailable: &mut bool,
+    bytes_committed: usize,
+) -> Result<usize, OutboundSendError> {
+    match kind {
+        TcpChainStepKind::Disorder => {
+            let ttl_modified = set_ttl_with_android_fallback_named(
+                ctx.writer,
+                1,
+                ttl_actions_unavailable,
+                "set_ttl_disorder",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
+            let bytes_committed = if step_original_tcp_flags(configured_step).is_empty() {
+                let (should_restore_ttl, bytes_committed) = write_payload_with_android_ttl_fallback(
+                    ctx.writer,
+                    chunk,
+                    ctx.restore_ttl,
+                    ttl_modified,
+                    ttl_actions_unavailable,
+                    "write_disorder",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
+                )?;
+                if should_restore_ttl {
+                    let _ = restore_default_ttl_with_android_fallback_named(
+                        ctx.writer,
+                        ctx.restore_ttl,
+                        ttl_actions_unavailable,
+                        "restore_default_ttl_disorder",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                }
+                bytes_committed
+            } else {
+                let bytes_committed = send_flagged_tcp_payload_action_named(
+                    ctx.writer,
+                    chunk,
+                    ctx.config.network.default_ttl,
+                    ctx.config.process.protect_path.as_deref(),
+                    ctx.md5sig,
+                    step_original_tcp_flags(configured_step),
+                    ctx.group.actions.ip_id_mode,
+                    "write_disorder",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
+                )?;
+                if ttl_modified {
+                    let _ = restore_default_ttl_with_android_fallback_named(
+                        ctx.writer,
+                        ctx.restore_ttl,
+                        ttl_actions_unavailable,
+                        "restore_default_ttl_disorder",
+                        step_family,
+                        step_fallback,
+                        bytes_committed,
+                    )?;
+                }
+                bytes_committed
+            };
+            await_writable_action_named(
+                ctx.writer,
+                ctx.config.timeouts.wait_send,
+                Duration::from_millis(ctx.config.timeouts.await_interval.max(1) as u64),
+                "await_writable_disorder",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
+            Ok(bytes_committed)
+        }
+        TcpChainStepKind::Disoob => {
+            let ttl_modified = set_ttl_with_android_fallback_named(
+                ctx.writer,
+                1,
+                ttl_actions_unavailable,
+                "set_ttl_disoob",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
+            let (should_restore_ttl, bytes_committed) = send_oob_with_android_ttl_fallback(
+                ctx.writer,
+                chunk,
+                ctx.group.actions.oob_data.unwrap_or(b'a'),
+                ctx.restore_ttl,
+                ttl_modified,
+                ttl_actions_unavailable,
+                "send_oob_disoob",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
+            await_writable_action_named(
+                ctx.writer,
+                ctx.config.timeouts.wait_send,
+                Duration::from_millis(ctx.config.timeouts.await_interval.max(1) as u64),
+                "await_writable_disoob",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?;
+            if should_restore_ttl {
+                let _ = restore_default_ttl_with_android_fallback_named(
+                    ctx.writer,
+                    ctx.restore_ttl,
+                    ttl_actions_unavailable,
+                    "restore_default_ttl_disoob",
+                    step_family,
+                    step_fallback,
+                    bytes_committed,
+                )?;
+            }
+            Ok(bytes_committed)
+        }
+        _ => unreachable!("non-TTL-sensitive step dispatched to TTL-sensitive executor"),
+    }
+}
+
 fn execute_tcp_plan(
     writer: &mut TcpStream,
     config: &RuntimeConfig,
@@ -1132,119 +1271,18 @@ fn execute_tcp_plan(
                     bytes_committed,
                 )?;
             }
-            TcpChainStepKind::Disorder => {
-                let ttl_modified = set_ttl_with_android_fallback_named(
-                    writer,
-                    1,
-                    &mut ttl_actions_unavailable,
-                    "set_ttl_disorder",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-                if step_original_tcp_flags(configured_step).is_empty() {
-                    let (should_restore_ttl, committed) = write_payload_with_android_ttl_fallback(
-                        writer,
-                        chunk,
-                        restore_ttl,
-                        ttl_modified,
-                        &mut ttl_actions_unavailable,
-                        "write_disorder",
-                        step_family,
-                        step_fallback,
-                        bytes_committed,
-                    )?;
-                    bytes_committed = committed;
-                    if should_restore_ttl {
-                        let _ = restore_default_ttl_with_android_fallback_named(
-                            writer,
-                            restore_ttl,
-                            &mut ttl_actions_unavailable,
-                            "restore_default_ttl_disorder",
-                            step_family,
-                            step_fallback,
-                            bytes_committed,
-                        )?;
-                    }
-                } else {
-                    bytes_committed = send_flagged_tcp_payload_action_named(
-                        writer,
-                        chunk,
-                        config.network.default_ttl,
-                        config.process.protect_path.as_deref(),
-                        md5sig,
-                        step_original_tcp_flags(configured_step),
-                        group.actions.ip_id_mode,
-                        "write_disorder",
-                        step_family,
-                        step_fallback,
-                        bytes_committed,
-                    )?;
-                    if ttl_modified {
-                        let _ = restore_default_ttl_with_android_fallback_named(
-                            writer,
-                            restore_ttl,
-                            &mut ttl_actions_unavailable,
-                            "restore_default_ttl_disorder",
-                            step_family,
-                            step_fallback,
-                            bytes_committed,
-                        )?;
-                    }
-                }
-                await_writable_action_named(
-                    writer,
-                    config.timeouts.wait_send,
-                    Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
-                    "await_writable_disorder",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-            }
-            TcpChainStepKind::Disoob => {
-                let ttl_modified = set_ttl_with_android_fallback_named(
-                    writer,
-                    1,
-                    &mut ttl_actions_unavailable,
-                    "set_ttl_disoob",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-                let (should_restore_ttl, committed) = send_oob_with_android_ttl_fallback(
-                    writer,
+            TcpChainStepKind::Disorder | TcpChainStepKind::Disoob => {
+                let mut ttl_sensitive_ctx = TcpTtlSensitiveExecContext { writer, config, group, restore_ttl, md5sig };
+                bytes_committed = execute_ttl_sensitive_tcp_step(
+                    &mut ttl_sensitive_ctx,
+                    step.kind,
+                    configured_step,
                     chunk,
-                    group.actions.oob_data.unwrap_or(b'a'),
-                    restore_ttl,
-                    ttl_modified,
+                    step_family,
+                    step_fallback,
                     &mut ttl_actions_unavailable,
-                    "send_oob_disoob",
-                    step_family,
-                    step_fallback,
                     bytes_committed,
                 )?;
-                bytes_committed = committed;
-                await_writable_action_named(
-                    writer,
-                    config.timeouts.wait_send,
-                    Duration::from_millis(config.timeouts.await_interval.max(1) as u64),
-                    "await_writable_disoob",
-                    step_family,
-                    step_fallback,
-                    bytes_committed,
-                )?;
-                if should_restore_ttl {
-                    let _ = restore_default_ttl_with_android_fallback_named(
-                        writer,
-                        restore_ttl,
-                        &mut ttl_actions_unavailable,
-                        "restore_default_ttl_disoob",
-                        step_family,
-                        step_fallback,
-                        bytes_committed,
-                    )?;
-                }
             }
             TcpChainStepKind::Fake => {
                 let fake_packets = fake_packets
