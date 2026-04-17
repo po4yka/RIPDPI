@@ -6,7 +6,7 @@
 > measurement, and product hardening needed to keep RIPDPI effective on modern
 > Android networks.
 
-## Execution Status (2026-04-16)
+## Execution Status (2026-04-17)
 
 - **Workstream 1 (Capability Hygiene):** COMPLETE. `RuntimeCapability` /
   `CapabilityUnavailable` / `CapabilityOutcome<T>` types in
@@ -20,9 +20,11 @@
   candidate enumeration split into primary / opportunistic / rooted pools with
   graceful-fallback allowlist preserving HTTP / TLS / TLS-ECH / QUIC v1 /
   QUIC v2 probe matrix coverage on non-rooted Android.
-- **Workstream 2-9:** Not started. Workstream 3 (QUIC Initial subsystem) and
-  Workstream 2 (first-flight IR) depend on architecture-refactor Workstream 3
-  (native runtime decomposition) landing first. See
+- **Workstream 2-9:** Not started in this roadmap. Their main runtime
+  prerequisite is now **partially** landed: architecture-refactor Workstream 3
+  has extracted the major TCP family executors plus the dispatcher/control
+  helpers in `desync.rs`, but the remaining lowering/capability/UDP/platform
+  split still gates Workstreams 2 and 3 here. See
   `docs/roadmap-execution-queue.md`.
 
 ## Related Roadmaps
@@ -42,7 +44,9 @@ work must fit into. See the three sibling roadmaps below for connected work:
     any new planner or IR work introduced here.
   - Refactor Workstream 3 (runtime/desync decomposition) creates the seams that
     this roadmap's Workstream 2 (first-flight IR) and Workstream 3 (QUIC subsystem)
-    lower onto. Do not start IR migration on the current `desync.rs` monolith.
+    lower onto. The old central `execute_tcp_plan` monolith has been reduced
+    substantially, but IR migration should still wait for the remaining
+    lowering/capability/UDP/platform split work.
   - Refactor Workstream 4 (service/relay orchestration) interacts with Workstream 8
     (Android hardening) -- VPN lifecycle, handover, and relay-kind resolvers are
     the same code paths under different lenses.
@@ -127,8 +131,8 @@ planner or tactic work could be evaluated credibly.
   outcomes so they do not collapse into generic censorship failures.
 
 **Primary areas:**
-- `native/rust/crates/ripdpi-runtime/src/platform/linux.rs` (2376 lines)
-- `native/rust/crates/ripdpi-runtime/src/platform/mod.rs` (1176 lines)
+- `native/rust/crates/ripdpi-runtime/src/platform/linux.rs` (2492 lines)
+- `native/rust/crates/ripdpi-runtime/src/platform/mod.rs` (1398 lines)
 - `native/rust/crates/ripdpi-root-helper/src/protocol.rs` (IPC surface)
 - `native/rust/crates/ripdpi-monitor/src/engine/runners/strategy.rs` (997 lines)
 - `native/rust/crates/ripdpi-monitor/src/classification/strategy.rs` (269 lines)
@@ -177,10 +181,10 @@ planner or tactic work could be evaluated credibly.
 **Why now:** TLS prelude mutation, TCP step planning, and QUIC packet shaping
 currently live in separate planners. That makes cross-layer strategies harder
 to express and encourages feature-specific special cases. This workstream
-lowers onto the seams opened by architecture-refactor Workstream 3 and must
-not begin on the current `execute_tcp_plan` monolith.
+lowers onto the seams opened by architecture-refactor Workstream 3 and should
+wait until the remaining lowering/capability/UDP/platform work there is done.
 
-**Current state (2026-04-15):**
+**Current state (2026-04-17):**
 - TLS ClientHello parsing: `ripdpi-packets/src/tls_nom.rs` (25 KB, nom parser
   `parse_client_hello_record` / `parse_client_hello_handshake`) and
   `ripdpi-packets/src/tls.rs` (55 KB, `tls_client_hello_marker_info_in_handshake`
@@ -189,13 +193,16 @@ not begin on the current `execute_tcp_plan` monolith.
   `QuicInitialInfo`, QUIC v1 and v2 salt constants at lines 27-34).
 - TCP step planner: `ripdpi-desync/src/plan_tcp.rs` (380 lines, `plan_tcp()` entry).
 - UDP step planner: `ripdpi-desync/src/plan_udp.rs` (296 lines, `plan_udp()` entry).
+- Runtime prerequisite status: architecture-refactor Workstream 3 is partial.
+  `desync.rs` now has extracted TCP family executors plus dispatcher/control
+  helpers, but lowering policy is still not isolated enough for IR migration.
 
 **Primary areas:**
 - `native/rust/crates/ripdpi-desync/src/plan_tcp.rs` (380 lines)
 - `native/rust/crates/ripdpi-desync/src/plan_udp.rs` (296 lines)
 - `native/rust/crates/ripdpi-config/` (model authority)
 - `native/rust/crates/ripdpi-packets/src/tls.rs` / `tls_nom.rs` / `quic.rs`
-- `native/rust/crates/ripdpi-runtime/src/runtime/desync.rs` (consumer -- 4112 lines,
+- `native/rust/crates/ripdpi-runtime/src/runtime/desync.rs` (consumer -- 4654 lines,
   gated on architecture-refactor Workstream 3)
 
 **Target architecture**

@@ -106,20 +106,29 @@ Mode: `Ralph`. Implements the "First Implementation Slice" of bypass-modernizati
 
 ## Phase 3 -- Native Runtime Decomposition (architecture W3)
 
+**Status: PARTIAL (2026-04-17).** The first runtime-decomposition wave is
+landed: `be3fe29b` (basic stream executor), `d64078f6` (TTL-sensitive
+executor), `b49e105f` (fake family), `7091c8af` (hostfake), `00369373`
+(`IpFrag2`), `fd9a6247` (`FakeRst`), `084f475a` (step dispatcher),
+`7dce23e0` (step control handler), `5ca6f39f` (grouped `MultiDisorder`
+preparation). Remaining work is the lowering/capability split, remaining
+flag-override cleanup, `udp.rs`, `platform/linux.rs`, `platform/mod.rs`, and
+broader isolated-family coverage.
+
 Mode: `Ralph`. Critical path -- unblocks Phases 4, 5, 13.
 
-| Slice | Scope | Depends on | Verify gate |
-|-------|-------|------------|-------------|
-| 3.1 | Extract TCP action executor from `execute_tcp_plan` (1139 lines) into focused module | Phase 0, Phase 2 | `cargo test -p ripdpi-runtime`; `packet-smoke-debugger` all scenarios |
-| 3.2 | Extract fake/fakedsplit/fakeddisorder family executor | 3.1 | Packet smoke across fake families; `rust-test-runner` |
-| 3.3 | Extract hostfake family executor | 3.1 | Packet smoke across hostfake variants including midhost |
-| 3.4 | Extract disorder/disoob/oob family executor | 3.1 | Packet smoke; `unsafe-code-auditor` if raw-path code moves |
-| 3.5 | Extract fragmentation executor + flag-override executor | 3.1 | Packet smoke for fragmentation + flag masks |
-| 3.6 | Move Android TTL fallback into dedicated lowering layer (consumes Capability type from 2.1) | 3.2, 3.3, 3.4, 3.5 | Capability snapshot is single source of truth; no scattered capability checks |
-| 3.7 | Introduce typed per-connection capability snapshot passed into lowering | 3.6 | `cargo test -p ripdpi-runtime`; signature review |
-| 3.8 | Decompose `udp.rs` (964 lines) parallel to TCP split | 3.1 | `cargo test`; QUIC smoke tests unchanged |
-| 3.9 | Split `platform/linux.rs` (1557 code-only LoC): `send_fake_tcp` family + `build_tcp_segment_packet` helpers + `send_ip_fragmented_*` | 3.7 | `jni-bridge-verifier` if JNI touched; `native-verifier` for .so size regression |
-| 3.10 | Regression tests covering extracted step-family executors in isolation | 3.2-3.5 | `coverage-reporter` confirms family coverage |
+| Slice | Status | Scope | Depends on | Verify gate |
+|-------|--------|-------|------------|-------------|
+| 3.1 | Complete | Extract the central TCP plan branching into focused executor helpers and a smaller dispatcher/control loop | Phase 0, Phase 2 | `cargo test -p ripdpi-runtime`; targeted runtime regressions green |
+| 3.2 | Complete | Extract fake/fakedsplit/fakeddisorder family executor | 3.1 | Packet smoke across fake families; `rust-test-runner` |
+| 3.3 | Complete | Extract hostfake family executor | 3.1 | Packet smoke across hostfake variants including midhost |
+| 3.4 | Complete | Extract disorder/disoob/oob/basic-stream and TTL-sensitive family executors | 3.1 | Packet smoke; `unsafe-code-auditor` if raw-path code moves |
+| 3.5 | In progress | Extract fragmentation / `FakeRst` tails and finish flag-override executor cleanup | 3.1 | Packet smoke for fragmentation + flag masks |
+| 3.6 | Planned | Move Android TTL fallback into dedicated lowering layer (consumes Capability type from 2.1) | 3.2, 3.3, 3.4, 3.5 | Capability snapshot is single source of truth; no scattered capability checks |
+| 3.7 | Planned | Introduce typed per-connection capability snapshot passed into lowering | 3.6 | `cargo test -p ripdpi-runtime`; signature review |
+| 3.8 | Planned | Decompose `udp.rs` (964 lines) parallel to TCP split | 3.1 | `cargo test`; QUIC smoke tests unchanged |
+| 3.9 | Planned | Split `platform/linux.rs` and `platform/mod.rs` along fake-send / fragmentation / capability-dispatch boundaries | 3.7 | `jni-bridge-verifier` if JNI touched; `native-verifier` for .so size regression |
+| 3.10 | Planned | Expand regression tests covering extracted step-family executors in isolation | 3.2-3.5 | `coverage-reporter` confirms family coverage |
 
 ## Phase 4 -- First-Flight IR (bypass-modernization W2)
 
@@ -342,14 +351,14 @@ Phase 0 (guardrails) ---+-> Phase 1 (config) ---+-> Phase 9 (UI)
 
 ## Priority Entry Points
 
-**Phases 0 + 2 complete; Phase 1 partial (1.1-1.5 done, 1.6-1.8 deferred).**
-22 commits ahead of `origin/main` as of 2026-04-16.
+**Phases 0 + 2 complete; Phase 1 partial (1.1-1.5 done, 1.6-1.8 deferred); Phase 3 partial.**
+19 commits ahead of `origin/main` as of 2026-04-17.
 
 Next OMC kickoff prompts in priority order:
 
-1. `/ralph "execute Phase 3 slices 3.1-3.5 from docs/roadmap-execution-queue.md; this is the critical path to decompose execute_tcp_plan (1139 lines, 7.6x function budget) into focused step-family executors. Capabilities flow as RuntimeCapability outcomes per Phase 2; consume them at the new lowering layer. Gate on packet-smoke-debugger for every fake/hostfake/disorder/fragmentation tactic. Do not extend any baseline."`
+1. `/ralph "finish the remaining Phase 3 work from docs/roadmap-execution-queue.md: close 3.5 flag-override cleanup, then land 3.6-3.10. The old execute_tcp_plan monolith is already reduced; the real blocker now is lowering/capability centralization plus udp/platform splits. Gate on cargo test -p ripdpi-runtime and the targeted runtime regressions for every moved family. Do not extend any baseline."`
 2. (Parallel-safe with Phase 3) `/ralph "execute Phase 6 slices 6.1-6.7 from docs/roadmap-execution-queue.md; replace dns_substitution single no-overlap rule with multi-oracle confidence scoring. Gate on cargo test -p ripdpi-dns-resolver and cargo test -p ripdpi-monitor."`
 3. (Parallel-safe with Phase 3) `/ralph "execute Phase 7 slices 7.1-7.5; decompose UpstreamRelaySupervisor.resolveRuntimeConfig into per-relay-kind resolvers; mirror the per-section split pattern proven in Phase 1 slice 1.1."`
 4. Phase 1b later: finish slices 1.6-1.8 (RipDpiProxyJsonCodec remaining sections + convert.rs split + legacy compat adapter).
 
-Phase 4 (first-flight IR) and Phase 5 (QUIC subsystem) only become safe to start AFTER Phase 3 lands -- they depend on the new runtime decomposition seams.
+Phase 4 (first-flight IR) and Phase 5 (QUIC subsystem) only become safe to start AFTER the remaining Phase 3 lowering/capability/UDP/platform work lands -- they depend on the runtime decomposition being complete enough to lower onto stable seams.

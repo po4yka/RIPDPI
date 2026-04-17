@@ -8,10 +8,13 @@ The audit roadmap tracked in this repository is complete. The items below are no
 - There are no remaining open items from the original audit backlog.
 - New work should be tracked as a separate roadmap or issue list instead of reopening this completed checklist.
 
-### Post-Audit Workstream Progress (2026-04-16)
+### Post-Audit Workstream Progress (2026-04-17)
 
 - Architecture refactor Workstream 0 (Guardrails): COMPLETE.
 - Architecture refactor Workstream 1 (Config Contract): PARTIAL (slices 1.1-1.5 of 8 done).
+- Architecture refactor Workstream 3 (Native Runtime Decomposition): PARTIAL (`execute_tcp_plan`
+  family extractions, dispatcher/control helpers, and grouped `MultiDisorder`
+  preparation landed; lowering/capability/UDP/platform splits remain).
 - Bypass modernization Workstream 1 (Capability Hygiene): COMPLETE.
 
 See [`docs/roadmap-execution-queue.md`](docs/roadmap-execution-queue.md) for the
@@ -111,7 +114,7 @@ The three strategic roadmaps interlock and should not be read in isolation:
 
 1. **architecture-refactor Workstream 0-1** (guardrails, config contract) unblocks everything else -- both bypass work and settings splits depend on the canonical config seam.
 2. **bypass-modernization Workstream 1** (capability hygiene) must land before further expansion of bypass-techniques Tier 3, otherwise new tactics cannot be evaluated honestly.
-3. **architecture-refactor Workstream 3** (runtime/desync decomposition) and **bypass-modernization Workstream 2** (first-flight IR) touch the same files. Refactor goes first; IR migration follows on the new seams.
+3. **architecture-refactor Workstream 3** (runtime/desync decomposition) and **bypass-modernization Workstream 2** (first-flight IR) touch the same files. Workstream 3 is now partially landed, but IR migration should still wait for the remaining lowering/capability/UDP/platform splits rather than starting on a half-decomposed runtime.
 4. **bypass-modernization Workstream 3** (QUIC subsystem) owns the QUIC evolution. New QUIC probe candidates in bypass-techniques must route through it rather than extending ad hoc packet families.
 5. **integrations Finalmask/TLS tracks** should align TLS catalog revisions with bypass-modernization Workstream 5 (browser-family templates and ECH).
 
