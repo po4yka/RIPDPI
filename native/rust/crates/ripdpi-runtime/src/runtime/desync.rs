@@ -2419,6 +2419,40 @@ fn execute_multi_disorder_tcp_plan(
     md5sig: bool,
     ip_id_mode: Option<ripdpi_config::IpIdMode>,
 ) -> Result<usize, OutboundSendError> {
+    let prepared = prepare_multi_disorder_tcp_plan(send_steps, plan, strategy_family)?;
+    strategy_result(
+        platform::send_multi_disorder_tcp(
+            writer,
+            &plan.tampered,
+            &prepared.segments,
+            config.network.default_ttl,
+            config.process.protect_path.as_deref(),
+            prepared.inter_segment_delay_ms,
+            md5sig,
+            prepared.original_flags,
+            ip_id_mode,
+        ),
+        "write_multidisorder",
+        prepared.strategy_family,
+        prepared.fallback,
+        0,
+    )
+    .map(|()| plan.tampered.len())
+}
+
+struct PreparedMultiDisorderTcpPlan {
+    strategy_family: &'static str,
+    fallback: Option<&'static str>,
+    inter_segment_delay_ms: u32,
+    original_flags: platform::TcpFlagOverrides,
+    segments: Vec<platform::TcpPayloadSegment>,
+}
+
+fn prepare_multi_disorder_tcp_plan(
+    send_steps: &[ripdpi_config::TcpChainStep],
+    plan: &DesyncPlan,
+    strategy_family: Option<&'static str>,
+) -> Result<PreparedMultiDisorderTcpPlan, OutboundSendError> {
     if send_steps.len() < 2 || send_steps.iter().any(|step| step.kind != TcpChainStepKind::MultiDisorder) {
         return Err(OutboundSendError::Transport(io::Error::new(
             io::ErrorKind::InvalidData,
@@ -2460,24 +2494,8 @@ fn execute_multi_disorder_tcp_plan(
     let strategy_family = strategy_family.unwrap_or("multidisorder");
     let fallback = strategy_fallback_family(strategy_family);
     let inter_segment_delay_ms = send_steps.first().map_or(0, |s| s.inter_segment_delay_ms);
-    strategy_result(
-        platform::send_multi_disorder_tcp(
-            writer,
-            &plan.tampered,
-            &segments,
-            config.network.default_ttl,
-            config.process.protect_path.as_deref(),
-            inter_segment_delay_ms,
-            md5sig,
-            step_original_tcp_flags(send_steps.first().expect("multidisorder send step missing")),
-            ip_id_mode,
-        ),
-        "write_multidisorder",
-        strategy_family,
-        fallback,
-        0,
-    )
-    .map(|()| plan.tampered.len())
+    let original_flags = step_original_tcp_flags(send_steps.first().expect("multidisorder send step missing"));
+    Ok(PreparedMultiDisorderTcpPlan { strategy_family, fallback, inter_segment_delay_ms, original_flags, segments })
 }
 
 fn send_out_of_band(writer: &TcpStream, prefix: &[u8], urgent_byte: u8) -> io::Result<()> {
@@ -3161,6 +3179,42 @@ mod tests {
 
         assert_eq!(err.kind(), io::ErrorKind::InvalidData);
         assert!(err.to_string().contains("multidisorder tcp plan does not cover the full payload"));
+    }
+
+    #[test]
+    fn prepare_multidisorder_tcp_plan_accepts_contiguous_full_payload() {
+        let mut chain = multidisorder_chain();
+        chain[0].inter_segment_delay_ms = 17;
+        chain[0].tcp_flags_orig_set = Some(0x12);
+
+        let prepared = prepare_multi_disorder_tcp_plan(
+            &chain,
+            &DesyncPlan {
+                tampered: b"abcdef".to_vec(),
+                steps: vec![
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 0, end: 2 },
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 2, end: 4 },
+                    PlannedStep { kind: TcpChainStepKind::MultiDisorder, start: 4, end: 6 },
+                ],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            Some("tlsrec_multidisorder"),
+        )
+        .expect("prepare contiguous multidisorder plan");
+
+        assert_eq!(prepared.strategy_family, "tlsrec_multidisorder");
+        assert_eq!(prepared.fallback, None);
+        assert_eq!(prepared.inter_segment_delay_ms, 17);
+        assert_eq!(prepared.original_flags, step_original_tcp_flags(&chain[0]));
+        assert_eq!(
+            prepared.segments,
+            vec![
+                platform::TcpPayloadSegment { start: 0, end: 2 },
+                platform::TcpPayloadSegment { start: 2, end: 4 },
+                platform::TcpPayloadSegment { start: 4, end: 6 },
+            ]
+        );
     }
 
     #[test]
