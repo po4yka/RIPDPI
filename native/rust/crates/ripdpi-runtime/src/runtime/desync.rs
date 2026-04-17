@@ -1994,6 +1994,49 @@ fn execute_tcp_hostfake_step(
     Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
 }
 
+fn execute_tcp_ipfrag2_step(
+    writer: &mut TcpStream,
+    config: &RuntimeConfig,
+    group: &DesyncGroup,
+    plan: &DesyncPlan,
+    end: usize,
+    configured_step: &TcpChainStep,
+    step_family: &'static str,
+    step_fallback: Option<&'static str>,
+    bytes_committed: usize,
+) -> Result<(usize, TcpStepControl), OutboundSendError> {
+    let bytes_committed = match send_ip_fragmented_tcp_action_named(
+        writer,
+        &plan.tampered,
+        end,
+        config.network.default_ttl,
+        config.process.protect_path.as_deref(),
+        false, // disorder not available in legacy plan path
+        ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+        step_original_tcp_flags(configured_step),
+        group.actions.ip_id_mode,
+        "write_ipfrag2",
+        step_family,
+        step_fallback,
+        bytes_committed,
+    ) {
+        Ok(committed) => committed,
+        Err(err) if should_fallback_ipfrag2_tcp_error_kind(err.kind()) => {
+            log_ipfrag2_flow_fallback(&err);
+            write_strategy_payload_named(
+                writer,
+                &plan.tampered,
+                "write_ipfrag2",
+                step_family,
+                step_fallback,
+                bytes_committed,
+            )?
+        }
+        Err(err) => return Err(err),
+    };
+    Ok((bytes_committed, TcpStepControl::BreakPlan))
+}
+
 fn execute_tcp_plan(
     writer: &mut TcpStream,
     config: &RuntimeConfig,
@@ -2148,39 +2191,28 @@ fn execute_tcp_plan(
                 }
             }
             TcpChainStepKind::IpFrag2 => {
-                match send_ip_fragmented_tcp_action_named(
+                let (next_bytes_committed, control) = execute_tcp_ipfrag2_step(
                     writer,
-                    &plan.tampered,
+                    config,
+                    group,
+                    plan,
                     end,
-                    config.network.default_ttl,
-                    config.process.protect_path.as_deref(),
-                    false, // disorder not available in legacy plan path
-                    ripdpi_ipfrag::Ipv6ExtHeaders::default(),
-                    step_original_tcp_flags(configured_step),
-                    group.actions.ip_id_mode,
-                    "write_ipfrag2",
+                    configured_step,
                     step_family,
                     step_fallback,
                     bytes_committed,
-                ) {
-                    Ok(committed) => {
-                        bytes_committed = committed;
+                )?;
+                bytes_committed = next_bytes_committed;
+                match control {
+                    TcpStepControl::ContinueAt(next_cursor) => {
+                        cursor = next_cursor;
+                        continue;
                     }
-                    Err(err) if should_fallback_ipfrag2_tcp_error_kind(err.kind()) => {
-                        log_ipfrag2_flow_fallback(&err);
-                        bytes_committed = write_strategy_payload_named(
-                            writer,
-                            &plan.tampered,
-                            "write_ipfrag2",
-                            step_family,
-                            step_fallback,
-                            bytes_committed,
-                        )?;
+                    TcpStepControl::BreakPlan => {
+                        cursor = plan.tampered.len();
+                        break;
                     }
-                    Err(err) => return Err(err),
                 }
-                cursor = plan.tampered.len();
-                break;
             }
             TcpChainStepKind::HostFake => {
                 let mut hostfake_ctx =
@@ -4103,6 +4135,37 @@ mod tests {
         use std::io::Read;
         let read_result = server.read(&mut buf);
         assert!(read_result.is_ok(), "data should have been written before await error");
+    }
+
+    #[test]
+    #[cfg(not(target_os = "linux"))]
+    fn plan_ipfrag2_fallback_writes_full_payload() {
+        let (mut client, mut server) = connected_pair();
+        let unavailable = default_ttl_unavailable();
+        let mut group = test_group();
+        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::IpFrag2, test_offset()));
+
+        let result = execute_tcp_plan(
+            &mut client,
+            &RuntimeConfig::default(),
+            &group,
+            &DesyncPlan {
+                tampered: b"hello".to_vec(),
+                steps: vec![PlannedStep { kind: TcpChainStepKind::IpFrag2, start: 0, end: 2 }],
+                proto: ProtoInfo::default(),
+                actions: Vec::new(),
+            },
+            0,
+            None,
+            Some("ipfrag2"),
+            &unavailable,
+        );
+        assert_eq!(result.unwrap(), 5);
+        server.set_read_timeout(Some(Duration::from_millis(100))).ok();
+        let mut buf = vec![0u8; 5];
+        use std::io::Read;
+        server.read_exact(&mut buf).expect("ipfrag2 fallback should write full payload");
+        assert_eq!(&buf, b"hello");
     }
 
     #[test]
