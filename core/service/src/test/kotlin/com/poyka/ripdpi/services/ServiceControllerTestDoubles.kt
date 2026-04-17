@@ -1,10 +1,12 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.core.RipDpiWarpConfig
@@ -28,6 +30,7 @@ import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
@@ -760,6 +763,53 @@ internal class TestRelayCredentialStore : RelayCredentialStore {
         credentials.remove(profileId)
     }
 }
+
+internal class TestUpstreamRelayRuntimeConfigResolver(
+    var resolvedConfig: ResolvedRipDpiRelayConfig = sampleResolvedRelayConfig(),
+    var failure: Throwable? = null,
+) : UpstreamRelayRuntimeConfigResolver {
+    val requests = mutableListOf<Pair<RipDpiRelayConfig, OwnedRelayQuicMigrationConfig>>()
+
+    override suspend fun resolve(
+        config: RipDpiRelayConfig,
+        quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+    ): ResolvedRipDpiRelayConfig {
+        requests += config to quicMigrationConfig
+        failure?.let { throw it }
+        return resolvedConfig
+    }
+}
+
+internal fun sampleResolvedRelayConfig(
+    kind: String = RelayKindVlessReality,
+    profileId: String = "edge",
+): ResolvedRipDpiRelayConfig =
+    ResolvedRipDpiRelayConfig(
+        enabled = true,
+        kind = kind,
+        profileId = profileId,
+        server = "relay.example",
+        serverPort = 443,
+        serverName = "relay.example",
+        realityPublicKey = "public-key",
+        realityShortId = "abcd1234",
+        chainEntryServer = "",
+        chainEntryPort = 0,
+        chainEntryServerName = "",
+        chainEntryPublicKey = "",
+        chainEntryShortId = "",
+        chainExitServer = "",
+        chainExitPort = 0,
+        chainExitServerName = "",
+        chainExitPublicKey = "",
+        chainExitShortId = "",
+        masqueUrl = "",
+        masqueUseHttp2Fallback = false,
+        localSocksHost = "127.0.0.1",
+        localSocksPort = 1080,
+        udpEnabled = false,
+        tcpFallbackEnabled = false,
+    )
 
 internal class TestWarpRuntime(
     internal val events: MutableList<String> = mutableListOf(),
