@@ -39,6 +39,7 @@ pub struct TlsClientHelloIr {
     pub raw: Vec<u8>,
     pub authority: Vec<u8>,
     pub authority_span: Range<usize>,
+    pub extensions_len_offset: usize,
     pub alpn_protocols: Vec<Vec<u8>>,
     pub has_ech: bool,
     pub grease: GreaseProfile,
@@ -183,6 +184,7 @@ fn normalize_tls_from_layout(
         raw: raw.to_vec(),
         authority,
         authority_span,
+        extensions_len_offset: layout.markers.ext_len_start,
         alpn_protocols: parse_alpn_protocols(raw, &layout.extensions),
         has_ech: layout.markers.ech_ext_start.is_some(),
         grease,
@@ -201,7 +203,7 @@ pub fn normalize_tls_client_hello(packet: &[u8]) -> Option<TlsClientHelloIr> {
     normalize_tls_from_layout(packet, layout, record_boundaries)
 }
 
-fn normalize_tls_client_hello_handshake(handshake: &[u8]) -> Option<TlsClientHelloIr> {
+pub(crate) fn normalize_tls_client_hello_handshake_bytes(handshake: &[u8]) -> Option<TlsClientHelloIr> {
     let layout = parse_tls_client_hello_handshake_layout(handshake)?;
     normalize_tls_from_layout(handshake, layout, Vec::new())
 }
@@ -218,7 +220,7 @@ fn map_quic_crypto_frames(frames: &[QuicCryptoFrameInfo]) -> Vec<QuicCryptoFrame
 
 pub fn normalize_quic_initial(packet: &[u8]) -> Option<QuicInitialIr> {
     let layout: QuicInitialLayout = parse_quic_initial_layout(packet)?;
-    let mut tls_client_hello = normalize_tls_client_hello_handshake(&layout.info.client_hello)?;
+    let mut tls_client_hello = normalize_tls_client_hello_handshake_bytes(&layout.info.client_hello)?;
     let crypto_frames = map_quic_crypto_frames(&layout.crypto_frames);
     let desired = DesiredBoundaryPlan {
         tcp_segment_boundaries: Vec::new(),

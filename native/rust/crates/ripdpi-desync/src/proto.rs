@@ -1,8 +1,10 @@
 use std::ops::Range;
 
+use crate::first_flight_ir::{normalize_tls_client_hello_handshake_bytes, TlsClientHelloIr};
+use crate::normalize_tls_client_hello;
 use crate::types::{ProtoInfo, TlsProtoInfo};
 use ripdpi_config::OffsetProto;
-use ripdpi_packets::{http_marker_info, tls_marker_info, IS_HTTP, IS_HTTPS};
+use ripdpi_packets::{http_marker_info, IS_HTTP, IS_HTTPS};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum HostOffsetBias {
@@ -87,43 +89,58 @@ pub(crate) fn resolve_host_range<'a>(
 }
 
 fn parse_tls_proto_info(buffer: &[u8]) -> Option<TlsProtoInfo> {
-    if let Some(markers) = tls_marker_info(buffer) {
-        return build_tls_proto_info(buffer, markers);
+    if let Some(ir) = normalize_tls_client_hello(buffer) {
+        return build_tls_proto_info_from_ir(buffer, &ir);
     }
     parse_multi_record_tls_proto_info(buffer)
 }
 
-fn build_tls_proto_info(buffer: &[u8], markers: ripdpi_packets::TlsMarkerInfo) -> Option<TlsProtoInfo> {
-    let host = buffer.get(markers.host_start..markers.host_end)?.to_vec().into_boxed_slice();
+fn build_tls_proto_info_from_ir(buffer: &[u8], ir: &TlsClientHelloIr) -> Option<TlsProtoInfo> {
+    let sni_ext_start = ir
+        .extensions
+        .iter()
+        .find(|extension| extension.ext_type == 0x0000)
+        .map(|extension| extension.type_range.start + 4)?;
+    let ech_ext_start =
+        ir.extensions.iter().find(|extension| extension.ext_type == 0xfe0d).map(|extension| extension.type_range.start);
+    let host = buffer.get(ir.authority_span.clone())?.to_vec().into_boxed_slice();
     #[allow(clippy::single_range_in_vec_init)]
-    let host_spans = Box::new([markers.host_start..markers.host_end]);
-    Some(TlsProtoInfo { markers, host_bytes: host, host_spans })
+    let host_spans = Box::new([ir.authority_span.clone()]);
+    Some(TlsProtoInfo {
+        markers: ripdpi_packets::TlsMarkerInfo {
+            ext_len_start: ir.extensions_len_offset,
+            ech_ext_start,
+            sni_ext_start,
+            host_start: ir.authority_span.start,
+            host_end: ir.authority_span.end,
+        },
+        host_bytes: host,
+        host_spans,
+    })
 }
 
 fn parse_multi_record_tls_proto_info(buffer: &[u8]) -> Option<TlsProtoInfo> {
-    let (header, payload_spans) = collect_tls_record_payload_spans(buffer)?;
+    let payload_spans = collect_tls_record_payload_spans(buffer)?;
     let flattened_len = payload_spans.iter().map(|span| span.end.saturating_sub(span.start)).sum::<usize>();
-    let flattened_len_u16 = u16::try_from(flattened_len).ok()?;
     let mut flattened = Vec::with_capacity(flattened_len);
     for span in &payload_spans {
         flattened.extend_from_slice(&buffer[span.start..span.end]);
     }
 
-    let mut synthetic = Vec::with_capacity(flattened.len() + 5);
-    synthetic.extend_from_slice(&header);
-    synthetic.extend_from_slice(&flattened_len_u16.to_be_bytes());
-    synthetic.extend_from_slice(&flattened);
-
-    let synthetic_markers = tls_marker_info(&synthetic)?;
-    let ext_len_start = map_flattened_start_offset(&payload_spans, synthetic_markers.ext_len_start.checked_sub(5)?)?;
-    let ech_ext_start = synthetic_markers
-        .ech_ext_start
-        .and_then(|offset| map_flattened_start_offset(&payload_spans, offset.checked_sub(5)?));
-    let sni_ext_start = map_flattened_start_offset(&payload_spans, synthetic_markers.sni_ext_start.checked_sub(5)?)?;
-    let host_flat_start = synthetic_markers.host_start.checked_sub(5)?;
-    let host_flat_end = synthetic_markers.host_end.checked_sub(5)?;
-    let host_spans = extract_flattened_payload_spans(&payload_spans, host_flat_start, host_flat_end)?;
-    let host_bytes = flattened.get(host_flat_start..host_flat_end)?.to_vec().into_boxed_slice();
+    let ir = normalize_tls_client_hello_handshake_bytes(&flattened)?;
+    let ext_len_start = map_flattened_start_offset(&payload_spans, ir.extensions_len_offset)?;
+    let ech_ext_start = ir
+        .extensions
+        .iter()
+        .find(|extension| extension.ext_type == 0xfe0d)
+        .and_then(|extension| map_flattened_start_offset(&payload_spans, extension.type_range.start));
+    let sni_ext_start = ir
+        .extensions
+        .iter()
+        .find(|extension| extension.ext_type == 0x0000)
+        .and_then(|extension| map_flattened_start_offset(&payload_spans, extension.type_range.start + 4))?;
+    let host_spans = extract_flattened_payload_spans(&payload_spans, ir.authority_span.start, ir.authority_span.end)?;
+    let host_bytes = ir.authority.clone().into_boxed_slice();
     let host_start = host_spans.first()?.start;
     let host_end = host_spans.last()?.end;
 
@@ -134,7 +151,7 @@ fn parse_multi_record_tls_proto_info(buffer: &[u8]) -> Option<TlsProtoInfo> {
     })
 }
 
-fn collect_tls_record_payload_spans(buffer: &[u8]) -> Option<([u8; 3], Vec<Range<usize>>)> {
+fn collect_tls_record_payload_spans(buffer: &[u8]) -> Option<Vec<Range<usize>>> {
     if buffer.len() < 10 {
         return None;
     }
@@ -156,7 +173,7 @@ fn collect_tls_record_payload_spans(buffer: &[u8]) -> Option<([u8; 3], Vec<Range
         }
     }
 
-    (spans.len() >= 2 && cursor == buffer.len()).then_some((header, spans))
+    (spans.len() >= 2 && cursor == buffer.len()).then_some(spans)
 }
 
 fn read_be_u16(buffer: &[u8], offset: usize) -> Option<usize> {
