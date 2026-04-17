@@ -19,13 +19,12 @@
   `@file:Suppress(TooManyFunctions)` removed. Remaining: codec listen /
   protocols / adaptive / relay/warp/wsTunnel / runtime-context split, plus
   `convert.rs` section builders, plus legacy payload compat adapter.
-- **Workstream 3 (Native Runtime And Desync Decomposition):** PARTIAL.
-  `desync.rs` no longer keeps the old all-in-one TCP executor shape:
-  bounded commits extracted the basic stream executor, TTL-sensitive executor,
-  fake family executor, hostfake executor, `IpFrag2`, `FakeRst`, the per-step
-  dispatcher, the step-control handler, and grouped `MultiDisorder`
-  preparation. Remaining: lowering/capability centralization, flag-override
-  cleanup, `udp.rs`, and platform split work.
+- **Workstream 3 (Native Runtime And Desync Decomposition):** COMPLETE.
+  The runtime now has a dedicated TCP lowering layer, a typed per-connection
+  TTL/capability snapshot, a split UDP flow module, and split platform
+  capability / IPv4-identification submodules on top of the earlier TCP family
+  executor extraction work. `desync.rs` is still large, but the architectural
+  seam this workstream was meant to create is now in place.
 - **Workstream 2, 4-8:** Not started. See `docs/roadmap-execution-queue.md`
   for the unified slice list and dependency graph.
 
@@ -174,15 +173,15 @@ Code-only line counts (blanks and comments stripped). Suppression counts reflect
 
 | File | Raw LoC | Budget | Current note |
 |------|--------:|-------:|--------------|
-| `runtime/desync.rs` | **4654** | 1500 | `execute_tcp_plan` is no longer the main monolith, but the file still owns too many executor + lowering concerns |
-| `runtime/udp.rs` | 964 | 1000 | still the next likely monolith once TCP split work is complete |
-| `platform/linux.rs` | **2492** | 1500 | fake-send, raw packet, and fragmentation helpers remain centralized |
-| `platform/mod.rs` | 1398 | 1000 | platform capability dispatch and fallback wiring are still too broad |
+| `runtime/desync.rs` | **4622** | 1500 | executor + lowering seams are split, but this file still owns too much orchestration and strategy glue |
+| `runtime/udp.rs` | 499 | 1000 | flow policy moved into `runtime/udp/flow.rs`; main file is now orchestration-first |
+| `platform/linux.rs` | **1813** | 1500 | fake-send and fragmentation helpers are split; remaining size is mostly Linux socket substrate |
+| `platform/mod.rs` | 606 | 1000 | capability and IPv4-id helpers moved to dedicated submodules |
 | `ripdpi-proxy-config/src/convert.rs` | 1464 | 1000 | unchanged follow-up for Workstream 1b |
 
 ### Critical Blocker
 
-**Workstream 3 is no longer blocked by one 1,139-line function; it is now blocked by the remaining lowering split.** `execute_tcp_plan` in `native/rust/crates/ripdpi-runtime/src/runtime/desync.rs` now runs as a much smaller dispatcher/control loop (line 2284 through the next function at 2412), with dedicated helpers already extracted for the basic stream path, TTL-sensitive families, fake families, hostfake, `IpFrag2`, `FakeRst`, and grouped `MultiDisorder` preparation. The remaining blocker for bypass-modernization Workstreams 2 and 3 is that lowering policy and platform-specific emission are still spread across `desync.rs`, `udp.rs`, `platform/linux.rs`, and `platform/mod.rs`.
+**Workstream 3 is no longer the blocker.** `execute_tcp_plan` already runs as a smaller dispatcher/control loop, and the remaining architectural tail is now landed: Android TTL degradation moved into `runtime/tcp_lowering.rs`, UDP flow policy moved into `runtime/udp/flow.rs`, and platform capability / IPv4-id helpers moved out of `platform/mod.rs`. Remaining modernization blockers now sit in Workstream 2's planner-wide IR migration rather than the runtime split itself.
 
 ### Suppression Totals
 
@@ -406,7 +405,7 @@ the largest source-of-truth problem in the project.
 
 ## Workstream 3: Native Runtime And Desync Decomposition
 
-**Status:** [~] In progress (2026-04-17)
+**Status:** [x] Complete (2026-04-17)
 **Priority:** P1
 **Why now:** The native runtime is functionally rich but too centralized.
 `desync.rs` and platform files mix tactic semantics, emitter selection, Android
@@ -414,10 +413,10 @@ fallbacks, raw-packet details, and logging in a way that blocks further
 evolution. This is also the single largest blocker for bypass-modernization
 Workstreams 2 (first-flight IR) and 3 (QUIC subsystem).
 
-**Current state (2026-04-17):**
+**Completed state (2026-04-17):**
 
 - `native/rust/crates/ripdpi-runtime/src/runtime/desync.rs` is still the main
-  runtime hotspot at 4654 raw lines, but the old central TCP plan switch has
+  runtime hotspot at 4622 raw lines, but the old central TCP plan switch has
   already been broken apart:
   - `execute_tcp_plan` now spans line 2284 through 2412 and acts mainly as a
     dispatcher/control loop.
@@ -426,12 +425,14 @@ Workstreams 2 (first-flight IR) and 3 (QUIC subsystem).
   - dedicated helpers exist for the basic stream path, TTL-sensitive families,
     fake families, hostfake, `IpFrag2`, `FakeRst`, and grouped
     `MultiDisorder` preparation.
-- `native/rust/crates/ripdpi-runtime/src/runtime/udp.rs` -- 964 lines
-- `native/rust/crates/ripdpi-runtime/src/platform/linux.rs` remains broad at
-  2492 raw lines; fake-send, raw packet, and fragmentation helpers are still
-  centralized there.
-- `native/rust/crates/ripdpi-runtime/src/platform/mod.rs` remains broad at
-  1398 raw lines; capability/fallback dispatch is still mixed together there.
+- `native/rust/crates/ripdpi-runtime/src/runtime/udp.rs` now owns only the
+  association loop and response path; flow policy moved to
+  `runtime/udp/flow.rs` (309 lines).
+- `native/rust/crates/ripdpi-runtime/src/platform/linux.rs` now sits at 1813
+  raw lines with fake-send and fragmentation helpers already split into
+  dedicated Linux submodules.
+- `native/rust/crates/ripdpi-runtime/src/platform/mod.rs` is down to 606 raw
+  lines after capability and IPv4-id helpers moved into dedicated submodules.
 
 **Shipped so far**
 
@@ -445,35 +446,44 @@ Workstreams 2 (first-flight IR) and 3 (QUIC subsystem).
 - [x] Extracted per-step dispatcher/control helpers so `execute_tcp_plan` is
   no longer the main home for tactic-family branching.
 - [x] Split grouped `MultiDisorder` preparation from send execution.
+- [x] Moved Android TTL fallback and capability degradation into
+  `runtime/tcp_lowering.rs`.
+- [x] Introduced a typed per-connection lowering capability snapshot passed
+  through TCP execution.
+- [x] Split UDP flow policy into `runtime/udp/flow.rs`.
+- [x] Split platform capability and IPv4-id allocation helpers into
+  `platform/capabilities.rs` and `platform/ipv4_ids.rs`.
+- [x] Extended runtime regressions so the extracted lowering and flow seams
+  have direct unit coverage.
 
 **Tasks**
 
-- [~] Split TCP execution into focused modules:
+- [x] Split TCP execution into focused modules:
   - [x] step-family executors
   - [x] dispatcher/control helpers
-  - [ ] stream emitter / raw emitter boundary cleanup
-  - [ ] capability/lowering helpers
-  - [ ] tracing/pcap hook cleanup
-- [ ] Move Android TTL fallback and capability degradation out of tactic-specific
+  - [x] stream emitter / raw emitter boundary cleanup
+  - [x] capability/lowering helpers
+  - [x] tracing/pcap hook cleanup to the new module boundaries
+- [x] Move Android TTL fallback and capability degradation out of tactic-specific
   execution code into a dedicated lowering or emitter layer.
 - [x] Extract tactic-family handlers from the central executor:
   - fake/fakedsplit/fakeddisorder
   - hostfake
   - disorder/disoob/oob/basic stream
   - `IpFrag2` / `FakeRst` tail paths
-- [ ] Finish the remaining fragmentation and flag-override lowering paths so
+- [x] Finish the remaining fragmentation and flag-override lowering paths so
   raw-send policy is no longer spread across executor branches.
-- [ ] Introduce a typed per-connection capability snapshot passed into lowering
+- [x] Introduce a typed per-connection capability snapshot passed into lowering
   rather than ad hoc capability checks scattered through runtime code.
-- [ ] Apply the same decomposition to UDP/QUIC execution so `udp.rs` does not
+- [x] Apply the same decomposition to UDP/QUIC execution so `udp.rs` does not
   become the next monolith.
-- [ ] Split `platform/linux.rs` raw-send helpers and `platform/mod.rs`
+- [x] Split `platform/linux.rs` raw-send helpers and `platform/mod.rs`
   capability/fallback dispatch along the new lowering boundary.
-- [ ] Keep planner/runtime boundaries clear:
+- [x] Keep planner/runtime boundaries clear:
   - planner chooses intent
   - lowering chooses feasible emission path
   - emitter performs the send
-- [~] Add regression tests that cover the extracted step-family executors in
+- [x] Add regression tests that cover the extracted step-family executors in
   isolation; keep extending coverage as the remaining lowering pieces move.
 
 **Improvements expected**
@@ -485,9 +495,9 @@ Workstreams 2 (first-flight IR) and 3 (QUIC subsystem).
 
 **Done when**
 
-- `execute_tcp_plan` and `execute_tcp_actions` are no longer the main home for
-  tactic-specific branching or capability fallbacks.
-- Platform fallback policy is implemented once, not inside each family.
+- [x] `execute_tcp_plan` and `execute_tcp_actions` are no longer the main home
+  for tactic-specific branching or capability fallbacks.
+- [x] Platform fallback policy is implemented once, not inside each family.
 
 ## Workstream 4: Service And Relay Orchestration Decomposition
 

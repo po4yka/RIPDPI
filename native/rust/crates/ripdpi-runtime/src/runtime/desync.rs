@@ -29,7 +29,10 @@ use super::adaptive::{
 };
 use super::morph::{apply_tcp_morph_policy_to_group, emit_morph_hint_applied, tcp_morph_hint_family};
 use super::state::{RuntimeState, DESYNC_SEED_BASE};
-use super::tcp_lowering::{should_ignore_android_ttl_error, TcpLoweringCapabilities};
+use super::tcp_lowering::{
+    send_oob_with_android_ttl_fallback, should_ignore_android_ttl_error, write_payload_with_android_ttl_fallback,
+    TcpLoweringCapabilities,
+};
 
 #[derive(Debug)]
 pub(super) struct OutboundSendOutcome {
@@ -63,7 +66,7 @@ impl OutboundSendError {
         }
     }
 
-    fn source_error(&self) -> &io::Error {
+    pub(super) fn source_error(&self) -> &io::Error {
         match self {
             Self::Transport(source) => source,
             Self::StrategyExecution { source, .. } => source,
@@ -640,12 +643,12 @@ fn execute_tcp_actions(
                     if let Some(strategy_family) = strategy_family {
                         if fallback.is_some() && ttl_modified {
                             let (should_restore_ttl, committed) = write_payload_with_android_ttl_fallback(
+                                &mut lowering_caps,
                                 writer,
                                 bytes,
-                                cached_restore_ttl.unwrap_or(default_ttl.max(1)),
                                 ttl_modified,
-                                &mut lowering_caps.ttl_actions_unavailable,
                                 write_action_name(strategy_family),
+                                restore_ttl_action_name(strategy_family),
                                 strategy_family,
                                 fallback,
                                 bytes_committed,
@@ -673,16 +676,16 @@ fn execute_tcp_actions(
                     if let Some(strategy_family) = strategy_family {
                         if fallback.is_some() && ttl_modified {
                             let (should_restore_ttl, committed) = send_oob_with_android_ttl_fallback(
+                                &mut lowering_caps,
                                 writer,
                                 prefix,
                                 *urgent_byte,
-                                cached_restore_ttl.unwrap_or(default_ttl.max(1)),
                                 ttl_modified,
-                                &mut lowering_caps.ttl_actions_unavailable,
                                 match strategy_family {
                                     "disoob" => "send_oob_disoob",
                                     _ => "send_oob",
                                 },
+                                restore_ttl_action_name(strategy_family),
                                 strategy_family,
                                 fallback,
                                 bytes_committed,
@@ -708,10 +711,9 @@ fn execute_tcp_actions(
                     }
                 }
                 DesyncAction::SetTtl(ttl) => {
-                    if set_ttl_with_android_fallback_named(
+                    if lowering_caps.set_ttl_named(
                         writer,
                         *ttl,
-                        &mut lowering_caps.ttl_actions_unavailable,
                         strategy_family.map_or("set_ttl", set_ttl_action_name),
                         strategy_family.unwrap_or("split"),
                         fallback,
@@ -722,10 +724,9 @@ fn execute_tcp_actions(
                 }
                 DesyncAction::RestoreDefaultTtl => {
                     if let Some(restore) = cached_restore_ttl {
-                        if restore_default_ttl_with_android_fallback_named(
+                        if lowering_caps.restore_default_ttl_named(
                             writer,
                             restore,
-                            &mut lowering_caps.ttl_actions_unavailable,
                             strategy_family.map_or("restore_default_ttl", restore_ttl_action_name),
                             strategy_family.unwrap_or("split"),
                             fallback,
@@ -1007,7 +1008,7 @@ struct TcpTtlSensitiveExecContext<'a> {
     writer: &'a mut TcpStream,
     config: &'a RuntimeConfig,
     group: &'a DesyncGroup,
-    restore_ttl: u8,
+    lowering: &'a mut TcpLoweringCapabilities,
     md5sig: bool,
 }
 
@@ -1018,26 +1019,23 @@ fn execute_ttl_sensitive_tcp_step(
     chunk: &[u8],
     step_family: &'static str,
     step_fallback: Option<&'static str>,
-    ttl_actions_unavailable: &mut bool,
     bytes_committed: usize,
 ) -> Result<usize, OutboundSendError> {
     match kind {
         TcpChainStepKind::Disorder => {
-            let ttl_modified = set_ttl_with_android_fallback_named(
+            let ttl_modified = ctx.lowering.set_ttl_named(
                 ctx.writer,
                 1,
-                ttl_actions_unavailable,
                 "set_ttl_disorder",
                 step_family,
                 step_fallback,
                 bytes_committed,
             )?;
             let (should_restore_ttl, bytes_committed) = write_ttl_sensitive_payload_with_optional_flags_named(
+                ctx.lowering,
                 ctx.writer,
                 chunk,
-                ctx.restore_ttl,
                 ttl_modified,
-                ttl_actions_unavailable,
                 ctx.config.network.default_ttl,
                 ctx.config.process.protect_path.as_deref(),
                 ctx.md5sig,
@@ -1049,10 +1047,9 @@ fn execute_ttl_sensitive_tcp_step(
                 bytes_committed,
             )?;
             if should_restore_ttl {
-                let _ = restore_default_ttl_with_android_fallback_named(
+                let _ = ctx.lowering.restore_default_ttl_named(
                     ctx.writer,
-                    ctx.restore_ttl,
-                    ttl_actions_unavailable,
+                    ctx.lowering.restore_ttl,
                     "restore_default_ttl_disorder",
                     step_family,
                     step_fallback,
@@ -1071,23 +1068,22 @@ fn execute_ttl_sensitive_tcp_step(
             Ok(bytes_committed)
         }
         TcpChainStepKind::Disoob => {
-            let ttl_modified = set_ttl_with_android_fallback_named(
+            let ttl_modified = ctx.lowering.set_ttl_named(
                 ctx.writer,
                 1,
-                ttl_actions_unavailable,
                 "set_ttl_disoob",
                 step_family,
                 step_fallback,
                 bytes_committed,
             )?;
             let (should_restore_ttl, bytes_committed) = send_oob_with_android_ttl_fallback(
+                ctx.lowering,
                 ctx.writer,
                 chunk,
                 ctx.group.actions.oob_data.unwrap_or(b'a'),
-                ctx.restore_ttl,
                 ttl_modified,
-                ttl_actions_unavailable,
                 "send_oob_disoob",
+                "restore_default_ttl_disoob",
                 step_family,
                 step_fallback,
                 bytes_committed,
@@ -1102,10 +1098,9 @@ fn execute_ttl_sensitive_tcp_step(
                 bytes_committed,
             )?;
             if should_restore_ttl {
-                let _ = restore_default_ttl_with_android_fallback_named(
+                let _ = ctx.lowering.restore_default_ttl_named(
                     ctx.writer,
-                    ctx.restore_ttl,
-                    ttl_actions_unavailable,
+                    ctx.lowering.restore_ttl,
                     "restore_default_ttl_disoob",
                     step_family,
                     step_fallback,
@@ -1131,7 +1126,7 @@ struct TcpFakeFamilyExecContext<'a> {
     plan: &'a DesyncPlan,
     fake_packets: &'a BuiltFakePackets,
     resolved_fake_ttl: Option<u8>,
-    restore_ttl: u8,
+    lowering: &'a mut TcpLoweringCapabilities,
     md5sig: bool,
 }
 
@@ -1145,7 +1140,6 @@ fn execute_tcp_fake_family_step(
     end: usize,
     step_family: &'static str,
     step_fallback: Option<&'static str>,
-    ttl_actions_unavailable: &mut bool,
     bytes_committed: usize,
 ) -> Result<(usize, TcpStepControl), OutboundSendError> {
     match kind {
@@ -1366,21 +1360,19 @@ fn execute_tcp_fake_family_step(
         TcpChainStepKind::FakeDisorder => {
             let second = &ctx.plan.tampered[end..];
             if second.is_empty() {
-                let ttl_modified = set_ttl_with_android_fallback_named(
+                let ttl_modified = ctx.lowering.set_ttl_named(
                     ctx.writer,
                     1,
-                    ttl_actions_unavailable,
                     "set_ttl_fakeddisorder",
                     step_family,
                     step_fallback,
                     bytes_committed,
                 )?;
                 let (should_restore_ttl, bytes_committed) = write_ttl_sensitive_payload_with_optional_flags_named(
+                    ctx.lowering,
                     ctx.writer,
                     chunk,
-                    ctx.restore_ttl,
                     ttl_modified,
-                    ttl_actions_unavailable,
                     ctx.config.network.default_ttl,
                     ctx.config.process.protect_path.as_deref(),
                     ctx.md5sig,
@@ -1401,10 +1393,9 @@ fn execute_tcp_fake_family_step(
                     bytes_committed,
                 )?;
                 if should_restore_ttl {
-                    let _ = restore_default_ttl_with_android_fallback_named(
+                    let _ = ctx.lowering.restore_default_ttl_named(
                         ctx.writer,
-                        ctx.restore_ttl,
-                        ttl_actions_unavailable,
+                        ctx.lowering.restore_ttl,
                         "restore_default_ttl_fakeddisorder",
                         step_family,
                         step_fallback,
@@ -2043,10 +2034,9 @@ struct TcpPlanStepExecContext<'a> {
     plan: &'a DesyncPlan,
     seed: u32,
     resolved_fake_ttl: Option<u8>,
-    restore_ttl: u8,
+    lowering: &'a mut TcpLoweringCapabilities,
     md5sig: bool,
     fake_packets: Option<&'a BuiltFakePackets>,
-    ttl_actions_unavailable: &'a mut bool,
 }
 
 enum TcpPlanLoopControl {
@@ -2109,7 +2099,7 @@ fn execute_tcp_plan_step(
                 writer: ctx.writer,
                 config: ctx.config,
                 group: ctx.group,
-                restore_ttl: ctx.restore_ttl,
+                lowering: ctx.lowering,
                 md5sig: ctx.md5sig,
             };
             let bytes_committed = execute_ttl_sensitive_tcp_step(
@@ -2119,7 +2109,6 @@ fn execute_tcp_plan_step(
                 chunk,
                 step_family,
                 step_fallback,
-                ctx.ttl_actions_unavailable,
                 bytes_committed,
             )?;
             Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
@@ -2134,7 +2123,7 @@ fn execute_tcp_plan_step(
                 plan: ctx.plan,
                 fake_packets,
                 resolved_fake_ttl: ctx.resolved_fake_ttl,
-                restore_ttl: ctx.restore_ttl,
+                lowering: ctx.lowering,
                 md5sig: ctx.md5sig,
             };
             execute_tcp_fake_family_step(
@@ -2146,7 +2135,6 @@ fn execute_tcp_plan_step(
                 end,
                 step_family,
                 step_fallback,
-                ctx.ttl_actions_unavailable,
                 bytes_committed,
             )
         }
@@ -2307,10 +2295,9 @@ fn execute_tcp_plan(
             plan,
             seed,
             resolved_fake_ttl,
-            restore_ttl: lowering_caps.restore_ttl,
+            lowering: &mut lowering_caps,
             md5sig,
             fake_packets: fake_packets.as_ref(),
-            ttl_actions_unavailable: &mut lowering_caps.ttl_actions_unavailable,
         };
         let (next_bytes_committed, control) = execute_tcp_plan_step(
             &mut step_ctx,
@@ -2584,56 +2571,11 @@ fn transport_result<T>(result: io::Result<T>) -> Result<T, OutboundSendError> {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn write_payload_with_android_ttl_fallback(
-    writer: &mut TcpStream,
-    bytes: &[u8],
-    restore_ttl: u8,
-    ttl_modified: bool,
-    ttl_actions_unavailable: &mut bool,
-    action: &'static str,
-    strategy_family: &'static str,
-    fallback: Option<&'static str>,
-    bytes_committed: usize,
-) -> Result<(bool, usize), OutboundSendError> {
-    match write_payload_progress(writer, bytes) {
-        Ok(()) => Ok((ttl_modified, bytes_committed + bytes.len())),
-        Err(progress) if ttl_modified && progress.written == 0 && should_ignore_android_ttl_error(&progress.source) => {
-            *ttl_actions_unavailable = true;
-            restore_default_ttl_with_android_fallback_named(
-                writer,
-                restore_ttl,
-                ttl_actions_unavailable,
-                restore_ttl_action_name(strategy_family),
-                strategy_family,
-                fallback,
-                bytes_committed,
-            )?;
-            log_android_desync_fallback(
-                action,
-                fallback.unwrap_or("none"),
-                &strategy_execution_error(action, strategy_family, fallback, bytes_committed, progress.source),
-            );
-            let committed =
-                write_strategy_payload_named(writer, bytes, action, strategy_family, fallback, bytes_committed)?;
-            Ok((false, committed))
-        }
-        Err(progress) => Err(strategy_execution_error(
-            action,
-            strategy_family,
-            fallback,
-            bytes_committed + progress.written,
-            progress.source,
-        )),
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
 fn write_ttl_sensitive_payload_with_optional_flags_named(
+    lowering: &mut TcpLoweringCapabilities,
     writer: &mut TcpStream,
     bytes: &[u8],
-    restore_ttl: u8,
     ttl_modified: bool,
-    ttl_actions_unavailable: &mut bool,
     default_ttl: u8,
     protect_path: Option<&str>,
     md5sig: bool,
@@ -2646,12 +2588,12 @@ fn write_ttl_sensitive_payload_with_optional_flags_named(
 ) -> Result<(bool, usize), OutboundSendError> {
     if flags.is_empty() {
         write_payload_with_android_ttl_fallback(
+            lowering,
             writer,
             bytes,
-            restore_ttl,
             ttl_modified,
-            ttl_actions_unavailable,
             action,
+            restore_ttl_action_name(strategy_family),
             strategy_family,
             fallback,
             bytes_committed,
@@ -2685,41 +2627,6 @@ fn send_oob_action_named(
 ) -> Result<usize, OutboundSendError> {
     strategy_result(send_out_of_band(writer, prefix, urgent_byte), action, strategy_family, fallback, bytes_committed)
         .map(|()| bytes_committed + prefix.len() + 1)
-}
-
-#[allow(clippy::too_many_arguments)]
-fn send_oob_with_android_ttl_fallback(
-    writer: &TcpStream,
-    prefix: &[u8],
-    urgent_byte: u8,
-    restore_ttl: u8,
-    ttl_modified: bool,
-    ttl_actions_unavailable: &mut bool,
-    action: &'static str,
-    strategy_family: &'static str,
-    fallback: Option<&'static str>,
-    bytes_committed: usize,
-) -> Result<(bool, usize), OutboundSendError> {
-    match send_oob_action_named(writer, prefix, urgent_byte, action, strategy_family, fallback, bytes_committed) {
-        Ok(committed) => Ok((ttl_modified, committed)),
-        Err(err) if ttl_modified && should_ignore_android_ttl_error(err.source_error()) => {
-            *ttl_actions_unavailable = true;
-            restore_default_ttl_with_android_fallback_named(
-                writer,
-                restore_ttl,
-                ttl_actions_unavailable,
-                restore_ttl_action_name(strategy_family),
-                strategy_family,
-                fallback,
-                bytes_committed,
-            )?;
-            log_android_desync_fallback(action, fallback.unwrap_or("none"), &err);
-            let committed =
-                send_oob_action_named(writer, prefix, urgent_byte, action, strategy_family, fallback, bytes_committed)?;
-            Ok((false, committed))
-        }
-        Err(err) => Err(err),
-    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2852,76 +2759,6 @@ fn send_ip_fragmented_tcp_action_named(
         bytes_committed,
     )
     .map(|()| bytes_committed + payload.len())
-}
-
-fn set_ttl_action_named(
-    stream: &TcpStream,
-    ttl: u8,
-    action: &'static str,
-    strategy_family: &'static str,
-    fallback: Option<&'static str>,
-    bytes_committed: usize,
-) -> Result<(), OutboundSendError> {
-    strategy_result(set_stream_ttl(stream, ttl), action, strategy_family, fallback, bytes_committed)
-}
-
-fn set_ttl_with_android_fallback_named(
-    stream: &TcpStream,
-    ttl: u8,
-    ttl_actions_unavailable: &mut bool,
-    action: &'static str,
-    strategy_family: &'static str,
-    fallback: Option<&'static str>,
-    bytes_committed: usize,
-) -> Result<bool, OutboundSendError> {
-    if *ttl_actions_unavailable {
-        return Ok(false);
-    }
-
-    match set_ttl_action_named(stream, ttl, action, strategy_family, fallback, bytes_committed) {
-        Ok(()) => Ok(true),
-        Err(err) if should_ignore_android_ttl_error(err.source_error()) => {
-            *ttl_actions_unavailable = true;
-            tracing::warn!("TTL desync action unavailable on this Android build: {err}");
-            Ok(false)
-        }
-        Err(err) => Err(err),
-    }
-}
-
-fn restore_default_ttl_action_named(
-    stream: &TcpStream,
-    ttl: u8,
-    action: &'static str,
-    strategy_family: &'static str,
-    fallback: Option<&'static str>,
-    bytes_committed: usize,
-) -> Result<(), OutboundSendError> {
-    strategy_result(set_stream_ttl(stream, ttl), action, strategy_family, fallback, bytes_committed)
-}
-
-fn restore_default_ttl_with_android_fallback_named(
-    stream: &TcpStream,
-    ttl: u8,
-    ttl_actions_unavailable: &mut bool,
-    action: &'static str,
-    strategy_family: &'static str,
-    fallback: Option<&'static str>,
-    bytes_committed: usize,
-) -> Result<bool, OutboundSendError> {
-    if *ttl_actions_unavailable {
-        return Ok(false);
-    }
-
-    match restore_default_ttl_action_named(stream, ttl, action, strategy_family, fallback, bytes_committed) {
-        Ok(()) => Ok(true),
-        Err(err) if should_ignore_android_ttl_error(err.source_error()) => {
-            *ttl_actions_unavailable = true;
-            tracing::warn!("TTL desync action unavailable on this Android build: {err}");
-            Ok(false)
-        }
-        Err(err) => Err(err),
-    }
 }
 
 fn set_md5sig_transport_action(stream: &TcpStream, key_len: u16) -> Result<(), OutboundSendError> {
@@ -4096,56 +3933,6 @@ mod tests {
     }
 
     #[test]
-    fn set_ttl_with_fallback_success() {
-        let (client, _server) = connected_pair();
-        let mut unavailable = false;
-        let result = set_ttl_with_android_fallback_named(&client, 42, &mut unavailable, "set_ttl", "disorder", None, 0);
-        assert!(result.unwrap());
-        assert!(!unavailable);
-    }
-
-    #[test]
-    fn set_ttl_with_fallback_skips_when_unavailable() {
-        let (client, _server) = connected_pair();
-        let mut unavailable = true;
-        let result = set_ttl_with_android_fallback_named(&client, 42, &mut unavailable, "set_ttl", "disorder", None, 0);
-        assert!(!result.unwrap());
-    }
-
-    #[test]
-    fn restore_ttl_with_fallback_success() {
-        let (client, _server) = connected_pair();
-        let mut unavailable = false;
-        let result = restore_default_ttl_with_android_fallback_named(
-            &client,
-            64,
-            &mut unavailable,
-            "restore_default_ttl",
-            "disorder",
-            None,
-            0,
-        );
-        assert!(result.unwrap());
-        assert!(!unavailable);
-    }
-
-    #[test]
-    fn restore_ttl_with_fallback_skips_when_unavailable() {
-        let (client, _server) = connected_pair();
-        let mut unavailable = true;
-        let result = restore_default_ttl_with_android_fallback_named(
-            &client,
-            64,
-            &mut unavailable,
-            "restore_default_ttl",
-            "disorder",
-            None,
-            0,
-        );
-        assert!(!result.unwrap());
-    }
-
-    #[test]
     fn send_out_of_band_sends_prefix_plus_byte() {
         let (client, _server) = connected_pair();
         let result = send_out_of_band(&client, b"abc", b'!');
@@ -4157,27 +3944,6 @@ mod tests {
         let (client, _server) = connected_pair();
         let result = send_oob_action_named(&client, b"ab", b'!', "send_oob", "oob", None, 10);
         assert_eq!(result.unwrap(), 13); // 10 + 2 + 1
-    }
-
-    #[test]
-    fn write_with_android_fallback_success() {
-        let (mut client, _server) = connected_pair();
-        let mut unavailable = false;
-        let (ttl_modified, committed) = write_payload_with_android_ttl_fallback(
-            &mut client,
-            b"hello",
-            64,
-            true,
-            &mut unavailable,
-            "write_disorder",
-            "disorder",
-            Some("split"),
-            50,
-        )
-        .unwrap();
-        assert!(ttl_modified);
-        assert_eq!(committed, 55); // 50 + 5
-        assert!(!unavailable);
     }
 
     // ---------------------------------------------------------------

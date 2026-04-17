@@ -6,10 +6,9 @@ use std::os::fd::AsRawFd;
 use ripdpi_config::IpIdMode;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use super::{
-    linux, reserve_ipv4_identifications, reserve_stream_ipv4_identifications, root_helper, FakeTcpOptions,
-    OrderedTcpSegment, TcpFlagOverrides, TcpStageWait,
-};
+use super::ipv4_ids::{reserve_ipv4_identifications, reserve_stream_ipv4_identifications};
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use super::{linux, root_helper, FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides, TcpStageWait};
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 use super::{FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides, TcpStageWait};
 

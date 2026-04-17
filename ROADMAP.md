@@ -12,9 +12,10 @@ The audit roadmap tracked in this repository is complete. The items below are no
 
 - Architecture refactor Workstream 0 (Guardrails): COMPLETE.
 - Architecture refactor Workstream 1 (Config Contract): PARTIAL (slices 1.1-1.5 of 8 done).
-- Architecture refactor Workstream 3 (Native Runtime Decomposition): PARTIAL (`execute_tcp_plan`
-  family extractions, dispatcher/control helpers, and grouped `MultiDisorder`
-  preparation landed; lowering/capability/UDP/platform splits remain).
+- Architecture refactor Workstream 3 (Native Runtime Decomposition): COMPLETE
+  (TCP lowering layer, typed capability snapshot, UDP flow split, and platform
+  capability / IPv4-id submodules now sit on top of the earlier executor
+  extraction work).
 - Bypass modernization Workstream 1 (Capability Hygiene): COMPLETE.
 - Bypass modernization Workstream 2 (First-Flight IR): PARTIAL (IR types,
   parser normalization, TCP semantic offsets, QUIC planner migration slices,

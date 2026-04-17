@@ -31,10 +31,10 @@
   remaining work is planner-wide migration, lowering cleanup, and the QUIC
   packetizer work in Workstream 3.
 - **Workstream 3-9:** Not started in this roadmap. Their main runtime
-  prerequisite is still partial: architecture-refactor Workstream 3 removed the
-  old `execute_tcp_plan` monolith shape and made Workstream 2 viable, but the
-  remaining lowering/capability/UDP/platform slices are still the main blocker
-  before more Workstream 2 expansion or Workstream 3 packetizer work. See
+  prerequisite is now complete: architecture-refactor Workstream 3 finished the
+  lowering/capability/UDP/platform split, so the remaining blocker before more
+  Workstream 2 expansion or Workstream 3 packetizer work is the unfinished
+  planner-wide IR migration inside this roadmap. See
   `docs/roadmap-execution-queue.md`.
 
 ## Related Roadmaps
@@ -193,7 +193,8 @@ planner or tactic work could be evaluated credibly.
 currently live in separate planners. That makes cross-layer strategies harder
 to express and encourages feature-specific special cases. This workstream
 lowers onto the seams opened by architecture-refactor Workstream 3 and should
-wait until the remaining lowering/capability/UDP/platform work there is done.
+use that finished runtime split as its base; the remaining dependency is the
+planner-wide IR migration in this roadmap, not more runtime decomposition.
 
 **Current state (2026-04-17):**
 - TLS ClientHello parsing: `ripdpi-packets/src/tls_nom.rs` (25 KB, nom parser
@@ -204,11 +205,11 @@ wait until the remaining lowering/capability/UDP/platform work there is done.
   `QuicInitialInfo`, QUIC v1 and v2 salt constants at lines 27-34).
 - TCP step planner: `ripdpi-desync/src/plan_tcp.rs` (380 lines, `plan_tcp()` entry).
 - UDP step planner: `ripdpi-desync/src/plan_udp.rs` (296 lines, `plan_udp()` entry).
-- Runtime prerequisite status: architecture-refactor Workstream 3 is partial
-  but far enough along for the landed IR foundation, TCP semantic offset
-  migration, terminal fake-step lowering migration, and rewrite goldens. The
-  remaining Workstream 2 planner migration should still wait for Workstream 3's
-  lowering/capability/UDP/platform completion.
+- Runtime prerequisite status: architecture-refactor Workstream 3 is complete.
+  The landed IR foundation, TCP semantic offset migration, terminal fake-step
+  lowering migration, and rewrite goldens now sit on the finished runtime
+  split; the remaining Workstream 2 blocker is planner-wide migration inside
+  `ripdpi-desync`, not more runtime decomposition.
 
 **Shipped scope (2026-04-17):**
 
