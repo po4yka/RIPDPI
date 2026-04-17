@@ -16,6 +16,12 @@ The audit roadmap tracked in this repository is complete. The items below are no
   orchestrator with section codecs, `ripdpi-proxy-config/src/convert.rs`
   reduced to a 147-line dispatcher with dedicated `convert/` builders and a
   legacy payload adapter; Phase 1b landed in `52e4fe2c`).
+- Architecture refactor Workstream 2 (Diagnostics Bounded Context): COMPLETE
+  (Rust diagnosis authority now owns final diagnosis codes in scan
+  finalization, archive rendering is split across `export/` builders,
+  diagnostics contracts live in focused `model/` files, and the home-audit
+  workflow is extracted into `workflow/` collaborators instead of the old
+  services monolith).
 - Architecture refactor Workstream 3 (Native Runtime Decomposition): COMPLETE
   (TCP lowering layer, typed capability snapshot, UDP flow split, and platform
   capability / IPv4-id submodules now sit on top of the earlier executor
@@ -45,8 +51,9 @@ The audit roadmap tracked in this repository is complete. The items below are no
 
 See [`docs/roadmap-execution-queue.md`](docs/roadmap-execution-queue.md) for the
 unified slice list, dependency graph, and the next priority entry points
-(begin Phase 11 TLS shaping and browser-family template work on top of the
-now-complete Phase 5 QUIC packetizer seams).
+(begin architecture Phase 9 UI/settings decomposition and bypass-modernization
+Phase 11 TLS shaping / browser-family template work on top of the now-complete
+Phase 5 QUIC packetizer seams).
 
 ## Completed Workstreams
 

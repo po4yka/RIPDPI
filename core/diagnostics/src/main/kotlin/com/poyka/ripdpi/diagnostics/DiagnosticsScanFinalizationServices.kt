@@ -60,7 +60,6 @@ class ScanFinalizationService
         private val networkEdgePreferenceStore: NetworkEdgePreferenceStore,
         private val networkDnsPathPreferenceStore: NetworkDnsPathPreferenceStore,
         private val serverCapabilityStore: ServerCapabilityStore,
-        private val findingProjector: DiagnosticsFindingProjector,
         @param:Named("diagnosticsJson")
         private val json: Json,
     ) {
@@ -69,21 +68,7 @@ class ScanFinalizationService
             reportJson: String,
         ): ScanFinalizationResult {
             val rawReport = json.decodeEngineScanReportWire(reportJson)
-            val finalizedWire =
-                rawReport.copy(
-                    diagnoses =
-                        if (rawReport.observations.isNotEmpty()) {
-                            findingProjector.classify(rawReport.toScanReport())
-                        } else {
-                            rawReport.diagnoses
-                        },
-                    classifierVersion =
-                        if (rawReport.observations.isNotEmpty()) {
-                            DiagnosticsFindingProjector.ClassifierVersion
-                        } else {
-                            rawReport.classifierVersion
-                        },
-                )
+            val finalizedWire = DiagnosticsDiagnosisAuthority.finalizeReport(rawReport)
             val enrichedReport =
                 DiagnosticsScanWorkflow.enrichScanReport(
                     report = finalizedWire.toScanReport(),
