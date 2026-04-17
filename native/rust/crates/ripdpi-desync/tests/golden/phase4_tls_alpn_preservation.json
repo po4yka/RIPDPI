@@ -1,0 +1,18 @@
+{
+  "input_alpn": [
+    "h2",
+    "http/1.1"
+  ],
+  "input_authority": "www.wikipedia.org",
+  "rewritten_alpn": [
+    "h2",
+    "http/1.1"
+  ],
+  "rewritten_authority": "www.wikipedia.org",
+  "rewritten_record_payload_lengths": [
+    416,
+    32,
+    32,
+    32
+  ]
+}

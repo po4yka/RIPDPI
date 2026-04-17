@@ -154,7 +154,8 @@ Current landed scope: `tls_prelude.rs` now uses the IR for record splitting, and
 Current landed scope: `plan_udp.rs` now routes QUIC SNI split, CRYPTO split, realistic fake-burst generation, and `QuicMultiInitialRealistic` default host/version selection through the normalized QUIC IR instead of falling back to the generic fake TLS host when no explicit override is set.
 | 4.7 | In progress | Move terminal-step and emitter-specific restrictions from planner to lowering | 4.5, 4.6 | Planner has no emitter-specific branches |
 Current landed scope: terminal `FakeSplit` / `FakeDisorder` degradation now stays semantic in `plan_tcp.rs`, while runtime routing in `ripdpi-runtime::runtime::desync` switches those terminal plans into lowering so fail-closed/original-flag behavior is owned by the lowerer rather than the planner.
-| 4.8 | Golden fixtures: TLS record fragmentation, ALPN changes, QUIC CRYPTO splits, ECH/GREASE-preserving rewrites | 4.5, 4.6 | Golden-blesser workflow; fixtures committed |
+| 4.8 | Complete | Golden fixtures: TLS record fragmentation, ALPN changes, QUIC CRYPTO splits, ECH/GREASE-preserving rewrites | 4.5, 4.6 | Golden-blesser workflow; fixtures committed |
+Current landed scope: `ripdpi-desync/tests/golden/phase4_tls_record_fragmentation.json`, `phase4_tls_alpn_preservation.json`, `phase4_quic_crypto_split.json`, and `phase4_tls_ech_grease_preservation.json` now pin the IR-visible rewrite outputs for TLS fragmentation, ALPN-preserving fragmentation, QUIC CRYPTO split layout, and ECH/GREASE-preserving TLS fragmentation.
 
 ## Phase 5 -- QUIC Initial Shaping Subsystem (bypass-modernization W3)
 

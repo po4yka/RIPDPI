@@ -1,0 +1,89 @@
+{
+  "input": {
+    "alpn": [
+      "h2",
+      "http/1.1"
+    ],
+    "authority": "www.wikipedia.org",
+    "authority_span": [
+      153,
+      170
+    ],
+    "grease": {
+      "cipher_suites": [
+        "0x0a0a"
+      ],
+      "extensions": [],
+      "supported_groups": [],
+      "supported_versions": []
+    },
+    "has_ech": true,
+    "record_boundaries": [
+      {
+        "handshake": [
+          5,
+          535
+        ],
+        "header": [
+          0,
+          5
+        ],
+        "payload": [
+          5,
+          535
+        ]
+      }
+    ],
+    "record_payload_lengths": [
+      530
+    ],
+    "tcp_segment_boundaries": [
+      535
+    ]
+  },
+  "rewritten": {
+    "alpn": [
+      "h2",
+      "http/1.1"
+    ],
+    "authority": "www.wikipedia.org",
+    "authority_span": [
+      153,
+      170
+    ],
+    "grease": {
+      "cipher_suites": [
+        "0x0a0a"
+      ],
+      "extensions": [],
+      "supported_groups": [],
+      "supported_versions": []
+    },
+    "has_ech": true,
+    "record_boundaries": [
+      {
+        "handshake": [
+          5,
+          535
+        ],
+        "header": [
+          0,
+          5
+        ],
+        "payload": [
+          5,
+          439
+        ]
+      }
+    ],
+    "record_payload_lengths": [
+      434,
+      32,
+      32,
+      32
+    ],
+    "tcp_segment_boundaries": [
+      439
+    ]
+  }
+}
