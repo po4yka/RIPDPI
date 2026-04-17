@@ -174,12 +174,19 @@ Mode: `Team` with `/deep-interview` on 5.1.
 
 Mode: `Ralph`. Parallel-safe with Phase 4/5 after Phase 2 lands.
 
+Current status (2026-04-17): slices 6.1, the monitor-facing half of 6.2, and
+the diagnostic-gating half of 6.4 are landed. `ripdpi-monitor` now records
+multi-oracle trust/confidence and refuses to classify fallback-only encrypted
+DNS answers as trusted oracle evidence. Remaining work is resolver-policy
+integration (`ripdpi-dns-resolver`), network-identity ranking, and broader
+variance coverage.
+
 | Slice | Scope | Depends on | Verify gate |
 |-------|-------|------------|-------------|
 | 6.1 | Replace `dns_substitution` single no-overlap rule with richer outcome classes: exact, compatible divergence, suspicious divergence, sinkhole, NXDOMAIN mismatch, oracle unavailable | Phase 2 | Unit tests across all outcome classes |
-| 6.2 | Multi-oracle confidence scoring wired into `resolver.rs` | 6.1 | Multi-resolver disagreement test |
+| 6.2 | Multi-oracle confidence scoring wired into `resolver.rs` (monitor-side trust scoring landed first) | 6.1 | Multi-resolver disagreement test |
 | 6.3 | Network-identity-keyed resolver ranking (wifi/cellular x ipv4/ipv6 x operator x transport) | 6.2 | Network handover scenario test |
-| 6.4 | Oracle-health gating before using encrypted result as diagnostic reference | 6.2 | Quarantine test; failures do not retrain strategy system |
+| 6.4 | Oracle-health gating before using encrypted result as diagnostic reference (monitor/strategy gating landed; resolver quarantine remains) | 6.2 | Quarantine test; failures do not retrain strategy system |
 | 6.5 | DDR/HTTPS/SVCB-driven resolver discovery (stretch) | 6.3 | Integration test with mock HTTPS record |
 | 6.6 | Hedged queries restricted to bootstrap/failover/diagnostics only | 6.2 | Profiling confirms hedge scope reduced |
 | 6.7 | Test suite: CDN variance, IPv4/IPv6 asymmetry, partial overlap, multi-resolver disagreement | 6.1-6.4 | `coverage-reporter`; target metrics defined in 4.1-style design |
@@ -187,6 +194,11 @@ Mode: `Ralph`. Parallel-safe with Phase 4/5 after Phase 2 lands.
 ## Phase 7 -- Service + Relay Decomposition (architecture W4)
 
 Mode: `Team`. Parallel-safe with Phase 6.
+
+Current status (2026-04-17): slices 7.3 and 7.4 are landed. Relay runtime
+config shaping is now split behind per-kind resolvers and focused tests, while
+the lifecycle-state, retry/backoff, watchdog, and shared runtime-start/stop
+work remains open in 7.1, 7.2, and 7.5.
 
 | Slice | Scope | Depends on | Verify gate |
 |-------|-------|------------|-------------|
