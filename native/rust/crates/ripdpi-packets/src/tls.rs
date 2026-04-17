@@ -1,7 +1,7 @@
-use crate::types::{OracleRng, PacketMutation, TlsMarkerInfo};
+use crate::types::{OracleRng, PacketMutation, TlsClientHelloLayout, TlsExtensionInfo, TlsMarkerInfo};
 use crate::util::{copy_name_seeded, fill_random_tls_host_like_c, read_u16, read_u24, write_u16, write_u24};
 
-pub(crate) const TLS_RECORD_HEADER_LEN: usize = 5;
+pub const TLS_RECORD_HEADER_LEN: usize = 5;
 
 fn find_tls_ext_offset(kind: u16, data: &[u8], mut skip: usize) -> Option<usize> {
     if data.len() <= skip + 2 {
@@ -214,6 +214,41 @@ pub fn parse_tls(buffer: &[u8]) -> Option<&[u8]> {
 
 pub fn tls_marker_info(buffer: &[u8]) -> Option<TlsMarkerInfo> {
     tls_client_hello_marker_info_in_record(buffer)
+}
+
+pub fn parse_tls_client_hello_layout(buffer: &[u8]) -> Option<TlsClientHelloLayout> {
+    let parsed = crate::tls_nom::parse_client_hello_record(buffer)?;
+    let markers = crate::tls_nom::to_marker_info(&parsed, buffer.len())?;
+    let record_payload_len = read_u16(buffer, 3)?;
+    let handshake_payload_len = read_u24(buffer, 6)?;
+    let extensions = parsed
+        .extensions
+        .iter()
+        .map(|ext| TlsExtensionInfo {
+            ext_type: ext.ext_type,
+            type_offset: ext.type_offset,
+            data_offset: ext.type_offset + 4,
+            data_len: ext.data.len(),
+        })
+        .collect();
+    Some(TlsClientHelloLayout { markers, record_payload_len, handshake_payload_len, extensions })
+}
+
+pub fn parse_tls_client_hello_handshake_layout(buffer: &[u8]) -> Option<TlsClientHelloLayout> {
+    let parsed = crate::tls_nom::parse_client_hello_handshake(buffer)?;
+    let markers = crate::tls_nom::to_marker_info(&parsed, buffer.len())?;
+    let handshake_payload_len = read_u24(buffer, 1)?;
+    let extensions = parsed
+        .extensions
+        .iter()
+        .map(|ext| TlsExtensionInfo {
+            ext_type: ext.ext_type,
+            type_offset: ext.type_offset,
+            data_offset: ext.type_offset + 4,
+            data_len: ext.data.len(),
+        })
+        .collect();
+    Some(TlsClientHelloLayout { markers, record_payload_len: 0, handshake_payload_len, extensions })
 }
 
 pub fn tls_session_id_mismatch(req: &[u8], resp: &[u8]) -> bool {

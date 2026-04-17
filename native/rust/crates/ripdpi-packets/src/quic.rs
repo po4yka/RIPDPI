@@ -6,7 +6,10 @@ use ring::hkdf::{self, KeyType, Salt, HKDF_SHA256};
 use crate::tls::{
     change_tls_sni_seeded_like_c, is_tls_client_hello, tls_client_hello_marker_info_in_handshake, TLS_RECORD_HEADER_LEN,
 };
-use crate::types::{QuicInitialInfo, DEFAULT_FAKE_QUIC_COMPAT_LEN, DEFAULT_FAKE_TLS, QUIC_V1_VERSION, QUIC_V2_VERSION};
+use crate::types::{
+    QuicCryptoFrameInfo, QuicInitialInfo, QuicInitialLayout, DEFAULT_FAKE_QUIC_COMPAT_LEN, DEFAULT_FAKE_TLS,
+    QUIC_V1_VERSION, QUIC_V2_VERSION,
+};
 use crate::util::{read_u16, read_u32};
 
 struct HkdfLen(usize);
@@ -335,11 +338,9 @@ fn decrypt_quic_initial_payload(buffer: &[u8], header: QuicInitialHeader<'_>) ->
     Some(plaintext.to_vec())
 }
 
-fn defrag_quic_crypto_frames(payload: &[u8]) -> Option<(Vec<u8>, bool)> {
-    // First pass: collect frame (offset, payload_start, len) tuples without cloning data.
-    let mut frames: Vec<(usize, usize, usize)> = Vec::new();
+fn collect_quic_crypto_frames(payload: &[u8]) -> Option<Vec<QuicCryptoFrameInfo>> {
+    let mut frames = Vec::new();
     let mut cursor = 0usize;
-    let mut max_end = 0usize;
 
     while cursor < payload.len() {
         match payload[cursor] {
@@ -362,31 +363,33 @@ fn defrag_quic_crypto_frames(payload: &[u8]) -> Option<(Vec<u8>, bool)> {
                 if piece_end > QUIC_MAX_CRYPTO_LEN {
                     return None;
                 }
-                max_end = max_end.max(piece_end);
-                frames.push((offset, cursor, frame_len));
+                frames.push(QuicCryptoFrameInfo { crypto_offset: offset, data_offset: cursor, data_len: frame_len });
                 cursor = end;
             }
             _ => return None,
         }
     }
 
-    if frames.is_empty() || max_end == 0 {
-        return None;
-    }
+    (!frames.is_empty()).then_some(frames)
+}
+
+fn defrag_quic_crypto_frames(payload: &[u8]) -> Option<(Vec<u8>, bool)> {
+    let frames = collect_quic_crypto_frames(payload)?;
+    let max_end = frames.iter().map(|frame| frame.crypto_offset + frame.data_len).max().unwrap_or(0);
 
     // Fast path: single contiguous frame at offset 0 (the common case).
-    if frames.len() == 1 && frames[0].0 == 0 {
-        let (_, start, len) = frames[0];
-        return Some((payload[start..start + len].to_vec(), true));
+    if frames.len() == 1 && frames[0].crypto_offset == 0 {
+        let frame = frames[0];
+        return Some((payload[frame.data_offset..frame.data_offset + frame.data_len].to_vec(), true));
     }
 
     // General case: reassemble from multiple/scattered frames.
     let mut data = vec![0u8; max_end];
     let mut covered = vec![false; max_end];
-    for (offset, start, len) in frames {
-        let end = offset + len;
-        data[offset..end].copy_from_slice(&payload[start..start + len]);
-        covered[offset..end].fill(true);
+    for frame in frames {
+        let end = frame.crypto_offset + frame.data_len;
+        data[frame.crypto_offset..end].copy_from_slice(&payload[frame.data_offset..frame.data_offset + frame.data_len]);
+        covered[frame.crypto_offset..end].fill(true);
     }
 
     Some((data, covered.iter().all(|c| *c)))
@@ -405,6 +408,19 @@ pub fn parse_quic_initial(buffer: &[u8]) -> Option<QuicInitialInfo> {
     }
     let tls_info = tls_client_hello_marker_info_in_handshake(&client_hello)?;
     Some(QuicInitialInfo { version: header.version, client_hello, tls_info, is_crypto_complete })
+}
+
+pub fn parse_quic_initial_layout(buffer: &[u8]) -> Option<QuicInitialLayout> {
+    let header = parse_quic_initial_header(buffer)?;
+    let payload = decrypt_quic_initial_payload(buffer, header)?;
+    let crypto_frames = collect_quic_crypto_frames(&payload)?;
+    let (client_hello, is_crypto_complete) = defrag_quic_crypto_frames(&payload)?;
+    if !is_crypto_complete {
+        return None;
+    }
+    let tls_info = tls_client_hello_marker_info_in_handshake(&client_hello)?;
+    let info = QuicInitialInfo { version: header.version, client_hello, tls_info, is_crypto_complete };
+    Some(QuicInitialLayout { info, crypto_frames })
 }
 
 /// Re-encrypt a QUIC Initial packet with the TLS ClientHello split across
