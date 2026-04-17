@@ -1,3 +1,4 @@
+use crate::normalize_tls_client_hello;
 use crate::offset::{gen_offset, insert_boundary, random_tail_fragment_lengths, resolve_adaptive_offset};
 use crate::types::{
     activation_filter_matches, ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints,
@@ -15,14 +16,21 @@ struct TlsPreludeState {
 
 impl TlsPreludeState {
     fn from_record(buffer: &[u8]) -> Option<Self> {
-        if !is_tls_client_hello(buffer) || buffer.len() < 5 {
+        let ir = normalize_tls_client_hello(buffer)?;
+        let header = [*buffer.get(0)?, *buffer.get(1)?, *buffer.get(2)?];
+        let mut payload = Vec::new();
+        let mut boundaries = Vec::with_capacity(ir.record_boundaries.len());
+
+        for boundary in &ir.record_boundaries {
+            payload.extend_from_slice(buffer.get(boundary.payload.clone())?);
+            boundaries.push(payload.len());
+        }
+
+        if payload.is_empty() || boundaries.last().copied() != Some(payload.len()) {
             return None;
         }
-        Some(Self {
-            header: [buffer[0], buffer[1], buffer[2]],
-            payload: buffer[5..].to_vec(),
-            boundaries: vec![buffer.len() - 5],
-        })
+
+        Some(Self { header, payload, boundaries })
     }
 
     fn synthetic_record(&self) -> Option<Vec<u8>> {
@@ -254,9 +262,7 @@ pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<Tamp
             transport: ActivationTransport::Tcp,
             tcp_segment_hint: None,
             tcp_state: ActivationTcpState {
-                has_ech: Some(
-                    ripdpi_packets::tls_marker_info(input).and_then(|markers| markers.ech_ext_start).is_some(),
-                ),
+                has_ech: normalize_tls_client_hello(input).map(|ir| ir.has_ech),
                 ..ActivationTcpState::default()
             },
             resolved_fake_ttl: None,

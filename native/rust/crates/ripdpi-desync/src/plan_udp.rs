@@ -1,11 +1,39 @@
+use crate::normalize_quic_initial;
 use crate::types::{activation_filter_matches, ActivationContext, AdaptiveUdpBurstProfile, DesyncAction};
 use ring::rand::{SecureRandom, SystemRandom};
 use ripdpi_config::{DesyncGroup, QuicFakeProfile, UdpChainStep, UdpChainStepKind};
 use ripdpi_ipfrag::Ipv6ExtHeaders;
 use ripdpi_packets::{
-    build_realistic_quic_initial, default_fake_quic_compat, parse_quic_initial, tamper_quic_initial_split_sni,
-    tamper_quic_version, udp_fake_profile_bytes, QuicInitialInfo,
+    build_realistic_quic_initial, default_fake_quic_compat, tamper_quic_initial_split_sni, tamper_quic_version,
+    udp_fake_profile_bytes,
 };
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct NormalizedQuicPlannerInput {
+    version: u32,
+    authority_split_offset: usize,
+    crypto_split_offset: usize,
+    client_hello_len: usize,
+}
+
+fn normalized_quic_plan_input(payload: &[u8]) -> Option<NormalizedQuicPlannerInput> {
+    let ir = normalize_quic_initial(payload)?;
+    let client_hello_len = ir.tls_client_hello.raw.len();
+    let crypto_split_offset = ir
+        .desired
+        .crypto_frame_boundaries
+        .first()
+        .copied()
+        .filter(|offset| *offset > 0 && *offset < client_hello_len)
+        .unwrap_or_else(|| (client_hello_len / 2).max(1));
+
+    Some(NormalizedQuicPlannerInput {
+        version: ir.version,
+        authority_split_offset: ir.tls_client_hello.authority_span.start,
+        crypto_split_offset,
+        client_hello_len,
+    })
+}
 
 fn ipv6_ext_from_udp_step(step: &UdpChainStep) -> Ipv6ExtHeaders {
     Ipv6ExtHeaders {
@@ -28,7 +56,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
         actions.push(DesyncAction::AttachDropSack);
     }
     if !chain.is_empty() {
-        let parsed_quic = parse_quic_initial(payload);
+        let normalized_quic = normalized_quic_plan_input(payload);
         let mut fake_burst_payload = None;
         for step in chain {
             if !activation_filter_matches(step.activation_filter, context) {
@@ -40,38 +68,38 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
             let prelude_packets = match step.kind {
                 UdpChainStepKind::FakeBurst => {
                     let fake = fake_burst_payload
-                        .get_or_insert_with(|| udp_fake_payload(group, payload, context, parsed_quic.as_ref()))
+                        .get_or_insert_with(|| udp_fake_payload(group, payload, context, normalized_quic.as_ref()))
                         .clone();
                     let burst_count = adjusted_udp_burst_count(step.count, context) as usize;
                     vec![fake; burst_count]
                 }
                 UdpChainStepKind::DummyPrepend => build_dummy_prepend_packets(step.count as usize),
                 UdpChainStepKind::QuicSniSplit => {
-                    build_quic_sni_split_packets(payload, parsed_quic.as_ref(), step.count)
+                    build_quic_sni_split_packets(payload, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::QuicFakeVersion => {
-                    build_quic_fake_version_packets(group, payload, parsed_quic.as_ref(), step.count)
+                    build_quic_fake_version_packets(group, payload, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::QuicCryptoSplit => {
-                    build_quic_crypto_split_packets(payload, parsed_quic.as_ref(), step.count)
+                    build_quic_crypto_split_packets(payload, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::QuicPaddingLadder => {
-                    build_quic_padding_ladder_packets(payload, parsed_quic.as_ref(), step.count)
+                    build_quic_padding_ladder_packets(payload, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::QuicCidChurn => {
-                    build_quic_cid_churn_packets(payload, parsed_quic.as_ref(), step.count)
+                    build_quic_cid_churn_packets(payload, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::QuicPacketNumberGap => {
-                    build_quic_packet_number_gap_packets(payload, parsed_quic.as_ref(), step.count)
+                    build_quic_packet_number_gap_packets(payload, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::QuicVersionNegotiationDecoy => {
-                    build_quic_version_negotiation_decoy_packets(payload, parsed_quic.as_ref(), step.count)
+                    build_quic_version_negotiation_decoy_packets(payload, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::QuicMultiInitialRealistic => {
-                    build_quic_multi_initial_realistic_packets(group, payload, parsed_quic.as_ref(), step.count)
+                    build_quic_multi_initial_realistic_packets(group, payload, normalized_quic.as_ref(), step.count)
                 }
                 UdpChainStepKind::IpFrag2Udp => {
-                    if context.round == 1 && parsed_quic.is_some() && step.split_bytes > 0 {
+                    if context.round == 1 && normalized_quic.is_some() && step.split_bytes > 0 {
                         actions.push(DesyncAction::WriteIpFragmentedUdp {
                             bytes: payload.to_vec(),
                             split_offset: step.split_bytes as usize,
@@ -130,11 +158,15 @@ fn build_dummy_prepend_packets(count: usize) -> Vec<Vec<u8>> {
         .collect()
 }
 
-fn build_quic_sni_split_packets(payload: &[u8], parsed_quic: Option<&QuicInitialInfo>, count: i32) -> Vec<Vec<u8>> {
-    let Some(parsed_quic) = parsed_quic else {
+fn build_quic_sni_split_packets(
+    payload: &[u8],
+    normalized_quic: Option<&NormalizedQuicPlannerInput>,
+    count: i32,
+) -> Vec<Vec<u8>> {
+    let Some(normalized_quic) = normalized_quic else {
         return Vec::new();
     };
-    let Some(packet) = tamper_quic_initial_split_sni(payload, parsed_quic.tls_info.host_start) else {
+    let Some(packet) = tamper_quic_initial_split_sni(payload, normalized_quic.authority_split_offset) else {
         return Vec::new();
     };
     vec![packet; count as usize]
@@ -143,10 +175,10 @@ fn build_quic_sni_split_packets(payload: &[u8], parsed_quic: Option<&QuicInitial
 fn build_quic_fake_version_packets(
     group: &DesyncGroup,
     payload: &[u8],
-    parsed_quic: Option<&QuicInitialInfo>,
+    normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
-    if parsed_quic.is_none() {
+    if normalized_quic.is_none() {
         return Vec::new();
     }
     let Some(packet) = tamper_quic_version(payload, group.actions.quic_fake_version) else {
@@ -155,11 +187,15 @@ fn build_quic_fake_version_packets(
     vec![packet; count as usize]
 }
 
-fn build_quic_crypto_split_packets(payload: &[u8], parsed_quic: Option<&QuicInitialInfo>, count: i32) -> Vec<Vec<u8>> {
-    let Some(parsed_quic) = parsed_quic else {
+fn build_quic_crypto_split_packets(
+    payload: &[u8],
+    normalized_quic: Option<&NormalizedQuicPlannerInput>,
+    count: i32,
+) -> Vec<Vec<u8>> {
+    let Some(normalized_quic) = normalized_quic else {
         return Vec::new();
     };
-    let split_at = (parsed_quic.client_hello.len() / 2).max(1);
+    let split_at = normalized_quic.crypto_split_offset.min(normalized_quic.client_hello_len.saturating_sub(1));
     let Some(packet) = tamper_quic_initial_split_sni(payload, split_at) else {
         return Vec::new();
     };
@@ -168,10 +204,10 @@ fn build_quic_crypto_split_packets(payload: &[u8], parsed_quic: Option<&QuicInit
 
 fn build_quic_padding_ladder_packets(
     payload: &[u8],
-    parsed_quic: Option<&QuicInitialInfo>,
+    normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
-    if parsed_quic.is_none() {
+    if normalized_quic.is_none() {
         return Vec::new();
     }
     (0..count.max(1) as usize)
@@ -183,8 +219,12 @@ fn build_quic_padding_ladder_packets(
         .collect()
 }
 
-fn build_quic_cid_churn_packets(payload: &[u8], parsed_quic: Option<&QuicInitialInfo>, count: i32) -> Vec<Vec<u8>> {
-    let Some(parsed_quic) = parsed_quic else {
+fn build_quic_cid_churn_packets(
+    payload: &[u8],
+    normalized_quic: Option<&NormalizedQuicPlannerInput>,
+    count: i32,
+) -> Vec<Vec<u8>> {
+    let Some(normalized_quic) = normalized_quic else {
         return Vec::new();
     };
     let base_offset = 6usize.min(payload.len().saturating_sub(1));
@@ -193,7 +233,7 @@ fn build_quic_cid_churn_packets(payload: &[u8], parsed_quic: Option<&QuicInitial
             let mut packet = payload.to_vec();
             let mutate_at = base_offset.min(packet.len().saturating_sub(1));
             if !packet.is_empty() {
-                packet[mutate_at] ^= (idx as u8).wrapping_add(parsed_quic.version as u8).max(1);
+                packet[mutate_at] ^= (idx as u8).wrapping_add(normalized_quic.version as u8).max(1);
             }
             packet
         })
@@ -202,10 +242,10 @@ fn build_quic_cid_churn_packets(payload: &[u8], parsed_quic: Option<&QuicInitial
 
 fn build_quic_packet_number_gap_packets(
     payload: &[u8],
-    parsed_quic: Option<&QuicInitialInfo>,
+    normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
-    if parsed_quic.is_none() || payload.is_empty() {
+    if normalized_quic.is_none() || payload.is_empty() {
         return Vec::new();
     }
     (0..count.max(1) as usize)
@@ -220,13 +260,13 @@ fn build_quic_packet_number_gap_packets(
 
 fn build_quic_version_negotiation_decoy_packets(
     payload: &[u8],
-    parsed_quic: Option<&QuicInitialInfo>,
+    normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
-    let Some(parsed_quic) = parsed_quic else {
+    let Some(normalized_quic) = normalized_quic else {
         return Vec::new();
     };
-    let version = parsed_quic.version ^ 0x0f0f_0f0f;
+    let version = normalized_quic.version ^ 0x0f0f_0f0f;
     let Some(packet) = tamper_quic_version(payload, version) else {
         return Vec::new();
     };
@@ -236,14 +276,15 @@ fn build_quic_version_negotiation_decoy_packets(
 fn build_quic_multi_initial_realistic_packets(
     group: &DesyncGroup,
     payload: &[u8],
-    parsed_quic: Option<&QuicInitialInfo>,
+    normalized_quic: Option<&NormalizedQuicPlannerInput>,
     count: i32,
 ) -> Vec<Vec<u8>> {
-    let Some(parsed_quic) = parsed_quic else {
+    let Some(normalized_quic) = normalized_quic else {
         return Vec::new();
     };
     let fake_host = group.actions.quic_fake_host.as_deref();
-    let realistic = build_realistic_quic_initial(parsed_quic.version, fake_host).unwrap_or_else(|| payload.to_vec());
+    let realistic =
+        build_realistic_quic_initial(normalized_quic.version, fake_host).unwrap_or_else(|| payload.to_vec());
     (0..count.max(2) as usize)
         .map(|idx| {
             if idx % 2 == 0 {
@@ -263,11 +304,11 @@ fn udp_fake_payload(
     group: &DesyncGroup,
     _payload: &[u8],
     context: ActivationContext,
-    parsed_quic: Option<&QuicInitialInfo>,
+    normalized_quic: Option<&NormalizedQuicPlannerInput>,
 ) -> Vec<u8> {
     let quic_fake_profile = context.adaptive.quic_fake_profile.unwrap_or(group.actions.quic_fake_profile);
     if quic_fake_profile != QuicFakeProfile::Disabled {
-        if let Some(quic) = parsed_quic {
+        if let Some(quic) = normalized_quic {
             match quic_fake_profile {
                 QuicFakeProfile::Disabled => {}
                 QuicFakeProfile::CompatDefault => return default_fake_quic_compat(),
