@@ -6,7 +6,7 @@ The earlier phase split (`P0` through `P3`) was useful while the transport and c
 
 Cross-roadmap status (2026-04-17): bypass-modernization Workstream 1 is
 complete, bypass-modernization Workstream 2 is partial, bypass-modernization
-Workstream 4 is complete, architecture-refactor Workstream 1 is partial,
+Workstream 4 is complete, architecture-refactor Workstream 1 is complete,
 architecture-refactor Workstream 3 is complete, and architecture-refactor
 Workstream 4 is complete. The active work here remains rollout validation,
 operational hardening, and catalog freshness.
