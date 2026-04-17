@@ -115,6 +115,8 @@ fn apply_tamper_tlsrec_ech_extension_splits_record_at_ech_boundary() {
     let tampered = apply_tamper(&group, &payload, 7).expect("tamper tlsrec echext");
 
     assert_eq!(tls_record_lengths(&tampered.bytes), vec![ech_offset - 5, payload.len() - ech_offset]);
+    assert_eq!(tampered.proto.kind, ripdpi_packets::IS_HTTPS);
+    assert!(tampered.proto.tls.is_some());
 }
 
 #[test]

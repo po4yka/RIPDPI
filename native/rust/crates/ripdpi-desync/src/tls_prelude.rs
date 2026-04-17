@@ -1,11 +1,12 @@
 use crate::normalize_tls_client_hello;
 use crate::offset::{gen_offset, insert_boundary, random_tail_fragment_lengths, resolve_adaptive_offset};
+use crate::proto::init_proto_info;
 use crate::types::{
     activation_filter_matches, ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints,
     AdaptiveTlsRandRecProfile, DesyncError, ProtoInfo, TamperResult, TcpSegmentHint,
 };
 use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind};
-use ripdpi_packets::{is_http, is_tls_client_hello, mod_http_inplace, OracleRng};
+use ripdpi_packets::{mod_http_inplace, OracleRng, IS_HTTP};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TlsPreludeState {
@@ -208,14 +209,19 @@ pub(crate) fn apply_tls_prelude_steps(
     context: ActivationContext,
 ) -> Result<TamperResult, DesyncError> {
     let mut output = input.to_vec();
-    let info = ProtoInfo::default();
+    let mut info = ProtoInfo::default();
+    init_proto_info(&output, &mut info);
 
-    if group.actions.mod_http != 0 && is_http(&output) {
+    if group.actions.mod_http != 0 && info.kind == IS_HTTP {
         mod_http_inplace(&mut output, group.actions.mod_http);
+        info = ProtoInfo::default();
+        init_proto_info(&output, &mut info);
     }
     if let Some(tlsminor) = group.actions.tlsminor {
-        if is_tls_client_hello(&output) && output.len() > 2 {
+        if info.tls.is_some() && output.len() > 2 {
             output[2] = tlsminor;
+            info = ProtoInfo::default();
+            init_proto_info(&output, &mut info);
         }
     }
     if !prelude_steps.is_empty() {
@@ -238,6 +244,8 @@ pub(crate) fn apply_tls_prelude_steps(
             }
             if changed {
                 output = state.serialize()?;
+                info = ProtoInfo::default();
+                init_proto_info(&output, &mut info);
             }
         }
     }
