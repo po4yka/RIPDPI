@@ -26,8 +26,13 @@
   executor extraction work. `desync.rs` is still large, but the architectural
   seam this workstream was meant to create is now in place.
 - **Workstream 4 (Service And Relay Orchestration):** COMPLETE.
-- **Workstream 2, 5-8:** Not started. See `docs/roadmap-execution-queue.md`
-  for the unified slice list and dependency graph.
+- **Workstream 2 (Diagnostics Bounded Context):** COMPLETE. Rust diagnosis
+  authority now owns final diagnoses in finalization, archive rendering is
+  split under `export/`, home-audit orchestration is extracted under
+  `workflow/`, diagnostics contracts are split under `model/`, and the package
+  reorg now includes `application/`, `queries/`, and `recommendation/` seams.
+- **Workstream 5-8:** Not started. See `docs/roadmap-execution-queue.md` for
+  the unified slice list and dependency graph.
 
 ## Related Roadmaps
 
@@ -356,11 +361,12 @@ the largest source-of-truth problem in the project.
 - `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/model/`
 - `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsServicesImpl.kt`
 - `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsArchiveRenderer.kt`
+- `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/application/`
 - `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/`
-- `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsScanFinalizationServices.kt`
 - `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/finalization/`
+- `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/queries/`
+- `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/recommendation/`
 - `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/workflow/`
-- `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsFindingProjector.kt`
 - `native/rust/crates/ripdpi-monitor/src/classification/diagnosis.rs`
 
 **Completed scope**
@@ -369,6 +375,14 @@ the largest source-of-truth problem in the project.
   removed Kotlin-side dual classification from scan finalization.
 - [x] Added a focused `finalization/` seam so final-diagnosis ownership is
   explicit instead of being buried in a giant service file.
+- [x] Completed the package reorg for the active diagnostics seams:
+  - `application/`
+  - `export/`
+  - `finalization/`
+  - `model/`
+  - `queries/`
+  - `recommendation/`
+  - existing `domain/` / `presentation/`
 - [x] Split archive rendering into dedicated entry builders under `export/`:
   - JSON entry builder
   - CSV entry builder

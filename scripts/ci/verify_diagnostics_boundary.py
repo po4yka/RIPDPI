@@ -11,9 +11,22 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DIAGNOSTICS_BUILD_FILE = Path("core/diagnostics/build.gradle.kts")
 DIAGNOSTICS_MAIN_ROOT = Path("core/diagnostics/src/main")
+DIAGNOSTICS_PACKAGE_ROOT = (
+    DIAGNOSTICS_MAIN_ROOT / "kotlin/com/poyka/ripdpi/diagnostics"
+)
 SERVICE_GRADLE_DEP_RE = re.compile(r'project\(\s*":core:service"\s*\)')
 SERVICE_PACKAGE_REF_RE = re.compile(r"\bcom\.poyka\.ripdpi\.services\b")
 SOURCE_SUFFIXES = {".kt", ".kts", ".java"}
+REQUIRED_DIAGNOSTICS_DIRS = (
+    "application",
+    "domain",
+    "export",
+    "finalization",
+    "model",
+    "presentation",
+    "queries",
+    "recommendation",
+)
 
 
 @dataclass(frozen=True)
@@ -52,10 +65,25 @@ def source_reference_violations(repo_root: Path) -> list[Violation]:
     return violations
 
 
+def package_layout_violations(repo_root: Path) -> list[Violation]:
+    package_root = repo_root / DIAGNOSTICS_PACKAGE_ROOT
+    violations: list[Violation] = []
+    for relative_dir in REQUIRED_DIAGNOSTICS_DIRS:
+        if not (package_root / relative_dir).is_dir():
+            violations.append(
+                Violation(
+                    path=DIAGNOSTICS_PACKAGE_ROOT.as_posix(),
+                    message=f"diagnostics package layout missing required directory '{relative_dir}'",
+                )
+            )
+    return violations
+
+
 def collect_violations(repo_root: Path) -> list[Violation]:
     return [
         *gradle_dependency_violations(repo_root),
         *source_reference_violations(repo_root),
+        *package_layout_violations(repo_root),
     ]
 
 
