@@ -2089,6 +2089,12 @@ struct TcpPlanStepExecContext<'a> {
     ttl_actions_unavailable: &'a mut bool,
 }
 
+enum TcpPlanLoopControl {
+    Continue,
+    Break,
+    AdvanceToStepEnd,
+}
+
 fn tcp_step_strategy_family(kind: TcpChainStepKind, strategy_family: Option<&'static str>) -> &'static str {
     match kind {
         TcpChainStepKind::Split | TcpChainStepKind::SynData => "split",
@@ -2239,6 +2245,42 @@ fn execute_tcp_plan_step(
     }
 }
 
+fn handle_tcp_plan_step_control(
+    kind: TcpChainStepKind,
+    control: TcpStepControl,
+    configured_step: &TcpChainStep,
+    index: usize,
+    total_steps: usize,
+    break_cursor: usize,
+    cursor: &mut usize,
+) -> TcpPlanLoopControl {
+    match control {
+        TcpStepControl::ContinueAt(next_cursor)
+            if matches!(
+                kind,
+                TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder
+            ) =>
+        {
+            *cursor = next_cursor;
+            if configured_step.inter_segment_delay_ms > 0 && index + 1 < total_steps {
+                std::thread::sleep(Duration::from_millis(u64::from(configured_step.inter_segment_delay_ms.min(500))));
+            }
+            TcpPlanLoopControl::Continue
+        }
+        TcpStepControl::ContinueAt(next_cursor)
+            if matches!(kind, TcpChainStepKind::HostFake | TcpChainStepKind::FakeRst) =>
+        {
+            *cursor = next_cursor;
+            TcpPlanLoopControl::Continue
+        }
+        TcpStepControl::ContinueAt(_) => TcpPlanLoopControl::AdvanceToStepEnd,
+        TcpStepControl::BreakPlan => {
+            *cursor = break_cursor;
+            TcpPlanLoopControl::Break
+        }
+    }
+}
+
 fn execute_tcp_plan(
     writer: &mut TcpStream,
     config: &RuntimeConfig,
@@ -2329,32 +2371,18 @@ fn execute_tcp_plan(
             bytes_committed,
         )?;
         bytes_committed = next_bytes_committed;
-        match control {
-            TcpStepControl::ContinueAt(next_cursor)
-                if matches!(
-                    step.kind,
-                    TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder
-                ) =>
-            {
-                cursor = next_cursor;
-                if configured_step.inter_segment_delay_ms > 0 && index + 1 < plan.steps.len() {
-                    std::thread::sleep(Duration::from_millis(u64::from(
-                        configured_step.inter_segment_delay_ms.min(500),
-                    )));
-                }
-                continue;
-            }
-            TcpStepControl::ContinueAt(next_cursor)
-                if matches!(step.kind, TcpChainStepKind::HostFake | TcpChainStepKind::FakeRst) =>
-            {
-                cursor = next_cursor;
-                continue;
-            }
-            TcpStepControl::ContinueAt(_) => {}
-            TcpStepControl::BreakPlan => {
-                cursor = plan.tampered.len();
-                break;
-            }
+        match handle_tcp_plan_step_control(
+            step.kind,
+            control,
+            configured_step,
+            index,
+            plan.steps.len(),
+            plan.tampered.len(),
+            &mut cursor,
+        ) {
+            TcpPlanLoopControl::Continue => continue,
+            TcpPlanLoopControl::Break => break,
+            TcpPlanLoopControl::AdvanceToStepEnd => {}
         }
         if configured_step.inter_segment_delay_ms > 0 && index + 1 < plan.steps.len() {
             std::thread::sleep(Duration::from_millis(u64::from(configured_step.inter_segment_delay_ms.min(500))));
@@ -4481,6 +4509,63 @@ mod tests {
         assert_eq!(segments[1].sequence_offset, 0);
         assert_eq!(segments[2].sequence_offset, 2);
         assert_eq!(segments[3].sequence_offset, 3);
+    }
+
+    #[test]
+    fn tcp_plan_control_fake_family_continues_with_cursor() {
+        let configured_step = TcpChainStep::new(TcpChainStepKind::FakeSplit, test_offset());
+        let mut cursor = 0usize;
+
+        let result = handle_tcp_plan_step_control(
+            TcpChainStepKind::FakeSplit,
+            TcpStepControl::ContinueAt(7),
+            &configured_step,
+            0,
+            2,
+            20,
+            &mut cursor,
+        );
+
+        assert!(matches!(result, TcpPlanLoopControl::Continue));
+        assert_eq!(cursor, 7);
+    }
+
+    #[test]
+    fn tcp_plan_control_break_sets_break_cursor() {
+        let configured_step = TcpChainStep::new(TcpChainStepKind::IpFrag2, test_offset());
+        let mut cursor = 0usize;
+
+        let result = handle_tcp_plan_step_control(
+            TcpChainStepKind::IpFrag2,
+            TcpStepControl::BreakPlan,
+            &configured_step,
+            0,
+            1,
+            42,
+            &mut cursor,
+        );
+
+        assert!(matches!(result, TcpPlanLoopControl::Break));
+        assert_eq!(cursor, 42);
+    }
+
+    #[test]
+    fn tcp_plan_control_default_continue_advances_to_step_end() {
+        let configured_step = TcpChainStep::new(TcpChainStepKind::Split, test_offset());
+        let mut cursor = 3usize;
+
+        let result = handle_tcp_plan_step_control(
+            TcpChainStepKind::Split,
+            TcpStepControl::ContinueAt(9),
+            &configured_step,
+            0,
+            1,
+            99,
+            &mut cursor,
+        );
+
+        assert!(matches!(result, TcpPlanLoopControl::AdvanceToStepEnd));
+        assert_eq!(cursor, 3);
     }
 
     #[test]
