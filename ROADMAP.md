@@ -21,7 +21,8 @@ The audit roadmap tracked in this repository is complete. The items below are no
   finalization, archive rendering is split across `export/` builders,
   diagnostics contracts live in focused `model/` files, and the home-audit
   workflow is extracted into `workflow/` collaborators instead of the old
-  services monolith).
+  services monolith; the package reorg now also includes `application/`,
+  `queries/`, and `recommendation/` seams with CI boundary verification).
 - Architecture refactor Workstream 3 (Native Runtime Decomposition): COMPLETE
   (TCP lowering layer, typed capability snapshot, UDP flow split, and platform
   capability / IPv4-id submodules now sit on top of the earlier executor
