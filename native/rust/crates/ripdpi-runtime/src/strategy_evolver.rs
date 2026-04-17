@@ -1214,10 +1214,7 @@ mod tests {
              (session_a={}, session_b={})",
             stats_a.attempts, stats_b.attempts,
         );
-        assert_eq!(
-            stats_a.successes, stats_b.successes,
-            "capability-skipped runs must not alter success count",
-        );
+        assert_eq!(stats_a.successes, stats_b.successes, "capability-skipped runs must not alter success count",);
         assert!(
             (stats_a.fitness() - stats_b.fitness()).abs() < f64::EPSILON,
             "capability-skipped runs must not change fitness: \

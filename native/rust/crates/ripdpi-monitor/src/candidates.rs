@@ -835,10 +835,7 @@ pub(crate) fn enumerate_capable_candidates(
     candidates: Vec<StrategyCandidateSpec>,
     lookup: &dyn Fn(RuntimeCapability) -> bool,
 ) -> Vec<StrategyCandidateSpec> {
-    candidates
-        .into_iter()
-        .filter(|c| c.requires_capabilities.iter().all(|&cap| lookup(cap)))
-        .collect()
+    candidates.into_iter().filter(|c| c.requires_capabilities.iter().all(|&cap| lookup(cap))).collect()
 }
 
 /// Probes whether the current process is allowed to set a custom IP TTL on TCP
@@ -1320,11 +1317,15 @@ pub(crate) fn probe_ip_fragmentation_capabilities() -> ripdpi_runtime::platform:
     ripdpi_runtime::platform::probe_ip_fragmentation_capabilities(None).unwrap_or_default()
 }
 
-pub(crate) fn supports_tcp_ip_fragmentation_for(capabilities: ripdpi_runtime::platform::IpFragmentationCapabilities) -> bool {
+pub(crate) fn supports_tcp_ip_fragmentation_for(
+    capabilities: ripdpi_runtime::platform::IpFragmentationCapabilities,
+) -> bool {
     capabilities.supports_tcp_ip_fragmentation(true)
 }
 
-pub(crate) fn supports_udp_ip_fragmentation_for(capabilities: ripdpi_runtime::platform::IpFragmentationCapabilities) -> bool {
+pub(crate) fn supports_udp_ip_fragmentation_for(
+    capabilities: ripdpi_runtime::platform::IpFragmentationCapabilities,
+) -> bool {
     capabilities.supports_udp_ip_fragmentation(true)
 }
 

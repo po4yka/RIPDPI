@@ -147,10 +147,7 @@ pub enum CapabilityOutcome<T> {
     /// The capability is present and usable; `T` holds the probed state.
     Available(T),
     /// The capability is definitively unavailable for the given reason.
-    Unavailable {
-        capability: RuntimeCapability,
-        reason: CapabilityUnavailable,
-    },
+    Unavailable { capability: RuntimeCapability, reason: CapabilityUnavailable },
     /// Probing itself failed with a transient or unexpected error.
     ProbeFailed {
         capability: RuntimeCapability,

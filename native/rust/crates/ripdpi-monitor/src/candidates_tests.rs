@@ -46,10 +46,7 @@ fn circular_tlsrec_split_candidate_uses_expected_rotation_defaults() {
     let candidate = build_circular_tlsrec_split_candidate(&minimal_ui_config());
     let rotation = candidate.chains.tcp_rotation.as_ref().expect("tcp rotation");
 
-    assert_eq!(
-        candidate.chains.tcp_steps,
-        build_tlsrec_split_host_candidate(&minimal_ui_config()).chains.tcp_steps
-    );
+    assert_eq!(candidate.chains.tcp_steps, build_tlsrec_split_host_candidate(&minimal_ui_config()).chains.tcp_steps);
     assert_eq!(rotation.fails, 3);
     assert_eq!(rotation.retrans, 3);
     assert_eq!(rotation.seq, 65_536);
@@ -111,8 +108,7 @@ fn build_tlsrec_seqovl_candidate_sets_hard_gate_and_fields() {
 fn build_tcp_candidates_marks_ech_candidates_as_ech_only_and_targets_echext() {
     let candidates = build_tcp_candidates(&minimal_ui_config());
     let ech_split = candidates.iter().find(|candidate| candidate.id == "ech_split").expect("ech_split candidate");
-    let ech_tlsrec =
-        candidates.iter().find(|candidate| candidate.id == "ech_tlsrec").expect("ech_tlsrec candidate");
+    let ech_tlsrec = candidates.iter().find(|candidate| candidate.id == "ech_tlsrec").expect("ech_tlsrec candidate");
 
     assert_eq!(ech_split.eligibility, CandidateEligibility::RequiresEchCapability);
     assert_eq!(ech_split.config.chains.tcp_steps.len(), 1);
@@ -391,11 +387,7 @@ fn primary_pool_only_keeps_ttl_write_candidates_with_graceful_fallback() {
     // opportunistic pool. The set of allowed graceful-fallback ids is the
     // explicit allowlist below; new TTL-tagged primary candidates need an
     // explicit decision.
-    const GRACEFUL_FALLBACK: &[&str] = &[
-        "baseline_current",
-        "tlsrec_hostfake_split",
-        "tlsrec_hostfake_random",
-    ];
+    const GRACEFUL_FALLBACK: &[&str] = &["baseline_current", "tlsrec_hostfake_split", "tlsrec_hostfake_random"];
 
     let primary = build_primary_candidates(&minimal_ui_config());
     let leaked: Vec<&str> = primary

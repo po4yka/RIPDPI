@@ -39,31 +39,25 @@ fn round_trip_assert(fixture_name: &str) {
     let json = read_fixture(fixture_name);
 
     // Parse 1
-    let first: ProxyConfigPayload = parse_proxy_config_json(&json)
-        .unwrap_or_else(|err| panic!("parse 1 of '{fixture_name}' failed: {err}"));
+    let first: ProxyConfigPayload =
+        parse_proxy_config_json(&json).unwrap_or_else(|err| panic!("parse 1 of '{fixture_name}' failed: {err}"));
 
     // Re-serialize
-    let json2 = serde_json::to_string(&first)
-        .unwrap_or_else(|err| panic!("serialize of '{fixture_name}' failed: {err}"));
+    let json2 =
+        serde_json::to_string(&first).unwrap_or_else(|err| panic!("serialize of '{fixture_name}' failed: {err}"));
 
     // Parse 2
-    let second: ProxyConfigPayload = parse_proxy_config_json(&json2)
-        .unwrap_or_else(|err| panic!("parse 2 of '{fixture_name}' failed: {err}"));
+    let second: ProxyConfigPayload =
+        parse_proxy_config_json(&json2).unwrap_or_else(|err| panic!("parse 2 of '{fixture_name}' failed: {err}"));
 
     // Reflexive typed equality
-    assert_eq!(
-        first, second,
-        "typed model mismatch after re-serialization for '{fixture_name}'"
-    );
+    assert_eq!(first, second, "typed model mismatch after re-serialization for '{fixture_name}'");
 
     // Idempotence: re-serialize second parse and compare bytes
-    let json3 = serde_json::to_string(&second)
-        .unwrap_or_else(|err| panic!("serialize 2 of '{fixture_name}' failed: {err}"));
+    let json3 =
+        serde_json::to_string(&second).unwrap_or_else(|err| panic!("serialize 2 of '{fixture_name}' failed: {err}"));
 
-    assert_eq!(
-        json2, json3,
-        "re-serialization is not idempotent for '{fixture_name}'"
-    );
+    assert_eq!(json2, json3, "re-serialization is not idempotent for '{fixture_name}'");
 }
 
 #[test]
