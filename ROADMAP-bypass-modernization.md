@@ -102,22 +102,29 @@ The review's main conclusions are the planning baseline for this roadmap:
 
 ## Workstream 1: Capability Hygiene And De-Risking
 
-**Status:** [ ] Not started
+**Status:** [x] Complete (2026-04-16)
 **Priority:** P0
-**Why now:** The current runtime still allows capability failures to degrade
-silently into normal writes. That makes diagnostics look like bypass failures
-instead of emitter limitations and poisons adaptive learning.
+**Why first:** The runtime needed honest emitter accounting before any further
+planner or tactic work could be evaluated credibly.
 
-**Current state (2026-04-15):** Capability probing exists for a few paths via
-`libc::getsockopt` wrappers (`TCP_INFO`, `TCP_MD5SIG`, `TCP_FASTOPEN_CONNECT`,
-`SO_ATTACH_FILTER`, `SO_ORIGINAL_DST`, `IP_RECVTTL`) in `platform/linux.rs`.
-`IpFragmentationCapabilities` (`platform/mod.rs:75-79`) tracks `raw_ipv4`,
-`raw_ipv6`, `tcp_repair`. There is no unified `Capability*` result type --
-`setsockopt_raw` / `getsockopt_raw` failures convert to `io::Error` and
-propagate silently. The root helper exposes `CMD_PROBE_CAPABILITIES`
-(`ripdpi-root-helper/src/protocol.rs:43`) but its results are not threaded into
-strategy probe evaluation. `ripdpi-monitor/src/engine/runners/strategy.rs`
-(997 lines) does not pre-flight capability checks before planning.
+**Shipped scope (2026-04-16):**
+
+- `ripdpi-runtime::platform` now defines `RuntimeCapability`,
+  `CapabilityUnavailable`, and `CapabilityOutcome<T>` as the shared capability
+  surface.
+- TTL write failures now surface explicitly through
+  `try_set_stream_ttl_with_outcome` in `platform/linux.rs` instead of silently
+  degrading into ordinary writes.
+- Strategy candidates in `ripdpi-monitor/src/candidates.rs` are tagged with
+  `requires_capabilities`, and candidate enumeration now splits into primary,
+  opportunistic, and rooted pools.
+- `FailureClass::CapabilitySkipped` is wired across Rust and Kotlin reporting,
+  telemetry, and routing invariants, with the Kotlin side mapping it to
+  `DiagnosticsOutcomeBucket.Inconclusive`.
+- Strategy learning ignores failed-emitter runs via the
+  `record_failure(CapabilitySkipped)` short-circuit.
+- Regression coverage now pins TTL-fail, protect-fail, and raw-path-unavailable
+  outcomes so they do not collapse into generic censorship failures.
 
 **Primary areas:**
 - `native/rust/crates/ripdpi-runtime/src/platform/linux.rs` (2376 lines)
@@ -127,9 +134,9 @@ strategy probe evaluation. `ripdpi-monitor/src/engine/runners/strategy.rs`
 - `native/rust/crates/ripdpi-monitor/src/classification/strategy.rs` (269 lines)
 - `core/diagnostics/` (Kotlin finalization + reporting)
 
-**Tasks**
+**Completed tasks**
 
-- [ ] Introduce an explicit runtime capability snapshot for every connection
+- [x] Introduced an explicit runtime capability snapshot for every connection
   path:
   - TTL write support
   - raw TCP fake-send support
@@ -138,24 +145,26 @@ strategy probe evaluation. `ripdpi-monitor/src/engine/runners/strategy.rs`
   - root-helper availability
   - VPN protect callback availability
   - network binding support
-- [ ] Propagate capability failures as structured results instead of silently
+- [x] Propagated capability failures as structured results instead of silently
   falling back to unmodified sends.
-- [ ] Reclassify non-root TTL-dependent tactics as opportunistic only.
-- [ ] Mark capability-based skips distinctly in diagnostics, strategy probes,
+- [x] Reclassified non-root TTL-dependent tactics as opportunistic only.
+- [x] Marked capability-based skips distinctly in diagnostics, strategy probes,
   and learning telemetry.
-- [ ] Remove capability-blind winner promotion from quick scans and home
+- [x] Removed capability-blind winner promotion from quick scans and home
   analysis when the tactic was never actually emitted as designed.
-- [ ] Add regression tests proving TTL failure, protect failure, and raw-path
+- [x] Added regression tests proving TTL failure, protect failure, and raw-path
   unavailability do not collapse into a generic "network blocked" outcome.
 
-**Production demotions to make in this phase**
+**Production demotions shipped in this phase**
 
-- [ ] Move non-root `Disorder` and generic `Fake` out of the primary candidate
+- [x] Moved non-root `Disorder` and generic `Fake` out of the primary candidate
   set unless capability checks pass first.
-- [ ] Move fake-RST-heavy flows to rooted or lab-only candidates by default.
-- [ ] Demote fixed duplicate `HostFake` behavior from default candidate sets.
+- [x] Moved fake-RST-heavy flows to rooted or lab-only candidates by default.
+- [x] Demoted fixed duplicate `HostFake` behavior from default candidate sets,
+  while preserving primary coverage through the graceful-fallback allowlist for
+  the hostfake variants that still belong in production probing.
 
-**Done when**
+**Completed outcomes**
 
 - Every candidate execution records whether the intended emitter path was used.
 - TTL or raw-path failures appear as explicit capability outcomes.

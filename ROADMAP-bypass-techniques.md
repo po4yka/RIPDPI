@@ -41,6 +41,11 @@ owns the **concrete tactic + probe candidate**; the sibling roadmap owns the
 - [ ] Not started
 - [x] Already implemented or not applicable
 
+## Execution Status (2026-04-16)
+
+- Items 1-12 are shipped and audited against the codebase.
+- Items 13-15 remain open and experimental; none are production defaults.
+
 ## Verification Evidence (2026-04-15 audit)
 
 Items 1-12 have been audited against the codebase. All claims verified with

@@ -113,7 +113,8 @@ These are review targets, not immediate CI failures on day one:
 
 ## Existing Guardrail Infrastructure
 
-The repo already ships the following CI pieces. Workstream 0 extends rather than replaces them:
+The repo already ships the following CI pieces. Workstream 0 extended this
+baseline rather than replacing it:
 
 - `scripts/ci/check_file_loc_limits.py` (456 lines) -- code-only LoC enforcement
   (strips comments/blanks), fails on new violations against the baseline.
@@ -123,12 +124,17 @@ The repo already ships the following CI pieces. Workstream 0 extends rather than
   -- .so size guard per ABI for `libripdpi.so` and `libripdpi-tunnel.so`.
 - `scripts/ci/verify_diagnostics_boundary.py` -- enforces that `:core:diagnostics`
   does not depend on `:core:service`.
-
-**Missing** (Workstream 0 tasks):
-- No rule blocking new `@Suppress` / `@file:Suppress` in production Kotlin.
-- No rule blocking new `#[allow]` in production Rust outside baseline-grandfathered files.
-- No module-dependency-growth guard for `:app`, `:core:diagnostics`, `:core:service`.
-- No architecture authority ADRs for the three ownership questions.
+- `quality/detekt-rules/.../DisallowNewSuppression.kt` -- rejects new
+  production Kotlin suppressions outside the checked-in allowlist.
+- `scripts/ci/check_rust_allows.py` + baseline -- rejects new production Rust
+  `#[allow]` usage outside the grandfathered set.
+- `scripts/ci/verify_module_deps.py` -- prevents direct `project(...)`
+  dependency growth for `:app`, `:core:diagnostics`, and `:core:service`.
+- `docs/architecture/adr-001-config-contract.md`,
+  `adr-002-diagnosis-classifier.md`, `adr-003-service-lifecycle.md` --
+  authority decisions for the core ownership seams.
+- `docs/architecture/hotspots.md` + `scripts/ci/generate_hotspots_doc.py` --
+  deterministic hotspot inventory generated from the live repo state.
 
 ## Hotspot Inventory (2026-04-15 snapshot)
 
@@ -190,24 +196,24 @@ Code-only line counts (blanks and comments stripped). Suppression counts reflect
 
 ## Workstream 0: Guardrails And Architecture Decisions
 
-**Status:** [ ] Not started
+**Status:** [x] Complete (2026-04-15)
 **Priority:** P0
-**Why now:** The codebase already contains blanket suppressions in the exact
-files that need refactoring (35 Kotlin + 30 Rust across named hotspots).
-Existing LoC guards cover files but not suppressions or module-dep growth.
+**Why first:** Later workstreams needed explicit ownership seams and CI guards
+before more structural refactors could land safely.
 
 **Primary areas:**
 
 - `quality:detekt-rules`
-- `scripts/ci/check_file_loc_limits.py` (extend)
-- `scripts/ci/verify_diagnostics_boundary.py` (mirror pattern)
+- `scripts/ci/check_file_loc_limits.py`
+- `scripts/ci/check_rust_allows.py`
+- `scripts/ci/verify_module_deps.py`
 - `config/detekt/`
-- `config/static/file-loc-baseline.json` (reference baseline)
-- repo documentation: `docs/architecture/` (new)
+- `config/static/file-loc-baseline.json`
+- `docs/architecture/`
 
-**Tasks**
+**Completed scope**
 
-- [ ] Write a short architecture ADR for each authority boundary that must end
+- [x] Wrote a short architecture ADR for each authority boundary that must end
   with a single owner. Commit as `docs/architecture/adr-00N-*.md`:
   - canonical proxy/runtime config contract (Kotlin `StrategyChains.kt` vs Rust
     `convert.rs` vs JSON codec)
@@ -215,33 +221,34 @@ Existing LoC guards cover files but not suppressions or module-dep growth.
     vs Kotlin `DiagnosticsServicesImpl` + `DiagnosticsFindingProjector`)
   - service lifecycle orchestration boundary (`BaseServiceRuntimeCoordinator`
     and its VPN/Proxy subclasses)
-- [ ] Embed the Hotspot Inventory table (above) as `docs/architecture/hotspots.md`
+- [x] Embedded the Hotspot Inventory table (above) as `docs/architecture/hotspots.md`
   and wire a generator script so the table stays current.
-- [ ] Extend `check_file_loc_limits.py` with a reporting mode that also emits:
+- [x] Extended `check_file_loc_limits.py` with a reporting mode that also emits:
   - top-5 longest functions per hotspot file
   - suppression counts per file
-- [ ] Add a detekt custom rule (`quality:detekt-rules`) rejecting new
+- [x] Added a detekt custom rule (`quality:detekt-rules`) rejecting new
   `@Suppress(...)` / `@file:Suppress(...)` in production Kotlin unless a
   grandfathered allowlist entry references this roadmap's item number.
-- [ ] Add a clippy-or-equivalent rule rejecting new `#[allow(...)]` in production
-  Rust unless tied to a baseline entry.
-- [ ] Add a module-dependency guard modeled on `verify_diagnostics_boundary.py`
+- [x] Added a Rust allow-guard rejecting new `#[allow(...)]` in production Rust
+  unless tied to a baseline entry.
+- [x] Added a module-dependency guard modeled on `verify_diagnostics_boundary.py`
   that fails CI if the direct `project(...)` count for `:app`,
   `:core:diagnostics`, or `:core:service` grows beyond snapshotted baseline.
-- [ ] Document the sequencing rules for architecture refactors:
+- [x] Documented the sequencing rules for architecture refactors:
   - extract interfaces first
   - move implementation second
   - remove compatibility layer last
 
-**Done when**
+**Residual follow-up**
 
-- Reviewers have a shared definition of the target seams.
-- New complexity suppressions cannot silently enter production code.
-- Each later workstream can point to an explicit authority decision.
+- Refresh the hotspot doc and guard baselines when intentional refactors move
+  the budgeted files or suppression inventory.
+- Keep any new architecture exception tied to a named roadmap item or issue
+  instead of growing the allowlists silently.
 
 ## Workstream 1: Config Contract Unification
 
-**Status:** [ ] Not started
+**Status:** [~] In progress (slices 1.1-1.5 of 1.1-1.8 complete)
 **Priority:** P0
 **Why now:** The same config semantics currently exist in multiple forms across
 Kotlin data models, Kotlin JSON encoding, and Rust runtime conversion. This is
@@ -249,34 +256,53 @@ the largest source-of-truth problem in the project.
 
 **Primary areas:**
 
-- `core/data/src/main/kotlin/com/poyka/ripdpi/data/StrategyChains.kt`
+- `core/data/src/main/kotlin/com/poyka/ripdpi/data/StrategyChain*.kt`
 - `core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxyJsonCodec.kt`
+- `core/engine/src/main/kotlin/com/poyka/ripdpi/core/codec/`
 - `native/rust/crates/ripdpi-proxy-config/src/convert.rs`
 - `native/rust/crates/ripdpi-config/`
 
-**Tasks**
+**Shipped so far**
 
-- [ ] Define the canonical config authority layer and freeze its scope:
-  - chain-step model
-  - relay settings
-  - fake-packet settings
-  - QUIC settings
-  - runtime context metadata
-- [ ] Split `StrategyChains.kt` into focused files:
+- [x] Defined the canonical config authority layer and froze the slice boundary
+  for chain-step semantics, fake-packet settings, relay-heavy fixtures, and
+  the current JSON round-trip harness.
+- [x] Split the former `StrategyChains.kt` monolith into focused files:
   - model enums/data classes
   - DSL formatting
   - DSL parsing
   - validation
   - protobuf mapping
-  - normalization helpers
-- [ ] Split `RipDpiProxyJsonCodec.kt` into section codecs:
-  - listen/protocols
+  - default chain definitions
+- [x] Split `RipDpiProxyJsonCodec.kt` into section codecs for:
   - chains
   - fake packets
+- [x] Reduced the parent JSON codec toward orchestration-only ownership for the
+  sections already extracted.
+- [x] Added round-trip tests covering:
+  - AppSettings -> typed Kotlin model
+  - typed Kotlin model -> JSON
+  - JSON -> Rust UI payload
+  - Rust UI payload -> runtime config
+- [x] Added committed fixtures for chain-heavy, UDP/QUIC-heavy, and relay-heavy
+  configurations.
+- [x] Removed one blanket `@file:Suppress(TooManyFunctions)` from the split
+  Kotlin config surface.
+
+**Remaining tasks**
+
+- [ ] Keep the canonical config authority layer explicit for the remaining
+  sections:
+  - chain-step model
+  - relay settings
+  - QUIC settings already exercised by fixtures
+  - runtime context metadata
+- [ ] Split `RipDpiProxyJsonCodec.kt` remaining sections into codecs:
+  - listen/protocols
   - adaptive fallback
   - relay/warp/ws tunnel
   - runtime/log context
-- [ ] Reduce the JSON codec object to orchestration only; nested serializable
+- [ ] Reduce the JSON codec object fully to orchestration only; nested serializable
   data classes should move into section-scoped files.
 - [ ] Split Rust `runtime_config_from_ui` into section builders so the top-level
   function only validates envelope shape and delegates:
@@ -289,13 +315,8 @@ the largest source-of-truth problem in the project.
   - adaptive/runtime-context builder
 - [ ] Isolate legacy payload compatibility into a dedicated adapter so the main
   config path is not polluted by backward-compatibility branches.
-- [ ] Add round-trip tests covering:
-  - AppSettings -> typed Kotlin model
-  - typed Kotlin model -> JSON
-  - JSON -> Rust UI payload
-  - Rust UI payload -> runtime config
-  - runtime config -> diagnostics/export projection where applicable
-- [ ] Add golden fixtures for complex chain shapes and relay configurations.
+- [ ] Extend the round-trip coverage to runtime-context/export projection once
+  the remaining codec and Rust builder splits land.
 
 **Improvements expected**
 
