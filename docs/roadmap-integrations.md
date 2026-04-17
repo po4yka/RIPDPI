@@ -5,10 +5,10 @@ This document now tracks open integration work only.
 The earlier phase split (`P0` through `P3`) was useful while the transport and control-plane program was landing, but it is now removed. Current shipped behavior is summarized here and in the companion native/runtime notes.
 
 Cross-roadmap status (2026-04-17): bypass-modernization Workstream 1 is
-complete, architecture-refactor Workstream 1 is partial, and
-architecture-refactor Workstream 3 is partial but still not the main blocker
-for this transport-focused roadmap. The active work here remains rollout
-validation, operational hardening, and catalog freshness.
+complete, bypass-modernization Workstream 2 is partial, architecture-refactor
+Workstream 1 is partial, and architecture-refactor Workstream 3 is partial but
+still not the main blocker for this transport-focused roadmap. The active work
+here remains rollout validation, operational hardening, and catalog freshness.
 
 ## Related Roadmaps
 
