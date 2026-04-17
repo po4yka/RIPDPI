@@ -933,6 +933,7 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
             tcp_candidate_label: tcp_w.label.clone(),
             quic_candidate_id: quic_w.id.clone(),
             quic_candidate_label: quic_w.label.clone(),
+            quic_candidate_layout_family: quic_w.quic_layout_family.clone(),
             rationale: format!(
                 "{} with {} weighted TCP success and {} weighted QUIC success",
                 tcp_w.label, tcp_w.weighted_success_score, quic_w.weighted_success_score,

@@ -68,6 +68,8 @@ pub struct StrategyProbeCandidateSummary {
     pub id: String,
     pub label: String,
     pub family: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quic_layout_family: Option<String>,
     pub outcome: String,
     pub rationale: String,
     pub succeeded_targets: usize,
@@ -94,6 +96,8 @@ pub struct StrategyProbeRecommendation {
     pub tcp_candidate_label: String,
     pub quic_candidate_id: String,
     pub quic_candidate_label: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quic_candidate_layout_family: Option<String>,
     pub rationale: String,
     pub recommended_proxy_config_json: String,
 }

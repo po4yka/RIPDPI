@@ -984,6 +984,7 @@ private fun buildRecommendationTrace(selection: DiagnosticsArchiveSelection): Di
             recommendation
                 ?.let { "${it.tcpCandidateLabel} + ${it.quicCandidateLabel}" }
                 ?: "unavailable",
+        quicLayoutFamily = recommendation?.quicCandidateLayoutFamily,
         selectedResolver =
             recommendation?.dnsStrategyLabel
                 ?: resolver?.selectedResolverId,
@@ -1422,6 +1423,7 @@ private fun StrategyProbeCandidateSummary.toExecutionDetail(
         id = id,
         label = label,
         family = family,
+        quicLayoutFamily = quicLayoutFamily,
         outcome = outcome,
         rationale = rationale,
         succeededTargets = succeededTargets,

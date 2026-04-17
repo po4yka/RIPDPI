@@ -351,6 +351,7 @@ internal data class DiagnosticsArchiveCandidateExecutionDetail(
     val id: String,
     val label: String,
     val family: String,
+    val quicLayoutFamily: String? = null,
     val outcome: String,
     val rationale: String,
     val succeededTargets: Int,
@@ -369,6 +370,7 @@ internal data class DiagnosticsArchiveCandidateExecutionDetail(
 internal data class DiagnosticsArchiveRecommendationTrace(
     val selectedApproach: String,
     val selectedStrategy: String,
+    val quicLayoutFamily: String? = null,
     val selectedResolver: String? = null,
     val confidenceLevel: String? = null,
     val confidenceScore: Int? = null,

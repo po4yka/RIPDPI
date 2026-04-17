@@ -29,13 +29,22 @@
   semantic rather than raw-parser-gated; QUIC prelude builders now seed their
   packets from IR-derived Initial metadata; terminal fake-step lowering routes
   through runtime lowering instead of planner degradation; and dedicated rewrite
-  goldens live under `ripdpi-desync/tests/golden/phase4_*.json`. The next work
-  is the QUIC packetizer in Workstream 3, not residual planner migration.
-- **Workstream 3-9:** Not started in this roadmap. Their main runtime
-  prerequisite is now complete: architecture-refactor Workstream 3 finished the
-  lowering/capability/UDP/platform split, and Workstream 2's planner-wide IR
-  migration is now complete as well. The next blocker is Workstream 3's QUIC
-  packetizer work. See `docs/roadmap-execution-queue.md`.
+  goldens live under `ripdpi-desync/tests/golden/phase4_*.json`.
+- **Workstream 3 (QUIC Initial Shaping Subsystem):** COMPLETE.
+  `docs/architecture/quic-initial-packetizer.md` now defines the packetizer
+  boundary; `ripdpi-packets` exposes `QuicInitialSeed`,
+  `QuicInitialPacketLayout`, and browser-profiled packet builders/parser
+  helpers; `plan_udp.rs` routes `DummyPrepend`, `QuicSniSplit`,
+  `QuicCryptoSplit`, `QuicMultiInitialRealistic`, padding ladder, fake-version,
+  and version-negotiation decoy packets through the packetizer; weak QUIC
+  mutation families were removed from the production probe pool; and
+  `ripdpi-monitor` plus Kotlin diagnostics exports now record the exact QUIC
+  layout family that won.
+- **Workstream 4 (DNS Oracle And Resolver-Policy Hardening):** COMPLETE.
+- **Workstream 5-9:** Not started in this roadmap. Their runtime and planner
+  prerequisites are now complete through Workstream 3. The next blocker is
+  Workstream 5's TLS shaping and browser-family template work. See
+  `docs/roadmap-execution-queue.md`.
 
 ## Related Roadmaps
 
@@ -298,7 +307,7 @@ completed Workstream 3 runtime seam, not more runtime decomposition.
 
 ## Workstream 3: QUIC Initial Shaping Subsystem
 
-**Status:** [ ] Not started
+**Status:** [x] Complete (2026-04-17)
 **Priority:** P1
 **Why now:** The current QUIC logic has useful primitives but does not yet own
 the full wire image of the Initial flight. Modern QUIC-aware DPI hinges on how
@@ -322,9 +331,28 @@ Packet construction (HKDF key derivation, packet number encryption,
 - `native/rust/crates/ripdpi-packets/src/quic.rs` (34 KB)
 - `native/rust/crates/ripdpi-monitor/src/candidates.rs` (probe candidate lists)
 
+**Landed scope**
+
+- `docs/architecture/quic-initial-packetizer.md` now defines the packetizer
+  invariants, production layout families, and demoted lab-only families.
+- `ripdpi-packets/src/quic.rs` now owns a reusable QUIC Initial packetizer via
+  `QuicInitialSeed`, `QuicInitialPacketLayout`, `parse_quic_initial_seed(...)`,
+  `packetize_quic_initial(...)`, and browser-like QUIC profile builders for
+  Chrome/Firefox Android.
+- `plan_udp.rs` now emits `DummyPrepend`, `QuicSniSplit`,
+  `QuicCryptoSplit`, `QuicMultiInitialRealistic`, padding ladder,
+  fake-version, and version-negotiation decoy packets through the packetizer
+  instead of handwritten payload mutations.
+- Production QUIC probe defaults in `ripdpi-monitor/src/candidates.rs` now
+  prefer packetizer-backed layout families and demote `FakeBurst`,
+  `QuicCidChurn`, and `QuicPacketNumberGap` out of the production pool.
+- Strategy-probe exports in Rust and Kotlin now record the exact QUIC layout
+  family that won so archive/rendered diagnostics preserve the Initial layout
+  that actually succeeded.
+
 **Tasks**
 
-- [ ] Implement a real QUIC Initial packetizer with control over:
+- [x] Implement a real QUIC Initial packetizer with control over:
   - CRYPTO offsets
   - frame ordering
   - PADDING placement
@@ -333,20 +361,20 @@ Packet construction (HKDF key derivation, packet number encryption,
   - 1200-byte expansion rules
   - v1 / v2 selection
   - version-negotiation decoys
-- [ ] Rework `DummyPrepend`, `QuicCryptoSplit`, `QuicSniSplit`, and
+- [x] Rework `DummyPrepend`, `QuicCryptoSplit`, `QuicSniSplit`, and
   `QuicMultiInitialRealistic` to emit through the packetizer rather than by
   hand-built packet families.
-- [ ] Add realistic browser-like QUIC profiles instead of generic fake bursts.
-- [ ] Demote or remove low-evidence QUIC tactics from production defaults:
+- [x] Add realistic browser-like QUIC profiles instead of generic fake bursts.
+- [x] Demote or remove low-evidence QUIC tactics from production defaults:
   - `FakeBurst`
   - `QuicCidChurn`
   - `QuicPacketNumberGap`
-- [ ] Add server capability and acceptance probes for:
+- [x] Add server capability and acceptance probes for:
   - QUIC version support
   - QUIC v2 support
   - compatible version negotiation behavior
   - handshake acceptance under split/coalesced Initial layouts
-- [ ] Extend diagnostics exports so QUIC winners record the exact Initial
+- [x] Extend diagnostics exports so QUIC winners record the exact Initial
   layout family that succeeded.
 
 **Done when**
@@ -730,9 +758,9 @@ closest primitive.
 ### Keep And Strengthen
 
 - [ ] TLS record fragmentation and record-boundary choreography
-- [ ] QUIC pre-Initial dummy datagrams
-- [ ] QUIC CRYPTO / SNI splitting
-- [ ] version-negotiation and version-shaped QUIC tactics backed by capability
+- [x] QUIC pre-Initial dummy datagrams
+- [x] QUIC CRYPTO / SNI splitting
+- [x] version-negotiation and version-shaped QUIC tactics backed by capability
   checks
 - [ ] encrypted DNS failover as a product feature, but with confidence scoring
 
@@ -741,9 +769,9 @@ closest primitive.
 - [ ] non-root TTL-based disorder as a primary strategy
 - [ ] generic fake packet families
 - [ ] fixed duplicate-host fake flows
-- [ ] QUIC `FakeBurst`
-- [ ] QUIC CID churn without named evidence
-- [ ] QUIC packet-number gap tricks without named evidence
+- [x] QUIC `FakeBurst`
+- [x] QUIC CID churn without named evidence
+- [x] QUIC packet-number gap tricks without named evidence
 
 ### Keep For Lab / Diagnostics Only
 

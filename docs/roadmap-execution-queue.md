@@ -160,17 +160,25 @@ Current landed scope: `ripdpi-desync/tests/golden/phase4_tls_record_fragmentatio
 
 ## Phase 5 -- QUIC Initial Shaping Subsystem (bypass-modernization W3)
 
+Current status (2026-04-17): complete. `docs/architecture/quic-initial-packetizer.md`
+defines the QUIC Initial packetizer boundary and layout families;
+`ripdpi-packets` now exposes `QuicInitialSeed`, `QuicInitialPacketLayout`,
+packetizer/parser helpers, and browser-like QUIC builders; `plan_udp.rs` routes
+the production QUIC layout tactics through the packetizer; the production probe
+pool demotes `FakeBurst`, `QuicCidChurn`, and `QuicPacketNumberGap`; and
+strategy-probe exports record the exact winning QUIC layout family end to end.
+
 Mode: `Team` with `/deep-interview` on 5.1.
 
 | Slice | Scope | Depends on | Verify gate |
 |-------|-------|------------|-------------|
-| 5.1 | `/deep-interview` on QUIC Initial packetizer design -- CRYPTO offsets, frame ordering, PADDING, datagram count, coalescing, 1200-byte expansion, v1/v2 selection | Phase 4 | Design doc + golden fixture plan |
-| 5.2 | Implement QUIC Initial packetizer in `ripdpi-packets` | 5.1 | `cargo test -p ripdpi-packets`; fixture-verified wire output |
-| 5.3 | Rework `DummyPrepend`, `QuicSniSplit`, `QuicCryptoSplit`, `QuicMultiInitialRealistic` onto packetizer | 5.2 | `packet-smoke-debugger`; behavior unchanged |
-| 5.4 | Add browser-like QUIC profiles (Chrome/Firefox Android) | 5.3 | Strategy pack fixture; no fingerprint regression |
-| 5.5 | Demote `FakeBurst`, `QuicCidChurn`, `QuicPacketNumberGap` from production defaults to lab | 5.3 | Candidate enumeration diff; diagnostics-export change logged |
-| 5.6 | Server capability probes: QUIC v1/v2 support, compatible version negotiation, handshake acceptance under split/coalesced Initial layouts | 5.3 | Probe candidates added to `ripdpi-monitor/src/candidates.rs` |
-| 5.7 | Extend diagnostics exports: QUIC winners record exact Initial layout family | 5.6 | Export round-trip test |
+| 5.1 | Complete | `/deep-interview` on QUIC Initial packetizer design -- CRYPTO offsets, frame ordering, PADDING, datagram count, coalescing, 1200-byte expansion, v1/v2 selection | Phase 4 | Design doc + golden fixture plan |
+| 5.2 | Complete | Implement QUIC Initial packetizer in `ripdpi-packets` | 5.1 | `cargo test -p ripdpi-packets`; fixture-verified wire output |
+| 5.3 | Complete | Rework `DummyPrepend`, `QuicSniSplit`, `QuicCryptoSplit`, `QuicMultiInitialRealistic` onto packetizer | 5.2 | `packet-smoke-debugger`; behavior unchanged |
+| 5.4 | Complete | Add browser-like QUIC profiles (Chrome/Firefox Android) | 5.3 | Strategy pack fixture; no fingerprint regression |
+| 5.5 | Complete | Demote `FakeBurst`, `QuicCidChurn`, `QuicPacketNumberGap` from production defaults to lab | 5.3 | Candidate enumeration diff; diagnostics-export change logged |
+| 5.6 | Complete | Server capability probes: QUIC v1/v2 support, compatible version negotiation, handshake acceptance under split/coalesced Initial layouts | 5.3 | Probe candidates added to `ripdpi-monitor/src/candidates.rs` |
+| 5.7 | Complete | Extend diagnostics exports: QUIC winners record exact Initial layout family | 5.6 | Export round-trip test |
 
 ## Phase 6 -- DNS Oracle Hardening (bypass-modernization W4)
 
@@ -379,10 +387,10 @@ Phase 0 (guardrails) ---+-> Phase 1 (config) ---+-> Phase 9 (UI)
 
 ## Priority Entry Points
 
-**Phases 0 + 1 + 2 + 3 + 4 complete.**
+**Phases 0 + 1 + 2 + 3 + 4 + 5 + 6 + 7 complete.**
 
 Next OMC kickoff prompts in priority order:
 
-1. `/ralph "begin Phase 5: build the QUIC Initial packetizer/subsystem on top of the landed IR and runtime seams. Gate on cargo test -p ripdpi-packets, cargo test -p ripdpi-desync, cargo test -p ripdpi-runtime, and focused QUIC smoke coverage."`
-2. `/ralph "/deep-interview Phase 5.1 from docs/roadmap-execution-queue.md: commit the QUIC Initial packetizer design doc and golden-fixture plan before changing packet construction."`
-3. `/ralph "after the packetizer lands, rework DummyPrepend, QuicSniSplit, QuicCryptoSplit, and QuicMultiInitialRealistic onto it, then demote weak QUIC mutation families from the production path."`
+1. `/ralph "begin Phase 11: replace generic TLS fake/template families with browser-family template catalogs and ship the first ECH-aware template path. Gate on cargo test -p ripdpi-packets, cargo test -p ripdpi-desync, focused diagnostics export coverage, and strategy-pack fixture review."`
+2. `/ralph "/deep-interview Phase 11 from docs/roadmap-execution-queue.md: pin the browser-family TLS template boundary, catalog ownership, and ECH invariants before adding new template families."`
+3. `/ralph "after the first browser-family template lands, align integrations catalog freshness and rollout metadata with the new TLS family boundary instead of adding hardcoded defaults."`

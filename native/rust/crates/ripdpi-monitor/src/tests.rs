@@ -1121,6 +1121,7 @@ fn strategy_probe_report_serializes_normal_completion_kind() {
             tcp_candidate_label: "TCP baseline".to_string(),
             quic_candidate_id: "quic-1".to_string(),
             quic_candidate_label: "QUIC baseline".to_string(),
+            quic_candidate_layout_family: None,
             rationale: "Best path".to_string(),
             recommended_proxy_config_json: "{}".to_string(),
         },

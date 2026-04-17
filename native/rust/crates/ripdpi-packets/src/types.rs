@@ -109,6 +109,39 @@ pub struct QuicInitialLayout {
     pub crypto_frames: Vec<QuicCryptoFrameInfo>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QuicInitialBrowserProfile {
+    ChromeAndroid,
+    FirefoxAndroid,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuicInitialSeed {
+    pub version: u32,
+    pub dcid: Vec<u8>,
+    pub scid: Vec<u8>,
+    pub token: Vec<u8>,
+    pub client_hello: Vec<u8>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct QuicInitialPacketLayout {
+    pub crypto_frame_offsets: Vec<usize>,
+    pub min_datagram_len: usize,
+    pub extra_tail_padding: usize,
+    pub packet_number: u32,
+}
+
+impl QuicInitialPacketLayout {
+    pub fn contiguous(min_datagram_len: usize) -> Self {
+        Self { crypto_frame_offsets: Vec::new(), min_datagram_len, extra_tail_padding: 0, packet_number: 0 }
+    }
+
+    pub fn split_at(split_offset: usize, min_datagram_len: usize) -> Self {
+        Self { crypto_frame_offsets: vec![split_offset], min_datagram_len, extra_tail_padding: 0, packet_number: 0 }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PacketMutation {
     pub rc: isize,
