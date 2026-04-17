@@ -2,9 +2,6 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
-import com.poyka.ripdpi.core.ownedRelayQuicMigrationConfig
-import com.poyka.ripdpi.core.relayConfigOrNull
-import com.poyka.ripdpi.core.warpConfigOrNull
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
@@ -67,6 +64,12 @@ internal class VpnServiceRuntimeCoordinator(
     }
 
     private var currentLocalProxyEndpoint: LocalProxyEndpoint? = null
+    private val proxyRuntimeStack =
+        SharedProxyRuntimeStack(
+            upstreamRelaySupervisor = upstreamRelaySupervisor,
+            warpRuntimeSupervisor = warpRuntimeSupervisor,
+            proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+        )
 
     override val serviceLabel: String = "VPN"
 
@@ -126,20 +129,16 @@ internal class VpnServiceRuntimeCoordinator(
                 .randomUUID()
                 .toString()
                 .replace("-", "")
-        val relayQuicMigrationConfig = resolution.proxyPreferences.ownedRelayQuicMigrationConfig()
-        resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
-            upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, ::handleRelayExit)
-        }
-        resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
-            warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
-        }
         val localProxyEndpoint =
-            proxyRuntimeSupervisor.start(
-                resolution
-                    .proxyPreferences
-                    .withLogContext(logContext)
-                    .withSessionLocalProxyOverrides(listenPortOverride = 0, authToken = authToken),
-                ::handleProxyExit,
+            proxyRuntimeStack.start(
+                proxyPreferences =
+                    resolution
+                        .proxyPreferences
+                        .withLogContext(logContext)
+                        .withSessionLocalProxyOverrides(listenPortOverride = 0, authToken = authToken),
+                onRelayExit = ::handleRelayExit,
+                onWarpExit = ::handleWarpExit,
+                onProxyExit = ::handleProxyExit,
             )
         currentLocalProxyEndpoint = localProxyEndpoint
         vpnTunnelRuntime.start(
@@ -153,15 +152,7 @@ internal class VpnServiceRuntimeCoordinator(
 
     override suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
         vpnTunnelRuntime.stop()
-        if (skipRuntimeShutdown) {
-            upstreamRelaySupervisor.detach()
-            warpRuntimeSupervisor.detach()
-            proxyRuntimeSupervisor.detach()
-        } else {
-            proxyRuntimeSupervisor.stop()
-            warpRuntimeSupervisor.stop()
-            upstreamRelaySupervisor.stop()
-        }
+        proxyRuntimeStack.stop(skipRuntimeShutdown)
     }
 
     override fun startModeTelemetryUpdates() {
@@ -317,9 +308,7 @@ internal class VpnServiceRuntimeCoordinator(
     ) {
         session.encryptedDnsFailoverState.resetAll()
         vpnTunnelRuntime.stop()
-        proxyRuntimeSupervisor.stop()
-        warpRuntimeSupervisor.stop()
-        upstreamRelaySupervisor.stop()
+        proxyRuntimeStack.stop(skipRuntimeShutdown = false)
         applyActiveConnectionPolicy(
             session = session,
             resolution = resolution,
@@ -332,20 +321,16 @@ internal class VpnServiceRuntimeCoordinator(
                 .randomUUID()
                 .toString()
                 .replace("-", "")
-        val relayQuicMigrationConfig = resolution.proxyPreferences.ownedRelayQuicMigrationConfig()
-        resolution.proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
-            upstreamRelaySupervisor.start(relayConfig, relayQuicMigrationConfig, ::handleRelayExit)
-        }
-        resolution.proxyPreferences.warpConfigOrNull()?.let { warpConfig ->
-            warpRuntimeSupervisor.start(warpConfig, ::handleWarpExit)
-        }
         val localProxyEndpoint =
-            proxyRuntimeSupervisor.start(
-                resolution
-                    .proxyPreferences
-                    .withLogContext(logContext)
-                    .withSessionLocalProxyOverrides(listenPortOverride = 0, authToken = authToken),
-                ::handleProxyExit,
+            proxyRuntimeStack.start(
+                proxyPreferences =
+                    resolution
+                        .proxyPreferences
+                        .withLogContext(logContext)
+                        .withSessionLocalProxyOverrides(listenPortOverride = 0, authToken = authToken),
+                onRelayExit = ::handleRelayExit,
+                onWarpExit = ::handleWarpExit,
+                onProxyExit = ::handleProxyExit,
             )
         currentLocalProxyEndpoint = localProxyEndpoint
         vpnTunnelRuntime.start(
@@ -430,9 +415,7 @@ internal class VpnServiceRuntimeCoordinator(
             updateStatus(ServiceStatus.Failed, failureReason)
         }
 
-        proxyRuntimeSupervisor.detach()
-        upstreamRelaySupervisor.detach()
-        warpRuntimeSupervisor.detach()
+        proxyRuntimeStack.detachAll()
         host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
     }
 
