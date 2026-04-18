@@ -60,6 +60,7 @@ internal fun DiagnosticsSectionSwitcher(
 }
 
 @Composable
+@Suppress("LongMethod")
 internal fun OverviewSection(
     overview: DiagnosticsOverviewUiModel,
     live: com.poyka.ripdpi.activities.DiagnosticsLiveUiModel,

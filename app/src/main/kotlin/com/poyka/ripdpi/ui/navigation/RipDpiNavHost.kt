@@ -180,7 +180,7 @@ private fun HandleLaunchRequests(
             return@LaunchedEffect
         }
         when {
-            currentStableRoute == Route.Home.route -> {
+            currentStableRoute == Route.Home.stableRoute -> {
                 launchRequests.onLaunchHomeHandled()
             }
 
@@ -530,21 +530,21 @@ internal fun nestedPopExitTransition(
  */
 internal fun NavDestination.stableRouteKey(): String? =
     when {
-        hasRoute<Route.Home>() -> Route.Home.route
-        hasRoute<Route.Config>() -> Route.Config.route
-        hasRoute<Route.Diagnostics>() -> Route.Diagnostics.route
-        hasRoute<Route.Settings>() -> Route.Settings.route
-        hasRoute<Route.Onboarding>() -> Route.Onboarding.route
-        hasRoute<Route.History>() -> Route.History.route
-        hasRoute<Route.Logs>() -> Route.Logs.route
-        hasRoute<Route.ModeEditor>() -> Route.ModeEditor.route
-        hasRoute<Route.DnsSettings>() -> Route.DnsSettings.route
-        hasRoute<Route.AdvancedSettings>() -> Route.AdvancedSettings.route
-        hasRoute<Route.BiometricPrompt>() -> Route.BiometricPrompt.route
-        hasRoute<Route.AppCustomization>() -> Route.AppCustomization.route
-        hasRoute<Route.About>() -> Route.About.route
-        hasRoute<Route.DataTransparency>() -> Route.DataTransparency.route
-        hasRoute<Route.DetectionCheck>() -> Route.DetectionCheck.route
+        hasRoute<Route.Home>() -> Route.Home.stableRoute
+        hasRoute<Route.Config>() -> Route.Config.stableRoute
+        hasRoute<Route.Diagnostics>() -> Route.Diagnostics.stableRoute
+        hasRoute<Route.Settings>() -> Route.Settings.stableRoute
+        hasRoute<Route.Onboarding>() -> Route.Onboarding.stableRoute
+        hasRoute<Route.History>() -> Route.History.stableRoute
+        hasRoute<Route.Logs>() -> Route.Logs.stableRoute
+        hasRoute<Route.ModeEditor>() -> Route.ModeEditor.stableRoute
+        hasRoute<Route.DnsSettings>() -> Route.DnsSettings.stableRoute
+        hasRoute<Route.AdvancedSettings>() -> Route.AdvancedSettings.stableRoute
+        hasRoute<Route.BiometricPrompt>() -> Route.BiometricPrompt.stableRoute
+        hasRoute<Route.AppCustomization>() -> Route.AppCustomization.stableRoute
+        hasRoute<Route.About>() -> Route.About.stableRoute
+        hasRoute<Route.DataTransparency>() -> Route.DataTransparency.stableRoute
+        hasRoute<Route.DetectionCheck>() -> Route.DetectionCheck.stableRoute
         else -> null
     }
 
@@ -575,10 +575,10 @@ internal fun shouldNavigateToHomeFromLaunchRequest(
         return false
     }
 
-    return currentRoute != Route.Home.route &&
+    return currentRoute != Route.Home.stableRoute &&
         currentRoute !in
         setOf(
-            Route.Onboarding.route,
-            Route.BiometricPrompt.route,
+            Route.Onboarding.stableRoute,
+            Route.BiometricPrompt.stableRoute,
         )
 }

@@ -26,6 +26,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import java.net.URI
 
 @Composable
+@Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 internal fun CustomEncryptedDnsSection(
     uiState: SettingsUiState,
     dohUrl: String,
