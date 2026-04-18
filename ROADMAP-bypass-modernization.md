@@ -39,8 +39,12 @@ The following Phase 11 foundations are already landed:
 
 ### 11.1 Packet-Level Template Parity
 
-Validate that the shipped browser-family templates preserve the expected wire
-shape for:
+Status: complete.
+
+The shipped browser-family templates now have crate-level packet parity
+validation in `ripdpi-tls-profiles`. The tests capture live ClientHello records
+ emitted by BoringSSL profile application and validate the expected wire shape
+for:
 
 - extension ordering families
 - GREASE style
