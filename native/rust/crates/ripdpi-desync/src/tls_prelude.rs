@@ -7,6 +7,7 @@ use crate::types::{
 };
 use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind};
 use ripdpi_packets::{mod_http_inplace, OracleRng, IS_HTTP};
+use ripdpi_tls_profiles::apply_record_choreography;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct TlsPreludeState {
@@ -277,4 +278,11 @@ pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<Tamp
             adaptive: AdaptivePlannerHints::default(),
         },
     )
+}
+
+pub fn apply_tls_template_record_choreography(profile: &str, input: &[u8]) -> Result<TamperResult, DesyncError> {
+    let output = apply_record_choreography(profile, input).ok_or(DesyncError)?;
+    let mut info = ProtoInfo::default();
+    init_proto_info(&output, &mut info);
+    Ok(TamperResult { bytes: output, proto: info })
 }

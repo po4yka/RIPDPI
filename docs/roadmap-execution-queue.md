@@ -28,7 +28,7 @@ The only remaining roadmap phase is **Phase 11 -- TLS Templates + ECH**.
 | Slice | Scope | Verify gate |
 |-------|-------|-------------|
 | 11.1 | Complete. `ripdpi-tls-profiles` captures live ClientHello records and validates extension-order family behavior, GREASE, supported groups, key-share layout, and ALPN payloads at the packet level | `cargo test -p ripdpi-tls-profiles` |
-| 11.2 | Finish true packet-level record-size choreography for browser-family templates | `ripdpi-packets` / `ripdpi-desync` regressions plus golden rewrites |
+| 11.2 | Complete. `ripdpi-tls-profiles` now plans real record boundaries and `ripdpi-desync` ships packet-level rewrite goldens for browser-family templates | `cargo test -p ripdpi-tls-profiles`; `cargo test -p ripdpi-desync phase11_` |
 | 11.3 | Add controlled HelloRetryRequest-oriented tactics where evidence justifies them | acceptance tests show value without broad regression |
 | 11.4 | Tie ECH and ECH-GREASE planning to DNS bootstrap and first-flight template planning | DNS/bootstrap + TLS integration coverage |
 | 11.5 | Finish Android ECH availability, policy, bootstrap, and fallback wiring | focused Android service/engine tests |

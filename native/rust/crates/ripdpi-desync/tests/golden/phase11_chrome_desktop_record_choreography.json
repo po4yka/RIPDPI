@@ -1,0 +1,12 @@
+{
+  "input_host": "www.wikipedia.org",
+  "input_record_lengths": [
+    512
+  ],
+  "payload_preserved": true,
+  "profile": "chrome_desktop_stable",
+  "rewritten_record_lengths": [
+    165,
+    347
+  ]
+}

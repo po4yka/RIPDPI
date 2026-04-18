@@ -3115,6 +3115,7 @@ dependencies = [
  "ripdpi-config",
  "ripdpi-ipfrag",
  "ripdpi-packets",
+ "ripdpi-tls-profiles",
  "serde_json",
 ]
 

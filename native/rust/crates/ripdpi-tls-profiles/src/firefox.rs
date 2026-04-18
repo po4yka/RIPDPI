@@ -11,7 +11,7 @@ pub const FIREFOX_LATEST: ProfileConfig = ProfileConfig {
     grease_style: "none",
     supported_groups_profile: "x25519_p256_p384_p521",
     key_share_profile: "x25519_primary",
-    record_choreography: "single_record",
+    record_choreography: "sni_tail_two_record",
     ech_capable: false,
     cipher_list_tls12: "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:\
                         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:\
@@ -40,7 +40,7 @@ pub const FIREFOX_ECH_STABLE: ProfileConfig = ProfileConfig {
     grease_style: "firefox_ech_grease",
     supported_groups_profile: "x25519_p256_p384_p521",
     key_share_profile: "x25519_hybrid_ready",
-    record_choreography: "single_record",
+    record_choreography: "sni_ech_tail_adaptive",
     ech_capable: true,
     cipher_list_tls12: "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:\
                         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:\

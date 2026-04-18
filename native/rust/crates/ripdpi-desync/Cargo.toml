@@ -12,6 +12,7 @@ rand = { workspace = true }
 ripdpi-config = { workspace = true }
 ripdpi-ipfrag = { workspace = true }
 ripdpi-packets = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
 ring = { workspace = true }
 
 [dev-dependencies]
