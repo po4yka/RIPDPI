@@ -1,7 +1,9 @@
 use std::sync::Arc;
 use std::time::Instant;
 
-use ripdpi_tls_profiles::{selected_profile_config, selected_profile_metadata, ProfileMetadata};
+use ripdpi_tls_profiles::{
+    plan_first_flight, selected_profile_config, selected_profile_metadata, ProfileMetadata, TlsTemplateFirstFlightPlan,
+};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::{EchConfig, EchMode, EchStatus};
 use rustls::pki_types::{CertificateDer, EchConfigListBytes, ServerName, UnixTime};
@@ -11,7 +13,10 @@ use rustls::{
 };
 
 use crate::cdn_ech::{opportunistic_ech_config_for_ip, opportunistic_ech_provider_for_ip};
-use crate::dns::{resolve_https_ech_configs_via_encrypted_dns, EchResolutionOutcome};
+use crate::dns::{
+    encrypted_dns_endpoint_for_resolver_id, resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
+    EchResolutionOutcome,
+};
 use crate::ja3::{self, RecordingStream};
 use crate::platform_ttl;
 use crate::transport::{connect_transport_observed, ConnectionStream, TargetAddress, TransportConfig};
@@ -28,6 +33,10 @@ pub(crate) struct TlsObservation {
     pub(crate) error: Option<String>,
     pub(crate) certificate_anomaly: bool,
     pub(crate) ech_resolution_detail: Option<String>,
+    pub(crate) ech_bootstrap_policy: Option<String>,
+    pub(crate) ech_bootstrap_resolver_id: Option<String>,
+    pub(crate) ech_outer_extension_policy: Option<String>,
+    pub(crate) ech_first_flight_plan: Option<String>,
     pub(crate) tcp_connect_ms: Option<u64>,
     pub(crate) tls_handshake_ms: Option<u64>,
     pub(crate) cert_chain_length: Option<usize>,
@@ -118,6 +127,7 @@ impl ServerCertVerifier for NoCertificateVerification {
 
 pub(crate) struct ProbeStreamResult {
     pub(crate) stream: ConnectionStream,
+    pub(crate) tls_template_first_flight_plan: Option<TlsTemplateFirstFlightPlan>,
     pub(crate) tcp_connect_ms: u64,
     pub(crate) tls_handshake_ms: u64,
     pub(crate) cert_chain_length: Option<usize>,
@@ -179,25 +189,49 @@ pub(crate) fn try_tls_handshake_targets(
             let ja3_fingerprint = result.ja3_fingerprint;
             let connected_addr = result.connected_addr;
             let cdn_provider = result.cdn_provider;
+            let tls_template_first_flight_plan = result.tls_template_first_flight_plan;
             let mut stream = result.stream;
-            let (status, version, error, ech_resolution_detail) = match &mut stream {
-                ConnectionStream::Plain(_) => ("tls_ok".to_string(), None, None, None),
+            let (
+                status,
+                version,
+                error,
+                ech_resolution_detail,
+                ech_bootstrap_policy,
+                ech_bootstrap_resolver_id,
+                ech_outer_extension_policy,
+                ech_first_flight_plan,
+            ) = match &mut stream {
+                ConnectionStream::Plain(_) => ("tls_ok".to_string(), None, None, None, None, None, None, None),
                 ConnectionStream::Tls(stream) => {
                     let version = tls_version_label(stream.conn.protocol_version());
                     if matches!(profile, TlsClientProfile::Tls13WithEch) {
                         let ech_status = stream.conn.ech_status();
+                        let plan = tls_template_first_flight_plan.as_ref();
                         if matches!(ech_status, EchStatus::Accepted) {
-                            ("tls_ok".to_string(), version, None, Some("ech_config_available".to_string()))
+                            (
+                                "tls_ok".to_string(),
+                                version,
+                                None,
+                                Some("ech_config_available".to_string()),
+                                plan.map(|value| value.ech_bootstrap_policy.to_string()),
+                                plan.and_then(|value| value.ech_bootstrap_resolver_id.map(ToString::to_string)),
+                                plan.map(|value| value.ech_outer_extension_policy.to_string()),
+                                plan.map(first_flight_plan_label),
+                            )
                         } else {
                             (
                                 "tls_handshake_failed".to_string(),
                                 version,
                                 Some(format!("ech_{}", ech_status_label(ech_status))),
                                 Some("ech_config_available".to_string()),
+                                plan.map(|value| value.ech_bootstrap_policy.to_string()),
+                                plan.and_then(|value| value.ech_bootstrap_resolver_id.map(ToString::to_string)),
+                                plan.map(|value| value.ech_outer_extension_policy.to_string()),
+                                plan.map(first_flight_plan_label),
                             )
                         }
                     } else {
-                        ("tls_ok".to_string(), version, None, None)
+                        ("tls_ok".to_string(), version, None, None, None, None, None, None)
                     }
                 }
             };
@@ -208,6 +242,10 @@ pub(crate) fn try_tls_handshake_targets(
                 error,
                 certificate_anomaly: false,
                 ech_resolution_detail,
+                ech_bootstrap_policy,
+                ech_bootstrap_resolver_id,
+                ech_outer_extension_policy,
+                ech_first_flight_plan,
                 tcp_connect_ms,
                 tls_handshake_ms,
                 cert_chain_length,
@@ -235,6 +273,23 @@ pub(crate) fn try_tls_handshake_targets(
                     error: Some(err),
                     certificate_anomaly: false,
                     ech_resolution_detail: Some(ech_resolution_detail),
+                    ech_bootstrap_policy: Some(
+                        planned_tls_template_metadata(TlsClientProfile::Tls13WithEch)
+                            .template
+                            .ech_bootstrap_policy
+                            .to_string(),
+                    ),
+                    ech_bootstrap_resolver_id: planned_tls_template_metadata(TlsClientProfile::Tls13WithEch)
+                        .template
+                        .ech_bootstrap_resolver_id
+                        .map(ToString::to_string),
+                    ech_outer_extension_policy: Some(
+                        planned_tls_template_metadata(TlsClientProfile::Tls13WithEch)
+                            .template
+                            .ech_outer_extension_policy
+                            .to_string(),
+                    ),
+                    ech_first_flight_plan: None,
                     tcp_connect_ms: None,
                     tls_handshake_ms: None,
                     cert_chain_length: None,
@@ -264,6 +319,10 @@ pub(crate) fn try_tls_handshake_targets(
                 error: Some(err),
                 certificate_anomaly,
                 ech_resolution_detail: None,
+                ech_bootstrap_policy: None,
+                ech_bootstrap_resolver_id: None,
+                ech_outer_extension_policy: None,
+                ech_first_flight_plan: None,
                 tcp_connect_ms: None,
                 tls_handshake_ms: None,
                 cert_chain_length: None,
@@ -324,6 +383,7 @@ pub(crate) fn open_probe_stream_targets(
     match tls_name {
         Some(name) if verify_certificates || port == 443 || !matches!(profile, TlsClientProfile::Auto) => {
             let target = targets.first().ok_or_else(|| "no_tls_targets".to_string())?;
+            let template_profile = planned_tls_template_profile(profile);
             let config = match profile {
                 TlsClientProfile::Tls13WithEch => build_ech_client_config(name, target, transport, tls_verifier)?,
                 _ => build_standard_client_config(profile, tls_verifier),
@@ -342,6 +402,7 @@ pub(crate) fn open_probe_stream_targets(
 
             // Compute JA3 from the recorded outbound bytes before unwrapping.
             let ja3_fingerprint = ja3::compute_ja3(recording.recorded_writes());
+            let tls_template_first_flight_plan = plan_first_flight(template_profile, recording.recorded_writes());
 
             let (socket, _recorded) = recording.into_parts();
             let tls_stream = StreamOwned::new(connection, socket);
@@ -354,6 +415,7 @@ pub(crate) fn open_probe_stream_targets(
 
             Ok(ProbeStreamResult {
                 stream: ConnectionStream::Tls(Box::new(tls_stream)),
+                tls_template_first_flight_plan,
                 tcp_connect_ms,
                 tls_handshake_ms,
                 cert_chain_length,
@@ -370,6 +432,7 @@ pub(crate) fn open_probe_stream_targets(
             let estimated_hop_count = observed_server_ttl.map(platform_ttl::estimate_hop_count);
             Ok(ProbeStreamResult {
                 stream: ConnectionStream::Plain(socket),
+                tls_template_first_flight_plan: None,
                 tcp_connect_ms,
                 tls_handshake_ms: 0,
                 cert_chain_length: None,
@@ -542,27 +605,34 @@ fn build_ech_client_config(
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Result<Arc<ClientConfig>, String> {
-    let ech_config_list = match resolve_https_ech_configs_via_encrypted_dns(server_name, transport) {
-        EchResolutionOutcome::Available(bytes) => bytes,
-        dns_failure => {
-            // Opportunistic fallback: if the target IP belongs to a known CDN
-            // that supports ECH, use a hardcoded config instead of giving up.
-            if let Some(cdn_config) = resolve_opportunistic_ech(target) {
-                tracing::debug!(
-                    server_name,
-                    cdn = cdn_config.provider,
-                    "ECH DNS resolution unavailable; using opportunistic CDN config"
-                );
-                cdn_config.ech_config_list.to_vec()
-            } else {
-                return match dns_failure {
-                    EchResolutionOutcome::NotPublished => Err(ECH_CONFIG_UNAVAILABLE_ERROR.to_string()),
-                    EchResolutionOutcome::ResolutionFailed(err) => Err(format!("ech_resolution_failed: {err}")),
-                    EchResolutionOutcome::Available(_) => unreachable!(),
-                };
+    let template_metadata = planned_tls_template_metadata(TlsClientProfile::Tls13WithEch);
+    let bootstrap_endpoint = template_metadata
+        .template
+        .ech_bootstrap_resolver_id
+        .map(encrypted_dns_endpoint_for_resolver_id)
+        .unwrap_or_else(|| encrypted_dns_endpoint_for_resolver_id("adguard"));
+    let ech_config_list =
+        match resolve_https_ech_configs_via_encrypted_dns_with_endpoint(server_name, bootstrap_endpoint, transport) {
+            EchResolutionOutcome::Available(bytes) => bytes,
+            dns_failure => {
+                // Opportunistic fallback: if the target IP belongs to a known CDN
+                // that supports ECH, use a hardcoded config instead of giving up.
+                if let Some(cdn_config) = resolve_opportunistic_ech(target) {
+                    tracing::debug!(
+                        server_name,
+                        cdn = cdn_config.provider,
+                        "ECH DNS resolution unavailable; using opportunistic CDN config"
+                    );
+                    cdn_config.ech_config_list.to_vec()
+                } else {
+                    return match dns_failure {
+                        EchResolutionOutcome::NotPublished => Err(ECH_CONFIG_UNAVAILABLE_ERROR.to_string()),
+                        EchResolutionOutcome::ResolutionFailed(err) => Err(format!("ech_resolution_failed: {err}")),
+                        EchResolutionOutcome::Available(_) => unreachable!(),
+                    };
+                }
             }
-        }
-    };
+        };
     let provider = rustls::crypto::aws_lc_rs::default_provider();
     let ech_config = EchConfig::new(
         EchConfigListBytes::from(ech_config_list),
@@ -637,6 +707,17 @@ pub(crate) fn planned_tls_template_profile(profile: TlsClientProfile) -> &'stati
 
 pub(crate) fn planned_tls_template_metadata(profile: TlsClientProfile) -> ProfileMetadata {
     selected_profile_metadata(planned_tls_template_profile(profile))
+}
+
+fn first_flight_plan_label(plan: &TlsTemplateFirstFlightPlan) -> String {
+    format!(
+        "{}|{}|resolver={}|outer={}|ech_present={}",
+        plan.record_choreography.as_str(),
+        plan.ech_bootstrap_policy,
+        plan.ech_bootstrap_resolver_id.unwrap_or("none"),
+        plan.ech_outer_extension_policy,
+        plan.ech_present_in_input
+    )
 }
 
 fn apply_template_alpn(config: &mut ClientConfig, profile_id: &str) {
@@ -775,6 +856,10 @@ mod tests {
             error: None,
             certificate_anomaly: cert_anomaly,
             ech_resolution_detail: None,
+            ech_bootstrap_policy: None,
+            ech_bootstrap_resolver_id: None,
+            ech_outer_extension_policy: None,
+            ech_first_flight_plan: None,
             tcp_connect_ms: None,
             tls_handshake_ms: None,
             cert_chain_length: None,
@@ -971,6 +1056,28 @@ mod tests {
         let ech = planned_tls_template_metadata(TlsClientProfile::Tls13WithEch);
         assert!(ech.template.ech_capable);
         assert_eq!("firefox_ech_grease", ech.template.grease_style);
+        assert_eq!("https_rr_or_cdn_fallback", ech.template.ech_bootstrap_policy);
+        assert_eq!(Some("adguard"), ech.template.ech_bootstrap_resolver_id);
+        assert_eq!("preserve_ech_or_grease", ech.template.ech_outer_extension_policy);
+    }
+
+    #[test]
+    fn first_flight_plan_label_captures_ech_bootstrap_and_outer_policy() {
+        let plan = TlsTemplateFirstFlightPlan {
+            record_choreography: ripdpi_tls_profiles::RecordChoreography::SniEchTailAdaptive,
+            record_payload_boundaries: vec![120, 240],
+            ech_bootstrap_policy: "https_rr_or_cdn_fallback",
+            ech_bootstrap_resolver_id: Some("adguard"),
+            ech_outer_extension_policy: "preserve_ech_or_grease",
+            grease_style: "firefox_ech_grease",
+            ech_capable_template: true,
+            ech_present_in_input: true,
+        };
+
+        assert_eq!(
+            first_flight_plan_label(&plan),
+            "sni_ech_tail_adaptive|https_rr_or_cdn_fallback|resolver=adguard|outer=preserve_ech_or_grease|ech_present=true"
+        );
     }
 
     #[test]

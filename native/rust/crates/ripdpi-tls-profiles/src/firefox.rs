@@ -13,6 +13,9 @@ pub const FIREFOX_LATEST: ProfileConfig = ProfileConfig {
     key_share_profile: "x25519_primary",
     record_choreography: "sni_tail_two_record",
     ech_capable: false,
+    ech_bootstrap_policy: "none",
+    ech_bootstrap_resolver_id: None,
+    ech_outer_extension_policy: "not_applicable",
     cipher_list_tls12: "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:\
                         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:\
                         ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384",
@@ -42,6 +45,9 @@ pub const FIREFOX_ECH_STABLE: ProfileConfig = ProfileConfig {
     key_share_profile: "x25519_hybrid_ready",
     record_choreography: "sni_ech_tail_adaptive",
     ech_capable: true,
+    ech_bootstrap_policy: "https_rr_or_cdn_fallback",
+    ech_bootstrap_resolver_id: Some("adguard"),
+    ech_outer_extension_policy: "preserve_ech_or_grease",
     cipher_list_tls12: "ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:\
                         ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:\
                         ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384",
