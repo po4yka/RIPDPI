@@ -14,6 +14,12 @@ pub(crate) enum DnsOracleTrust {
     Unavailable,
 }
 
+#[derive(Debug, Clone)]
+pub(crate) struct DnsOracleResponse {
+    pub(crate) addresses: Vec<String>,
+    pub(crate) raw_response: Option<Vec<u8>>,
+}
+
 impl DnsOracleTrust {
     pub(crate) fn as_str(self) -> &'static str {
         match self {
@@ -92,23 +98,26 @@ impl<T> DnsOracleAssessment<T> {
             .map(|attempt| attempt.resolver_id.clone())
             .collect::<Vec<_>>();
 
-        vec![
-            ProbeDetail { key: "oracleTrust".to_string(), value: self.trust.as_str().to_string() },
-            ProbeDetail { key: "oracleConfidenceScore".to_string(), value: self.confidence_score.to_string() },
-            ProbeDetail {
-                key: "oracleSelectedResolverId".to_string(),
-                value: self.selected.as_ref().map(|candidate| resolver_label(&candidate.endpoint)).unwrap_or_default(),
-            },
-            ProbeDetail { key: "oracleAgreementResolvers".to_string(), value: self.agreement_resolver_ids.join("|") },
-            ProbeDetail {
-                key: "oracleDisagreementResolvers".to_string(),
-                value: self.disagreement_resolver_ids.join("|"),
-            },
-            ProbeDetail { key: "oracleTriedResolvers".to_string(), value: attempted.join("|") },
-            ProbeDetail { key: "oracleSuccessfulResolvers".to_string(), value: succeeded.join("|") },
-            ProbeDetail { key: "oracleFailedResolvers".to_string(), value: failed.join("|") },
-        ]
+        let mut details = Vec::with_capacity(8);
+        push_detail(&mut details, "oracleTrust", self.trust.as_str().to_string());
+        push_detail(&mut details, "oracleConfidenceScore", self.confidence_score.to_string());
+        push_detail(
+            &mut details,
+            "oracleSelectedResolverId",
+            self.selected.as_ref().map(|candidate| resolver_label(&candidate.endpoint)).unwrap_or_default(),
+        );
+        push_detail(&mut details, "oracleAgreementResolvers", self.agreement_resolver_ids.join("|"));
+        push_detail(&mut details, "oracleDisagreementResolvers", self.disagreement_resolver_ids.join("|"));
+        push_detail(&mut details, "oracleTriedResolvers", attempted.join("|"));
+        push_detail(&mut details, "oracleSuccessfulResolvers", succeeded.join("|"));
+        push_detail(&mut details, "oracleFailedResolvers", failed.join("|"));
+        details
     }
+}
+
+#[inline(never)]
+fn push_detail(details: &mut Vec<ProbeDetail>, key: &str, value: String) {
+    details.push(ProbeDetail { key: key.to_string(), value });
 }
 
 pub(crate) fn evaluate_dns_oracles<T, F, A>(

@@ -1,12 +1,13 @@
 use std::collections::BTreeSet;
 use std::sync::Arc;
 
+use ripdpi_dns_resolver::EncryptedDnsEndpoint;
 use ripdpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::dns::*;
 use crate::dns_analysis::{analyze_dns_response, compare_dns_responses, parse_record_set};
-use crate::dns_oracle::{evaluate_dns_oracles, DnsOracleAssessment, DnsOracleTrust};
+use crate::dns_oracle::{evaluate_dns_oracles, DnsOracleAssessment, DnsOracleResponse, DnsOracleTrust};
 use crate::fat_header::*;
 use crate::http::*;
 use crate::tls::*;
@@ -58,24 +59,11 @@ pub(crate) fn is_dns_injection_suspected(udp_latency_ms: &str, outcome: &str) ->
     udp <= 5 && is_suspected_dns_tampering_outcome(outcome)
 }
 
-#[derive(Clone, Debug)]
-struct ResolvedEncryptedDnsAnswer {
-    addresses: Vec<String>,
-    raw_response: Option<Vec<u8>>,
-}
-
 pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, path_mode: &ScanPathMode) -> ProbeResult {
     let udp_server = target.udp_server.clone().unwrap_or_else(|| DEFAULT_DNS_SERVER.to_string());
     let (encrypted_endpoint, encrypted_bootstrap_ips) = match encrypted_dns_endpoint_for_target(target) {
         Ok(value) => value,
-        Err(err) => {
-            return ProbeResult {
-                probe_type: "dns_integrity".to_string(),
-                target: target.domain.clone(),
-                outcome: "dns_unavailable".to_string(),
-                details: vec![ProbeDetail { key: "encryptedDnsError".to_string(), value: err }],
-            };
-        }
+        Err(err) => return dns_probe_unavailable_result(target, err),
     };
     let udp_started = std::time::Instant::now();
     let (udp_result, raw_udp_response) = resolve_via_udp_with_raw(&target.domain, &udp_server, transport);
@@ -94,7 +82,7 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
         |endpoint| {
             let (result, raw_response) =
                 resolve_via_encrypted_dns_with_raw(&target.domain, endpoint.clone(), transport);
-            result.map(|addresses| ResolvedEncryptedDnsAnswer { addresses, raw_response })
+            result.map(|addresses| DnsOracleResponse { addresses, raw_response })
         },
         |answer| answer.addresses.clone(),
     );
@@ -119,149 +107,44 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
         probe_type: "dns_integrity".to_string(),
         target: target.domain.clone(),
         outcome,
-        details: vec![
-            ProbeDetail { key: "udpServer".to_string(), value: udp_server },
-            ProbeDetail { key: "udpAddresses".to_string(), value: format_result_set(&udp_result) },
-            ProbeDetail { key: "udpLatencyMs".to_string(), value: udp_latency_ms.clone() },
-            ProbeDetail {
-                key: "encryptedResolverId".to_string(),
-                value: encrypted_endpoint.resolver_id.clone().unwrap_or_default(),
-            },
-            ProbeDetail {
-                key: "encryptedProtocol".to_string(),
-                value: encrypted_endpoint.protocol.as_str().to_string(),
-            },
-            ProbeDetail {
-                key: "encryptedEndpoint".to_string(),
-                value: encrypted_endpoint
-                    .doh_url
-                    .clone()
-                    .unwrap_or_else(|| format!("{}:{}", encrypted_endpoint.host, encrypted_endpoint.port)),
-            },
-            ProbeDetail { key: "encryptedHost".to_string(), value: encrypted_endpoint.host.clone() },
-            ProbeDetail { key: "encryptedPort".to_string(), value: encrypted_endpoint.port.to_string() },
-            ProbeDetail {
-                key: "encryptedTlsServerName".to_string(),
-                value: encrypted_endpoint.tls_server_name.clone().unwrap_or_default(),
-            },
-            ProbeDetail { key: "encryptedBootstrapIps".to_string(), value: encrypted_bootstrap_ips.join("|") },
-            ProbeDetail {
-                key: "encryptedBootstrapValidated".to_string(),
-                value: (oracle_assessment.selected.is_some() && !selected_bootstrap_ips.is_empty()).to_string(),
-            },
-            ProbeDetail {
-                key: "encryptedDohUrl".to_string(),
-                value: encrypted_endpoint.doh_url.clone().unwrap_or_default(),
-            },
-            ProbeDetail {
-                key: "encryptedDnscryptProviderName".to_string(),
-                value: encrypted_endpoint.dnscrypt_provider_name.clone().unwrap_or_default(),
-            },
-            ProbeDetail {
-                key: "encryptedDnscryptPublicKey".to_string(),
-                value: encrypted_endpoint.dnscrypt_public_key.clone().unwrap_or_default(),
-            },
-            ProbeDetail { key: "encryptedAddresses".to_string(), value: encrypted_addresses },
-            ProbeDetail { key: "encryptedLatencyMs".to_string(), value: encrypted_latency_ms.clone() },
-            ProbeDetail {
-                key: "dnsLatencyQuality".to_string(),
-                value: classify_dns_latency_quality(udp_latency_ms.as_str(), encrypted_latency_ms.as_str()),
-            },
-            ProbeDetail { key: "dnsInjectionSuspected".to_string(), value: injection_suspected.to_string() },
-            ProbeDetail {
-                key: "expected".to_string(),
-                value: if expected.is_empty() {
-                    "[]".to_string()
-                } else {
-                    expected.iter().cloned().collect::<Vec<_>>().join("|")
-                },
-            },
-            ProbeDetail {
-                key: "resolverFallbackUsed".to_string(),
-                value: oracle_assessment.fallback_resolver_used().unwrap_or_default(),
-            },
-        ],
+        details: build_dns_probe_details(
+            &udp_server,
+            &udp_result,
+            &udp_latency_ms,
+            &encrypted_endpoint,
+            &encrypted_bootstrap_ips,
+            &selected_bootstrap_ips,
+            &encrypted_addresses,
+            &encrypted_latency_ms,
+            injection_suspected,
+            &expected,
+            &oracle_assessment,
+        ),
     };
     result.details.extend(oracle_assessment.detail_entries());
 
-    // Injection profiling: only populated for tampering/suspicious-divergence outcomes.
     if is_suspected_dns_tampering_outcome(result.outcome.as_str()) {
-        let udp_ms: u64 = udp_latency_ms.parse().unwrap_or(0);
-        let enc_ms: u64 = encrypted_latency_ms.parse().unwrap_or(0);
-        // Fixed-point ratio * 100 (e.g. 4000 = 40.00x).
-        let ratio_x100: u64 = if udp_ms > 0 { (enc_ms * 100) / udp_ms } else { 0 };
-        result.details.push(ProbeDetail { key: "injectionLatencyRatio".to_string(), value: ratio_x100.to_string() });
-
-        // Collect forged addresses: UDP IPs that are absent from encrypted results.
-        let empty = vec![];
-        let udp_set = ip_set(udp_result.as_ref().unwrap_or(&empty));
-        let enc_set = ip_set(encrypted_result.as_ref().unwrap_or(&empty));
-        let forged: Vec<String> = udp_set.difference(&enc_set).cloned().collect();
-        if !forged.is_empty() {
-            result.details.push(ProbeDetail { key: "forgedAddresses".to_string(), value: forged.join(",") });
-        }
+        append_injection_profile_details(
+            &mut result,
+            &udp_result,
+            &encrypted_result,
+            &udp_latency_ms,
+            &encrypted_latency_ms,
+        );
     }
 
-    // Append protocol-level analysis details from raw UDP response.
     if let Some(raw) = raw_udp_response.as_deref() {
-        let analysis = analyze_dns_response(raw);
-        result.details.extend([
-            ProbeDetail { key: "udpResponseSize".to_string(), value: analysis.response_size.to_string() },
-            ProbeDetail { key: "udpAaFlag".to_string(), value: analysis.aa_flag.to_string() },
-            ProbeDetail { key: "udpRcode".to_string(), value: analysis.rcode.to_string() },
-            ProbeDetail { key: "udpAnswerCount".to_string(), value: analysis.answer_count.to_string() },
-            ProbeDetail { key: "udpAuthorityCount".to_string(), value: analysis.authority_count.to_string() },
-            ProbeDetail { key: "udpAdditionalCount".to_string(), value: analysis.additional_count.to_string() },
-            ProbeDetail {
-                key: "udpMinTtl".to_string(),
-                value: analysis.min_ttl.map_or_else(String::new, |v| v.to_string()),
-            },
-            ProbeDetail {
-                key: "udpMaxTtl".to_string(),
-                value: analysis.max_ttl.map_or_else(String::new, |v| v.to_string()),
-            },
-            ProbeDetail { key: "udpHasEdns0".to_string(), value: analysis.has_edns0.to_string() },
-            ProbeDetail { key: "udpCnameTargets".to_string(), value: analysis.cname_targets.join("|") },
-            ProbeDetail { key: "udpTamperingScore".to_string(), value: analysis.tampering_score.to_string() },
-            ProbeDetail { key: "udpAnomalySignals".to_string(), value: analysis.signals.join("|") },
-            ProbeDetail { key: "malformedPointers".to_string(), value: analysis.malformed_pointers.to_string() },
-        ]);
+        append_udp_response_analysis(&mut result, raw);
     }
 
-    // Record-level comparison when both raw responses are available.
     if let (Some(udp_raw), Some(enc_raw)) = (raw_udp_response.as_deref(), raw_encrypted_response.as_deref()) {
-        let udp_records = parse_record_set(udp_raw);
-        let enc_records = parse_record_set(enc_raw);
-        let comparison = compare_dns_responses(&udp_records, &enc_records);
-
-        let udp_types: Vec<&str> = udp_records.answers.iter().map(|r| r.rtype_name).collect();
-        let enc_types: Vec<&str> = enc_records.answers.iter().map(|r| r.rtype_name).collect();
-
-        result.details.extend([
-            ProbeDetail { key: "udpRecordTypes".to_string(), value: udp_types.join("|") },
-            ProbeDetail { key: "encryptedRecordTypes".to_string(), value: enc_types.join("|") },
-            ProbeDetail { key: "recordTypeMismatch".to_string(), value: comparison.record_type_mismatch.to_string() },
-            ProbeDetail {
-                key: "answerCountDivergence".to_string(),
-                value: comparison.answer_count_divergence.to_string(),
-            },
-            ProbeDetail {
-                key: "ttlDivergence".to_string(),
-                value: comparison.ttl_divergence.map_or_else(String::new, |v| v.to_string()),
-            },
-            ProbeDetail { key: "authorityMismatch".to_string(), value: comparison.authority_mismatch.to_string() },
-            ProbeDetail { key: "extraCnames".to_string(), value: comparison.extra_cnames.join("|") },
-            ProbeDetail { key: "comparisonScore".to_string(), value: comparison.comparison_score.to_string() },
-            ProbeDetail { key: "comparisonSignals".to_string(), value: comparison.comparison_signals.join("|") },
-        ]);
+        append_record_comparison_details(&mut result, udp_raw, enc_raw);
     }
 
     result
 }
 
-fn oracle_result_for_probe(
-    assessment: &DnsOracleAssessment<ResolvedEncryptedDnsAnswer>,
-) -> Result<Vec<String>, String> {
+fn oracle_result_for_probe(assessment: &DnsOracleAssessment<DnsOracleResponse>) -> Result<Vec<String>, String> {
     match assessment.trust {
         DnsOracleTrust::TrustedAgreement | DnsOracleTrust::PrimaryOnly => assessment
             .selected
@@ -272,6 +155,168 @@ fn oracle_result_for_probe(
         DnsOracleTrust::Disagreement => Err("dns_oracle_disagreement".to_string()),
         DnsOracleTrust::Unavailable => Err("dns_oracle_unavailable".to_string()),
     }
+}
+
+fn dns_probe_unavailable_result(target: &DnsTarget, err: String) -> ProbeResult {
+    ProbeResult {
+        probe_type: "dns_integrity".to_string(),
+        target: target.domain.clone(),
+        outcome: "dns_unavailable".to_string(),
+        details: vec![ProbeDetail { key: "encryptedDnsError".to_string(), value: err }],
+    }
+}
+
+#[inline(never)]
+fn push_detail(details: &mut Vec<ProbeDetail>, key: &str, value: String) {
+    details.push(ProbeDetail { key: key.to_string(), value });
+}
+
+#[inline(never)]
+fn push_joined_string_detail(details: &mut Vec<ProbeDetail>, key: &str, values: &[String]) {
+    push_detail(details, key, values.join("|"));
+}
+
+#[inline(never)]
+fn push_joined_str_detail(details: &mut Vec<ProbeDetail>, key: &str, values: &[&str]) {
+    push_detail(details, key, values.join("|"));
+}
+
+fn build_dns_probe_details(
+    udp_server: &str,
+    udp_result: &Result<Vec<String>, String>,
+    udp_latency_ms: &str,
+    encrypted_endpoint: &EncryptedDnsEndpoint,
+    encrypted_bootstrap_ips: &[String],
+    selected_bootstrap_ips: &[String],
+    encrypted_addresses: &str,
+    encrypted_latency_ms: &str,
+    injection_suspected: bool,
+    expected: &BTreeSet<String>,
+    oracle_assessment: &DnsOracleAssessment<DnsOracleResponse>,
+) -> Vec<ProbeDetail> {
+    vec![
+        ProbeDetail { key: "udpServer".to_string(), value: udp_server.to_string() },
+        ProbeDetail { key: "udpAddresses".to_string(), value: format_result_set(udp_result) },
+        ProbeDetail { key: "udpLatencyMs".to_string(), value: udp_latency_ms.to_string() },
+        ProbeDetail {
+            key: "encryptedResolverId".to_string(),
+            value: encrypted_endpoint.resolver_id.clone().unwrap_or_default(),
+        },
+        ProbeDetail { key: "encryptedProtocol".to_string(), value: encrypted_endpoint.protocol.as_str().to_string() },
+        ProbeDetail {
+            key: "encryptedEndpoint".to_string(),
+            value: encrypted_endpoint
+                .doh_url
+                .clone()
+                .unwrap_or_else(|| format!("{}:{}", encrypted_endpoint.host, encrypted_endpoint.port)),
+        },
+        ProbeDetail { key: "encryptedHost".to_string(), value: encrypted_endpoint.host.clone() },
+        ProbeDetail { key: "encryptedPort".to_string(), value: encrypted_endpoint.port.to_string() },
+        ProbeDetail {
+            key: "encryptedTlsServerName".to_string(),
+            value: encrypted_endpoint.tls_server_name.clone().unwrap_or_default(),
+        },
+        ProbeDetail { key: "encryptedBootstrapIps".to_string(), value: encrypted_bootstrap_ips.join("|") },
+        ProbeDetail {
+            key: "encryptedBootstrapValidated".to_string(),
+            value: (oracle_assessment.selected.is_some() && !selected_bootstrap_ips.is_empty()).to_string(),
+        },
+        ProbeDetail {
+            key: "encryptedDohUrl".to_string(),
+            value: encrypted_endpoint.doh_url.clone().unwrap_or_default(),
+        },
+        ProbeDetail {
+            key: "encryptedDnscryptProviderName".to_string(),
+            value: encrypted_endpoint.dnscrypt_provider_name.clone().unwrap_or_default(),
+        },
+        ProbeDetail {
+            key: "encryptedDnscryptPublicKey".to_string(),
+            value: encrypted_endpoint.dnscrypt_public_key.clone().unwrap_or_default(),
+        },
+        ProbeDetail { key: "encryptedAddresses".to_string(), value: encrypted_addresses.to_string() },
+        ProbeDetail { key: "encryptedLatencyMs".to_string(), value: encrypted_latency_ms.to_string() },
+        ProbeDetail {
+            key: "dnsLatencyQuality".to_string(),
+            value: classify_dns_latency_quality(udp_latency_ms, encrypted_latency_ms),
+        },
+        ProbeDetail { key: "dnsInjectionSuspected".to_string(), value: injection_suspected.to_string() },
+        ProbeDetail {
+            key: "expected".to_string(),
+            value: if expected.is_empty() {
+                "[]".to_string()
+            } else {
+                expected.iter().cloned().collect::<Vec<_>>().join("|")
+            },
+        },
+        ProbeDetail {
+            key: "resolverFallbackUsed".to_string(),
+            value: oracle_assessment.fallback_resolver_used().unwrap_or_default(),
+        },
+    ]
+}
+
+#[inline(never)]
+fn append_injection_profile_details(
+    result: &mut ProbeResult,
+    udp_result: &Result<Vec<String>, String>,
+    encrypted_result: &Result<Vec<String>, String>,
+    udp_latency_ms: &str,
+    encrypted_latency_ms: &str,
+) {
+    let udp_ms: u64 = udp_latency_ms.parse().unwrap_or(0);
+    let enc_ms: u64 = encrypted_latency_ms.parse().unwrap_or(0);
+    let ratio_x100: u64 = if udp_ms > 0 { (enc_ms * 100) / udp_ms } else { 0 };
+    result.details.push(ProbeDetail { key: "injectionLatencyRatio".to_string(), value: ratio_x100.to_string() });
+
+    let empty = vec![];
+    let udp_set = ip_set(udp_result.as_ref().unwrap_or(&empty));
+    let enc_set = ip_set(encrypted_result.as_ref().unwrap_or(&empty));
+    let forged: Vec<String> = udp_set.difference(&enc_set).cloned().collect();
+    if !forged.is_empty() {
+        result.details.push(ProbeDetail { key: "forgedAddresses".to_string(), value: forged.join(",") });
+    }
+}
+
+#[inline(never)]
+fn append_udp_response_analysis(result: &mut ProbeResult, raw: &[u8]) {
+    let analysis = analyze_dns_response(raw);
+    push_detail(&mut result.details, "udpResponseSize", analysis.response_size.to_string());
+    push_detail(&mut result.details, "udpAaFlag", analysis.aa_flag.to_string());
+    push_detail(&mut result.details, "udpRcode", analysis.rcode.to_string());
+    push_detail(&mut result.details, "udpAnswerCount", analysis.answer_count.to_string());
+    push_detail(&mut result.details, "udpAuthorityCount", analysis.authority_count.to_string());
+    push_detail(&mut result.details, "udpAdditionalCount", analysis.additional_count.to_string());
+    push_detail(&mut result.details, "udpMinTtl", analysis.min_ttl.map_or_else(String::new, |value| value.to_string()));
+    push_detail(&mut result.details, "udpMaxTtl", analysis.max_ttl.map_or_else(String::new, |value| value.to_string()));
+    push_detail(&mut result.details, "udpHasEdns0", analysis.has_edns0.to_string());
+    push_joined_string_detail(&mut result.details, "udpCnameTargets", &analysis.cname_targets);
+    push_detail(&mut result.details, "udpTamperingScore", analysis.tampering_score.to_string());
+    push_joined_str_detail(&mut result.details, "udpAnomalySignals", &analysis.signals);
+    push_detail(&mut result.details, "malformedPointers", analysis.malformed_pointers.to_string());
+}
+
+#[inline(never)]
+fn append_record_comparison_details(result: &mut ProbeResult, udp_raw: &[u8], enc_raw: &[u8]) {
+    let udp_records = parse_record_set(udp_raw);
+    let enc_records = parse_record_set(enc_raw);
+    let comparison = compare_dns_responses(&udp_records, &enc_records);
+
+    let udp_types: Vec<&str> = udp_records.answers.iter().map(|r| r.rtype_name).collect();
+    let enc_types: Vec<&str> = enc_records.answers.iter().map(|r| r.rtype_name).collect();
+
+    push_detail(&mut result.details, "udpRecordTypes", udp_types.join("|"));
+    push_detail(&mut result.details, "encryptedRecordTypes", enc_types.join("|"));
+    push_detail(&mut result.details, "recordTypeMismatch", comparison.record_type_mismatch.to_string());
+    push_detail(&mut result.details, "answerCountDivergence", comparison.answer_count_divergence.to_string());
+    push_detail(
+        &mut result.details,
+        "ttlDivergence",
+        comparison.ttl_divergence.map_or_else(String::new, |value| value.to_string()),
+    );
+    push_detail(&mut result.details, "authorityMismatch", comparison.authority_mismatch.to_string());
+    push_joined_string_detail(&mut result.details, "extraCnames", &comparison.extra_cnames);
+    push_detail(&mut result.details, "comparisonScore", comparison.comparison_score.to_string());
+    push_joined_str_detail(&mut result.details, "comparisonSignals", &comparison.comparison_signals);
 }
 
 fn classify_dns_probe_outcome(
@@ -782,9 +827,8 @@ mod tests {
     use crate::dns_oracle::evaluate_dns_oracles;
     use crate::types::ScanPathMode;
 
-    use super::{
-        classify_dns_latency_quality, classify_dns_probe_outcome, oracle_result_for_probe, ResolvedEncryptedDnsAnswer,
-    };
+    use super::{classify_dns_latency_quality, classify_dns_probe_outcome, oracle_result_for_probe};
+    use crate::dns_oracle::DnsOracleResponse;
 
     fn endpoint(id: &str) -> EncryptedDnsEndpoint {
         EncryptedDnsEndpoint {
@@ -848,7 +892,7 @@ mod tests {
             ("primary".to_string(), Err("connection reset".to_string())),
             (
                 "fallback".to_string(),
-                Ok(ResolvedEncryptedDnsAnswer { addresses: vec!["198.51.100.77".to_string()], raw_response: None }),
+                Ok(DnsOracleResponse { addresses: vec!["198.51.100.77".to_string()], raw_response: None }),
             ),
         ]);
         let assessment = evaluate_dns_oracles(
