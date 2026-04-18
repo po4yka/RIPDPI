@@ -685,7 +685,6 @@ jobs:
           set -euo pipefail
           android emulator create --profile=medium_phone
           android emulator start medium_phone
-          android emulator wait-for-boot --timeout 600
 
       - name: Run macrobenchmarks
         run: bash scripts/ci/run-android-macrobenchmark.sh
@@ -746,7 +745,6 @@ jobs:
           set -euo pipefail
           android emulator create --profile=medium_phone
           android emulator start medium_phone
-          android emulator wait-for-boot --timeout 600
 
       - name: Run connected Android integration tests
         run: bash scripts/ci/run-android-integration-emulator.sh
@@ -979,7 +977,6 @@ jobs:
           set -euo pipefail
           android emulator create --profile=medium_phone
           android emulator start medium_phone
-          android emulator wait-for-boot --timeout 600
 
       - name: Run connected Android network E2E tests
         run: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}"
@@ -1058,7 +1055,6 @@ jobs:
           set -euo pipefail
           android emulator create --profile=medium_phone
           android emulator start medium_phone
-          android emulator wait-for-boot --timeout 600
 
       - name: Run Android relay emulator smoke
         run: bash scripts/ci/run-android-relay-emulator-smoke.sh

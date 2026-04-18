@@ -9,15 +9,10 @@ use crate::candidates::{
 };
 use crate::connectivity::{classify_dns_latency_quality, is_dns_injection_suspected};
 use crate::dns::{build_fallback_encrypted_dns_endpoints, resolve_via_encrypted_dns};
-use crate::dns_oracle::{evaluate_dns_oracles, DnsOracleAssessment};
+use crate::dns_oracle::{evaluate_dns_oracles, DnsOracleAssessment, DnsOracleResponse};
 use crate::transport::{domain_connect_target, resolve_addresses, TargetAddress, TransportConfig};
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
 use crate::util::{classify_dns_answer_overlap, DnsAnswerOverlap};
-
-#[derive(Clone, Debug)]
-struct ResolvedStrategyDnsAnswer {
-    addresses: Vec<String>,
-}
 
 struct StrategyDnsTargetEvaluation {
     result: ProbeResult,
@@ -60,7 +55,7 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
             fallback_endpoints.len(),
             |endpoint| {
                 resolve_via_encrypted_dns(&target.host, endpoint.clone(), &TransportConfig::Direct)
-                    .map(|addresses| ResolvedStrategyDnsAnswer { addresses })
+                    .map(|addresses| DnsOracleResponse { addresses, raw_response: None })
             },
             |answer| answer.addresses.clone(),
         );
@@ -132,7 +127,7 @@ fn evaluate_strategy_dns_target(
     system_targets: &[SocketAddr],
     system_resolution_failed: bool,
     system_latency_ms: &str,
-    oracle_assessment: &DnsOracleAssessment<ResolvedStrategyDnsAnswer>,
+    oracle_assessment: &DnsOracleAssessment<DnsOracleResponse>,
 ) -> Option<StrategyDnsTargetEvaluation> {
     let encrypted_addresses =
         oracle_assessment.selected.as_ref().map(|selected| selected.value.addresses.clone()).unwrap_or_default();
@@ -245,10 +240,10 @@ mod tests {
     use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol};
     use ripdpi_proxy_config::ProxyEncryptedDnsContext;
 
-    use crate::dns_oracle::evaluate_dns_oracles;
+    use crate::dns_oracle::{evaluate_dns_oracles, DnsOracleResponse};
     use crate::types::DomainTarget;
 
-    use super::{evaluate_strategy_dns_target, ResolvedStrategyDnsAnswer};
+    use super::evaluate_strategy_dns_target;
 
     fn endpoint(id: &str) -> EncryptedDnsEndpoint {
         EncryptedDnsEndpoint {
@@ -294,7 +289,10 @@ mod tests {
     fn strategy_baseline_skips_single_fallback_oracle_without_classifying_tampering() {
         let answers = BTreeMap::from([
             ("primary".to_string(), Err("connection reset".to_string())),
-            ("fallback".to_string(), Ok(ResolvedStrategyDnsAnswer { addresses: vec!["198.51.100.77".to_string()] })),
+            (
+                "fallback".to_string(),
+                Ok(DnsOracleResponse { addresses: vec!["198.51.100.77".to_string()], raw_response: None }),
+            ),
         ]);
         let assessment = evaluate_dns_oracles(
             endpoint("primary"),
@@ -327,8 +325,14 @@ mod tests {
     #[test]
     fn strategy_baseline_allows_trusted_oracle_agreement_to_confirm_tampering() {
         let answers = BTreeMap::from([
-            ("primary".to_string(), Ok(ResolvedStrategyDnsAnswer { addresses: vec!["198.51.100.77".to_string()] })),
-            ("fallback".to_string(), Ok(ResolvedStrategyDnsAnswer { addresses: vec!["198.51.100.77".to_string()] })),
+            (
+                "primary".to_string(),
+                Ok(DnsOracleResponse { addresses: vec!["198.51.100.77".to_string()], raw_response: None }),
+            ),
+            (
+                "fallback".to_string(),
+                Ok(DnsOracleResponse { addresses: vec!["198.51.100.77".to_string()], raw_response: None }),
+            ),
         ]);
         let assessment = evaluate_dns_oracles(
             endpoint("primary"),

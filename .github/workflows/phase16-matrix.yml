@@ -86,7 +86,6 @@ jobs:
           set -euo pipefail
           android emulator create --profile=medium_phone
           android emulator start medium_phone
-          android emulator wait-for-boot --timeout 600
 
       - name: Install packet smoke host tools
         if: contains(matrix.runsOnJson, 'ubuntu-latest')
