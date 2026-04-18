@@ -14,7 +14,7 @@ class AutomationLaunchContractTest {
                 instrumentationArgs =
                     mapOf(
                         AutomationLaunchContract.Enabled to "true",
-                        AutomationLaunchContract.StartRoute to Route.Home.route,
+                        AutomationLaunchContract.StartRoute to Route.Home.stableRoute,
                         AutomationLaunchContract.DisableMotion to "false",
                         AutomationLaunchContract.PermissionPreset to AutomationPermissionPreset.Granted.wireValue,
                         AutomationLaunchContract.ServicePreset to AutomationServicePreset.Idle.wireValue,
@@ -23,7 +23,7 @@ class AutomationLaunchContractTest {
                 intentArgs =
                     mapOf(
                         AutomationLaunchContract.Enabled to true,
-                        AutomationLaunchContract.StartRoute to Route.AdvancedSettings.route,
+                        AutomationLaunchContract.StartRoute to Route.AdvancedSettings.stableRoute,
                         AutomationLaunchContract.DisableMotion to true,
                         AutomationLaunchContract.PermissionPreset to AutomationPermissionPreset.VpnMissing.wireValue,
                         AutomationLaunchContract.ServicePreset to AutomationServicePreset.ConnectedVpn.wireValue,
@@ -34,7 +34,7 @@ class AutomationLaunchContractTest {
         assertEquals(
             AutomationLaunchConfig(
                 enabled = true,
-                startRoute = Route.AdvancedSettings.route,
+                startRoute = Route.AdvancedSettings.stableRoute,
                 disableMotion = true,
                 permissionPreset = AutomationPermissionPreset.VpnMissing,
                 servicePreset = AutomationServicePreset.ConnectedVpn,
@@ -73,7 +73,7 @@ class AutomationLaunchContractTest {
                     mapOf(
                         AutomationLaunchContract.Enabled to "false",
                         AutomationLaunchContract.ResetState to "true",
-                        AutomationLaunchContract.StartRoute to Route.Diagnostics.route,
+                        AutomationLaunchContract.StartRoute to Route.Diagnostics.stableRoute,
                         AutomationLaunchContract.DisableMotion to "true",
                     ),
             )

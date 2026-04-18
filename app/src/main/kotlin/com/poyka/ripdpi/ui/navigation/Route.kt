@@ -18,7 +18,7 @@ import kotlinx.serialization.Serializable
  * identification. It is not the serialized route key consumed by the navigation graph.
  */
 sealed class Route {
-    abstract val route: String
+    abstract val stableRoute: String
 
     @get:StringRes
     abstract val titleRes: Int
@@ -27,105 +27,105 @@ sealed class Route {
 
     @Serializable
     data object Onboarding : Route() {
-        override val route = "onboarding"
+        override val stableRoute = "onboarding"
         override val titleRes = R.string.title_onboarding
         override val icon: ImageVector? = null
     }
 
     @Serializable
     data object Home : Route() {
-        override val route = "home"
+        override val stableRoute = "home"
         override val titleRes = R.string.home
         override val icon: ImageVector = RipDpiIcons.Home
     }
 
     @Serializable
     data object Config : Route() {
-        override val route = "config"
+        override val stableRoute = "config"
         override val titleRes = R.string.config
         override val icon: ImageVector = RipDpiIcons.Config
     }
 
     @Serializable
     data object Settings : Route() {
-        override val route = "settings"
+        override val stableRoute = "settings"
         override val titleRes = R.string.settings
         override val icon: ImageVector = RipDpiIcons.Settings
     }
 
     @Serializable
     data object Diagnostics : Route() {
-        override val route = "diagnostics"
+        override val stableRoute = "diagnostics"
         override val titleRes = R.string.diagnostics
         override val icon: ImageVector = RipDpiIcons.Logs
     }
 
     @Serializable
     data object History : Route() {
-        override val route = "history"
+        override val stableRoute = "history"
         override val titleRes = R.string.history_title
         override val icon: ImageVector? = null
     }
 
     @Serializable
     data object Logs : Route() {
-        override val route = "logs"
+        override val stableRoute = "logs"
         override val titleRes = R.string.logs
         override val icon: ImageVector? = null
     }
 
     @Serializable
     data object ModeEditor : Route() {
-        override val route = "mode_editor"
+        override val stableRoute = "mode_editor"
         override val titleRes = R.string.title_mode_editor
         override val icon: ImageVector? = null
     }
 
     @Serializable
     data object DnsSettings : Route() {
-        override val route = "dns_settings"
+        override val stableRoute = "dns_settings"
         override val titleRes = R.string.title_dns_settings
         override val icon: ImageVector? = null
     }
 
     @Serializable
     data object AdvancedSettings : Route() {
-        override val route = "advanced_settings"
+        override val stableRoute = "advanced_settings"
         override val titleRes = R.string.title_advanced_settings
         override val icon: ImageVector? = null
     }
 
     @Serializable
     data object BiometricPrompt : Route() {
-        override val route = "biometric_prompt"
+        override val stableRoute = "biometric_prompt"
         override val titleRes = R.string.title_biometric_prompt
         override val icon: ImageVector? = null
     }
 
     @Serializable
     data object AppCustomization : Route() {
-        override val route = "app_customization"
+        override val stableRoute = "app_customization"
         override val titleRes = R.string.title_app_icon
         override val icon: ImageVector? = null
     }
 
     @Serializable
     data object About : Route() {
-        override val route = "about"
+        override val stableRoute = "about"
         override val titleRes = R.string.about_category
         override val icon: ImageVector? = null
     }
 
     @Serializable
     data object DataTransparency : Route() {
-        override val route = "data_transparency"
+        override val stableRoute = "data_transparency"
         override val titleRes = R.string.title_data_transparency
         override val icon: ImageVector? = null
     }
 
     @Serializable
     data object DetectionCheck : Route() {
-        override val route = "detection_check"
+        override val stableRoute = "detection_check"
         override val titleRes = R.string.title_detection_check
         override val icon: ImageVector? = null
     }
@@ -154,11 +154,11 @@ sealed class Route {
                     DetectionCheck,
                 )
 
-        fun fromStableRoute(route: String?): Route? = route?.let { key -> all.firstOrNull { it.route == key } }
+        fun fromStableRoute(route: String?): Route? = route?.let { key -> all.firstOrNull { it.stableRoute == key } }
     }
 }
 
 internal val topLevelStableRoutes: Set<String> =
-    Route.topLevel.map(Route::route).toSet()
+    Route.topLevel.map(Route::stableRoute).toSet()
 
 internal fun String?.isTopLevelRoute(): Boolean = this != null && this in topLevelStableRoutes

@@ -142,7 +142,7 @@ internal fun resolveAutomationLaunchConfig(
     )
 }
 
-private val ValidAutomationRoutes: Set<String> = Route.all.mapTo(linkedSetOf()) { it.route }
+private val ValidAutomationRoutes: Set<String> = Route.all.mapTo(linkedSetOf()) { it.stableRoute }
 
 private fun readBoolean(
     intentArgs: Map<String, Any?>,

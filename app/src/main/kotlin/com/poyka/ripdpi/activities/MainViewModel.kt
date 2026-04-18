@@ -265,6 +265,7 @@ internal fun resolveStartupDestination(settings: AppSettings): Route =
     }
 
 @HiltViewModel
+@Suppress("TooManyFunctions")
 class MainViewModel
     @Inject
     constructor(

@@ -10,15 +10,15 @@ class RipDpiNavHostLogicTest {
     fun `top level routes stay in figma bottom bar order`() {
         assertEquals(
             listOf("home", "config", "diagnostics", "settings"),
-            Route.topLevel.map(Route::route),
+            Route.topLevel.map(Route::stableRoute),
         )
     }
 
     @Test
     fun `top level route helper only matches bottom navigation destinations`() {
-        assertTrue(Route.Home.route.isTopLevelRoute())
-        assertTrue(Route.Settings.route.isTopLevelRoute())
-        assertFalse(Route.History.route.isTopLevelRoute())
+        assertTrue(Route.Home.stableRoute.isTopLevelRoute())
+        assertTrue(Route.Settings.stableRoute.isTopLevelRoute())
+        assertFalse(Route.History.stableRoute.isTopLevelRoute())
         assertFalse(null.isTopLevelRoute())
     }
 
@@ -27,7 +27,7 @@ class RipDpiNavHostLogicTest {
         assertTrue(
             shouldNavigateToHomeFromLaunchRequest(
                 launchHomeRequested = true,
-                currentRoute = Route.Settings.route,
+                currentRoute = Route.Settings.stableRoute,
             ),
         )
     }
@@ -37,7 +37,7 @@ class RipDpiNavHostLogicTest {
         assertFalse(
             shouldNavigateToHomeFromLaunchRequest(
                 launchHomeRequested = true,
-                currentRoute = Route.BiometricPrompt.route,
+                currentRoute = Route.BiometricPrompt.stableRoute,
             ),
         )
     }
@@ -47,7 +47,7 @@ class RipDpiNavHostLogicTest {
         assertFalse(
             shouldNavigateToHomeFromLaunchRequest(
                 launchHomeRequested = true,
-                currentRoute = Route.Home.route,
+                currentRoute = Route.Home.stableRoute,
             ),
         )
     }

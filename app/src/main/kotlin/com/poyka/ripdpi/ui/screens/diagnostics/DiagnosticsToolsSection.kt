@@ -32,6 +32,7 @@ import java.util.Locale
 private const val timingBreakdownDisplayCount = 4
 
 @Composable
+@Suppress("LongMethod")
 internal fun ToolsSection(
     approaches: DiagnosticsApproachesUiModel,
     share: DiagnosticsShareUiModel,

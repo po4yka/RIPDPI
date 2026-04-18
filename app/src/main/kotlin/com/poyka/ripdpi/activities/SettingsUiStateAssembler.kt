@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
+private const val SettingsStateSubscriptionMillis = 5_000L
+private const val SettingsRememberedPolicyLimit = 64
+
 internal data class SettingsUiStateAssemblySnapshot(
     val settings: AppSettings,
     val serviceTelemetry: com.poyka.ripdpi.data.ServiceTelemetrySnapshot,
@@ -36,7 +39,7 @@ internal class SettingsUiStateAssembler
                 settingsUiDependencies.appSettingsRepository.settings,
                 settingsUiDependencies.serviceStateStore.telemetry,
                 hostAutolearnStoreRefresh,
-                settingsUiDependencies.rememberedPolicySource.observePolicies(limit = 64),
+                settingsUiDependencies.rememberedPolicySource.observePolicies(limit = SettingsRememberedPolicyLimit),
             ) { settings, telemetry, _, rememberedPolicies ->
                 buildUiState(
                     buildAssemblySnapshot(
@@ -48,7 +51,7 @@ internal class SettingsUiStateAssembler
                 )
             }.stateIn(
                 scope = scope,
-                started = SharingStarted.WhileSubscribed(5_000),
+                started = SharingStarted.WhileSubscribed(SettingsStateSubscriptionMillis),
                 initialValue = buildUiState(initialSnapshot(settingsUiDependencies)),
             )
 

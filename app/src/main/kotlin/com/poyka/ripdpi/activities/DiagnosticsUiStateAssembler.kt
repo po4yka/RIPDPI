@@ -14,11 +14,15 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
+private const val DiagnosticsStateSubscriptionMillis = 5_000L
+private const val DiagnosticsRememberedPolicyLimit = 64
+
 internal class DiagnosticsUiStateAssembler
     @Inject
     constructor(
         private val uiStateFactory: DiagnosticsUiStateFactory,
     ) {
+        @Suppress("LongMethod")
         fun assemble(
             scope: CoroutineScope,
             interactionDependencies: DiagnosticsInteractionDependencies,
@@ -49,7 +53,11 @@ internal class DiagnosticsUiStateAssembler
                         liveSnapshots = emptyList(),
                         liveContexts = emptyList(),
                     )
-                }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), LiveDataSnapshot.EMPTY)
+                }.stateIn(
+                    scope,
+                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                    LiveDataSnapshot.EMPTY,
+                )
 
             val currentTelemetryData =
                 combine(
@@ -63,7 +71,11 @@ internal class DiagnosticsUiStateAssembler
                         telemetry = telemetry,
                         activeConnectionSession = activeConnectionSession,
                     )
-                }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), null)
+                }.stateIn(
+                    scope,
+                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                    null,
+                )
 
             val liveRuntimeData =
                 combine(
@@ -80,7 +92,11 @@ internal class DiagnosticsUiStateAssembler
                         liveTelemetry = liveTelemetry,
                         liveNativeEvents = liveNativeEvents,
                     )
-                }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), LiveRuntimeSnapshot.EMPTY)
+                }.stateIn(
+                    scope,
+                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                    LiveRuntimeSnapshot.EMPTY,
+                )
 
             val combinedLiveData =
                 combine(liveData, liveRuntimeData, currentTelemetryData) { live, runtime, currentTelemetry ->
@@ -92,7 +108,11 @@ internal class DiagnosticsUiStateAssembler
                         liveSnapshots = runtime.liveSnapshots,
                         liveContexts = runtime.liveContexts,
                     )
-                }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), LiveDataSnapshot.EMPTY)
+                }.stateIn(
+                    scope,
+                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                    LiveDataSnapshot.EMPTY,
+                )
 
             val scanData =
                 combine(
@@ -102,12 +122,18 @@ internal class DiagnosticsUiStateAssembler
                     interactionDependencies.diagnosticsTimelineSource.exports,
                 ) { profiles, sessions, approachStats, exports ->
                     ScanDataSnapshot(profiles, sessions, approachStats, exports)
-                }.stateIn(scope, SharingStarted.WhileSubscribed(5_000), ScanDataSnapshot.EMPTY)
+                }.stateIn(
+                    scope,
+                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                    ScanDataSnapshot.EMPTY,
+                )
 
             val configData =
                 combine(
                     contextDependencies.appSettingsRepository.settings,
-                    contextDependencies.rememberedPolicySource.observePolicies(limit = 64),
+                    contextDependencies.rememberedPolicySource.observePolicies(
+                        limit = DiagnosticsRememberedPolicyLimit,
+                    ),
                     contextDependencies.serviceStateStore.status,
                     contextDependencies.activeConnectionPolicySource.activePolicies,
                 ) { settings, rememberedPolicies, serviceStatus, activePolicies ->
@@ -118,7 +144,7 @@ internal class DiagnosticsUiStateAssembler
                     ConfigSnapshot(settings, rememberedPolicies, connectionPolicy)
                 }.stateIn(
                     scope,
-                    SharingStarted.WhileSubscribed(5_000),
+                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
                     ConfigSnapshot(
                         settings = AppSettingsSerializer.defaultValue,
                         rememberedPolicies = emptyList(),
@@ -131,7 +157,7 @@ internal class DiagnosticsUiStateAssembler
                     Triple(live, scan, config)
                 }.stateIn(
                     scope,
-                    SharingStarted.WhileSubscribed(5_000),
+                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
                     Triple(LiveDataSnapshot.EMPTY, ScanDataSnapshot.EMPTY, configData.value),
                 )
 
@@ -145,7 +171,7 @@ internal class DiagnosticsUiStateAssembler
                     UiControlState(selection, filter, sessionDetail, scanLifecycle)
                 }.stateIn(
                     scope,
-                    SharingStarted.WhileSubscribed(5_000),
+                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
                     UiControlState(
                         selection = SelectionState(),
                         filter = FilterState(),
@@ -204,7 +230,7 @@ internal class DiagnosticsUiStateAssembler
                 )
             }.stateIn(
                 scope = scope,
-                started = SharingStarted.WhileSubscribed(5_000),
+                started = SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
                 initialValue = DiagnosticsUiState(),
             )
         }
