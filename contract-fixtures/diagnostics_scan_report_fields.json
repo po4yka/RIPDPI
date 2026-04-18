@@ -52,6 +52,7 @@
   "strategyProbeReport.auditAssessment.dnsShortCircuited",
   "strategyProbeReport.completionKind",
   "strategyProbeReport.methodologyVersion",
+  "strategyProbeReport.pilotBucketLabels[]",
   "strategyProbeReport.quicCandidates[].averageLatencyMs",
   "strategyProbeReport.quicCandidates[].emitterDowngraded",
   "strategyProbeReport.quicCandidates[].emitterTier",

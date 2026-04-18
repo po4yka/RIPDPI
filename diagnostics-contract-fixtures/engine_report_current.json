@@ -8,9 +8,9 @@
   "summary": "1 issue",
   "results": [
     {
-      "probeType": "dns",
+      "probeType": "dns_integrity",
       "target": "meduza.io",
-      "outcome": "substitution",
+      "outcome": "dns_sinkhole_substitution",
       "details": []
     }
   ],
@@ -20,7 +20,7 @@
       "target": "meduza.io",
       "dns": {
         "domain": "meduza.io",
-        "status": "SUBSTITUTION",
+        "status": "SINKHOLE_SUBSTITUTION",
         "udpAddresses": [
           "203.0.113.10"
         ],
