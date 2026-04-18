@@ -89,35 +89,43 @@ class DefaultStrategyPackDownloadService
             if (!selection.tlsTemplateEchCapable) {
                 return
             }
-            if (response.tlsTemplateEchCapable == false) {
-                throw IOException(
-                    "Native owned TLS fetch downgraded ECH-capable profile ${selection.profileId} to a non-ECH template",
-                )
-            }
-            response.tlsTemplateEchBootstrapPolicy?.let { actual ->
-                if (actual != selection.tlsTemplateEchBootstrapPolicy) {
-                    throw IOException(
-                        "Native owned TLS fetch returned ECH bootstrap policy $actual for ${selection.profileId} " +
-                            "instead of ${selection.tlsTemplateEchBootstrapPolicy}",
-                    )
+            val mismatches =
+                buildList {
+                    val profileId = selection.profileId
+                    if (response.tlsTemplateEchCapable == false) {
+                        add(
+                            "native owned TLS downgraded ECH-capable profile " +
+                                "$profileId to a non-ECH template",
+                        )
+                    }
+                    response.tlsTemplateEchBootstrapPolicy?.let { actual ->
+                        if (actual != selection.tlsTemplateEchBootstrapPolicy) {
+                            add(
+                                "native owned TLS returned ECH bootstrap policy $actual for ${selection.profileId} " +
+                                    "instead of ${selection.tlsTemplateEchBootstrapPolicy}",
+                            )
+                        }
+                    }
+                    response.tlsTemplateEchBootstrapResolverId?.let { actual ->
+                        if (actual != selection.tlsTemplateEchBootstrapResolverId) {
+                            add(
+                                "native owned TLS returned ECH bootstrap resolver $actual for ${selection.profileId} " +
+                                    "instead of ${selection.tlsTemplateEchBootstrapResolverId}",
+                            )
+                        }
+                    }
+                    response.tlsTemplateEchOuterExtensionPolicy?.let { actual ->
+                        if (actual != selection.tlsTemplateEchOuterExtensionPolicy) {
+                            add(
+                                "native owned TLS returned ECH outer-extension policy $actual " +
+                                    "for $profileId instead of " +
+                                    selection.tlsTemplateEchOuterExtensionPolicy,
+                            )
+                        }
+                    }
                 }
-            }
-            response.tlsTemplateEchBootstrapResolverId?.let { actual ->
-                if (actual != selection.tlsTemplateEchBootstrapResolverId) {
-                    throw IOException(
-                        "Native owned TLS fetch returned ECH bootstrap resolver $actual for ${selection.profileId} " +
-                            "instead of ${selection.tlsTemplateEchBootstrapResolverId}",
-                    )
-                }
-            }
-            response.tlsTemplateEchOuterExtensionPolicy?.let { actual ->
-                if (actual != selection.tlsTemplateEchOuterExtensionPolicy) {
-                    throw IOException(
-                        "Native owned TLS fetch returned ECH outer-extension policy " +
-                            "$actual for ${selection.profileId} " +
-                            "instead of ${selection.tlsTemplateEchOuterExtensionPolicy}",
-                    )
-                }
+            if (mismatches.isNotEmpty()) {
+                throw IOException(mismatches.joinToString(separator = "; "))
             }
         }
     }

@@ -104,6 +104,7 @@ data class LogsUiState(
 }
 
 private const val MaxLogEntries = 250
+private const val LogsStateSubscriptionMillis = 5_000L
 
 internal fun filterLogs(
     logs: List<LogEntry>,
@@ -209,27 +210,18 @@ class LogsViewModel
                 activeSessionOnly,
                 autoScrollEnabled,
                 refreshing,
-            ) { values ->
-                @Suppress("UNCHECKED_CAST")
-                val logs = (values[0] as List<LogEntry>)
-
-                @Suppress("UNCHECKED_CAST")
-                val subsystems = (values[1] as Set<LogSubsystem>)
-
-                @Suppress("UNCHECKED_CAST")
-                val severities = (values[2] as Set<LogSeverity>)
-                val activeSessionOnly = values[3] as Boolean
+            ) { logs, subsystems, severities, activeSessionOnly, isAutoScroll, isRefreshing ->
                 LogsUiState(
                     logs = logs.toImmutableList(),
                     activeSubsystems = subsystems.toImmutableSet(),
                     activeSeverities = severities.toImmutableSet(),
                     showActiveSessionOnly = activeSessionOnly,
-                    isAutoScroll = values[4] as Boolean,
-                    isRefreshing = values[5] as Boolean,
+                    isAutoScroll = isAutoScroll,
+                    isRefreshing = isRefreshing,
                 )
             }.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
+                started = SharingStarted.WhileSubscribed(LogsStateSubscriptionMillis),
                 initialValue = LogsUiState(),
             )
 

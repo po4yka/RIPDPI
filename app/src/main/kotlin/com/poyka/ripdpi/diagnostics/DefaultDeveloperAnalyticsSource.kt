@@ -30,6 +30,19 @@ private const val BreadcrumbRingCapacity = 60
 private const val NativeLogTailLines = 80
 private const val PanicBacktraceTailBytes = 6_144
 private const val BytesPerMb = 1_048_576L
+private const val DeveloperMessagePreviewLimit = 240
+private const val NativeDigestBufferBytes = 16 * 1024
+private const val BatteryPercentMax = 100
+private const val DeveloperBaselineRate = 0.85
+private const val DeveloperAboveBaselineDelta = 0.05
+private const val DeveloperBelowBaselineDelta = 0.15
+private const val DeveloperBaselineVersion = "2026-04-14"
+private const val StageSuccessRateMetric = "stage_success_rate"
+private const val BaselineClassDefaultV1 = "default-v1"
+private const val BaselineAbove = "above_baseline"
+private const val BaselineSignificantlyBelow = "significantly_below_baseline"
+private const val BaselineBelow = "below_baseline"
+private const val BaselineWithin = "within_baseline"
 private const val TcpErrorPreviewLimit = 5
 private const val TlsErrorPreviewLimit = 5
 private const val DnsErrorPreviewLimit = 5
@@ -57,7 +70,7 @@ class DeveloperBreadcrumbBuffer
                 DeveloperBreadcrumb(
                     timestampMs = timestampMs,
                     category = category,
-                    message = message.take(240),
+                    message = message.take(DeveloperMessagePreviewLimit),
                 ),
             )
         }
@@ -170,23 +183,25 @@ class DefaultDeveloperAnalyticsSource
 
         private fun computeNativeLibDigests(): Map<String, String> {
             val nativeDir = appContext.applicationInfo.nativeLibraryDir?.let(::File) ?: return emptyMap()
-            if (!nativeDir.exists() || !nativeDir.isDirectory) return emptyMap()
+            val nativeFiles =
+                nativeDir
+                    .takeIf { it.exists() && it.isDirectory }
+                    ?.listFiles()
+                    ?.filter { it.isFile && it.name.endsWith(".so") }
+                    .orEmpty()
             val digest = MessageDigest.getInstance("SHA-256")
-            return nativeDir
-                .listFiles()
-                ?.filter { it.isFile && it.name.endsWith(".so") }
-                ?.associate { file ->
-                    digest.reset()
-                    file.inputStream().use { stream ->
-                        val buffer = ByteArray(16 * 1024)
-                        while (true) {
-                            val read = stream.read(buffer)
-                            if (read <= 0) break
-                            digest.update(buffer, 0, read)
-                        }
+            return nativeFiles.associate { file ->
+                digest.reset()
+                file.inputStream().use { stream ->
+                    val buffer = ByteArray(NativeDigestBufferBytes)
+                    while (true) {
+                        val read = stream.read(buffer)
+                        if (read <= 0) break
+                        digest.update(buffer, 0, read)
                     }
-                    file.name to digest.digest().joinToString(separator = "") { b -> "%02x".format(b) }
-                }.orEmpty()
+                }
+                file.name to digest.digest().joinToString(separator = "") { b -> "%02x".format(b) }
+            }
         }
 
         private fun buildNativeRuntime(): DeveloperNativeRuntimeSnapshot {
@@ -233,18 +248,20 @@ class DefaultDeveloperAnalyticsSource
             val lines =
                 process.inputStream.bufferedReader().use { it.readLines() }
             process.waitFor()
-            return lines.takeLast(NativeLogTailLines).map { it.take(240) }
+            return lines.takeLast(NativeLogTailLines).map { it.take(DeveloperMessagePreviewLimit) }
         }
 
         private fun readLastPanic(): String? {
-            val files =
+            val latest =
                 File(appContext.filesDir, "native_panics")
                     .takeIf { it.isDirectory }
                     ?.listFiles()
-                    ?: return null
-            val latest = files.maxByOrNull { it.lastModified() } ?: return null
-            val bytes = latest.readBytes().takeLast(PanicBacktraceTailBytes).toByteArray()
-            return String(bytes, Charsets.UTF_8)
+                    ?.maxByOrNull { it.lastModified() }
+            return latest
+                ?.readBytes()
+                ?.takeLast(PanicBacktraceTailBytes)
+                ?.toByteArray()
+                ?.let { bytes -> String(bytes, Charsets.UTF_8) }
         }
 
         private fun buildConfigDiff(settings: AppSettings): List<DeveloperConfigDiffEntry> {
@@ -288,42 +305,45 @@ class DefaultDeveloperAnalyticsSource
             }
 
         private fun buildNetworkSnapshots(): List<DeveloperNetworkSnapshot> {
-            val cm = appContext.getSystemService(ConnectivityManager::class.java) ?: return emptyList()
-            val activeNetwork = cm.activeNetwork ?: return emptyList()
-            val caps = cm.getNetworkCapabilities(activeNetwork) ?: return emptyList()
-            val linkProps = cm.getLinkProperties(activeNetwork)
-            return listOf(
-                DeveloperNetworkSnapshot(
-                    stageKey = null,
-                    capturedAtIsoUtc = isoNowUtc(),
-                    transport =
-                        when {
-                            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
-                            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
-                            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
-                            caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "vpn"
-                            else -> null
-                        },
-                    operatorOrSsid = null,
-                    dnsServers = linkProps?.dnsServers?.mapNotNull { it.hostAddress }.orEmpty(),
-                    signalStrengthDbm =
-                        if (Build.VERSION.SDK_INT >=
-                            Build.VERSION_CODES.Q
-                        ) {
-                            caps.signalStrength
-                        } else {
-                            null
-                        },
-                    cellularLevel = null,
-                    linkDownstreamKbps = caps.linkDownstreamBandwidthKbps,
-                    linkUpstreamKbps = caps.linkUpstreamBandwidthKbps,
-                    captivePortalDetected = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
-                    meteredNetwork = !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
-                    vpnActive = caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
-                    mtu = linkProps?.mtu?.takeIf { it > 0 },
-                    handoverEvents = emptyList(),
-                ),
-            )
+            val cm = appContext.getSystemService(ConnectivityManager::class.java)
+            val activeNetwork = cm?.activeNetwork
+            val caps = activeNetwork?.let(cm::getNetworkCapabilities)
+            val linkProps = activeNetwork?.let(cm::getLinkProperties)
+            return caps
+                ?.let { capabilities ->
+                    listOf(
+                        DeveloperNetworkSnapshot(
+                            stageKey = null,
+                            capturedAtIsoUtc = isoNowUtc(),
+                            transport =
+                                when {
+                                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+                                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
+                                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "ethernet"
+                                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> "vpn"
+                                    else -> null
+                                },
+                            operatorOrSsid = null,
+                            dnsServers = linkProps?.dnsServers?.mapNotNull { it.hostAddress }.orEmpty(),
+                            signalStrengthDbm =
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                    capabilities.signalStrength
+                                } else {
+                                    null
+                                },
+                            cellularLevel = null,
+                            linkDownstreamKbps = capabilities.linkDownstreamBandwidthKbps,
+                            linkUpstreamKbps = capabilities.linkUpstreamBandwidthKbps,
+                            captivePortalDetected =
+                                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
+                            meteredNetwork =
+                                !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
+                            vpnActive = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
+                            mtu = linkProps?.mtu?.takeIf { it > 0 },
+                            handoverEvents = emptyList(),
+                        ),
+                    )
+                }.orEmpty()
         }
 
         private fun buildDeviceState(): DeveloperDeviceState {
@@ -334,7 +354,7 @@ class DefaultDeveloperAnalyticsSource
             val batteryPercent =
                 batteryManager
                     ?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-                    ?.takeIf { it in 0..100 }
+                    ?.takeIf { it in 0..BatteryPercentMax }
             val charging = batteryManager?.isCharging
             val standbyBucket =
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -383,29 +403,29 @@ class DefaultDeveloperAnalyticsSource
         private fun buildBaselineDelta(context: DeveloperAnalyticsContext): DeveloperBaselineDelta? {
             val composite = context.homeCompositeOutcome ?: return null
             val total = composite.stageSummaries.size
-            if (total == 0) return null
-            val successRate = composite.completedStageCount.toDouble() / total
-            val baselineRate = 0.85
-            val verdict =
-                when {
-                    successRate >= baselineRate + 0.05 -> "above_baseline"
-                    successRate <= baselineRate - 0.15 -> "significantly_below_baseline"
-                    successRate < baselineRate -> "below_baseline"
-                    else -> "within_baseline"
-                }
-            return DeveloperBaselineDelta(
-                baselineClass = "default-v1",
-                baselineVersion = "2026-04-14",
-                comparisons =
-                    listOf(
-                        DeveloperBaselineMetric(
-                            metric = "stage_success_rate",
-                            userValue = "%.2f".format(successRate),
-                            baselineMedian = "%.2f".format(baselineRate),
-                            verdict = verdict,
+            return total.takeIf { it > 0 }?.let {
+                val successRate = composite.completedStageCount.toDouble() / it
+                val verdict =
+                    when {
+                        successRate >= DeveloperBaselineRate + DeveloperAboveBaselineDelta -> BaselineAbove
+                        successRate <= DeveloperBaselineRate - DeveloperBelowBaselineDelta -> BaselineSignificantlyBelow
+                        successRate < DeveloperBaselineRate -> BaselineBelow
+                        else -> BaselineWithin
+                    }
+                DeveloperBaselineDelta(
+                    baselineClass = BaselineClassDefaultV1,
+                    baselineVersion = DeveloperBaselineVersion,
+                    comparisons =
+                        listOf(
+                            DeveloperBaselineMetric(
+                                metric = StageSuccessRateMetric,
+                                userValue = "%.2f".format(successRate),
+                                baselineMedian = "%.2f".format(DeveloperBaselineRate),
+                                verdict = verdict,
+                            ),
                         ),
-                    ),
-            )
+                )
+            }
         }
 
         private fun buildNotes(): List<String> {

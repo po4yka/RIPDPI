@@ -163,6 +163,7 @@ internal fun HomeStatusCard(
 }
 
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun HomeConnectionButton(
     state: ConnectionState,
     label: String,

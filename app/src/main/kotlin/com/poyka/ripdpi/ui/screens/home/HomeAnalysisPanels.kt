@@ -120,6 +120,7 @@ internal fun HomeHistoryCard(onOpenHistory: () -> Unit) {
 }
 
 @Composable
+@Suppress("LongMethod")
 internal fun HomeDiagnosticsCard(
     uiState: MainUiState,
     onRunFullAnalysis: () -> Unit,
@@ -308,6 +309,7 @@ internal fun HomeDiagnosticsCard(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+@Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun HomeDiagnosticsBottomSheetHost(
     uiState: MainUiState,
     onOpenDiagnostics: () -> Unit,

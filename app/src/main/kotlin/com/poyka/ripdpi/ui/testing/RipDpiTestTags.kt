@@ -200,9 +200,9 @@ internal object RipDpiTestTags {
     const val HostPackTargetDropdown = "host-pack-target-dropdown"
     const val HostPackApplyModeDropdown = "host-pack-apply-mode-dropdown"
 
-    val screen: (Route) -> String = { route -> "${route.route}-screen" }
+    val screen: (Route) -> String = { route -> "${route.stableRoute}-screen" }
 
-    val bottomNav: (Route) -> String = { route -> "bottom-nav-${route.route}" }
+    val bottomNav: (Route) -> String = { route -> "bottom-nav-${route.stableRoute}" }
 
     val configPreset: (String) -> String = { presetId -> "config-preset-${sanitize(presetId)}" }
 

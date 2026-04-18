@@ -91,7 +91,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import java.util.Locale
 
 private const val liveEdgeScrollOffsetThreshold = 24
-private const val timingBreakdownDisplayCount = 4
 
 @Suppress("LongMethod", "LongParameterList", "UnusedParameter")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)

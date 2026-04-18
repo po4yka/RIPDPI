@@ -34,7 +34,6 @@ private const val BufferbloatGradeAMaxDelta = 5
 private const val BufferbloatGradeBMaxDelta = 30
 private const val BufferbloatGradeCMaxDelta = 100
 private const val BufferbloatGradeDMaxDelta = 250
-private const val DnsCharacterTimeoutMs = 4_000L
 private const val DnsControlHost = "cloudflare.com"
 private const val DnsCanaryHost = "youtube.com"
 private const val DohEndpoint = "https://1.1.1.1/dns-query"
@@ -225,16 +224,12 @@ class DefaultHomeAnalysisAugmentationSource
 
         @Suppress("DEPRECATION")
         private fun describeOperatorOrSsid(caps: NetworkCapabilities?): String? {
-            caps ?: return null
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val info = caps.transportInfo
-                if (info != null) {
-                    val infoString = info.toString()
-                    val ssidMatch = Regex("ssid=([^,\\s]+)").find(infoString)?.groupValues?.getOrNull(1)
-                    if (!ssidMatch.isNullOrBlank()) return ssidMatch.trim('"')
-                }
+            if (caps == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                return null
             }
-            return null
+            val infoString = caps.transportInfo?.toString().orEmpty()
+            val ssidMatch = Regex("ssid=([^,\\s]+)").find(infoString)?.groupValues?.getOrNull(1)
+            return ssidMatch?.takeIf(String::isNotBlank)?.trim('"')
         }
 
         private fun resolveSystem(host: String): List<String> =
@@ -302,10 +297,8 @@ class DefaultHomeAnalysisAugmentationSource
             a: List<String>,
             b: List<String>,
         ): Boolean {
-            if (a.isEmpty() || b.isEmpty()) return false
             val aV4 = a.filter { runCatching { InetAddress.getByName(it) is Inet4Address }.getOrDefault(false) }.toSet()
             val bV4 = b.filter { runCatching { InetAddress.getByName(it) is Inet4Address }.getOrDefault(false) }.toSet()
-            if (aV4.isEmpty() || bV4.isEmpty()) return false
-            return (aV4 intersect bV4).isEmpty()
+            return aV4.isNotEmpty() && bV4.isNotEmpty() && (aV4 intersect bV4).isEmpty()
         }
     }

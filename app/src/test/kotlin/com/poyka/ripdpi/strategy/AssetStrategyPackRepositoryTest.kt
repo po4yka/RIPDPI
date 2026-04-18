@@ -73,7 +73,7 @@ class AssetStrategyPackRepositoryTest {
     @Test
     fun `refresh downloads verifies signature and persists downloaded snapshot`() =
         runTest {
-            val catalogPayload = refreshedCatalogJson()
+            val catalogPayload = RefreshedCatalogJson
             val signatureBase64 = catalogPayload.signWith(keyPair)
             val checksum = catalogPayload.sha256()
             val manifest =
@@ -130,7 +130,7 @@ class AssetStrategyPackRepositoryTest {
     @Test
     fun `refresh keeps current snapshot when signature verification fails`() =
         runTest {
-            val catalogPayload = refreshedCatalogJson()
+            val catalogPayload = RefreshedCatalogJson
             val checksum = catalogPayload.sha256()
             val manifest =
                 StrategyPackManifest(
@@ -247,7 +247,7 @@ private fun applicationStrategyPackDefaults() =
         .defaultValue
         .toStrategyPackSettingsModel()
 
-private fun refreshedCatalogJson(): String =
+private val RefreshedCatalogJson =
     """
     {
       "schemaVersion": 3,

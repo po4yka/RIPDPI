@@ -34,6 +34,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
+@Suppress("LongMethod")
 internal fun DnsActiveConfigurationCard(
     uiState: SettingsUiState,
     selectedResolver: DnsResolverOption?,
