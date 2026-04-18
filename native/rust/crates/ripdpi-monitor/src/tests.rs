@@ -646,9 +646,12 @@ fn tls_alert_reorders_tcp_candidates_away_from_fake_heavy_paths() {
         Some(FailureClass::TlsAlert),
         true,
     );
-    let ids = ordered.iter().take(4).map(|candidate| candidate.id).collect::<Vec<_>>();
+    let ids = ordered.iter().take(5).map(|candidate| candidate.id).collect::<Vec<_>>();
 
-    assert_eq!(ids, vec!["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host"]);
+    assert_eq!(
+        ids,
+        vec!["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "tlsrec_fake_hrr", "split_host"]
+    );
 }
 
 #[test]

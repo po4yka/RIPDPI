@@ -21,6 +21,7 @@ pub(crate) const STRATEGY_PROBE_SUITE_QUICK_V1: &str = "quick_v1";
 pub(crate) const STRATEGY_PROBE_SUITE_FULL_MATRIX_V1: &str = "full_matrix_v1";
 pub(crate) const HTTP_FAKE_PROFILE_CLOUDFLARE_GET: &str = "cloudflare_get";
 pub(crate) const TLS_FAKE_PROFILE_GOOGLE_CHROME: &str = "google_chrome";
+pub(crate) const TLS_FAKE_PROFILE_GOOGLE_CHROME_HRR: &str = "google_chrome_hrr";
 pub(crate) const UDP_FAKE_PROFILE_DNS_QUERY: &str = "dns_query";
 pub(crate) const TELEGRAM_DOWNLOAD_EXPECTED_BYTES: usize = 32_482_836;
 pub(crate) const TELEGRAM_CHUNK_SIZE: usize = 16 * 1024;

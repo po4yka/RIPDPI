@@ -7,8 +7,9 @@ use ripdpi_config::{
 };
 use ripdpi_packets::{
     change_tls_sni_seeded_like_c, duplicate_tls_session_id_inplace, http_fake_profile_bytes, is_tls_client_hello,
-    padencap_tls_into, randomize_tls_seeded_inplace, randomize_tls_sni_seeded_inplace, tls_fake_profile_bytes,
-    tune_tls_padding_size_into, OracleRng, PacketMutation, IS_HTTP, IS_HTTPS,
+    padencap_tls_into, randomize_tls_seeded_inplace, randomize_tls_sni_seeded_inplace,
+    remove_tls_key_share_group_like_c, tls_fake_profile_bytes, tune_tls_padding_size_into, OracleRng, PacketMutation,
+    TlsFakeProfile, IS_HTTP, IS_HTTPS,
 };
 
 pub fn resolve_hostfake_span(
@@ -160,6 +161,16 @@ fn apply_tls_mutation(output: &mut Vec<u8>, mutation: PacketMutation) {
     }
 }
 
+fn apply_tls_profile_specialization(output: &mut Vec<u8>, tls_fake_profile: TlsFakeProfile) {
+    if tls_fake_profile == TlsFakeProfile::GoogleChromeHrr {
+        // Controlled HRR-oriented tactic: preserve the browser-family group list
+        // but withhold the preferred x25519 share so compliant servers can
+        // request a retry instead of treating the fake as generic noise.
+        let mutation = remove_tls_key_share_group_like_c(output, 0x001d);
+        apply_tls_mutation(output, mutation);
+    }
+}
+
 fn tls_sni_capacity(current: &[u8], target_size: usize, new_host: &[u8]) -> usize {
     let mut info = ProtoInfo::default();
     let Some(host) = resolve_host_range(current, &mut info, OffsetProto::TlsOnly) else {
@@ -221,6 +232,7 @@ fn build_fake_packet_internal(
     };
 
     if is_tls_client_hello(&output) {
+        apply_tls_profile_specialization(&mut output, tls_fake_profile);
         if let Some(sni) = fixed_sni {
             let mutation =
                 change_tls_sni_seeded_like_c(&output, sni, tls_sni_capacity(&output, fake_tls_target, sni), seed);

@@ -64,8 +64,19 @@ and ECH-aware Firefox template paths.
 
 ### 11.3 HelloRetryRequest-Oriented Tactics
 
-Add narrowly scoped HRR-oriented tactics only where server behavior justifies
-them and acceptance evidence is available.
+Status: complete.
+
+The shipped fake TLS path now has a controlled HRR-oriented variant:
+
+- `google_chrome_hrr` keeps Chrome-family `supported_groups`
+- strips only the `x25519` `key_share` from the fake ClientHello
+- leaves the remaining `secp256r1` share intact so compliant servers can issue
+  HelloRetryRequest instead of a generic alert
+- is exposed only through the opportunistic `tlsrec_fake_hrr` strategy-probe
+  candidate
+
+This keeps the tactic bounded to the fake-packet lane instead of inventing a
+new multi-flight runtime engine before the acceptance surface exists.
 
 ### 11.4 ECH Planning And Bootstrap
 

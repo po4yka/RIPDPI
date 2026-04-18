@@ -134,7 +134,7 @@ message AppSettings {
   string quic_fake_profile = 86; // "disabled" | "compat_default" | "realistic_initial"
   string quic_fake_host = 87;
   string http_fake_profile = 88; // "compat_default" | "iana_get" | "cloudflare_get"
-  string tls_fake_profile = 89; // "compat_default" | "iana_firefox" | "google_chrome" | "vk_chrome" | "sberbank_chrome" | "rutracker_kyber" | "bigsize_iana"
+  string tls_fake_profile = 89; // "compat_default" | "iana_firefox" | "google_chrome" | "google_chrome_hrr" | "vk_chrome" | "sberbank_chrome" | "rutracker_kyber" | "bigsize_iana"
   string udp_fake_profile = 90; // "compat_default" | "zero_256" | "zero_512" | "dns_query" | "stun_binding" | "wireguard_initiation" | "dht_get_peers"
   string dns_mode = 91; // "plain_udp" | "encrypted"
   string dns_provider_id = 92; // "cloudflare" | "google" | "quad9" | "adguard" | "custom"

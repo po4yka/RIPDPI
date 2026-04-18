@@ -37,6 +37,11 @@ the unfinished bypass-modernization TLS/ECH track.
    template families.
 3. Add controlled HelloRetryRequest-oriented tactics where server behavior
    justifies them.
+   Status: complete. The fake TLS path now ships a controlled
+   `google_chrome_hrr` profile that preserves Chrome-family
+   `supported_groups` while stripping the `x25519` key share, and the strategy
+   probe suite exposes it only as a narrow opportunistic `tlsrec_fake_hrr`
+   candidate with TLS-alert-biased ordering.
 4. Tie ECH and ECH-GREASE planning to DNS bootstrap and Android runtime policy,
    including fallback behavior.
 5. Surface proxy-mode or browser-native TLS/ECH suppression paths explicitly.

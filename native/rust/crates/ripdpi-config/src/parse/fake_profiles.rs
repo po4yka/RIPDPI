@@ -81,6 +81,7 @@ pub fn parse_tls_fake_profile(spec: &str) -> Result<TlsFakeProfile, ConfigError>
         "" | "compat_default" => Ok(TlsFakeProfile::CompatDefault),
         "iana_firefox" => Ok(TlsFakeProfile::IanaFirefox),
         "google_chrome" => Ok(TlsFakeProfile::GoogleChrome),
+        "google_chrome_hrr" => Ok(TlsFakeProfile::GoogleChromeHrr),
         "vk_chrome" => Ok(TlsFakeProfile::VkChrome),
         "sberbank_chrome" => Ok(TlsFakeProfile::SberbankChrome),
         "rutracker_kyber" => Ok(TlsFakeProfile::RutrackerKyber),
@@ -302,6 +303,7 @@ mod tests {
 
         assert_eq!(parse_tls_fake_profile("compat_default").unwrap(), TlsFakeProfile::CompatDefault);
         assert_eq!(parse_tls_fake_profile("google_chrome").unwrap(), TlsFakeProfile::GoogleChrome);
+        assert_eq!(parse_tls_fake_profile("google_chrome_hrr").unwrap(), TlsFakeProfile::GoogleChromeHrr);
         assert_eq!(parse_tls_fake_profile("rutracker_kyber").unwrap(), TlsFakeProfile::RutrackerKyber);
         assert!(parse_tls_fake_profile("bogus").is_err());
 
