@@ -214,8 +214,8 @@ scripts/guide/.venv/bin/python scripts/guide/generate_guide.py \
 - [Инструкция по диагностике](docs/user-manual-diagnostics-ru.md)
 
 **Roadmap**
-- [Завершённый audit roadmap](ROADMAP.md)
-- [Интеграционный roadmap](docs/roadmap-integrations.md)
+- [Индекс roadmap'ов](ROADMAP.md)
+- [Активный roadmap по модернизации bypass](ROADMAP-bypass-modernization.md)
 
 ## Сборка
 
