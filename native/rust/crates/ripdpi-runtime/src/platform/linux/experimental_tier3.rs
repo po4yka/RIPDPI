@@ -111,9 +111,8 @@ fn build_syn_hide_tcp_packet(spec: &SynHideTcpSpec) -> io::Result<Vec<u8>> {
                 target.ip().octets(),
             )
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid SYN-Hide IPv4 packet"))?;
-            ip.identification = spec
-                .ipv4_identification
-                .unwrap_or_else(|| ((spec.sequence_number ^ spec.marker_value) & 0xFFFF) as u16);
+            ip.identification =
+                spec.ipv4_identification.unwrap_or(((spec.sequence_number ^ spec.marker_value) & 0xFFFF) as u16);
             ip.header_checksum = ip.calc_header_checksum();
 
             let mut bytes = Vec::with_capacity(Ipv4Header::MIN_LEN + tcp.header_len());

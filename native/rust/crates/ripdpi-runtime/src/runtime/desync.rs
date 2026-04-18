@@ -1945,10 +1945,7 @@ fn execute_tcp_hostfake_step(
 }
 
 fn execute_tcp_ipfrag2_step(
-    writer: &mut TcpStream,
-    config: &RuntimeConfig,
-    group: &DesyncGroup,
-    plan: &DesyncPlan,
+    ctx: &mut TcpPlanStepExecContext<'_>,
     end: usize,
     configured_step: &TcpChainStep,
     step_family: &'static str,
@@ -1956,15 +1953,15 @@ fn execute_tcp_ipfrag2_step(
     bytes_committed: usize,
 ) -> Result<(usize, TcpStepControl), OutboundSendError> {
     let bytes_committed = match send_ip_fragmented_tcp_action_named(
-        writer,
-        &plan.tampered,
+        ctx.writer,
+        &ctx.plan.tampered,
         end,
-        config.network.default_ttl,
-        config.process.protect_path.as_deref(),
+        ctx.config.network.default_ttl,
+        ctx.config.process.protect_path.as_deref(),
         false, // disorder not available in legacy plan path
         ripdpi_ipfrag::Ipv6ExtHeaders::default(),
         step_original_tcp_flags(configured_step),
-        group.actions.ip_id_mode,
+        ctx.group.actions.ip_id_mode,
         "write_ipfrag2",
         step_family,
         step_fallback,
@@ -1974,13 +1971,13 @@ fn execute_tcp_ipfrag2_step(
         Err(err) if should_fallback_ipfrag2_tcp_error_kind(err.kind()) => {
             log_ipfrag2_flow_fallback(&err);
             write_strategy_payload_with_optional_flags_named(
-                writer,
-                &plan.tampered,
-                config.network.default_ttl,
-                config.process.protect_path.as_deref(),
+                ctx.writer,
+                &ctx.plan.tampered,
+                ctx.config.network.default_ttl,
+                ctx.config.process.protect_path.as_deref(),
                 false,
                 step_original_tcp_flags(configured_step),
-                group.actions.ip_id_mode,
+                ctx.group.actions.ip_id_mode,
                 "write_ipfrag2",
                 step_family,
                 step_fallback,
@@ -1993,32 +1990,29 @@ fn execute_tcp_ipfrag2_step(
 }
 
 fn execute_tcp_fakerst_step(
-    writer: &mut TcpStream,
-    config: &RuntimeConfig,
-    group: &DesyncGroup,
+    ctx: &mut TcpPlanStepExecContext<'_>,
     configured_step: &TcpChainStep,
     chunk: &[u8],
     end: usize,
     step_family: &'static str,
     step_fallback: Option<&'static str>,
-    md5sig: bool,
     bytes_committed: usize,
 ) -> Result<(usize, TcpStepControl), OutboundSendError> {
     let _ = platform::send_fake_rst(
-        writer,
-        config.network.default_ttl,
-        config.process.protect_path.as_deref(),
+        ctx.writer,
+        ctx.config.network.default_ttl,
+        ctx.config.process.protect_path.as_deref(),
         step_fake_tcp_flags(configured_step),
-        group.actions.ip_id_mode,
+        ctx.group.actions.ip_id_mode,
     );
     let bytes_committed = write_strategy_payload_with_optional_flags_named(
-        writer,
+        ctx.writer,
         chunk,
-        config.network.default_ttl,
-        config.process.protect_path.as_deref(),
-        md5sig,
+        ctx.config.network.default_ttl,
+        ctx.config.process.protect_path.as_deref(),
+        ctx.md5sig,
         step_original_tcp_flags(configured_step),
-        group.actions.ip_id_mode,
+        ctx.group.actions.ip_id_mode,
         "write_fakerst",
         step_family,
         step_fallback,
@@ -2138,17 +2132,9 @@ fn execute_tcp_plan_step(
                 bytes_committed,
             )
         }
-        TcpChainStepKind::IpFrag2 => execute_tcp_ipfrag2_step(
-            ctx.writer,
-            ctx.config,
-            ctx.group,
-            ctx.plan,
-            end,
-            configured_step,
-            step_family,
-            step_fallback,
-            bytes_committed,
-        ),
+        TcpChainStepKind::IpFrag2 => {
+            execute_tcp_ipfrag2_step(ctx, end, configured_step, step_family, step_fallback, bytes_committed)
+        }
         TcpChainStepKind::HostFake => {
             let mut hostfake_ctx = TcpHostFakeExecContext {
                 writer: ctx.writer,
@@ -2170,18 +2156,9 @@ fn execute_tcp_plan_step(
                 bytes_committed,
             )
         }
-        TcpChainStepKind::FakeRst => execute_tcp_fakerst_step(
-            ctx.writer,
-            ctx.config,
-            ctx.group,
-            configured_step,
-            chunk,
-            end,
-            step_family,
-            step_fallback,
-            ctx.md5sig,
-            bytes_committed,
-        ),
+        TcpChainStepKind::FakeRst => {
+            execute_tcp_fakerst_step(ctx, configured_step, chunk, end, step_family, step_fallback, bytes_committed)
+        }
         TcpChainStepKind::MultiDisorder => Err(OutboundSendError::Transport(io::Error::new(
             io::ErrorKind::InvalidData,
             "multidisorder must be executed as a grouped tcp plan",
