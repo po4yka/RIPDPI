@@ -877,10 +877,10 @@ impl StrategyEvolver {
         if let Some(niche) = state.niche_winners.get(&bucket) {
             return niche.clone();
         }
-        let Some(family) = self.select_next_family(state, bucket) else {
+        let Some(family) = Self::select_next_family(state, bucket) else {
             return self.generate_random_combo_for_bucket(bucket);
         };
-        self.best_context_combo_for_family(state, family)
+        Self::best_context_combo_for_family(state, family)
             .unwrap_or_else(|| self.generate_random_combo_for_bucket(bucket))
     }
 
@@ -902,7 +902,7 @@ impl StrategyEvolver {
         }
     }
 
-    fn select_next_family(&self, state: &ContextBanditState, bucket: LearningTargetBucket) -> Option<StrategyFamily> {
+    fn select_next_family(state: &ContextBanditState, bucket: LearningTargetBucket) -> Option<StrategyFamily> {
         if state.families.is_empty() {
             return Some(default_family_for_bucket(bucket));
         }
@@ -923,11 +923,7 @@ impl StrategyEvolver {
             .map(|(family, _)| family)
     }
 
-    fn best_context_combo_for_family(
-        &self,
-        state: &ContextBanditState,
-        family: StrategyFamily,
-    ) -> Option<StrategyCombo> {
+    fn best_context_combo_for_family(state: &ContextBanditState, family: StrategyFamily) -> Option<StrategyCombo> {
         let total_attempts: u32 = state.combos.values().map(|stats| stats.attempts.max(1)).sum();
         let ln_total = (total_attempts as f64).ln().max(1.0);
         state
@@ -1138,7 +1134,7 @@ mod tests {
 
         assert!(!e.combos.contains_key(&experiment), "emitter failures must not create or update combo stats");
         assert!(
-            e.contexts.get(e.current_learning_context()).is_none(),
+            !e.contexts.contains_key(e.current_learning_context()),
             "emitter failures must not create contextual state"
         );
         assert!(e.current_experiment.is_none(), "pending experiment should still be cleared");
