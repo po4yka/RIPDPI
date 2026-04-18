@@ -1,224 +1,52 @@
 # RIPDPI Roadmap
 
-The audit roadmap tracked in this repository is complete. The items below are no longer planned work; they are the current architecture and verification baseline.
+The audit roadmap and all follow-on structural, tactical, and integration
+roadmaps are complete in repo-owned scope. The only remaining roadmap work is
+the unfinished bypass-modernization TLS/ECH track.
 
-## Current Status
+## Current Status (2026-04-18)
 
-- All 10 audit phases have been implemented on `main`.
-- There are no remaining open items from the original audit backlog.
-- New work should be tracked as a separate roadmap or issue list instead of reopening this completed checklist.
+- Audit roadmap: COMPLETE.
+- Architecture refactor: COMPLETE.
+- Bypass techniques expansion: COMPLETE in repo-owned scope.
+- Integrations / Track S: COMPLETE in repo-owned scope.
+- Bypass modernization: Workstreams 1-4 and 6-9 are COMPLETE.
+- Bypass modernization Workstream 5 (TLS Templates + ECH): PARTIAL.
 
-### Post-Audit Workstream Progress (2026-04-18)
+## Active Roadmap Documents
 
-- Architecture refactor Workstream 0 (Guardrails): COMPLETE.
-- Architecture refactor Workstream 1 (Config Contract): COMPLETE
-  (`StrategyChains.kt` split, `RipDpiProxyJsonCodec.kt` reduced to a 345-line
-  orchestrator with section codecs, `ripdpi-proxy-config/src/convert.rs`
-  reduced to a 147-line dispatcher with dedicated `convert/` builders and a
-  legacy payload adapter; Phase 1b landed in `52e4fe2c`).
-- Architecture refactor Workstream 2 (Diagnostics Bounded Context): COMPLETE
-  (Rust diagnosis authority now owns final diagnosis codes in scan
-  finalization, archive rendering is split across `export/` builders,
-  diagnostics contracts live in focused `model/` files, and the home-audit
-  workflow is extracted into `workflow/` collaborators instead of the old
-  services monolith; the package reorg now also includes `application/`,
-  `queries/`, and `recommendation/` seams with CI boundary verification).
-- Architecture refactor Workstream 3 (Native Runtime Decomposition): COMPLETE
-  (TCP lowering layer, typed capability snapshot, UDP flow split, and platform
-  capability / IPv4-id submodules now sit on top of the earlier executor
-  extraction work).
-- Bypass modernization Workstream 1 (Capability Hygiene): COMPLETE.
-- Bypass modernization Workstream 2 (First-Flight IR): COMPLETE
-  (IR types, parser normalization, TCP semantic offsets, semantic fake-family
-  handling after TLS prelude, IR-seeded QUIC prelude packet builders, planner-
-  owned seqovl capability downgrade removal, terminal fake-step lowering
-  migration, and rewrite goldens are now all landed).
-- Bypass modernization Workstream 3 (QUIC Initial Shaping): COMPLETE
-  (`docs/architecture/quic-initial-packetizer.md`, packetizer-owned QUIC
-  Initial layouts in `ripdpi-packets`, planner migration of QUIC layout tactics
-  in `plan_udp.rs`, production-pool demotion of weak QUIC mutation families,
-  and exact QUIC layout-family export through monitor and Kotlin diagnostics are
-  now landed).
-- Bypass modernization Workstream 4 (DNS Oracle Hardening): COMPLETE
-  (monitor-side multi-oracle trust scoring, oracle-health gating, resolver-side
-  oracle quarantine, and network-scoped resolver ranking/fallback memory are
-  now landed, with focused variance coverage across disagreement, CDN-style
-  partial overlap, and scope-separated resolver history).
-- Architecture refactor Workstream 4 (Service + Relay Orchestration): COMPLETE
-  (relay runtime-config resolution is split behind per-kind resolvers, while
-  service lifecycle coordination now routes start/stop, handover retry,
-  permission-watch, telemetry-loop, and shared proxy-runtime stack concerns
-  through smaller collaborators instead of one monolithic coordinator).
-- Architecture refactor Workstream 5 (Settings Architecture Split): COMPLETE
-  (settings routes, DNS/settings sections, and the large binder/route surfaces
-  are split into focused files with dedicated section-level tests and release-
-  side Compose reports).
-- Architecture refactor Workstream 6 (Compose Screen Decomposition): COMPLETE
-  (Home, Diagnostics, and DNS screens now render through route/section files
-  instead of monolithic screen implementations).
-- Architecture refactor Workstream 7 (ViewModel Shaping): COMPLETE
-  (`DiagnosticsViewModel` and `SettingsViewModel` now use grouped dependency
-  carriers, extracted `*UiStateAssembler` collaborators, and explicit
-  `*ViewModelBootstrapper` lifecycle helpers, with focused assembler and
-  bootstrapper tests plus updated Diagnostics ViewModel race-proof effect
-  coverage).
-- Architecture refactor Workstream 8 (Module And Crate Extraction After
-  Internal Cleanup): COMPLETE (diagnostics export/archive ownership now lives
-  under `diagnostics.export`, diagnostics bootstrap/request/finalization
-  holdouts are extracted under `application` / `finalization` / `queries`, and
-  CI now enforces the extracted diagnostics file/package boundaries; the
-  first-flight IR and emitter/capability crate candidates were explicitly
-  reviewed and pruned for now in
-  `docs/architecture/phase17-boundary-review.md`).
-- Bypass modernization Workstream 5 (TLS Templates + ECH): PARTIAL
-  (`ripdpi-tls-profiles` now carries browser-family template metadata and new
-  explicit desktop/ECH variants, the monitor TLS/ECH probe path binds ALPN from
-  those template plans, the owned-TLS Android bridge now exports browser /
-  template metadata end to end, the OkHttp-owned TLS path now honors the
-  desktop/ECH profile ids, production fake candidates now use a coherent
-  Chrome-family fake profile, and bundled strategy-pack catalogs plus the
-  acceptance fixture now cover the shipped template families).
-- Bypass modernization Workstream 6 (Learning Redesign): COMPLETE
-  (`strategy_evolver` now uses contextual bucket state with niche-winner
-  retention, family-first selection, and combo-aware scoring for stability /
-  variance / detectability / energy cost; runtime adaptive wrappers feed
-  network / capability / ALPN / ECH / root plus hosting-family and
-  reachability context into the evolver; strategy probes now use bucket-aware
-  stratified pilot targets and export `methodologyVersion=strategy_learning_v3`
-  with pilot-bucket metadata so old/new reports remain distinguishable).
-- Bypass modernization Workstream 7 (Emitter Tier Rationalization): COMPLETE
-  (ADR-004 now defines the tier taxonomy, TCP/UDP step kinds now map to
-  `non_root_production` / `rooted_production` / `lab_diagnostics_only`,
-  strategy candidates now carry emitter-tier metadata, fake-flag and broad
-  fragmentation variants are demoted to full-matrix lab coverage, and the
-  app-facing diagnostics UI now surfaces rooted-only or downgraded winners
-  through emitter / realization labels and explicit fallback notes).
-- Bypass modernization Workstream 8 (Android Networking Hardening): COMPLETE
-  (`VpnProtectSocketServer` reports `VpnService.protect()` failures as explicit
-  runtime events, `RipDpiVpnService` now centralizes upstream-network binding
-  policy with an explicit no-`allowBypass` / no-`bindSocket` audit boundary,
-  VPN and proxy runtimes expose explicit handover state through service
-  telemetry, resolver/failover state resets are explicit on handover restart,
-  and settings now surface proxy-mode limits around browser-native TLS/ECH).
+- [ROADMAP-bypass-modernization.md](/Users/po4yka/GitRep/RIPDPI/ROADMAP-bypass-modernization.md)
+  Remaining product and runtime work for TLS browser-family templates, ECH,
+  and acceptance coverage.
+- [docs/roadmap-execution-queue.md](/Users/po4yka/GitRep/RIPDPI/docs/roadmap-execution-queue.md)
+  Ordered execution slices for the remaining Phase 11 work only.
 
-See [`docs/roadmap-execution-queue.md`](docs/roadmap-execution-queue.md) for the
-unified slice list, dependency graph, and the next priority entry points
-(continue bypass-modernization Phase 11 from the now-landed template metadata /
-ALPN / ECH planning slice into true packet-level record choreography, deeper
-Android ECH runtime/bootstrap handling, and live acceptance measurement; Phase
-14 and Phase 16 are now closed, and the next bypass roadmap blocker is the
-remaining Phase 11 work; the experimental Phase 15 client/runtime seam is now
-landed in-repo and any cooperating server counterpart remains intentionally
-external;
-the architecture Phase 9 and Phase 10 follow-up is closed with section-level
-tests, assembler tests, and release-side Compose reports in
-`app/build/compose-reports/` and `app/build/compose-metrics/release/`).
+## Remaining Work
 
-## Completed Workstreams
+1. Validate packet-level parity for extension ordering, GREASE, supported
+   groups, key-share shape, and ALPN template families.
+2. Finish true packet-level record-size choreography instead of metadata-only
+   template planning.
+3. Add controlled HelloRetryRequest-oriented tactics where server behavior
+   justifies them.
+4. Tie ECH and ECH-GREASE planning to DNS bootstrap and Android runtime policy,
+   including fallback behavior.
+5. Surface proxy-mode or browser-native TLS/ECH suppression paths explicitly.
+6. Finish replacing generic fake packet families with coherent client-profile
+   families.
+7. Build and maintain live acceptance coverage for each shipped TLS template
+   family across major CDN and server stacks.
+8. Keep bundled strategy-pack catalog entries aligned with the shipped template
+   families and acceptance evidence.
 
-1. Baseline and guardrails
-   - repeatable runtime, load, JNI-wrapper, and native-size baselines
-   - CI artifact collection for baseline snapshots
-   - supporting documentation in [docs/testing.md](docs/testing.md)
-2. Input-surface hardening
-   - `cargo-fuzz` targets across parser-heavy native crates
-   - local and CI fuzz smoke workflow
-   - parser fixes and regression coverage for malformed inputs
-3. Unsafe audit and containment
-   - wrapper extraction for repeated fd, socket-option, ancillary-fd, and lifecycle patterns
-   - targeted Miri smoke coverage for pure helper logic
-   - current checklist in [docs/native/unsafe-audit.md](docs/native/unsafe-audit.md)
-4. Runtime contention reduction
-   - runtime lock contention benchmarks
-   - read-optimized access on hot runtime paths
-   - reduced lock scope on retry and strategy-evolver paths
-5. Diagnostics boundary cleanup
-   - diagnostics contracts live behind neutral interfaces
-   - `core:diagnostics` no longer depends on `:core:service`
-   - regression guard in `scripts/ci/verify_diagnostics_boundary.py`
-6. App-state decomposition
-   - `MainViewModel` orchestration split into focused coordinators and resolvers
-   - constructor width reduced through grouped dependency carriers
-   - focused unit coverage for extracted behavior
-7. Session-scoped DI
-   - explicit service-session components for VPN/proxy runtime lifetime
-   - session-owned coordinators and supervisors removed from manual assembly paths
-   - lifetime model documented in [docs/service-session-scope.md](docs/service-session-scope.md)
-8. TCP concurrency validation
-   - bounded hybrid relay model measured under load
-   - per-connection resource budget coverage
-   - current model documented in [docs/native/tcp-concurrency.md](docs/native/tcp-concurrency.md)
-9. JNI wrapper validation
-   - handle lifecycle audit for `poll`, `stop`, `destroy`, and update paths
-   - race coverage for stale-handle transitions
-   - lifecycle-sensitive JNI calls serialized where needed
-10. Relay cleanup and size monitoring
-   - mechanical backend-dispatch simplification
-   - CI size and bloat attribution reporting
-   - size policy documented in [docs/native/size-monitoring.md](docs/native/size-monitoring.md)
-11. UI/UX design system compliance and M3 Expressive adoption
-   - full DESIGN.md + M3 compliance audit (33 violations identified, all resolved)
-   - design token completion: outline, outlineVariant, scrim colors; xs, xlIncreased, xxlIncreased, xxxl shapes; SwitchThumb elevation
-   - M3 Expressive: spring-based motion, shape morphing on press, emphasized typography, contrast level infrastructure
-   - navigation: deep links (ripdpi://), app shortcuts, adaptive layout helper, nested slide transitions
-   - UX: connection quality indicator, settings reset-to-defaults, Quick Settings tile labels
-   - accessibility: live region announcements, RTL fix, pluralization for counters
-   - screenshot test coverage expanded from 26 to 34 catalog entries (multi-config variants)
+## Removed Completed Roadmaps
 
-## Architecture Documentation
+The following completed roadmap files were removed because they had become
+stale implementation archives rather than active planning documents:
 
-- [docs/testing.md](docs/testing.md)
-- [docs/native/unsafe-audit.md](docs/native/unsafe-audit.md)
-- [docs/service-session-scope.md](docs/service-session-scope.md)
-- [docs/native/tcp-concurrency.md](docs/native/tcp-concurrency.md)
-- [docs/native/size-monitoring.md](docs/native/size-monitoring.md)
+- `ROADMAP-architecture-refactor.md`
+- `ROADMAP-bypass-techniques.md`
+- `docs/roadmap-integrations.md`
 
-## Next Work
-
-Four active roadmaps continue the work past the audit baseline. See [Document Map](#document-map) below for how they relate and which owns what.
-
-- **[DPI Bypass Technique Expansion](ROADMAP-bypass-techniques.md)** -- 15 techniques from field research (ntc.party, Habr, TechnicalVault). Tier 1 and Tier 2 shipped on 2026-04-13; the Tier 3 client/runtime transport seam (SYN-Hide, UDP-over-ICMP, plus self-hosting documentation) is now landed in-repo and remains experimental, while any cooperating server component stays user-provided. Tactical checklist: circular rotation, conditional execution, TCP flags, IP ID, fakedsplit ordering, PCAP, and more.
-- **[DPI Bypass Modernization](ROADMAP-bypass-modernization.md)** -- strategic roadmap for the next generation of RIPDPI bypass work: capability hygiene, unified first-flight IR, QUIC Initial shaping subsystem, DNS oracle hardening, TLS/ECH modernization, contextual evaluation, root/non-root emitter rationalization, Android hardening, and rollout gates. Workstreams 1-9 are now complete; the remaining experimental transport gap is the separate Tier 3 track in the techniques roadmap.
-- **[Architecture Refactor And Modularization](ROADMAP-architecture-refactor.md)** -- structural roadmap derived from the architecture audit: config-contract unification, diagnostics bounded-context split, native runtime/desync decomposition, service and relay orchestration cleanup, settings/screen decomposition, ViewModel dependency shaping, and CI complexity guardrails.
-- **[Integrations Roadmap](docs/roadmap-integrations.md)** -- shipped transport/control-plane validation baseline: Cloudflare-direct MASQUE, Cloudflare Tunnel publish mode, Finalmask on xHTTP (including `noise`), NaiveProxy watchdog policy, TLS/strategy-pack refresh cadence, and relay interoperability coverage.
-
-## Document Map
-
-```
-ROADMAP.md  (index, audit complete)
-|
-+-- ROADMAP-bypass-techniques.md      tactical checklist (what to ship)
-|
-+-- ROADMAP-bypass-modernization.md   strategic design (how to architect bypass)
-|
-+-- ROADMAP-architecture-refactor.md  structural cleanup (how code supports it)
-|
-+-- docs/roadmap-integrations.md      transport/relay operations
-```
-
-The three strategic roadmaps interlock and should not be read in isolation:
-
-- **techniques** defines the tactics catalog. All 15 items are now landed in-repo; the Tier 3 transport items remain explicitly experimental and still depend on user-provided companion infrastructure where applicable.
-- **modernization** defines the planner, emitter, and measurement architecture those tactics must fit into. It supersedes isolated tactic design going forward.
-- **architecture-refactor** defines the code seams that let the other two land without regressing diagnostics, service lifecycle, or settings.
-- **integrations** is the transport/control-plane layer underneath bypass tactics. It is largely shipped but interacts with bypass-modernization Workstream 5 (TLS catalog freshness feeds template rollout) and architecture-refactor Workstream 4 (relay orchestration cleanup).
-
-### Sequencing Across Roadmaps
-
-1. **architecture-refactor Workstream 0-1** (guardrails, config contract) unblocks everything else -- both are now complete, so bypass work and settings splits should consume the shipped canonical config seam rather than reopening it.
-2. **bypass-modernization Workstream 1** (capability hygiene) must land before further expansion of bypass-techniques Tier 3, otherwise new tactics cannot be evaluated honestly.
-3. **architecture-refactor Workstream 3** (runtime/desync decomposition) and **bypass-modernization Workstream 2** (first-flight IR) touched the same files. Both are now complete, so follow-on planner and packetizer work should build on the shipped lowering/runtime/IR seams rather than reintroducing planner-specific logic into the old monolith.
-4. **bypass-modernization Workstream 3** (QUIC subsystem) is now complete, so new QUIC probe candidates in bypass-techniques should reuse the shipped packetizer/layout families rather than reintroducing ad hoc packet construction.
-5. **integrations Finalmask/TLS tracks** are now the next cross-roadmap dependency: TLS catalog revisions should align with bypass-modernization Workstream 5 (browser-family templates and ECH).
-
-### Ownership Collisions Resolved
-
-| Topic | Tactical owner | Architectural owner |
-|-------|---------------|---------------------|
-| QUIC Initial shaping | bypass-techniques (probe candidates) | bypass-modernization Workstream 3 (subsystem) |
-| Root/non-root emitter split | bypass-techniques #6 (SOCKS5 hardening, shipped) | bypass-modernization Workstream 7 (tier definition) |
-| DNS hostname recovery | bypass-techniques #10 (LRU cache, shipped) | bypass-modernization Workstream 4 (multi-oracle scoring) |
-| Runtime/desync code layout | architecture-refactor Workstream 3 | bypass-modernization Workstream 2 (IR) lowers onto new seams |
-| TLS template delivery | integrations (strategy-pack catalogs) | bypass-modernization Workstream 5 (browser-family templates) |
-
-New tactic proposals belong in **bypass-techniques**. New architectural contracts belong in **bypass-modernization** or **architecture-refactor** depending on scope.
+Their shipped scope is now summarized here instead of being preserved as
+outdated checklists.

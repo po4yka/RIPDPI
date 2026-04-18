@@ -240,8 +240,8 @@ Options: `--device <serial>` to target a specific device, `--skip-capture` to re
 - [Diagnostics manual (Russian)](docs/user-manual-diagnostics-ru.md)
 
 **Roadmap**
-- [Completed audit roadmap](ROADMAP.md)
-- [Integrations roadmap](docs/roadmap-integrations.md)
+- [Roadmap index](ROADMAP.md)
+- [Active bypass modernization roadmap](ROADMAP-bypass-modernization.md)
 
 ## Building
 
