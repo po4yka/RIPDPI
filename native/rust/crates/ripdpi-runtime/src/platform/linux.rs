@@ -38,14 +38,13 @@ use ripdpi_ipfrag::{
 };
 use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
-use super::{
-    CapabilityOutcome, CapabilityUnavailable, IpFragmentationCapabilities, RuntimeCapability, TcpActivationState,
-    TcpFlagOverrides, TcpStageWait,
-};
+use super::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability, TcpActivationState, TcpFlagOverrides};
 
+mod experimental_tier3;
 mod fake_send;
 mod ip_fragmentation;
 
+pub(crate) use experimental_tier3::{recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_syn_hide_tcp};
 pub(crate) use fake_send::{
     send_fake_rst, send_fake_tcp, send_flagged_tcp_payload, send_ordered_tcp_segments, send_seqovl_tcp,
 };

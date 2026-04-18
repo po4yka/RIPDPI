@@ -350,7 +350,7 @@ internal fun validateRelayFinalmaskDraft(draft: ConfigDraft): String? {
     }
     return when (finalmaskType) {
         RelayFinalmaskTypeHeaderCustom -> validateHeaderCustomFinalmaskDraft(draft)
-        RelayFinalmaskTypeNoise -> "unsupported"
+        RelayFinalmaskTypeNoise -> validateNoiseFinalmaskDraft(draft)
         RelayFinalmaskTypeSudoku -> if (draft.relayFinalmaskSudokuSeed.isBlank()) "required" else null
         RelayFinalmaskTypeFragment -> validateFragmentFinalmaskDraft(draft)
         else -> null

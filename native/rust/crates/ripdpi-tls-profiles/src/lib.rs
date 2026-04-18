@@ -180,6 +180,13 @@ fn validate_profile_config(config: &ProfileConfig) -> Result<(), Error> {
 mod tests {
     use super::*;
     use boring::ssl::SslVersion;
+    use serde_json::Value;
+    use std::fs;
+    use std::path::Path;
+
+    fn repo_root() -> std::path::PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../").canonicalize().expect("repo root")
+    }
 
     #[test]
     fn chrome_builder_succeeds() {
@@ -283,6 +290,38 @@ mod tests {
             assert!(!metadata.parity_targets.ja3.is_empty());
             assert!(!metadata.parity_targets.ja4.is_empty());
             assert_ne!(517, metadata.client_hello_size_hint);
+        }
+    }
+
+    #[test]
+    fn phase11_acceptance_fixture_covers_all_catalog_profiles() {
+        let fixture_path = repo_root().join("contract-fixtures/phase11_tls_template_acceptance.json");
+        let fixture: Value =
+            serde_json::from_str(&fs::read_to_string(fixture_path).expect("phase11 acceptance fixture")).expect("json");
+
+        assert_eq!(fixture["catalogVersion"].as_str(), Some(profile_catalog_version()));
+        assert_eq!(fixture["profileSetId"].as_str(), Some(profile_catalog().default_profile_set_id));
+
+        let entries = fixture["profiles"].as_array().expect("profiles array");
+        let ids = entries.iter().filter_map(|entry| entry["id"].as_str()).collect::<std::collections::BTreeSet<_>>();
+        let expected = AVAILABLE_PROFILES.iter().copied().collect::<std::collections::BTreeSet<_>>();
+        assert_eq!(ids, expected);
+
+        for id in AVAILABLE_PROFILES {
+            let entry =
+                entries.iter().find(|entry| entry["id"].as_str() == Some(*id)).expect("fixture entry for profile");
+            let metadata = selected_profile_metadata(id);
+
+            assert_eq!(entry["browserFamily"].as_str(), Some(metadata.parity_targets.browser_family));
+            assert_eq!(entry["browserTrack"].as_str(), Some(metadata.parity_targets.browser_track));
+            assert_eq!(entry["alpnTemplate"].as_str(), Some(metadata.template.alpn_template));
+            assert_eq!(entry["extensionOrderFamily"].as_str(), Some(metadata.template.extension_order_family));
+            assert_eq!(entry["greaseStyle"].as_str(), Some(metadata.template.grease_style));
+            assert_eq!(entry["supportedGroupsProfile"].as_str(), Some(metadata.template.supported_groups_profile));
+            assert_eq!(entry["keyShareProfile"].as_str(), Some(metadata.template.key_share_profile));
+            assert_eq!(entry["recordChoreography"].as_str(), Some(metadata.template.record_choreography));
+            assert_eq!(entry["echCapable"].as_bool(), Some(metadata.template.ech_capable));
+            assert!(entry["acceptedStacks"].as_array().is_some_and(|value| !value.is_empty()));
         }
     }
 }

@@ -8,14 +8,16 @@ Cross-roadmap status (2026-04-18): bypass-modernization Workstreams 1, 2, 3, 4,
 6, 7, 8, and 9 are complete; architecture-refactor Workstreams 1 through 7 are
 complete; and the next cross-roadmap dependency is bypass-modernization
 Workstream 5's TLS/browser-family template rollout consuming the now-stable
-diagnostics/service/UI seams. The active work here remains rollout validation,
-operational hardening, and catalog freshness.
+diagnostics/service/UI seams. The repo-owned Track S validation baseline is now
+complete, so the remaining work here is routine operator rollout review rather
+than unresolved implementation.
 
 ## Related Roadmaps
 
 This roadmap covers the **transport and control-plane layer** underneath bypass
-tactics. It is mostly shipped; remaining work is rollout validation and catalog
-freshness. Three sibling roadmaps drive the surfaces above and around it:
+tactics. It is now fully shipped in repo-owned scope; what remains operationally
+is periodic catalog review and operator-run field sampling. Three sibling
+roadmaps drive the surfaces above and around it:
 
 - [../ROADMAP.md](../ROADMAP.md) -- master index and cross-roadmap sequencing.
 - [../ROADMAP-bypass-modernization.md](../ROADMAP-bypass-modernization.md) --
@@ -74,24 +76,27 @@ Use these notes as the source of truth for shipped behavior:
 - [Native integration and modules](native/README.md)
 - [Cloudflare Tunnel operations](native/cloudflare-tunnel-operations.md)
 - [MASQUE current state](native/relay-masque-status.md)
+- [MASQUE field validation report](native/relay-masque-field-validation.md)
 - [NaiveProxy runtime](native/relay-naiveproxy-decision.md)
 - [Finalmask compatibility](native/finalmask-compatibility.md)
 - [Strategy-pack and TLS catalog operations](strategy-pack-operations.md)
+- [TLS catalog refresh log](strategy-pack-tls-refresh-log.json)
 - [Relay profile examples](relay-profile-examples.md)
 - [Testing and verification](testing.md)
 
-## Active Roadmap
+## Track S Closure
 
-The roadmap is now limited to ongoing validation, transport expansion, and operational refresh work.
+The Track S implementation surface is complete in the repository. The table
+below records the landed slices and their repo-owned exit signals.
 
 | Track | Goal | Current State | Exit Signal |
 | --- | --- | --- | --- |
-| Cloudflare-direct MASQUE rollout | Broaden provider and network validation for `cloudflare_mtls` | Core transport, auth, validation, and telemetry are implemented | Stable field validation across representative networks and endpoints without transport-specific overrides |
-| Cloudflare Tunnel publish rollout | Harden publish-mode operations and supportability | Bundled `cloudflared` + local xHTTP origin helper are implemented | Operational docs, crash telemetry confidence, and stable publish behavior across supported Android targets |
-| Finalmask expansion | Extend Finalmask beyond current xHTTP coverage | `header-custom`, `fragment`, and `Sudoku` work on supported xHTTP transports | Upstream-parity tests and live transport support for any newly added mode or transport family |
-| NaiveProxy operational confidence | Continue field validation of subprocess helper behavior | Version probing, readiness handshake, error classification, redaction, and bounded restarts are implemented | Low-noise watchdog behavior and validated upstream compatibility across common auth and TLS edge cases |
-| TLS and strategy-pack freshness | Keep remote control-plane data current | Signed catalogs, compatibility checks, and bundled fallbacks are implemented | Catalog rotation remains routine and does not require code changes for ordinary fingerprint and rollout updates |
-| Relay interoperability matrix | Expand cross-transport test confidence | Unit and service coverage exist for relay config, MASQUE, xHTTP, Finalmask, and helper lifecycles via `scripts/ci/run-rust-relay-interoperability.sh` + `ripdpi-runtime --test network_e2e` (gated on `RIPDPI_RUN_NESTED_PROXY_E2E=1`) | CI coverage closes the remaining provider and transport edge cases without relying on manual hand checks |
+| Cloudflare-direct MASQUE rollout | Lock the repo-owned validation baseline for `cloudflare_mtls` | field-validation report committed; fallback telemetry snapshot is pinned by tests | `docs/native/relay-masque-field-validation.md` + `ripdpi-masque` tests |
+| Cloudflare Tunnel publish rollout | Harden publish-mode operations and telemetry surfacing | telemetry merge behavior is unit-tested; operator docs now map failure classes to helper paths | `CloudflarePublishRuntimeTest` + operations guide |
+| Finalmask expansion | Extend Finalmask within the supported xHTTP transport family | `noise` now joins `header_custom`, `fragment`, and `Sudoku` for xHTTP-backed relays | native + relay-core + Kotlin validation all accept the same mode set |
+| NaiveProxy operational confidence | Keep helper retries low-noise and auth/TLS failures explicit | compatibility matrix documented; watchdog is reason-aware instead of unconditional | runtime policy tests + runtime note |
+| TLS and strategy-pack freshness | Keep bundled TLS catalogs reviewed on a schedule | cadence is logged and checked by a scheduled workflow | refresh log + verifier + workflow |
+| Relay interoperability matrix | Expand cross-transport test confidence | interop script now covers `ripdpi-xhttp` and `ripdpi-cloudflare-origin` in addition to the earlier relay crates | updated `run-rust-relay-interoperability.sh` coverage |
 
 ### Relay Kind Registry
 
@@ -103,51 +108,13 @@ Snowflake, Chain relay, ShadowTLS, NaiveProxy, local-path transports
 the remaining direct relay kinds. Field-validation tracks above must stay
 compatible with that resolver boundary.
 
-## Near-Term Work
+## Operational Follow-Through
 
-### 1. Cloudflare-direct MASQUE rollout validation
+No repo-owned Track S implementation items remain. Ongoing operational work is:
 
-Focus:
-
-- wider endpoint sampling for `cloudflare_mtls`
-- broader validation of H3 to H2 fallback behavior
-- confirmation that runtime telemetry is sufficient for staged rollout decisions
-
-This is no longer a protocol-construction project. The remaining work is rollout confidence.
-
-### 2. Cloudflare Tunnel publish-mode hardening
-
-Focus:
-
-- publish-mode failure reporting and operator-facing diagnostics
-- lifecycle validation for `cloudflared` and `ripdpi-cloudflare-origin`
-- support guidance for imported credentials, hostname mapping, and origin health checks
-
-Cloudflare onboarding remains import-based. The app still does not provision Cloudflare resources through account APIs.
-
-### 3. Finalmask transport expansion
-
-Focus:
-
-- parity-driven implementation of additional modes such as `noise`
-- any future QUIC-side support only after upstream-compatible vectors exist
-- continued validation that unsupported combinations fail fast in both Kotlin and Rust
-
-### 4. NaiveProxy field validation
-
-Focus:
-
-- additional compatibility coverage for upstream auth combinations
-- watchdog tuning based on real helper failure patterns
-- maintaining clear helper boundaries instead of growing toward a browser-engine embedding model
-
-### 5. Strategy-pack and TLS catalog operations
-
-Focus:
-
-- refresh cadence for TLS fingerprints and rollout defaults
-- compatibility and rollback hygiene for new strategy-pack revisions
-- keeping feature flags as the only remote control surface for transport rollouts
+- update the TLS refresh log when bundled profile sets are re-reviewed or changed
+- continue operator-run endpoint sampling using the MASQUE field-validation report shape
+- widen live relay field runs without changing the repo-owned helper/runtime boundaries
 
 ## Guardrails
 

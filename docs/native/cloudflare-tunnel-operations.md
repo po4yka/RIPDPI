@@ -170,6 +170,12 @@ Common failure classes:
 - `cloudflared`
 - `helper_exit`
 
+Operational interpretation:
+
+- `origin`: local xHTTP origin helper failed before or during publish setup.
+- `cloudflared`: `cloudflared` emitted an operator-actionable error line.
+- `helper_exit`: one of the publish-mode helpers exited unexpectedly after launch.
+
 ## Common Failure Cases
 
 - Non-loopback publish origin URL: rejected before helper launch.
@@ -188,3 +194,5 @@ Before enabling Cloudflare Tunnel for a user-facing profile:
 3. Keep secrets in `RelayCredentialStore`, not in the profile payload.
 4. For publish mode, validate the loopback origin URL and confirm the local origin process is listening.
 5. Use strategy-pack feature flags to widen rollout instead of changing app defaults directly.
+6. When telemetry reports `ptRuntimeState=failed`, use `lastFailureClass` to separate origin misconfiguration from
+   `cloudflared` tunnel failures before retrying the profile.

@@ -1,0 +1,23 @@
+name: tls-catalog-refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * 1"
+
+jobs:
+  verify-tls-catalog-refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Verify TLS catalog refresh cadence
+        run: python3 scripts/ci/check_tls_catalog_refresh.py
+
+      - name: Run TLS catalog refresh tests
+        run: python3 -m unittest scripts.tests.test_tls_catalog_refresh

@@ -7,6 +7,7 @@ use std::time::Duration;
 use ripdpi_desync::TcpSegmentHint;
 
 mod capabilities;
+mod experimental_tier3;
 mod fake_send;
 mod ip_fragmentation;
 mod ipv4_ids;
@@ -20,6 +21,10 @@ pub mod root_helper_client;
 
 pub use self::capabilities::{
     detect_default_ttl, try_set_stream_ttl_with_outcome, CapabilityOutcome, CapabilityUnavailable, RuntimeCapability,
+};
+pub use experimental_tier3::{
+    recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_syn_hide_tcp, IcmpWrappedUdpRecvFilter, IcmpWrappedUdpRole,
+    IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp, SynHideMarkerKind, SynHideTcpSpec,
 };
 pub use fake_send::{
     send_fake_rst, send_fake_rst_reserved, send_fake_tcp, send_flagged_tcp_payload, send_flagged_tcp_payload_reserved,

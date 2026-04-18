@@ -12,6 +12,7 @@ Supported relay families:
 Supported modes:
 
 - `header-custom`
+- `noise`
 - `fragment`
 - `Sudoku`
 
@@ -33,7 +34,6 @@ Unsupported combinations fail fast instead of being silently ignored.
 
 The current tree still does not implement:
 
-- `noise`
 - QUIC-side Finalmask
 - Hysteria2 Finalmask
 - TUIC Finalmask

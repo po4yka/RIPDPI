@@ -49,6 +49,7 @@ Coverage exists at several layers:
 - native unit tests for request construction, auth header generation, challenge parsing, provider retry flow, and fallback behavior
 - service tests for feature gating and preflight rejection paths
 - relay-core tests for config bridging and capability validation
+- field-validation baseline report in [relay-masque-field-validation.md](relay-masque-field-validation.md)
 
 The remaining work is validation breadth, not transport design.
 

@@ -2,6 +2,11 @@ package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsBootstrapper
+import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions
+import com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter
+import com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService
+import com.poyka.ripdpi.diagnostics.queries.DefaultDiagnosticsDetailLoader
 import dagger.Binds
 import dagger.Module
 import dagger.Provides

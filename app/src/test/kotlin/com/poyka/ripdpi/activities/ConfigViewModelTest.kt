@@ -304,7 +304,7 @@ class ConfigViewModelTest {
     }
 
     @Test
-    fun `relay validation rejects unsupported finalmask noise mode`() {
+    fun `relay validation accepts finalmask noise mode for xhttp transports`() {
         val errors =
             validateConfigDraft(
                 defaultDraft.copy(
@@ -318,7 +318,7 @@ class ConfigViewModelTest {
                 ),
             )
 
-        assertEquals("unsupported", errors[ConfigFieldRelayFinalmask])
+        assertEquals(null, errors[ConfigFieldRelayFinalmask])
     }
 
     @Test

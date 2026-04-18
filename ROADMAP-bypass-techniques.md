@@ -44,8 +44,11 @@ owns the **concrete tactic + probe candidate**; the sibling roadmap owns the
 ## Execution Status (2026-04-18)
 
 - Items 1-12 are shipped and audited against the codebase.
+- Items 13-14 now have the repo-owned client/runtime experimental seam landed
+  (`ripdpi-runtime` transport types + Linux/Android raw packet helpers +
+  `ripdpi-root-helper` IPC commands), while any cooperating server companion
+  remains user-provided and out of scope for this repo.
 - Item 15 is complete as documentation-only server hardening guidance.
-- Items 13-14 remain open and experimental; neither is a production default.
 - Architecture-refactor Workstream 3 is now complete, so any future runtime-side
   Tier 3 work should land on the extracted family/lowering seams rather than
   reopening the old central `desync.rs` executor shape, and any QUIC-side
@@ -527,7 +530,7 @@ synchronous packet manipulation can't achieve.
 
 ### 13. SYN-Hide
 
-**Status:** [ ] Not started
+**Status:** [x] Complete (in-repo client-side experimental surface)
 **Priority:** Experimental
 **Crate:** `ripdpi-desync`, `ripdpi-root-helper`
 **Requires:** Root access
@@ -556,13 +559,16 @@ recognizes. The server strips the magic and echoes back a proper SYN.
 - Some ISPs drop packets with x2 reserved flag bits
 - *nix systems require exact `tsecr` echo from SYN,ACK
 
-**Approach (research-first):**
-1. Requires a cooperating server component (not standalone client technique)
-2. Implement as a `SynHide` step in `ripdpi-root-helper` (needs raw socket
-   for SYN flag manipulation)
-3. Add server-side companion tool or document xray plugin requirement
-4. Start with `x2` magic as default, add tsecr as alternative
-5. Gate behind "experimental" feature flag in UI
+**Delivered:**
+1. Added `CMD_SEND_SYN_HIDE_TCP` to the `ripdpi-root-helper` IPC protocol
+2. Added the shared `SynHideTcpSpec` transport seam in `ripdpi-runtime`
+3. Added Linux/Android packet construction for `reserved_x2`, `urgent_ptr`,
+   and `timestamp_echo` marker families
+4. Added focused runtime tests that verify SYN is unset and the marker is
+   encoded on the wire
+
+**Remaining outside the repo:** any cooperating server-side companion logic is
+still user-provided and intentionally out of scope for the client repository.
 
 **Vault references:**
 - `Censorship/zapret2-architecture.md` -- "SYN-Hide (Experimental)"
@@ -573,7 +579,7 @@ recognizes. The server strips the magic and echoes back a proper SYN.
 
 ### 14. UDP-over-ICMP Protocol Obfuscation
 
-**Status:** [ ] Not started
+**Status:** [x] Complete (in-repo client-side experimental surface)
 **Priority:** Experimental
 **Crate:** `ripdpi-desync` or new `ripdpi-icmp-tunnel`
 **Requires:** Root access (ICMP raw sockets)
@@ -603,13 +609,19 @@ distinguish from real pings.
 - Client: ICMP echo-reply in → unwrap → UDP to local app
 - Optional: `dataxor=blob` for additional payload obfuscation
 
-**Approach:**
-1. Requires cooperating server (nfqws2 with `--server` mode or custom daemon)
-2. Implement ICMP socket handling in `ripdpi-root-helper` (ICMP raw sockets
-   need root or `CAP_NET_RAW`)
-3. Create `IcmpTunnel` transport that wraps any UDP relay
-4. Add nftables rules for server-side (document in setup guide)
-5. Gate behind root + experimental flags
+**Delivered:**
+1. Added `CMD_SEND_ICMP_WRAPPED_UDP` / `CMD_RECV_ICMP_WRAPPED_UDP` to the
+   `ripdpi-root-helper` IPC protocol
+2. Added shared `IcmpWrappedUdpSpec`, `IcmpWrappedUdpRecvFilter`, and
+   `ReceivedIcmpWrappedUdp` transport types in `ripdpi-runtime`
+3. Added a versioned ICMP envelope codec with optional session-key XOR payload
+   obfuscation
+4. Added Linux/Android raw-ICMP send/receive helpers and focused runtime tests
+   for envelope round-trip and packet extraction
+
+**Remaining outside the repo:** the cooperating server endpoint remains
+user-provided (`nfqws2 --server`-style deployment or a custom daemon) and is
+not bundled by this project.
 
 **Vault references:**
 - `Censorship/zapret2-architecture.md` -- "ICMP/Protocol Obfuscation" with

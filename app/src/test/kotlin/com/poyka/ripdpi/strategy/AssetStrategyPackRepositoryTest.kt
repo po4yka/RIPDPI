@@ -61,7 +61,8 @@ class AssetStrategyPackRepositoryTest {
 
             assertEquals(StrategyPackCatalogSourceBundled, snapshot.source)
             assertEquals("stable", snapshot.catalog.channel)
-            assertEquals(listOf("baseline-stable"), snapshot.packs.map { it.id })
+            assertEquals(listOf("baseline-stable", "ech-canary"), snapshot.packs.map { it.id })
+            assertEquals("browser_family_v2", snapshot.catalog.tlsProfiles.first().id)
         }
 
     @Test
@@ -97,6 +98,18 @@ class AssetStrategyPackRepositoryTest {
             assertEquals(StrategyPackCatalogSourceDownloaded, snapshot.source)
             assertEquals(checksum, snapshot.verifiedChecksumSha256)
             assertEquals("2026.04.1", snapshot.manifestVersion)
+            assertEquals("browser_family_v2", snapshot.catalog.tlsProfiles.single().id)
+            assertEquals(
+                listOf(
+                    "chrome_stable",
+                    "chrome_desktop_stable",
+                    "firefox_stable",
+                    "firefox_ech_stable",
+                    "safari_stable",
+                    "edge_stable",
+                ),
+                snapshot.catalog.tlsProfiles.single().allowedProfileIds,
+            )
             assertEquals(StrategyPackCatalogSourceDownloaded, reloaded.source)
             assertEquals("mobile-2026", reloaded.packs.single().id)
             assertFalse(tempFile.exists())
@@ -226,21 +239,35 @@ private fun refreshedCatalogJson(): String =
     """
     {
       "schemaVersion": 3,
-      "generatedAt": "2026-04-05T09:00:00Z",
+      "generatedAt": "2026-04-18T13:00:00Z",
       "channel": "stable",
       "minAppVersion": "0.0.4",
       "minNativeVersion": "0.0.4",
       "notes": "Downloaded strategy pack catalog.",
       "tlsProfiles": [
         {
-          "id": "baseline-default",
-          "title": "Baseline",
+          "id": "browser_family_v2",
+          "title": "Browser-family stable rotation",
           "catalogVersion": "v1",
           "allowedProfileIds": [
             "chrome_stable",
-            "firefox_stable"
+            "chrome_desktop_stable",
+            "firefox_stable",
+            "firefox_ech_stable",
+            "safari_stable",
+            "edge_stable"
           ],
-          "rotationEnabled": true
+          "rotationEnabled": true,
+          "browserFamilies": [
+            "chrome",
+            "firefox",
+            "safari",
+            "edge"
+          ],
+          "echPolicy": "opportunistic",
+          "proxyModeNotice": "browser_native_tls_suppressed",
+          "acceptanceCorpusRef": "phase11_tls_template_acceptance",
+          "notes": "Phase 11 browser-family rotation set."
         }
       ],
       "morphPolicies": [
@@ -271,7 +298,7 @@ private fun refreshedCatalogJson(): String =
           "version": "2026.04.1",
           "title": "Mobile 2026",
           "description": "Aggressive mobile-network strategy pack.",
-          "tlsProfileSetId": "baseline-default",
+          "tlsProfileSetId": "browser_family_v2",
           "morphPolicyId": "balanced",
           "hostListRefs": [
             "video"
