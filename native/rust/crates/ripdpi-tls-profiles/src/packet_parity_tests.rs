@@ -67,7 +67,7 @@ fn normalized_extension_order(capture: &CapturedClientHello) -> Vec<u16> {
         .collect()
 }
 
-fn extension_bytes<'a>(capture: &'a CapturedClientHello, ext_type: u16) -> &'a [u8] {
+fn extension_bytes(capture: &CapturedClientHello, ext_type: u16) -> &[u8] {
     let extension = capture
         .layout
         .extensions
@@ -292,7 +292,7 @@ fn chromium_permuted_profiles_exercise_multiple_extension_orders() {
                     .collect::<BTreeSet<_>>()
             })
             .collect::<Vec<_>>();
-        let distinct_orders = captures.iter().map(|capture| extension_order(capture)).collect::<BTreeSet<_>>();
+        let distinct_orders = captures.iter().map(extension_order).collect::<BTreeSet<_>>();
 
         let first_set = extension_sets.first().expect("at least one capture");
         assert!(

@@ -19,7 +19,7 @@ struct TlsPreludeState {
 impl TlsPreludeState {
     fn from_record(buffer: &[u8]) -> Option<Self> {
         let ir = normalize_tls_client_hello(buffer)?;
-        let header = [*buffer.get(0)?, *buffer.get(1)?, *buffer.get(2)?];
+        let header = [*buffer.first()?, *buffer.get(1)?, *buffer.get(2)?];
         let mut payload = Vec::new();
         let mut boundaries = Vec::with_capacity(ir.record_boundaries.len());
 
