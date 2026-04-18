@@ -11,6 +11,9 @@ mod profile;
 mod safari;
 mod trust;
 
+#[cfg(test)]
+mod packet_parity_tests;
+
 pub use profile::{
     profile_catalog, profile_metadata, ProfileCatalog, ProfileConfig, ProfileInvariantStatus, ProfileMetadata,
     ProfileParityTargets, ProfileTemplateMetadata, AVAILABLE_PROFILES,

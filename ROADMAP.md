@@ -25,6 +25,10 @@ the unfinished bypass-modernization TLS/ECH track.
 
 1. Validate packet-level parity for extension ordering, GREASE, supported
    groups, key-share shape, and ALPN template families.
+   Status: complete. `ripdpi-tls-profiles` now captures live ClientHello records
+   per profile and verifies extension-order family behavior, GREASE presence,
+   supported-groups payloads, key-share payloads, and ALPN payloads at the
+   packet level.
 2. Finish true packet-level record-size choreography instead of metadata-only
    template planning.
 3. Add controlled HelloRetryRequest-oriented tactics where server behavior
