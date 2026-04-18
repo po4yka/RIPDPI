@@ -69,12 +69,17 @@ class DefaultHomeDetectionStageRunner
                 } + result.bypassResult.findings.count { it.detected }
             val verdict =
                 when (result.verdict) {
-                    com.poyka.ripdpi.core.detection.Verdict.DETECTED ->
+                    com.poyka.ripdpi.core.detection.Verdict.DETECTED -> {
                         DiagnosticsHomeDetectionVerdict.DETECTED
-                    com.poyka.ripdpi.core.detection.Verdict.NEEDS_REVIEW ->
+                    }
+
+                    com.poyka.ripdpi.core.detection.Verdict.NEEDS_REVIEW -> {
                         DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW
-                    com.poyka.ripdpi.core.detection.Verdict.NOT_DETECTED ->
+                    }
+
+                    com.poyka.ripdpi.core.detection.Verdict.NOT_DETECTED -> {
                         DiagnosticsHomeDetectionVerdict.NOT_DETECTED
+                    }
                 }
             return HomeDetectionStageOutcome(
                 verdict = verdict,
@@ -127,7 +132,5 @@ abstract class HomeDiagnosticsAugmentationModule {
 
     @Binds
     @Singleton
-    abstract fun bindDeveloperAnalyticsSource(
-        source: DefaultDeveloperAnalyticsSource,
-    ): DeveloperAnalyticsSource
+    abstract fun bindDeveloperAnalyticsSource(source: DefaultDeveloperAnalyticsSource): DeveloperAnalyticsSource
 }

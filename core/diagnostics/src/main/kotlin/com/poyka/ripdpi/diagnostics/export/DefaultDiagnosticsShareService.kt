@@ -34,6 +34,8 @@ class DefaultDiagnosticsShareService
                 )
             }
 
-        override suspend fun createArchive(request: DiagnosticsArchiveRequest): com.poyka.ripdpi.diagnostics.DiagnosticsArchive =
+        override suspend fun createArchive(
+            request: DiagnosticsArchiveRequest,
+        ): com.poyka.ripdpi.diagnostics.DiagnosticsArchive =
             withContext(Dispatchers.IO) { archiveExporter.createArchive(request) }
     }

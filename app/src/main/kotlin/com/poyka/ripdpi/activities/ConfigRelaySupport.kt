@@ -315,8 +315,14 @@ internal fun validateHeaderCustomFinalmaskDraft(draft: ConfigDraft): String? =
 
 internal fun validateNoiseFinalmaskDraft(draft: ConfigDraft): String? =
     when {
-        draft.relayFinalmaskRandRange.isBlank() -> "required"
-        !draft.relayFinalmaskRandRange.matches(Regex("\\d+-\\d+")) -> "invalid_range"
+        draft.relayFinalmaskRandRange.isBlank() -> {
+            "required"
+        }
+
+        !draft.relayFinalmaskRandRange.matches(Regex("\\d+-\\d+")) -> {
+            "invalid_range"
+        }
+
         else -> {
             val (min, max) =
                 draft.relayFinalmaskRandRange

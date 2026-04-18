@@ -36,6 +36,7 @@ internal class MainActivityShellController(
         )
     private val _uiEvents =
         MutableSharedFlow<MainActivityUiEvent>(
+            replay = 1,
             extraBufferCapacity = 1,
             onBufferOverflow = BufferOverflow.DROP_OLDEST,
         )

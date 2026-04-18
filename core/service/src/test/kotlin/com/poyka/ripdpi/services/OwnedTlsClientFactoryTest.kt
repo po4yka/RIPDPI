@@ -16,13 +16,15 @@ class OwnedTlsClientFactoryTest {
     @Test
     fun `apply tls fingerprint profile maps desktop and ech variants onto browser cipher sets`() {
         val chromeDesktop =
-            OkHttpClient.Builder()
+            OkHttpClient
+                .Builder()
                 .applyTlsFingerprintProfile(TlsFingerprintProfileChromeDesktopStable)
                 .build()
                 .connectionSpecs
                 .first()
         val firefoxEch =
-            OkHttpClient.Builder()
+            OkHttpClient
+                .Builder()
                 .applyTlsFingerprintProfile(TlsFingerprintProfileFirefoxEchStable)
                 .build()
                 .connectionSpecs
