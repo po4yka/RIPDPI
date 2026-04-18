@@ -15,7 +15,6 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.toActiveDnsSettings
-import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.DefaultDiagnosticsPlanner
 import com.poyka.ripdpi.diagnostics.DefaultEngineRequestEncoder
 import com.poyka.ripdpi.diagnostics.DefaultScanContextCollector
@@ -23,14 +22,15 @@ import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticsContextProvider
 import com.poyka.ripdpi.diagnostics.DiagnosticsIntentResolver
 import com.poyka.ripdpi.diagnostics.DiagnosticsPlanner
+import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.EngineRequestEncoder
 import com.poyka.ripdpi.diagnostics.NetworkMetadataProvider
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
+import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.ScanContextCollector
 import com.poyka.ripdpi.diagnostics.ScanPathMode
-import com.poyka.ripdpi.diagnostics.DomainTarget
-import com.poyka.ripdpi.diagnostics.QuicTarget
 import com.poyka.ripdpi.diagnostics.StrategyProbeTargetSelection
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent
 import com.poyka.ripdpi.diagnostics.domain.ScanContext
 import com.poyka.ripdpi.diagnostics.domain.ScanPlan

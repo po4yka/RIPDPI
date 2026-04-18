@@ -1,12 +1,14 @@
 package com.poyka.ripdpi.diagnostics
 
 typealias DiagnosticsArchiveClock = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveClock
-internal typealias DiagnosticsArchiveBuildInfoProvider = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveBuildInfoProvider
+internal typealias DiagnosticsArchiveBuildInfoProvider =
+    com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveBuildInfoProvider
 typealias DiagnosticsArchiveExporter = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveExporter
 typealias DiagnosticsArchiveFileStore = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFileStore
 typealias DiagnosticsArchiveIdGenerator = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveIdGenerator
 internal typealias DiagnosticsArchiveRedactor = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor
-internal typealias DefaultDiagnosticsArchiveExporter = com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter
+internal typealias DefaultDiagnosticsArchiveExporter =
+    com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsArchiveExporter
 internal typealias DefaultDiagnosticsShareService = com.poyka.ripdpi.diagnostics.export.DefaultDiagnosticsShareService
 typealias DiagnosticsArchiveReason = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveReason
 typealias DiagnosticsArchiveRequest = com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest

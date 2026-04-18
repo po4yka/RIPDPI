@@ -11,5 +11,6 @@ interface HomeDetectionStageRunner {
 }
 
 object NoopHomeDetectionStageRunner : HomeDetectionStageRunner {
-    override suspend fun run(onProgress: suspend (label: String, detail: String) -> Unit): HomeDetectionStageOutcome? = null
+    override suspend fun run(onProgress: suspend (label: String, detail: String) -> Unit): HomeDetectionStageOutcome? =
+        null
 }
