@@ -80,7 +80,7 @@ fn packetize_browser_like_quic_initial(
 }
 
 fn quic_browser_profile_for_index(idx: usize) -> QuicInitialBrowserProfile {
-    if idx % 2 == 0 {
+    if idx.is_multiple_of(2) {
         QuicInitialBrowserProfile::ChromeAndroid
     } else {
         QuicInitialBrowserProfile::FirefoxAndroid

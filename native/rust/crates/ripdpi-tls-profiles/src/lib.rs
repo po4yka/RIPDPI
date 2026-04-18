@@ -413,7 +413,7 @@ mod tests {
                 match stack["class"].as_str() {
                     Some("cdn") => accepted_cdn += 1,
                     Some("server") => accepted_server += 1,
-                    other => panic!("unexpected stack class: {:?}", other),
+                    other => panic!("unexpected stack class: {other:?}"),
                 }
                 if profile_ech_capable && stack["echCapable"].as_bool() == Some(true) {
                     accepted_ech += 1;
@@ -424,7 +424,7 @@ mod tests {
             assert_eq!(summary["acceptedCdnStacks"].as_u64(), Some(accepted_cdn));
             assert_eq!(summary["acceptedServerStacks"].as_u64(), Some(accepted_server));
             assert_eq!(summary["acceptedEchStacks"].as_u64(), Some(accepted_ech));
-            assert_eq!(summary["acceptedTotalStacks"].as_u64(), Some((accepted_cdn + accepted_server) as u64));
+            assert_eq!(summary["acceptedTotalStacks"].as_u64(), Some(accepted_cdn + accepted_server));
             assert!(accepted_cdn >= min_cdn);
             assert!(accepted_server >= min_server);
             assert!((accepted_cdn + accepted_server) >= min_total);
