@@ -127,8 +127,19 @@ fake-payload lane outside user-provided custom payload experiments.
 
 ### 11.8 Acceptance Coverage
 
-Build and maintain live acceptance coverage across major CDN and server stacks
-for every shipped TLS template family.
+Status: complete.
+
+The shared `phase11_tls_template_acceptance` corpus now carries reviewed
+stack-by-stack acceptance results for every shipped TLS template family across
+major CDN and self-hosted server stacks, and the committed
+`tls-template-acceptance-report.json` artifact summarizes the validated
+coverage. CI now checks that:
+
+- every catalog profile set still points at the shared acceptance corpus
+- every shipped TLS template profile has accepted coverage across the required
+  CDN and server-stack thresholds
+- the ECH-capable profile keeps at least one accepted ECH-capable stack
+- the report stays aligned with the corpus and strategy-pack catalog
 
 ### 11.9 Strategy-Pack Rollout Discipline
 
