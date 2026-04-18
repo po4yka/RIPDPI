@@ -91,7 +91,7 @@ pub(crate) fn append_udp_group(groups: &mut Vec<DesyncGroup>, primary_group: &De
     udp_group.actions.udp_chain = primary_group.actions.udp_chain.clone();
     udp_group.actions.quic_fake_profile = primary_group.actions.quic_fake_profile;
     udp_group.actions.quic_fake_host = primary_group.actions.quic_fake_host.clone();
-    udp_group.matches.activation_filter = primary_group.matches.activation_filter.clone();
+    udp_group.matches.activation_filter = primary_group.matches.activation_filter;
     groups.push(udp_group);
 }
 

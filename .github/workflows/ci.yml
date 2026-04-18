@@ -683,20 +683,8 @@ jobs:
       - name: Create and start emulator
         run: |
           set -euo pipefail
-          android emulator create \
-            --name macrobench \
-            --api 34 \
-            --arch x86_64 \
-            --target aosp_atd \
-            --ram 4096M \
-            --heap 1024M \
-            --disk 8G
-          android emulator start \
-            --avd macrobench \
-            --gpu swiftshader_indirect \
-            --no-window --no-audio --no-boot-anim --no-snapshot-save \
-            --boot-timeout 600 \
-            --detach
+          android emulator create --profile=medium_phone
+          android emulator start medium_phone
           android emulator wait-for-boot --timeout 600
 
       - name: Run macrobenchmarks
@@ -706,7 +694,7 @@ jobs:
 
       - name: Stop emulator
         if: always()
-        run: android emulator stop --avd macrobench || true
+        run: android emulator stop medium_phone || true
 
       - name: Check for regressions
         run: |
@@ -756,20 +744,8 @@ jobs:
       - name: Create and start emulator
         run: |
           set -euo pipefail
-          android emulator create \
-            --name integration \
-            --api 34 \
-            --arch x86_64 \
-            --target aosp_atd \
-            --ram 4096M \
-            --heap 1024M \
-            --disk 8G
-          android emulator start \
-            --avd integration \
-            --gpu swiftshader_indirect \
-            --no-window --no-audio --no-boot-anim --no-snapshot-save \
-            --boot-timeout 600 \
-            --detach
+          android emulator create --profile=medium_phone
+          android emulator start medium_phone
           android emulator wait-for-boot --timeout 600
 
       - name: Run connected Android integration tests
@@ -777,7 +753,7 @@ jobs:
 
       - name: Stop emulator
         if: always()
-        run: android emulator stop --avd integration || true
+        run: android emulator stop medium_phone || true
 
       - name: Capture emulator logcat
         if: always()
@@ -1001,20 +977,8 @@ jobs:
       - name: Create and start emulator
         run: |
           set -euo pipefail
-          android emulator create \
-            --name network-e2e \
-            --api 34 \
-            --arch x86_64 \
-            --target google_apis \
-            --ram 4096M \
-            --heap 1024M \
-            --disk 8G
-          android emulator start \
-            --avd network-e2e \
-            --gpu swiftshader_indirect \
-            --no-window --no-audio --no-boot-anim --no-snapshot-save \
-            --boot-timeout 600 \
-            --detach
+          android emulator create --profile=medium_phone
+          android emulator start medium_phone
           android emulator wait-for-boot --timeout 600
 
       - name: Run connected Android network E2E tests
@@ -1022,7 +986,7 @@ jobs:
 
       - name: Stop emulator
         if: always()
-        run: android emulator stop --avd network-e2e || true
+        run: android emulator stop medium_phone || true
 
       - name: Capture fixture state
         if: always()
@@ -1092,20 +1056,8 @@ jobs:
       - name: Create and start emulator
         run: |
           set -euo pipefail
-          android emulator create \
-            --name relay-smoke \
-            --api 34 \
-            --arch x86_64 \
-            --target aosp_atd \
-            --ram 4096M \
-            --heap 1024M \
-            --disk 8G
-          android emulator start \
-            --avd relay-smoke \
-            --gpu swiftshader_indirect \
-            --no-window --no-audio --no-boot-anim --no-snapshot-save \
-            --boot-timeout 600 \
-            --detach
+          android emulator create --profile=medium_phone
+          android emulator start medium_phone
           android emulator wait-for-boot --timeout 600
 
       - name: Run Android relay emulator smoke
@@ -1123,7 +1075,7 @@ jobs:
       - name: Stop emulator
         if: always()
         run: |
-          android emulator stop --avd relay-smoke || true
+          android emulator stop medium_phone || true
 
       - name: Upload Android relay smoke artifacts
         if: always()
