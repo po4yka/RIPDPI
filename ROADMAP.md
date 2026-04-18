@@ -55,6 +55,10 @@ the unfinished bypass-modernization TLS/ECH track.
    suppression notice is surfaced in diagnostics UI and archive export.
 6. Finish replacing generic fake packet families with coherent client-profile
    families.
+   Status: complete. The remaining lab-only fake families now use explicit
+   Chrome-family fake ClientHello profiles too, including `adaptive_fake_ttl`
+   and `fake_rst`, so randomized/original-byte mutation no longer leaks into
+   the shipped fake-family catalog.
 7. Build and maintain live acceptance coverage for each shipped TLS template
    family across major CDN and server stacks.
 8. Keep bundled strategy-pack catalog entries aligned with the shipped template

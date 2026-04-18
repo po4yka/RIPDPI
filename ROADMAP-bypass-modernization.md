@@ -112,8 +112,18 @@ serialized strategy-probe report and detectability notes.
 
 ### 11.7 Client-Profile Fake Family Completion
 
-Finish replacing the remaining generic fake packet families with coherent
-browser-profile families.
+Status: complete.
+
+The remaining lab-only fake families now use coherent browser-profile payloads
+instead of generic randomized/original-byte mutation:
+
+- `adaptive_fake_ttl` keeps its TTL-learning behavior but now stays on the
+  explicit Chrome-family fake ClientHello path
+- `fake_rst` now shares the same coherent Chrome-family fake profile metadata
+  as the other fake-emitter candidates
+
+At this point the fake-family catalog no longer has a residual generic
+fake-payload lane outside user-provided custom payload experiments.
 
 ### 11.8 Acceptance Coverage
 

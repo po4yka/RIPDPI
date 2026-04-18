@@ -1186,14 +1186,7 @@ pub(crate) fn build_circular_tlsrec_split_candidate(base: &ProxyUiConfig) -> Pro
 pub(crate) fn build_tlsrec_fake_rich_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = strategy_probe_base(base);
     config.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("fake", "host+1")];
-    config.fake_packets.fake_sni = "www.google.com".to_string();
-    config.fake_packets.tls_fake_profile = TLS_FAKE_PROFILE_GOOGLE_CHROME.to_string();
-    config.fake_packets.fake_tls_use_original = false;
-    config.fake_packets.fake_tls_randomize = false;
-    config.fake_packets.fake_tls_dup_session_id = false;
-    config.fake_packets.fake_tls_pad_encap = true;
-    config.fake_packets.fake_tls_sni_mode = "fixed".to_string();
-    config.fake_packets.fake_offset_marker = "endhost-1".to_string();
+    apply_coherent_chrome_fake_profile(&mut config);
     config
 }
 
@@ -1354,6 +1347,7 @@ fn build_fake_rst_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = strategy_probe_base(base);
     // FakeRst is a pre-send action, followed by a regular split to deliver the payload.
     config.chains.tcp_steps = vec![tcp_step("fakerst", "host+2"), tcp_step("split", "host+2")];
+    apply_coherent_chrome_fake_profile(&mut config);
     config
 }
 
@@ -1543,10 +1537,6 @@ pub(crate) fn build_activation_window_hostfake_spec(base: &ProxyUiConfig) -> Str
 
 pub(crate) fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
     let mut config = build_tlsrec_fake_rich_candidate(base);
-    config.fake_packets.fake_tls_use_original = true;
-    config.fake_packets.fake_tls_randomize = true;
-    config.fake_packets.fake_tls_dup_session_id = true;
-    config.fake_packets.fake_tls_sni_mode = "randomized".to_string();
     config.fake_packets.adaptive_fake_ttl_enabled = true;
     config.fake_packets.adaptive_fake_ttl_delta = ADAPTIVE_FAKE_TTL_DEFAULT_DELTA;
     config.fake_packets.adaptive_fake_ttl_min = ADAPTIVE_FAKE_TTL_DEFAULT_MIN;
@@ -1567,6 +1557,7 @@ pub(crate) fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCand
         notes: vec![
             "Runs an unscored warm-up pass before measured probes",
             "Keeps adaptive fake TTL enabled during candidate execution",
+            "Uses a coherent Chrome-family fake ClientHello instead of randomized or original-byte mutation",
         ],
         preserve_adaptive_fake_ttl: true,
         warmup: CandidateWarmup::AdaptiveFakeTtl,
@@ -1588,6 +1579,17 @@ pub(crate) fn build_fake_payload_library_spec(base: &ProxyUiConfig) -> StrategyC
         config,
         vec!["Uses bundled Cloudflare GET, Chrome TLS, and DNS query fake payload profiles"],
     )
+}
+
+fn apply_coherent_chrome_fake_profile(config: &mut ProxyUiConfig) {
+    config.fake_packets.fake_sni = "www.google.com".to_string();
+    config.fake_packets.tls_fake_profile = TLS_FAKE_PROFILE_GOOGLE_CHROME.to_string();
+    config.fake_packets.fake_tls_use_original = false;
+    config.fake_packets.fake_tls_randomize = false;
+    config.fake_packets.fake_tls_dup_session_id = false;
+    config.fake_packets.fake_tls_pad_encap = true;
+    config.fake_packets.fake_tls_sni_mode = "fixed".to_string();
+    config.fake_packets.fake_offset_marker = "endhost-1".to_string();
 }
 
 pub(crate) fn default_audit_activation_filter() -> ProxyUiActivationFilter {
