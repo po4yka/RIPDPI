@@ -124,10 +124,26 @@ class DefaultDeveloperAnalyticsSource
                         stageLabel = stage.stageLabel,
                         headline = stage.headline,
                         summary = summary,
-                        tcpErrors = extractHints(summary, listOf("RST", "reset", "refused", "timed out")).take(TcpErrorPreviewLimit),
-                        tlsErrors = extractHints(summary, listOf("TLS", "certificate", "handshake", "SNI")).take(TlsErrorPreviewLimit),
-                        dnsErrors = extractHints(summary, listOf("NXDOMAIN", "SERVFAIL", "resolve", "dns")).take(DnsErrorPreviewLimit),
-                        httpErrors = extractHints(summary, listOf("HTTP", "status=", "4", "5")).take(HttpErrorPreviewLimit),
+                        tcpErrors =
+                            extractHints(
+                                summary,
+                                listOf("RST", "reset", "refused", "timed out"),
+                            ).take(TcpErrorPreviewLimit),
+                        tlsErrors =
+                            extractHints(
+                                summary,
+                                listOf("TLS", "certificate", "handshake", "SNI"),
+                            ).take(TlsErrorPreviewLimit),
+                        dnsErrors =
+                            extractHints(
+                                summary,
+                                listOf("NXDOMAIN", "SERVFAIL", "resolve", "dns"),
+                            ).take(DnsErrorPreviewLimit),
+                        httpErrors =
+                            extractHints(
+                                summary,
+                                listOf("HTTP", "status=", "4", "5"),
+                            ).take(HttpErrorPreviewLimit),
                     )
                 }
         }
@@ -156,7 +172,8 @@ class DefaultDeveloperAnalyticsSource
             val nativeDir = appContext.applicationInfo.nativeLibraryDir?.let(::File) ?: return emptyMap()
             if (!nativeDir.exists() || !nativeDir.isDirectory) return emptyMap()
             val digest = MessageDigest.getInstance("SHA-256")
-            return nativeDir.listFiles()
+            return nativeDir
+                .listFiles()
                 ?.filter { it.isFile && it.name.endsWith(".so") }
                 ?.associate { file ->
                     digest.reset()
@@ -198,7 +215,12 @@ class DefaultDeveloperAnalyticsSource
             return runCatching {
                 statusFile.useLines { lines ->
                     val match = lines.firstOrNull { it.startsWith("$key:") }
-                    match?.substringAfter(":")?.trim()?.removeSuffix(" kB")?.trim()?.toLongOrNull()
+                    match
+                        ?.substringAfter(":")
+                        ?.trim()
+                        ?.removeSuffix(" kB")
+                        ?.trim()
+                        ?.toLongOrNull()
                 }
             }.getOrNull()
         }
@@ -229,6 +251,7 @@ class DefaultDeveloperAnalyticsSource
             val defaults = AppSettings.getDefaultInstance()
             if (settings == defaults) return emptyList()
             val entries = mutableListOf<DeveloperConfigDiffEntry>()
+
             fun <T> add(
                 key: String,
                 actual: T,
@@ -283,7 +306,14 @@ class DefaultDeveloperAnalyticsSource
                         },
                     operatorOrSsid = null,
                     dnsServers = linkProps?.dnsServers?.mapNotNull { it.hostAddress }.orEmpty(),
-                    signalStrengthDbm = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) caps.signalStrength else null,
+                    signalStrengthDbm =
+                        if (Build.VERSION.SDK_INT >=
+                            Build.VERSION_CODES.Q
+                        ) {
+                            caps.signalStrength
+                        } else {
+                            null
+                        },
                     cellularLevel = null,
                     linkDownstreamKbps = caps.linkDownstreamBandwidthKbps,
                     linkUpstreamKbps = caps.linkUpstreamBandwidthKbps,
@@ -301,8 +331,10 @@ class DefaultDeveloperAnalyticsSource
             val batteryManager = appContext.getSystemService(BatteryManager::class.java)
             val activityManager = appContext.getSystemService(ActivityManager::class.java)
             val memoryInfo = ActivityManager.MemoryInfo().also { activityManager?.getMemoryInfo(it) }
-            val batteryPercent = batteryManager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
-                ?.takeIf { it in 0..100 }
+            val batteryPercent =
+                batteryManager
+                    ?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+                    ?.takeIf { it in 0..100 }
             val charging = batteryManager?.isCharging
             val standbyBucket =
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -310,7 +342,14 @@ class DefaultDeveloperAnalyticsSource
                 } else {
                     null
                 }
-            val securityPatch = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) Build.VERSION.SECURITY_PATCH else null
+            val securityPatch =
+                if (Build.VERSION.SDK_INT >=
+                    Build.VERSION_CODES.M
+                ) {
+                    Build.VERSION.SECURITY_PATCH
+                } else {
+                    null
+                }
             return DeveloperDeviceState(
                 deviceManufacturer = Build.MANUFACTURER,
                 deviceModel = Build.MODEL,
@@ -384,7 +423,5 @@ class DefaultDeveloperAnalyticsSource
                 .filter { keyword -> summary.contains(keyword, ignoreCase = true) }
                 .map { keyword -> "hint: summary mentions '$keyword'" }
 
-        private fun isoNowUtc(): String =
-            DateTimeFormatter.ISO_INSTANT.format(Instant.now().atOffset(ZoneOffset.UTC))
+        private fun isoNowUtc(): String = DateTimeFormatter.ISO_INSTANT.format(Instant.now().atOffset(ZoneOffset.UTC))
     }
-

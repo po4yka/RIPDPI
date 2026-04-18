@@ -62,7 +62,12 @@ class AssetStrategyPackRepositoryTest {
             assertEquals(StrategyPackCatalogSourceBundled, snapshot.source)
             assertEquals("stable", snapshot.catalog.channel)
             assertEquals(listOf("baseline-stable", "ech-canary"), snapshot.packs.map { it.id })
-            assertEquals("browser_family_v2", snapshot.catalog.tlsProfiles.first().id)
+            assertEquals(
+                "browser_family_v2",
+                snapshot.catalog.tlsProfiles
+                    .first()
+                    .id,
+            )
         }
 
     @Test
@@ -98,7 +103,12 @@ class AssetStrategyPackRepositoryTest {
             assertEquals(StrategyPackCatalogSourceDownloaded, snapshot.source)
             assertEquals(checksum, snapshot.verifiedChecksumSha256)
             assertEquals("2026.04.1", snapshot.manifestVersion)
-            assertEquals("browser_family_v2", snapshot.catalog.tlsProfiles.single().id)
+            assertEquals(
+                "browser_family_v2",
+                snapshot.catalog.tlsProfiles
+                    .single()
+                    .id,
+            )
             assertEquals(
                 listOf(
                     "chrome_stable",
@@ -108,7 +118,9 @@ class AssetStrategyPackRepositoryTest {
                     "safari_stable",
                     "edge_stable",
                 ),
-                snapshot.catalog.tlsProfiles.single().allowedProfileIds,
+                snapshot.catalog.tlsProfiles
+                    .single()
+                    .allowedProfileIds,
             )
             assertEquals(StrategyPackCatalogSourceDownloaded, reloaded.source)
             assertEquals("mobile-2026", reloaded.packs.single().id)

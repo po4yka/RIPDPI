@@ -52,7 +52,8 @@ class DefaultHomeAnalysisAugmentationSource
         private val catalogService: RoutingProtectionCatalogService,
     ) : HomeAnalysisAugmentationSource {
         private val httpClient: OkHttpClient by lazy {
-            OkHttpClient.Builder()
+            OkHttpClient
+                .Builder()
                 .connectTimeout(BufferbloatProbeTimeoutMs, TimeUnit.MILLISECONDS)
                 .readTimeout(BufferbloatLoadedTimeoutMs, TimeUnit.MILLISECONDS)
                 .callTimeout(BufferbloatLoadedTimeoutMs, TimeUnit.MILLISECONDS)
@@ -60,8 +61,8 @@ class DefaultHomeAnalysisAugmentationSource
                 .build()
         }
 
-        override suspend fun networkCharacter(): HomeNetworkCharacterSummary? {
-            return withContext(Dispatchers.IO) {
+        override suspend fun networkCharacter(): HomeNetworkCharacterSummary? =
+            withContext(Dispatchers.IO) {
                 runCatching {
                     val fingerprint = networkFingerprintProvider.capture()
                     val cm = context.getSystemService(ConnectivityManager::class.java)
@@ -70,13 +71,15 @@ class DefaultHomeAnalysisAugmentationSource
                     val linkProps: LinkProperties? = activeNetwork?.let { cm.getLinkProperties(it) }
                     val transport = describeTransport(capabilities, fingerprint?.transport)
                     val operator = describeOperatorOrSsid(capabilities)
-                    val captivePortal = capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true
+                    val captivePortal =
+                        capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true
                     val mtu = linkProps?.mtu?.takeIf { it > 0 }
-                    val ipv6Reachable = withTimeoutOrNull(IPv6ProbeTimeoutMs) {
-                        runCatching {
-                            InetAddress.getAllByName(IPv6ProbeHost).any { it is Inet6Address }
-                        }.getOrDefault(false)
-                    }
+                    val ipv6Reachable =
+                        withTimeoutOrNull(IPv6ProbeTimeoutMs) {
+                            runCatching {
+                                InetAddress.getAllByName(IPv6ProbeHost).any { it is Inet6Address }
+                            }.getOrDefault(false)
+                        }
                     val notes = mutableListOf<String>()
                     if (capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) == false) {
                         notes += "Active network is a VPN"
@@ -97,10 +100,9 @@ class DefaultHomeAnalysisAugmentationSource
                     )
                 }.getOrNull()
             }
-        }
 
-        override suspend fun routingSanity(): HomeRoutingSanitySummary? {
-            return withContext(Dispatchers.Default) {
+        override suspend fun routingSanity(): HomeRoutingSanitySummary? =
+            withContext(Dispatchers.Default) {
                 runCatching {
                     val snapshot = catalogService.snapshot()
                     val detectorApps = snapshot.detectedApps.filter { it.vpnDetection }
@@ -124,16 +126,16 @@ class DefaultHomeAnalysisAugmentationSource
                     )
                 }.getOrNull()
             }
-        }
 
-        override suspend fun bufferbloat(): HomeBufferbloatResult? {
-            return withTimeoutOrNull(NetworkProbeOverallTimeoutMs) {
+        override suspend fun bufferbloat(): HomeBufferbloatResult? =
+            withTimeoutOrNull(NetworkProbeOverallTimeoutMs) {
                 withContext(Dispatchers.IO) {
                     runCatching {
                         val idle = measureRttMs(BufferbloatProbes)
-                        val (loaded, _) = withLoad {
-                            measureRttMs(BufferbloatProbes)
-                        }
+                        val (loaded, _) =
+                            withLoad {
+                                measureRttMs(BufferbloatProbes)
+                            }
                         val idleMs = idle?.toInt()
                         val loadedMs = loaded?.toInt()
                         val deltaMs = if (idleMs != null && loadedMs != null) loadedMs - idleMs else null
@@ -155,10 +157,9 @@ class DefaultHomeAnalysisAugmentationSource
                     }.getOrNull()
                 }
             }
-        }
 
-        override suspend fun dnsCharacterization(): HomeDnsCharacterization? {
-            return withTimeoutOrNull(NetworkProbeOverallTimeoutMs) {
+        override suspend fun dnsCharacterization(): HomeDnsCharacterization? =
+            withTimeoutOrNull(NetworkProbeOverallTimeoutMs) {
                 withContext(Dispatchers.IO) {
                     runCatching {
                         val systemIps = resolveSystem(DnsControlHost)
@@ -174,7 +175,9 @@ class DefaultHomeAnalysisAugmentationSource
                                     HomeDnsResolverClass.DOH_UNREACHABLE
                                 }
 
-                                systemIps.isEmpty() -> HomeDnsResolverClass.UNKNOWN
+                                systemIps.isEmpty() -> {
+                                    HomeDnsResolverClass.UNKNOWN
+                                }
 
                                 differingIpSets(systemIps, dohControlIps) -> {
                                     notes += "$DnsControlHost: system vs DoH disagree"
@@ -191,7 +194,9 @@ class DefaultHomeAnalysisAugmentationSource
                                     HomeDnsResolverClass.POSSIBLE_TRANSPARENT_PROXY
                                 }
 
-                                else -> HomeDnsResolverClass.SYSTEM_RESOLVER_OK
+                                else -> {
+                                    HomeDnsResolverClass.SYSTEM_RESOLVER_OK
+                                }
                             }
                         HomeDnsCharacterization(
                             resolverClass = resolverClass,
@@ -203,7 +208,6 @@ class DefaultHomeAnalysisAugmentationSource
                     }.getOrNull()
                 }
             }
-        }
 
         private fun describeTransport(
             caps: NetworkCapabilities?,
@@ -239,7 +243,8 @@ class DefaultHomeAnalysisAugmentationSource
 
         private fun resolveDoh(host: String): List<String>? {
             val request =
-                Request.Builder()
+                Request
+                    .Builder()
                     .url("$DohEndpoint?name=$host&type=A")
                     .header("accept", "application/dns-json")
                     .build()
@@ -265,28 +270,33 @@ class DefaultHomeAnalysisAugmentationSource
         private fun measureSingleRtt(): Long? =
             runCatching {
                 Socket().use { socket ->
-                    val elapsed = measureTimeMillis {
-                        socket.connect(java.net.InetSocketAddress(BufferbloatHost, BufferbloatTcpPort), BufferbloatProbeTimeoutMs.toInt())
-                    }
+                    val elapsed =
+                        measureTimeMillis {
+                            socket.connect(
+                                java.net.InetSocketAddress(BufferbloatHost, BufferbloatTcpPort),
+                                BufferbloatProbeTimeoutMs.toInt(),
+                            )
+                        }
                     elapsed
                 }
             }.getOrNull()
 
-        private suspend fun <T> withLoad(block: suspend () -> T): Pair<T, Boolean> = coroutineScope {
-            val loadJob =
-                async {
-                    runCatching {
-                        val request = Request.Builder().url(BufferbloatLoadedUrl).build()
-                        httpClient.newCall(request).execute().use { response ->
-                            response.body.bytes()
-                            response.isSuccessful
-                        }
-                    }.getOrDefault(false)
-                }
-            val result = block()
-            val ok = loadJob.await()
-            result to ok
-        }
+        private suspend fun <T> withLoad(block: suspend () -> T): Pair<T, Boolean> =
+            coroutineScope {
+                val loadJob =
+                    async {
+                        runCatching {
+                            val request = Request.Builder().url(BufferbloatLoadedUrl).build()
+                            httpClient.newCall(request).execute().use { response ->
+                                response.body.bytes()
+                                response.isSuccessful
+                            }
+                        }.getOrDefault(false)
+                    }
+                val result = block()
+                val ok = loadJob.await()
+                result to ok
+            }
 
         private fun differingIpSets(
             a: List<String>,
@@ -298,5 +308,4 @@ class DefaultHomeAnalysisAugmentationSource
             if (aV4.isEmpty() || bV4.isEmpty()) return false
             return (aV4 intersect bV4).isEmpty()
         }
-
     }

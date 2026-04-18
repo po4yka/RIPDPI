@@ -8,9 +8,7 @@ private const val FailedStageSpotlightLimit = 2
  * Pure derivation of a plain-language headline + 2-4 next-step recommendations
  * from the existing outcome data. No IO, no new probes.
  */
-internal fun synthesizeActionableSummary(
-    outcome: DiagnosticsHomeCompositeOutcome,
-): Pair<String?, List<String>> {
+internal fun synthesizeActionableSummary(outcome: DiagnosticsHomeCompositeOutcome): Pair<String?, List<String>> {
     val steps = mutableListOf<String>()
     val headlineParts = mutableListOf<String>()
 
@@ -22,16 +20,23 @@ internal fun synthesizeActionableSummary(
             }
         }
 
-        DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW ->
+        DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW -> {
             headlineParts += "Some detection checks need review (likely missing permissions)"
+        }
 
-        DiagnosticsHomeDetectionVerdict.NOT_DETECTED -> Unit
-        null -> Unit
+        DiagnosticsHomeDetectionVerdict.NOT_DETECTED -> {
+            Unit
+        }
+
+        null -> {
+            Unit
+        }
     }
 
     val installedDetectorCount = outcome.installedVpnDetectorCount ?: 0
     if (installedDetectorCount > 0) {
-        headlineParts += "$installedDetectorCount VPN-detector app${if (installedDetectorCount == 1) "" else "s"} installed"
+        headlineParts +=
+            "$installedDetectorCount VPN-detector app${if (installedDetectorCount == 1) "" else "s"} installed"
         val tops = outcome.installedVpnDetectorTopApps.take(2).joinToString(", ")
         if (tops.isNotBlank()) {
             steps += "Add per-app routing for: $tops"
@@ -39,7 +44,8 @@ internal fun synthesizeActionableSummary(
     }
 
     if (outcome.actionable && outcome.appliedSettings.isNotEmpty()) {
-        headlineParts += "Applied ${outcome.appliedSettings.size} bypass setting${if (outcome.appliedSettings.size == 1) "" else "s"}"
+        headlineParts +=
+            "Applied ${outcome.appliedSettings.size} bypass setting${if (outcome.appliedSettings.size == 1) "" else "s"}"
     }
 
     if (outcome.failedStageCount > 0) {
@@ -53,23 +59,31 @@ internal fun synthesizeActionableSummary(
     }
 
     when (outcome.bufferbloat?.grade) {
-        HomeBufferbloatGrade.D, HomeBufferbloatGrade.F ->
+        HomeBufferbloatGrade.D, HomeBufferbloatGrade.F -> {
             steps += "High bufferbloat — consider QoS or a different relay transport"
+        }
 
-        else -> Unit
+        else -> {
+            Unit
+        }
     }
 
     when (outcome.dnsCharacterization?.resolverClass) {
-        HomeDnsResolverClass.POSSIBLE_POISONING ->
+        HomeDnsResolverClass.POSSIBLE_POISONING -> {
             steps += "DNS poisoning suspected — switch to encrypted DNS"
+        }
 
-        HomeDnsResolverClass.POSSIBLE_TRANSPARENT_PROXY ->
+        HomeDnsResolverClass.POSSIBLE_TRANSPARENT_PROXY -> {
             steps += "Transparent DNS proxy detected — switch to encrypted DNS"
+        }
 
-        HomeDnsResolverClass.DOH_UNREACHABLE ->
+        HomeDnsResolverClass.DOH_UNREACHABLE -> {
             steps += "Encrypted DNS endpoints unreachable — DNS may be hijacked"
+        }
 
-        else -> Unit
+        else -> {
+            Unit
+        }
     }
 
     outcome.regressionDelta?.newlyFailedStageKeys?.takeIf { it.isNotEmpty() }?.let { newlyFailed ->

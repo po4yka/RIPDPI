@@ -1,0 +1,104 @@
+{
+  "trackedLibraries": [
+    "libripdpi.so",
+    "libripdpi-tunnel.so"
+  ],
+  "limits": {
+    "maxGrowthPercent": null,
+    "maxPerLibraryGrowthBytes": 131072,
+    "maxTotalGrowthPercent": 2.0,
+    "maxTotalGrowthBytes": 262144
+  },
+  "totals": {
+    "baselineSize": 63323136,
+    "currentSize": 67160912,
+    "allowedSize": 63585280,
+    "deltaBytes": 3837776,
+    "status": "regression"
+  },
+  "libraries": [
+    {
+      "abi": "arm64-v8a",
+      "library": "libripdpi-tunnel.so",
+      "baselineSize": 7714816,
+      "currentSize": 7920544,
+      "allowedSize": 7845888,
+      "deltaBytes": 205728,
+      "status": "regression"
+    },
+    {
+      "abi": "arm64-v8a",
+      "library": "libripdpi.so",
+      "baselineSize": 9420800,
+      "currentSize": 10170512,
+      "allowedSize": 9551872,
+      "deltaBytes": 749712,
+      "status": "regression"
+    },
+    {
+      "abi": "armeabi-v7a",
+      "library": "libripdpi-tunnel.so",
+      "baselineSize": 4723712,
+      "currentSize": 4937424,
+      "allowedSize": 4854784,
+      "deltaBytes": 213712,
+      "status": "regression"
+    },
+    {
+      "abi": "armeabi-v7a",
+      "library": "libripdpi.so",
+      "baselineSize": 5910528,
+      "currentSize": 6501304,
+      "allowedSize": 6041600,
+      "deltaBytes": 590776,
+      "status": "regression"
+    },
+    {
+      "abi": "x86",
+      "library": "libripdpi-tunnel.so",
+      "baselineSize": 6684672,
+      "currentSize": 6898892,
+      "allowedSize": 6815744,
+      "deltaBytes": 214220,
+      "status": "regression"
+    },
+    {
+      "abi": "x86",
+      "library": "libripdpi.so",
+      "baselineSize": 8503296,
+      "currentSize": 9318020,
+      "allowedSize": 8634368,
+      "deltaBytes": 814724,
+      "status": "regression"
+    },
+    {
+      "abi": "x86_64",
+      "library": "libripdpi-tunnel.so",
+      "baselineSize": 9216000,
+      "currentSize": 9422768,
+      "allowedSize": 9347072,
+      "deltaBytes": 206768,
+      "status": "regression"
+    },
+    {
+      "abi": "x86_64",
+      "library": "libripdpi.so",
+      "baselineSize": 11149312,
+      "currentSize": 11991448,
+      "allowedSize": 11280384,
+      "deltaBytes": 842136,
+      "status": "regression"
+    }
+  ],
+  "failures": [
+    "arm64-v8a/libripdpi-tunnel.so size regression: baseline=7714816 actual=7920544 allowed=7845888",
+    "arm64-v8a/libripdpi.so size regression: baseline=9420800 actual=10170512 allowed=9551872",
+    "armeabi-v7a/libripdpi-tunnel.so size regression: baseline=4723712 actual=4937424 allowed=4854784",
+    "armeabi-v7a/libripdpi.so size regression: baseline=5910528 actual=6501304 allowed=6041600",
+    "x86/libripdpi-tunnel.so size regression: baseline=6684672 actual=6898892 allowed=6815744",
+    "x86/libripdpi.so size regression: baseline=8503296 actual=9318020 allowed=8634368",
+    "x86_64/libripdpi-tunnel.so size regression: baseline=9216000 actual=9422768 allowed=9347072",
+    "x86_64/libripdpi.so size regression: baseline=11149312 actual=11991448 allowed=11280384",
+    "Total native size regression: baseline=63323136 actual=67160912 allowed=63585280"
+  ]
+}

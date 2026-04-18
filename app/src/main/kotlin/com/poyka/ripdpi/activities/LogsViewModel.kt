@@ -83,7 +83,6 @@ data class LogEntry(
 
 data class LogsUiState(
     val logs: ImmutableList<LogEntry> = persistentListOf(),
-    val filteredLogs: ImmutableList<LogEntry> = persistentListOf(),
     val activeSubsystems: ImmutableSet<LogSubsystem> = LogSubsystem.entries.toImmutableSet(),
     val activeSeverities: ImmutableSet<LogSeverity> = LogSeverity.entries.toImmutableSet(),
     val showActiveSessionOnly: Boolean = false,
@@ -91,11 +90,34 @@ data class LogsUiState(
     val bufferCapacity: Int = MaxLogEntries,
     val isRefreshing: Boolean = false,
 ) {
+    val filteredLogs: ImmutableList<LogEntry>
+        get() =
+            filterLogs(
+                logs = logs,
+                subsystems = activeSubsystems,
+                severities = activeSeverities,
+                activeSessionOnly = showActiveSessionOnly,
+            ).toImmutableList()
+
     val latestLog: LogEntry?
         get() = logs.lastOrNull()
 }
 
 private const val MaxLogEntries = 250
+
+internal fun filterLogs(
+    logs: List<LogEntry>,
+    subsystems: Set<LogSubsystem>,
+    severities: Set<LogSeverity>,
+    activeSessionOnly: Boolean,
+): List<LogEntry> =
+    logs
+        .asSequence()
+        .filter { entry ->
+            entry.subsystem in subsystems &&
+                entry.severity in severities &&
+                (!activeSessionOnly || entry.isActiveSession)
+        }.toList()
 
 internal fun classifyLogType(message: String): LogType {
     val normalized = message.lowercase(Locale.ROOT)
@@ -197,17 +219,8 @@ class LogsViewModel
                 @Suppress("UNCHECKED_CAST")
                 val severities = (values[2] as Set<LogSeverity>)
                 val activeSessionOnly = values[3] as Boolean
-                val filtered =
-                    logs
-                        .asSequence()
-                        .filter { entry ->
-                            entry.subsystem in subsystems &&
-                                entry.severity in severities &&
-                                (!activeSessionOnly || entry.isActiveSession)
-                        }.toList()
                 LogsUiState(
                     logs = logs.toImmutableList(),
-                    filteredLogs = filtered.toImmutableList(),
                     activeSubsystems = subsystems.toImmutableSet(),
                     activeSeverities = severities.toImmutableSet(),
                     showActiveSessionOnly = activeSessionOnly,

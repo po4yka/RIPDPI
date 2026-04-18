@@ -73,7 +73,7 @@ class MainViewModelTest {
     fun `startup destination prefers onboarding until it is completed`() {
         val settings = AppSettings.newBuilder().build()
 
-        assertEquals(Route.Onboarding.route, resolveStartupDestination(settings))
+        assertEquals(Route.Onboarding, resolveStartupDestination(settings))
     }
 
     @Test
@@ -135,7 +135,7 @@ class MainViewModelTest {
                 .setBiometricEnabled(true)
                 .build()
 
-        assertEquals(Route.BiometricPrompt.route, resolveStartupDestination(settings))
+        assertEquals(Route.BiometricPrompt, resolveStartupDestination(settings))
     }
 
     @Test
@@ -146,7 +146,7 @@ class MainViewModelTest {
                 .setOnboardingComplete(true)
                 .build()
 
-        assertEquals(Route.Home.route, resolveStartupDestination(settings))
+        assertEquals(Route.Home, resolveStartupDestination(settings))
     }
 
     @Test

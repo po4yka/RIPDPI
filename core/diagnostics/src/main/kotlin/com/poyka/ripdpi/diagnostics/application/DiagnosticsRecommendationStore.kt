@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.diagnostics.application
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
-import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.DiagnosticsSessionQueries
+import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Named

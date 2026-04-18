@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
+import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.ResolverOverrideStore
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServerCapabilityObservation
@@ -43,7 +44,6 @@ import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceRecordStore
-import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceRecordStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore

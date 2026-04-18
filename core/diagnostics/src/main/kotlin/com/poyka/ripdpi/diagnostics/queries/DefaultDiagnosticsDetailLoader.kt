@@ -1,9 +1,9 @@
 package com.poyka.ripdpi.diagnostics.queries
 
+import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageHistoryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
-import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail

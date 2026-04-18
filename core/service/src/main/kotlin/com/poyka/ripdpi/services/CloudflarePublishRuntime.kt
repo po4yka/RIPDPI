@@ -287,7 +287,8 @@ class CloudflarePublishManager
                 relayTelemetry = relayTelemetry,
                 state =
                     CloudflarePublishTelemetryState(
-                        helpersRunning = isAlive(active.originProcess.process) && isAlive(active.cloudflaredProcess.process),
+                        helpersRunning =
+                            isAlive(active.originProcess.process) && isAlive(active.cloudflaredProcess.process),
                         originReady = active.originReady,
                         cloudflaredReady = active.cloudflaredReady,
                         cloudflaredVersion = active.cloudflaredProcess.version,
