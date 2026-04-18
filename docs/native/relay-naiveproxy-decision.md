@@ -65,3 +65,39 @@ The remaining work is operational validation rather than design uncertainty:
 - broader field validation across upstream proxies and auth combinations
 - watchdog tuning based on real helper failure patterns
 - continued telemetry review to keep surfaced errors useful without leaking secrets
+
+## Compatibility Matrix
+
+The current repo-owned validation and classification matrix is:
+
+| Surface | Current handling |
+| --- | --- |
+| Basic auth over HTTPS `CONNECT` | supported; credentials are redacted from surfaced logs |
+| Custom `X-Naive-Path` header | supported when configured |
+| Invalid upstream server name / TLS certificate failure | classified as `tls`; watchdog does not restart |
+| Upstream `407` or `Proxy-Authorization` failure | classified as `auth`; watchdog does not restart |
+| Upstream non-auth `CONNECT` rejection | classified as `http_connect`; watchdog does not restart |
+| DNS resolution failure | classified as `dns`; watchdog retries with slower backoff |
+| TCP connect/reset/timeout failures | classified as `connect`; watchdog retries |
+| Unstructured helper crash or generic runtime error | classified as `runtime` or `helper_exit`; watchdog retries within budget |
+
+## Watchdog Policy
+
+NaiveProxy restarts are now reason-aware instead of unconditional.
+
+Retryable classes:
+
+- `dns`
+- `connect`
+- `runtime`
+- `helper_exit`
+
+Terminal classes:
+
+- `auth`
+- `http_connect`
+- `tls`
+- `config`
+
+This keeps the helper responsive to transient path failures without looping on
+deterministic credential or TLS configuration problems.

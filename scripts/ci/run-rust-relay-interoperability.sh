@@ -15,11 +15,13 @@ if cargo nextest --version >/dev/null 2>&1; then
   run_transport_interop_tests() {
     cargo nextest run \
       --manifest-path "$workspace_manifest" \
+      -p ripdpi-xhttp \
       -p ripdpi-vless \
       -p ripdpi-hysteria2 \
       -p ripdpi-tuic \
       -p ripdpi-shadowtls \
       -p ripdpi-masque \
+      -p ripdpi-cloudflare-origin \
       -p ripdpi-naiveproxy \
       "${NEXTEST_ARGS[@]}"
   }
@@ -40,11 +42,13 @@ else
   run_transport_interop_tests() {
     cargo test \
       --manifest-path "$workspace_manifest" \
+      -p ripdpi-xhttp \
       -p ripdpi-vless \
       -p ripdpi-hysteria2 \
       -p ripdpi-tuic \
       -p ripdpi-shadowtls \
       -p ripdpi-masque \
+      -p ripdpi-cloudflare-origin \
       -p ripdpi-naiveproxy \
       -- --nocapture
   }

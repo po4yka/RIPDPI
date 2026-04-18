@@ -6,7 +6,9 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationIoScope
 import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import com.poyka.ripdpi.data.TlsFingerprintProfileChromeDesktopStable
 import com.poyka.ripdpi.data.TlsFingerprintProfileEdgeStable
+import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxEchStable
 import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
 import com.poyka.ripdpi.data.TlsFingerprintProfileSafariStable
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHttpClientFactory
@@ -155,11 +157,13 @@ internal fun OkHttpClient.Builder.applyTlsFingerprintProfile(
 
     val spec =
         when (normalizedProfile) {
-            TlsFingerprintProfileChromeStable -> {
+            TlsFingerprintProfileChromeStable,
+            TlsFingerprintProfileChromeDesktopStable -> {
                 specBuilder.cipherSuites(*chromeLikeCipherSuites()).build()
             }
 
-            TlsFingerprintProfileFirefoxStable -> {
+            TlsFingerprintProfileFirefoxStable,
+            TlsFingerprintProfileFirefoxEchStable -> {
                 specBuilder.cipherSuites(*firefoxLikeCipherSuites()).build()
             }
 

@@ -1,6 +1,7 @@
-package com.poyka.ripdpi.diagnostics
+package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
+import com.poyka.ripdpi.diagnostics.*
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 

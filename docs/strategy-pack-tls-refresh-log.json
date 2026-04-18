@@ -1,0 +1,25 @@
+{
+  "version": "tls_catalog_refresh_log_v1",
+  "cadenceDays": 30,
+  "entries": [
+    {
+      "reviewedAt": "2026-04-18",
+      "channel": "stable",
+      "catalogGeneratedAt": "2026-04-18T13:00:00Z",
+      "reviewer": "codex",
+      "notes": "Track S baseline review after Phase 11 browser-family template landing and catalog v3 rollout wiring.",
+      "profileSets": [
+        {
+          "id": "browser_family_v2",
+          "catalogVersion": "v1",
+          "acceptanceCorpusRef": "phase11_tls_template_acceptance"
+        },
+        {
+          "id": "ech_canary_v1",
+          "catalogVersion": "v1",
+          "acceptanceCorpusRef": "phase11_tls_template_acceptance"
+        }
+      ]
+    }
+  ]
+}

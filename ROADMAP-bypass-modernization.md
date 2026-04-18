@@ -42,10 +42,12 @@
   layout family that won.
 - **Workstream 4 (DNS Oracle And Resolver-Policy Hardening):** COMPLETE.
 - **Workstream 5:** Partial. Browser-family template metadata, explicit
-  desktop/ECH profile variants, ALPN-aware monitor binding, and Android
-  owned-TLS metadata export are now landed. Packet-level choreography,
-  Android ECH policy/fallback integration, fake-family replacement, and
-  acceptance corpus work remain open. See `docs/roadmap-execution-queue.md`.
+  desktop/ECH profile variants, ALPN-aware monitor binding, Android
+  owned-TLS metadata export, OkHttp profile-id honoring, bundled
+  browser-family strategy-pack entries, the shared acceptance fixture, and
+  Chrome-family production fake profiles are now landed. Packet-level
+  choreography, deeper Android ECH policy/fallback integration, and live
+  acceptance measurement remain open. See `docs/roadmap-execution-queue.md`.
 - **Workstream 6:** COMPLETE. The learning redesign is now landed:
   contextual strategy-evolver state, niche-winner retention, combo-aware
   reward scoring, adaptive-wrapper learning context with hosting/reachability
@@ -80,7 +82,8 @@ work must fit into. See the three sibling roadmaps below for connected work:
 
 - [ROADMAP.md](ROADMAP.md) -- master index and cross-roadmap sequencing.
 - [ROADMAP-bypass-techniques.md](ROADMAP-bypass-techniques.md) -- tactical checklist
-  (Tier 1 + 2 shipped, Tier 3 deferred). New tactics route through this roadmap's
+  (Tier 1 + 2 shipped; Tier 3 client/runtime seam now landed in-repo and remains
+  experimental). New tactics route through this roadmap's
   IR and capability model; Workstream 1 here gates trustworthy evaluation of items there.
 - [ROADMAP-architecture-refactor.md](ROADMAP-architecture-refactor.md) -- structural
   cleanup that must land first for Workstreams 2 and 3 of this roadmap to have a
@@ -487,7 +490,7 @@ crate Android-specific network semantics.
 
 ## Workstream 5: TLS Shaping, Browser-Family Templates, And ECH
 
-**Status:** [x] Complete (2026-04-18)
+**Status:** [~] Partial (2026-04-18)
 **Priority:** P1
 **Why now:** The strongest long-term TLS evasions are still the spec-valid,
 parser-aware ones, but they need to look coherent. Randomized fake bytes are
@@ -532,24 +535,40 @@ catalog distribution is the integrations roadmap's strategy-pack pipeline
     HTTPS probe details
   - the Android owned-TLS bridge now exports browser/template metadata to
     Kotlin
-- [ ] Finish packet-level record-size choreography.
+  - the OkHttp owned-TLS path now honors `chrome_desktop_stable` and
+    `firefox_ech_stable` instead of silently falling back to generic TLS
+    settings
+- [ ] Finish true packet-level record-size choreography.
 - [ ] Add controlled HelloRetryRequest-oriented tactics where server behavior
   makes them useful.
 - [~] Integrate ECH / ECH-GREASE planning with DNS bootstrap instead of treating
   ECH as a separate afterthought.
   Current slice: ECH probe planning now points at `firefox_ech_stable`, while
-  DNS HTTPS/SVCB bootstrap still feeds the actual ECH config acquisition path.
-- [ ] Add Android-specific ECH integration research and implementation tasks:
+  DNS HTTPS/SVCB bootstrap still feeds the actual ECH config acquisition path,
+  and the in-repo acceptance fixture now covers the ECH-capable template.
+- [~] Add Android-specific ECH integration research and implementation tasks:
   - API availability checks
   - configuration bootstrap
   - policy gating
   - fallback behavior
-- [ ] Detect and surface proxy-mode interactions that suppress browser-native
+- [~] Detect and surface proxy-mode interactions that suppress browser-native
   ECH so the product can compensate or warn appropriately.
-- [ ] Replace generic fake packet families with coherent client-profile
+  Current slice: settings already show the proxy-mode notice, and
+  strategy-pack metadata now carries the same suppression token for template
+  rollout.
+- [~] Replace generic fake packet families with coherent client-profile
   families; keep purely random fake data only for lab use.
-- [ ] Build a server-acceptance corpus across major CDNs and stacks for every
+  Current slice: production fake candidates now use the Chrome-family fake
+  profile, while the randomized/original fake path remains in the lab-only
+  adaptive fake TTL spec.
+- [~] Build a server-acceptance corpus across major CDNs and stacks for every
   new TLS template family.
+  Current slice: `contract-fixtures/phase11_tls_template_acceptance.json`
+  covers every shipped template family and is pinned by `ripdpi-tls-profiles`
+  tests; live acceptance measurement is still open.
+- [~] Ship strategy-pack catalog entries for the new template families.
+  Current slice: bundled catalogs now expose `browser_family_v2` and
+  `ech_canary_v1` for staged rollout.
 
 **Done when**
 

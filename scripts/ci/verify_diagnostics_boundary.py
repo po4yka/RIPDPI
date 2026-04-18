@@ -27,6 +27,58 @@ REQUIRED_DIAGNOSTICS_DIRS = (
     "queries",
     "recommendation",
 )
+FORBIDDEN_ROOT_FILES = (
+    "DiagnosticsArchiveBuildInfoProvider.kt",
+    "DiagnosticsArchiveExporter.kt",
+    "DiagnosticsArchiveFileStore.kt",
+    "DiagnosticsArchiveModels.kt",
+    "DiagnosticsArchiveRedactor.kt",
+    "DiagnosticsArchiveRenderer.kt",
+    "DiagnosticsArchiveZipWriter.kt",
+    "DiagnosticsShareSummaryBuilder.kt",
+    "DiagnosticsScanLaunchMetadata.kt",
+    "DiagnosticsScanRequestFactory.kt",
+    "DiagnosticsReportPersister.kt",
+    "DiagnosticsServicesImpl.kt",
+)
+PACKAGE_EXPECTATIONS = {
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsArchiveBuildInfoProvider.kt":
+        "package com.poyka.ripdpi.diagnostics.export",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsArchiveCsvEntryBuilder.kt":
+        "package com.poyka.ripdpi.diagnostics.export",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsArchiveExporter.kt":
+        "package com.poyka.ripdpi.diagnostics.export",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsArchiveFileStore.kt":
+        "package com.poyka.ripdpi.diagnostics.export",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsArchiveJsonEntryBuilder.kt":
+        "package com.poyka.ripdpi.diagnostics.export",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsArchiveModels.kt":
+        "package com.poyka.ripdpi.diagnostics.export",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsArchiveRedactor.kt":
+        "package com.poyka.ripdpi.diagnostics.export",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsArchiveRenderer.kt":
+        "package com.poyka.ripdpi.diagnostics.export",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsArchiveZipWriter.kt":
+        "package com.poyka.ripdpi.diagnostics.export",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DiagnosticsShareSummaryBuilder.kt":
+        "package com.poyka.ripdpi.diagnostics.export",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/export/DefaultDiagnosticsShareService.kt":
+        "package com.poyka.ripdpi.diagnostics.export",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/application/DefaultDiagnosticsBootstrapper.kt":
+        "package com.poyka.ripdpi.diagnostics.application",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/application/DefaultDiagnosticsResolverActions.kt":
+        "package com.poyka.ripdpi.diagnostics.application",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/application/DiagnosticsRecommendationStore.kt":
+        "package com.poyka.ripdpi.diagnostics.application",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/application/DiagnosticsScanLaunchMetadata.kt":
+        "package com.poyka.ripdpi.diagnostics.application",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/application/DiagnosticsScanRequestFactory.kt":
+        "package com.poyka.ripdpi.diagnostics.application",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/finalization/DiagnosticsReportPersister.kt":
+        "package com.poyka.ripdpi.diagnostics.finalization",
+    "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/queries/DefaultDiagnosticsDetailLoader.kt":
+        "package com.poyka.ripdpi.diagnostics.queries",
+}
 
 
 @dataclass(frozen=True)
@@ -79,11 +131,45 @@ def package_layout_violations(repo_root: Path) -> list[Violation]:
     return violations
 
 
+def extracted_file_violations(repo_root: Path) -> list[Violation]:
+    package_root = repo_root / DIAGNOSTICS_PACKAGE_ROOT
+    violations: list[Violation] = []
+    for file_name in FORBIDDEN_ROOT_FILES:
+        root_file = package_root / file_name
+        if root_file.exists():
+            violations.append(
+                Violation(
+                    path=root_file.relative_to(repo_root).as_posix(),
+                    message="phase 17 extracted file must not remain in diagnostics root package",
+                )
+            )
+    for relative_path, expected_package in PACKAGE_EXPECTATIONS.items():
+        file_path = repo_root / relative_path
+        if not file_path.is_file():
+            violations.append(
+                Violation(
+                    path=relative_path,
+                    message="required extracted diagnostics boundary file is missing",
+                )
+            )
+            continue
+        source = file_path.read_text(encoding="utf-8")
+        if not source.startswith(expected_package):
+            violations.append(
+                Violation(
+                    path=relative_path,
+                    message=f"expected file package declaration '{expected_package}'",
+                )
+            )
+    return violations
+
+
 def collect_violations(repo_root: Path) -> list[Violation]:
     return [
         *gradle_dependency_violations(repo_root),
         *source_reference_violations(repo_root),
         *package_layout_violations(repo_root),
+        *extracted_file_violations(repo_root),
     ]
 
 

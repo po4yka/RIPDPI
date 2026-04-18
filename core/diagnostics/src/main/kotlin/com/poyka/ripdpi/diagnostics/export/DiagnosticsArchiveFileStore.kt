@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.diagnostics
+package com.poyka.ripdpi.diagnostics.export
 
 import java.io.File
 

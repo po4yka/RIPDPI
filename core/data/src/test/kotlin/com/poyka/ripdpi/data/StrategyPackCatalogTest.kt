@@ -80,6 +80,10 @@ class StrategyPackCatalogTest {
                             title = "Baseline",
                             allowedProfileIds = listOf("chrome_stable", "firefox_stable"),
                             rotationEnabled = true,
+                            browserFamilies = listOf("chrome", "firefox"),
+                            echPolicy = "opportunistic",
+                            proxyModeNotice = "browser_native_tls_suppressed",
+                            acceptanceCorpusRef = "phase11_tls_template_acceptance",
                         ),
                     ),
                 morphPolicies = listOf(StrategyPackMorphPolicy(id = "balanced", title = "Balanced")),
@@ -103,6 +107,10 @@ class StrategyPackCatalogTest {
 
         assertEquals("mobile", selection.pack?.id)
         assertEquals("baseline", selection.tlsProfileSet?.id)
+        assertEquals(listOf("chrome", "firefox"), selection.tlsProfileSet?.browserFamilies)
+        assertEquals("opportunistic", selection.tlsProfileSet?.echPolicy)
+        assertEquals("browser_native_tls_suppressed", selection.tlsProfileSet?.proxyModeNotice)
+        assertEquals("phase11_tls_template_acceptance", selection.tlsProfileSet?.acceptanceCorpusRef)
         assertEquals("balanced", selection.morphPolicy?.id)
         assertEquals(listOf("video"), selection.hostLists.map { it.id })
         assertEquals(listOf("snowflake"), selection.transportModules.map { it.id })

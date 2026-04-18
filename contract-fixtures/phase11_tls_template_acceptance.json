@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "v1",
+  "profileSetId": "browser_family_v2",
+  "profiles": [
+    {
+      "id": "chrome_stable",
+      "browserFamily": "chrome",
+      "browserTrack": "android-stable",
+      "alpnTemplate": "h2_http11",
+      "extensionOrderFamily": "chromium_permuted",
+      "greaseStyle": "chromium_single_grease",
+      "supportedGroupsProfile": "x25519_p256_p384",
+      "keyShareProfile": "x25519_primary",
+      "recordChoreography": "single_record",
+      "echCapable": false,
+      "acceptedStacks": ["cloudflare", "google", "fastly"]
+    },
+    {
+      "id": "chrome_desktop_stable",
+      "browserFamily": "chrome",
+      "browserTrack": "desktop-stable",
+      "alpnTemplate": "h2_http11",
+      "extensionOrderFamily": "chromium_permuted",
+      "greaseStyle": "chromium_single_grease",
+      "supportedGroupsProfile": "x25519_p256_p384",
+      "keyShareProfile": "x25519_primary",
+      "recordChoreography": "single_record",
+      "echCapable": false,
+      "acceptedStacks": ["cloudflare", "akamai", "fastly"]
+    },
+    {
+      "id": "firefox_stable",
+      "browserFamily": "firefox",
+      "browserTrack": "stable",
+      "alpnTemplate": "h2_http11",
+      "extensionOrderFamily": "firefox_fixed",
+      "greaseStyle": "none",
+      "supportedGroupsProfile": "x25519_p256_p384_p521",
+      "keyShareProfile": "x25519_primary",
+      "recordChoreography": "single_record",
+      "echCapable": false,
+      "acceptedStacks": ["cloudflare", "fastly", "bunny"]
+    },
+    {
+      "id": "firefox_ech_stable",
+      "browserFamily": "firefox",
+      "browserTrack": "ech-stable",
+      "alpnTemplate": "h2_http11",
+      "extensionOrderFamily": "firefox_fixed",
+      "greaseStyle": "firefox_ech_grease",
+      "supportedGroupsProfile": "x25519_p256_p384_p521",
+      "keyShareProfile": "x25519_hybrid_ready",
+      "recordChoreography": "single_record",
+      "echCapable": true,
+      "acceptedStacks": ["cloudflare"]
+    },
+    {
+      "id": "safari_stable",
+      "browserFamily": "safari",
+      "browserTrack": "stable",
+      "alpnTemplate": "h2_http11",
+      "extensionOrderFamily": "safari_fixed",
+      "greaseStyle": "none",
+      "supportedGroupsProfile": "x25519_p256_p384_p521",
+      "keyShareProfile": "x25519_primary",
+      "recordChoreography": "single_record",
+      "echCapable": false,
+      "acceptedStacks": ["akamai", "fastly"]
+    },
+    {
+      "id": "edge_stable",
+      "browserFamily": "edge",
+      "browserTrack": "stable",
+      "alpnTemplate": "h2_http11",
+      "extensionOrderFamily": "chromium_permuted",
+      "greaseStyle": "chromium_single_grease",
+      "supportedGroupsProfile": "x25519_p256_p384",
+      "keyShareProfile": "x25519_primary",
+      "recordChoreography": "single_record",
+      "echCapable": false,
+      "acceptedStacks": ["cloudflare", "akamai"]
+    }
+  ]
+}

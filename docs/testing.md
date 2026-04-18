@@ -64,6 +64,7 @@ The Rust workspace contains several test styles:
 - property-based and fuzz-style parsing coverage with `proptest`
 - config and planner coverage for semantic markers, adaptive `auto(...)` markers, activation filters, fake payload profile selection, QUIC fake Initial profiles, and HTTP parser evasions
 - relay transport coverage for MASQUE path and auth handling, xHTTP Finalmask mutation, Cloudflare publish-origin helper behavior, and NaiveProxy helper contracts
+- relay interoperability CI matrix now also exercises `ripdpi-xhttp` and `ripdpi-cloudflare-origin` alongside MASQUE, NaiveProxy, and the other relay crates through `scripts/ci/run-rust-relay-interoperability.sh`
 - runtime policy coverage for host autolearn scoping, route advancement, adaptive fake TTL learning, retry-stealth pacing, and candidate diversification
 - diagnostics monitor coverage for automatic probing/audit candidate catalogs, candidate-aware progress, probe pacing, target-order shuffling, rotating target cohorts, recommendation assembly, and audit-assessment propagation
 - state-machine coverage for proxy and tunnel session registries

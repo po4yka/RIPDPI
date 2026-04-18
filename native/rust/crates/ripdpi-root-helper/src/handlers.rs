@@ -4,7 +4,7 @@ use std::os::fd::{FromRawFd, IntoRawFd, RawFd};
 use serde::Deserialize;
 use tracing::{debug, error, info};
 
-use ripdpi_runtime::platform::{self, TcpPayloadSegment};
+use ripdpi_runtime::platform::{self, IcmpWrappedUdpRecvFilter, IcmpWrappedUdpSpec, SynHideTcpSpec, TcpPayloadSegment};
 
 use crate::protocol::HelperResponse;
 
@@ -386,6 +386,65 @@ pub fn handle_send_ip_fragmented_udp(fd: RawFd, params: IpFragUdpParams) -> (Hel
             let _ = socket.into_raw_fd();
             error!(%e, "send_ip_fragmented_udp failed");
             (HelperResponse::error(e.to_string()), None)
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// send_syn_hide_tcp
+// ---------------------------------------------------------------------------
+
+pub fn handle_send_syn_hide_tcp(params: SynHideTcpSpec) -> (HelperResponse, Option<RawFd>) {
+    debug!(source = %params.source, target = %params.target, marker = ?params.marker_kind, "send_syn_hide_tcp");
+    match platform::send_syn_hide_tcp(params, None) {
+        Ok(()) => (HelperResponse::success(serde_json::Value::Null), None),
+        Err(error) => {
+            error!(%error, "send_syn_hide_tcp failed");
+            (HelperResponse::error(error.to_string()), None)
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// send_icmp_wrapped_udp / recv_icmp_wrapped_udp
+// ---------------------------------------------------------------------------
+
+pub fn handle_send_icmp_wrapped_udp(params: IcmpWrappedUdpSpec) -> (HelperResponse, Option<RawFd>) {
+    debug!(
+        peer = %params.peer,
+        service_port = params.service_port,
+        role = ?params.role,
+        len = params.payload.len(),
+        "send_icmp_wrapped_udp"
+    );
+    match platform::send_icmp_wrapped_udp(&params, None) {
+        Ok(()) => (HelperResponse::success(serde_json::Value::Null), None),
+        Err(error) => {
+            error!(%error, "send_icmp_wrapped_udp failed");
+            (HelperResponse::error(error.to_string()), None)
+        }
+    }
+}
+
+pub fn handle_recv_icmp_wrapped_udp(params: IcmpWrappedUdpRecvFilter) -> (HelperResponse, Option<RawFd>) {
+    debug!(
+        bind_ip = %params.bind_ip,
+        session_id = ?params.session_id,
+        expected_code = ?params.expected_code,
+        expected_role = ?params.expected_role,
+        timeout_ms = params.timeout_ms,
+        "recv_icmp_wrapped_udp"
+    );
+    match platform::recv_icmp_wrapped_udp(params, None) {
+        Ok(message) => match serde_json::to_value(message) {
+            Ok(data) => (HelperResponse::success(data), None),
+            Err(error) => {
+                (HelperResponse::error(format!("failed to serialize recv_icmp_wrapped_udp response: {error}")), None)
+            }
+        },
+        Err(error) => {
+            error!(%error, "recv_icmp_wrapped_udp failed");
+            (HelperResponse::error(error.to_string()), None)
         }
     }
 }

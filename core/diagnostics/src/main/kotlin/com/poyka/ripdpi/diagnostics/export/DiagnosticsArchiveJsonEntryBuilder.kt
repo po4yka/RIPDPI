@@ -1,5 +1,6 @@
-package com.poyka.ripdpi.diagnostics
+package com.poyka.ripdpi.diagnostics.export
 
+import com.poyka.ripdpi.diagnostics.*
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSummaryDocument
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.json.Json

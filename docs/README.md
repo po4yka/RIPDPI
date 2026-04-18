@@ -10,12 +10,14 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 - [Debug a runtime issue](native/debug-runtime-issue.md)
 - [Cloudflare Tunnel operations](native/cloudflare-tunnel-operations.md)
 - [MASQUE current state](native/relay-masque-status.md)
+- [MASQUE field validation report](native/relay-masque-field-validation.md)
 - [NaiveProxy runtime](native/relay-naiveproxy-decision.md)
 - [Finalmask compatibility and example configs](native/finalmask-compatibility.md)
 
 ## Operations
 
 - [Strategy-pack and TLS catalog operations](strategy-pack-operations.md)
+- [TLS catalog refresh log](strategy-pack-tls-refresh-log.json)
 - [Server hardening for self-hosted relays](server-hardening.md)
 
 ## Configuration

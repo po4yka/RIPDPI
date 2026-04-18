@@ -41,9 +41,14 @@
   ViewModels now use grouped dependency carriers, extracted state assemblers,
   and explicit bootstrapper collaborators with focused assembler/bootstrapper
   coverage.
-- **Workstream 8 (Module And Crate Extraction After Internal Cleanup):** Not
-  started. See `docs/roadmap-execution-queue.md` for the unified slice list
-  and dependency graph.
+- **Workstream 8 (Module And Crate Extraction After Internal Cleanup):**
+  COMPLETE. Diagnostics export/archive ownership now lives under
+  `diagnostics.export`, diagnostics application/finalization holdouts are split
+  under `diagnostics.application` / `diagnostics.finalization` / `queries`,
+  and `verify_diagnostics_boundary.py` now enforces those extracted seams in
+  CI. The first-flight IR and emitter/capability crate candidates were
+  reviewed and intentionally pruned for now in
+  `docs/architecture/phase17-boundary-review.md`.
 
 ## Related Roadmaps
 
@@ -770,37 +775,37 @@ and to test state assembly in isolation.
 
 ## Workstream 8: Module And Crate Extraction After Internal Cleanup
 
-**Status:** [ ] Not started
+**Status:** [x] Complete
 **Priority:** P3
 **Why now:** Some boundaries are module-sized, but module extraction should
 follow internal decomposition, not precede it. Once authority lines are clear,
 the repo can enforce them structurally.
 
-**Candidate targets**
+**Shipped scope**
 
-- Kotlin:
-  - diagnostics export/archive split
-  - diagnostics application/finalization split
-  - optional config-contract bridge split if it stabilizes
-- Rust:
-  - first-flight planning/lowering shared crate if planner/runtime split settles
-  - emitter/capability support crate if platform reuse emerges
+- Diagnostics export/archive ownership is extracted and enforced under
+  `diagnostics.export`.
+- Diagnostics bootstrap, resolver-action, request-factory, and report
+  persistence holdouts are extracted under `diagnostics.application`,
+  `diagnostics.finalization`, and `queries`.
+- `verify_diagnostics_boundary.py` now checks both dependency drift and the
+  extracted file/package layout.
+- The boundary review is recorded in
+  `docs/architecture/phase17-boundary-review.md`.
 
-**Tasks**
+**Pruned candidates**
 
-- [ ] Re-evaluate top-level module boundaries after Workstreams 1-7 land.
-- [ ] Extract only the packages whose APIs are stable enough to enforce.
-- [ ] Add dependency-boundary checks similar to the existing diagnostics
-  boundary verification.
-- [ ] Keep crate/module extraction minimal and justified by ownership, not by
-  aesthetics.
-- [ ] Document the final boundary map after extraction.
+- Rust first-flight IR crate extraction: reviewed and deferred.
+- Rust emitter/capability support crate extraction: reviewed and deferred.
+
+These were explicitly rejected for now because the ownership gain is still too
+small relative to the new cross-crate churn.
 
 **Done when**
 
-- At least the highest-value seams are enforced structurally rather than only by
-  convention.
-- New cross-boundary drift is blocked by CI or custom verification.
+- The highest-value diagnostics seams are enforced structurally rather than only
+  by convention.
+- Boundary drift is blocked by CI.
 
 ## Sequencing Rules
 

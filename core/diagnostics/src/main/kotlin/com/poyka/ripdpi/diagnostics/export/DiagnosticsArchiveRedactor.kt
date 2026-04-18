@@ -1,7 +1,9 @@
-package com.poyka.ripdpi.diagnostics
+package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
+import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Named
