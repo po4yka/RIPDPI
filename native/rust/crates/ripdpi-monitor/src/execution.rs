@@ -788,6 +788,18 @@ pub(crate) fn run_https_strategy_probe(
             value: tls_ech_template.template.grease_style.to_string(),
         },
         ProbeDetail {
+            key: "tlsEchTemplateBootstrapPolicy".to_string(),
+            value: tls_ech_template.template.ech_bootstrap_policy.to_string(),
+        },
+        ProbeDetail {
+            key: "tlsEchTemplateBootstrapResolverId".to_string(),
+            value: tls_ech_template.template.ech_bootstrap_resolver_id.unwrap_or("none").to_string(),
+        },
+        ProbeDetail {
+            key: "tlsEchTemplateOuterExtensionPolicy".to_string(),
+            value: tls_ech_template.template.ech_outer_extension_policy.to_string(),
+        },
+        ProbeDetail {
             key: "tlsEchTemplateAlpn".to_string(),
             value: tls_ech_template.template.alpn_template.to_string(),
         },
@@ -799,6 +811,18 @@ pub(crate) fn run_https_strategy_probe(
         ProbeDetail { key: "tlsEchResolutionDetail".to_string(), value: tls_ech_resolution_detail },
         ProbeDetail { key: "tlsError".to_string(), value: tls_error },
     ];
+    if let Some(policy) = tls_ech.ech_bootstrap_policy.clone() {
+        details.push(ProbeDetail { key: "tlsEchBootstrapPolicy".to_string(), value: policy });
+    }
+    if let Some(resolver_id) = tls_ech.ech_bootstrap_resolver_id.clone() {
+        details.push(ProbeDetail { key: "tlsEchBootstrapResolverId".to_string(), value: resolver_id });
+    }
+    if let Some(policy) = tls_ech.ech_outer_extension_policy.clone() {
+        details.push(ProbeDetail { key: "tlsEchOuterExtensionPolicy".to_string(), value: policy });
+    }
+    if let Some(plan) = tls_ech.ech_first_flight_plan.clone() {
+        details.push(ProbeDetail { key: "tlsEchFirstFlightPlan".to_string(), value: plan });
+    }
     if let Some(addr) = connected_addr {
         details.push(ProbeDetail { key: "connectedIp".to_string(), value: addr.ip().to_string() });
     }
@@ -1227,6 +1251,10 @@ mod tests {
             error: error.map(str::to_string),
             certificate_anomaly: false,
             ech_resolution_detail: None,
+            ech_bootstrap_policy: None,
+            ech_bootstrap_resolver_id: None,
+            ech_outer_extension_policy: None,
+            ech_first_flight_plan: None,
             tcp_connect_ms: None,
             tls_handshake_ms: None,
             cert_chain_length: None,

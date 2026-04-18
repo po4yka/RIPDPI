@@ -10,6 +10,18 @@ pub enum RecordChoreography {
     SniEchTailAdaptive,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TlsTemplateFirstFlightPlan {
+    pub record_choreography: RecordChoreography,
+    pub record_payload_boundaries: Vec<usize>,
+    pub ech_bootstrap_policy: &'static str,
+    pub ech_bootstrap_resolver_id: Option<&'static str>,
+    pub ech_outer_extension_policy: &'static str,
+    pub grease_style: &'static str,
+    pub ech_capable_template: bool,
+    pub ech_present_in_input: bool,
+}
+
 impl RecordChoreography {
     pub const fn as_str(self) -> &'static str {
         match self {
@@ -61,7 +73,8 @@ fn serialize_records(header: [u8; 3], payload: &[u8], boundaries: &[usize]) -> O
     (cursor == payload.len()).then_some(output)
 }
 
-pub fn planned_record_payload_boundaries(profile: &str, client_hello: &[u8]) -> Option<Vec<usize>> {
+pub fn plan_first_flight(profile: &str, client_hello: &[u8]) -> Option<TlsTemplateFirstFlightPlan> {
+    let metadata = selected_profile_metadata(profile);
     let layout = parse_tls_client_hello_layout(client_hello)?;
     let total = layout.record_payload_len;
     if 5usize.checked_add(total)? != client_hello.len() {
@@ -69,7 +82,8 @@ pub fn planned_record_payload_boundaries(profile: &str, client_hello: &[u8]) -> 
     }
 
     let markers = layout.markers;
-    let boundaries = match selected_record_choreography(profile) {
+    let record_choreography = RecordChoreography::from_metadata(metadata.template.record_choreography);
+    let boundaries = match record_choreography {
         RecordChoreography::SingleRecord => Vec::new(),
         RecordChoreography::HostTailTwoRecord => vec![payload_offset(markers.host_end)?],
         RecordChoreography::SniTailTwoRecord => vec![payload_offset(markers.sni_ext_start)?],
@@ -82,7 +96,20 @@ pub fn planned_record_payload_boundaries(profile: &str, client_hello: &[u8]) -> 
         }
     };
 
-    Some(canonical_boundaries(total, boundaries))
+    Some(TlsTemplateFirstFlightPlan {
+        record_choreography,
+        record_payload_boundaries: canonical_boundaries(total, boundaries),
+        ech_bootstrap_policy: metadata.template.ech_bootstrap_policy,
+        ech_bootstrap_resolver_id: metadata.template.ech_bootstrap_resolver_id,
+        ech_outer_extension_policy: metadata.template.ech_outer_extension_policy,
+        grease_style: metadata.template.grease_style,
+        ech_capable_template: metadata.template.ech_capable,
+        ech_present_in_input: markers.ech_ext_start.is_some(),
+    })
+}
+
+pub fn planned_record_payload_boundaries(profile: &str, client_hello: &[u8]) -> Option<Vec<usize>> {
+    Some(plan_first_flight(profile, client_hello)?.record_payload_boundaries)
 }
 
 pub fn planned_record_payload_lengths(profile: &str, client_hello: &[u8]) -> Option<Vec<usize>> {
@@ -97,7 +124,7 @@ pub fn planned_record_payload_lengths(profile: &str, client_hello: &[u8]) -> Opt
 }
 
 pub fn apply_record_choreography(profile: &str, client_hello: &[u8]) -> Option<Vec<u8>> {
-    let boundaries = planned_record_payload_boundaries(profile, client_hello)?;
+    let boundaries = plan_first_flight(profile, client_hello)?.record_payload_boundaries;
     let layout = parse_tls_client_hello_layout(client_hello)?;
     let payload = client_hello.get(5..5 + layout.record_payload_len)?;
     let header = [*client_hello.first()?, *client_hello.get(1)?, *client_hello.get(2)?];
