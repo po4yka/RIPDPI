@@ -27,7 +27,7 @@ The only remaining roadmap phase is **Phase 11 -- TLS Templates + ECH**.
 
 | Slice | Scope | Verify gate |
 |-------|-------|-------------|
-| 11.1 | Packet-level parity validation for extension ordering, GREASE, supported groups, key-share layout, and ALPN family behavior | TLS fixture tests and packet-level golden verification |
+| 11.1 | Complete. `ripdpi-tls-profiles` captures live ClientHello records and validates extension-order family behavior, GREASE, supported groups, key-share layout, and ALPN payloads at the packet level | `cargo test -p ripdpi-tls-profiles` |
 | 11.2 | Finish true packet-level record-size choreography for browser-family templates | `ripdpi-packets` / `ripdpi-desync` regressions plus golden rewrites |
 | 11.3 | Add controlled HelloRetryRequest-oriented tactics where evidence justifies them | acceptance tests show value without broad regression |
 | 11.4 | Tie ECH and ECH-GREASE planning to DNS bootstrap and first-flight template planning | DNS/bootstrap + TLS integration coverage |
