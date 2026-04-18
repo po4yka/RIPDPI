@@ -75,10 +75,50 @@ class DefaultStrategyPackDownloadService
                         maxRedirects = DefaultNativeOwnedTlsMaxRedirects,
                     ),
                 )
+            verifyOwnedTlsEchSelection(selection, response)
             if (response.statusCode in HttpSuccessStatusMin..HttpSuccessStatusMax) {
                 return response.body
             }
             throw IOException("Remote request failed with HTTP ${response.statusCode} for ${response.finalUrl ?: url}")
+        }
+
+        private fun verifyOwnedTlsEchSelection(
+            selection: com.poyka.ripdpi.services.OwnedTlsFingerprintSelection,
+            response: com.poyka.ripdpi.core.NativeOwnedTlsHttpResult,
+        ) {
+            if (!selection.tlsTemplateEchCapable) {
+                return
+            }
+            if (response.tlsTemplateEchCapable == false) {
+                throw IOException(
+                    "Native owned TLS fetch downgraded ECH-capable profile ${selection.profileId} to a non-ECH template",
+                )
+            }
+            response.tlsTemplateEchBootstrapPolicy?.let { actual ->
+                if (actual != selection.tlsTemplateEchBootstrapPolicy) {
+                    throw IOException(
+                        "Native owned TLS fetch returned ECH bootstrap policy $actual for ${selection.profileId} " +
+                            "instead of ${selection.tlsTemplateEchBootstrapPolicy}",
+                    )
+                }
+            }
+            response.tlsTemplateEchBootstrapResolverId?.let { actual ->
+                if (actual != selection.tlsTemplateEchBootstrapResolverId) {
+                    throw IOException(
+                        "Native owned TLS fetch returned ECH bootstrap resolver $actual for ${selection.profileId} " +
+                            "instead of ${selection.tlsTemplateEchBootstrapResolverId}",
+                    )
+                }
+            }
+            response.tlsTemplateEchOuterExtensionPolicy?.let { actual ->
+                if (actual != selection.tlsTemplateEchOuterExtensionPolicy) {
+                    throw IOException(
+                        "Native owned TLS fetch returned ECH outer-extension policy " +
+                            "$actual for ${selection.profileId} " +
+                            "instead of ${selection.tlsTemplateEchOuterExtensionPolicy}",
+                    )
+                }
+            }
         }
     }
 

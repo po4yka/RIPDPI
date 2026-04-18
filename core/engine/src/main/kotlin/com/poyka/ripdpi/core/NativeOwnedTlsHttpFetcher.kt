@@ -33,6 +33,9 @@ data class NativeOwnedTlsHttpResult(
     val tlsTemplateKeyShareProfile: String? = null,
     val tlsTemplateRecordChoreography: String? = null,
     val tlsTemplateEchCapable: Boolean? = null,
+    val tlsTemplateEchBootstrapPolicy: String? = null,
+    val tlsTemplateEchBootstrapResolverId: String? = null,
+    val tlsTemplateEchOuterExtensionPolicy: String? = null,
     val clientHelloSizeHint: Int? = null,
     val clientHelloInvariantStatus: String? = null,
 )
@@ -115,6 +118,9 @@ class DefaultNativeOwnedTlsHttpFetcher
                     tlsTemplateKeyShareProfile = response.tlsTemplateKeyShareProfile,
                     tlsTemplateRecordChoreography = response.tlsTemplateRecordChoreography,
                     tlsTemplateEchCapable = response.tlsTemplateEchCapable,
+                    tlsTemplateEchBootstrapPolicy = response.tlsTemplateEchBootstrapPolicy,
+                    tlsTemplateEchBootstrapResolverId = response.tlsTemplateEchBootstrapResolverId,
+                    tlsTemplateEchOuterExtensionPolicy = response.tlsTemplateEchOuterExtensionPolicy,
                     clientHelloSizeHint = response.clientHelloSizeHint,
                     clientHelloInvariantStatus = response.clientHelloInvariantStatus,
                 )
@@ -186,6 +192,12 @@ private data class NativeOwnedTlsHttpResponse(
     val tlsTemplateRecordChoreography: String? = null,
     @SerialName("tlsTemplateEchCapable")
     val tlsTemplateEchCapable: Boolean? = null,
+    @SerialName("tlsTemplateEchBootstrapPolicy")
+    val tlsTemplateEchBootstrapPolicy: String? = null,
+    @SerialName("tlsTemplateEchBootstrapResolverId")
+    val tlsTemplateEchBootstrapResolverId: String? = null,
+    @SerialName("tlsTemplateEchOuterExtensionPolicy")
+    val tlsTemplateEchOuterExtensionPolicy: String? = null,
     @SerialName("clientHelloSizeHint")
     val clientHelloSizeHint: Int? = null,
     @SerialName("clientHelloInvariantStatus")

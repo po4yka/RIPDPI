@@ -71,6 +71,12 @@ pub struct NativeOwnedTlsHttpResponse {
     pub tls_template_record_choreography: Option<String>,
     #[serde(rename = "tlsTemplateEchCapable")]
     pub tls_template_ech_capable: Option<bool>,
+    #[serde(rename = "tlsTemplateEchBootstrapPolicy")]
+    pub tls_template_ech_bootstrap_policy: Option<String>,
+    #[serde(rename = "tlsTemplateEchBootstrapResolverId")]
+    pub tls_template_ech_bootstrap_resolver_id: Option<String>,
+    #[serde(rename = "tlsTemplateEchOuterExtensionPolicy")]
+    pub tls_template_ech_outer_extension_policy: Option<String>,
     #[serde(rename = "clientHelloSizeHint")]
     pub client_hello_size_hint: Option<usize>,
     #[serde(rename = "clientHelloInvariantStatus")]
@@ -113,6 +119,9 @@ pub fn execute(request_json: &str) -> io::Result<String> {
             tls_template_key_share_profile: None,
             tls_template_record_choreography: None,
             tls_template_ech_capable: None,
+            tls_template_ech_bootstrap_policy: None,
+            tls_template_ech_bootstrap_resolver_id: None,
+            tls_template_ech_outer_extension_policy: None,
             client_hello_size_hint: None,
             client_hello_invariant_status: None,
             error: Some(error.to_string()),
@@ -159,6 +168,14 @@ async fn execute_async(request: NativeOwnedTlsHttpRequest) -> io::Result<NativeO
             tls_template_key_share_profile: Some(profile_metadata.template.key_share_profile.to_string()),
             tls_template_record_choreography: Some(profile_metadata.template.record_choreography.to_string()),
             tls_template_ech_capable: Some(profile_metadata.template.ech_capable),
+            tls_template_ech_bootstrap_policy: Some(profile_metadata.template.ech_bootstrap_policy.to_string()),
+            tls_template_ech_bootstrap_resolver_id: profile_metadata
+                .template
+                .ech_bootstrap_resolver_id
+                .map(ToString::to_string),
+            tls_template_ech_outer_extension_policy: Some(
+                profile_metadata.template.ech_outer_extension_policy.to_string(),
+            ),
             client_hello_size_hint: Some(profile_metadata.client_hello_size_hint),
             client_hello_invariant_status: Some(profile_metadata.invariant_status.as_str().to_string()),
             error: None,

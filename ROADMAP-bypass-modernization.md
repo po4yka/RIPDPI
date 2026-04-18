@@ -90,8 +90,15 @@ exports the resulting first-flight plan in probe details.
 
 ### 11.5 Android ECH Policy And Fallback
 
-Finish Android-specific availability detection, policy wiring, bootstrap flow,
-and fallback handling for the ECH-aware template families.
+Status: complete.
+
+Android now carries ECH policy, acceptance-corpus linkage, and proxy-mode
+notice metadata through the strategy-pack runtime state and owned-TLS
+selection path instead of treating `firefox_ech_stable` as an opaque profile
+id. The native owned-TLS bridge now exports template bootstrap resolver,
+bootstrap/fallback policy, and outer-extension policy to Kotlin, and the
+strategy-pack download path fails closed if an ECH-capable Android selection
+drifts away from the native template metadata it is supposed to use.
 
 ### 11.6 Proxy-Mode Suppression Surfacing
 

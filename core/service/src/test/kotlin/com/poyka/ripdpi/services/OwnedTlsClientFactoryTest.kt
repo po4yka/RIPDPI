@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxStable
 import okhttp3.CipherSuite
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -99,6 +100,59 @@ class OwnedTlsClientFactoryTest {
                 ),
         )
         assertEquals("browser_family_v2", selection.profileSetId)
+    }
+
+    @Test
+    fun `selection for ECH-capable authority carries Android ECH policy and bootstrap metadata`() {
+        val stateStore =
+            InMemoryStrategyPackStateStore().apply {
+                update(
+                    StrategyPackRuntimeState(
+                        tlsProfileSetId = "ech_canary_v1",
+                        tlsProfileAllowedIds = listOf(TlsFingerprintProfileFirefoxEchStable),
+                        tlsRotationEnabled = true,
+                        tlsProfileEchPolicy = "preferred",
+                        tlsProfileProxyModeNotice = "browser_native_tls_suppressed",
+                        tlsProfileAcceptanceCorpusRef = "phase11_tls_template_acceptance",
+                    ),
+                )
+            }
+        val factory =
+            DefaultOwnedTlsClientFactory(
+                profileProvider = FakeOwnedTlsFingerprintProfileProvider(TlsFingerprintProfileFirefoxEchStable),
+                strategyPackStateStore = stateStore,
+                sessionSeed = 42L,
+            )
+
+        val selection = factory.selectionForAuthority("cdn.example")
+
+        assertEquals(TlsFingerprintProfileFirefoxEchStable, selection.profileId)
+        assertEquals("preferred", selection.echPolicy)
+        assertEquals("browser_native_tls_suppressed", selection.proxyModeNotice)
+        assertEquals("phase11_tls_template_acceptance", selection.acceptanceCorpusRef)
+        assertTrue(selection.tlsTemplateEchCapable)
+        assertEquals("https_rr_or_cdn_fallback", selection.tlsTemplateEchBootstrapPolicy)
+        assertEquals("adguard", selection.tlsTemplateEchBootstrapResolverId)
+        assertEquals("preserve_ech_or_grease", selection.tlsTemplateEchOuterExtensionPolicy)
+    }
+
+    @Test
+    fun `selection for non-ECH profile keeps fallback metadata disabled`() {
+        val factory =
+            DefaultOwnedTlsClientFactory(
+                profileProvider = FakeOwnedTlsFingerprintProfileProvider(TlsFingerprintProfileChromeStable),
+                strategyPackStateStore = InMemoryStrategyPackStateStore(),
+                sessionSeed = 42L,
+            )
+
+        val selection = factory.selectionForAuthority(null)
+
+        assertEquals(TlsFingerprintProfileChromeStable, selection.profileId)
+        assertEquals("none", selection.echPolicy)
+        assertFalse(selection.tlsTemplateEchCapable)
+        assertEquals("none", selection.tlsTemplateEchBootstrapPolicy)
+        assertEquals(null, selection.tlsTemplateEchBootstrapResolverId)
+        assertEquals("not_applicable", selection.tlsTemplateEchOuterExtensionPolicy)
     }
 
     private class FakeOwnedTlsFingerprintProfileProvider(
