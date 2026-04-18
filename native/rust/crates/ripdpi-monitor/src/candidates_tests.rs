@@ -94,14 +94,16 @@ fn production_fake_candidates_use_coherent_chrome_profile_bytes() {
 }
 
 #[test]
-fn adaptive_fake_ttl_keeps_random_fake_behavior_lab_only() {
+fn adaptive_fake_ttl_keeps_coherent_chrome_profile_lab_only() {
     let spec = build_adaptive_fake_ttl_spec(&minimal_ui_config());
 
     assert_eq!(spec.emitter_tier, StrategyEmitterTier::LabDiagnosticsOnly);
-    assert!(spec.config.fake_packets.fake_tls_use_original);
-    assert!(spec.config.fake_packets.fake_tls_randomize);
-    assert!(spec.config.fake_packets.fake_tls_dup_session_id);
-    assert_eq!(spec.config.fake_packets.fake_tls_sni_mode, "randomized");
+    assert_eq!(spec.config.fake_packets.tls_fake_profile, TLS_FAKE_PROFILE_GOOGLE_CHROME);
+    assert_eq!(spec.config.fake_packets.fake_sni, "www.google.com");
+    assert!(!spec.config.fake_packets.fake_tls_use_original);
+    assert!(!spec.config.fake_packets.fake_tls_randomize);
+    assert!(!spec.config.fake_packets.fake_tls_dup_session_id);
+    assert_eq!(spec.config.fake_packets.fake_tls_sni_mode, "fixed");
 }
 
 #[test]
@@ -226,6 +228,11 @@ fn rooted_and_lab_candidates_are_partitioned_between_quick_and_full_matrix() {
         full_candidates.iter().find(|candidate| candidate.id == "fake_rst").expect("fake_rst").emitter_tier,
         StrategyEmitterTier::LabDiagnosticsOnly
     );
+    let fake_rst = full_candidates.iter().find(|candidate| candidate.id == "fake_rst").expect("fake_rst");
+    assert_eq!(fake_rst.config.fake_packets.tls_fake_profile, TLS_FAKE_PROFILE_GOOGLE_CHROME);
+    assert_eq!(fake_rst.config.fake_packets.fake_sni, "www.google.com");
+    assert!(!fake_rst.config.fake_packets.fake_tls_use_original);
+    assert!(!fake_rst.config.fake_packets.fake_tls_randomize);
 }
 
 #[test]
