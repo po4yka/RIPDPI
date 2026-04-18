@@ -110,7 +110,7 @@ pub fn send_syn_hide_tcp(spec: SynHideTcpSpec, protect_path: Option<&str>) -> io
         if let Some(result) = root_helper::with_root_helper(|helper| helper.send_syn_hide_tcp(spec)) {
             return result;
         }
-        return linux::send_syn_hide_tcp(&spec, protect_path);
+        linux::send_syn_hide_tcp(&spec, protect_path)
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -126,7 +126,7 @@ pub fn send_icmp_wrapped_udp(spec: &IcmpWrappedUdpSpec, protect_path: Option<&st
         if let Some(result) = root_helper::with_root_helper(|helper| helper.send_icmp_wrapped_udp(spec)) {
             return result;
         }
-        return linux::send_icmp_wrapped_udp(spec, protect_path);
+        linux::send_icmp_wrapped_udp(spec, protect_path)
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -145,7 +145,7 @@ pub fn recv_icmp_wrapped_udp(
         if let Some(result) = root_helper::with_root_helper(|helper| helper.recv_icmp_wrapped_udp(filter)) {
             return result;
         }
-        return linux::recv_icmp_wrapped_udp(filter, protect_path);
+        linux::recv_icmp_wrapped_udp(filter, protect_path)
     }
 
     #[cfg(not(any(target_os = "linux", target_os = "android")))]

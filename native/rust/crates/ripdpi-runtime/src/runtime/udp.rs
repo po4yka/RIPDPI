@@ -11,7 +11,6 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::runtime_policy::{extract_host_info, route_matches_payload, TransportProtocol};
-use ripdpi_config::{QuicInitialMode, RuntimeConfig};
 use ripdpi_session::SessionState;
 
 pub(crate) use self::codec::{encode_socks5_udp_packet, parse_socks5_udp_packet};
@@ -257,6 +256,7 @@ mod tests {
     use crate::strategy_evolver::StrategyEvolver;
     use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex};
     use local_network_fixture::{FixtureConfig, FixtureStack};
+    use ripdpi_config::{QuicInitialMode, RuntimeConfig};
     use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
     use ripdpi_session::S_ATP_I4;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
