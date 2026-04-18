@@ -279,6 +279,8 @@ private fun refreshedCatalogJson(): String =
           "echPolicy": "opportunistic",
           "proxyModeNotice": "browser_native_tls_suppressed",
           "acceptanceCorpusRef": "phase11_tls_template_acceptance",
+          "acceptanceReportRef": "tls_template_acceptance_report",
+          "reviewedAt": "2026-04-18",
           "notes": "Phase 11 browser-family rotation set."
         }
       ],
