@@ -84,6 +84,8 @@ class StrategyPackCatalogTest {
                             echPolicy = "opportunistic",
                             proxyModeNotice = "browser_native_tls_suppressed",
                             acceptanceCorpusRef = "phase11_tls_template_acceptance",
+                            acceptanceReportRef = "tls_template_acceptance_report",
+                            reviewedAt = "2026-04-18",
                         ),
                     ),
                 morphPolicies = listOf(StrategyPackMorphPolicy(id = "balanced", title = "Balanced")),
@@ -111,6 +113,8 @@ class StrategyPackCatalogTest {
         assertEquals("opportunistic", selection.tlsProfileSet?.echPolicy)
         assertEquals("browser_native_tls_suppressed", selection.tlsProfileSet?.proxyModeNotice)
         assertEquals("phase11_tls_template_acceptance", selection.tlsProfileSet?.acceptanceCorpusRef)
+        assertEquals("tls_template_acceptance_report", selection.tlsProfileSet?.acceptanceReportRef)
+        assertEquals("2026-04-18", selection.tlsProfileSet?.reviewedAt)
         assertEquals("balanced", selection.morphPolicy?.id)
         assertEquals(listOf("video"), selection.hostLists.map { it.id })
         assertEquals(listOf("snowflake"), selection.transportModules.map { it.id })

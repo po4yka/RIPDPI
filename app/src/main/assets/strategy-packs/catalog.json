@@ -28,6 +28,8 @@
       "echPolicy": "opportunistic",
       "proxyModeNotice": "browser_native_tls_suppressed",
       "acceptanceCorpusRef": "phase11_tls_template_acceptance",
+      "acceptanceReportRef": "tls_template_acceptance_report",
+      "reviewedAt": "2026-04-18",
       "notes": "Phase 11 browser-family rotation set with explicit desktop and ECH-capable variants."
     },
     {
@@ -45,6 +47,8 @@
       "echPolicy": "preferred",
       "proxyModeNotice": "browser_native_tls_suppressed",
       "acceptanceCorpusRef": "phase11_tls_template_acceptance",
+      "acceptanceReportRef": "tls_template_acceptance_report",
+      "reviewedAt": "2026-04-18",
       "notes": "Use only after acceptance coverage confirms the ECH path for the target stack."
     }
   ],

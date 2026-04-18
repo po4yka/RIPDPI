@@ -145,6 +145,7 @@ def validate_acceptance_artifacts(catalog: dict, corpus: dict, report: dict) -> 
     return {
         "corpusId": corpus_id,
         "profileCount": len(expected_profile_ids),
+        "profileIds": expected_profile_ids,
         "profileSetIds": expected_profile_set_ids,
         "cdnStacksCovered": sorted(covered_cdns),
         "serverStacksCovered": sorted(covered_servers),

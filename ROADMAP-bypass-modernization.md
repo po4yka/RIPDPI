@@ -143,8 +143,19 @@ coverage. CI now checks that:
 
 ### 11.9 Strategy-Pack Rollout Discipline
 
-Keep bundled strategy-pack catalog entries and rollout metadata aligned with the
-actual shipped template families and their acceptance evidence.
+Status: complete.
+
+Bundled strategy-pack TLS profile-set entries now carry explicit acceptance
+report references and review dates in addition to the shared acceptance corpus
+reference. CI now validates that:
+
+- every profile set in the catalog still matches the shipped `allowedProfileIds`
+- the refresh log records the same `allowedProfileIds`, corpus reference,
+  acceptance report reference, and review date
+- the acceptance corpus/report still cover the catalog's allowed template ids
+
+This makes catalog drift visible as a build failure instead of a stale rollout
+metadata problem.
 
 ## Exit Condition
 

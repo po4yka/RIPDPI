@@ -12,12 +12,28 @@
         {
           "id": "browser_family_v2",
           "catalogVersion": "v1",
-          "acceptanceCorpusRef": "phase11_tls_template_acceptance"
+          "acceptanceCorpusRef": "phase11_tls_template_acceptance",
+          "acceptanceReportRef": "tls_template_acceptance_report",
+          "reviewedAt": "2026-04-18",
+          "allowedProfileIds": [
+            "chrome_stable",
+            "chrome_desktop_stable",
+            "firefox_stable",
+            "firefox_ech_stable",
+            "safari_stable",
+            "edge_stable"
+          ]
         },
         {
           "id": "ech_canary_v1",
           "catalogVersion": "v1",
-          "acceptanceCorpusRef": "phase11_tls_template_acceptance"
+          "acceptanceCorpusRef": "phase11_tls_template_acceptance",
+          "acceptanceReportRef": "tls_template_acceptance_report",
+          "reviewedAt": "2026-04-18",
+          "allowedProfileIds": [
+            "firefox_ech_stable",
+            "firefox_stable"
+          ]
         }
       ]
     }

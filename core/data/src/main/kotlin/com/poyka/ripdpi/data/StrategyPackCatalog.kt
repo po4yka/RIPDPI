@@ -120,6 +120,8 @@ data class StrategyPackTlsProfileSet(
     val echPolicy: String = "",
     val proxyModeNotice: String = "",
     val acceptanceCorpusRef: String = "",
+    val acceptanceReportRef: String = "",
+    val reviewedAt: String = "",
     val notes: String = "",
 )
 
