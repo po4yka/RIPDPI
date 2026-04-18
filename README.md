@@ -241,7 +241,7 @@ Options: `--device <serial>` to target a specific device, `--skip-capture` to re
 
 **Roadmap**
 - [Roadmap index](ROADMAP.md)
-- [Active bypass modernization roadmap](ROADMAP-bypass-modernization.md)
+- [Roadmap summary](ROADMAP.md)
 
 ## Building
 

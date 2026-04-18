@@ -215,7 +215,7 @@ scripts/guide/.venv/bin/python scripts/guide/generate_guide.py \
 
 **Roadmap**
 - [Индекс roadmap'ов](ROADMAP.md)
-- [Активный roadmap по модернизации bypass](ROADMAP-bypass-modernization.md)
+- [Сводка roadmap](ROADMAP.md)
 
 ## Сборка
 
