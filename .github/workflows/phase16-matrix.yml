@@ -84,20 +84,8 @@ jobs:
         if: contains(matrix.runsOnJson, 'ubuntu-latest')
         run: |
           set -euo pipefail
-          android emulator create \
-            --name phase16-matrix \
-            --api 34 \
-            --arch x86_64 \
-            --target google_apis \
-            --ram 4096M \
-            --heap 1024M \
-            --disk 8G
-          android emulator start \
-            --avd phase16-matrix \
-            --gpu swiftshader_indirect \
-            --no-window --no-audio --no-boot-anim --no-snapshot-save \
-            --boot-timeout 600 \
-            --detach
+          android emulator create --profile=medium_phone
+          android emulator start medium_phone
           android emulator wait-for-boot --timeout 600
 
       - name: Install packet smoke host tools
@@ -112,7 +100,7 @@ jobs:
 
       - name: Stop emulator
         if: always() && contains(matrix.runsOnJson, 'ubuntu-latest')
-        run: android emulator stop --avd phase16-matrix || true
+        run: android emulator stop medium_phone || true
 
       - name: Upload Phase 16 matrix artifacts
         if: always()
