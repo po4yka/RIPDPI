@@ -41,6 +41,9 @@ class NativeOwnedTlsHttpFetcherTest {
                                         tlsTemplateKeyShareProfile = "x25519_primary",
                                         tlsTemplateRecordChoreography = "single_record",
                                         tlsTemplateEchCapable = false,
+                                        tlsTemplateEchBootstrapPolicy = "none",
+                                        tlsTemplateEchBootstrapResolverId = null,
+                                        tlsTemplateEchOuterExtensionPolicy = "not_applicable",
                                         clientHelloSizeHint = 512,
                                         clientHelloInvariantStatus = "avoids_blocked_517_byte_client_hello",
                                     ),
@@ -72,6 +75,9 @@ class NativeOwnedTlsHttpFetcherTest {
             assertEquals("x25519_primary", result.tlsTemplateKeyShareProfile)
             assertEquals("single_record", result.tlsTemplateRecordChoreography)
             assertEquals(false, result.tlsTemplateEchCapable)
+            assertEquals("none", result.tlsTemplateEchBootstrapPolicy)
+            assertNull(result.tlsTemplateEchBootstrapResolverId)
+            assertEquals("not_applicable", result.tlsTemplateEchOuterExtensionPolicy)
             assertEquals(512, result.clientHelloSizeHint)
             assertEquals("avoids_blocked_517_byte_client_hello", result.clientHelloInvariantStatus)
         }
@@ -134,6 +140,9 @@ class NativeOwnedTlsHttpFetcherTest {
             assertNull(result.tlsTemplateKeyShareProfile)
             assertNull(result.tlsTemplateRecordChoreography)
             assertNull(result.tlsTemplateEchCapable)
+            assertNull(result.tlsTemplateEchBootstrapPolicy)
+            assertNull(result.tlsTemplateEchBootstrapResolverId)
+            assertNull(result.tlsTemplateEchOuterExtensionPolicy)
             assertNull(result.clientHelloSizeHint)
             assertNull(result.clientHelloInvariantStatus)
         }
@@ -162,6 +171,9 @@ class NativeOwnedTlsHttpFetcherTest {
         val tlsTemplateKeyShareProfile: String? = null,
         val tlsTemplateRecordChoreography: String? = null,
         val tlsTemplateEchCapable: Boolean? = null,
+        val tlsTemplateEchBootstrapPolicy: String? = null,
+        val tlsTemplateEchBootstrapResolverId: String? = null,
+        val tlsTemplateEchOuterExtensionPolicy: String? = null,
         val clientHelloSizeHint: Int? = null,
         val clientHelloInvariantStatus: String? = null,
         val error: String? = null,
