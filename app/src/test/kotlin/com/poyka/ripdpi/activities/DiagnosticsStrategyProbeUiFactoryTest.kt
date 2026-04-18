@@ -141,6 +141,39 @@ class DiagnosticsStrategyProbeUiFactoryTest {
             candidateDetail.notes.first(),
         )
     }
+
+    @Test
+    fun `recommendation surfaces proxy mode suppression notice`() {
+        val report =
+            strategyProbeReport(
+                suiteId = StrategyProbeSuiteQuickV1,
+                tcpWinnerId = "tcp-1",
+                quicWinnerId = "quic-1",
+            ).copy(
+                recommendation =
+                    strategyProbeReport(
+                        suiteId = StrategyProbeSuiteQuickV1,
+                        tcpWinnerId = "tcp-1",
+                        quicWinnerId = "quic-1",
+                    ).recommendation.copy(
+                        tlsPathSuppressed = true,
+                        tlsPathSuppressionReason = "proxy_mode_browser_native_ech_suppressed",
+                        tlsPathSuppressionSummary =
+                            "Proxy mode leaves browser-originated TLS and ECH under the browser/OS stack; " +
+                                "the selected ECH-aware template applies only to traffic the app originates itself.",
+                    ),
+            )
+
+        val uiModel = support.toStrategyProbeReportUiModel(report, reportResults = emptyList(), serviceMode = "PROXY")
+
+        assertEquals(
+            "Proxy mode leaves browser-originated TLS and ECH under the browser/OS stack; " +
+                "the selected ECH-aware template applies only to traffic the app originates itself.",
+            uiModel.recommendation.fields
+                .first { it.label == "Suppression" }
+                .value,
+        )
+    }
 }
 
 private fun strategyProbeReport(

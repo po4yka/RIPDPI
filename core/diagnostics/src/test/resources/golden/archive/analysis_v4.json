@@ -43,7 +43,8 @@
             "exactRootRequiredCandidates": 1,
             "labOnlyCandidates": 0,
             "notes": [
-                "capability_skips_present"
+                "capability_skips_present",
+                "proxy_mode_browser_native_tls_suppressed"
             ],
             "recommendedUsesRootedEmitter": false,
             "recommendedWasDowngraded": false,
