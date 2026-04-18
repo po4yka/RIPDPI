@@ -54,8 +54,13 @@ for:
 
 ### 11.2 Record-Size Choreography
 
-Move from metadata-only template planning to true packet-level record-size
-choreography for the browser-family TLS paths.
+Status: complete.
+
+The shipped browser-family template catalog now carries real record-boundary
+plans instead of metadata-only labels. `ripdpi-tls-profiles` rewrites captured
+ClientHello payloads into profile-specific multi-record layouts, and
+`ripdpi-desync` carries golden-covered packet rewrites for the desktop Chrome
+and ECH-aware Firefox template paths.
 
 ### 11.3 HelloRetryRequest-Oriented Tactics
 
@@ -94,6 +99,5 @@ actual shipped template families and their acceptance evidence.
 
 ## Exit Condition
 
-This roadmap is complete when Phase 11 no longer depends on metadata-only
-template planning and every shipped TLS template family has packet-level
+This roadmap is complete when every shipped TLS template family has packet-level
 validation, Android runtime policy handling, and live acceptance evidence.

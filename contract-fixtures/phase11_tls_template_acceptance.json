@@ -12,7 +12,7 @@
       "greaseStyle": "chromium_single_grease",
       "supportedGroupsProfile": "x25519_p256_p384",
       "keyShareProfile": "x25519_primary",
-      "recordChoreography": "single_record",
+      "recordChoreography": "host_tail_two_record",
       "echCapable": false,
       "acceptedStacks": ["cloudflare", "google", "fastly"]
     },
@@ -25,7 +25,7 @@
       "greaseStyle": "chromium_single_grease",
       "supportedGroupsProfile": "x25519_p256_p384",
       "keyShareProfile": "x25519_primary",
-      "recordChoreography": "single_record",
+      "recordChoreography": "host_tail_two_record",
       "echCapable": false,
       "acceptedStacks": ["cloudflare", "akamai", "fastly"]
     },
@@ -38,7 +38,7 @@
       "greaseStyle": "none",
       "supportedGroupsProfile": "x25519_p256_p384_p521",
       "keyShareProfile": "x25519_primary",
-      "recordChoreography": "single_record",
+      "recordChoreography": "sni_tail_two_record",
       "echCapable": false,
       "acceptedStacks": ["cloudflare", "fastly", "bunny"]
     },
@@ -51,7 +51,7 @@
       "greaseStyle": "firefox_ech_grease",
       "supportedGroupsProfile": "x25519_p256_p384_p521",
       "keyShareProfile": "x25519_hybrid_ready",
-      "recordChoreography": "single_record",
+      "recordChoreography": "sni_ech_tail_adaptive",
       "echCapable": true,
       "acceptedStacks": ["cloudflare"]
     },
@@ -77,7 +77,7 @@
       "greaseStyle": "chromium_single_grease",
       "supportedGroupsProfile": "x25519_p256_p384",
       "keyShareProfile": "x25519_primary",
-      "recordChoreography": "single_record",
+      "recordChoreography": "host_tail_two_record",
       "echCapable": false,
       "acceptedStacks": ["cloudflare", "akamai"]
     }

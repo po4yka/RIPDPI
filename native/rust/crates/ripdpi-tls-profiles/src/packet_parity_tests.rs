@@ -6,7 +6,10 @@ use std::time::Duration;
 
 use ripdpi_packets::{parse_tls_client_hello_layout, TlsClientHelloLayout};
 
-use crate::{build_connector, selected_profile_config, selected_profile_metadata, AVAILABLE_PROFILES};
+use crate::{
+    apply_record_choreography, build_connector, planned_record_payload_lengths, selected_profile_config,
+    selected_profile_metadata, AVAILABLE_PROFILES,
+};
 
 const EXT_SUPPORTED_GROUPS: u16 = 0x000a;
 const EXT_ALPN: u16 = 0x0010;
@@ -128,6 +131,30 @@ fn parse_key_share_groups(payload: &[u8]) -> Vec<u16> {
         index += key_len;
     }
     groups
+}
+
+fn tls_record_payload_lengths(buffer: &[u8]) -> Vec<usize> {
+    let mut cursor = 0usize;
+    let mut lengths = Vec::new();
+    while cursor + 5 <= buffer.len() {
+        let payload_len = u16::from_be_bytes([buffer[cursor + 3], buffer[cursor + 4]]) as usize;
+        lengths.push(payload_len);
+        cursor += 5 + payload_len;
+    }
+    assert_eq!(cursor, buffer.len(), "serialized TLS records must cover the full buffer");
+    lengths
+}
+
+fn flatten_tls_record_payload(buffer: &[u8]) -> Vec<u8> {
+    let mut cursor = 0usize;
+    let mut payload = Vec::new();
+    while cursor + 5 <= buffer.len() {
+        let payload_len = u16::from_be_bytes([buffer[cursor + 3], buffer[cursor + 4]]) as usize;
+        payload.extend_from_slice(&buffer[cursor + 5..cursor + 5 + payload_len]);
+        cursor += 5 + payload_len;
+    }
+    assert_eq!(cursor, buffer.len(), "serialized TLS records must cover the full buffer");
+    payload
 }
 
 fn is_grease_value(value: u16) -> bool {
@@ -277,4 +304,51 @@ fn chromium_permuted_profiles_exercise_multiple_extension_orders() {
             "{profile}: expected more than one on-wire extension order for a permuted family"
         );
     }
+}
+
+#[test]
+fn browser_template_record_choreography_rewrites_live_client_hellos() {
+    let expectations = [("chrome_desktop_stable", 2usize), ("firefox_stable", 2usize), ("firefox_ech_stable", 2usize)];
+
+    for (profile, expected_records) in expectations {
+        let capture = capture_client_hello(profile);
+        let rewritten = apply_record_choreography(profile, &capture.bytes).expect("rewrite captured ClientHello");
+        let lengths = tls_record_payload_lengths(&rewritten);
+
+        assert_eq!(lengths.len(), expected_records, "{profile}: unexpected record count after choreography");
+        assert_eq!(
+            flatten_tls_record_payload(&rewritten),
+            capture.bytes[5..].to_vec(),
+            "{profile}: choreography must preserve the ClientHello payload bytes",
+        );
+        assert_eq!(
+            Some(lengths.clone()),
+            planned_record_payload_lengths(profile, &capture.bytes),
+            "{profile}: planned lengths should match the serialized record layout",
+        );
+    }
+}
+
+#[test]
+fn browser_template_record_choreography_uses_semantic_markers() {
+    let chrome = capture_client_hello("chrome_desktop_stable");
+    let chrome_lengths =
+        planned_record_payload_lengths("chrome_desktop_stable", &chrome.bytes).expect("chrome planned lengths");
+    assert_eq!(
+        chrome_lengths,
+        vec![
+            chrome.layout.markers.host_end - 5,
+            chrome.layout.record_payload_len - (chrome.layout.markers.host_end - 5),
+        ],
+    );
+
+    let firefox = capture_client_hello("firefox_stable");
+    let firefox_lengths = planned_record_payload_lengths("firefox_stable", &firefox.bytes).expect("firefox lengths");
+    assert_eq!(
+        firefox_lengths,
+        vec![
+            firefox.layout.markers.sni_ext_start - 5,
+            firefox.layout.record_payload_len - (firefox.layout.markers.sni_ext_start - 5),
+        ],
+    );
 }

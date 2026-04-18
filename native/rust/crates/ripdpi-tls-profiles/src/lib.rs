@@ -8,6 +8,7 @@ mod chrome;
 mod edge;
 mod firefox;
 mod profile;
+mod record_choreography;
 mod safari;
 mod trust;
 
@@ -17,6 +18,10 @@ mod packet_parity_tests;
 pub use profile::{
     profile_catalog, profile_metadata, ProfileCatalog, ProfileConfig, ProfileInvariantStatus, ProfileMetadata,
     ProfileParityTargets, ProfileTemplateMetadata, AVAILABLE_PROFILES,
+};
+pub use record_choreography::{
+    apply_record_choreography, planned_record_payload_boundaries, planned_record_payload_lengths,
+    selected_record_choreography, RecordChoreography,
 };
 
 #[derive(Debug, Error)]

@@ -1,6 +1,7 @@
 mod fake;
 mod first_flight_ir;
 mod offset;
+mod phase11_goldens;
 mod phase4_goldens;
 mod plan_tcp;
 mod plan_udp;
