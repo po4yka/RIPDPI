@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxEchStable
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.activeDnsSettings
@@ -77,6 +78,60 @@ class DiagnosticsScanWorkflowTest {
 
         assertEquals("tlsrec_seqovl", recommendation.tcpCandidateFamily)
         assertEquals("tlsrec_seqovl", strategySignature.tcpStrategyFamily)
+    }
+
+    @Test
+    fun `proxy mode flags browser-native ECH suppression on enriched recommendation`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "ech_tlsrec",
+                quicFamily = "quic_realistic_burst",
+            )
+        val proxyEchSettings =
+            settings
+                .toBuilder()
+                .setRipdpiMode(Mode.Proxy.preferenceValue)
+                .setTlsFingerprintProfile(TlsFingerprintProfileFirefoxEchStable)
+                .build()
+
+        val enriched =
+            DiagnosticsScanWorkflow.enrichScanReport(
+                report = report,
+                settings = proxyEchSettings,
+                preferredDnsPath = null,
+            )
+
+        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        assertTrue(recommendation.tlsPathSuppressed)
+        assertEquals("proxy_mode_browser_native_ech_suppressed", recommendation.tlsPathSuppressionReason)
+        assertEquals(
+            "Proxy mode leaves browser-originated TLS and ECH under the browser/OS stack; " +
+                "the selected ECH-aware template applies only to traffic the app originates itself.",
+            recommendation.tlsPathSuppressionSummary,
+        )
+    }
+
+    @Test
+    fun `vpn mode does not flag browser-native suppression`() {
+        val report =
+            scanReportWithStrategyProbe(
+                proxyConfigJson = validRecommendedProxyConfigJson(),
+                tcpFamily = "hostfake",
+                quicFamily = "quic_realistic_burst",
+            )
+
+        val enriched =
+            DiagnosticsScanWorkflow.enrichScanReport(
+                report = report,
+                settings = settings,
+                preferredDnsPath = null,
+            )
+
+        val recommendation = requireNotNull(enriched.strategyProbeReport).recommendation
+        assertFalse(recommendation.tlsPathSuppressed)
+        assertNull(recommendation.tlsPathSuppressionReason)
+        assertNull(recommendation.tlsPathSuppressionSummary)
     }
 
     @Test

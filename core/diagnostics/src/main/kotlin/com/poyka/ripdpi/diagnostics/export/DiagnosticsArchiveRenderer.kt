@@ -490,6 +490,7 @@ private fun buildMeasurementSnapshot(
     val acceptanceMetrics = buildAcceptanceMetrics(strategyProbe)
     val detectabilityMetrics =
         buildDetectabilityMetrics(
+            strategyProbe = strategyProbe,
             candidates = allCandidates,
             recommendedTcp = recommendedTcp,
             recommendedQuic = recommendedQuic,
@@ -582,6 +583,7 @@ private fun buildAcceptanceMetrics(strategyProbe: StrategyProbeReport?): Diagnos
 }
 
 private fun buildDetectabilityMetrics(
+    strategyProbe: StrategyProbeReport?,
     candidates: List<StrategyProbeCandidateSummary>,
     recommendedTcp: StrategyProbeCandidateSummary?,
     recommendedQuic: StrategyProbeCandidateSummary?,
@@ -617,6 +619,9 @@ private fun buildDetectabilityMetrics(
             }
             if (capabilitySkippedCandidates > 0) {
                 add("capability_skips_present")
+            }
+            if (strategyProbe?.recommendation?.tlsPathSuppressed == true) {
+                add(strategyProbe.recommendation.tlsPathSuppressionReason ?: "tls_path_suppressed")
             }
         }
     return DiagnosticsArchiveDetectabilityMetrics(

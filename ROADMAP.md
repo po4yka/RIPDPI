@@ -50,6 +50,9 @@ the unfinished bypass-modernization TLS/ECH track.
    bootstrap/fallback details through the owned-TLS path with fail-closed drift
    checks on ECH-capable selections.
 5. Surface proxy-mode or browser-native TLS/ECH suppression paths explicitly.
+   Status: complete. Strategy-probe recommendations now flag when proxy mode
+   leaves browser-originated TLS or ECH under the browser/OS stack, and the
+   suppression notice is surfaced in diagnostics UI and archive export.
 6. Finish replacing generic fake packet families with coherent client-profile
    families.
 7. Build and maintain live acceptance coverage for each shipped TLS template

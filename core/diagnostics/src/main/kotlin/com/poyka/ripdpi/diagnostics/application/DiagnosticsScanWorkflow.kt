@@ -11,8 +11,10 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.TemporaryResolverOverride
+import com.poyka.ripdpi.data.TlsFingerprintProfileFirefoxEchStable
 import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
+import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.strategyLabel
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
@@ -65,6 +67,11 @@ internal object DiagnosticsScanWorkflow {
         val winningTcpCandidate: StrategyProbeCandidateSummary?,
         val winningQuicCandidate: StrategyProbeCandidateSummary?,
         val isValid: Boolean,
+    )
+
+    private data class StrategyPathSuppression(
+        val reason: String,
+        val summary: String,
     )
 
     internal sealed interface BackgroundAutoPersistEligibility {
@@ -253,6 +260,7 @@ internal object DiagnosticsScanWorkflow {
             strategyProbe.tcpCandidates.firstOrNull { it.id == baseRecommendation.tcpCandidateId }
         val winningQuicCandidate =
             strategyProbe.quicCandidates.firstOrNull { it.id == baseRecommendation.quicCandidateId }
+        val suppression = detectTlsPathSuppression(settings, winningTcpCandidate)
         val preferences = decodeRipDpiProxyUiPreferences(baseRecommendation.recommendedProxyConfigJson)
 
         val validInputs =
@@ -293,6 +301,9 @@ internal object DiagnosticsScanWorkflow {
                         dnsStrategyFamily = activeDns.strategyFamily(),
                         dnsStrategyLabel = activeDns.strategyLabel(),
                         strategySignature = strategySignature,
+                        tlsPathSuppressed = suppression != null,
+                        tlsPathSuppressionReason = suppression?.reason,
+                        tlsPathSuppressionSummary = suppression?.summary,
                     ),
                 winningTcpCandidate = validTcpCandidate,
                 winningQuicCandidate = validQuicCandidate,
@@ -300,7 +311,12 @@ internal object DiagnosticsScanWorkflow {
             )
         } else {
             ValidatedStrategyProbeRecommendation(
-                recommendation = baseRecommendation,
+                recommendation =
+                    baseRecommendation.copy(
+                        tlsPathSuppressed = suppression != null,
+                        tlsPathSuppressionReason = suppression?.reason,
+                        tlsPathSuppressionSummary = suppression?.summary,
+                    ),
                 winningTcpCandidate = winningTcpCandidate,
                 winningQuicCandidate = winningQuicCandidate,
                 isValid = false,
@@ -330,6 +346,36 @@ internal object DiagnosticsScanWorkflow {
         }
     }
 
+    private fun detectTlsPathSuppression(
+        settings: com.poyka.ripdpi.proto.AppSettings,
+        winningTcpCandidate: StrategyProbeCandidateSummary?,
+    ): StrategyPathSuppression? {
+        val mode = Mode.fromString(settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue })
+        if (mode != Mode.Proxy) {
+            return null
+        }
+        val selectedTlsProfile = normalizeTlsFingerprintProfile(settings.tlsFingerprintProfile)
+        val targetsEch =
+            selectedTlsProfile == TlsFingerprintProfileFirefoxEchStable ||
+                winningTcpCandidate?.family == "ech_split" ||
+                winningTcpCandidate?.family == "ech_tlsrec"
+        return if (targetsEch) {
+            StrategyPathSuppression(
+                reason = "proxy_mode_browser_native_ech_suppressed",
+                summary =
+                    "Proxy mode leaves browser-originated TLS and ECH under the browser/OS stack; " +
+                        "the selected ECH-aware template applies only to traffic the app originates itself.",
+            )
+        } else {
+            StrategyPathSuppression(
+                reason = "proxy_mode_browser_native_tls_suppressed",
+                summary =
+                    "Proxy mode leaves browser-originated TLS under the browser/OS stack; " +
+                        "the selected TLS template applies only to traffic the app originates itself.",
+            )
+        }
+    }
+
     private fun StrategyProbeRecommendation.clearDerivedMetadata(): StrategyProbeRecommendation =
         copy(
             tcpCandidateFamily = null,
@@ -338,5 +384,8 @@ internal object DiagnosticsScanWorkflow {
             dnsStrategyFamily = null,
             dnsStrategyLabel = null,
             strategySignature = null,
+            tlsPathSuppressed = false,
+            tlsPathSuppressionReason = null,
+            tlsPathSuppressionSummary = null,
         )
 }

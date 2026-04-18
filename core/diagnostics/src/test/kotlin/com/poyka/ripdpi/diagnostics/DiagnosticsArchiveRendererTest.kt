@@ -239,6 +239,7 @@ class DiagnosticsArchiveRendererTest {
         )
         assertTrue(analysisText.contains("\"inferredUnavailableCapabilities\": ["))
         assertTrue(analysisText.contains("\"root_helper_available\""))
+        assertTrue(reportText.contains("\"tlsPathSuppressionReason\": \"proxy_mode_browser_native_tls_suppressed\""))
         assertTrue(analysisText.contains("\"policyVersion\": \"phase16_rollout_gates_v1\""))
         assertFalse(reportText.contains("127.0.0.1:1080"))
         assertTrue(telemetryCsv.contains("redacted"))
@@ -540,6 +541,11 @@ class DiagnosticsArchiveRendererTest {
                             dnsStrategyLabel = "AdGuard",
                             rationale = "best path",
                             recommendedProxyConfigJson = "{}",
+                            tlsPathSuppressed = true,
+                            tlsPathSuppressionReason = "proxy_mode_browser_native_tls_suppressed",
+                            tlsPathSuppressionSummary =
+                                "Proxy mode leaves browser-originated TLS under the browser/OS stack; " +
+                                    "the selected TLS template applies only to traffic the app originates itself.",
                         ),
                     auditAssessment =
                         StrategyProbeAuditAssessment(

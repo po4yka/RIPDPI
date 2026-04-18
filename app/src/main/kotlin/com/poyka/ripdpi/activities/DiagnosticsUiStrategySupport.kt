@@ -666,6 +666,9 @@ private fun DiagnosticsUiFactorySupport.toStrategyProbeRecommendationUiModel(
                     recommendation.dnsStrategyLabel?.let {
                         DiagnosticsFieldUiModel("DNS lane", it)
                     },
+                    recommendation.tlsPathSuppressionSummary?.let {
+                        DiagnosticsFieldUiModel("Suppression", it)
+                    },
                     DiagnosticsFieldUiModel("Why trials stopped", recommendation.rationale),
                 ).filterNotNull(),
             signature =
@@ -695,6 +698,9 @@ private fun DiagnosticsUiFactorySupport.toStrategyProbeRecommendationUiModel(
                     },
                     recommendation.dnsStrategyLabel?.let {
                         DiagnosticsFieldUiModel("DNS lane", it)
+                    },
+                    recommendation.tlsPathSuppressionSummary?.let {
+                        DiagnosticsFieldUiModel("Suppression", it)
                     },
                     DiagnosticsFieldUiModel("Why it won", recommendation.rationale),
                 ).filterNotNull(),

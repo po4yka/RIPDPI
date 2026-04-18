@@ -102,8 +102,13 @@ drifts away from the native template metadata it is supposed to use.
 
 ### 11.6 Proxy-Mode Suppression Surfacing
 
-Detect and report cases where proxy mode or browser-native stack behavior
-suppresses the intended TLS/ECH template path.
+Status: complete.
+
+Strategy-probe recommendations now carry an explicit suppression signal when
+proxy mode leaves browser-originated TLS or ECH under the browser/OS stack.
+Diagnostics UI surfaces that notice in the recommendation card, and archive
+export carries the same machine-readable suppression reason through the
+serialized strategy-probe report and detectability notes.
 
 ### 11.7 Client-Profile Fake Family Completion
 

@@ -638,4 +638,7 @@ data class StrategyProbeRecommendation(
     val rationale: String,
     val recommendedProxyConfigJson: String,
     val strategySignature: BypassStrategySignature? = null,
+    val tlsPathSuppressed: Boolean = false,
+    val tlsPathSuppressionReason: String? = null,
+    val tlsPathSuppressionSummary: String? = null,
 )
