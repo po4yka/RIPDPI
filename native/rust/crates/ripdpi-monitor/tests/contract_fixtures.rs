@@ -79,6 +79,7 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
     let mut tokens = BTreeSet::new();
     for (path, signature) in [
         ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_dns_probe"),
+        ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "fn classify_dns_probe_outcome"),
         ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_domain_probe"),
         ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_tcp_probe"),
         ("native/rust/crates/ripdpi-monitor/src/connectivity/probes.rs", "pub(crate) fn run_quic_probe"),
@@ -177,6 +178,7 @@ fn is_outcome_token(value: &str) -> bool {
         "not_run",
         "tcp_connect_ok",
         "ech_config_available",
+        "dns_nxdomain",
     ];
     if EXCLUDED.contains(&value) {
         return false;

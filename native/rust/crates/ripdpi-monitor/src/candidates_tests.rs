@@ -491,17 +491,17 @@ fn opportunistic_pool_contains_ttl_write_candidates() {
 #[test]
 fn rooted_pool_contains_root_only_candidates() {
     let rooted = build_rooted_candidates(&minimal_ui_config());
-    let tcp_repair_capable = probe_ip_fragmentation_capabilities().tcp_repair;
+    let multi_disorder = rooted.iter().find(|c| c.id == "multi_disorder").expect("multi_disorder");
     assert_eq!(
         rooted.iter().any(|c| c.id == "fake_rst"),
-        tcp_repair_capable,
-        "fake_rst must appear in rooted pool iff tcp_repair is available"
+        false,
+        "fake_rst is lab-only and must not appear in the rooted production pool"
     );
-    assert_eq!(
-        rooted.iter().any(|c| c.id == "multi_disorder"),
-        tcp_repair_capable,
-        "multi_disorder must appear in rooted pool iff tcp_repair is available"
+    assert!(
+        multi_disorder.requires_capabilities.contains(&RuntimeCapability::RootHelperAvailable),
+        "multi_disorder must advertise the root-helper capability requirement"
     );
+    assert!(multi_disorder.exact_emitter_requires_root, "multi_disorder must remain rooted-only");
     let primary = build_primary_candidates(&minimal_ui_config());
     assert!(!primary.iter().any(|c| c.id == "fake_rst"), "fake_rst must not be in primary pool");
     assert!(!primary.iter().any(|c| c.id == "multi_disorder"), "multi_disorder must not be in primary pool");

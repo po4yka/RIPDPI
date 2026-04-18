@@ -1,28 +1,17 @@
 {
   "input": {
     "crypto_frame_boundaries": [
-      296,
-      593
+      757
     ],
     "crypto_frames": [
       {
         "crypto_range": [
           0,
-          296
+          757
         ],
         "packet_payload_range": [
           4,
-          300
-        ]
-      },
-      {
-        "crypto_range": [
-          296,
-          593
-        ],
-        "packet_payload_range": [
-          305,
-          602
+          761
         ]
       }
     ],
@@ -34,8 +23,8 @@
       ],
       "authority": "docs.example.test",
       "authority_span": [
-        148,
-        165
+        120,
+        137
       ],
       "grease": {
         "cipher_suites": [],
@@ -43,7 +32,7 @@
         "supported_groups": [],
         "supported_versions": []
       },
-      "has_ech": false,
+      "has_ech": true,
       "record_boundaries": [],
       "record_payload_lengths": [],
       "tcp_segment_boundaries": []
@@ -55,28 +44,28 @@
   },
   "rewritten": {
     "crypto_frame_boundaries": [
-      296,
-      593
+      378,
+      757
     ],
     "crypto_frames": [
       {
         "crypto_range": [
           0,
-          296
+          378
         ],
         "packet_payload_range": [
           4,
-          300
+          382
         ]
       },
       {
         "crypto_range": [
-          296,
-          593
+          378,
+          757
         ],
         "packet_payload_range": [
-          305,
-          602
+          387,
+          766
         ]
       }
     ],
@@ -88,8 +77,8 @@
       ],
       "authority": "docs.example.test",
       "authority_span": [
-        148,
-        165
+        120,
+        137
       ],
       "grease": {
         "cipher_suites": [],
@@ -97,7 +86,7 @@
         "supported_groups": [],
         "supported_versions": []
       },
-      "has_ech": false,
+      "has_ech": true,
       "record_boundaries": [],
       "record_payload_lengths": [],
       "tcp_segment_boundaries": []
