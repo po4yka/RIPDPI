@@ -9,6 +9,7 @@ const val HttpFakeProfileCloudflareGet = "cloudflare_get"
 
 const val TlsFakeProfileIanaFirefox = "iana_firefox"
 const val TlsFakeProfileGoogleChrome = "google_chrome"
+const val TlsFakeProfileGoogleChromeHrr = "google_chrome_hrr"
 const val TlsFakeProfileVkChrome = "vk_chrome"
 const val TlsFakeProfileSberbankChrome = "sberbank_chrome"
 const val TlsFakeProfileRutrackerKyber = "rutracker_kyber"
@@ -33,6 +34,7 @@ private val KnownTlsFakeProfiles =
         FakePayloadProfileCompatDefault,
         TlsFakeProfileIanaFirefox,
         TlsFakeProfileGoogleChrome,
+        TlsFakeProfileGoogleChromeHrr,
         TlsFakeProfileVkChrome,
         TlsFakeProfileSberbankChrome,
         TlsFakeProfileRutrackerKyber,

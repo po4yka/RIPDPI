@@ -19,7 +19,7 @@ use crate::types::{
 use crate::util::{
     ranged_probe_delay, DEFAULT_DOH_BOOTSTRAP_IPS, DEFAULT_DOH_HOST, DEFAULT_DOH_PORT, DEFAULT_DOH_URL,
     HTTP_FAKE_PROFILE_CLOUDFLARE_GET, STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, STRATEGY_PROBE_SUITE_QUICK_V1,
-    TLS_FAKE_PROFILE_GOOGLE_CHROME, UDP_FAKE_PROFILE_DNS_QUERY,
+    TLS_FAKE_PROFILE_GOOGLE_CHROME, TLS_FAKE_PROFILE_GOOGLE_CHROME_HRR, UDP_FAKE_PROFILE_DNS_QUERY,
 };
 
 #[derive(Clone, Debug)]
@@ -517,6 +517,7 @@ pub(crate) fn build_opportunistic_candidates(base: &ProxyUiConfig) -> Vec<Strate
     let disorder_host = build_disorder_host_candidate(base);
     let tlsrec_disorder = build_tlsrec_disorder_candidate(base);
     let tlsrec_fake_rich = build_tlsrec_fake_rich_candidate(base);
+    let tlsrec_fake_hrr = build_tlsrec_fake_hrr_candidate(base);
     let tlsrec_fake_seqgroup = build_tlsrec_fake_seqgroup_candidate(base);
     let tlsrec_fakedsplit = build_tlsrec_fake_approx_candidate(base, "fakedsplit");
     let tlsrec_fakeddisorder = build_tlsrec_fake_approx_candidate(base, "fakeddisorder");
@@ -547,6 +548,16 @@ pub(crate) fn build_opportunistic_candidates(base: &ProxyUiConfig) -> Vec<Strate
             "tlsrec_fake",
             tlsrec_fake_rich,
             vec!["Uses a coherent Chrome-family fake ClientHello instead of randomized fake bytes"],
+        ),
+        candidate_spec_with_notes(
+            "tlsrec_fake_hrr",
+            "TLS record + HRR-oriented fake",
+            "tlsrec_fake",
+            tlsrec_fake_hrr,
+            vec![
+                "Uses a Chrome-family fake ClientHello that retains supported_groups but strips the x25519 key_share",
+                "Targets compliant servers that answer with HelloRetryRequest instead of a generic TLS alert",
+            ],
         ),
         candidate_spec_with_notes(
             "tlsrec_fake_seqgroup",
@@ -1189,6 +1200,12 @@ pub(crate) fn build_tlsrec_fake_rich_candidate(base: &ProxyUiConfig) -> ProxyUiC
 pub(crate) fn build_tlsrec_fake_seqgroup_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = build_tlsrec_fake_rich_candidate(base);
     config.fake_packets.ip_id_mode = "seqgroup".to_string();
+    config
+}
+
+pub(crate) fn build_tlsrec_fake_hrr_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
+    let mut config = build_tlsrec_fake_rich_candidate(base);
+    config.fake_packets.tls_fake_profile = TLS_FAKE_PROFILE_GOOGLE_CHROME_HRR.to_string();
     config
 }
 

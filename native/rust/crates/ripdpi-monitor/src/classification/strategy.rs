@@ -172,9 +172,14 @@ pub(crate) fn reorder_tcp_candidates_for_failure(
             "tlsrec_hostfake_split",
             "tlsrec_fakeddisorder",
         ],
-        Some(FailureClass::TlsAlert) => {
-            &["baseline_current", "tlsrec_split_host", "tlsrec_hostfake_split", "split_host", "tlsrec_seqovl_midsld"]
-        }
+        Some(FailureClass::TlsAlert) => &[
+            "baseline_current",
+            "tlsrec_split_host",
+            "tlsrec_hostfake_split",
+            "tlsrec_fake_hrr",
+            "split_host",
+            "tlsrec_seqovl_midsld",
+        ],
         _ => &[
             "baseline_current",
             "tlsrec_split_host",
