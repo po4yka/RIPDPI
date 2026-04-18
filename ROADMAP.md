@@ -67,6 +67,10 @@ the unfinished bypass-modernization TLS/ECH track.
    against the strategy-pack catalog and coverage thresholds.
 8. Keep bundled strategy-pack catalog entries aligned with the shipped template
    families and acceptance evidence.
+   Status: complete. TLS profile-set catalog entries now carry explicit
+   acceptance report references and review dates, and CI validates the catalog,
+   acceptance corpus/report, and refresh log together so `allowedProfileIds`
+   and evidence metadata cannot silently drift from the shipped template set.
 
 ## Removed Completed Roadmaps
 
