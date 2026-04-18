@@ -45,17 +45,22 @@ runs:
         toolchain: "1.94.0"
         components: ${{ inputs.rust-components }}
 
-    # Pinned Android CLI from d.android.com/tools/agents. Agents rely on
-    # `android docs` to ground SDK/NDK reasoning; a missing binary must fail
-    # the job loudly. Version is pinned; do NOT run `android update`.
+    # Android CLI bootstrap from the official dl.google.com installer. The
+    # old d.android.com/tools/agents/install.sh path now redirects to HTML,
+    # so fetch the installer explicitly and validate it before execution.
     - name: Install Android CLI
       shell: bash
-      env:
-        ANDROID_CLI_VERSION: "1.0.0-preview.1"
       run: |
         set -euo pipefail
-        curl -fsSL "https://d.android.com/tools/agents/install.sh" \
-          | bash -s -- --version "$ANDROID_CLI_VERSION"
+        installer="$RUNNER_TEMP/android-cli-install.sh"
+        curl -fsSL "https://dl.google.com/android/cli/latest/linux_x86_64/install.sh" -o "$installer"
+        if ! head -n 1 "$installer" | grep -Eq '^#!/'; then
+          echo "Android CLI installer did not look like a shell script" >&2
+          echo "First bytes from payload:" >&2
+          head -c 200 "$installer" >&2 || true
+          exit 1
+        fi
+        bash "$installer"
         android --version
 
     - name: Read native toolchain policy
