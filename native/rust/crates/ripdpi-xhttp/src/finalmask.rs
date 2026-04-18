@@ -37,10 +37,7 @@ impl FinalmaskSpec {
             },
             "noise" => Self::Noise {
                 rand_range: rand_range.ok_or_else(|| {
-                    io::Error::new(
-                        io::ErrorKind::InvalidInput,
-                        "finalmask noise requires randRange in min-max format",
-                    )
+                    io::Error::new(io::ErrorKind::InvalidInput, "finalmask noise requires randRange in min-max format")
                 })?,
             },
             "fragment" => Self::Fragment {
