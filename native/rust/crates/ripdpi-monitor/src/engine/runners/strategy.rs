@@ -10,7 +10,8 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::{
     build_quic_candidates_for_suite, build_strategy_probe_summary, candidate_pause_ms, probe_fake_ttl_capability,
-    probe_tcp_fast_open_capability, CandidateEligibility, StrategyCandidateSpec,
+    probe_ip_fragmentation_capabilities, probe_tcp_fast_open_capability, supports_udp_ip_fragmentation_for,
+    CandidateEligibility, StrategyCandidateSpec,
 };
 use crate::classification::{
     classified_failure_probe_result, classify_strategy_probe_baseline_observations, filter_quic_candidates_for_failure,
@@ -26,9 +27,10 @@ use crate::strategy::detect_strategy_probe_dns_tampering;
 use crate::types::{
     ScanProgress, StrategyProbeAuditAssessment, StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel,
     StrategyProbeAuditCoverage, StrategyProbeCandidateSummary, StrategyProbeCompletionKind, StrategyProbeProgressLane,
-    StrategyProbeRecommendation, StrategyProbeReport,
+    StrategyProbeRecommendation, StrategyProbeReport, STRATEGY_PROBE_METHODOLOGY_VERSION,
 };
 use crate::util::{stable_probe_hash, STRATEGY_PROBE_SUITE_FULL_MATRIX_V1};
+use ripdpi_runtime::platform::{self, RuntimeCapability};
 
 #[cfg(test)]
 use self::strategy_support::baseline_has_tls_ech_only;
@@ -47,6 +49,33 @@ pub(super) struct StrategyDnsBaselineRunner;
 pub(super) struct StrategyTcpRunner;
 pub(super) struct StrategyQuicRunner;
 pub(super) struct StrategyRecommendationRunner;
+
+const ROOTED_EMITTER_ELIGIBILITY_RATIONALE: &str = "Requires rooted production emitter tier";
+const LAB_EMITTER_ELIGIBILITY_RATIONALE: &str = "Requires lab-only emitter tier";
+const GENERIC_EMITTER_ELIGIBILITY_RATIONALE: &str = "Required emitter capability unavailable";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum PilotHostingFamily {
+    Direct,
+    Cloudflare,
+    Google,
+    DomesticCdn,
+    ForeignCdn,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum PilotReachabilitySet {
+    Control,
+    Domestic,
+    Foreign,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct PilotTargetBucket {
+    hosting_family: PilotHostingFamily,
+    reachability_set: PilotReachabilitySet,
+    ech_likely: bool,
+}
 
 fn all_candidates_tied(candidates: &[StrategyProbeCandidateSummary]) -> bool {
     let eligible: Vec<_> = candidates.iter().filter(|c| !c.skipped && c.outcome != "not_applicable").collect();
@@ -81,6 +110,202 @@ fn winner_margin_percent(candidates: &[StrategyProbeCandidateSummary], winner_ca
         .max()
         .unwrap_or(0);
     winner_score.saturating_sub(runner_up_score)
+}
+
+fn pilot_hosting_family(host: &str) -> PilotHostingFamily {
+    let host = host.trim().to_ascii_lowercase();
+    if host.ends_with(".workers.dev")
+        || host.ends_with(".pages.dev")
+        || host.contains("cloudflare")
+        || host.ends_with(".cloudflare.com")
+    {
+        PilotHostingFamily::Cloudflare
+    } else if host.ends_with(".google.com")
+        || host.ends_with(".googlevideo.com")
+        || host.ends_with(".googleapis.com")
+        || host.ends_with(".gstatic.com")
+        || host.ends_with(".youtube.com")
+        || host.ends_with(".ytimg.com")
+        || host.ends_with(".1e100.net")
+    {
+        PilotHostingFamily::Google
+    } else if host.ends_with(".yandex.ru")
+        || host.ends_with(".yandex.net")
+        || host.ends_with(".ya.ru")
+        || host.ends_with(".vk.com")
+        || host.ends_with(".mail.ru")
+        || host.ends_with(".ok.ru")
+        || host.ends_with(".rutube.ru")
+    {
+        PilotHostingFamily::DomesticCdn
+    } else if host.ends_with(".cdn77.org")
+        || host.ends_with(".akamai.net")
+        || host.ends_with(".akamaized.net")
+        || host.ends_with(".fastly.net")
+        || host.ends_with(".cloudfront.net")
+        || host.ends_with(".edgekey.net")
+        || host.contains("cdn")
+    {
+        PilotHostingFamily::ForeignCdn
+    } else {
+        PilotHostingFamily::Direct
+    }
+}
+
+fn pilot_reachability_set(target: &crate::types::DomainTarget) -> PilotReachabilitySet {
+    if target.is_control || target.host.eq_ignore_ascii_case("control") {
+        return PilotReachabilitySet::Control;
+    }
+    let host = target.host.trim().to_ascii_lowercase();
+    if host.ends_with(".ru") || host.ends_with(".su") || host.ends_with(".xn--p1ai") {
+        PilotReachabilitySet::Domestic
+    } else {
+        PilotReachabilitySet::Foreign
+    }
+}
+
+fn pilot_target_bucket(target: &crate::types::DomainTarget) -> PilotTargetBucket {
+    let hosting_family = pilot_hosting_family(&target.host);
+    PilotTargetBucket {
+        hosting_family,
+        reachability_set: pilot_reachability_set(target),
+        ech_likely: matches!(hosting_family, PilotHostingFamily::Cloudflare | PilotHostingFamily::Google),
+    }
+}
+
+fn pilot_bucket_label(target: &crate::types::DomainTarget) -> String {
+    let bucket = pilot_target_bucket(target);
+    format!(
+        "{:?}:{:?}:ech={}",
+        bucket.reachability_set,
+        bucket.hosting_family,
+        if bucket.ech_likely { "yes" } else { "no" }
+    )
+    .to_ascii_lowercase()
+}
+
+fn stratified_pilot_targets(domain_targets: &[crate::types::DomainTarget]) -> Vec<crate::types::DomainTarget> {
+    let mut selected = Vec::new();
+    let mut seen_buckets = std::collections::HashSet::new();
+    let mut selected_hosts = std::collections::HashSet::new();
+
+    while selected.len() < 3 {
+        let mut seen_reachability = std::collections::HashSet::new();
+        let mut seen_hosting = std::collections::HashSet::new();
+        for target in &selected {
+            let bucket = pilot_target_bucket(target);
+            seen_reachability.insert(bucket.reachability_set);
+            seen_hosting.insert(bucket.hosting_family);
+        }
+
+        let Some(next_target) = domain_targets
+            .iter()
+            .filter(|target| !selected_hosts.contains(target.host.as_str()))
+            .max_by_key(|target| {
+                let bucket = pilot_target_bucket(target);
+                (
+                    matches!(bucket.reachability_set, PilotReachabilitySet::Control),
+                    !seen_reachability.contains(&bucket.reachability_set),
+                    !seen_hosting.contains(&bucket.hosting_family),
+                    bucket.ech_likely,
+                    !matches!(bucket.hosting_family, PilotHostingFamily::Direct),
+                    matches!(bucket.reachability_set, PilotReachabilitySet::Domestic),
+                    std::cmp::Reverse(target.host.as_str()),
+                )
+            })
+        else {
+            break;
+        };
+
+        selected_hosts.insert(next_target.host.clone());
+        let bucket = pilot_target_bucket(next_target);
+        if seen_buckets.insert(bucket) {
+            selected.push(next_target.clone());
+        }
+    }
+
+    if selected.is_empty() {
+        if let Some(first) = domain_targets.first() {
+            selected.push(first.clone());
+        }
+    }
+    selected
+}
+
+fn capability_available(
+    capability: RuntimeCapability,
+    fake_ttl_available: bool,
+    ipfrag_caps: ripdpi_runtime::platform::IpFragmentationCapabilities,
+) -> bool {
+    match capability {
+        RuntimeCapability::TtlWrite => fake_ttl_available,
+        RuntimeCapability::RawTcpFakeSend => ipfrag_caps.raw_ipv4,
+        RuntimeCapability::RawUdpFragmentation => supports_udp_ip_fragmentation_for(ipfrag_caps),
+        RuntimeCapability::ReplacementSocket | RuntimeCapability::RootHelperAvailable => ipfrag_caps.tcp_repair,
+        RuntimeCapability::VpnProtectCallback | RuntimeCapability::NetworkBinding => true,
+    }
+}
+
+fn annotate_emitter_execution(
+    summary: &mut StrategyProbeCandidateSummary,
+    spec: &StrategyCandidateSpec,
+    fake_ttl_available: bool,
+    ipfrag_caps: ripdpi_runtime::platform::IpFragmentationCapabilities,
+) {
+    if spec.exact_emitter_requires_root && !platform::seqovl_supported() && spec.approximate_fallback_family.is_some() {
+        summary.emitter_downgraded = true;
+        if let Some(fallback_family) = spec.approximate_fallback_family {
+            summary
+                .notes
+                .push(format!("Exact rooted emitter unavailable; executed approximate {fallback_family} fallback"));
+        }
+    }
+    if summary.exact_emitter_requires_root {
+        if let Some(capability) = spec
+            .requires_capabilities
+            .iter()
+            .copied()
+            .find(|&capability| !capability_available(capability, fake_ttl_available, ipfrag_caps))
+        {
+            summary.notes.push(missing_capability_note(spec, capability));
+        }
+    }
+}
+
+fn missing_capability_note(spec: &StrategyCandidateSpec, capability: RuntimeCapability) -> String {
+    if spec.exact_emitter_requires_root
+        || matches!(spec.emitter_tier, crate::types::StrategyEmitterTier::RootedProduction)
+    {
+        format!("Requires rooted production emitter tier ({})", capability.as_str())
+    } else if matches!(spec.emitter_tier, crate::types::StrategyEmitterTier::LabDiagnosticsOnly) {
+        format!("Lab-only emitter tier unavailable ({})", capability.as_str())
+    } else {
+        format!("Required emitter capability unavailable ({})", capability.as_str())
+    }
+}
+
+fn missing_capability_rationale(spec: &StrategyCandidateSpec) -> &'static str {
+    if spec.exact_emitter_requires_root
+        || matches!(spec.emitter_tier, crate::types::StrategyEmitterTier::RootedProduction)
+    {
+        ROOTED_EMITTER_ELIGIBILITY_RATIONALE
+    } else if matches!(spec.emitter_tier, crate::types::StrategyEmitterTier::LabDiagnosticsOnly) {
+        LAB_EMITTER_ELIGIBILITY_RATIONALE
+    } else {
+        GENERIC_EMITTER_ELIGIBILITY_RATIONALE
+    }
+}
+
+fn capability_suffix(capability: RuntimeCapability) -> &'static str {
+    match capability {
+        RuntimeCapability::TtlWrite => " — ttl_write unavailable",
+        RuntimeCapability::RawTcpFakeSend => " — raw_tcp_fake_send unavailable",
+        RuntimeCapability::RawUdpFragmentation => " — raw_udp_fragmentation unavailable",
+        RuntimeCapability::ReplacementSocket => " — replacement_socket unavailable",
+        RuntimeCapability::RootHelperAvailable => " — root_helper_available unavailable",
+        RuntimeCapability::VpnProtectCallback => " — vpn_protect_callback unavailable",
+        RuntimeCapability::NetworkBinding => " — network_binding unavailable",
+    }
 }
 
 struct AuditSignals {
@@ -424,7 +649,15 @@ impl ExecutionStageRunner for StrategyTcpRunner {
         let baseline_ech_capable = baseline_supports_ech_candidates(&baseline_execution.results);
         let fake_ttl_available = probe_fake_ttl_capability();
         let tcp_fast_open_available = probe_tcp_fast_open_capability();
-        tracing::info!(fake_ttl_available, tcp_fast_open_available, "strategy probe: capabilities probed");
+        let ipfrag_caps = probe_ip_fragmentation_capabilities();
+        tracing::info!(
+            fake_ttl_available,
+            tcp_fast_open_available,
+            tcp_repair = ipfrag_caps.tcp_repair,
+            raw_ipv4 = ipfrag_caps.raw_ipv4,
+            raw_ipv6 = ipfrag_caps.raw_ipv6,
+            "strategy probe: capabilities probed"
+        );
         if let Some(ref failure) = runtime.strategy.baseline_failure {
             if let Some(timeout) = compute_rst_adaptive_timeout(failure) {
                 tracing::info!(adaptive_timeout_ms = timeout.as_millis(), "strategy probe: adaptive timeout (rst)");
@@ -444,12 +677,15 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 pending_tcp_specs.truncate(remaining);
             }
         }
-        // Round 1 qualifier: test each candidate against 1 domain first.
-        // Eliminates candidates that fail completely before the full-matrix run.
+        // Stratified pilot evaluation: test each candidate against a small,
+        // representative target slice before the full-matrix run.
+        // This avoids permanently pruning candidates based on a single domain.
         // Candidates are tested in parallel batches of up to 3 to reduce wall-clock time.
         // Skipped when max_candidates is set (quick scan) since the list is already small.
         if strategy_plan.max_candidates.is_none() && domain_targets.len() > 1 {
-            let qualifier_targets = &domain_targets[..1];
+            let qualifier_targets = stratified_pilot_targets(&domain_targets);
+            let pilot_target_count = qualifier_targets.len();
+            let qualifier_targets = qualifier_targets.as_slice();
             let mut qualified_specs: Vec<StrategyCandidateSpec> = Vec::with_capacity(pending_tcp_specs.len());
             let mut eliminated_count = 0usize;
 
@@ -459,6 +695,10 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                 let pass_through = spec.id == "baseline_current"
                     || (spec.eligibility == CandidateEligibility::RequiresEchCapability && !baseline_ech_capable)
                     || (spec.requires_fake_ttl && !fake_ttl_available)
+                    || spec
+                        .requires_capabilities
+                        .iter()
+                        .any(|&capability| !capability_available(capability, fake_ttl_available, ipfrag_caps))
                     || (spec.requires_tcp_fast_open && !tcp_fast_open_available);
                 if pass_through {
                     qualified_specs.push(spec);
@@ -535,9 +775,10 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             } else {
                 let qualified_count = qualified_specs.len();
                 tracing::info!(
+                    pilot_targets = pilot_target_count,
                     qualified = qualified_count,
                     eliminated = eliminated_count,
-                    "strategy probe: Round 1 qualifier complete"
+                    "strategy probe: stratified pilot evaluation complete"
                 );
                 pending_tcp_specs = qualified_specs;
             }
@@ -612,6 +853,13 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                         Some((ECH_ELIGIBILITY_RATIONALE, ""))
                     } else if spec.requires_fake_ttl && !fake_ttl_available {
                         Some((FAKE_TTL_ELIGIBILITY_RATIONALE, " — TTL manipulation unavailable"))
+                    } else if let Some(capability) = spec
+                        .requires_capabilities
+                        .iter()
+                        .copied()
+                        .find(|&capability| !capability_available(capability, fake_ttl_available, ipfrag_caps))
+                    {
+                        Some((missing_capability_rationale(&spec), capability_suffix(capability)))
                     } else if spec.requires_tcp_fast_open && !tcp_fast_open_available {
                         Some((TCP_FAST_OPEN_ELIGIBILITY_RATIONALE, " — TCP Fast Open unavailable"))
                     } else {
@@ -668,26 +916,26 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                     any_cancelled = true;
                     continue;
                 }
-                if execution.summary.family == "hostfake"
-                    && execution.summary.succeeded_targets == execution.summary.total_targets
-                {
+                let mut summary = execution.summary;
+                annotate_emitter_execution(&mut summary, &spec, fake_ttl_available, ipfrag_caps);
+                if summary.family == "hostfake" && summary.succeeded_targets == summary.total_targets {
                     hostfake_family_succeeded = true;
                 }
-                let failed = execution.summary.outcome == "failed";
+                let failed = summary.outcome == "failed";
                 runtime.record_step(
                     plan,
                     self.phase(),
                     format!("Tested {}", spec.label),
                     Some(spec.label.to_string()),
-                    Some(execution.summary.outcome.clone()),
+                    Some(summary.outcome.clone()),
                     Some(strategy_probe_live_progress_with_targets(
                         StrategyProbeProgressLane::Tcp,
                         candidate_index,
                         tcp_candidate_total,
                         spec.id,
                         spec.label,
-                        execution.summary.succeeded_targets,
-                        execution.summary.total_targets,
+                        summary.succeeded_targets,
+                        summary.total_targets,
                     )),
                     RunnerArtifacts::from_results(
                         execution.results.clone(),
@@ -696,7 +944,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                         format!("Testing TCP candidate {}", spec.label),
                     ),
                 );
-                runtime.strategy.tcp_candidates.push(execution.summary);
+                runtime.strategy.tcp_candidates.push(summary);
                 executed_count += 1;
                 tcp_failure_tracker.lock().unwrap().record(spec.family, failed);
                 if tcp_failure_tracker.lock().unwrap().blocked_family().is_some() {
@@ -790,6 +1038,8 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 pending_quic_specs.truncate(max);
             }
         }
+        let fake_ttl_available = probe_fake_ttl_capability();
+        let ipfrag_caps = probe_ip_fragmentation_capabilities();
         let mut quic_family_succeeded = false;
         let mut quic_failure_tracker = FamilyFailureTracker::new(strategy_plan.suite.family_failure_threshold);
         while !pending_quic_specs.is_empty() {
@@ -831,6 +1081,28 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 );
                 continue;
             }
+            if let Some(capability) = spec
+                .requires_capabilities
+                .iter()
+                .copied()
+                .find(|&capability| !capability_available(capability, fake_ttl_available, ipfrag_caps))
+            {
+                let rationale = format!("{}{}", missing_capability_rationale(&spec), capability_suffix(capability));
+                let summary = skipped_candidate_summary(&spec, quic_targets.len(), 2, &rationale);
+                runtime.strategy.quic_candidates.push(summary.clone());
+                runtime.record_skipped_strategy_probe_candidate(
+                    plan,
+                    self.phase(),
+                    StrategyProbeProgressLane::Quic,
+                    candidate_index,
+                    quic_candidate_total,
+                    &summary.id,
+                    &summary.label,
+                    Some(summary.outcome.clone()),
+                    format!("Skipped {}", summary.label),
+                );
+                continue;
+            }
 
             let execution = execute_quic_candidate(
                 &spec,
@@ -842,13 +1114,15 @@ impl ExecutionStageRunner for StrategyQuicRunner {
             if execution.cancelled {
                 return RunnerOutcome::Cancelled;
             }
-            if execution.summary.family == "quic_burst"
-                && execution.summary.succeeded_targets == execution.summary.total_targets
-                && execution.summary.total_targets > 0
+            let mut summary = execution.summary;
+            annotate_emitter_execution(&mut summary, &spec, fake_ttl_available, ipfrag_caps);
+            if summary.family == "quic_burst"
+                && summary.succeeded_targets == summary.total_targets
+                && summary.total_targets > 0
             {
                 quic_family_succeeded = true;
             }
-            let failed = execution.summary.outcome == "failed";
+            let failed = summary.outcome == "failed";
             // "QUIC disabled" is a baseline candidate: failure is the expected
             // outcome (site unreachable without QUIC), so log at info, not warn.
             let log_level = if failed && spec.id != "quic_disabled" { "warn" } else { "info" };
@@ -857,15 +1131,15 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 self.phase(),
                 format!("Tested {}", spec.label),
                 Some(spec.label.to_string()),
-                Some(execution.summary.outcome.clone()),
+                Some(summary.outcome.clone()),
                 Some(strategy_probe_live_progress_with_targets(
                     StrategyProbeProgressLane::Quic,
                     candidate_index,
                     quic_candidate_total,
                     spec.id,
                     spec.label,
-                    execution.summary.succeeded_targets,
-                    execution.summary.total_targets,
+                    summary.succeeded_targets,
+                    summary.total_targets,
                 )),
                 RunnerArtifacts::from_results(
                     execution.results.clone(),
@@ -874,7 +1148,7 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                     format!("Testing QUIC candidate {}", spec.label),
                 ),
             );
-            runtime.strategy.quic_candidates.push(execution.summary);
+            runtime.strategy.quic_candidates.push(summary);
             if runtime.is_past_deadline() {
                 tracing::warn!("strategy probe: QUIC suite deadline-terminated");
                 break;
@@ -956,11 +1230,16 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
             &recommendation,
             audit_assessment.as_ref(),
         );
+        let pilot_bucket_labels = stratified_pilot_targets(&plan.request.domain_targets)
+            .into_iter()
+            .map(|target| pilot_bucket_label(&target))
+            .collect();
         let is_dns_tampered = runtime.strategy.dns_override_domain_targets.is_some();
         let is_partial = runtime.strategy.tcp_candidates.len() < strategy_plan.suite.tcp_candidates.len()
             || runtime.strategy.quic_candidates.len() < strategy_plan.suite.quic_candidates.len();
         runtime.strategy.strategy_probe_report = Some(StrategyProbeReport {
             suite_id: strategy_plan.suite_id.clone(),
+            methodology_version: STRATEGY_PROBE_METHODOLOGY_VERSION.to_string(),
             tcp_candidates: runtime.strategy.tcp_candidates.clone(),
             quic_candidates: runtime.strategy.quic_candidates.clone(),
             recommendation,
@@ -971,6 +1250,7 @@ impl ExecutionStageRunner for StrategyRecommendationRunner {
             },
             audit_assessment,
             target_selection: plan.request.strategy_probe.as_ref().and_then(|p| p.target_selection.clone()),
+            pilot_bucket_labels,
             domain_strategy_seeds: Vec::new(),
         });
         runtime.strategy.summary = Some(summary);

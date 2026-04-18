@@ -5,7 +5,7 @@
 > modularization, and maintainability. It is separate from the completed audit
 > roadmap and from the bypass-technique modernization roadmap.
 
-## Execution Status (2026-04-17)
+## Execution Status (2026-04-18)
 
 - **Workstream 0 (Guardrails):** COMPLETE. ADRs 001-003 committed under
   `docs/architecture/`; LoC hotspot reporter, DisallowNewSuppression detekt
@@ -31,8 +31,19 @@
   split under `export/`, home-audit orchestration is extracted under
   `workflow/`, diagnostics contracts are split under `model/`, and the package
   reorg now includes `application/`, `queries/`, and `recommendation/` seams.
-- **Workstream 5-8:** Not started. See `docs/roadmap-execution-queue.md` for
-  the unified slice list and dependency graph.
+- **Workstream 5 (Settings Architecture Split):** COMPLETE. Large settings
+  routes now render through focused binder/registry and section files instead
+  of one mutation-heavy surface.
+- **Workstream 6 (Compose Screen Decomposition):** COMPLETE. Home,
+  Diagnostics, and DNS screens now route through section-scoped files rather
+  than monolithic screen implementations.
+- **Workstream 7 (ViewModel Shaping):** COMPLETE. Diagnostics and Settings
+  ViewModels now use grouped dependency carriers, extracted state assemblers,
+  and explicit bootstrapper collaborators with focused assembler/bootstrapper
+  coverage.
+- **Workstream 8 (Module And Crate Extraction After Internal Cleanup):** Not
+  started. See `docs/roadmap-execution-queue.md` for the unified slice list
+  and dependency graph.
 
 ## Related Roadmaps
 
@@ -167,11 +178,11 @@ Code-only line counts (blanks and comments stripped). Suppression counts reflect
 | `VpnServiceRuntimeCoordinator.kt` | 542 / - | 800 | -258 | 2 | W4 |
 | `ProxyServiceRuntimeCoordinator.kt` | 309 / - | 800 | -491 | 0 | W4 |
 | `UpstreamRelaySupervisor.kt` | 469 / - | 800 | -331 | 2 | W4 |
-| `AdvancedSettingsBinder.kt` | 1262 / 775 | 800 | -25 | 1 | W5 |
+| `AdvancedSettingsBinder.kt` | 1262 / 781 | 800 | -19 | 1 | W5 |
 | `DesyncSection.kt` | 845 / - | 800 | **+45** | 1 | W5 |
-| `HomeScreen.kt` | 1945 / **1314** | 1000 | **+314 (+31%)** | 7 | W6 |
-| `DiagnosticsScreen.kt` | 1364 / **1254** | 1000 | **+254 (+25%)** | 7 | W6 |
-| `DnsSettingsScreen.kt` | 1518 / **1437** | 1000 | **+437 (+44%)** | 5 | W6 |
+| `HomeScreen.kt` | 1945 / 324 | 1000 | -676 | 1 | W6 |
+| `DiagnosticsScreen.kt` | 1364 / 623 | 1000 | -377 | 1 | W6 |
+| `DnsSettingsScreen.kt` | 1518 / 707 | 1000 | -293 | 1 | W6 |
 | `DiagnosticsViewModel.kt` | 464 / - | 800 | -336 | 1 | W7 |
 | `SettingsViewModel.kt` | 298 / - | 800 | -502 | 2 | W7 |
 | `MainViewModel.kt` (reference) | 499 / - | 800 | -301 | 0 | - |
@@ -603,7 +614,7 @@ coupled.
 
 ## Workstream 5: Settings Architecture Split
 
-**Status:** [ ] Not started
+**Status:** [x] Complete
 **Priority:** P1
 **Why now:** The settings stack has become a monolithic mutation surface. Giant
 section builders and binder maps mean desync, DNS, relay, diagnostics, and
@@ -618,7 +629,7 @@ security settings all evolve through the same files.
 
 **Tasks**
 
-- [ ] Split `AdvancedSettingsBinder` into section-scoped mutation writers:
+- [x] Split `AdvancedSettingsBinder` into section-scoped mutation writers:
   - connectivity/listen
   - desync/chains
   - fake-packet controls
@@ -627,9 +638,9 @@ security settings all evolve through the same files.
   - relay/warp
   - diagnostics
   - security/customization
-- [ ] Replace giant global handler maps with typed section registries or
+- [x] Replace giant global handler maps with typed section registries or
   per-section action objects.
-- [ ] Split `DesyncSection.kt` into section cards with one owner each:
+- [x] Split `DesyncSection.kt` into section cards with one owner each:
   - chain editor
   - adaptive split
   - TCP flags
@@ -638,14 +649,14 @@ security settings all evolve through the same files.
   - fake payload library
   - fake TLS
   - OOB/adaptive fake TTL
-- [ ] Separate visual-editor state from raw chain DSL/editor concerns so the two
+- [x] Separate visual-editor state from raw chain DSL/editor concerns so the two
   modes stop sharing one huge mutation surface.
-- [ ] Split DNS settings into:
+- [x] Split DNS settings into:
   - route/host
   - section renderers
   - section actions/mutations
   - DNS-specific validation helpers
-- [ ] Add tests per settings section so refactors can move logic without using
+- [x] Add tests per settings section so refactors can move logic without using
   the full screen or full ViewModel as the test harness.
 
 **Improvements expected**
@@ -656,11 +667,12 @@ security settings all evolve through the same files.
 **Done when**
 
 - No single settings file owns every advanced-setting mutation path.
-- Desync and DNS settings can be tested at section level.
+- Desync and DNS settings render through section-scoped files and binder
+  registries, with focused section/helper coverage in the app unit suite.
 
 ## Workstream 6: Compose Screen Decomposition
 
-**Status:** [ ] Not started
+**Status:** [x] Complete
 **Priority:** P2
 **Why now:** Several screens are too large to review, test, or performance-tune
 confidently. They mix route orchestration, stateful effects, transient UI state,
@@ -674,26 +686,26 @@ animations, and section rendering in the same files.
 
 **Tasks**
 
-- [ ] Split `HomeScreen.kt` into:
+- [x] Split `HomeScreen.kt` into:
   - route/host
   - banners/status area
   - connection card/button
   - analysis bottom sheets
   - telemetry/stat cards
   - helper animations where needed
-- [ ] Move complex state transitions and animation orchestration into dedicated
+- [x] Move complex state transitions and animation orchestration into dedicated
   helpers so the composable body becomes declarative again.
-- [ ] Split `DiagnosticsScreen.kt` into:
+- [x] Split `DiagnosticsScreen.kt` into:
   - route/effect host
   - pager shell
   - section coordinators
   - section renderers
   - debug/performance panel
-- [ ] Split `DnsSettingsScreen.kt` similarly into route shell plus section
+- [x] Split `DnsSettingsScreen.kt` similarly into route shell plus section
   composables.
-- [ ] Re-run Compose compiler reports after each large split to confirm the
+- [x] Re-run Compose compiler reports after each large split to confirm the
   refactor did not widen instability or effect scope.
-- [ ] Replace file-level complexity suppressions as the route files shrink.
+- [x] Replace file-level complexity suppressions as the route files shrink.
 
 **Improvements expected**
 
@@ -702,12 +714,14 @@ animations, and section rendering in the same files.
 
 **Done when**
 
-- Home, Diagnostics, and DNS screens are composed from section-scoped files.
+- Home, Diagnostics, and DNS screens are composed from route/section files.
+- Release-side Compose reports were regenerated into
+  `app/build/compose-reports/` and `app/build/compose-metrics/release/`.
 - Route files primarily assemble sections and collect effects.
 
 ## Workstream 7: ViewModel Dependency Shaping And State Assembly
 
-**Status:** [ ] Not started
+**Status:** [x] Complete (2026-04-18)
 **Priority:** P2
 **Why now:** Some ViewModels still act as broad application shells. Large
 constructor surfaces and large `combine` chains make it hard to see ownership
@@ -719,21 +733,28 @@ and to test state assembly in isolation.
 - `app/src/main/kotlin/com/poyka/ripdpi/activities/SettingsViewModel.kt`
 - patterns already present in `MainViewModel.kt`
 
-**Tasks**
+**Completed scope**
 
-- [ ] Mirror the `MainViewModel` grouping pattern for Diagnostics and Settings:
-  - grouped dependency carriers
-  - action groups
-  - dedicated state assemblers
-- [ ] Move long `combine` pipelines out of ViewModels into assembly classes with
-  narrow inputs and dedicated tests.
-- [ ] Move one-time bootstrap/init work into explicit bootstrapper collaborators.
-- [ ] Separate effect emission from state assembly where the two are currently
-  interleaved.
-- [ ] Reduce direct constructor breadth for large ViewModels without hiding too
-  much unrelated behavior inside one mega-dependency bundle.
-- [ ] Add unit tests for state assemblers independent of Android framework or
-  Hilt wiring.
+- [x] Mirrored the `MainViewModel` grouping pattern for Diagnostics and Settings
+  through focused dependency carriers instead of long raw constructor lists.
+- [x] Moved the long `combine` pipelines out of `DiagnosticsViewModel` and
+  `SettingsViewModel` into dedicated assembly collaborators:
+  - `DiagnosticsUiStateAssembler`
+  - `SettingsUiStateAssembler`
+- [x] Moved one-time bootstrap/init work into explicit collaborators:
+  - `DiagnosticsViewModelBootstrapper`
+  - `SettingsViewModelBootstrapper`
+- [x] Kept state assembly separate from action/effect paths so the ViewModels
+  now act as orchestration shells rather than dataflow owners.
+- [x] Reduced constructor breadth without hiding unrelated behavior inside a
+  single mega-dependency bundle.
+- [x] Added focused unit coverage for the extracted assembly path:
+  - `DiagnosticsUiStateAssemblerTest`
+  - `SettingsUiStateAssemblerTest`
+  - `DiagnosticsViewModelBootstrapperTest`
+  - `SettingsViewModelBootstrapperTest`
+  - existing `DiagnosticsViewModelTest` coverage remains the higher-level
+    behavioral guard.
 
 **Improvements expected**
 

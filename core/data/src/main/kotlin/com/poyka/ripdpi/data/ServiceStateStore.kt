@@ -24,6 +24,16 @@ sealed class ServiceEvent {
     ) : ServiceEvent()
 }
 
+object NetworkHandoverStates {
+    const val Observed = "observed"
+    const val WaitingForNetwork = "waiting_for_network"
+    const val DeferredCaptivePortal = "deferred_captive_portal"
+    const val Restarting = "restarting"
+    const val RetryScheduled = "retry_scheduled"
+    const val Revalidated = "revalidated"
+    const val Failed = "failed"
+}
+
 data class ServiceTelemetrySnapshot(
     val mode: Mode? = null,
     val status: AppStatus = AppStatus.Halted,
@@ -32,6 +42,7 @@ data class ServiceTelemetrySnapshot(
     val relayTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "relay"),
     val warpTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "warp"),
     val tunnelTelemetry: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "tunnel"),
+    val networkHandoverState: String? = null,
     val runtimeFieldTelemetry: RuntimeFieldTelemetry = RuntimeFieldTelemetry(),
     val serviceStartedAt: Long? = null,
     val restartCount: Int = 0,

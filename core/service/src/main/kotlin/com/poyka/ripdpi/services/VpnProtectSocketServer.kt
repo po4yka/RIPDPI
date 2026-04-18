@@ -6,6 +6,7 @@ import android.net.LocalSocketAddress
 import android.net.VpnService
 import android.system.Os
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.data.FailureReason
 import java.io.File
 import java.io.FileDescriptor
 import java.io.IOException
@@ -26,6 +27,8 @@ import java.io.IOException
 internal class VpnProtectSocketServer(
     private val vpnService: VpnService,
     private val socketPath: String,
+    private val protectFailureMonitor: VpnProtectFailureMonitor,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private companion object {
         private val log = Logger.withTag("ProtectSocket")
@@ -81,8 +84,8 @@ internal class VpnProtectSocketServer(
             client.use { socket ->
                 val bytesRead = socket.inputStream.read(ByteArray(1))
                 if (bytesRead <= 0) return
-                protectAncillaryFds(socket)
-                socket.outputStream.write(byteArrayOf(0))
+                val allProtected = protectAncillaryFds(socket)
+                socket.outputStream.write(byteArrayOf(if (allProtected) 0 else 1))
                 socket.outputStream.flush()
             }
         } catch (e: IOException) {
@@ -90,16 +93,97 @@ internal class VpnProtectSocketServer(
         }
     }
 
-    private fun protectAncillaryFds(socket: LocalSocket) {
-        val fds: Array<FileDescriptor> = socket.ancillaryFileDescriptors ?: return
+    private fun protectAncillaryFds(socket: LocalSocket): Boolean {
+        val fds: Array<FileDescriptor> = socket.ancillaryFileDescriptors ?: return true
+        var allProtected = true
         for (fd in fds) {
             val fdInt = extractFdInt(fd)
             if (fdInt >= 0) {
-                vpnService.protect(fdInt)
-                log.d { "protected fd=$fdInt" }
+                val protectResult =
+                    runCatching { vpnService.protect(fdInt) }
+                        .fold(
+                            onSuccess = { protected ->
+                                if (protected) {
+                                    ProtectResult.Protected
+                                } else {
+                                    ProtectResult.Rejected("VpnService.protect() returned false")
+                                }
+                            },
+                            onFailure = { error ->
+                                ProtectResult.Failed(
+                                    reason =
+                                        when (error) {
+                                            is SecurityException -> {
+                                                FailureReason.PermissionLost("VPN")
+                                            }
+
+                                            else -> {
+                                                FailureReason.NativeError(
+                                                    "VpnService.protect() failed for fd=$fdInt: ${error.message ?: "unknown error"}",
+                                                )
+                                            }
+                                        },
+                                    detail =
+                                        error.message ?: "VpnService.protect() threw ${error::class.java.simpleName}",
+                                )
+                            },
+                        )
+                when (protectResult) {
+                    ProtectResult.Protected -> {
+                        log.d { "protected fd=$fdInt" }
+                    }
+
+                    is ProtectResult.Rejected -> {
+                        reportProtectFailure(
+                            fd = fdInt,
+                            reason = FailureReason.PermissionLost("VPN"),
+                            detail = protectResult.detail,
+                        )
+                        allProtected = false
+                    }
+
+                    is ProtectResult.Failed -> {
+                        reportProtectFailure(
+                            fd = fdInt,
+                            reason = protectResult.reason,
+                            detail = protectResult.detail,
+                        )
+                        allProtected = false
+                    }
+                }
             }
             runCatching { Os.close(fd) }
         }
+        return allProtected
+    }
+
+    private fun reportProtectFailure(
+        fd: Int,
+        reason: FailureReason,
+        detail: String,
+    ) {
+        protectFailureMonitor.report(
+            VpnProtectFailureEvent(
+                fd = fd,
+                reason = reason,
+                detail = detail,
+                detectedAt = clock(),
+            ),
+        )
+        log.e { "vpn protect failed for fd=$fd: $detail" }
+    }
+
+    private sealed interface ProtectResult {
+        data object Protected : ProtectResult
+
+        data class Rejected(
+            val detail: String,
+        ) : ProtectResult
+
+        data class Failed(
+            val reason: FailureReason,
+            val detail: String,
+        ) : ProtectResult
     }
 
     @Suppress("DiscouragedPrivateApi")

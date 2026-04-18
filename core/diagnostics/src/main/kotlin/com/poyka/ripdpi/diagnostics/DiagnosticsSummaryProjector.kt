@@ -78,10 +78,22 @@ class DiagnosticsSummaryProjector
         private fun buildMetadataLines(report: DiagnosticsSessionProjection?): List<String> =
             buildList {
                 report?.strategyProbeReport?.let { strategyProbe ->
+                    val recommendedTcp =
+                        strategyProbe.tcpCandidates.firstOrNull { candidate ->
+                            candidate.id == strategyProbe.recommendation.tcpCandidateId
+                        }
+                    val recommendedQuic =
+                        strategyProbe.quicCandidates.firstOrNull { candidate ->
+                            candidate.id == strategyProbe.recommendation.quicCandidateId
+                        }
                     add("strategySuite=${strategyProbe.suiteId}")
+                    add("strategyMethodology=${strategyProbe.methodologyVersion}")
                     add("strategyCompletionKind=${strategyProbe.completionKind.name}")
                     add("strategyTcpCandidates=${strategyProbe.tcpCandidates.size}")
                     add("strategyQuicCandidates=${strategyProbe.quicCandidates.size}")
+                    if (strategyProbe.pilotBucketLabels.isNotEmpty()) {
+                        add("strategyPilotBuckets=${strategyProbe.pilotBucketLabels.joinToString("|")}")
+                    }
                     strategyProbe.targetSelection?.let { selection ->
                         add("strategyTargetCohort=${selection.cohortId}")
                         add("strategyTargetCohortLabel=${selection.cohortLabel}")
@@ -93,6 +105,24 @@ class DiagnosticsSummaryProjector
                         add("strategyConfidenceScore=${assessment.confidence.score}")
                         add("strategyMatrixCoverage=${assessment.coverage.matrixCoveragePercent}")
                         add("strategyWinnerCoverage=${assessment.coverage.winnerCoveragePercent}")
+                    }
+                    recommendedTcp?.let { tcp ->
+                        add("strategyRecommendedTcpEmitterTier=${tcp.emitterTier.name}")
+                        if (tcp.exactEmitterRequiresRoot) {
+                            add("strategyRecommendedTcpRequiresRoot=true")
+                        }
+                        if (tcp.emitterDowngraded) {
+                            add("strategyRecommendedTcpDowngraded=true")
+                        }
+                    }
+                    recommendedQuic?.let { quic ->
+                        add("strategyRecommendedQuicEmitterTier=${quic.emitterTier.name}")
+                        if (quic.exactEmitterRequiresRoot) {
+                            add("strategyRecommendedQuicRequiresRoot=true")
+                        }
+                        if (quic.emitterDowngraded) {
+                            add("strategyRecommendedQuicDowngraded=true")
+                        }
                     }
                 }
                 report?.engineAnalysisVersion?.let { add("engineAnalysisVersion=$it") }

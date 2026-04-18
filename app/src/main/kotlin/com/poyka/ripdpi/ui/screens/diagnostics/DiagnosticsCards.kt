@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
@@ -1154,7 +1155,14 @@ internal fun ShareActionCard(
     variant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
     enabled: Boolean = true,
 ) {
-    RipDpiCard(modifier = modifier) {
+    RipDpiCard(
+        modifier =
+            modifier.semantics {
+                if (!enabled) {
+                    disabled()
+                }
+            },
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

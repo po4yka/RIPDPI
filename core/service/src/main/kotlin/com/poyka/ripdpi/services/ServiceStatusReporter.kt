@@ -30,6 +30,7 @@ internal class ServiceStatusReporter(
         newStatus: ServiceStatus,
         activePolicy: ActiveConnectionPolicy?,
         consumePendingNetworkHandoverClass: () -> String?,
+        currentNetworkHandoverState: () -> String?,
         tunnelRecoveryRetryCount: Long,
         relayTelemetry: NativeRuntimeSnapshot? = null,
         warpTelemetry: NativeRuntimeSnapshot? = null,
@@ -93,6 +94,7 @@ internal class ServiceStatusReporter(
                 relayTelemetry = enrichRuntimeSnapshot(effectiveRelayTelemetry),
                 warpTelemetry = enrichRuntimeSnapshot(effectiveWarpTelemetry),
                 tunnelTelemetry = enrichRuntimeSnapshot(tunnelTelemetry),
+                networkHandoverState = currentNetworkHandoverState(),
                 runtimeFieldTelemetry =
                     deriveRuntimeFieldTelemetry(
                         telemetryNetworkFingerprintHash =
@@ -115,6 +117,7 @@ internal class ServiceStatusReporter(
     fun reportTelemetry(
         activePolicy: ActiveConnectionPolicy?,
         consumePendingNetworkHandoverClass: () -> String?,
+        currentNetworkHandoverState: () -> String?,
         proxyTelemetry: NativeRuntimeSnapshot,
         relayTelemetry: NativeRuntimeSnapshot,
         warpTelemetry: NativeRuntimeSnapshot,
@@ -140,6 +143,7 @@ internal class ServiceStatusReporter(
                 relayTelemetry = enrichRuntimeSnapshot(relayTelemetry),
                 warpTelemetry = enrichRuntimeSnapshot(warpTelemetry),
                 tunnelTelemetry = enrichRuntimeSnapshot(enrichedTunnelTelemetry),
+                networkHandoverState = currentNetworkHandoverState(),
                 runtimeFieldTelemetry =
                     deriveRuntimeFieldTelemetry(
                         telemetryNetworkFingerprintHash =

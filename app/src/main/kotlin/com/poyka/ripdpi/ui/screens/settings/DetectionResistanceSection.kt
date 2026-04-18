@@ -46,6 +46,11 @@ internal fun LazyListScope.detectionResistanceSection(
                 uiState = uiState,
                 modifier = Modifier.padding(bottom = spacing.sm),
             )
+            if (!uiState.isVpn) {
+                DetectionResistanceProxyModeNotice(
+                    modifier = Modifier.padding(bottom = spacing.sm),
+                )
+            }
             RipDpiCard(variant = RipDpiCardVariant.Outlined) {
                 AdvancedDropdownSetting(
                     title = stringResource(R.string.detection_resistance_tls_fingerprint_title),
@@ -262,6 +267,32 @@ private fun DetectionResistanceSummaryCard(
             style = type.caption,
             color = colors.mutedForeground,
         )
+    }
+}
+
+@Composable
+private fun DetectionResistanceProxyModeNotice(modifier: Modifier = Modifier) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    val spacing = RipDpiThemeTokens.spacing
+
+    RipDpiCard(modifier = modifier, variant = RipDpiCardVariant.Outlined) {
+        StatusIndicator(
+            label = stringResource(R.string.detection_resistance_proxy_notice_title),
+            tone = StatusIndicatorTone.Warning,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            Text(
+                text = stringResource(R.string.detection_resistance_proxy_notice_body),
+                style = type.secondaryBody,
+                color = colors.foreground,
+            )
+            Text(
+                text = stringResource(R.string.detection_resistance_quic_migrate_vpn_only),
+                style = type.caption,
+                color = colors.mutedForeground,
+            )
+        }
     }
 }
 

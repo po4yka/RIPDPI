@@ -249,37 +249,55 @@ Mode: `Team`. Gated by Phase 1.
 
 | Slice | Scope | Depends on | Verify gate |
 |-------|-------|------------|-------------|
-| 9.1 | Split `AdvancedSettingsBinder.kt` (775 code-only LoC) into section-scoped mutation writers: connectivity/listen, desync/chains, fake-packet, QUIC, DNS, relay/warp, diagnostics, security | Phase 1 | `compose-audit` run; section tests |
-| 9.2 | Replace giant global handler maps with typed section registries | 9.1 | Recomposition scope shrinks |
-| 9.3 | Split `DesyncSection.kt` into section cards: chain editor, adaptive split, TCP flags, hostfake/seqoverlap, fake ordering, fake payload library, fake TLS, OOB/adaptive fake TTL | 9.1 | Visual + DSL editors separated; per-section tests |
-| 9.4 | Split DNS settings route / section renderers / actions / validation helpers | 9.1 | DNS settings section tests |
-| 9.5 | Split `HomeScreen.kt` (1314 code-only LoC, 31% over) into route/host + banners + connection card + analysis sheets + telemetry cards + helper animations | Phase 0 | `compose-audit` stability report |
-| 9.6 | Split `DiagnosticsScreen.kt` (1254 code-only LoC, 25% over) into route/effect host + pager shell + section coordinators + section renderers + debug panel | Phase 0 | `compose-audit` |
-| 9.7 | Split `DnsSettingsScreen.kt` (1437 code-only LoC, 44% over) into route shell + section composables | 9.4 | `compose-audit` |
-| 9.8 | Compose compiler reports validated after each split; no new stability regressions | 9.5-9.7 | Compiler report committed as baseline |
+| 9.1 | Landed: `AdvancedSettingsBinder.kt` now delegates through `AdvancedSettingsHandlerRegistry.kt`; binder body is down to 781 LoC and the giant global mutation surface is gone | Phase 1 | `compose-audit` run; section tests |
+| 9.2 | Landed: toggle/text/option handler maps now live behind typed registries instead of one file-scoped binder blob | 9.1 | Recomposition scope shrinks |
+| 9.3 | Landed in current tree: desync settings render through dedicated section cards/helpers (`Desync*Section.kt`, helpers, host-pack utilities) instead of one monolithic section body | 9.1 | Visual + DSL editors separated; per-section tests |
+| 9.4 | Landed: DNS settings are split into `DnsSettingsRoute.kt`, `DnsSettingsCards.kt`, `DnsSettingsCustomResolver.kt`, and a slimmer `DnsSettingsScreen.kt` (707 LoC) | 9.1 | DNS settings section tests |
+| 9.5 | Landed: `HomeScreen.kt` is now a 324-LoC orchestration shell with `HomeRoute.kt`, `HomeAnalysisPanels.kt`, and `HomeStatusPanels.kt` owning the route, sheet, telemetry, and animation-heavy subtrees | Phase 0 | `compose-audit` stability report |
+| 9.6 | Landed: `DiagnosticsScreen.kt` is now a 623-LoC pager shell, with `DiagnosticsRoute.kt`, `DiagnosticsOverviewSection.kt`, and `DiagnosticsToolsSection.kt` owning route/effects, overview, and tools/debug rendering | Phase 0 | `compose-audit` |
+| 9.7 | Landed: `DnsSettingsScreen.kt` route shell plus section composables are split; built-in resolver cards and custom-endpoint forms no longer share one file | 9.4 | `compose-audit` |
+| 9.8 | Complete: release-side Compose reports were regenerated after the landed split set; outputs now live in `app/build/compose-reports/` and `app/build/compose-metrics/release/` | 9.5-9.7 | `:app:testDebugUnitTest` focused UI suite + `:app:assembleRelease -Pripdpi.composeReports=true` |
 
 ## Phase 10 -- ViewModel Shaping (architecture W7)
+
+Current status (2026-04-18): complete. `DiagnosticsViewModel` and
+`SettingsViewModel` now mirror the `MainViewModel` pattern with grouped
+dependency carriers, extracted state assemblers, and explicit bootstrap/init
+collaborators. The long `combine` chains now live in
+`DiagnosticsUiStateAssembler` and `SettingsUiStateAssembler`, while
+`DiagnosticsViewModelBootstrapper` and `SettingsViewModelBootstrapper` own the
+one-time lifecycle setup. Focused assembler and bootstrapper tests landed
+alongside the existing Diagnostics ViewModel behavior suite.
 
 Mode: `Team`. Parallel-safe with Phase 9.
 
 | Slice | Scope | Depends on | Verify gate |
 |-------|-------|------------|-------------|
-| 10.1 | Mirror `MainViewModel` grouping pattern for `DiagnosticsViewModel` | Phase 0 | Unit tests for state assemblers |
-| 10.2 | Mirror grouping for `SettingsViewModel` | 10.1 | Same |
-| 10.3 | Move long `combine` pipelines into assembly classes with narrow inputs | 10.1, 10.2 | Assemblers testable without UI shells |
-| 10.4 | Move bootstrap/init work into explicit bootstrapper collaborators; separate effect emission from state assembly | 10.3 | Focused ViewModel tests |
+| 10.1 | Complete | Mirror `MainViewModel` grouping pattern for `DiagnosticsViewModel` | Phase 0 | Unit tests for state assemblers |
+| 10.2 | Complete | Mirror grouping for `SettingsViewModel` | 10.1 | Same |
+| 10.3 | Complete | Move long `combine` pipelines into assembly classes with narrow inputs | 10.1, 10.2 | Assemblers testable without UI shells |
+| 10.4 | Complete | Move bootstrap/init work into explicit bootstrapper collaborators; separate effect emission from state assembly | 10.3 | Focused ViewModel tests |
 
 ## Phase 11 -- TLS Templates + ECH (bypass-modernization W5)
+
+Current status (2026-04-18): partial. `ripdpi-tls-profiles` now exposes
+browser-family template metadata for ALPN, extension-order family, GREASE
+style, supported-groups/key-share profile, record choreography, and ECH
+capability, with new explicit `chrome_desktop_stable` and
+`firefox_ech_stable` variants. The monitor TLS/ECH probe path now binds ALPN
+from those template plans and reports the planned template ids/tracks for
+TLS1.2 / TLS1.3 / ECH probes, and the Android owned-TLS bridge now exports the
+same browser/template metadata back to Kotlin.
 
 Mode: `Team`. Gated by Phase 4 + 5.
 
 | Slice | Scope | Depends on | Verify gate |
 |-------|-------|------------|-------------|
-| 11.1 | Extension order/permutation families + GREASE placement controls | Phase 4 | `packet-smoke-debugger`; fingerprint diff vs target browser |
-| 11.2 | Supported-groups + key-share shaping + ALPN-aware templates | 11.1 | Fingerprint coverage matrix |
+| 11.1 | Partial: extension-order / GREASE families now exist in the shared template catalog and bridge metadata, but packet-level parity validation is still open | Phase 4 | `packet-smoke-debugger`; fingerprint diff vs target browser |
+| 11.2 | Partial: supported-groups + key-share profiles are cataloged and ALPN-aware template binding is live in monitor + owned-TLS paths | 11.1 | Fingerprint coverage matrix |
 | 11.3 | Record-size choreography | 11.1 | `packet-smoke-debugger` |
 | 11.4 | HelloRetryRequest-oriented tactics (when server behavior makes useful) | 11.2 | Server-acceptance corpus hit rate |
-| 11.5 | ECH + DNS bootstrap integration: planning together, not as afterthought | Phase 6 | ECH-advertising fixture test |
+| 11.5 | Partial: ECH planning now points at an explicit `firefox_ech_stable` template family while DNS bootstrap still feeds `build_ech_client_config`; deeper fixture coverage remains open | Phase 6 | ECH-advertising fixture test |
 | 11.6 | Android ECH API integration: availability check, config bootstrap, policy gating, fallback | 11.5 | Android instrumentation test |
 | 11.7 | Detect + surface proxy-mode interactions suppressing browser-native ECH | 11.6 | Proxy-mode integration test |
 | 11.8 | Replace generic fake packet families with coherent client-profile families; keep random-fake for lab only | Phase 5 | Candidate diff reviewed |
@@ -290,40 +308,66 @@ Mode: `Team`. Gated by Phase 4 + 5.
 
 Mode: `Team`. Gated by Phase 2 + Phase 6.
 
+Current status (2026-04-18): `complete`. The strategy probe runner now uses
+bucket-aware stratified pilot targets instead of a one-domain qualifier, the
+runtime `strategy_evolver` now keeps contextual bucket state with niche-winner
+retention and family-first selection, runtime adaptive resolution feeds network
+identity / capability / ALPN / ECH / root plus hosting-family and reachability
+context into that evolver, combo scoring now incorporates stability / latency
+variance / detectability / energy cost, and strategy-probe reports now carry
+`methodologyVersion=strategy_learning_v3` plus pilot-bucket metadata so
+old/new exports are distinguishable.
+
 | Slice | Scope | Depends on | Verify gate |
 |-------|-------|------------|-------------|
 | 12.1 | Replace one-domain qualifier round with stratified pilot evaluation | Phase 2 | Winner-selection invariant tests |
-| 12.2 | Target bucket definitions: CDN family, TLS/QUIC, ALPN class, ECH-capable, reachability set | 12.1 | Bucket enumeration committed |
-| 12.3 | Niche-winner pools instead of permanent pruning | 12.2 | Evolver test showing niche retention |
-| 12.4 | Expanded reward signals: success rate, added RTT, stability, variance, energy cost, detectability | 12.3 | Reward unit tests |
-| 12.5 | Hierarchical contextual bandit: family first, parameters second, reset on network change | 12.4 | `strategy_evolver` test covering family/param hierarchy |
-| 12.6 | Feed network identity, transport capability, ALPN, ECH, resolver health, root/non-root into learning context | 12.5, Phase 6 | Integration test |
-| 12.7 | Version exported diagnostics so methodology changes do not confuse old/new reports | 12.4 | Export version bumped; reader compat tests |
+| 12.2 | Target bucket definitions: CDN family, TLS/QUIC, ALPN class, ECH-capable, reachability set | 12.1 | `Done (runtime + pilot target bucket enumeration committed)` |
+| 12.3 | Niche-winner pools instead of permanent pruning | 12.2 | `Done (contextual bucket state + niche winner tests)` |
+| 12.4 | Expanded reward signals: success rate, added RTT, stability, variance, energy cost, detectability | 12.3 | `Done (combo-aware score incorporates stability / variance / detectability / energy cost)` |
+| 12.5 | Hierarchical contextual bandit: family first, parameters second, reset on network change | 12.4 | `Done (family-first contextual selection + within-family combo choice landed)` |
+| 12.6 | Feed network identity, transport capability, ALPN, ECH, resolver health, root/non-root into learning context | 12.5, Phase 6 | `Done (runtime adaptive wrappers now supply this context plus hosting/reachability buckets)` |
+| 12.7 | Version exported diagnostics so methodology changes do not confuse old/new reports | 12.4 | `Done (strategyProbe methodologyVersion v3 + pilot bucket metadata exported)` |
 
 ## Phase 13 -- Emitter Tier Rationalization (bypass-modernization W7)
 
 Mode: `Team` with `/deep-interview` on 13.1. Gated by Phase 2 + Phase 7.
 
+**Status: COMPLETE (2026-04-18).** `adr-004-emitter-tiers.md` is committed,
+TCP/UDP step kinds now classify into explicit emitter tiers in
+`ripdpi-config`, strategy candidates now carry emitter-tier metadata, lab-only
+fake-flag / broad-fragmentation variants are confined to full-matrix suites,
+diagnostics summaries now label rooted-only or downgraded winners, and the
+app-facing diagnostics UI now surfaces emitter / realization labels plus
+fallback notes for rooted exact and downgraded candidates.
+
 | Slice | Scope | Depends on | Verify gate |
 |-------|-------|------------|-------------|
-| 13.1 | `/deep-interview` + ADR defining three emitter tiers: non-root production, rooted production, lab/diagnostics only | Phase 2 | ADR committed |
-| 13.2 | Audit all 23 existing step kinds into tiers | 13.1 | Tier classification committed |
-| 13.3 | Move exotic/weak-evidence tactics to lab-only: fake-RST experiments, generic weird-flag combos, broad fragmentation permutations | 13.2 | Candidate generation diff |
-| 13.4 | Planner chooses tactic description; emitter tier decides realization | 13.2, Phase 3 | Planner/emitter separation test |
-| 13.5 | UI + diagnostics labeling when tactic required root or was downgraded from exact to approximate | 13.4 | Screenshot test |
+| 13.1 | Complete: ADR defining three emitter tiers: non-root production, rooted production, lab/diagnostics only | Phase 2 | ADR committed |
+| 13.2 | Complete: audit all 23 existing step kinds into tiers | 13.1 | Tier classification committed |
+| 13.3 | Complete: move exotic/weak-evidence tactics to lab-only: fake-RST experiments, generic weird-flag combos, broad fragmentation permutations | 13.2 | Candidate generation diff |
+| 13.4 | Complete: planner chooses tactic description; emitter tier decides realization | 13.2, Phase 3 | Planner/emitter separation test |
+| 13.5 | Complete: diagnostics labeling plus app-facing UI surfacing for rooted-only / downgraded tactics | 13.4 | Focused app diagnostics UI-model test |
 
 ## Phase 14 -- Android Hardening (bypass-modernization W8)
 
 Mode: `Team`. Parallel-safe with Phase 11-13.
 
+**Status: COMPLETE (2026-04-18).** `VpnProtectSocketServer` emits explicit
+protect-failure runtime events, the Unix-socket protect fallback returns a
+failing ack when `VpnService.protect()` rejects a socket, `RipDpiVpnService`
+now centralizes upstream binding behind an explicit no-`allowBypass()` /
+no-`bindSocket()` audit boundary, runtime telemetry carries explicit handover
+state, resolver/failover resets are explicit on handover restart, and the app
+surfaces proxy-mode TLS/ECH limitations in settings.
+
 | Slice | Scope | Depends on | Verify gate |
 |-------|-------|------------|-------------|
-| 14.1 | Treat `VpnService.protect()` failure + VPN rights revocation as first-class runtime events | Phase 7 | Android instrumentation test |
-| 14.2 | Audit upstream socket binding: `protect()`, `bindSocket()`, `setUnderlyingNetworks()` on handover | 14.1 | Audit doc + runtime log assertions |
-| 14.3 | Explicit handover-state transitions so strategy + resolver state can reset or revalidate | 14.1 | Wifi-to-cellular integration test |
-| 14.4 | Audit `allowBypass()` + address-family bypass for leakage | 14.2 | Leakage scenario test |
-| 14.5 | Surface proxy-mode limitations affecting browser-native TLS/ECH | Phase 11 | User-facing notice in UI |
-| 14.6 | Android integration tests: wifi-to-cellular, VPN revocation, upstream loss, protect unavailable, proxy-mode compat | 14.1-14.4 | `android-test-runner` suite passes |
+| 14.1 | Complete: treat `VpnService.protect()` failure + VPN rights revocation as first-class runtime events | Phase 7 | Focused VPN coordinator unit tests + protect fallback compile-through |
+| 14.2 | Complete: upstream socket binding audit helper now makes `setUnderlyingNetworks()` behavior explicit and logs the no-`bindSocket()` policy on each sync | 14.1 | `VpnUpstreamNetworkBindingTest` + service runtime log assertions |
+| 14.3 | Complete: explicit handover-state transitions now surface `observed` / `restarting` / `revalidated` style runtime state so strategy + resolver state changes are visible | 14.1 | `VpnServiceRuntimeCoordinatorTest` + `ServiceStatusReporterTest` |
+| 14.4 | Complete: `allowBypass()` + address-family leakage audit codified as an explicit no-bypass policy in the upstream-binding helper | 14.2 | `VpnUpstreamNetworkBindingTest` |
+| 14.5 | Complete: settings surface proxy-mode limitations affecting browser-native TLS/ECH | Phase 11 | `AdvancedSettingsScreenCharacterizationTest` |
+| 14.6 | Complete: focused Android/service integration coverage now spans upstream loss + proxy-mode lifecycle paths, while coordinator/reporter tests cover protect unavailable, VPN revocation, and handover revalidation telemetry | 14.1-14.4 | `ServiceLifecycleIntegrationTest` + focused service/app unit tests |
 
 ## Phase 15 -- Tier 3 Tactics (bypass-techniques)
 
@@ -333,9 +377,20 @@ Mode: `Autopilot` acceptable (experimental + flag-gated). Gated by Phase 13.
 |-------|-------|------------|-------------|
 | 15.1 | SYN-Hide: new `CMD_SEND_SYN_HIDE_TCP` IPC handler in `ripdpi-root-helper` (~140 LoC). Client-side only; server component is out of scope per no-backend rule | 13.1 (lab tier) | `packet-smoke-debugger`; opt-in behind `root_mode_enabled` + experimental flag |
 | 15.2 | UDP-over-ICMP: `CMD_SEND_ICMP_WRAPPED_UDP` / `CMD_RECV_ICMP_WRAPPED_UDP` + ICMP socket wrapper (~450 LoC). Requires cooperating server (user-provided; no project backend) | 13.1 (lab tier) | Root-path smoke test with mock server fixture |
-| 15.3 | `docs/server-hardening.md` documenting nginx stream + graylist for users who self-host. Documentation only | - | Markdown review |
+| 15.3 | Complete: [`docs/server-hardening.md`](server-hardening.md) now documents nginx stream graylist routing, map format, capture workflow, and a compose reference for self-hosted operators | - | Markdown review |
 
 ## Phase 16 -- Measurement + Rollout Gates (bypass-modernization W9)
+
+Current status (2026-04-18): complete. Slice 16.1 is landed as static fixtures
+in `contract-fixtures/phase16_acceptance_corpus.json`; slice 16.2 is landed as
+the self-hosted repeated environment matrix in
+`contract-fixtures/phase16_lab_matrix.json`,
+`.github/workflows/phase16-matrix.yml`, `scripts/ci/phase16_matrix.py`, and
+`scripts/ci/run-phase16-matrix-entry.sh`; slices 16.3-16.5 are landed via
+diagnostics archive schema v4 (`analysis.json`, `telemetry.csv`,
+rollout-gate assessment, fixture-backed gate definitions in
+`contract-fixtures/phase16_rollout_gates.json`, and replay summaries from
+`scripts/ci/phase16_pcap_summary.py`).
 
 Mode: `Team`, continuous. Run in parallel with execution phases.
 

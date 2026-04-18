@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ServiceStatus
@@ -43,6 +44,7 @@ internal interface VpnCoordinatorHost :
 
 internal interface HandoverAwareSession {
     var pendingNetworkHandoverClass: String?
+    var networkHandoverState: String?
     var lastSuccessfulHandoverFingerprintHash: String?
     var lastSuccessfulHandoverAt: Long
     var handoverRetryCount: Int
@@ -172,6 +174,7 @@ private class NetworkHandoverProcessor<TSession>(
     private val currentStatus: () -> ServiceStatus,
     private val isStopping: () -> Boolean,
     private val recordPendingClassification: (String) -> Unit,
+    private val updateHandoverState: (String?) -> Unit,
     private val performRestart: suspend (TSession, NetworkHandoverEvent, Long) -> String?,
     private val onExhaustedFailure: suspend (Exception) -> Unit,
     private val handoverCooldownMillis: Long,
@@ -184,6 +187,13 @@ private class NetworkHandoverProcessor<TSession>(
             scope.launch(dispatcher) {
                 networkHandoverMonitor.events.collect { event ->
                     recordPendingClassification(event.classification)
+                    updateHandoverState(
+                        if (event.isActionable) {
+                            NetworkHandoverStates.Observed
+                        } else {
+                            NetworkHandoverStates.WaitingForNetwork
+                        },
+                    )
                     if (!event.isActionable) {
                         return@collect
                     }
@@ -211,6 +221,7 @@ private class NetworkHandoverProcessor<TSession>(
         }
 
         if (currentFingerprint.captivePortalDetected) {
+            updateHandoverState(NetworkHandoverStates.DeferredCaptivePortal)
             Logger.i {
                 "${serviceLabel()}: captive portal detected, deferring handover until network is validated"
             }
@@ -223,9 +234,11 @@ private class NetworkHandoverProcessor<TSession>(
             session.lastSuccessfulHandoverFingerprintHash == fingerprintHash &&
                 now - session.lastSuccessfulHandoverAt < handoverCooldownMillis
         if (isCoolingDown) {
+            updateHandoverState(NetworkHandoverStates.Revalidated)
             return
         }
 
+        updateHandoverState(NetworkHandoverStates.Restarting)
         val restartAttempt = runCatching { performRestart(session, event, now) }
         val failure = restartAttempt.exceptionOrNull()
         if (failure == null) {
@@ -233,6 +246,7 @@ private class NetworkHandoverProcessor<TSession>(
             session.lastSuccessfulHandoverFingerprintHash = appliedFingerprintHash
             session.lastSuccessfulHandoverAt = now
             session.handoverRetryCount = 0
+            updateHandoverState(NetworkHandoverStates.Revalidated)
             return
         }
 
@@ -240,6 +254,7 @@ private class NetworkHandoverProcessor<TSession>(
         val retryDelayMillis = retryPolicy.nextRetryDelayMillis(retryCount)
         if (retryDelayMillis != null) {
             session.handoverRetryCount = retryCount + 1
+            updateHandoverState(NetworkHandoverStates.RetryScheduled)
             Logger.w {
                 "${serviceLabel()} handover failed (attempt ${retryCount + 1}), " +
                     "retrying in ${retryDelayMillis}ms"
@@ -261,6 +276,7 @@ private class NetworkHandoverProcessor<TSession>(
         Logger.e(error) {
             "Failed to restart ${serviceLabel()} after handover (exhausted retries)"
         }
+        updateHandoverState(NetworkHandoverStates.Failed)
         onExhaustedFailure(error)
     }
 }
@@ -337,6 +353,9 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             runtimeSession?.pendingNetworkHandoverClass = null
         }
     }
+    protected val currentNetworkHandoverState: () -> String? = {
+        runtimeSession?.networkHandoverState
+    }
 
     private val lifecycleRunner =
         RuntimeLifecycleRunner(
@@ -377,6 +396,9 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             recordPendingClassification = { classification ->
                 runtimeSession?.pendingNetworkHandoverClass = classification
             },
+            updateHandoverState = { state ->
+                runtimeSession?.networkHandoverState = state
+            },
             performRestart = ::performHandoverRestart,
             onExhaustedFailure = ::handleExhaustedHandoverFailure,
             handoverCooldownMillis = HandoverCooldownMs,
@@ -391,6 +413,7 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         val session = createRuntimeSession()
         val failure =
             lifecycleRunner.start {
+                session.networkHandoverState = null
                 val resolution = resolveInitialConnectionPolicy()
                 matchedRememberedPolicy = resolution.matchedNetworkPolicy
                 applyActiveConnectionPolicy(

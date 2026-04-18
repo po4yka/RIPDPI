@@ -1,0 +1,25 @@
+{
+    "actionable": true,
+    "appliedSettings": [
+        {
+            "label": "TCP/TLS lane",
+            "value": "Split"
+        }
+    ],
+    "bundleSessionIds": [
+        "audit-session",
+        "default-session",
+        "dpi-session"
+    ],
+    "completedStageCount": 2,
+    "confidenceSummary": "Confidence high",
+    "coverageSummary": "Coverage 92%",
+    "failedStageCount": 1,
+    "fingerprintHash": "fp-home",
+    "headline": "Analysis complete and settings applied",
+    "recommendationSummary": "TCP split + QUIC fake",
+    "recommendedSessionId": "audit-session",
+    "runId": "home-run-1",
+    "skippedStageCount": 0,
+    "summary": "Composite diagnostics finished."
+}

@@ -604,6 +604,7 @@ private fun DiagnosticsUiFactorySupport.buildTelemetryLiveMetrics(
         telemetry.lastFailureClass?.let { addWarningMetric(R.string.diagnostics_metric_latest_native_failure, it) }
         telemetry.lastFallbackAction?.let { addInfoMetric(R.string.diagnostics_metric_fallback_action, it) }
         telemetry.failureClass?.let { addWarningMetric(R.string.diagnostics_metric_failure_class, it) }
+        telemetry.networkHandoverState?.let { addInfoMetric(R.string.diagnostics_metric_handover_state, it) }
         telemetry.winningStrategyFamily()?.let {
             add(
                 DiagnosticsMetricUiModel(
@@ -827,6 +828,10 @@ private fun DiagnosticsUiFactorySupport.buildLiveBody(
 
         telemetry.resolverFallbackReason != null -> {
             context.getString(R.string.diagnostics_live_dns_override_format, telemetry.resolverFallbackReason)
+        }
+
+        telemetry.networkHandoverState != null -> {
+            context.getString(R.string.diagnostics_live_handover_state_format, telemetry.networkHandoverState)
         }
 
         telemetry.networkHandoverClass != null -> {

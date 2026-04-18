@@ -8,6 +8,13 @@ pub const SAFARI_LATEST: ProfileConfig = ProfileConfig {
     name: "safari_stable",
     browser_family: "safari",
     browser_track: "stable",
+    alpn_template: "h2_http11",
+    extension_order_family: "safari_fixed",
+    grease_style: "none",
+    supported_groups_profile: "x25519_p256_p384_p521",
+    key_share_profile: "x25519_primary",
+    record_choreography: "single_record",
+    ech_capable: false,
     cipher_list_tls12: "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:\
                         ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:\
                         ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305",

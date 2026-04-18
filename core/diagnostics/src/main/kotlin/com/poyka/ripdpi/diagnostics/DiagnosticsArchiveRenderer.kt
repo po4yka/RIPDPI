@@ -13,6 +13,20 @@ import javax.inject.Named
 
 private const val SuccessRatePercentScale = 100
 private const val TlsErrorSampleLimit = 5
+private const val AcceptanceMatrixCoverageMin = 75
+private const val AcceptanceWinnerCoverageMin = 60
+private const val RecommendedLatencyBudgetMs = 250L
+private const val InstabilityRetryBudget = 2L
+private val KnownRuntimeCapabilityIds =
+    setOf(
+        "ttl_write",
+        "raw_tcp_fake_send",
+        "raw_udp_fragmentation",
+        "replacement_socket",
+        "root_helper_available",
+        "vpn_protect_callback",
+        "network_binding",
+    )
 
 class DiagnosticsArchiveRenderer
     @Inject
@@ -378,6 +392,7 @@ internal fun buildAnalysis(selection: DiagnosticsArchiveSelection): DiagnosticsA
     val latestTelemetry = selection.payload.telemetry.firstOrNull()
     val strategyProbe = selection.primaryReport?.strategyProbeReport
     val observations = selection.primaryReport?.observations.orEmpty()
+    val measurementSnapshot = buildMeasurementSnapshot(selection, strategyProbe, latestTelemetry)
     return DiagnosticsArchiveAnalysisPayload(
         failureEnvelope =
             DiagnosticsArchiveFailureEnvelope(
@@ -434,8 +449,264 @@ internal fun buildAnalysis(selection: DiagnosticsArchiveSelection): DiagnosticsA
                         }.orEmpty(),
             ),
         recommendationTrace = buildRecommendationTrace(selection),
+        measurementSnapshot = measurementSnapshot,
     )
 }
+
+private fun buildMeasurementSnapshot(
+    selection: DiagnosticsArchiveSelection,
+    strategyProbe: StrategyProbeReport?,
+    latestTelemetry: TelemetrySampleEntity?,
+): DiagnosticsArchiveMeasurementSnapshot {
+    val allCandidates = strategyProbe.allCandidates()
+    val recommendedTcp =
+        strategyProbe
+            ?.tcpCandidates
+            ?.firstOrNull { it.id == strategyProbe.recommendation.tcpCandidateId }
+    val recommendedQuic =
+        strategyProbe
+            ?.quicCandidates
+            ?.firstOrNull { it.id == strategyProbe.recommendation.quicCandidateId }
+    val acceptanceMetrics = buildAcceptanceMetrics(strategyProbe)
+    val detectabilityMetrics =
+        buildDetectabilityMetrics(
+            candidates = allCandidates,
+            recommendedTcp = recommendedTcp,
+            recommendedQuic = recommendedQuic,
+        )
+    val capabilitySnapshot = buildCapabilitySnapshot(allCandidates)
+    return DiagnosticsArchiveMeasurementSnapshot(
+        networkIdentityBucket = resolveNetworkIdentityBucket(selection, latestTelemetry),
+        targetBucket = resolveTargetBucket(strategyProbe),
+        recommendedTcpEmitterTier = recommendedTcp?.emitterTier?.name,
+        recommendedQuicEmitterTier = recommendedQuic?.emitterTier?.name,
+        capabilitySnapshot = capabilitySnapshot,
+        acceptanceMetrics = acceptanceMetrics,
+        detectabilityMetrics = detectabilityMetrics,
+        rolloutGateAssessment =
+            buildRolloutGateAssessment(
+                acceptanceMetrics = acceptanceMetrics,
+                detectabilityMetrics = detectabilityMetrics,
+                capabilitySnapshot = capabilitySnapshot,
+                latestTelemetry = latestTelemetry,
+                recommendedLatencyMs =
+                    listOfNotNull(recommendedTcp?.averageLatencyMs, recommendedQuic?.averageLatencyMs)
+                        .maxOrNull(),
+            ),
+    )
+}
+
+private fun StrategyProbeReport?.allCandidates(): List<StrategyProbeCandidateSummary> =
+    if (this == null) {
+        emptyList()
+    } else {
+        tcpCandidates + quicCandidates
+    }
+
+private fun resolveNetworkIdentityBucket(
+    selection: DiagnosticsArchiveSelection,
+    latestTelemetry: TelemetrySampleEntity?,
+): String {
+    val transport =
+        selection.latestSnapshotModel?.transport
+            ?: latestTelemetry?.networkType
+            ?: "unknown"
+    val handoverClass =
+        latestTelemetry
+            ?.networkHandoverClass
+            ?.takeIf { it.isNotBlank() }
+            ?: "steady"
+    val fingerprint =
+        latestTelemetry?.telemetryNetworkFingerprintHash
+            ?: (selection.primaryEvents + selection.globalEvents).latestCorrelation { it.fingerprintHash }
+            ?: "unavailable"
+    return "$transport:$handoverClass:$fingerprint"
+}
+
+private fun resolveTargetBucket(strategyProbe: StrategyProbeReport?): String =
+    when {
+        strategyProbe == null -> {
+            "unavailable"
+        }
+
+        strategyProbe.pilotBucketLabels.isNotEmpty() -> {
+            strategyProbe.pilotBucketLabels.distinct().joinToString("|")
+        }
+
+        strategyProbe.targetSelection != null -> {
+            "${strategyProbe.targetSelection.cohortId}:${strategyProbe.targetSelection.cohortLabel}"
+        }
+
+        else -> {
+            "unavailable"
+        }
+    }
+
+private fun buildAcceptanceMetrics(strategyProbe: StrategyProbeReport?): DiagnosticsArchiveAcceptanceMetrics {
+    val assessment = strategyProbe?.auditAssessment
+    val coverage = assessment?.coverage
+    return DiagnosticsArchiveAcceptanceMetrics(
+        matrixCoveragePercent = coverage?.matrixCoveragePercent,
+        winnerCoveragePercent = coverage?.winnerCoveragePercent,
+        tcpCandidatesPlanned = coverage?.tcpCandidatesPlanned ?: 0,
+        tcpCandidatesExecuted = coverage?.tcpCandidatesExecuted ?: 0,
+        quicCandidatesPlanned = coverage?.quicCandidatesPlanned ?: 0,
+        quicCandidatesExecuted = coverage?.quicCandidatesExecuted ?: 0,
+        tcpWinnerSucceededTargets = coverage?.tcpWinnerSucceededTargets ?: 0,
+        tcpWinnerTotalTargets = coverage?.tcpWinnerTotalTargets ?: 0,
+        quicWinnerSucceededTargets = coverage?.quicWinnerSucceededTargets ?: 0,
+        quicWinnerTotalTargets = coverage?.quicWinnerTotalTargets ?: 0,
+        confidenceLevel = assessment?.confidence?.level?.name,
+        confidenceScore = assessment?.confidence?.score,
+    )
+}
+
+private fun buildDetectabilityMetrics(
+    candidates: List<StrategyProbeCandidateSummary>,
+    recommendedTcp: StrategyProbeCandidateSummary?,
+    recommendedQuic: StrategyProbeCandidateSummary?,
+): DiagnosticsArchiveDetectabilityMetrics {
+    val rootedProductionCandidates =
+        candidates.count { it.emitterTier == StrategyEmitterTier.ROOTED_PRODUCTION }
+    val labOnlyCandidates =
+        candidates.count { it.emitterTier == StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY }
+    val downgradedCandidates = candidates.count(StrategyProbeCandidateSummary::emitterDowngraded)
+    val exactRootRequiredCandidates = candidates.count(StrategyProbeCandidateSummary::exactEmitterRequiresRoot)
+    val capabilitySkippedCandidates =
+        candidates.count { candidate ->
+            candidate.notes.any(::containsUnavailableCapabilityId) ||
+                (candidate.skipped && candidate.rationale.contains("capability", ignoreCase = true)) ||
+                candidate.rationale.contains("unavailable", ignoreCase = true)
+        }
+    val notes =
+        buildList {
+            if (recommendedTcp?.emitterTier == StrategyEmitterTier.ROOTED_PRODUCTION) {
+                add("recommended_tcp_rooted_emitter")
+            }
+            if (recommendedQuic?.emitterTier == StrategyEmitterTier.ROOTED_PRODUCTION) {
+                add("recommended_quic_rooted_emitter")
+            }
+            if (recommendedTcp?.emitterDowngraded == true) {
+                add("recommended_tcp_downgraded")
+            }
+            if (recommendedQuic?.emitterDowngraded == true) {
+                add("recommended_quic_downgraded")
+            }
+            if (labOnlyCandidates > 0) {
+                add("lab_only_candidates_present")
+            }
+            if (capabilitySkippedCandidates > 0) {
+                add("capability_skips_present")
+            }
+        }
+    return DiagnosticsArchiveDetectabilityMetrics(
+        rootedProductionCandidates = rootedProductionCandidates,
+        labOnlyCandidates = labOnlyCandidates,
+        downgradedCandidates = downgradedCandidates,
+        exactRootRequiredCandidates = exactRootRequiredCandidates,
+        capabilitySkippedCandidates = capabilitySkippedCandidates,
+        skippedCandidates = candidates.count(StrategyProbeCandidateSummary::skipped),
+        recommendedUsesRootedEmitter =
+            recommendedTcp?.emitterTier == StrategyEmitterTier.ROOTED_PRODUCTION ||
+                recommendedQuic?.emitterTier == StrategyEmitterTier.ROOTED_PRODUCTION,
+        recommendedWasDowngraded =
+            recommendedTcp?.emitterDowngraded == true || recommendedQuic?.emitterDowngraded == true,
+        notes = notes,
+    )
+}
+
+private fun buildCapabilitySnapshot(
+    candidates: List<StrategyProbeCandidateSummary>,
+): DiagnosticsArchiveCapabilitySnapshot {
+    val evidence =
+        candidates
+            .flatMap { candidate ->
+                candidate.notes.filter(::containsUnavailableCapabilityId)
+            }.distinct()
+            .sorted()
+    val inferredUnavailableCapabilities =
+        evidence
+            .flatMap(::extractCapabilityIds)
+            .distinct()
+            .sorted()
+    return DiagnosticsArchiveCapabilitySnapshot(
+        inferredUnavailableCapabilities = inferredUnavailableCapabilities,
+        evidence = evidence,
+    )
+}
+
+private fun buildRolloutGateAssessment(
+    acceptanceMetrics: DiagnosticsArchiveAcceptanceMetrics,
+    detectabilityMetrics: DiagnosticsArchiveDetectabilityMetrics,
+    capabilitySnapshot: DiagnosticsArchiveCapabilitySnapshot,
+    latestTelemetry: TelemetrySampleEntity?,
+    recommendedLatencyMs: Long?,
+): DiagnosticsArchiveRolloutGateAssessment {
+    val results =
+        listOf(
+            DiagnosticsArchiveRolloutGateResult(
+                id = "acceptance",
+                passed =
+                    (acceptanceMetrics.matrixCoveragePercent ?: 0) >= AcceptanceMatrixCoverageMin &&
+                        (acceptanceMetrics.winnerCoveragePercent ?: 0) >= AcceptanceWinnerCoverageMin,
+                threshold =
+                    "matrixCoveragePercent >= $AcceptanceMatrixCoverageMin and " +
+                        "winnerCoveragePercent >= $AcceptanceWinnerCoverageMin",
+                actual =
+                    "matrix=${acceptanceMetrics.matrixCoveragePercent ?: "unknown"};" +
+                        "winner=${acceptanceMetrics.winnerCoveragePercent ?: "unknown"}",
+            ),
+            DiagnosticsArchiveRolloutGateResult(
+                id = "latency_budget",
+                passed = recommendedLatencyMs != null && recommendedLatencyMs <= RecommendedLatencyBudgetMs,
+                threshold = "recommendedLatencyMs <= $RecommendedLatencyBudgetMs",
+                actual = recommendedLatencyMs?.toString() ?: "unknown",
+                rationale =
+                    if (recommendedLatencyMs == null) {
+                        "Recommended candidate latency was unavailable."
+                    } else {
+                        null
+                    },
+            ),
+            DiagnosticsArchiveRolloutGateResult(
+                id = "instability_budget",
+                passed = (latestTelemetry?.retryCount() ?: Long.MAX_VALUE) <= InstabilityRetryBudget,
+                threshold = "retryCount <= $InstabilityRetryBudget",
+                actual = latestTelemetry?.retryCount()?.toString() ?: "unknown",
+            ),
+            DiagnosticsArchiveRolloutGateResult(
+                id = "detectability_budget",
+                passed =
+                    !detectabilityMetrics.recommendedUsesRootedEmitter &&
+                        !detectabilityMetrics.recommendedWasDowngraded,
+                threshold = "recommended winner stays non-root and non-downgraded",
+                actual =
+                    "rooted=${detectabilityMetrics.recommendedUsesRootedEmitter};" +
+                        "downgraded=${detectabilityMetrics.recommendedWasDowngraded}",
+            ),
+            DiagnosticsArchiveRolloutGateResult(
+                id = "android_compat_budget",
+                passed = capabilitySnapshot.inferredUnavailableCapabilities.isEmpty(),
+                threshold = "no inferred missing runtime capabilities",
+                actual =
+                    capabilitySnapshot.inferredUnavailableCapabilities
+                        .takeIf(List<String>::isNotEmpty)
+                        ?.joinToString("|")
+                        ?: "none",
+            ),
+        )
+    return DiagnosticsArchiveRolloutGateAssessment(
+        overallPassed = results.all(DiagnosticsArchiveRolloutGateResult::passed),
+        results = results,
+    )
+}
+
+private fun containsUnavailableCapabilityId(text: String): Boolean = extractCapabilityIds(text).isNotEmpty()
+
+private fun extractCapabilityIds(text: String): List<String> =
+    KnownRuntimeCapabilityIds.filter { capability ->
+        text.contains("($capability)") || text.contains("$capability unavailable")
+    }
 
 private fun buildRecommendationEvidence(
     strategyProbe: StrategyProbeReport?,
@@ -643,13 +914,36 @@ private fun DiagnosticsHomeCompositeStageSummary.toArchiveStageIndexEntry(): Dia
         recommendationContributor = recommendationContributor,
     )
 
+internal fun buildTelemetryCsv(selection: DiagnosticsArchiveSelection): String =
+    buildTelemetryCsv(
+        payload = selection.payload,
+        measurementSnapshot =
+            buildMeasurementSnapshot(
+                selection = selection,
+                strategyProbe = selection.primaryReport?.strategyProbeReport,
+                latestTelemetry = selection.payload.telemetry.firstOrNull(),
+            ),
+    )
+
 internal fun buildTelemetryCsv(payload: DiagnosticsArchivePayload): String =
+    buildTelemetryCsv(
+        payload = payload,
+        measurementSnapshot = DiagnosticsArchiveMeasurementSnapshot(),
+    )
+
+private fun buildTelemetryCsv(
+    payload: DiagnosticsArchivePayload,
+    measurementSnapshot: DiagnosticsArchiveMeasurementSnapshot,
+): String =
     buildString {
         appendLine(
             "createdAt,activeMode,connectionState,networkType,publicIp,failureClass," +
                 "lastFailureClass,lastFallbackAction," +
                 "telemetryNetworkFingerprintHash,winningTcpStrategyFamily,winningQuicStrategyFamily," +
-                "winningStrategyFamily,proxyRttBand,resolverRttBand,rttBand,proxyRouteRetryCount," +
+                "winningStrategyFamily,networkIdentityBucket,targetBucket,recommendedTcpEmitterTier," +
+                "recommendedQuicEmitterTier,acceptanceMatrixCoveragePercent,winnerCoveragePercent," +
+                "detectabilityBudgetState,missingRuntimeCapabilities,proxyRttBand,resolverRttBand," +
+                "rttBand,proxyRouteRetryCount," +
                 "tunnelRecoveryRetryCount,retryCount,resolverId,resolverProtocol," +
                 "resolverEndpoint,resolverLatencyMs,dnsFailuresTotal,resolverFallbackActive," +
                 "resolverFallbackReason,networkHandoverClass,txPackets,txBytes,rxPackets,rxBytes",
@@ -669,6 +963,22 @@ internal fun buildTelemetryCsv(payload: DiagnosticsArchivePayload): String =
                     sample.winningTcpStrategyFamily.orEmpty(),
                     sample.winningQuicStrategyFamily.orEmpty(),
                     sample.winningStrategyFamily().orEmpty(),
+                    measurementSnapshot.networkIdentityBucket,
+                    measurementSnapshot.targetBucket,
+                    measurementSnapshot.recommendedTcpEmitterTier.orEmpty(),
+                    measurementSnapshot.recommendedQuicEmitterTier.orEmpty(),
+                    measurementSnapshot.acceptanceMetrics.matrixCoveragePercent ?: 0,
+                    measurementSnapshot.acceptanceMetrics.winnerCoveragePercent ?: 0,
+                    if (measurementSnapshot.rolloutGateAssessment.results.any {
+                            it.id == "detectability_budget" &&
+                                it.passed
+                        }
+                    ) {
+                        "pass"
+                    } else {
+                        "fail"
+                    },
+                    measurementSnapshot.capabilitySnapshot.inferredUnavailableCapabilities.joinToString("|"),
                     sample.proxyRttBand,
                     sample.resolverRttBand,
                     sample.rttBand(),

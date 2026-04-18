@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
@@ -36,6 +37,7 @@ internal class VpnServiceRuntimeCoordinator(
     networkHandoverMonitor: NetworkHandoverMonitor,
     policyHandoverEventStore: PolicyHandoverEventStore,
     permissionWatchdog: PermissionWatchdog,
+    private val vpnProtectFailureMonitor: VpnProtectFailureMonitor,
     private val vpnTunnelRuntime: VpnTunnelRuntime,
     private val resolverRefreshPlanner: VpnResolverRefreshPlanner,
     private val encryptedDnsFailoverController: VpnEncryptedDnsFailoverController,
@@ -64,6 +66,7 @@ internal class VpnServiceRuntimeCoordinator(
     }
 
     private var currentLocalProxyEndpoint: LocalProxyEndpoint? = null
+    private var vpnProtectFailureJob: Job? = null
     private val proxyRuntimeStack =
         SharedProxyRuntimeStack(
             upstreamRelaySupervisor = upstreamRelaySupervisor,
@@ -156,6 +159,7 @@ internal class VpnServiceRuntimeCoordinator(
     }
 
     override fun startModeTelemetryUpdates() {
+        startVpnProtectFailureMonitoring()
         replaceTelemetryJob {
             while (status == ServiceStatus.Connected) {
                 val session = runtimeSession ?: return@replaceTelemetryJob
@@ -175,6 +179,25 @@ internal class VpnServiceRuntimeCoordinator(
                 delay(interval)
             }
         }
+    }
+
+    private fun startVpnProtectFailureMonitoring() {
+        vpnProtectFailureJob?.cancel()
+        vpnProtectFailureJob =
+            host.serviceScope.launch(ioDispatcher) {
+                vpnProtectFailureMonitor.events.collect { event ->
+                    handleVpnProtectFailure(event)
+                }
+            }
+    }
+
+    private suspend fun handleVpnProtectFailure(event: VpnProtectFailureEvent) {
+        if (status != ServiceStatus.Connected || stopping) {
+            return
+        }
+        Logger.e { "VPN protect failed for fd=${event.fd}: ${event.detail}" }
+        updateStatus(ServiceStatus.Failed, event.reason)
+        stop()
     }
 
     private suspend fun refreshVpnTunnelIfNeeded(session: VpnRuntimeSession) {
@@ -259,6 +282,7 @@ internal class VpnServiceRuntimeCoordinator(
         statusReporter.reportTelemetry(
             activePolicy = runtimeSession?.currentActiveConnectionPolicy,
             consumePendingNetworkHandoverClass = { null },
+            currentNetworkHandoverState = currentNetworkHandoverState,
             proxyTelemetry = telemetry.proxyTelemetry,
             relayTelemetry = telemetry.relayTelemetry,
             warpTelemetry = telemetry.warpTelemetry,
@@ -287,6 +311,7 @@ internal class VpnServiceRuntimeCoordinator(
         statusReporter.reportTelemetry(
             activePolicy = runtimeSession?.currentActiveConnectionPolicy,
             consumePendingNetworkHandoverClass = { null },
+            currentNetworkHandoverState = currentNetworkHandoverState,
             proxyTelemetry = telemetry.proxyTelemetry,
             relayTelemetry = telemetry.relayTelemetry,
             warpTelemetry = telemetry.warpTelemetry,
@@ -306,6 +331,9 @@ internal class VpnServiceRuntimeCoordinator(
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
     ) {
+        session.currentDns = null
+        session.currentDnsSignature = null
+        session.currentNetworkScopeKey = null
         session.encryptedDnsFailoverState.resetAll()
         vpnTunnelRuntime.stop()
         proxyRuntimeStack.stop(skipRuntimeShutdown = false)
@@ -352,6 +380,7 @@ internal class VpnServiceRuntimeCoordinator(
             newStatus = newStatus,
             activePolicy = runtimeSession?.currentActiveConnectionPolicy,
             consumePendingNetworkHandoverClass = consumePendingNetworkHandoverClass,
+            currentNetworkHandoverState = currentNetworkHandoverState,
             tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
             failureReason = failureReason,
         )
@@ -378,6 +407,8 @@ internal class VpnServiceRuntimeCoordinator(
     }
 
     override fun onAfterStopCleanup(session: VpnRuntimeSession?) {
+        vpnProtectFailureJob?.cancel()
+        vpnProtectFailureJob = null
         resolverOverrideStore.clear()
         vpnTunnelRuntime.resetRuntimeState()
         currentLocalProxyEndpoint = null

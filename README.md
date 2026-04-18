@@ -212,6 +212,7 @@ Options: `--device <serial>` to target a specific device, `--skip-capture` to re
 
 **Operations**
 - [Strategy-pack and TLS catalog operations](docs/strategy-pack-operations.md)
+- [Server hardening for self-hosted relays](docs/server-hardening.md)
 
 **Configuration**
 - [Relay profile examples](docs/relay-profile-examples.md)

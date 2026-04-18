@@ -1,0 +1,31 @@
+{
+  "version": "phase16_rollout_gates_v1",
+  "description": "Rollout gate thresholds for promoting new bypass tactics from lab diagnostics to production defaults.",
+  "gates": [
+    {
+      "id": "acceptance",
+      "threshold": "matrixCoveragePercent >= 75 and winnerCoveragePercent >= 60",
+      "reason": "A new tactic needs enough breadth and winner reliability across the acceptance corpus."
+    },
+    {
+      "id": "latency_budget",
+      "threshold": "recommendedLatencyMs <= 250",
+      "reason": "Production defaults should not carry a large steady-state latency penalty."
+    },
+    {
+      "id": "instability_budget",
+      "threshold": "retryCount <= 2",
+      "reason": "A tactic that repeatedly churns routes or tunnel recovery is not production-safe."
+    },
+    {
+      "id": "detectability_budget",
+      "threshold": "recommended winner stays non-root and non-downgraded",
+      "reason": "High-visibility or degraded emitters stay in lab until a safer default exists."
+    },
+    {
+      "id": "android_compat_budget",
+      "threshold": "no inferred missing runtime capabilities",
+      "reason": "A production winner should not depend on runtime capabilities that are absent on the measured Android path."
+    }
+  ]
+}

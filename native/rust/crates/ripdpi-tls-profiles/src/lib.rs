@@ -13,7 +13,7 @@ mod trust;
 
 pub use profile::{
     profile_catalog, profile_metadata, ProfileCatalog, ProfileConfig, ProfileInvariantStatus, ProfileMetadata,
-    ProfileParityTargets, AVAILABLE_PROFILES,
+    ProfileParityTargets, ProfileTemplateMetadata, AVAILABLE_PROFILES,
 };
 
 #[derive(Debug, Error)]
@@ -45,9 +45,16 @@ pub fn build_connector(profile: &str, verify: bool) -> Result<SslConnector, Erro
     Ok(builder.build())
 }
 
-/// Default weights by browser market share: Chrome 65%, Firefox 20%, Safari 10%, Edge 5%.
-const DEFAULT_WEIGHTS: &[(&str, u32)] =
-    &[("chrome_stable", 65), ("firefox_stable", 20), ("safari_stable", 10), ("edge_stable", 5)];
+/// Default rotation weights bias toward Android/Chromium while still sampling
+/// desktop and ECH-capable families.
+const DEFAULT_WEIGHTS: &[(&str, u32)] = &[
+    ("chrome_stable", 40),
+    ("chrome_desktop_stable", 15),
+    ("firefox_stable", 20),
+    ("firefox_ech_stable", 10),
+    ("safari_stable", 10),
+    ("edge_stable", 5),
+];
 
 pub fn profile_catalog_version() -> &'static str {
     profile::profile_catalog().version
@@ -55,6 +62,10 @@ pub fn profile_catalog_version() -> &'static str {
 
 pub fn selected_profile_metadata(profile: &str) -> ProfileMetadata {
     profile::profile_metadata(profile)
+}
+
+pub fn selected_profile_config(profile: &str) -> &'static ProfileConfig {
+    profile::lookup_profile(profile)
 }
 
 /// Select a TLS profile using deterministic weighted rotation.
@@ -144,6 +155,18 @@ fn validate_profile_config(config: &ProfileConfig) -> Result<(), Error> {
     if !supports_h2 || !supports_http11 {
         return Err(Error::Invariant { profile: config.name, reason: "ALPN list must include both h2 and http/1.1" });
     }
+    if config.alpn_template.is_empty()
+        || config.extension_order_family.is_empty()
+        || config.grease_style.is_empty()
+        || config.supported_groups_profile.is_empty()
+        || config.key_share_profile.is_empty()
+        || config.record_choreography.is_empty()
+    {
+        return Err(Error::Invariant {
+            profile: config.name,
+            reason: "template metadata must remain explicit for diagnostics and catalog export",
+        });
+    }
     if config.ja3_parity_target.is_empty() || config.ja4_parity_target.is_empty() {
         return Err(Error::Invariant {
             profile: config.name,
@@ -195,6 +218,7 @@ mod tests {
         let metadata = selected_profile_metadata("chrome_stable");
 
         assert_eq!("chrome_stable", profile.name);
+        assert_eq!("android-stable", profile.browser_track);
         assert_eq!(SslVersion::TLS1_2, profile.min_version);
         assert_eq!(SslVersion::TLS1_3, profile.max_version);
         assert_eq!(&[b"h2".as_slice(), b"http/1.1".as_slice()], profile.alpn);
@@ -204,11 +228,29 @@ mod tests {
         assert_eq!("chrome-stable", metadata.parity_targets.ja3);
         assert_eq!("chrome-stable", metadata.parity_targets.ja4);
         assert_eq!(ProfileInvariantStatus::AvoidsBlocked517ByteClientHello, metadata.invariant_status);
+        assert_eq!("h2_http11", metadata.template.alpn_template);
+        assert_eq!("chromium_permuted", metadata.template.extension_order_family);
+        assert!(!metadata.template.ech_capable);
+    }
+
+    #[test]
+    fn desktop_and_ech_profiles_publish_distinct_template_metadata() {
+        let desktop = selected_profile_metadata("chrome_desktop_stable");
+        let ech = selected_profile_metadata("firefox_ech_stable");
+
+        assert_eq!("desktop-stable", desktop.parity_targets.browser_track);
+        assert_eq!("chrome-desktop-stable", desktop.parity_targets.ja3);
+        assert!(!desktop.template.ech_capable);
+
+        assert_eq!("ech-stable", ech.parity_targets.browser_track);
+        assert_eq!("firefox-ech-stable", ech.parity_targets.ja3);
+        assert!(ech.template.ech_capable);
+        assert_eq!("firefox_ech_grease", ech.template.grease_style);
     }
 
     #[test]
     fn rotated_selection_uses_profile_set_id_in_hash() {
-        let allowed = vec!["chrome_stable".to_string(), "firefox_stable".to_string()];
+        let allowed = vec!["chrome_stable".to_string(), "firefox_ech_stable".to_string()];
         let seeds = [42_u64, 1337_u64, 9_001_u64, 65_535_u64];
 
         for seed in seeds {

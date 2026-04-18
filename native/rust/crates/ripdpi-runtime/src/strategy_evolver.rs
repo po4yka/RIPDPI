@@ -35,7 +35,7 @@
 //! - Disable (the default) for stable networks where per-flow adaptive tuning
 //!   already performs well, or when you want fine-grained per-host adaptation.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -124,6 +124,110 @@ fn hash_option_disc<H: Hasher>(h: &mut H, tag: u8, disc: Option<u8>) {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum LearningTargetBucket {
+    #[default]
+    Generic,
+    Tls,
+    Ech,
+    Quic,
+    Control,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum LearningTransportKind {
+    #[default]
+    Unknown,
+    Tcp,
+    UdpQuic,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum LearningAlpnClass {
+    #[default]
+    Unknown,
+    Http1,
+    H2Http11,
+    H3,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum LearningHostingFamily {
+    #[default]
+    Unknown,
+    Direct,
+    Cloudflare,
+    Google,
+    DomesticCdn,
+    ForeignCdn,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum LearningReachabilitySet {
+    #[default]
+    Unknown,
+    Control,
+    Domestic,
+    Foreign,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum ResolverHealthClass {
+    #[default]
+    Unknown,
+    Healthy,
+    Degraded,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum CapabilityContext {
+    #[default]
+    Unknown,
+    Full,
+    Degraded,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum StrategyFamily {
+    Baseline,
+    SplitOffset,
+    TlsRecordOffset,
+    TlsRandRec,
+    UdpBurst,
+    QuicFake,
+    FakeTtl,
+    Entropy,
+    Mixed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
+pub struct LearningContext {
+    pub network_identity: Option<String>,
+    pub target_bucket: LearningTargetBucket,
+    pub transport: LearningTransportKind,
+    pub alpn_class: LearningAlpnClass,
+    pub hosting_family: LearningHostingFamily,
+    pub reachability_set: LearningReachabilitySet,
+    pub ech_capable: bool,
+    pub resolver_health: ResolverHealthClass,
+    pub rooted: bool,
+    pub capability_context: CapabilityContext,
+}
+
+#[derive(Debug, Clone, Default)]
+struct FamilyStats {
+    attempts: u32,
+    total_reward: f64,
+}
+
+#[derive(Debug, Clone, Default)]
+struct ContextBanditState {
+    combos: HashMap<StrategyCombo, ComboStats>,
+    families: HashMap<StrategyFamily, FamilyStats>,
+    piloted_buckets: HashSet<LearningTargetBucket>,
+    niche_winners: HashMap<LearningTargetBucket, StrategyCombo>,
+}
+
 // ---------------------------------------------------------------------------
 // StrategyCombo
 // ---------------------------------------------------------------------------
@@ -176,6 +280,41 @@ impl StrategyCombo {
             entropy_mode: self.entropy_mode,
         }
     }
+
+    fn family(&self) -> StrategyFamily {
+        let dimensions = [
+            self.split_offset_base.is_some(),
+            self.tls_record_offset_base.is_some(),
+            self.tlsrandrec_profile.is_some(),
+            self.udp_burst_profile.is_some(),
+            self.quic_fake_profile.is_some(),
+            self.fake_ttl.is_some(),
+            self.entropy_mode.is_some(),
+        ]
+        .into_iter()
+        .filter(|value| *value)
+        .count();
+        if dimensions > 1 {
+            return StrategyFamily::Mixed;
+        }
+        if self.entropy_mode.is_some() {
+            StrategyFamily::Entropy
+        } else if self.fake_ttl.is_some() {
+            StrategyFamily::FakeTtl
+        } else if self.quic_fake_profile.is_some() {
+            StrategyFamily::QuicFake
+        } else if self.udp_burst_profile.is_some() {
+            StrategyFamily::UdpBurst
+        } else if self.tlsrandrec_profile.is_some() {
+            StrategyFamily::TlsRandRec
+        } else if self.tls_record_offset_base.is_some() {
+            StrategyFamily::TlsRecordOffset
+        } else if self.split_offset_base.is_some() {
+            StrategyFamily::SplitOffset
+        } else {
+            StrategyFamily::Baseline
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -195,6 +334,11 @@ const FITNESS_LATENCY_CAP_MS: f64 = 5000.0;
 /// At the cap (5000 ms), the maximum penalty is -100, roughly 10% of the
 /// success-rate range.
 const FITNESS_LATENCY_PENALTY_PER_MS: f64 = 0.02;
+const FITNESS_FAILURE_VARIANCE_WEIGHT: f64 = 80.0;
+const FITNESS_DETECTABILITY_WEIGHT: f64 = 35.0;
+const FITNESS_STABILITY_WEIGHT: f64 = 45.0;
+const FITNESS_LATENCY_VARIANCE_WEIGHT: f64 = 20.0;
+const FITNESS_ENERGY_WEIGHT: f64 = 18.0;
 
 /// Per-combo performance statistics.
 #[derive(Debug, Clone)]
@@ -202,13 +346,71 @@ pub struct ComboStats {
     pub attempts: u32,
     pub successes: u32,
     pub total_latency_ms: u64,
+    pub total_latency_square_ms: u128,
     pub last_attempt_ms: u64,
     pub last_failure_class: Option<FailureClass>,
+    pub last_outcome_success: Option<bool>,
+    pub outcome_flips: u32,
+    pub detectability_events: u32,
 }
 
 impl ComboStats {
     fn new() -> Self {
-        Self { attempts: 0, successes: 0, total_latency_ms: 0, last_attempt_ms: 0, last_failure_class: None }
+        Self {
+            attempts: 0,
+            successes: 0,
+            total_latency_ms: 0,
+            total_latency_square_ms: 0,
+            last_attempt_ms: 0,
+            last_failure_class: None,
+            last_outcome_success: None,
+            outcome_flips: 0,
+            detectability_events: 0,
+        }
+    }
+
+    fn record_attempt(
+        &mut self,
+        success: bool,
+        latency_ms: u64,
+        failure_class: Option<FailureClass>,
+        last_attempt_ms: u64,
+    ) {
+        if self.last_outcome_success.is_some_and(|last| last != success) {
+            self.outcome_flips += 1;
+        }
+        self.last_outcome_success = Some(success);
+        self.attempts += 1;
+        if success {
+            self.successes += 1;
+            self.total_latency_ms += latency_ms;
+            self.total_latency_square_ms += u128::from(latency_ms) * u128::from(latency_ms);
+            self.last_failure_class = None;
+        } else {
+            self.last_failure_class = failure_class;
+            if failure_class.is_some_and(is_detectability_failure) {
+                self.detectability_events += 1;
+            }
+        }
+        self.last_attempt_ms = last_attempt_ms;
+    }
+
+    fn avg_latency_ms(&self) -> f64 {
+        if self.successes > 0 {
+            self.total_latency_ms as f64 / self.successes as f64
+        } else {
+            FITNESS_LATENCY_CAP_MS
+        }
+    }
+
+    fn latency_variance_ms(&self) -> f64 {
+        if self.successes <= 1 {
+            return 0.0;
+        }
+        let successes = self.successes as f64;
+        let mean = self.avg_latency_ms();
+        let mean_square = self.total_latency_square_ms as f64 / successes;
+        (mean_square - mean * mean).max(0.0)
     }
 
     /// Fitness score: higher is better.
@@ -224,13 +426,49 @@ impl ComboStats {
             return 0.0;
         }
         let success_rate = self.successes as f64 / self.attempts as f64;
-        let avg_latency = if self.successes > 0 {
-            self.total_latency_ms as f64 / self.successes as f64
-        } else {
-            FITNESS_LATENCY_CAP_MS
-        };
-        success_rate * FITNESS_SUCCESS_WEIGHT - avg_latency.min(FITNESS_LATENCY_CAP_MS) * FITNESS_LATENCY_PENALTY_PER_MS
+        let avg_latency = self.avg_latency_ms();
+        let failure_rate = 1.0 - success_rate;
+        let stability_penalty = self.outcome_flips as f64 / self.attempts.max(1) as f64;
+        let variance_penalty = (self.latency_variance_ms().sqrt() / FITNESS_LATENCY_CAP_MS).min(1.0);
+        let detectability_penalty = self.detectability_events as f64 / self.attempts.max(1) as f64;
+        success_rate * FITNESS_SUCCESS_WEIGHT
+            - avg_latency.min(FITNESS_LATENCY_CAP_MS) * FITNESS_LATENCY_PENALTY_PER_MS
+            - failure_rate * FITNESS_FAILURE_VARIANCE_WEIGHT
+            - stability_penalty * FITNESS_STABILITY_WEIGHT
+            - variance_penalty * FITNESS_LATENCY_VARIANCE_WEIGHT
+            - detectability_penalty * FITNESS_DETECTABILITY_WEIGHT
     }
+}
+
+fn is_detectability_failure(class: FailureClass) -> bool {
+    matches!(
+        class,
+        FailureClass::TlsAlert | FailureClass::HttpBlockpage | FailureClass::Redirect | FailureClass::ConnectionFreeze
+    )
+}
+
+fn combo_energy_cost(combo: &StrategyCombo) -> f64 {
+    let mut cost = 0.0;
+    if combo.fake_ttl.is_some() {
+        cost += 1.2;
+    }
+    if combo.entropy_mode.is_some() {
+        cost += 0.8;
+    }
+    if combo.udp_burst_profile == Some(AdaptiveUdpBurstProfile::Aggressive) {
+        cost += 1.0;
+    }
+    if combo.quic_fake_profile == Some(QuicFakeProfile::RealisticInitial) {
+        cost += 0.7;
+    }
+    if combo.family() == StrategyFamily::Mixed {
+        cost += 1.3;
+    }
+    cost
+}
+
+fn combo_fitness(combo: &StrategyCombo, stats: &ComboStats) -> f64 {
+    stats.fitness() - combo_energy_cost(combo) * FITNESS_ENERGY_WEIGHT
 }
 
 // ---------------------------------------------------------------------------
@@ -381,8 +619,12 @@ const COMBO_POOL: &[PoolEntry] = &[
         tls_record_offset_base: Some(OffsetBase::AutoBalanced),
         ..PoolEntry::new()
     },
+    // 28-30: ECH-aware variants
+    PoolEntry { split_offset_base: Some(OffsetBase::EchExt), ..PoolEntry::new() },
+    PoolEntry { tls_record_offset_base: Some(OffsetBase::EchExt), ..PoolEntry::new() },
+    PoolEntry { split_offset_base: Some(OffsetBase::EchExt), fake_ttl: Some(8), ..PoolEntry::new() },
     // --- Combined multi-dimension entries ---
-    // 28: AutoHost + Tight RandRec + Conservative UDP + TTL 8
+    // 31: AutoHost + Tight RandRec + Conservative UDP + TTL 8
     PoolEntry {
         split_offset_base: Some(OffsetBase::AutoHost),
         fake_ttl: Some(8),
@@ -390,7 +632,7 @@ const COMBO_POOL: &[PoolEntry] = &[
         udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative),
         ..PoolEntry::new()
     },
-    // 29: MidSld + Wide RandRec + RealisticInitial QUIC + Shannon entropy
+    // 32: MidSld + Wide RandRec + RealisticInitial QUIC + Shannon entropy
     PoolEntry {
         split_offset_base: Some(OffsetBase::MidSld),
         tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Wide),
@@ -419,7 +661,11 @@ fn combo_from_pool(index: usize) -> StrategyCombo {
 
 pub struct StrategyEvolver {
     combos: HashMap<StrategyCombo, ComboStats>,
+    contexts: HashMap<LearningContext, ContextBanditState>,
     current_experiment: Option<StrategyCombo>,
+    current_experiment_context: Option<LearningContext>,
+    current_experiment_family: Option<StrategyFamily>,
+    current_learning_context: LearningContext,
     explore_epsilon: f64,
     pub max_combos: usize,
     enabled: bool,
@@ -430,7 +676,11 @@ impl StrategyEvolver {
     pub fn new(enabled: bool, epsilon: f64) -> Self {
         Self {
             combos: HashMap::new(),
+            contexts: HashMap::new(),
             current_experiment: None,
+            current_experiment_context: None,
+            current_experiment_family: None,
+            current_learning_context: LearningContext::default(),
             explore_epsilon: epsilon,
             max_combos: 64,
             enabled,
@@ -447,6 +697,20 @@ impl StrategyEvolver {
 
     pub fn epsilon(&self) -> f64 {
         self.explore_epsilon
+    }
+
+    pub fn set_learning_context(&mut self, context: LearningContext) {
+        if self.current_learning_context == context {
+            return;
+        }
+        self.current_learning_context = context;
+        self.current_experiment = None;
+        self.current_experiment_context = None;
+        self.current_experiment_family = None;
+    }
+
+    pub fn current_learning_context(&self) -> &LearningContext {
+        &self.current_learning_context
     }
 
     /// Returns the currently pending experiment hints without mutating state.
@@ -483,8 +747,11 @@ impl StrategyEvolver {
         tracing::debug!(
             combo = ?combo,
             hints = ?hints,
+            context = ?self.current_learning_context,
             "strategy evolution selected combo, overriding per-flow adaptive tuning",
         );
+        self.current_experiment_context = Some(self.current_learning_context.clone());
+        self.current_experiment_family = Some(combo.family());
         self.current_experiment = Some(combo);
         Some(hints)
     }
@@ -494,14 +761,14 @@ impl StrategyEvolver {
         let Some(combo) = self.current_experiment.take() else {
             return;
         };
+        let context = self.current_experiment_context.take().unwrap_or_else(|| self.current_learning_context.clone());
+        let family = self.current_experiment_family.take().unwrap_or_else(|| combo.family());
         tracing::debug!(combo = ?combo, latency_ms, "strategy evolution recorded success");
         self.evict_if_needed(&combo);
-        let stats = self.combos.entry(combo).or_insert_with(ComboStats::new);
-        stats.attempts += 1;
-        stats.successes += 1;
-        stats.total_latency_ms += latency_ms;
-        stats.last_attempt_ms = now_millis();
-        stats.last_failure_class = None;
+        let stats = self.combos.entry(combo.clone()).or_insert_with(ComboStats::new);
+        stats.record_attempt(true, latency_ms, None, now_millis());
+        let last_attempt_ms = stats.last_attempt_ms;
+        self.record_contextual_feedback(&context, family, &combo, true, latency_ms, None, last_attempt_ms);
         tracing::debug!(
             combos_tested = self.combos_tested(),
             best_fitness = format_args!("{:.1}", self.best_fitness()),
@@ -511,30 +778,46 @@ impl StrategyEvolver {
 
     /// Record failed connection with failure class.
     ///
-    /// `FailureClass::CapabilitySkipped` is a no-op: the tactic was never
-    /// emitted, so it must not affect arm counts or reward estimates.
+    /// `FailureClass::CapabilitySkipped` and
+    /// `FailureClass::StrategyExecutionFailure` are no-ops: the tactic was
+    /// never emitted successfully, so they must not affect arm counts or
+    /// reward estimates.
     pub fn record_failure(&mut self, class: FailureClass) {
-        if class == FailureClass::CapabilitySkipped {
+        if matches!(class, FailureClass::CapabilitySkipped | FailureClass::StrategyExecutionFailure) {
             // Discard the pending experiment without touching bandit state.
             // The run was skipped before any packet was sent, so it carries
             // no signal about the strategy's quality.
             self.current_experiment = None;
+            self.current_experiment_context = None;
+            self.current_experiment_family = None;
             return;
         }
         let Some(combo) = self.current_experiment.take() else {
             return;
         };
+        let context = self.current_experiment_context.take().unwrap_or_else(|| self.current_learning_context.clone());
+        let family = self.current_experiment_family.take().unwrap_or_else(|| combo.family());
         tracing::debug!(combo = ?combo, class = class.as_str(), "strategy evolution recorded failure");
         self.evict_if_needed(&combo);
-        let stats = self.combos.entry(combo).or_insert_with(ComboStats::new);
-        stats.attempts += 1;
-        stats.last_attempt_ms = now_millis();
-        stats.last_failure_class = Some(class);
+        let stats = self.combos.entry(combo.clone()).or_insert_with(ComboStats::new);
+        stats.record_attempt(false, FITNESS_LATENCY_CAP_MS as u64, Some(class), now_millis());
+        let last_attempt_ms = stats.last_attempt_ms;
+        self.record_contextual_feedback(
+            &context,
+            family,
+            &combo,
+            false,
+            FITNESS_LATENCY_CAP_MS as u64,
+            Some(class),
+            last_attempt_ms,
+        );
     }
 
     /// Returns the best-performing combo found so far.
     pub fn best_combo(&self) -> Option<(&StrategyCombo, &ComboStats)> {
-        self.combos.iter().max_by(|a, b| a.1.fitness().partial_cmp(&b.1.fitness()).unwrap_or(std::cmp::Ordering::Equal))
+        self.combos.iter().max_by(|a, b| {
+            combo_fitness(a.0, a.1).partial_cmp(&combo_fitness(b.0, b.1)).unwrap_or(std::cmp::Ordering::Equal)
+        })
     }
 
     /// Number of unique combos tested.
@@ -544,7 +827,7 @@ impl StrategyEvolver {
 
     /// Best fitness score.
     pub fn best_fitness(&self) -> f64 {
-        self.best_combo().map_or(0.0, |(_, s)| s.fitness())
+        self.best_combo().map_or(0.0, |(combo, stats)| combo_fitness(combo, stats))
     }
 
     // -- internal -----------------------------------------------------------
@@ -564,33 +847,41 @@ impl StrategyEvolver {
         combo_from_pool(idx)
     }
 
-    fn select_next_combo(&mut self) -> StrategyCombo {
-        // If no combos recorded yet, return the default combo.
-        if self.combos.is_empty() {
-            return StrategyCombo::default_combo();
-        }
-
-        // Epsilon-greedy: explore with probability epsilon.
-        if self.lcg_f64() < self.explore_epsilon {
+    fn generate_random_combo_for_bucket(&mut self, bucket: LearningTargetBucket) -> StrategyCombo {
+        let matching: Vec<usize> =
+            (0..COMBO_POOL.len()).filter(|idx| combo_matches_bucket(&combo_from_pool(*idx), bucket)).collect();
+        if matching.is_empty() {
             return self.generate_random_combo();
         }
+        let idx = matching[self.lcg_next() as usize % matching.len()];
+        combo_from_pool(idx)
+    }
 
-        // Exploit: pick the combo with highest UCB1 score.
-        let total_attempts: u32 = self.combos.values().map(|s| s.attempts).sum();
-        let ln_total = (total_attempts as f64).ln();
+    fn select_next_combo(&mut self) -> StrategyCombo {
+        let context = self.current_learning_context.clone();
+        let bucket = context.target_bucket;
+        let bucket_piloted = self.contexts.get(&context).is_some_and(|state| state.piloted_buckets.contains(&bucket));
 
-        self.combos
-            .iter()
-            .map(|(combo, stats)| {
-                let ucb = if stats.attempts == 0 {
-                    f64::MAX
-                } else {
-                    stats.fitness() + 1.41 * (ln_total / stats.attempts as f64).sqrt()
-                };
-                (combo.clone(), ucb)
-            })
-            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
-            .map_or_else(StrategyCombo::default_combo, |(c, _)| c)
+        if self.combos.is_empty() {
+            return pilot_combo_for_bucket(bucket);
+        }
+        if !bucket_piloted {
+            return pilot_combo_for_bucket(bucket);
+        }
+        if self.lcg_f64() < self.explore_epsilon {
+            return self.generate_random_combo_for_bucket(bucket);
+        }
+        let Some(state) = self.contexts.get(&context) else {
+            return self.generate_random_combo_for_bucket(bucket);
+        };
+        if let Some(niche) = state.niche_winners.get(&bucket) {
+            return niche.clone();
+        }
+        let Some(family) = self.select_next_family(state, bucket) else {
+            return self.generate_random_combo_for_bucket(bucket);
+        };
+        self.best_context_combo_for_family(state, family)
+            .unwrap_or_else(|| self.generate_random_combo_for_bucket(bucket))
     }
 
     fn evict_if_needed(&mut self, keep: &StrategyCombo) {
@@ -602,11 +893,142 @@ impl StrategyEvolver {
             .combos
             .iter()
             .filter(|(k, _)| *k != keep)
-            .min_by(|a, b| a.1.fitness().partial_cmp(&b.1.fitness()).unwrap_or(std::cmp::Ordering::Equal))
+            .min_by(|a, b| {
+                combo_fitness(a.0, a.1).partial_cmp(&combo_fitness(b.0, b.1)).unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|(k, _)| k.clone());
         if let Some(w) = worst {
             self.combos.remove(&w);
         }
+    }
+
+    fn select_next_family(&self, state: &ContextBanditState, bucket: LearningTargetBucket) -> Option<StrategyFamily> {
+        if state.families.is_empty() {
+            return Some(default_family_for_bucket(bucket));
+        }
+        let total_attempts: u32 = state.families.values().map(|stats| stats.attempts.max(1)).sum();
+        let ln_total = (total_attempts as f64).ln().max(1.0);
+        state
+            .families
+            .iter()
+            .map(|(family, stats)| {
+                let score = if stats.attempts == 0 {
+                    f64::MAX
+                } else {
+                    (stats.total_reward / stats.attempts as f64) + 1.41 * (ln_total / stats.attempts as f64).sqrt()
+                };
+                (*family, score)
+            })
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(family, _)| family)
+    }
+
+    fn best_context_combo_for_family(
+        &self,
+        state: &ContextBanditState,
+        family: StrategyFamily,
+    ) -> Option<StrategyCombo> {
+        let total_attempts: u32 = state.combos.values().map(|stats| stats.attempts.max(1)).sum();
+        let ln_total = (total_attempts as f64).ln().max(1.0);
+        state
+            .combos
+            .iter()
+            .filter(|(combo, _)| combo.family() == family || family == StrategyFamily::Mixed)
+            .map(|(combo, stats)| {
+                let score = if stats.attempts == 0 {
+                    f64::MAX
+                } else {
+                    combo_fitness(combo, stats) + 1.41 * (ln_total / stats.attempts as f64).sqrt()
+                };
+                (combo.clone(), score)
+            })
+            .max_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(combo, _)| combo)
+    }
+
+    fn record_contextual_feedback(
+        &mut self,
+        context: &LearningContext,
+        family: StrategyFamily,
+        combo: &StrategyCombo,
+        success: bool,
+        latency_ms: u64,
+        failure_class: Option<FailureClass>,
+        last_attempt_ms: u64,
+    ) {
+        let state = self.contexts.entry(context.clone()).or_default();
+        state.piloted_buckets.insert(context.target_bucket);
+        evict_context_if_needed(state, combo, self.max_combos);
+        let stats = state.combos.entry(combo.clone()).or_insert_with(ComboStats::new);
+        stats.record_attempt(success, latency_ms, failure_class, last_attempt_ms);
+        let updated_fitness = combo_fitness(combo, stats);
+        let family_stats = state.families.entry(family).or_default();
+        family_stats.attempts += 1;
+        family_stats.total_reward += updated_fitness;
+        let _ = stats;
+
+        let niche_entry = state.niche_winners.entry(context.target_bucket).or_insert_with(|| combo.clone());
+        let niche_fitness = state.combos.get(niche_entry).map_or(f64::MIN, |stats| combo_fitness(niche_entry, stats));
+        if updated_fitness >= niche_fitness {
+            *niche_entry = combo.clone();
+        }
+    }
+}
+
+fn combo_matches_bucket(combo: &StrategyCombo, bucket: LearningTargetBucket) -> bool {
+    match bucket {
+        LearningTargetBucket::Generic | LearningTargetBucket::Control => combo.family() == StrategyFamily::Baseline,
+        LearningTargetBucket::Tls => {
+            combo.split_offset_base.is_some()
+                || combo.tls_record_offset_base.is_some()
+                || combo.tlsrandrec_profile.is_some()
+        }
+        LearningTargetBucket::Ech => {
+            combo.split_offset_base == Some(OffsetBase::EchExt)
+                || combo.tls_record_offset_base == Some(OffsetBase::EchExt)
+        }
+        LearningTargetBucket::Quic => combo.quic_fake_profile.is_some() || combo.udp_burst_profile.is_some(),
+    }
+}
+
+fn default_family_for_bucket(bucket: LearningTargetBucket) -> StrategyFamily {
+    match bucket {
+        LearningTargetBucket::Generic | LearningTargetBucket::Control => StrategyFamily::Baseline,
+        LearningTargetBucket::Tls => StrategyFamily::SplitOffset,
+        LearningTargetBucket::Ech => StrategyFamily::TlsRecordOffset,
+        LearningTargetBucket::Quic => StrategyFamily::QuicFake,
+    }
+}
+
+fn pilot_combo_for_bucket(bucket: LearningTargetBucket) -> StrategyCombo {
+    match bucket {
+        LearningTargetBucket::Generic | LearningTargetBucket::Control => StrategyCombo::default_combo(),
+        LearningTargetBucket::Tls => {
+            StrategyCombo { split_offset_base: Some(OffsetBase::AutoHost), ..StrategyCombo::default_combo() }
+        }
+        LearningTargetBucket::Ech => {
+            StrategyCombo { split_offset_base: Some(OffsetBase::EchExt), ..StrategyCombo::default_combo() }
+        }
+        LearningTargetBucket::Quic => {
+            StrategyCombo { quic_fake_profile: Some(QuicFakeProfile::CompatDefault), ..StrategyCombo::default_combo() }
+        }
+    }
+}
+
+fn evict_context_if_needed(state: &mut ContextBanditState, keep: &StrategyCombo, max_combos: usize) {
+    if state.combos.len() < max_combos {
+        return;
+    }
+    let worst = state
+        .combos
+        .iter()
+        .filter(|(combo, _)| *combo != keep)
+        .min_by(|a, b| {
+            combo_fitness(a.0, a.1).partial_cmp(&combo_fitness(b.0, b.1)).unwrap_or(std::cmp::Ordering::Equal)
+        })
+        .map(|(combo, _)| combo.clone());
+    if let Some(worst_combo) = worst {
+        state.combos.remove(&worst_combo);
     }
 }
 
@@ -636,25 +1058,13 @@ mod tests {
         // Manually insert combo A: 2 successes, 1 fail (3 attempts)
         e.combos.insert(
             combo_a.clone(),
-            ComboStats {
-                attempts: 3,
-                successes: 2,
-                total_latency_ms: 200,
-                last_attempt_ms: 0,
-                last_failure_class: None,
-            },
+            ComboStats { attempts: 3, successes: 2, total_latency_ms: 200, ..ComboStats::new() },
         );
 
         // Manually insert combo B: 3 successes (3 attempts)
         e.combos.insert(
             combo_b.clone(),
-            ComboStats {
-                attempts: 3,
-                successes: 3,
-                total_latency_ms: 300,
-                last_attempt_ms: 0,
-                last_failure_class: None,
-            },
+            ComboStats { attempts: 3, successes: 3, total_latency_ms: 300, ..ComboStats::new() },
         );
 
         let (best, _) = e.best_combo().expect("should have a best combo");
@@ -664,9 +1074,22 @@ mod tests {
     #[test]
     fn evolver_explores_with_epsilon_one() {
         let mut e = StrategyEvolver::new(true, 1.0); // pure exploration
+        let context = LearningContext {
+            target_bucket: LearningTargetBucket::Tls,
+            transport: LearningTransportKind::Tcp,
+            ..LearningContext::default()
+        };
+        e.set_learning_context(context.clone());
 
         // Seed some combos so select_next_combo hits the exploration path.
         e.combos.insert(StrategyCombo::default_combo(), ComboStats::new());
+        e.contexts.insert(
+            context,
+            ContextBanditState {
+                piloted_buckets: [LearningTargetBucket::Tls].into_iter().collect(),
+                ..ContextBanditState::default()
+            },
+        );
 
         // Collect several suggestions -- with epsilon=1.0 they are randomly generated
         // so we expect at least 2 distinct combos over many draws.
@@ -696,6 +1119,29 @@ mod tests {
         assert_eq!(stats.last_failure_class, Some(FailureClass::TcpReset));
         assert_eq!(stats.attempts, 1);
         assert_eq!(stats.successes, 0);
+    }
+
+    #[test]
+    fn strategy_execution_failure_does_not_penalize_learning_state() {
+        let mut e = StrategyEvolver::new(true, 1.0);
+        e.combos.insert(StrategyCombo::default_combo(), ComboStats::new());
+        e.set_learning_context(LearningContext {
+            network_identity: Some("wifi-a".to_string()),
+            target_bucket: LearningTargetBucket::Tls,
+            transport: LearningTransportKind::Tcp,
+            ..LearningContext::default()
+        });
+        e.suggest_hints();
+
+        let experiment = e.current_experiment.clone().expect("should have an experiment");
+        e.record_failure(FailureClass::StrategyExecutionFailure);
+
+        assert!(!e.combos.contains_key(&experiment), "emitter failures must not create or update combo stats");
+        assert!(
+            e.contexts.get(e.current_learning_context()).is_none(),
+            "emitter failures must not create contextual state"
+        );
+        assert!(e.current_experiment.is_none(), "pending experiment should still be cleared");
     }
 
     #[test]
@@ -731,39 +1177,15 @@ mod tests {
 
     #[test]
     fn fitness_prefers_higher_success_rate() {
-        let a = ComboStats {
-            attempts: 10,
-            successes: 8,
-            total_latency_ms: 800,
-            last_attempt_ms: 0,
-            last_failure_class: None,
-        };
-        let b = ComboStats {
-            attempts: 10,
-            successes: 3,
-            total_latency_ms: 300,
-            last_attempt_ms: 0,
-            last_failure_class: None,
-        };
+        let a = ComboStats { attempts: 10, successes: 8, total_latency_ms: 800, ..ComboStats::new() };
+        let b = ComboStats { attempts: 10, successes: 3, total_latency_ms: 300, ..ComboStats::new() };
         assert!(a.fitness() > b.fitness(), "a.fitness={} should be > b.fitness={}", a.fitness(), b.fitness());
     }
 
     #[test]
     fn fitness_penalizes_high_latency() {
-        let fast = ComboStats {
-            attempts: 10,
-            successes: 10,
-            total_latency_ms: 500,
-            last_attempt_ms: 0,
-            last_failure_class: None,
-        };
-        let slow = ComboStats {
-            attempts: 10,
-            successes: 10,
-            total_latency_ms: 50_000,
-            last_attempt_ms: 0,
-            last_failure_class: None,
-        };
+        let fast = ComboStats { attempts: 10, successes: 10, total_latency_ms: 500, ..ComboStats::new() };
+        let slow = ComboStats { attempts: 10, successes: 10, total_latency_ms: 50_000, ..ComboStats::new() };
         assert!(fast.fitness() > slow.fitness());
     }
 
@@ -919,23 +1341,11 @@ mod tests {
 
         e.combos.insert(
             good.clone(),
-            ComboStats {
-                attempts: 10,
-                successes: 9,
-                total_latency_ms: 100,
-                last_attempt_ms: 0,
-                last_failure_class: None,
-            },
+            ComboStats { attempts: 10, successes: 9, total_latency_ms: 100, ..ComboStats::new() },
         );
         e.combos.insert(
             bad.clone(),
-            ComboStats {
-                attempts: 10,
-                successes: 1,
-                total_latency_ms: 5000,
-                last_attempt_ms: 0,
-                last_failure_class: None,
-            },
+            ComboStats { attempts: 10, successes: 1, total_latency_ms: 5000, ..ComboStats::new() },
         );
 
         e.evict_if_needed(&new_combo);
@@ -945,8 +1355,7 @@ mod tests {
 
     #[test]
     fn fitness_with_zero_successes_penalizes_latency() {
-        let stats =
-            ComboStats { attempts: 5, successes: 0, total_latency_ms: 0, last_attempt_ms: 0, last_failure_class: None };
+        let stats = ComboStats { attempts: 5, successes: 0, total_latency_ms: 0, ..ComboStats::new() };
         // 0% success rate, avg_latency defaults to FITNESS_LATENCY_CAP_MS
         // fitness = 0.0 * 1000 - 5000.0 * 0.02 = -100.0
         assert!(stats.fitness() < 0.0, "0% success should give negative fitness, got {}", stats.fitness());
@@ -979,21 +1388,27 @@ mod tests {
     fn ucb1_prefers_untried_combos() {
         let mut e = StrategyEvolver::new(true, 0.0); // pure exploitation
         e.rng_state = 42;
+        let context = LearningContext { target_bucket: LearningTargetBucket::Generic, ..LearningContext::default() };
+        e.set_learning_context(context.clone());
 
         let tried = StrategyCombo { fake_ttl: Some(6), ..StrategyCombo::default_combo() };
         let untried = StrategyCombo { fake_ttl: Some(8), ..StrategyCombo::default_combo() };
+        let tried_stats = ComboStats { attempts: 10, successes: 5, total_latency_ms: 500, ..ComboStats::new() };
+        let untried_stats = ComboStats::new();
 
-        e.combos.insert(
-            tried.clone(),
-            ComboStats {
-                attempts: 10,
-                successes: 5,
-                total_latency_ms: 500,
-                last_attempt_ms: 0,
-                last_failure_class: None,
+        e.combos.insert(tried.clone(), tried_stats.clone());
+        e.combos.insert(untried.clone(), untried_stats.clone()); // 0 attempts => UCB1 = MAX
+        e.contexts.insert(
+            context,
+            ContextBanditState {
+                combos: [(tried.clone(), tried_stats), (untried.clone(), untried_stats)].into_iter().collect(),
+                families: [(StrategyFamily::FakeTtl, FamilyStats { attempts: 10, total_reward: 100.0 })]
+                    .into_iter()
+                    .collect(),
+                piloted_buckets: [LearningTargetBucket::Generic].into_iter().collect(),
+                ..ContextBanditState::default()
             },
         );
-        e.combos.insert(untried.clone(), ComboStats::new()); // 0 attempts => UCB1 = MAX
 
         let selected = e.select_next_combo();
         assert_eq!(selected, untried, "UCB1 should prefer untried combo (score = f64::MAX)");
@@ -1154,24 +1569,12 @@ mod tests {
         // combo without entropy: 50% success rate
         e.combos.insert(
             combo_no_entropy.clone(),
-            ComboStats {
-                attempts: 10,
-                successes: 5,
-                total_latency_ms: 500,
-                last_attempt_ms: 0,
-                last_failure_class: None,
-            },
+            ComboStats { attempts: 10, successes: 5, total_latency_ms: 500, ..ComboStats::new() },
         );
         // combo with Shannon entropy: 90% success rate
         e.combos.insert(
             combo_with_entropy.clone(),
-            ComboStats {
-                attempts: 10,
-                successes: 9,
-                total_latency_ms: 900,
-                last_attempt_ms: 0,
-                last_failure_class: None,
-            },
+            ComboStats { attempts: 10, successes: 9, total_latency_ms: 900, ..ComboStats::new() },
         );
 
         let (best, _) = e.best_combo().expect("should have a best combo");
@@ -1222,5 +1625,96 @@ mod tests {
             stats_a.fitness(),
             stats_b.fitness(),
         );
+    }
+
+    #[test]
+    fn learning_context_change_clears_pending_experiment() {
+        let mut evolver = StrategyEvolver::new(true, 0.0);
+        evolver.combos.insert(StrategyCombo::default_combo(), ComboStats::new());
+        let _ = evolver.suggest_hints().expect("pending hints");
+        assert!(evolver.current_experiment.is_some());
+
+        evolver.set_learning_context(LearningContext {
+            network_identity: Some("wifi:office".to_string()),
+            target_bucket: LearningTargetBucket::Quic,
+            transport: LearningTransportKind::UdpQuic,
+            alpn_class: LearningAlpnClass::H3,
+            ech_capable: false,
+            resolver_health: ResolverHealthClass::Healthy,
+            rooted: false,
+            capability_context: CapabilityContext::Full,
+            ..LearningContext::default()
+        });
+
+        assert!(evolver.current_experiment.is_none());
+    }
+
+    #[test]
+    fn contextual_bandit_keeps_niche_winner_per_bucket() {
+        let mut evolver = StrategyEvolver::new(true, 0.0);
+        let tls_combo =
+            StrategyCombo { split_offset_base: Some(OffsetBase::AutoHost), ..StrategyCombo::default_combo() };
+        let quic_combo =
+            StrategyCombo { quic_fake_profile: Some(QuicFakeProfile::CompatDefault), ..StrategyCombo::default_combo() };
+
+        evolver.set_learning_context(LearningContext {
+            target_bucket: LearningTargetBucket::Tls,
+            transport: LearningTransportKind::Tcp,
+            alpn_class: LearningAlpnClass::H2Http11,
+            ..LearningContext::default()
+        });
+        evolver.current_experiment = Some(tls_combo.clone());
+        evolver.current_experiment_context = Some(evolver.current_learning_context.clone());
+        evolver.current_experiment_family = Some(tls_combo.family());
+        evolver.record_success(50);
+
+        evolver.set_learning_context(LearningContext {
+            target_bucket: LearningTargetBucket::Quic,
+            transport: LearningTransportKind::UdpQuic,
+            alpn_class: LearningAlpnClass::H3,
+            ..LearningContext::default()
+        });
+        evolver.current_experiment = Some(quic_combo.clone());
+        evolver.current_experiment_context = Some(evolver.current_learning_context.clone());
+        evolver.current_experiment_family = Some(quic_combo.family());
+        evolver.record_success(50);
+
+        let tls_state = evolver
+            .contexts
+            .get(&LearningContext {
+                target_bucket: LearningTargetBucket::Tls,
+                transport: LearningTransportKind::Tcp,
+                alpn_class: LearningAlpnClass::H2Http11,
+                ..LearningContext::default()
+            })
+            .expect("tls context");
+        assert_eq!(tls_state.niche_winners.get(&LearningTargetBucket::Tls), Some(&tls_combo));
+
+        let quic_state = evolver
+            .contexts
+            .get(&LearningContext {
+                target_bucket: LearningTargetBucket::Quic,
+                transport: LearningTransportKind::UdpQuic,
+                alpn_class: LearningAlpnClass::H3,
+                ..LearningContext::default()
+            })
+            .expect("quic context");
+        assert_eq!(quic_state.niche_winners.get(&LearningTargetBucket::Quic), Some(&quic_combo));
+    }
+
+    #[test]
+    fn ech_bucket_pilot_prefers_ech_offset_combo() {
+        let mut evolver = StrategyEvolver::new(true, 0.0);
+        evolver.combos.insert(StrategyCombo::default_combo(), ComboStats::new());
+        evolver.set_learning_context(LearningContext {
+            target_bucket: LearningTargetBucket::Ech,
+            transport: LearningTransportKind::Tcp,
+            alpn_class: LearningAlpnClass::H2Http11,
+            ech_capable: true,
+            ..LearningContext::default()
+        });
+
+        let combo = evolver.select_next_combo();
+        assert_eq!(combo.split_offset_base, Some(OffsetBase::EchExt));
     }
 }

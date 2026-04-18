@@ -1125,7 +1125,23 @@ internal fun sampleResolution(
     )
 
 internal class TestPermissionWatchdog : PermissionWatchdog {
-    override val changes: SharedFlow<PermissionChangeEvent> = MutableSharedFlow()
+    private val changeFlow = MutableSharedFlow<PermissionChangeEvent>(extraBufferCapacity = 8)
+
+    override val changes: SharedFlow<PermissionChangeEvent> = changeFlow.asSharedFlow()
+
+    fun emit(event: PermissionChangeEvent) {
+        changeFlow.tryEmit(event)
+    }
+}
+
+internal class TestVpnProtectFailureMonitor : VpnProtectFailureMonitor {
+    private val eventFlow = MutableSharedFlow<VpnProtectFailureEvent>(extraBufferCapacity = 8)
+
+    override val events: SharedFlow<VpnProtectFailureEvent> = eventFlow.asSharedFlow()
+
+    override fun report(event: VpnProtectFailureEvent) {
+        eventFlow.tryEmit(event)
+    }
 }
 
 internal class TestScreenStateObserver(

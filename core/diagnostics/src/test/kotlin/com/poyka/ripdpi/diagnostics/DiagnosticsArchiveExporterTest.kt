@@ -22,9 +22,13 @@ class DiagnosticsArchiveExporterTest {
         object : DiagnosticsHomeCompositeRunService {
             private val completedRuns = mutableMapOf<String, DiagnosticsHomeCompositeOutcome>()
 
-            override suspend fun startHomeAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted = error("unused")
+            override suspend fun startHomeAnalysis(
+                options: DiagnosticsHomeRunOptions,
+            ): DiagnosticsHomeCompositeRunStarted = error("unused")
 
-            override suspend fun startQuickAnalysis(options: DiagnosticsHomeRunOptions): DiagnosticsHomeCompositeRunStarted = error("unused")
+            override suspend fun startQuickAnalysis(
+                options: DiagnosticsHomeRunOptions,
+            ): DiagnosticsHomeCompositeRunStarted = error("unused")
 
             override fun observeHomeRun(runId: String) = error("unused")
 
@@ -43,7 +47,7 @@ class DiagnosticsArchiveExporterTest {
         }
 
     @Test
-    fun `createArchive persists requested session export and writes schema v3 archive`() =
+    fun `createArchive persists requested session export and writes schema v4 archive`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val session =
@@ -66,7 +70,7 @@ class DiagnosticsArchiveExporterTest {
                 )
 
             assertEquals(session.id, archive.sessionId)
-            assertEquals(3, archive.schemaVersion)
+            assertEquals(4, archive.schemaVersion)
             assertEquals(1, stores.exportsState.value.size)
             assertEquals(
                 session.id,
@@ -258,7 +262,7 @@ class DiagnosticsArchiveExporterTest {
                 )
 
             assertEquals("audit-session", archive.sessionId)
-            assertEquals(3, archive.schemaVersion)
+            assertEquals(4, archive.schemaVersion)
             ZipFile(archive.absolutePath).use { zip ->
                 assertCompositeArchiveContents(zip, outcome)
             }
@@ -363,19 +367,19 @@ class DiagnosticsArchiveExporterTest {
         assertNotNull(zip.getEntry("stages/default_connectivity/report.json"))
         assertNotNull(zip.getEntry("stages/dpi_full/report.json"))
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_home_composite_v3.json",
+            "archive/manifest_home_composite_v4.json",
             zip.getInputStream(zip.getEntry("manifest.json")).bufferedReader().readText(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/home_analysis_composite_v3.json",
+            "archive/home_analysis_composite_v4.json",
             zip.getInputStream(zip.getEntry("home-analysis.json")).bufferedReader().readText(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/stage_index_composite_v3.json",
+            "archive/stage_index_composite_v4.json",
             zip.getInputStream(zip.getEntry("stage-index.json")).bufferedReader().readText(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/stage_summaries_composite_v3.json",
+            "archive/stage_summaries_composite_v4.json",
             zip.getInputStream(zip.getEntry("stage-summaries.json")).bufferedReader().readText(),
         )
     }

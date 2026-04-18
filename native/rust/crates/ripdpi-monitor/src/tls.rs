@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use std::time::Instant;
 
+use ripdpi_tls_profiles::{selected_profile_config, selected_profile_metadata, ProfileMetadata};
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::client::{EchConfig, EchMode, EchStatus};
 use rustls::pki_types::{CertificateDer, EchConfigListBytes, ServerName, UnixTime};
@@ -510,6 +511,7 @@ fn build_standard_client_config(
     profile: TlsClientProfile,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> Arc<ClientConfig> {
+    let template_profile = planned_tls_template_profile(profile);
     let builder = match profile {
         TlsClientProfile::Auto => ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
             .with_safe_default_protocol_versions()
@@ -525,11 +527,13 @@ fn build_standard_client_config(
                 .expect("ring provider supports TLS1.3")
         }
     };
-    if let Some(verifier) = tls_verifier {
-        Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth())
+    let mut config = if let Some(verifier) = tls_verifier {
+        builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()
     } else {
-        Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
-    }
+        builder.with_root_certificates(default_root_store()).with_no_client_auth()
+    };
+    apply_template_alpn(&mut config, template_profile);
+    Arc::new(config)
 }
 
 fn build_ech_client_config(
@@ -568,12 +572,14 @@ fn build_ech_client_config(
     let builder = ClientConfig::builder_with_provider(provider.into())
         .with_ech(EchMode::Enable(ech_config))
         .map_err(|err| err.to_string())?;
-    let config = if let Some(verifier) = tls_verifier {
-        Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth())
+    let template_profile = planned_tls_template_profile(TlsClientProfile::Tls13WithEch);
+    let mut config = if let Some(verifier) = tls_verifier {
+        builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()
     } else {
-        Arc::new(builder.with_root_certificates(default_root_store()).with_no_client_auth())
+        builder.with_root_certificates(default_root_store()).with_no_client_auth()
     };
-    Ok(config)
+    apply_template_alpn(&mut config, template_profile);
+    Ok(Arc::new(config))
 }
 
 /// Attempt to find an opportunistic ECH config by checking if the target IP
@@ -619,6 +625,22 @@ pub(crate) fn ech_status_label(status: EchStatus) -> String {
         EchStatus::Accepted => "accepted".to_string(),
         EchStatus::Rejected => "rejected".to_string(),
     }
+}
+
+pub(crate) fn planned_tls_template_profile(profile: TlsClientProfile) -> &'static str {
+    match profile {
+        TlsClientProfile::Auto | TlsClientProfile::Tls13Only => "chrome_stable",
+        TlsClientProfile::Tls12Only => "chrome_desktop_stable",
+        TlsClientProfile::Tls13WithEch => "firefox_ech_stable",
+    }
+}
+
+pub(crate) fn planned_tls_template_metadata(profile: TlsClientProfile) -> ProfileMetadata {
+    selected_profile_metadata(planned_tls_template_profile(profile))
+}
+
+fn apply_template_alpn(config: &mut ClientConfig, profile_id: &str) {
+    config.alpn_protocols = selected_profile_config(profile_id).alpn.iter().map(|protocol| protocol.to_vec()).collect();
 }
 
 /// Parse the TLS alert code and description from a stringified rustls error.
@@ -938,6 +960,23 @@ mod tests {
         let profile = TlsClientProfile::Tls13WithEch;
         let debug = format!("{profile:?}");
         assert!(debug.contains("WithEch"), "expected WithEch in debug repr, got: {debug}");
+    }
+
+    #[test]
+    fn planned_tls_template_profiles_match_phase_eleven_catalog() {
+        assert_eq!("chrome_stable", planned_tls_template_profile(TlsClientProfile::Tls13Only));
+        assert_eq!("chrome_desktop_stable", planned_tls_template_profile(TlsClientProfile::Tls12Only));
+        assert_eq!("firefox_ech_stable", planned_tls_template_profile(TlsClientProfile::Tls13WithEch));
+
+        let ech = planned_tls_template_metadata(TlsClientProfile::Tls13WithEch);
+        assert!(ech.template.ech_capable);
+        assert_eq!("firefox_ech_grease", ech.template.grease_style);
+    }
+
+    #[test]
+    fn standard_client_config_uses_template_alpn() {
+        let config = build_standard_client_config(TlsClientProfile::Tls13Only, None);
+        assert_eq!(config.alpn_protocols, vec![b"h2".to_vec(), b"http/1.1".to_vec()]);
     }
 
     #[test]

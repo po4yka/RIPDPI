@@ -1114,6 +1114,7 @@ fn monitor_session_strategy_probe_progress_reports_live_candidate_metadata() {
 fn strategy_probe_report_serializes_normal_completion_kind() {
     let report = crate::types::StrategyProbeReport {
         suite_id: "quick_v1".to_string(),
+        methodology_version: crate::types::STRATEGY_PROBE_METHODOLOGY_VERSION.to_string(),
         tcp_candidates: vec![],
         quic_candidates: vec![],
         recommendation: crate::types::StrategyProbeRecommendation {
@@ -1128,6 +1129,7 @@ fn strategy_probe_report_serializes_normal_completion_kind() {
         completion_kind: StrategyProbeCompletionKind::Normal,
         audit_assessment: None,
         target_selection: None,
+        pilot_bucket_labels: vec!["foreign:direct:ech=no".to_string()],
         domain_strategy_seeds: vec![],
     };
 

@@ -220,6 +220,8 @@ class DiagnosticsArchiveRendererTest {
     private fun assertRenderedEntryContent(entries: Map<String, DiagnosticsArchiveEntry>) {
         val summaryText = entries.getValue("summary.txt").bytes.decodeToString()
         val reportText = entries.getValue("report.json").bytes.decodeToString()
+        val analysisText = entries.getValue("analysis.json").bytes.decodeToString()
+        val telemetryCsv = entries.getValue("telemetry.csv").bytes.decodeToString()
         assertTrue(entries.containsKey("summary.txt"))
         assertTrue(entries.containsKey("report.json"))
         assertTrue(entries.containsKey("logcat.txt"))
@@ -231,14 +233,18 @@ class DiagnosticsArchiveRendererTest {
         assertTrue(summaryText.contains("pack.ru-independent-media=1"))
         assertFalse(reportText.contains("198.51.100.8"))
         assertTrue(reportText.contains("\"classifierVersion\": \"ru_ooni_v1\""))
-        assertFalse(reportText.contains("127.0.0.1:1080"))
+        assertTrue(analysisText.contains("\"networkIdentityBucket\": \"wifi:steady:fp-render\""))
         assertTrue(
-            entries
-                .getValue("telemetry.csv")
-                .bytes
-                .decodeToString()
-                .contains("redacted"),
+            analysisText.contains("\"targetBucket\": \"foreign:cloudflare:ech=yes|domestic:domesticcdn:ech=no\""),
         )
+        assertTrue(analysisText.contains("\"inferredUnavailableCapabilities\": ["))
+        assertTrue(analysisText.contains("\"root_helper_available\""))
+        assertTrue(analysisText.contains("\"policyVersion\": \"phase16_rollout_gates_v1\""))
+        assertFalse(reportText.contains("127.0.0.1:1080"))
+        assertTrue(telemetryCsv.contains("redacted"))
+        assertTrue(telemetryCsv.contains("networkIdentityBucket"))
+        assertTrue(telemetryCsv.contains("foreign:cloudflare:ech=yes|domestic:domesticcdn:ech=no"))
+        assertTrue(telemetryCsv.contains("root_helper_available"))
     }
 
     private fun assertRenderedManifestAndProvenance(entries: Map<String, DiagnosticsArchiveEntry>) {
@@ -298,27 +304,27 @@ class DiagnosticsArchiveRendererTest {
 
     private fun assertGoldenContracts(entries: Map<String, DiagnosticsArchiveEntry>) {
         GoldenContractSupport.assertJsonGolden(
-            "archive/manifest_v3.json",
+            "archive/manifest_v4.json",
             entries.getValue("manifest.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/archive_provenance_v3.json",
+            "archive/archive_provenance_v4.json",
             entries.getValue("archive-provenance.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/runtime_config_v3.json",
+            "archive/runtime_config_v4.json",
             entries.getValue("runtime-config.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/analysis_v3.json",
+            "archive/analysis_v4.json",
             entries.getValue("analysis.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/completeness_v3.json",
+            "archive/completeness_v4.json",
             entries.getValue("completeness.json").bytes.decodeToString(),
         )
         GoldenContractSupport.assertJsonGolden(
-            "archive/integrity_v3.json",
+            "archive/integrity_v4.json",
             entries.getValue("integrity.json").bytes.decodeToString(),
         )
     }
@@ -390,6 +396,21 @@ class DiagnosticsArchiveRendererTest {
             connectionState = "connected",
             networkType = "wifi",
             publicIp = publicIp,
+            telemetryNetworkFingerprintHash = "fp-render",
+            winningTcpStrategyFamily = "tlsrec_split",
+            winningQuicStrategyFamily = "quic_sni_split",
+            proxyRttBand = "50_99",
+            resolverRttBand = "lt50",
+            proxyRouteRetryCount = 1,
+            tunnelRecoveryRetryCount = 0,
+            resolverId = "adguard",
+            resolverProtocol = "doh",
+            resolverEndpoint = "https://dns.adguard-dns.com/dns-query",
+            resolverLatencyMs = 42L,
+            dnsFailuresTotal = 1,
+            resolverFallbackActive = false,
+            resolverFallbackReason = "none",
+            networkHandoverClass = "steady",
             txPackets = 1,
             txBytes = 2,
             rxPackets = 3,
@@ -451,6 +472,110 @@ class DiagnosticsArchiveRendererTest {
                         target = "blocked.example",
                         evidence = listOf("dns:blocked.example=substituted"),
                     ),
+                ),
+            strategyProbeReport =
+                StrategyProbeReport(
+                    suiteId = "full_matrix_v1",
+                    tcpCandidates =
+                        listOf(
+                            StrategyProbeCandidateSummary(
+                                id = "tcp-prod",
+                                label = "TLS split",
+                                family = "tlsrec_split",
+                                emitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
+                                outcome = "success",
+                                rationale = "winner",
+                                succeededTargets = 3,
+                                totalTargets = 4,
+                                weightedSuccessScore = 9,
+                                totalWeight = 12,
+                                qualityScore = 9,
+                                averageLatencyMs = 120L,
+                            ),
+                            StrategyProbeCandidateSummary(
+                                id = "tcp-rooted",
+                                label = "Rooted seqovl",
+                                family = "seqovl",
+                                emitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
+                                exactEmitterRequiresRoot = true,
+                                outcome = "capability_skipped",
+                                rationale = "Requires rooted production emitter tier",
+                                succeededTargets = 0,
+                                totalTargets = 4,
+                                weightedSuccessScore = 0,
+                                totalWeight = 12,
+                                qualityScore = 0,
+                                skipped = true,
+                                notes = listOf("Requires rooted production emitter tier (root_helper_available)"),
+                            ),
+                        ),
+                    quicCandidates =
+                        listOf(
+                            StrategyProbeCandidateSummary(
+                                id = "quic-prod",
+                                label = "QUIC split",
+                                family = "quic_sni_split",
+                                emitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
+                                quicLayoutFamily = "split_initial",
+                                outcome = "success",
+                                rationale = "winner",
+                                succeededTargets = 2,
+                                totalTargets = 3,
+                                weightedSuccessScore = 4,
+                                totalWeight = 6,
+                                qualityScore = 4,
+                                averageLatencyMs = 90L,
+                            ),
+                        ),
+                    recommendation =
+                        StrategyProbeRecommendation(
+                            tcpCandidateId = "tcp-prod",
+                            tcpCandidateLabel = "TLS split",
+                            tcpCandidateFamily = "tlsrec_split",
+                            quicCandidateId = "quic-prod",
+                            quicCandidateLabel = "QUIC split",
+                            quicCandidateFamily = "quic_sni_split",
+                            quicCandidateLayoutFamily = "split_initial",
+                            dnsStrategyFamily = "resolver_override",
+                            dnsStrategyLabel = "AdGuard",
+                            rationale = "best path",
+                            recommendedProxyConfigJson = "{}",
+                        ),
+                    auditAssessment =
+                        StrategyProbeAuditAssessment(
+                            dnsShortCircuited = false,
+                            coverage =
+                                StrategyProbeAuditCoverage(
+                                    tcpCandidatesPlanned = 2,
+                                    tcpCandidatesExecuted = 1,
+                                    tcpCandidatesSkipped = 1,
+                                    tcpCandidatesNotApplicable = 0,
+                                    quicCandidatesPlanned = 1,
+                                    quicCandidatesExecuted = 1,
+                                    quicCandidatesSkipped = 0,
+                                    quicCandidatesNotApplicable = 0,
+                                    tcpWinnerSucceededTargets = 3,
+                                    tcpWinnerTotalTargets = 4,
+                                    quicWinnerSucceededTargets = 2,
+                                    quicWinnerTotalTargets = 3,
+                                    matrixCoveragePercent = 82,
+                                    winnerCoveragePercent = 75,
+                                ),
+                            confidence =
+                                StrategyProbeAuditConfidence(
+                                    level = StrategyProbeAuditConfidenceLevel.HIGH,
+                                    score = 86,
+                                    rationale = "Renderer fixture confidence",
+                                ),
+                        ),
+                    targetSelection =
+                        StrategyProbeTargetSelection(
+                            cohortId = "media-messaging",
+                            cohortLabel = "Media and messaging",
+                            domainHosts = listOf("meduza.io", "telegram.org"),
+                            quicHosts = listOf("discord.com"),
+                        ),
+                    pilotBucketLabels = listOf("foreign:cloudflare:ech=yes", "domestic:domesticcdn:ech=no"),
                 ),
             classifierVersion = "ru_ooni_v1",
             packVersions = mapOf("ru-independent-media" to 1),

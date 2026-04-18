@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceEvent
@@ -41,6 +42,8 @@ class VpnServiceRuntimeCoordinatorTest {
         val resolver: TestConnectionPolicyResolver,
         val handoverMonitor: TestNetworkHandoverMonitor,
         val handoverEvents: TestPolicyHandoverEventStore,
+        val permissionWatchdog: TestPermissionWatchdog,
+        val vpnProtectFailureMonitor: TestVpnProtectFailureMonitor,
         val resolverOverrides: TestResolverOverrideStore,
         val preferredPaths: TestNetworkDnsPathPreferenceStore,
         val events: MutableList<String>,
@@ -258,6 +261,7 @@ class VpnServiceRuntimeCoordinatorTest {
                 env.bridgeFactory.bridge.startedConfigs[1]
                     .socks5Port,
             )
+            assertEquals(2, env.host.underlyingNetworkSyncs)
         }
 
     @Test
@@ -565,6 +569,43 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun handoverRestartUpdatesExplicitHandoverState() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.4.4"))
+            val env =
+                newEnv(
+                    fingerprint = initialFingerprint,
+                    resolutions =
+                        listOf(
+                            sampleResolution(mode = Mode.VPN, policySignature = "initial"),
+                            sampleResolution(mode = Mode.VPN, policySignature = "handover"),
+                        ),
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = 2_000L,
+                ),
+            )
+            repeat(3) { runCurrent() }
+            advanceTimeBy(1_000L)
+            repeat(3) { runCurrent() }
+
+            assertEquals(
+                com.poyka.ripdpi.data.NetworkHandoverStates.Revalidated,
+                env.store.telemetry.value.networkHandoverState,
+            )
+            assertEquals("transport_switch", env.store.telemetry.value.tunnelTelemetry.networkHandoverClass)
+        }
+
+    @Test
     fun tunnelStoppedUnexpectedlyTransitionsToFailed() =
         runTest {
             val env = newEnv(resolutions = listOf(plainDnsResolution()))
@@ -601,6 +642,52 @@ class VpnServiceRuntimeCoordinatorTest {
             assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
             assertTrue(env.store.eventHistory.single() is ServiceEvent.Failed)
             assertEquals(1, env.factory.lastRuntime.stopCount)
+        }
+
+    @Test
+    fun vpnConsentRevocationTransitionsToPermissionFailureAndStops() =
+        runTest {
+            val env = newEnv()
+
+            env.coordinator.start()
+            runCurrent()
+
+            env.permissionWatchdog.emit(
+                PermissionChangeEvent(
+                    kind = PermissionChangeEvent.KIND_VPN_CONSENT,
+                    detectedAt = 2_000L,
+                ),
+            )
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            val failure = env.store.eventHistory.last() as ServiceEvent.Failed
+            assertEquals(FailureReason.PermissionLost("VPN"), failure.reason)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
+        }
+
+    @Test
+    fun vpnProtectFailureTransitionsToFailedAndStops() =
+        runTest {
+            val env = newEnv()
+
+            env.coordinator.start()
+            runCurrent()
+
+            env.vpnProtectFailureMonitor.report(
+                VpnProtectFailureEvent(
+                    fd = 42,
+                    reason = FailureReason.PermissionLost("VPN"),
+                    detail = "VpnService.protect() returned false",
+                    detectedAt = 2_000L,
+                ),
+            )
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            val failure = env.store.eventHistory.last() as ServiceEvent.Failed
+            assertEquals(FailureReason.PermissionLost("VPN"), failure.reason)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
         }
 
     @Test
@@ -681,6 +768,8 @@ class VpnServiceRuntimeCoordinatorTest {
         val runtimeRegistry = DefaultServiceRuntimeRegistry()
         val handoverMonitor = TestNetworkHandoverMonitor()
         val handoverEvents = TestPolicyHandoverEventStore()
+        val permissionWatchdog = TestPermissionWatchdog()
+        val vpnProtectFailureMonitor = TestVpnProtectFailureMonitor()
         val overrides = TestResolverOverrideStore()
         val preferredPaths = TestNetworkDnsPathPreferenceStore()
         val clock = TestServiceClock(now = 1_000L)
@@ -700,7 +789,8 @@ class VpnServiceRuntimeCoordinatorTest {
                 rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                 networkHandoverMonitor = handoverMonitor,
                 policyHandoverEventStore = handoverEvents,
-                permissionWatchdog = TestPermissionWatchdog(),
+                permissionWatchdog = permissionWatchdog,
+                vpnProtectFailureMonitor = vpnProtectFailureMonitor,
                 vpnTunnelRuntime = tunnelRuntime,
                 resolverRefreshPlanner =
                     VpnResolverRefreshPlanner(
@@ -767,6 +857,8 @@ class VpnServiceRuntimeCoordinatorTest {
             resolver = resolver,
             handoverMonitor = handoverMonitor,
             handoverEvents = handoverEvents,
+            permissionWatchdog = permissionWatchdog,
+            vpnProtectFailureMonitor = vpnProtectFailureMonitor,
             resolverOverrides = overrides,
             preferredPaths = preferredPaths,
             events = events,

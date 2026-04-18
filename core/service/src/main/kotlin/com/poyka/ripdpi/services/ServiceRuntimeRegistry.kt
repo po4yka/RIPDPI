@@ -53,6 +53,7 @@ class VpnRuntimeSession(
     ),
     HandoverAwareSession {
     override var pendingNetworkHandoverClass: String? = null
+    override var networkHandoverState: String? = null
     override var lastSuccessfulHandoverFingerprintHash: String? = null
     override var lastSuccessfulHandoverAt: Long = 0L
     override var handoverRetryCount: Int = 0
@@ -70,6 +71,7 @@ class ProxyRuntimeSession(
     ),
     HandoverAwareSession {
     override var pendingNetworkHandoverClass: String? = null
+    override var networkHandoverState: String? = null
     override var lastSuccessfulHandoverFingerprintHash: String? = null
     override var lastSuccessfulHandoverAt: Long = 0L
     override var handoverRetryCount: Int = 0

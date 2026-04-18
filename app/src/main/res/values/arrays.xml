@@ -70,13 +70,17 @@
 
     <array name="tls_fingerprint_profiles">
         <item name="chrome_stable">Chrome stable</item>
+        <item name="chrome_desktop_stable">Chrome desktop stable</item>
         <item name="firefox_stable">Firefox stable</item>
+        <item name="firefox_ech_stable">Firefox stable (ECH)</item>
         <item name="safari_stable">Safari stable</item>
         <item name="edge_stable">Edge stable</item>
     </array>
     <array name="tls_fingerprint_profiles_entries">
         <item name="chrome_stable">chrome_stable</item>
+        <item name="chrome_desktop_stable">chrome_desktop_stable</item>
         <item name="firefox_stable">firefox_stable</item>
+        <item name="firefox_ech_stable">firefox_ech_stable</item>
         <item name="safari_stable">safari_stable</item>
         <item name="edge_stable">edge_stable</item>
     </array>

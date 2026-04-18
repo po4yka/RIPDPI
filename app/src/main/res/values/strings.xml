@@ -1772,6 +1772,7 @@ Source: %2$s</string>
     <string name="diagnostics_metric_latest_native_failure">Latest native failure</string>
     <string name="diagnostics_metric_fallback_action">Fallback action</string>
     <string name="diagnostics_metric_failure_class">Failure class</string>
+    <string name="diagnostics_metric_handover_state">Handover state</string>
     <string name="diagnostics_metric_winning_strategy">Winning strategy</string>
     <string name="diagnostics_metric_rtt_band">RTT band</string>
     <string name="diagnostics_metric_retries">Retries</string>
@@ -1820,6 +1821,7 @@ Source: %2$s</string>
     <string name="diagnostics_live_body_waiting">Continuous monitor is waiting for an active RIPDPI session.</string>
     <string name="diagnostics_live_failure_class_format">Latest failure class: %1$s</string>
     <string name="diagnostics_live_dns_override_format">Encrypted DNS override active: %1$s</string>
+    <string name="diagnostics_live_handover_state_format">Network handover state: %1$s</string>
     <string name="diagnostics_live_handover_format">Recent network handover detected: %1$s</string>
     <string name="diagnostics_live_winning_strategy_format">Winning strategy family: %1$s</string>
     <string name="diagnostics_live_mode_summary_format">%1$s mode \u00b7 %2$s transferred \u00b7 %3$d packets observed</string>
@@ -1976,6 +1978,8 @@ Source: %2$s</string>
     <string name="detection_resistance_summary_off">Off</string>
     <string name="detection_resistance_tls_fingerprint_title">TLS fingerprint profile</string>
     <string name="detection_resistance_tls_fingerprint_body">Applies to HTTPS and TLS connections the app originates itself, including provisioning, catalog refresh, onboarding checks, and diagnostics metadata lookups.</string>
+    <string name="detection_resistance_proxy_notice_title">Proxy mode limits browser-native TLS shaping</string>
+    <string name="detection_resistance_proxy_notice_body">TLS fingerprint profiles and ECH-aware shaping still apply to traffic the app originates itself, but browser-native TLS, ECH, and UDP ownership stay under the browser and OS in proxy mode. Use VPN mode when you need RIPDPI to control the full transport path.</string>
     <string name="detection_resistance_entropy_mode_title">Entropy shaping mode</string>
     <string name="detection_resistance_entropy_mode_body">Choose which payload-statistics model the fake-packet path should counter.</string>
     <string name="detection_resistance_entropy_padding_title">Popcount target (permil)</string>

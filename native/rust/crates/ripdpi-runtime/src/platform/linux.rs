@@ -311,6 +311,9 @@ pub fn protect_socket<T: AsRawFd>(socket: &T, path: &str) -> io::Result<()> {
 
     let mut ack = [0u8; 1];
     (&stream).read_exact(&mut ack)?;
+    if ack[0] != 0 {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "VpnService.protect() rejected socket"));
+    }
     tracing::debug!(path = path, "protect_socket: fd protected");
     Ok(())
 }

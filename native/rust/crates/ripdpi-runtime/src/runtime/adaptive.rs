@@ -15,13 +15,161 @@ use std::net::SocketAddr;
 
 use ripdpi_config::{DesyncGroup, QuicFakeProfile, RuntimeConfig};
 use ripdpi_desync::{AdaptivePlannerHints, AdaptiveUdpBurstProfile};
+use ripdpi_packets::{is_quic_initial, is_tls_client_hello, parse_quic_initial, tls_marker_info};
 use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
 
 use super::morph::{apply_tcp_morph_policy_to_hints, apply_udp_morph_policy_to_hints, emit_morph_rollback};
 use super::state::RuntimeState;
+use crate::strategy_evolver::{
+    CapabilityContext, LearningAlpnClass, LearningContext, LearningHostingFamily, LearningReachabilitySet,
+    LearningTargetBucket, LearningTransportKind, ResolverHealthClass,
+};
 
 pub(super) fn network_scope_key(config: &RuntimeConfig) -> Option<&str> {
     config.adaptive.network_scope_key.as_deref().map(str::trim).filter(|value| !value.is_empty())
+}
+
+fn resolver_health_context(runtime_context: Option<&ProxyRuntimeContext>) -> ResolverHealthClass {
+    match runtime_context.and_then(|context| context.encrypted_dns.as_ref()) {
+        Some(_) => ResolverHealthClass::Healthy,
+        None => ResolverHealthClass::Unknown,
+    }
+}
+
+fn capability_context(capability: Option<&ProxyDirectPathCapability>) -> CapabilityContext {
+    let Some(capability) = capability else {
+        return CapabilityContext::Unknown;
+    };
+    if capability_requires_desync_fallback(capability) {
+        CapabilityContext::Degraded
+    } else {
+        CapabilityContext::Full
+    }
+}
+
+fn hosting_family_context(host: Option<&str>) -> LearningHostingFamily {
+    let Some(host) = host.map(str::trim).filter(|value| !value.is_empty()) else {
+        return LearningHostingFamily::Unknown;
+    };
+    let host = host.to_ascii_lowercase();
+    if host.ends_with(".workers.dev")
+        || host.ends_with(".pages.dev")
+        || host.contains("cloudflare")
+        || host.ends_with(".cloudflare.com")
+    {
+        LearningHostingFamily::Cloudflare
+    } else if host.ends_with(".google.com")
+        || host.ends_with(".googlevideo.com")
+        || host.ends_with(".googleapis.com")
+        || host.ends_with(".gstatic.com")
+        || host.ends_with(".youtube.com")
+        || host.ends_with(".ytimg.com")
+        || host.ends_with(".1e100.net")
+    {
+        LearningHostingFamily::Google
+    } else if host.ends_with(".yandex.ru")
+        || host.ends_with(".yandex.net")
+        || host.ends_with(".ya.ru")
+        || host.ends_with(".vk.com")
+        || host.ends_with(".vk.ru")
+        || host.ends_with(".mail.ru")
+        || host.ends_with(".ok.ru")
+        || host.ends_with(".rutube.ru")
+    {
+        LearningHostingFamily::DomesticCdn
+    } else if host.ends_with(".cdn77.org")
+        || host.ends_with(".akamai.net")
+        || host.ends_with(".akamaized.net")
+        || host.ends_with(".fastly.net")
+        || host.ends_with(".cloudfront.net")
+        || host.ends_with(".edgekey.net")
+        || host.contains("cdn")
+    {
+        LearningHostingFamily::ForeignCdn
+    } else {
+        LearningHostingFamily::Direct
+    }
+}
+
+fn reachability_set_context(host: Option<&str>) -> LearningReachabilitySet {
+    let Some(host) = host.map(str::trim).filter(|value| !value.is_empty()) else {
+        return LearningReachabilitySet::Unknown;
+    };
+    if host.eq_ignore_ascii_case("control") {
+        return LearningReachabilitySet::Control;
+    }
+    let host = host.to_ascii_lowercase();
+    if host.ends_with(".ru") || host.ends_with(".su") || host.ends_with(".xn--p1ai") {
+        LearningReachabilitySet::Domestic
+    } else {
+        LearningReachabilitySet::Foreign
+    }
+}
+
+fn tcp_learning_context(
+    state: &RuntimeState,
+    target: SocketAddr,
+    host: Option<&str>,
+    payload: &[u8],
+) -> LearningContext {
+    let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
+    let is_tls = is_tls_client_hello(payload);
+    let has_ech = is_tls && tls_marker_info(payload).and_then(|markers| markers.ech_ext_start).is_some();
+    LearningContext {
+        network_identity: network_scope_key(&state.config).map(ToOwned::to_owned),
+        target_bucket: if host == Some("control") {
+            LearningTargetBucket::Control
+        } else if has_ech {
+            LearningTargetBucket::Ech
+        } else if is_tls {
+            LearningTargetBucket::Tls
+        } else {
+            LearningTargetBucket::Generic
+        },
+        transport: LearningTransportKind::Tcp,
+        alpn_class: if is_tls { LearningAlpnClass::H2Http11 } else { LearningAlpnClass::Unknown },
+        hosting_family: hosting_family_context(host),
+        reachability_set: reachability_set_context(host),
+        ech_capable: has_ech,
+        resolver_health: resolver_health_context(state.runtime_context.as_ref()),
+        rooted: state.config.process.root_mode,
+        capability_context: capability_context(capability),
+    }
+}
+
+fn udp_learning_context(
+    state: &RuntimeState,
+    target: SocketAddr,
+    host: Option<&str>,
+    payload: &[u8],
+) -> LearningContext {
+    let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
+    let parsed_quic = parse_quic_initial(payload);
+    let has_ech = parsed_quic.as_ref().and_then(|info| info.tls_info.ech_ext_start).is_some();
+    LearningContext {
+        network_identity: network_scope_key(&state.config).map(ToOwned::to_owned),
+        target_bucket: if is_quic_initial(payload) {
+            if has_ech {
+                LearningTargetBucket::Ech
+            } else {
+                LearningTargetBucket::Quic
+            }
+        } else {
+            LearningTargetBucket::Generic
+        },
+        transport: if is_quic_initial(payload) {
+            LearningTransportKind::UdpQuic
+        } else {
+            LearningTransportKind::Unknown
+        },
+        alpn_class: if is_quic_initial(payload) { LearningAlpnClass::H3 } else { LearningAlpnClass::Unknown },
+        hosting_family: hosting_family_context(host),
+        reachability_set: reachability_set_context(host),
+        ech_capable: has_ech,
+        resolver_health: resolver_health_context(state.runtime_context.as_ref()),
+        rooted: state.config.process.root_mode,
+        capability_context: capability_context(capability),
+    }
 }
 
 pub(super) fn resolve_adaptive_fake_ttl(
@@ -177,12 +325,11 @@ pub(super) fn resolve_tcp_hints_with_evolver(
     if !state.config.adaptive.strategy_evolution {
         return resolve_adaptive_tcp_hints(state, target, group_index, group, host, payload);
     }
-    if let Ok(evolver) = state.strategy_evolver.read() {
+    if let Ok(mut evolver) = state.strategy_evolver.write() {
+        evolver.set_learning_context(tcp_learning_context(state, target, host, payload));
         if let Some(hints) = evolver.peek_hints() {
             return Ok(apply_tcp_morph_policy_to_hints(state, hints));
         }
-    }
-    if let Ok(mut evolver) = state.strategy_evolver.write() {
         if let Some(hints) = evolver.suggest_hints() {
             return Ok(apply_tcp_morph_policy_to_hints(state, hints));
         }
@@ -201,7 +348,8 @@ pub(super) fn resolve_udp_hints_with_evolver(
     if !state.config.adaptive.strategy_evolution {
         return resolve_adaptive_udp_hints(state, target, group_index, group, host, payload);
     }
-    if let Ok(evolver) = state.strategy_evolver.read() {
+    if let Ok(mut evolver) = state.strategy_evolver.write() {
+        evolver.set_learning_context(udp_learning_context(state, target, host, payload));
         if let Some(hints) = evolver.peek_hints() {
             let hints = apply_udp_morph_policy_to_hints(state, hints);
             let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
@@ -209,8 +357,6 @@ pub(super) fn resolve_udp_hints_with_evolver(
             record_morph_rollback(state, target, hints, merged);
             return Ok(merged);
         }
-    }
-    if let Ok(mut evolver) = state.strategy_evolver.write() {
         if let Some(hints) = evolver.suggest_hints() {
             let hints = apply_udp_morph_policy_to_hints(state, hints);
             let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
@@ -307,6 +453,7 @@ fn normalize_authority(value: Option<&str>) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::strategy_evolver::{LearningHostingFamily, LearningReachabilitySet};
 
     fn capability(authority: &str) -> ProxyDirectPathCapability {
         ProxyDirectPathCapability {
@@ -362,5 +509,22 @@ mod tests {
 
         assert_eq!(merged.udp_burst_profile, Some(AdaptiveUdpBurstProfile::Aggressive));
         assert_eq!(merged.quic_fake_profile, Some(QuicFakeProfile::CompatDefault));
+    }
+
+    #[test]
+    fn hosting_family_context_identifies_known_cdn_buckets() {
+        assert_eq!(hosting_family_context(Some("video.cloudflare.com")), LearningHostingFamily::Cloudflare);
+        assert_eq!(hosting_family_context(Some("fonts.gstatic.com")), LearningHostingFamily::Google);
+        assert_eq!(hosting_family_context(Some("portal.yandex.ru")), LearningHostingFamily::DomesticCdn);
+        assert_eq!(hosting_family_context(Some("assets.fastly.net")), LearningHostingFamily::ForeignCdn);
+        assert_eq!(hosting_family_context(Some("origin.example.com")), LearningHostingFamily::Direct);
+    }
+
+    #[test]
+    fn reachability_set_context_identifies_domestic_and_control_hosts() {
+        assert_eq!(reachability_set_context(Some("control")), LearningReachabilitySet::Control);
+        assert_eq!(reachability_set_context(Some("service.gov.ru")), LearningReachabilitySet::Domestic);
+        assert_eq!(reachability_set_context(Some("example.com")), LearningReachabilitySet::Foreign);
+        assert_eq!(reachability_set_context(None), LearningReachabilitySet::Unknown);
     }
 }

@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasScrollToKeyAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToKey
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
@@ -235,6 +236,14 @@ class AdvancedSettingsScreenCharacterizationTest {
         setScreen(notice = null)
 
         composeRule.onNodeWithTag(RipDpiTestTags.AdvancedNoticeBanner).assertDoesNotExist()
+    }
+
+    @Test
+    fun `proxy mode shows browser native tls warning in detection resistance section`() {
+        setScreen(uiState = SettingsUiState(isVpn = false))
+
+        scrollToKey("advanced_detection_resistance")
+        composeRule.onNodeWithText("Proxy mode limits browser-native TLS shaping").assertExists()
     }
 
     // -- Helper --

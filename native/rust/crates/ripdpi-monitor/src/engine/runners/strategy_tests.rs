@@ -43,13 +43,13 @@ fn family_tracker_resets_on_different_family() {
 }
 
 use super::{
-    baseline_has_tls_ech_only, baseline_supports_ech_candidates, ordered_follow_up_tcp_candidates,
-    resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment,
+    baseline_has_tls_ech_only, baseline_supports_ech_candidates, ordered_follow_up_tcp_candidates, pilot_bucket_label,
+    resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment, stratified_pilot_targets,
 };
 use crate::candidates::{build_tcp_candidates, CandidateEligibility};
 use crate::classification::{interleave_candidate_families, reorder_tcp_candidates_for_failure};
 use crate::types::{
-    ProbeDetail, ProbeResult, StrategyProbeAuditAssessment, StrategyProbeAuditConfidenceLevel,
+    DomainTarget, ProbeDetail, ProbeResult, StrategyProbeAuditAssessment, StrategyProbeAuditConfidenceLevel,
     StrategyProbeCandidateSummary, StrategyProbeRecommendation,
 };
 use crate::util::STRATEGY_PROBE_SUITE_FULL_MATRIX_V1;
@@ -63,6 +63,9 @@ fn quic_candidate_summary(proxy_config_json: Option<String>) -> StrategyProbeCan
         id: s("quic_realistic_burst"),
         label: s("QUIC realistic burst"),
         family: s("quic_burst"),
+        emitter_tier: crate::types::StrategyEmitterTier::NonRootProduction,
+        exact_emitter_requires_root: false,
+        emitter_downgraded: false,
         quic_layout_family: None,
         outcome: s("success"),
         rationale: s("Recovered QUIC"),
@@ -93,6 +96,9 @@ fn strategy_candidate_summary(
         id: s(id),
         label: id.replace('_', " "),
         family: s(family),
+        emitter_tier: crate::types::StrategyEmitterTier::NonRootProduction,
+        exact_emitter_requires_root: false,
+        emitter_downgraded: false,
         quic_layout_family: None,
         outcome: s(outcome),
         rationale: s("candidate result"),
@@ -206,6 +212,68 @@ fn baseline_ech_detection_recognizes_resolution_detail_and_tls_ech_only() {
     assert!(baseline_has_tls_ech_only(&[baseline_https_result("tls_ech_only", "none")]));
     assert!(!baseline_supports_ech_candidates(&[baseline_https_result("tls_ok", "none")]));
     assert!(!baseline_has_tls_ech_only(&[baseline_https_result("tls_ok", "ech_config_available")]));
+}
+
+#[test]
+fn stratified_pilot_targets_prefers_distinct_bucket_mix() {
+    let selected = stratified_pilot_targets(&[
+        DomainTarget {
+            host: "control.test".to_string(),
+            connect_ip: None,
+            connect_ips: vec![],
+            https_port: None,
+            http_port: None,
+            http_path: "/".to_string(),
+            is_control: true,
+        },
+        DomainTarget {
+            host: "video.cloudflare.com".to_string(),
+            connect_ip: None,
+            connect_ips: vec![],
+            https_port: None,
+            http_port: None,
+            http_path: "/".to_string(),
+            is_control: false,
+        },
+        DomainTarget {
+            host: "portal.gov.ru".to_string(),
+            connect_ip: None,
+            connect_ips: vec![],
+            https_port: None,
+            http_port: None,
+            http_path: "/".to_string(),
+            is_control: false,
+        },
+        DomainTarget {
+            host: "example.com".to_string(),
+            connect_ip: None,
+            connect_ips: vec![],
+            https_port: None,
+            http_port: None,
+            http_path: "/".to_string(),
+            is_control: false,
+        },
+    ]);
+
+    assert_eq!(selected.len(), 3);
+    assert!(selected.iter().any(|target| target.is_control));
+    assert!(selected.iter().any(|target| target.host == "video.cloudflare.com"));
+    assert!(selected.iter().any(|target| target.host == "portal.gov.ru"));
+}
+
+#[test]
+fn pilot_bucket_label_captures_reachability_hosting_and_ech_bias() {
+    let label = pilot_bucket_label(&DomainTarget {
+        host: "cdn.cloudflare.com".to_string(),
+        connect_ip: None,
+        connect_ips: vec![],
+        https_port: None,
+        http_port: None,
+        http_path: "/".to_string(),
+        is_control: false,
+    });
+
+    assert_eq!(label, "foreign:cloudflare:ech=yes");
 }
 
 #[test]

@@ -1,5 +1,20 @@
 use serde::{Deserialize, Serialize};
 
+pub const STRATEGY_PROBE_METHODOLOGY_VERSION: &str = "strategy_learning_v3";
+
+fn default_strategy_probe_methodology_version() -> String {
+    STRATEGY_PROBE_METHODOLOGY_VERSION.to_string()
+}
+
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum StrategyEmitterTier {
+    #[default]
+    NonRootProduction,
+    RootedProduction,
+    LabDiagnosticsOnly,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct StrategyProbeTargetSelection {
@@ -25,6 +40,8 @@ pub enum StrategyProbeCompletionKind {
 #[serde(rename_all = "camelCase")]
 pub struct StrategyProbeReport {
     pub suite_id: String,
+    #[serde(default = "default_strategy_probe_methodology_version")]
+    pub methodology_version: String,
     pub tcp_candidates: Vec<StrategyProbeCandidateSummary>,
     pub quic_candidates: Vec<StrategyProbeCandidateSummary>,
     pub recommendation: StrategyProbeRecommendation,
@@ -34,6 +51,8 @@ pub struct StrategyProbeReport {
     pub audit_assessment: Option<StrategyProbeAuditAssessment>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_selection: Option<StrategyProbeTargetSelection>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pilot_bucket_labels: Vec<String>,
     /// Per-domain strategy seeds derived from probe results.
     /// Each entry records the best candidate for a domain that did NOT succeed
     /// with the baseline candidate. Consumers can pass these to the autolearn
@@ -68,6 +87,12 @@ pub struct StrategyProbeCandidateSummary {
     pub id: String,
     pub label: String,
     pub family: String,
+    #[serde(default)]
+    pub emitter_tier: StrategyEmitterTier,
+    #[serde(default)]
+    pub exact_emitter_requires_root: bool,
+    #[serde(default)]
+    pub emitter_downgraded: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quic_layout_family: Option<String>,
     pub outcome: String,

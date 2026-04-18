@@ -24,6 +24,15 @@ data class NativeOwnedTlsHttpResult(
     val tlsProfileCatalogVersion: String? = null,
     val tlsJa3ParityTarget: String? = null,
     val tlsJa4ParityTarget: String? = null,
+    val tlsBrowserFamily: String? = null,
+    val tlsBrowserTrack: String? = null,
+    val tlsTemplateAlpn: String? = null,
+    val tlsTemplateExtensionOrderFamily: String? = null,
+    val tlsTemplateGreaseStyle: String? = null,
+    val tlsTemplateSupportedGroupsProfile: String? = null,
+    val tlsTemplateKeyShareProfile: String? = null,
+    val tlsTemplateRecordChoreography: String? = null,
+    val tlsTemplateEchCapable: Boolean? = null,
     val clientHelloSizeHint: Int? = null,
     val clientHelloInvariantStatus: String? = null,
 )
@@ -97,6 +106,15 @@ class DefaultNativeOwnedTlsHttpFetcher
                     tlsProfileCatalogVersion = response.tlsProfileCatalogVersion,
                     tlsJa3ParityTarget = response.tlsJa3ParityTarget,
                     tlsJa4ParityTarget = response.tlsJa4ParityTarget,
+                    tlsBrowserFamily = response.tlsBrowserFamily,
+                    tlsBrowserTrack = response.tlsBrowserTrack,
+                    tlsTemplateAlpn = response.tlsTemplateAlpn,
+                    tlsTemplateExtensionOrderFamily = response.tlsTemplateExtensionOrderFamily,
+                    tlsTemplateGreaseStyle = response.tlsTemplateGreaseStyle,
+                    tlsTemplateSupportedGroupsProfile = response.tlsTemplateSupportedGroupsProfile,
+                    tlsTemplateKeyShareProfile = response.tlsTemplateKeyShareProfile,
+                    tlsTemplateRecordChoreography = response.tlsTemplateRecordChoreography,
+                    tlsTemplateEchCapable = response.tlsTemplateEchCapable,
                     clientHelloSizeHint = response.clientHelloSizeHint,
                     clientHelloInvariantStatus = response.clientHelloInvariantStatus,
                 )
@@ -150,6 +168,24 @@ private data class NativeOwnedTlsHttpResponse(
     val tlsJa3ParityTarget: String? = null,
     @SerialName("tlsJa4ParityTarget")
     val tlsJa4ParityTarget: String? = null,
+    @SerialName("tlsBrowserFamily")
+    val tlsBrowserFamily: String? = null,
+    @SerialName("tlsBrowserTrack")
+    val tlsBrowserTrack: String? = null,
+    @SerialName("tlsTemplateAlpn")
+    val tlsTemplateAlpn: String? = null,
+    @SerialName("tlsTemplateExtensionOrderFamily")
+    val tlsTemplateExtensionOrderFamily: String? = null,
+    @SerialName("tlsTemplateGreaseStyle")
+    val tlsTemplateGreaseStyle: String? = null,
+    @SerialName("tlsTemplateSupportedGroupsProfile")
+    val tlsTemplateSupportedGroupsProfile: String? = null,
+    @SerialName("tlsTemplateKeyShareProfile")
+    val tlsTemplateKeyShareProfile: String? = null,
+    @SerialName("tlsTemplateRecordChoreography")
+    val tlsTemplateRecordChoreography: String? = null,
+    @SerialName("tlsTemplateEchCapable")
+    val tlsTemplateEchCapable: Boolean? = null,
     @SerialName("clientHelloSizeHint")
     val clientHelloSizeHint: Int? = null,
     @SerialName("clientHelloInvariantStatus")
