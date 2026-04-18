@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.diagnostics
+package com.poyka.ripdpi.diagnostics.export
 
 import android.content.Context
 import android.content.pm.ApplicationInfo

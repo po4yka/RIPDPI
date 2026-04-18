@@ -138,10 +138,18 @@ pub(crate) fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> 
             }
         }
         "noise" => {
-            return Err(io::Error::new(
-                io::ErrorKind::Unsupported,
-                "finalmask noise is not available for xHTTP transports",
-            ));
+            let Some((min, max)) = parse_rand_range(&finalmask.rand_range) else {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "finalmask noise requires rand_range in min-max format",
+                ));
+            };
+            if min > max {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "finalmask noise rand_range minimum must not exceed maximum",
+                ));
+            }
         }
         _ => {
             return Err(io::Error::new(
@@ -152,6 +160,11 @@ pub(crate) fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> 
     }
 
     Ok(())
+}
+
+fn parse_rand_range(value: &str) -> Option<(usize, usize)> {
+    let (min, max) = value.trim().split_once('-')?;
+    Some((min.trim().parse().ok()?, max.trim().parse().ok()?))
 }
 
 pub(crate) fn parse_outbound_bind_ip(value: &str) -> io::Result<Option<IpAddr>> {

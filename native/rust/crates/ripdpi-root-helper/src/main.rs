@@ -11,9 +11,9 @@ use std::sync::Arc;
 use tracing::{error, info, warn};
 
 use protocol::{
-    HelperRequest, CMD_PROBE_CAPABILITIES, CMD_SEND_FAKE_RST, CMD_SEND_FLAGGED_TCP_PAYLOAD, CMD_SEND_IP_FRAGMENTED_TCP,
-    CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP, CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_SEQOVL_TCP,
-    CMD_SHUTDOWN,
+    HelperRequest, CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FLAGGED_TCP_PAYLOAD,
+    CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP,
+    CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
 };
 
 fn main() {
@@ -189,6 +189,21 @@ fn dispatch_command(
                 Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
             }
         }
+
+        CMD_SEND_SYN_HIDE_TCP => match serde_json::from_value(request.params.clone()) {
+            Ok(params) => handlers::handle_send_syn_hide_tcp(params),
+            Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
+        },
+
+        CMD_SEND_ICMP_WRAPPED_UDP => match serde_json::from_value(request.params.clone()) {
+            Ok(params) => handlers::handle_send_icmp_wrapped_udp(params),
+            Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
+        },
+
+        CMD_RECV_ICMP_WRAPPED_UDP => match serde_json::from_value(request.params.clone()) {
+            Ok(params) => handlers::handle_recv_icmp_wrapped_udp(params),
+            Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
+        },
 
         CMD_SHUTDOWN => {
             info!("shutdown command received");

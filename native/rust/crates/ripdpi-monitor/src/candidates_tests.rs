@@ -73,6 +73,29 @@ fn tlsrec_fake_seqgroup_candidate_sets_seqgroup_ip_id_mode() {
 }
 
 #[test]
+fn production_fake_candidates_use_coherent_chrome_profile_bytes() {
+    let candidate = build_tlsrec_fake_rich_candidate(&minimal_ui_config());
+
+    assert_eq!(candidate.fake_packets.tls_fake_profile, TLS_FAKE_PROFILE_GOOGLE_CHROME);
+    assert_eq!(candidate.fake_packets.fake_sni, "www.google.com");
+    assert!(!candidate.fake_packets.fake_tls_use_original);
+    assert!(!candidate.fake_packets.fake_tls_randomize);
+    assert!(!candidate.fake_packets.fake_tls_dup_session_id);
+    assert_eq!(candidate.fake_packets.fake_tls_sni_mode, "fixed");
+}
+
+#[test]
+fn adaptive_fake_ttl_keeps_random_fake_behavior_lab_only() {
+    let spec = build_adaptive_fake_ttl_spec(&minimal_ui_config());
+
+    assert_eq!(spec.emitter_tier, StrategyEmitterTier::LabDiagnosticsOnly);
+    assert!(spec.config.fake_packets.fake_tls_use_original);
+    assert!(spec.config.fake_packets.fake_tls_randomize);
+    assert!(spec.config.fake_packets.fake_tls_dup_session_id);
+    assert_eq!(spec.config.fake_packets.fake_tls_sni_mode, "randomized");
+}
+
+#[test]
 fn seqovl_candidates_always_included() {
     let base = minimal_ui_config();
     let quick = build_strategy_probe_suite("quick_v1", &base).expect("quick_v1");

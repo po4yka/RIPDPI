@@ -7,6 +7,16 @@ import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveCompositeStageSelection
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchivePayload
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRedactor
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRunType
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSelection
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSessionSelectionStatus
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSourceCounts
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSourceData
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
 import javax.inject.Named

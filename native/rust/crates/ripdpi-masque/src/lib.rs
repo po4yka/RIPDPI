@@ -1115,6 +1115,31 @@ mod tests {
     }
 
     #[test]
+    fn new_client_starts_with_not_attempted_quic_snapshot() {
+        let client =
+            MasqueClient::new(MasqueConfig {
+                url: "https://masque.example/".to_string(),
+                use_http2_fallback: true,
+                auth_mode: Some("bearer".to_string()),
+                auth_token: Some("secret".to_string()),
+                client_certificate_chain_pem: None,
+                client_private_key_pem: None,
+                cloudflare_geohash_header: None,
+                privacy_pass_provider_url: None,
+                privacy_pass_provider_auth_token: None,
+                tls_fingerprint_profile: "native_default".to_string(),
+                quic_bind_low_port: false,
+                quic_migrate_after_handshake: false,
+            })
+            .expect("client");
+
+        assert_eq!(
+            (Some("not_attempted".to_string()), None),
+            client.quic_migration_snapshot(),
+        );
+    }
+
+    #[test]
     fn parse_proxy_origin_preserves_request_path_and_query() {
         let origin = parse_proxy_origin(&MasqueConfig {
             url: "https://masque.example/.well-known/masque/ip?cf=1".to_string(),
@@ -1251,6 +1276,39 @@ mod tests {
         assert!(request.contains("\"proxyUrl\":\"https://masque.example/\""));
         assert!(request.contains("\"target\":\"example.com:443\""));
         assert!(request.contains("\"challengeHeader\":\"PrivateToken challenge=AAAA, token-key=BBBB\""));
+    }
+
+    #[tokio::test]
+    async fn quic_migration_snapshot_records_http2_fallback_reason() {
+        let client =
+            MasqueClient::new(MasqueConfig {
+                url: "https://masque.example/".to_string(),
+                use_http2_fallback: true,
+                auth_mode: Some("bearer".to_string()),
+                auth_token: Some("secret".to_string()),
+                client_certificate_chain_pem: None,
+                client_private_key_pem: None,
+                cloudflare_geohash_header: None,
+                privacy_pass_provider_url: None,
+                privacy_pass_provider_auth_token: None,
+                tls_fingerprint_profile: "native_default".to_string(),
+                quic_bind_low_port: false,
+                quic_migrate_after_handshake: false,
+            })
+            .expect("client");
+
+        client
+            .inner
+            .record_quic_migration_status("http2_fallback", Some("http3_connect_failed_connect"))
+            .await;
+
+        assert_eq!(
+            (
+                Some("http2_fallback".to_string()),
+                Some("http3_connect_failed_connect".to_string()),
+            ),
+            client.quic_migration_snapshot(),
+        );
     }
 
     #[tokio::test]

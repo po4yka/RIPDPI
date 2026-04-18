@@ -100,6 +100,20 @@ TLS-specific fields live in `StrategyPackTlsProfileSet`:
 - `rotationEnabled`
 - `notes`
 
+## TLS Refresh Cadence
+
+Bundled TLS catalog review is now tracked through:
+
+- log file: `docs/strategy-pack-tls-refresh-log.json`
+- verifier: `scripts/ci/check_tls_catalog_refresh.py`
+- scheduled workflow: `.github/workflows/tls-catalog-refresh.yml`
+
+Current policy:
+
+- cadence: every 30 days or sooner when template families change
+- enforcement: CI fails when the latest logged review is older than the cadence window
+- scope: every bundled `tlsProfiles[]` entry must appear in the latest review log entry with the matching `catalogVersion`
+
 ## When To Change What
 
 ### Bump pack version only
@@ -160,6 +174,7 @@ Before shipping a catalog update:
 6. Sign the exact payload bytes that clients will download.
 7. Publish the manifest with matching checksum, signature, algorithm, and key id.
 8. Verify the bundled fallback still represents a safe baseline.
+9. Update `docs/strategy-pack-tls-refresh-log.json` when the bundled TLS profile-set catalog changes or is re-reviewed.
 
 ## What Not To Do
 

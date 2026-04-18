@@ -14,8 +14,8 @@ use nix::sys::socket::{self, ControlMessage, MsgFlags};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    recv_line_with_optional_fd, CapabilityOutcome, CapabilityUnavailable, IpFragmentationCapabilities,
-    RuntimeCapability, TcpFlagOverrides,
+    recv_line_with_optional_fd, CapabilityOutcome, CapabilityUnavailable, IcmpWrappedUdpRecvFilter, IcmpWrappedUdpSpec,
+    IpFragmentationCapabilities, ReceivedIcmpWrappedUdp, RuntimeCapability, SynHideTcpSpec, TcpFlagOverrides,
 };
 
 /// Client for communicating with the root helper process.
@@ -239,6 +239,29 @@ impl RootHelperClient {
         });
         let (_resp, _fd) = self.send_command("send_ip_fragmented_udp", params, Some(socket_fd))?;
         Ok(())
+    }
+
+    pub fn send_syn_hide_tcp(&self, spec: SynHideTcpSpec) -> io::Result<()> {
+        let params = serde_json::to_value(spec)
+            .map_err(|error| io::Error::other(format!("serialize syn hide spec: {error}")))?;
+        let (_resp, _fd) = self.send_command("send_syn_hide_tcp", params, None)?;
+        Ok(())
+    }
+
+    pub fn send_icmp_wrapped_udp(&self, spec: &IcmpWrappedUdpSpec) -> io::Result<()> {
+        let params = serde_json::to_value(spec)
+            .map_err(|error| io::Error::other(format!("serialize ICMP-wrapped UDP spec: {error}")))?;
+        let (_resp, _fd) = self.send_command("send_icmp_wrapped_udp", params, None)?;
+        Ok(())
+    }
+
+    pub fn recv_icmp_wrapped_udp(&self, filter: IcmpWrappedUdpRecvFilter) -> io::Result<ReceivedIcmpWrappedUdp> {
+        let params = serde_json::to_value(filter)
+            .map_err(|error| io::Error::other(format!("serialize ICMP-wrapped UDP filter: {error}")))?;
+        let (resp, _fd) = self.send_command("recv_icmp_wrapped_udp", params, None)?;
+        serde_json::from_value(resp.data).map_err(|error| {
+            io::Error::new(io::ErrorKind::InvalidData, format!("invalid ICMP-wrapped UDP reply: {error}"))
+        })
     }
 
     // -----------------------------------------------------------------------

@@ -1,20 +1,51 @@
 {
   "schemaVersion": 3,
-  "generatedAt": "2026-04-05T08:00:00Z",
+  "generatedAt": "2026-04-18T13:00:00Z",
   "channel": "stable",
   "minAppVersion": "0.0.4",
   "minNativeVersion": "0.0.4",
   "notes": "Bundled fallback strategy packs for offline compatibility and rollback safety.",
   "tlsProfiles": [
     {
-      "id": "baseline-default",
-      "title": "Baseline browser catalog",
+      "id": "browser_family_v2",
+      "title": "Browser-family stable rotation",
       "catalogVersion": "v1",
       "allowedProfileIds": [
         "chrome_stable",
+        "chrome_desktop_stable",
+        "firefox_stable",
+        "firefox_ech_stable",
+        "safari_stable",
+        "edge_stable"
+      ],
+      "rotationEnabled": true,
+      "browserFamilies": [
+        "chrome",
+        "firefox",
+        "safari",
+        "edge"
+      ],
+      "echPolicy": "opportunistic",
+      "proxyModeNotice": "browser_native_tls_suppressed",
+      "acceptanceCorpusRef": "phase11_tls_template_acceptance",
+      "notes": "Phase 11 browser-family rotation set with explicit desktop and ECH-capable variants."
+    },
+    {
+      "id": "ech_canary_v1",
+      "title": "ECH canary rotation",
+      "catalogVersion": "v1",
+      "allowedProfileIds": [
+        "firefox_ech_stable",
         "firefox_stable"
       ],
-      "rotationEnabled": true
+      "rotationEnabled": true,
+      "browserFamilies": [
+        "firefox"
+      ],
+      "echPolicy": "preferred",
+      "proxyModeNotice": "browser_native_tls_suppressed",
+      "acceptanceCorpusRef": "phase11_tls_template_acceptance",
+      "notes": "Use only after acceptance coverage confirms the ECH path for the target stack."
     }
   ],
   "morphPolicies": [
@@ -111,7 +142,7 @@
       "hostListRefs": [
         "video"
       ],
-      "tlsProfileSetId": "baseline-default",
+      "tlsProfileSetId": "browser_family_v2",
       "morphPolicyId": "balanced",
       "transportModuleIds": [
         "naive-fallback"
@@ -130,6 +161,40 @@
             "tlsrec_split_host"
           ],
           "notes": "Modern TLS record split path for standard HTTPS blocking."
+        }
+      ]
+    },
+    {
+      "id": "ech-canary",
+      "version": "2026.04.0",
+      "title": "ECH Canary",
+      "description": "Template canary pack for ECH-capable Firefox-family routing.",
+      "notes": "Use for staged rollout only after acceptance corpus coverage passes.",
+      "triggerMetadata": [
+        "tls_ech_only",
+        "ech_resolution_blocked"
+      ],
+      "hostListRefs": [
+        "video"
+      ],
+      "tlsProfileSetId": "ech_canary_v1",
+      "morphPolicyId": "balanced",
+      "transportModuleIds": [
+        "naive-fallback"
+      ],
+      "featureFlagIds": [
+        "cloudflare_consume_validation",
+        "naiveproxy_watchdog"
+      ],
+      "strategies": [
+        {
+          "id": "ech_tlsrec",
+          "label": "ECH TLS record split",
+          "recommendedProxyConfigJson": "{\"strategyPackId\":\"ech-canary\",\"strategy\":\"ech_tlsrec\"}",
+          "candidateIds": [
+            "ech_tlsrec"
+          ],
+          "notes": "Staged pack for ECH-capable HTTPS targets after template acceptance validation."
         }
       ]
     }

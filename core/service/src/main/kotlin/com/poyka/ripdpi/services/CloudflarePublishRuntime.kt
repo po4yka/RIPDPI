@@ -139,6 +139,39 @@ private data class RunningCloudflarePublish(
     @Volatile var originListenerAddress: String? = null,
 )
 
+internal data class CloudflarePublishTelemetryState(
+    val helpersRunning: Boolean,
+    val originReady: Boolean,
+    val cloudflaredReady: Boolean,
+    val cloudflaredVersion: String? = null,
+    val originVersion: String? = null,
+    val originListenerAddress: String? = null,
+    val lastError: String? = null,
+    val lastFailureClass: String? = null,
+)
+
+internal fun mergeCloudflarePublishTelemetry(
+    relayTelemetry: NativeRuntimeSnapshot,
+    state: CloudflarePublishTelemetryState,
+): NativeRuntimeSnapshot =
+    relayTelemetry.copy(
+        ptRuntimeKind = CloudflarePublishRuntimeKind,
+        ptRuntimeState =
+            when {
+                state.helpersRunning && state.originReady && state.cloudflaredReady -> "running"
+                state.lastError != null -> "failed"
+                else -> "starting"
+            },
+        ptRuntimeVersion =
+            buildList {
+                state.cloudflaredVersion?.let { add(it) }
+                state.originVersion?.let { add("origin=$it") }
+            }.joinToString(" | ").ifBlank { null },
+        listenerAddress = relayTelemetry.listenerAddress ?: state.originListenerAddress,
+        lastError = relayTelemetry.lastError ?: state.lastError,
+        lastFailureClass = relayTelemetry.lastFailureClass ?: state.lastFailureClass,
+    )
+
 @Singleton
 class CloudflarePublishManager
     @Inject
@@ -250,23 +283,19 @@ class CloudflarePublishManager
             if (active == null) {
                 return relayTelemetry
             }
-            val helpersRunning = isAlive(active.originProcess.process) && isAlive(active.cloudflaredProcess.process)
-            return relayTelemetry.copy(
-                ptRuntimeKind = CloudflarePublishRuntimeKind,
-                ptRuntimeState =
-                    when {
-                        helpersRunning && active.originReady && active.cloudflaredReady -> "running"
-                        active.lastError != null -> "failed"
-                        else -> "starting"
-                    },
-                ptRuntimeVersion =
-                    buildList {
-                        active.cloudflaredProcess.version?.let { add(it) }
-                        active.originProcess.version?.let { add("origin=$it") }
-                    }.joinToString(" | ").ifBlank { null },
-                listenerAddress = relayTelemetry.listenerAddress ?: active.originListenerAddress,
-                lastError = relayTelemetry.lastError ?: active.lastError,
-                lastFailureClass = relayTelemetry.lastFailureClass ?: active.lastFailureClass,
+            return mergeCloudflarePublishTelemetry(
+                relayTelemetry = relayTelemetry,
+                state =
+                    CloudflarePublishTelemetryState(
+                        helpersRunning = isAlive(active.originProcess.process) && isAlive(active.cloudflaredProcess.process),
+                        originReady = active.originReady,
+                        cloudflaredReady = active.cloudflaredReady,
+                        cloudflaredVersion = active.cloudflaredProcess.version,
+                        originVersion = active.originProcess.version,
+                        originListenerAddress = active.originListenerAddress,
+                        lastError = active.lastError,
+                        lastFailureClass = active.lastFailureClass,
+                    ),
             )
         }
 

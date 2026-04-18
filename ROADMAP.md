@@ -62,11 +62,22 @@ The audit roadmap tracked in this repository is complete. The items below are no
   `*ViewModelBootstrapper` lifecycle helpers, with focused assembler and
   bootstrapper tests plus updated Diagnostics ViewModel race-proof effect
   coverage).
+- Architecture refactor Workstream 8 (Module And Crate Extraction After
+  Internal Cleanup): COMPLETE (diagnostics export/archive ownership now lives
+  under `diagnostics.export`, diagnostics bootstrap/request/finalization
+  holdouts are extracted under `application` / `finalization` / `queries`, and
+  CI now enforces the extracted diagnostics file/package boundaries; the
+  first-flight IR and emitter/capability crate candidates were explicitly
+  reviewed and pruned for now in
+  `docs/architecture/phase17-boundary-review.md`).
 - Bypass modernization Workstream 5 (TLS Templates + ECH): PARTIAL
   (`ripdpi-tls-profiles` now carries browser-family template metadata and new
   explicit desktop/ECH variants, the monitor TLS/ECH probe path binds ALPN from
-  those template plans, and the owned-TLS Android bridge now exports browser /
-  template metadata end to end).
+  those template plans, the owned-TLS Android bridge now exports browser /
+  template metadata end to end, the OkHttp-owned TLS path now honors the
+  desktop/ECH profile ids, production fake candidates now use a coherent
+  Chrome-family fake profile, and bundled strategy-pack catalogs plus the
+  acceptance fixture now cover the shipped template families).
 - Bypass modernization Workstream 6 (Learning Redesign): COMPLETE
   (`strategy_evolver` now uses contextual bucket state with niche-winner
   retention, family-first selection, and combo-aware scoring for stability /
@@ -93,10 +104,12 @@ The audit roadmap tracked in this repository is complete. The items below are no
 See [`docs/roadmap-execution-queue.md`](docs/roadmap-execution-queue.md) for the
 unified slice list, dependency graph, and the next priority entry points
 (continue bypass-modernization Phase 11 from the now-landed template metadata /
-ALPN / ECH planning slice into record choreography and Android ECH policy
-integration; Phase 14 and Phase 16 are now closed, and the next bypass roadmap
-blockers are the remaining Phase 11 work plus Phase 15 experimental transport
-slices;
+ALPN / ECH planning slice into true packet-level record choreography, deeper
+Android ECH runtime/bootstrap handling, and live acceptance measurement; Phase
+14 and Phase 16 are now closed, and the next bypass roadmap blocker is the
+remaining Phase 11 work; the experimental Phase 15 client/runtime seam is now
+landed in-repo and any cooperating server counterpart remains intentionally
+external;
 the architecture Phase 9 and Phase 10 follow-up is closed with section-level
 tests, assembler tests, and release-side Compose reports in
 `app/build/compose-reports/` and `app/build/compose-metrics/release/`).
@@ -164,10 +177,10 @@ tests, assembler tests, and release-side Compose reports in
 
 Four active roadmaps continue the work past the audit baseline. See [Document Map](#document-map) below for how they relate and which owns what.
 
-- **[DPI Bypass Technique Expansion](ROADMAP-bypass-techniques.md)** -- 15 techniques from field research (ntc.party, Habr, TechnicalVault). Tier 1 and Tier 2 shipped on 2026-04-13; Tier 3 transport work (SYN-Hide, UDP-over-ICMP) remains experimental, while the self-hosting documentation slice is landed in [`docs/server-hardening.md`](docs/server-hardening.md). Tactical checklist: circular rotation, conditional execution, TCP flags, IP ID, fakedsplit ordering, PCAP, and more.
+- **[DPI Bypass Technique Expansion](ROADMAP-bypass-techniques.md)** -- 15 techniques from field research (ntc.party, Habr, TechnicalVault). Tier 1 and Tier 2 shipped on 2026-04-13; the Tier 3 client/runtime transport seam (SYN-Hide, UDP-over-ICMP, plus self-hosting documentation) is now landed in-repo and remains experimental, while any cooperating server component stays user-provided. Tactical checklist: circular rotation, conditional execution, TCP flags, IP ID, fakedsplit ordering, PCAP, and more.
 - **[DPI Bypass Modernization](ROADMAP-bypass-modernization.md)** -- strategic roadmap for the next generation of RIPpath optimization work: capability hygiene, unified first-flight IR, QUIC Initial shaping subsystem, DNS oracle hardening, TLS/ECH modernization, contextual evaluation, root/non-root emitter rationalization, Android hardening, and rollout gates. Workstreams 1-9 are now complete; the remaining experimental transport gap is the separate Tier 3 track in the techniques roadmap.
 - **[Architecture Refactor And Modularization](ROADMAP-architecture-refactor.md)** -- structural roadmap derived from the architecture audit: config-contract unification, diagnostics bounded-context split, native runtime/desync decomposition, service and relay orchestration cleanup, settings/screen decomposition, ViewModel dependency shaping, and CI complexity guardrails.
-- **[Integrations Roadmap](docs/roadmap-integrations.md)** -- ongoing validation and operational refresh for shipped transports: Cloudflare-direct MASQUE, Cloudflare Tunnel publish mode, Finalmask expansion, NaiveProxy, TLS/strategy-pack freshness, relay interoperability.
+- **[Integrations Roadmap](docs/roadmap-integrations.md)** -- shipped transport/control-plane validation baseline: Cloudflare-direct MASQUE, Cloudflare Tunnel publish mode, Finalmask on xHTTP (including `noise`), NaiveProxy watchdog policy, TLS/strategy-pack refresh cadence, and relay interoperability coverage.
 
 ## Document Map
 
@@ -185,7 +198,7 @@ ROADMAP.md  (index, audit complete)
 
 The three strategic roadmaps interlock and should not be read in isolation:
 
-- **techniques** defines the tactics catalog. It has 13 of 15 items shipped or completed in-repo; only the Tier 3 experimental transport items remain open.
+- **techniques** defines the tactics catalog. All 15 items are now landed in-repo; the Tier 3 transport items remain explicitly experimental and still depend on user-provided companion infrastructure where applicable.
 - **modernization** defines the planner, emitter, and measurement architecture those tactics must fit into. It supersedes isolated tactic design going forward.
 - **architecture-refactor** defines the code seams that let the other two land without regressing diagnostics, service lifecycle, or settings.
 - **integrations** is the transport/control-plane layer underneath bypass tactics. It is largely shipped but interacts with bypass-modernization Workstream 5 (TLS catalog freshness feeds template rollout) and architecture-refactor Workstream 4 (relay orchestration cleanup).

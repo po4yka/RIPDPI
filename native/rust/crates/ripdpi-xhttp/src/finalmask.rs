@@ -17,6 +17,7 @@ type BoxedIo = Box<dyn AsyncIo>;
 #[derive(Clone)]
 enum FinalmaskSpec {
     HeaderCustom { header: Vec<u8>, trailer: Vec<u8>, rand_range: Option<(usize, usize)> },
+    Noise { rand_range: (usize, usize) },
     Fragment { packets: usize, min_bytes: usize, max_bytes: usize },
     Sudoku { table: Arc<SudokuTable> },
 }
@@ -33,6 +34,14 @@ impl FinalmaskSpec {
                 header: decode_hex("headerHex", &config.header_hex)?,
                 trailer: decode_hex("trailerHex", &config.trailer_hex)?,
                 rand_range,
+            },
+            "noise" => Self::Noise {
+                rand_range: rand_range.ok_or_else(|| {
+                    io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "finalmask noise requires randRange in min-max format",
+                    )
+                })?,
             },
             "fragment" => Self::Fragment {
                 packets: usize::try_from(config.fragment_packets).unwrap_or_default(),
@@ -135,6 +144,20 @@ impl TcpOutboundMask {
                         prelude.extend_from_slice(&random_bytes(*min, *max));
                     }
                     prelude.extend_from_slice(trailer);
+                    if !prelude.is_empty() {
+                        frames.push(prelude);
+                    }
+                    self.prelude_sent = true;
+                }
+                if !payload.is_empty() {
+                    frames.push(payload.to_vec());
+                }
+                Ok(frames)
+            }
+            FinalmaskSpec::Noise { rand_range } => {
+                let mut frames = Vec::with_capacity(2);
+                if !self.prelude_sent {
+                    let prelude = random_bytes(rand_range.0, rand_range.1);
                     if !prelude.is_empty() {
                         frames.push(prelude);
                     }
@@ -567,6 +590,25 @@ mod tests {
 
         assert_eq!(3, frames.len());
         assert_eq!(8, frames.iter().map(Vec::len).sum::<usize>());
+    }
+
+    #[test]
+    fn noise_mode_emits_random_prelude_once_then_passes_payload() {
+        let config = FinalmaskConfig {
+            r#type: "noise".to_string(),
+            rand_range: "4-4".to_string(),
+            ..FinalmaskConfig::default()
+        };
+        let mut mask = TcpOutboundMask::new(FinalmaskSpec::from_config(&config).expect("config").expect("mask"));
+
+        let first = mask.encode(b"hello").expect("first");
+        let second = mask.encode(b"world").expect("second");
+
+        assert_eq!(2, first.len());
+        assert_eq!(4, first[0].len());
+        assert_eq!(b"hello", first[1].as_slice());
+        assert_eq!(1, second.len());
+        assert_eq!(b"world", second[0].as_slice());
     }
 
     #[test]

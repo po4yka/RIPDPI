@@ -313,6 +313,22 @@ internal fun validateHeaderCustomFinalmaskDraft(draft: ConfigDraft): String? =
         else -> null
     }
 
+internal fun validateNoiseFinalmaskDraft(draft: ConfigDraft): String? =
+    when {
+        draft.relayFinalmaskRandRange.isBlank() -> "required"
+        !draft.relayFinalmaskRandRange.matches(Regex("\\d+-\\d+")) -> "invalid_range"
+        else -> {
+            val (min, max) =
+                draft.relayFinalmaskRandRange
+                    .split('-', limit = 2)
+                    .mapNotNull { it.toIntOrNull() }
+                    .let { values ->
+                        if (values.size == 2) values[0] to values[1] else return "invalid_range"
+                    }
+            if (min > max) "invalid_range" else null
+        }
+    }
+
 internal fun validateFragmentFinalmaskDraft(draft: ConfigDraft): String? =
     if (
         !validateIntRange(

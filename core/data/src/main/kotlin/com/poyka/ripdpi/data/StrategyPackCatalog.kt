@@ -18,7 +18,7 @@ const val DefaultStrategyPackPinnedVersion = ""
 const val StrategyPackCatalogSchemaVersion = 3
 
 const val DefaultTlsProfileCatalogVersion = "v1"
-const val DefaultTlsProfileSetId = "default"
+const val DefaultTlsProfileSetId = "browser_family_v2"
 const val DefaultMorphPolicyId = "off"
 const val StrategyFeatureCloudflarePublish = "cloudflare_publish"
 const val StrategyFeatureCloudflareConsumeValidation = "cloudflare_consume_validation"
@@ -116,6 +116,10 @@ data class StrategyPackTlsProfileSet(
     val catalogVersion: String = DefaultTlsProfileCatalogVersion,
     val allowedProfileIds: List<String> = emptyList(),
     val rotationEnabled: Boolean = false,
+    val browserFamilies: List<String> = emptyList(),
+    val echPolicy: String = "",
+    val proxyModeNotice: String = "",
+    val acceptanceCorpusRef: String = "",
     val notes: String = "",
 )
 

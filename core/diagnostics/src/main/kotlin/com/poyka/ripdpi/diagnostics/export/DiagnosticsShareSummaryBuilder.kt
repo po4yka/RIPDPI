@@ -1,9 +1,10 @@
-package com.poyka.ripdpi.diagnostics
+package com.poyka.ripdpi.diagnostics.export
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.diagnostics.*
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 

@@ -6,6 +6,9 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveBuildInfoProvider
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveFormat
+import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveSourceData
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import javax.inject.Inject

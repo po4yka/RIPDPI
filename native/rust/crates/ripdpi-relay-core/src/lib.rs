@@ -1430,7 +1430,7 @@ mod tests {
     }
 
     #[test]
-    fn relay_runtime_rejects_noise_for_xhttp_transports() {
+    fn relay_runtime_accepts_noise_for_xhttp_transports() {
         let mut config = sample_config("cloudflare_tunnel");
         config.finalmask = ResolvedRelayFinalmaskConfig {
             r#type: "noise".to_string(),
@@ -1438,8 +1438,7 @@ mod tests {
             ..ResolvedRelayFinalmaskConfig::default()
         };
 
-        let error = validate_finalmask_config(&config).expect_err("noise should be rejected");
-        assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+        validate_finalmask_config(&config).expect("noise should validate");
     }
 
     #[test]

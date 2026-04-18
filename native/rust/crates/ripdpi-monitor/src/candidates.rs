@@ -546,17 +546,32 @@ pub(crate) fn build_opportunistic_candidates(base: &ProxyUiConfig) -> Vec<Strate
             "TLS record + rich fake",
             "tlsrec_fake",
             tlsrec_fake_rich,
-            vec!["Randomized fake TLS material with original ClientHello framing"],
+            vec!["Uses a coherent Chrome-family fake ClientHello instead of randomized fake bytes"],
         ),
         candidate_spec_with_notes(
             "tlsrec_fake_seqgroup",
             "TLS record + rich fake (seqgroup)",
             "tlsrec_fake",
             tlsrec_fake_seqgroup,
-            vec!["Uses seqgroup IPv4 IDs so fake and original raw packets stay in one exact sequence"],
+            vec![
+                "Uses a coherent Chrome-family fake ClientHello",
+                "Uses seqgroup IPv4 IDs so fake and original raw packets stay in one exact sequence",
+            ],
         ),
-        candidate_spec("tlsrec_fakeddisorder", "TLS record + fakeddisorder", "fake_approx", tlsrec_fakeddisorder),
-        candidate_spec("tlsrec_fakedsplit", "TLS record + fakedsplit", "fake_approx", tlsrec_fakedsplit),
+        candidate_spec_with_notes(
+            "tlsrec_fakeddisorder",
+            "TLS record + fakeddisorder",
+            "fake_approx",
+            tlsrec_fakeddisorder,
+            vec!["Uses the Chrome-family fake ClientHello profile before approximate fallback emission"],
+        ),
+        candidate_spec_with_notes(
+            "tlsrec_fakedsplit",
+            "TLS record + fakedsplit",
+            "fake_approx",
+            tlsrec_fakedsplit,
+            vec!["Uses the Chrome-family fake ClientHello profile before approximate fallback emission"],
+        ),
         candidate_spec_with_notes(
             "tlsrec_hostfake",
             "TLS record + hostfake",
@@ -1160,11 +1175,13 @@ pub(crate) fn build_circular_tlsrec_split_candidate(base: &ProxyUiConfig) -> Pro
 pub(crate) fn build_tlsrec_fake_rich_candidate(base: &ProxyUiConfig) -> ProxyUiConfig {
     let mut config = strategy_probe_base(base);
     config.chains.tcp_steps = vec![tcp_step("tlsrec", "extlen"), tcp_step("fake", "host+1")];
-    config.fake_packets.fake_tls_use_original = true;
-    config.fake_packets.fake_tls_randomize = true;
-    config.fake_packets.fake_tls_dup_session_id = true;
+    config.fake_packets.fake_sni = "www.google.com".to_string();
+    config.fake_packets.tls_fake_profile = TLS_FAKE_PROFILE_GOOGLE_CHROME.to_string();
+    config.fake_packets.fake_tls_use_original = false;
+    config.fake_packets.fake_tls_randomize = false;
+    config.fake_packets.fake_tls_dup_session_id = false;
     config.fake_packets.fake_tls_pad_encap = true;
-    config.fake_packets.fake_tls_sni_mode = "randomized".to_string();
+    config.fake_packets.fake_tls_sni_mode = "fixed".to_string();
     config.fake_packets.fake_offset_marker = "endhost-1".to_string();
     config
 }
@@ -1509,6 +1526,10 @@ pub(crate) fn build_activation_window_hostfake_spec(base: &ProxyUiConfig) -> Str
 
 pub(crate) fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCandidateSpec {
     let mut config = build_tlsrec_fake_rich_candidate(base);
+    config.fake_packets.fake_tls_use_original = true;
+    config.fake_packets.fake_tls_randomize = true;
+    config.fake_packets.fake_tls_dup_session_id = true;
+    config.fake_packets.fake_tls_sni_mode = "randomized".to_string();
     config.fake_packets.adaptive_fake_ttl_enabled = true;
     config.fake_packets.adaptive_fake_ttl_delta = ADAPTIVE_FAKE_TTL_DEFAULT_DELTA;
     config.fake_packets.adaptive_fake_ttl_min = ADAPTIVE_FAKE_TTL_DEFAULT_MIN;

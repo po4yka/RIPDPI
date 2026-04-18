@@ -13,8 +13,35 @@ import javax.inject.Singleton
 
 private const val NaiveProxyBinaryName = "ripdpi-naiveproxy"
 private const val NaiveProxyRestartDelayMs = 750L
+private const val NaiveProxyDnsRestartDelayMs = 1_500L
 private const val NaiveProxyRestartBudgetWindowMs = 60_000L
 private const val NaiveProxyRestartBudgetMaxAttempts = 3
+
+internal data class NaiveProxyRestartDecision(
+    val shouldRestart: Boolean,
+    val delayMillis: Long = NaiveProxyRestartDelayMs,
+    val reasonLabel: String = "unexpected_exit",
+)
+
+internal fun naiveProxyRestartDecision(
+    exitCode: Int,
+    lastFailureClass: String?,
+): NaiveProxyRestartDecision {
+    if (exitCode == 0) {
+        return NaiveProxyRestartDecision(shouldRestart = false, reasonLabel = "clean_exit")
+    }
+    return when (lastFailureClass?.trim()?.lowercase()) {
+        "auth" -> NaiveProxyRestartDecision(false, reasonLabel = "auth")
+        "http_connect" -> NaiveProxyRestartDecision(false, reasonLabel = "http_connect")
+        "tls" -> NaiveProxyRestartDecision(false, reasonLabel = "tls")
+        "config" -> NaiveProxyRestartDecision(false, reasonLabel = "config")
+        "dns" -> NaiveProxyRestartDecision(true, delayMillis = NaiveProxyDnsRestartDelayMs, reasonLabel = "dns")
+        "connect" -> NaiveProxyRestartDecision(true, reasonLabel = "connect")
+        "runtime" -> NaiveProxyRestartDecision(true, reasonLabel = "runtime")
+        "helper_exit" -> NaiveProxyRestartDecision(true, reasonLabel = "helper_exit")
+        else -> NaiveProxyRestartDecision(true, reasonLabel = "unexpected_exit")
+    }
+}
 
 @Singleton
 class NaiveProxyManager
@@ -84,6 +111,10 @@ class NaiveProxyRuntime
                 if (stopping) {
                     return exitCode
                 }
+                val restartDecision = naiveProxyRestartDecision(exitCode, manager.pollTelemetry().lastFailureClass)
+                if (!restartDecision.shouldRestart) {
+                    return exitCode
+                }
                 val now = System.currentTimeMillis()
                 while (restartAttempts.isNotEmpty() &&
                     now - restartAttempts.first() > NaiveProxyRestartBudgetWindowMs
@@ -97,9 +128,10 @@ class NaiveProxyRuntime
                 manager.noteRestarting(
                     reason =
                         "NaiveProxy exited with code $exitCode; " +
-                            "restarting ${restartAttempts.size}/$NaiveProxyRestartBudgetMaxAttempts",
+                            "restarting ${restartAttempts.size}/$NaiveProxyRestartBudgetMaxAttempts " +
+                            "after ${restartDecision.reasonLabel}",
                 )
-                delay(NaiveProxyRestartDelayMs)
+                delay(restartDecision.delayMillis)
             }
         }
 

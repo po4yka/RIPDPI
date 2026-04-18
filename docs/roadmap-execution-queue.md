@@ -283,26 +283,31 @@ Mode: `Team`. Parallel-safe with Phase 9.
 Current status (2026-04-18): partial. `ripdpi-tls-profiles` now exposes
 browser-family template metadata for ALPN, extension-order family, GREASE
 style, supported-groups/key-share profile, record choreography, and ECH
-capability, with new explicit `chrome_desktop_stable` and
+capability, with explicit `chrome_desktop_stable` and
 `firefox_ech_stable` variants. The monitor TLS/ECH probe path now binds ALPN
 from those template plans and reports the planned template ids/tracks for
-TLS1.2 / TLS1.3 / ECH probes, and the Android owned-TLS bridge now exports the
-same browser/template metadata back to Kotlin.
+TLS1.2 / TLS1.3 / ECH probes, the Android owned-TLS bridge now exports the
+same browser/template metadata back to Kotlin, the OkHttp-owned TLS path now
+honors the desktop/ECH profile ids instead of falling back to generic specs,
+strategy-pack catalogs ship a `browser_family_v2` / `ech_canary_v1` template
+rollout surface, the Phase 11 acceptance corpus fixture is in-repo, and the
+production fake-candidate pool now uses a coherent Chrome-family fake profile
+instead of randomized fake bytes.
 
 Mode: `Team`. Gated by Phase 4 + 5.
 
 | Slice | Scope | Depends on | Verify gate |
 |-------|-------|------------|-------------|
 | 11.1 | Partial: extension-order / GREASE families now exist in the shared template catalog and bridge metadata, but packet-level parity validation is still open | Phase 4 | `packet-smoke-debugger`; fingerprint diff vs target browser |
-| 11.2 | Partial: supported-groups + key-share profiles are cataloged and ALPN-aware template binding is live in monitor + owned-TLS paths | 11.1 | Fingerprint coverage matrix |
-| 11.3 | Record-size choreography | 11.1 | `packet-smoke-debugger` |
+| 11.2 | Partial: supported-groups + key-share profiles are cataloged, ALPN-aware template binding is live in monitor + owned-TLS paths, and the acceptance fixture now pins template metadata for every shipped profile | 11.1 | Fingerprint coverage matrix |
+| 11.3 | Still open: true packet-level record-size choreography is not yet driven by the template catalog | 11.1 | `packet-smoke-debugger` |
 | 11.4 | HelloRetryRequest-oriented tactics (when server behavior makes useful) | 11.2 | Server-acceptance corpus hit rate |
-| 11.5 | Partial: ECH planning now points at an explicit `firefox_ech_stable` template family while DNS bootstrap still feeds `build_ech_client_config`; deeper fixture coverage remains open | Phase 6 | ECH-advertising fixture test |
-| 11.6 | Android ECH API integration: availability check, config bootstrap, policy gating, fallback | 11.5 | Android instrumentation test |
-| 11.7 | Detect + surface proxy-mode interactions suppressing browser-native ECH | 11.6 | Proxy-mode integration test |
-| 11.8 | Replace generic fake packet families with coherent client-profile families; keep random-fake for lab only | Phase 5 | Candidate diff reviewed |
-| 11.9 | Server-acceptance corpus for every new TLS template family across major CDNs and stacks | 11.1-11.4 | Acceptance rate above defined threshold in 16.5 |
-| 11.10 | Strategy-pack catalog entries for new templates (bridge to integrations) | 11.9 | Pack signed and rolled through staged release |
+| 11.5 | Partial: ECH planning points at `firefox_ech_stable`, DNS bootstrap still feeds `build_ech_client_config`, and the shared acceptance fixture now covers the ECH-capable profile; deeper live ECH fixture coverage remains open | Phase 6 | ECH-advertising fixture test |
+| 11.6 | Partial: Android-owned TLS now honors desktop/ECH profile ids and strategy-pack metadata now carries ECH policy intent; real Android ECH API/bootstrap/fallback wiring is still open | 11.5 | Android instrumentation test |
+| 11.7 | Partial: proxy-mode suppression is already surfaced in settings and strategy-pack metadata now carries the same notice token, but no deeper runtime detection path is wired yet | 11.6 | Proxy-mode integration test |
+| 11.8 | Partial: production fake-candidate families now use a coherent Chrome fake profile and the randomized/original fake path is kept to the lab-only adaptive spec | Phase 5 | Candidate diff reviewed |
+| 11.9 | Partial: in-repo acceptance corpus fixture now covers every shipped TLS template family, but live server-acceptance measurement across major stacks remains open | 11.1-11.4 | Acceptance rate above defined threshold in 16.5 |
+| 11.10 | Partial: strategy-pack catalog entries now ship the browser-family and ECH canary template sets, but staged signed rollout still depends on operational promotion | 11.9 | Pack signed and rolled through staged release |
 
 ## Phase 12 -- Learning Redesign (bypass-modernization W6)
 
@@ -375,8 +380,8 @@ Mode: `Autopilot` acceptable (experimental + flag-gated). Gated by Phase 13.
 
 | Slice | Scope | Depends on | Verify gate |
 |-------|-------|------------|-------------|
-| 15.1 | SYN-Hide: new `CMD_SEND_SYN_HIDE_TCP` IPC handler in `ripdpi-root-helper` (~140 LoC). Client-side only; server component is out of scope per no-backend rule | 13.1 (lab tier) | `packet-smoke-debugger`; opt-in behind `root_mode_enabled` + experimental flag |
-| 15.2 | UDP-over-ICMP: `CMD_SEND_ICMP_WRAPPED_UDP` / `CMD_RECV_ICMP_WRAPPED_UDP` + ICMP socket wrapper (~450 LoC). Requires cooperating server (user-provided; no project backend) | 13.1 (lab tier) | Root-path smoke test with mock server fixture |
+| 15.1 | Complete: `CMD_SEND_SYN_HIDE_TCP`, shared `SynHideTcpSpec`, and Linux/Android raw-packet emission are now landed as the repo-owned client-side SYN-Hide seam; any cooperating server companion stays external by design | 13.1 (lab tier) | Focused runtime packet-encoding tests |
+| 15.2 | Complete: `CMD_SEND_ICMP_WRAPPED_UDP` / `CMD_RECV_ICMP_WRAPPED_UDP`, the versioned ICMP envelope codec, and Linux/Android raw-ICMP send/receive helpers are now landed; the cooperating server endpoint remains user-provided | 13.1 (lab tier) | Focused runtime envelope round-trip tests |
 | 15.3 | Complete: [`docs/server-hardening.md`](server-hardening.md) now documents nginx stream graylist routing, map format, capture workflow, and a compose reference for self-hosted operators | - | Markdown review |
 
 ## Phase 16 -- Measurement + Rollout Gates (bypass-modernization W9)
@@ -406,28 +411,33 @@ Mode: `Team`, continuous. Run in parallel with execution phases.
 
 Mode: `Ultrawork`. Gated by Phases 1, 4, 8, 13.
 
+Status: COMPLETE. Kotlin diagnostics ownership is now enforced under
+`export` / `application` / `finalization` / `queries`, and the Rust crate
+split candidates were reviewed and pruned in
+`docs/architecture/phase17-boundary-review.md`.
+
 | Slice | Scope | Depends on | Verify gate |
 |-------|-------|------------|-------------|
-| 17.1 | Evaluate boundary stability across extracted seams; prune unstable candidates | 1, 4, 8, 13 | Boundary review doc |
-| 17.2 | Extract diagnostics export/archive module | 8.2 | `verify_diagnostics_boundary.py` extended |
-| 17.3 | Extract diagnostics application/finalization module | 8.4 | Module-dep guard unchanged |
-| 17.4 | First-flight IR crate (if Phase 4 seam stable) | 4.7 | `cargo tree -p ripdpi-desync` clean |
-| 17.5 | Emitter/capability crate (if Phase 13 seam stable) | 13.4 | Same |
-| 17.6 | Dependency-boundary CI checks enforcing all extracted boundaries | 17.2-17.5 | CI fails on synthetic violation |
+| 17.1 | Evaluate boundary stability across extracted seams; prune unstable candidates | 1, 4, 8, 13 | `docs/architecture/phase17-boundary-review.md` |
+| 17.2 | Extract diagnostics export/archive module | 8.2 | `verify_diagnostics_boundary.py` enforces extracted archive/export files |
+| 17.3 | Extract diagnostics application/finalization module | 8.4 | extracted files live under `application` / `finalization` / `queries` |
+| 17.4 | First-flight IR crate candidate reviewed and pruned for now | 4.7 | boundary review doc records rationale |
+| 17.5 | Emitter/capability crate candidate reviewed and pruned for now | 13.4 | same |
+| 17.6 | Dependency-boundary CI checks enforcing all extracted boundaries | 17.2-17.5 | CI runs `verify_diagnostics_boundary.py` on every build job |
 
-## Track S -- Integrations Validation (continuous)
+## Track S -- Integrations Validation
 
 Mode: `omc team :codex/:gemini` for parallel cross-transport validation, or
 `Ultrawork` on in-repo fixtures. Runs in parallel with phases above.
 
 | Slice | Scope | Verify gate |
 |-------|-------|-------------|
-| S.1 | MASQUE endpoint sampling + H3-to-H2 fallback telemetry validation | `ripdpi-masque` tests + field-validation report |
-| S.2 | Cloudflare Tunnel publish-mode crash telemetry + operator docs | `CloudflarePublishRuntime` tests + ops doc committed |
-| S.3 | Finalmask `noise` mode parity tests against upstream | New mode + enum entry in `finalmask.rs`; parity fixture |
-| S.4 | NaiveProxy auth compatibility matrix + watchdog tuning | Matrix results in `docs/native/relay-naiveproxy-decision.md` |
-| S.5 | TLS catalog refresh cadence documented + enforced | Scheduled workflow + rotation log |
-| S.6 | Relay interop CI gap closure | `scripts/ci/run-rust-relay-interoperability.sh` coverage diff |
+| S.1 | Complete: MASQUE field-validation baseline + H3-to-H2 fallback telemetry snapshot coverage | `ripdpi-masque` tests + `docs/native/relay-masque-field-validation.md` |
+| S.2 | Complete: Cloudflare Tunnel publish-mode telemetry merge tests + operator failure guidance | `CloudflarePublishRuntimeTest` + ops doc committed |
+| S.3 | Complete: Finalmask `noise` mode parity for xHTTP transports | `finalmask.rs` mode + relay-core validation + Kotlin draft acceptance |
+| S.4 | Complete: NaiveProxy auth compatibility matrix + reason-aware watchdog tuning | `NaiveProxyRuntimePolicyTest` + `docs/native/relay-naiveproxy-decision.md` |
+| S.5 | Complete: TLS catalog refresh cadence documented + enforced | Scheduled workflow + refresh log + `check_tls_catalog_refresh.py` |
+| S.6 | Complete: relay interop CI gap closure for xHTTP + Cloudflare-origin crates | `scripts/ci/run-rust-relay-interoperability.sh` coverage diff |
 
 ## Dependency Graph Summary
 
