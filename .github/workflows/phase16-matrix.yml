@@ -1,0 +1,124 @@
+name: Phase 16 Matrix
+
+on:
+  workflow_dispatch:
+    inputs:
+      matrix_filter:
+        description: Optional comma-separated Phase 16 matrix entry ids
+        required: false
+        default: ""
+        type: string
+      android_serial:
+        description: Optional Android serial for self-hosted runners
+        required: false
+        default: ""
+        type: string
+      prepare_hook:
+        description: Optional executable hook on self-hosted runners for transport or IP-family setup
+        required: false
+        default: ""
+        type: string
+  schedule:
+    - cron: "0 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  define-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.emit.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate Phase 16 lab matrix fixture
+        run: python3 scripts/ci/phase16_matrix.py validate
+
+      - id: emit
+        name: Emit GitHub matrix
+        run: |
+          matrix_json="$(python3 scripts/ci/phase16_matrix.py emit-github-matrix --filter "${{ inputs.matrix_filter || '' }}")"
+          echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
+
+  phase16-matrix:
+    needs: define-matrix
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.define-matrix.outputs.matrix) }}
+    runs-on: ${{ fromJSON(matrix.runsOnJson) }}
+    timeout-minutes: 60
+    env:
+      PHASE16_ENTRY_ID: ${{ matrix.id }}
+      PHASE16_EXECUTION_KIND: ${{ matrix.executionKind }}
+      PHASE16_TRANSPORT: ${{ matrix.transport }}
+      PHASE16_IP_FAMILY: ${{ matrix.ipFamily }}
+      PHASE16_ROOTED: ${{ matrix.rooted }}
+      PHASE16_MODE: ${{ matrix.mode }}
+      PHASE16_SCENARIO_FILTER: ${{ matrix.scenarioFilter }}
+      PHASE16_CAPTURE_MODE: ${{ matrix.captureMode }}
+      RIPDPI_PHASE16_PREPARE_HOOK: ${{ inputs.prepare_hook || '' }}
+      ANDROID_SERIAL: ${{ inputs.android_serial || '' }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-targets: x86_64-linux-android
+          rust-cache-shared-key: rust-android
+          rust-cache-save: "false"
+
+      - name: Enable KVM for emulator
+        if: contains(matrix.runsOnJson, 'ubuntu-latest')
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install emulator system image
+        if: contains(matrix.runsOnJson, 'ubuntu-latest')
+        run: android sdk install "system-images;android-34;google_apis;x86_64"
+
+      - name: Create and start emulator
+        if: contains(matrix.runsOnJson, 'ubuntu-latest')
+        run: |
+          set -euo pipefail
+          android emulator create \
+            --name phase16-matrix \
+            --api 34 \
+            --arch x86_64 \
+            --target google_apis \
+            --ram 4096M \
+            --heap 1024M \
+            --disk 8G
+          android emulator start \
+            --avd phase16-matrix \
+            --gpu swiftshader_indirect \
+            --no-window --no-audio --no-boot-anim --no-snapshot-save \
+            --boot-timeout 600 \
+            --detach
+          android emulator wait-for-boot --timeout 600
+
+      - name: Install packet smoke host tools
+        if: contains(matrix.runsOnJson, 'ubuntu-latest')
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y jq tcpdump tshark
+          sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v tcpdump)"
+
+      - name: Run Phase 16 matrix entry
+        run: bash scripts/ci/run-phase16-matrix-entry.sh
+
+      - name: Stop emulator
+        if: always() && contains(matrix.runsOnJson, 'ubuntu-latest')
+        run: android emulator stop --avd phase16-matrix || true
+
+      - name: Upload Phase 16 matrix artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifactName }}
+          path: build/phase16-matrix/${{ matrix.id }}/**
+          if-no-files-found: warn
+          retention-days: 14

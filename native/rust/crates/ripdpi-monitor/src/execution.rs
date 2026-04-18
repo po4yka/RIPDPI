@@ -16,7 +16,10 @@ use crate::blockpage_fingerprints::{load_fingerprints, BlockpageFingerprint};
 use crate::candidates::target_probe_pause_ms;
 use crate::candidates::{CandidateWarmup, StrategyCandidateSpec};
 use crate::http::{classify_http_response_with_fingerprints, is_blockpage, try_http_request, try_http_request_targets};
-use crate::tls::{try_tls_handshake, try_tls_handshake_targets, TlsClientProfile, TlsObservation};
+use crate::tls::{
+    planned_tls_template_metadata, planned_tls_template_profile, try_tls_handshake, try_tls_handshake_targets,
+    TlsClientProfile, TlsObservation,
+};
 use crate::transport::{
     domain_connect_target, domain_connect_targets, quic_connect_targets, relay_udp_payload_observed, wait_for_listener,
     TransportConfig,
@@ -401,6 +404,9 @@ pub(crate) fn build_candidate_execution(
             id: spec.id.to_string(),
             label: spec.label.to_string(),
             family: spec.family.to_string(),
+            emitter_tier: spec.emitter_tier,
+            exact_emitter_requires_root: spec.exact_emitter_requires_root,
+            emitter_downgraded: false,
             quic_layout_family: spec.quic_layout_family.map(str::to_string),
             outcome: outcome.to_string(),
             rationale,
@@ -441,6 +447,9 @@ pub(crate) fn failed_candidate_execution(
             id: spec.id.to_string(),
             label: spec.label.to_string(),
             family: spec.family.to_string(),
+            emitter_tier: spec.emitter_tier,
+            exact_emitter_requires_root: spec.exact_emitter_requires_root,
+            emitter_downgraded: false,
             quic_layout_family: spec.quic_layout_family.map(str::to_string),
             outcome: "failed".to_string(),
             rationale: err,
@@ -471,6 +480,9 @@ pub(crate) fn not_applicable_candidate_execution(
             id: spec.id.to_string(),
             label: spec.label.to_string(),
             family: spec.family.to_string(),
+            emitter_tier: spec.emitter_tier,
+            exact_emitter_requires_root: spec.exact_emitter_requires_root,
+            emitter_downgraded: false,
             quic_layout_family: spec.quic_layout_family.map(str::to_string),
             outcome: "not_applicable".to_string(),
             rationale: rationale.to_string(),
@@ -500,6 +512,9 @@ pub(crate) fn skipped_candidate_summary(
         id: spec.id.to_string(),
         label: spec.label.to_string(),
         family: spec.family.to_string(),
+        emitter_tier: spec.emitter_tier,
+        exact_emitter_requires_root: spec.exact_emitter_requires_root,
+        emitter_downgraded: false,
         quic_layout_family: spec.quic_layout_family.map(str::to_string),
         outcome: "skipped".to_string(),
         rationale: rationale.to_string(),
@@ -527,6 +542,9 @@ pub(crate) fn eliminated_candidate_summary(
         id: spec.id.to_string(),
         label: spec.label.to_string(),
         family: spec.family.to_string(),
+        emitter_tier: spec.emitter_tier,
+        exact_emitter_requires_root: spec.exact_emitter_requires_root,
+        emitter_downgraded: false,
         quic_layout_family: spec.quic_layout_family.map(str::to_string),
         outcome: "eliminated".to_string(),
         rationale: rationale.clone(),
@@ -695,6 +713,9 @@ pub(crate) fn run_https_strategy_probe(
         tls_verifier,
     );
     let latency_ms = now_ms().saturating_sub(started);
+    let tls13_template = planned_tls_template_metadata(TlsClientProfile::Tls13Only);
+    let tls12_template = planned_tls_template_metadata(TlsClientProfile::Tls12Only);
+    let tls_ech_template = planned_tls_template_metadata(TlsClientProfile::Tls13WithEch);
     let outcome = if tls13.certificate_anomaly || tls12.certificate_anomaly {
         "tls_cert_invalid".to_string()
     } else if tls13.status == "tls_ok" && tls12.status == "tls_ok" {
@@ -739,6 +760,38 @@ pub(crate) fn run_https_strategy_probe(
         ProbeDetail { key: "tls12Status".to_string(), value: tls12.status },
         ProbeDetail { key: "tlsEchStatus".to_string(), value: tls_ech.status },
         ProbeDetail {
+            key: "tls13TemplateProfileId".to_string(),
+            value: planned_tls_template_profile(TlsClientProfile::Tls13Only).to_string(),
+        },
+        ProbeDetail {
+            key: "tls12TemplateProfileId".to_string(),
+            value: planned_tls_template_profile(TlsClientProfile::Tls12Only).to_string(),
+        },
+        ProbeDetail {
+            key: "tlsEchTemplateProfileId".to_string(),
+            value: planned_tls_template_profile(TlsClientProfile::Tls13WithEch).to_string(),
+        },
+        ProbeDetail {
+            key: "tls13TemplateBrowserTrack".to_string(),
+            value: tls13_template.parity_targets.browser_track.to_string(),
+        },
+        ProbeDetail {
+            key: "tls12TemplateBrowserTrack".to_string(),
+            value: tls12_template.parity_targets.browser_track.to_string(),
+        },
+        ProbeDetail {
+            key: "tlsEchTemplateBrowserTrack".to_string(),
+            value: tls_ech_template.parity_targets.browser_track.to_string(),
+        },
+        ProbeDetail {
+            key: "tlsEchTemplateGreaseStyle".to_string(),
+            value: tls_ech_template.template.grease_style.to_string(),
+        },
+        ProbeDetail {
+            key: "tlsEchTemplateAlpn".to_string(),
+            value: tls_ech_template.template.alpn_template.to_string(),
+        },
+        ProbeDetail {
             key: "tlsEchVersion".to_string(),
             value: tls_ech.version.unwrap_or_else(|| "unknown".to_string()),
         },
@@ -756,6 +809,10 @@ pub(crate) fn run_https_strategy_probe(
         key: "echCapable".to_string(),
         value: (outcome == "tls_ech_only" || tls_ech.ech_resolution_detail.as_deref() == Some("ech_config_available"))
             .to_string(),
+    });
+    details.push(ProbeDetail {
+        key: "tlsEchTemplateCapable".to_string(),
+        value: tls_ech_template.template.ech_capable.to_string(),
     });
 
     if let Some(ms) = tcp_connect_ms {
@@ -1114,6 +1171,9 @@ mod tests {
             id: id.to_string(),
             label: id.to_string(),
             family: "test".to_string(),
+            emitter_tier: crate::types::StrategyEmitterTier::NonRootProduction,
+            exact_emitter_requires_root: false,
+            emitter_downgraded: false,
             quic_layout_family: None,
             outcome: if skipped { "skipped" } else { "success" }.to_string(),
             rationale: String::new(),

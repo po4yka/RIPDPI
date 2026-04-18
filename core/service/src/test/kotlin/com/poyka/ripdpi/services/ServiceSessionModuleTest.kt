@@ -103,11 +103,13 @@ class ServiceSessionModuleTest {
                 )
             val statusReporter =
                 VpnServiceSessionModule.provideVpnStatusReporter(statusDependencies)
+            val vpnProtectFailureMonitor = VpnServiceSessionModule.provideVpnProtectFailureMonitor()
             val coordinator =
                 VpnServiceSessionModule.provideVpnCoordinator(
                     host = host,
                     runtimeDependencies = runtimeDependencies,
                     permissionWatchdog = TestPermissionWatchdog(),
+                    vpnProtectFailureMonitor = vpnProtectFailureMonitor,
                     vpnTunnelRuntime = vpnTunnelRuntime,
                     encryptedDnsFailoverController = encryptedDnsFailoverController,
                     upstreamRelaySupervisor = upstreamRelaySupervisor,

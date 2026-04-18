@@ -90,6 +90,7 @@ class ServiceTelemetryGoldenTest {
                 put("lastFailureSender", snapshot.lastFailureSender?.name)
                 put("lastFailureAt", snapshot.lastFailureAt)
                 put("updatedAt", snapshot.updatedAt)
+                put("networkHandoverState", snapshot.networkHandoverState)
                 put(
                     "tunnelStats",
                     json.parseToJsonElement(json.encodeToString(TunnelStats.serializer(), snapshot.tunnelStats)),

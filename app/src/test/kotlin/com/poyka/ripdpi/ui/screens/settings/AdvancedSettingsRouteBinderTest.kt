@@ -23,6 +23,28 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class AdvancedSettingsRouteBinderTest {
+    @Test
+    fun `toggle handler registry covers every toggle setting`() {
+        assertEquals(AdvancedToggleSetting.entries.toSet(), toggleHandlers.keys)
+    }
+
+    @Test
+    fun `text handler registry covers every text setting`() {
+        assertEquals(AdvancedTextSetting.entries.toSet(), textHandlers.keys)
+    }
+
+    @Test
+    fun `option handler registry covers every option setting`() {
+        assertEquals(
+            AdvancedOptionSetting.entries.toSet() -
+                setOf(
+                    AdvancedOptionSetting.AppRoutingPolicyMode,
+                    AdvancedOptionSetting.DhtMitigationMode,
+                ),
+            optionHandlers.keys,
+        )
+    }
+
     // -- mapNoticeEffect --
 
     @Test

@@ -31,6 +31,7 @@ class ServiceStatusReporterTest {
             newStatus = ServiceStatus.Connected,
             activePolicy = null,
             consumePendingNetworkHandoverClass = { null },
+            currentNetworkHandoverState = { null },
             tunnelRecoveryRetryCount = 0L,
         )
 
@@ -62,6 +63,7 @@ class ServiceStatusReporterTest {
             newStatus = ServiceStatus.Failed,
             activePolicy = null,
             consumePendingNetworkHandoverClass = { null },
+            currentNetworkHandoverState = { com.poyka.ripdpi.data.NetworkHandoverStates.Failed },
             tunnelRecoveryRetryCount = 0L,
             failureReason = reason,
         )
@@ -115,6 +117,7 @@ class ServiceStatusReporterTest {
         reporter.reportTelemetry(
             activePolicy = policy,
             consumePendingNetworkHandoverClass = { "transport_switch" },
+            currentNetworkHandoverState = { com.poyka.ripdpi.data.NetworkHandoverStates.Revalidated },
             proxyTelemetry = proxyTelemetry,
             relayTelemetry = NativeRuntimeSnapshot.idle(source = "relay"),
             warpTelemetry = NativeRuntimeSnapshot.idle(source = "warp"),
@@ -123,6 +126,10 @@ class ServiceStatusReporterTest {
         )
 
         assertEquals("transport_switch", store.telemetry.value.tunnelTelemetry.networkHandoverClass)
+        assertEquals(
+            com.poyka.ripdpi.data.NetworkHandoverStates.Revalidated,
+            store.telemetry.value.networkHandoverState,
+        )
         assertEquals("tcp-family", store.telemetry.value.runtimeFieldTelemetry.winningTcpStrategyFamily)
         assertEquals(4L, store.telemetry.value.runtimeFieldTelemetry.tunnelRecoveryRetryCount)
     }

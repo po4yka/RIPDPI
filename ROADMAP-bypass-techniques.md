@@ -41,10 +41,11 @@ owns the **concrete tactic + probe candidate**; the sibling roadmap owns the
 - [ ] Not started
 - [x] Already implemented or not applicable
 
-## Execution Status (2026-04-17)
+## Execution Status (2026-04-18)
 
 - Items 1-12 are shipped and audited against the codebase.
-- Items 13-15 remain open and experimental; none are production defaults.
+- Item 15 is complete as documentation-only server hardening guidance.
+- Items 13-14 remain open and experimental; neither is a production default.
 - Architecture-refactor Workstream 3 is now complete, so any future runtime-side
   Tier 3 work should land on the extracted family/lowering seams rather than
   reopening the old central `desync.rs` executor shape, and any QUIC-side
@@ -620,7 +621,7 @@ distinguish from real pings.
 
 ### 15. Server-Side Behavioral Scoring (Documentation)
 
-**Status:** [ ] Not started (documentation only)
+**Status:** [x] Complete
 **Priority:** Low (server-side, not client feature)
 
 **What:** The graylist + nginx stream technique for detecting and deflecting
@@ -638,10 +639,14 @@ recommended server-side hardening for users who self-host.
 
 Threshold: score >= 5 triggers graylist (redirect to fallback, never DROP).
 
-**Approach:**
-1. Add `docs/server-hardening.md` with nginx stream config, graylist format,
-   tcpdump capture script, and Docker compose reference
-2. Link from README.md server setup section
+**Delivered:**
+1. Added [docs/server-hardening.md](docs/server-hardening.md) with an `nginx
+   stream` graylist layout, score model, map format, capture script, and
+   Docker compose reference
+2. Linked the guide from [README.md](README.md) and [docs/README.md](docs/README.md)
+
+**Remaining:** none in-repo. This is documentation only and does not unblock
+the still-open client/server transport work in items 13 and 14.
 
 **Vault references:**
 - `Censorship/vless-graylist-active-probing-defense.md` -- full guide

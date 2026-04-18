@@ -88,7 +88,7 @@ class RipDpiVpnService :
                 onRevoke = {
                     serviceStateStore.emitFailed(
                         sender = Sender.VPN,
-                        reason = FailureReason.NativeError("VPN revoked by system or another app"),
+                        reason = FailureReason.PermissionLost("VPN"),
                     )
                     coordinator.stop()
                 },
@@ -186,13 +186,26 @@ class RipDpiVpnService :
     @android.annotation.SuppressLint("MissingPermission")
     override fun syncUnderlyingNetworksFromActiveNetwork() {
         val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val hasNetworkStatePermission = hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)
         val activeNetwork =
-            if (hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)) {
+            if (hasNetworkStatePermission) {
                 connectivityManager.activeNetwork
             } else {
                 null
             }
-        setUnderlyingNetworks(activeNetwork?.let { arrayOf(it) })
+        val bindingAudit =
+            resolveVpnUpstreamNetworkBindingAudit(
+                hasNetworkStatePermission = hasNetworkStatePermission,
+                activeNetworkAvailable = activeNetwork != null,
+            )
+        Logger.i { "vpn upstream binding audit: ${bindingAudit.logSummary()}" }
+        setUnderlyingNetworks(
+            if (bindingAudit.bindsActiveNetwork && activeNetwork != null) {
+                arrayOf(activeNetwork)
+            } else {
+                null
+            },
+        )
     }
 
     private fun hasPermission(permission: String): Boolean =

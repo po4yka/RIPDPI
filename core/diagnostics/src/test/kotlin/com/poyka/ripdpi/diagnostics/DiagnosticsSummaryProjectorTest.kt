@@ -15,8 +15,40 @@ class DiagnosticsSummaryProjectorTest {
                         strategyProbeReport =
                             StrategyProbeReport(
                                 suiteId = "full_matrix_v1",
-                                tcpCandidates = emptyList(),
-                                quicCandidates = emptyList(),
+                                tcpCandidates =
+                                    listOf(
+                                        StrategyProbeCandidateSummary(
+                                            id = "tcp-1",
+                                            label = "TCP candidate",
+                                            family = "tlsrec_seqovl",
+                                            emitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
+                                            exactEmitterRequiresRoot = true,
+                                            emitterDowngraded = true,
+                                            outcome = "success",
+                                            rationale = "winner",
+                                            succeededTargets = 3,
+                                            totalTargets = 3,
+                                            weightedSuccessScore = 9,
+                                            totalWeight = 9,
+                                            qualityScore = 9,
+                                        ),
+                                    ),
+                                quicCandidates =
+                                    listOf(
+                                        StrategyProbeCandidateSummary(
+                                            id = "quic-1",
+                                            label = "QUIC candidate",
+                                            family = "quic_multi_initial_realistic",
+                                            emitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
+                                            outcome = "success",
+                                            rationale = "winner",
+                                            succeededTargets = 1,
+                                            totalTargets = 1,
+                                            weightedSuccessScore = 2,
+                                            totalWeight = 2,
+                                            qualityScore = 2,
+                                        ),
+                                    ),
                                 recommendation =
                                     StrategyProbeRecommendation(
                                         tcpCandidateId = "tcp-1",
@@ -60,6 +92,7 @@ class DiagnosticsSummaryProjectorTest {
                                         domainHosts = listOf("meduza.io", "telegram.org", "signal.org"),
                                         quicHosts = listOf("discord.com", "www.whatsapp.com"),
                                     ),
+                                pilotBucketLabels = listOf("foreign:cloudflare:ech=yes", "domestic:domesticcdn:ech=no"),
                             ),
                     ),
                 latestSnapshotModel = null,
@@ -72,9 +105,18 @@ class DiagnosticsSummaryProjectorTest {
         assertTrue(document.reportMetadata.lines.contains("strategyTargetCohort=media-messaging"))
         assertTrue(document.reportMetadata.lines.contains("strategyTargetDomains=meduza.io|telegram.org|signal.org"))
         assertTrue(document.reportMetadata.lines.contains("strategyTargetQuicHosts=discord.com|www.whatsapp.com"))
+        assertTrue(
+            document.reportMetadata.lines.contains(
+                "strategyPilotBuckets=foreign:cloudflare:ech=yes|domestic:domesticcdn:ech=no",
+            ),
+        )
         assertTrue(document.reportMetadata.lines.contains("strategyConfidence=MEDIUM"))
         assertTrue(document.reportMetadata.lines.contains("strategyConfidenceScore=75"))
         assertTrue(document.reportMetadata.lines.contains("strategyMatrixCoverage=77"))
         assertTrue(document.reportMetadata.lines.contains("strategyWinnerCoverage=100"))
+        assertTrue(document.reportMetadata.lines.contains("strategyRecommendedTcpEmitterTier=ROOTED_PRODUCTION"))
+        assertTrue(document.reportMetadata.lines.contains("strategyRecommendedTcpRequiresRoot=true"))
+        assertTrue(document.reportMetadata.lines.contains("strategyRecommendedTcpDowngraded=true"))
+        assertTrue(document.reportMetadata.lines.contains("strategyRecommendedQuicEmitterTier=NON_ROOT_PRODUCTION"))
     }
 }

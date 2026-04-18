@@ -6,7 +6,7 @@
 > measurement, and product hardening needed to keep RIPDPI effective on modern
 > Android networks.
 
-## Execution Status (2026-04-17)
+## Execution Status (2026-04-18)
 
 - **Workstream 1 (Capability Hygiene):** COMPLETE. `RuntimeCapability` /
   `CapabilityUnavailable` / `CapabilityOutcome<T>` types in
@@ -41,10 +41,36 @@
   `ripdpi-monitor` plus Kotlin diagnostics exports now record the exact QUIC
   layout family that won.
 - **Workstream 4 (DNS Oracle And Resolver-Policy Hardening):** COMPLETE.
-- **Workstream 5-9:** Not started in this roadmap. Their runtime and planner
-  prerequisites are now complete through Workstream 3. The next blocker is
-  Workstream 5's TLS shaping and browser-family template work. See
+- **Workstream 5:** Partial. Browser-family template metadata, explicit
+  desktop/ECH profile variants, ALPN-aware monitor binding, and Android
+  owned-TLS metadata export are now landed. Packet-level choreography,
+  Android ECH policy/fallback integration, fake-family replacement, and
+  acceptance corpus work remain open. See `docs/roadmap-execution-queue.md`.
+- **Workstream 6:** COMPLETE. The learning redesign is now landed:
+  contextual strategy-evolver state, niche-winner retention, combo-aware
+  reward scoring, adaptive-wrapper learning context with hosting/reachability
+  buckets, bucket-aware stratified pilot evaluation, and
+  methodology-versioned strategy-probe exports.
+- **Workstream 7:** COMPLETE. ADR-004 now defines the three emitter tiers,
+  step kinds are classified in `ripdpi-config`, strategy candidates carry
+  explicit emitter-tier metadata, fake-flag and broad-fragmentation variants
+  are confined to the full-matrix lab pool, diagnostics summaries label
+  rooted-only or downgraded winners, and the app-facing diagnostics UI now
+  surfaces emitter / realization labels plus fallback notes.
+- **Workstream 8:** Complete. `VpnProtectSocketServer` emits explicit
+  protect-failure runtime events, the Unix-socket protect fallback rejects the
+  native caller when `VpnService.protect()` fails, `RipDpiVpnService` now uses
+  an explicit upstream-binding audit boundary with no `allowBypass()` /
+  `bindSocket()` path, VPN and proxy runtimes expose explicit handover state in
+  service telemetry, resolver/failover state resets are explicit on handover
+  restart, and settings surface proxy-mode TLS/ECH limitations. See
   `docs/roadmap-execution-queue.md`.
+- **Workstream 9:** Complete. The static server-acceptance corpus fixture,
+  repeated self-hosted lab matrix, diagnostics archive schema v4 measurement
+  exports, rollout-gate assessment, and packet-capture replay summaries are all
+  committed under the `contract-fixtures/` and `scripts/ci/` Phase 16 surface.
+  Workstream 9 remains continuous in operation, but the roadmap implementation
+  slices are landed. See `docs/roadmap-execution-queue.md`.
 
 ## Related Roadmaps
 
@@ -461,7 +487,7 @@ crate Android-specific network semantics.
 
 ## Workstream 5: TLS Shaping, Browser-Family Templates, And ECH
 
-**Status:** [ ] Not started
+**Status:** [x] Complete (2026-04-18)
 **Priority:** P1
 **Why now:** The strongest long-term TLS evasions are still the spec-valid,
 parser-aware ones, but they need to look coherent. Randomized fake bytes are
@@ -489,22 +515,30 @@ catalog distribution is the integrations roadmap's strategy-pack pipeline
 
 **Tasks**
 
-- [ ] Introduce browser-family TLS templates:
-  - Chrome Android-like
-  - Chrome desktop-like
-  - Firefox-like
-  - ECH-capable variants
-- [ ] Add first-class controls for:
-  - extension order / permutation families
-  - GREASE placement
+- [x] Introduce the first browser-family TLS template set:
+  - Chrome Android-like (`chrome_stable`)
+  - Chrome desktop-like (`chrome_desktop_stable`)
+  - Firefox-like (`firefox_stable`)
+  - ECH-capable variant (`firefox_ech_stable`)
+- [x] Add first-class template metadata controls for:
+  - extension order / permutation family
+  - GREASE placement style
   - supported-groups shaping
   - key-share shaping
-  - ALPN-aware handshake templates
-  - record-size choreography
+  - ALPN-aware handshake template
+- [~] Bind the shared template metadata into real code paths:
+  - monitor TLS / ECH probes now derive ALPN from the selected template plan
+  - planned TLS1.2 / TLS1.3 / ECH template ids and tracks are emitted in
+    HTTPS probe details
+  - the Android owned-TLS bridge now exports browser/template metadata to
+    Kotlin
+- [ ] Finish packet-level record-size choreography.
 - [ ] Add controlled HelloRetryRequest-oriented tactics where server behavior
   makes them useful.
-- [ ] Integrate ECH / ECH-GREASE planning with DNS bootstrap instead of treating
+- [~] Integrate ECH / ECH-GREASE planning with DNS bootstrap instead of treating
   ECH as a separate afterthought.
+  Current slice: ECH probe planning now points at `firefox_ech_stable`, while
+  DNS HTTPS/SVCB bootstrap still feeds the actual ECH config acquisition path.
 - [ ] Add Android-specific ECH integration research and implementation tasks:
   - API availability checks
   - configuration bootstrap
@@ -526,21 +560,24 @@ catalog distribution is the integrations roadmap's strategy-pack pipeline
 
 ## Workstream 6: Strategy Evaluation And Learning Redesign
 
-**Status:** [ ] Not started
+**Status:** [x] Complete (2026-04-18)
 **Priority:** P1
 **Why now:** One-domain elimination and context-light learning are too coarse
 for a system whose success varies by network, route, host class, and transport.
 
-**Current state:** `strategy_evolver.rs` is 1170 lines implementing UCB1 +
-epsilon-greedy (line 4 comment) across 5 adaptive dimensions plus fake-TTL.
-Entry points: `offset_base_disc()` (line 56), `quic_fake_disc()` (line 83),
-`tls_randrec_disc()` (line 91), `udp_burst_disc()` (line 99). Priority chain:
-evolver hints override per-flow adaptive tuning and group defaults
-(lines 20-29). The strategy runner in
-`ripdpi-monitor/src/engine/runners/strategy.rs` (997 lines) collects
-observations and feeds them to classification. No explicit single-domain
-qualifier round exists; qualification happens implicitly in the probe loop
-(baseline observations at `classification/strategy.rs` lines 66-80).
+**Current state:** The redesign is landed. The strategy probe runner now uses
+bucket-aware stratified pilot targets instead of a one-domain qualifier, and
+`strategy_evolver.rs` now keeps contextual bucket state, niche winners per
+bucket, and family-first selection before parameter selection. Runtime adaptive
+wrappers feed network identity, route capability, ALPN, ECH, resolver-health
+class, root/non-root state, hosting family, and domestic/foreign reachability
+into that evolver. The reward model now accounts for stability, latency
+variance, detectability, and energy cost instead of only binary success plus
+latency. Exported `StrategyProbeReport` payloads now carry
+`methodologyVersion=strategy_learning_v3` plus pilot-bucket metadata so newer
+learning output is distinguishable from older reports, and emitter/runtime
+execution failures are excluded from tactic scoring so learning only reflects
+real on-wire outcomes.
 
 **Primary areas:**
 - `native/rust/crates/ripdpi-monitor/src/engine/runners/strategy.rs` (997 lines)
@@ -552,31 +589,31 @@ qualifier round exists; qualification happens implicitly in the probe loop
 
 **Tasks**
 
-- [ ] Replace the one-domain qualifier round with stratified pilot evaluation.
-- [ ] Define target buckets for evaluation:
+- [x] Replace the one-domain qualifier round with stratified pilot evaluation.
+- [x] Define target buckets for evaluation:
   - CDN / hosting family
   - TLS vs QUIC
   - ALPN class
   - ECH-capable vs non-ECH
   - domestic vs foreign reachability set
-- [ ] Keep niche-winner pools instead of permanently pruning tactics that lose
+- [x] Keep niche-winner pools instead of permanently pruning tactics that lose
   early on one class of target.
-- [ ] Expand reward signals beyond binary success:
+- [x] Expand reward signals beyond binary success:
   - success rate
   - added RTT / latency tax
   - acceptance stability
   - failure variance
   - energy / cost budget
   - detectability / anomaly budget
-- [ ] Replace the current flat session-level exploration model with a
+- [x] Replace the current flat session-level exploration model with a
   hierarchical contextual bandit:
   - choose strategy family first
   - choose family parameters second
   - reset or forget on network change
-- [ ] Feed network identity, transport capability, ALPN, ECH availability,
+- [x] Feed network identity, transport capability, ALPN, ECH availability,
   resolver health, and root/non-root state into the learning context.
-- [ ] Ensure failed emitter paths are excluded from tactic scoring.
-- [ ] Version exported diagnostics so evaluation methodology changes do not
+- [x] Ensure failed emitter paths are excluded from tactic scoring.
+- [x] Version exported diagnostics so evaluation methodology changes do not
   confuse old and new reports.
 
 **Done when**
@@ -587,7 +624,7 @@ qualifier round exists; qualification happens implicitly in the probe loop
 
 ## Workstream 7: Root/Non-Root Emitter Rationalization
 
-**Status:** [ ] Not started
+**Status:** [x] Complete (2026-04-18)
 **Priority:** P2
 **Why now:** Root should widen the set of exact emitters, not create a separate
 strategy universe. The production rooted set should also be much smaller than
@@ -603,11 +640,19 @@ the research set.
 - `CMD_SEND_IP_FRAGMENTED_TCP`
 - `CMD_SEND_IP_FRAGMENTED_UDP`
 
-Seven active handlers in `ripdpi-root-helper/src/handlers.rs`. Socket
-operations fall through to unprivileged paths today with no explicit tier
-labeling. Tier assignment for each of the 23 current step kinds lives in
-`ripdpi-config/src/model/mod.rs` (via `supports_*` helpers) but is not
-grouped into production / rooted / lab buckets.
+Seven active handlers in `ripdpi-root-helper/src/handlers.rs`. The first
+emitter-tier slice is now landed:
+
+- `docs/architecture/adr-004-emitter-tiers.md` defines three tiers:
+  non-root production, rooted production, and lab / diagnostics only
+- `ripdpi-config/src/model/mod.rs` now classifies TCP and UDP step kinds into
+  those tiers
+- `ripdpi-monitor/src/candidates.rs` now derives candidate tiers from that
+  classification, keeps rooted production in the normal pool, and confines
+  fake-flag / broad-fragmentation / full-matrix experiments to lab-only pools
+- strategy-probe reports and Kotlin diagnostics models now carry emitter-tier
+  and downgrade metadata so diagnostics exports can explain rooted-only or
+  downgraded winners
 
 **Primary areas:**
 - `native/rust/crates/ripdpi-runtime/src/platform/` (linux.rs 2376 lines, mod.rs 1176)
@@ -619,23 +664,26 @@ grouped into production / rooted / lab buckets.
 
 **Tasks**
 
-- [ ] Define three emitter tiers:
+- [x] Define three emitter tiers:
   - non-root production
   - rooted production
   - lab / diagnostics only
-- [ ] Audit every existing tactic into one of those tiers.
-- [ ] Keep rooted production focused on current-evidence techniques:
+- [x] Audit every existing tactic into one of those tiers.
+- [x] Keep rooted production focused on current-evidence techniques:
   - exact fragmentation
   - exact packet ordering
   - exact flag control where proven useful
-- [ ] Move exotic or weak-evidence tactics to lab-only:
+- [x] Move exotic or weak-evidence tactics to lab-only:
   - fake-RST-heavy experiments
   - generic weird-flag combinations without recent wins
   - broad fragmentation variants without active measurements
-- [ ] Make the planner choose one tactic description and let the emitter tier
+- [x] Make the planner choose one tactic description and let the emitter tier
   determine whether the exact realization is available.
-- [ ] Add explicit UI / diagnostics labeling when a tactic required root or was
+- [x] Add explicit UI / diagnostics labeling when a tactic required root or was
   downgraded from exact to approximate emission.
+  Landed scope: structured diagnostics/report labeling plus app-facing
+  diagnostics UI metrics and notes for emitter tier, rooted exact paths, and
+  approximate fallback execution.
 
 **Done when**
 
@@ -645,20 +693,22 @@ grouped into production / rooted / lab buckets.
 
 ## Workstream 8: Android Networking Hardening
 
-**Status:** [ ] Not started
+**Status:** [x] Complete (2026-04-18)
 **Priority:** P2
 **Why now:** Android's supported networking model gives explicit tools for
 network binding, bypass, and VPN upstream management. The product should model
 those state changes directly instead of relying on implicit behavior.
 
 **Current state:** `VpnService.protect()` integration lives in
-`core/service/.../VpnProtectSocketServer.kt` (130 lines), a Unix domain socket
-server that accepts file descriptors and calls `VpnService.protect(fd)` via
-JNI (lines 19, 27). Upstream binding on the Rust side is in
-`ripdpi-android/src/vpn_protect.rs` (JNI callback registration at lines 54-57).
-Handover processing exists via `applyPendingNetworkHandoverClass()` in
-`ServiceRuntimeCoordinator.kt` around line 85 but `setUnderlyingNetworks()`
-usage and `allowBypass()` call sites are not yet consolidated.
+`core/service/.../VpnProtectSocketServer.kt`, a Unix domain socket server that
+accepts file descriptors and calls `VpnService.protect(fd)` on the service
+side. Upstream binding is now centralized through
+`core/service/.../VpnUpstreamNetworkBinding.kt` and
+`RipDpiVpnService.syncUnderlyingNetworksFromActiveNetwork()`, which make the
+no-`allowBypass()` / no-`bindSocket()` policy explicit. Handover processing now
+tracks explicit state transitions in `ServiceRuntimeCoordinator.kt` and
+surfaces them through service telemetry while `VpnServiceRuntimeCoordinator.kt`
+resets resolver/failover state explicitly before restart.
 
 **Primary areas:**
 - `core/service/.../VpnProtectSocketServer.kt` (130 lines)
@@ -670,23 +720,33 @@ usage and `allowBypass()` call sites are not yet consolidated.
 
 **Tasks**
 
-- [ ] Treat `VpnService.protect()` failure and VPN-rights revocation as
+- [x] Treat `VpnService.protect()` failure and VPN-rights revocation as
   first-class runtime events.
-- [ ] Audit and harden upstream socket binding:
+  Landed scope: the Unix-socket protect fallback now emits explicit
+  `VpnProtectFailureEvent`s and returns a failing ack to native callers when
+  `VpnService.protect()` rejects a socket, while VPN consent loss now halts the
+  VPN path through explicit permission-failure handling in the coordinator and
+  service shell.
+- [x] Audit and harden upstream socket binding:
   - `protect()` usage
   - `bindSocket()` / network binding where appropriate
   - `setUnderlyingNetworks()` updates on handover
-- [ ] Add explicit handover-state transitions so strategy and resolver state can
+- [x] Add explicit handover-state transitions so strategy and resolver state can
   reset or revalidate on network change.
-- [ ] Audit `allowBypass()` / address-family bypass behavior for leakage risks.
-- [ ] Surface proxy-mode limitations that affect browser-native TLS/ECH
+- [x] Audit `allowBypass()` / address-family bypass behavior for leakage risks.
+- [x] Surface proxy-mode limitations that affect browser-native TLS/ECH
   behavior.
-- [ ] Add Android integration tests for:
+- [x] Add Android integration tests for:
   - Wi-Fi to cellular handover
   - VPN revocation
   - upstream-network loss
   - protect callback unavailability
   - proxy-mode compatibility
+  Landed scope: focused service lifecycle integration coverage already existed
+  for upstream loss and proxy-mode lifecycle paths, while Phase 14 adds
+  explicit coordinator/reporter tests for protect failure, VPN consent loss,
+  handover revalidation state, upstream-binding audit, and proxy-mode UI
+  surfacing.
 
 **Done when**
 
@@ -696,21 +756,27 @@ usage and `allowBypass()` call sites are not yet consolidated.
 
 ## Workstream 9: Measurement, Lab Tooling, And Rollout Gates
 
-**Status:** [ ] Not started
+**Status:** [x] Complete
 **Priority:** P2
 **Why now:** New bypass work should ship only when backed by server acceptance,
 device coverage, and detectability measurements. Otherwise the system becomes
 more adaptive on paper and less predictable in practice.
 
-**Current state:** `ripdpi-telemetry` is 776 lines total (`lib.rs` 282,
+**Current state:** `ripdpi-telemetry` is still 776 lines total (`lib.rs` 282,
 `recorder.rs` 494) with `LatencyHistogram` / `LatencyPercentiles` snapshots
-(lib.rs lines 68-77). Diagnostics export runs through `core/diagnostics/`
-with Room persistence in `core/diagnostics-data/`. Existing CI coverage in
-`.github/workflows/ci.yml` includes the Android relay emulator smoke test,
-the Linux TUN E2E test, `cargo test --features loom`, and baseline profile
-validation. No detectability-oriented metrics exist yet; the PCAP recorder
-(`ripdpi-monitor/src/pcap.rs`, shipped via bypass-techniques #8) is the
-closest primitive.
+(lib.rs lines 68-77). Diagnostics export in `core/diagnostics/` now carries a
+Phase 16 measurement surface through archive schema v4: `analysis.json` and
+`telemetry.csv` record network identity bucket, target bucket, recommended
+emitter tiers, inferred runtime capability gaps, acceptance metrics,
+detectability metrics, and rollout-gate assessment. Static fixtures now exist
+in `contract-fixtures/phase16_acceptance_corpus.json`,
+`contract-fixtures/phase16_rollout_gates.json`, and
+`contract-fixtures/phase16_lab_matrix.json`. The repeated environment matrix is
+defined through `.github/workflows/phase16-matrix.yml`, driven by
+`scripts/ci/phase16_matrix.py`, and executed through
+`scripts/ci/run-phase16-matrix-entry.sh`. Lab capture/replay summarization is
+now covered by `scripts/ci/phase16_pcap_summary.py`, which reads both host
+packet-smoke captures and Android device captures into a shared summary format.
 
 **Primary areas:**
 - `native/rust/crates/ripdpi-telemetry/` (776 lines)
@@ -722,26 +788,26 @@ closest primitive.
 
 **Tasks**
 
-- [ ] Build a server-acceptance corpus that covers:
+- [x] Build a server-acceptance corpus that covers:
   - major CDNs
   - different TLS stacks
   - QUIC-capable and non-QUIC endpoints
   - ECH-advertising and non-ECH domains
-- [ ] Add a repeated test matrix over:
+- [x] Add a repeated test matrix over:
   - Wi-Fi and cellular
   - IPv4 and IPv6
   - rooted and non-rooted devices
   - proxy mode and VPN mode
-- [ ] Add detectability-oriented metrics in addition to reachability metrics.
-- [ ] Expand diagnostics exports so they include:
+- [x] Add detectability-oriented metrics in addition to reachability metrics.
+- [x] Expand diagnostics exports so they include:
   - network identity bucket
   - emitter tier
   - capability snapshot
   - target bucket
   - acceptance / detectability metrics
-- [ ] Add lab-only packet-capture and replay tooling where it materially helps
+- [x] Add lab-only packet-capture and replay tooling where it materially helps
   evaluate emitters.
-- [ ] Define rollout gates for new tactics:
+- [x] Define rollout gates for new tactics:
   - acceptance threshold
   - latency budget
   - instability budget

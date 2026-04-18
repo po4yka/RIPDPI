@@ -189,10 +189,18 @@ internal object ProxyServiceSessionModule {
 internal object VpnServiceSessionModule {
     @Provides
     @ServiceSessionScope
-    fun provideVpnProtectSocketServer(vpnService: VpnService): VpnProtectSocketServer =
+    fun provideVpnProtectFailureMonitor(): VpnProtectFailureMonitor = InMemoryVpnProtectFailureMonitor()
+
+    @Provides
+    @ServiceSessionScope
+    fun provideVpnProtectSocketServer(
+        vpnService: VpnService,
+        protectFailureMonitor: VpnProtectFailureMonitor,
+    ): VpnProtectSocketServer =
         VpnProtectSocketServer(
             vpnService = vpnService,
             socketPath = File(vpnService.filesDir, "protect_path").absolutePath,
+            protectFailureMonitor = protectFailureMonitor,
         )
 
     @Provides
@@ -265,6 +273,7 @@ internal object VpnServiceSessionModule {
         host: VpnCoordinatorHost,
         runtimeDependencies: VpnServiceRuntimeRuntimeDependencies,
         permissionWatchdog: PermissionWatchdog,
+        vpnProtectFailureMonitor: VpnProtectFailureMonitor,
         vpnTunnelRuntime: VpnTunnelRuntime,
         encryptedDnsFailoverController: VpnEncryptedDnsFailoverController,
         upstreamRelaySupervisor: UpstreamRelaySupervisor,
@@ -281,6 +290,7 @@ internal object VpnServiceSessionModule {
             networkHandoverMonitor = runtimeDependencies.networkHandoverMonitor,
             policyHandoverEventStore = runtimeDependencies.policyHandoverEventStore,
             permissionWatchdog = permissionWatchdog,
+            vpnProtectFailureMonitor = vpnProtectFailureMonitor,
             vpnTunnelRuntime = vpnTunnelRuntime,
             resolverRefreshPlanner = runtimeDependencies.dnsDependencies.resolverRefreshPlanner,
             encryptedDnsFailoverController = encryptedDnsFailoverController,

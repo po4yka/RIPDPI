@@ -15,6 +15,7 @@ import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
+import com.poyka.ripdpi.diagnostics.StrategyEmitterTier
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
@@ -496,6 +497,30 @@ private fun buildStrategyProbeCandidateMetrics(
         summary.averageLatencyMs?.let {
             add(DiagnosticsMetricUiModel("Latency", "$it ms", DiagnosticsTone.Info))
         }
+        add(
+            DiagnosticsMetricUiModel(
+                "Emitter",
+                strategyEmitterTierLabel(summary.emitterTier),
+                tone =
+                    when (summary.emitterTier) {
+                        StrategyEmitterTier.NON_ROOT_PRODUCTION -> DiagnosticsTone.Info
+                        StrategyEmitterTier.ROOTED_PRODUCTION -> DiagnosticsTone.Warning
+                        StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY -> DiagnosticsTone.Neutral
+                    },
+            ),
+        )
+        add(
+            DiagnosticsMetricUiModel(
+                "Realization",
+                strategyEmitterRealizationLabel(summary),
+                tone =
+                    when {
+                        summary.emitterDowngraded -> DiagnosticsTone.Warning
+                        summary.exactEmitterRequiresRoot -> DiagnosticsTone.Info
+                        else -> DiagnosticsTone.Neutral
+                    },
+            ),
+        )
         if (recommended) {
             add(
                 DiagnosticsMetricUiModel(
@@ -504,6 +529,34 @@ private fun buildStrategyProbeCandidateMetrics(
                     if (summary.skipped) DiagnosticsTone.Info else DiagnosticsTone.Positive,
                 ),
             )
+        }
+    }
+
+private fun strategyEmitterTierLabel(tier: StrategyEmitterTier): String =
+    when (tier) {
+        StrategyEmitterTier.NON_ROOT_PRODUCTION -> "Non-root production"
+        StrategyEmitterTier.ROOTED_PRODUCTION -> "Rooted production"
+        StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY -> "Lab diagnostics only"
+    }
+
+private fun strategyEmitterRealizationLabel(summary: StrategyProbeCandidateSummary): String =
+    when {
+        summary.emitterDowngraded -> "Approximate fallback"
+        summary.exactEmitterRequiresRoot -> "Rooted exact"
+        summary.emitterTier == StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY -> "Lab path"
+        else -> "Direct"
+    }
+
+private fun strategyEmitterNotes(summary: StrategyProbeCandidateSummary): List<String> =
+    buildList {
+        if (summary.exactEmitterRequiresRoot && !summary.emitterDowngraded) {
+            add("Exact emission on this path required rooted runtime capabilities.")
+        }
+        if (summary.emitterDowngraded) {
+            add("Exact emission was unavailable, so this candidate ran through an approximate fallback path.")
+        }
+        if (summary.emitterTier == StrategyEmitterTier.LAB_DIAGNOSTICS_ONLY) {
+            add("This candidate stays in diagnostics-only coverage and is not part of production defaults.")
         }
     }
 
@@ -582,7 +635,7 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
                 recommended = recommended,
             ),
         recommended = recommended,
-        notes = candidate.notes.toImmutableList(),
+        notes = (candidate.notes + strategyEmitterNotes(candidate)).distinct().toImmutableList(),
         metrics = buildStrategyProbeCandidateMetrics(candidate, recommended).toImmutableList(),
         signature = deriveSignature(candidate, serviceMode)?.let(::strategySignatureFields).orEmpty().toImmutableList(),
         resultGroups =

@@ -16,7 +16,7 @@ internal class DiagnosticsArchiveCsvEntryBuilder(
                     content = buildNativeEventsCsv(selection.primaryEvents, selection.globalEvents),
                 ),
             )
-            add(textEntry(name = "telemetry.csv", content = buildTelemetryCsv(selection.payload)))
+            add(textEntry(name = "telemetry.csv", content = buildTelemetryCsv(selection)))
             selection.logcatSnapshot?.let { snapshot ->
                 add(DiagnosticsArchiveEntry(name = "logcat.txt", bytes = snapshot.content.toByteArray()))
             }

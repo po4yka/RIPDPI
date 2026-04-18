@@ -16,6 +16,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 ## Operations
 
 - [Strategy-pack and TLS catalog operations](strategy-pack-operations.md)
+- [Server hardening for self-hosted relays](server-hardening.md)
 
 ## Configuration
 

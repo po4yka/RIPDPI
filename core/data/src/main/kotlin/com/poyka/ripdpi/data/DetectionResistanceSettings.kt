@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.data
 
 const val TlsFingerprintProfileChromeStable = "chrome_stable"
+const val TlsFingerprintProfileChromeDesktopStable = "chrome_desktop_stable"
 const val TlsFingerprintProfileFirefoxStable = "firefox_stable"
+const val TlsFingerprintProfileFirefoxEchStable = "firefox_ech_stable"
 const val TlsFingerprintProfileSafariStable = "safari_stable"
 const val TlsFingerprintProfileEdgeStable = "edge_stable"
 
@@ -18,7 +20,9 @@ const val DefaultEvolutionEpsilon = 0.1
 fun normalizeTlsFingerprintProfile(value: String): String =
     when (value.trim().lowercase()) {
         TlsFingerprintProfileChromeStable -> TlsFingerprintProfileChromeStable
+        TlsFingerprintProfileChromeDesktopStable -> TlsFingerprintProfileChromeDesktopStable
         TlsFingerprintProfileFirefoxStable -> TlsFingerprintProfileFirefoxStable
+        TlsFingerprintProfileFirefoxEchStable -> TlsFingerprintProfileFirefoxEchStable
         TlsFingerprintProfileSafariStable -> TlsFingerprintProfileSafariStable
         TlsFingerprintProfileEdgeStable -> TlsFingerprintProfileEdgeStable
         "native_default" -> TlsFingerprintProfileChromeStable
@@ -28,7 +32,9 @@ fun normalizeTlsFingerprintProfile(value: String): String =
 fun tlsFingerprintProfileSummary(value: String): String =
     when (normalizeTlsFingerprintProfile(value)) {
         TlsFingerprintProfileChromeStable -> "Chrome stable"
+        TlsFingerprintProfileChromeDesktopStable -> "Chrome desktop stable"
         TlsFingerprintProfileFirefoxStable -> "Firefox stable"
+        TlsFingerprintProfileFirefoxEchStable -> "Firefox stable (ECH)"
         TlsFingerprintProfileSafariStable -> "Safari stable"
         TlsFingerprintProfileEdgeStable -> "Edge stable"
         else -> "Chrome stable"

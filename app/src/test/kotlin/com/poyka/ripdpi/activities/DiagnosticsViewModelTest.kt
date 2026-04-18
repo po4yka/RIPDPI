@@ -56,6 +56,7 @@ import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.collections.immutable.persistentListOf
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
@@ -1580,7 +1581,7 @@ class DiagnosticsViewModelTest {
                     FakeAppSettingsRepository(),
                 )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            val effectDeferred = async { viewModel.effects.first() }
+            val effectDeferred = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
             advanceUntilIdle()
 
             viewModel.startRawScan()
@@ -1609,7 +1610,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            val effectDeferred = async { viewModel.effects.first() }
+            val effectDeferred = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
             viewModel.startInPathScan()
             advanceUntilIdle()
 
@@ -2693,7 +2694,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            val shareEffect = async { viewModel.effects.first() }
+            val shareEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
             viewModel.shareSummary("session-1")
             advanceUntilIdle()
 
@@ -2701,7 +2702,7 @@ class DiagnosticsViewModelTest {
             assertEquals("RIPDPI summary", effect.title)
             assertTrue(effect.body.contains("session-1"))
 
-            val shareArchiveEffect = async { viewModel.effects.first() }
+            val shareArchiveEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
             viewModel.shareArchive("session-1")
             advanceUntilIdle()
 
@@ -2710,7 +2711,7 @@ class DiagnosticsViewModelTest {
             assertEquals("SHARE_ARCHIVE", manager.lastArchiveReason)
             assertEquals("/tmp/archive-session-1.zip", shareArchive.absolutePath)
 
-            val saveArchiveEffect = async { viewModel.effects.first() }
+            val saveArchiveEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
             viewModel.saveArchive("session-1")
             advanceUntilIdle()
 

@@ -41,6 +41,23 @@ pub enum TcpChainStepKind {
     FakeRst,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum EmitterTier {
+    NonRootProduction,
+    RootedProduction,
+    LabDiagnosticsOnly,
+}
+
+impl EmitterTier {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::NonRootProduction => "non_root_production",
+            Self::RootedProduction => "rooted_production",
+            Self::LabDiagnosticsOnly => "lab_diagnostics_only",
+        }
+    }
+}
+
 impl TcpChainStepKind {
     pub const fn from_mode(mode: DesyncMode) -> Option<Self> {
         match mode {
@@ -100,6 +117,24 @@ impl TcpChainStepKind {
 
     pub const fn supports_fake_ordering(self) -> bool {
         matches!(self, Self::Fake | Self::FakeSplit | Self::FakeDisorder | Self::HostFake)
+    }
+
+    pub const fn emitter_tier(self) -> EmitterTier {
+        match self {
+            Self::SeqOverlap | Self::MultiDisorder | Self::IpFrag2 => EmitterTier::RootedProduction,
+            Self::FakeRst => EmitterTier::LabDiagnosticsOnly,
+            Self::Split
+            | Self::SynData
+            | Self::Disorder
+            | Self::Fake
+            | Self::FakeSplit
+            | Self::FakeDisorder
+            | Self::HostFake
+            | Self::Oob
+            | Self::Disoob
+            | Self::TlsRec
+            | Self::TlsRandRec => EmitterTier::NonRootProduction,
+        }
     }
 }
 
@@ -256,6 +291,24 @@ pub enum UdpChainStepKind {
     QuicVersionNegotiationDecoy,
     QuicMultiInitialRealistic,
     IpFrag2Udp,
+}
+
+impl UdpChainStepKind {
+    pub const fn emitter_tier(self) -> EmitterTier {
+        match self {
+            Self::IpFrag2Udp => EmitterTier::RootedProduction,
+            Self::FakeBurst
+            | Self::DummyPrepend
+            | Self::QuicSniSplit
+            | Self::QuicFakeVersion
+            | Self::QuicCryptoSplit
+            | Self::QuicPaddingLadder
+            | Self::QuicCidChurn
+            | Self::QuicPacketNumberGap
+            | Self::QuicVersionNegotiationDecoy
+            | Self::QuicMultiInitialRealistic => EmitterTier::NonRootProduction,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1437,5 +1490,21 @@ mod tests {
     #[test]
     fn seq_overlap_fake_mode_default_is_profile() {
         assert_eq!(SeqOverlapFakeMode::default(), SeqOverlapFakeMode::Profile);
+    }
+
+    #[test]
+    fn tcp_step_kinds_map_to_expected_emitter_tiers() {
+        assert_eq!(TcpChainStepKind::Split.emitter_tier(), EmitterTier::NonRootProduction);
+        assert_eq!(TcpChainStepKind::SeqOverlap.emitter_tier(), EmitterTier::RootedProduction);
+        assert_eq!(TcpChainStepKind::MultiDisorder.emitter_tier(), EmitterTier::RootedProduction);
+        assert_eq!(TcpChainStepKind::IpFrag2.emitter_tier(), EmitterTier::RootedProduction);
+        assert_eq!(TcpChainStepKind::FakeRst.emitter_tier(), EmitterTier::LabDiagnosticsOnly);
+    }
+
+    #[test]
+    fn udp_step_kinds_map_to_expected_emitter_tiers() {
+        assert_eq!(UdpChainStepKind::FakeBurst.emitter_tier(), EmitterTier::NonRootProduction);
+        assert_eq!(UdpChainStepKind::QuicCryptoSplit.emitter_tier(), EmitterTier::NonRootProduction);
+        assert_eq!(UdpChainStepKind::IpFrag2Udp.emitter_tier(), EmitterTier::RootedProduction);
     }
 }

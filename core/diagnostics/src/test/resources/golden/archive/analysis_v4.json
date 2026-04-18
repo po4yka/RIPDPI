@@ -1,0 +1,193 @@
+{
+    "failureEnvelope": {
+        "failureClassTransitions": [
+            "native:proxy:warning"
+        ],
+        "firstFailureTimestamp": 60,
+        "lastFailureTimestamp": 60,
+        "latestFailureClass": "warning",
+        "retryCounters": {
+            "proxyRouteRetryCount": 1,
+            "totalRetryCount": 1,
+            "tunnelRecoveryRetryCount": 0
+        }
+    },
+    "measurementSnapshot": {
+        "acceptanceMetrics": {
+            "acceptanceCorpusVersion": "phase16_acceptance_corpus_v1",
+            "confidenceLevel": "HIGH",
+            "confidenceScore": 86,
+            "matrixCoveragePercent": 82,
+            "quicCandidatesExecuted": 1,
+            "quicCandidatesPlanned": 1,
+            "quicWinnerSucceededTargets": 2,
+            "quicWinnerTotalTargets": 3,
+            "tcpCandidatesExecuted": 1,
+            "tcpCandidatesPlanned": 2,
+            "tcpWinnerSucceededTargets": 3,
+            "tcpWinnerTotalTargets": 4,
+            "winnerCoveragePercent": 75
+        },
+        "capabilitySnapshot": {
+            "evidence": [
+                "Requires rooted production emitter tier (root_helper_available)"
+            ],
+            "inferredUnavailableCapabilities": [
+                "root_helper_available"
+            ],
+            "source": "strategy_report_inference_v1"
+        },
+        "detectabilityMetrics": {
+            "capabilitySkippedCandidates": 1,
+            "downgradedCandidates": 0,
+            "exactRootRequiredCandidates": 1,
+            "labOnlyCandidates": 0,
+            "notes": [
+                "capability_skips_present"
+            ],
+            "recommendedUsesRootedEmitter": false,
+            "recommendedWasDowngraded": false,
+            "rootedProductionCandidates": 1,
+            "skippedCandidates": 1
+        },
+        "networkIdentityBucket": "wifi:steady:fp-render",
+        "recommendedQuicEmitterTier": "NON_ROOT_PRODUCTION",
+        "recommendedTcpEmitterTier": "NON_ROOT_PRODUCTION",
+        "rolloutGateAssessment": {
+            "overallPassed": false,
+            "policyVersion": "phase16_rollout_gates_v1",
+            "results": [
+                {
+                    "actual": "matrix=82;winner=75",
+                    "id": "acceptance",
+                    "passed": true,
+                    "threshold": "matrixCoveragePercent >= 75 and winnerCoveragePercent >= 60"
+                },
+                {
+                    "actual": "120",
+                    "id": "latency_budget",
+                    "passed": true,
+                    "threshold": "recommendedLatencyMs <= 250"
+                },
+                {
+                    "actual": "1",
+                    "id": "instability_budget",
+                    "passed": true,
+                    "threshold": "retryCount <= 2"
+                },
+                {
+                    "actual": "rooted=false;downgraded=false",
+                    "id": "detectability_budget",
+                    "passed": true,
+                    "threshold": "recommended winner stays non-root and non-downgraded"
+                },
+                {
+                    "actual": "root_helper_available",
+                    "id": "android_compat_budget",
+                    "passed": false,
+                    "threshold": "no inferred missing runtime capabilities"
+                }
+            ]
+        },
+        "targetBucket": "foreign:cloudflare:ech=yes|domestic:domesticcdn:ech=no"
+    },
+    "recommendationTrace": {
+        "confidenceLevel": "HIGH",
+        "confidenceScore": 86,
+        "coveragePercent": 82,
+        "evidence": [
+            "best path",
+            "Renderer fixture confidence",
+            "targetCohort=Media and messaging",
+            "tcpWinner=TLS split",
+            "quicWinner=QUIC split"
+        ],
+        "quicLayoutFamily": "split_initial",
+        "selectedApproach": "Fast Strategy",
+        "selectedResolver": "AdGuard",
+        "selectedStrategy": "TLS split + QUIC split",
+        "targetCohort": "Media and messaging",
+        "winnerCoveragePercent": 75
+    },
+    "strategyExecutionDetail": {
+        "completionKind": "NORMAL",
+        "quicCandidates": [
+            {
+                "averageLatencyMs": 90,
+                "factBreakdown": {
+                    "observationCount": 0,
+                    "statusCounts": {},
+                    "tlsErrorSamples": [],
+                    "transportFailureCounts": {}
+                },
+                "family": "quic_sni_split",
+                "id": "quic-prod",
+                "label": "QUIC split",
+                "lane": "quic",
+                "notes": [],
+                "outcome": "success",
+                "qualityScore": 4,
+                "quicLayoutFamily": "split_initial",
+                "rationale": "winner",
+                "skipReasons": [],
+                "skipped": false,
+                "succeededTargets": 2,
+                "totalTargets": 3,
+                "totalWeight": 6,
+                "weightedSuccessScore": 4
+            }
+        ],
+        "suiteId": "full_matrix_v1",
+        "tcpCandidates": [
+            {
+                "averageLatencyMs": 120,
+                "factBreakdown": {
+                    "observationCount": 0,
+                    "statusCounts": {},
+                    "tlsErrorSamples": [],
+                    "transportFailureCounts": {}
+                },
+                "family": "tlsrec_split",
+                "id": "tcp-prod",
+                "label": "TLS split",
+                "lane": "tcp",
+                "notes": [],
+                "outcome": "success",
+                "qualityScore": 9,
+                "rationale": "winner",
+                "skipReasons": [],
+                "skipped": false,
+                "succeededTargets": 3,
+                "totalTargets": 4,
+                "totalWeight": 12,
+                "weightedSuccessScore": 9
+            },
+            {
+                "factBreakdown": {
+                    "observationCount": 0,
+                    "statusCounts": {},
+                    "tlsErrorSamples": [],
+                    "transportFailureCounts": {}
+                },
+                "family": "seqovl",
+                "id": "tcp-rooted",
+                "label": "Rooted seqovl",
+                "lane": "tcp",
+                "notes": [
+                    "Requires rooted production emitter tier (root_helper_available)"
+                ],
+                "outcome": "capability_skipped",
+                "qualityScore": 0,
+                "rationale": "Requires rooted production emitter tier",
+                "skipReasons": [
+                    "Requires rooted production emitter tier"
+                ],
+                "skipped": true,
+                "succeededTargets": 0,
+                "totalTargets": 4,
+                "totalWeight": 12,
+                "weightedSuccessScore": 0
+            }
+        ]
+    }
+}

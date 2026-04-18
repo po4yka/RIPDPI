@@ -53,6 +53,24 @@ pub struct NativeOwnedTlsHttpResponse {
     pub tls_ja3_parity_target: Option<String>,
     #[serde(rename = "tlsJa4ParityTarget")]
     pub tls_ja4_parity_target: Option<String>,
+    #[serde(rename = "tlsBrowserFamily")]
+    pub tls_browser_family: Option<String>,
+    #[serde(rename = "tlsBrowserTrack")]
+    pub tls_browser_track: Option<String>,
+    #[serde(rename = "tlsTemplateAlpn")]
+    pub tls_template_alpn: Option<String>,
+    #[serde(rename = "tlsTemplateExtensionOrderFamily")]
+    pub tls_template_extension_order_family: Option<String>,
+    #[serde(rename = "tlsTemplateGreaseStyle")]
+    pub tls_template_grease_style: Option<String>,
+    #[serde(rename = "tlsTemplateSupportedGroupsProfile")]
+    pub tls_template_supported_groups_profile: Option<String>,
+    #[serde(rename = "tlsTemplateKeyShareProfile")]
+    pub tls_template_key_share_profile: Option<String>,
+    #[serde(rename = "tlsTemplateRecordChoreography")]
+    pub tls_template_record_choreography: Option<String>,
+    #[serde(rename = "tlsTemplateEchCapable")]
+    pub tls_template_ech_capable: Option<bool>,
     #[serde(rename = "clientHelloSizeHint")]
     pub client_hello_size_hint: Option<usize>,
     #[serde(rename = "clientHelloInvariantStatus")]
@@ -86,6 +104,15 @@ pub fn execute(request_json: &str) -> io::Result<String> {
             tls_profile_catalog_version: None,
             tls_ja3_parity_target: None,
             tls_ja4_parity_target: None,
+            tls_browser_family: None,
+            tls_browser_track: None,
+            tls_template_alpn: None,
+            tls_template_extension_order_family: None,
+            tls_template_grease_style: None,
+            tls_template_supported_groups_profile: None,
+            tls_template_key_share_profile: None,
+            tls_template_record_choreography: None,
+            tls_template_ech_capable: None,
             client_hello_size_hint: None,
             client_hello_invariant_status: None,
             error: Some(error.to_string()),
@@ -123,6 +150,15 @@ async fn execute_async(request: NativeOwnedTlsHttpRequest) -> io::Result<NativeO
             tls_profile_catalog_version: Some(profile_catalog_version().to_string()),
             tls_ja3_parity_target: Some(profile_metadata.parity_targets.ja3.to_string()),
             tls_ja4_parity_target: Some(profile_metadata.parity_targets.ja4.to_string()),
+            tls_browser_family: Some(profile_metadata.parity_targets.browser_family.to_string()),
+            tls_browser_track: Some(profile_metadata.parity_targets.browser_track.to_string()),
+            tls_template_alpn: Some(profile_metadata.template.alpn_template.to_string()),
+            tls_template_extension_order_family: Some(profile_metadata.template.extension_order_family.to_string()),
+            tls_template_grease_style: Some(profile_metadata.template.grease_style.to_string()),
+            tls_template_supported_groups_profile: Some(profile_metadata.template.supported_groups_profile.to_string()),
+            tls_template_key_share_profile: Some(profile_metadata.template.key_share_profile.to_string()),
+            tls_template_record_choreography: Some(profile_metadata.template.record_choreography.to_string()),
+            tls_template_ech_capable: Some(profile_metadata.template.ech_capable),
             client_hello_size_hint: Some(profile_metadata.client_hello_size_hint),
             client_hello_invariant_status: Some(profile_metadata.invariant_status.as_str().to_string()),
             error: None,
@@ -319,6 +355,9 @@ mod tests {
         assert_eq!(response["finalUrl"].as_str().expect("final url"), format!("http://127.0.0.1:{port}/manifest.json"));
         assert_eq!(response["tlsProfileId"], "chrome_stable");
         assert_eq!(response["tlsProfileCatalogVersion"], "v1");
+        assert_eq!(response["tlsBrowserFamily"], "chrome");
+        assert_eq!(response["tlsBrowserTrack"], "android-stable");
+        assert_eq!(response["tlsTemplateAlpn"], "h2_http11");
         assert_eq!(response["clientHelloInvariantStatus"], "avoids_blocked_517_byte_client_hello");
     }
 
@@ -344,6 +383,7 @@ mod tests {
         assert_eq!(response["finalUrl"].as_str().expect("final url"), format!("http://127.0.0.1:{port}/final.json"));
         assert_eq!(response["tlsJa3ParityTarget"], "chrome-stable");
         assert_eq!(response["tlsJa4ParityTarget"], "chrome-stable");
+        assert_eq!(response["tlsTemplateGreaseStyle"], "chromium_single_grease");
     }
 
     fn http_response(status_line: &str, headers: &[(&str, &str)], body: &[u8]) -> Vec<u8> {

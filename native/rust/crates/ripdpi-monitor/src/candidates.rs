@@ -1,3 +1,4 @@
+use ripdpi_config::{EmitterTier, TcpChainStepKind, UdpChainStepKind};
 use ripdpi_dns_resolver::EncryptedDnsEndpoint;
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_proxy_config::{
@@ -12,8 +13,8 @@ use socket2::{Domain, Protocol, Socket, Type};
 use crate::dns::encrypted_dns_protocol;
 use crate::dns::parse_bootstrap_ips;
 use crate::types::{
-    ProbeResult, StrategyProbeAuditAssessment, StrategyProbeAuditConfidenceLevel, StrategyProbeCandidateSummary,
-    StrategyProbeRecommendation,
+    ProbeResult, StrategyEmitterTier, StrategyProbeAuditAssessment, StrategyProbeAuditConfidenceLevel,
+    StrategyProbeCandidateSummary, StrategyProbeRecommendation,
 };
 use crate::util::{
     ranged_probe_delay, DEFAULT_DOH_BOOTSTRAP_IPS, DEFAULT_DOH_HOST, DEFAULT_DOH_PORT, DEFAULT_DOH_URL,
@@ -26,6 +27,9 @@ pub(crate) struct StrategyCandidateSpec {
     pub(crate) id: &'static str,
     pub(crate) label: &'static str,
     pub(crate) family: &'static str,
+    pub(crate) emitter_tier: StrategyEmitterTier,
+    pub(crate) exact_emitter_requires_root: bool,
+    pub(crate) approximate_fallback_family: Option<&'static str>,
     pub(crate) quic_layout_family: Option<&'static str>,
     pub(crate) eligibility: CandidateEligibility,
     pub(crate) config: ProxyUiConfig,
@@ -178,7 +182,7 @@ pub(crate) fn build_strategy_probe_suite(suite_id: &str, base: &ProxyUiConfig) -
         }),
         STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 => Ok(StrategyProbeSuite {
             tcp_candidates: build_full_matrix_tcp_candidates(base),
-            quic_candidates: build_quic_candidates(base),
+            quic_candidates: build_full_matrix_quic_candidates(base),
             short_circuit_hostfake: false,
             short_circuit_quic_burst: false,
             family_failure_threshold: 4,
@@ -192,8 +196,125 @@ pub(crate) fn build_quic_candidates_for_suite(
     base_tcp: &ProxyUiConfig,
 ) -> Result<Vec<StrategyCandidateSpec>, String> {
     match suite_id {
-        STRATEGY_PROBE_SUITE_QUICK_V1 | STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 => Ok(build_quic_candidates(base_tcp)),
+        STRATEGY_PROBE_SUITE_QUICK_V1 => Ok(build_quic_candidates(base_tcp)),
+        STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 => Ok(build_full_matrix_quic_candidates(base_tcp)),
         _ => Err(format!("Unsupported automatic probing suite: {suite_id}")),
+    }
+}
+
+fn strategy_emitter_tier(tier: EmitterTier) -> StrategyEmitterTier {
+    match tier {
+        EmitterTier::NonRootProduction => StrategyEmitterTier::NonRootProduction,
+        EmitterTier::RootedProduction => StrategyEmitterTier::RootedProduction,
+        EmitterTier::LabDiagnosticsOnly => StrategyEmitterTier::LabDiagnosticsOnly,
+    }
+}
+
+fn max_emitter_tier(current: EmitterTier, next: EmitterTier) -> EmitterTier {
+    if next > current {
+        next
+    } else {
+        current
+    }
+}
+
+fn config_emitter_tier(config: &ProxyUiConfig) -> EmitterTier {
+    let mut tier = EmitterTier::NonRootProduction;
+    for step in &config.chains.tcp_steps {
+        if let Some(kind) = tcp_step_kind(step) {
+            tier = max_emitter_tier(tier, kind.emitter_tier());
+        }
+    }
+    for rotation in config.chains.tcp_rotation.as_ref().into_iter().flat_map(|value| value.candidates.iter()) {
+        for step in &rotation.tcp_steps {
+            if let Some(kind) = tcp_step_kind(step) {
+                tier = max_emitter_tier(tier, kind.emitter_tier());
+            }
+        }
+    }
+    for step in &config.chains.udp_steps {
+        if let Some(kind) = udp_step_kind(step) {
+            tier = max_emitter_tier(tier, kind.emitter_tier());
+        }
+    }
+    tier
+}
+
+fn tier_override(candidate_id: &str) -> Option<StrategyEmitterTier> {
+    match candidate_id {
+        "fake_synfin"
+        | "fake_pshurg"
+        | "fake_rst"
+        | "ipfrag2_hopbyhop"
+        | "ipfrag2_hopbyhop2"
+        | "ipfrag2_destopt"
+        | "ipfrag2_hopbyhop_destopt"
+        | "quic_ipfrag2_hopbyhop"
+        | "quic_ipfrag2_hopbyhop2"
+        | "quic_ipfrag2_destopt"
+        | "quic_ipfrag2_hopbyhop_destopt"
+        | "tlsrec_fakedsplit_altorder1"
+        | "tlsrec_fakedsplit_altorder2"
+        | "circular_tlsrec_split"
+        | "activation_window_split"
+        | "activation_window_hostfake"
+        | "adaptive_fake_ttl"
+        | "library_fake_payloads" => Some(StrategyEmitterTier::LabDiagnosticsOnly),
+        _ => None,
+    }
+}
+
+fn candidate_emitter_tier(candidate_id: &str, config: &ProxyUiConfig) -> StrategyEmitterTier {
+    tier_override(candidate_id).unwrap_or_else(|| strategy_emitter_tier(config_emitter_tier(config)))
+}
+
+fn candidate_exact_emitter_requires_root(candidate_id: &str) -> bool {
+    matches!(candidate_id, "tlsrec_seqovl_midsld" | "tlsrec_seqovl_sniext" | "multi_disorder" | "fake_rst")
+}
+
+fn candidate_approximate_fallback_family(candidate_id: &str, family: &str) -> Option<&'static str> {
+    match candidate_id {
+        "tlsrec_seqovl_midsld" | "tlsrec_seqovl_sniext" => Some("tlsrec_split"),
+        _ if family == "hostfake" => None,
+        _ => None,
+    }
+}
+
+fn tcp_step_kind(step: &ProxyUiTcpChainStep) -> Option<TcpChainStepKind> {
+    match step.kind.as_str() {
+        "split" => Some(TcpChainStepKind::Split),
+        "syndata" => Some(TcpChainStepKind::SynData),
+        "seqovl" => Some(TcpChainStepKind::SeqOverlap),
+        "disorder" => Some(TcpChainStepKind::Disorder),
+        "multidisorder" => Some(TcpChainStepKind::MultiDisorder),
+        "fake" => Some(TcpChainStepKind::Fake),
+        "fakedsplit" => Some(TcpChainStepKind::FakeSplit),
+        "fakeddisorder" => Some(TcpChainStepKind::FakeDisorder),
+        "hostfake" => Some(TcpChainStepKind::HostFake),
+        "oob" => Some(TcpChainStepKind::Oob),
+        "disoob" => Some(TcpChainStepKind::Disoob),
+        "tlsrec" => Some(TcpChainStepKind::TlsRec),
+        "tlsrandrec" => Some(TcpChainStepKind::TlsRandRec),
+        "ipfrag2" => Some(TcpChainStepKind::IpFrag2),
+        "fakerst" => Some(TcpChainStepKind::FakeRst),
+        _ => None,
+    }
+}
+
+fn udp_step_kind(step: &ProxyUiUdpChainStep) -> Option<UdpChainStepKind> {
+    match step.kind.as_str() {
+        "fake" => Some(UdpChainStepKind::FakeBurst),
+        "dummy" => Some(UdpChainStepKind::DummyPrepend),
+        "quicsnisplit" => Some(UdpChainStepKind::QuicSniSplit),
+        "quicfake" => Some(UdpChainStepKind::QuicFakeVersion),
+        "quiccryptosplit" => Some(UdpChainStepKind::QuicCryptoSplit),
+        "quicpaddingladder" => Some(UdpChainStepKind::QuicPaddingLadder),
+        "quiccidchurn" => Some(UdpChainStepKind::QuicCidChurn),
+        "quicpacketnumbergap" => Some(UdpChainStepKind::QuicPacketNumberGap),
+        "quicvn" => Some(UdpChainStepKind::QuicVersionNegotiationDecoy),
+        "quicmultiinitial" => Some(UdpChainStepKind::QuicMultiInitialRealistic),
+        "ipfrag2" => Some(UdpChainStepKind::IpFrag2Udp),
+        _ => None,
     }
 }
 
@@ -379,40 +500,6 @@ pub(crate) fn build_primary_candidates(base: &ProxyUiConfig) -> Vec<StrategyCand
             build_ipfrag_candidate(base),
             vec!["VPN-only raw-socket TCP fragmentation of the first application-data segment"],
         ));
-        for (id, label, profile, note) in [
-            (
-                "ipfrag2_hopbyhop",
-                "IP fragmentation + Hop-by-Hop",
-                "hopByHop",
-                "Adds one Hop-by-Hop header before fragmentation",
-            ),
-            (
-                "ipfrag2_hopbyhop2",
-                "IP fragmentation + Hop-by-Hop2",
-                "hopByHop2",
-                "Adds the double-header Tier 2 IPv6 extension profile",
-            ),
-            (
-                "ipfrag2_destopt",
-                "IP fragmentation + Dest Opt",
-                "destOpt",
-                "Adds one Destination Options header before fragmentation",
-            ),
-            (
-                "ipfrag2_hopbyhop_destopt",
-                "IP fragmentation + HBH + Dest Opt",
-                "hopByHopDestOpt",
-                "Adds both Hop-by-Hop and Destination Options headers before fragmentation",
-            ),
-        ] {
-            candidates.push(candidate_spec_with_notes(
-                id,
-                label,
-                "ipfrag2_ipv6_ext",
-                build_ipfrag_candidate_with_ipv6_ext(base, profile),
-                vec![note, "VPN-only raw-socket TCP fragmentation variant for IPv6-capable paths"],
-            ));
-        }
     }
     candidates
 }
@@ -431,8 +518,6 @@ pub(crate) fn build_opportunistic_candidates(base: &ProxyUiConfig) -> Vec<Strate
     let tlsrec_disorder = build_tlsrec_disorder_candidate(base);
     let tlsrec_fake_rich = build_tlsrec_fake_rich_candidate(base);
     let tlsrec_fake_seqgroup = build_tlsrec_fake_seqgroup_candidate(base);
-    let fake_synfin = build_tlsrec_fake_flag_candidate(base, "syn|fin");
-    let fake_pshurg = build_tlsrec_fake_flag_candidate(base, "psh|urg");
     let tlsrec_fakedsplit = build_tlsrec_fake_approx_candidate(base, "fakedsplit");
     let tlsrec_fakeddisorder = build_tlsrec_fake_approx_candidate(base, "fakeddisorder");
     // Fixed-duplicate HostFake (no follow-up split, no random host): demoted
@@ -470,20 +555,6 @@ pub(crate) fn build_opportunistic_candidates(base: &ProxyUiConfig) -> Vec<Strate
             tlsrec_fake_seqgroup,
             vec!["Uses seqgroup IPv4 IDs so fake and original raw packets stay in one exact sequence"],
         ),
-        candidate_spec_with_notes(
-            "fake_synfin",
-            "Fake packet + SYN|FIN",
-            "fake_flags",
-            fake_synfin,
-            vec!["Applies SYN and FIN on the fake packet while preserving the normal payload flow"],
-        ),
-        candidate_spec_with_notes(
-            "fake_pshurg",
-            "Fake packet + PSH|URG",
-            "fake_flags",
-            fake_pshurg,
-            vec!["Applies PSH and URG on the fake packet while preserving the normal payload flow"],
-        ),
         candidate_spec("tlsrec_fakeddisorder", "TLS record + fakeddisorder", "fake_approx", tlsrec_fakeddisorder),
         candidate_spec("tlsrec_fakedsplit", "TLS record + fakedsplit", "fake_approx", tlsrec_fakedsplit),
         candidate_spec_with_notes(
@@ -507,26 +578,13 @@ pub(crate) fn build_opportunistic_candidates(base: &ProxyUiConfig) -> Vec<Strate
 /// `build_primary_candidates()` alone (optionally extended by
 /// `build_opportunistic_candidates()` after a capability check).
 pub(crate) fn build_rooted_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
-    let tcp_repair_capable = probe_ip_fragmentation_capabilities().tcp_repair;
-    if !tcp_repair_capable {
-        return Vec::new();
-    }
-    vec![
-        candidate_spec_with_notes(
-            "fake_rst",
-            "Fake RST (TTL trick)",
-            "fake_rst",
-            build_fake_rst_candidate(base),
-            vec!["Sends a fake RST with low TTL to clear DPI state; requires root"],
-        ),
-        candidate_spec_with_notes(
-            "multi_disorder",
-            "Multi-disorder (3+ segments)",
-            "multi_disorder",
-            build_multi_disorder_candidate(base),
-            vec!["3+ out-of-order TCP segments via TCP_REPAIR; requires root"],
-        ),
-    ]
+    vec![candidate_spec_with_notes(
+        "multi_disorder",
+        "Multi-disorder (3+ segments)",
+        "multi_disorder",
+        build_multi_disorder_candidate(base),
+        vec!["3+ out-of-order TCP segments via TCP_REPAIR; requires root"],
+    )]
 }
 
 /// Builds the full TCP candidate set for strategy probing: primary +
@@ -547,6 +605,63 @@ fn allows_direct_tfo_candidates(base: &ProxyUiConfig) -> bool {
 
 pub(crate) fn build_full_matrix_tcp_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
     let mut candidates = build_tcp_candidates(base);
+    candidates.push(candidate_spec_with_notes(
+        "fake_rst",
+        "Fake RST (TTL trick)",
+        "fake_rst",
+        build_fake_rst_candidate(base),
+        vec!["Sends a fake RST with low TTL to clear DPI state; lab-only rooted experiment"],
+    ));
+    candidates.push(candidate_spec_with_notes(
+        "fake_synfin",
+        "Fake packet + SYN|FIN",
+        "fake_flags",
+        build_tlsrec_fake_flag_candidate(base, "syn|fin"),
+        vec!["Applies SYN and FIN on the fake packet while preserving the normal payload flow"],
+    ));
+    candidates.push(candidate_spec_with_notes(
+        "fake_pshurg",
+        "Fake packet + PSH|URG",
+        "fake_flags",
+        build_tlsrec_fake_flag_candidate(base, "psh|urg"),
+        vec!["Applies PSH and URG on the fake packet while preserving the normal payload flow"],
+    ));
+    if supports_tcp_ip_fragmentation() {
+        for (id, label, profile, note) in [
+            (
+                "ipfrag2_hopbyhop",
+                "IP fragmentation + Hop-by-Hop",
+                "hopByHop",
+                "Adds one Hop-by-Hop header before fragmentation",
+            ),
+            (
+                "ipfrag2_hopbyhop2",
+                "IP fragmentation + Hop-by-Hop2",
+                "hopByHop2",
+                "Adds the double-header Tier 2 IPv6 extension profile",
+            ),
+            (
+                "ipfrag2_destopt",
+                "IP fragmentation + Dest Opt",
+                "destOpt",
+                "Adds one Destination Options header before fragmentation",
+            ),
+            (
+                "ipfrag2_hopbyhop_destopt",
+                "IP fragmentation + HBH + Dest Opt",
+                "hopByHopDestOpt",
+                "Adds both Hop-by-Hop and Destination Options headers before fragmentation",
+            ),
+        ] {
+            candidates.push(candidate_spec_with_notes(
+                id,
+                label,
+                "ipfrag2_ipv6_ext",
+                build_ipfrag_candidate_with_ipv6_ext(base, profile),
+                vec![note, "VPN-only raw-socket TCP fragmentation variant for IPv6-capable paths"],
+            ));
+        }
+    }
     candidates.push(build_circular_tlsrec_split_spec(base));
     candidates.push(candidate_spec_with_notes(
         "tlsrec_fakedsplit_altorder1",
@@ -653,6 +768,19 @@ pub(crate) fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCan
             build_quic_ipfrag_candidate(base_tcp),
             vec!["VPN-only raw-socket fragmentation of the first QUIC Initial datagram"],
         ));
+    }
+    candidates.push(candidate_spec(
+        "quic_disabled",
+        "QUIC disabled",
+        "quic_disabled",
+        build_quic_candidate(base_tcp, false, "disabled"),
+    ));
+    candidates
+}
+
+pub(crate) fn build_full_matrix_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCandidateSpec> {
+    let mut candidates = build_quic_candidates(base_tcp);
+    if supports_udp_ip_fragmentation() {
         for (id, label, profile, note) in [
             (
                 "quic_ipfrag2_hopbyhop",
@@ -688,12 +816,6 @@ pub(crate) fn build_quic_candidates(base_tcp: &ProxyUiConfig) -> Vec<StrategyCan
             ));
         }
     }
-    candidates.push(candidate_spec(
-        "quic_disabled",
-        "QUIC disabled",
-        "quic_disabled",
-        build_quic_candidate(base_tcp, false, "disabled"),
-    ));
     candidates
 }
 
@@ -731,6 +853,9 @@ pub(crate) fn candidate_spec_with_notes_and_eligibility(
         id,
         label,
         family,
+        emitter_tier: candidate_emitter_tier(id, &config),
+        exact_emitter_requires_root: candidate_exact_emitter_requires_root(id),
+        approximate_fallback_family: candidate_approximate_fallback_family(id, family),
         quic_layout_family: None,
         eligibility,
         config,
@@ -776,6 +901,7 @@ fn config_requires_fake_ttl(config: &ProxyUiConfig) -> bool {
 fn config_requires_capabilities(config: &ProxyUiConfig) -> &'static [RuntimeCapability] {
     static TTL_WRITE: &[RuntimeCapability] = &[RuntimeCapability::TtlWrite];
     static RAW_TCP: &[RuntimeCapability] = &[RuntimeCapability::RawTcpFakeSend];
+    static RAW_UDP: &[RuntimeCapability] = &[RuntimeCapability::RawUdpFragmentation];
     static ROOT_HELPER: &[RuntimeCapability] = &[RuntimeCapability::RootHelperAvailable];
 
     let all_steps = config.chains.tcp_steps.iter().chain(
@@ -790,6 +916,7 @@ fn config_requires_capabilities(config: &ProxyUiConfig) -> &'static [RuntimeCapa
 
     let mut needs_ttl = false;
     let mut needs_raw_tcp = false;
+    let mut needs_raw_udp = false;
     let mut needs_root = false;
 
     for step in all_steps {
@@ -807,11 +934,19 @@ fn config_requires_capabilities(config: &ProxyUiConfig) -> &'static [RuntimeCapa
         }
     }
 
+    for step in &config.chains.udp_steps {
+        if step.kind == "ipfrag2" {
+            needs_raw_udp = true;
+        }
+    }
+
     // Return the most specific static slice. When multiple capabilities are
     // required we conservatively return the highest-privilege one; in practice
     // no single candidate currently needs more than one capability class.
     if needs_root {
         ROOT_HELPER
+    } else if needs_raw_udp {
+        RAW_UDP
     } else if needs_raw_tcp {
         RAW_TCP
     } else if needs_ttl {
@@ -1385,6 +1520,9 @@ pub(crate) fn build_adaptive_fake_ttl_spec(base: &ProxyUiConfig) -> StrategyCand
         id: "adaptive_fake_ttl",
         label: "Adaptive fake TTL",
         family: "adaptive_fake_ttl",
+        emitter_tier: StrategyEmitterTier::LabDiagnosticsOnly,
+        exact_emitter_requires_root: false,
+        approximate_fallback_family: None,
         quic_layout_family: None,
         eligibility: CandidateEligibility::Always,
         config,

@@ -32,6 +32,15 @@ class NativeOwnedTlsHttpFetcherTest {
                                         tlsProfileCatalogVersion = "v1",
                                         tlsJa3ParityTarget = "chrome-stable",
                                         tlsJa4ParityTarget = "chrome-stable",
+                                        tlsBrowserFamily = "chrome",
+                                        tlsBrowserTrack = "android-stable",
+                                        tlsTemplateAlpn = "h2_http11",
+                                        tlsTemplateExtensionOrderFamily = "chromium_permuted",
+                                        tlsTemplateGreaseStyle = "chromium_single_grease",
+                                        tlsTemplateSupportedGroupsProfile = "x25519_p256_p384",
+                                        tlsTemplateKeyShareProfile = "x25519_primary",
+                                        tlsTemplateRecordChoreography = "single_record",
+                                        tlsTemplateEchCapable = false,
                                         clientHelloSizeHint = 512,
                                         clientHelloInvariantStatus = "avoids_blocked_517_byte_client_hello",
                                     ),
@@ -54,6 +63,15 @@ class NativeOwnedTlsHttpFetcherTest {
             assertEquals("v1", result.tlsProfileCatalogVersion)
             assertEquals("chrome-stable", result.tlsJa3ParityTarget)
             assertEquals("chrome-stable", result.tlsJa4ParityTarget)
+            assertEquals("chrome", result.tlsBrowserFamily)
+            assertEquals("android-stable", result.tlsBrowserTrack)
+            assertEquals("h2_http11", result.tlsTemplateAlpn)
+            assertEquals("chromium_permuted", result.tlsTemplateExtensionOrderFamily)
+            assertEquals("chromium_single_grease", result.tlsTemplateGreaseStyle)
+            assertEquals("x25519_p256_p384", result.tlsTemplateSupportedGroupsProfile)
+            assertEquals("x25519_primary", result.tlsTemplateKeyShareProfile)
+            assertEquals("single_record", result.tlsTemplateRecordChoreography)
+            assertEquals(false, result.tlsTemplateEchCapable)
             assertEquals(512, result.clientHelloSizeHint)
             assertEquals("avoids_blocked_517_byte_client_hello", result.clientHelloInvariantStatus)
         }
@@ -107,6 +125,15 @@ class NativeOwnedTlsHttpFetcherTest {
             assertNull(result.tlsProfileCatalogVersion)
             assertNull(result.tlsJa3ParityTarget)
             assertNull(result.tlsJa4ParityTarget)
+            assertNull(result.tlsBrowserFamily)
+            assertNull(result.tlsBrowserTrack)
+            assertNull(result.tlsTemplateAlpn)
+            assertNull(result.tlsTemplateExtensionOrderFamily)
+            assertNull(result.tlsTemplateGreaseStyle)
+            assertNull(result.tlsTemplateSupportedGroupsProfile)
+            assertNull(result.tlsTemplateKeyShareProfile)
+            assertNull(result.tlsTemplateRecordChoreography)
+            assertNull(result.tlsTemplateEchCapable)
             assertNull(result.clientHelloSizeHint)
             assertNull(result.clientHelloInvariantStatus)
         }
@@ -126,6 +153,15 @@ class NativeOwnedTlsHttpFetcherTest {
         val tlsProfileCatalogVersion: String? = null,
         val tlsJa3ParityTarget: String? = null,
         val tlsJa4ParityTarget: String? = null,
+        val tlsBrowserFamily: String? = null,
+        val tlsBrowserTrack: String? = null,
+        val tlsTemplateAlpn: String? = null,
+        val tlsTemplateExtensionOrderFamily: String? = null,
+        val tlsTemplateGreaseStyle: String? = null,
+        val tlsTemplateSupportedGroupsProfile: String? = null,
+        val tlsTemplateKeyShareProfile: String? = null,
+        val tlsTemplateRecordChoreography: String? = null,
+        val tlsTemplateEchCapable: Boolean? = null,
         val clientHelloSizeHint: Int? = null,
         val clientHelloInvariantStatus: String? = null,
         val error: String? = null,
