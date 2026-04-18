@@ -35,23 +35,34 @@ internal fun createDiagnosticsViewModel(
     initialize: Boolean = true,
 ): DiagnosticsViewModel =
     DiagnosticsUiFactorySupport(appContext).let { support ->
+        val uiStateFactory =
+            DiagnosticsUiStateFactory(
+                support = support,
+                sessionDetailUiMapper = DiagnosticsSessionDetailUiFactory(support),
+            )
         DiagnosticsViewModel(
-            diagnosticsBootstrapper = diagnosticsBootstrapper,
-            diagnosticsTimelineSource = diagnosticsTimelineSource,
-            diagnosticsScanController = diagnosticsScanController,
-            diagnosticsDetailLoader = diagnosticsDetailLoader,
-            diagnosticsShareService = diagnosticsShareService,
-            diagnosticsResolverActions = diagnosticsResolverActions,
-            appSettingsRepository = appSettingsRepository,
-            appContext = appContext,
-            rememberedPolicySource = rememberedPolicySource,
-            activeConnectionPolicySource = activeConnectionPolicySource,
-            serviceStateStore = serviceStateStore,
-            uiStateFactory =
-                DiagnosticsUiStateFactory(
-                    support = support,
-                    sessionDetailUiMapper = DiagnosticsSessionDetailUiFactory(support),
+            diagnosticsInteractionDependencies =
+                DiagnosticsInteractionDependencies(
+                    diagnosticsTimelineSource = diagnosticsTimelineSource,
+                    diagnosticsScanController = diagnosticsScanController,
+                    diagnosticsDetailLoader = diagnosticsDetailLoader,
+                    diagnosticsShareService = diagnosticsShareService,
+                    diagnosticsResolverActions = diagnosticsResolverActions,
                 ),
+            diagnosticsContextDependencies =
+                DiagnosticsContextDependencies(
+                    appSettingsRepository = appSettingsRepository,
+                    appContext = appContext,
+                    rememberedPolicySource = rememberedPolicySource,
+                    activeConnectionPolicySource = activeConnectionPolicySource,
+                    serviceStateStore = serviceStateStore,
+                ),
+            diagnosticsViewModelBootstrapper = DiagnosticsViewModelBootstrapper(diagnosticsBootstrapper),
+            diagnosticsUiStateAssembler =
+                DiagnosticsUiStateAssembler(
+                    uiStateFactory = uiStateFactory,
+                ),
+            uiStateFactory = uiStateFactory,
         ).also { viewModel ->
             if (initialize) {
                 viewModel.initialize()

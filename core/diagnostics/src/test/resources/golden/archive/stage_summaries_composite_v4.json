@@ -1,0 +1,38 @@
+{
+    "runId": "home-run-1",
+    "stages": [
+        {
+            "headline": "Audit complete",
+            "pathMode": "RAW_PATH",
+            "profileId": "automatic-audit",
+            "recommendationContributor": true,
+            "sessionId": "audit-session",
+            "stageKey": "automatic_audit",
+            "stageLabel": "Automatic audit",
+            "status": "completed",
+            "summary": "Found a reusable recommendation."
+        },
+        {
+            "headline": "Default diagnostics complete",
+            "pathMode": "RAW_PATH",
+            "profileId": "default",
+            "recommendationContributor": false,
+            "sessionId": "default-session",
+            "stageKey": "default_connectivity",
+            "stageLabel": "Default diagnostics",
+            "status": "completed",
+            "summary": "General connectivity checks passed."
+        },
+        {
+            "headline": "DPI full partial failure",
+            "pathMode": "RAW_PATH",
+            "profileId": "ru-dpi-full",
+            "recommendationContributor": false,
+            "sessionId": "dpi-session",
+            "stageKey": "dpi_full",
+            "stageLabel": "DPI detector full",
+            "status": "failed",
+            "summary": "Some extended checks were unavailable."
+        }
+    ]
+}

@@ -124,15 +124,20 @@ fn build_tcp_candidates_marks_ech_candidates_as_ech_only_and_targets_echext() {
 }
 
 #[test]
-fn build_tcp_candidates_includes_fake_flag_variants() {
-    let candidates = build_tcp_candidates(&minimal_ui_config());
-    let fake_synfin = candidates.iter().find(|candidate| candidate.id == "fake_synfin").expect("fake_synfin");
-    let fake_pshurg = candidates.iter().find(|candidate| candidate.id == "fake_pshurg").expect("fake_pshurg");
+fn build_full_matrix_tcp_candidates_keeps_fake_flag_variants_lab_only() {
+    let quick_candidates = build_tcp_candidates(&minimal_ui_config());
+    let full_candidates = build_full_matrix_tcp_candidates(&minimal_ui_config());
+    let fake_synfin = full_candidates.iter().find(|candidate| candidate.id == "fake_synfin").expect("fake_synfin");
+    let fake_pshurg = full_candidates.iter().find(|candidate| candidate.id == "fake_pshurg").expect("fake_pshurg");
 
+    assert!(!quick_candidates.iter().any(|candidate| candidate.id == "fake_synfin"));
+    assert!(!quick_candidates.iter().any(|candidate| candidate.id == "fake_pshurg"));
     assert_eq!(fake_synfin.family, "fake_flags");
+    assert_eq!(fake_synfin.emitter_tier, StrategyEmitterTier::LabDiagnosticsOnly);
     assert_eq!(fake_synfin.config.chains.tcp_steps[1].kind, "fake");
     assert_eq!(fake_synfin.config.chains.tcp_steps[1].tcp_flags_set, "syn|fin");
     assert_eq!(fake_pshurg.family, "fake_flags");
+    assert_eq!(fake_pshurg.emitter_tier, StrategyEmitterTier::LabDiagnosticsOnly);
     assert_eq!(fake_pshurg.config.chains.tcp_steps[1].tcp_flags_set, "psh|urg");
 }
 
@@ -151,24 +156,54 @@ fn fakedsplit_altorder_candidates_set_expected_order() {
 fn ipfrag_candidates_follow_platform_capability_probe() {
     let base = minimal_ui_config();
     let tcp_candidates = build_tcp_candidates(&base);
+    let full_tcp_candidates = build_full_matrix_tcp_candidates(&base);
     let quic_candidates = build_quic_candidates(&base);
+    let full_quic_candidates = build_full_matrix_quic_candidates(&base);
     let tcp_ipfrag_capable = supports_tcp_ip_fragmentation();
     let udp_ipfrag_capable = supports_udp_ip_fragmentation();
 
     assert_eq!(tcp_candidates.iter().any(|candidate| candidate.id == "ipfrag2"), tcp_ipfrag_capable);
-    assert_eq!(tcp_candidates.iter().any(|candidate| candidate.id == "ipfrag2_ipv6_ext"), tcp_ipfrag_capable);
+    assert_eq!(full_tcp_candidates.iter().any(|candidate| candidate.id == "ipfrag2_hopbyhop"), tcp_ipfrag_capable);
+    assert!(!tcp_candidates.iter().any(|candidate| candidate.id == "ipfrag2_hopbyhop"));
     assert_eq!(quic_candidates.iter().any(|candidate| candidate.id == "quic_ipfrag2"), udp_ipfrag_capable);
-    assert_eq!(quic_candidates.iter().any(|candidate| candidate.id == "quic_ipfrag2_ipv6_ext"), udp_ipfrag_capable);
+    assert_eq!(
+        full_quic_candidates.iter().any(|candidate| candidate.id == "quic_ipfrag2_hopbyhop"),
+        udp_ipfrag_capable
+    );
+    assert!(!quic_candidates.iter().any(|candidate| candidate.id == "quic_ipfrag2_hopbyhop"));
 }
 
 #[test]
-fn root_only_candidates_follow_tcp_repair_capability() {
+fn rooted_and_lab_candidates_are_partitioned_between_quick_and_full_matrix() {
     let base = minimal_ui_config();
-    let tcp_candidates = build_tcp_candidates(&base);
-    let tcp_repair_capable = probe_ip_fragmentation_capabilities().tcp_repair;
+    let quick_candidates = build_tcp_candidates(&base);
+    let full_candidates = build_full_matrix_tcp_candidates(&base);
 
-    assert_eq!(tcp_candidates.iter().any(|c| c.id == "fake_rst"), tcp_repair_capable);
-    assert_eq!(tcp_candidates.iter().any(|c| c.id == "multi_disorder"), tcp_repair_capable);
+    assert!(quick_candidates.iter().any(|candidate| candidate.id == "multi_disorder"));
+    assert_eq!(
+        quick_candidates
+            .iter()
+            .find(|candidate| candidate.id == "multi_disorder")
+            .expect("multi_disorder")
+            .emitter_tier,
+        StrategyEmitterTier::RootedProduction
+    );
+    assert!(!quick_candidates.iter().any(|candidate| candidate.id == "fake_rst"));
+    assert!(full_candidates.iter().any(|candidate| candidate.id == "fake_rst"));
+    assert_eq!(
+        full_candidates.iter().find(|candidate| candidate.id == "fake_rst").expect("fake_rst").emitter_tier,
+        StrategyEmitterTier::LabDiagnosticsOnly
+    );
+}
+
+#[test]
+fn seqovl_candidates_keep_rooted_tier_and_fallback_metadata() {
+    let candidates = build_tcp_candidates(&minimal_ui_config());
+    let seqovl = candidates.iter().find(|candidate| candidate.id == "tlsrec_seqovl_midsld").expect("seqovl");
+
+    assert_eq!(seqovl.emitter_tier, StrategyEmitterTier::RootedProduction);
+    assert!(seqovl.exact_emitter_requires_root);
+    assert_eq!(seqovl.approximate_fallback_family, Some("tlsrec_split"));
 }
 
 #[test]

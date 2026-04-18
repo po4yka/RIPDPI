@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.diagnostics.StrategyEmitterTier
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
@@ -74,6 +75,72 @@ class DiagnosticsStrategyProbeUiFactoryTest {
             requireNotNull(uiModel.candidateDetails["tcp-1"]).metrics.first { it.label == "Selected" }.value,
         )
     }
+
+    @Test
+    fun `winning path surfaces rooted emitter tier metadata`() {
+        val report =
+            strategyProbeReport(
+                suiteId = StrategyProbeSuiteFullMatrixV1,
+                tcpWinnerId = "tcp-2",
+                quicWinnerId = "quic-2",
+                tcpCandidates =
+                    listOf(
+                        strategyProbeCandidate(id = "tcp-1", label = "TCP baseline", family = "baseline_current"),
+                        strategyProbeCandidate(
+                            id = "tcp-2",
+                            label = "TCP winner",
+                            family = "seqovl",
+                            emitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
+                            exactEmitterRequiresRoot = true,
+                        ),
+                    ),
+            )
+
+        val uiModel = support.toStrategyProbeReportUiModel(report, reportResults = emptyList(), serviceMode = "VPN")
+
+        val winnerMetrics = requireNotNull(uiModel.winningPath).tcpWinner.metrics
+        assertEquals("Rooted production", winnerMetrics.first { it.label == "Emitter" }.value)
+        assertEquals("Rooted exact", winnerMetrics.first { it.label == "Realization" }.value)
+
+        val candidateDetail = requireNotNull(uiModel.candidateDetails["tcp-2"])
+        assertEquals("Rooted production", candidateDetail.metrics.first { it.label == "Emitter" }.value)
+        assertEquals("Rooted exact", candidateDetail.metrics.first { it.label == "Realization" }.value)
+        assertEquals(
+            "Exact emission on this path required rooted runtime capabilities.",
+            candidateDetail.notes.first(),
+        )
+    }
+
+    @Test
+    fun `candidate detail explains downgraded emitter fallback`() {
+        val report =
+            strategyProbeReport(
+                suiteId = StrategyProbeSuiteFullMatrixV1,
+                tcpWinnerId = "tcp-1",
+                quicWinnerId = "quic-1",
+                tcpCandidates =
+                    listOf(
+                        strategyProbeCandidate(
+                            id = "tcp-1",
+                            label = "TCP fallback winner",
+                            family = "hostfake",
+                            emitterTier = StrategyEmitterTier.ROOTED_PRODUCTION,
+                            exactEmitterRequiresRoot = true,
+                            emitterDowngraded = true,
+                        ),
+                        strategyProbeCandidate(id = "tcp-2", label = "TCP alternate", family = "split"),
+                    ),
+            )
+
+        val uiModel = support.toStrategyProbeReportUiModel(report, reportResults = emptyList(), serviceMode = "VPN")
+        val candidateDetail = requireNotNull(uiModel.candidateDetails["tcp-1"])
+
+        assertEquals("Approximate fallback", candidateDetail.metrics.first { it.label == "Realization" }.value)
+        assertEquals(
+            "Exact emission was unavailable, so this candidate ran through an approximate fallback path.",
+            candidateDetail.notes.first(),
+        )
+    }
 }
 
 private fun strategyProbeReport(
@@ -82,31 +149,35 @@ private fun strategyProbeReport(
     quicWinnerId: String,
     completionKind: StrategyProbeCompletionKind = StrategyProbeCompletionKind.NORMAL,
     skippedRecommendedCandidates: Boolean = false,
+    tcpCandidates: List<StrategyProbeCandidateSummary>? = null,
+    quicCandidates: List<StrategyProbeCandidateSummary>? = null,
 ): StrategyProbeReport =
     StrategyProbeReport(
         suiteId = suiteId,
         tcpCandidates =
-            listOf(
-                strategyProbeCandidate(
-                    id = "tcp-1",
-                    label = "TCP baseline",
-                    family = "baseline_current",
-                    skipped = skippedRecommendedCandidates,
-                    outcome = if (skippedRecommendedCandidates) "skipped" else "success",
+            tcpCandidates
+                ?: listOf(
+                    strategyProbeCandidate(
+                        id = "tcp-1",
+                        label = "TCP baseline",
+                        family = "baseline_current",
+                        skipped = skippedRecommendedCandidates,
+                        outcome = if (skippedRecommendedCandidates) "skipped" else "success",
+                    ),
+                    strategyProbeCandidate(id = "tcp-2", label = "TCP winner", family = "hostfake"),
                 ),
-                strategyProbeCandidate(id = "tcp-2", label = "TCP winner", family = "hostfake"),
-            ),
         quicCandidates =
-            listOf(
-                strategyProbeCandidate(
-                    id = "quic-1",
-                    label = "QUIC baseline",
-                    family = "quic_disabled",
-                    skipped = skippedRecommendedCandidates,
-                    outcome = if (skippedRecommendedCandidates) "skipped" else "success",
+            quicCandidates
+                ?: listOf(
+                    strategyProbeCandidate(
+                        id = "quic-1",
+                        label = "QUIC baseline",
+                        family = "quic_disabled",
+                        skipped = skippedRecommendedCandidates,
+                        outcome = if (skippedRecommendedCandidates) "skipped" else "success",
+                    ),
+                    strategyProbeCandidate(id = "quic-2", label = "QUIC winner", family = "quic_realistic_burst"),
                 ),
-                strategyProbeCandidate(id = "quic-2", label = "QUIC winner", family = "quic_realistic_burst"),
-            ),
         recommendation =
             StrategyProbeRecommendation(
                 tcpCandidateId = tcpWinnerId,
@@ -126,11 +197,17 @@ private fun strategyProbeCandidate(
     family: String,
     skipped: Boolean = false,
     outcome: String = "success",
+    emitterTier: StrategyEmitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
+    exactEmitterRequiresRoot: Boolean = false,
+    emitterDowngraded: Boolean = false,
 ): StrategyProbeCandidateSummary =
     StrategyProbeCandidateSummary(
         id = id,
         label = label,
         family = family,
+        emitterTier = emitterTier,
+        exactEmitterRequiresRoot = exactEmitterRequiresRoot,
+        emitterDowngraded = emitterDowngraded,
         outcome = outcome,
         rationale = "Recovered target set.",
         succeededTargets = 1,

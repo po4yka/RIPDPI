@@ -583,14 +583,23 @@ enum class StrategyProbeCompletionKind {
 }
 
 @Serializable
+enum class StrategyEmitterTier {
+    NON_ROOT_PRODUCTION,
+    ROOTED_PRODUCTION,
+    LAB_DIAGNOSTICS_ONLY,
+}
+
+@Serializable
 data class StrategyProbeReport(
     val suiteId: String,
+    val methodologyVersion: String = "strategy_learning_v3",
     val tcpCandidates: List<StrategyProbeCandidateSummary> = emptyList(),
     val quicCandidates: List<StrategyProbeCandidateSummary> = emptyList(),
     val recommendation: StrategyProbeRecommendation,
     val completionKind: StrategyProbeCompletionKind = StrategyProbeCompletionKind.NORMAL,
     val auditAssessment: StrategyProbeAuditAssessment? = null,
     val targetSelection: StrategyProbeTargetSelection? = null,
+    val pilotBucketLabels: List<String> = emptyList(),
 )
 
 @Serializable
@@ -598,6 +607,9 @@ data class StrategyProbeCandidateSummary(
     val id: String,
     val label: String,
     val family: String,
+    val emitterTier: StrategyEmitterTier = StrategyEmitterTier.NON_ROOT_PRODUCTION,
+    val exactEmitterRequiresRoot: Boolean = false,
+    val emitterDowngraded: Boolean = false,
     val quicLayoutFamily: String? = null,
     val outcome: String,
     val rationale: String,

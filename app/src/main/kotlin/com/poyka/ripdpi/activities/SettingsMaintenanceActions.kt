@@ -23,6 +23,7 @@ import com.poyka.ripdpi.hosts.HostPackChecksumFormatException
 import com.poyka.ripdpi.hosts.HostPackChecksumMismatchException
 import com.poyka.ripdpi.platform.HostAutolearnStoreController
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.services.TelemetryInstallSaltStore
 import com.poyka.ripdpi.strategy.StrategyPackService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
@@ -34,6 +35,7 @@ internal class SettingsMaintenanceActions(
     private val hostPackCatalogRepository: HostPackCatalogRepository,
     private val strategyPackService: StrategyPackService,
     private val strategyPackStateStore: StrategyPackStateStore,
+    private val telemetrySaltStore: TelemetryInstallSaltStore,
     private val mutations: SettingsMutationRunner,
     private val hostAutolearnStoreRefresh: MutableStateFlow<Int>,
     private val hostPackCatalogState: MutableStateFlow<HostPackCatalogUiState>,
@@ -249,6 +251,19 @@ internal class SettingsMaintenanceActions(
                 SettingsEffect.Notice(
                     title = stringResolver.getString(R.string.notice_remembered_networks_cleared_title),
                     message = stringResolver.getString(R.string.notice_remembered_networks_cleared_message),
+                    tone = SettingsNoticeTone.Info,
+                ),
+            )
+        }
+    }
+
+    fun rotateTelemetrySalt() {
+        mutations.launch {
+            telemetrySaltStore.rotateSalt()
+            emit(
+                SettingsEffect.Notice(
+                    title = stringResolver.getString(R.string.notice_telemetry_salt_reset_title),
+                    message = stringResolver.getString(R.string.notice_telemetry_salt_reset_message),
                     tone = SettingsNoticeTone.Info,
                 ),
             )

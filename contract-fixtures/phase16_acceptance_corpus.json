@@ -1,0 +1,86 @@
+{
+  "version": "phase16_acceptance_corpus_v1",
+  "description": "Static server-acceptance corpus for Phase 16 rollout measurement across CDN, TLS stack, QUIC, and ECH coverage.",
+  "entries": [
+    {
+      "id": "cloudflare_ech",
+      "authority": "crypto.cloudflare.com",
+      "cdn": "cloudflare",
+      "tlsStack": "boringssl",
+      "quicCapable": true,
+      "echAdvertised": true
+    },
+    {
+      "id": "cloudflare_https",
+      "authority": "www.cloudflare.com",
+      "cdn": "cloudflare",
+      "tlsStack": "boringssl",
+      "quicCapable": true,
+      "echAdvertised": false
+    },
+    {
+      "id": "google_frontend",
+      "authority": "www.google.com",
+      "cdn": "google_frontend",
+      "tlsStack": "boringssl",
+      "quicCapable": true,
+      "echAdvertised": false
+    },
+    {
+      "id": "fastly_http2",
+      "authority": "www.fastly.com",
+      "cdn": "fastly",
+      "tlsStack": "nghttp2-openssl",
+      "quicCapable": false,
+      "echAdvertised": false
+    },
+    {
+      "id": "akamai_https",
+      "authority": "www.akamai.com",
+      "cdn": "akamai",
+      "tlsStack": "akamai-edge",
+      "quicCapable": true,
+      "echAdvertised": false
+    },
+    {
+      "id": "edgekey_non_quic",
+      "authority": "example.edgekey.net",
+      "cdn": "akamai",
+      "tlsStack": "akamai-edge",
+      "quicCapable": false,
+      "echAdvertised": false
+    },
+    {
+      "id": "aws_cloudfront",
+      "authority": "d111111abcdef8.cloudfront.net",
+      "cdn": "cloudfront",
+      "tlsStack": "s2n",
+      "quicCapable": true,
+      "echAdvertised": false
+    },
+    {
+      "id": "caddy_quic",
+      "authority": "caddyserver.com",
+      "cdn": "independent",
+      "tlsStack": "caddy-go",
+      "quicCapable": true,
+      "echAdvertised": false
+    },
+    {
+      "id": "nginx_openssl",
+      "authority": "nginx.org",
+      "cdn": "independent",
+      "tlsStack": "nginx-openssl",
+      "quicCapable": false,
+      "echAdvertised": false
+    },
+    {
+      "id": "rustls_h3",
+      "authority": "rustls.dev",
+      "cdn": "independent",
+      "tlsStack": "rustls",
+      "quicCapable": true,
+      "echAdvertised": false
+    }
+  ]
+}

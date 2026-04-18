@@ -2,6 +2,7 @@
     "lastFailureAt": 0,
     "lastFailureSender": null,
     "mode": "Proxy",
+    "networkHandoverState": null,
     "proxyTelemetry": {
         "autolearnEnabled": true,
         "blockedHostCount": 1,

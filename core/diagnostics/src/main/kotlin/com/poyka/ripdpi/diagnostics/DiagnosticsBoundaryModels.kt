@@ -170,6 +170,7 @@ data class DiagnosticTelemetrySample(
     val resolverFallbackActive: Boolean = false,
     val resolverFallbackReason: String? = null,
     val networkHandoverClass: String? = null,
+    val networkHandoverState: String? = null,
     val lastFailureClass: String? = null,
     val lastFallbackAction: String? = null,
     val txPackets: Long,

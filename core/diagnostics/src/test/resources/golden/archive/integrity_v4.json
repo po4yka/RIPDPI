@@ -1,0 +1,82 @@
+{
+    "files": [
+        {
+            "byteCount": 2236,
+            "name": "summary.txt",
+            "sha256": "7ab7d9738a53336753b5b0091e549e1f62b787a94220344da3877dd07a9025d8"
+        },
+        {
+            "byteCount": 5314,
+            "name": "manifest.json",
+            "sha256": "353290025f1fb06db9c9d4b37bcd1e4578f8f6589f9cae28f3637fea2a17a4be"
+        },
+        {
+            "byteCount": 20510,
+            "name": "report.json",
+            "sha256": "3614dbfa17fee7cfedbe7b4005de6c446edff631a455f8280c8c56ca23a5531d"
+        },
+        {
+            "byteCount": 4475,
+            "name": "strategy-matrix.json",
+            "sha256": "4726372687261661e0675255c9d40b8f29328b22ce4a65eff1093d255f2f4e4a"
+        },
+        {
+            "byteCount": 1050,
+            "name": "archive-provenance.json",
+            "sha256": "ef614d8c9595bf8e420c0bb13362d2b545d52cc7ad270a891981e5a5bdc52e01"
+        },
+        {
+            "byteCount": 1501,
+            "name": "runtime-config.json",
+            "sha256": "750c33fe4fc502d13096457ebf4e6968432729784ccf3e6a51a8d15ccca9a39a"
+        },
+        {
+            "byteCount": 6924,
+            "name": "analysis.json",
+            "sha256": "5e878918e4852d3e525870273b13dd3a19acb34dfceb6de1da6b578312c29896"
+        },
+        {
+            "byteCount": 1736,
+            "name": "completeness.json",
+            "sha256": "3453b55427338c5dc949b22ecc8488255ac247cdb78ed7e80ed0fc630304bc92"
+        },
+        {
+            "byteCount": 1553,
+            "name": "network-snapshots.json",
+            "sha256": "4072e3c982b82c6a77728a0bedc624ae81b59cee98849d1ef12fa26f4bdd7187"
+        },
+        {
+            "byteCount": 3681,
+            "name": "diagnostic-context.json",
+            "sha256": "35dc2146179457a40375ef983928f2b75c1fad6fc7e4b456e61a4f13dd388303"
+        },
+        {
+            "byteCount": 201,
+            "name": "developer-analytics.json",
+            "sha256": "16f4ba3f0524bcbf8159d66a88f72a0b7ddf252a4a2ed4b35764711cbc38ae41"
+        },
+        {
+            "byteCount": 229,
+            "name": "probe-results.csv",
+            "sha256": "83d8824108a030c98bd7ecc737e6437f81d5073b17a49325ae2d254e18cdc8c5"
+        },
+        {
+            "byteCount": 228,
+            "name": "native-events.csv",
+            "sha256": "37ce8d8d0d007dae0924b291cfe39c6b8e09135ba4344c075673b764e95daf0e"
+        },
+        {
+            "byteCount": 1039,
+            "name": "telemetry.csv",
+            "sha256": "40a3274369efd800656e352a6fa157bc351f6a1312705c4dacdf8f5e7879178b"
+        },
+        {
+            "byteCount": 47,
+            "name": "logcat.txt",
+            "sha256": "4d66941470cbc7509a74eafca81b9084f11328aea4b80be39fe1e3c875e2c9be"
+        }
+    ],
+    "generatedAt": 42,
+    "hashAlgorithm": "sha256",
+    "schemaVersion": 4
+}

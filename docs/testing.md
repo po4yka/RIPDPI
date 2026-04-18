@@ -222,6 +222,27 @@ The CLI packet-smoke registry lives at `scripts/ci/packet-smoke-scenarios.json`.
 its own process/capture session and emits a fixture manifest, fixture events, CLI stderr, `pcap`, and
 decoded `tshark` JSON artifacts.
 
+Phase 16 measurement automation builds on top of the same packet-smoke surface:
+
+```bash
+python3 scripts/ci/phase16_matrix.py validate
+python3 scripts/ci/phase16_matrix.py list
+bash scripts/ci/run-phase16-matrix-entry.sh
+python3 scripts/ci/phase16_pcap_summary.py --artifact-root build/phase16-matrix/<entry-id>
+```
+
+- `contract-fixtures/phase16_lab_matrix.json` is the source of truth for the
+  repeated Wi-Fi/cellular x IPv4/IPv6 x rooted/non-rooted x proxy/VPN matrix.
+- `.github/workflows/phase16-matrix.yml` fans that fixture out onto
+  self-hosted `ripdpi-lab` runners instead of pretending GitHub-hosted runners
+  can provide those environments.
+- `scripts/ci/run-phase16-matrix-entry.sh` writes `phase16-run.json` plus
+  `phase16-pcap-summary.json` for each entry so archive/export work can consume
+  the same measurement evidence consistently.
+- `scripts/ci/phase16_pcap_summary.py` understands both host
+  `capture.pcap`/`capture.tshark.json` artifacts and Android
+  `device-capture.pcap`/`device-capture.tshark.json` artifacts.
+
 ## Android instrumentation
 
 Android instrumentation is split into two practical layers:

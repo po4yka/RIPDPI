@@ -281,7 +281,7 @@ mod tests {
     use crate::types::{
         StrategyProbeAuditAssessment, StrategyProbeAuditConfidence, StrategyProbeAuditConfidenceLevel,
         StrategyProbeAuditCoverage, StrategyProbeCandidateSummary, StrategyProbeCompletionKind,
-        StrategyProbeRecommendation, StrategyProbeTargetSelection,
+        StrategyProbeRecommendation, StrategyProbeTargetSelection, STRATEGY_PROBE_METHODOLOGY_VERSION,
     };
 
     #[test]
@@ -356,10 +356,14 @@ mod tests {
             }),
             strategy_probe_report: Some(StrategyProbeReport {
                 suite_id: "full_matrix_v1".to_string(),
+                methodology_version: STRATEGY_PROBE_METHODOLOGY_VERSION.to_string(),
                 tcp_candidates: vec![StrategyProbeCandidateSummary {
                     id: "baseline_current".to_string(),
                     label: "Current strategy".to_string(),
                     family: "baseline_current".to_string(),
+                    emitter_tier: crate::types::StrategyEmitterTier::NonRootProduction,
+                    exact_emitter_requires_root: false,
+                    emitter_downgraded: false,
                     quic_layout_family: None,
                     outcome: "skipped".to_string(),
                     rationale: "DNS tampering detected before fallback; TCP strategy escalation skipped".to_string(),
@@ -378,6 +382,9 @@ mod tests {
                     id: "quic_disabled".to_string(),
                     label: "Current QUIC strategy".to_string(),
                     family: "quic_disabled".to_string(),
+                    emitter_tier: crate::types::StrategyEmitterTier::NonRootProduction,
+                    exact_emitter_requires_root: false,
+                    emitter_downgraded: false,
                     quic_layout_family: None,
                     outcome: "skipped".to_string(),
                     rationale: "DNS tampering detected before fallback; QUIC strategy escalation skipped".to_string(),
@@ -441,6 +448,7 @@ mod tests {
                     domain_hosts: vec!["www.youtube.com".to_string(), "discord.com".to_string()],
                     quic_hosts: vec!["www.youtube.com".to_string()],
                 }),
+                pilot_bucket_labels: vec!["foreign:google:ech=yes".to_string(), "foreign:direct:ech=no".to_string()],
                 domain_strategy_seeds: vec![],
             }),
             observations: vec![],

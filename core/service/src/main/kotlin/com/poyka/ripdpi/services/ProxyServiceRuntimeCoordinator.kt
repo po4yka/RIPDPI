@@ -144,6 +144,7 @@ internal class ProxyServiceRuntimeCoordinator(
                 statusReporter.reportTelemetry(
                     activePolicy = runtimeSession?.currentActiveConnectionPolicy,
                     consumePendingNetworkHandoverClass = { null },
+                    currentNetworkHandoverState = currentNetworkHandoverState,
                     proxyTelemetry = proxyTelemetry,
                     relayTelemetry = relayTelemetry,
                     warpTelemetry = warpTelemetry,
@@ -200,6 +201,7 @@ internal class ProxyServiceRuntimeCoordinator(
             newStatus = newStatus,
             activePolicy = runtimeSession?.currentActiveConnectionPolicy,
             consumePendingNetworkHandoverClass = consumePendingNetworkHandoverClass,
+            currentNetworkHandoverState = currentNetworkHandoverState,
             tunnelRecoveryRetryCount = 0,
             failureReason = failureReason,
         )

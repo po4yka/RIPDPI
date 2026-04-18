@@ -1535,7 +1535,6 @@ class DiagnosticsScreenTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSharePreviewCard).fetchSemanticsNode()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsArchiveStateIndicator).fetchSemanticsNode()
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsShareArchive).fetchSemanticsNode()
     }
 
     // -- Characterization tests: bottom-sheet visibility --

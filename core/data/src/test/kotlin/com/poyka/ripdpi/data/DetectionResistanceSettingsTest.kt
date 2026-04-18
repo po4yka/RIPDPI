@@ -20,11 +20,17 @@ class DetectionResistanceSettingsTest {
             TlsFingerprintProfileFirefoxStable,
             normalizeTlsFingerprintProfile(TlsFingerprintProfileFirefoxStable),
         )
+        assertEquals(
+            TlsFingerprintProfileFirefoxEchStable,
+            normalizeTlsFingerprintProfile(TlsFingerprintProfileFirefoxEchStable),
+        )
     }
 
     @Test
     fun `fingerprint summary reports normalized label`() {
         assertEquals("Chrome stable", tlsFingerprintProfileSummary("native_default"))
         assertEquals("Firefox stable", tlsFingerprintProfileSummary(TlsFingerprintProfileFirefoxStable))
+        assertEquals("Chrome desktop stable", tlsFingerprintProfileSummary(TlsFingerprintProfileChromeDesktopStable))
+        assertEquals("Firefox stable (ECH)", tlsFingerprintProfileSummary(TlsFingerprintProfileFirefoxEchStable))
     }
 }

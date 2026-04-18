@@ -36,7 +36,7 @@ enum class DiagnosticsArchiveReason {
 internal object DiagnosticsArchiveFormat {
     const val directoryName = "diagnostics-archives"
     const val fileNamePrefix = "ripdpi-diagnostics-"
-    const val schemaVersion = 3
+    const val schemaVersion = 4
     const val privacyMode = "split_output"
     const val scope = "hybrid"
     const val maxArchiveFiles = 5
@@ -381,6 +381,71 @@ internal data class DiagnosticsArchiveRecommendationTrace(
 )
 
 @Serializable
+internal data class DiagnosticsArchiveCapabilitySnapshot(
+    val source: String = "strategy_report_inference_v1",
+    val inferredUnavailableCapabilities: List<String> = emptyList(),
+    val evidence: List<String> = emptyList(),
+)
+
+@Serializable
+internal data class DiagnosticsArchiveAcceptanceMetrics(
+    val acceptanceCorpusVersion: String = DiagnosticsMeasurementConstants.AcceptanceCorpusVersion,
+    val matrixCoveragePercent: Int? = null,
+    val winnerCoveragePercent: Int? = null,
+    val tcpCandidatesPlanned: Int = 0,
+    val tcpCandidatesExecuted: Int = 0,
+    val quicCandidatesPlanned: Int = 0,
+    val quicCandidatesExecuted: Int = 0,
+    val tcpWinnerSucceededTargets: Int = 0,
+    val tcpWinnerTotalTargets: Int = 0,
+    val quicWinnerSucceededTargets: Int = 0,
+    val quicWinnerTotalTargets: Int = 0,
+    val confidenceLevel: String? = null,
+    val confidenceScore: Int? = null,
+)
+
+@Serializable
+internal data class DiagnosticsArchiveDetectabilityMetrics(
+    val rootedProductionCandidates: Int = 0,
+    val labOnlyCandidates: Int = 0,
+    val downgradedCandidates: Int = 0,
+    val exactRootRequiredCandidates: Int = 0,
+    val capabilitySkippedCandidates: Int = 0,
+    val skippedCandidates: Int = 0,
+    val recommendedUsesRootedEmitter: Boolean = false,
+    val recommendedWasDowngraded: Boolean = false,
+    val notes: List<String> = emptyList(),
+)
+
+@Serializable
+internal data class DiagnosticsArchiveRolloutGateResult(
+    val id: String,
+    val passed: Boolean,
+    val threshold: String,
+    val actual: String? = null,
+    val rationale: String? = null,
+)
+
+@Serializable
+internal data class DiagnosticsArchiveRolloutGateAssessment(
+    val policyVersion: String = DiagnosticsMeasurementConstants.RolloutPolicyVersion,
+    val overallPassed: Boolean = false,
+    val results: List<DiagnosticsArchiveRolloutGateResult> = emptyList(),
+)
+
+@Serializable
+internal data class DiagnosticsArchiveMeasurementSnapshot(
+    val networkIdentityBucket: String = "unavailable",
+    val targetBucket: String = "unavailable",
+    val recommendedTcpEmitterTier: String? = null,
+    val recommendedQuicEmitterTier: String? = null,
+    val capabilitySnapshot: DiagnosticsArchiveCapabilitySnapshot = DiagnosticsArchiveCapabilitySnapshot(),
+    val acceptanceMetrics: DiagnosticsArchiveAcceptanceMetrics = DiagnosticsArchiveAcceptanceMetrics(),
+    val detectabilityMetrics: DiagnosticsArchiveDetectabilityMetrics = DiagnosticsArchiveDetectabilityMetrics(),
+    val rolloutGateAssessment: DiagnosticsArchiveRolloutGateAssessment = DiagnosticsArchiveRolloutGateAssessment(),
+)
+
+@Serializable
 internal data class DiagnosticsArchiveStrategyExecutionDetail(
     val suiteId: String? = null,
     val completionKind: String? = null,
@@ -393,6 +458,7 @@ internal data class DiagnosticsArchiveAnalysisPayload(
     val failureEnvelope: DiagnosticsArchiveFailureEnvelope,
     val strategyExecutionDetail: DiagnosticsArchiveStrategyExecutionDetail,
     val recommendationTrace: DiagnosticsArchiveRecommendationTrace? = null,
+    val measurementSnapshot: DiagnosticsArchiveMeasurementSnapshot = DiagnosticsArchiveMeasurementSnapshot(),
 )
 
 @Serializable
@@ -590,3 +656,8 @@ internal data class ArchiveTelemetrySummary(
     val tunnelRecoveryRetryCount: Long = 0,
     val retryCount: Long = 0,
 )
+
+internal object DiagnosticsMeasurementConstants {
+    const val AcceptanceCorpusVersion = "phase16_acceptance_corpus_v1"
+    const val RolloutPolicyVersion = "phase16_rollout_gates_v1"
+}
