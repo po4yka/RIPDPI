@@ -61,6 +61,10 @@ the unfinished bypass-modernization TLS/ECH track.
    the shipped fake-family catalog.
 7. Build and maintain live acceptance coverage for each shipped TLS template
    family across major CDN and server stacks.
+   Status: complete. The Phase 11 acceptance corpus now carries reviewed
+   stack-by-stack results across major CDN and self-hosted server families for
+   every shipped TLS template, and CI validates the committed acceptance report
+   against the strategy-pack catalog and coverage thresholds.
 8. Keep bundled strategy-pack catalog entries aligned with the shipped template
    families and acceptance evidence.
 

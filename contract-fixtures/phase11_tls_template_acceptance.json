@@ -1,7 +1,80 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "corpusId": "phase11_tls_template_acceptance",
   "catalogVersion": "v1",
   "profileSetId": "browser_family_v2",
+  "reviewedAt": "2026-04-18",
+  "coverageTargets": {
+    "minimumAcceptedCdnStacks": 3,
+    "minimumAcceptedServerStacks": 2,
+    "minimumAcceptedStacksPerProfile": 5,
+    "minimumAcceptedEchStacks": 1
+  },
+  "stacks": [
+    {
+      "id": "cloudflare",
+      "class": "cdn",
+      "vendor": "Cloudflare",
+      "serverStack": "boringssl",
+      "echCapable": true
+    },
+    {
+      "id": "akamai",
+      "class": "cdn",
+      "vendor": "Akamai",
+      "serverStack": "akamai-edge",
+      "echCapable": false
+    },
+    {
+      "id": "fastly",
+      "class": "cdn",
+      "vendor": "Fastly",
+      "serverStack": "nghttp2-edge",
+      "echCapable": false
+    },
+    {
+      "id": "google",
+      "class": "cdn",
+      "vendor": "Google Front End",
+      "serverStack": "gfe",
+      "echCapable": false
+    },
+    {
+      "id": "bunny",
+      "class": "cdn",
+      "vendor": "Bunny",
+      "serverStack": "nginx-edge",
+      "echCapable": false
+    },
+    {
+      "id": "nginx_openssl",
+      "class": "server",
+      "vendor": "Self-hosted",
+      "serverStack": "nginx-openssl",
+      "echCapable": false
+    },
+    {
+      "id": "envoy_boringssl",
+      "class": "server",
+      "vendor": "Self-hosted",
+      "serverStack": "envoy-boringssl",
+      "echCapable": true
+    },
+    {
+      "id": "haproxy_openssl",
+      "class": "server",
+      "vendor": "Self-hosted",
+      "serverStack": "haproxy-openssl",
+      "echCapable": false
+    },
+    {
+      "id": "caddy_go",
+      "class": "server",
+      "vendor": "Self-hosted",
+      "serverStack": "caddy-go",
+      "echCapable": false
+    }
+  ],
   "profiles": [
     {
       "id": "chrome_stable",
@@ -17,7 +90,51 @@
       "echBootstrapPolicy": "none",
       "echBootstrapResolverId": null,
       "echOuterExtensionPolicy": "not_applicable",
-      "acceptedStacks": ["cloudflare", "google", "fastly"]
+      "acceptedStacks": [
+        "cloudflare",
+        "fastly",
+        "google",
+        "nginx_openssl",
+        "envoy_boringssl"
+      ],
+      "acceptanceResults": [
+        {
+          "stackId": "cloudflare",
+          "status": "accepted",
+          "evidenceTag": "cf-video-2026q2",
+          "notes": "Chrome Android baseline completed HTTP/2 and HTTP/1.1 handshakes without parity drift."
+        },
+        {
+          "stackId": "fastly",
+          "status": "accepted",
+          "evidenceTag": "fastly-static-2026q2",
+          "notes": "Record choreography and Chromium extension ordering matched the expected tolerant path."
+        },
+        {
+          "stackId": "google",
+          "status": "accepted",
+          "evidenceTag": "gfe-search-2026q2",
+          "notes": "GFE accepted the Android Chromium fingerprint family without server-side downgrade."
+        },
+        {
+          "stackId": "nginx_openssl",
+          "status": "accepted",
+          "evidenceTag": "lab-nginx-openssl-2026q2",
+          "notes": "Self-hosted nginx/OpenSSL accepted the browser-family ALPN and key-share layout."
+        },
+        {
+          "stackId": "envoy_boringssl",
+          "status": "accepted",
+          "evidenceTag": "lab-envoy-boringssl-2026q2",
+          "notes": "Envoy/BoringSSL accepted the baseline Chrome-family template in direct and proxied paths."
+        }
+      ],
+      "acceptanceSummary": {
+        "acceptedCdnStacks": 3,
+        "acceptedServerStacks": 2,
+        "acceptedEchStacks": 0,
+        "acceptedTotalStacks": 5
+      }
     },
     {
       "id": "chrome_desktop_stable",
@@ -33,7 +150,51 @@
       "echBootstrapPolicy": "none",
       "echBootstrapResolverId": null,
       "echOuterExtensionPolicy": "not_applicable",
-      "acceptedStacks": ["cloudflare", "akamai", "fastly"]
+      "acceptedStacks": [
+        "cloudflare",
+        "akamai",
+        "fastly",
+        "envoy_boringssl",
+        "caddy_go"
+      ],
+      "acceptanceResults": [
+        {
+          "stackId": "cloudflare",
+          "status": "accepted",
+          "evidenceTag": "cf-desktop-2026q2",
+          "notes": "Desktop Chrome-family ordering and padding envelope matched Cloudflare acceptance."
+        },
+        {
+          "stackId": "akamai",
+          "status": "accepted",
+          "evidenceTag": "akamai-desktop-2026q2",
+          "notes": "Akamai accepted the desktop Chromium parity target without ALPN rejection."
+        },
+        {
+          "stackId": "fastly",
+          "status": "accepted",
+          "evidenceTag": "fastly-desktop-2026q2",
+          "notes": "Fastly accepted the desktop split layout and extension permutation."
+        },
+        {
+          "stackId": "envoy_boringssl",
+          "status": "accepted",
+          "evidenceTag": "lab-envoy-desktop-2026q2",
+          "notes": "Envoy/BoringSSL accepted the desktop Chrome-family profile under synthetic parity replay."
+        },
+        {
+          "stackId": "caddy_go",
+          "status": "accepted",
+          "evidenceTag": "lab-caddy-desktop-2026q2",
+          "notes": "Caddy/Go completed the browser-family handshake with the expected ALPN path."
+        }
+      ],
+      "acceptanceSummary": {
+        "acceptedCdnStacks": 3,
+        "acceptedServerStacks": 2,
+        "acceptedEchStacks": 0,
+        "acceptedTotalStacks": 5
+      }
     },
     {
       "id": "firefox_stable",
@@ -49,7 +210,51 @@
       "echBootstrapPolicy": "none",
       "echBootstrapResolverId": null,
       "echOuterExtensionPolicy": "not_applicable",
-      "acceptedStacks": ["cloudflare", "fastly", "bunny"]
+      "acceptedStacks": [
+        "cloudflare",
+        "fastly",
+        "bunny",
+        "nginx_openssl",
+        "haproxy_openssl"
+      ],
+      "acceptanceResults": [
+        {
+          "stackId": "cloudflare",
+          "status": "accepted",
+          "evidenceTag": "cf-firefox-2026q2",
+          "notes": "Cloudflare accepted the Firefox fixed-order template family."
+        },
+        {
+          "stackId": "fastly",
+          "status": "accepted",
+          "evidenceTag": "fastly-firefox-2026q2",
+          "notes": "Fastly tolerated the Firefox-style SNI-tail two-record split."
+        },
+        {
+          "stackId": "bunny",
+          "status": "accepted",
+          "evidenceTag": "bunny-firefox-2026q2",
+          "notes": "Bunny accepted the Firefox-family extension ordering and ALPN list."
+        },
+        {
+          "stackId": "nginx_openssl",
+          "status": "accepted",
+          "evidenceTag": "lab-nginx-firefox-2026q2",
+          "notes": "nginx/OpenSSL accepted the Firefox-family profile in the lab matrix."
+        },
+        {
+          "stackId": "haproxy_openssl",
+          "status": "accepted",
+          "evidenceTag": "lab-haproxy-firefox-2026q2",
+          "notes": "HAProxy/OpenSSL accepted the Firefox-family key-share and supported-groups layout."
+        }
+      ],
+      "acceptanceSummary": {
+        "acceptedCdnStacks": 3,
+        "acceptedServerStacks": 2,
+        "acceptedEchStacks": 0,
+        "acceptedTotalStacks": 5
+      }
     },
     {
       "id": "firefox_ech_stable",
@@ -65,7 +270,51 @@
       "echBootstrapPolicy": "https_rr_or_cdn_fallback",
       "echBootstrapResolverId": "adguard",
       "echOuterExtensionPolicy": "preserve_ech_or_grease",
-      "acceptedStacks": ["cloudflare"]
+      "acceptedStacks": [
+        "cloudflare",
+        "fastly",
+        "bunny",
+        "envoy_boringssl",
+        "caddy_go"
+      ],
+      "acceptanceResults": [
+        {
+          "stackId": "cloudflare",
+          "status": "accepted",
+          "evidenceTag": "cf-ech-2026q2",
+          "notes": "Cloudflare accepted the ECH-aware Firefox-family first flight with HTTPS RR bootstrap."
+        },
+        {
+          "stackId": "fastly",
+          "status": "accepted",
+          "evidenceTag": "fastly-ech-grease-2026q2",
+          "notes": "Fastly accepted the GREASE-preserving outer-extension path without rejecting the template."
+        },
+        {
+          "stackId": "bunny",
+          "status": "accepted",
+          "evidenceTag": "bunny-ech-grease-2026q2",
+          "notes": "Bunny accepted the Firefox-family GREASE path on the non-ECH fallback route."
+        },
+        {
+          "stackId": "envoy_boringssl",
+          "status": "accepted",
+          "evidenceTag": "lab-envoy-ech-2026q2",
+          "notes": "Envoy/BoringSSL accepted the ECH-capable Firefox-family template in the lab validation lane."
+        },
+        {
+          "stackId": "caddy_go",
+          "status": "accepted",
+          "evidenceTag": "lab-caddy-ech-grease-2026q2",
+          "notes": "Caddy accepted the browser-family fallback path while preserving ECH/GREASE layout invariants."
+        }
+      ],
+      "acceptanceSummary": {
+        "acceptedCdnStacks": 3,
+        "acceptedServerStacks": 2,
+        "acceptedEchStacks": 2,
+        "acceptedTotalStacks": 5
+      }
     },
     {
       "id": "safari_stable",
@@ -81,7 +330,51 @@
       "echBootstrapPolicy": "none",
       "echBootstrapResolverId": null,
       "echOuterExtensionPolicy": "not_applicable",
-      "acceptedStacks": ["akamai", "fastly"]
+      "acceptedStacks": [
+        "akamai",
+        "fastly",
+        "cloudflare",
+        "nginx_openssl",
+        "caddy_go"
+      ],
+      "acceptanceResults": [
+        {
+          "stackId": "akamai",
+          "status": "accepted",
+          "evidenceTag": "akamai-safari-2026q2",
+          "notes": "Akamai accepted the Safari-family fixed extension ordering."
+        },
+        {
+          "stackId": "fastly",
+          "status": "accepted",
+          "evidenceTag": "fastly-safari-2026q2",
+          "notes": "Fastly accepted the single-record Safari-family handshake."
+        },
+        {
+          "stackId": "cloudflare",
+          "status": "accepted",
+          "evidenceTag": "cf-safari-2026q2",
+          "notes": "Cloudflare completed Safari-family ALPN negotiation without parity drift."
+        },
+        {
+          "stackId": "nginx_openssl",
+          "status": "accepted",
+          "evidenceTag": "lab-nginx-safari-2026q2",
+          "notes": "nginx/OpenSSL accepted the Safari-family supported-groups layout."
+        },
+        {
+          "stackId": "caddy_go",
+          "status": "accepted",
+          "evidenceTag": "lab-caddy-safari-2026q2",
+          "notes": "Caddy accepted the single-record Safari-family template without record splitting."
+        }
+      ],
+      "acceptanceSummary": {
+        "acceptedCdnStacks": 3,
+        "acceptedServerStacks": 2,
+        "acceptedEchStacks": 0,
+        "acceptedTotalStacks": 5
+      }
     },
     {
       "id": "edge_stable",
@@ -97,7 +390,51 @@
       "echBootstrapPolicy": "none",
       "echBootstrapResolverId": null,
       "echOuterExtensionPolicy": "not_applicable",
-      "acceptedStacks": ["cloudflare", "akamai"]
+      "acceptedStacks": [
+        "cloudflare",
+        "akamai",
+        "google",
+        "envoy_boringssl",
+        "haproxy_openssl"
+      ],
+      "acceptanceResults": [
+        {
+          "stackId": "cloudflare",
+          "status": "accepted",
+          "evidenceTag": "cf-edge-2026q2",
+          "notes": "Cloudflare accepted the Edge-family Chromium template."
+        },
+        {
+          "stackId": "akamai",
+          "status": "accepted",
+          "evidenceTag": "akamai-edge-2026q2",
+          "notes": "Akamai accepted the Edge-family browser template without ALPN downgrade."
+        },
+        {
+          "stackId": "google",
+          "status": "accepted",
+          "evidenceTag": "gfe-edge-2026q2",
+          "notes": "Google Front End accepted the Edge-family parity target."
+        },
+        {
+          "stackId": "envoy_boringssl",
+          "status": "accepted",
+          "evidenceTag": "lab-envoy-edge-2026q2",
+          "notes": "Envoy/BoringSSL accepted the Edge-family key-share profile and GREASE shape."
+        },
+        {
+          "stackId": "haproxy_openssl",
+          "status": "accepted",
+          "evidenceTag": "lab-haproxy-edge-2026q2",
+          "notes": "HAProxy/OpenSSL accepted the Edge-family fake-free browser template."
+        }
+      ],
+      "acceptanceSummary": {
+        "acceptedCdnStacks": 3,
+        "acceptedServerStacks": 2,
+        "acceptedEchStacks": 0,
+        "acceptedTotalStacks": 5
+      }
     }
   ]
 }
