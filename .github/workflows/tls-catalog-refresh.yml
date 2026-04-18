@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: "0 6 * * 1"
 
+permissions:
+  contents: read
+
 jobs:
   verify-tls-catalog-refresh:
     runs-on: ubuntu-latest
