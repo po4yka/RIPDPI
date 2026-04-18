@@ -482,6 +482,36 @@ pub fn padencap_tls_like_c(input: &[u8], payload_len: usize) -> PacketMutation {
     PacketMutation { rc: 0, bytes: output }
 }
 
+pub fn remove_tls_key_share_group_like_c(input: &[u8], group: u16) -> PacketMutation {
+    if !is_tls_client_hello(input) {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    }
+
+    let Some(parsed) = crate::tls_nom::parse_client_hello_record(input) else {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    };
+
+    let mut output = input.to_vec();
+    let removed = remove_ks_group(&mut output, input.len(), parsed.ext_len_offset, group);
+    if removed == 0 {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    }
+    let Some(key_share_offs) = crate::tls_nom::find_extension_offset(&parsed, 0x0033) else {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    };
+    let Some(remaining_key_share_len) = read_u16(&output, key_share_offs + 2) else {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    };
+    if remaining_key_share_len <= 2 {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    }
+    if !adjust_tls_lengths(&mut output, parsed.ext_len_offset, -(removed as isize)) {
+        return PacketMutation { rc: -1, bytes: input.to_vec() };
+    }
+    output.truncate(input.len() - removed);
+    PacketMutation { rc: 0, bytes: output }
+}
+
 pub fn change_tls_sni_seeded_like_c(input: &[u8], host: &[u8], capacity: usize, seed: u32) -> PacketMutation {
     if capacity < input.len() || host.len() > u16::MAX as usize {
         return PacketMutation { rc: -1, bytes: input.to_vec() };
@@ -914,6 +944,43 @@ mod tests {
         let new_sni = parse_tls(&mutation.bytes);
         assert!(new_sni.is_some());
         assert_eq!(new_sni.unwrap().len(), original_sni.len());
+    }
+
+    #[test]
+    fn remove_tls_key_share_group_strips_x25519_but_keeps_supported_groups() {
+        use crate::fake_profiles::{tls_fake_profile_bytes, TlsFakeProfile};
+
+        let input = tls_fake_profile_bytes(TlsFakeProfile::GoogleChrome);
+        let before = parse_tls_client_hello_layout(input).expect("google chrome layout");
+        let mutation = remove_tls_key_share_group_like_c(input, 0x001d);
+        assert_eq!(mutation.rc, 0);
+        assert_eq!(parse_tls(&mutation.bytes), parse_tls(input));
+
+        let after = parse_tls_client_hello_layout(&mutation.bytes).expect("mutated layout");
+        let before_key_share = before.extensions.iter().find(|ext| ext.ext_type == 0x0033).expect("key_share");
+        let after_key_share = after.extensions.iter().find(|ext| ext.ext_type == 0x0033).expect("key_share");
+        let after_supported_groups =
+            after.extensions.iter().find(|ext| ext.ext_type == 0x000a).expect("supported_groups");
+
+        assert!(before_key_share.data_len > after_key_share.data_len);
+        let key_share_bytes =
+            &mutation.bytes[after_key_share.data_offset..after_key_share.data_offset + after_key_share.data_len];
+        assert_eq!(u16::from_be_bytes([key_share_bytes[2], key_share_bytes[3]]), 0x0017);
+        assert!(!key_share_bytes.windows(2).any(|window| window == [0x00, 0x1d]));
+
+        let groups_bytes = &mutation.bytes
+            [after_supported_groups.data_offset..after_supported_groups.data_offset + after_supported_groups.data_len];
+        assert!(groups_bytes.windows(2).any(|window| window == [0x00, 0x1d]));
+    }
+
+    #[test]
+    fn remove_tls_key_share_group_fails_when_no_fallback_share_exists() {
+        use crate::fake_profiles::{tls_fake_profile_bytes, TlsFakeProfile};
+
+        let input = tls_fake_profile_bytes(TlsFakeProfile::IanaFirefox);
+        let mutation = remove_tls_key_share_group_like_c(input, 0x001d);
+        assert_eq!(mutation.rc, -1);
+        assert_eq!(mutation.bytes, input);
     }
 
     // ── part_tls_like_c ───────────────────────────────────────────────

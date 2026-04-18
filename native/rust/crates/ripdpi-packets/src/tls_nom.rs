@@ -191,6 +191,7 @@ mod tests {
             TlsFakeProfile::CompatDefault,
             TlsFakeProfile::IanaFirefox,
             TlsFakeProfile::GoogleChrome,
+            TlsFakeProfile::GoogleChromeHrr,
             TlsFakeProfile::VkChrome,
             TlsFakeProfile::SberbankChrome,
             TlsFakeProfile::RutrackerKyber,

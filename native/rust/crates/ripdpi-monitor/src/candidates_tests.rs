@@ -73,6 +73,15 @@ fn tlsrec_fake_seqgroup_candidate_sets_seqgroup_ip_id_mode() {
 }
 
 #[test]
+fn tlsrec_fake_hrr_candidate_uses_dedicated_profile_without_changing_step_shape() {
+    let candidate = build_tlsrec_fake_hrr_candidate(&minimal_ui_config());
+
+    assert_eq!(candidate.fake_packets.tls_fake_profile, TLS_FAKE_PROFILE_GOOGLE_CHROME_HRR);
+    assert_eq!(candidate.fake_packets.fake_sni, "www.google.com");
+    assert_eq!(candidate.chains.tcp_steps, build_tlsrec_fake_rich_candidate(&minimal_ui_config()).chains.tcp_steps);
+}
+
+#[test]
 fn production_fake_candidates_use_coherent_chrome_profile_bytes() {
     let candidate = build_tlsrec_fake_rich_candidate(&minimal_ui_config());
 

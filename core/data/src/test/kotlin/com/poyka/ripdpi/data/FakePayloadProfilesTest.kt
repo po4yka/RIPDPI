@@ -25,6 +25,7 @@ class FakePayloadProfilesTest {
     @Test
     fun `normalizeTlsFakeProfile returns known profile unchanged`() {
         assertEquals(TlsFakeProfileGoogleChrome, normalizeTlsFakeProfile("google_chrome"))
+        assertEquals(TlsFakeProfileGoogleChromeHrr, normalizeTlsFakeProfile("google_chrome_hrr"))
         assertEquals(TlsFakeProfileIanaFirefox, normalizeTlsFakeProfile("iana_firefox"))
         assertEquals(TlsFakeProfileVkChrome, normalizeTlsFakeProfile("vk_chrome"))
         assertEquals(TlsFakeProfileSberbankChrome, normalizeTlsFakeProfile("sberbank_chrome"))

@@ -85,6 +85,25 @@ fn build_fake_packet_padencap_keeps_valid_tls() {
 }
 
 #[test]
+fn build_fake_packet_google_chrome_hrr_profile_strips_x25519_share() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.tls_fake_profile = TlsFakeProfile::GoogleChromeHrr;
+
+    let fake = build_fake_packet(&group, DEFAULT_FAKE_TLS, 7).expect("google chrome hrr fake");
+    let layout = ripdpi_packets::parse_tls_client_hello_layout(&fake.bytes).expect("fake client hello layout");
+    let key_share = layout.extensions.iter().find(|ext| ext.ext_type == 0x0033).expect("key_share");
+    let supported_groups = layout.extensions.iter().find(|ext| ext.ext_type == 0x000a).expect("supported_groups");
+    let key_share_bytes = &fake.bytes[key_share.data_offset..key_share.data_offset + key_share.data_len];
+    let supported_group_bytes =
+        &fake.bytes[supported_groups.data_offset..supported_groups.data_offset + supported_groups.data_len];
+
+    assert_eq!(ripdpi_packets::parse_tls(&fake.bytes), Some(&b"www.google.com"[..]));
+    assert_eq!(u16::from_be_bytes([key_share_bytes[2], key_share_bytes[3]]), 0x0017);
+    assert!(!key_share_bytes.windows(2).any(|window| window == [0x00, 0x1d]));
+    assert!(supported_group_bytes.windows(2).any(|window| window == [0x00, 0x1d]));
+}
+
+#[test]
 fn build_hostfake_bytes_preserves_length_and_template_suffix() {
     let fake = build_hostfake_bytes(b"video.example.com", Some("googlevideo.com"), 17, false);
 
