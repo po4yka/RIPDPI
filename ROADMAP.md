@@ -44,9 +44,11 @@ the unfinished bypass-modernization TLS/ECH track.
    candidate with TLS-alert-biased ordering.
 4. Tie ECH and ECH-GREASE planning to DNS bootstrap and Android runtime policy,
    including fallback behavior.
-   Status: partial. DNS bootstrap and first-flight planning are now wired to the
-   ECH template metadata, but the Android-specific availability, policy, and
-   fallback work remains.
+   Status: complete. DNS bootstrap and first-flight planning are now wired to
+   the ECH template metadata, and Android now carries explicit ECH policy,
+   acceptance-corpus linkage, proxy-mode notice metadata, and native
+   bootstrap/fallback details through the owned-TLS path with fail-closed drift
+   checks on ECH-capable selections.
 5. Surface proxy-mode or browser-native TLS/ECH suppression paths explicitly.
 6. Finish replacing generic fake packet families with coherent client-profile
    families.

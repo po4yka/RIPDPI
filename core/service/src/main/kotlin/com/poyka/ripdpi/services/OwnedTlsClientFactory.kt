@@ -39,6 +39,13 @@ data class OwnedTlsFingerprintSelection(
     val profileId: String = TlsFingerprintProfileChromeStable,
     val profileSetId: String = com.poyka.ripdpi.data.DefaultTlsProfileSetId,
     val catalogVersion: String = com.poyka.ripdpi.data.DefaultTlsProfileCatalogVersion,
+    val echPolicy: String = "none",
+    val proxyModeNotice: String = "",
+    val acceptanceCorpusRef: String = "",
+    val tlsTemplateEchCapable: Boolean = false,
+    val tlsTemplateEchBootstrapPolicy: String = "none",
+    val tlsTemplateEchBootstrapResolverId: String? = null,
+    val tlsTemplateEchOuterExtensionPolicy: String = "not_applicable",
 )
 
 interface OwnedTlsClientFactory {
@@ -105,11 +112,19 @@ class DefaultOwnedTlsClientFactory
                         fallbackProfile = defaultProfile,
                     )
                 }
+            val templateMetadata = ownedTlsTemplateEchMetadata(selectedProfile)
             return OwnedTlsFingerprintSelection(
                 profileId = selectedProfile,
                 profileSetId = runtimeState.tlsProfileSetId ?: com.poyka.ripdpi.data.DefaultTlsProfileSetId,
                 catalogVersion =
                     runtimeState.tlsProfileCatalogVersion ?: com.poyka.ripdpi.data.DefaultTlsProfileCatalogVersion,
+                echPolicy = runtimeState.tlsProfileEchPolicy ?: templateMetadata.defaultAndroidEchPolicy,
+                proxyModeNotice = runtimeState.tlsProfileProxyModeNotice.orEmpty(),
+                acceptanceCorpusRef = runtimeState.tlsProfileAcceptanceCorpusRef.orEmpty(),
+                tlsTemplateEchCapable = templateMetadata.echCapable,
+                tlsTemplateEchBootstrapPolicy = templateMetadata.bootstrapPolicy,
+                tlsTemplateEchBootstrapResolverId = templateMetadata.bootstrapResolverId,
+                tlsTemplateEchOuterExtensionPolicy = templateMetadata.outerExtensionPolicy,
             )
         }
 
@@ -228,6 +243,37 @@ private fun safariLikeCipherSuites(): Array<CipherSuite> =
     )
 
 private fun edgeLikeCipherSuites(): Array<CipherSuite> = chromeLikeCipherSuites()
+
+private data class OwnedTlsTemplateEchMetadata(
+    val echCapable: Boolean,
+    val defaultAndroidEchPolicy: String,
+    val bootstrapPolicy: String,
+    val bootstrapResolverId: String?,
+    val outerExtensionPolicy: String,
+)
+
+private fun ownedTlsTemplateEchMetadata(profile: String): OwnedTlsTemplateEchMetadata =
+    when (normalizeTlsFingerprintProfile(profile)) {
+        TlsFingerprintProfileFirefoxEchStable -> {
+            OwnedTlsTemplateEchMetadata(
+                echCapable = true,
+                defaultAndroidEchPolicy = "preferred",
+                bootstrapPolicy = "https_rr_or_cdn_fallback",
+                bootstrapResolverId = "adguard",
+                outerExtensionPolicy = "preserve_ech_or_grease",
+            )
+        }
+
+        else -> {
+            OwnedTlsTemplateEchMetadata(
+                echCapable = false,
+                defaultAndroidEchPolicy = "none",
+                bootstrapPolicy = "none",
+                bootstrapResolverId = null,
+                outerExtensionPolicy = "not_applicable",
+            )
+        }
+    }
 
 private fun deterministicTlsProfileSelection(
     authority: String,
