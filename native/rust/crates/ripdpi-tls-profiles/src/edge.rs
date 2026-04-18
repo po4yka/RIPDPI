@@ -13,7 +13,7 @@ pub const EDGE_LATEST: ProfileConfig = ProfileConfig {
     grease_style: "chromium_single_grease",
     supported_groups_profile: "x25519_p256_p384",
     key_share_profile: "x25519_primary",
-    record_choreography: "single_record",
+    record_choreography: "host_tail_two_record",
     ech_capable: false,
     cipher_list_tls12: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:\
                         ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:\

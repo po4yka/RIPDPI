@@ -31,6 +31,10 @@ the unfinished bypass-modernization TLS/ECH track.
    packet level.
 2. Finish true packet-level record-size choreography instead of metadata-only
    template planning.
+   Status: complete. `ripdpi-tls-profiles` now publishes real
+   profile-selected record-boundary plans, and `ripdpi-desync` ships packet
+   rewrites plus goldens for the desktop Chrome and ECH-aware Firefox
+   template families.
 3. Add controlled HelloRetryRequest-oriented tactics where server behavior
    justifies them.
 4. Tie ECH and ECH-GREASE planning to DNS bootstrap and Android runtime policy,

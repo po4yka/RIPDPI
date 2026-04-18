@@ -1,0 +1,14 @@
+{
+  "ech_extension_present": true,
+  "input_host": "www.wikipedia.org",
+  "input_record_lengths": [
+    530
+  ],
+  "payload_preserved": true,
+  "profile": "firefox_ech_stable",
+  "rewritten_record_lengths": [
+    143,
+    193,
+    194
+  ]
+}

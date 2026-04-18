@@ -18,6 +18,7 @@ pub use first_flight_ir::{
     normalize_quic_initial, normalize_tls_client_hello, DesiredBoundaryPlan, GreaseProfile, QuicCryptoFrameBoundary,
     QuicInitialIr, TlsClientHelloIr, TlsExtensionBoundary, TlsRecordBoundary,
 };
+pub use tls_prelude::apply_tls_template_record_choreography;
 pub use types::{
     activation_filter_matches, ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints,
     AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile, DesyncAction, DesyncError, DesyncPlan, FakePacketPlan,
