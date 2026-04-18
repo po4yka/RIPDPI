@@ -80,8 +80,13 @@ new multi-flight runtime engine before the acceptance surface exists.
 
 ### 11.4 ECH Planning And Bootstrap
 
-Integrate ECH and ECH-GREASE handling with DNS bootstrap and template planning
-instead of treating them as isolated metadata flags.
+Status: complete.
+
+ECH-aware template planning now carries explicit bootstrap policy, resolver
+selection, outer-extension handling, and first-flight plan metadata instead of
+treating ECH capability as an isolated flag. The ECH monitor path now resolves
+HTTPS records through the template-selected encrypted DNS bootstrap endpoint and
+exports the resulting first-flight plan in probe details.
 
 ### 11.5 Android ECH Policy And Fallback
 

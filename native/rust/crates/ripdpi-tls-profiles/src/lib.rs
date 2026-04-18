@@ -20,8 +20,8 @@ pub use profile::{
     ProfileParityTargets, ProfileTemplateMetadata, AVAILABLE_PROFILES,
 };
 pub use record_choreography::{
-    apply_record_choreography, planned_record_payload_boundaries, planned_record_payload_lengths,
-    selected_record_choreography, RecordChoreography,
+    apply_record_choreography, plan_first_flight, planned_record_payload_boundaries, planned_record_payload_lengths,
+    selected_record_choreography, RecordChoreography, TlsTemplateFirstFlightPlan,
 };
 
 #[derive(Debug, Error)]
@@ -169,6 +169,8 @@ fn validate_profile_config(config: &ProfileConfig) -> Result<(), Error> {
         || config.supported_groups_profile.is_empty()
         || config.key_share_profile.is_empty()
         || config.record_choreography.is_empty()
+        || config.ech_bootstrap_policy.is_empty()
+        || config.ech_outer_extension_policy.is_empty()
     {
         return Err(Error::Invariant {
             profile: config.name,
@@ -190,10 +192,37 @@ mod tests {
     use boring::ssl::SslVersion;
     use serde_json::Value;
     use std::fs;
+    use std::io::Read;
+    use std::net::{Shutdown, TcpListener, TcpStream};
     use std::path::Path;
+    use std::thread;
+    use std::time::Duration;
 
     fn repo_root() -> std::path::PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../").canonicalize().expect("repo root")
+    }
+
+    fn capture_client_hello(profile: &str) -> Vec<u8> {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback listener");
+        let addr = listener.local_addr().expect("listener addr");
+        let server = thread::spawn(move || {
+            let (mut socket, _) = listener.accept().expect("accept client");
+            socket.set_read_timeout(Some(Duration::from_secs(5))).expect("set server read timeout");
+            let mut header = [0_u8; 5];
+            socket.read_exact(&mut header).expect("read TLS record header");
+            let payload_len = u16::from_be_bytes([header[3], header[4]]) as usize;
+            let mut payload = vec![0_u8; payload_len];
+            socket.read_exact(&mut payload).expect("read TLS record payload");
+            let _ = socket.shutdown(Shutdown::Both);
+            [header.to_vec(), payload].concat()
+        });
+
+        let connector = build_connector(profile, false).expect("build connector");
+        let stream = TcpStream::connect(addr).expect("connect loopback socket");
+        stream.set_read_timeout(Some(Duration::from_secs(5))).expect("set client read timeout");
+        stream.set_write_timeout(Some(Duration::from_secs(5))).expect("set client write timeout");
+        let _ = connector.connect("template-validation.test", stream);
+        server.join().expect("server join")
     }
 
     #[test]
@@ -261,6 +290,23 @@ mod tests {
         assert_eq!("firefox-ech-stable", ech.parity_targets.ja3);
         assert!(ech.template.ech_capable);
         assert_eq!("firefox_ech_grease", ech.template.grease_style);
+        assert_eq!("https_rr_or_cdn_fallback", ech.template.ech_bootstrap_policy);
+        assert_eq!(Some("adguard"), ech.template.ech_bootstrap_resolver_id);
+        assert_eq!("preserve_ech_or_grease", ech.template.ech_outer_extension_policy);
+    }
+
+    #[test]
+    fn ech_first_flight_plan_carries_bootstrap_and_outer_extension_policy() {
+        let payload = capture_client_hello("firefox_ech_stable");
+        let plan = plan_first_flight("firefox_ech_stable", &payload).expect("ech first flight plan");
+
+        assert_eq!(plan.record_choreography.as_str(), "sni_ech_tail_adaptive");
+        assert_eq!(plan.ech_bootstrap_policy, "https_rr_or_cdn_fallback");
+        assert_eq!(plan.ech_bootstrap_resolver_id, Some("adguard"));
+        assert_eq!(plan.ech_outer_extension_policy, "preserve_ech_or_grease");
+        assert_eq!(plan.grease_style, "firefox_ech_grease");
+        assert!(plan.ech_capable_template);
+        assert!(plan.ech_present_in_input || plan.ech_outer_extension_policy == "preserve_ech_or_grease");
     }
 
     #[test]
@@ -329,6 +375,9 @@ mod tests {
             assert_eq!(entry["keyShareProfile"].as_str(), Some(metadata.template.key_share_profile));
             assert_eq!(entry["recordChoreography"].as_str(), Some(metadata.template.record_choreography));
             assert_eq!(entry["echCapable"].as_bool(), Some(metadata.template.ech_capable));
+            assert_eq!(entry["echBootstrapPolicy"].as_str(), Some(metadata.template.ech_bootstrap_policy));
+            assert_eq!(entry["echBootstrapResolverId"].as_str(), metadata.template.ech_bootstrap_resolver_id);
+            assert_eq!(entry["echOuterExtensionPolicy"].as_str(), Some(metadata.template.ech_outer_extension_policy));
             assert!(entry["acceptedStacks"].as_array().is_some_and(|value| !value.is_empty()));
         }
     }

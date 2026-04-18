@@ -15,6 +15,9 @@ pub const SAFARI_LATEST: ProfileConfig = ProfileConfig {
     key_share_profile: "x25519_primary",
     record_choreography: "single_record",
     ech_capable: false,
+    ech_bootstrap_policy: "none",
+    ech_bootstrap_resolver_id: None,
+    ech_outer_extension_policy: "not_applicable",
     cipher_list_tls12: "ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES128-GCM-SHA256:\
                         ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256:\
                         ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305",

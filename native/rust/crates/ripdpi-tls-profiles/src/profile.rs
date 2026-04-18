@@ -13,6 +13,9 @@ pub struct ProfileConfig {
     pub key_share_profile: &'static str,
     pub record_choreography: &'static str,
     pub ech_capable: bool,
+    pub ech_bootstrap_policy: &'static str,
+    pub ech_bootstrap_resolver_id: Option<&'static str>,
+    pub ech_outer_extension_policy: &'static str,
     pub cipher_list_tls12: &'static str,
     /// TLS 1.3 cipher suite configuration string. BoringSSL uses a fixed set of
     /// TLS 1.3 ciphers and does not expose `SSL_CTX_set_ciphersuites`, so this
@@ -68,6 +71,9 @@ pub struct ProfileTemplateMetadata {
     pub key_share_profile: &'static str,
     pub record_choreography: &'static str,
     pub ech_capable: bool,
+    pub ech_bootstrap_policy: &'static str,
+    pub ech_bootstrap_resolver_id: Option<&'static str>,
+    pub ech_outer_extension_policy: &'static str,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,6 +129,9 @@ pub fn profile_metadata(name: &str) -> ProfileMetadata {
             key_share_profile: profile.key_share_profile,
             record_choreography: profile.record_choreography,
             ech_capable: profile.ech_capable,
+            ech_bootstrap_policy: profile.ech_bootstrap_policy,
+            ech_bootstrap_resolver_id: profile.ech_bootstrap_resolver_id,
+            ech_outer_extension_policy: profile.ech_outer_extension_policy,
         },
     }
 }

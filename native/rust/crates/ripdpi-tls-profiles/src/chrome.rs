@@ -13,6 +13,9 @@ pub const CHROME_LATEST: ProfileConfig = ProfileConfig {
     key_share_profile: "x25519_primary",
     record_choreography: "host_tail_two_record",
     ech_capable: false,
+    ech_bootstrap_policy: "none",
+    ech_bootstrap_resolver_id: None,
+    ech_outer_extension_policy: "not_applicable",
     cipher_list_tls12: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:\
                         ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:\
                         ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305",
@@ -42,6 +45,9 @@ pub const CHROME_DESKTOP_STABLE: ProfileConfig = ProfileConfig {
     key_share_profile: "x25519_primary",
     record_choreography: "host_tail_two_record",
     ech_capable: false,
+    ech_bootstrap_policy: "none",
+    ech_bootstrap_resolver_id: None,
+    ech_outer_extension_policy: "not_applicable",
     cipher_list_tls12: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:\
                         ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:\
                         ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305",

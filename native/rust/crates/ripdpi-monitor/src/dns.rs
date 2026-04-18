@@ -178,11 +178,11 @@ pub(crate) fn resolve_via_encrypted_dns_with_raw(
     }
 }
 
-pub(crate) fn resolve_https_ech_configs_via_encrypted_dns(
+pub(crate) fn resolve_https_ech_configs_via_encrypted_dns_with_endpoint(
     domain: &str,
+    endpoint: EncryptedDnsEndpoint,
     transport: &TransportConfig,
 ) -> EchResolutionOutcome {
-    let endpoint = default_encrypted_dns_endpoint();
     match exchange_encrypted_dns_query(domain, DNS_RECORD_TYPE_HTTPS, endpoint, transport) {
         Err(err) => EchResolutionOutcome::ResolutionFailed(err),
         Ok(response) => match extract_ech_config_list_from_https_response(&response) {
@@ -257,15 +257,40 @@ pub(crate) fn extract_ech_config_list_from_https_response(packet: &[u8]) -> Resu
     Ok(None)
 }
 
-fn default_encrypted_dns_endpoint() -> EncryptedDnsEndpoint {
+pub(crate) fn encrypted_dns_endpoint_for_resolver_id(resolver_id: &str) -> EncryptedDnsEndpoint {
+    let (resolver_id, host, port, doh_url, tls_server_name) = match resolver_id {
+        "cloudflare" => (
+            "cloudflare",
+            "cloudflare-dns.com",
+            443,
+            "https://cloudflare-dns.com/dns-query",
+            Some("cloudflare-dns.com"),
+        ),
+        "google" => ("google", "dns.google", 443, "https://dns.google/dns-query", Some("dns.google")),
+        "google_ip" => ("google_ip", "8.8.8.8", 443, "https://8.8.8.8/dns-query", None),
+        "quad9" => ("quad9", "dns.quad9.net", 443, "https://dns.quad9.net/dns-query", Some("dns.quad9.net")),
+        "dnssb" => ("dnssb", "dns.sb", 443, "https://doh.dns.sb/dns-query", Some("dns.sb")),
+        "mullvad" => ("mullvad", "dns.mullvad.net", 443, "https://dns.mullvad.net/dns-query", Some("dns.mullvad.net")),
+        _ => ("adguard", DEFAULT_DOH_HOST, DEFAULT_DOH_PORT, DEFAULT_DOH_URL, Some(DEFAULT_DOH_HOST)),
+    };
+
+    let bootstrap_ips = {
+        let pinned = bootstrap_ips_for_resolver(resolver_id);
+        if pinned.is_empty() {
+            DEFAULT_DOH_BOOTSTRAP_IPS.iter().filter_map(|value| value.parse::<IpAddr>().ok()).collect()
+        } else {
+            pinned
+        }
+    };
+
     EncryptedDnsEndpoint {
         protocol: EncryptedDnsProtocol::Doh,
-        resolver_id: Some("adguard".to_string()),
-        host: DEFAULT_DOH_HOST.to_string(),
-        port: DEFAULT_DOH_PORT,
-        tls_server_name: None,
-        bootstrap_ips: DEFAULT_DOH_BOOTSTRAP_IPS.iter().filter_map(|value| value.parse::<IpAddr>().ok()).collect(),
-        doh_url: Some(DEFAULT_DOH_URL.to_string()),
+        resolver_id: Some(resolver_id.to_string()),
+        host: host.to_string(),
+        port,
+        tls_server_name: tls_server_name.map(ToString::to_string),
+        bootstrap_ips,
+        doh_url: Some(doh_url.to_string()),
         dnscrypt_provider_name: None,
         dnscrypt_public_key: None,
     }
@@ -544,6 +569,24 @@ mod tests {
     #[test]
     fn bootstrap_ips_for_unknown_resolver_is_empty() {
         assert!(bootstrap_ips_for_resolver("unknown-provider").is_empty());
+    }
+
+    #[test]
+    fn endpoint_for_resolver_id_uses_known_doh_metadata() {
+        let endpoint = encrypted_dns_endpoint_for_resolver_id("cloudflare");
+        assert_eq!(endpoint.resolver_id.as_deref(), Some("cloudflare"));
+        assert_eq!(endpoint.host, "cloudflare-dns.com");
+        assert_eq!(endpoint.tls_server_name.as_deref(), Some("cloudflare-dns.com"));
+        assert_eq!(endpoint.doh_url.as_deref(), Some("https://cloudflare-dns.com/dns-query"));
+        assert_eq!(endpoint.bootstrap_ips.len(), 2);
+    }
+
+    #[test]
+    fn endpoint_for_unknown_resolver_id_falls_back_to_adguard() {
+        let endpoint = encrypted_dns_endpoint_for_resolver_id("unknown");
+        assert_eq!(endpoint.resolver_id.as_deref(), Some("adguard"));
+        assert_eq!(endpoint.host, DEFAULT_DOH_HOST);
+        assert_eq!(endpoint.doh_url.as_deref(), Some(DEFAULT_DOH_URL));
     }
 
     #[test]
