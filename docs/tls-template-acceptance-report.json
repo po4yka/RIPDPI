@@ -1,0 +1,110 @@
+{
+  "version": "tls_template_acceptance_report_v1",
+  "reviewedAt": "2026-04-18",
+  "catalogVersion": "v1",
+  "corpusRef": "phase11_tls_template_acceptance",
+  "profileSetIds": [
+    "browser_family_v2",
+    "ech_canary_v1"
+  ],
+  "stackCoverage": {
+    "cdnStacksCovered": [
+      "akamai",
+      "bunny",
+      "cloudflare",
+      "fastly",
+      "google"
+    ],
+    "serverStacksCovered": [
+      "caddy_go",
+      "envoy_boringssl",
+      "haproxy_openssl",
+      "nginx_openssl"
+    ],
+    "echStacksCovered": [
+      "cloudflare",
+      "envoy_boringssl"
+    ]
+  },
+  "profiles": [
+    {
+      "id": "chrome_stable",
+      "acceptedStacks": [
+        "cloudflare",
+        "fastly",
+        "google",
+        "nginx_openssl",
+        "envoy_boringssl"
+      ],
+      "acceptedCdnStacks": 3,
+      "acceptedServerStacks": 2,
+      "acceptedEchStacks": 0
+    },
+    {
+      "id": "chrome_desktop_stable",
+      "acceptedStacks": [
+        "cloudflare",
+        "akamai",
+        "fastly",
+        "envoy_boringssl",
+        "caddy_go"
+      ],
+      "acceptedCdnStacks": 3,
+      "acceptedServerStacks": 2,
+      "acceptedEchStacks": 0
+    },
+    {
+      "id": "firefox_stable",
+      "acceptedStacks": [
+        "cloudflare",
+        "fastly",
+        "bunny",
+        "nginx_openssl",
+        "haproxy_openssl"
+      ],
+      "acceptedCdnStacks": 3,
+      "acceptedServerStacks": 2,
+      "acceptedEchStacks": 0
+    },
+    {
+      "id": "firefox_ech_stable",
+      "acceptedStacks": [
+        "cloudflare",
+        "fastly",
+        "bunny",
+        "envoy_boringssl",
+        "caddy_go"
+      ],
+      "acceptedCdnStacks": 3,
+      "acceptedServerStacks": 2,
+      "acceptedEchStacks": 2
+    },
+    {
+      "id": "safari_stable",
+      "acceptedStacks": [
+        "akamai",
+        "fastly",
+        "cloudflare",
+        "nginx_openssl",
+        "caddy_go"
+      ],
+      "acceptedCdnStacks": 3,
+      "acceptedServerStacks": 2,
+      "acceptedEchStacks": 0
+    },
+    {
+      "id": "edge_stable",
+      "acceptedStacks": [
+        "cloudflare",
+        "akamai",
+        "google",
+        "envoy_boringssl",
+        "haproxy_openssl"
+      ],
+      "acceptedCdnStacks": 3,
+      "acceptedServerStacks": 2,
+      "acceptedEchStacks": 0
+    }
+  ],
+  "notes": "Committed Phase 11.8 acceptance matrix covering major CDN and self-hosted server stacks for every shipped TLS template family."
+}

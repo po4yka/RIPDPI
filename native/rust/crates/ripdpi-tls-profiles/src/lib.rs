@@ -353,8 +353,21 @@ mod tests {
         let fixture: Value =
             serde_json::from_str(&fs::read_to_string(fixture_path).expect("phase11 acceptance fixture")).expect("json");
 
+        assert_eq!(fixture["schemaVersion"].as_u64(), Some(2));
+        assert_eq!(fixture["corpusId"].as_str(), Some("phase11_tls_template_acceptance"));
         assert_eq!(fixture["catalogVersion"].as_str(), Some(profile_catalog_version()));
         assert_eq!(fixture["profileSetId"].as_str(), Some(profile_catalog().default_profile_set_id));
+        let coverage_targets = fixture["coverageTargets"].as_object().expect("coverageTargets object");
+        let min_cdn = coverage_targets["minimumAcceptedCdnStacks"].as_u64().expect("minimumAcceptedCdnStacks");
+        let min_server = coverage_targets["minimumAcceptedServerStacks"].as_u64().expect("minimumAcceptedServerStacks");
+        let min_total =
+            coverage_targets["minimumAcceptedStacksPerProfile"].as_u64().expect("minimumAcceptedStacksPerProfile");
+        let min_ech = coverage_targets["minimumAcceptedEchStacks"].as_u64().expect("minimumAcceptedEchStacks");
+        let stacks = fixture["stacks"].as_array().expect("stacks array");
+        let stack_index = stacks
+            .iter()
+            .map(|entry| (entry["id"].as_str().expect("stack id"), entry))
+            .collect::<std::collections::BTreeMap<_, _>>();
 
         let entries = fixture["profiles"].as_array().expect("profiles array");
         let ids = entries.iter().filter_map(|entry| entry["id"].as_str()).collect::<std::collections::BTreeSet<_>>();
@@ -378,7 +391,46 @@ mod tests {
             assert_eq!(entry["echBootstrapPolicy"].as_str(), Some(metadata.template.ech_bootstrap_policy));
             assert_eq!(entry["echBootstrapResolverId"].as_str(), metadata.template.ech_bootstrap_resolver_id);
             assert_eq!(entry["echOuterExtensionPolicy"].as_str(), Some(metadata.template.ech_outer_extension_policy));
-            assert!(entry["acceptedStacks"].as_array().is_some_and(|value| !value.is_empty()));
+            let accepted_stacks = entry["acceptedStacks"].as_array().expect("acceptedStacks array");
+            let acceptance_results = entry["acceptanceResults"].as_array().expect("acceptanceResults array");
+            let accepted_from_results = acceptance_results
+                .iter()
+                .filter(|value| value["status"].as_str() == Some("accepted"))
+                .map(|value| value["stackId"].as_str().expect("stackId"))
+                .collect::<std::collections::BTreeSet<_>>();
+            let accepted_from_entry = accepted_stacks
+                .iter()
+                .map(|value| value.as_str().expect("accepted stack id"))
+                .collect::<std::collections::BTreeSet<_>>();
+            assert_eq!(accepted_from_entry, accepted_from_results);
+
+            let mut accepted_cdn = 0_u64;
+            let mut accepted_server = 0_u64;
+            let mut accepted_ech = 0_u64;
+            let profile_ech_capable = metadata.template.ech_capable;
+            for stack_id in accepted_from_entry {
+                let stack = stack_index.get(stack_id).expect("known stack");
+                match stack["class"].as_str() {
+                    Some("cdn") => accepted_cdn += 1,
+                    Some("server") => accepted_server += 1,
+                    other => panic!("unexpected stack class: {:?}", other),
+                }
+                if profile_ech_capable && stack["echCapable"].as_bool() == Some(true) {
+                    accepted_ech += 1;
+                }
+            }
+
+            let summary = entry["acceptanceSummary"].as_object().expect("acceptanceSummary object");
+            assert_eq!(summary["acceptedCdnStacks"].as_u64(), Some(accepted_cdn));
+            assert_eq!(summary["acceptedServerStacks"].as_u64(), Some(accepted_server));
+            assert_eq!(summary["acceptedEchStacks"].as_u64(), Some(accepted_ech));
+            assert_eq!(summary["acceptedTotalStacks"].as_u64(), Some((accepted_cdn + accepted_server) as u64));
+            assert!(accepted_cdn >= min_cdn);
+            assert!(accepted_server >= min_server);
+            assert!((accepted_cdn + accepted_server) >= min_total);
+            if profile_ech_capable {
+                assert!(accepted_ech >= min_ech);
+            }
         }
     }
 }
