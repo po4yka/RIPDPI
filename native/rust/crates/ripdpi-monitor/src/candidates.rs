@@ -993,6 +993,7 @@ fn config_requires_capabilities(config: &ProxyUiConfig) -> &'static [RuntimeCapa
 /// platform probes and does not consult any global cache. The caller supplies
 /// the lookup so that real execution (slice 2.4) and tests can each provide the
 /// appropriate source.
+#[cfg(test)]
 pub(crate) fn enumerate_capable_candidates(
     candidates: Vec<StrategyCandidateSpec>,
     lookup: &dyn Fn(RuntimeCapability) -> bool,

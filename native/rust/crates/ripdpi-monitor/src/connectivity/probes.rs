@@ -95,7 +95,7 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
     let outcome = classify_dns_probe_outcome(&udp_result, &encrypted_result, path_mode, &udp_latency_ms, &expected);
     let injection_suspected = is_dns_injection_suspected(&udp_latency_ms, &outcome);
     let selected_endpoint =
-        oracle_assessment.selected.as_ref().map(|selected| &selected.endpoint).unwrap_or(&encrypted_endpoint);
+        oracle_assessment.selected.as_ref().map_or(&encrypted_endpoint, |selected| &selected.endpoint);
     let selected_bootstrap_ips = selected_endpoint.bootstrap_ips.iter().map(ToString::to_string).collect::<Vec<_>>();
     let encrypted_addresses = match &encrypted_result {
         Ok(addresses) if !addresses.is_empty() => addresses.join("|"),
@@ -107,19 +107,19 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
         probe_type: "dns_integrity".to_string(),
         target: target.domain.clone(),
         outcome,
-        details: build_dns_probe_details(
-            &udp_server,
-            &udp_result,
-            &udp_latency_ms,
-            &encrypted_endpoint,
-            &encrypted_bootstrap_ips,
-            &selected_bootstrap_ips,
-            &encrypted_addresses,
-            &encrypted_latency_ms,
+        details: build_dns_probe_details(DnsProbeDetailInputs {
+            udp_server: &udp_server,
+            udp_result: &udp_result,
+            udp_latency_ms: &udp_latency_ms,
+            encrypted_endpoint: &encrypted_endpoint,
+            encrypted_bootstrap_ips: &encrypted_bootstrap_ips,
+            selected_bootstrap_ips: &selected_bootstrap_ips,
+            encrypted_addresses: &encrypted_addresses,
+            encrypted_latency_ms: &encrypted_latency_ms,
             injection_suspected,
-            &expected,
-            &oracle_assessment,
-        ),
+            expected: &expected,
+            oracle_assessment: &oracle_assessment,
+        }),
     };
     result.details.extend(oracle_assessment.detail_entries());
 
@@ -181,76 +181,83 @@ fn push_joined_str_detail(details: &mut Vec<ProbeDetail>, key: &str, values: &[&
     push_detail(details, key, values.join("|"));
 }
 
-fn build_dns_probe_details(
-    udp_server: &str,
-    udp_result: &Result<Vec<String>, String>,
-    udp_latency_ms: &str,
-    encrypted_endpoint: &EncryptedDnsEndpoint,
-    encrypted_bootstrap_ips: &[String],
-    selected_bootstrap_ips: &[String],
-    encrypted_addresses: &str,
-    encrypted_latency_ms: &str,
+struct DnsProbeDetailInputs<'a> {
+    udp_server: &'a str,
+    udp_result: &'a Result<Vec<String>, String>,
+    udp_latency_ms: &'a str,
+    encrypted_endpoint: &'a EncryptedDnsEndpoint,
+    encrypted_bootstrap_ips: &'a [String],
+    selected_bootstrap_ips: &'a [String],
+    encrypted_addresses: &'a str,
+    encrypted_latency_ms: &'a str,
     injection_suspected: bool,
-    expected: &BTreeSet<String>,
-    oracle_assessment: &DnsOracleAssessment<DnsOracleResponse>,
-) -> Vec<ProbeDetail> {
+    expected: &'a BTreeSet<String>,
+    oracle_assessment: &'a DnsOracleAssessment<DnsOracleResponse>,
+}
+
+fn build_dns_probe_details(inputs: DnsProbeDetailInputs<'_>) -> Vec<ProbeDetail> {
     vec![
-        ProbeDetail { key: "udpServer".to_string(), value: udp_server.to_string() },
-        ProbeDetail { key: "udpAddresses".to_string(), value: format_result_set(udp_result) },
-        ProbeDetail { key: "udpLatencyMs".to_string(), value: udp_latency_ms.to_string() },
+        ProbeDetail { key: "udpServer".to_string(), value: inputs.udp_server.to_string() },
+        ProbeDetail { key: "udpAddresses".to_string(), value: format_result_set(inputs.udp_result) },
+        ProbeDetail { key: "udpLatencyMs".to_string(), value: inputs.udp_latency_ms.to_string() },
         ProbeDetail {
             key: "encryptedResolverId".to_string(),
-            value: encrypted_endpoint.resolver_id.clone().unwrap_or_default(),
+            value: inputs.encrypted_endpoint.resolver_id.clone().unwrap_or_default(),
         },
-        ProbeDetail { key: "encryptedProtocol".to_string(), value: encrypted_endpoint.protocol.as_str().to_string() },
+        ProbeDetail {
+            key: "encryptedProtocol".to_string(),
+            value: inputs.encrypted_endpoint.protocol.as_str().to_string(),
+        },
         ProbeDetail {
             key: "encryptedEndpoint".to_string(),
-            value: encrypted_endpoint
+            value: inputs
+                .encrypted_endpoint
                 .doh_url
                 .clone()
-                .unwrap_or_else(|| format!("{}:{}", encrypted_endpoint.host, encrypted_endpoint.port)),
+                .unwrap_or_else(|| format!("{}:{}", inputs.encrypted_endpoint.host, inputs.encrypted_endpoint.port)),
         },
-        ProbeDetail { key: "encryptedHost".to_string(), value: encrypted_endpoint.host.clone() },
-        ProbeDetail { key: "encryptedPort".to_string(), value: encrypted_endpoint.port.to_string() },
+        ProbeDetail { key: "encryptedHost".to_string(), value: inputs.encrypted_endpoint.host.clone() },
+        ProbeDetail { key: "encryptedPort".to_string(), value: inputs.encrypted_endpoint.port.to_string() },
         ProbeDetail {
             key: "encryptedTlsServerName".to_string(),
-            value: encrypted_endpoint.tls_server_name.clone().unwrap_or_default(),
+            value: inputs.encrypted_endpoint.tls_server_name.clone().unwrap_or_default(),
         },
-        ProbeDetail { key: "encryptedBootstrapIps".to_string(), value: encrypted_bootstrap_ips.join("|") },
+        ProbeDetail { key: "encryptedBootstrapIps".to_string(), value: inputs.encrypted_bootstrap_ips.join("|") },
         ProbeDetail {
             key: "encryptedBootstrapValidated".to_string(),
-            value: (oracle_assessment.selected.is_some() && !selected_bootstrap_ips.is_empty()).to_string(),
+            value: (inputs.oracle_assessment.selected.is_some() && !inputs.selected_bootstrap_ips.is_empty())
+                .to_string(),
         },
         ProbeDetail {
             key: "encryptedDohUrl".to_string(),
-            value: encrypted_endpoint.doh_url.clone().unwrap_or_default(),
+            value: inputs.encrypted_endpoint.doh_url.clone().unwrap_or_default(),
         },
         ProbeDetail {
             key: "encryptedDnscryptProviderName".to_string(),
-            value: encrypted_endpoint.dnscrypt_provider_name.clone().unwrap_or_default(),
+            value: inputs.encrypted_endpoint.dnscrypt_provider_name.clone().unwrap_or_default(),
         },
         ProbeDetail {
             key: "encryptedDnscryptPublicKey".to_string(),
-            value: encrypted_endpoint.dnscrypt_public_key.clone().unwrap_or_default(),
+            value: inputs.encrypted_endpoint.dnscrypt_public_key.clone().unwrap_or_default(),
         },
-        ProbeDetail { key: "encryptedAddresses".to_string(), value: encrypted_addresses.to_string() },
-        ProbeDetail { key: "encryptedLatencyMs".to_string(), value: encrypted_latency_ms.to_string() },
+        ProbeDetail { key: "encryptedAddresses".to_string(), value: inputs.encrypted_addresses.to_string() },
+        ProbeDetail { key: "encryptedLatencyMs".to_string(), value: inputs.encrypted_latency_ms.to_string() },
         ProbeDetail {
             key: "dnsLatencyQuality".to_string(),
-            value: classify_dns_latency_quality(udp_latency_ms, encrypted_latency_ms),
+            value: classify_dns_latency_quality(inputs.udp_latency_ms, inputs.encrypted_latency_ms),
         },
-        ProbeDetail { key: "dnsInjectionSuspected".to_string(), value: injection_suspected.to_string() },
+        ProbeDetail { key: "dnsInjectionSuspected".to_string(), value: inputs.injection_suspected.to_string() },
         ProbeDetail {
             key: "expected".to_string(),
-            value: if expected.is_empty() {
+            value: if inputs.expected.is_empty() {
                 "[]".to_string()
             } else {
-                expected.iter().cloned().collect::<Vec<_>>().join("|")
+                inputs.expected.iter().cloned().collect::<Vec<_>>().join("|")
             },
         },
         ProbeDetail {
             key: "resolverFallbackUsed".to_string(),
-            value: oracle_assessment.fallback_resolver_used().unwrap_or_default(),
+            value: inputs.oracle_assessment.fallback_resolver_used().unwrap_or_default(),
         },
     ]
 }

@@ -492,9 +492,8 @@ fn opportunistic_pool_contains_ttl_write_candidates() {
 fn rooted_pool_contains_root_only_candidates() {
     let rooted = build_rooted_candidates(&minimal_ui_config());
     let multi_disorder = rooted.iter().find(|c| c.id == "multi_disorder").expect("multi_disorder");
-    assert_eq!(
-        rooted.iter().any(|c| c.id == "fake_rst"),
-        false,
+    assert!(
+        !rooted.iter().any(|c| c.id == "fake_rst"),
         "fake_rst is lab-only and must not appear in the rooted production pool"
     );
     assert!(
