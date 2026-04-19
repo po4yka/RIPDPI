@@ -72,7 +72,7 @@ class DefaultHomeAnalysisAugmentationSource
                     val operator = describeOperatorOrSsid(capabilities)
                     val captivePortal =
                         capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true
-                    val mtu = linkProps?.mtu?.takeIf { it > 0 }
+                    val mtu = linkPropertiesMtuOrNull(linkProps)
                     val ipv6Reachable =
                         withTimeoutOrNull(IPv6ProbeTimeoutMs) {
                             runCatching {

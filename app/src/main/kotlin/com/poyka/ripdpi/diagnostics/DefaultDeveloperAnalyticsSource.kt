@@ -339,7 +339,7 @@ class DefaultDeveloperAnalyticsSource
                             meteredNetwork =
                                 !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
                             vpnActive = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
-                            mtu = linkProps?.mtu?.takeIf { it > 0 },
+                            mtu = linkPropertiesMtuOrNull(linkProps),
                             handoverEvents = emptyList(),
                         ),
                     )

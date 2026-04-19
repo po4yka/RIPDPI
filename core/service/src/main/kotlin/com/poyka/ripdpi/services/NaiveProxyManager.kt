@@ -102,6 +102,7 @@ class NaiveProxyRuntime
     ) : RipDpiRelayRuntime {
         @Volatile private var stopping = false
 
+        @Suppress("detekt.ReturnCount")
         override suspend fun start(config: ResolvedRipDpiRelayConfig): Int {
             stopping = false
             val restartAttempts = ArrayDeque<Long>()

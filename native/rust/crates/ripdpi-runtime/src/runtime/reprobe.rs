@@ -131,7 +131,7 @@ pub(super) fn maybe_spawn_reprobe(state: &RuntimeState) {
         return;
     }
 
-    if let Ok(mut cache) = state.cache.lock() {
+    if let Ok(mut cache) = state.cache.write() {
         let cleared = cache.clear_connection_cache(&state.config);
         flush_autolearn_updates(state, &mut cache);
         if cleared > 0 {
@@ -164,7 +164,7 @@ pub(super) fn maybe_spawn_reprobe(state: &RuntimeState) {
 fn run_reprobe(
     config: &ripdpi_config::RuntimeConfig,
     evolver: &crate::sync::Arc<crate::sync::RwLock<StrategyEvolver>>,
-    adaptive_tuning: &crate::sync::Mutex<crate::adaptive_tuning::AdaptivePlannerResolver>,
+    adaptive_tuning: &crate::sync::Arc<crate::sync::RwLock<crate::adaptive_tuning::AdaptivePlannerResolver>>,
 ) {
     let deadline = std::time::Instant::now() + TOTAL_DEADLINE;
     let mut failures = 0usize;
@@ -208,7 +208,7 @@ fn run_reprobe(
             *ev = StrategyEvolver::new(ev.is_enabled(), ev.epsilon());
         }
         // Flush adaptive tuning cache so per-flow hints are re-learned.
-        if let Ok(mut tuning) = adaptive_tuning.lock() {
+        if let Ok(mut tuning) = adaptive_tuning.write() {
             tuning.clear_all();
         }
     } else {

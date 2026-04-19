@@ -152,6 +152,7 @@ pub fn build_seqovl_fake_prefix(
             }
             Ok(output)
         }
+        _ => Err(DesyncError),
     }
 }
 
