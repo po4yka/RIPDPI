@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.crash
 
 import co.touchlab.kermit.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -21,6 +22,8 @@ class CrashReportReader(
             if (!file.exists()) return@withContext null
             try {
                 json.decodeFromString<CrashReport>(file.readText(Charsets.UTF_8))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Logger.w(e) { "Corrupt crash report, deleting" }
                 file.delete()

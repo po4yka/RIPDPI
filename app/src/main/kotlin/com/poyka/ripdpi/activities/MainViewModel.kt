@@ -294,7 +294,7 @@ class MainViewModel
         private val settingsState: StateFlow<AppSettings> =
             appSettingsRepository.settings.stateIn(
                 scope = viewModelScope,
-                started = SharingStarted.Eagerly,
+                started = SharingStarted.WhileSubscribed(5_000),
                 initialValue = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
             )
 
@@ -365,7 +365,7 @@ class MainViewModel
                     )
                 }.stateIn(
                     scope = viewModelScope,
-                    started = SharingStarted.Eagerly,
+                    started = SharingStarted.WhileSubscribed(5_000),
                     initialValue = MainStartupState(),
                 )
 

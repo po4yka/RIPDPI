@@ -1,4 +1,4 @@
-use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex, Ordering, RwLock};
+use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering, RwLock};
 use std::time::Duration;
 
 use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
@@ -17,12 +17,16 @@ pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 pub(super) const DESYNC_SEED_BASE: u32 = 7;
 
+// Lock order: cache -> adaptive_fake_ttl -> adaptive_tuning
+// No function should acquire more than one of these locks simultaneously, but
+// if that ever changes, always acquire in the order listed above to prevent
+// deadlocks.
 #[derive(Clone)]
 pub(super) struct RuntimeState {
     pub(super) config: Arc<RuntimeConfig>,
-    pub(super) cache: Arc<Mutex<RuntimePolicy>>,
-    pub(super) adaptive_fake_ttl: Arc<Mutex<AdaptiveFakeTtlResolver>>,
-    pub(super) adaptive_tuning: Arc<Mutex<AdaptivePlannerResolver>>,
+    pub(super) cache: Arc<RwLock<RuntimePolicy>>,
+    pub(super) adaptive_fake_ttl: Arc<RwLock<AdaptiveFakeTtlResolver>>,
+    pub(super) adaptive_tuning: Arc<RwLock<AdaptivePlannerResolver>>,
     pub(super) retry_stealth: Arc<RwLock<RetryPacer>>,
     pub(super) strategy_evolver: Arc<RwLock<StrategyEvolver>>,
     pub(super) active_clients: Arc<AtomicUsize>,
@@ -45,17 +49,17 @@ pub(super) struct RuntimeState {
 
 pub(super) struct RuntimeCleanup {
     pub(super) config: Arc<RuntimeConfig>,
-    pub(super) cache: Arc<Mutex<RuntimePolicy>>,
-    pub(super) adaptive_tuning: Arc<Mutex<AdaptivePlannerResolver>>,
+    pub(super) cache: Arc<RwLock<RuntimePolicy>>,
+    pub(super) adaptive_tuning: Arc<RwLock<AdaptivePlannerResolver>>,
 }
 
 impl Drop for RuntimeCleanup {
     fn drop(&mut self) {
-        if let Ok(mut cache) = self.cache.lock() {
+        if let Ok(mut cache) = self.cache.write() {
             cache.flush_host_store(&self.config);
             let _ = cache.dump_stdout_groups(&self.config, std::io::stdout());
         }
-        if let Ok(mut adaptive_tuning) = self.adaptive_tuning.lock() {
+        if let Ok(mut adaptive_tuning) = self.adaptive_tuning.write() {
             adaptive_tuning.flush_store(self.config.as_ref());
         }
     }

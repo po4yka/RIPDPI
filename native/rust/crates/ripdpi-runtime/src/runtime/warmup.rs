@@ -80,7 +80,7 @@ fn run_warmup(state: &RuntimeState) {
     }
 
     // Flush any remaining autolearn updates produced by the probes.
-    if let Ok(mut cache) = state.cache.lock() {
+    if let Ok(mut cache) = state.cache.write() {
         flush_autolearn_updates(state, &mut cache);
     }
 

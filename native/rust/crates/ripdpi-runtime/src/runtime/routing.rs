@@ -57,7 +57,7 @@ pub(super) fn select_route_for_transport(
     allow_unknown_payload: bool,
     transport: TransportProtocol,
 ) -> io::Result<ConnectionRoute> {
-    let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
+    let mut cache = state.cache.write().map_err(|_| io::Error::other("cache lock poisoned"))?;
     cache
         .select_initial(target, payload, host, allow_unknown_payload, transport, &state.config)
         .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))
@@ -291,7 +291,7 @@ pub(super) fn advance_route_for_failure(
 
     let retry_penalties =
         build_retry_selection_penalties(state, target, host.as_deref(), payload, TransportProtocol::Tcp)?;
-    let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
+    let mut cache = state.cache.write().map_err(|_| io::Error::other("cache lock poisoned"))?;
     let next = cache.advance_route(
         &state.config,
         route,
@@ -342,7 +342,7 @@ pub(super) fn note_block_signal_for_failure(
         .as_ref()
         .and_then(|control| control.current_network_snapshot())
         .is_none_or(|snapshot| snapshot.validated && !snapshot.captive_portal);
-    if let Ok(mut cache) = state.cache.lock() {
+    if let Ok(mut cache) = state.cache.write() {
         cache.note_block_signal(&state.config, host, signal.signal, signal.provider.as_deref(), confirmation_allowed);
         flush_autolearn_updates(state, &mut cache);
     }
@@ -428,7 +428,7 @@ pub(super) fn note_route_success_for_transport(
     host: Option<&str>,
     transport: TransportProtocol,
 ) -> io::Result<()> {
-    let mut cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
+    let mut cache = state.cache.write().map_err(|_| io::Error::other("cache lock poisoned"))?;
     cache.note_route_success_for_transport(&state.config, target, route, host, transport)?;
     flush_autolearn_updates(state, &mut cache);
     Ok(())
@@ -745,7 +745,7 @@ fn should_retry_without_tfo(tcp_fast_open_enabled: bool, failure: &ClassifiedFai
 }
 
 pub(super) fn runtime_supports_trigger(state: &RuntimeState, trigger: u32) -> io::Result<bool> {
-    let cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
+    let cache = state.cache.read().map_err(|_| io::Error::other("cache lock poisoned"))?;
     Ok(cache.supports_trigger(trigger))
 }
 

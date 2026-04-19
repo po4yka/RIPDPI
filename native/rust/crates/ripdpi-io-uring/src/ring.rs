@@ -274,6 +274,8 @@ fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, registry: Arc
                         let token = token_base + i as u64;
                         let entry =
                             opcode::ReadFixed::new(Fd(fd), std::ptr::null_mut(), 0, buf_idx).build().user_data(token);
+                        // SAFETY: submission buffers and fds live until the completion is reaped;
+                        // see SAFETY notes on SendZc/RecvFixed arms above for the full contract.
                         unsafe {
                             if ring.submission().push(&entry).is_err() {
                                 let _ = ring.submit();
@@ -288,6 +290,8 @@ fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, registry: Arc
                         let token = token_base + i as u64;
                         let entry =
                             opcode::WriteFixed::new(Fd(fd), std::ptr::null(), len, buf_idx).build().user_data(token);
+                        // SAFETY: submission buffers and fds live until the completion is reaped;
+                        // see SAFETY notes on SendZc/RecvFixed arms above for the full contract.
                         unsafe {
                             if ring.submission().push(&entry).is_err() {
                                 let _ = ring.submit();

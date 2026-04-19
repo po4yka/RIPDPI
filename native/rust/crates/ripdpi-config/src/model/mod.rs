@@ -6,6 +6,7 @@ pub use offset::*;
 use ripdpi_packets::{HttpFakeProfile, TlsFakeProfile, UdpFakeProfile};
 use std::net::{IpAddr, SocketAddr};
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DesyncMode {
     None = 0,
@@ -22,6 +23,7 @@ pub struct PartSpec {
     pub offset: OffsetExpr,
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TcpChainStepKind {
     Split,
@@ -41,6 +43,7 @@ pub enum TcpChainStepKind {
     FakeRst,
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum EmitterTier {
     NonRootProduction,
@@ -138,6 +141,7 @@ impl TcpChainStepKind {
     }
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum SeqOverlapFakeMode {
     #[default]
@@ -145,6 +149,7 @@ pub enum SeqOverlapFakeMode {
     Rand,
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum FakePacketSource {
     #[default]
@@ -152,6 +157,7 @@ pub enum FakePacketSource {
     CapturedClientHello,
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum FakeOrder {
     #[default]
@@ -161,6 +167,7 @@ pub enum FakeOrder {
     AllRealsFirst,
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum FakeSeqMode {
     #[default]
@@ -168,6 +175,7 @@ pub enum FakeSeqMode {
     Sequential,
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IpIdMode {
     Seq,
@@ -278,6 +286,7 @@ impl Default for RotationPolicy {
     }
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UdpChainStepKind {
     FakeBurst,
@@ -383,6 +392,7 @@ pub struct WsizeConfig {
     pub scale: Option<u8>,
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum WsTunnelMode {
     #[default]
@@ -397,6 +407,7 @@ impl WsTunnelMode {
     }
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum QuicInitialMode {
     Disabled,
@@ -405,6 +416,7 @@ pub enum QuicInitialMode {
     RouteAndCache,
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum QuicFakeProfile {
     #[default]
@@ -436,6 +448,7 @@ pub struct DesyncGroupMatchSettings {
 }
 
 /// Which entropy-based DPI detection model to counter with padding.
+#[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum EntropyMode {
     /// No entropy padding applied.
@@ -658,6 +671,7 @@ impl RuntimeConfig {
     }
 }
 
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseResult {
     Run(Box<RuntimeConfig>),
