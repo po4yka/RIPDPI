@@ -53,3 +53,62 @@ Reinforces the rule above. Transform tasks into verifiable loops:
 For multi-step tasks, state a brief plan with per-step verification (test name, metric, or command) before implementing. Strong success criteria let you iterate independently; weak ones ("make it work") force clarification mid-flight.
 
 **These guidelines are working if:** diffs contain no drive-by changes, rewrites due to overcomplication drop, and clarifying questions arrive before implementation rather than after mistakes.
+
+## Kotlin Anti-Patterns
+
+### Coroutines, state, Compose
+
+- **Blocking coroutines on Main** -- never use `runBlocking` on the main thread.
+- **GlobalScope usage** -- use structured concurrency with `viewModelScope`/`lifecycleScope`.
+- **Collecting flows in `init`** -- use `repeatOnLifecycle` or `collectAsStateWithLifecycle`.
+- **Mutable state exposure** -- expose `StateFlow`, not `MutableStateFlow`.
+- **Not handling exceptions in flows** -- always use the `catch` operator.
+- **`lateinit` for nullable** -- use `lazy` or nullable with `?`.
+- **Hardcoded dispatchers** -- inject dispatchers for testability.
+- **Not using sealed classes** -- prefer sealed for finite state sets.
+- **Side effects in Composables** -- use `LaunchedEffect`/`SideEffect`.
+- **Unstable Compose parameters** -- use stable/immutable types or `@Stable`.
+
+### Memory & resource leaks
+
+- No `Activity`/`Context` references in singletons or companion objects; use `@ApplicationContext` through Hilt.
+- Always unregister `BroadcastReceiver`, `ContentObserver`, and lifecycle observers symmetrically with where they were registered.
+- Close `Cursor`, `InputStream`, `ParcelFileDescriptor`, and other `Closeable` instances via `use {}`.
+- Call `TypedArray.recycle()` after reading styled attributes.
+
+### Coroutine cancellation correctness
+
+- Never swallow `CancellationException`; rethrow it in any generic `catch (e: Throwable)`.
+- Use `withContext(NonCancellable)` only for short cleanup inside `finally` blocks.
+- Cleanup work that must survive cancellation (closing sockets, releasing VPN fds) belongs inside `NonCancellable` + `finally`, not outside it.
+- See also: `kotlin-test-patterns`.
+
+### Flow hot-path discipline
+
+- `shareIn(SharingStarted.Eagerly)` leaks across config changes -- prefer `WhileSubscribed(5_000)`.
+- Keep `stateIn`/`shareIn` inside `viewModelScope`; never pin them to a global or application-scoped job.
+- `conflate()` drops items, `buffer()` preserves them -- pick deliberately based on whether missed emissions are acceptable.
+- See also: `android-compose-patterns`, `compose-performance`.
+
+### Foreground service discipline
+
+- Call `startForeground()` within 5s of `onStartCommand`; missing this throws `ForegroundServiceDidNotStartInTimeException`.
+- Create the notification channel before `startForeground`, not inside the foreground lifecycle.
+- Handle `ForegroundServiceStartNotAllowedException` on API 31+ (apps in the background cannot start a foreground service without a qualifying reason).
+- See also: `service-lifecycle`.
+
+### Security & logging
+
+- No secrets, tokens, resolver IPs, user-visible URLs, or tunnelled traffic in `Log.*`.
+- No `Log.d`/`Log.v` in release builds; use `Timber` with a release `Tree` that strips or gates by severity.
+- Avoid `WebView.setAllowFileAccess(true)` and `setAllowUniversalAccessFromFileURLs(true)`.
+- Never persist to `MODE_WORLD_READABLE`/`MODE_WORLD_WRITEABLE` storage; app-private or EncryptedFile only.
+
+### Serialization stability
+
+- `@SerialName` values are a wire contract -- never rename them as part of a refactor.
+- All cross-boundary `@Serializable` fields must have defaults, be nullable, or be `@Transient` with a default.
+- Keep Kotlin/Rust wire structs field-order-aligned; mismatched ordering breaks golden contract tests.
+- See also: `protobuf-schema-evolution`, `protobuf-datastore`.
+
+Existing custom detekt rules live in `quality/detekt-rules/` (`InjectConstructorDefaultParameter`, `HiltViewModelApplicationContext`, `DisallowNewSuppression`); consult `detekt-custom-rules` skill before inventing new ones.
