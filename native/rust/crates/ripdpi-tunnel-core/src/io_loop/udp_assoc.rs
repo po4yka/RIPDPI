@@ -60,19 +60,6 @@ pub(super) fn touch_udp_activity(last_activity: &Arc<AtomicU64>) {
     last_activity.store(now_millis(), Ordering::Relaxed);
 }
 
-fn activity_epoch(last_activity: &Arc<AtomicU64>) -> u64 {
-    // Ordering: Relaxed -- timestamp staleness of <1ms is acceptable; no happens-before needed.
-    last_activity.load(Ordering::Relaxed)
-}
-
-fn udp_association_is_idle(last_activity: &Arc<AtomicU64>, idle_timeout: Duration) -> bool {
-    // Ordering: Relaxed -- timestamp staleness of <1ms is acceptable; no happens-before needed.
-    let last_ms = last_activity.load(Ordering::Relaxed);
-    let now_ms = now_millis();
-    let elapsed_ms = now_ms.saturating_sub(last_ms);
-    elapsed_ms >= idle_timeout.as_millis() as u64
-}
-
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn create_udp_association(
     proxy_addr: SocketAddr,
@@ -98,7 +85,10 @@ pub(super) async fn create_udp_association(
                     }
                 }
                 Ok(None) => {
-                    if w_cancel.is_cancelled() || udp_association_is_idle(&w_activity, idle_timeout) {
+                    // Ordering: Relaxed -- timestamp staleness of <1ms is acceptable; no happens-before needed.
+                    let idle = now_millis().saturating_sub(w_activity.load(Ordering::Relaxed))
+                        >= idle_timeout.as_millis() as u64;
+                    if w_cancel.is_cancelled() || idle {
                         let _ = w_tx.send(UdpEvent::Closed { src, association_id }).await;
                         break;
                     }
@@ -157,7 +147,7 @@ pub(super) async fn forward_udp_payload(
             Ok(association) => {
                 eviction_heap.push(UdpEvictionEntry {
                     addr: src,
-                    last_activity_epoch: activity_epoch(&association.last_activity),
+                    last_activity_epoch: association.last_activity.load(Ordering::Relaxed),
                 });
                 associations.insert(src, association);
             }
