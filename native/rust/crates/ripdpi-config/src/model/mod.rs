@@ -671,7 +671,6 @@ impl RuntimeConfig {
     }
 }
 
-#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ParseResult {
     Run(Box<RuntimeConfig>),
