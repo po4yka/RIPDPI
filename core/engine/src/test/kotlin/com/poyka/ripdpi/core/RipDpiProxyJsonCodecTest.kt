@@ -330,56 +330,61 @@ class RipDpiProxyJsonCodecTest {
 
     @Test
     fun `ui preferences round trip warp ws tunnel and log context sections`() {
-        val preferences =
-            RipDpiProxyUIPreferences(
-                warp =
-                    RipDpiWarpConfig(
-                        enabled = true,
-                        routeMode = "rules",
-                        routeHosts = "example.org\nexample.net",
-                        builtInRulesEnabled = false,
-                        endpointSelectionMode = "manual",
-                        manualEndpoint =
-                            RipDpiWarpManualEndpointConfig(
-                                host = "engage.cloudflareclient.com",
-                                ipv4 = "162.159.193.10",
-                                ipv6 = "2606:4700:d0::a29f:c10a",
-                                port = 2409,
-                            ),
-                        scannerEnabled = false,
-                        scannerParallelism = 4,
-                        scannerMaxRttMs = 900,
-                        amneziaPreset = "custom",
-                        amnezia =
-                            RipDpiWarpAmneziaConfig(
-                                enabled = true,
-                                jc = 5,
-                                jmin = 2,
-                                jmax = 7,
-                                h1 = 11L,
-                                h2 = 12L,
-                                h3 = 13L,
-                                h4 = 14L,
-                                s1 = 21,
-                                s2 = 22,
-                                s3 = 23,
-                                s4 = 24,
-                            ),
-                        localSocksHost = "127.0.0.9",
-                        localSocksPort = 12090,
-                    ),
-                wsTunnel = RipDpiWsTunnelConfig(enabled = true, mode = "telegram"),
-                logContext =
-                    RipDpiLogContext(
-                        runtimeId = " runtime-1 ",
-                        mode = " Audit ",
-                        policySignature = " policy-v1 ",
-                        fingerprintHash = " fp-123 ",
-                        diagnosticsSessionId = " diag-321 ",
-                    ),
-            )
-
+        val preferences = warpWsTunnelAndLogContextPreferences()
         val decoded = decodeRipDpiProxyUiPreferences(preferences.toNativeConfigJson())
+        assertWarpWsTunnelAndLogContextRoundTrip(decoded)
+    }
+
+    private fun warpWsTunnelAndLogContextPreferences() =
+        RipDpiProxyUIPreferences(
+            warp =
+                RipDpiWarpConfig(
+                    enabled = true,
+                    routeMode = "rules",
+                    routeHosts = "example.org\nexample.net",
+                    builtInRulesEnabled = false,
+                    endpointSelectionMode = "manual",
+                    manualEndpoint =
+                        RipDpiWarpManualEndpointConfig(
+                            host = "engage.cloudflareclient.com",
+                            ipv4 = "162.159.193.10",
+                            ipv6 = "2606:4700:d0::a29f:c10a",
+                            port = 2409,
+                        ),
+                    scannerEnabled = false,
+                    scannerParallelism = 4,
+                    scannerMaxRttMs = 900,
+                    amneziaPreset = "custom",
+                    amnezia =
+                        RipDpiWarpAmneziaConfig(
+                            enabled = true,
+                            jc = 5,
+                            jmin = 2,
+                            jmax = 7,
+                            h1 = 11L,
+                            h2 = 12L,
+                            h3 = 13L,
+                            h4 = 14L,
+                            s1 = 21,
+                            s2 = 22,
+                            s3 = 23,
+                            s4 = 24,
+                        ),
+                    localSocksHost = "127.0.0.9",
+                    localSocksPort = 12090,
+                ),
+            wsTunnel = RipDpiWsTunnelConfig(enabled = true, mode = "telegram"),
+            logContext =
+                RipDpiLogContext(
+                    runtimeId = " runtime-1 ",
+                    mode = " Audit ",
+                    policySignature = " policy-v1 ",
+                    fingerprintHash = " fp-123 ",
+                    diagnosticsSessionId = " diag-321 ",
+                ),
+        )
+
+    private fun assertWarpWsTunnelAndLogContextRoundTrip(decoded: RipDpiProxyUIPreferences?) {
         val warp = decoded?.warp
         val wsTunnel = decoded?.wsTunnel
         val logContext = decoded?.logContext
