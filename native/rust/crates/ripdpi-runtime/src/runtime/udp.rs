@@ -254,7 +254,7 @@ mod tests {
     use crate::runtime_policy::HostSource;
     use crate::runtime_policy::RuntimePolicy;
     use crate::strategy_evolver::StrategyEvolver;
-    use crate::sync::{Arc, AtomicBool, AtomicUsize, RwLock};
+    use crate::sync::{Arc, AtomicBool, AtomicUsize};
     use local_network_fixture::{FixtureConfig, FixtureStack};
     use ripdpi_config::{QuicInitialMode, RuntimeConfig};
     use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
