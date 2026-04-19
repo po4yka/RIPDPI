@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.core.codec
 
+import com.poyka.ripdpi.core.RipDpiChainConfig
+import com.poyka.ripdpi.core.RipDpiTcpRotationCandidateConfig
+import com.poyka.ripdpi.core.RipDpiTcpRotationConfig
 import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
 import com.poyka.ripdpi.data.NumericRangeModel
@@ -9,9 +12,6 @@ import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.normalizeActivationFilter
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
-import com.poyka.ripdpi.core.RipDpiChainConfig
-import com.poyka.ripdpi.core.RipDpiTcpRotationCandidateConfig
-import com.poyka.ripdpi.core.RipDpiTcpRotationConfig
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -138,15 +138,16 @@ internal object RangeCodec {
             val round = toNative(normalized.round)
             val payloadSize = toNative(normalized.payloadSize)
             val streamBytes = toNative(normalized.streamBytes)
-            val allFields = sequenceOf(
-                round,
-                payloadSize,
-                streamBytes,
-                normalized.tcpHasTimestamp,
-                normalized.tcpHasEch,
-                normalized.tcpWindowBelow,
-                normalized.tcpMssBelow,
-            )
+            val allFields =
+                sequenceOf(
+                    round,
+                    payloadSize,
+                    streamBytes,
+                    normalized.tcpHasTimestamp,
+                    normalized.tcpHasEch,
+                    normalized.tcpWindowBelow,
+                    normalized.tcpMssBelow,
+                )
             if (allFields.all { it == null }) {
                 null
             } else {
