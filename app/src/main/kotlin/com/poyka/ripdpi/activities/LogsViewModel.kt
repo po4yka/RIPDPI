@@ -209,16 +209,16 @@ class LogsViewModel
                 activeSeverities,
                 activeSessionOnly,
                 autoScrollEnabled,
-                refreshing,
-            ) { logs, subsystems, severities, activeSessionOnly, isAutoScroll, isRefreshing ->
+            ) { logs, subsystems, severities, activeSessionOnly, isAutoScroll ->
                 LogsUiState(
                     logs = logs.toImmutableList(),
                     activeSubsystems = subsystems.toImmutableSet(),
                     activeSeverities = severities.toImmutableSet(),
                     showActiveSessionOnly = activeSessionOnly,
                     isAutoScroll = isAutoScroll,
-                    isRefreshing = isRefreshing,
                 )
+            }.combine(refreshing) { state, isRefreshing ->
+                state.copy(isRefreshing = isRefreshing)
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(LogsStateSubscriptionMillis),
