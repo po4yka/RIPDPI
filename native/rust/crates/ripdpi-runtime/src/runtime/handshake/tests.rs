@@ -4,7 +4,7 @@ use crate::adaptive_tuning::AdaptivePlannerResolver;
 use crate::retry_stealth::RetryPacer;
 use crate::runtime::state::RuntimeState;
 use crate::runtime_policy::RuntimePolicy;
-use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex};
+use crate::sync::{Arc, AtomicBool, AtomicUsize, RwLock};
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
 use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
@@ -32,11 +32,11 @@ fn runtime_state(config: RuntimeConfig) -> RuntimeState {
 fn runtime_state_with_context(config: RuntimeConfig, runtime_context: Option<ProxyRuntimeContext>) -> RuntimeState {
     RuntimeState {
         config: Arc::new(config.clone()),
-        cache: Arc::new(Mutex::new(RuntimePolicy::load(&config))),
-        adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
-        adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
-        retry_stealth: Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
-        strategy_evolver: Arc::new(crate::sync::RwLock::new(crate::strategy_evolver::StrategyEvolver::new(false, 0.0))),
+        cache: Arc::new(RwLock::new(RuntimePolicy::load(&config))),
+        adaptive_fake_ttl: Arc::new(RwLock::new(AdaptiveFakeTtlResolver::default())),
+        adaptive_tuning: Arc::new(RwLock::new(AdaptivePlannerResolver::default())),
+        retry_stealth: Arc::new(RwLock::new(RetryPacer::default())),
+        strategy_evolver: Arc::new(RwLock::new(crate::strategy_evolver::StrategyEvolver::new(false, 0.0))),
         active_clients: Arc::new(AtomicUsize::new(0)),
         telemetry: None,
         runtime_context,

@@ -8,6 +8,7 @@ import androidx.core.app.NotificationCompat
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.ServiceStateStore
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharedFlow
@@ -21,11 +22,27 @@ import javax.inject.Singleton
 class DetectionCheckScheduler
     @Inject
     constructor(
+        @param:ApplicationContext private val appContext: Context,
         private val serviceStateStore: ServiceStateStore,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
     ) {
         private var observeJob: Job? = null
         private var handoverJob: Job? = null
+
+        init {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val nm = appContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                val channel =
+                    NotificationChannel(
+                        CHANNEL_ID,
+                        "Detection Alerts",
+                        NotificationManager.IMPORTANCE_DEFAULT,
+                    ).apply {
+                        description = "Alerts when VPN bypass is detectable"
+                    }
+                nm.createNotificationChannel(channel)
+            }
+        }
 
         fun startObserving(
             context: Context,
@@ -122,18 +139,6 @@ class DetectionCheckScheduler
             verdict: Verdict,
         ) {
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val channel =
-                    NotificationChannel(
-                        CHANNEL_ID,
-                        "Detection Alerts",
-                        NotificationManager.IMPORTANCE_DEFAULT,
-                    ).apply {
-                        description = "Alerts when VPN bypass is detectable"
-                    }
-                nm.createNotificationChannel(channel)
-            }
 
             val title =
                 when (verdict) {

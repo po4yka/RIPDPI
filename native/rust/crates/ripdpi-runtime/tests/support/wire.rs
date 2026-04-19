@@ -128,23 +128,28 @@ pub mod capture {
     impl LoopbackCapture {
         /// Start capturing packets that involve `filter_port` (src or dst).
         pub fn start(filter_port: u16) -> io::Result<Self> {
+            // SAFETY: all arguments are valid constants; fd validity is checked immediately after.
             let fd = unsafe { libc::socket(libc::AF_PACKET, libc::SOCK_DGRAM, (libc::ETH_P_IP as u16).to_be() as i32) };
             if fd < 0 {
                 return Err(io::Error::last_os_error());
             }
 
             // Bind to loopback interface
+            // SAFETY: "lo\0" is a valid C string literal; the returned index is validated before use.
             let lo_index = unsafe { libc::if_nametoindex(c"lo".as_ptr()) };
             if lo_index == 0 {
+                // SAFETY: fd is valid (checked above) and we own it exclusively at this point.
                 unsafe { libc::close(fd) };
                 return Err(io::Error::new(io::ErrorKind::NotFound, "loopback interface 'lo' not found"));
             }
 
+            // SAFETY: sockaddr_ll is a POD type; zeroing it produces a valid zero-initialised value.
             let mut addr: libc::sockaddr_ll = unsafe { mem::zeroed() };
             addr.sll_family = libc::AF_PACKET as u16;
             addr.sll_protocol = (libc::ETH_P_IP as u16).to_be();
             addr.sll_ifindex = lo_index as i32;
 
+            // SAFETY: fd is valid, addr is fully initialised above, and size matches the struct.
             let rc = unsafe {
                 libc::bind(
                     fd,
@@ -154,12 +159,14 @@ pub mod capture {
             };
             if rc < 0 {
                 let err = io::Error::last_os_error();
+                // SAFETY: fd is valid and we own it exclusively at this point.
                 unsafe { libc::close(fd) };
                 return Err(err);
             }
 
             // Set recv timeout so the thread can check stop flag
             let tv = libc::timeval { tv_sec: 0, tv_usec: 200_000 };
+            // SAFETY: fd is valid, tv is a fully initialised stack variable, and size matches the struct.
             unsafe {
                 libc::setsockopt(
                     fd,
@@ -178,6 +185,7 @@ pub mod capture {
             let handle = thread::spawn(move || {
                 let mut buf = [0u8; 65536];
                 while !stop_flag.load(Ordering::Relaxed) {
+                    // SAFETY: fd is valid for the lifetime of this thread; buf is a valid writable buffer of the given length.
                     let read = unsafe { libc::recv(fd, buf.as_mut_ptr() as *mut libc::c_void, buf.len(), 0) };
                     if read <= 0 {
                         continue;
@@ -187,6 +195,7 @@ pub mod capture {
                         pkt_log.lock().expect("lock packets").push(pkt);
                     }
                 }
+                // SAFETY: fd is valid and this is the sole owner at thread-exit (Drop has set stop=true and called shutdown first).
                 unsafe { libc::close(fd) };
             });
 
@@ -209,6 +218,7 @@ pub mod capture {
         fn drop(&mut self) {
             self.stop.store(true, Ordering::Relaxed);
             // Shutdown the socket to unblock recv
+            // SAFETY: self.fd is a valid socket fd that we own and have not yet closed.
             unsafe { libc::shutdown(self.fd, libc::SHUT_RDWR) };
             if let Some(handle) = self.handle.take() {
                 let _ = handle.join();

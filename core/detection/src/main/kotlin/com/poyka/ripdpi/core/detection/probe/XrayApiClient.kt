@@ -5,6 +5,7 @@ import com.xray.app.proxyman.command.HandlerServiceGrpc
 import com.xray.app.proxyman.command.ListOutboundsRequest
 import com.xray.common.net.IPOrDomain
 import io.grpc.okhttp.OkHttpChannelBuilder
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.InetAddress
@@ -75,6 +76,8 @@ class XrayApiClient(
                         outbounds = outbounds,
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(e)
             } finally {

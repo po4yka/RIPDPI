@@ -238,7 +238,7 @@ class RipDpiVpnService :
         dns: String,
         ipv6: Boolean,
     ): Builder {
-        Logger.v { "DNS: $dns" }
+        Logger.v { "DNS: <redacted>" }
         val builder = Builder()
         builder.setSession("RIPDPI")
         builder.setMtu(defaultTun2SocksTunnelMtu)

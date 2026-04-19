@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.onboarding
 
 import com.poyka.ripdpi.activities.ConnectionTestState
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
+import kotlinx.coroutines.CancellationException
 import okhttp3.Request
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -45,6 +46,8 @@ class OnboardingConnectionTestRunner
                 } else {
                     ConnectionTestState.Failed(reason = "HTTP $responseCode")
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 ConnectionTestState.Failed(reason = e.message ?: "Connection failed")
             }

@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::io;
 use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant as StdInstant};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use android_support::bounded_heap::BoundedHeap;
 use tokio_util::sync::CancellationToken;
@@ -14,11 +15,16 @@ use crate::TunDevice;
 use super::bridge::enqueue_tun_packet;
 use super::packet::build_udp_response;
 
+/// Returns milliseconds since the Unix epoch, or 0 on clock failure.
+fn now_millis() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
+}
+
 pub(super) struct UdpAssociation {
     pub(super) id: u64,
     pub(super) session: UdpSession,
     pub(super) cancel: CancellationToken,
-    pub(super) last_activity: Arc<Mutex<StdInstant>>,
+    pub(super) last_activity: Arc<AtomicU64>,
     pub(super) worker: tokio::task::JoinHandle<()>,
 }
 
@@ -49,18 +55,22 @@ pub(super) fn evict_if_over_capacity(
     }
 }
 
-pub(super) fn touch_udp_activity(last_activity: &Arc<Mutex<StdInstant>>) {
-    if let Ok(mut guard) = last_activity.lock() {
-        *guard = StdInstant::now();
-    }
+pub(super) fn touch_udp_activity(last_activity: &Arc<AtomicU64>) {
+    // Ordering: Relaxed -- timestamp staleness of <1ms is acceptable; no happens-before needed.
+    last_activity.store(now_millis(), Ordering::Relaxed);
 }
 
-fn activity_epoch(last_activity: &Arc<Mutex<StdInstant>>) -> u64 {
-    last_activity.lock().map(|g| g.elapsed().as_millis() as u64).unwrap_or(u64::MAX)
+fn activity_epoch(last_activity: &Arc<AtomicU64>) -> u64 {
+    // Ordering: Relaxed -- timestamp staleness of <1ms is acceptable; no happens-before needed.
+    last_activity.load(Ordering::Relaxed)
 }
 
-fn udp_association_is_idle(last_activity: &Arc<Mutex<StdInstant>>, idle_timeout: Duration) -> bool {
-    last_activity.lock().map(|guard| guard.elapsed() >= idle_timeout).unwrap_or(true)
+fn udp_association_is_idle(last_activity: &Arc<AtomicU64>, idle_timeout: Duration) -> bool {
+    // Ordering: Relaxed -- timestamp staleness of <1ms is acceptable; no happens-before needed.
+    let last_ms = last_activity.load(Ordering::Relaxed);
+    let now_ms = now_millis();
+    let elapsed_ms = now_ms.saturating_sub(last_ms);
+    elapsed_ms >= idle_timeout.as_millis() as u64
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -74,7 +84,7 @@ pub(super) async fn create_udp_association(
     udp_tx: tokio::sync::mpsc::Sender<UdpEvent>,
 ) -> io::Result<UdpAssociation> {
     let session = UdpSession::connect(proxy_addr, auth).await?.with_recv_timeout(idle_timeout);
-    let last_activity = Arc::new(Mutex::new(StdInstant::now()));
+    let last_activity = Arc::new(AtomicU64::new(now_millis()));
     let (w_session, w_activity, w_cancel, w_tx) =
         (session.clone(), Arc::clone(&last_activity), cancel.clone(), udp_tx.clone());
     let worker = tokio::spawn(async move {
@@ -367,25 +377,27 @@ mod tests {
 
     #[test]
     fn touch_udp_activity_updates_timestamp() {
-        let last_activity = Arc::new(Mutex::new(StdInstant::now() - Duration::from_secs(60)));
-        let before = *last_activity.lock().unwrap();
+        let last_activity = Arc::new(AtomicU64::new(now_millis() - 60_000));
+        // Ordering: Relaxed -- timestamp staleness of <1ms is acceptable; no happens-before needed.
+        let before = last_activity.load(Ordering::Relaxed);
 
         touch_udp_activity(&last_activity);
 
-        let after = *last_activity.lock().unwrap();
+        // Ordering: Relaxed -- timestamp staleness of <1ms is acceptable; no happens-before needed.
+        let after = last_activity.load(Ordering::Relaxed);
         assert!(after > before, "timestamp should be refreshed after touch");
-        assert!(after.elapsed() < Duration::from_secs(1), "timestamp should be very recent");
+        assert!(now_millis().saturating_sub(after) < 1_000, "timestamp should be very recent");
     }
 
     #[test]
     fn idle_detection_true_after_timeout() {
-        let last_activity = Arc::new(Mutex::new(StdInstant::now() - Duration::from_secs(60)));
+        let last_activity = Arc::new(AtomicU64::new(now_millis() - 60_000));
         assert!(udp_association_is_idle(&last_activity, Duration::from_secs(30)), "should be idle after timeout");
     }
 
     #[test]
     fn idle_detection_false_when_fresh() {
-        let last_activity = Arc::new(Mutex::new(StdInstant::now()));
+        let last_activity = Arc::new(AtomicU64::new(now_millis()));
         assert!(
             !udp_association_is_idle(&last_activity, Duration::from_secs(30)),
             "should not be idle when recently active"

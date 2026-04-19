@@ -56,6 +56,7 @@ impl ProtectCallback for JniProtectCallback {
 /// Called from Kotlin when the VPN service starts. Stores the JavaVM
 /// and a global reference to the VpnService instance.
 pub(crate) fn register_vpn_protect(vm: &JavaVM, vpn_service: Global<JObject<'static>>) {
+    // SAFETY: JavaVM pointer is held live by JNI_OnLoad registration for the duration of the process.
     // Re-create a JavaVM handle from the raw pointer (just copies the pointer).
     let vm_clone = unsafe { JavaVM::from_raw(vm.get_raw()) };
     let callback = Arc::new(JniProtectCallback { vm: vm_clone, vpn_service });

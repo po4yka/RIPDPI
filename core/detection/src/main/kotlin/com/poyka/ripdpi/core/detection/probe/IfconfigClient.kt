@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.core.detection.probe
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -81,6 +82,8 @@ object IfconfigClient {
                     return@withContext Result.failure(IOException("Empty response body"))
                 }
                 Result.success(body)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(e)
             } finally {
