@@ -216,6 +216,10 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     use tokio::net::TcpListener;
 
+    fn udp_association_is_idle(last_activity: &Arc<AtomicU64>, idle_timeout: Duration) -> bool {
+        now_millis().saturating_sub(last_activity.load(Ordering::Relaxed)) >= idle_timeout.as_millis() as u64
+    }
+
     async fn spawn_udp_associate_stub() -> SocketAddr {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind proxy listener");
         let proxy_addr = listener.local_addr().expect("proxy addr");
