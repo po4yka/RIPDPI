@@ -675,25 +675,30 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Install emulator system image
+      - name: Provision macrobenchmark emulator
         run: |
-          set -euo pipefail
-          android sdk install "system-images;android-34;aosp_atd;x86_64"
-
-      - name: Create and start emulator
-        run: |
-          set -euo pipefail
-          android emulator create --profile=medium_phone
-          android emulator start medium_phone
+          bash scripts/ci/start-android-emulator.sh \
+            --avd macrobench \
+            --api 34 \
+            --arch x86_64 \
+            --target aosp_atd
 
       - name: Run macrobenchmarks
         run: bash scripts/ci/run-android-macrobenchmark.sh
         env:
           RUSTC_WRAPPER: sccache
 
+      - name: Capture macrobenchmark emulator diagnostics
+        if: always()
+        run: |
+          bash scripts/ci/capture-android-emulator-diagnostics.sh \
+            --avd macrobench \
+            --output-dir "$RUNNER_TEMP/android-macrobenchmark-diagnostics" \
+            --logcat-file android-logcat.txt
+
       - name: Stop emulator
         if: always()
-        run: android emulator stop medium_phone || true
+        run: bash scripts/ci/stop-android-emulator.sh --avd macrobench
 
       - name: Check for regressions
         run: |
@@ -710,6 +715,8 @@ jobs:
         with:
           name: macrobenchmark-artifacts
           path: |
+            android-logcat.txt
+            ${{ runner.temp }}/android-macrobenchmark-diagnostics/
             baselineprofile/build/outputs/
             ${{ runner.temp }}/macrobenchmark-summary.md
           retention-days: 7
@@ -735,32 +742,28 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Install emulator system image
+      - name: Provision integration emulator
         run: |
-          set -euo pipefail
-          android sdk install "system-images;android-34;aosp_atd;x86_64"
-
-      - name: Create and start emulator
-        run: |
-          set -euo pipefail
-          android emulator create --profile=medium_phone
-          android emulator start medium_phone
+          bash scripts/ci/start-android-emulator.sh \
+            --avd integration \
+            --api 34 \
+            --arch x86_64 \
+            --target aosp_atd
 
       - name: Run connected Android integration tests
         run: bash scripts/ci/run-android-integration-emulator.sh
 
-      - name: Stop emulator
-        if: always()
-        run: android emulator stop medium_phone || true
-
-      - name: Capture emulator logcat
+      - name: Capture integration emulator diagnostics
         if: always()
         run: |
-          if adb devices | grep -q 'emulator'; then
-            adb logcat -d > android-logcat.txt || true
-          else
-            touch android-logcat.txt
-          fi
+          bash scripts/ci/capture-android-emulator-diagnostics.sh \
+            --avd integration \
+            --output-dir "$RUNNER_TEMP/android-integration-diagnostics" \
+            --logcat-file android-logcat.txt
+
+      - name: Stop emulator
+        if: always()
+        run: bash scripts/ci/stop-android-emulator.sh --avd integration
 
       - name: Upload Android integration artifacts
         if: always()
@@ -769,6 +772,7 @@ jobs:
           name: android-integration-artifacts
           path: |
             android-logcat.txt
+            ${{ runner.temp }}/android-integration-diagnostics/
             ${{ runner.temp }}/android-instrumented-target.txt
             app/build/reports/androidTests/connected/
             app/build/reports/coverage/
@@ -967,23 +971,16 @@ jobs:
             "$RUNNER_TEMP/local-network-fixture/fixture.pid"
           cat "$RUNNER_TEMP/local-network-fixture/fixture-manifest.json"
 
-      - name: Install emulator system image
+      - name: Provision network E2E emulator
         run: |
-          set -euo pipefail
-          android sdk install "system-images;android-34;google_apis;x86_64"
-
-      - name: Create and start emulator
-        run: |
-          set -euo pipefail
-          android emulator create --profile=medium_phone
-          android emulator start medium_phone
+          bash scripts/ci/start-android-emulator.sh \
+            --avd network-e2e \
+            --api 34 \
+            --arch x86_64 \
+            --target google_apis
 
       - name: Run connected Android network E2E tests
         run: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}"
-
-      - name: Stop emulator
-        if: always()
-        run: android emulator stop medium_phone || true
 
       - name: Capture fixture state
         if: always()
@@ -991,14 +988,17 @@ jobs:
           curl -fsS http://127.0.0.1:46090/manifest > "$RUNNER_TEMP/local-network-fixture/fixture-manifest.json" || true
           curl -fsS http://127.0.0.1:46090/events > "$RUNNER_TEMP/local-network-fixture/fixture-events.json" || true
 
-      - name: Capture emulator logcat
+      - name: Capture network E2E emulator diagnostics
         if: always()
         run: |
-          if adb devices | grep -q 'emulator'; then
-            adb logcat -d > android-logcat.txt || true
-          else
-            touch android-logcat.txt
-          fi
+          bash scripts/ci/capture-android-emulator-diagnostics.sh \
+            --avd network-e2e \
+            --output-dir "$RUNNER_TEMP/android-network-e2e-diagnostics" \
+            --logcat-file android-logcat.txt
+
+      - name: Stop emulator
+        if: always()
+        run: bash scripts/ci/stop-android-emulator.sh --avd network-e2e
 
       - name: Stop local network fixture
         if: always()
@@ -1011,6 +1011,7 @@ jobs:
           name: android-network-e2e-artifacts
           path: |
             android-logcat.txt
+            ${{ runner.temp }}/android-network-e2e-diagnostics/
             ${{ runner.temp }}/android-instrumented-target.txt
             app/build/reports/androidTests/connected/
             app/build/reports/coverage/
@@ -1045,33 +1046,28 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Install emulator system image
+      - name: Provision relay smoke emulator
         run: |
-          set -euo pipefail
-          android sdk install "system-images;android-34;aosp_atd;x86_64"
-
-      - name: Create and start emulator
-        run: |
-          set -euo pipefail
-          android emulator create --profile=medium_phone
-          android emulator start medium_phone
+          bash scripts/ci/start-android-emulator.sh \
+            --avd relay-smoke \
+            --api 34 \
+            --arch x86_64 \
+            --target aosp_atd
 
       - name: Run Android relay emulator smoke
         run: bash scripts/ci/run-android-relay-emulator-smoke.sh
 
-      - name: Capture emulator logcat
+      - name: Capture relay smoke emulator diagnostics
         if: always()
         run: |
-          if adb devices | grep -q 'emulator'; then
-            adb logcat -d > android-relay-logcat.txt || true
-          else
-            touch android-relay-logcat.txt
-          fi
+          bash scripts/ci/capture-android-emulator-diagnostics.sh \
+            --avd relay-smoke \
+            --output-dir "$RUNNER_TEMP/android-relay-diagnostics" \
+            --logcat-file android-relay-logcat.txt
 
       - name: Stop emulator
         if: always()
-        run: |
-          android emulator stop medium_phone || true
+        run: bash scripts/ci/stop-android-emulator.sh --avd relay-smoke
 
       - name: Upload Android relay smoke artifacts
         if: always()
@@ -1080,6 +1076,7 @@ jobs:
           name: android-relay-smoke-artifacts
           path: |
             android-relay-logcat.txt
+            ${{ runner.temp }}/android-relay-diagnostics/
             app/build/reports/androidTests/connected/
             app/build/outputs/androidTest-results/connected/
           retention-days: 7

@@ -76,16 +76,14 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Install emulator system image
-        if: contains(matrix.runsOnJson, 'ubuntu-latest')
-        run: android sdk install "system-images;android-34;google_apis;x86_64"
-
-      - name: Create and start emulator
+      - name: Provision Phase 16 emulator
         if: contains(matrix.runsOnJson, 'ubuntu-latest')
         run: |
-          set -euo pipefail
-          android emulator create --profile=medium_phone
-          android emulator start medium_phone
+          bash scripts/ci/start-android-emulator.sh \
+            --avd phase16 \
+            --api 34 \
+            --arch x86_64 \
+            --target google_apis
 
       - name: Install packet smoke host tools
         if: contains(matrix.runsOnJson, 'ubuntu-latest')
@@ -97,15 +95,24 @@ jobs:
       - name: Run Phase 16 matrix entry
         run: bash scripts/ci/run-phase16-matrix-entry.sh
 
+      - name: Capture Phase 16 emulator diagnostics
+        if: always() && contains(matrix.runsOnJson, 'ubuntu-latest')
+        run: |
+          bash scripts/ci/capture-android-emulator-diagnostics.sh \
+            --avd phase16 \
+            --output-dir "$RUNNER_TEMP/phase16-android-diagnostics"
+
       - name: Stop emulator
         if: always() && contains(matrix.runsOnJson, 'ubuntu-latest')
-        run: android emulator stop medium_phone || true
+        run: bash scripts/ci/stop-android-emulator.sh --avd phase16
 
       - name: Upload Phase 16 matrix artifacts
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifactName }}
-          path: build/phase16-matrix/${{ matrix.id }}/**
+          path: |
+            build/phase16-matrix/${{ matrix.id }}/**
+            ${{ runner.temp }}/phase16-android-diagnostics/
           if-no-files-found: warn
           retention-days: 14
