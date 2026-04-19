@@ -267,18 +267,14 @@ pub(crate) fn classify_probe_outcome(
 /// those cases, `None` otherwise.
 fn event_level_override(probe_type: &str, outcome: &str) -> Option<&'static str> {
     match (probe_type, outcome) {
-        ("dns_integrity", "dns_sinkhole_substitution")
-        | ("dns_integrity", "dns_nxdomain_mismatch")
-        | ("dns_integrity", "dns_suspicious_divergence")
-        | ("domain_reachability", "tls_cert_invalid")
-        | ("domain_reachability", "http_blockpage")
+        ("dns_integrity", "dns_sinkhole_substitution" | "dns_nxdomain_mismatch" | "dns_suspicious_divergence")
+        | ("domain_reachability", "tls_cert_invalid" | "http_blockpage")
         | ("service_reachability", "service_blocked")
         | ("circumvention_reachability", "circumvention_blocked")
         | ("telegram_availability", "blocked")
         | ("strategy_http", "http_blockpage")
         | ("strategy_https", "tls_cert_invalid")
-        | ("strategy_failure_classification", "http_blockpage")
-        | ("strategy_failure_classification", "dns_tampering") => Some("warn"),
+        | ("strategy_failure_classification", "http_blockpage" | "dns_tampering") => Some("warn"),
         _ => None,
     }
 }

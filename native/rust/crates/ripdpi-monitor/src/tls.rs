@@ -609,8 +609,7 @@ fn build_ech_client_config(
     let bootstrap_endpoint = template_metadata
         .template
         .ech_bootstrap_resolver_id
-        .map(encrypted_dns_endpoint_for_resolver_id)
-        .unwrap_or_else(|| encrypted_dns_endpoint_for_resolver_id("adguard"));
+        .map_or_else(|| encrypted_dns_endpoint_for_resolver_id("adguard"), encrypted_dns_endpoint_for_resolver_id);
     let ech_config_list =
         match resolve_https_ech_configs_via_encrypted_dns_with_endpoint(server_name, bootstrap_endpoint, transport) {
             EchResolutionOutcome::Available(bytes) => bytes,
