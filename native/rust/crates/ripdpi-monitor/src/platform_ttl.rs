@@ -13,6 +13,8 @@ pub(crate) fn get_observed_ttl(stream: &std::net::TcpStream) -> Option<u8> {
     let fd = stream.as_raw_fd();
     let mut ttl: libc::c_int = 0;
     let mut len: libc::socklen_t = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
+    // SAFETY: fd is a valid TCP socket fd (from TcpStream::as_raw_fd) and ttl/len are stack-allocated
+    // variables whose pointers remain valid for the duration of the getsockopt call.
     let ret = unsafe {
         libc::getsockopt(fd, libc::IPPROTO_IP, libc::IP_TTL, &mut ttl as *mut _ as *mut libc::c_void, &mut len)
     };

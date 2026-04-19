@@ -183,7 +183,7 @@ pub(super) fn resolve_adaptive_fake_ttl(
         return Ok(None);
     };
     let mut resolver =
-        state.adaptive_fake_ttl.lock().map_err(|_| io::Error::other("adaptive fake ttl mutex poisoned"))?;
+        state.adaptive_fake_ttl.write().map_err(|_| io::Error::other("adaptive fake ttl lock poisoned"))?;
     Ok(Some(resolver.resolve(group_index, target, host, auto_ttl, group.actions.ttl)))
 }
 
@@ -195,7 +195,7 @@ pub(super) fn resolve_adaptive_tcp_hints(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<AdaptivePlannerHints> {
-    let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
+    let mut resolver = state.adaptive_tuning.write().map_err(|_| io::Error::other("adaptive tuning lock poisoned"))?;
     Ok(apply_tcp_morph_policy_to_hints(
         state,
         resolver.resolve_tcp_hints(network_scope_key(&state.config), group_index, target, host, group, payload),
@@ -210,7 +210,7 @@ pub(super) fn resolve_adaptive_udp_hints(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<AdaptivePlannerHints> {
-    let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
+    let mut resolver = state.adaptive_tuning.write().map_err(|_| io::Error::other("adaptive tuning lock poisoned"))?;
     let hints = apply_udp_morph_policy_to_hints(
         state,
         resolver.resolve_udp_hints(network_scope_key(&state.config), group_index, target, host, group, payload),
@@ -228,7 +228,7 @@ pub(super) fn note_adaptive_fake_ttl_success(
     host: Option<&str>,
 ) -> io::Result<()> {
     let mut resolver =
-        state.adaptive_fake_ttl.lock().map_err(|_| io::Error::other("adaptive fake ttl mutex poisoned"))?;
+        state.adaptive_fake_ttl.write().map_err(|_| io::Error::other("adaptive fake ttl lock poisoned"))?;
     resolver.note_success(group_index, target, host);
     Ok(())
 }
@@ -240,7 +240,7 @@ pub(super) fn note_adaptive_fake_ttl_failure(
     host: Option<&str>,
 ) -> io::Result<()> {
     let mut resolver =
-        state.adaptive_fake_ttl.lock().map_err(|_| io::Error::other("adaptive fake ttl mutex poisoned"))?;
+        state.adaptive_fake_ttl.write().map_err(|_| io::Error::other("adaptive fake ttl lock poisoned"))?;
     resolver.note_failure(group_index, target, host);
     Ok(())
 }
@@ -253,7 +253,7 @@ pub(super) fn note_server_ttl_for_route(
     observed_ttl: u8,
 ) -> io::Result<()> {
     let mut resolver =
-        state.adaptive_fake_ttl.lock().map_err(|_| io::Error::other("adaptive fake ttl mutex poisoned"))?;
+        state.adaptive_fake_ttl.write().map_err(|_| io::Error::other("adaptive fake ttl lock poisoned"))?;
     resolver.note_server_ttl(group_index, target, host, observed_ttl);
     Ok(())
 }
@@ -265,7 +265,7 @@ pub(super) fn note_adaptive_tcp_success(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<()> {
-    let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
+    let mut resolver = state.adaptive_tuning.write().map_err(|_| io::Error::other("adaptive tuning lock poisoned"))?;
     resolver.note_tcp_success(network_scope_key(&state.config), group_index, target, host, payload);
     resolver.persist_if_due(state.config.as_ref());
     Ok(())
@@ -278,7 +278,7 @@ pub(super) fn note_adaptive_tcp_failure(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<()> {
-    let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
+    let mut resolver = state.adaptive_tuning.write().map_err(|_| io::Error::other("adaptive tuning lock poisoned"))?;
     resolver.note_tcp_failure(network_scope_key(&state.config), group_index, target, host, payload);
     resolver.persist_if_due(state.config.as_ref());
     Ok(())
@@ -291,7 +291,7 @@ pub(super) fn note_adaptive_udp_success(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<()> {
-    let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
+    let mut resolver = state.adaptive_tuning.write().map_err(|_| io::Error::other("adaptive tuning lock poisoned"))?;
     resolver.note_udp_success(network_scope_key(&state.config), group_index, target, host, payload);
     resolver.persist_if_due(state.config.as_ref());
     Ok(())
@@ -304,7 +304,7 @@ pub(super) fn note_adaptive_udp_failure(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<()> {
-    let mut resolver = state.adaptive_tuning.lock().map_err(|_| io::Error::other("adaptive tuning mutex poisoned"))?;
+    let mut resolver = state.adaptive_tuning.write().map_err(|_| io::Error::other("adaptive tuning lock poisoned"))?;
     resolver.note_udp_failure(network_scope_key(&state.config), group_index, target, host, payload);
     resolver.persist_if_due(state.config.as_ref());
     Ok(())

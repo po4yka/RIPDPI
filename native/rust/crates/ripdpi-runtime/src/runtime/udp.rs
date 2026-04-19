@@ -254,7 +254,7 @@ mod tests {
     use crate::runtime_policy::HostSource;
     use crate::runtime_policy::RuntimePolicy;
     use crate::strategy_evolver::StrategyEvolver;
-    use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex};
+    use crate::sync::{Arc, AtomicBool, AtomicUsize, RwLock};
     use local_network_fixture::{FixtureConfig, FixtureStack};
     use ripdpi_config::{QuicInitialMode, RuntimeConfig};
     use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
@@ -271,9 +271,9 @@ mod tests {
     ) -> RuntimeState {
         RuntimeState {
             config: Arc::new(config.clone()),
-            cache: Arc::new(Mutex::new(RuntimePolicy::load(&config))),
-            adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
-            adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
+            cache: Arc::new(crate::sync::RwLock::new(RuntimePolicy::load(&config))),
+            adaptive_fake_ttl: Arc::new(crate::sync::RwLock::new(AdaptiveFakeTtlResolver::default())),
+            adaptive_tuning: Arc::new(crate::sync::RwLock::new(AdaptivePlannerResolver::default())),
             retry_stealth: Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
             strategy_evolver: Arc::new(crate::sync::RwLock::new(StrategyEvolver::new(false, 0.0))),
             active_clients: Arc::new(AtomicUsize::new(0)),

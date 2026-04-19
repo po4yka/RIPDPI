@@ -212,7 +212,7 @@ mod tests {
     use crate::runtime::state::RuntimeState;
     use crate::runtime_policy::RuntimePolicy;
     use crate::strategy_evolver::StrategyEvolver;
-    use crate::sync::{Arc, AtomicUsize, Mutex};
+    use crate::sync::{Arc, AtomicUsize, RwLock};
     use aes::cipher::{KeyIvInit, StreamCipher};
     use aes::Aes256;
     use std::net::{Ipv4Addr, TcpListener};
@@ -232,11 +232,11 @@ mod tests {
         let config = ripdpi_config::RuntimeConfig::default();
         RuntimeState {
             config: Arc::new(config.clone()),
-            cache: Arc::new(Mutex::new(RuntimePolicy::load(&config))),
-            adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
-            adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
-            retry_stealth: Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
-            strategy_evolver: Arc::new(crate::sync::RwLock::new(StrategyEvolver::new(false, 0.0))),
+            cache: Arc::new(RwLock::new(RuntimePolicy::load(&config))),
+            adaptive_fake_ttl: Arc::new(RwLock::new(AdaptiveFakeTtlResolver::default())),
+            adaptive_tuning: Arc::new(RwLock::new(AdaptivePlannerResolver::default())),
+            retry_stealth: Arc::new(RwLock::new(RetryPacer::default())),
+            strategy_evolver: Arc::new(RwLock::new(StrategyEvolver::new(false, 0.0))),
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry: None,
             runtime_context: None,

@@ -197,6 +197,8 @@ pub(crate) struct ProxyTelemetryState {
 
 impl ProxyTelemetryState {
     pub(crate) fn new(log_context: Option<ProxyLogContext>) -> Self {
+        // Ordering: Relaxed -- session ID is a monotonic counter used only for logging; no
+        // synchronisation with other threads is needed beyond uniqueness.
         let ordinal = NEXT_PROXY_SESSION_ID.fetch_add(1, Ordering::Relaxed);
         let session_id = format!("proxy-{ordinal}");
         clear_proxy_events();
@@ -335,8 +337,11 @@ impl ProxyTelemetryState {
     }
 
     pub(crate) fn mark_running(&self, bind_addr: String, max_clients: usize, group_count: usize) {
-        self.running.store(true, Ordering::Relaxed);
-        self.adaptive_override_active.store(false, Ordering::Relaxed);
+        // Ordering: Release -- pairs with Acquire loads in snapshot() to publish the running
+        // state transition; readers on other threads must see all preceding writes.
+        self.running.store(true, Ordering::Release);
+        // Ordering: Release -- pairs with Acquire load in snapshot(); signals override cleared.
+        self.adaptive_override_active.store(false, Ordering::Release);
         let message = format!("listener started addr={bind_addr} maxClients={max_clients} groups={group_count}");
         self.emit_event("proxy", "info", &message);
         self.update_strings(|s| {
@@ -350,25 +355,35 @@ impl ProxyTelemetryState {
     }
 
     pub(crate) fn mark_stopped(&self) {
-        self.running.store(false, Ordering::Relaxed);
-        self.active_sessions.store(0, Ordering::Relaxed);
-        self.adaptive_override_active.store(false, Ordering::Relaxed);
+        // Ordering: Release -- pairs with Acquire load in snapshot(); publishes stopped state.
+        self.running.store(false, Ordering::Release);
+        // Ordering: Release -- active_sessions gates UI display of "N active"; Release ensures
+        // readers that Acquire-load running=false also see active_sessions=0.
+        self.active_sessions.store(0, Ordering::Release);
+        // Ordering: Release -- pairs with Acquire load in snapshot(); signals override cleared.
+        self.adaptive_override_active.store(false, Ordering::Release);
         let message = "listener stopped".to_string();
         self.emit_event("proxy", "info", &message);
     }
 
     pub(crate) fn on_client_accepted(&self) {
-        self.active_sessions.fetch_add(1, Ordering::Relaxed);
+        // Ordering: AcqRel -- active_sessions gates display logic ("if active_sessions > 0");
+        // AcqRel on fetch_add ensures the increment is globally visible on all cores.
+        self.active_sessions.fetch_add(1, Ordering::AcqRel);
+        // Ordering: Relaxed -- monotonic counter read for display only; no happens-before needed.
         self.total_sessions.fetch_add(1, Ordering::Relaxed);
     }
 
     pub(crate) fn on_client_finished(&self) {
+        // Ordering: AcqRel/Acquire -- active_sessions gates display logic; use AcqRel on success
+        // and Acquire on load so the decrement is visible to concurrent snapshot readers.
         self.active_sessions
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| Some(value.saturating_sub(1)))
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |value| Some(value.saturating_sub(1)))
             .ok();
     }
 
     pub(crate) fn on_client_error(&self, error: String) {
+        // Ordering: Relaxed -- counter read for display only, no happens-before needed.
         self.total_errors.fetch_add(1, Ordering::Relaxed);
         let message = format!("client error: {error}");
         self.emit_event("proxy", "warn", &message);
@@ -376,8 +391,10 @@ impl ProxyTelemetryState {
     }
 
     pub(crate) fn on_client_io_error(&self, error: &std::io::Error) {
+        // Ordering: Relaxed -- counter read for display only, no happens-before needed.
         self.total_errors.fetch_add(1, Ordering::Relaxed);
         if is_transient_network_error(error) {
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             self.network_errors.fetch_add(1, Ordering::Relaxed);
         }
         let error_str = error.to_string();
@@ -387,6 +404,7 @@ impl ProxyTelemetryState {
     }
 
     pub(crate) fn on_route_selected(&self, target: String, group_index: usize, host: Option<String>, phase: &str) {
+        // Ordering: Relaxed -- display-only field; readers tolerate stale group index.
         self.last_route_group.store(group_index.try_into().unwrap_or(i64::MAX), Ordering::Relaxed);
         let message = format!(
             "route selected phase={} group={} target={} host={}",
@@ -410,7 +428,9 @@ impl ProxyTelemetryState {
         trigger: u32,
         host: Option<String>,
     ) {
+        // Ordering: Relaxed -- counter read for display only, no happens-before needed.
         self.route_changes.fetch_add(1, Ordering::Relaxed);
+        // Ordering: Relaxed -- display-only field; readers tolerate stale group index.
         self.last_route_group.store(to_group.try_into().unwrap_or(i64::MAX), Ordering::Relaxed);
         let message = format!(
             "route advanced target={} from={} to={} trigger={} host={}",
@@ -436,7 +456,10 @@ impl ProxyTelemetryState {
         host: Option<String>,
         reason: &'static str,
     ) {
-        self.adaptive_override_active.store(true, Ordering::Relaxed);
+        // Ordering: Release -- flag-like signal; pairs with Acquire load in snapshot() so readers
+        // see adaptive_override_active=true before reading associated trigger/reason strings.
+        self.adaptive_override_active.store(true, Ordering::Release);
+        // Ordering: Relaxed -- display-only field; readers tolerate stale group index.
         self.last_route_group.store(group_index.try_into().unwrap_or(i64::MAX), Ordering::Relaxed);
         let message = format!(
             "adaptive override active target={} group={} triggerMask={} failureClass={} reason={} host={}",
@@ -485,10 +508,13 @@ impl ProxyTelemetryState {
 
     pub(crate) fn on_retry_paced(&self, target: String, group_index: usize, reason: &'static str, backoff_ms: u64) {
         if backoff_ms > 0 {
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             self.retry_paced_count.fetch_add(1, Ordering::Relaxed);
         }
+        // Ordering: Relaxed -- display-only field; staleness of a few ms is acceptable.
         self.last_retry_backoff_ms.store(backoff_ms, Ordering::Relaxed);
         if reason == "candidate_order_diversified" {
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             self.candidate_diversification_count.fetch_add(1, Ordering::Relaxed);
         }
         let message =
@@ -568,9 +594,14 @@ impl ProxyTelemetryState {
         last_block_signal: Option<&str>,
         last_block_provider: Option<&str>,
     ) {
-        self.autolearn_enabled.store(enabled, Ordering::Relaxed);
+        // Ordering: Release -- autolearn_enabled is a flag that gates UI behaviour; Release pairs
+        // with Acquire load in snapshot() so readers see the correct host counts alongside it.
+        self.autolearn_enabled.store(enabled, Ordering::Release);
+        // Ordering: Relaxed -- counters read for display only, no happens-before needed.
         self.learned_host_count.store(learned_host_count as u64, Ordering::Relaxed);
+        // Ordering: Relaxed -- counter read for display only, no happens-before needed.
         self.penalized_host_count.store(penalized_host_count as u64, Ordering::Relaxed);
+        // Ordering: Relaxed -- counter read for display only, no happens-before needed.
         self.blocked_host_count.store(blocked_host_count as u64, Ordering::Relaxed);
         self.update_strings(|s| {
             s.last_block_signal = last_block_signal.map(ToOwned::to_owned);
@@ -579,6 +610,7 @@ impl ProxyTelemetryState {
     }
 
     pub(crate) fn on_autolearn_event(&self, action: &'static str, host: Option<String>, group_index: Option<usize>) {
+        // Ordering: Relaxed -- display-only field; readers tolerate stale group index.
         self.last_autolearn_group
             .store(group_index.and_then(|value| i64::try_from(value).ok()).unwrap_or(-1), Ordering::Relaxed);
         let level = if matches!(action, "group_penalized" | "host_blocked") { "warn" } else { "info" };
@@ -622,8 +654,11 @@ impl ProxyTelemetryState {
         let last_block_provider = strings.last_block_provider.clone();
         NativeRuntimeSnapshot {
             source: "proxy".to_string(),
-            state: if self.running.load(Ordering::Relaxed) { "running".to_string() } else { "idle".to_string() },
-            health: if self.running.load(Ordering::Relaxed) {
+            // Ordering: Acquire -- pairs with Release stores in mark_running/mark_stopped.
+            state: if self.running.load(Ordering::Acquire) { "running".to_string() } else { "idle".to_string() },
+            // Ordering: Acquire -- pairs with Release stores in mark_running/mark_stopped.
+            health: if self.running.load(Ordering::Acquire) {
+                // Ordering: Relaxed -- counter read for display only, no happens-before needed.
                 if self.total_errors.load(Ordering::Relaxed) == 0 {
                     "healthy".to_string()
                 } else {
@@ -632,25 +667,35 @@ impl ProxyTelemetryState {
             } else {
                 "idle".to_string()
             },
-            active_sessions: self.active_sessions.load(Ordering::Relaxed),
+            // Ordering: Acquire -- active_sessions gates display logic; pairs with AcqRel stores.
+            active_sessions: self.active_sessions.load(Ordering::Acquire),
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             total_sessions: self.total_sessions.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             total_errors: self.total_errors.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             network_errors: self.network_errors.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             route_changes: self.route_changes.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             retry_paced_count: self.retry_paced_count.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- display-only field; staleness of a few ms is acceptable.
             last_retry_backoff_ms: match self.last_retry_backoff_ms.load(Ordering::Relaxed) {
                 0 => None,
                 value => Some(value),
             },
             last_retry_reason,
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             candidate_diversification_count: self.candidate_diversification_count.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- display-only field; readers tolerate stale group index.
             last_route_group: match self.last_route_group.load(Ordering::Relaxed) {
                 value if value >= 0 => i32::try_from(value).ok(),
                 _ => None,
             },
             last_failure_class,
             last_fallback_action,
-            adaptive_override_active: self.adaptive_override_active.load(Ordering::Relaxed),
+            // Ordering: Acquire -- pairs with Release stores in mark_running/mark_stopped/on_adaptive_override.
+            adaptive_override_active: self.adaptive_override_active.load(Ordering::Acquire),
             adaptive_trigger_mask,
             adaptive_last_trigger,
             adaptive_override_reason,
@@ -671,18 +716,24 @@ impl ProxyTelemetryState {
             last_target,
             last_host,
             last_error,
-            autolearn_enabled: self.autolearn_enabled.load(Ordering::Relaxed),
+            // Ordering: Acquire -- pairs with Release store in set_autolearn_state.
+            autolearn_enabled: self.autolearn_enabled.load(Ordering::Acquire),
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             learned_host_count: i32::try_from(self.learned_host_count.load(Ordering::Relaxed)).unwrap_or(i32::MAX),
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             penalized_host_count: i32::try_from(self.penalized_host_count.load(Ordering::Relaxed)).unwrap_or(i32::MAX),
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             blocked_host_count: i32::try_from(self.blocked_host_count.load(Ordering::Relaxed)).unwrap_or(i32::MAX),
             last_block_signal,
             last_block_provider,
             last_autolearn_host,
+            // Ordering: Relaxed -- display-only field; readers tolerate stale group index.
             last_autolearn_group: match self.last_autolearn_group.load(Ordering::Relaxed) {
                 value if value >= 0 => i32::try_from(value).ok(),
                 _ => None,
             },
             last_autolearn_action,
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             slot_exhaustions: self.slot_exhaustions.load(Ordering::Relaxed),
             profile_id: None,
             protocol_kind: None,
@@ -735,6 +786,7 @@ pub(crate) struct ProxyTelemetryObserver {
 
 impl RuntimeTelemetrySink for ProxyTelemetryObserver {
     fn on_client_slot_exhausted(&self) {
+        // Ordering: Relaxed -- counter read for display only, no happens-before needed.
         self.state.slot_exhaustions.fetch_add(1, Ordering::Relaxed);
         self.state.push_event("proxy", "warn", "client rejected: at capacity".to_string());
     }
@@ -770,8 +822,10 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
     }
 
     fn on_failure_classified(&self, target: std::net::SocketAddr, failure: &ClassifiedFailure, host: Option<&str>) {
+        // Ordering: Relaxed -- counter read for display only, no happens-before needed.
         self.state.total_errors.fetch_add(1, Ordering::Relaxed);
         if failure.action.as_str() == "retry_with_matching_group" {
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             self.state.network_errors.fetch_add(1, Ordering::Relaxed);
         }
         self.state.on_failure_classified(target.to_string(), failure, host.map(ToOwned::to_owned));

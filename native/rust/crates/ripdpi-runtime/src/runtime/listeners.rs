@@ -17,7 +17,7 @@ use mio::{Events, Interest, Poll};
 use ripdpi_config::RuntimeConfig;
 use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
-use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex};
+use crate::sync::{Arc, AtomicBool, AtomicUsize, RwLock};
 
 use super::state::{flush_autolearn_updates, ClientSlotGuard, RuntimeCleanup, RuntimeState, LISTENER};
 
@@ -301,9 +301,9 @@ pub(super) fn run_proxy_with_listener_internal(
     let evolver_epsilon = config.adaptive.evolution_epsilon_permil as f64 / 1000.0;
     let state = RuntimeState {
         config: Arc::new(config),
-        cache: Arc::new(Mutex::new(cache)),
-        adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
-        adaptive_tuning: Arc::new(Mutex::new(adaptive_tuning)),
+        cache: Arc::new(RwLock::new(cache)),
+        adaptive_fake_ttl: Arc::new(RwLock::new(AdaptiveFakeTtlResolver::default())),
+        adaptive_tuning: Arc::new(RwLock::new(adaptive_tuning)),
         retry_stealth: Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
         strategy_evolver: Arc::new(crate::sync::RwLock::new(crate::strategy_evolver::StrategyEvolver::new(
             evolver_enabled,
@@ -335,7 +335,7 @@ pub(super) fn run_proxy_with_listener_internal(
     if let Some(telemetry) = &state.telemetry {
         telemetry.on_listener_started(listener_addr, state.config.network.max_open as usize, state.config.groups.len());
     }
-    if let Ok(mut cache) = state.cache.lock() {
+    if let Ok(mut cache) = state.cache.write() {
         flush_autolearn_updates(&state, &mut cache);
     }
 

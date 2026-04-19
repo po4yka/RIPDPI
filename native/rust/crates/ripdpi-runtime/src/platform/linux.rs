@@ -844,12 +844,14 @@ where
         SocketAddr::V4(_) => {
             let socket = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
             super::protect_socket(&socket, protect_path)?;
+            // SAFETY: socket fd is valid (just created above) and IP_HDRINCL optval is a C integer.
             unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IP, libc::IP_HDRINCL, &1i32) }?;
             socket
         }
         SocketAddr::V6(_) => {
             let socket = Socket::new(Domain::IPV6, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
             super::protect_socket(&socket, protect_path)?;
+            // SAFETY: socket fd is valid (just created above) and IPV6_HDRINCL optval is a C integer.
             unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IPV6, libc::IPV6_HDRINCL, &1i32) }?;
             socket
         }
@@ -892,12 +894,14 @@ fn open_raw_socket(target: SocketAddr, protect_path: Option<&str>) -> io::Result
         SocketAddr::V4(_) => {
             let socket = Socket::new(Domain::IPV4, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
             super::protect_socket(&socket, protect_path)?;
+            // SAFETY: socket fd is valid (just created above) and IP_HDRINCL optval is a C integer.
             unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IP, libc::IP_HDRINCL, &1i32) }?;
             Ok(socket)
         }
         SocketAddr::V6(_) => {
             let socket = Socket::new(Domain::IPV6, Type::RAW, Some(Protocol::from(libc::IPPROTO_RAW)))?;
             super::protect_socket(&socket, protect_path)?;
+            // SAFETY: socket fd is valid (just created above) and IPV6_HDRINCL optval is a C integer.
             unsafe { setsockopt_raw(socket.as_raw_fd(), libc::IPPROTO_IPV6, libc::IPV6_HDRINCL, &1i32) }?;
             Ok(socket)
         }
@@ -1061,6 +1065,7 @@ fn disable_tcp_repair(fd: libc::c_int) -> io::Result<()> {
 
 fn pending_tcp_read_bytes(fd: libc::c_int) -> io::Result<usize> {
     let mut bytes: libc::c_int = 0;
+    // SAFETY: fd is a valid TCP socket fd passed by the caller and `bytes` is a stack-allocated C integer valid for FIONREAD.
     let rc = unsafe { libc::ioctl(fd, libc::FIONREAD, &mut bytes) };
     if rc == 0 {
         usize::try_from(bytes)

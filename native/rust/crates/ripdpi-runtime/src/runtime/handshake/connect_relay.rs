@@ -446,7 +446,7 @@ fn maybe_delay_connect(
     let route = if delayed_route_matches(&state.config, route.group_index, target, &payload, host.as_deref()) {
         route
     } else {
-        let cache = state.cache.lock().map_err(|_| io::Error::other("cache mutex poisoned"))?;
+        let cache = state.cache.read().map_err(|_| io::Error::other("cache lock poisoned"))?;
         cache
             .select_next(
                 &state.config,
@@ -538,9 +538,9 @@ mod tests {
     fn runtime_state(config: RuntimeConfig, telemetry: Option<StdArc<dyn RuntimeTelemetrySink>>) -> RuntimeState {
         RuntimeState {
             config: crate::sync::Arc::new(config.clone()),
-            cache: crate::sync::Arc::new(crate::sync::Mutex::new(RuntimePolicy::load(&config))),
-            adaptive_fake_ttl: crate::sync::Arc::new(crate::sync::Mutex::new(AdaptiveFakeTtlResolver::default())),
-            adaptive_tuning: crate::sync::Arc::new(crate::sync::Mutex::new(AdaptivePlannerResolver::default())),
+            cache: crate::sync::Arc::new(crate::sync::RwLock::new(RuntimePolicy::load(&config))),
+            adaptive_fake_ttl: crate::sync::Arc::new(crate::sync::RwLock::new(AdaptiveFakeTtlResolver::default())),
+            adaptive_tuning: crate::sync::Arc::new(crate::sync::RwLock::new(AdaptivePlannerResolver::default())),
             retry_stealth: crate::sync::Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
             strategy_evolver: crate::sync::Arc::new(crate::sync::RwLock::new(StrategyEvolver::new(false, 0.0))),
             active_clients: crate::sync::Arc::new(crate::sync::AtomicUsize::new(0)),

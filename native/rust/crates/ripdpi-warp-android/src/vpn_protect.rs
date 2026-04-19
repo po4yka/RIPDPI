@@ -37,6 +37,7 @@ impl ProtectCallback for JniProtectCallback {
 }
 
 pub(crate) fn register_vpn_protect(vm: &JavaVM, vpn_service: Global<JObject<'static>>) {
+    // SAFETY: JavaVM pointer is held live by JNI_OnLoad registration for the duration of the process.
     let vm_clone = unsafe { JavaVM::from_raw(vm.get_raw()) };
     register_protect_callback(Arc::new(JniProtectCallback { vm: vm_clone, vpn_service }));
 }

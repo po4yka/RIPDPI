@@ -12,6 +12,9 @@ static NEXT_HANDLE: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(1));
 static SESSIONS: Lazy<Mutex<HashMap<u64, Arc<RelayRuntime>>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
 /// # Safety
+/// Called once by the JVM at library load; `vm` is a valid `*mut JavaVM` that outlives this call.
+/// The function must not panic across the FFI boundary; panic-hook installation and signal masking
+/// are handled inside the `catch_unwind` wrapper.
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
 pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {

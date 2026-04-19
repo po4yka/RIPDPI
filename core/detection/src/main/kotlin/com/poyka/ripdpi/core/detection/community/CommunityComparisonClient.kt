@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core.detection.community
 
 import com.poyka.ripdpi.core.detection.DetectionHistoryStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -37,6 +38,8 @@ class CommunityComparisonClient {
                 }
                 val body = response.body.string()
                 Result.success(json.decodeFromString<CommunityStats>(body))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Result.failure(e)
             }
