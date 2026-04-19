@@ -108,7 +108,7 @@ mod tests {
     use crate::runtime::routing::{advance_route_for_failure, select_route};
     use crate::runtime::state::RuntimeState;
     use crate::runtime_policy::RuntimePolicy;
-    use crate::sync::{Arc, AtomicBool, AtomicUsize, RwLock};
+    use crate::sync::{Arc, AtomicBool, AtomicUsize};
     use ripdpi_config::{
         DesyncGroup, OffsetExpr, RuntimeConfig, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
         DETECT_CONNECT, DETECT_HTTP_LOCAT,
