@@ -114,22 +114,35 @@ android sdk install \
 avdmanager_bin="$(resolve_avdmanager_bin)"
 emulator_bin="$(resolve_emulator_bin)"
 sdk_id="system-images;android-${api_level};${target};${arch}"
-avd_dir="$HOME/.android/avd/${avd_name}.avd"
-avd_ini="$HOME/.android/avd/${avd_name}.ini"
+android_user_home="${ANDROID_SDK_HOME:-$HOME}"
+android_dot_dir="$android_user_home/.android"
+avd_base_dir="$android_dot_dir/avd"
+avd_dir="$avd_base_dir/${avd_name}.avd"
+avd_ini="$avd_base_dir/${avd_name}.ini"
 config_ini="$avd_dir/config.ini"
-emulator_log_dir="$HOME/.android/${avd_name}"
+emulator_log_dir="$android_dot_dir/${avd_name}"
 emulator_log_file="$emulator_log_dir/emulator.log"
+create_log_file="$emulator_log_dir/avdmanager-create.log"
 ram_mb="$(size_to_mb "$ram")"
 heap_mb="$(size_to_mb "$heap")"
 
-mkdir -p "$HOME/.android/avd" "$emulator_log_dir"
+mkdir -p "$avd_base_dir" "$emulator_log_dir"
 stop_android_emulator "$avd_name"
 rm -rf "$avd_dir" "$avd_ini"
 
-echo "no" | "$avdmanager_bin" create avd \
+printf 'no\n' | "$avdmanager_bin" create avd \
   -n "$avd_name" \
   -k "$sdk_id" \
-  -f
+  -p "$avd_dir" \
+  -f \
+  >"$create_log_file" 2>&1
+
+if [[ ! -f "$config_ini" ]]; then
+  echo "::error::AVD config was not created at $config_ini" >&2
+  cat "$create_log_file" >&2 || true
+  find "$android_dot_dir" -maxdepth 3 \( -name "${avd_name}.ini" -o -name config.ini \) -print >&2 || true
+  exit 1
+fi
 
 update_ini_property "$config_ini" "hw.ramSize" "$ram_mb"
 update_ini_property "$config_ini" "vm.heapSize" "$heap_mb"
