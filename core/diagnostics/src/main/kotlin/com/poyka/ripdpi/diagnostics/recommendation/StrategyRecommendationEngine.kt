@@ -1,3 +1,5 @@
+@file:Suppress("detekt.InvalidPackageDeclaration")
+
 package com.poyka.ripdpi.diagnostics
 
 private const val ProbeTypeTcpFatHeader = "tcp_fat_header"

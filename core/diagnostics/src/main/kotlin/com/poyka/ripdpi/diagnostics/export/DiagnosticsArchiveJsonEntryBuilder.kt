@@ -20,6 +20,7 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
 ) {
     private val csvEntryBuilder = DiagnosticsArchiveCsvEntryBuilder(json)
 
+    @Suppress("detekt.LongMethod")
     internal fun buildJsonEntries(
         target: DiagnosticsArchiveTarget,
         selection: DiagnosticsArchiveSelection,
