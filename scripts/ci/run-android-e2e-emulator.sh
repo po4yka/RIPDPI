@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Called from the reactivecircus/android-emulator-runner step.
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/ci/android-emulator-helpers.sh
+source "$script_dir/android-emulator-helpers.sh"
+
 # Arguments: $1=event_name $2=run_maestro_smoke $3=run_appium_smoke
 
 event_name="${1:-}"
@@ -30,7 +33,7 @@ if ! run_target \
   "-Pandroid.testInstrumentationRunnerArguments.class=$PREFLIGHT_CLASS" \
   -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
   -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=46090; then
-  adb logcat -d > android-logcat.txt || true
+  adb_cmd logcat -d > android-logcat.txt || true
   exit 1
 fi
 
@@ -40,7 +43,7 @@ if ! run_target \
   "-Pandroid.testInstrumentationRunnerArguments.notClass=$PREFLIGHT_CLASS" \
   -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlHost=10.0.2.2 \
   -Pandroid.testInstrumentationRunnerArguments.ripdpi.fixtureControlPort=46090; then
-  adb logcat -d > android-logcat.txt || true
+  adb_cmd logcat -d > android-logcat.txt || true
   exit 1
 fi
 

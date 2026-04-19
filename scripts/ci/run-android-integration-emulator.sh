@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/ci/android-emulator-helpers.sh
+source "$script_dir/android-emulator-helpers.sh"
+
 GRADLE_ABI="-Pripdpi.localNativeAbis=x86_64"
 TARGET_FILE="${RUNNER_TEMP:-/tmp}/android-instrumented-target.txt"
 
@@ -17,7 +21,7 @@ run_target() {
 }
 
 if ! run_target "com.poyka.ripdpi.integration"; then
-  adb logcat -d > android-logcat.txt || true
+  adb_cmd logcat -d > android-logcat.txt || true
   exit 1
 fi
 
