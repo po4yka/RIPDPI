@@ -7,6 +7,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -85,6 +86,7 @@ data class RelayCredentialRecord(
     val masqueClientPrivateKeyPem: String? = null,
     val cloudflareTunnelToken: String? = null,
     val cloudflareTunnelCredentialsJson: String? = null,
+    @EncodeDefault
     val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
 
