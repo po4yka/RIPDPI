@@ -10,8 +10,8 @@
   "maxNewCrateSizeBytes": 65536,
   "packages": {
     "ripdpi-android": {
-      "fileSize": 19500000,
-      "textSectionSize": 7790170,
+      "fileSize": 26962184,
+      "textSectionSize": 8200362,
       "functions": [
         {
           "crate": "aws_lc_sys",
