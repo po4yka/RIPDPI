@@ -1,5 +1,91 @@
 #!/usr/bin/env bash
 
+resolve_android_sdk_root() {
+  if [[ -n "${ANDROID_SDK_ROOT:-}" && -d "${ANDROID_SDK_ROOT}" ]]; then
+    printf '%s\n' "${ANDROID_SDK_ROOT}"
+    return 0
+  fi
+
+  if [[ -n "${ANDROID_HOME:-}" && -d "${ANDROID_HOME}" ]]; then
+    printf '%s\n' "${ANDROID_HOME}"
+    return 0
+  fi
+
+  local adb_bin=""
+  if command -v adb >/dev/null 2>&1; then
+    adb_bin="$(command -v adb)"
+  fi
+  if [[ -n "$adb_bin" ]]; then
+    printf '%s\n' "$(cd "$(dirname "$adb_bin")/.." && pwd)"
+    return 0
+  fi
+
+  local candidate
+  for candidate in \
+    "$HOME/Android/Sdk" \
+    "$HOME/android-sdk" \
+    "$HOME/.android-sdk" \
+    "$HOME/.local/share/android-sdk"
+  do
+    if [[ -d "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  echo "::warning::Unable to resolve Android SDK root" >&2
+  return 1
+}
+
+resolve_avdmanager_bin() {
+  if command -v avdmanager >/dev/null 2>&1; then
+    command -v avdmanager
+    return 0
+  fi
+
+  local sdk_root
+  sdk_root="$(resolve_android_sdk_root)" || return 1
+
+  local candidate
+  for candidate in \
+    "$sdk_root/cmdline-tools/latest/bin/avdmanager" \
+    "$sdk_root/cmdline-tools/bin/avdmanager"
+  do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  candidate="$(find "$sdk_root/cmdline-tools" -type f -path '*/bin/avdmanager' 2>/dev/null | sort | tail -n 1 || true)"
+  if [[ -n "$candidate" && -x "$candidate" ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  echo "::warning::Unable to resolve avdmanager binary" >&2
+  return 1
+}
+
+resolve_emulator_bin() {
+  if command -v emulator >/dev/null 2>&1; then
+    command -v emulator
+    return 0
+  fi
+
+  local sdk_root
+  sdk_root="$(resolve_android_sdk_root)" || return 1
+
+  local candidate="$sdk_root/emulator/emulator"
+  if [[ -x "$candidate" ]]; then
+    printf '%s\n' "$candidate"
+    return 0
+  fi
+
+  echo "::warning::Unable to resolve emulator binary" >&2
+  return 1
+}
+
 resolve_adb_bin() {
   if [[ -n "${ADB_BIN:-}" && -x "${ADB_BIN}" ]]; then
     printf '%s\n' "${ADB_BIN}"
@@ -134,13 +220,9 @@ capture_android_emulator_diagnostics() {
 stop_android_emulator() {
   local avd_name="$1"
 
-  if command -v android >/dev/null 2>&1; then
-    android emulator stop --avd "$avd_name" >/dev/null 2>&1 ||
-      android emulator stop "$avd_name" >/dev/null 2>&1 ||
-      true
-  fi
-
   if has_adb_device; then
     adb_cmd emu kill >/dev/null 2>&1 || true
   fi
+
+  pkill -f "emulator .* -avd ${avd_name}( |$)" >/dev/null 2>&1 || true
 }
