@@ -57,6 +57,7 @@ private class RuntimeLifecycleRunner(
     private val isStopping: () -> Boolean,
     private val setStopping: (Boolean) -> Unit,
 ) {
+    @Suppress("detekt.TooGenericExceptionCaught")
     suspend fun start(startBlock: suspend () -> Unit): Throwable? =
         mutex.withLock {
             if (!lifecycleState.tryBeginStart()) {
@@ -70,7 +71,7 @@ private class RuntimeLifecycleRunner(
                 startBlock()
                 lifecycleState.markStarted()
                 null
-            } catch (failure: Throwable) {
+            } catch (failure: Exception) {
                 lifecycleState.markStartFailed()
                 failure
             }

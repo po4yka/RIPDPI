@@ -207,6 +207,7 @@ fn strategy_emitter_tier(tier: EmitterTier) -> StrategyEmitterTier {
         EmitterTier::NonRootProduction => StrategyEmitterTier::NonRootProduction,
         EmitterTier::RootedProduction => StrategyEmitterTier::RootedProduction,
         EmitterTier::LabDiagnosticsOnly => StrategyEmitterTier::LabDiagnosticsOnly,
+        _ => StrategyEmitterTier::NonRootProduction,
     }
 }
 

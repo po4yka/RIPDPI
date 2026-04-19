@@ -29,6 +29,7 @@ import org.junit.Test
 import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@Suppress("detekt.LargeClass")
 class VpnServiceRuntimeCoordinatorTest {
     private data class Env(
         val coordinator: VpnServiceRuntimeCoordinator,

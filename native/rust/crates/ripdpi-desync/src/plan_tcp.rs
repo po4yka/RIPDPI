@@ -352,6 +352,7 @@ pub fn plan_tcp(
             }
             TcpChainStepKind::MultiDisorder => return Err(DesyncError),
             TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => return Err(DesyncError),
+            _ => return Err(DesyncError),
         }
         steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos });
         if matches!(planned_kind, TcpChainStepKind::Oob) {

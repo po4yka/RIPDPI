@@ -172,6 +172,7 @@ fn build_ordered_fake_split_emissions<'a>(
         FakeOrder::AllFakesFirst => vec![fake_a, fake_b, real_a, real_b],
         FakeOrder::RealFakeRealFake => vec![real_a, fake_a, real_b, fake_b],
         FakeOrder::AllRealsFirst => vec![real_a, real_b, fake_a, fake_b],
+        _ => vec![fake_a, real_a, fake_b, real_b],
     }
 }
 
@@ -210,6 +211,10 @@ fn build_plain_fake_emissions<'a>(
             result.extend(fakes);
             result
         }
+        _ => {
+            fakes.push(original);
+            fakes
+        }
     }
 }
 
@@ -230,6 +235,7 @@ fn ordered_segments_from_emissions<'a>(
                         fake_sequence_offset = fake_sequence_offset.saturating_add(emission.payload.len());
                         current
                     }
+                    _ => emission.original_offset,
                 },
             };
             platform::OrderedTcpSegment {
@@ -316,6 +322,7 @@ fn apply_entropy_padding<'a>(
             };
             entropy::generate_combined_padding(payload, pc_target, sh_target, max_pad)
         }
+        _ => return Cow::Borrowed(payload),
     };
 
     if padding.is_empty() {
@@ -451,6 +458,7 @@ pub(super) fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'stati
         TcpChainStepKind::IpFrag2 => "ipfrag2",
         TcpChainStepKind::FakeRst => "fakerst",
         TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => "tlsrec",
+        _ => "unknown",
     })
 }
 
@@ -881,6 +889,8 @@ fn execute_tcp_actions(
                     );
                 }
                 DesyncAction::Delay(ms) => {
+                    // std-thread-safe: each connection runs on its own dedicated OS thread
+                    // (mio + std::thread, no tokio worker pool). Blocking here is correct.
                     std::thread::sleep(Duration::from_millis(u64::from(*ms)));
                 }
             }
@@ -1549,6 +1559,36 @@ fn execute_tcp_fake_family_step(
                             original_offset: second_offset,
                         },
                     ],
+                    _ => vec![
+                        FakeEmission {
+                            role: FakeEmissionRole::Fake,
+                            payload: &first_fake,
+                            ttl: 1,
+                            flags: fake_flags,
+                            original_offset: 0,
+                        },
+                        FakeEmission {
+                            role: FakeEmissionRole::Genuine,
+                            payload: chunk,
+                            ttl: 1,
+                            flags: original_flags,
+                            original_offset: 0,
+                        },
+                        FakeEmission {
+                            role: FakeEmissionRole::Fake,
+                            payload: &second_fake,
+                            ttl: fake_ttl,
+                            flags: fake_flags,
+                            original_offset: second_offset,
+                        },
+                        FakeEmission {
+                            role: FakeEmissionRole::Genuine,
+                            payload: second,
+                            ttl: fake_ttl,
+                            flags: original_flags,
+                            original_offset: second_offset,
+                        },
+                    ],
                 };
                 let ordered_segments = ordered_segments_from_emissions(&emissions, configured_step.fake_seq_mode);
                 send_ordered_fake_segments_action_named(
@@ -2054,6 +2094,7 @@ fn tcp_step_strategy_family(kind: TcpChainStepKind, strategy_family: Option<&'st
         TcpChainStepKind::IpFrag2 => "ipfrag2",
         TcpChainStepKind::FakeRst => "fakerst",
         TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => strategy_family.unwrap_or("tlsrec"),
+        _ => strategy_family.unwrap_or("unknown"),
     }
 }
 
@@ -2167,6 +2208,10 @@ fn execute_tcp_plan_step(
             io::ErrorKind::InvalidData,
             "tls prelude step must not appear in tcp send plan",
         ))),
+        _ => Err(OutboundSendError::Transport(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "unknown tcp step kind in tcp send plan",
+        ))),
     }
 }
 
@@ -2188,6 +2233,8 @@ fn handle_tcp_plan_step_control(
         {
             *cursor = next_cursor;
             if configured_step.inter_segment_delay_ms > 0 && index + 1 < total_steps {
+                // std-thread-safe: each connection runs on its own dedicated OS thread
+                // (mio + std::thread, no tokio worker pool). Blocking here is correct.
                 std::thread::sleep(Duration::from_millis(u64::from(configured_step.inter_segment_delay_ms.min(500))));
             }
             TcpPlanLoopControl::Continue
@@ -2302,6 +2349,8 @@ fn execute_tcp_plan(
             TcpPlanLoopControl::AdvanceToStepEnd => {}
         }
         if configured_step.inter_segment_delay_ms > 0 && index + 1 < plan.steps.len() {
+            // std-thread-safe: each connection runs on its own dedicated OS thread
+            // (mio + std::thread, no tokio worker pool). Blocking here is correct.
             std::thread::sleep(Duration::from_millis(u64::from(configured_step.inter_segment_delay_ms.min(500))));
         }
         cursor = end;

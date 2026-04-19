@@ -43,6 +43,7 @@ impl Ipv4IdAllocator {
             }
             IpIdMode::Rnd => (0..count).map(|_| self.next_random_non_zero()).collect(),
             IpIdMode::Zero => vec![0; count],
+            _ => vec![0; count],
         }
     }
 

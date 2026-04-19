@@ -131,6 +131,7 @@ pub(super) fn udp_morph_hint_family(state: &RuntimeState, hints: AdaptivePlanner
         QuicFakeProfile::Disabled => "disabled",
         QuicFakeProfile::CompatDefault => "compat",
         QuicFakeProfile::RealisticInitial => "realistic",
+        _ => "disabled",
     };
     Some(format!("quic:{burst}:{fake}"))
 }
@@ -217,7 +218,7 @@ mod tests {
     use crate::runtime::state::RuntimeState;
     use crate::runtime_policy::RuntimePolicy;
     use crate::strategy_evolver::StrategyEvolver;
-    use crate::sync::{Arc, AtomicBool, AtomicUsize, Mutex};
+    use crate::sync::{Arc, AtomicBool, AtomicUsize, RwLock};
     use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStep, TcpChainStepKind};
     use ripdpi_packets::DEFAULT_FAKE_TLS;
     use ripdpi_proxy_config::ProxyRuntimeContext;
@@ -225,11 +226,11 @@ mod tests {
     fn state_with_policy(policy: ProxyMorphPolicy) -> RuntimeState {
         RuntimeState {
             config: Arc::new(RuntimeConfig::default()),
-            cache: Arc::new(Mutex::new(RuntimePolicy::default())),
-            adaptive_fake_ttl: Arc::new(Mutex::new(AdaptiveFakeTtlResolver::default())),
-            adaptive_tuning: Arc::new(Mutex::new(AdaptivePlannerResolver::default())),
-            retry_stealth: Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
-            strategy_evolver: Arc::new(crate::sync::RwLock::new(StrategyEvolver::new(false, 0.0))),
+            cache: Arc::new(RwLock::new(RuntimePolicy::default())),
+            adaptive_fake_ttl: Arc::new(RwLock::new(AdaptiveFakeTtlResolver::default())),
+            adaptive_tuning: Arc::new(RwLock::new(AdaptivePlannerResolver::default())),
+            retry_stealth: Arc::new(RwLock::new(RetryPacer::default())),
+            strategy_evolver: Arc::new(RwLock::new(StrategyEvolver::new(false, 0.0))),
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry: None,
             runtime_context: Some(ProxyRuntimeContext {

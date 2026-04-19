@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import java.net.URI
 
 internal const val VpnLocalProxyUsername: String = "ripdpi"
+private const val MaxTcpPort = 65_535
 
 internal data class LocalProxyEndpoint(
     val host: String,
@@ -23,7 +24,7 @@ internal fun resolveLocalProxyEndpoint(
 
     val uri = URI("socks://$listenerAddress")
     val host = requireNotNull(uri.host) { "Proxy listener address is missing a host: $listenerAddress" }
-    require(uri.port in 1..65535) { "Proxy listener address is missing a valid port: $listenerAddress" }
+    require(uri.port in 1..MaxTcpPort) { "Proxy listener address is missing a valid port: $listenerAddress" }
     val port = uri.port
     val password = authToken?.takeIf { it.isNotBlank() }
     return LocalProxyEndpoint(

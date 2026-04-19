@@ -119,12 +119,14 @@ internal class VpnProtectSocketServer(
 
                                             else -> {
                                                 FailureReason.NativeError(
-                                                    "VpnService.protect() failed for fd=$fdInt: ${error.message ?: "unknown error"}",
+                                                    "VpnService.protect() failed for fd=$fdInt: " +
+                                                        "${error.message ?: "unknown error"}",
                                                 )
                                             }
                                         },
                                     detail =
-                                        error.message ?: "VpnService.protect() threw ${error::class.java.simpleName}",
+                                        error.message
+                                            ?: "VpnService.protect() threw ${error::class.java.simpleName}",
                                 )
                             },
                         )

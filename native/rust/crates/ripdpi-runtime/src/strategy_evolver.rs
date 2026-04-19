@@ -85,6 +85,7 @@ fn quic_fake_disc(q: QuicFakeProfile) -> u8 {
         QuicFakeProfile::Disabled => 0,
         QuicFakeProfile::CompatDefault => 1,
         QuicFakeProfile::RealisticInitial => 2,
+        _ => 0,
     }
 }
 
@@ -110,6 +111,7 @@ fn entropy_mode_disc(e: EntropyMode) -> u8 {
         EntropyMode::Popcount => 1,
         EntropyMode::Shannon => 2,
         EntropyMode::Combined => 3,
+        _ => 0,
     }
 }
 

@@ -63,7 +63,13 @@ class DefaultServiceController
                         Intent(context, RipDpiVpnService::class.java).apply {
                             action = startAction
                         }
-                    ContextCompat.startForegroundService(context, intent)
+                    try {
+                        ContextCompat.startForegroundService(context, intent)
+                    } catch (e: IllegalStateException) {
+                        // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
+                        Logger.w(e) { "Foreground service start blocked" }
+                        return
+                    }
                 }
 
                 Mode.Proxy -> {
@@ -72,7 +78,13 @@ class DefaultServiceController
                         Intent(context, RipDpiProxyService::class.java).apply {
                             action = startAction
                         }
-                    ContextCompat.startForegroundService(context, intent)
+                    try {
+                        ContextCompat.startForegroundService(context, intent)
+                    } catch (e: IllegalStateException) {
+                        // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
+                        Logger.w(e) { "Foreground service start blocked" }
+                        return
+                    }
                 }
             }
         }
@@ -82,24 +94,27 @@ class DefaultServiceController
             if (serviceAutomationController.map { it.interceptStop(currentMode) }.orElse(false)) {
                 return
             }
-            when (currentMode) {
-                Mode.VPN -> {
-                    Logger.i { "Stopping VPN" }
-                    val intent =
+            val intent =
+                when (currentMode) {
+                    Mode.VPN -> {
+                        Logger.i { "Stopping VPN" }
                         Intent(context, RipDpiVpnService::class.java).apply {
                             action = stopAction
                         }
-                    ContextCompat.startForegroundService(context, intent)
-                }
+                    }
 
-                Mode.Proxy -> {
-                    Logger.i { "Stopping proxy" }
-                    val intent =
+                    Mode.Proxy -> {
+                        Logger.i { "Stopping proxy" }
                         Intent(context, RipDpiProxyService::class.java).apply {
                             action = stopAction
                         }
-                    ContextCompat.startForegroundService(context, intent)
+                    }
                 }
+            try {
+                ContextCompat.startForegroundService(context, intent)
+            } catch (e: IllegalStateException) {
+                // ForegroundServiceStartNotAllowedException extends IllegalStateException on API 31+
+                Logger.w(e) { "Foreground service start blocked" }
             }
         }
     }
