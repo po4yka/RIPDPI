@@ -475,19 +475,20 @@ fn ephemeral_fixture_config() -> FixtureConfig {
     }
 }
 
-fn offset_fixture_config(offset: u16) -> FixtureConfig {
-    let mut config = ephemeral_fixture_config();
-    config.tcp_echo_port += offset;
-    config.udp_echo_port += offset;
-    config.tls_echo_port += offset;
-    config.dns_udp_port += offset;
-    config.dns_http_port += offset;
-    config.dns_dot_port += offset;
-    config.dns_dnscrypt_port += offset;
-    config.dns_doq_port += offset;
-    config.socks5_port += offset;
-    config.control_port += offset;
-    config
+fn dynamic_fixture_config() -> FixtureConfig {
+    FixtureConfig {
+        tcp_echo_port: 0,
+        udp_echo_port: 0,
+        tls_echo_port: 0,
+        dns_udp_port: 0,
+        dns_http_port: 0,
+        dns_dot_port: 0,
+        dns_dnscrypt_port: 0,
+        dns_doq_port: 0,
+        socks5_port: 0,
+        control_port: 0,
+        ..FixtureConfig::default()
+    }
 }
 
 fn ui_proxy_config() -> RuntimeConfig {
@@ -1144,7 +1145,7 @@ fn route_advancement_fires_on_tcp_reset_and_second_group_handles_traffic() {
 fn repeated_tcp_resets_confirm_blocked_host_and_expose_telemetry() {
     let _guard = test_guard();
     let fixture_a = FixtureStack::start(ephemeral_fixture_config()).expect("start first fixture");
-    let fixture_b = FixtureStack::start(offset_fixture_config(100)).expect("start second fixture");
+    let fixture_b = FixtureStack::start(dynamic_fixture_config()).expect("start second fixture");
     let telemetry = Arc::new(RecordingTelemetry::default());
 
     let mut config = ephemeral_proxy_config(&["-X", "--ip", "127.0.0.1"]);
