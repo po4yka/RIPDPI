@@ -95,19 +95,19 @@ private fun collectDnsTamperingDiagnoses(
 ) {
     dns
         .filter {
-            it.status == DnsObservationStatus.SUBSTITUTION ||
+            it.status == DnsObservationStatus.SINKHOLE_SUBSTITUTION ||
                 it.status == DnsObservationStatus.EXPECTED_MISMATCH ||
-                it.status == DnsObservationStatus.NXDOMAIN
+                it.status == DnsObservationStatus.NXDOMAIN_MISMATCH
         }.forEach { observation ->
             val udpMs = observation.udpLatencyMs
             val encMs = observation.encryptedLatencyMs
             val isTampered =
-                observation.status == DnsObservationStatus.SUBSTITUTION ||
-                    observation.status == DnsObservationStatus.NXDOMAIN
+                observation.status == DnsObservationStatus.SINKHOLE_SUBSTITUTION ||
+                    observation.status == DnsObservationStatus.NXDOMAIN_MISMATCH
             val injectionSuspected = isTampered && udpMs != null && udpMs <= DnsInjectionThresholdMs
             val (mechanism, summary) =
                 when {
-                    observation.status == DnsObservationStatus.NXDOMAIN -> {
+                    observation.status == DnsObservationStatus.NXDOMAIN_MISMATCH -> {
                         "record_deletion" to
                             "DNS records were deleted (NXDOMAIN)"
                     }
@@ -147,7 +147,7 @@ private fun collectDnsBlockpageDiagnoses(
     seen: MutableSet<String>,
 ) {
     dns
-        .filter { it.status == DnsObservationStatus.SUBSTITUTION }
+        .filter { it.status == DnsObservationStatus.SINKHOLE_SUBSTITUTION }
         .forEach { observation ->
             val matchesBlockpage =
                 domains.any { domain ->
@@ -178,8 +178,8 @@ private fun collectDnsLatencyDiagnoses(
         val udpMs = observation.udpLatencyMs ?: return@forEach
         val encMs = observation.encryptedLatencyMs ?: return@forEach
         val isTampered =
-            observation.status == DnsObservationStatus.SUBSTITUTION ||
-                observation.status == DnsObservationStatus.NXDOMAIN
+            observation.status == DnsObservationStatus.SINKHOLE_SUBSTITUTION ||
+                observation.status == DnsObservationStatus.NXDOMAIN_MISMATCH
         if (udpMs <= DnsInjectionThresholdMs && isTampered) {
             pushDiagnosis(
                 diagnoses,

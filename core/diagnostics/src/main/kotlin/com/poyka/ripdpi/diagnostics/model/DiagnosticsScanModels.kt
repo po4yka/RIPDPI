@@ -185,13 +185,31 @@ enum class TransportFailureKind {
 
 @Serializable
 enum class DnsObservationStatus {
+    @SerialName("MATCH")
     MATCH,
+
+    @SerialName("EXPECTED_MISMATCH")
     EXPECTED_MISMATCH,
-    ANSWER_DIVERGENCE,
-    SUBSTITUTION,
-    NXDOMAIN,
-    ENCRYPTED_BLOCKED,
+
+    @SerialName("COMPATIBLE_DIVERGENCE")
+    COMPATIBLE_DIVERGENCE,
+
+    @SerialName("SUSPICIOUS_DIVERGENCE")
+    SUSPICIOUS_DIVERGENCE,
+
+    @SerialName("SINKHOLE_SUBSTITUTION")
+    SINKHOLE_SUBSTITUTION,
+
+    @SerialName("NXDOMAIN_MISMATCH")
+    NXDOMAIN_MISMATCH,
+
+    @SerialName("ORACLE_UNAVAILABLE")
+    ORACLE_UNAVAILABLE,
+
+    @SerialName("UDP_BLOCKED")
     UDP_BLOCKED,
+
+    @SerialName("UNAVAILABLE")
     UNAVAILABLE,
 }
 
