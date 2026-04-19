@@ -11,6 +11,7 @@ import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.vpn.VpnAppCatalog
 import com.poyka.ripdpi.core.detection.vpn.VpnDumpsysParser
+import kotlinx.coroutines.CancellationException
 import java.net.NetworkInterface
 
 object IndirectSignsChecker {
@@ -175,6 +176,8 @@ object IndirectSignsChecker {
                 }
                 true
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             findings.add(Finding("Error checking interfaces: ${e.message}"))
             false
@@ -246,6 +249,8 @@ object IndirectSignsChecker {
             }
 
             detected
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             findings.add(Finding("Error checking MTU: ${e.message}"))
             false
@@ -301,6 +306,8 @@ object IndirectSignsChecker {
                     detected
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             findings.add(Finding("Error checking routes: ${e.message}"))
             false
@@ -411,6 +418,8 @@ object IndirectSignsChecker {
                     }
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             findings.add(Finding("Error checking DNS: ${e.message}"))
             SignalOutcome()
@@ -491,6 +500,8 @@ object IndirectSignsChecker {
             }
 
             SignalOutcome(detected = detected, needsReview = needsReview)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             findings.add(Finding("dumpsys vpn_management: ${e.message}"))
             SignalOutcome()
@@ -579,6 +590,8 @@ object IndirectSignsChecker {
                     SignalOutcome(detected = detected, needsReview = needsReview)
                 }
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             findings.add(Finding("dumpsys activity services: ${e.message}"))
             SignalOutcome()
