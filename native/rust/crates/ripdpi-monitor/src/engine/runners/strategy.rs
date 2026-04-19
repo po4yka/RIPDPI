@@ -10,8 +10,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::{
     build_quic_candidates_for_suite, build_strategy_probe_summary, candidate_pause_ms, probe_fake_ttl_capability,
-    probe_ip_fragmentation_capabilities, probe_tcp_fast_open_capability, supports_udp_ip_fragmentation_for,
-    CandidateEligibility, StrategyCandidateSpec,
+    probe_ip_fragmentation_capabilities, probe_tcp_fast_open_capability, CandidateEligibility, StrategyCandidateSpec,
 };
 use crate::classification::{
     classified_failure_probe_result, classify_strategy_probe_baseline_observations, filter_quic_candidates_for_failure,
@@ -25,11 +24,10 @@ use crate::execution::{
 use crate::observations::observations_for_results;
 use crate::strategy::detect_strategy_probe_dns_tampering;
 use crate::types::{
-    ScanProgress, StrategyProbeCandidateSummary, StrategyProbeCompletionKind, StrategyProbeProgressLane,
-    StrategyProbeRecommendation, StrategyProbeReport, STRATEGY_PROBE_METHODOLOGY_VERSION,
+    ScanProgress, StrategyProbeCompletionKind, StrategyProbeProgressLane, StrategyProbeRecommendation,
+    StrategyProbeReport, STRATEGY_PROBE_METHODOLOGY_VERSION,
 };
-use crate::util::{stable_probe_hash, STRATEGY_PROBE_SUITE_FULL_MATRIX_V1};
-use ripdpi_runtime::platform::{self, RuntimeCapability};
+use crate::util::stable_probe_hash;
 
 #[cfg(test)]
 use self::strategy_support::baseline_has_tls_ech_only;
