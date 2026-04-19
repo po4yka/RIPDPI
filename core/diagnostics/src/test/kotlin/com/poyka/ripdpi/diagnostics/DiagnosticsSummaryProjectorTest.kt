@@ -6,6 +6,7 @@ import org.junit.Test
 
 class DiagnosticsSummaryProjectorTest {
     @Test
+    @Suppress("detekt.LongMethod")
     fun `strategy probe audit assessment is included in report metadata`() {
         val document =
             DiagnosticsSummaryProjector().project(

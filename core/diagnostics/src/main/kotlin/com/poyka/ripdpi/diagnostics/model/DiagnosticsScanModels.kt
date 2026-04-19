@@ -1,3 +1,5 @@
+@file:Suppress("detekt.InvalidPackageDeclaration")
+
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.NativeNetworkSnapshot

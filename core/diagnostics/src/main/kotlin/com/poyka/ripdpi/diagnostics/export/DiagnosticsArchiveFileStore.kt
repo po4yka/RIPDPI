@@ -6,6 +6,8 @@ fun interface DiagnosticsArchiveClock {
     fun now(): Long
 }
 
+private const val PcapRetentionWindowMs = 24L * 60L * 60L * 1000L
+
 class DiagnosticsArchiveFileStore(
     private val cacheDir: File,
     private val clock: DiagnosticsArchiveClock,
@@ -48,12 +50,11 @@ class DiagnosticsArchiveFileStore(
         val pcapDir = File(cacheDir, "diagnostics")
         if (!pcapDir.exists()) return
         val now = clock.now()
-        val maxAge = 24L * 60L * 60L * 1000L
         pcapDir
             .listFiles()
             .orEmpty()
             .filter { it.isFile && it.extension == "pcap" }
-            .filter { now - it.lastModified() > maxAge }
+            .filter { now - it.lastModified() > PcapRetentionWindowMs }
             .forEach { it.delete() }
     }
 

@@ -19,6 +19,7 @@ import java.nio.file.Files
 import java.security.MessageDigest
 import java.util.zip.ZipFile
 
+@Suppress("detekt.LargeClass")
 class DiagnosticsArchiveRendererTest {
     private val json =
         Json {
@@ -448,6 +449,7 @@ class DiagnosticsArchiveRendererTest {
             lastUsedAt = 99L,
         )
 
+    @Suppress("detekt.LongMethod")
     private fun rendererScanReport(sessionId: String) =
         ScanReport(
             sessionId = sessionId,

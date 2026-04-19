@@ -8,6 +8,7 @@ private const val FailedStageSpotlightLimit = 2
  * Pure derivation of a plain-language headline + 2-4 next-step recommendations
  * from the existing outcome data. No IO, no new probes.
  */
+@Suppress("detekt.LongMethod", "detekt.CyclomaticComplexMethod")
 internal fun synthesizeActionableSummary(outcome: DiagnosticsHomeCompositeOutcome): Pair<String?, List<String>> {
     val steps = mutableListOf<String>()
     val headlineParts = mutableListOf<String>()
@@ -45,7 +46,8 @@ internal fun synthesizeActionableSummary(outcome: DiagnosticsHomeCompositeOutcom
 
     if (outcome.actionable && outcome.appliedSettings.isNotEmpty()) {
         headlineParts +=
-            "Applied ${outcome.appliedSettings.size} bypass setting${if (outcome.appliedSettings.size == 1) "" else "s"}"
+            "Applied ${outcome.appliedSettings.size} " +
+            "bypass setting${if (outcome.appliedSettings.size == 1) "" else "s"}"
     }
 
     if (outcome.failedStageCount > 0) {
@@ -106,6 +108,7 @@ internal fun synthesizeActionableSummary(outcome: DiagnosticsHomeCompositeOutcom
     return headline to steps.distinct().take(MaxNextSteps)
 }
 
+@Suppress("detekt.ReturnCount")
 internal fun computeRegressionDelta(
     current: DiagnosticsHomeCompositeOutcome,
     previous: DiagnosticsHomeCompositeOutcome?,

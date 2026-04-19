@@ -1,3 +1,5 @@
+@file:Suppress("detekt.InvalidPackageDeclaration")
+
 package com.poyka.ripdpi.diagnostics
 
 import co.touchlab.kermit.Logger
@@ -31,6 +33,7 @@ import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
 
+@Suppress("detekt.LargeClass", "detekt.TooManyFunctions")
 @Singleton
 class DefaultDiagnosticsHomeCompositeRunService
     @Inject
@@ -426,6 +429,7 @@ class DefaultDiagnosticsHomeCompositeRunService
             return auditOutcome
         }
 
+        @Suppress("detekt.LongMethod")
         private suspend fun finalizeRun(
             runId: String,
             auditOutcome: DiagnosticsHomeAuditOutcome?,

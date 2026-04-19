@@ -1,3 +1,5 @@
+@file:Suppress("detekt.InvalidPackageDeclaration")
+
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.RipDpiProxyJsonPreferences
@@ -21,6 +23,7 @@ import com.poyka.ripdpi.data.toTemporaryResolverOverride
 import com.poyka.ripdpi.data.toVpnDnsPolicyJson
 import kotlinx.serialization.json.Json
 
+@Suppress("detekt.TooManyFunctions")
 internal object DiagnosticsScanWorkflow {
     private const val StrategyProbeSuiteFullMatrixV1 = "full_matrix_v1"
     private const val BackgroundAutoPersistMinMatrixCoveragePercent = 75
