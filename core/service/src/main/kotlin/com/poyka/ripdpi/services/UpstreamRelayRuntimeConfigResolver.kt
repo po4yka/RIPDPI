@@ -364,6 +364,7 @@ internal class DefaultRelayKindResolver : RelayKindResolver {
     }
 }
 
+@Suppress("detekt.LongMethod")
 private fun buildResolvedRelayConfig(
     profileId: String,
     resolution: RelayResolverResult,

@@ -162,6 +162,7 @@ pub fn plan_udp(group: &DesyncGroup, payload: &[u8], default_ttl: u8, context: A
                     }
                     Vec::new()
                 }
+                _ => Vec::new(),
             };
             if prelude_packets.is_empty() {
                 continue;
@@ -387,6 +388,7 @@ fn udp_fake_payload(
                         return fake;
                     }
                 }
+                _ => {}
             }
         }
     }

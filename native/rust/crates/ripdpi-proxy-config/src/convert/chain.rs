@@ -431,11 +431,7 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
             if saw_send_step {
                 return Err(ProxyConfigError::InvalidConfig(format!(
                     "{} must be declared before tcp send steps",
-                    match step.kind {
-                        TcpChainStepKind::TlsRec => "tlsrec",
-                        TcpChainStepKind::TlsRandRec => "tlsrandrec",
-                        _ => unreachable!(),
-                    }
+                    tcp_chain_step_kind_label(step.kind)
                 )));
             }
         } else {
@@ -476,11 +472,7 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
         {
             return Err(ProxyConfigError::InvalidConfig(format!(
                 "{} must be the last tcp send step",
-                match step.kind {
-                    TcpChainStepKind::FakeSplit => "fakedsplit",
-                    TcpChainStepKind::FakeDisorder => "fakeddisorder",
-                    _ => unreachable!(),
-                }
+                tcp_chain_step_kind_label(step.kind)
             )));
         }
         if step.kind.supports_fake_ordering() {
@@ -493,25 +485,7 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
         } else if step.fake_order != FakeOrder::BeforeEach || step.fake_seq_mode != FakeSeqMode::Duplicate {
             return Err(ProxyConfigError::InvalidConfig(format!(
                 "{} must not declare fake ordering fields",
-                match step.kind {
-                    TcpChainStepKind::Split => "split",
-                    TcpChainStepKind::SynData => "syndata",
-                    TcpChainStepKind::SeqOverlap => "seqovl",
-                    TcpChainStepKind::Disorder => "disorder",
-                    TcpChainStepKind::MultiDisorder => "multidisorder",
-                    TcpChainStepKind::Oob => "oob",
-                    TcpChainStepKind::Disoob => "disoob",
-                    TcpChainStepKind::TlsRec => "tlsrec",
-                    TcpChainStepKind::TlsRandRec => "tlsrandrec",
-                    TcpChainStepKind::IpFrag2 => "ipfrag2",
-                    TcpChainStepKind::FakeRst => "fakerst",
-                    TcpChainStepKind::Fake
-                    | TcpChainStepKind::FakeSplit
-                    | TcpChainStepKind::FakeDisorder
-                    | TcpChainStepKind::HostFake => {
-                        unreachable!()
-                    }
-                }
+                tcp_chain_step_kind_label(step.kind)
             )));
         }
     }
@@ -528,6 +502,27 @@ fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConfigError> {
     }
 
     Ok(())
+}
+
+fn tcp_chain_step_kind_label(kind: TcpChainStepKind) -> &'static str {
+    match kind {
+        TcpChainStepKind::Split => "split",
+        TcpChainStepKind::SynData => "syndata",
+        TcpChainStepKind::SeqOverlap => "seqovl",
+        TcpChainStepKind::Disorder => "disorder",
+        TcpChainStepKind::MultiDisorder => "multidisorder",
+        TcpChainStepKind::Fake => "fake",
+        TcpChainStepKind::FakeSplit => "fakedsplit",
+        TcpChainStepKind::FakeDisorder => "fakeddisorder",
+        TcpChainStepKind::HostFake => "hostfake",
+        TcpChainStepKind::Oob => "oob",
+        TcpChainStepKind::Disoob => "disoob",
+        TcpChainStepKind::TlsRec => "tlsrec",
+        TcpChainStepKind::TlsRandRec => "tlsrandrec",
+        TcpChainStepKind::IpFrag2 => "ipfrag2",
+        TcpChainStepKind::FakeRst => "fakerst",
+        _ => "unknown",
+    }
 }
 
 fn parse_proxy_udp_chain(steps: &[ProxyUiUdpChainStep]) -> Result<Vec<UdpChainStep>, ProxyConfigError> {

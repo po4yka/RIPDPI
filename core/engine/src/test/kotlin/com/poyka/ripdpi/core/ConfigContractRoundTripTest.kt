@@ -27,7 +27,6 @@ import java.io.File
  * Rust reads from ../../../core/engine/src/test/resources/fixtures/ relative to crate root.
  */
 class ConfigContractRoundTripTest {
-
     // ---------------------------------------------------------------------------
     // Scenario 1: TCP-heavy chain
     // Kinds: tlsrec, fake, fakedsplit, hostfake, disorder, split (6 steps)
@@ -40,14 +39,17 @@ class ConfigContractRoundTripTest {
     @Test
     fun `tcp heavy chain round trips through json codec`() {
         val tcpSteps = tcpHeavySteps()
-        val preferences = RipDpiProxyUIPreferences(
-            chains = RipDpiChainConfig(
-                tcpSteps = tcpSteps,
-                groupActivationFilter = ActivationFilterModel(
-                    round = NumericRangeModel(start = 1L, end = 5L),
-                ),
-            ),
-        )
+        val preferences =
+            RipDpiProxyUIPreferences(
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps = tcpSteps,
+                        groupActivationFilter =
+                            ActivationFilterModel(
+                                round = NumericRangeModel(start = 1L, end = 5L),
+                            ),
+                    ),
+            )
 
         val json = preferences.toNativeConfigJson()
         val decoded = decodeRipDpiProxyUiPreferences(json)
@@ -110,19 +112,23 @@ class ConfigContractRoundTripTest {
     @Test
     fun `udp quic chain round trips through json codec`() {
         val udpSteps = udpQuicSteps()
-        val preferences = RipDpiProxyUIPreferences(
-            protocols = RipDpiProtocolConfig(desyncUdp = true),
-            chains = RipDpiChainConfig(
-                tcpSteps = listOf(
-                    TcpChainStepModel(kind = TcpChainStepKind.Split, marker = "host+1"),
-                ),
-                udpSteps = udpSteps,
-            ),
-            quic = RipDpiQuicConfig(
-                fakeProfile = "realistic_initial",
-                fakeHost = "cloudflare.com",
-            ),
-        )
+        val preferences =
+            RipDpiProxyUIPreferences(
+                protocols = RipDpiProtocolConfig(desyncUdp = true),
+                chains =
+                    RipDpiChainConfig(
+                        tcpSteps =
+                            listOf(
+                                TcpChainStepModel(kind = TcpChainStepKind.Split, marker = "host+1"),
+                            ),
+                        udpSteps = udpSteps,
+                    ),
+                quic =
+                    RipDpiQuicConfig(
+                        fakeProfile = "realistic_initial",
+                        fakeHost = "cloudflare.com",
+                    ),
+            )
 
         val json = preferences.toNativeConfigJson()
         val decoded = decodeRipDpiProxyUiPreferences(json)
@@ -214,10 +220,11 @@ class ConfigContractRoundTripTest {
                 marker = "host+1",
                 fakeOrder = "1",
                 fakeSeqMode = "sequential",
-                activationFilter = ActivationFilterModel(
-                    round = NumericRangeModel(start = 1L, end = 3L),
-                    tcpHasTimestamp = true,
-                ),
+                activationFilter =
+                    ActivationFilterModel(
+                        round = NumericRangeModel(start = 1L, end = 3L),
+                        tcpHasTimestamp = true,
+                    ),
             ),
             // Step 2: fakedsplit -- exercises fakeOrder on a split-based kind
             TcpChainStepModel(
@@ -238,9 +245,10 @@ class ConfigContractRoundTripTest {
             TcpChainStepModel(
                 kind = TcpChainStepKind.Disorder,
                 marker = "host+3",
-                activationFilter = ActivationFilterModel(
-                    payloadSize = NumericRangeModel(start = 100L, end = 1400L),
-                ),
+                activationFilter =
+                    ActivationFilterModel(
+                        payloadSize = NumericRangeModel(start = 100L, end = 1400L),
+                    ),
             ),
             // Step 5: split
             TcpChainStepModel(
@@ -306,7 +314,10 @@ class ConfigContractRoundTripTest {
     // Fixture I/O
     // ---------------------------------------------------------------------------
 
-    private fun writeFixture(name: String, json: String) {
+    private fun writeFixture(
+        name: String,
+        json: String,
+    ) {
         val dir = File("src/test/resources/fixtures")
         dir.mkdirs()
         File(dir, name).writeText(json)

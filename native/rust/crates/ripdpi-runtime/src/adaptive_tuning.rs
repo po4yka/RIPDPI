@@ -932,6 +932,7 @@ impl From<QuicFakeProfile> for StoredQuicFakeProfile {
             QuicFakeProfile::Disabled => Self::Disabled,
             QuicFakeProfile::CompatDefault => Self::CompatDefault,
             QuicFakeProfile::RealisticInitial => Self::RealisticInitial,
+            _ => Self::Disabled,
         }
     }
 }
@@ -994,6 +995,7 @@ fn quic_fake_profile_candidates(group: &DesyncGroup, payload: &[u8]) -> Vec<Quic
         QuicFakeProfile::RealisticInitial => {
             vec![QuicFakeProfile::RealisticInitial, QuicFakeProfile::CompatDefault]
         }
+        _ => Vec::new(),
     }
 }
 
