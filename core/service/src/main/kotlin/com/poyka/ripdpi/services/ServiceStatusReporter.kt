@@ -37,35 +37,18 @@ internal class ServiceStatusReporter(
         failureReason: FailureReason? = null,
     ) {
         val currentTelemetry = serviceStateStore.telemetry.value
-        val proxyTelemetry =
-            if (newStatus == ServiceStatus.Connected) {
-                NativeRuntimeSnapshot.idle(source = "proxy")
-            } else {
-                currentTelemetry.proxyTelemetry
-            }
+        val proxyTelemetry = statusSnapshot(newStatus, source = "proxy", currentTelemetry.proxyTelemetry)
         val tunnelTelemetry =
             applyPendingNetworkHandoverClass(
-                if (newStatus == ServiceStatus.Connected) {
-                    NativeRuntimeSnapshot.idle(source = "tunnel")
-                } else {
-                    currentTelemetry.tunnelTelemetry
-                },
+                statusSnapshot(newStatus, source = "tunnel", currentTelemetry.tunnelTelemetry),
                 consumePendingNetworkHandoverClass,
             )
         val effectiveRelayTelemetry =
             relayTelemetry
-                ?: if (newStatus == ServiceStatus.Connected) {
-                    NativeRuntimeSnapshot.idle(source = "relay")
-                } else {
-                    currentTelemetry.relayTelemetry
-                }
+                ?: statusSnapshot(newStatus, source = "relay", currentTelemetry.relayTelemetry)
         val effectiveWarpTelemetry =
             warpTelemetry
-                ?: if (newStatus == ServiceStatus.Connected) {
-                    NativeRuntimeSnapshot.idle(source = "warp")
-                } else {
-                    currentTelemetry.warpTelemetry
-                }
+                ?: statusSnapshot(newStatus, source = "warp", currentTelemetry.warpTelemetry)
         val (winningTcpStrategyFamily, winningQuicStrategyFamily, winningDnsStrategyFamily) =
             currentWinningFamilies(activePolicy, currentTelemetry.runtimeFieldTelemetry)
         val appStatus =
@@ -187,6 +170,19 @@ internal class ServiceStatusReporter(
             )
         }
     }
+
+    private fun statusSnapshot(
+        newStatus: ServiceStatus,
+        source: String,
+        current: NativeRuntimeSnapshot,
+    ): NativeRuntimeSnapshot =
+        when (newStatus) {
+            ServiceStatus.Connected,
+            ServiceStatus.Disconnected,
+            -> NativeRuntimeSnapshot.idle(source = source)
+
+            ServiceStatus.Failed -> current
+        }
 
     private fun currentTelemetryFingerprintHash(fallback: RuntimeFieldTelemetry): String? =
         telemetryFingerprintHasher.hash(networkFingerprintProvider.capture())
