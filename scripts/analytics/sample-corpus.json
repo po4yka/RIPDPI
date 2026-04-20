@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "corpusName": "checked_in_sample_corpus",
+  "inputs": [
+    "scripts/analytics/sample_corpus/resolver_interference_a",
+    "scripts/analytics/sample_corpus/resolver_interference_b",
+    "scripts/analytics/sample_corpus/tls_split_a",
+    "scripts/analytics/sample_corpus/tls_split_b",
+    "scripts/analytics/sample_corpus/service_runtime_a",
+    "scripts/analytics/sample_corpus/mixed_route_sensitive_a"
+  ],
+  "blessedDeviceCatalog": "app/src/main/assets/offline-analytics/device-fingerprint-catalog.json",
+  "blessedWinnerCatalog": "app/src/main/assets/offline-analytics/device-fingerprint-winner-mappings.json"
+}

@@ -1,0 +1,21 @@
+{
+  "configuredMode": "VPN",
+  "activeMode": "VPN",
+  "serviceStatus": "Halted",
+  "lastNativeErrorHeadline": "no supported socks auth method",
+  "proxy": {
+    "state": "halted",
+    "health": "error",
+    "activeSessions": 0,
+    "lastError": "no supported socks auth method",
+    "lastFailureClass": "socks_auth"
+  },
+  "tunnel": {
+    "state": "idle",
+    "health": "degraded",
+    "activeSessions": 0,
+    "lastError": "vpn bootstrap failed",
+    "lastFailureClass": "bootstrap"
+  }
+}
+

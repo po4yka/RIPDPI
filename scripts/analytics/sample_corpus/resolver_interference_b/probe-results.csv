@@ -1,0 +1,7 @@
+sessionId,probeType,target,outcome,probeRetryCount,createdAt,detailJson
+"resolver-b","network_environment","wifi","network_available","","1777000001100","[{""key"":""transport"",""value"":""wifi""},{""key"":""validated"",""value"":""true""}]"
+"resolver-b","domain_reachability","cloudflare.com","tls_ok","","1777000001101","[{""key"":""httpStatus"",""value"":""http_ok""},{""key"":""isControl"",""value"":""true""}]"
+"resolver-b","domain_reachability","google.com","tls_ok","","1777000001102","[{""key"":""httpStatus"",""value"":""http_ok""},{""key"":""isControl"",""value"":""true""}]"
+"resolver-b","dns_integrity","telegram.org","dns_record_divergence","","1777000001103","[{""key"":""oracleTrust"",""value"":""disagreement""},{""key"":""oracleDisagreementResolvers"",""value"":""adguard|google_ip""},{""key"":""comparisonSignals"",""value"":""record_mismatch|answer_count_mismatch""}]"
+"resolver-b","domain_reachability","telegram.org","unreachable","","1777000001104","[{""key"":""tlsStatus"",""value"":""tls_handshake_failed""},{""key"":""tlsError"",""value"":""Try again (os error 11)""},{""key"":""httpStatus"",""value"":""http_status_301""},{""key"":""redirectLocation"",""value"":""http://resolver.invalid""},{""key"":""isControl"",""value"":""false""}]"
+

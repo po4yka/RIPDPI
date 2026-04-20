@@ -1,0 +1,8 @@
+{
+  "runId": "service-runtime-a",
+  "fingerprintHash": "fp-runtime-a",
+  "actionable": false,
+  "headline": "Service runtime issue",
+  "summary": "The local proxy halted before useful connectivity evidence was collected."
+}
+
