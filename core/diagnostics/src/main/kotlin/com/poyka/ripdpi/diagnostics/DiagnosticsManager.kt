@@ -74,6 +74,7 @@ interface DiagnosticsScanController {
         allowSensitiveProfileStart: Boolean = false,
         scanDeadlineMs: Long? = null,
         maxCandidates: Int? = null,
+        targetOverrides: DiagnosticsScanTargetOverrides? = null,
     ): DiagnosticsManualScanStartResult
 
     suspend fun resolveHiddenProbeConflict(
@@ -85,6 +86,12 @@ interface DiagnosticsScanController {
 
     suspend fun setActiveProfile(profileId: String)
 }
+
+data class DiagnosticsScanTargetOverrides(
+    val domainTargets: List<DomainTarget>? = null,
+    val serviceTargets: List<ServiceTarget>? = null,
+    val circumventionTargets: List<CircumventionTarget>? = null,
+)
 
 interface DiagnosticsDetailLoader {
     suspend fun loadSessionDetail(sessionId: String): DiagnosticSessionDetail
@@ -287,6 +294,8 @@ data class DiagnosticsHomeCompositeOutcome(
     val regressionDelta: HomeRegressionDelta? = null,
     val bufferbloat: HomeBufferbloatResult? = null,
     val dnsCharacterization: HomeDnsCharacterization? = null,
+    val connectivityAssessment: ConnectivityAssessment? = null,
+    val internetLossReproAction: HomeReproAction? = null,
 )
 
 data class DiagnosticsHomeCompositeProgress(

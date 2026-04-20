@@ -88,8 +88,8 @@ class DiagnosticsSummaryProjectorTest {
                                     ),
                                 targetSelection =
                                     StrategyProbeTargetSelection(
-                                        cohortId = "messaging-core",
-                                        cohortLabel = "Messaging core",
+                                        cohortId = "manual-sensitive",
+                                        cohortLabel = "Manual sensitive",
                                         domainHosts = listOf("telegram.org", "signal.org", "www.whatsapp.com"),
                                         quicHosts = listOf("discord.com", "www.whatsapp.com"),
                                     ),
@@ -103,7 +103,7 @@ class DiagnosticsSummaryProjectorTest {
                 warnings = emptyList(),
             )
 
-        assertTrue(document.reportMetadata.lines.contains("strategyTargetCohort=messaging-core"))
+        assertTrue(document.reportMetadata.lines.contains("strategyTargetCohort=manual-sensitive"))
         assertTrue(
             document.reportMetadata.lines.contains("strategyTargetDomains=telegram.org|signal.org|www.whatsapp.com"),
         )

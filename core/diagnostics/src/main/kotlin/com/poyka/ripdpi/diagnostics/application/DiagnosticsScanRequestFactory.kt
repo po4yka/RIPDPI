@@ -22,6 +22,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticsContextProvider
 import com.poyka.ripdpi.diagnostics.DiagnosticsIntentResolver
 import com.poyka.ripdpi.diagnostics.DiagnosticsPlanner
+import com.poyka.ripdpi.diagnostics.DiagnosticsScanTargetOverrides
 import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.EngineRequestEncoder
 import com.poyka.ripdpi.diagnostics.NetworkMetadataProvider
@@ -214,6 +215,7 @@ internal class DiagnosticsScanRequestFactory
             registerActiveBridge: Boolean,
             scanDeadlineMs: Long? = null,
             maxCandidates: Int? = null,
+            targetOverrides: DiagnosticsScanTargetOverrides? = null,
         ): PreparedDiagnosticsScan {
             val sessionId = UUID.randomUUID().toString()
             val intent =
@@ -221,7 +223,7 @@ internal class DiagnosticsScanRequestFactory
                     sessionId = sessionId,
                     intent = intentResolver.resolve(profile.id, pathMode).copy(settings = settings),
                     isManual = scanOrigin == DiagnosticsScanOrigin.USER_INITIATED,
-                )
+                ).applyTargetOverrides(targetOverrides, pathMode)
             val scanContext = scanContextCollector.collect(intent)
             val plan = diagnosticsPlanner.plan(intent, scanContext)
             val engineRequest =
@@ -340,6 +342,21 @@ internal class DiagnosticsScanRequestFactory
                 capturedAt = now,
             )
     }
+
+private fun com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent.applyTargetOverrides(
+    targetOverrides: DiagnosticsScanTargetOverrides?,
+    pathMode: ScanPathMode,
+): com.poyka.ripdpi.diagnostics.domain.DiagnosticsIntent {
+    val overrides = targetOverrides ?: return this
+    return copy(
+        domainTargets = overrides.domainTargets ?: domainTargets,
+        serviceTargets = overrides.serviceTargets ?: serviceTargets,
+        circumventionTargets = overrides.circumventionTargets ?: circumventionTargets,
+        quicTargets = emptyList(),
+        throughputTargets = emptyList(),
+        requestedPathMode = pathMode,
+    )
+}
 
 private fun EngineScanRequestWire.withStrategyProbeBaseConfig(
     settings: com.poyka.ripdpi.proto.AppSettings,

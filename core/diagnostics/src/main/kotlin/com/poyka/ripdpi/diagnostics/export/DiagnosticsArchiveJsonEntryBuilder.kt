@@ -189,6 +189,13 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                         add("stageCount=${outcome.stageSummaries.size}")
                         add("completedStageCount=${outcome.completedStageCount}")
                         add("failedStageCount=${outcome.failedStageCount}")
+                        outcome.connectivityAssessment?.let { assessment ->
+                            add("connectivityAssessment=${assessment.assessmentCode.name.lowercase()}")
+                            add("connectivityConfidence=${assessment.confidence}")
+                            add("connectivityControls=${assessment.rawPathEvidence.controls.joinToString("|")}")
+                            add("connectivityAffectedTargets=${assessment.affectedTargets.joinToString("|")}")
+                            add("connectivityNextAction=${assessment.recommendedNextAction}")
+                        }
                     }
                     runtimeId?.let { add("runtimeId=$it") }
                     mode?.let { add("mode=$it") }
@@ -241,6 +248,8 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
                             failedStageCount = outcome.failedStageCount,
                             skippedStageCount = outcome.skippedStageCount,
                             bundleSessionIds = outcome.bundleSessionIds,
+                            connectivityAssessment = outcome.connectivityAssessment,
+                            internetLossReproAction = outcome.internetLossReproAction,
                         ),
                 ),
             )
@@ -348,6 +357,8 @@ internal class DiagnosticsArchiveJsonEntryBuilder(
             classifierVersion = summaryDocument.classifierVersion,
             diagnosisCount = summaryDocument.diagnoses.size,
             packVersions = summaryDocument.packVersions,
+            connectivityAssessment = selection.homeCompositeOutcome?.connectivityAssessment,
+            internetLossReproAction = selection.homeCompositeOutcome?.internetLossReproAction,
             buildProvenance = selection.buildProvenance.toSummary(),
             sectionStatusSummary = sectionStatuses,
             integrityAlgorithm = "sha256",

@@ -346,6 +346,23 @@ class DiagnosticsArchiveExporterTest {
             failedStageCount = 1,
             skippedStageCount = 0,
             bundleSessionIds = listOf("audit-session", "default-session", "dpi-session"),
+            connectivityAssessment =
+                ConnectivityAssessment(
+                    assessmentCode = ConnectivityAssessmentCode.RAW_NETWORK_SELECTIVE_BLOCKING,
+                    assessmentSummary = "Controls passed while blocked targets failed on raw path.",
+                    confidence = "high",
+                    rawPathEvidence =
+                        ConnectivityEvidence(
+                            sessionIds = listOf("default-session", "dpi-session"),
+                            controls = listOf("cloudflare.com", "www.google.com"),
+                            affectedTargets = listOf("www.youtube.com", "telegram.org"),
+                            controlSuccessCount = 2,
+                            affectedTargetFailureCount = 2,
+                        ),
+                    controlOutcome = "raw_controls_passed",
+                    affectedTargets = listOf("www.youtube.com", "telegram.org"),
+                    recommendedNextAction = "Treat this as a direct-network blocking issue.",
+                ),
         )
 
     private fun assertCompositeArchiveContents(

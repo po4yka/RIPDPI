@@ -11,6 +11,52 @@
         "default-session",
         "dpi-session"
     ],
+    "connectivityAssessment": {
+        "affectedTargets": [
+            "www.youtube.com",
+            "telegram.org"
+        ],
+        "assessmentCode": "raw_network_selective_blocking",
+        "assessmentSummary": "Controls passed while blocked targets failed on raw path.",
+        "confidence": "high",
+        "controlOutcome": "raw_controls_passed",
+        "inPathEvidence": {
+            "affectedTargetFailureCount": 0,
+            "affectedTargetSuccessCount": 0,
+            "controlFailureCount": 0,
+            "controlSuccessCount": 0
+        },
+        "rawPathEvidence": {
+            "affectedTargetFailureCount": 2,
+            "affectedTargetSuccessCount": 0,
+            "affectedTargets": [
+                "www.youtube.com",
+                "telegram.org"
+            ],
+            "controlFailureCount": 0,
+            "controlSuccessCount": 2,
+            "controls": [
+                "cloudflare.com",
+                "www.google.com"
+            ],
+            "sessionIds": [
+                "default-session",
+                "dpi-session"
+            ]
+        },
+        "recommendedNextAction": "Treat this as a direct-network blocking issue.",
+        "resolverAssessment": {
+            "strongestSignal": "none",
+            "summary": "No resolver interference signal recorded."
+        },
+        "serviceRuntimeAssessment": {
+            "actionable": false,
+            "lastNativeErrorHeadline": "none",
+            "nativeFailureClass": "none",
+            "serviceStatus": "unavailable",
+            "summary": "No actionable native runtime failure recorded."
+        }
+    },
     "completedStageCount": 2,
     "confidenceSummary": "Confidence high",
     "coverageSummary": "Coverage 92%",

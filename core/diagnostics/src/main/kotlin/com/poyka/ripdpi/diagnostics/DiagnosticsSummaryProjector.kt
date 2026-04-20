@@ -179,6 +179,16 @@ class DiagnosticsSummaryProjector
                 add("profile=${summary.service.selectedProfileName}")
                 add("configSource=${summary.service.configSource}")
                 add("proxy=${summary.service.proxyEndpoint}")
+                summary.service.proxyRuntime?.let {
+                    add(
+                        "proxyRuntime=${it.state}/${it.health}:${it.lastFailureClass}",
+                    )
+                }
+                summary.service.tunnelRuntime?.let {
+                    add(
+                        "tunnelRuntime=${it.state}/${it.health}:${it.lastFailureClass}",
+                    )
+                }
                 add("vpnPermission=${summary.permissions.vpnPermissionState}")
                 add("notifications=${summary.permissions.notificationPermissionState}")
                 add("batteryOptimization=${summary.permissions.batteryOptimizationState}")

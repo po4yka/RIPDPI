@@ -62,6 +62,7 @@ internal class DefaultDiagnosticsScanController
             allowSensitiveProfileStart: Boolean,
             scanDeadlineMs: Long?,
             maxCandidates: Int?,
+            targetOverrides: DiagnosticsScanTargetOverrides?,
         ): DiagnosticsManualScanStartResult =
             startMutex.withLock {
                 when (
@@ -86,6 +87,7 @@ internal class DefaultDiagnosticsScanController
                                         exposeProgress = true,
                                         registerActiveBridge = true,
                                         scanDeadlineMs = scanDeadlineMs,
+                                        targetOverrides = targetOverrides,
                                         maxCandidates = maxCandidates,
                                     ),
                                 rawPathRunner = { block -> runtimeCoordinator.runRawPathScan(block) },

@@ -63,10 +63,12 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                    diagnosticsProfileCatalog = stores,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
+                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     probeResultCache = NoOpProbeResultCache(),
@@ -85,7 +87,6 @@ class DiagnosticsHomeCompositeRunServiceTest {
                 listOf(
                     ScanPathMode.RAW_PATH to "automatic-audit",
                     ScanPathMode.RAW_PATH to "default",
-                    ScanPathMode.RAW_PATH to "path-comparison",
                     ScanPathMode.RAW_PATH to "ru-circumvention",
                     ScanPathMode.RAW_PATH to "ru-dpi-full",
                     ScanPathMode.RAW_PATH to "ru-dpi-strategy",
@@ -95,8 +96,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
             )
             assertTrue(outcome.actionable)
             assertEquals("scan-1", outcome.recommendedSessionId)
-            // Detection stage is FAILED (Noop runner returns null); profile scans complete.
-            assertEquals(7, outcome.completedStageCount)
+            // Detection stage is FAILED and path comparison is skipped without paired evidence.
+            assertEquals(6, outcome.completedStageCount)
             assertEquals(1, outcome.failedStageCount)
         }
 
@@ -151,10 +152,12 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                    diagnosticsProfileCatalog = stores,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
+                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     probeResultCache = NoOpProbeResultCache(),
@@ -166,10 +169,10 @@ class DiagnosticsHomeCompositeRunServiceTest {
             advanceUntilIdle()
             val outcome = service.finalizeHomeRun(started.runId)
 
-            assertEquals(7, scanController.startedRequests.size)
+            assertEquals(6, scanController.startedRequests.size)
             assertFalse(outcome.actionable)
-            // 6 profile scans complete, 1 profile scan fails (default), detection stage fails (Noop).
-            assertEquals(6, outcome.completedStageCount)
+            // Path comparison is skipped because there is no paired raw-path evidence to compare.
+            assertEquals(5, outcome.completedStageCount)
             assertEquals(2, outcome.failedStageCount)
             assertEquals(
                 DiagnosticsHomeCompositeStageStatus.FAILED,
@@ -224,10 +227,12 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                    diagnosticsProfileCatalog = stores,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
+                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     probeResultCache = NoOpProbeResultCache(),
@@ -323,10 +328,12 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                    diagnosticsProfileCatalog = stores,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
+                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = monitor,
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     probeResultCache = NoOpProbeResultCache(),
@@ -427,10 +434,12 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                    diagnosticsProfileCatalog = stores,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
+                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     probeResultCache = NoOpProbeResultCache(),
@@ -442,8 +451,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
             advanceUntilIdle()
             val outcome = service.finalizeHomeRun(started.runId)
 
-            // All 7 profile scans eventually complete (default retried once); detection stage fails.
-            assertEquals(7, outcome.completedStageCount)
+            // Path comparison is skipped without paired raw-path evidence; default still retries once.
+            assertEquals(6, outcome.completedStageCount)
             assertEquals(1, outcome.failedStageCount)
             // "default" was attempted twice
             assertEquals(2, attemptCounts["default"])
@@ -503,10 +512,12 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                    diagnosticsProfileCatalog = stores,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
+                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     probeResultCache = NoOpProbeResultCache(),
@@ -546,8 +557,8 @@ class DiagnosticsHomeCompositeRunServiceTest {
                         ),
                     targetSelection =
                         StrategyProbeTargetSelection(
-                            cohortId = "cohort-1",
-                            cohortLabel = "Cohort 1",
+                            cohortId = "manual-sensitive",
+                            cohortLabel = "Manual sensitive",
                             domainHosts = hosts.toList(),
                         ),
                 ),
@@ -653,10 +664,12 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                    diagnosticsProfileCatalog = stores,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
+                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
                     probeResultCache = NoOpProbeResultCache(),
@@ -719,10 +732,12 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     detectorCatalogSource = NoopHomeDetectorCatalogSource,
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                    diagnosticsProfileCatalog = stores,
                     diagnosticsScanController = scanController,
                     diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
+                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = serviceStateStore,
                     probeResultCache = NoOpProbeResultCache(),
