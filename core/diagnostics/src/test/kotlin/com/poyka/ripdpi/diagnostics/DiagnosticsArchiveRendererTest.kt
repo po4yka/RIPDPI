@@ -578,8 +578,8 @@ class DiagnosticsArchiveRendererTest {
                         ),
                     targetSelection =
                         StrategyProbeTargetSelection(
-                            cohortId = "messaging-core",
-                            cohortLabel = "Messaging core",
+                            cohortId = "manual-sensitive",
+                            cohortLabel = "Manual sensitive",
                             domainHosts = listOf("telegram.org", "signal.org"),
                             quicHosts = listOf("discord.com"),
                         ),

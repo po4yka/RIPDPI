@@ -100,6 +100,7 @@ internal fun buildAnalysis(selection: DiagnosticsArchiveSelection): DiagnosticsA
             ),
         recommendationTrace = buildRecommendationTrace(selection),
         measurementSnapshot = measurementSnapshot,
+        connectivityAssessment = selection.homeCompositeOutcome?.connectivityAssessment,
     )
 }
 

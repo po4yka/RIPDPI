@@ -53,6 +53,42 @@ class DiagnosticsArchiveRedactor
                             } else {
                                 model.service.proxyEndpoint
                             },
+                        proxy =
+                            model.service.proxy?.copy(
+                                listenerAddress =
+                                    model.service.proxy.listenerAddress
+                                        ?.let { "redacted" },
+                                upstreamAddress =
+                                    model.service.proxy.upstreamAddress
+                                        ?.let { "redacted" },
+                            ),
+                        tunnel =
+                            model.service.tunnel?.copy(
+                                listenerAddress =
+                                    model.service.tunnel.listenerAddress
+                                        ?.let { "redacted" },
+                                upstreamAddress =
+                                    model.service.tunnel.upstreamAddress
+                                        ?.let { "redacted" },
+                            ),
+                        relay =
+                            model.service.relay?.copy(
+                                listenerAddress =
+                                    model.service.relay.listenerAddress
+                                        ?.let { "redacted" },
+                                upstreamAddress =
+                                    model.service.relay.upstreamAddress
+                                        ?.let { "redacted" },
+                            ),
+                        warp =
+                            model.service.warp?.copy(
+                                listenerAddress =
+                                    model.service.warp.listenerAddress
+                                        ?.let { "redacted" },
+                                upstreamAddress =
+                                    model.service.warp.upstreamAddress
+                                        ?.let { "redacted" },
+                            ),
                     ),
             )
 
