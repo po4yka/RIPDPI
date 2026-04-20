@@ -39,9 +39,9 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                                 quicHosts = listOf("www.youtube.com", "discord.com"),
                             ),
                             auditCohort(
-                                id = "media-messaging",
-                                label = "Media and messaging",
-                                domainHosts = listOf("meduza.io", "telegram.org", "signal.org"),
+                                id = "messaging-core",
+                                label = "Messaging core",
+                                domainHosts = listOf("telegram.org", "signal.org", "www.whatsapp.com"),
                                 quicHosts = listOf("discord.com", "www.whatsapp.com"),
                             ),
                         ),
@@ -51,7 +51,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
 
             assertEquals(3, request.domainTargets.size)
             assertEquals(2, request.quicTargets.size)
-            assertTrue(selection.cohortId in listOf("global-core", "media-messaging"))
+            assertTrue(selection.cohortId in listOf("global-core", "messaging-core"))
             assertEquals(request.domainTargets.map(DomainTarget::host), selection.domainHosts)
             assertEquals(request.quicTargets.map(QuicTarget::host), selection.quicHosts)
         }
@@ -74,9 +74,9 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                             quicHosts = listOf("www.youtube.com", "discord.com"),
                         ),
                         auditCohort(
-                            id = "media-messaging",
-                            label = "Media and messaging",
-                            domainHosts = listOf("meduza.io", "telegram.org", "signal.org"),
+                            id = "messaging-core",
+                            label = "Messaging core",
+                            domainHosts = listOf("telegram.org", "signal.org", "www.whatsapp.com"),
                             quicHosts = listOf("discord.com", "www.whatsapp.com"),
                         ),
                     ),
@@ -156,9 +156,9 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                             quicHosts = listOf("www.youtube.com", "discord.com"),
                         ),
                         auditCohort(
-                            id = "media-messaging",
-                            label = "Media and messaging",
-                            domainHosts = listOf("meduza.io", "telegram.org", "signal.org"),
+                            id = "messaging-core",
+                            label = "Messaging core",
+                            domainHosts = listOf("telegram.org", "signal.org", "www.whatsapp.com"),
                             quicHosts = listOf("discord.com", "www.whatsapp.com"),
                         ),
                     ),
@@ -243,9 +243,9 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                             quicHosts = listOf("www.youtube.com", "discord.com"),
                         ),
                         auditCohort(
-                            id = "media-messaging",
-                            label = "Media and messaging",
-                            domainHosts = listOf("meduza.io", "telegram.org", "signal.org"),
+                            id = "messaging-core",
+                            label = "Messaging core",
+                            domainHosts = listOf("telegram.org", "signal.org", "www.whatsapp.com"),
                             quicHosts = listOf("discord.com", "www.whatsapp.com"),
                         ),
                     ),
@@ -255,7 +255,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
         val selection = requireNotNull(selected.strategyProbe?.targetSelection)
 
         assertNotEquals("all", selection.cohortId)
-        assertTrue(selection.cohortId in listOf("global-core", "media-messaging"))
+        assertTrue(selection.cohortId in listOf("global-core", "messaging-core"))
         // Single cohort selected: exactly 3 domain and 2 QUIC targets
         assertEquals(3, selected.domainTargets.size)
         assertEquals(2, selected.quicTargets.size)

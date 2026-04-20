@@ -9,7 +9,7 @@
   "results": [
     {
       "probeType": "dns_integrity",
-      "target": "meduza.io",
+      "target": "proton.me",
       "outcome": "dns_sinkhole_substitution",
       "details": []
     }
@@ -17,9 +17,9 @@
   "observations": [
     {
       "kind": "DNS",
-      "target": "meduza.io",
+      "target": "proton.me",
       "dns": {
-        "domain": "meduza.io",
+        "domain": "proton.me",
         "status": "SINKHOLE_SUBSTITUTION",
         "udpAddresses": [
           "203.0.113.10"
@@ -36,6 +36,6 @@
   "engineAnalysisVersion": "engine_v2",
   "diagnoses": [],
   "packVersions": {
-    "ru-independent-media": 1
+    "ru-global-platforms": 1
   }
 }

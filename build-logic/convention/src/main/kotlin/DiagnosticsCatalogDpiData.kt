@@ -11,16 +11,7 @@ internal object DiagnosticsCatalogDpiData {
             media.discordapp.net
             www.youtube.com
             soundcloud.com
-            meduza.io
-            www.dw.com
-            www.svoboda.org
-            holod.media
-            www.euronews.com
-            www.torproject.org
             proton.me
-            protonvpn.com
-            roskomsvoboda.org
-            amnezia.org
             nnmclub.to
             rezka.ag
             hub.docker.com
@@ -29,9 +20,7 @@ internal object DiagnosticsCatalogDpiData {
             www.coursera.org
             aws.amazon.com
             www.apkmirror.com
-            www.currenttime.tv
             www.messenger.com
-            www.themoscowtimes.com
             www.linuxserver.io
             danbooru.donmai.us
             gelbooru.com

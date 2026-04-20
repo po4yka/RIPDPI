@@ -14,7 +14,7 @@ class ComparisonScanCoordinatorTest {
                     listOf(
                         ObservationFact(
                             kind = ObservationKind.STRATEGY,
-                            target = "candidate_a \u00b7 meduza.io",
+                            target = "candidate_a \u00b7 blocked.example",
                             strategy =
                                 StrategyObservationFact(
                                     candidateId = "candidate_a",
@@ -26,7 +26,7 @@ class ComparisonScanCoordinatorTest {
             )
 
         val outcomes = ComparisonScanCoordinator.extractDomainOutcomes(report)
-        assertEquals("tls_ok", outcomes["meduza.io"])
+        assertEquals("tls_ok", outcomes["blocked.example"])
     }
 
     @Test
@@ -78,7 +78,7 @@ class ComparisonScanCoordinatorTest {
 
     @Test
     fun `parseDomain extracts domain after middle dot separator`() {
-        assertEquals("meduza.io", ComparisonScanCoordinator.parseDomain("candidate_a \u00b7 meduza.io"))
+        assertEquals("blocked.example", ComparisonScanCoordinator.parseDomain("candidate_a \u00b7 blocked.example"))
     }
 
     @Test

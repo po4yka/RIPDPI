@@ -7,14 +7,13 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
                 domainTargets =
                     domainTargets(
                         """
-                        meduza.io
-                        www.svoboda.org
-                        www.dw.com
+                        cloudflare.com
+                        www.google.com
                         """.trimIndent(),
                     ),
                 dnsTargets =
                     udpDnsTargets(
-                        domains = listOf("meduza.io"),
+                        domains = listOf("cloudflare.com", "google.com"),
                         servers = listOf("8.8.8.8:53", "1.1.1.1:53"),
                     ),
             ),
@@ -103,33 +102,13 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
                 domainTargets =
                     domainTargets(
                         """
-                        www.torproject.org
-                        psiphon.ca
-                        riseup.net
-                        protonvpn.com
+                        telegram.org
+                        signal.org
+                        proton.me
+                        www.whatsapp.com
                         """.trimIndent(),
                     ),
-                circumventionTargets =
-                    listOf(
-                        CircumventionTargetDefinition(
-                            id = "tor",
-                            tool = "Tor",
-                            bootstrapUrl = "https://www.torproject.org/download/",
-                            handshakeHost = "www.torproject.org",
-                        ),
-                        CircumventionTargetDefinition(
-                            id = "psiphon",
-                            tool = "Psiphon",
-                            bootstrapUrl = "https://psiphon.ca/",
-                            handshakeHost = "psiphon.ca",
-                        ),
-                        CircumventionTargetDefinition(
-                            id = "riseupvpn",
-                            tool = "RiseupVPN",
-                            bootstrapUrl = "https://riseup.net/en/vpn",
-                            handshakeHost = "api.black.riseup.net",
-                        ),
-                    ),
+                circumventionTargets = emptyList(),
             ),
             TargetPackDefinition(
                 id = "ru-throttling",

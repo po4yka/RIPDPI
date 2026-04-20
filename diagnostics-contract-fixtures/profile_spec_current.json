@@ -11,19 +11,18 @@
     "probePersistencePolicy": "MANUAL_ONLY"
   },
   "packRefs": [
-    "ru-independent-media@1",
     "ru-global-platforms@1",
     "ru-control@1"
   ],
   "domainTargets": [
     {
-      "host": "meduza.io"
+      "host": "proton.me"
     }
   ],
   "dnsTargets": [
     {
-      "domain": "meduza.io",
-      "udpServer": "8.8.8.8:53"
+      "domain": "proton.me",
+      "udpServer": "1.1.1.1:53"
     }
   ],
   "tcpTargets": [

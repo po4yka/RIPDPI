@@ -578,9 +578,9 @@ class DiagnosticsArchiveRendererTest {
                         ),
                     targetSelection =
                         StrategyProbeTargetSelection(
-                            cohortId = "media-messaging",
-                            cohortLabel = "Media and messaging",
-                            domainHosts = listOf("meduza.io", "telegram.org"),
+                            cohortId = "messaging-core",
+                            cohortLabel = "Messaging core",
+                            domainHosts = listOf("telegram.org", "signal.org"),
                             quicHosts = listOf("discord.com"),
                         ),
                     pilotBucketLabels = listOf("foreign:cloudflare:ech=yes", "domestic:domesticcdn:ech=no"),

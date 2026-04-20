@@ -88,9 +88,9 @@ class DiagnosticsSummaryProjectorTest {
                                     ),
                                 targetSelection =
                                     StrategyProbeTargetSelection(
-                                        cohortId = "media-messaging",
-                                        cohortLabel = "Media and messaging",
-                                        domainHosts = listOf("meduza.io", "telegram.org", "signal.org"),
+                                        cohortId = "messaging-core",
+                                        cohortLabel = "Messaging core",
+                                        domainHosts = listOf("telegram.org", "signal.org", "www.whatsapp.com"),
                                         quicHosts = listOf("discord.com", "www.whatsapp.com"),
                                     ),
                                 pilotBucketLabels = listOf("foreign:cloudflare:ech=yes", "domestic:domesticcdn:ech=no"),
@@ -103,8 +103,10 @@ class DiagnosticsSummaryProjectorTest {
                 warnings = emptyList(),
             )
 
-        assertTrue(document.reportMetadata.lines.contains("strategyTargetCohort=media-messaging"))
-        assertTrue(document.reportMetadata.lines.contains("strategyTargetDomains=meduza.io|telegram.org|signal.org"))
+        assertTrue(document.reportMetadata.lines.contains("strategyTargetCohort=messaging-core"))
+        assertTrue(
+            document.reportMetadata.lines.contains("strategyTargetDomains=telegram.org|signal.org|www.whatsapp.com"),
+        )
         assertTrue(document.reportMetadata.lines.contains("strategyTargetQuicHosts=discord.com|www.whatsapp.com"))
         assertTrue(
             document.reportMetadata.lines.contains(

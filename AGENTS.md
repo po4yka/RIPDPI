@@ -300,6 +300,7 @@ Project-specific skills are split across two directories:
 | `gradle-build-system` | Adding dependencies, modules, or convention plugins |
 | `dependency-update` | Updating Gradle/Rust dependencies, Renovate config, or version catalogs |
 | `ci-workflow-authoring` | Modifying GitHub Actions workflows or CI job wiring |
+| `client-legal-safety` | Reviewing domains, diagnostics targets, or workflows for client-side legal/compliance risk, especially current Russian Federation law and enforcement; always verify with live official sources |
 | `compose-performance` | Diagnosing unnecessary recompositions, analyzing Compose compiler stability reports, optimizing LazyColumn/LazyRow scroll performance, deciding between @Stable and @Immutable annotations, reviewing UI model class stability, interpreting compose-metrics and compose-reports output, debugging infinite transition animations on HomeScreen, reducing AdvancedSettingsScreen recomposition scope, or applying derivedStateOf to filter-heavy screens like LogsScreen, DiagnosticsScreen, and HistoryScreen |
 | `convention-plugin-development` | Adding a new convention plugin, modifying an existing plugin, changing shared SDK/ABI/profile properties in gradle.properties, debugging Gradle configuration cache issues in build-logic, wiring new AGP variant APIs, or updating the diagnostics catalog pipeline |
 | `detekt-custom-rules` | Adding or fixing custom detekt rules and DI guardrails |

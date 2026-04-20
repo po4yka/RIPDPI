@@ -23,7 +23,8 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     www.youtube.com
                     discord.com
                     proton.me
-                    meduza.io
+                    cloudflare.com
+                    www.google.com
                     """.trimIndent(),
                 ),
             dnsTargets =
@@ -96,7 +97,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             domainTargets = DiagnosticsCatalogDpiData.domainTargets,
             dnsTargets =
                 udpDnsTargets(
-                    domains = listOf("rutor.info", "rezka.ag", "meduza.io", "discord.com", "youtube.com", "proton.me"),
+                    domains = listOf("rutor.info", "rezka.ag", "signal.org", "discord.com", "youtube.com", "proton.me"),
                     servers = DiagnosticsCatalogSharedData.publicDnsResolvers,
                 ),
             tcpTargets = DiagnosticsCatalogDpiData.tcpTargets,
@@ -152,7 +153,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         val circumvention = index.requirePack("ru-circumvention")
         return DiagnosticsProfileDefinition(
             id = "ru-circumvention",
-            name = "Russia Circumvention Reachability",
+            name = "Russia Sensitive Services Reachability",
             family = CatalogDiagnosticProfileFamily.CIRCUMVENTION,
             regionTag = "ru",
             executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = false),
@@ -187,6 +188,8 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
     }
 
     private fun ruDpiFullProfile(index: DiagnosticsCatalogIndex): DiagnosticsProfileDefinition {
+        val independentMedia = index.requirePack("ru-independent-media")
+        val globalPlatforms = index.requirePack("ru-global-platforms")
         val messaging = index.requirePack("ru-messaging")
         val circumvention = index.requirePack("ru-circumvention")
         val throttling = index.requirePack("ru-throttling")
@@ -209,29 +212,19 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     packRef("neutral-control", 2),
                 ),
             domainTargets =
-                domainTargets(
-                    """
-                    meduza.io
-                    www.svoboda.org
-                    www.dw.com
-                    www.youtube.com
-                    discord.com
-                    telegram.org
-                    signal.org
-                    www.whatsapp.com
-                    www.torproject.org
-                    psiphon.ca
-                    riseup.net
-                    protonvpn.com
-                    """.trimIndent(),
-                ),
+                (
+                    independentMedia.domainTargets +
+                        globalPlatforms.domainTargets +
+                        messaging.domainTargets +
+                        circumvention.domainTargets
+                ).distinctBy { it.host.lowercase() },
             dnsTargets =
                 listOf(
-                    DnsTargetDefinition(domain = "meduza.io", udpServer = "8.8.8.8:53"),
+                    DnsTargetDefinition(domain = "cloudflare.com", udpServer = "1.1.1.1:53"),
                     DnsTargetDefinition(domain = "youtube.com", udpServer = "1.1.1.1:53"),
                     DnsTargetDefinition(domain = "discord.com", udpServer = "8.8.8.8:53"),
                     DnsTargetDefinition(domain = "signal.org", udpServer = "1.1.1.1:53"),
-                    DnsTargetDefinition(domain = "psiphon.ca", udpServer = "8.8.8.8:53"),
+                    DnsTargetDefinition(domain = "telegram.org", udpServer = "8.8.8.8:53"),
                 ),
             quicTargets =
                 quicTargets(
