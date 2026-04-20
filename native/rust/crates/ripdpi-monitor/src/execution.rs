@@ -1267,7 +1267,9 @@ mod tests {
             tls_server_hello_received: None,
             tls_dpi_signature: None,
             connected_addr: None,
+            local_addr: None,
             cdn_provider: None,
+            route_report: None,
         }
     }
 

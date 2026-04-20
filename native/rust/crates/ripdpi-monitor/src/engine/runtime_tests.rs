@@ -2,7 +2,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
 use super::{ExecutionPlan, ExecutionRuntime, ExecutionStageId};
-use crate::transport::TransportConfig;
+use crate::transport::direct_transport;
 use crate::types::{
     DiagnosticProfileFamily, ScanKind, ScanPathMode, ScanRequest, SharedState, StrategyProbeProgressLane,
 };
@@ -46,11 +46,12 @@ fn test_plan() -> ExecutionPlan {
             telegram_target: None,
             strategy_probe: None,
             network_snapshot: None,
+            route_probe: None,
             scan_deadline_ms: None,
         },
         started_at: 0,
         total_steps: 8,
-        transport: TransportConfig::Direct,
+        transport: direct_transport(),
         stage_order: Vec::new(),
         strategy: None,
     }

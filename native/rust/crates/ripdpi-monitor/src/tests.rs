@@ -15,7 +15,7 @@ use crate::execution::freeze_adaptive_fake_ttl_for_probe;
 use crate::strategy::detect_strategy_probe_dns_tampering;
 use crate::test_fixtures::*;
 use crate::tls::{classify_tls_signal, try_tls_handshake, NoCertificateVerification, TlsClientProfile, TlsObservation};
-use crate::transport::{TargetAddress, TransportConfig};
+use crate::transport::{direct_transport, TargetAddress, TransportConfig};
 use crate::util::{probe_session_seed, DEFAULT_DNS_SERVER};
 
 use ripdpi_failure_classifier::{FailureAction, FailureClass};
@@ -103,6 +103,7 @@ fn strategy_probe_request_with_runtime_context(
             max_candidates: None,
         }),
         network_snapshot: None,
+        route_probe: None,
         scan_deadline_ms: None,
     }
 }
@@ -241,7 +242,7 @@ fn dns_probe_reports_substitution_when_udp_and_doh_differ() {
         expected_ips: vec![],
     };
 
-    let result = run_dns_probe(&target, &TransportConfig::Direct, &ScanPathMode::RawPath);
+    let result = run_dns_probe(&target, &direct_transport(), &ScanPathMode::RawPath);
     assert_eq!(result.outcome, "dns_sinkhole_substitution");
 }
 
@@ -264,7 +265,7 @@ fn dns_probe_reports_doh_blocked_when_udp_works_and_doh_fails() {
         expected_ips: vec![],
     };
 
-    let result = run_dns_probe(&target, &TransportConfig::Direct, &ScanPathMode::RawPath);
+    let result = run_dns_probe(&target, &direct_transport(), &ScanPathMode::RawPath);
     assert_eq!(result.outcome, "dns_oracle_unavailable");
 }
 
@@ -314,7 +315,7 @@ fn domain_probe_reports_tls_certificate_anomaly() {
         is_control: false,
     };
 
-    let result = run_domain_probe(&target, &TransportConfig::Direct, None);
+    let result = run_domain_probe(&target, &direct_transport(), None);
     assert_eq!(result.outcome, "tls_cert_invalid");
 }
 
@@ -342,7 +343,9 @@ fn tls_signal_reports_version_split_low_confidence() {
         tls_server_hello_received: None,
         tls_dpi_signature: None,
         connected_addr: None,
+        local_addr: None,
         cdn_provider: None,
+        route_report: None,
     };
     let tls12 = TlsObservation {
         status: "tls_ok".to_string(),
@@ -366,7 +369,9 @@ fn tls_signal_reports_version_split_low_confidence() {
         tls_server_hello_received: None,
         tls_dpi_signature: None,
         connected_addr: None,
+        local_addr: None,
         cdn_provider: None,
+        route_report: None,
     };
 
     assert_eq!(classify_tls_signal(&tls13, &tls12), "tls_version_split_low_confidence");
@@ -381,7 +386,7 @@ fn try_tls_handshake_forces_tls_on_non_default_https_port() {
     let mut tls = try_tls_handshake(
         &target,
         server.port(),
-        &TransportConfig::Direct,
+        &direct_transport(),
         "localhost",
         false,
         TlsClientProfile::Tls13Only,
@@ -395,7 +400,7 @@ fn try_tls_handshake_forces_tls_on_non_default_https_port() {
         tls = try_tls_handshake(
             &target,
             server.port(),
-            &TransportConfig::Direct,
+            &direct_transport(),
             "localhost",
             false,
             TlsClientProfile::Tls13Only,
@@ -421,7 +426,7 @@ fn domain_probe_reports_http_blockpage() {
         is_control: false,
     };
 
-    let result = run_domain_probe(&target, &TransportConfig::Direct, None);
+    let result = run_domain_probe(&target, &direct_transport(), None);
     assert_eq!(result.outcome, "http_blockpage");
 }
 
@@ -441,7 +446,7 @@ fn tcp_probe_reports_threshold_cutoff() {
         alt_port: None,
     };
 
-    let result = run_tcp_probe(&target, &[], &TransportConfig::Direct);
+    let result = run_tcp_probe(&target, &[], &direct_transport());
     assert!(
         matches!(result.outcome.as_str(), "tcp_16kb_blocked" | "tcp_reset"),
         "unexpected cutoff outcome: {}",
@@ -466,7 +471,7 @@ fn tcp_probe_reports_whitelist_sni_success() {
     };
 
     let result =
-        run_tcp_probe(&target, &["allow.example".to_string(), "other.example".to_string()], &TransportConfig::Direct);
+        run_tcp_probe(&target, &["allow.example".to_string(), "other.example".to_string()], &direct_transport());
     assert_eq!(result.outcome, "whitelist_sni_ok");
 }
 
@@ -486,7 +491,7 @@ fn tcp_probe_reports_whitelist_sni_failure() {
         alt_port: None,
     };
 
-    let result = run_tcp_probe(&target, &["missing.example".to_string()], &TransportConfig::Direct);
+    let result = run_tcp_probe(&target, &["missing.example".to_string()], &direct_transport());
     assert_eq!(result.outcome, "whitelist_sni_failed");
 }
 
@@ -507,7 +512,7 @@ fn tcp_probe_skips_whitelist_when_sni_is_none() {
     };
 
     let result =
-        run_tcp_probe(&target, &["allow.example".to_string(), "other.example".to_string()], &TransportConfig::Direct);
+        run_tcp_probe(&target, &["allow.example".to_string(), "other.example".to_string()], &direct_transport());
     assert!(!result.outcome.starts_with("whitelist_sni_"), "expected non-whitelist outcome, got: {}", result.outcome);
 }
 
@@ -1184,6 +1189,7 @@ fn monitor_session_drains_passive_events_with_probe_details() {
         telegram_target: None,
         strategy_probe: None,
         network_snapshot: None,
+        route_probe: None,
         scan_deadline_ms: None,
     };
     let session = MonitorSession::new();
@@ -1226,6 +1232,7 @@ fn monitor_session_allows_restart_after_finished_scan_without_report_cleanup() {
         telegram_target: None,
         strategy_probe: None,
         network_snapshot: None,
+        route_probe: None,
         scan_deadline_ms: None,
     };
     let session = MonitorSession::new();
@@ -1302,6 +1309,7 @@ fn monitor_json_contracts_match_goldens() {
         telegram_target: None,
         strategy_probe: None,
         network_snapshot: None,
+        route_probe: None,
         scan_deadline_ms: None,
     };
     let session = MonitorSession::new();

@@ -19,7 +19,9 @@ use crate::dns::{
 };
 use crate::ja3::{self, RecordingStream};
 use crate::platform_ttl;
-use crate::transport::{connect_transport_observed, ConnectionStream, TargetAddress, TransportConfig};
+use crate::transport::{
+    connect_transport_observed, ConnectionStream, RouteExperimentReport, TargetAddress, TransportConfig,
+};
 use crate::util::IO_TIMEOUT;
 
 const ECH_CONFIG_UNAVAILABLE_ERROR: &str = "ech_config_unavailable";
@@ -53,7 +55,9 @@ pub(crate) struct TlsObservation {
     /// DPI firmware signature inferred from the alert code and timing.
     pub(crate) tls_dpi_signature: Option<String>,
     pub(crate) connected_addr: Option<std::net::SocketAddr>,
+    pub(crate) local_addr: Option<std::net::SocketAddr>,
     pub(crate) cdn_provider: Option<String>,
+    pub(crate) route_report: Option<RouteExperimentReport>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -136,7 +140,9 @@ pub(crate) struct ProbeStreamResult {
     pub(crate) estimated_hop_count: Option<u8>,
     pub(crate) ja3_fingerprint: Option<String>,
     pub(crate) connected_addr: Option<std::net::SocketAddr>,
+    pub(crate) local_addr: Option<std::net::SocketAddr>,
     pub(crate) cdn_provider: Option<String>,
+    pub(crate) route_report: Option<RouteExperimentReport>,
 }
 
 // --- TLS helper functions ---
@@ -188,7 +194,9 @@ pub(crate) fn try_tls_handshake_targets(
             let estimated_hop_count = result.estimated_hop_count;
             let ja3_fingerprint = result.ja3_fingerprint;
             let connected_addr = result.connected_addr;
+            let local_addr = result.local_addr;
             let cdn_provider = result.cdn_provider;
+            let route_report = result.route_report;
             let tls_template_first_flight_plan = result.tls_template_first_flight_plan;
             let mut stream = result.stream;
             let (
@@ -258,7 +266,9 @@ pub(crate) fn try_tls_handshake_targets(
                 tls_server_hello_received: Some(true),
                 tls_dpi_signature: None,
                 connected_addr,
+                local_addr,
                 cdn_provider,
+                route_report,
             }
         }
         Err(err) => {
@@ -302,7 +312,9 @@ pub(crate) fn try_tls_handshake_targets(
                     tls_server_hello_received: None,
                     tls_dpi_signature: None,
                     connected_addr: None,
+                    local_addr: None,
                     cdn_provider: None,
+                    route_report: None,
                 };
             }
             let certificate_anomaly = is_certificate_error(&err);
@@ -335,7 +347,9 @@ pub(crate) fn try_tls_handshake_targets(
                 tls_server_hello_received,
                 tls_dpi_signature,
                 connected_addr: None,
+                local_addr: None,
                 cdn_provider: None,
+                route_report: None,
             }
         }
     }
@@ -374,7 +388,9 @@ pub(crate) fn open_probe_stream_targets(
     let transport_result = connect_transport_observed(targets, port, transport)?;
     let tcp_connect_ms = tcp_start.elapsed().as_millis() as u64;
     let connected_addr = transport_result.connected_addr;
+    let local_addr = transport_result.local_addr;
     let cdn_provider = connected_addr.and_then(|addr| opportunistic_ech_provider_for_ip(addr.ip()).map(str::to_string));
+    let route_report = transport_result.route_report;
     let socket = transport_result.stream;
 
     socket.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
@@ -424,7 +440,9 @@ pub(crate) fn open_probe_stream_targets(
                 estimated_hop_count,
                 ja3_fingerprint,
                 connected_addr,
+                local_addr,
                 cdn_provider,
+                route_report,
             })
         }
         _ => {
@@ -441,7 +459,9 @@ pub(crate) fn open_probe_stream_targets(
                 estimated_hop_count,
                 ja3_fingerprint: None,
                 connected_addr,
+                local_addr,
                 cdn_provider,
+                route_report,
             })
         }
     }
@@ -871,7 +891,9 @@ mod tests {
             tls_server_hello_received: None,
             tls_dpi_signature: None,
             connected_addr: None,
+            local_addr: None,
             cdn_provider: None,
+            route_report: None,
         }
     }
 

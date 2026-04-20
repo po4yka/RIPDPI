@@ -129,7 +129,7 @@ pub(crate) fn resolve_via_udp_with_raw(
         Err(err) => return (Err(err), None),
     };
     let raw = match transport {
-        TransportConfig::Direct => {
+        TransportConfig::Direct { .. } => {
             let server_addr = match resolve_first_socket_addr(server) {
                 Ok(addr) => addr,
                 Err(err) => return (Err(err), None),
@@ -145,7 +145,7 @@ pub(crate) fn resolve_via_udp_with_raw(
         }
     };
     match raw {
-        Ok(response) => {
+        Ok((response, _local_addr)) => {
             let parsed = parse_dns_response(&response, query_id);
             (parsed, Some(response))
         }
@@ -200,7 +200,7 @@ pub(crate) fn exchange_encrypted_dns_query(
     transport: &TransportConfig,
 ) -> Result<Vec<u8>, String> {
     let transport = match transport {
-        TransportConfig::Direct => EncryptedDnsTransport::Direct,
+        TransportConfig::Direct { .. } => EncryptedDnsTransport::Direct,
         TransportConfig::Socks5 { host, port } => EncryptedDnsTransport::Socks5 { host: host.clone(), port: *port },
     };
     let resolver = EncryptedDnsResolver::new(endpoint, transport).map_err(|err| err.to_string())?;

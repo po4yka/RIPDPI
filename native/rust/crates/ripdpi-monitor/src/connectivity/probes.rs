@@ -326,6 +326,42 @@ fn append_record_comparison_details(result: &mut ProbeResult, udp_raw: &[u8], en
     push_joined_str_detail(&mut result.details, "comparisonSignals", &comparison.comparison_signals);
 }
 
+#[inline(never)]
+fn append_route_details(
+    details: &mut Vec<ProbeDetail>,
+    prefix: &str,
+    local_addr: Option<std::net::SocketAddr>,
+    route_report: Option<&crate::transport::RouteExperimentReport>,
+) {
+    let key = |suffix: &str| {
+        if prefix.is_empty() {
+            suffix.to_string()
+        } else {
+            format!("{prefix}{suffix}")
+        }
+    };
+    if let Some(addr) = local_addr {
+        details.push(ProbeDetail { key: key("LocalAddress"), value: addr.to_string() });
+        details.push(ProbeDetail { key: key("LocalPort"), value: addr.port().to_string() });
+    }
+    if let Some(route_report) = route_report {
+        details.push(ProbeDetail { key: key("RouteSelectedBucket"), value: route_report.selected_bucket.to_string() });
+        details.push(ProbeDetail {
+            key: key("RouteSelectedBucketKind"),
+            value: route_report.selected_bucket_kind.clone(),
+        });
+        details.push(ProbeDetail {
+            key: key("RouteStableAttemptsRun"),
+            value: route_report.stable_attempts_run.to_string(),
+        });
+        details.push(ProbeDetail {
+            key: key("RouteDiversityAttemptsRun"),
+            value: route_report.diversity_attempts_run.to_string(),
+        });
+        details.push(ProbeDetail { key: key("RouteSummary"), value: route_report.summary.clone() });
+    }
+}
+
 fn classify_dns_probe_outcome(
     udp_result: &Result<Vec<String>, String>,
     encrypted_result: &Result<Vec<String>, String>,
@@ -445,8 +481,20 @@ pub(crate) fn run_domain_probe(
     } else {
         (outcome, 0usize)
     };
+    let route_local_addr =
+        if outcome == "tls_ech_only" { tls_ech.local_addr } else { preferred_tls.local_addr.or(tls_ech.local_addr) };
+    let route_report = if outcome == "tls_ech_only" {
+        tls_ech.route_report.as_ref()
+    } else {
+        preferred_tls.route_report.as_ref().or(tls_ech.route_report.as_ref())
+    };
+    let connected_addr = if outcome == "tls_ech_only" {
+        tls_ech.connected_addr
+    } else {
+        preferred_tls.connected_addr.or(tls_ech.connected_addr)
+    };
 
-    ProbeResult {
+    let mut result = ProbeResult {
         probe_type: "domain_reachability".to_string(),
         target: target.host.clone(),
         outcome,
@@ -462,27 +510,36 @@ pub(crate) fn run_domain_probe(
                 value: preferred_tls.error.clone().unwrap_or_else(|| "none".to_string()),
             },
             ProbeDetail { key: "tlsSignal".to_string(), value: tls_signal.to_string() },
-            ProbeDetail { key: "tls13Status".to_string(), value: tls13.status },
+            ProbeDetail { key: "tls13Status".to_string(), value: tls13.status.clone() },
             ProbeDetail {
                 key: "tls13Version".to_string(),
-                value: tls13.version.unwrap_or_else(|| "unknown".to_string()),
+                value: tls13.version.clone().unwrap_or_else(|| "unknown".to_string()),
             },
-            ProbeDetail { key: "tls13Error".to_string(), value: tls13.error.unwrap_or_else(|| "none".to_string()) },
-            ProbeDetail { key: "tls12Status".to_string(), value: tls12.status },
+            ProbeDetail {
+                key: "tls13Error".to_string(),
+                value: tls13.error.clone().unwrap_or_else(|| "none".to_string()),
+            },
+            ProbeDetail { key: "tls12Status".to_string(), value: tls12.status.clone() },
             ProbeDetail {
                 key: "tls12Version".to_string(),
-                value: tls12.version.unwrap_or_else(|| "unknown".to_string()),
+                value: tls12.version.clone().unwrap_or_else(|| "unknown".to_string()),
             },
-            ProbeDetail { key: "tls12Error".to_string(), value: tls12.error.unwrap_or_else(|| "none".to_string()) },
-            ProbeDetail { key: "tlsEchStatus".to_string(), value: tls_ech.status },
+            ProbeDetail {
+                key: "tls12Error".to_string(),
+                value: tls12.error.clone().unwrap_or_else(|| "none".to_string()),
+            },
+            ProbeDetail { key: "tlsEchStatus".to_string(), value: tls_ech.status.clone() },
             ProbeDetail {
                 key: "tlsEchVersion".to_string(),
-                value: tls_ech.version.unwrap_or_else(|| "unknown".to_string()),
+                value: tls_ech.version.clone().unwrap_or_else(|| "unknown".to_string()),
             },
-            ProbeDetail { key: "tlsEchError".to_string(), value: tls_ech.error.unwrap_or_else(|| "none".to_string()) },
+            ProbeDetail {
+                key: "tlsEchError".to_string(),
+                value: tls_ech.error.clone().unwrap_or_else(|| "none".to_string()),
+            },
             ProbeDetail {
                 key: "tlsEchResolutionDetail".to_string(),
-                value: tls_ech.ech_resolution_detail.unwrap_or_else(|| "none".to_string()),
+                value: tls_ech.ech_resolution_detail.clone().unwrap_or_else(|| "none".to_string()),
             },
             ProbeDetail { key: "httpStatus".to_string(), value: http.status.clone() },
             ProbeDetail { key: "httpResponse".to_string(), value: describe_http_observation(&http) },
@@ -491,7 +548,12 @@ pub(crate) fn run_domain_probe(
             ProbeDetail { key: "isControl".to_string(), value: target.is_control.to_string() },
             ProbeDetail { key: "probeRetryCount".to_string(), value: probe_retry_count.to_string() },
         ],
+    };
+    if let Some(addr) = connected_addr {
+        result.details.push(ProbeDetail { key: "connectedIp".to_string(), value: addr.ip().to_string() });
     }
+    append_route_details(&mut result.details, "", route_local_addr, route_report);
+    result
 }
 
 pub(crate) fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transport: &TransportConfig) -> ProbeResult {
@@ -637,19 +699,36 @@ pub(crate) fn run_quic_probe(target: &QuicTarget, transport: &TransportConfig) -
     let started = now_ms();
     let connect_target = quic_connect_target(target);
     let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some(target.host.as_str())).unwrap_or_default();
-    let response = relay_udp_payload(&connect_target, target.port, transport, &payload);
+    let response = relay_udp_payload_observed(std::slice::from_ref(&connect_target), target.port, transport, &payload);
     let latency_ms = now_ms().saturating_sub(started);
-    let (outcome, status, error) = match response {
-        Ok(bytes) if parse_quic_initial(&bytes).is_some() => {
-            ("quic_initial_response".to_string(), "quic_initial_response".to_string(), "none".to_string())
-        }
-        Ok(bytes) if !bytes.is_empty() => {
-            ("quic_response".to_string(), "quic_response".to_string(), "none".to_string())
-        }
-        Ok(_) => ("quic_empty".to_string(), "quic_empty".to_string(), "none".to_string()),
-        Err(err) => ("quic_error".to_string(), "quic_error".to_string(), err),
+    let (outcome, status, error, connected_addr, local_addr, route_report) = match response {
+        Ok(result) if parse_quic_initial(&result.payload).is_some() => (
+            "quic_initial_response".to_string(),
+            "quic_initial_response".to_string(),
+            "none".to_string(),
+            result.connected_addr,
+            result.local_addr,
+            result.route_report,
+        ),
+        Ok(result) if !result.payload.is_empty() => (
+            "quic_response".to_string(),
+            "quic_response".to_string(),
+            "none".to_string(),
+            result.connected_addr,
+            result.local_addr,
+            result.route_report,
+        ),
+        Ok(result) => (
+            "quic_empty".to_string(),
+            "quic_empty".to_string(),
+            "none".to_string(),
+            result.connected_addr,
+            result.local_addr,
+            result.route_report,
+        ),
+        Err(err) => ("quic_error".to_string(), "quic_error".to_string(), err, None, None, None),
     };
-    ProbeResult {
+    let mut result = ProbeResult {
         probe_type: "quic_reachability".to_string(),
         target: target.host.clone(),
         outcome,
@@ -659,7 +738,12 @@ pub(crate) fn run_quic_probe(target: &QuicTarget, transport: &TransportConfig) -
             ProbeDetail { key: "latencyMs".to_string(), value: latency_ms.to_string() },
             ProbeDetail { key: "port".to_string(), value: target.port.to_string() },
         ],
+    };
+    if let Some(addr) = connected_addr {
+        result.details.push(ProbeDetail { key: "connectedIp".to_string(), value: addr.ip().to_string() });
     }
+    append_route_details(&mut result.details, "", local_addr, route_report.as_ref());
+    result
 }
 
 pub(crate) fn run_service_probe(
@@ -669,7 +753,7 @@ pub(crate) fn run_service_probe(
 ) -> ProbeResult {
     let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport));
     let media = target.media_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport));
-    let (gateway_status, gateway_error) = run_endpoint_probe(
+    let gateway = run_endpoint_probe(
         target.tcp_endpoint_host.as_deref(),
         target.tcp_endpoint_ip.as_deref(),
         target.tcp_endpoint_port,
@@ -677,7 +761,7 @@ pub(crate) fn run_service_probe(
         transport,
         tls_verifier,
     );
-    let (quic_status, quic_error) = run_quic_endpoint_probe(
+    let quic = run_quic_endpoint_probe(
         target.quic_host.as_deref(),
         target.quic_connect_ip.as_deref(),
         target.quic_port,
@@ -691,13 +775,13 @@ pub(crate) fn run_service_probe(
     let media_detail = media.as_ref().map_or_else(|| "not_run".to_string(), describe_http_observation);
     let outcome = if is_probe_failure(&bootstrap_status)
         || is_probe_failure(&media_status)
-        || is_probe_failure(&gateway_status)
-        || is_probe_failure(&quic_status)
+        || is_probe_failure(&gateway.status)
+        || is_probe_failure(&quic.status)
     {
         if bootstrap_status == "http_ok"
             && media_status == "http_ok"
-            && matches!(gateway_status.as_str(), "not_run" | "tls_ok" | "tcp_connect_ok")
-            && matches!(quic_status.as_str(), "not_run" | "quic_initial_response" | "quic_response")
+            && matches!(gateway.status.as_str(), "not_run" | "tls_ok" | "tcp_connect_ok")
+            && matches!(quic.status.as_str(), "not_run" | "quic_initial_response" | "quic_response")
         {
             "service_ok"
         } else if bootstrap_status != "not_run" && bootstrap_status != "http_ok" {
@@ -709,7 +793,7 @@ pub(crate) fn run_service_probe(
         "service_ok"
     };
 
-    ProbeResult {
+    let mut result = ProbeResult {
         probe_type: "service_reachability".to_string(),
         target: target.service.clone(),
         outcome: outcome.to_string(),
@@ -720,12 +804,15 @@ pub(crate) fn run_service_probe(
             ProbeDetail { key: "bootstrapDetail".to_string(), value: bootstrap_detail },
             ProbeDetail { key: "mediaStatus".to_string(), value: media_status },
             ProbeDetail { key: "mediaDetail".to_string(), value: media_detail },
-            ProbeDetail { key: "gatewayStatus".to_string(), value: gateway_status },
-            ProbeDetail { key: "gatewayError".to_string(), value: gateway_error },
-            ProbeDetail { key: "quicStatus".to_string(), value: quic_status },
-            ProbeDetail { key: "quicError".to_string(), value: quic_error },
+            ProbeDetail { key: "gatewayStatus".to_string(), value: gateway.status.clone() },
+            ProbeDetail { key: "gatewayError".to_string(), value: gateway.error.clone() },
+            ProbeDetail { key: "quicStatus".to_string(), value: quic.status.clone() },
+            ProbeDetail { key: "quicError".to_string(), value: quic.error.clone() },
         ],
-    }
+    };
+    append_route_details(&mut result.details, "gateway", gateway.local_addr, gateway.route_report.as_ref());
+    append_route_details(&mut result.details, "quic", quic.local_addr, quic.route_report.as_ref());
+    result
 }
 
 pub(crate) fn run_circumvention_probe(
@@ -734,7 +821,7 @@ pub(crate) fn run_circumvention_probe(
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
 ) -> ProbeResult {
     let bootstrap = target.bootstrap_url.as_ref().map(|url| probe_http_url(url, None, &[], None, transport));
-    let (handshake_status, handshake_error) = run_endpoint_probe(
+    let handshake = run_endpoint_probe(
         target.handshake_host.as_deref(),
         target.handshake_ip.as_deref(),
         target.handshake_port,
@@ -757,7 +844,7 @@ pub(crate) fn run_circumvention_probe(
         (initial_bootstrap_status, 0usize)
     };
 
-    let outcome = if is_probe_failure(&handshake_status) {
+    let outcome = if is_probe_failure(&handshake.status) {
         "circumvention_blocked"
     } else if is_probe_failure(&bootstrap_status) {
         if is_server_error(&bootstrap_status) {
@@ -768,7 +855,7 @@ pub(crate) fn run_circumvention_probe(
     } else {
         "circumvention_ok"
     };
-    ProbeResult {
+    let mut result = ProbeResult {
         probe_type: "circumvention_reachability".to_string(),
         target: target.tool.clone(),
         outcome: outcome.to_string(),
@@ -777,11 +864,13 @@ pub(crate) fn run_circumvention_probe(
             ProbeDetail { key: "tool".to_string(), value: target.tool.clone() },
             ProbeDetail { key: "bootstrapStatus".to_string(), value: bootstrap_status },
             ProbeDetail { key: "bootstrapDetail".to_string(), value: bootstrap_detail },
-            ProbeDetail { key: "handshakeStatus".to_string(), value: handshake_status },
-            ProbeDetail { key: "handshakeError".to_string(), value: handshake_error },
+            ProbeDetail { key: "handshakeStatus".to_string(), value: handshake.status.clone() },
+            ProbeDetail { key: "handshakeError".to_string(), value: handshake.error.clone() },
             ProbeDetail { key: "probeRetryCount".to_string(), value: circumvention_retry_count.to_string() },
         ],
-    }
+    };
+    append_route_details(&mut result.details, "handshake", handshake.local_addr, handshake.route_report.as_ref());
+    result
 }
 
 pub(crate) fn run_throughput_probe(target: &ThroughputTarget, transport: &TransportConfig) -> ProbeResult {
