@@ -82,6 +82,8 @@ internal class DefaultDiagnosticsIntentResolver
                 settings = settings,
                 kind = spec.kind,
                 family = spec.family,
+                intentBucket = spec.intentBucket,
+                legalSafety = spec.legalSafety,
                 regionTag = spec.regionTag,
                 executionPolicy =
                     ExecutionPolicy(

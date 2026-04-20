@@ -5,7 +5,7 @@ private const val StrategyProbeStageTimeoutMs = 300_000L
 private const val DefaultStageTimeoutMs = 120_000L
 private const val PathComparisonStageTimeoutMs = 180_000L
 private const val ThrottlingStageTimeoutMs = 240_000L
-private const val CircumventionStageTimeoutMs = 240_000L
+private const val SensitiveServicesStageTimeoutMs = 240_000L
 private const val QuickScanStrategyProbeTimeoutMs = 90_000L
 
 internal const val DetectionStageTimeoutMs = 90_000L
@@ -56,7 +56,8 @@ internal val HomeCompositeStageSpecs =
         ),
         HomeCompositeStageSpec(
             key = "ru_circumvention",
-            label = "Sensitive services",
+            label = "Sensitive services reachability",
+            // Keep the stable profile id for catalog/session compatibility.
             profileId = "ru-circumvention",
             pathMode = ScanPathMode.RAW_PATH,
         ),
@@ -122,7 +123,7 @@ internal fun stageTimeoutMs(
         spec.profileId in listOf("automatic-audit", "ru-dpi-strategy") -> StrategyProbeStageTimeoutMs
         spec.profileId == "path-comparison" -> PathComparisonStageTimeoutMs
         spec.profileId == "ru-throttling" -> ThrottlingStageTimeoutMs
-        spec.profileId == "ru-circumvention" -> CircumventionStageTimeoutMs
+        spec.profileId == "ru-circumvention" -> SensitiveServicesStageTimeoutMs
         else -> DefaultStageTimeoutMs
     }
 

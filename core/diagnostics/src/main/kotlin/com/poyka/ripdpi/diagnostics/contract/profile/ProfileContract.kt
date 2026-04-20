@@ -2,6 +2,8 @@ package com.poyka.ripdpi.diagnostics.contract.profile
 
 import com.poyka.ripdpi.diagnostics.CircumventionTarget
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
+import com.poyka.ripdpi.diagnostics.DiagnosticsLegalSafety
+import com.poyka.ripdpi.diagnostics.DiagnosticsProfileIntentBucket
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.QuicTarget
@@ -44,6 +46,8 @@ data class ProfileSpecWire(
     val displayName: String,
     val kind: ScanKind = ScanKind.CONNECTIVITY,
     val family: DiagnosticProfileFamily = DiagnosticProfileFamily.GENERAL,
+    val intentBucket: DiagnosticsProfileIntentBucket = DiagnosticsProfileIntentBucket.SAFE_DEFAULT,
+    val legalSafety: DiagnosticsLegalSafety = DiagnosticsLegalSafety.SAFE,
     val regionTag: String? = null,
     val executionPolicy: ProfileExecutionPolicyWire? = null,
     val manualOnly: Boolean? = null,
