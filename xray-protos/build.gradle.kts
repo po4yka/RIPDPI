@@ -1,7 +1,7 @@
 plugins {
     `java-library`
     id("com.android.lint")
-    id("com.google.protobuf") version "0.9.6"
+    id("com.google.protobuf") version "0.10.0"
 }
 
 java {
