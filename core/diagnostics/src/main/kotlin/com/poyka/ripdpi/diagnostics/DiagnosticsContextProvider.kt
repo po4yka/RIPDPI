@@ -12,8 +12,11 @@ import android.os.PowerManager
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.effectiveChainSummary
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
@@ -58,11 +61,7 @@ class AndroidDiagnosticsContextProvider
             val telemetry = serviceStateStore.telemetry.value
             val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             val tcpSteps = settings.effectiveTcpChainSteps()
-            val lastNativeError =
-                listOfNotNull(
-                    telemetry.proxyTelemetry.lastError?.takeIf { it.isNotBlank() },
-                    telemetry.tunnelTelemetry.lastError?.takeIf { it.isNotBlank() },
-                ).firstOrNull() ?: "none"
+            val lastNativeError = relevantLastNativeError(serviceStatus, telemetry)
             return DiagnosticContextModel(
                 service =
                     buildServiceContext(
@@ -190,7 +189,33 @@ class AndroidDiagnosticsContextProvider
 
         private fun hasPermission(permission: String): Boolean =
             ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+
+        private fun relevantLastNativeError(
+            serviceStatus: AppStatus,
+            telemetry: ServiceTelemetrySnapshot,
+        ): String {
+            val haltedWithIdleRuntime =
+                serviceStatus == AppStatus.Halted &&
+                    telemetry.runtimeFieldTelemetry.failureClass == null &&
+                    telemetry.proxyTelemetry.isIdleRuntimeSnapshot() &&
+                    telemetry.tunnelTelemetry.isIdleRuntimeSnapshot()
+            if (haltedWithIdleRuntime) {
+                return "none"
+            }
+            return listOfNotNull(
+                telemetry.proxyTelemetry.lastError?.takeIf { it.isNotBlank() },
+                telemetry.tunnelTelemetry.lastError?.takeIf { it.isNotBlank() },
+            ).firstOrNull() ?: "none"
+        }
     }
+
+private fun NativeRuntimeSnapshot.isIdleRuntimeSnapshot(): Boolean =
+    state == "idle" &&
+        health == "idle" &&
+        activeSessions == 0L &&
+        totalErrors == 0L &&
+        lastError.isNullOrBlank() &&
+        lastFailureClass.isNullOrBlank()
 
 internal fun booleanState(value: Boolean?): String =
     when (value) {
