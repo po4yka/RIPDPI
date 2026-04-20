@@ -9,7 +9,13 @@ internal fun policy(
         requiresRawPath = requiresRawPath,
     )
 
-internal fun domainTargets(multiline: String): List<DomainTargetDefinition> = lines(multiline).map(::DomainTargetDefinition)
+internal fun domainTargets(
+    multiline: String,
+    legalSafety: CatalogLegalSafety = CatalogLegalSafety.SAFE,
+): List<DomainTargetDefinition> =
+    lines(multiline).map { host ->
+        DomainTargetDefinition(host = host, legalSafety = legalSafety)
+    }
 
 internal fun quicTargets(multiline: String): List<QuicTargetDefinition> =
     lines(multiline).map { host -> QuicTargetDefinition(host = host) }
@@ -73,6 +79,7 @@ internal fun TargetPackDefinition?.orEmptyServices(): List<ServiceTargetDefiniti
 internal fun TargetPackDefinition?.orEmptyCircumvention(): List<CircumventionTargetDefinition> =
     this?.circumventionTargets.orEmpty()
 
-internal fun TargetPackDefinition?.orEmptyThroughput(): List<ThroughputTargetDefinition> = this?.throughputTargets.orEmpty()
+internal fun TargetPackDefinition?.orEmptyThroughput(): List<ThroughputTargetDefinition> =
+    this?.throughputTargets.orEmpty()
 
 internal fun TargetPackDefinition?.orEmptyWhitelist(): List<String> = this?.whitelistSni.orEmpty()

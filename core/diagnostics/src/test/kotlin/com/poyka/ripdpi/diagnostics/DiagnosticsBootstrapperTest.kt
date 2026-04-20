@@ -75,6 +75,7 @@ class DiagnosticsBootstrapperTest {
             profileImporter =
                 BundledDiagnosticsProfileImporter(
                     profileSource = BootstrapBundledDiagnosticsProfileSource(sampleBundledProfilesJson()),
+                    overrideSource = EmptyBundledDiagnosticsCatalogOverrideSource,
                     profileCatalog = stores,
                     clock = TestDiagnosticsHistoryClock(currentTime = 10L),
                     json = json,

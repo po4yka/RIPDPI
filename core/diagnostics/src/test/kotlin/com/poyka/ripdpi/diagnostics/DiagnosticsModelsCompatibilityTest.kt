@@ -48,6 +48,8 @@ class DiagnosticsModelsCompatibilityTest {
             ProbePersistencePolicyWire.BACKGROUND_ONLY,
             profile.normalizedExecutionPolicy().probePersistencePolicy,
         )
+        assertEquals(DiagnosticsProfileIntentBucket.SAFE_DEFAULT, profile.intentBucket)
+        assertEquals(DiagnosticsLegalSafety.SAFE, profile.legalSafety)
         assertTrue(profile.strategyProbeTargetCohorts.isEmpty())
     }
 
@@ -59,6 +61,8 @@ class DiagnosticsModelsCompatibilityTest {
                 displayName = "Automatic audit",
                 kind = ScanKind.STRATEGY_PROBE,
                 family = DiagnosticProfileFamily.AUTOMATIC_AUDIT,
+                intentBucket = DiagnosticsProfileIntentBucket.SAFE_DEFAULT,
+                legalSafety = DiagnosticsLegalSafety.SAFE,
                 executionPolicy =
                     ProfileExecutionPolicyWire(
                         manualOnly = true,
@@ -95,6 +99,8 @@ class DiagnosticsModelsCompatibilityTest {
 
         assertEquals(1, decoded.strategyProbeTargetCohorts.size)
         assertEquals("global-core", decoded.strategyProbeTargetCohorts.single().id)
+        assertEquals(DiagnosticsProfileIntentBucket.SAFE_DEFAULT, decoded.intentBucket)
+        assertEquals(DiagnosticsLegalSafety.SAFE, decoded.legalSafety)
     }
 
     @Test
@@ -225,6 +231,81 @@ class DiagnosticsModelsCompatibilityTest {
         assertEquals(listOf("ru-independent-media@1", "ru-control@1"), decoded.packRefs)
         assertEquals(EngineProbeTaskFamily.WEB, decoded.probeTasks.single().family)
         assertEquals("telegram", decoded.serviceTargets.single().id)
+    }
+
+    @Test
+    fun `diagnostic context round trips runtime component summaries`() {
+        val context =
+            DiagnosticContextModel(
+                service =
+                    ServiceContextModel(
+                        serviceStatus = "Halted",
+                        configuredMode = "VPN",
+                        activeMode = "VPN",
+                        selectedProfileId = "default",
+                        selectedProfileName = "Default",
+                        configSource = "ui",
+                        proxyEndpoint = "127.0.0.1:1080",
+                        desyncMethod = "split",
+                        chainSummary = "tcp: split(1)",
+                        routeGroup = "3",
+                        sessionUptimeMs = null,
+                        lastNativeErrorHeadline = "none",
+                        restartCount = 1,
+                        hostAutolearnEnabled = "disabled",
+                        learnedHostCount = 0,
+                        penalizedHostCount = 0,
+                        lastAutolearnHost = "none",
+                        lastAutolearnGroup = "none",
+                        lastAutolearnAction = "none",
+                        proxy =
+                            RuntimeComponentSummary(
+                                state = "halted",
+                                health = "degraded",
+                                activeSessions = 0,
+                                lastError = "no supported socks auth method",
+                                lastFailureClass = "proxy_auth",
+                                listenerAddress = "127.0.0.1:1080",
+                                capturedAt = 10L,
+                            ),
+                    ),
+                permissions =
+                    PermissionContextModel(
+                        vpnPermissionState = "enabled",
+                        notificationPermissionState = "enabled",
+                        batteryOptimizationState = "disabled",
+                        dataSaverState = "disabled",
+                    ),
+                device =
+                    DeviceContextModel(
+                        appVersionName = "0.0.1",
+                        appVersionCode = 1L,
+                        buildType = "debug",
+                        androidVersion = "16",
+                        apiLevel = 36,
+                        manufacturer = "Google",
+                        model = "Pixel",
+                        primaryAbi = "arm64-v8a",
+                        locale = "en-US",
+                        timezone = "UTC",
+                    ),
+                environment =
+                    EnvironmentContextModel(
+                        batterySaverState = "disabled",
+                        powerSaveModeState = "disabled",
+                        networkMeteredState = "disabled",
+                        roamingState = "disabled",
+                    ),
+            )
+
+        val decoded =
+            json.decodeFromString(
+                DiagnosticContextModel.serializer(),
+                json.encodeToString(DiagnosticContextModel.serializer(), context),
+            )
+
+        assertEquals("proxy_auth", decoded.service.proxy?.lastFailureClass)
+        assertEquals("127.0.0.1:1080", decoded.service.proxy?.listenerAddress)
     }
 
     @Test

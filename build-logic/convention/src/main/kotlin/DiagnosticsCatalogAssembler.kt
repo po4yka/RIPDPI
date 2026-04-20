@@ -1,6 +1,7 @@
 internal class DiagnosticsCatalogAssembler(
     private val packSource: DiagnosticsCatalogPackSource,
     private val profileSource: DiagnosticsCatalogProfileSource,
+    private val legalSafetyRegistry: DiagnosticsCatalogLegalSafetyRegistry,
     private val validator: DiagnosticsCatalogValidator,
     private val renderer: DiagnosticsCatalogJsonRenderer,
 ) {
@@ -8,11 +9,13 @@ internal class DiagnosticsCatalogAssembler(
         val packs = packSource.load()
         val profiles = profileSource.load(DiagnosticsCatalogIndex(packs))
         val catalog =
-            DiagnosticsCatalog(
-                packs = packs,
-                profiles = profiles,
+            legalSafetyRegistry.annotate(
+                DiagnosticsCatalog(
+                    packs = packs,
+                    profiles = profiles,
+                ),
             )
         validator.validate(catalog)
-        return renderer.render(catalog)
+        return renderer.render(catalog).also(validator::validateGeneratedArtifacts)
     }
 }

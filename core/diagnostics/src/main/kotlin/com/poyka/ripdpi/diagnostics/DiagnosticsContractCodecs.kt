@@ -69,6 +69,8 @@ internal fun DiagnosticsIntent.toProfileProjection(): DiagnosticsProfileProjecti
     DiagnosticsProfileProjection(
         kind = kind,
         family = family,
+        intentBucket = intentBucket,
+        legalSafety = legalSafety,
         regionTag = regionTag,
         executionPolicy =
             DiagnosticsExecutionPolicyProjection(
@@ -88,6 +90,8 @@ internal fun ProfileSpecWire.toProfileProjection(): DiagnosticsProfileProjection
         DiagnosticsProfileProjection(
             kind = kind,
             family = family,
+            intentBucket = intentBucket,
+            legalSafety = legalSafety,
             regionTag = regionTag,
             executionPolicy =
                 DiagnosticsExecutionPolicyProjection(

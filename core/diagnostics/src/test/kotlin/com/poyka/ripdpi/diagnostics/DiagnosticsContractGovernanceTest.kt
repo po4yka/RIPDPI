@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DiagnosticsContractGovernanceTest {
@@ -73,4 +74,51 @@ class DiagnosticsContractGovernanceTest {
         assertNotNull(match)
         assertEquals(DiagnosticsEngineSchemaVersion, match!!.groupValues[1].toInt())
     }
+
+    @Test
+    fun `restricted diagnostics hosts are absent from shipped assets fixtures and governance sources`() {
+        val violations =
+            restrictedDiagnosticsScanTargets()
+                .flatMap { target ->
+                    val files =
+                        if (target.isDirectory) {
+                            target
+                                .walkTopDown()
+                                .filter { it.isFile && (it.extension == "kt" || it.extension == "json") }
+                                .toList()
+                        } else {
+                            listOf(target)
+                        }
+                    files.flatMap { file ->
+                        val text = file.readText().lowercase()
+                        restrictedDiagnosticsHosts()
+                            .filter { host -> text.contains(host) }
+                            .map { host -> "${file.relativeTo(repoFixture("."))}: $host" }
+                    }
+                }
+
+        assertTrue(
+            "Restricted diagnostics hosts detected:\n${violations.joinToString("\n")}",
+            violations.isEmpty(),
+        )
+    }
 }
+
+private fun restrictedDiagnosticsHosts(): List<String> =
+    listOf(
+        listOf("meduza", "io").joinToString("."),
+        listOf("www", "svoboda", "org").joinToString("."),
+        listOf("www", "dw", "com").joinToString("."),
+        listOf("www", "torproject", "org").joinToString("."),
+        listOf("protonvpn", "com").joinToString("."),
+        listOf("psiphon", "ca").joinToString("."),
+        listOf("riseup", "net").joinToString("."),
+    )
+
+private fun restrictedDiagnosticsScanTargets(): List<java.io.File> =
+    listOf(
+        repoFixture("core/diagnostics/src/main/assets/diagnostics/default_profiles.json"),
+        repoFixture("diagnostics-contract-fixtures/profile_catalog_current.json"),
+        repoFixture("build-logic/convention/src/main/kotlin"),
+        repoFixture("core/diagnostics/src/test/kotlin/com/poyka/ripdpi/diagnostics"),
+    )

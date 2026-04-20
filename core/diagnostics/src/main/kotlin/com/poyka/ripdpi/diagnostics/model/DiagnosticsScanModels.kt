@@ -31,6 +31,20 @@ enum class DiagnosticProfileFamily {
 }
 
 @Serializable
+enum class DiagnosticsProfileIntentBucket {
+    SAFE_DEFAULT,
+    MANUAL_SENSITIVE,
+    LAB_ONLY,
+}
+
+@Serializable
+enum class DiagnosticsLegalSafety {
+    SAFE,
+    SENSITIVE,
+    UNSAFE,
+}
+
+@Serializable
 data class DomainTarget(
     val host: String,
     val connectIp: String? = null,

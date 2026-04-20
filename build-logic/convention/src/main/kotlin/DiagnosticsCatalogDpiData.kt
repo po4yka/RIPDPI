@@ -12,8 +12,6 @@ internal object DiagnosticsCatalogDpiData {
             www.youtube.com
             soundcloud.com
             proton.me
-            nnmclub.to
-            rezka.ag
             hub.docker.com
             www.intel.com
             www.canva.com
@@ -26,10 +24,6 @@ internal object DiagnosticsCatalogDpiData {
             gelbooru.com
             browserleaks.com
             www.cdn77.com
-            shikimori.one
-            mos-gorsud.co
-            kinopub.online
-            kino.pub
             vk.ru
             www.google.com
             """.trimIndent(),

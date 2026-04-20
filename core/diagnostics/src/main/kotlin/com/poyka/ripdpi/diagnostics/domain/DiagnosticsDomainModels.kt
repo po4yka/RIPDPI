@@ -7,6 +7,8 @@ import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.diagnostics.CircumventionTarget
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
+import com.poyka.ripdpi.diagnostics.DiagnosticsLegalSafety
+import com.poyka.ripdpi.diagnostics.DiagnosticsProfileIntentBucket
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
@@ -58,6 +60,8 @@ internal data class DiagnosticsIntent(
     val settings: com.poyka.ripdpi.proto.AppSettings,
     val kind: ScanKind,
     val family: DiagnosticProfileFamily,
+    val intentBucket: DiagnosticsProfileIntentBucket = DiagnosticsProfileIntentBucket.SAFE_DEFAULT,
+    val legalSafety: DiagnosticsLegalSafety = DiagnosticsLegalSafety.SAFE,
     val regionTag: String?,
     val executionPolicy: ExecutionPolicy,
     val packRefs: List<String>,

@@ -1,4 +1,4 @@
-internal const val DiagnosticsCatalogGeneratedAt = "2026-03-22"
+internal const val DiagnosticsCatalogGeneratedAt = "2026-04-20"
 internal const val DiagnosticsCatalogSchemaVersion = 1
 
 internal data class DiagnosticsCatalog(
@@ -38,6 +38,31 @@ internal enum class CatalogDiagnosticProfileFamily {
     AUTOMATIC_AUDIT,
 }
 
+internal enum class CatalogLegalSafety {
+    SAFE,
+    SENSITIVE,
+    UNSAFE,
+}
+
+internal enum class CatalogLegalSafetyShippingPolicy {
+    ALLOW,
+    MANUAL_ONLY,
+    DENYLIST,
+}
+
+internal data class CatalogLegalSafetyMetadata(
+    val classification: CatalogLegalSafety,
+    val shippingPolicy: CatalogLegalSafetyShippingPolicy,
+    val jurisdictionTag: String,
+    val ruleId: String,
+)
+
+internal enum class CatalogProfileIntentBucket {
+    SAFE_DEFAULT,
+    MANUAL_SENSITIVE,
+    LAB_ONLY,
+}
+
 internal data class ProfileExecutionPolicyDefinition(
     val manualOnly: Boolean,
     val allowBackground: Boolean,
@@ -46,11 +71,14 @@ internal data class ProfileExecutionPolicyDefinition(
 
 internal data class DomainTargetDefinition(
     val host: String,
+    val legalSafety: CatalogLegalSafety = CatalogLegalSafety.SAFE,
+    val legalSafetyMetadata: CatalogLegalSafetyMetadata? = null,
 )
 
 internal data class DnsTargetDefinition(
     val domain: String,
     val udpServer: String? = null,
+    val legalSafetyMetadata: CatalogLegalSafetyMetadata? = null,
 )
 
 internal data class TcpTargetDefinition(
@@ -64,6 +92,7 @@ internal data class TcpTargetDefinition(
 internal data class QuicTargetDefinition(
     val host: String,
     val port: Int = 443,
+    val legalSafetyMetadata: CatalogLegalSafetyMetadata? = null,
 )
 
 internal data class TelegramDcEndpointDefinition(
@@ -91,6 +120,7 @@ internal data class ServiceTargetDefinition(
     val service: String,
     val bootstrapUrl: String? = null,
     val tcpEndpointHost: String? = null,
+    val legalSafetyMetadata: CatalogLegalSafetyMetadata? = null,
 )
 
 internal data class CircumventionTargetDefinition(
@@ -98,6 +128,7 @@ internal data class CircumventionTargetDefinition(
     val tool: String,
     val bootstrapUrl: String? = null,
     val handshakeHost: String? = null,
+    val legalSafetyMetadata: CatalogLegalSafetyMetadata? = null,
 )
 
 internal data class ThroughputTargetDefinition(
@@ -107,6 +138,7 @@ internal data class ThroughputTargetDefinition(
     val isControl: Boolean = false,
     val windowBytes: Int = 8_388_608,
     val runs: Int = 2,
+    val legalSafetyMetadata: CatalogLegalSafetyMetadata? = null,
 )
 
 internal data class TargetPackDefinition(
@@ -128,6 +160,8 @@ internal data class DiagnosticsProfileDefinition(
     val version: Int = 1,
     val kind: CatalogScanKind = CatalogScanKind.CONNECTIVITY,
     val family: CatalogDiagnosticProfileFamily = CatalogDiagnosticProfileFamily.GENERAL,
+    val intentBucket: CatalogProfileIntentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
+    val legalSafety: CatalogLegalSafety = CatalogLegalSafety.SAFE,
     val regionTag: String? = null,
     val executionPolicy: ProfileExecutionPolicyDefinition,
     val packRefs: List<String> = emptyList(),

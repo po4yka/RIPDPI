@@ -16,6 +16,9 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         DiagnosticsProfileDefinition(
             id = "default",
             name = "Default diagnostics",
+            version = 2,
+            intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
+            legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = false, requiresRawPath = false),
             domainTargets =
                 domainTargets(
@@ -30,9 +33,9 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             dnsTargets =
                 domainTargets(
                     """
-                    rutor.info
-                    rezka.ag
-                    shikimori.one
+                    cloudflare.com
+                    google.com
+                    youtube.com
                     """.trimIndent(),
                 ).map { DnsTargetDefinition(domain = it.host) },
             tcpTargets = DiagnosticsCatalogSharedData.defaultTcpTargets,
@@ -43,8 +46,11 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         DiagnosticsProfileDefinition(
             id = "automatic-probing",
             name = "Automatic probing",
+            version = 2,
             kind = CatalogScanKind.STRATEGY_PROBE,
             family = CatalogDiagnosticProfileFamily.AUTOMATIC_PROBING,
+            intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
+            legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = true, requiresRawPath = true),
             domainTargets =
                 domainTargets(
@@ -68,8 +74,11 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         DiagnosticsProfileDefinition(
             id = "automatic-audit",
             name = "Automatic audit",
+            version = 2,
             kind = CatalogScanKind.STRATEGY_PROBE,
             family = CatalogDiagnosticProfileFamily.AUTOMATIC_AUDIT,
+            intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
+            legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = true, requiresRawPath = true),
             domainTargets =
                 domainTargets(
@@ -93,11 +102,14 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         DiagnosticsProfileDefinition(
             id = "dpi-detector-full",
             name = "DPI Detector Full",
+            version = 2,
+            intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
+            legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = false, requiresRawPath = false),
             domainTargets = DiagnosticsCatalogDpiData.domainTargets,
             dnsTargets =
                 udpDnsTargets(
-                    domains = listOf("rutor.info", "rezka.ag", "signal.org", "discord.com", "youtube.com", "proton.me"),
+                    domains = listOf("signal.org", "discord.com", "youtube.com", "proton.me", "cloudflare.com"),
                     servers = DiagnosticsCatalogSharedData.publicDnsResolvers,
                 ),
             tcpTargets = DiagnosticsCatalogDpiData.tcpTargets,
@@ -112,7 +124,10 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-web-connectivity",
             name = "Russia Web Connectivity",
+            version = 2,
             family = CatalogDiagnosticProfileFamily.WEB_CONNECTIVITY,
+            intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
+            legalSafety = CatalogLegalSafety.SENSITIVE,
             regionTag = "ru",
             executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = false),
             packRefs =
@@ -134,7 +149,10 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-messaging",
             name = "Russia Messaging Services",
+            version = 2,
             family = CatalogDiagnosticProfileFamily.MESSAGING,
+            intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
+            legalSafety = CatalogLegalSafety.SENSITIVE,
             regionTag = "ru",
             executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = false),
             packRefs =
@@ -154,7 +172,10 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-circumvention",
             name = "Russia Sensitive Services Reachability",
+            version = 2,
             family = CatalogDiagnosticProfileFamily.CIRCUMVENTION,
+            intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
+            legalSafety = CatalogLegalSafety.SENSITIVE,
             regionTag = "ru",
             executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = false),
             packRefs =
@@ -173,8 +194,10 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-throttling",
             name = "Russia Throttling Check",
-            version = 2,
+            version = 3,
             family = CatalogDiagnosticProfileFamily.THROTTLING,
+            intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
+            legalSafety = CatalogLegalSafety.SENSITIVE,
             regionTag = "ru",
             executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = false),
             packRefs =
@@ -198,8 +221,10 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-dpi-full",
             name = "Russia DPI Full",
-            version = 2,
+            version = 3,
             family = CatalogDiagnosticProfileFamily.DPI_FULL,
+            intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
+            legalSafety = CatalogLegalSafety.SENSITIVE,
             regionTag = "ru",
             executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = false),
             packRefs =

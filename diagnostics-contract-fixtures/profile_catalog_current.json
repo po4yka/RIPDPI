@@ -24,32 +24,29 @@
     },
     {
       "id": "ru-throttling",
-      "version": 2
+      "version": 1
     },
     {
       "id": "neutral-control",
       "version": 2
-    },
-    {
-      "id": "automatic-audit-targets",
-      "version": 1
     }
   ],
   "profiles": [
     {
       "id": "default",
       "name": "Default diagnostics",
-      "version": 1,
+      "version": 2,
       "request": {
         "profileId": "default",
         "displayName": "Default diagnostics",
         "kind": "CONNECTIVITY",
         "family": "GENERAL",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
         "executionPolicy": {
           "manualOnly": false,
           "allowBackground": false,
-          "requiresRawPath": false,
-          "probePersistencePolicy": "MANUAL_ONLY"
+          "requiresRawPath": false
         },
         "packRefs": [],
         "domainTargets": [
@@ -63,23 +60,21 @@
             "host": "proton.me"
           },
           {
-            "host": "cloudflare.com",
-            "isControl": true
+            "host": "cloudflare.com"
           },
           {
-            "host": "www.google.com",
-            "isControl": true
+            "host": "www.google.com"
           }
         ],
         "dnsTargets": [
           {
-            "domain": "rutor.info"
+            "domain": "cloudflare.com"
           },
           {
-            "domain": "rezka.ag"
+            "domain": "google.com"
           },
           {
-            "domain": "shikimori.one"
+            "domain": "youtube.com"
           }
         ],
         "tcpTargets": [
@@ -105,16 +100,7 @@
             "asn": "19281"
           }
         ],
-        "quicTargets": [
-          {
-            "host": "www.youtube.com",
-            "port": 443
-          },
-          {
-            "host": "discord.com",
-            "port": 443
-          }
-        ],
+        "quicTargets": [],
         "serviceTargets": [],
         "circumventionTargets": [],
         "throughputTargets": [],
@@ -128,17 +114,18 @@
     {
       "id": "automatic-probing",
       "name": "Automatic probing",
-      "version": 1,
+      "version": 2,
       "request": {
         "profileId": "automatic-probing",
         "displayName": "Automatic probing",
         "kind": "STRATEGY_PROBE",
         "family": "AUTOMATIC_PROBING",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
         "executionPolicy": {
           "manualOnly": false,
           "allowBackground": true,
-          "requiresRawPath": true,
-          "probePersistencePolicy": "BACKGROUND_ONLY"
+          "requiresRawPath": true
         },
         "packRefs": [],
         "domainTargets": [
@@ -182,15 +169,14 @@
         "displayName": "Automatic audit",
         "kind": "STRATEGY_PROBE",
         "family": "AUTOMATIC_AUDIT",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
         "executionPolicy": {
           "manualOnly": false,
           "allowBackground": true,
-          "requiresRawPath": true,
-          "probePersistencePolicy": "MANUAL_ONLY"
+          "requiresRawPath": true
         },
-        "packRefs": [
-          "automatic-audit-targets@1"
-        ],
+        "packRefs": [],
         "domainTargets": [
           {
             "host": "www.youtube.com"
@@ -214,83 +200,6 @@
             "port": 443
           }
         ],
-        "strategyProbeTargetCohorts": [
-          {
-            "id": "global-core",
-            "label": "Global core",
-            "domainTargets": [
-              {
-                "host": "www.youtube.com"
-              },
-              {
-                "host": "discord.com"
-              },
-              {
-                "host": "proton.me"
-              }
-            ],
-            "quicTargets": [
-              {
-                "host": "www.youtube.com",
-                "port": 443
-              },
-              {
-                "host": "discord.com",
-                "port": 443
-              }
-            ]
-          },
-          {
-            "id": "messaging-core",
-            "label": "Messaging core",
-            "domainTargets": [
-              {
-                "host": "telegram.org"
-              },
-              {
-                "host": "signal.org"
-              },
-              {
-                "host": "www.whatsapp.com"
-              }
-            ],
-            "quicTargets": [
-              {
-                "host": "discord.com",
-                "port": 443
-              },
-              {
-                "host": "www.whatsapp.com",
-                "port": 443
-              }
-            ]
-          },
-          {
-            "id": "safe-controls",
-            "label": "Safe controls",
-            "domainTargets": [
-              {
-                "host": "proton.me"
-              },
-              {
-                "host": "cloudflare.com"
-              },
-              {
-                "host": "www.google.com"
-              }
-            ],
-            "quicTargets": [
-              {
-                "host": "www.youtube.com",
-                "port": 443
-              },
-              {
-                "host": "www.whatsapp.com",
-                "port": 443
-              }
-            ]
-          }
-        ],
         "serviceTargets": [],
         "circumventionTargets": [],
         "throughputTargets": [],
@@ -303,17 +212,18 @@
     {
       "id": "dpi-detector-full",
       "name": "DPI Detector Full",
-      "version": 1,
+      "version": 2,
       "request": {
         "profileId": "dpi-detector-full",
         "displayName": "DPI Detector Full",
         "kind": "CONNECTIVITY",
         "family": "GENERAL",
+        "intentBucket": "SAFE_DEFAULT",
+        "legalSafety": "SAFE",
         "executionPolicy": {
           "manualOnly": false,
           "allowBackground": false,
-          "requiresRawPath": false,
-          "probePersistencePolicy": "MANUAL_ONLY"
+          "requiresRawPath": false
         },
         "packRefs": [],
         "domainTargets": [
@@ -346,12 +256,6 @@
           },
           {
             "host": "proton.me"
-          },
-          {
-            "host": "nnmclub.to"
-          },
-          {
-            "host": "rezka.ag"
           },
           {
             "host": "hub.docker.com"
@@ -390,18 +294,6 @@
             "host": "www.cdn77.com"
           },
           {
-            "host": "shikimori.one"
-          },
-          {
-            "host": "mos-gorsud.co"
-          },
-          {
-            "host": "kinopub.online"
-          },
-          {
-            "host": "kino.pub"
-          },
-          {
             "host": "vk.ru"
           },
           {
@@ -410,51 +302,19 @@
         ],
         "dnsTargets": [
           {
-            "domain": "rutor.info",
+            "domain": "signal.org",
             "udpServer": "8.8.8.8:53"
           },
           {
-            "domain": "rutor.info",
+            "domain": "signal.org",
             "udpServer": "1.1.1.1:53"
           },
           {
-            "domain": "rutor.info",
+            "domain": "signal.org",
             "udpServer": "9.9.9.9:53"
           },
           {
-            "domain": "rutor.info",
-            "udpServer": "94.140.14.14:53"
-          },
-          {
-            "domain": "rezka.ag",
-            "udpServer": "8.8.8.8:53"
-          },
-          {
-            "domain": "rezka.ag",
-            "udpServer": "1.1.1.1:53"
-          },
-          {
-            "domain": "rezka.ag",
-            "udpServer": "9.9.9.9:53"
-          },
-          {
-            "domain": "rezka.ag",
-            "udpServer": "94.140.14.14:53"
-          },
-          {
-            "domain": "proton.me",
-            "udpServer": "8.8.8.8:53"
-          },
-          {
-            "domain": "proton.me",
-            "udpServer": "1.1.1.1:53"
-          },
-          {
-            "domain": "proton.me",
-            "udpServer": "9.9.9.9:53"
-          },
-          {
-            "domain": "proton.me",
+            "domain": "signal.org",
             "udpServer": "94.140.14.14:53"
           },
           {
@@ -503,6 +363,22 @@
           },
           {
             "domain": "proton.me",
+            "udpServer": "94.140.14.14:53"
+          },
+          {
+            "domain": "cloudflare.com",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "cloudflare.com",
+            "udpServer": "1.1.1.1:53"
+          },
+          {
+            "domain": "cloudflare.com",
+            "udpServer": "9.9.9.9:53"
+          },
+          {
+            "domain": "cloudflare.com",
             "udpServer": "94.140.14.14:53"
           }
         ],
@@ -1476,24 +1352,32 @@
     {
       "id": "ru-web-connectivity",
       "name": "Russia Web Connectivity",
-      "version": 1,
+      "version": 2,
       "request": {
         "profileId": "ru-web-connectivity",
         "displayName": "Russia Web Connectivity",
         "kind": "CONNECTIVITY",
         "family": "WEB_CONNECTIVITY",
+        "intentBucket": "MANUAL_SENSITIVE",
+        "legalSafety": "SENSITIVE",
         "regionTag": "ru",
         "executionPolicy": {
           "manualOnly": true,
           "allowBackground": false,
-          "requiresRawPath": false,
-          "probePersistencePolicy": "MANUAL_ONLY"
+          "requiresRawPath": false
         },
         "packRefs": [
+          "ru-independent-media@1",
           "ru-global-platforms@1",
           "ru-control@1"
         ],
         "domainTargets": [
+          {
+            "host": "cloudflare.com"
+          },
+          {
+            "host": "www.google.com"
+          },
           {
             "host": "www.youtube.com"
           },
@@ -1505,6 +1389,22 @@
           }
         ],
         "dnsTargets": [
+          {
+            "domain": "cloudflare.com",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "cloudflare.com",
+            "udpServer": "1.1.1.1:53"
+          },
+          {
+            "domain": "google.com",
+            "udpServer": "8.8.8.8:53"
+          },
+          {
+            "domain": "google.com",
+            "udpServer": "1.1.1.1:53"
+          },
           {
             "domain": "youtube.com",
             "udpServer": "8.8.8.8:53"
@@ -1568,18 +1468,19 @@
     {
       "id": "ru-messaging",
       "name": "Russia Messaging Services",
-      "version": 1,
+      "version": 2,
       "request": {
         "profileId": "ru-messaging",
         "displayName": "Russia Messaging Services",
         "kind": "CONNECTIVITY",
         "family": "MESSAGING",
+        "intentBucket": "MANUAL_SENSITIVE",
+        "legalSafety": "SENSITIVE",
         "regionTag": "ru",
         "executionPolicy": {
           "manualOnly": true,
           "allowBackground": false,
-          "requiresRawPath": false,
-          "probePersistencePolicy": "MANUAL_ONLY"
+          "requiresRawPath": false
         },
         "packRefs": [
           "ru-messaging@1",
@@ -1622,28 +1523,13 @@
             "id": "signal",
             "service": "Signal",
             "bootstrapUrl": "https://signal.org/",
-            "mediaUrl": "https://cdn.signal.org/",
-            "tcpEndpointHost": "chat.signal.org",
-            "tcpEndpointPort": 443,
-            "tlsServerName": "chat.signal.org"
+            "tcpEndpointHost": "signal.org"
           },
           {
             "id": "whatsapp",
             "service": "WhatsApp",
-            "bootstrapUrl": "https://web.whatsapp.com/",
-            "tcpEndpointHost": "v.whatsapp.net",
-            "tcpEndpointPort": 443,
-            "tlsServerName": "v.whatsapp.net",
-            "quicHost": "www.whatsapp.com",
-            "quicPort": 443
-          },
-          {
-            "id": "instagram",
-            "service": "Instagram",
-            "bootstrapUrl": "https://www.instagram.com/",
-            "tcpEndpointHost": "i.instagram.com",
-            "tcpEndpointPort": 443,
-            "tlsServerName": "i.instagram.com"
+            "bootstrapUrl": "https://www.whatsapp.com/",
+            "tcpEndpointHost": "www.whatsapp.com"
           },
           {
             "id": "discord",
@@ -1680,20 +1566,24 @@
     {
       "id": "ru-circumvention",
       "name": "Russia Sensitive Services Reachability",
-      "version": 1,
+      "version": 2,
       "request": {
         "profileId": "ru-circumvention",
         "displayName": "Russia Sensitive Services Reachability",
         "kind": "CONNECTIVITY",
         "family": "CIRCUMVENTION",
+        "intentBucket": "MANUAL_SENSITIVE",
+        "legalSafety": "SENSITIVE",
         "regionTag": "ru",
         "executionPolicy": {
           "manualOnly": true,
           "allowBackground": false,
-          "requiresRawPath": false,
-          "probePersistencePolicy": "MANUAL_ONLY"
+          "requiresRawPath": false
         },
-        "packRefs": [],
+        "packRefs": [
+          "ru-circumvention@1",
+          "ru-control@1"
+        ],
         "domainTargets": [
           {
             "host": "telegram.org"
@@ -1706,14 +1596,6 @@
           },
           {
             "host": "www.whatsapp.com"
-          },
-          {
-            "host": "cloudflare.com",
-            "isControl": true
-          },
-          {
-            "host": "www.google.com",
-            "isControl": true
           }
         ],
         "dnsTargets": [],
@@ -1728,18 +1610,19 @@
     {
       "id": "ru-throttling",
       "name": "Russia Throttling Check",
-      "version": 2,
+      "version": 3,
       "request": {
         "profileId": "ru-throttling",
         "displayName": "Russia Throttling Check",
         "kind": "CONNECTIVITY",
         "family": "THROTTLING",
+        "intentBucket": "MANUAL_SENSITIVE",
+        "legalSafety": "SENSITIVE",
         "regionTag": "ru",
         "executionPolicy": {
           "manualOnly": true,
           "allowBackground": false,
-          "requiresRawPath": false,
-          "probePersistencePolicy": "MANUAL_ONLY"
+          "requiresRawPath": false
         },
         "packRefs": [
           "ru-throttling@1",
@@ -1793,26 +1676,35 @@
     {
       "id": "ru-dpi-full",
       "name": "Russia DPI Full",
-      "version": 2,
+      "version": 3,
       "request": {
         "profileId": "ru-dpi-full",
         "displayName": "Russia DPI Full",
         "kind": "CONNECTIVITY",
         "family": "DPI_FULL",
+        "intentBucket": "MANUAL_SENSITIVE",
+        "legalSafety": "SENSITIVE",
         "regionTag": "ru",
         "executionPolicy": {
           "manualOnly": true,
           "allowBackground": false,
-          "requiresRawPath": false,
-          "probePersistencePolicy": "MANUAL_ONLY"
+          "requiresRawPath": false
         },
         "packRefs": [
+          "ru-independent-media@1",
           "ru-global-platforms@1",
           "ru-messaging@1",
+          "ru-circumvention@1",
           "ru-throttling@1",
           "neutral-control@2"
         ],
         "domainTargets": [
+          {
+            "host": "cloudflare.com"
+          },
+          {
+            "host": "www.google.com"
+          },
           {
             "host": "www.youtube.com"
           },
@@ -1834,6 +1726,10 @@
         ],
         "dnsTargets": [
           {
+            "domain": "cloudflare.com",
+            "udpServer": "1.1.1.1:53"
+          },
+          {
             "domain": "youtube.com",
             "udpServer": "1.1.1.1:53"
           },
@@ -1846,7 +1742,7 @@
             "udpServer": "1.1.1.1:53"
           },
           {
-            "domain": "proton.me",
+            "domain": "telegram.org",
             "udpServer": "8.8.8.8:53"
           }
         ],
@@ -1898,28 +1794,13 @@
             "id": "signal",
             "service": "Signal",
             "bootstrapUrl": "https://signal.org/",
-            "mediaUrl": "https://cdn.signal.org/",
-            "tcpEndpointHost": "chat.signal.org",
-            "tcpEndpointPort": 443,
-            "tlsServerName": "chat.signal.org"
+            "tcpEndpointHost": "signal.org"
           },
           {
             "id": "whatsapp",
             "service": "WhatsApp",
-            "bootstrapUrl": "https://web.whatsapp.com/",
-            "tcpEndpointHost": "v.whatsapp.net",
-            "tcpEndpointPort": 443,
-            "tlsServerName": "v.whatsapp.net",
-            "quicHost": "www.whatsapp.com",
-            "quicPort": 443
-          },
-          {
-            "id": "instagram",
-            "service": "Instagram",
-            "bootstrapUrl": "https://www.instagram.com/",
-            "tcpEndpointHost": "i.instagram.com",
-            "tcpEndpointPort": 443,
-            "tlsServerName": "i.instagram.com"
+            "bootstrapUrl": "https://www.whatsapp.com/",
+            "tcpEndpointHost": "www.whatsapp.com"
           },
           {
             "id": "discord",
@@ -1952,100 +1833,6 @@
           "dzen.ru",
           "2gis.com"
         ]
-      }
-    },
-    {
-      "id": "ru-dpi-strategy",
-      "name": "Russia DPI Strategy",
-      "version": 1,
-      "request": {
-        "profileId": "ru-dpi-strategy",
-        "displayName": "Russia DPI Strategy",
-        "kind": "STRATEGY_PROBE",
-        "family": "DPI_FULL",
-        "regionTag": "ru",
-        "executionPolicy": {
-          "manualOnly": false,
-          "allowBackground": true,
-          "requiresRawPath": true,
-          "probePersistencePolicy": "MANUAL_ONLY"
-        },
-        "packRefs": [],
-        "domainTargets": [
-          { "host": "www.youtube.com" },
-          { "host": "discord.com" },
-          { "host": "proton.me" },
-          { "host": "signal.org" },
-          { "host": "telegram.org" },
-          { "host": "www.whatsapp.com" }
-        ],
-        "dnsTargets": [],
-        "tcpTargets": [],
-        "quicTargets": [
-          { "host": "www.youtube.com", "port": 443 },
-          { "host": "discord.com", "port": 443 },
-          { "host": "www.whatsapp.com", "port": 443 }
-        ],
-        "strategyProbeTargetCohorts": [
-          {
-            "id": "ru-platform-core",
-            "label": "Russia platform core",
-            "domainTargets": [
-              { "host": "www.youtube.com" },
-              { "host": "discord.com" },
-              { "host": "proton.me" }
-            ],
-            "quicTargets": [
-              { "host": "www.youtube.com", "port": 443 },
-              { "host": "discord.com", "port": 443 }
-            ]
-          },
-          {
-            "id": "ru-messaging-core",
-            "label": "Russia messaging core",
-            "domainTargets": [
-              { "host": "signal.org" },
-              { "host": "telegram.org" },
-              { "host": "www.whatsapp.com" }
-            ],
-            "quicTargets": [
-              { "host": "www.whatsapp.com", "port": 443 }
-            ]
-          }
-        ],
-        "serviceTargets": [],
-        "circumventionTargets": [],
-        "throughputTargets": [],
-        "whitelistSni": [],
-        "strategyProbe": {
-          "suiteId": "full_matrix_v1"
-        }
-      }
-    },
-    {
-      "id": "path-comparison",
-      "name": "Path comparison",
-      "version": 1,
-      "request": {
-        "profileId": "path-comparison",
-        "displayName": "Path comparison",
-        "kind": "CONNECTIVITY",
-        "family": "CIRCUMVENTION",
-        "executionPolicy": {
-          "manualOnly": true,
-          "allowBackground": false,
-          "requiresRawPath": false,
-          "probePersistencePolicy": "MANUAL_ONLY"
-        },
-        "packRefs": [],
-        "domainTargets": [],
-        "dnsTargets": [],
-        "tcpTargets": [],
-        "quicTargets": [],
-        "serviceTargets": [],
-        "circumventionTargets": [],
-        "throughputTargets": [],
-        "whitelistSni": []
       }
     }
   ]
