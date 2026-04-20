@@ -150,6 +150,10 @@ class DiagnosticsViewModel
 
         fun dismissHiddenProbeConflictDialog() = scanActions.dismissHiddenProbeConflictDialog()
 
+        fun confirmSensitiveProfileRun() = scanActions.confirmSensitiveProfileRun()
+
+        fun dismissSensitiveProfileConsentDialog() = scanActions.dismissSensitiveProfileConsentDialog()
+
         fun cancelScan() = scanActions.cancelScan()
 
         fun keepResolverRecommendationForSession(

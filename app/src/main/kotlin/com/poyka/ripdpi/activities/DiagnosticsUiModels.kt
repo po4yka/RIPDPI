@@ -12,6 +12,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
+import com.poyka.ripdpi.diagnostics.DiagnosticsJurisdictionProfileAccess
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
@@ -113,6 +114,8 @@ data class DiagnosticsProfileOptionUiModel(
     val executionPolicy: DiagnosticsExecutionPolicyUiModel = DiagnosticsExecutionPolicyUiModel(),
     val manualOnly: Boolean = false,
     val packRefs: List<String> = emptyList(),
+    val policyAccess: DiagnosticsJurisdictionProfileAccess = DiagnosticsJurisdictionProfileAccess.ALLOWED,
+    val requiresExplicitConsent: Boolean = false,
 )
 
 enum class PhaseState { Completed, Active, Pending }
@@ -313,6 +316,15 @@ data class QueuedManualScanRequest(
     val isFullAudit: Boolean,
 )
 
+@Immutable
+data class SensitiveProfileConsentDialogState(
+    val profileId: String?,
+    val profileName: String,
+    val pathMode: ScanPathMode,
+    val scanKind: ScanKind,
+    val isFullAudit: Boolean,
+)
+
 @Stable
 data class DiagnosticsSessionDetailUiModel(
     val session: DiagnosticsSessionRowUiModel,
@@ -464,10 +476,12 @@ data class DiagnosticsScanUiModel(
     val runInPathEnabled: Boolean = true,
     val runRawHint: String? = null,
     val runInPathHint: String? = null,
+    val policyNoticeMessage: String? = null,
     val workflowRestriction: DiagnosticsWorkflowRestrictionUiModel? = null,
     val resolverRecommendation: DiagnosticsResolverRecommendationUiModel? = null,
     val strategyProbeReport: DiagnosticsStrategyProbeReportUiModel? = null,
     val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
+    val sensitiveProfileConsentDialog: SensitiveProfileConsentDialogState? = null,
     val queuedManualScanRequest: QueuedManualScanRequest? = null,
     val isBusy: Boolean = false,
 )
@@ -686,6 +700,7 @@ internal data class ScanLifecycleState(
     val dpiFailureClass: DpiFailureClass? = null,
     val pendingAutoOpenAuditSessionId: String? = null,
     val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
+    val sensitiveProfileConsentDialog: SensitiveProfileConsentDialogState? = null,
     val queuedManualScanRequest: QueuedManualScanRequest? = null,
     val archiveActionState: ArchiveActionState = ArchiveActionState(),
 )

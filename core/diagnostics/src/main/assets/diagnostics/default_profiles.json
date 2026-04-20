@@ -16,7 +16,7 @@
     },
     {
       "id": "ru-messaging",
-      "version": 1
+      "version": 2
     },
     {
       "id": "ru-circumvention",
@@ -1468,7 +1468,7 @@
     {
       "id": "ru-messaging",
       "name": "Russia Messaging Services",
-      "version": 2,
+      "version": 3,
       "request": {
         "profileId": "ru-messaging",
         "displayName": "Russia Messaging Services",
@@ -1483,7 +1483,7 @@
           "requiresRawPath": false
         },
         "packRefs": [
-          "ru-messaging@1",
+          "ru-messaging@2",
           "ru-control@1"
         ],
         "domainTargets": [
@@ -1516,25 +1516,21 @@
           {
             "id": "telegram",
             "service": "Telegram",
-            "bootstrapUrl": "https://telegram.org/",
             "tcpEndpointHost": "telegram.org"
           },
           {
             "id": "signal",
             "service": "Signal",
-            "bootstrapUrl": "https://signal.org/",
             "tcpEndpointHost": "signal.org"
           },
           {
             "id": "whatsapp",
             "service": "WhatsApp",
-            "bootstrapUrl": "https://www.whatsapp.com/",
             "tcpEndpointHost": "www.whatsapp.com"
           },
           {
             "id": "discord",
             "service": "Discord",
-            "bootstrapUrl": "https://discord.com/",
             "tcpEndpointHost": "discord.com"
           }
         ],
@@ -1676,7 +1672,7 @@
     {
       "id": "ru-dpi-full",
       "name": "Russia DPI Full",
-      "version": 3,
+      "version": 4,
       "request": {
         "profileId": "ru-dpi-full",
         "displayName": "Russia DPI Full",
@@ -1693,7 +1689,7 @@
         "packRefs": [
           "ru-independent-media@1",
           "ru-global-platforms@1",
-          "ru-messaging@1",
+          "ru-messaging@2",
           "ru-circumvention@1",
           "ru-throttling@1",
           "neutral-control@2"
@@ -1787,25 +1783,21 @@
           {
             "id": "telegram",
             "service": "Telegram",
-            "bootstrapUrl": "https://telegram.org/",
             "tcpEndpointHost": "telegram.org"
           },
           {
             "id": "signal",
             "service": "Signal",
-            "bootstrapUrl": "https://signal.org/",
             "tcpEndpointHost": "signal.org"
           },
           {
             "id": "whatsapp",
             "service": "WhatsApp",
-            "bootstrapUrl": "https://www.whatsapp.com/",
             "tcpEndpointHost": "www.whatsapp.com"
           },
           {
             "id": "discord",
             "service": "Discord",
-            "bootstrapUrl": "https://discord.com/",
             "tcpEndpointHost": "discord.com"
           }
         ],

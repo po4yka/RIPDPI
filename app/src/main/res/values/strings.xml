@@ -64,6 +64,8 @@
     <string name="diagnostics_action_audit_unavailable">Automatic audit unavailable</string>
     <string name="diagnostics_error_hidden_probe_running">Automatic probing is already running. Wait for it to finish before starting another diagnostics run.</string>
     <string name="diagnostics_error_start_failed">Couldn’t start diagnostics. Try again.</string>
+    <string name="diagnostics_error_sensitive_profile_consent_required">Review and confirm this sensitive diagnostics profile before running it.</string>
+    <string name="diagnostics_error_profile_blocked_by_policy">This diagnostics profile is unavailable under local legal-safety policy.</string>
     <string name="diagnostics_hidden_probe_conflict_title">Background automatic probing is active</string>
     <string name="diagnostics_hidden_probe_conflict_body_format">Background automatic probing is still running. Wait for it to finish, or cancel it and start %1$s now.</string>
     <string name="diagnostics_hidden_probe_wait_action">Wait</string>
@@ -72,6 +74,10 @@
     <string name="diagnostics_hidden_probe_wait_queued_format">%1$s will start after background automatic probing finishes.</string>
     <string name="diagnostics_hidden_probe_takeover_failed">Couldn’t take over background automatic probing. Try again.</string>
     <string name="diagnostics_hidden_probe_canceled_summary">Background automatic probing canceled to start manual diagnostics</string>
+    <string name="diagnostics_sensitive_profile_consent_title">Review sensitive diagnostics</string>
+    <string name="diagnostics_sensitive_profile_consent_body_format">%1$s includes sensitive checks for this region. Confirm before RIPDPI runs it.</string>
+    <string name="diagnostics_sensitive_profile_consent_confirm">Run sensitive diagnostics</string>
+    <string name="diagnostics_sensitive_profile_consent_dismiss">Not now</string>
     <string name="diagnostics_snackbar_scan_complete">Scan complete</string>
     <string name="diagnostics_snackbar_dns_recommendation_format">DNS replies looked different on this network. %1$s.</string>
     <string name="diagnostics_snackbar_dns_recommendation_generic">DNS replies looked different on this network. Open DNS settings and try a secure resolver.</string>
@@ -109,6 +115,7 @@
     <string name="diagnostics_profile_badge_ru_adapt">RU ADAPT</string>
     <string name="diagnostics_profile_badge_ru_rate">RU RATE</string>
     <string name="diagnostics_profile_badge_ru_full">RU FULL</string>
+    <string name="diagnostics_profile_badge_consent">Consent</string>
     <string name="diagnostics_profile_desc_web_connectivity">Region-focused web connectivity, DNS, TLS, and HTTP evidence.</string>
     <string name="diagnostics_profile_desc_messaging">Messaging bootstrap, media, and protocol reachability checks.</string>
     <string name="diagnostics_profile_desc_adaptation">Tor and VPN bootstrap plus handshake reachability.</string>
@@ -125,6 +132,8 @@
     <string name="diagnostics_diagnosis_summary_title">Diagnosis summary</string>
     <string name="diagnostics_region_suite_title">Region-focused suite</string>
     <string name="diagnostics_region_suite_message">Manual local checks tuned for regional network patterns. Results are evidence, not attribution.</string>
+    <string name="diagnostics_scan_policy_notice">Some targets were excluded for local legal-safety policy.</string>
+    <string name="diagnostics_profile_explicit_consent_required">Explicit consent required in this region.</string>
     <string name="diagnostics_live_results_title">Live results</string>
     <string name="diagnostics_phase_dns">DNS</string>
     <string name="diagnostics_phase_reach">Reach</string>

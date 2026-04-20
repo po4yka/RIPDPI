@@ -63,6 +63,7 @@ class ScanAdmissionService
         internal suspend fun admitManualStart(
             selectedProfileId: String? = null,
             skipActiveScanCheck: Boolean = false,
+            allowSensitiveProfileStart: Boolean = false,
         ): ManualStartAdmission {
             if (!skipActiveScanCheck && activeScanRegistry.hasVisibleActiveScan()) {
                 throw DiagnosticsScanStartRejectedException(DiagnosticsScanStartRejectionReason.ScanAlreadyActive)
@@ -76,6 +77,26 @@ class ScanAdmissionService
                 requireNotNull(profileCatalog.getProfile(profileId)) {
                     "Unknown diagnostics profile: $profileId"
                 }
+            val request = json.decodeProfileSpecWire(profile.requestJson)
+            when (request.resolveLegalSafetyPolicy().access) {
+                DiagnosticsJurisdictionProfileAccess.BLOCKED -> {
+                    throw DiagnosticsScanStartRejectedException(
+                        DiagnosticsScanStartRejectionReason.BlockedByLegalSafetyPolicy,
+                    )
+                }
+
+                DiagnosticsJurisdictionProfileAccess.MANUAL_ONLY -> {
+                    if (!allowSensitiveProfileStart) {
+                        throw DiagnosticsScanStartRejectedException(
+                            DiagnosticsScanStartRejectionReason.SensitiveProfileConsentRequired,
+                        )
+                    }
+                }
+
+                DiagnosticsJurisdictionProfileAccess.ALLOWED -> {
+                    Unit
+                }
+            }
             return if (activeScanRegistry.hasHiddenActiveScan()) {
                 ManualStartAdmission.HiddenAutomaticProbeConflict(settings = settings, profile = profile)
             } else {
@@ -92,7 +113,11 @@ class ScanAdmissionService
             }
             val profile = profileCatalog.getProfile(AutomaticProbeProfileId) ?: return null
             val request = json.decodeProfileSpecWire(profile.requestJson)
-            return profile.takeIf { request.normalizedExecutionPolicy().allowBackground }
+            val policy = request.resolveLegalSafetyPolicy()
+            return profile.takeIf {
+                request.normalizedExecutionPolicy().allowBackground &&
+                    policy.access == DiagnosticsJurisdictionProfileAccess.ALLOWED
+            }
         }
 
         suspend fun assertProfileExists(profileId: String) {
