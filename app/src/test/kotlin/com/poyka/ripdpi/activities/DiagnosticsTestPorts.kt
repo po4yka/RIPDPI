@@ -180,6 +180,7 @@ internal class FakeDiagnosticsScanController : DiagnosticsScanController {
         pathMode: ScanPathMode,
         selectedProfileId: String?,
         skipActiveScanCheck: Boolean,
+        allowSensitiveProfileStart: Boolean,
         scanDeadlineMs: Long?,
         maxCandidates: Int?,
     ): DiagnosticsManualScanStartResult =

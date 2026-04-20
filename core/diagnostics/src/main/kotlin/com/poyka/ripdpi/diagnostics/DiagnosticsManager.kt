@@ -71,6 +71,7 @@ interface DiagnosticsScanController {
         pathMode: ScanPathMode,
         selectedProfileId: String? = null,
         skipActiveScanCheck: Boolean = false,
+        allowSensitiveProfileStart: Boolean = false,
         scanDeadlineMs: Long? = null,
         maxCandidates: Int? = null,
     ): DiagnosticsManualScanStartResult
