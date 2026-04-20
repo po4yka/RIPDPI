@@ -1,6 +1,7 @@
 mod endpoint;
 mod probes;
 mod report;
+mod trigger_fuzzing;
 
 use std::sync::{Arc, Mutex};
 

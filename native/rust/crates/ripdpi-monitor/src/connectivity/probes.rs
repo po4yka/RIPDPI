@@ -19,6 +19,9 @@ use super::endpoint::{
     is_probe_failure, is_server_error, measure_throughput_window, probe_http_url, run_endpoint_probe,
     run_quic_endpoint_probe,
 };
+use super::trigger_fuzzing::{
+    append_dns_trigger_fuzzing_details, append_http_trigger_fuzzing_details, append_tls_trigger_fuzzing_details,
+};
 
 /// Classify DNS latency into a human-readable quality tier.
 ///
@@ -139,6 +142,16 @@ pub(crate) fn run_dns_probe(target: &DnsTarget, transport: &TransportConfig, pat
 
     if let (Some(udp_raw), Some(enc_raw)) = (raw_udp_response.as_deref(), raw_encrypted_response.as_deref()) {
         append_record_comparison_details(&mut result, udp_raw, enc_raw);
+    }
+
+    if result.outcome != "dns_match" {
+        append_dns_trigger_fuzzing_details(
+            &mut result.details,
+            target,
+            transport,
+            result.outcome.as_str(),
+            &encrypted_result,
+        );
     }
 
     result
@@ -553,6 +566,12 @@ pub(crate) fn run_domain_probe(
         result.details.push(ProbeDetail { key: "connectedIp".to_string(), value: addr.ip().to_string() });
     }
     append_route_details(&mut result.details, "", route_local_addr, route_report);
+    if http.status != "http_ok" {
+        append_http_trigger_fuzzing_details(&mut result.details, target, transport, http.status.as_str());
+    }
+    if preferred_tls.status != "tls_ok" {
+        append_tls_trigger_fuzzing_details(&mut result.details, target, transport, preferred_tls.status.as_str());
+    }
     result
 }
 
