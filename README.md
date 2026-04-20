@@ -26,6 +26,7 @@ Android application for optimizing network connectivity with:
 - handover-aware live policy re-evaluation across Wi-Fi, cellular, and roaming changes
 - relay transports including WARP, VLESS Reality/xHTTP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, and NaiveProxy
 - strategy-pack and TLS-catalog driven rollout control for transport defaults, feature flags, and fingerprint rotation
+- repo-local offline analytics pipeline for clustering censorship/device fingerprints and mining reviewed signature catalogs
 - xHTTP-side Finalmask support for supported relay profiles and Cloudflare Tunnel paths
 - integrated diagnostics and passive telemetry
 - in-repository Rust native modules
@@ -212,6 +213,7 @@ Options: `--device <serial>` to target a specific device, `--skip-capture` to re
 
 **Operations**
 - [Strategy-pack and TLS catalog operations](docs/strategy-pack-operations.md)
+- [Offline analytics pipeline](docs/offline-analytics-pipeline.md)
 - [Server hardening for self-hosted relays](docs/server-hardening.md)
 
 **Configuration**
@@ -284,6 +286,7 @@ Common commands:
 ./gradlew testDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
+python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 ```
 
 Details and targeted commands: [docs/testing.md](docs/testing.md)
@@ -307,6 +310,7 @@ The project uses GitHub Actions for continuous integration and release automatio
 - `rust-turmoil`: deterministic fault-injection network tests
 - `coverage`: JaCoCo and Rust LLVM coverage
 - `rust-loom`: exhaustive concurrency verification
+- offline analytics unit tests in the `build` job
 
 **Nightly / manual CI** adds:
 
@@ -320,6 +324,10 @@ The project uses GitHub Actions for continuous integration and release automatio
 - `linux-tun-soak`: privileged Linux TUN endurance tests
 
 Golden diff artifacts, Android reports, fixture logs, and soak metrics are uploaded when produced by the workflow.
+
+**Additional analytics workflow**:
+
+- `offline-analytics.yml`: sample-corpus clustering/signature-mining pipeline plus optional private-corpus run on manual dispatch
 
 **Release** (`.github/workflows/release.yml`) runs on `v*` tag pushes or manual dispatch:
 
