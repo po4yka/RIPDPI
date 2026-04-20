@@ -125,6 +125,61 @@ class DiagnosticsContextProviderTest {
             assertEquals("host_blocked", context.service.lastAutolearnAction)
         }
 
+    @Test
+    fun `provider reports none for halted service with idle runtime snapshots`() =
+        runTest {
+            val provider =
+                diagnosticsProvider(
+                    serviceStateStore =
+                        DefaultServiceStateStore().apply {
+                            setStatus(AppStatus.Halted, Mode.VPN)
+                            updateTelemetry(
+                                ServiceTelemetrySnapshot(
+                                    mode = Mode.VPN,
+                                    status = AppStatus.Halted,
+                                    proxyTelemetry = NativeRuntimeSnapshot.idle(source = "proxy"),
+                                    tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel"),
+                                ),
+                            )
+                        },
+                )
+
+            val context = provider.captureContext()
+
+            assertEquals("none", context.service.lastNativeErrorHeadline)
+        }
+
+    @Test
+    fun `provider preserves native error headline for halted failed snapshot`() =
+        runTest {
+            val provider =
+                diagnosticsProvider(
+                    serviceStateStore =
+                        DefaultServiceStateStore().apply {
+                            setStatus(AppStatus.Halted, Mode.VPN)
+                            updateTelemetry(
+                                ServiceTelemetrySnapshot(
+                                    mode = Mode.VPN,
+                                    status = AppStatus.Halted,
+                                    proxyTelemetry =
+                                        NativeRuntimeSnapshot(
+                                            source = "proxy",
+                                            state = "running",
+                                            health = "degraded",
+                                            totalErrors = 1,
+                                            lastError = "no supported socks auth method",
+                                            lastFailureClass = "native_io",
+                                        ),
+                                ),
+                            )
+                        },
+                )
+
+            val context = provider.captureContext()
+
+            assertEquals("no supported socks auth method", context.service.lastNativeErrorHeadline)
+        }
+
     private fun diagnosticsProfileCatalog(json: Json) =
         FakeDiagnosticsHistoryStores().apply {
             profilesState.value =
@@ -169,4 +224,14 @@ class DiagnosticsContextProviderTest {
 
             override suspend fun replace(settings: AppSettings) = Unit
         }
+
+    private fun diagnosticsProvider(serviceStateStore: ServiceStateStore): AndroidDiagnosticsContextProvider {
+        val json = diagnosticsTestJson()
+        return AndroidDiagnosticsContextProvider(
+            context = RuntimeEnvironment.getApplication(),
+            appSettingsRepository = diagnosticsSettingsRepository(),
+            profileCatalog = diagnosticsProfileCatalog(json),
+            serviceStateStore = serviceStateStore,
+        )
+    }
 }
