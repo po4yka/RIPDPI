@@ -262,6 +262,7 @@ class StubDiagnosticsScanController : DiagnosticsScanController {
         pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode,
         selectedProfileId: String?,
         skipActiveScanCheck: Boolean,
+        allowSensitiveProfileStart: Boolean,
         scanDeadlineMs: Long?,
         maxCandidates: Int?,
     ): DiagnosticsManualScanStartResult {
