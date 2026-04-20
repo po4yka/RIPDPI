@@ -54,7 +54,27 @@ Focused command set:
   :core:engine:testDebugUnitTest \
   :core:service:testDebugUnitTest \
   :core:diagnostics:testDebugUnitTest
+python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 ```
+
+Offline analytics pipeline coverage:
+
+- `scripts/tests/test_offline_analytics_pipeline.py`
+  - extraction normalization from the checked-in sample corpus
+  - clustering reproducibility
+  - candidate artifact publishing and drift generation
+  - blessing flow
+  - reviewed asset presence
+
+Run the checked-in sample corpus end to end with:
+
+```bash
+python3 -m scripts.analytics.pipeline run-all \
+  --manifest scripts/analytics/sample-corpus.json \
+  --output-dir /tmp/ripdpi-offline-analytics
+```
+
+Pipeline operation details live in [docs/offline-analytics-pipeline.md](offline-analytics-pipeline.md).
 
 ## Rust native tests
 
@@ -243,6 +263,21 @@ python3 scripts/ci/phase16_pcap_summary.py --artifact-root build/phase16-matrix/
 - `scripts/ci/phase16_pcap_summary.py` understands both host
   `capture.pcap`/`capture.tshark.json` artifacts and Android
   `device-capture.pcap`/`device-capture.tshark.json` artifacts.
+
+## Offline Analytics CI
+
+The offline analytics pipeline has a dedicated workflow:
+
+- `.github/workflows/offline-analytics.yml`
+
+It runs the Python unit suite plus the full checked-in sample corpus and uploads:
+
+- `offline-records.json`
+- candidate device-fingerprint and winner-mapping catalogs
+- `drift-report.json`
+- `report.md`
+
+The `build` job in `.github/workflows/ci.yml` also runs the offline analytics unit tests for fast PR feedback.
 
 ## Android instrumentation
 

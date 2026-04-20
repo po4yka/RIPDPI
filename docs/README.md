@@ -17,6 +17,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 ## Operations
 
 - [Strategy-pack and TLS catalog operations](strategy-pack-operations.md)
+- [Offline analytics pipeline](offline-analytics-pipeline.md)
 - [TLS catalog refresh log](strategy-pack-tls-refresh-log.json)
 - [Server hardening for self-hosted relays](server-hardening.md)
 
