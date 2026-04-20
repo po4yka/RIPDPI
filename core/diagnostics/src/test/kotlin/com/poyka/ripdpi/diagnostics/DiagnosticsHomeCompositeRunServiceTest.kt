@@ -362,6 +362,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                         skipActiveScanCheck: Boolean,
                         scanDeadlineMs: Long?,
                         maxCandidates: Int?,
+                        targetOverrides: DiagnosticsScanTargetOverrides?,
                     ): DiagnosticsManualScanStartResult {
                         val count = (attemptCounts[selectedProfileId] ?: 0) + 1
                         attemptCounts[selectedProfileId ?: ""] = count
@@ -455,7 +456,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
             val timelineSource = MutableDiagnosticsTimelineSource()
 
             val auditReportJson = encodeScanReport(auditReportWithHosts("youtube.com"))
-            val dpiFullReportJson = encodeScanReport(dpiFullReportWithObservations("meduza.io"))
+            val dpiFullReportJson = encodeScanReport(dpiFullReportWithObservations("signal.org"))
 
             val scanController =
                 RecordingHomeCompositeScanController(
@@ -789,6 +790,7 @@ private class RecordingHomeCompositeScanController(
         skipActiveScanCheck: Boolean,
         scanDeadlineMs: Long?,
         maxCandidates: Int?,
+        targetOverrides: DiagnosticsScanTargetOverrides?,
     ): DiagnosticsManualScanStartResult {
         nextId += 1
         val sessionId = "scan-$nextId"

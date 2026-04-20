@@ -949,7 +949,7 @@ mod tests {
     fn normalize_allows_real_user_domains() {
         assert_eq!(normalize_learned_host("www.youtube.com"), Some("www.youtube.com".to_string()));
         assert_eq!(normalize_learned_host("discord.com"), Some("discord.com".to_string()));
-        assert_eq!(normalize_learned_host("meduza.io"), Some("meduza.io".to_string()));
+        assert_eq!(normalize_learned_host("proton.me"), Some("proton.me".to_string()));
         assert_eq!(normalize_learned_host("signal.org"), Some("signal.org".to_string()));
     }
 

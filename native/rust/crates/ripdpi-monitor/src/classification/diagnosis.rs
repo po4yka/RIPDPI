@@ -879,13 +879,13 @@ mod tests {
             &[
                 connectivity_probe(
                     "dns_integrity",
-                    "meduza.io",
+                    "blocked.example",
                     "dns_sinkhole_substitution",
                     &[("udpAddresses", "203.0.113.10"), ("encryptedAddresses", "104.22.1.1")],
                 ),
                 connectivity_probe(
                     "domain_reachability",
-                    "meduza.io",
+                    "blocked.example",
                     "http_blockpage",
                     &[("httpStatus", "http_blockpage"), ("httpResponse", "403 blocked")],
                 ),

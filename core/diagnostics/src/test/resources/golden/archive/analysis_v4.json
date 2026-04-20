@@ -99,7 +99,7 @@
         "evidence": [
             "best path",
             "Renderer fixture confidence",
-            "targetCohort=Media and messaging",
+            "targetCohort=Messaging core",
             "tcpWinner=TLS split",
             "quicWinner=QUIC split"
         ],
@@ -107,7 +107,7 @@
         "selectedApproach": "Fast Strategy",
         "selectedResolver": "AdGuard",
         "selectedStrategy": "TLS split + QUIC split",
-        "targetCohort": "Media and messaging",
+        "targetCohort": "Messaging core",
         "winnerCoveragePercent": 75
     },
     "strategyExecutionDetail": {

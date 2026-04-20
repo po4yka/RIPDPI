@@ -56,7 +56,7 @@ internal val HomeCompositeStageSpecs =
         ),
         HomeCompositeStageSpec(
             key = "ru_circumvention",
-            label = "Circumvention reach",
+            label = "Sensitive services",
             profileId = "ru-circumvention",
             pathMode = ScanPathMode.RAW_PATH,
         ),
@@ -64,7 +64,7 @@ internal val HomeCompositeStageSpecs =
             key = "path_comparison",
             label = "VPN vs direct path",
             profileId = "path-comparison",
-            pathMode = ScanPathMode.RAW_PATH,
+            pathMode = ScanPathMode.IN_PATH,
         ),
         HomeCompositeStageSpec(
             key = "dpi_full",
