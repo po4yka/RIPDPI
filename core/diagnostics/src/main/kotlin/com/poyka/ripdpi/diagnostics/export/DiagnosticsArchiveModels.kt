@@ -12,14 +12,17 @@ import com.poyka.ripdpi.data.diagnostics.rttBand
 import com.poyka.ripdpi.data.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.BypassStrategySignature
+import com.poyka.ripdpi.diagnostics.ConnectivityAssessment
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
+import com.poyka.ripdpi.diagnostics.HomeReproAction
 import com.poyka.ripdpi.diagnostics.LogcatSnapshot
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.RedactedDiagnosticContextSummary
 import com.poyka.ripdpi.diagnostics.RedactedNetworkSummary
+import com.poyka.ripdpi.diagnostics.RuntimeComponentSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.proto.AppSettings
@@ -329,6 +332,11 @@ internal data class DiagnosticsArchiveRuntimeConfigPayload(
     val commandLineSettingsEnabled: Boolean = false,
     val commandLineArgsHash: String? = null,
     val effectiveStrategySignature: BypassStrategySignature? = null,
+    val proxyRuntime: RuntimeComponentSummary? = null,
+    val tunnelRuntime: RuntimeComponentSummary? = null,
+    val relayRuntime: RuntimeComponentSummary? = null,
+    val warpRuntime: RuntimeComponentSummary? = null,
+    val connectivityAssessment: ConnectivityAssessment? = null,
 )
 
 @Serializable
@@ -470,6 +478,7 @@ internal data class DiagnosticsArchiveAnalysisPayload(
     val strategyExecutionDetail: DiagnosticsArchiveStrategyExecutionDetail,
     val recommendationTrace: DiagnosticsArchiveRecommendationTrace? = null,
     val measurementSnapshot: DiagnosticsArchiveMeasurementSnapshot = DiagnosticsArchiveMeasurementSnapshot(),
+    val connectivityAssessment: ConnectivityAssessment? = null,
 )
 
 @Serializable
@@ -560,6 +569,8 @@ internal data class DiagnosticsArchiveHomeAnalysisPayload(
     val failedStageCount: Int,
     val skippedStageCount: Int,
     val bundleSessionIds: List<String> = emptyList(),
+    val connectivityAssessment: ConnectivityAssessment? = null,
+    val internetLossReproAction: HomeReproAction? = null,
 )
 
 @Serializable
@@ -625,6 +636,8 @@ internal data class DiagnosticsArchiveManifest(
     val classifierVersion: String? = null,
     val diagnosisCount: Int = 0,
     val packVersions: Map<String, Int> = emptyMap(),
+    val connectivityAssessment: ConnectivityAssessment? = null,
+    val internetLossReproAction: HomeReproAction? = null,
     val buildProvenance: DiagnosticsArchiveBuildProvenanceSummary? = null,
     val sectionStatusSummary: Map<String, DiagnosticsArchiveSectionStatus> = emptyMap(),
     val integrityAlgorithm: String? = null,

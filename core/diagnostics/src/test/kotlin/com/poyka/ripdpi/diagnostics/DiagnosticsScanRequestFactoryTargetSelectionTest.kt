@@ -33,14 +33,14 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                     strategyProbeTargetCohorts =
                         listOf(
                             auditCohort(
-                                id = "global-core",
-                                label = "Global core",
+                                id = "safe-default",
+                                label = "Safe default",
                                 domainHosts = listOf("www.youtube.com", "discord.com", "proton.me"),
                                 quicHosts = listOf("www.youtube.com", "discord.com"),
                             ),
                             auditCohort(
-                                id = "messaging-core",
-                                label = "Messaging core",
+                                id = "manual-sensitive",
+                                label = "Manual sensitive",
                                 domainHosts = listOf("telegram.org", "signal.org", "www.whatsapp.com"),
                                 quicHosts = listOf("discord.com", "www.whatsapp.com"),
                             ),
@@ -51,7 +51,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
 
             assertEquals(3, request.domainTargets.size)
             assertEquals(2, request.quicTargets.size)
-            assertTrue(selection.cohortId in listOf("global-core", "messaging-core"))
+            assertTrue(selection.cohortId in listOf("safe-default", "manual-sensitive"))
             assertEquals(request.domainTargets.map(DomainTarget::host), selection.domainHosts)
             assertEquals(request.quicTargets.map(QuicTarget::host), selection.quicHosts)
         }
@@ -68,14 +68,14 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                 strategyProbeTargetCohorts =
                     listOf(
                         auditCohort(
-                            id = "global-core",
-                            label = "Global core",
+                            id = "safe-default",
+                            label = "Safe default",
                             domainHosts = listOf("www.youtube.com", "discord.com", "proton.me"),
                             quicHosts = listOf("www.youtube.com", "discord.com"),
                         ),
                         auditCohort(
-                            id = "messaging-core",
-                            label = "Messaging core",
+                            id = "manual-sensitive",
+                            label = "Manual sensitive",
                             domainHosts = listOf("telegram.org", "signal.org", "www.whatsapp.com"),
                             quicHosts = listOf("discord.com", "www.whatsapp.com"),
                         ),
@@ -150,14 +150,14 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                 strategyProbeTargetCohorts =
                     listOf(
                         auditCohort(
-                            id = "global-core",
-                            label = "Global core",
+                            id = "safe-default",
+                            label = "Safe default",
                             domainHosts = listOf("www.youtube.com", "discord.com", "proton.me"),
                             quicHosts = listOf("www.youtube.com", "discord.com"),
                         ),
                         auditCohort(
-                            id = "messaging-core",
-                            label = "Messaging core",
+                            id = "manual-sensitive",
+                            label = "Manual sensitive",
                             domainHosts = listOf("telegram.org", "signal.org", "www.whatsapp.com"),
                             quicHosts = listOf("discord.com", "www.whatsapp.com"),
                         ),
@@ -189,14 +189,14 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                 strategyProbeTargetCohorts =
                     listOf(
                         auditCohort(
-                            id = "cohort-a",
-                            label = "Cohort A",
+                            id = "safe-default",
+                            label = "Safe default",
                             domainHosts = listOf("shared-a.example", "shared-b.example", "unique-a.example"),
                             quicHosts = listOf("shared-quic.example", "unique-quic-a.example"),
                         ),
                         auditCohort(
-                            id = "cohort-b",
-                            label = "Cohort B",
+                            id = "lab-only",
+                            label = "Lab only",
                             domainHosts = listOf("shared-a.example", "shared-b.example", "unique-b.example"),
                             quicHosts = listOf("shared-quic.example", "unique-quic-b.example"),
                         ),
@@ -237,14 +237,14 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                 strategyProbeTargetCohorts =
                     listOf(
                         auditCohort(
-                            id = "global-core",
-                            label = "Global core",
+                            id = "safe-default",
+                            label = "Safe default",
                             domainHosts = listOf("www.youtube.com", "discord.com", "proton.me"),
                             quicHosts = listOf("www.youtube.com", "discord.com"),
                         ),
                         auditCohort(
-                            id = "messaging-core",
-                            label = "Messaging core",
+                            id = "manual-sensitive",
+                            label = "Manual sensitive",
                             domainHosts = listOf("telegram.org", "signal.org", "www.whatsapp.com"),
                             quicHosts = listOf("discord.com", "www.whatsapp.com"),
                         ),
@@ -255,7 +255,7 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
         val selection = requireNotNull(selected.strategyProbe?.targetSelection)
 
         assertNotEquals("all", selection.cohortId)
-        assertTrue(selection.cohortId in listOf("global-core", "messaging-core"))
+        assertTrue(selection.cohortId in listOf("safe-default", "manual-sensitive"))
         // Single cohort selected: exactly 3 domain and 2 QUIC targets
         assertEquals(3, selected.domainTargets.size)
         assertEquals(2, selected.quicTargets.size)
@@ -311,8 +311,8 @@ class DiagnosticsScanRequestFactoryTargetSelectionTest {
                 strategyProbeTargetCohorts =
                     listOf(
                         auditCohort(
-                            id = "global-core",
-                            label = "Global core",
+                            id = "safe-default",
+                            label = "Safe default",
                             domainHosts = listOf("www.youtube.com", "discord.com", "proton.me"),
                             quicHosts = listOf("www.youtube.com", "discord.com"),
                         ),

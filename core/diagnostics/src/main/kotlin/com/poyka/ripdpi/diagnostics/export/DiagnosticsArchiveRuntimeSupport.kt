@@ -6,6 +6,7 @@ import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
+import com.poyka.ripdpi.diagnostics.RuntimeComponentSummary
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
 import java.security.MessageDigest
 
@@ -130,6 +131,11 @@ internal fun buildRuntimeConfig(selection: DiagnosticsArchiveSelection): Diagnos
                 ?.takeIf { it.isNotBlank() }
                 ?.let(::sha256Hex),
         effectiveStrategySignature = selection.effectiveStrategySignature,
+        proxyRuntime = context?.service?.proxy,
+        tunnelRuntime = context?.service?.tunnel,
+        relayRuntime = context?.service?.relay,
+        warpRuntime = context?.service?.warp,
+        connectivityAssessment = selection.homeCompositeOutcome?.connectivityAssessment,
     )
 }
 
@@ -155,6 +161,10 @@ private data class ResolvedServiceConfig(
     val lastAutolearnGroup: String = "unavailable",
     val lastAutolearnAction: String = "unavailable",
     val lastNativeErrorHeadline: String = "unavailable",
+    val proxyRuntime: RuntimeComponentSummary? = null,
+    val tunnelRuntime: RuntimeComponentSummary? = null,
+    val relayRuntime: RuntimeComponentSummary? = null,
+    val warpRuntime: RuntimeComponentSummary? = null,
 )
 
 private fun resolveServiceConfig(
@@ -186,6 +196,10 @@ private fun resolveServiceConfig(
             lastAutolearnGroup = service.lastAutolearnGroup,
             lastAutolearnAction = service.lastAutolearnAction,
             lastNativeErrorHeadline = service.lastNativeErrorHeadline,
+            proxyRuntime = service.proxy,
+            tunnelRuntime = service.tunnel,
+            relayRuntime = service.relay,
+            warpRuntime = service.warp,
         )
     }
 

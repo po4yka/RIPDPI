@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.diagnostics
 
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -115,6 +116,22 @@ data class ServiceContextModel(
     val lastAutolearnHost: String,
     val lastAutolearnGroup: String,
     val lastAutolearnAction: String,
+    val proxy: RuntimeComponentSummary? = null,
+    val tunnel: RuntimeComponentSummary? = null,
+    val relay: RuntimeComponentSummary? = null,
+    val warp: RuntimeComponentSummary? = null,
+)
+
+@Serializable
+data class RuntimeComponentSummary(
+    val state: String = "unavailable",
+    val health: String = "unavailable",
+    val activeSessions: Long = 0,
+    val lastError: String = "none",
+    val lastFailureClass: String = "none",
+    val listenerAddress: String? = null,
+    val upstreamAddress: String? = null,
+    val capturedAt: Long? = null,
 )
 
 @Serializable
@@ -156,11 +173,86 @@ data class DiagnosticContextModel(
 )
 
 @Serializable
+enum class ConnectivityAssessmentCode {
+    @SerialName("raw_network_general_failure")
+    RAW_NETWORK_GENERAL_FAILURE,
+
+    @SerialName("raw_network_selective_blocking")
+    RAW_NETWORK_SELECTIVE_BLOCKING,
+
+    @SerialName("vpn_path_regression")
+    VPN_PATH_REGRESSION,
+
+    @SerialName("resolver_interference")
+    RESOLVER_INTERFERENCE,
+
+    @SerialName("service_runtime_failure")
+    SERVICE_RUNTIME_FAILURE,
+
+    @SerialName("mixed_or_inconclusive")
+    MIXED_OR_INCONCLUSIVE,
+}
+
+@Serializable
+data class ConnectivityEvidence(
+    val sessionIds: List<String> = emptyList(),
+    val controls: List<String> = emptyList(),
+    val affectedTargets: List<String> = emptyList(),
+    val controlSuccessCount: Int = 0,
+    val controlFailureCount: Int = 0,
+    val affectedTargetSuccessCount: Int = 0,
+    val affectedTargetFailureCount: Int = 0,
+)
+
+@Serializable
+data class ConnectivityResolverAssessment(
+    val strongestSignal: String = "none",
+    val mismatchTargets: List<String> = emptyList(),
+    val diagnosisCodes: List<String> = emptyList(),
+    val summary: String = "No resolver interference signal recorded.",
+)
+
+@Serializable
+data class ConnectivityServiceRuntimeAssessment(
+    val serviceStatus: String = "unavailable",
+    val nativeFailureClass: String = "none",
+    val lastNativeErrorHeadline: String = "none",
+    val actionable: Boolean = false,
+    val proxy: RuntimeComponentSummary? = null,
+    val tunnel: RuntimeComponentSummary? = null,
+    val relay: RuntimeComponentSummary? = null,
+    val warp: RuntimeComponentSummary? = null,
+    val summary: String = "No actionable native runtime failure recorded.",
+)
+
+@Serializable
+data class ConnectivityAssessment(
+    val assessmentCode: ConnectivityAssessmentCode,
+    val assessmentSummary: String,
+    val confidence: String,
+    val rawPathEvidence: ConnectivityEvidence = ConnectivityEvidence(),
+    val inPathEvidence: ConnectivityEvidence = ConnectivityEvidence(),
+    val controlOutcome: String = "unavailable",
+    val affectedTargets: List<String> = emptyList(),
+    val resolverAssessment: ConnectivityResolverAssessment = ConnectivityResolverAssessment(),
+    val serviceRuntimeAssessment: ConnectivityServiceRuntimeAssessment = ConnectivityServiceRuntimeAssessment(),
+    val recommendedNextAction: String = "Review archive details.",
+)
+
+@Serializable
+data class HomeReproAction(
+    val actionId: String,
+    val label: String,
+    val summary: String,
+)
+
+@Serializable
 data class PathComparisonResult(
     val rawPathSessionId: String,
     val inPathSessionId: String,
     val domainComparisons: List<DomainPathComparison> = emptyList(),
     val summary: String = "",
+    val assessment: ConnectivityAssessment? = null,
 )
 
 @Serializable
@@ -169,4 +261,5 @@ data class DomainPathComparison(
     val rawPathOutcome: String,
     val inPathOutcome: String,
     val vpnBypasses: Boolean,
+    val isControl: Boolean = false,
 )

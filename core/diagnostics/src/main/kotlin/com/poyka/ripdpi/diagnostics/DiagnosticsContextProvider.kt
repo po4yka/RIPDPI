@@ -129,6 +129,10 @@ class AndroidDiagnosticsContextProvider
                 lastAutolearnHost = telemetry.proxyTelemetry.lastAutolearnHost ?: "none",
                 lastAutolearnGroup = telemetry.proxyTelemetry.lastAutolearnGroup?.toString() ?: "none",
                 lastAutolearnAction = telemetry.proxyTelemetry.lastAutolearnAction ?: "none",
+                proxy = telemetry.proxyTelemetry.toRuntimeComponentSummary(),
+                tunnel = telemetry.tunnelTelemetry.toRuntimeComponentSummary(),
+                relay = telemetry.relayTelemetry.toRuntimeComponentSummary(),
+                warp = telemetry.warpTelemetry.toRuntimeComponentSummary(),
             )
 
         private fun buildDeviceContext(packageInfo: android.content.pm.PackageInfo): DeviceContextModel =
@@ -208,6 +212,57 @@ class AndroidDiagnosticsContextProvider
             ).firstOrNull() ?: "none"
         }
     }
+
+internal fun NativeRuntimeSnapshot.toRuntimeComponentSummary(): RuntimeComponentSummary =
+    RuntimeComponentSummary(
+        state = state,
+        health = health,
+        activeSessions = activeSessions,
+        lastError = lastError?.takeIf { it.isNotBlank() } ?: "none",
+        lastFailureClass = lastFailureClass?.takeIf { it.isNotBlank() } ?: "none",
+        listenerAddress = listenerAddress,
+        upstreamAddress = upstreamAddress,
+        capturedAt = capturedAt.takeIf { it > 0L },
+    )
+
+internal fun buildServiceRuntimeAssessment(
+    serviceStatus: AppStatus,
+    telemetry: ServiceTelemetrySnapshot,
+): ConnectivityServiceRuntimeAssessment {
+    val failureClass = telemetry.runtimeFieldTelemetry.failureClass ?: "none"
+    val lastError =
+        listOfNotNull(
+            telemetry.proxyTelemetry.lastError?.takeIf { it.isNotBlank() },
+            telemetry.tunnelTelemetry.lastError?.takeIf { it.isNotBlank() },
+            telemetry.relayTelemetry.lastError?.takeIf { it.isNotBlank() },
+            telemetry.warpTelemetry.lastError?.takeIf { it.isNotBlank() },
+        ).firstOrNull() ?: "none"
+    val actionable =
+        serviceStatus == AppStatus.Halted &&
+            (
+                failureClass != "none" ||
+                    lastError != "none" ||
+                    !telemetry.proxyTelemetry.isIdleRuntimeSnapshot() ||
+                    !telemetry.tunnelTelemetry.isIdleRuntimeSnapshot()
+            )
+    val summary =
+        when {
+            actionable -> "Native runtime captured a halted service state with actionable proxy/tunnel failure details."
+            serviceStatus == AppStatus.Running -> "Service remained running during diagnostics."
+            else -> "No actionable native runtime failure recorded."
+        }
+    return ConnectivityServiceRuntimeAssessment(
+        serviceStatus = serviceStatus.name,
+        nativeFailureClass = failureClass,
+        lastNativeErrorHeadline = lastError,
+        actionable = actionable,
+        proxy = telemetry.proxyTelemetry.toRuntimeComponentSummary(),
+        tunnel = telemetry.tunnelTelemetry.toRuntimeComponentSummary(),
+        relay = telemetry.relayTelemetry.toRuntimeComponentSummary(),
+        warp = telemetry.warpTelemetry.toRuntimeComponentSummary(),
+        summary = summary,
+    )
+}
 
 private fun NativeRuntimeSnapshot.isIdleRuntimeSnapshot(): Boolean =
     state == "idle" &&

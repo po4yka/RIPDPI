@@ -265,6 +265,7 @@ class StubDiagnosticsScanController : DiagnosticsScanController {
         allowSensitiveProfileStart: Boolean,
         scanDeadlineMs: Long?,
         maxCandidates: Int?,
+        targetOverrides: com.poyka.ripdpi.diagnostics.DiagnosticsScanTargetOverrides?,
     ): DiagnosticsManualScanStartResult {
         startFailure?.let { throw it }
         lastStartedPathMode = pathMode

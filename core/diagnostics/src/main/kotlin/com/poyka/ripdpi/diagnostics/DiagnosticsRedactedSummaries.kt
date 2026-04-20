@@ -52,6 +52,8 @@ internal data class RedactedServiceContextSummary(
     val routeGroup: String,
     val restartCount: Int,
     val lastNativeErrorHeadline: String,
+    val proxyRuntime: RuntimeComponentSummary? = null,
+    val tunnelRuntime: RuntimeComponentSummary? = null,
 )
 
 @Serializable
@@ -140,6 +142,8 @@ internal fun DiagnosticContextModel.toRedactedSummary(): RedactedDiagnosticConte
                 routeGroup = service.routeGroup,
                 restartCount = service.restartCount,
                 lastNativeErrorHeadline = service.lastNativeErrorHeadline,
+                proxyRuntime = service.proxy?.copy(listenerAddress = null, upstreamAddress = null),
+                tunnelRuntime = service.tunnel?.copy(listenerAddress = null, upstreamAddress = null),
             ),
         permissions =
             RedactedPermissionContextSummary(

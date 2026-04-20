@@ -183,6 +183,7 @@ internal class FakeDiagnosticsScanController : DiagnosticsScanController {
         allowSensitiveProfileStart: Boolean,
         scanDeadlineMs: Long?,
         maxCandidates: Int?,
+        targetOverrides: com.poyka.ripdpi.diagnostics.DiagnosticsScanTargetOverrides?,
     ): DiagnosticsManualScanStartResult =
         onStartScan?.invoke(pathMode, selectedProfileId) ?: DiagnosticsManualScanStartResult.Started("session")
 
