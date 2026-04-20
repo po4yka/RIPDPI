@@ -281,6 +281,7 @@ internal fun createDiagnosticsServices(
                 profileImporter =
                     BundledDiagnosticsProfileImporter(
                         profileSource = AssetBundledDiagnosticsProfileSource(context),
+                        overrideSource = EmptyBundledDiagnosticsCatalogOverrideSource,
                         profileCatalog = stores,
                         clock = diagnosticsHistoryClock,
                         json = json,

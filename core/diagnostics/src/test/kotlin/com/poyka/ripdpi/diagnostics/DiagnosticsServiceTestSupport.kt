@@ -1064,6 +1064,8 @@ internal fun diagnosticsProfileRequestJson(
     displayName: String,
     kind: ScanKind = ScanKind.CONNECTIVITY,
     family: DiagnosticProfileFamily = DiagnosticProfileFamily.GENERAL,
+    intentBucket: DiagnosticsProfileIntentBucket = DiagnosticsProfileIntentBucket.SAFE_DEFAULT,
+    legalSafety: DiagnosticsLegalSafety = DiagnosticsLegalSafety.SAFE,
     targets: DiagnosticsProfileTargets = DiagnosticsProfileTargets(),
     allowBackground: Boolean = false,
     requiresRawPath: Boolean = kind == ScanKind.STRATEGY_PROBE,
@@ -1082,6 +1084,8 @@ internal fun diagnosticsProfileRequestJson(
             displayName = displayName,
             kind = kind,
             family = family,
+            intentBucket = intentBucket,
+            legalSafety = legalSafety,
             executionPolicy =
                 ProfileExecutionPolicyWire(
                     manualOnly = manualOnly,

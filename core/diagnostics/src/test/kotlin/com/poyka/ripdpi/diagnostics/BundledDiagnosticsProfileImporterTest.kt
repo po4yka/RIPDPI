@@ -23,6 +23,7 @@ class BundledDiagnosticsProfileImporterTest {
             val importer =
                 BundledDiagnosticsProfileImporter(
                     profileSource = StaticBundledDiagnosticsProfileSource(sampleBundledProfilesJson(json)),
+                    overrideSource = EmptyBundledDiagnosticsCatalogOverrideSource,
                     profileCatalog = stores,
                     clock = clock,
                     json = json,
@@ -44,6 +45,7 @@ class BundledDiagnosticsProfileImporterTest {
             val importer =
                 BundledDiagnosticsProfileImporter(
                     profileSource = StaticBundledDiagnosticsProfileSource(sampleBundledProfilesJson(json)),
+                    overrideSource = EmptyBundledDiagnosticsCatalogOverrideSource,
                     profileCatalog = stores,
                     clock = clock,
                     json = json,
@@ -78,6 +80,7 @@ class BundledDiagnosticsProfileImporterTest {
             val importer =
                 BundledDiagnosticsProfileImporter(
                     profileSource = StaticBundledDiagnosticsProfileSource(sampleBundledProfilesJson(json)),
+                    overrideSource = EmptyBundledDiagnosticsCatalogOverrideSource,
                     profileCatalog = stores,
                     clock = clock,
                     json = json,
@@ -112,6 +115,7 @@ class BundledDiagnosticsProfileImporterTest {
             val importer =
                 BundledDiagnosticsProfileImporter(
                     profileSource = StaticBundledDiagnosticsProfileSource("[]"),
+                    overrideSource = EmptyBundledDiagnosticsCatalogOverrideSource,
                     profileCatalog = stores,
                     clock = clock,
                     json = json,
@@ -119,12 +123,48 @@ class BundledDiagnosticsProfileImporterTest {
 
             importer.importProfiles()
         }
+
+    @Test
+    fun `importer applies a local override catalog by profile id`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val clock = TestDiagnosticsHistoryClock(currentTime = 10L)
+            val importer =
+                BundledDiagnosticsProfileImporter(
+                    profileSource = StaticBundledDiagnosticsProfileSource(sampleBundledProfilesJson(json)),
+                    overrideSource =
+                        StaticBundledDiagnosticsCatalogOverrideSource(
+                            sampleOverrideProfilesJson(json),
+                        ),
+                    profileCatalog = stores,
+                    clock = clock,
+                    json = json,
+                )
+
+            importer.importProfiles()
+
+            val profile = requireNotNull(stores.getProfile("default"))
+            val spec = json.decodeProfileSpecWire(profile.requestJson)
+            assertEquals("Default override", profile.name)
+            assertEquals(4, profile.version)
+            assertEquals(DiagnosticsProfileIntentBucket.MANUAL_SENSITIVE, spec.intentBucket)
+            assertEquals(DiagnosticsLegalSafety.SENSITIVE, spec.legalSafety)
+            assertEquals(listOf("override-pack@4"), spec.packRefs)
+            assertEquals(listOf("cloudflare.com"), spec.domainTargets.map(DomainTarget::host))
+            assertEquals(4, stores.getPackVersion("override-pack")?.version)
+        }
 }
 
 private class StaticBundledDiagnosticsProfileSource(
     private val payload: String,
 ) : BundledDiagnosticsProfileSource {
     override fun readProfilesJson(): String = payload
+}
+
+private class StaticBundledDiagnosticsCatalogOverrideSource(
+    private val payload: String?,
+) : BundledDiagnosticsCatalogOverrideSource {
+    override fun readProfilesJsonOrNull(): String? = payload
 }
 
 private fun sampleBundledProfilesJson(json: kotlinx.serialization.json.Json): String =
@@ -156,6 +196,43 @@ private fun sampleBundledProfilesJson(json: kotlinx.serialization.json.Json): St
                                     ),
                                 packRefs = listOf("default-pack@3"),
                                 domainTargets = listOf(DomainTarget(host = "example.org")),
+                            ),
+                    ),
+                ),
+        ),
+    )
+
+private fun sampleOverrideProfilesJson(json: kotlinx.serialization.json.Json): String =
+    json.encodeToString(
+        BundledDiagnosticsCatalogWire.serializer(),
+        BundledDiagnosticsCatalogWire(
+            schemaVersion = 1,
+            generatedAt = "2026-04-20",
+            packs = listOf(BundledDiagnosticsPackWire(id = "override-pack", version = 4)),
+            profiles =
+                listOf(
+                    BundledDiagnosticProfileWire(
+                        id = "default",
+                        name = "Default override",
+                        version = 4,
+                        request =
+                            ProfileSpecWire(
+                                profileId = "default",
+                                displayName = "Default override",
+                                intentBucket = DiagnosticsProfileIntentBucket.MANUAL_SENSITIVE,
+                                legalSafety = DiagnosticsLegalSafety.SENSITIVE,
+                                executionPolicy =
+                                    ProfileExecutionPolicyWire(
+                                        manualOnly = true,
+                                        allowBackground = false,
+                                        requiresRawPath = false,
+                                        probePersistencePolicy =
+                                            com.poyka.ripdpi.diagnostics.contract.profile
+                                                .ProbePersistencePolicyWire
+                                                .MANUAL_ONLY,
+                                    ),
+                                packRefs = listOf("override-pack@4"),
+                                domainTargets = listOf(DomainTarget(host = "cloudflare.com")),
                             ),
                     ),
                 ),
