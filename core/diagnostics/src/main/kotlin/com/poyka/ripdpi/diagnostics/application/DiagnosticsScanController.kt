@@ -59,11 +59,19 @@ internal class DefaultDiagnosticsScanController
             pathMode: ScanPathMode,
             selectedProfileId: String?,
             skipActiveScanCheck: Boolean,
+            allowSensitiveProfileStart: Boolean,
             scanDeadlineMs: Long?,
             maxCandidates: Int?,
         ): DiagnosticsManualScanStartResult =
             startMutex.withLock {
-                when (val admission = scanAdmissionService.admitManualStart(selectedProfileId, skipActiveScanCheck)) {
+                when (
+                    val admission =
+                        scanAdmissionService.admitManualStart(
+                            selectedProfileId = selectedProfileId,
+                            skipActiveScanCheck = skipActiveScanCheck,
+                            allowSensitiveProfileStart = allowSensitiveProfileStart,
+                        )
+                ) {
                     is ManualStartAdmission.Admitted -> {
                         pendingHiddenConflictRequest = null
                         DiagnosticsManualScanStartResult.Started(
