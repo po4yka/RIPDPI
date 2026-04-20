@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-03-27",
+  "generatedAt": "2026-04-20",
   "packs": [
     {
       "id": "ru-independent-media",
@@ -61,9 +61,6 @@
           },
           {
             "host": "proton.me"
-          },
-          {
-            "host": "meduza.io"
           },
           {
             "host": "cloudflare.com",
@@ -244,17 +241,17 @@
             ]
           },
           {
-            "id": "media-messaging",
-            "label": "Media and messaging",
+            "id": "messaging-core",
+            "label": "Messaging core",
             "domainTargets": [
-              {
-                "host": "meduza.io"
-              },
               {
                 "host": "telegram.org"
               },
               {
                 "host": "signal.org"
+              },
+              {
+                "host": "www.whatsapp.com"
               }
             ],
             "quicTargets": [
@@ -269,17 +266,17 @@
             ]
           },
           {
-            "id": "circumvention-web",
-            "label": "Circumvention web mix",
+            "id": "safe-controls",
+            "label": "Safe controls",
             "domainTargets": [
               {
-                "host": "www.dw.com"
+                "host": "proton.me"
               },
               {
-                "host": "www.torproject.org"
+                "host": "cloudflare.com"
               },
               {
-                "host": "protonvpn.com"
+                "host": "www.google.com"
               }
             ],
             "quicTargets": [
@@ -348,34 +345,7 @@
             "host": "soundcloud.com"
           },
           {
-            "host": "meduza.io"
-          },
-          {
-            "host": "www.dw.com"
-          },
-          {
-            "host": "www.svoboda.org"
-          },
-          {
-            "host": "holod.media"
-          },
-          {
-            "host": "www.euronews.com"
-          },
-          {
-            "host": "www.torproject.org"
-          },
-          {
             "host": "proton.me"
-          },
-          {
-            "host": "protonvpn.com"
-          },
-          {
-            "host": "roskomsvoboda.org"
-          },
-          {
-            "host": "amnezia.org"
           },
           {
             "host": "nnmclub.to"
@@ -402,13 +372,7 @@
             "host": "www.apkmirror.com"
           },
           {
-            "host": "www.currenttime.tv"
-          },
-          {
             "host": "www.messenger.com"
-          },
-          {
-            "host": "www.themoscowtimes.com"
           },
           {
             "host": "www.linuxserver.io"
@@ -478,19 +442,19 @@
             "udpServer": "94.140.14.14:53"
           },
           {
-            "domain": "meduza.io",
+            "domain": "proton.me",
             "udpServer": "8.8.8.8:53"
           },
           {
-            "domain": "meduza.io",
+            "domain": "proton.me",
             "udpServer": "1.1.1.1:53"
           },
           {
-            "domain": "meduza.io",
+            "domain": "proton.me",
             "udpServer": "9.9.9.9:53"
           },
           {
-            "domain": "meduza.io",
+            "domain": "proton.me",
             "udpServer": "94.140.14.14:53"
           },
           {
@@ -1526,20 +1490,10 @@
           "probePersistencePolicy": "MANUAL_ONLY"
         },
         "packRefs": [
-          "ru-independent-media@1",
           "ru-global-platforms@1",
           "ru-control@1"
         ],
         "domainTargets": [
-          {
-            "host": "meduza.io"
-          },
-          {
-            "host": "www.svoboda.org"
-          },
-          {
-            "host": "www.dw.com"
-          },
           {
             "host": "www.youtube.com"
           },
@@ -1551,14 +1505,6 @@
           }
         ],
         "dnsTargets": [
-          {
-            "domain": "meduza.io",
-            "udpServer": "8.8.8.8:53"
-          },
-          {
-            "domain": "meduza.io",
-            "udpServer": "1.1.1.1:53"
-          },
           {
             "domain": "youtube.com",
             "udpServer": "8.8.8.8:53"
@@ -1733,11 +1679,11 @@
     },
     {
       "id": "ru-circumvention",
-      "name": "Russia Circumvention Reachability",
+      "name": "Russia Sensitive Services Reachability",
       "version": 1,
       "request": {
         "profileId": "ru-circumvention",
-        "displayName": "Russia Circumvention Reachability",
+        "displayName": "Russia Sensitive Services Reachability",
         "kind": "CONNECTIVITY",
         "family": "CIRCUMVENTION",
         "regionTag": "ru",
@@ -1747,22 +1693,19 @@
           "requiresRawPath": false,
           "probePersistencePolicy": "MANUAL_ONLY"
         },
-        "packRefs": [
-          "ru-circumvention@1",
-          "ru-control@1"
-        ],
+        "packRefs": [],
         "domainTargets": [
           {
-            "host": "www.torproject.org"
+            "host": "telegram.org"
           },
           {
-            "host": "psiphon.ca"
+            "host": "signal.org"
           },
           {
-            "host": "riseup.net"
+            "host": "proton.me"
           },
           {
-            "host": "protonvpn.com"
+            "host": "www.whatsapp.com"
           },
           {
             "host": "cloudflare.com",
@@ -1777,26 +1720,7 @@
         "tcpTargets": [],
         "quicTargets": [],
         "serviceTargets": [],
-        "circumventionTargets": [
-          {
-            "id": "tor",
-            "tool": "Tor",
-            "bootstrapUrl": "https://www.torproject.org/download/",
-            "handshakeHost": "www.torproject.org"
-          },
-          {
-            "id": "psiphon",
-            "tool": "Psiphon",
-            "bootstrapUrl": "https://psiphon.ca/",
-            "handshakeHost": "psiphon.ca"
-          },
-          {
-            "id": "riseupvpn",
-            "tool": "RiseupVPN",
-            "bootstrapUrl": "https://riseup.net/en/vpn",
-            "handshakeHost": "api.black.riseup.net"
-          }
-        ],
+        "circumventionTargets": [],
         "throughputTargets": [],
         "whitelistSni": []
       }
@@ -1883,28 +1807,20 @@
           "probePersistencePolicy": "MANUAL_ONLY"
         },
         "packRefs": [
-          "ru-independent-media@1",
           "ru-global-platforms@1",
           "ru-messaging@1",
-          "ru-circumvention@1",
           "ru-throttling@1",
           "neutral-control@2"
         ],
         "domainTargets": [
           {
-            "host": "meduza.io"
-          },
-          {
-            "host": "www.svoboda.org"
-          },
-          {
-            "host": "www.dw.com"
-          },
-          {
             "host": "www.youtube.com"
           },
           {
             "host": "discord.com"
+          },
+          {
+            "host": "proton.me"
           },
           {
             "host": "telegram.org"
@@ -1914,25 +1830,9 @@
           },
           {
             "host": "www.whatsapp.com"
-          },
-          {
-            "host": "www.torproject.org"
-          },
-          {
-            "host": "psiphon.ca"
-          },
-          {
-            "host": "riseup.net"
-          },
-          {
-            "host": "protonvpn.com"
           }
         ],
         "dnsTargets": [
-          {
-            "domain": "meduza.io",
-            "udpServer": "8.8.8.8:53"
-          },
           {
             "domain": "youtube.com",
             "udpServer": "1.1.1.1:53"
@@ -1946,7 +1846,7 @@
             "udpServer": "1.1.1.1:53"
           },
           {
-            "domain": "psiphon.ca",
+            "domain": "proton.me",
             "udpServer": "8.8.8.8:53"
           }
         ],
@@ -2028,26 +1928,7 @@
             "tcpEndpointHost": "discord.com"
           }
         ],
-        "circumventionTargets": [
-          {
-            "id": "tor",
-            "tool": "Tor",
-            "bootstrapUrl": "https://www.torproject.org/download/",
-            "handshakeHost": "www.torproject.org"
-          },
-          {
-            "id": "psiphon",
-            "tool": "Psiphon",
-            "bootstrapUrl": "https://psiphon.ca/",
-            "handshakeHost": "psiphon.ca"
-          },
-          {
-            "id": "riseupvpn",
-            "tool": "RiseupVPN",
-            "bootstrapUrl": "https://riseup.net/en/vpn",
-            "handshakeHost": "api.black.riseup.net"
-          }
-        ],
+        "circumventionTargets": [],
         "throughputTargets": [
           {
             "id": "youtube-web",
@@ -2093,10 +1974,10 @@
         "domainTargets": [
           { "host": "www.youtube.com" },
           { "host": "discord.com" },
-          { "host": "meduza.io" },
+          { "host": "proton.me" },
           { "host": "signal.org" },
-          { "host": "www.torproject.org" },
-          { "host": "psiphon.ca" }
+          { "host": "telegram.org" },
+          { "host": "www.whatsapp.com" }
         ],
         "dnsTargets": [],
         "tcpTargets": [],
@@ -2107,12 +1988,12 @@
         ],
         "strategyProbeTargetCohorts": [
           {
-            "id": "ru-blocked-core",
-            "label": "Russia blocked core",
+            "id": "ru-platform-core",
+            "label": "Russia platform core",
             "domainTargets": [
               { "host": "www.youtube.com" },
               { "host": "discord.com" },
-              { "host": "meduza.io" }
+              { "host": "proton.me" }
             ],
             "quicTargets": [
               { "host": "www.youtube.com", "port": 443 },
@@ -2120,12 +2001,12 @@
             ]
           },
           {
-            "id": "ru-messaging-circumvention",
-            "label": "Russia messaging and circumvention",
+            "id": "ru-messaging-core",
+            "label": "Russia messaging core",
             "domainTargets": [
               { "host": "signal.org" },
-              { "host": "www.torproject.org" },
-              { "host": "psiphon.ca" }
+              { "host": "telegram.org" },
+              { "host": "www.whatsapp.com" }
             ],
             "quicTargets": [
               { "host": "www.whatsapp.com", "port": 443 }

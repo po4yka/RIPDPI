@@ -37,7 +37,7 @@ class DiagnosticsFindingProjectorTest {
     fun `classify emits strategy_exhaustion when no strategy recovers any target`() {
         val observations =
             listOf("candidate_a", "candidate_b").flatMap { candidateId ->
-                listOf("meduza.io", "telegram.org").map { domain ->
+                listOf("blocked.example", "telegram.org").map { domain ->
                     ObservationFact(
                         kind = ObservationKind.STRATEGY,
                         target = "$candidateId \u00b7 $domain",
@@ -65,7 +65,7 @@ class DiagnosticsFindingProjectorTest {
             listOf(
                 ObservationFact(
                     kind = ObservationKind.STRATEGY,
-                    target = "candidate_a \u00b7 meduza.io",
+                    target = "candidate_a \u00b7 blocked.example",
                     strategy =
                         StrategyObservationFact(
                             candidateId = "candidate_a",
@@ -75,7 +75,7 @@ class DiagnosticsFindingProjectorTest {
                 ),
                 ObservationFact(
                     kind = ObservationKind.STRATEGY,
-                    target = "candidate_b \u00b7 meduza.io",
+                    target = "candidate_b \u00b7 blocked.example",
                     strategy =
                         StrategyObservationFact(
                             candidateId = "candidate_b",
@@ -95,7 +95,7 @@ class DiagnosticsFindingProjectorTest {
                 listOf(
                     ObservationFact(
                         kind = ObservationKind.STRATEGY,
-                        target = "$candidateId \u00b7 meduza.io",
+                        target = "$candidateId \u00b7 blocked.example",
                         strategy =
                             StrategyObservationFact(
                                 candidateId = candidateId,
@@ -118,7 +118,7 @@ class DiagnosticsFindingProjectorTest {
         val diagnoses = DiagnosticsFindingProjector().classify(observations)
         val unreachable = diagnoses.filter { it.code == "strategy_domain_unreachable" }
         assertEquals(1, unreachable.size)
-        assertEquals("meduza.io", unreachable[0].target)
+        assertEquals("blocked.example", unreachable[0].target)
         assertEquals("blocked", unreachable[0].severity)
         assertNotNull(unreachable[0].recommendation)
         assert(unreachable[0].recommendation!!.contains("proxy"))
@@ -206,7 +206,7 @@ class DiagnosticsFindingProjectorTest {
     fun `classify emits http_network_blocked when all HTTP probes fail`() {
         val observations =
             listOf("candidate_a", "candidate_b").flatMap { candidateId ->
-                listOf("meduza.io", "signal.org").map { domain ->
+                listOf("blocked.example", "signal.org").map { domain ->
                     ObservationFact(
                         kind = ObservationKind.STRATEGY,
                         target = "$candidateId \u00b7 $domain",
@@ -223,7 +223,7 @@ class DiagnosticsFindingProjectorTest {
         val diagnosis = diagnoses.firstOrNull { it.code == "http_network_blocked" }
         assertNotNull(diagnosis)
         assertEquals("HTTP port 80 is blocked network-wide", diagnosis?.summary)
-        assert(diagnosis!!.evidence.contains("meduza.io"))
+        assert(diagnosis!!.evidence.contains("blocked.example"))
         assert(diagnosis.evidence.contains("signal.org"))
     }
 
@@ -233,7 +233,7 @@ class DiagnosticsFindingProjectorTest {
             listOf(
                 ObservationFact(
                     kind = ObservationKind.STRATEGY,
-                    target = "candidate_a \u00b7 meduza.io",
+                    target = "candidate_a \u00b7 blocked.example",
                     strategy =
                         StrategyObservationFact(
                             candidateId = "candidate_a",
