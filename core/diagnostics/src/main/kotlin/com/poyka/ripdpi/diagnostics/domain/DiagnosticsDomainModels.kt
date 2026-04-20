@@ -13,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.QuicTarget
+import com.poyka.ripdpi.diagnostics.RouteProbeConfig
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ServiceTarget
@@ -76,6 +77,7 @@ internal data class DiagnosticsIntent(
     val telegramTarget: TelegramTarget?,
     val strategyProbe: StrategyProbeRequest?,
     val strategyProbeTargetCohorts: List<StrategyProbeTargetCohortSpec> = emptyList(),
+    val routeProbe: RouteProbeConfig? = null,
     val requestedPathMode: ScanPathMode,
 )
 
@@ -100,6 +102,7 @@ internal data class ScanPlan(
     val domainTargets: List<DomainTarget> = emptyList(),
     val quicTargets: List<QuicTarget> = emptyList(),
     val throughputTargets: List<ThroughputTarget> = emptyList(),
+    val routeProbe: RouteProbeConfig? = null,
     val probeTasks: List<ProbeTask>,
 )
 

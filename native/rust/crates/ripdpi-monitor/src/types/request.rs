@@ -13,6 +13,17 @@ use super::target::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RouteProbeConfig {
+    #[serde(default = "default_route_probe_stable_flow_attempts")]
+    pub stable_flow_attempts: usize,
+    #[serde(default = "default_route_probe_diversity_buckets")]
+    pub diversity_buckets: usize,
+    #[serde(default = "default_route_probe_diversity_on_failure_only")]
+    pub diversity_on_failure_only: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScanRequest {
     pub profile_id: String,
     pub display_name: String,
@@ -52,6 +63,8 @@ pub struct ScanRequest {
     /// results with transport context, and emit environment metadata in the scan report.
     #[serde(default)]
     pub network_snapshot: Option<NetworkSnapshot>,
+    #[serde(default)]
+    pub route_probe: Option<RouteProbeConfig>,
     /// Optional scan deadline in milliseconds from now. When present, the engine will finalize
     /// the scan at this deadline. Defaults to 270 000 ms (270 s) when absent.
     #[serde(default)]
@@ -138,6 +151,18 @@ pub struct ScanReport {
     pub metrics_summary: Option<RecorderSnapshot>,
 }
 
+fn default_route_probe_stable_flow_attempts() -> usize {
+    2
+}
+
+fn default_route_probe_diversity_buckets() -> usize {
+    3
+}
+
+fn default_route_probe_diversity_on_failure_only() -> bool {
+    true
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,6 +193,7 @@ mod tests {
         assert!(request.throughput_targets.is_empty());
         assert!(request.telegram_target.is_none());
         assert!(request.strategy_probe.is_none());
+        assert!(request.route_probe.is_none());
     }
 
     #[test]

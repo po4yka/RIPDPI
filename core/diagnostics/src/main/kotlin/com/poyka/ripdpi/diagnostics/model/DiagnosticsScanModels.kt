@@ -433,6 +433,13 @@ data class ObservationFact(
 )
 
 @Serializable
+data class RouteProbeConfig(
+    val stableFlowAttempts: Int = 2,
+    val diversityBuckets: Int = 3,
+    val diversityOnFailureOnly: Boolean = true,
+)
+
+@Serializable
 data class ScanRequest(
     val profileId: String,
     val displayName: String,
@@ -455,6 +462,7 @@ data class ScanRequest(
     val telegramTarget: TelegramTarget? = null,
     val strategyProbe: StrategyProbeRequest? = null,
     val networkSnapshot: NativeNetworkSnapshot? = null,
+    val routeProbe: RouteProbeConfig? = null,
 )
 
 @Serializable

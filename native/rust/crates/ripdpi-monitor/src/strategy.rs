@@ -10,7 +10,7 @@ use crate::candidates::{
 use crate::connectivity::{classify_dns_latency_quality, is_dns_injection_suspected};
 use crate::dns::{build_fallback_encrypted_dns_endpoints, resolve_via_encrypted_dns};
 use crate::dns_oracle::{evaluate_dns_oracles, DnsOracleAssessment, DnsOracleResponse};
-use crate::transport::{domain_connect_target, resolve_addresses, TargetAddress, TransportConfig};
+use crate::transport::{direct_transport, domain_connect_target, resolve_addresses, TargetAddress};
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
 use crate::util::{classify_dns_answer_overlap, DnsAnswerOverlap};
 
@@ -54,7 +54,7 @@ pub(crate) fn detect_strategy_probe_dns_tampering(
             &fallback_endpoints,
             fallback_endpoints.len(),
             |endpoint| {
-                resolve_via_encrypted_dns(&target.host, endpoint.clone(), &TransportConfig::Direct)
+                resolve_via_encrypted_dns(&target.host, endpoint.clone(), &direct_transport())
                     .map(|addresses| DnsOracleResponse { addresses, raw_response: None })
             },
             |answer| answer.addresses.clone(),

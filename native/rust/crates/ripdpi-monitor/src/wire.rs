@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::types::{
     CircumventionTarget, Diagnosis, DiagnosticProfileFamily, DnsTarget, DomainTarget, ProbeDetail, ProbeObservation,
-    ProbeResult, ProbeTask, ProbeTaskFamily, QuicTarget, ScanKind, ScanPathMode, ScanProgress, ScanReport, ScanRequest,
-    ServiceTarget, StrategyProbeLiveProgress, StrategyProbeReport, StrategyProbeRequest, TcpTarget, TelegramTarget,
-    ThroughputTarget,
+    ProbeResult, ProbeTask, ProbeTaskFamily, QuicTarget, RouteProbeConfig, ScanKind, ScanPathMode, ScanProgress,
+    ScanReport, ScanRequest, ServiceTarget, StrategyProbeLiveProgress, StrategyProbeReport, StrategyProbeRequest,
+    TcpTarget, TelegramTarget, ThroughputTarget,
 };
 
 pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 1;
@@ -81,6 +81,8 @@ pub struct EngineScanRequestWire {
     pub strategy_probe: Option<StrategyProbeRequest>,
     #[serde(default)]
     pub network_snapshot: Option<ripdpi_proxy_config::NetworkSnapshot>,
+    #[serde(default)]
+    pub route_probe: Option<RouteProbeConfig>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scan_deadline_ms: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -175,6 +177,7 @@ impl From<EngineScanRequestWire> for ScanRequest {
             telegram_target: value.telegram_target,
             strategy_probe: value.strategy_probe,
             network_snapshot: value.network_snapshot,
+            route_probe: value.route_probe,
             scan_deadline_ms: value.scan_deadline_ms,
         }
     }
@@ -205,6 +208,7 @@ impl From<ScanRequest> for EngineScanRequestWire {
             telegram_target: value.telegram_target,
             strategy_probe: value.strategy_probe,
             network_snapshot: value.network_snapshot,
+            route_probe: value.route_probe,
             scan_deadline_ms: value.scan_deadline_ms,
             native_log_level: None,
             log_context: None,

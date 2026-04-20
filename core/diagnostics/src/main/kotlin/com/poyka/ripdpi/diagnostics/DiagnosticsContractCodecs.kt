@@ -129,6 +129,7 @@ internal fun ScanPlan.toEngineScanRequestWire(): EngineScanRequestWire =
         telegramTarget = intent.telegramTarget,
         strategyProbe = intent.strategyProbe,
         networkSnapshot = context.networkSnapshot,
+        routeProbe = routeProbe,
         nativeLogLevel = diagnosticsNativeLogLevel(context.pathMode),
     )
 
