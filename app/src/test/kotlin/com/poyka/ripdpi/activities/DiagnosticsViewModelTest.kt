@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.core.RipDpiChainConfig
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiQuicConfig
@@ -26,8 +27,10 @@ import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchive
+import com.poyka.ripdpi.diagnostics.DiagnosticsLegalSafety
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanResolution
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
+import com.poyka.ripdpi.diagnostics.DiagnosticsProfileIntentBucket
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.HiddenProbeConflictAction
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
@@ -1597,6 +1600,115 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `sensitive profile requires explicit consent before scan starts`() =
+        runTest {
+            var startCalls = 0
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = "sensitive",
+                                name = "Sensitive reachability",
+                                source = "bundled",
+                                version = 1,
+                                requestJson =
+                                    profileRequest(
+                                        profileId = "sensitive",
+                                        displayName = "Sensitive reachability",
+                                        intentBucket = DiagnosticsProfileIntentBucket.MANUAL_SENSITIVE,
+                                        legalSafety = DiagnosticsLegalSafety.SENSITIVE,
+                                        regionTag = null,
+                                    ),
+                                updatedAt = 1L,
+                            ),
+                        )
+                    scanController.onStartScan = { _, _ ->
+                        startCalls += 1
+                        DiagnosticsManualScanStartResult.Started("sensitive-session")
+                    }
+                }
+            val viewModel =
+                createDiagnosticsViewModel(
+                    RuntimeEnvironment.getApplication(),
+                    manager,
+                    FakeAppSettingsRepository(),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.startRawScan()
+            advanceUntilIdle()
+
+            assertEquals(0, startCalls)
+            assertEquals(
+                "Sensitive reachability",
+                viewModel.uiState.value.scan.sensitiveProfileConsentDialog
+                    ?.profileName,
+            )
+
+            viewModel.confirmSensitiveProfileRun()
+            advanceUntilIdle()
+
+            assertEquals(1, startCalls)
+            assertNull(viewModel.uiState.value.scan.sensitiveProfileConsentDialog)
+            collector.cancel()
+        }
+
+    @Test
+    fun `blocked profiles are omitted and show policy notice`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager().apply {
+                    profilesState.value =
+                        listOf(
+                            DiagnosticProfileEntity(
+                                id = "default",
+                                name = "Default",
+                                source = "bundled",
+                                version = 1,
+                                requestJson = profileRequest(profileId = "default", displayName = "Default"),
+                                updatedAt = 1L,
+                            ),
+                            DiagnosticProfileEntity(
+                                id = "blocked",
+                                name = "Blocked",
+                                source = "bundled",
+                                version = 1,
+                                requestJson =
+                                    profileRequest(
+                                        profileId = "blocked",
+                                        displayName = "Blocked",
+                                        legalSafety = DiagnosticsLegalSafety.UNSAFE,
+                                        regionTag = null,
+                                    ),
+                                updatedAt = 2L,
+                            ),
+                        )
+                }
+            val appContext = RuntimeEnvironment.getApplication<android.content.Context>()
+            val viewModel =
+                createDiagnosticsViewModel(
+                    appContext,
+                    manager,
+                    FakeAppSettingsRepository(),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf("default"),
+                viewModel.uiState.value.scan.profiles
+                    .map { it.id },
+            )
+            assertEquals(
+                appContext.getString(R.string.diagnostics_scan_policy_notice),
+                viewModel.uiState.value.scan.policyNoticeMessage,
+            )
+            collector.cancel()
+        }
+
+    @Test
     fun `generic scan start failure emits fallback error and keeps scan idle`() =
         runTest {
             val appContext = RuntimeEnvironment.getApplication()
@@ -2865,6 +2977,9 @@ class DiagnosticsViewModelTest {
         displayName: String,
         kind: ScanKind = ScanKind.CONNECTIVITY,
         family: DiagnosticProfileFamily = DiagnosticProfileFamily.GENERAL,
+        intentBucket: DiagnosticsProfileIntentBucket = DiagnosticsProfileIntentBucket.SAFE_DEFAULT,
+        legalSafety: DiagnosticsLegalSafety = DiagnosticsLegalSafety.SAFE,
+        regionTag: String? = null,
         strategyProbe: StrategyProbeRequest? = null,
         allowBackground: Boolean = false,
         requiresRawPath: Boolean = kind == ScanKind.STRATEGY_PROBE,
@@ -2884,6 +2999,9 @@ class DiagnosticsViewModelTest {
                 displayName = displayName,
                 kind = kind,
                 family = family,
+                intentBucket = intentBucket,
+                legalSafety = legalSafety,
+                regionTag = regionTag,
                 executionPolicy =
                     ProfileExecutionPolicyWire(
                         manualOnly = manualOnly,

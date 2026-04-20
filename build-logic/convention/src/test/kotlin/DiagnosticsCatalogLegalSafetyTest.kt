@@ -1,7 +1,10 @@
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertContains
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 class DiagnosticsCatalogLegalSafetyTest {
     private val registry =
@@ -133,5 +136,30 @@ class DiagnosticsCatalogLegalSafetyTest {
 
         assertContains(error.message.orEmpty(), "diagnostics-contract-fixtures/profile_catalog_current.json")
         assertContains(error.message.orEmpty(), "rutor.info")
+    }
+
+    @Test
+    fun `sensitive messaging services omit shipped bootstrap urls while throughput checks keep required urls`() {
+        val index = DiagnosticsCatalogIndex(DefaultDiagnosticsCatalogPackSource.load())
+        val profiles = DefaultDiagnosticsCatalogProfileSource.load(index)
+
+        val messagingPack = requireNotNull(index["ru-messaging"])
+        assertEquals(2, messagingPack.version)
+        messagingPack.serviceTargets.forEach { target ->
+            assertNull(target.bootstrapUrl, "Service target ${target.id} should not ship a bootstrap URL")
+            assertNotNull(target.tcpEndpointHost, "Service target ${target.id} still needs a TCP endpoint host")
+        }
+
+        val messagingProfile = profiles.single { it.id == "ru-messaging" }
+        assertEquals(3, messagingProfile.version)
+        messagingProfile.serviceTargets.forEach { target ->
+            assertNull(target.bootstrapUrl, "Profile target ${target.id} should not ship a bootstrap URL")
+            assertNotNull(target.tcpEndpointHost, "Profile target ${target.id} still needs a TCP endpoint host")
+        }
+
+        val throttlingProfile = profiles.single { it.id == "ru-throttling" }
+        throttlingProfile.throughputTargets.forEach { target ->
+            assertContains(target.url, "https://")
+        }
     }
 }

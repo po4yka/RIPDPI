@@ -55,6 +55,7 @@ internal fun DiagnosticsUiFactorySupport.buildOverviewUiModel(
 
 internal data class BuildScanUiModelParams(
     val profiles: List<DiagnosticProfile>,
+    val omittedProfileCount: Int = 0,
     val activeProfile: DiagnosticProfile?,
     val activeProfileRequest: DiagnosticsProfileProjection?,
     val latestProfileSession: DiagnosticScanSession?,
@@ -72,6 +73,7 @@ internal data class BuildScanUiModelParams(
     val networkContext: ScanNetworkContextUiModel? = null,
     val vpnPermissionDisabled: Boolean = false,
     val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
+    val sensitiveProfileConsentDialog: SensitiveProfileConsentDialogState? = null,
     val queuedManualScanRequest: QueuedManualScanRequest? = null,
 )
 
@@ -130,10 +132,17 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
         runInPathEnabled = runInPathEnabled,
         runRawHint = runRawHint,
         runInPathHint = runInPathHint,
+        policyNoticeMessage =
+            if (params.omittedProfileCount > 0) {
+                context.getString(R.string.diagnostics_scan_policy_notice)
+            } else {
+                null
+            },
         workflowRestriction = workflowRestriction,
         resolverRecommendation = params.latestResolverRecommendation,
         strategyProbeReport = params.latestStrategyProbeReport,
         hiddenProbeConflictDialog = params.hiddenProbeConflictDialog,
+        sensitiveProfileConsentDialog = params.sensitiveProfileConsentDialog,
         queuedManualScanRequest = params.queuedManualScanRequest,
         isBusy = params.progress != null,
     )

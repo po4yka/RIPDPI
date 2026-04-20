@@ -17,6 +17,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanTriggerType
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.StrategyProbeProgressLane
+import com.poyka.ripdpi.diagnostics.resolveLegalSafetyPolicy
 import java.util.Locale
 import com.poyka.ripdpi.data.displayLabel as displayNetworkLabel
 import com.poyka.ripdpi.diagnostics.displayLabel as displayStrategyLabel
@@ -31,6 +32,7 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
     profile: DiagnosticProfile,
 ): DiagnosticsProfileOptionUiModel {
     val request = profile.request
+    val policyDecision = request?.resolveLegalSafetyPolicy()
     return DiagnosticsProfileOptionUiModel(
         id = profile.id,
         name = profile.name,
@@ -50,6 +52,9 @@ internal fun DiagnosticsUiFactorySupport.toProfileOptionUiModel(
             ),
         manualOnly = request?.executionPolicy?.manualOnly == true,
         packRefs = request?.packRefs.orEmpty(),
+        policyAccess =
+            policyDecision?.access ?: com.poyka.ripdpi.diagnostics.DiagnosticsJurisdictionProfileAccess.ALLOWED,
+        requiresExplicitConsent = policyDecision?.requiresExplicitConsent == true,
     )
 }
 

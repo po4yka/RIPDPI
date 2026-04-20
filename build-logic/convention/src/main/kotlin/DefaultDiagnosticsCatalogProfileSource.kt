@@ -149,7 +149,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-messaging",
             name = "Russia Messaging Services",
-            version = 2,
+            version = 3,
             family = CatalogDiagnosticProfileFamily.MESSAGING,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -157,7 +157,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = false),
             packRefs =
                 listOf(
-                    packRef("ru-messaging", 1),
+                    packRef("ru-messaging", 2),
                     packRef("ru-control", 1),
                 ),
             domainTargets = messaging.domainTargets,
@@ -221,7 +221,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-dpi-full",
             name = "Russia DPI Full",
-            version = 3,
+            version = 4,
             family = CatalogDiagnosticProfileFamily.DPI_FULL,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -231,7 +231,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                 listOf(
                     packRef("ru-independent-media", 1),
                     packRef("ru-global-platforms", 1),
-                    packRef("ru-messaging", 1),
+                    packRef("ru-messaging", 2),
                     packRef("ru-circumvention", 1),
                     packRef("ru-throttling", 1),
                     packRef("neutral-control", 2),

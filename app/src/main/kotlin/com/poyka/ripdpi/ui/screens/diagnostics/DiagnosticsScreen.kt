@@ -107,6 +107,8 @@ fun DiagnosticsScreen(
     onWaitForHiddenProbeAndRun: () -> Unit = {},
     onCancelHiddenProbeAndRun: () -> Unit = {},
     onDismissHiddenProbeConflictDialog: () -> Unit = {},
+    onConfirmSensitiveProfileRun: () -> Unit = {},
+    onDismissSensitiveProfileConsentDialog: () -> Unit = {},
     onCancelScan: () -> Unit,
     onKeepResolverRecommendation: (String?) -> Unit,
     onSaveResolverRecommendation: (String?) -> Unit,
@@ -312,6 +314,44 @@ fun DiagnosticsScreen(
                     Modifier
                         .fillMaxWidth()
                         .ripDpiTestTag(RipDpiTestTags.DiagnosticsHiddenProbeConflictDismiss),
+            )
+        }
+    }
+    uiState.scan.sensitiveProfileConsentDialog?.let { dialogState ->
+        RipDpiDialog(
+            onDismissRequest = onDismissSensitiveProfileConsentDialog,
+            title = stringResource(R.string.diagnostics_sensitive_profile_consent_title),
+            dialogTestTag = RipDpiTestTags.DiagnosticsSensitiveProfileConsentDialog,
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.diagnostics_sensitive_profile_consent_dismiss),
+                    onClick = onDismissSensitiveProfileConsentDialog,
+                    testTag = RipDpiTestTags.DiagnosticsSensitiveProfileConsentDismiss,
+                ),
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.diagnostics_sensitive_profile_consent_confirm),
+                    onClick = onConfirmSensitiveProfileRun,
+                    testTag = RipDpiTestTags.DiagnosticsSensitiveProfileConsentConfirm,
+                ),
+            visuals =
+                RipDpiDialogVisuals(
+                    message =
+                        stringResource(
+                            R.string.diagnostics_sensitive_profile_consent_body_format,
+                            dialogState.profileName,
+                        ),
+                    tone = RipDpiDialogTone.Info,
+                ),
+        ) {
+            RipDpiButton(
+                text = stringResource(R.string.diagnostics_sensitive_profile_consent_dismiss),
+                onClick = onDismissSensitiveProfileConsentDialog,
+                variant = RipDpiButtonVariant.Ghost,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsSensitiveProfileConsentDismiss),
             )
         }
     }

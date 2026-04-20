@@ -159,6 +159,16 @@ internal fun ScanSection(
                 )
             }
         }
+        scan.policyNoticeMessage?.let { message ->
+            item {
+                WarningBanner(
+                    title = stringResource(R.string.diagnostics_region_suite_title),
+                    message = message,
+                    tone = WarningBannerTone.Restricted,
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsScanPolicyNotice),
+                )
+            }
+        }
         selectedProfile?.let { profile ->
             item {
                 DiagnosticsScanWorkflowCard(
@@ -303,6 +313,13 @@ private fun CompactProfileRow(
                         text = familyLabel,
                         style = RipDpiThemeTokens.type.secondaryBody,
                         color = RipDpiThemeTokens.colors.mutedForeground,
+                    )
+                }
+                if (profile?.requiresExplicitConsent == true) {
+                    Text(
+                        text = stringResource(R.string.diagnostics_profile_explicit_consent_required),
+                        style = RipDpiThemeTokens.type.secondaryBody,
+                        color = RipDpiThemeTokens.colors.warning,
                     )
                 }
             }
@@ -768,11 +785,21 @@ internal fun DiagnosticsProfileCard(
                 if (profile.manualOnly) {
                     append(" Manual run only.")
                 }
+                if (profile.requiresExplicitConsent) {
+                    append(" ${stringResource(R.string.diagnostics_profile_explicit_consent_required)}")
+                }
                 if (profile.packRefs.isNotEmpty()) {
                     append(" ${profile.packRefs.size} curated packs included.")
                 }
             },
-        badgeText = if (profile.regionTag?.equals("ru", ignoreCase = true) == true) "$badge · RU" else badge,
+        badgeText =
+            buildString {
+                append(if (profile.regionTag?.equals("ru", ignoreCase = true) == true) "$badge · RU" else badge)
+                if (profile.requiresExplicitConsent) {
+                    append(" · ")
+                    append(stringResource(R.string.diagnostics_profile_badge_consent))
+                }
+            },
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProfile(profile.id)),
         selected = selected,
         onClick = onClick,

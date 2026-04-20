@@ -297,6 +297,50 @@ class DiagnosticsExecutionPolicyTest {
                 assertEquals(DiagnosticsScanStartRejectionReason.ScanAlreadyActive, error.reason)
             }
         }
+
+    @Test
+    fun `legal safety policy blocks unsafe region matched profiles`() {
+        val decision =
+            ProfileSpecWire(
+                profileId = "ru-sensitive",
+                displayName = "RU sensitive",
+                intentBucket = DiagnosticsProfileIntentBucket.MANUAL_SENSITIVE,
+                legalSafety = DiagnosticsLegalSafety.UNSAFE,
+                regionTag = "ru",
+                executionPolicy =
+                    ProfileExecutionPolicyWire(
+                        manualOnly = true,
+                        allowBackground = false,
+                        requiresRawPath = false,
+                        probePersistencePolicy = ProbePersistencePolicyWire.MANUAL_ONLY,
+                    ),
+            ).resolveLegalSafetyPolicy(countryCode = "ru")
+
+        assertEquals(DiagnosticsJurisdictionProfileAccess.BLOCKED, decision.access)
+        assertFalse(decision.requiresExplicitConsent)
+    }
+
+    @Test
+    fun `legal safety policy leaves region scoped profiles allowed outside jurisdiction`() {
+        val decision =
+            ProfileSpecWire(
+                profileId = "ru-sensitive",
+                displayName = "RU sensitive",
+                intentBucket = DiagnosticsProfileIntentBucket.MANUAL_SENSITIVE,
+                legalSafety = DiagnosticsLegalSafety.SENSITIVE,
+                regionTag = "ru",
+                executionPolicy =
+                    ProfileExecutionPolicyWire(
+                        manualOnly = true,
+                        allowBackground = false,
+                        requiresRawPath = false,
+                        probePersistencePolicy = ProbePersistencePolicyWire.MANUAL_ONLY,
+                    ),
+            ).resolveLegalSafetyPolicy(countryCode = "ge")
+
+        assertEquals(DiagnosticsJurisdictionProfileAccess.ALLOWED, decision.access)
+        assertFalse(decision.requiresExplicitConsent)
+    }
 }
 
 private fun activeScanRegistry(

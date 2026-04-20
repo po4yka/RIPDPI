@@ -264,6 +264,29 @@ internal class DiagnosticsScanActions(
         }
     }
 
+    fun confirmSensitiveProfileRun() {
+        val dialogState = scanLifecycle.value.sensitiveProfileConsentDialog ?: return
+        scanLifecycle.update { it.copy(sensitiveProfileConsentDialog = null) }
+        val selectedProfile =
+            mutations
+                .currentUiState()
+                .scan
+                .profiles
+                .firstOrNull { it.id == dialogState.profileId }
+                ?: mutations.currentUiState().scan.selectedProfile
+        startManualScan(
+            pathMode = dialogState.pathMode,
+            selectedProfile = selectedProfile,
+            allowSensitiveProfileStart = true,
+        )
+    }
+
+    fun dismissSensitiveProfileConsentDialog() {
+        scanLifecycle.update {
+            it.copy(sensitiveProfileConsentDialog = null)
+        }
+    }
+
     fun cancelScan() {
         scanLifecycle.update {
             it.copy(
@@ -273,6 +296,7 @@ internal class DiagnosticsScanActions(
                 accumulatedProbes = persistentListOf(),
                 accumulatedStrategyCandidates = persistentListOf(),
                 dnsBaselineStatus = null,
+                sensitiveProfileConsentDialog = null,
             )
         }
         mutations.launch {
@@ -315,6 +339,7 @@ internal class DiagnosticsScanActions(
     private fun startManualScan(
         pathMode: ScanPathMode,
         selectedProfile: DiagnosticsProfileOptionUiModel?,
+        allowSensitiveProfileStart: Boolean = false,
     ) {
         val request =
             ManualScanUiRequest(
@@ -323,10 +348,34 @@ internal class DiagnosticsScanActions(
                 scanKind = selectedProfile?.kind ?: ScanKind.CONNECTIVITY,
                 isFullAudit = selectedProfile?.isFullAudit == true,
             )
+        if (selectedProfile?.requiresExplicitConsent == true && !allowSensitiveProfileStart) {
+            scanLifecycle.update {
+                it.copy(
+                    hiddenProbeConflictDialog = null,
+                    queuedManualScanRequest = null,
+                    sensitiveProfileConsentDialog =
+                        SensitiveProfileConsentDialogState(
+                            profileId = selectedProfile.id,
+                            profileName = request.profileName,
+                            pathMode = pathMode,
+                            scanKind = request.scanKind,
+                            isFullAudit = request.isFullAudit,
+                        ),
+                )
+            }
+            return
+        }
         mutations.launch {
             try {
                 selectedProfile?.id?.let { diagnosticsScanController.setActiveProfile(it) }
-                when (val result = diagnosticsScanController.startScan(pathMode, selectedProfile?.id)) {
+                when (
+                    val result =
+                        diagnosticsScanController.startScan(
+                            pathMode = pathMode,
+                            selectedProfileId = selectedProfile?.id,
+                            allowSensitiveProfileStart = allowSensitiveProfileStart,
+                        )
+                ) {
                     is DiagnosticsManualScanStartResult.Started -> {
                         handleStartedScan(
                             sessionId = result.sessionId,
@@ -350,6 +399,7 @@ internal class DiagnosticsScanActions(
                                         scanKind = result.scanKind,
                                         isFullAudit = result.isFullAudit,
                                     ),
+                                sensitiveProfileConsentDialog = null,
                                 queuedManualScanRequest = null,
                             )
                         }
@@ -372,6 +422,7 @@ internal class DiagnosticsScanActions(
                 pendingAutoOpenAuditSessionId = null,
                 accumulatedProbes = persistentListOf(),
                 hiddenProbeConflictDialog = null,
+                sensitiveProfileConsentDialog = null,
                 queuedManualScanRequest = null,
             )
         }
@@ -381,6 +432,14 @@ internal class DiagnosticsScanActions(
                     when ((error as? DiagnosticsScanStartRejectedException)?.reason) {
                         DiagnosticsScanStartRejectionReason.HiddenAutomaticProbeRunning -> {
                             appContext.getString(R.string.diagnostics_error_hidden_probe_running)
+                        }
+
+                        DiagnosticsScanStartRejectionReason.SensitiveProfileConsentRequired -> {
+                            appContext.getString(R.string.diagnostics_error_sensitive_profile_consent_required)
+                        }
+
+                        DiagnosticsScanStartRejectionReason.BlockedByLegalSafetyPolicy -> {
+                            appContext.getString(R.string.diagnostics_error_profile_blocked_by_policy)
                         }
 
                         else -> {
@@ -413,6 +472,7 @@ internal class DiagnosticsScanActions(
                             activeScanKind = null,
                             pendingAutoOpenAuditSessionId = null,
                             accumulatedProbes = persistentListOf(),
+                            sensitiveProfileConsentDialog = null,
                             queuedManualScanRequest = null,
                         )
                     }
@@ -433,6 +493,7 @@ internal class DiagnosticsScanActions(
                     activeScanKind = null,
                     pendingAutoOpenAuditSessionId = null,
                     accumulatedProbes = persistentListOf(),
+                    sensitiveProfileConsentDialog = null,
                     queuedManualScanRequest = null,
                 )
             }
@@ -455,6 +516,7 @@ internal class DiagnosticsScanActions(
                 activeScanKind = request.scanKind,
                 pendingAutoOpenAuditSessionId = if (request.isFullAudit) sessionId else null,
                 hiddenProbeConflictDialog = null,
+                sensitiveProfileConsentDialog = null,
                 queuedManualScanRequest = null,
             )
         }
