@@ -1,0 +1,4 @@
+sessionId,probeType,target,outcome,probeRetryCount,createdAt,detailJson
+"runtime-a","network_environment","wifi","network_available","","1777000004100","[{""key"":""transport"",""value"":""wifi""},{""key"":""validated"",""value"":""true""}]"
+"runtime-a","domain_reachability","cloudflare.com","unreachable","","1777000004101","[{""key"":""tlsStatus"",""value"":""tls_handshake_failed""},{""key"":""tlsError"",""value"":""proxy unavailable""},{""key"":""isControl"",""value"":""true""}]"
+

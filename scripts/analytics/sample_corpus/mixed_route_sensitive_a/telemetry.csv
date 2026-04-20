@@ -1,0 +1,3 @@
+createdAt,telemetryNetworkFingerprintHash,winningTcpStrategyFamily,winningQuicStrategyFamily,winningStrategyFamily
+1777000005100,v1:fp-mixed-route-a,disorder_host,quic_disabled,disorder_host + quic_disabled
+

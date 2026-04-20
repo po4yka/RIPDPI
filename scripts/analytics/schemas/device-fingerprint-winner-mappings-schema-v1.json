@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ripdpi.local/schemas/device-fingerprint-winner-mappings-schema-v1.json",
+  "title": "Device Fingerprint Winner Mappings",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "featureSchemaVersion",
+    "generatedAt",
+    "reviewStatus",
+    "mappingCount",
+    "mappings"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "featureSchemaVersion": { "const": 1 },
+    "generatedAt": { "type": "string" },
+    "reviewStatus": {
+      "type": "string",
+      "enum": ["reviewed", "unreviewed"]
+    },
+    "mappingCount": { "type": "integer", "minimum": 0 },
+    "mappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "deviceFingerprintId",
+          "clusterFingerprintHash",
+          "recommendedWinnerFamily",
+          "recommendedWinnerSignatureHash",
+          "supportCount",
+          "reproducibilityScore",
+          "negativeEvidenceCount",
+          "sourceArchiveCount"
+        ]
+      }
+    }
+  }
+}

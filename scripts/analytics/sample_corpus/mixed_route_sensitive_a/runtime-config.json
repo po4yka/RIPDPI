@@ -1,0 +1,23 @@
+{
+  "configuredMode": "VPN",
+  "activeMode": "VPN",
+  "serviceStatus": "Running",
+  "lastNativeErrorHeadline": "none",
+  "effectiveStrategySignature": {
+    "mode": "VPN",
+    "configSource": "ui",
+    "hostAutolearn": "enabled",
+    "desyncMethod": "disorder_host",
+    "chainSummary": "tcp: disorder(host+1)",
+    "tcpStrategyFamily": "disorder_host",
+    "quicStrategyFamily": "quic_disabled",
+    "dnsStrategyFamily": "dns_encrypted_doh",
+    "dnsStrategyLabel": "Cloudflare DoH",
+    "protocolToggles": [
+      "HTTP",
+      "HTTPS",
+      "UDP"
+    ]
+  }
+}
+

@@ -1,0 +1,7 @@
+sessionId,probeType,target,outcome,probeRetryCount,createdAt,detailJson
+"tls-b","network_environment","wifi","network_available","","1777000003100","[{""key"":""transport"",""value"":""wifi""},{""key"":""validated"",""value"":""true""}]"
+"tls-b","domain_reachability","cloudflare.com","tls_ok","","1777000003101","[{""key"":""httpStatus"",""value"":""http_ok""},{""key"":""isControl"",""value"":""true""}]"
+"tls-b","domain_reachability","google.com","tls_ok","","1777000003102","[{""key"":""httpStatus"",""value"":""http_ok""},{""key"":""isControl"",""value"":""true""}]"
+"tls-b","domain_reachability","www.torproject.org","tls_version_split","","1777000003103","[{""key"":""tlsSignal"",""value"":""tls_version_split""},{""key"":""tlsError"",""value"":""unexpected end of file""},{""key"":""httpStatus"",""value"":""http_status_301""},{""key"":""redirectLocation"",""value"":""http://tspu.skynet.ru""},{""key"":""isControl"",""value"":""false""}]"
+"tls-b","service_reachability","Telegram","service_blocked","","1777000003104","[{""key"":""gatewayStatus"",""value"":""tls_handshake_failed""},{""key"":""gatewayError"",""value"":""Network is unreachable (os error 101)""}]"
+

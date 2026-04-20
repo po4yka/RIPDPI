@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ripdpi.local/schemas/device-fingerprint-catalog-schema-v1.json",
+  "title": "Device Fingerprint Catalog",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "featureSchemaVersion",
+    "generatedAt",
+    "reviewStatus",
+    "clusterCount",
+    "clusters"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "featureSchemaVersion": { "const": 1 },
+    "generatedAt": { "type": "string" },
+    "reviewStatus": {
+      "type": "string",
+      "enum": ["reviewed", "unreviewed"]
+    },
+    "clusterCount": { "type": "integer", "minimum": 0 },
+    "clusters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "bucket",
+          "clusterFingerprintHash",
+          "supportCount",
+          "dominantSignals",
+          "confidence",
+          "novelty",
+          "driftState"
+        ]
+      }
+    }
+  }
+}
+

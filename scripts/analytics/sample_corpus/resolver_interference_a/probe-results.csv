@@ -1,0 +1,7 @@
+sessionId,probeType,target,outcome,probeRetryCount,createdAt,detailJson
+"resolver-a","network_environment","wifi","network_available","","1777000000100","[{""key"":""transport"",""value"":""wifi""},{""key"":""validated"",""value"":""true""}]"
+"resolver-a","domain_reachability","cloudflare.com","tls_ok","","1777000000101","[{""key"":""httpStatus"",""value"":""http_ok""},{""key"":""isControl"",""value"":""true""}]"
+"resolver-a","domain_reachability","google.com","tls_ok","","1777000000102","[{""key"":""httpStatus"",""value"":""http_ok""},{""key"":""isControl"",""value"":""true""}]"
+"resolver-a","dns_integrity","proton.me","dns_nxdomain_mismatch","","1777000000103","[{""key"":""oracleTrust"",""value"":""disagreement""},{""key"":""oracleDisagreementResolvers"",""value"":""adguard|google_ip""},{""key"":""comparisonSignals"",""value"":""rcode_mismatch|record_mismatch""},{""key"":""dnsInjectionSuspected"",""value"":""true""}]"
+"resolver-a","domain_reachability","proton.me","unreachable","","1777000000104","[{""key"":""tlsStatus"",""value"":""tls_handshake_failed""},{""key"":""tlsError"",""value"":""Try again (os error 11)""},{""key"":""httpStatus"",""value"":""http_status_301""},{""key"":""redirectLocation"",""value"":""http://resolver.invalid""},{""key"":""isControl"",""value"":""false""}]"
+
