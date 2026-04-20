@@ -207,6 +207,7 @@ All dependency versions are in `gradle/libs.versions.toml`.
 - **`codeql.yml`** -- Runs on push/PR to main plus weekly schedule: GitHub Actions CodeQL analysis; Kotlin analysis is currently disabled pending upstream support
 - **`release.yml`** -- Runs on `v*` tags: builds signed release APK, creates GitHub Release
 - **`mutation-testing.yml`** -- Weekly Rust mutation testing via cargo-mutants
+- **`offline-analytics.yml`** -- Weekly/manual offline diagnostics clustering pipeline; runs the checked-in sample corpus, emits analyst reports and candidate device-fingerprint catalogs, and optionally processes a runner-local private corpus
 
 ## Code Quality
 

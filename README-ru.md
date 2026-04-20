@@ -26,6 +26,7 @@
 - handover-aware live policy re-evaluation при переходах между Wi-Fi, cellular и roaming
 - relay transport stack: WARP, VLESS Reality/xHTTP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3 и NaiveProxy
 - strategy-pack и TLS catalog rollout control для feature flags, transport defaults и fingerprint rotation
+- repo-local offline analytics pipeline для clustering censorship/device fingerprints и reviewed signature catalog generation
 - xHTTP-side Finalmask для поддерживаемых relay profiles и Cloudflare Tunnel path
 - встроенной диагностикой и пассивной telemetry
 - in-repository Rust native modules
@@ -187,6 +188,7 @@ scripts/guide/.venv/bin/python scripts/guide/generate_guide.py \
 
 **Operations**
 - [Эксплуатация strategy-pack и TLS catalog](docs/strategy-pack-operations.md)
+- [Offline analytics pipeline](docs/offline-analytics-pipeline.md)
 
 **Configuration**
 - [Примеры relay profiles](docs/relay-profile-examples.md)
@@ -258,6 +260,7 @@ APK:
 ./gradlew testDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
+python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 ```
 
 Подробности и точечные команды: [docs/testing.md](docs/testing.md)
@@ -281,6 +284,7 @@ bash scripts/ci/run-rust-network-e2e.sh
 - `rust-turmoil`: детерминированные fault-injection сетевые тесты
 - `coverage`: JaCoCo и Rust LLVM coverage
 - `rust-loom`: исчерпывающая верификация конкурентности
+- offline analytics unit tests в `build` job
 
 **Nightly / manual CI** дополнительно запускает:
 
@@ -294,6 +298,10 @@ bash scripts/ci/run-rust-network-e2e.sh
 - `linux-tun-soak`: privileged Linux TUN endurance тесты
 
 Workflow может сохранять golden diffs, Android reports, fixture logs и soak metrics.
+
+**Дополнительный analytics workflow**:
+
+- `offline-analytics.yml`: sample-corpus clustering/signature-mining pipeline и optional private-corpus run при manual dispatch
 
 **Release** (`.github/workflows/release.yml`) запускается при push тегов `v*` или вручную:
 
