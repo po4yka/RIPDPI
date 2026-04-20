@@ -1,0 +1,8 @@
+{
+  "runId": "mixed-route-sensitive-a",
+  "fingerprintHash": "fp-mixed-route-a",
+  "actionable": false,
+  "headline": "Mixed route-sensitive behavior",
+  "summary": "Only diversity buckets succeed and trigger fuzzing changes outcomes."
+}
+

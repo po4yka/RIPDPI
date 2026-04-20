@@ -1,0 +1,8 @@
+{
+  "runId": "resolver-interference-a",
+  "fingerprintHash": "fp-resolver-a",
+  "actionable": false,
+  "headline": "Resolver interference likely",
+  "summary": "Encrypted and system resolvers disagree on blocked domains."
+}
+

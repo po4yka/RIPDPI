@@ -101,6 +101,9 @@ jobs:
       - name: Run sync script unit tests
         run: python3 -m unittest discover -s scripts/tests -p "test_sync_*.py"
 
+      - name: Run offline analytics unit tests
+        run: python3 -m unittest scripts.tests.test_offline_analytics_pipeline
+
       - name: Verify screenshot baselines
         run: ./gradlew verifyRoborazziDebug
 

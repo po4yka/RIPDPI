@@ -1,0 +1,8 @@
+{
+  "runId": "tls-split-a",
+  "fingerprintHash": "fp-tls-a",
+  "actionable": false,
+  "headline": "Selective blocking likely",
+  "summary": "Controls succeed while blocked targets fail with TLS version split."
+}
+

@@ -1,0 +1,23 @@
+{
+  "configuredMode": "VPN",
+  "activeMode": "VPN",
+  "serviceStatus": "Running",
+  "lastNativeErrorHeadline": "none",
+  "effectiveStrategySignature": {
+    "mode": "VPN",
+    "configSource": "ui",
+    "hostAutolearn": "enabled",
+    "desyncMethod": "tlsrec_split",
+    "chainSummary": "tcp: tlsrec(split)",
+    "tcpStrategyFamily": "tlsrec_split",
+    "quicStrategyFamily": "quic_sni_split",
+    "dnsStrategyFamily": "dns_encrypted_doh",
+    "dnsStrategyLabel": "AdGuard DoH",
+    "protocolToggles": [
+      "HTTP",
+      "HTTPS",
+      "UDP"
+    ]
+  }
+}
+

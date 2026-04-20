@@ -1,0 +1,204 @@
+{
+  "schemaVersion": 1,
+  "featureSchemaVersion": 1,
+  "generatedAt": "2026-04-20T06:41:06Z",
+  "reviewStatus": "reviewed",
+  "reviewedAt": "2026-04-20",
+  "corpusName": "checked_in_sample_corpus",
+  "sourceArchiveCount": 6,
+  "clusterCount": 4,
+  "clusters": [
+    {
+      "id": "device_cluster_resolver_interference_24a7ba57fe53afc6",
+      "bucket": "resolver_interference",
+      "clusterFingerprintHash": "24a7ba57fe53afc6",
+      "supportCount": 2,
+      "dominantSignals": [
+        "assessment:resolver_interference",
+        "dns_injection:suspected",
+        "dns_outcome:dns_nxdomain_mismatch",
+        "dns_outcome:dns_record_divergence",
+        "dns_signal:answer_count_mismatch",
+        "dns_signal:rcode_mismatch",
+        "dns_signal:record_mismatch",
+        "http_redirect:resolver_invalid"
+      ],
+      "representativeTargets": [
+        "proton.me",
+        "telegram.org"
+      ],
+      "stableWinnerFamilies": [
+        {
+          "family": "tlsrec_split + quic_sni_split",
+          "supportCount": 2
+        }
+      ],
+      "stableWinnerSignatureHashes": [
+        "a44579f80a7e8cfa"
+      ],
+      "confidence": 0.79,
+      "novelty": "new",
+      "driftState": "new",
+      "records": [
+        "resolver-interference-a",
+        "resolver-interference-b"
+      ],
+      "minedSignatures": [
+        {
+          "id": "dns_tampering_signature_0a346692592c",
+          "family": "dns_tampering_signature",
+          "label": "DNS tampering",
+          "supportCount": 2,
+          "confidence": 0.79,
+          "dominantSignals": [
+            "dns_injection:suspected",
+            "dns_outcome:dns_nxdomain_mismatch",
+            "dns_outcome:dns_record_divergence",
+            "dns_signal:answer_count_mismatch",
+            "dns_signal:rcode_mismatch",
+            "dns_signal:record_mismatch"
+          ]
+        },
+        {
+          "id": "http_redirect_signature_19250e68050f",
+          "family": "http_redirect_signature",
+          "label": "HTTP redirect",
+          "supportCount": 2,
+          "confidence": 0.79,
+          "dominantSignals": [
+            "http_redirect:resolver_invalid",
+            "http_status:http_status_301"
+          ]
+        },
+        {
+          "id": "tls_failure_signature_085237c44924",
+          "family": "tls_failure_signature",
+          "label": "TLS failure",
+          "supportCount": 2,
+          "confidence": 0.79,
+          "dominantSignals": [
+            "tls_error:would_block"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "device_cluster_route_sensitive_89960f0204c0b683",
+      "bucket": "route_sensitive",
+      "clusterFingerprintHash": "89960f0204c0b683",
+      "supportCount": 1,
+      "dominantSignals": [
+        "assessment:raw_network_selective_blocking",
+        "http_status:http_unreachable",
+        "route_bucket:diversity",
+        "route_sensitive:true",
+        "runtime_status:running",
+        "tls_error:would_block",
+        "tls_signal:tls_unavailable",
+        "trigger:dnsfuzz:qname_case"
+      ],
+      "representativeTargets": [
+        "discord.com"
+      ],
+      "stableWinnerFamilies": [],
+      "stableWinnerSignatureHashes": [],
+      "confidence": 0.8,
+      "novelty": "new",
+      "driftState": "new",
+      "records": [
+        "mixed-route-sensitive-a"
+      ],
+      "minedSignatures": []
+    },
+    {
+      "id": "device_cluster_service_runtime_2831668446a67eaf",
+      "bucket": "service_runtime",
+      "clusterFingerprintHash": "2831668446a67eaf",
+      "supportCount": 1,
+      "dominantSignals": [
+        "assessment:service_runtime_failure",
+        "runtime_error:no_supported_socks_auth_method",
+        "runtime_status:halted",
+        "tls_error:proxy_unavailable"
+      ],
+      "representativeTargets": [
+        "cloudflare.com"
+      ],
+      "stableWinnerFamilies": [],
+      "stableWinnerSignatureHashes": [],
+      "confidence": 0.8,
+      "novelty": "new",
+      "driftState": "new",
+      "records": [
+        "service-runtime-a"
+      ],
+      "minedSignatures": []
+    },
+    {
+      "id": "device_cluster_tls_split_892893f707990536",
+      "bucket": "tls_split",
+      "clusterFingerprintHash": "892893f707990536",
+      "supportCount": 2,
+      "dominantSignals": [
+        "assessment:raw_network_selective_blocking",
+        "http_redirect:tspu_skynet_ru",
+        "http_status:http_status_301",
+        "http_status:http_status_307",
+        "http_status:quic_error",
+        "runtime_status:running",
+        "tls_error:eof",
+        "tls_outcome:tls_version_split"
+      ],
+      "representativeTargets": [
+        "meduza.io",
+        "telegram",
+        "www.torproject.org",
+        "www.youtube.com"
+      ],
+      "stableWinnerFamilies": [
+        {
+          "family": "tlsrec_split + quic_sni_split",
+          "supportCount": 2
+        }
+      ],
+      "stableWinnerSignatureHashes": [
+        "04428aa528c5b684"
+      ],
+      "confidence": 0.82,
+      "novelty": "new",
+      "driftState": "new",
+      "records": [
+        "tls-split-a",
+        "tls-split-b"
+      ],
+      "minedSignatures": [
+        {
+          "id": "http_redirect_signature_262a8447476f",
+          "family": "http_redirect_signature",
+          "label": "HTTP redirect",
+          "supportCount": 2,
+          "confidence": 0.82,
+          "dominantSignals": [
+            "http_redirect:tspu_skynet_ru",
+            "http_status:http_status_301",
+            "http_status:http_status_307",
+            "http_status:quic_error"
+          ]
+        },
+        {
+          "id": "tls_failure_signature_791154a9d1e1",
+          "family": "tls_failure_signature",
+          "label": "TLS failure",
+          "supportCount": 2,
+          "confidence": 0.82,
+          "dominantSignals": [
+            "tls_error:eof",
+            "tls_outcome:tls_version_split",
+            "tls_signal:tls_version_split"
+          ]
+        }
+      ]
+    }
+  ],
+  "candidateSha256": "43c173d20a820f15133e6953b7e129ba71578a8538cc69c11dd7cd6d05c6ffef"
+}

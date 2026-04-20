@@ -1,0 +1,7 @@
+sessionId,probeType,target,outcome,probeRetryCount,createdAt,detailJson
+"tls-a","network_environment","wifi","network_available","","1777000002100","[{""key"":""transport"",""value"":""wifi""},{""key"":""validated"",""value"":""true""}]"
+"tls-a","domain_reachability","cloudflare.com","tls_ok","","1777000002101","[{""key"":""httpStatus"",""value"":""http_ok""},{""key"":""isControl"",""value"":""true""}]"
+"tls-a","domain_reachability","google.com","tls_ok","","1777000002102","[{""key"":""httpStatus"",""value"":""http_ok""},{""key"":""isControl"",""value"":""true""}]"
+"tls-a","domain_reachability","meduza.io","tls_version_split","","1777000002103","[{""key"":""tlsSignal"",""value"":""tls_version_split""},{""key"":""tlsError"",""value"":""unexpected end of file""},{""key"":""httpStatus"",""value"":""http_status_307""},{""key"":""redirectLocation"",""value"":""http://tspu.skynet.ru""},{""key"":""isControl"",""value"":""false""}]"
+"tls-a","quic_reachability","www.youtube.com","quic_error","","1777000002104","[{""key"":""status"",""value"":""quic_error""},{""key"":""error"",""value"":""Network is unreachable (os error 101)""}]"
+

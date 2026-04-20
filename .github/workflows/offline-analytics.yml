@@ -1,0 +1,60 @@
+name: Offline Analytics
+
+on:
+  workflow_dispatch:
+    inputs:
+      private_corpus_path:
+        description: "Optional path to an additional diagnostics corpus available on the runner"
+        required: false
+        default: ""
+        type: string
+  schedule:
+    - cron: "0 7 * * 2"
+
+permissions:
+  contents: read
+
+jobs:
+  offline-analytics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Run offline analytics unit tests
+        run: python3 -m unittest scripts.tests.test_offline_analytics_pipeline
+
+      - name: Run sample corpus analytics pipeline
+        run: |
+          python3 -m scripts.analytics.pipeline run-all \
+            --manifest scripts/analytics/sample-corpus.json \
+            --output-dir "$RUNNER_TEMP/offline-analytics-sample"
+
+      - name: Run private corpus analytics pipeline
+        if: ${{ inputs.private_corpus_path != '' }}
+        run: |
+          if [ -e "${{ inputs.private_corpus_path }}" ]; then
+            python3 -m scripts.analytics.pipeline run-all \
+              --inputs "${{ inputs.private_corpus_path }}" \
+              --corpus-name private_corpus \
+              --output-dir "$RUNNER_TEMP/offline-analytics-private"
+          else
+            echo "Skipping private corpus run; path not found on runner."
+          fi
+
+      - name: Upload offline analytics artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: offline-analytics-artifacts
+          path: |
+            ${{ runner.temp }}/offline-analytics-sample/**
+            ${{ runner.temp }}/offline-analytics-private/**
+          if-no-files-found: warn
+          retention-days: 14
+

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "featureSchemaVersion": 1,
+  "generatedAt": "2026-04-20T06:41:06Z",
+  "reviewStatus": "reviewed",
+  "reviewedAt": "2026-04-20",
+  "corpusName": "checked_in_sample_corpus",
+  "mappingCount": 2,
+  "mappings": [
+    {
+      "deviceFingerprintId": "device_cluster_resolver_interference_24a7ba57fe53afc6",
+      "clusterFingerprintHash": "24a7ba57fe53afc6",
+      "recommendedWinnerFamily": "tlsrec_split + quic_sni_split",
+      "recommendedWinnerSignatureHash": "a44579f80a7e8cfa",
+      "supportCount": 2,
+      "reproducibilityScore": 1.0,
+      "negativeEvidenceCount": 0,
+      "sourceArchiveCount": 2
+    },
+    {
+      "deviceFingerprintId": "device_cluster_tls_split_892893f707990536",
+      "clusterFingerprintHash": "892893f707990536",
+      "recommendedWinnerFamily": "tlsrec_split + quic_sni_split",
+      "recommendedWinnerSignatureHash": "04428aa528c5b684",
+      "supportCount": 2,
+      "reproducibilityScore": 1.0,
+      "negativeEvidenceCount": 0,
+      "sourceArchiveCount": 2
+    }
+  ],
+  "candidateSha256": "2d75883c27a09aa5c55385a1601723985a36911eaa0b1578ee831ec0a9ad8b8d"
+}

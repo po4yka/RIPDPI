@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ripdpi.local/schemas/offline-record-schema-v1.json",
+  "title": "Offline Analytics Record Bundle",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "featureSchemaVersion",
+    "generatedAt",
+    "recordCount",
+    "records"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "featureSchemaVersion": { "const": 1 },
+    "generatedAt": { "type": "string" },
+    "recordCount": { "type": "integer", "minimum": 0 },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "recordId",
+          "networkScopeKey",
+          "connectivityAssessment",
+          "runtimeSummary",
+          "winnerSummary",
+          "observedFeatures"
+        ],
+        "properties": {
+          "recordId": { "type": "string" },
+          "networkScopeKey": { "type": "string" },
+          "connectivityAssessment": {
+            "type": "object",
+            "required": ["code", "confidence", "summary"]
+          },
+          "runtimeSummary": { "type": "object" },
+          "winnerSummary": { "type": "object" },
+          "observedFeatures": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}
+

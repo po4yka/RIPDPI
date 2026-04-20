@@ -1,0 +1,3 @@
+createdAt,telemetryNetworkFingerprintHash,winningTcpStrategyFamily,winningQuicStrategyFamily,winningStrategyFamily
+1777000003100,v1:fp-tls-b,tlsrec_split,quic_sni_split,tlsrec_split + quic_sni_split
+
