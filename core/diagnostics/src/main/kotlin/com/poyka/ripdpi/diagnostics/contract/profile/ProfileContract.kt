@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsProfileIntentBucket
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.QuicTarget
+import com.poyka.ripdpi.diagnostics.RouteProbeConfig
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ServiceTarget
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
@@ -63,6 +64,7 @@ data class ProfileSpecWire(
     val telegramTarget: TelegramTarget? = null,
     val strategyProbe: StrategyProbeRequest? = null,
     val strategyProbeTargetCohorts: List<StrategyProbeTargetCohortWire> = emptyList(),
+    val routeProbe: RouteProbeConfig? = null,
 )
 
 @Serializable

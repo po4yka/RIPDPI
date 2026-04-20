@@ -33,6 +33,9 @@ import javax.inject.Named
 import javax.inject.Singleton
 
 private const val DefaultDiagnosticsProxyPort = 1080
+private val DefaultRouteProbeConfig =
+    com.poyka.ripdpi.diagnostics
+        .RouteProbeConfig()
 
 internal interface DiagnosticsIntentResolver {
     suspend fun resolve(
@@ -112,6 +115,7 @@ internal class DefaultDiagnosticsIntentResolver
                             quicTargets = cohort.quicTargets,
                         )
                     },
+                routeProbe = spec.routeProbe ?: defaultRouteProbeFor(pathMode, spec.kind, spec.family),
                 requestedPathMode = pathMode,
             )
         }
@@ -233,6 +237,7 @@ internal class DefaultDiagnosticsPlanner
                 domainTargets = domainTargets,
                 quicTargets = quicTargets,
                 throughputTargets = throughputTargets,
+                routeProbe = intent.routeProbe,
                 probeTasks = probeTasks,
             )
         }
@@ -243,6 +248,18 @@ internal class DefaultEngineRequestEncoder
     @Inject
     constructor() : EngineRequestEncoder {
         override fun encode(plan: ScanPlan): EngineScanRequestWire = plan.toEngineScanRequestWire()
+    }
+
+private fun defaultRouteProbeFor(
+    pathMode: ScanPathMode,
+    kind: com.poyka.ripdpi.diagnostics.ScanKind,
+    family: com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily,
+): com.poyka.ripdpi.diagnostics.RouteProbeConfig? =
+    when {
+        pathMode != ScanPathMode.RAW_PATH -> null
+        kind != com.poyka.ripdpi.diagnostics.ScanKind.CONNECTIVITY -> null
+        family == com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily.AUTOMATIC_PROBING -> null
+        else -> DefaultRouteProbeConfig
     }
 
 @Module

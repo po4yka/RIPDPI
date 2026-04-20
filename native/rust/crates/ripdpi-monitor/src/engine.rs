@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::{push_event, set_progress, set_report};
-use crate::transport::transport_for_request;
+use crate::transport::transport_for_request_with_session;
 #[cfg(test)]
 use crate::types::{ProbeResult, ProbeTaskFamily};
 use crate::types::{ScanKind, ScanProgress, ScanRequest, SharedState};
@@ -33,7 +33,7 @@ pub(crate) fn run_engine_scan(
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
 ) {
     let started_at = crate::util::now_ms();
-    let transport = transport_for_request(&request);
+    let transport = transport_for_request_with_session(&request, &session_id);
     let mut plan = match build_execution_plan(session_id.clone(), request.clone(), started_at, transport.clone()) {
         Ok(plan) => plan,
         Err(message) => {
@@ -300,6 +300,7 @@ mod tests {
             telegram_target: None,
             strategy_probe,
             network_snapshot: None,
+            route_probe: None,
             scan_deadline_ms: None,
         }
     }

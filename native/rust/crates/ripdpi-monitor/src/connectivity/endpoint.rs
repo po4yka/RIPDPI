@@ -19,6 +19,13 @@ pub(super) struct ThroughputSample {
     pub(super) error: String,
 }
 
+pub(super) struct EndpointProbeObservation {
+    pub(super) status: String,
+    pub(super) error: String,
+    pub(super) local_addr: Option<std::net::SocketAddr>,
+    pub(super) route_report: Option<RouteExperimentReport>,
+}
+
 struct ParsedHttpTarget {
     host: String,
     path: String,
@@ -137,22 +144,43 @@ pub(super) fn run_endpoint_probe(
     tls_name: Option<&str>,
     transport: &TransportConfig,
     tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
-) -> (String, String) {
+) -> EndpointProbeObservation {
     let Some(target) = connect_target_from_parts(host, connect_ip) else {
-        return ("not_run".to_string(), "not_run".to_string());
+        return EndpointProbeObservation {
+            status: "not_run".to_string(),
+            error: "not_run".to_string(),
+            local_addr: None,
+            route_report: None,
+        };
     };
     if tls_name.is_some() || port == 443 {
         let server_name = tls_name.or(host).unwrap_or_default();
         let observation =
             try_tls_handshake(&target, port, transport, server_name, true, TlsClientProfile::Auto, tls_verifier);
-        (observation.status, observation.error.unwrap_or_else(|| "none".to_string()))
+        EndpointProbeObservation {
+            status: observation.status,
+            error: observation.error.unwrap_or_else(|| "none".to_string()),
+            local_addr: observation.local_addr,
+            route_report: observation.route_report,
+        }
     } else {
-        match connect_transport(&target, port, transport) {
-            Ok(stream) => {
+        match connect_transport_observed(std::slice::from_ref(&target), port, transport) {
+            Ok(result) => {
+                let stream = result.stream;
                 let _ = stream.shutdown(std::net::Shutdown::Both);
-                ("tcp_connect_ok".to_string(), "none".to_string())
+                EndpointProbeObservation {
+                    status: "tcp_connect_ok".to_string(),
+                    error: "none".to_string(),
+                    local_addr: result.local_addr,
+                    route_report: result.route_report,
+                }
             }
-            Err(err) => ("tcp_connect_failed".to_string(), err),
+            Err(err) => EndpointProbeObservation {
+                status: "tcp_connect_failed".to_string(),
+                error: err,
+                local_addr: None,
+                route_report: None,
+            },
         }
     }
 }
@@ -162,18 +190,43 @@ pub(super) fn run_quic_endpoint_probe(
     connect_ip: Option<&str>,
     port: u16,
     transport: &TransportConfig,
-) -> (String, String) {
+) -> EndpointProbeObservation {
     let Some(host_name) = host else {
-        return ("not_run".to_string(), "not_run".to_string());
+        return EndpointProbeObservation {
+            status: "not_run".to_string(),
+            error: "not_run".to_string(),
+            local_addr: None,
+            route_report: None,
+        };
     };
     let connect_target = connect_target_from_parts(Some(host_name), connect_ip)
         .unwrap_or_else(|| TargetAddress::Host(host_name.to_string()));
     let payload = build_realistic_quic_initial(QUIC_V1_VERSION, Some(host_name)).unwrap_or_default();
-    match relay_udp_payload(&connect_target, port, transport, &payload) {
-        Ok(bytes) if parse_quic_initial(&bytes).is_some() => ("quic_initial_response".to_string(), "none".to_string()),
-        Ok(bytes) if !bytes.is_empty() => ("quic_response".to_string(), "none".to_string()),
-        Ok(_) => ("quic_empty".to_string(), "none".to_string()),
-        Err(err) => ("quic_error".to_string(), err),
+    match relay_udp_payload_observed(std::slice::from_ref(&connect_target), port, transport, &payload) {
+        Ok(result) if parse_quic_initial(&result.payload).is_some() => EndpointProbeObservation {
+            status: "quic_initial_response".to_string(),
+            error: "none".to_string(),
+            local_addr: result.local_addr,
+            route_report: result.route_report,
+        },
+        Ok(result) if !result.payload.is_empty() => EndpointProbeObservation {
+            status: "quic_response".to_string(),
+            error: "none".to_string(),
+            local_addr: result.local_addr,
+            route_report: result.route_report,
+        },
+        Ok(result) => EndpointProbeObservation {
+            status: "quic_empty".to_string(),
+            error: "none".to_string(),
+            local_addr: result.local_addr,
+            route_report: result.route_report,
+        },
+        Err(err) => EndpointProbeObservation {
+            status: "quic_error".to_string(),
+            error: err,
+            local_addr: None,
+            route_report: None,
+        },
     }
 }
 

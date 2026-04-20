@@ -5,16 +5,36 @@ use std::thread;
 use std::time::Duration;
 
 use rustls::{ClientConnection, StreamOwned};
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use crate::types::{DomainTarget, QuicTarget, ScanPathMode, ScanRequest};
-use crate::util::{CONNECT_TIMEOUT, IO_TIMEOUT};
+use crate::util::{probe_session_seed, stable_probe_hash, CONNECT_TIMEOUT, IO_TIMEOUT};
 
+const ROUTE_BUCKET_PORT_BASE: u16 = 20_000;
+const ROUTE_BUCKET_PORT_SPAN: u16 = 30_000;
 // --- Types ---
 
 #[derive(Clone, Debug)]
 pub(crate) enum TransportConfig {
-    Direct,
+    Direct { route_experiment: Option<RouteExperimentConfig> },
     Socks5 { host: String, port: u16 },
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RouteExperimentConfig {
+    pub(crate) stable_flow_attempts: usize,
+    pub(crate) diversity_buckets: usize,
+    pub(crate) diversity_on_failure_only: bool,
+    pub(crate) session_seed: u64,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct RouteExperimentReport {
+    pub(crate) selected_bucket: usize,
+    pub(crate) selected_bucket_kind: String,
+    pub(crate) stable_attempts_run: usize,
+    pub(crate) diversity_attempts_run: usize,
+    pub(crate) summary: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -27,12 +47,16 @@ pub(crate) enum TargetAddress {
 pub(crate) struct TransportConnectResult {
     pub(crate) stream: TcpStream,
     pub(crate) connected_addr: Option<SocketAddr>,
+    pub(crate) local_addr: Option<SocketAddr>,
+    pub(crate) route_report: Option<RouteExperimentReport>,
 }
 
 #[derive(Debug)]
 pub(crate) struct UdpRelayResult {
     pub(crate) payload: Vec<u8>,
     pub(crate) connected_addr: Option<SocketAddr>,
+    pub(crate) local_addr: Option<SocketAddr>,
+    pub(crate) route_report: Option<RouteExperimentReport>,
 }
 
 #[derive(Debug)]
@@ -84,15 +108,33 @@ impl ConnectionStream {
 // --- Transport selection ---
 
 pub(crate) fn transport_for_request(request: &ScanRequest) -> TransportConfig {
+    transport_for_request_with_session(request, "default")
+}
+
+pub(crate) fn direct_transport() -> TransportConfig {
+    TransportConfig::Direct { route_experiment: None }
+}
+
+pub(crate) fn transport_for_request_with_session(request: &ScanRequest, session_id: &str) -> TransportConfig {
     match (&request.path_mode, request.proxy_host.as_ref(), request.proxy_port) {
         (ScanPathMode::InPath, Some(host), Some(port)) => TransportConfig::Socks5 { host: host.clone(), port },
-        _ => TransportConfig::Direct,
+        _ => TransportConfig::Direct {
+            route_experiment: request.route_probe.as_ref().map(|config| RouteExperimentConfig {
+                stable_flow_attempts: config.stable_flow_attempts.max(1),
+                diversity_buckets: config.diversity_buckets.max(1),
+                diversity_on_failure_only: config.diversity_on_failure_only,
+                session_seed: probe_session_seed(None, session_id),
+            }),
+        },
     }
 }
 
 pub(crate) fn describe_transport(transport: &TransportConfig) -> String {
     match transport {
-        TransportConfig::Direct => "DIRECT".to_string(),
+        TransportConfig::Direct { route_experiment: Some(config) } => {
+            format!("DIRECT(routeProbe stable={} buckets={})", config.stable_flow_attempts, config.diversity_buckets,)
+        }
+        TransportConfig::Direct { route_experiment: None } => "DIRECT".to_string(),
         TransportConfig::Socks5 { host, port } => format!("SOCKS5({host}:{port})"),
     }
 }
@@ -172,21 +214,15 @@ pub(crate) fn resolve_first_socket_addr(value: &str) -> Result<SocketAddr, Strin
 
 // --- TCP connection ---
 
-pub(crate) fn connect_transport(
-    target: &TargetAddress,
-    port: u16,
-    transport: &TransportConfig,
-) -> Result<TcpStream, String> {
-    Ok(connect_transport_observed(std::slice::from_ref(target), port, transport)?.stream)
-}
-
 pub(crate) fn connect_transport_observed(
     targets: &[TargetAddress],
     port: u16,
     transport: &TransportConfig,
 ) -> Result<TransportConnectResult, String> {
     match transport {
-        TransportConfig::Direct => connect_direct_observed(targets, port),
+        TransportConfig::Direct { route_experiment } => {
+            connect_direct_observed(targets, port, route_experiment.as_ref())
+        }
         TransportConfig::Socks5 { host, port: proxy_port } => {
             connect_via_socks5_observed(targets, port, host, *proxy_port)
         }
@@ -194,13 +230,29 @@ pub(crate) fn connect_transport_observed(
 }
 
 pub(crate) fn connect_direct(target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
-    Ok(connect_direct_observed(std::slice::from_ref(target), port)?.stream)
+    Ok(connect_direct_observed(std::slice::from_ref(target), port, None)?.stream)
 }
 
-fn connect_direct_observed(targets: &[TargetAddress], port: u16) -> Result<TransportConnectResult, String> {
+fn connect_direct_observed(
+    targets: &[TargetAddress],
+    port: u16,
+    route_experiment: Option<&RouteExperimentConfig>,
+) -> Result<TransportConnectResult, String> {
     let addresses = resolve_candidate_addresses(targets, port)?;
+    if let Some(config) = route_experiment {
+        let route_identity = route_identity(&addresses);
+        let ((stream, connected_addr, local_addr), route_report) =
+            connect_addresses_with_route_experiment(&addresses, config, &route_identity)?;
+        return Ok(TransportConnectResult {
+            stream,
+            connected_addr: Some(connected_addr),
+            local_addr: Some(local_addr),
+            route_report: Some(route_report),
+        });
+    }
     let (stream, connected_addr) = connect_addresses_with_race(&addresses)?;
-    Ok(TransportConnectResult { stream, connected_addr: Some(connected_addr) })
+    let local_addr = stream.local_addr().ok();
+    Ok(TransportConnectResult { stream, connected_addr: Some(connected_addr), local_addr, route_report: None })
 }
 
 fn connect_via_socks5_observed(
@@ -218,7 +270,8 @@ fn connect_via_socks5_observed(
                     TargetAddress::Ip(ip) => Some(SocketAddr::new(*ip, port)),
                     TargetAddress::Host(_) => None,
                 };
-                return Ok(TransportConnectResult { stream, connected_addr });
+                let local_addr = stream.local_addr().ok();
+                return Ok(TransportConnectResult { stream, connected_addr, local_addr, route_report: None });
             }
             Err(err) => last_error = Some(err),
         }
@@ -274,6 +327,130 @@ fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, S
         }
     }
     Err(last_error.unwrap_or_else(|| "no_addresses".to_string()))
+}
+
+fn connect_addresses_with_route_experiment(
+    addresses: &[SocketAddr],
+    config: &RouteExperimentConfig,
+    route_identity: &str,
+) -> Result<((TcpStream, SocketAddr, SocketAddr), RouteExperimentReport), String> {
+    let stable_attempts = config.stable_flow_attempts.max(1);
+    let mut stable_attempts_run = 0usize;
+    let mut diversity_attempts_run = 0usize;
+    let mut events = Vec::new();
+    let mut last_error = None;
+
+    for attempt_index in 0..stable_attempts {
+        stable_attempts_run += 1;
+        match connect_addresses_with_bucket(addresses, config, route_identity, 0) {
+            Ok(result) => {
+                events.push(format!("stable#{attempt_index}:ok"));
+                return Ok((
+                    result,
+                    RouteExperimentReport {
+                        selected_bucket: 0,
+                        selected_bucket_kind: "stable".to_string(),
+                        stable_attempts_run,
+                        diversity_attempts_run,
+                        summary: events.join("|"),
+                    },
+                ));
+            }
+            Err(err) => {
+                events.push(format!("stable#{attempt_index}:{err}"));
+                last_error = Some(err);
+            }
+        }
+    }
+
+    if config.diversity_on_failure_only {
+        let diversity_range = 1..config.diversity_buckets.max(1);
+        for bucket in diversity_range {
+            diversity_attempts_run += 1;
+            match connect_addresses_with_bucket(addresses, config, route_identity, bucket) {
+                Ok(result) => {
+                    events.push(format!("bucket#{bucket}:ok"));
+                    return Ok((
+                        result,
+                        RouteExperimentReport {
+                            selected_bucket: bucket,
+                            selected_bucket_kind: "diversity".to_string(),
+                            stable_attempts_run,
+                            diversity_attempts_run,
+                            summary: events.join("|"),
+                        },
+                    ));
+                }
+                Err(err) => {
+                    events.push(format!("bucket#{bucket}:{err}"));
+                    last_error = Some(err);
+                }
+            }
+        }
+    }
+
+    Err(format!("{}; route={}", last_error.unwrap_or_else(|| "no_addresses".to_string()), events.join("|"),))
+}
+
+fn connect_addresses_with_bucket(
+    addresses: &[SocketAddr],
+    config: &RouteExperimentConfig,
+    route_identity: &str,
+    bucket: usize,
+) -> Result<(TcpStream, SocketAddr, SocketAddr), String> {
+    let mut last_error = None;
+    for address in addresses.iter().copied() {
+        match connect_bound_tcp(address, config, route_identity, bucket) {
+            Ok(result) => return Ok(result),
+            Err(err) => last_error = Some(err),
+        }
+    }
+    Err(last_error.unwrap_or_else(|| "no_addresses".to_string()))
+}
+
+fn connect_bound_tcp(
+    address: SocketAddr,
+    config: &RouteExperimentConfig,
+    route_identity: &str,
+    bucket: usize,
+) -> Result<(TcpStream, SocketAddr, SocketAddr), String> {
+    let domain = socket_domain_for(address);
+    let seed = stable_probe_hash(config.session_seed, route_identity);
+    let port = route_bucket_port(seed, bucket);
+    let remote = SockAddr::from(address);
+    let bind_addr = route_bind_addr(address, port);
+    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP)).map_err(|err| err.to_string())?;
+    let _ = socket.set_reuse_address(true);
+    socket.bind(&SockAddr::from(bind_addr)).map_err(|err| err.to_string())?;
+    socket.connect_timeout(&remote, CONNECT_TIMEOUT).map_err(|err| err.to_string())?;
+    let stream: TcpStream = socket.into();
+    let local_addr = stream.local_addr().map_err(|err| err.to_string())?;
+    Ok((stream, address, local_addr))
+}
+
+fn route_identity(addresses: &[SocketAddr]) -> String {
+    addresses.iter().map(SocketAddr::to_string).collect::<Vec<_>>().join("|")
+}
+
+fn socket_domain_for(address: SocketAddr) -> Domain {
+    if address.is_ipv4() {
+        Domain::IPV4
+    } else {
+        Domain::IPV6
+    }
+}
+
+fn route_bucket_port(seed: u64, bucket: usize) -> u16 {
+    let bucket_seed = stable_probe_hash(seed, &format!("bucket:{bucket}"));
+    ROUTE_BUCKET_PORT_BASE + (bucket_seed % u64::from(ROUTE_BUCKET_PORT_SPAN)) as u16
+}
+
+fn route_bind_addr(address: SocketAddr, port: u16) -> SocketAddr {
+    if address.is_ipv4() {
+        SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port)
+    } else {
+        SocketAddr::new(IpAddr::V6(std::net::Ipv6Addr::UNSPECIFIED), port)
+    }
 }
 
 pub(crate) fn wait_for_listener(addr: SocketAddr) -> Result<(), String> {
@@ -441,15 +618,6 @@ pub(crate) fn decode_socks5_udp_frame(frame: &[u8]) -> Result<(SocketAddr, Vec<u
 
 // --- UDP relay ---
 
-pub(crate) fn relay_udp_payload(
-    target: &TargetAddress,
-    port: u16,
-    transport: &TransportConfig,
-    payload: &[u8],
-) -> Result<Vec<u8>, String> {
-    Ok(relay_udp_payload_observed(std::slice::from_ref(target), port, transport, payload)?.payload)
-}
-
 pub(crate) fn relay_udp_payload_observed(
     targets: &[TargetAddress],
     port: u16,
@@ -457,12 +625,23 @@ pub(crate) fn relay_udp_payload_observed(
     payload: &[u8],
 ) -> Result<UdpRelayResult, String> {
     match transport {
-        TransportConfig::Direct => {
+        TransportConfig::Direct { route_experiment } => {
             let destinations = resolve_candidate_addresses(targets, port)?;
+            if let Some(config) = route_experiment.as_ref() {
+                let route_identity = route_identity(&destinations);
+                return relay_udp_direct_with_route_experiment(&destinations, payload, config, &route_identity);
+            }
             let mut last_error = None;
             for destination in destinations {
                 match relay_udp_direct(destination, payload) {
-                    Ok(bytes) => return Ok(UdpRelayResult { payload: bytes, connected_addr: Some(destination) }),
+                    Ok((bytes, local_addr)) => {
+                        return Ok(UdpRelayResult {
+                            payload: bytes,
+                            connected_addr: Some(destination),
+                            local_addr: Some(local_addr),
+                            route_report: None,
+                        });
+                    }
                     Err(err) => last_error = Some(err),
                 }
             }
@@ -483,8 +662,13 @@ pub(crate) fn relay_udp_payload_observed(
                     }
                 };
                 match relay_udp_via_socks5(host, *proxy_port, destination, payload) {
-                    Ok(bytes) => {
-                        return Ok(UdpRelayResult { payload: bytes, connected_addr: Some(destination) });
+                    Ok((bytes, local_addr)) => {
+                        return Ok(UdpRelayResult {
+                            payload: bytes,
+                            connected_addr: Some(destination),
+                            local_addr: Some(local_addr),
+                            route_report: None,
+                        });
                     }
                     Err(err) => last_error = Some(err),
                 }
@@ -494,7 +678,91 @@ pub(crate) fn relay_udp_payload_observed(
     }
 }
 
-pub(crate) fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<Vec<u8>, String> {
+fn relay_udp_direct_with_route_experiment(
+    destinations: &[SocketAddr],
+    payload: &[u8],
+    config: &RouteExperimentConfig,
+    route_identity: &str,
+) -> Result<UdpRelayResult, String> {
+    let stable_attempts = config.stable_flow_attempts.max(1);
+    let mut stable_attempts_run = 0usize;
+    let mut diversity_attempts_run = 0usize;
+    let mut events = Vec::new();
+    let mut last_error = None;
+
+    for attempt_index in 0..stable_attempts {
+        stable_attempts_run += 1;
+        match relay_udp_bucket(destinations, payload, config, route_identity, 0) {
+            Ok((bytes, destination, local_addr)) => {
+                events.push(format!("stable#{attempt_index}:ok"));
+                return Ok(UdpRelayResult {
+                    payload: bytes,
+                    connected_addr: Some(destination),
+                    local_addr: Some(local_addr),
+                    route_report: Some(RouteExperimentReport {
+                        selected_bucket: 0,
+                        selected_bucket_kind: "stable".to_string(),
+                        stable_attempts_run,
+                        diversity_attempts_run,
+                        summary: events.join("|"),
+                    }),
+                });
+            }
+            Err(err) => {
+                events.push(format!("stable#{attempt_index}:{err}"));
+                last_error = Some(err);
+            }
+        }
+    }
+
+    if config.diversity_on_failure_only {
+        for bucket in 1..config.diversity_buckets.max(1) {
+            diversity_attempts_run += 1;
+            match relay_udp_bucket(destinations, payload, config, route_identity, bucket) {
+                Ok((bytes, destination, local_addr)) => {
+                    events.push(format!("bucket#{bucket}:ok"));
+                    return Ok(UdpRelayResult {
+                        payload: bytes,
+                        connected_addr: Some(destination),
+                        local_addr: Some(local_addr),
+                        route_report: Some(RouteExperimentReport {
+                            selected_bucket: bucket,
+                            selected_bucket_kind: "diversity".to_string(),
+                            stable_attempts_run,
+                            diversity_attempts_run,
+                            summary: events.join("|"),
+                        }),
+                    });
+                }
+                Err(err) => {
+                    events.push(format!("bucket#{bucket}:{err}"));
+                    last_error = Some(err);
+                }
+            }
+        }
+    }
+
+    Err(format!("{}; route={}", last_error.unwrap_or_else(|| "no_socket_addrs".to_string()), events.join("|"),))
+}
+
+fn relay_udp_bucket(
+    destinations: &[SocketAddr],
+    payload: &[u8],
+    config: &RouteExperimentConfig,
+    route_identity: &str,
+    bucket: usize,
+) -> Result<(Vec<u8>, SocketAddr, SocketAddr), String> {
+    let mut last_error = None;
+    for destination in destinations.iter().copied() {
+        match relay_udp_direct_with_bucket(destination, payload, config, route_identity, bucket) {
+            Ok(result) => return Ok(result),
+            Err(err) => last_error = Some(err),
+        }
+    }
+    Err(last_error.unwrap_or_else(|| "no_socket_addrs".to_string()))
+}
+
+pub(crate) fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<(Vec<u8>, SocketAddr), String> {
     let bind_addr: SocketAddr =
         if server.is_ipv4() { (Ipv4Addr::UNSPECIFIED, 0).into() } else { (std::net::Ipv6Addr::UNSPECIFIED, 0).into() };
     let socket = UdpSocket::bind(bind_addr).map_err(|err| err.to_string())?;
@@ -503,7 +771,32 @@ pub(crate) fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<Vec
     socket.send_to(payload, server).map_err(|err| err.to_string())?;
     let mut buf = [0u8; 2048];
     let (size, _) = socket.recv_from(&mut buf).map_err(|err| err.to_string())?;
-    Ok(buf[..size].to_vec())
+    let local_addr = socket.local_addr().map_err(|err| err.to_string())?;
+    Ok((buf[..size].to_vec(), local_addr))
+}
+
+fn relay_udp_direct_with_bucket(
+    server: SocketAddr,
+    payload: &[u8],
+    config: &RouteExperimentConfig,
+    route_identity: &str,
+    bucket: usize,
+) -> Result<(Vec<u8>, SocketAddr, SocketAddr), String> {
+    let domain = socket_domain_for(server);
+    let kind_seed = stable_probe_hash(config.session_seed, route_identity);
+    let port = route_bucket_port(kind_seed, bucket);
+    let bind_addr = route_bind_addr(server, port);
+    let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP)).map_err(|err| err.to_string())?;
+    let _ = socket.set_reuse_address(true);
+    socket.bind(&SockAddr::from(bind_addr)).map_err(|err| err.to_string())?;
+    let udp: UdpSocket = socket.into();
+    udp.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    udp.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    udp.send_to(payload, server).map_err(|err| err.to_string())?;
+    let mut buf = [0u8; 2048];
+    let (size, _) = udp.recv_from(&mut buf).map_err(|err| err.to_string())?;
+    let local_addr = udp.local_addr().map_err(|err| err.to_string())?;
+    Ok((buf[..size].to_vec(), server, local_addr))
 }
 
 pub(crate) fn relay_udp_via_socks5(
@@ -511,7 +804,7 @@ pub(crate) fn relay_udp_via_socks5(
     proxy_port: u16,
     destination: SocketAddr,
     payload: &[u8],
-) -> Result<Vec<u8>, String> {
+) -> Result<(Vec<u8>, SocketAddr), String> {
     let mut control = connect_direct(&TargetAddress::Host(proxy_host.to_string()), proxy_port)?;
     control.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     control.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
@@ -533,13 +826,15 @@ pub(crate) fn relay_udp_via_socks5(
     let mut buf = [0u8; 65535];
     let size = udp.recv(&mut buf).map_err(|err| err.to_string())?;
     let (_, payload) = decode_socks5_udp_frame(&buf[..size])?;
-    Ok(payload)
+    let local_addr = udp.local_addr().map_err(|err| err.to_string())?;
+    Ok((payload, local_addr))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::net::Ipv6Addr;
+    use std::net::{Ipv4Addr, Ipv6Addr, TcpListener};
+    use std::thread;
 
     #[test]
     fn encode_decode_socks5_udp_frame_ipv4_roundtrip() {
@@ -663,10 +958,11 @@ mod tests {
             telegram_target: None,
             strategy_probe: None,
             network_snapshot: None,
+            route_probe: None,
             scan_deadline_ms: None,
         };
         match transport_for_request(&request) {
-            TransportConfig::Direct => {}
+            TransportConfig::Direct { .. } => {}
             TransportConfig::Socks5 { .. } => panic!("expected Direct for RawPath"),
         }
     }
@@ -696,6 +992,7 @@ mod tests {
             telegram_target: None,
             strategy_probe: None,
             network_snapshot: None,
+            route_probe: None,
             scan_deadline_ms: None,
         };
         match transport_for_request(&request) {
@@ -703,18 +1000,86 @@ mod tests {
                 assert_eq!(host, "proxy");
                 assert_eq!(port, 1080);
             }
-            TransportConfig::Direct => panic!("expected Socks5 for InPath"),
+            TransportConfig::Direct { .. } => panic!("expected Socks5 for InPath"),
         }
     }
 
     #[test]
     fn describe_transport_direct() {
-        assert_eq!(describe_transport(&TransportConfig::Direct), "DIRECT");
+        assert_eq!(describe_transport(&direct_transport()), "DIRECT");
     }
 
     #[test]
     fn describe_transport_socks5() {
         let t = TransportConfig::Socks5 { host: "1.2.3.4".to_string(), port: 1080 };
         assert_eq!(describe_transport(&t), "SOCKS5(1.2.3.4:1080)");
+    }
+
+    #[test]
+    fn direct_route_experiment_binds_deterministic_stable_bucket_port() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind tcp listener");
+        let server_addr = listener.local_addr().expect("listener addr");
+        let accept_handle = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept");
+            let _ = stream.shutdown(Shutdown::Both);
+        });
+        let config = RouteExperimentConfig {
+            stable_flow_attempts: 1,
+            diversity_buckets: 1,
+            diversity_on_failure_only: true,
+            session_seed: 7,
+        };
+        let identity = route_identity(&[server_addr]);
+        let expected_port = route_bucket_port(crate::util::stable_probe_hash(config.session_seed, &identity), 0);
+
+        let result = connect_transport_observed(
+            &[TargetAddress::Ip(server_addr.ip())],
+            server_addr.port(),
+            &TransportConfig::Direct { route_experiment: Some(config.clone()) },
+        )
+        .expect("route-stable connect");
+
+        assert_eq!(result.local_addr.expect("local addr").port(), expected_port);
+        let route_report = result.route_report.expect("route report");
+        assert_eq!(route_report.selected_bucket, 0);
+        assert_eq!(route_report.selected_bucket_kind, "stable");
+        accept_handle.join().expect("join accept");
+    }
+
+    #[test]
+    fn direct_route_experiment_uses_diversity_bucket_when_stable_port_is_busy() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind tcp listener");
+        let server_addr = listener.local_addr().expect("listener addr");
+        let accept_handle = thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept");
+            let _ = stream.shutdown(Shutdown::Both);
+        });
+        let config = RouteExperimentConfig {
+            stable_flow_attempts: 1,
+            diversity_buckets: 2,
+            diversity_on_failure_only: true,
+            session_seed: 9,
+        };
+        let identity = route_identity(&[server_addr]);
+        let stable_port = route_bucket_port(crate::util::stable_probe_hash(config.session_seed, &identity), 0);
+        let occupied =
+            TcpListener::bind(route_bind_addr(server_addr, stable_port)).expect("occupy stable route bucket");
+
+        let result = connect_transport_observed(
+            &[TargetAddress::Ip(server_addr.ip())],
+            server_addr.port(),
+            &TransportConfig::Direct { route_experiment: Some(config) },
+        )
+        .expect("route-diversity connect");
+
+        let route_report = result.route_report.expect("route report");
+        assert_eq!(route_report.selected_bucket, 1);
+        assert_eq!(route_report.selected_bucket_kind, "diversity");
+        assert!(route_report.summary.contains("stable#0"));
+        assert!(route_report.summary.contains("bucket#1:ok"));
+        assert_ne!(result.local_addr.expect("local addr").port(), stable_port);
+
+        drop(occupied);
+        accept_handle.join().expect("join accept");
     }
 }
