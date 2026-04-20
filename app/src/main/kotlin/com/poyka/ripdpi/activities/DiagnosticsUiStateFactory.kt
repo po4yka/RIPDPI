@@ -12,12 +12,14 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
+import com.poyka.ripdpi.diagnostics.DiagnosticsJurisdictionProfileAccess
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
+import com.poyka.ripdpi.diagnostics.resolveLegalSafetyPolicy
 import com.poyka.ripdpi.proto.AppSettings
 import javax.inject.Inject
 
@@ -179,9 +181,14 @@ internal class DiagnosticsUiStateFactory
             input: DiagnosticsUiStateInput,
             eventModels: List<DiagnosticsEventUiModel>,
         ): ResolvedDiagnosticsUiInput {
+            val visibleProfiles =
+                input.profiles.filter { profile ->
+                    profile.request?.resolveLegalSafetyPolicy()?.access !=
+                        DiagnosticsJurisdictionProfileAccess.BLOCKED
+                }
             val activeProfile =
-                input.profiles.firstOrNull { it.id == input.selectedProfileId }
-                    ?: input.profiles.firstOrNull()
+                visibleProfiles.firstOrNull { it.id == input.selectedProfileId }
+                    ?: visibleProfiles.firstOrNull()
             val latestSnapshot =
                 input.snapshots
                     .firstOrNull()
@@ -206,6 +213,8 @@ internal class DiagnosticsUiStateFactory
                 )
             return ResolvedDiagnosticsUiInput(
                 activeProfile = activeProfile,
+                visibleProfiles = visibleProfiles,
+                omittedProfileCount = (input.profiles.size - visibleProfiles.size).coerceAtLeast(0),
                 activeProfileRequest = activeProfile?.request,
                 selectedProfileUi = activeProfile?.let(support::toProfileOptionUiModel),
                 latestSnapshot = latestSnapshot,
@@ -293,7 +302,8 @@ internal class DiagnosticsUiStateFactory
         ): DiagnosticsScanUiModel =
             support.buildScanUiModel(
                 BuildScanUiModelParams(
-                    profiles = input.profiles,
+                    profiles = resolvedInput.visibleProfiles,
+                    omittedProfileCount = resolvedInput.omittedProfileCount,
                     activeProfile = resolvedInput.activeProfile,
                     activeProfileRequest = resolvedInput.activeProfileRequest,
                     latestProfileSession = resolvedInput.latestProfileSession,
@@ -314,6 +324,7 @@ internal class DiagnosticsUiStateFactory
                     dpiFailureClass = input.dpiFailureClass,
                     networkContext = buildScanNetworkContext(input.liveSnapshots.firstOrNull(), input.currentTelemetry),
                     hiddenProbeConflictDialog = input.hiddenProbeConflictDialog,
+                    sensitiveProfileConsentDialog = input.sensitiveProfileConsentDialog,
                     queuedManualScanRequest = input.queuedManualScanRequest,
                 ),
             )
@@ -475,6 +486,8 @@ internal class DiagnosticsUiStateFactory
 
 private data class ResolvedDiagnosticsUiInput(
     val activeProfile: DiagnosticProfile?,
+    val visibleProfiles: List<DiagnosticProfile>,
+    val omittedProfileCount: Int,
     val activeProfileRequest: DiagnosticsProfileProjection?,
     val selectedProfileUi: DiagnosticsProfileOptionUiModel?,
     val latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
@@ -543,6 +556,7 @@ internal data class DiagnosticsUiStateInput(
     val dnsBaselineStatus: DnsBaselineStatus? = null,
     val dpiFailureClass: DpiFailureClass? = null,
     val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
+    val sensitiveProfileConsentDialog: SensitiveProfileConsentDialogState? = null,
     val queuedManualScanRequest: QueuedManualScanRequest? = null,
 )
 

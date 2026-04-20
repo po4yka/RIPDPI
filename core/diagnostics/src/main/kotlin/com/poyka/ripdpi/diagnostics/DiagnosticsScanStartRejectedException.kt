@@ -3,6 +3,8 @@ package com.poyka.ripdpi.diagnostics
 enum class DiagnosticsScanStartRejectionReason {
     HiddenAutomaticProbeRunning,
     ScanAlreadyActive,
+    SensitiveProfileConsentRequired,
+    BlockedByLegalSafetyPolicy,
 }
 
 class DiagnosticsScanStartRejectedException(
@@ -15,6 +17,14 @@ class DiagnosticsScanStartRejectedException(
 
             DiagnosticsScanStartRejectionReason.ScanAlreadyActive -> {
                 "Diagnostics scan already active"
+            }
+
+            DiagnosticsScanStartRejectionReason.SensitiveProfileConsentRequired -> {
+                "Explicit consent is required before running this diagnostics profile"
+            }
+
+            DiagnosticsScanStartRejectionReason.BlockedByLegalSafetyPolicy -> {
+                "Diagnostics profile is unavailable under local legal-safety policy"
             }
         },
     )

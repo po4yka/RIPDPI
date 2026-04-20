@@ -157,6 +157,8 @@ fun DiagnosticsRoute(
         onWaitForHiddenProbeAndRun = viewModel::waitForHiddenProbeAndRun,
         onCancelHiddenProbeAndRun = viewModel::cancelHiddenProbeAndRun,
         onDismissHiddenProbeConflictDialog = viewModel::dismissHiddenProbeConflictDialog,
+        onConfirmSensitiveProfileRun = viewModel::confirmSensitiveProfileRun,
+        onDismissSensitiveProfileConsentDialog = viewModel::dismissSensitiveProfileConsentDialog,
         onCancelScan = viewModel::cancelScan,
         onKeepResolverRecommendation = viewModel::keepResolverRecommendationForSession,
         onSaveResolverRecommendation = viewModel::saveResolverRecommendation,

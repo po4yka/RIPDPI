@@ -225,6 +225,7 @@ internal class DiagnosticsUiStateAssembler
                         dnsBaselineStatus = ui.scanLifecycle.dnsBaselineStatus,
                         dpiFailureClass = ui.scanLifecycle.dpiFailureClass,
                         hiddenProbeConflictDialog = ui.scanLifecycle.hiddenProbeConflictDialog,
+                        sensitiveProfileConsentDialog = ui.scanLifecycle.sensitiveProfileConsentDialog,
                         queuedManualScanRequest = ui.scanLifecycle.queuedManualScanRequest,
                     ),
                 )

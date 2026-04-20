@@ -51,7 +51,7 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
             ),
             TargetPackDefinition(
                 id = "ru-messaging",
-                version = 1,
+                version = 2,
                 domainTargets =
                     domainTargets(
                         """
@@ -73,25 +73,21 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
                         ServiceTargetDefinition(
                             id = "telegram",
                             service = "Telegram",
-                            bootstrapUrl = "https://telegram.org/",
                             tcpEndpointHost = "telegram.org",
                         ),
                         ServiceTargetDefinition(
                             id = "signal",
                             service = "Signal",
-                            bootstrapUrl = "https://signal.org/",
                             tcpEndpointHost = "signal.org",
                         ),
                         ServiceTargetDefinition(
                             id = "whatsapp",
                             service = "WhatsApp",
-                            bootstrapUrl = "https://www.whatsapp.com/",
                             tcpEndpointHost = "www.whatsapp.com",
                         ),
                         ServiceTargetDefinition(
                             id = "discord",
                             service = "Discord",
-                            bootstrapUrl = "https://discord.com/",
                             tcpEndpointHost = "discord.com",
                         ),
                     ),
