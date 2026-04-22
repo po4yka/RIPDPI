@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.strategyPackCatalogFromJson
 import com.poyka.ripdpi.data.strategyPackManifestFromJson
 import com.poyka.ripdpi.data.strategyPackSnapshotFromJson
 import com.poyka.ripdpi.data.toJson
+import com.poyka.ripdpi.storage.AtomicTextFileWriter
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -64,6 +65,7 @@ class DefaultStrategyPackRepository
         private val clock: StrategyPackClock,
         private val tempFileFactory: StrategyPackTempFileFactory,
         private val buildProvenanceProvider: StrategyPackBuildProvenanceProvider,
+        private val snapshotWriter: AtomicTextFileWriter,
     ) : StrategyPackRepository {
         override suspend fun loadSnapshot(): StrategyPackSnapshot =
             withContext(Dispatchers.IO) {
@@ -104,10 +106,10 @@ class DefaultStrategyPackRepository
                             verifiedChecksumSha256 = manifest.catalogChecksumSha256.lowercase(),
                             verifiedSignatureBase64 = manifest.catalogSignatureBase64,
                         )
-                    cacheFile().let { file ->
-                        file.parentFile?.mkdirs()
-                        file.writeText(snapshot.toJson(), Charsets.UTF_8)
-                    }
+                    snapshotWriter.write(
+                        file = cacheFile(),
+                        payload = snapshot.toJson(),
+                    )
                     snapshot
                 } finally {
                     tempFile.delete()
