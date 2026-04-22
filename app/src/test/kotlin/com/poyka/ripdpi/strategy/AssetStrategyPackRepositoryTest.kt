@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.StrategyPackManifest
 import com.poyka.ripdpi.data.StrategyPackRefreshPolicyAutomatic
 import com.poyka.ripdpi.data.StrategyPackSignatureAlgorithmSha256WithEcdsa
 import com.poyka.ripdpi.data.toStrategyPackSettingsModel
+import com.poyka.ripdpi.security.AppTrustedSigningKeyResolver
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -45,7 +46,7 @@ class AssetStrategyPackRepositoryTest {
         verifier =
             DefaultStrategyPackVerifier(
                 keyResolver =
-                    StrategyPackPublicKeyResolver { keyId ->
+                    AppTrustedSigningKeyResolver { keyId ->
                         require(keyId == DefaultStrategyPackSigningKeyId)
                         keyPair.public
                     },
