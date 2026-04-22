@@ -156,6 +156,7 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             strategyPackPinnedId = strategyPackPinnedId,
             strategyPackPinnedVersion = strategyPackPinnedVersion,
             strategyPackRefreshPolicy = normalizeStrategyPackRefreshPolicy(strategyPackRefreshPolicy),
+            strategyPackAllowRollbackOverride = strategyPackAllowRollbackOverride,
             adaptiveFallbackEnabled = adaptiveFallbackEnabled,
             adaptiveFallbackTorst = adaptiveFallbackTorst,
             adaptiveFallbackTlsErr = adaptiveFallbackTlsErr,
@@ -382,6 +383,7 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setStrategyPackPinnedId(strategyPackPinnedId)
         .setStrategyPackPinnedVersion(strategyPackPinnedVersion)
         .setStrategyPackRefreshPolicy(normalizeStrategyPackRefreshPolicy(strategyPackRefreshPolicy))
+        .setStrategyPackAllowRollbackOverride(strategyPackAllowRollbackOverride)
         .setAdaptiveFallbackEnabled(adaptiveFallbackEnabled)
         .setAdaptiveFallbackTorst(adaptiveFallbackTorst)
         .setAdaptiveFallbackTlsErr(adaptiveFallbackTlsErr)

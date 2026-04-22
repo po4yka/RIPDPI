@@ -84,6 +84,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setStrategyPackPinnedId(DefaultStrategyPackPinnedId)
             .setStrategyPackPinnedVersion(DefaultStrategyPackPinnedVersion)
             .setStrategyPackRefreshPolicy(DefaultStrategyPackRefreshPolicy)
+            .setStrategyPackAllowRollbackOverride(false)
             .setWarpEnabled(false)
             .setWarpRouteMode(WarpRouteModeOff)
             .setWarpRouteHosts("")

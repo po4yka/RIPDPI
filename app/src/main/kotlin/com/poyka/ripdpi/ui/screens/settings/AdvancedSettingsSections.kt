@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -85,6 +86,12 @@ private fun DiagnosticsHistorySettingsContent(
         enabled = uiState.diagnosticsExportIncludeHistory,
         onToggleChanged = onToggleChanged,
     )
+    if (BuildConfig.DEBUG) {
+        StrategyPackRollbackOverrideToggle(
+            enabled = uiState.strategyPackAllowRollbackOverride,
+            onToggleChanged = onToggleChanged,
+        )
+    }
     TelemetrySaltResetAction(onRotateTelemetrySalt = onRotateTelemetrySalt)
 }
 
@@ -151,6 +158,23 @@ private fun DiagnosticsExportHistoryToggle(
         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DiagnosticsExportIncludeHistory, it) },
         showDivider = true,
         testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.DiagnosticsExportIncludeHistory),
+    )
+}
+
+@Composable
+private fun StrategyPackRollbackOverrideToggle(
+    enabled: Boolean,
+    onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
+) {
+    SettingsRow(
+        title = stringResource(R.string.settings_strategy_pack_allow_rollback_override_title),
+        subtitle = stringResource(R.string.settings_strategy_pack_allow_rollback_override_body),
+        checked = enabled,
+        onCheckedChange = {
+            onToggleChanged(AdvancedToggleSetting.StrategyPackAllowRollbackOverride, it)
+        },
+        showDivider = true,
+        testTag = RipDpiTestTags.advancedToggle(AdvancedToggleSetting.StrategyPackAllowRollbackOverride),
     )
 }
 

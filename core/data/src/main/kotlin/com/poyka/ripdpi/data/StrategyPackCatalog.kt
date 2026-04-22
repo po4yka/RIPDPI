@@ -36,6 +36,8 @@ const val QuicMigrationStatusFailed = "failed"
 data class StrategyPackCatalog(
     val schemaVersion: Int = StrategyPackCatalogSchemaVersion,
     val generatedAt: String = "",
+    val sequence: Long = 0,
+    val issuedAt: String = "",
     val channel: String = StrategyPackChannelStable,
     val minAppVersion: String = "0.0.0",
     val minNativeVersion: String = "0.0.0",
@@ -60,6 +62,13 @@ data class StrategyPackSnapshot(
 ) {
     val packs: List<StrategyPackDefinition>
         get() = catalog.packs
+}
+
+enum class StrategyPackRefreshFailureCode {
+    RollbackRejected,
+    StaleCatalog,
+    MissingSecurityMetadata,
+    InvalidIssuedAt,
 }
 
 @Serializable
@@ -219,6 +228,9 @@ fun StrategyPackSnapshot.toJson(): String = strategyPackJson.encodeToString(this
 fun strategyPackManifestFromJson(payload: String): StrategyPackManifest = strategyPackJson.decodeFromString(payload)
 
 fun StrategyPackManifest.toJson(): String = strategyPackJson.encodeToString(this)
+
+fun StrategyPackSnapshot.acceptedSequenceOrNull(): Long? =
+    catalog.sequence.takeIf { source == StrategyPackCatalogSourceDownloaded && it > 0L }
 
 fun StrategyPackCatalog.resolveSelection(
     pinnedPackId: String = "",
