@@ -7,7 +7,6 @@ import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -267,18 +266,14 @@ class DiagnosticsHomeCompositeRunServiceTest {
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val timelineSource = MutableDiagnosticsTimelineSource()
-            val handoverEvents = MutableSharedFlow<NetworkHandoverEvent>(extraBufferCapacity = 1)
-            val monitor =
-                object : NetworkHandoverMonitor {
-                    override val events = handoverEvents
-                }
+            val monitor = ControllableNetworkHandoverMonitor()
 
             val scanController =
                 RecordingHomeCompositeScanController(
                     onStart = { _, profileId, sessionId ->
                         // Emit a network handover event when the second stage (default) starts
                         if (profileId == "default") {
-                            handoverEvents.tryEmit(
+                            monitor.emit(
                                 NetworkHandoverEvent(
                                     previousFingerprint = null,
                                     currentFingerprint =

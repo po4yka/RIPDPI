@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.strategy
 
 import android.app.Application
-import android.util.AtomicFile
 import com.poyka.ripdpi.data.DefaultStrategyPackSigningKeyId
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceBundled
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
@@ -13,6 +12,7 @@ import com.poyka.ripdpi.data.toStrategyPackSettingsModel
 import com.poyka.ripdpi.security.AppTrustedSigningKeyResolver
 import com.poyka.ripdpi.storage.AtomicTextFileWriter
 import com.poyka.ripdpi.storage.DefaultAtomicTextFileWriter
+import com.poyka.ripdpi.testsupport.CorruptFileFixture
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -253,7 +253,7 @@ class AssetStrategyPackRepositoryTest {
                             manifestPayload = Json.encodeToString(failingManifest),
                             catalogPayload = corruptedPayload,
                         ),
-                    snapshotWriter = FailingAtomicTextFileWriter("torn"),
+                    snapshotWriter = CorruptFileFixture("torn").failingWriter(),
                 )
 
             runCatching { failingRepository.refreshSnapshot() }
@@ -304,26 +304,6 @@ class AssetStrategyPackRepositoryTest {
                 delete()
             }
         }
-}
-
-private class FailingAtomicTextFileWriter(
-    private val partialPayload: String,
-) : AtomicTextFileWriter {
-    override fun write(
-        file: File,
-        payload: String,
-    ) {
-        file.parentFile?.mkdirs()
-        val atomicFile = AtomicFile(file)
-        val output = atomicFile.startWrite()
-        try {
-            output.write(partialPayload.toByteArray(Charsets.UTF_8))
-            throw IOException("Simulated cache write failure")
-        } catch (error: Throwable) {
-            atomicFile.failWrite(output)
-            throw error
-        }
-    }
 }
 
 private fun applicationStrategyPackDefaults() =

@@ -72,6 +72,10 @@ internal class TestServiceClock(
     var now: Long = 1_000L,
 ) : ServiceClock {
     override fun nowMillis(): Long = now
+
+    fun advanceBy(deltaMillis: Long) {
+        now += deltaMillis
+    }
 }
 
 internal class TestServiceStateStore(

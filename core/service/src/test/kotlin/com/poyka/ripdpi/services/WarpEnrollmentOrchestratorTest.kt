@@ -17,7 +17,9 @@ import com.poyka.ripdpi.data.WarpScannerModeManual
 import com.poyka.ripdpi.data.WarpSetupStateNeedsAttention
 import com.poyka.ripdpi.data.WarpSetupStateNotConfigured
 import com.poyka.ripdpi.data.WarpSetupStateProvisioned
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -353,6 +355,71 @@ class WarpEnrollmentOrchestratorTest {
             assertEquals(WarpSetupStateNeedsAttention, profileStore.load(DefaultWarpProfileId)?.setupState)
             assertEquals(WarpSetupStateNeedsAttention, appSettingsRepository.snapshot().warpSetupState)
             assertEquals(accessValue, credentialStore.load(DefaultWarpProfileId)?.accessToken)
+        }
+
+    @Test
+    fun `managed bootstrap proxy runner allows deterministic overlap coverage`() =
+        runTest {
+            val appSettingsRepository = TestAppSettingsRepository()
+            val proxyFactory = TestRipDpiProxyFactory()
+            val overlapTracker = OverlapTracker()
+            val firstEntered = CompletableDeferred<Unit>()
+            val secondEntered = CompletableDeferred<Unit>()
+            val releaseFirst = CompletableDeferred<Unit>()
+            val bootstrapSessionFactory =
+                object : BootstrapProxyRuntimeSupervisorSessionFactory {
+                    override fun create(scope: kotlinx.coroutines.CoroutineScope): ProxyRuntimeSupervisor =
+                        DefaultProxyRuntimeSupervisorFactory(proxyFactory).create(
+                            scope = scope,
+                            dispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
+                            networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                        )
+                }
+            val runner =
+                ManagedWarpBootstrapProxyRunner(
+                    appSettingsRepository = appSettingsRepository,
+                    bootstrapProxyRuntimeSupervisorSessionFactory = bootstrapSessionFactory,
+                    scope = backgroundScope,
+                )
+
+            val first =
+                backgroundScope.async {
+                    runner.withBootstrapProxy {
+                        overlapTracker.begin()
+                        try {
+                            firstEntered.complete(Unit)
+                            releaseFirst.await()
+                            "first"
+                        } finally {
+                            overlapTracker.end()
+                        }
+                    }
+                }
+
+            firstEntered.await()
+
+            val second =
+                backgroundScope.async {
+                    runner.withBootstrapProxy {
+                        overlapTracker.begin()
+                        try {
+                            secondEntered.complete(Unit)
+                            "second"
+                        } finally {
+                            overlapTracker.end()
+                        }
+                    }
+                }
+
+            secondEntered.await()
+            releaseFirst.complete(Unit)
+
+            assertEquals("first", first.await())
+            assertEquals("second", second.await())
+            assertEquals(2, overlapTracker.maxConcurrent)
+            assertEquals(2, proxyFactory.runtimes.size)
+            assertEquals(1, proxyFactory.runtimes[0].stopCount)
+            assertEquals(1, proxyFactory.runtimes[1].stopCount)
         }
 
     @Test

@@ -95,6 +95,47 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
+    fun `repeated start stop recovers after scripted relay crash`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+                )
+            val exits = mutableListOf<SupervisorExitCause>()
+
+            supervisor.start(
+                config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
+                onUnexpectedExit = { exits += it },
+            )
+            supervisor.stop()
+            advanceUntilIdle()
+
+            supervisor.start(
+                config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
+                onUnexpectedExit = { exits += it },
+            )
+            supervisor.stop()
+            advanceUntilIdle()
+
+            assertEquals(2, relayFactory.runtimes.size)
+            assertEquals(1, relayFactory.runtimes[0].stopCount)
+            assertEquals(1, relayFactory.runtimes[1].stopCount)
+            assertEquals(
+                listOf(
+                    SupervisorExitCause.ExpectedStop,
+                    SupervisorExitCause.ExpectedStop,
+                ),
+                exits,
+            )
+        }
+
+    @Test
     fun `start resolves stored profile and credentials before native runtime launch`() =
         runTest {
             val relayFactory = TestRipDpiRelayFactory()
