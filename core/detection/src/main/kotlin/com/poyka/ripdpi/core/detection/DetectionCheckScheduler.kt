@@ -8,7 +8,11 @@ import androidx.core.app.NotificationCompat
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.ServiceStateStore
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharedFlow
@@ -18,6 +22,13 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
+interface DetectionObservationStarter {
+    fun startObserving(
+        context: Context,
+        scope: CoroutineScope,
+    )
+}
+
 @Singleton
 class DetectionCheckScheduler
     @Inject
@@ -25,7 +36,7 @@ class DetectionCheckScheduler
         @param:ApplicationContext private val appContext: Context,
         private val serviceStateStore: ServiceStateStore,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
-    ) {
+    ) : DetectionObservationStarter {
         private var observeJob: Job? = null
         private var handoverJob: Job? = null
 
@@ -44,7 +55,7 @@ class DetectionCheckScheduler
             }
         }
 
-        fun startObserving(
+        override fun startObserving(
             context: Context,
             scope: CoroutineScope,
         ) {
@@ -165,3 +176,11 @@ class DetectionCheckScheduler
             private const val NOTIFICATION_ID = 9001
         }
     }
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class DetectionCheckSchedulerBindingsModule {
+    @Binds
+    @Singleton
+    abstract fun bindDetectionObservationStarter(scheduler: DetectionCheckScheduler): DetectionObservationStarter
+}
