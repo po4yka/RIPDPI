@@ -1,3 +1,4 @@
+mod client_hello_offsets;
 mod fake;
 mod first_flight_ir;
 mod offset;
