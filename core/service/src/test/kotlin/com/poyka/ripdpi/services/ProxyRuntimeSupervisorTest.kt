@@ -31,7 +31,7 @@ class ProxyRuntimeSupervisorTest {
                     ripDpiProxyFactory = factory,
                     networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
                 )
-            val exits = mutableListOf<Result<Int>>()
+            val exits = mutableListOf<SupervisorExitCause>()
 
             val endpoint = supervisor.start(RipDpiProxyUIPreferences()) { exits += it }
 
@@ -46,7 +46,7 @@ class ProxyRuntimeSupervisorTest {
             assertNull(supervisor.runtime)
             assertEquals(1, runtime.stopCount)
             assertEquals(1, exits.size)
-            assertEquals(0, exits.single().getOrNull())
+            assertEquals(SupervisorExitCause.ExpectedStop, exits.single())
         }
 
     @Test
@@ -68,7 +68,9 @@ class ProxyRuntimeSupervisorTest {
                     supervisor.start(RipDpiProxyUIPreferences()) {}
                 }
 
-            assertTrue(result.exceptionOrNull() is IOException)
+            val error = result.exceptionOrNull()
+            assertTrue(error is SupervisorStartupFailureException)
+            assertTrue((error as SupervisorStartupFailureException).exitCause.throwable is IOException)
             assertNull(supervisor.runtime)
         }
 
@@ -85,14 +87,14 @@ class ProxyRuntimeSupervisorTest {
                     ripDpiProxyFactory = factory,
                     networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
                 )
-            val exits = mutableListOf<Result<Int>>()
+            val exits = mutableListOf<SupervisorExitCause>()
 
             supervisor.start(RipDpiProxyUIPreferences()) { exits += it }
             runtime.complete(19)
             runCurrent()
             advanceUntilIdle()
 
-            assertEquals(19, exits.single().getOrNull())
+            assertEquals(SupervisorExitCause.Crash(19), exits.single())
         }
 
     @Test
@@ -177,6 +179,7 @@ class ProxyRuntimeSupervisorTest {
                 }.exceptionOrNull()
 
             assertNotNull(error)
+            assertTrue(error is SupervisorStartupFailureException)
             assertNull(supervisor.runtime)
         }
 
@@ -202,7 +205,8 @@ class ProxyRuntimeSupervisorTest {
                     supervisor.start(RipDpiProxyUIPreferences()) {}
                 }.exceptionOrNull()
 
-            assertTrue(error is IllegalArgumentException)
+            assertTrue(error is SupervisorStartupFailureException)
+            assertTrue((error as SupervisorStartupFailureException).exitCause.throwable is IllegalArgumentException)
             assertNull(supervisor.runtime)
             assertEquals(1, runtime.stopCount)
         }
