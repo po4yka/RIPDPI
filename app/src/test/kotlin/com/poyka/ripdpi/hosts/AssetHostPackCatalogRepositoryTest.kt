@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.hosts
 
 import android.app.Application
+import android.util.AtomicFile
 import com.poyka.ripdpi.data.DefaultStrategyPackSigningKeyId
 import com.poyka.ripdpi.data.HostPackCatalogSourceBundled
 import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded
@@ -11,6 +12,8 @@ import com.poyka.ripdpi.proto.GeositeCatalog
 import com.poyka.ripdpi.proto.GeositeDomain
 import com.poyka.ripdpi.proto.GeositeEntry
 import com.poyka.ripdpi.security.AppTrustedSigningKeyResolver
+import com.poyka.ripdpi.storage.AtomicTextFileWriter
+import com.poyka.ripdpi.storage.DefaultAtomicTextFileWriter
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -23,6 +26,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import retrofit2.Response
+import java.io.File
+import java.io.IOException
 import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.MessageDigest
@@ -331,9 +336,74 @@ class AssetHostPackCatalogRepositoryTest {
                 }
         }
 
+    @Test
+    fun `refresh preserves previous cached snapshot when atomic cache write fails`() =
+        runTest {
+            val initialPayload = curatedGeositeBytes()
+            val initialManifest =
+                hostPackManifest(
+                    version = "2026.04.9",
+                    catalogUrl = "https://cdn.example.test/host-packs/geosite-v1.dat",
+                    catalogPayload = initialPayload,
+                )
+            val initialRepository =
+                createRepository(
+                    service =
+                        FakeHostPackCatalogDownloadService(
+                            manifestPayload = initialManifest.toJson(),
+                            geositePayload = initialPayload,
+                        ),
+                )
+
+            val initialSnapshot = initialRepository.refreshSnapshot()
+            val updatedPayload =
+                GeositeCatalog
+                    .parseFrom(curatedGeositeBytes())
+                    .toBuilder()
+                    .addEntry(
+                        GeositeEntry
+                            .newBuilder()
+                            .setCountryCode("youtube")
+                            .addDomain(
+                                GeositeDomain
+                                    .newBuilder()
+                                    .setType(GeositeDomain.Type.FULL)
+                                    .setValue("m.youtube.com")
+                                    .build(),
+                            ).build(),
+                    ).build()
+                    .toByteArray()
+            val failingManifest =
+                hostPackManifest(
+                    version = "2026.04.10",
+                    catalogUrl = "https://cdn.example.test/host-packs/geosite-v2.dat",
+                    catalogPayload = updatedPayload,
+                )
+            val failingRepository =
+                createRepository(
+                    service =
+                        FakeHostPackCatalogDownloadService(
+                            manifestPayload = failingManifest.toJson(),
+                            geositePayload = updatedPayload,
+                        ),
+                    snapshotWriter = FailingAtomicTextFileWriter("torn"),
+                )
+
+            runCatching { failingRepository.refreshSnapshot() }
+                .onSuccess { error("Expected atomic cache write to fail") }
+                .onFailure { error ->
+                    assertTrue(error is IOException)
+                }
+
+            val preservedSnapshot = failingRepository.loadSnapshot()
+            assertEquals(initialSnapshot.manifestVersion, preservedSnapshot.manifestVersion)
+            assertEquals(initialSnapshot.packs.first().hosts, preservedSnapshot.packs.first().hosts)
+        }
+
     private fun createRepository(
         service: HostPackCatalogDownloadService,
         tempFileName: String = "host-pack-temp.dat",
+        snapshotWriter: AtomicTextFileWriter = DefaultAtomicTextFileWriter(),
     ): DefaultHostPackCatalogRepository =
         DefaultHostPackCatalogRepository(
             context = application,
@@ -341,6 +411,7 @@ class AssetHostPackCatalogRepositoryTest {
             verifier = verifier,
             clock = refreshClock,
             tempFileFactory = hostPackTempFileFactory(tempFileName),
+            snapshotWriter = snapshotWriter,
         )
 
     private fun hostPackManifest(
@@ -383,6 +454,26 @@ class AssetHostPackCatalogRepositoryTest {
                 delete()
             }
         }
+}
+
+private class FailingAtomicTextFileWriter(
+    private val partialPayload: String,
+) : AtomicTextFileWriter {
+    override fun write(
+        file: File,
+        payload: String,
+    ) {
+        file.parentFile?.mkdirs()
+        val atomicFile = AtomicFile(file)
+        val output = atomicFile.startWrite()
+        try {
+            output.write(partialPayload.toByteArray(Charsets.UTF_8))
+            throw IOException("Simulated cache write failure")
+        } catch (error: Throwable) {
+            atomicFile.failWrite(output)
+            throw error
+        }
+    }
 }
 
 private fun curatedGeositeBytes(): ByteArray =

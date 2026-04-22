@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.strategy
 
 import android.app.Application
+import android.util.AtomicFile
 import com.poyka.ripdpi.data.DefaultStrategyPackSigningKeyId
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceBundled
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
@@ -10,6 +11,8 @@ import com.poyka.ripdpi.data.StrategyPackRefreshPolicyAutomatic
 import com.poyka.ripdpi.data.StrategyPackSignatureAlgorithmSha256WithEcdsa
 import com.poyka.ripdpi.data.toStrategyPackSettingsModel
 import com.poyka.ripdpi.security.AppTrustedSigningKeyResolver
+import com.poyka.ripdpi.storage.AtomicTextFileWriter
+import com.poyka.ripdpi.storage.DefaultAtomicTextFileWriter
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -21,6 +24,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import java.io.File
+import java.io.IOException
 import java.security.KeyPair
 import java.security.KeyPairGenerator
 import java.security.MessageDigest
@@ -206,9 +211,66 @@ class AssetStrategyPackRepositoryTest {
             assertEquals(StrategyPackRefreshPolicyAutomatic, applicationStrategyPackDefaults().refreshPolicy)
         }
 
+    @Test
+    fun `refresh preserves previous cached snapshot when atomic cache write fails`() =
+        runTest {
+            val initialCatalogPayload = RefreshedCatalogJson
+            val initialManifest =
+                StrategyPackManifest(
+                    version = "2026.04.4",
+                    channel = StrategyPackChannelStable,
+                    catalogUrl = "https://cdn.example.test/strategy-packs/stable/catalog-v1.json",
+                    catalogChecksumSha256 = initialCatalogPayload.sha256(),
+                    catalogSignatureBase64 = initialCatalogPayload.signWith(keyPair),
+                    signatureAlgorithm = StrategyPackSignatureAlgorithmSha256WithEcdsa,
+                    keyId = DefaultStrategyPackSigningKeyId,
+                )
+            val initialRepository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload = Json.encodeToString(initialManifest),
+                            catalogPayload = initialCatalogPayload,
+                        ),
+                )
+
+            val initialSnapshot = initialRepository.refreshSnapshot()
+            val corruptedPayload = RefreshedCatalogJson.replace("mobile-2026", "mobile-2026-next")
+            val failingManifest =
+                StrategyPackManifest(
+                    version = "2026.04.5",
+                    channel = StrategyPackChannelStable,
+                    catalogUrl = "https://cdn.example.test/strategy-packs/stable/catalog-v2.json",
+                    catalogChecksumSha256 = corruptedPayload.sha256(),
+                    catalogSignatureBase64 = corruptedPayload.signWith(keyPair),
+                    signatureAlgorithm = StrategyPackSignatureAlgorithmSha256WithEcdsa,
+                    keyId = DefaultStrategyPackSigningKeyId,
+                )
+            val failingRepository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload = Json.encodeToString(failingManifest),
+                            catalogPayload = corruptedPayload,
+                        ),
+                    snapshotWriter = FailingAtomicTextFileWriter("torn"),
+                )
+
+            runCatching { failingRepository.refreshSnapshot() }
+                .onSuccess { error("Expected atomic cache write to fail") }
+                .onFailure { error ->
+                    assertTrue(error is IOException)
+                }
+
+            val preservedSnapshot = failingRepository.loadSnapshot()
+            assertEquals(initialSnapshot.manifestVersion, preservedSnapshot.manifestVersion)
+            assertEquals(initialSnapshot.packs.single().id, preservedSnapshot.packs.single().id)
+        }
+
     private fun createRepository(
         service: StrategyPackDownloadService,
         tempFileName: String = "strategy-pack-temp.json",
+        snapshotWriter: AtomicTextFileWriter = DefaultAtomicTextFileWriter(),
     ): DefaultStrategyPackRepository =
         DefaultStrategyPackRepository(
             context = application,
@@ -223,6 +285,7 @@ class AssetStrategyPackRepositoryTest {
                         nativeVersion = "0.0.4",
                     )
                 },
+            snapshotWriter = snapshotWriter,
         )
 
     private class FakeStrategyPackDownloadService(
@@ -241,6 +304,26 @@ class AssetStrategyPackRepositoryTest {
                 delete()
             }
         }
+}
+
+private class FailingAtomicTextFileWriter(
+    private val partialPayload: String,
+) : AtomicTextFileWriter {
+    override fun write(
+        file: File,
+        payload: String,
+    ) {
+        file.parentFile?.mkdirs()
+        val atomicFile = AtomicFile(file)
+        val output = atomicFile.startWrite()
+        try {
+            output.write(partialPayload.toByteArray(Charsets.UTF_8))
+            throw IOException("Simulated cache write failure")
+        } catch (error: Throwable) {
+            atomicFile.failWrite(output)
+            throw error
+        }
+    }
 }
 
 private fun applicationStrategyPackDefaults() =
