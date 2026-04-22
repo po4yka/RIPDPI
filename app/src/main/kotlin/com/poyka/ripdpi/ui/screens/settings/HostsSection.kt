@@ -241,30 +241,12 @@ internal fun HostPackCatalogStatusCard(
 
 @Composable
 private fun rememberHostPackCatalogStatus(hostPackCatalog: HostPackCatalogUiState): HostPackCatalogStatusContent =
-    when {
-        hostPackCatalog.isRefreshing -> {
-            HostPackCatalogStatusContent(
-                label = stringResource(R.string.host_pack_refresh_status_title),
-                body = stringResource(R.string.host_pack_refresh_status_body),
-                tone = StatusIndicatorTone.Active,
-            )
-        }
-
-        hostPackCatalog.snapshot.source == HostPackCatalogSourceDownloaded -> {
-            HostPackCatalogStatusContent(
-                label = stringResource(R.string.host_pack_downloaded_status_title),
-                body = stringResource(R.string.host_pack_downloaded_status_body),
-                tone = StatusIndicatorTone.Active,
-            )
-        }
-
-        else -> {
-            HostPackCatalogStatusContent(
-                label = stringResource(R.string.host_pack_bundled_status_title),
-                body = stringResource(R.string.host_pack_bundled_status_body),
-                tone = StatusIndicatorTone.Idle,
-            )
-        }
+    hostPackCatalogStatusSpec(hostPackCatalog).let { spec ->
+        HostPackCatalogStatusContent(
+            label = stringResource(spec.labelResId),
+            body = stringResource(spec.bodyResId),
+            tone = spec.tone,
+        )
     }
 
 @Composable
