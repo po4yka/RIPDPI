@@ -36,7 +36,7 @@ impl<'a> ResolvedHostRange<'a> {
     }
 }
 
-pub(crate) fn init_proto_info(buffer: &[u8], info: &mut ProtoInfo) {
+pub fn init_proto_info(buffer: &[u8], info: &mut ProtoInfo) {
     if info.http.is_some() || info.tls.is_some() {
         return;
     }

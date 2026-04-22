@@ -10,13 +10,13 @@ use crate::runtime::relay::failure_retry::retry_logic::{
     classify_first_write_failure, record_stream_relay_success, should_retry_syn_data_without_tfo,
 };
 use crate::runtime::relay::first_exchange::{needs_first_exchange, read_first_response, FirstResponse};
-use crate::runtime::relay::tls_boundary::OutboundTlsFirstRecordAssembler;
+use crate::runtime::relay::tls_boundary::OutboundTlsClientHelloAssembler;
 use crate::runtime::routing::{
     advance_route_for_failure, emit_failure_classified, note_block_signal_for_failure, reconnect_target,
     reconnect_target_without_tfo, should_track_strategy_target,
 };
 use crate::runtime::state::RuntimeState;
-use crate::runtime_policy::{extract_host, ConnectionRoute};
+use crate::runtime_policy::{extract_host, is_tls_client_hello_payload, ConnectionRoute};
 
 pub(crate) struct PreparedRelay {
     pub(crate) upstream: TcpStream,
@@ -68,7 +68,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let host = extract_host(&self.state.config, &original_request);
         success_host = host.clone();
         success_payload = Some(original_request.clone());
-        let is_tls = original_request.first().copied() == Some(0x16);
+        let is_tls = is_tls_client_hello_payload(&original_request);
         let inspect_first_response = needs_first_exchange(self.state)?;
         let mut syn_data_retry_attempted = false;
 
@@ -276,7 +276,7 @@ pub(crate) fn prepare_relay(
 fn read_first_client_payload(client: &mut TcpStream, buffer_size: usize) -> io::Result<Option<Vec<u8>>> {
     let original_timeout = client.read_timeout()?;
     let mut buffer = vec![0u8; buffer_size.max(16_384)];
-    let mut assembler = OutboundTlsFirstRecordAssembler::new();
+    let mut assembler = OutboundTlsClientHelloAssembler::new();
     let result = loop {
         let now = Instant::now();
         let timeout = assembler.timeout(now).unwrap_or(FIRST_OUTBOUND_IDLE_TIMEOUT);
@@ -299,4 +299,59 @@ fn read_first_client_payload(client: &mut TcpStream, buffer_size: usize) -> io::
     };
     let _ = client.set_read_timeout(original_timeout);
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::read_first_client_payload;
+    use std::io::Write;
+    use std::net::{Ipv4Addr, TcpListener, TcpStream};
+    use std::thread;
+    use std::time::Duration;
+
+    mod rust_packet_seeds {
+        include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../ripdpi-packets/tests/rust_packet_seeds.rs"));
+    }
+
+    #[test]
+    fn read_first_client_payload_reassembles_multi_write_client_hello() {
+        let (mut client, mut app) = connected_pair();
+        let payload = build_multi_record_tls_client_hello();
+        let expected = payload.clone();
+
+        let writer = thread::spawn(move || {
+            for chunk in expected.chunks(17) {
+                app.write_all(chunk).expect("write client hello fragment");
+                thread::sleep(Duration::from_millis(2));
+            }
+        });
+
+        let assembled = read_first_client_payload(&mut client, 64).expect("read payload");
+        writer.join().expect("writer thread");
+
+        assert_eq!(assembled, Some(payload));
+    }
+
+    fn build_multi_record_tls_client_hello() -> Vec<u8> {
+        let client_hello = rust_packet_seeds::tls_client_hello();
+        let record_header = &client_hello[..3];
+        let handshake = &client_hello[5..];
+        let split = 96usize.min(handshake.len().saturating_sub(1));
+        let mut payload = Vec::with_capacity(client_hello.len() + 5);
+        payload.extend_from_slice(record_header);
+        payload.extend_from_slice(&(split as u16).to_be_bytes());
+        payload.extend_from_slice(&handshake[..split]);
+        payload.extend_from_slice(record_header);
+        payload.extend_from_slice(&((handshake.len() - split) as u16).to_be_bytes());
+        payload.extend_from_slice(&handshake[split..]);
+        payload
+    }
+
+    fn connected_pair() -> (TcpStream, TcpStream) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind listener");
+        let addr = listener.local_addr().expect("listener addr");
+        let client = TcpStream::connect(addr).expect("connect client");
+        let (server, _) = listener.accept().expect("accept client");
+        (client, server)
+    }
 }
