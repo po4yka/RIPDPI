@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.StrategyPackCatalogSourceBundled
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
 import com.poyka.ripdpi.data.StrategyPackManifest
 import com.poyka.ripdpi.data.StrategyPackSnapshot
+import com.poyka.ripdpi.data.acceptedSequenceOrNull
 import com.poyka.ripdpi.data.checkCompatibility
 import com.poyka.ripdpi.data.normalizeStrategyPackChannel
 import com.poyka.ripdpi.data.strategyPackCatalogFromJson
@@ -24,13 +25,18 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.InputStream
 import java.security.MessageDigest
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 interface StrategyPackRepository {
     suspend fun loadSnapshot(): StrategyPackSnapshot
 
-    suspend fun refreshSnapshot(channel: String = DefaultStrategyPackChannel): StrategyPackSnapshot
+    suspend fun refreshSnapshot(
+        channel: String = DefaultStrategyPackChannel,
+        allowRollbackOverride: Boolean = false,
+    ): StrategyPackSnapshot
 }
 
 fun interface StrategyPackClock {
@@ -76,9 +82,13 @@ class DefaultStrategyPackRepository
                     ?: StrategyPackSnapshot()
             }
 
-        override suspend fun refreshSnapshot(channel: String): StrategyPackSnapshot =
+        override suspend fun refreshSnapshot(
+            channel: String,
+            allowRollbackOverride: Boolean,
+        ): StrategyPackSnapshot =
             withContext(Dispatchers.IO) {
                 val normalizedChannel = normalizeStrategyPackChannel(channel)
+                val previousSnapshot = loadCachedSnapshot()
                 val manifest = loadManifest(normalizedChannel)
                 val downloadedAtEpochMillis = clock.nowEpochMillis()
                 val tempFile = tempFileFactory.create(context.cacheDir)
@@ -97,6 +107,15 @@ class DefaultStrategyPackRepository
 
                     val catalog = parseCatalog(payload)
                     ensureCompatible(catalog)
+                    enforceAntiRollbackPolicy(
+                        catalog = catalog,
+                        downloadedAtEpochMillis = downloadedAtEpochMillis,
+                        acceptedSequence =
+                            previousSnapshot
+                                ?.takeIf { normalizeStrategyPackChannel(it.catalog.channel) == normalizedChannel }
+                                ?.acceptedSequenceOrNull(),
+                        allowRollbackOverride = allowRollbackOverride,
+                    )
                     val snapshot =
                         StrategyPackSnapshot(
                             catalog = catalog,
@@ -140,6 +159,38 @@ class DefaultStrategyPackRepository
             if (!compatibility.isCompatible) {
                 throw StrategyPackCompatibilityException(
                     compatibility.reason ?: "The downloaded strategy pack catalog is incompatible.",
+                )
+            }
+        }
+
+        private fun enforceAntiRollbackPolicy(
+            catalog: StrategyPackCatalog,
+            downloadedAtEpochMillis: Long,
+            acceptedSequence: Long?,
+            allowRollbackOverride: Boolean,
+        ) {
+            val candidateSequence =
+                catalog.sequence.takeIf { it > 0L }
+                    ?: throw StrategyPackMissingSecurityMetadataException(catalog.sequence.takeIf { it > 0L })
+            val issuedAt = catalog.issuedAt.trim()
+            if (issuedAt.isEmpty()) {
+                throw StrategyPackMissingSecurityMetadataException(candidateSequence)
+            }
+            val issuedAtInstant =
+                runCatching { Instant.parse(issuedAt) }.getOrElse {
+                    throw StrategyPackInvalidIssuedAtException(issuedAt, candidateSequence)
+                }
+            val oldestAllowedIssuedAt =
+                Instant
+                    .ofEpochMilli(downloadedAtEpochMillis)
+                    .minus(strategyPackMaxAgeDays, ChronoUnit.DAYS)
+            if (issuedAtInstant.isBefore(oldestAllowedIssuedAt)) {
+                throw StrategyPackStaleCatalogException(issuedAt, candidateSequence)
+            }
+            if (!allowRollbackOverride && acceptedSequence != null && candidateSequence <= acceptedSequence) {
+                throw StrategyPackRollbackRejectedException(
+                    acceptedSequence = acceptedSequence,
+                    rejectedSequence = candidateSequence,
                 )
             }
         }
@@ -231,6 +282,7 @@ abstract class StrategyPackBindingsModule {
 private const val byteUnsignedMask = 0xff
 private const val hexByteBase = 0x100
 private const val hexRadix = 16
+private const val strategyPackMaxAgeDays = 30L
 const val strategyPackCatalogAssetPath = "strategy-packs/catalog.json"
 const val strategyPackCatalogCachePath = "strategy-packs/catalog.snapshot.json"
 const val strategyPackManifestPathPrefix = "poyka/ripdpi-strategy-packs/main"

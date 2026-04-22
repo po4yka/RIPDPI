@@ -1,6 +1,8 @@
 {
   "schemaVersion": 3,
   "generatedAt": "2026-04-18T13:00:00Z",
+  "sequence": 1,
+  "issuedAt": "2026-04-18T13:00:00Z",
   "channel": "stable",
   "minAppVersion": "0.0.4",
   "minNativeVersion": "0.0.4",

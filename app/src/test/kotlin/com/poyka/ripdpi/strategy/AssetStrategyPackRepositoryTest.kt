@@ -79,19 +79,9 @@ class AssetStrategyPackRepositoryTest {
     @Test
     fun `refresh downloads verifies signature and persists downloaded snapshot`() =
         runTest {
-            val catalogPayload = RefreshedCatalogJson
-            val signatureBase64 = catalogPayload.signWith(keyPair)
+            val catalogPayload = refreshedCatalogJson(sequence = 7)
             val checksum = catalogPayload.sha256()
-            val manifest =
-                StrategyPackManifest(
-                    version = "2026.04.1",
-                    channel = StrategyPackChannelStable,
-                    catalogUrl = "https://cdn.example.test/strategy-packs/stable/catalog.json",
-                    catalogChecksumSha256 = checksum,
-                    catalogSignatureBase64 = signatureBase64,
-                    signatureAlgorithm = StrategyPackSignatureAlgorithmSha256WithEcdsa,
-                    keyId = DefaultStrategyPackSigningKeyId,
-                )
+            val manifest = manifestFor(catalogPayload, version = "2026.04.1")
             val tempFile = application.cacheDir.resolve("strategy-pack-refresh-success.json")
             val repository =
                 createRepository(
@@ -103,12 +93,18 @@ class AssetStrategyPackRepositoryTest {
                     tempFileName = tempFile.name,
                 )
 
-            val snapshot = repository.refreshSnapshot(channel = StrategyPackChannelStable)
+            val snapshot =
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
             val reloaded = repository.loadSnapshot()
 
             assertEquals(StrategyPackCatalogSourceDownloaded, snapshot.source)
             assertEquals(checksum, snapshot.verifiedChecksumSha256)
             assertEquals("2026.04.1", snapshot.manifestVersion)
+            assertEquals(7L, snapshot.catalog.sequence)
+            assertEquals(RefreshedCatalogIssuedAt, snapshot.catalog.issuedAt)
             assertEquals(
                 "browser_family_v2",
                 snapshot.catalog.tlsProfiles
@@ -134,19 +130,125 @@ class AssetStrategyPackRepositoryTest {
         }
 
     @Test
+    fun `refresh accepts higher sequence and persists the newer snapshot`() =
+        runTest {
+            val initialPayload = refreshedCatalogJson(sequence = 7)
+            createRepository(
+                service =
+                    FakeStrategyPackDownloadService(
+                        manifestPayload = Json.encodeToString(manifestFor(initialPayload, version = "2026.04.1")),
+                        catalogPayload = initialPayload,
+                    ),
+            ).refreshSnapshot(channel = StrategyPackChannelStable, allowRollbackOverride = false)
+
+            val updatedPayload = refreshedCatalogJson(sequence = 8)
+            val repository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload = Json.encodeToString(manifestFor(updatedPayload, version = "2026.04.2")),
+                            catalogPayload = updatedPayload,
+                        ),
+                )
+
+            val refreshed =
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
+            val reloaded = repository.loadSnapshot()
+
+            assertEquals(8L, refreshed.catalog.sequence)
+            assertEquals(8L, reloaded.catalog.sequence)
+            assertEquals("2026.04.2", reloaded.manifestVersion)
+        }
+
+    @Test
+    fun `refresh rejects equal sequence and preserves the cached snapshot`() =
+        runTest {
+            val initialPayload = refreshedCatalogJson(sequence = 7)
+            val initialSnapshot =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload = Json.encodeToString(manifestFor(initialPayload, version = "2026.04.1")),
+                            catalogPayload = initialPayload,
+                        ),
+                ).refreshSnapshot(channel = StrategyPackChannelStable, allowRollbackOverride = false)
+
+            val equalPayload = refreshedCatalogJson(sequence = 7)
+            val repository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload = Json.encodeToString(manifestFor(equalPayload, version = "2026.04.2")),
+                            catalogPayload = equalPayload,
+                        ),
+                )
+
+            runCatching {
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
+            }.onSuccess { error("Expected anti-rollback rejection for equal sequence") }
+                .onFailure { error ->
+                    assertTrue(error is StrategyPackRollbackRejectedException)
+                }
+
+            val preservedSnapshot = repository.loadSnapshot()
+            assertEquals(initialSnapshot.manifestVersion, preservedSnapshot.manifestVersion)
+            assertEquals(initialSnapshot.catalog.sequence, preservedSnapshot.catalog.sequence)
+        }
+
+    @Test
+    fun `refresh rejects lower sequence and preserves the cached snapshot`() =
+        runTest {
+            val initialPayload = refreshedCatalogJson(sequence = 9)
+            val initialSnapshot =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload = Json.encodeToString(manifestFor(initialPayload, version = "2026.04.9")),
+                            catalogPayload = initialPayload,
+                        ),
+                ).refreshSnapshot(channel = StrategyPackChannelStable, allowRollbackOverride = false)
+
+            val rollbackPayload = refreshedCatalogJson(sequence = 8)
+            val repository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload =
+                                Json.encodeToString(manifestFor(rollbackPayload, version = "2026.04.10")),
+                            catalogPayload = rollbackPayload,
+                        ),
+                )
+
+            runCatching {
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
+            }.onSuccess { error("Expected anti-rollback rejection for lower sequence") }
+                .onFailure { error ->
+                    assertTrue(error is StrategyPackRollbackRejectedException)
+                }
+
+            val preservedSnapshot = repository.loadSnapshot()
+            assertEquals(initialSnapshot.manifestVersion, preservedSnapshot.manifestVersion)
+            assertEquals(initialSnapshot.catalog.sequence, preservedSnapshot.catalog.sequence)
+        }
+
+    @Test
     fun `refresh keeps current snapshot when signature verification fails`() =
         runTest {
-            val catalogPayload = RefreshedCatalogJson
-            val checksum = catalogPayload.sha256()
+            val catalogPayload = refreshedCatalogJson(sequence = 7)
             val manifest =
-                StrategyPackManifest(
+                manifestFor(
+                    catalogPayload = catalogPayload,
                     version = "2026.04.2",
-                    channel = StrategyPackChannelStable,
-                    catalogUrl = "https://cdn.example.test/strategy-packs/stable/catalog.json",
-                    catalogChecksumSha256 = checksum,
-                    catalogSignatureBase64 = Base64.getEncoder().encodeToString(ByteArray(64)),
-                    signatureAlgorithm = StrategyPackSignatureAlgorithmSha256WithEcdsa,
-                    keyId = DefaultStrategyPackSigningKeyId,
+                    signatureBase64 = Base64.getEncoder().encodeToString(ByteArray(64)),
                 )
             val repository =
                 createRepository(
@@ -157,14 +259,49 @@ class AssetStrategyPackRepositoryTest {
                         ),
                 )
 
-            runCatching { repository.refreshSnapshot() }
-                .onSuccess { error("Expected signature verification to fail") }
+            runCatching {
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
+            }.onSuccess { error("Expected signature verification to fail") }
                 .onFailure { error ->
                     assertTrue(error is StrategyPackSignatureMismatchException)
                 }
 
             val fallbackSnapshot = repository.loadSnapshot()
             assertEquals(StrategyPackCatalogSourceBundled, fallbackSnapshot.source)
+        }
+
+    @Test
+    fun `refresh still rejects signature mismatch when rollback override is enabled`() =
+        runTest {
+            val catalogPayload = refreshedCatalogJson(sequence = 7)
+            val repository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload =
+                                Json.encodeToString(
+                                    manifestFor(
+                                        catalogPayload = catalogPayload,
+                                        version = "2026.04.2",
+                                        signatureBase64 = Base64.getEncoder().encodeToString(ByteArray(64)),
+                                    ),
+                                ),
+                            catalogPayload = catalogPayload,
+                        ),
+                )
+
+            runCatching {
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = true,
+                )
+            }.onSuccess { error("Expected signature verification to fail") }
+                .onFailure { error ->
+                    assertTrue(error is StrategyPackSignatureMismatchException)
+                }
         }
 
     @Test
@@ -200,8 +337,12 @@ class AssetStrategyPackRepositoryTest {
                         ),
                 )
 
-            runCatching { repository.refreshSnapshot() }
-                .onSuccess { error("Expected compatibility gating to fail") }
+            runCatching {
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
+            }.onSuccess { error("Expected compatibility gating to fail") }
                 .onFailure { error ->
                     assertTrue(error is StrategyPackCompatibilityException)
                 }
@@ -212,19 +353,159 @@ class AssetStrategyPackRepositoryTest {
         }
 
     @Test
+    fun `refresh rejects stale issuedAt and preserves the cached snapshot`() =
+        runTest {
+            val initialPayload = refreshedCatalogJson(sequence = 7)
+            createRepository(
+                service =
+                    FakeStrategyPackDownloadService(
+                        manifestPayload = Json.encodeToString(manifestFor(initialPayload, version = "2026.04.1")),
+                        catalogPayload = initialPayload,
+                    ),
+            ).refreshSnapshot(channel = StrategyPackChannelStable, allowRollbackOverride = false)
+
+            val stalePayload = refreshedCatalogJson(sequence = 8, issuedAt = "2024-03-01T00:00:00Z")
+            val repository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload = Json.encodeToString(manifestFor(stalePayload, version = "2026.04.3")),
+                            catalogPayload = stalePayload,
+                        ),
+                )
+
+            runCatching {
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
+            }.onSuccess { error("Expected stale catalog rejection") }
+                .onFailure { error ->
+                    assertTrue(error is StrategyPackStaleCatalogException)
+                }
+
+            val preservedSnapshot = repository.loadSnapshot()
+            assertEquals(7L, preservedSnapshot.catalog.sequence)
+            assertEquals("2026.04.1", preservedSnapshot.manifestVersion)
+        }
+
+    @Test
+    fun `refresh rejects missing anti rollback metadata`() =
+        runTest {
+            val missingMetadataPayload =
+                refreshedCatalogJson()
+                    .replace("  \"sequence\": 7,\n", "")
+                    .replace("  \"issuedAt\": \"$RefreshedCatalogIssuedAt\",\n", "")
+            val repository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload =
+                                Json.encodeToString(manifestFor(missingMetadataPayload, version = "2026.04.4")),
+                            catalogPayload = missingMetadataPayload,
+                        ),
+                )
+
+            runCatching {
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
+            }.onSuccess { error("Expected missing metadata rejection") }
+                .onFailure { error ->
+                    assertTrue(error is StrategyPackMissingSecurityMetadataException)
+                }
+        }
+
+    @Test
+    fun `refresh rejects invalid issuedAt metadata`() =
+        runTest {
+            val invalidIssuedAtPayload = refreshedCatalogJson(issuedAt = "not-a-timestamp")
+            val repository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload =
+                                Json.encodeToString(manifestFor(invalidIssuedAtPayload, version = "2026.04.5")),
+                            catalogPayload = invalidIssuedAtPayload,
+                        ),
+                )
+
+            runCatching {
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
+            }.onSuccess { error("Expected invalid issuedAt rejection") }
+                .onFailure { error ->
+                    assertTrue(error is StrategyPackInvalidIssuedAtException)
+                }
+        }
+
+    @Test
+    fun `refresh allows equal or lower sequence when rollback override is enabled`() =
+        runTest {
+            val initialPayload = refreshedCatalogJson(sequence = 9)
+            createRepository(
+                service =
+                    FakeStrategyPackDownloadService(
+                        manifestPayload = Json.encodeToString(manifestFor(initialPayload, version = "2026.04.9")),
+                        catalogPayload = initialPayload,
+                    ),
+            ).refreshSnapshot(channel = StrategyPackChannelStable, allowRollbackOverride = false)
+
+            val overridePayload = refreshedCatalogJson(sequence = 8)
+            val repository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload =
+                                Json.encodeToString(manifestFor(overridePayload, version = "2026.04.10")),
+                            catalogPayload = overridePayload,
+                        ),
+                )
+
+            val refreshed =
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = true,
+                )
+            val reloaded = repository.loadSnapshot()
+
+            assertEquals(8L, refreshed.catalog.sequence)
+            assertEquals(8L, reloaded.catalog.sequence)
+            assertEquals("2026.04.10", reloaded.manifestVersion)
+        }
+
+    @Test
+    fun `refresh override does not bypass stale catalog policy`() =
+        runTest {
+            val stalePayload = refreshedCatalogJson(sequence = 7, issuedAt = "2024-03-01T00:00:00Z")
+            val repository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload = Json.encodeToString(manifestFor(stalePayload, version = "2026.04.11")),
+                            catalogPayload = stalePayload,
+                        ),
+                )
+
+            runCatching {
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = true,
+                )
+            }.onSuccess { error("Expected stale catalog rejection") }
+                .onFailure { error ->
+                    assertTrue(error is StrategyPackStaleCatalogException)
+                }
+        }
+
+    @Test
     fun `refresh preserves previous cached snapshot when atomic cache write fails`() =
         runTest {
-            val initialCatalogPayload = RefreshedCatalogJson
-            val initialManifest =
-                StrategyPackManifest(
-                    version = "2026.04.4",
-                    channel = StrategyPackChannelStable,
-                    catalogUrl = "https://cdn.example.test/strategy-packs/stable/catalog-v1.json",
-                    catalogChecksumSha256 = initialCatalogPayload.sha256(),
-                    catalogSignatureBase64 = initialCatalogPayload.signWith(keyPair),
-                    signatureAlgorithm = StrategyPackSignatureAlgorithmSha256WithEcdsa,
-                    keyId = DefaultStrategyPackSigningKeyId,
-                )
+            val initialCatalogPayload = refreshedCatalogJson(sequence = 7)
+            val initialManifest = manifestFor(initialCatalogPayload, version = "2026.04.4")
             val initialRepository =
                 createRepository(
                     service =
@@ -234,18 +515,14 @@ class AssetStrategyPackRepositoryTest {
                         ),
                 )
 
-            val initialSnapshot = initialRepository.refreshSnapshot()
-            val corruptedPayload = RefreshedCatalogJson.replace("mobile-2026", "mobile-2026-next")
-            val failingManifest =
-                StrategyPackManifest(
-                    version = "2026.04.5",
+            val initialSnapshot =
+                initialRepository.refreshSnapshot(
                     channel = StrategyPackChannelStable,
-                    catalogUrl = "https://cdn.example.test/strategy-packs/stable/catalog-v2.json",
-                    catalogChecksumSha256 = corruptedPayload.sha256(),
-                    catalogSignatureBase64 = corruptedPayload.signWith(keyPair),
-                    signatureAlgorithm = StrategyPackSignatureAlgorithmSha256WithEcdsa,
-                    keyId = DefaultStrategyPackSigningKeyId,
+                    allowRollbackOverride = false,
                 )
+            val corruptedPayload =
+                refreshedCatalogJson(sequence = 8).replace("mobile-2026", "mobile-2026-next")
+            val failingManifest = manifestFor(corruptedPayload, version = "2026.04.5")
             val failingRepository =
                 createRepository(
                     service =
@@ -256,8 +533,12 @@ class AssetStrategyPackRepositoryTest {
                     snapshotWriter = CorruptFileFixture("torn").failingWriter(),
                 )
 
-            runCatching { failingRepository.refreshSnapshot() }
-                .onSuccess { error("Expected atomic cache write to fail") }
+            runCatching {
+                failingRepository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
+            }.onSuccess { error("Expected atomic cache write to fail") }
                 .onFailure { error ->
                     assertTrue(error is IOException)
                 }
@@ -304,6 +585,21 @@ class AssetStrategyPackRepositoryTest {
                 delete()
             }
         }
+
+    private fun manifestFor(
+        catalogPayload: String,
+        version: String,
+        signatureBase64: String = catalogPayload.signWith(keyPair),
+    ): StrategyPackManifest =
+        StrategyPackManifest(
+            version = version,
+            channel = StrategyPackChannelStable,
+            catalogUrl = "https://cdn.example.test/strategy-packs/stable/catalog.json",
+            catalogChecksumSha256 = catalogPayload.sha256(),
+            catalogSignatureBase64 = signatureBase64,
+            signatureAlgorithm = StrategyPackSignatureAlgorithmSha256WithEcdsa,
+            keyId = DefaultStrategyPackSigningKeyId,
+        )
 }
 
 private fun applicationStrategyPackDefaults() =
@@ -311,11 +607,24 @@ private fun applicationStrategyPackDefaults() =
         .defaultValue
         .toStrategyPackSettingsModel()
 
+private const val RefreshedCatalogSequence = 7L
+private const val RefreshedCatalogIssuedAt = "2024-04-05T13:00:00Z"
+
+private fun refreshedCatalogJson(
+    sequence: Long = RefreshedCatalogSequence,
+    issuedAt: String = RefreshedCatalogIssuedAt,
+): String =
+    RefreshedCatalogJson
+        .replace("\"sequence\": $RefreshedCatalogSequence,", "\"sequence\": $sequence,")
+        .replace("\"issuedAt\": \"$RefreshedCatalogIssuedAt\",", "\"issuedAt\": \"$issuedAt\",")
+
 private val RefreshedCatalogJson =
     """
     {
       "schemaVersion": 3,
-      "generatedAt": "2026-04-18T13:00:00Z",
+      "generatedAt": "2024-04-05T13:00:00Z",
+      "sequence": 7,
+      "issuedAt": "2024-04-05T13:00:00Z",
       "channel": "stable",
       "minAppVersion": "0.0.4",
       "minNativeVersion": "0.0.4",

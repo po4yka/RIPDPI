@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.strategy
 
 import com.poyka.ripdpi.data.StrategyPackManifest
+import com.poyka.ripdpi.data.StrategyPackRefreshFailureCode
 import com.poyka.ripdpi.data.StrategyPackSignatureAlgorithmSha256WithEcdsa
 import com.poyka.ripdpi.security.AppTrustedSigningKeyResolver
 import dagger.Binds
@@ -16,7 +17,10 @@ import javax.inject.Singleton
 open class StrategyPackRefreshException(
     message: String,
     cause: Throwable? = null,
-) : IOException(message, cause)
+) : IOException(message, cause) {
+    open val failureCode: StrategyPackRefreshFailureCode? = null
+    open val rejectedSequence: Long? = null
+}
 
 class StrategyPackChecksumFormatException :
     StrategyPackRefreshException("The strategy pack manifest checksum was not a valid SHA-256 digest.")
@@ -48,6 +52,42 @@ class StrategyPackCatalogParseException(
 class StrategyPackCompatibilityException(
     reason: String,
 ) : StrategyPackRefreshException(reason)
+
+class StrategyPackMissingSecurityMetadataException(
+    override val rejectedSequence: Long? = null,
+) : StrategyPackRefreshException(
+        "The downloaded strategy pack catalog is missing required anti-rollback metadata.",
+    ) {
+    override val failureCode: StrategyPackRefreshFailureCode = StrategyPackRefreshFailureCode.MissingSecurityMetadata
+}
+
+class StrategyPackInvalidIssuedAtException(
+    issuedAt: String,
+    override val rejectedSequence: Long? = null,
+) : StrategyPackRefreshException(
+        "The downloaded strategy pack catalog issuedAt timestamp is invalid: $issuedAt",
+    ) {
+    override val failureCode: StrategyPackRefreshFailureCode = StrategyPackRefreshFailureCode.InvalidIssuedAt
+}
+
+class StrategyPackStaleCatalogException(
+    issuedAt: String,
+    override val rejectedSequence: Long? = null,
+) : StrategyPackRefreshException(
+        "The downloaded strategy pack catalog is stale (issuedAt=$issuedAt).",
+    ) {
+    override val failureCode: StrategyPackRefreshFailureCode = StrategyPackRefreshFailureCode.StaleCatalog
+}
+
+class StrategyPackRollbackRejectedException(
+    val acceptedSequence: Long,
+    override val rejectedSequence: Long,
+) : StrategyPackRefreshException(
+        "The downloaded strategy pack catalog sequence $rejectedSequence is not newer than the " +
+            "accepted sequence $acceptedSequence.",
+    ) {
+    override val failureCode: StrategyPackRefreshFailureCode = StrategyPackRefreshFailureCode.RollbackRejected
+}
 
 interface StrategyPackVerifier {
     @Throws(StrategyPackRefreshException::class)

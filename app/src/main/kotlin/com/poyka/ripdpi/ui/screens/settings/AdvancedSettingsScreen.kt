@@ -52,6 +52,7 @@ internal enum class AdvancedToggleSetting {
     UseCommandLine,
     DiagnosticsMonitorEnabled,
     DiagnosticsExportIncludeHistory,
+    StrategyPackAllowRollbackOverride,
     NoDomain,
     TcpFastOpen,
     DropSack,

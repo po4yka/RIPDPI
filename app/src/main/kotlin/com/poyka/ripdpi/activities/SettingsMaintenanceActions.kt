@@ -170,7 +170,6 @@ internal class SettingsMaintenanceActions(
     }
 
     fun refreshStrategyPackCatalog() {
-        val previousState = strategyPackCatalogState.value.runtimeState
         strategyPackCatalogState.update { current ->
             current.copy(isRefreshing = true)
         }
@@ -180,7 +179,7 @@ internal class SettingsMaintenanceActions(
             }.onFailure { error ->
                 strategyPackCatalogState.value =
                     StrategyPackCatalogUiState(
-                        runtimeState = previousState,
+                        runtimeState = strategyPackStateStore.state.value,
                         isRefreshing = false,
                     )
                 emit(

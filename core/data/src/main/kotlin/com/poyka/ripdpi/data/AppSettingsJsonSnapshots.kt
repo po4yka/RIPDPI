@@ -133,6 +133,7 @@ internal data class AppSettingsSnapshot(
     val strategyPackPinnedId: String = defaultSettings.strategyPackPinnedId,
     val strategyPackPinnedVersion: String = defaultSettings.strategyPackPinnedVersion,
     val strategyPackRefreshPolicy: String = defaultSettings.strategyPackRefreshPolicy,
+    val strategyPackAllowRollbackOverride: Boolean = defaultSettings.strategyPackAllowRollbackOverride,
     val adaptiveFallbackEnabled: Boolean = defaultSettings.adaptiveFallbackEnabled,
     val adaptiveFallbackTorst: Boolean = defaultSettings.adaptiveFallbackTorst,
     val adaptiveFallbackTlsErr: Boolean = defaultSettings.adaptiveFallbackTlsErr,
