@@ -48,8 +48,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use ring::digest;
 use ripdpi_config::{DesyncGroup, OffsetBase, QuicFakeProfile, TcpChainStepKind, UdpChainStepKind};
 use ripdpi_desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
-use ripdpi_packets::{is_quic_initial, is_tls_client_hello};
+use ripdpi_packets::is_quic_initial;
 use serde::{Deserialize, Serialize};
+
+use crate::runtime_policy::is_tls_client_hello_payload;
 
 const ADAPTIVE_RETRY_WINDOW_MS: u64 = 15_000;
 const ADAPTIVE_TUNING_STORE_VERSION: u32 = 1;
@@ -372,7 +374,7 @@ impl AdaptivePlannerState {
     }
 
     fn sync_tcp_candidates(&mut self, group: &DesyncGroup, payload: &[u8]) {
-        let tls_payload = is_tls_client_hello(payload);
+        let tls_payload = is_tls_client_hello_payload(payload);
         sync_choice(&mut self.split_offset_base, split_offset_candidates(group, tls_payload));
         sync_choice(&mut self.tls_record_offset_base, tls_record_offset_candidates(group));
         sync_choice(&mut self.tlsrandrec_profile, tlsrandrec_profile_candidates(group));
@@ -551,7 +553,7 @@ fn adaptive_key(
 }
 
 fn tcp_flow_kind(payload: &[u8]) -> AdaptiveFlowKind {
-    if is_tls_client_hello(payload) {
+    if is_tls_client_hello_payload(payload) {
         AdaptiveFlowKind::TcpTls
     } else {
         AdaptiveFlowKind::TcpOther

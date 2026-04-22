@@ -61,14 +61,18 @@ mod tests {
     use super::failure_retry::retry_logic::classify_first_write_failure;
     use super::first_exchange::{first_response_timeout, response_trigger_supported, timeout_count_limit};
     use super::tls_boundary::{
-        OutboundTlsFirstRecordAssembler, TlsRecordBoundaryTracker, FIRST_TLS_RECORD_ASSEMBLY_TIMEOUT,
-        FIRST_TLS_RECORD_BYTES_LIMIT,
+        OutboundTlsClientHelloAssembler, TlsRecordBoundaryTracker, FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT,
+        FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
     };
     use super::*;
     use ripdpi_config::{RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST};
     use ripdpi_failure_classifier::{FailureAction, FailureClass, FailureStage};
     use ripdpi_packets::DEFAULT_FAKE_TLS;
     use ripdpi_session::TriggerEvent;
+
+    mod rust_packet_seeds {
+        include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../ripdpi-packets/tests/rust_packet_seeds.rs"));
+    }
 
     #[test]
     fn first_write_desync_capability_errors_classify_as_strategy_execution_failures() {
@@ -211,7 +215,7 @@ mod tests {
 
         let mut tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         tracker.observe(&[0x16, 0x03, 0x03, 0xff, 0xff]);
-        tracker.observe(&vec![0xaa; FIRST_TLS_RECORD_BYTES_LIMIT - 5]);
+        tracker.observe(&vec![0xaa; FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT - 5]);
         assert!(tracker.active());
         tracker.observe(&[0xbb]);
 
@@ -226,7 +230,7 @@ mod tests {
 
         let mut tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, &config);
         tracker.observe(&[0x16, 0x03, 0x03, 0xff, 0xff]);
-        tracker.observe(&vec![0xaa; FIRST_TLS_RECORD_BYTES_LIMIT - 5]);
+        tracker.observe(&vec![0xaa; FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT - 5]);
         assert!(tracker.active());
         tracker.observe(&[0xbb]);
 
@@ -273,8 +277,8 @@ mod tests {
     }
 
     #[test]
-    fn outbound_tls_first_record_assembler_buffers_partial_client_hello_until_complete() {
-        let mut assembler = OutboundTlsFirstRecordAssembler::new();
+    fn outbound_tls_client_hello_assembler_buffers_partial_client_hello_until_complete() {
+        let mut assembler = OutboundTlsClientHelloAssembler::new();
         let start = Instant::now();
 
         assert!(assembler.push(&[0x16, 0x03, 0x03, 0x00], start).is_none());
@@ -288,8 +292,38 @@ mod tests {
     }
 
     #[test]
-    fn outbound_tls_first_record_assembler_falls_back_for_invalid_header() {
-        let mut assembler = OutboundTlsFirstRecordAssembler::new();
+    fn outbound_tls_client_hello_assembler_reassembles_multi_record_client_hello() {
+        let client_hello = rust_packet_seeds::tls_client_hello();
+        let record_header = &client_hello[..3];
+        let handshake = &client_hello[5..];
+        let split = 96usize.min(handshake.len().saturating_sub(1));
+        let first = &handshake[..split];
+        let second = &handshake[split..];
+        let mut multi_record = Vec::with_capacity(client_hello.len() + 5);
+        multi_record.extend_from_slice(record_header);
+        multi_record.extend_from_slice(&(first.len() as u16).to_be_bytes());
+        multi_record.extend_from_slice(first);
+        multi_record.extend_from_slice(record_header);
+        multi_record.extend_from_slice(&(second.len() as u16).to_be_bytes());
+        multi_record.extend_from_slice(second);
+
+        let mut assembler = OutboundTlsClientHelloAssembler::new();
+        let start = Instant::now();
+        let boundary = split + 5;
+
+        assert!(assembler.push(&multi_record[..boundary], start).is_none());
+        assert!(assembler.is_buffering());
+        let payload = assembler
+            .push(&multi_record[boundary..], start + Duration::from_millis(10))
+            .expect("completed multi-record client hello");
+
+        assert_eq!(payload, multi_record);
+        assert!(!assembler.is_buffering());
+    }
+
+    #[test]
+    fn outbound_tls_client_hello_assembler_falls_back_for_invalid_header() {
+        let mut assembler = OutboundTlsClientHelloAssembler::new();
         let payload =
             assembler.push(&[0x16, 0x00, 0x00, 0x00, 0x01, 0xff], Instant::now()).expect("invalid header should flush");
 
@@ -298,8 +332,19 @@ mod tests {
     }
 
     #[test]
-    fn outbound_tls_first_record_assembler_flushes_partial_record_after_timeout() {
-        let mut assembler = OutboundTlsFirstRecordAssembler::new();
+    fn outbound_tls_client_hello_assembler_keeps_non_tls_flows_on_fast_path() {
+        let payload = b"GET / HTTP/1.1\r\nHost: example.org\r\n\r\n";
+        let mut assembler = OutboundTlsClientHelloAssembler::new();
+
+        let flushed = assembler.push(payload, Instant::now()).expect("non-tls flows should flush immediately");
+
+        assert_eq!(flushed, payload);
+        assert!(!assembler.is_buffering());
+    }
+
+    #[test]
+    fn outbound_tls_client_hello_assembler_flushes_partial_record_after_timeout() {
+        let mut assembler = OutboundTlsClientHelloAssembler::new();
         let start = Instant::now();
 
         assert!(assembler.push(&[0x16, 0x03], start).is_none());
@@ -307,7 +352,7 @@ mod tests {
         assert!(assembler.flush_on_timeout(start + Duration::from_millis(50)).is_none());
 
         let payload = assembler
-            .flush_on_timeout(start + FIRST_TLS_RECORD_ASSEMBLY_TIMEOUT + Duration::from_millis(1))
+            .flush_on_timeout(start + FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT + Duration::from_millis(1))
             .expect("partial tls record should flush on timeout");
         assert_eq!(payload, vec![0x16, 0x03]);
         assert!(!assembler.is_buffering());

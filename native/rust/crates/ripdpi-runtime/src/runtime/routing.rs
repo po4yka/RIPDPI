@@ -17,7 +17,7 @@ use ripdpi_session::{
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use crate::platform;
-use crate::runtime_policy::{ConnectionRoute, RouteAdvance, TransportProtocol};
+use crate::runtime_policy::{is_tls_client_hello_payload, ConnectionRoute, RouteAdvance, TransportProtocol};
 use crate::ws_bootstrap::{build_encrypted_dns_resolver, encrypted_dns_label, runtime_encrypted_dns_context};
 
 use super::adaptive::{note_adaptive_fake_ttl_failure, note_adaptive_tcp_failure, note_evolver_failure};
@@ -355,7 +355,7 @@ pub(super) fn classify_response_failure(
     response: &[u8],
     host: Option<&str>,
 ) -> Option<ClassifiedFailure> {
-    if response.starts_with(b"HTTP/1.") && ripdpi_packets::is_tls_client_hello(request) {
+    if response.starts_with(b"HTTP/1.") && is_tls_client_hello_payload(request) {
         if let Some(host) = host {
             if let Some(dns_tampering) = confirm_dns_tampering_for_host(state, host, target.ip()) {
                 return Some(dns_tampering);

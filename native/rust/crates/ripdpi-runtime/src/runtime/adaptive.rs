@@ -15,11 +15,12 @@ use std::net::SocketAddr;
 
 use ripdpi_config::{DesyncGroup, QuicFakeProfile, RuntimeConfig};
 use ripdpi_desync::{AdaptivePlannerHints, AdaptiveUdpBurstProfile};
-use ripdpi_packets::{is_quic_initial, is_tls_client_hello, parse_quic_initial, tls_marker_info};
+use ripdpi_packets::{is_quic_initial, parse_quic_initial, tls_marker_info};
 use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
 
 use super::morph::{apply_tcp_morph_policy_to_hints, apply_udp_morph_policy_to_hints, emit_morph_rollback};
 use super::state::RuntimeState;
+use crate::runtime_policy::is_tls_client_hello_payload;
 use crate::strategy_evolver::{
     CapabilityContext, LearningAlpnClass, LearningContext, LearningHostingFamily, LearningReachabilitySet,
     LearningTargetBucket, LearningTransportKind, ResolverHealthClass,
@@ -113,7 +114,7 @@ fn tcp_learning_context(
     payload: &[u8],
 ) -> LearningContext {
     let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
-    let is_tls = is_tls_client_hello(payload);
+    let is_tls = is_tls_client_hello_payload(payload);
     let has_ech = is_tls && tls_marker_info(payload).and_then(|markers| markers.ech_ext_start).is_some();
     LearningContext {
         network_identity: network_scope_key(&state.config).map(ToOwned::to_owned),

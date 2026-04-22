@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 
 use ripdpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig};
+use ripdpi_desync::{init_proto_info, ProtoInfo};
 use ripdpi_packets::classify::{default_registry, ProtocolId};
 use ripdpi_packets::{is_http, is_tls_client_hello, parse_quic_initial, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP};
 
@@ -16,11 +17,23 @@ pub(crate) fn extract_host_info(config: &RuntimeConfig, payload: &[u8]) -> Optio
             return Some(ExtractedHost { host, source });
         }
     }
+    if let Some(host) = extract_tls_host(payload) {
+        return Some(ExtractedHost { host, source: HostSource::Tls });
+    }
     extract_quic_host(config, payload)
 }
 
 pub(crate) fn extract_host(config: &RuntimeConfig, payload: &[u8]) -> Option<String> {
     extract_host_info(config, payload).map(|host| host.host)
+}
+
+pub(crate) fn is_tls_client_hello_payload(payload: &[u8]) -> bool {
+    if is_tls_client_hello(payload) {
+        return true;
+    }
+    let mut info = ProtoInfo::default();
+    init_proto_info(payload, &mut info);
+    info.is_tls_client_hello()
 }
 
 pub(crate) fn group_requires_payload(group: &DesyncGroup) -> bool {
@@ -97,7 +110,7 @@ fn matches_payload(config: &RuntimeConfig, group: &DesyncGroup, payload: &[u8]) 
         if l7 != 0 {
             let disable = group.matches.payload_disable;
             let http = (disable & IS_HTTP) == 0 && is_http(payload);
-            let tls = (disable & IS_HTTPS) == 0 && is_tls_client_hello(payload);
+            let tls = (disable & IS_HTTPS) == 0 && is_tls_client_hello_payload(payload);
             if ((l7 & IS_HTTP) != 0 && http) || ((l7 & IS_HTTPS) != 0 && tls) {
             } else {
                 return false;
@@ -120,6 +133,13 @@ fn extract_quic_host(config: &RuntimeConfig, payload: &[u8]) -> Option<Extracted
     let allowed = (info.version == 0x0000_0001 && config.quic.support_v1)
         || (info.version == 0x6b33_43cf && config.quic.support_v2);
     allowed.then(|| ExtractedHost { host: String::from_utf8_lossy(info.host()).into_owned(), source: HostSource::Quic })
+}
+
+fn extract_tls_host(payload: &[u8]) -> Option<String> {
+    let mut info = ProtoInfo::default();
+    init_proto_info(payload, &mut info);
+    let host = info.tls_host_bytes()?;
+    Some(String::from_utf8_lossy(host).into_owned())
 }
 
 #[cfg(test)]
@@ -218,6 +238,19 @@ mod tests {
     }
 
     #[test]
+    fn multi_record_tls_client_hello_still_matches_https_and_extracts_host() {
+        let packet = build_multi_record_tls_client_hello();
+        let mut group = DesyncGroup::new(0);
+        group.matches.proto = IS_TCP | IS_HTTPS;
+        group.matches.filters.hosts.push("www.wikipedia.org".to_string());
+        let config = config_with_groups(vec![group]);
+
+        assert!(is_tls_client_hello_payload(&packet));
+        assert_eq!(extract_host(&config, &packet).as_deref(), Some("www.wikipedia.org"));
+        assert!(route_matches_payload(&config, 0, sample_dest(443), &packet, TransportProtocol::Tcp));
+    }
+
+    #[test]
     fn udp_host_filters_match_quic_initial_payloads() {
         let mut group = DesyncGroup::new(0);
         group.matches.proto = IS_UDP;
@@ -266,5 +299,20 @@ mod tests {
         config.quic.support_v2 = false;
 
         assert_eq!(extract_host(&config, &packet), None);
+    }
+
+    fn build_multi_record_tls_client_hello() -> Vec<u8> {
+        let client_hello = rust_packet_seeds::tls_client_hello();
+        let record_header = &client_hello[..3];
+        let handshake = &client_hello[5..];
+        let split = 96usize.min(handshake.len().saturating_sub(1));
+        let mut payload = Vec::with_capacity(client_hello.len() + 5);
+        payload.extend_from_slice(record_header);
+        payload.extend_from_slice(&(split as u16).to_be_bytes());
+        payload.extend_from_slice(&handshake[..split]);
+        payload.extend_from_slice(record_header);
+        payload.extend_from_slice(&((handshake.len() - split) as u16).to_be_bytes());
+        payload.extend_from_slice(&handshake[split..]);
+        payload
     }
 }

@@ -2,10 +2,10 @@ use std::net::SocketAddr;
 
 use ripdpi_config::{DesyncGroup, EntropyMode, QuicFakeProfile, TcpChainStepKind};
 use ripdpi_desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
-use ripdpi_packets::is_tls_client_hello;
 use ripdpi_proxy_config::ProxyMorphPolicy;
 
 use super::state::RuntimeState;
+use crate::runtime_policy::is_tls_client_hello_payload;
 
 pub(super) fn current_morph_policy(state: &RuntimeState) -> Option<&ProxyMorphPolicy> {
     state.runtime_context.as_ref()?.morph_policy.as_ref()
@@ -52,7 +52,7 @@ pub(super) fn apply_tcp_morph_policy_to_group(
         return group.clone();
     };
     let mut morphed = group.clone();
-    let is_tls = is_tls_client_hello(payload);
+    let is_tls = is_tls_client_hello_payload(payload);
 
     if policy.entropy_target_permil > 0 {
         morphed.actions.entropy_mode = EntropyMode::Popcount;
@@ -110,7 +110,7 @@ pub(super) fn tcp_morph_hint_family(
     hints: AdaptivePlannerHints,
 ) -> Option<String> {
     let policy = current_morph_policy(state)?;
-    let cadence = if is_tls_client_hello(payload) { "tls" } else { "tcp" };
+    let cadence = if is_tls_client_hello_payload(payload) { "tls" } else { "tcp" };
     let record_profile = match hints.tlsrandrec_profile.unwrap_or(AdaptiveTlsRandRecProfile::Balanced) {
         AdaptiveTlsRandRecProfile::Balanced => "balanced",
         AdaptiveTlsRandRecProfile::Tight => "tight",
