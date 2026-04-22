@@ -10,24 +10,27 @@ import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.http.GET
 import retrofit2.http.Streaming
+import retrofit2.http.Url
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 interface HostPackCatalogDownloadService {
-    suspend fun downloadGeosite(): Response<ResponseBody>
+    suspend fun downloadManifest(): Response<ResponseBody>
 
-    suspend fun downloadChecksum(): Response<ResponseBody>
+    suspend fun downloadCatalog(url: String): Response<ResponseBody>
 }
 
 private interface HostPackCatalogDownloadApi {
-    @Streaming
-    @GET("runetfreedom/russia-blocked-geosite/release/geosite.dat")
-    suspend fun downloadGeosite(): Response<ResponseBody>
+    @GET("runetfreedom/russia-blocked-geosite/release/manifest.json")
+    suspend fun downloadManifest(): Response<ResponseBody>
 
-    @GET("runetfreedom/russia-blocked-geosite/release/geosite.dat.sha256sum")
-    suspend fun downloadChecksum(): Response<ResponseBody>
+    @Streaming
+    @GET
+    suspend fun downloadCatalog(
+        @Url url: String,
+    ): Response<ResponseBody>
 }
 
 @Singleton
@@ -36,16 +39,18 @@ class DefaultHostPackCatalogDownloadService
     constructor(
         private val tlsClientFactory: OwnedTlsClientFactory,
     ) : HostPackCatalogDownloadService {
-        override suspend fun downloadGeosite(): Response<ResponseBody> = api().downloadGeosite()
+        override suspend fun downloadManifest(): Response<ResponseBody> =
+            api(authority = hostPackCatalogBaseUrl.authorityFromUrl()).downloadManifest()
 
-        override suspend fun downloadChecksum(): Response<ResponseBody> = api().downloadChecksum()
+        override suspend fun downloadCatalog(url: String): Response<ResponseBody> =
+            api(authority = url.authorityFromUrl()).downloadCatalog(url)
 
-        private fun api(): HostPackCatalogDownloadApi =
+        private fun api(authority: String?): HostPackCatalogDownloadApi =
             Retrofit
                 .Builder()
                 .baseUrl(hostPackCatalogBaseUrl)
                 .client(
-                    tlsClientFactory.createForAuthority(authority = hostPackCatalogBaseUrl.authorityFromUrl()) {
+                    tlsClientFactory.createForAuthority(authority = authority) {
                         connectTimeout(connectTimeoutSeconds, TimeUnit.SECONDS)
                         readTimeout(readTimeoutSeconds, TimeUnit.SECONDS)
                         callTimeout(callTimeoutSeconds, TimeUnit.SECONDS)

@@ -4,14 +4,15 @@ import android.content.Context
 import com.poyka.ripdpi.data.HostPackCatalog
 import com.poyka.ripdpi.data.HostPackCatalogRemoteSourceName
 import com.poyka.ripdpi.data.HostPackCatalogRemoteSourceRef
-import com.poyka.ripdpi.data.HostPackCatalogRemoteSourceUrl
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.HostPackCatalogSourceBundled
 import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded
+import com.poyka.ripdpi.data.HostPackManifest
 import com.poyka.ripdpi.data.HostPackSource
 import com.poyka.ripdpi.data.curatedHostPackCatalogFromGeosite
 import com.poyka.ripdpi.data.hostPackCatalogFromJson
 import com.poyka.ripdpi.data.hostPackCatalogSnapshotFromJson
+import com.poyka.ripdpi.data.hostPackManifestFromJson
 import com.poyka.ripdpi.data.toJson
 import com.poyka.ripdpi.proto.GeositeCatalog
 import dagger.Binds
@@ -29,7 +30,6 @@ import java.io.InputStream
 import java.security.MessageDigest
 import java.time.Instant
 import java.time.temporal.ChronoUnit
-import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -71,12 +71,12 @@ open class HostPackRefreshException(
 ) : IOException(message, cause)
 
 class HostPackChecksumFormatException :
-    HostPackRefreshException("The remote checksum payload did not contain a valid SHA-256 digest.")
+    HostPackRefreshException("The host pack manifest checksum was not a valid SHA-256 digest.")
 
 class HostPackChecksumMismatchException(
     val expected: String,
     val actual: String,
-) : HostPackRefreshException("The downloaded geosite.dat checksum did not match the published SHA-256 digest.")
+) : HostPackRefreshException("The downloaded host pack catalog checksum did not match the manifest.")
 
 class HostPackCatalogParseException(
     cause: Throwable,
@@ -92,6 +92,7 @@ class DefaultHostPackCatalogRepository
     constructor(
         @param:ApplicationContext private val context: Context,
         private val service: HostPackCatalogDownloadService,
+        private val verifier: HostPackVerifier,
         private val clock: HostPackCatalogClock,
         private val tempFileFactory: HostPackCatalogTempFileFactory,
     ) : HostPackCatalogRepository {
@@ -102,23 +103,33 @@ class DefaultHostPackCatalogRepository
 
         override suspend fun refreshSnapshot(): HostPackCatalogSnapshot =
             withContext(Dispatchers.IO) {
-                val expectedChecksum = parseHostPackChecksum(service.downloadChecksum().requireBodyText())
+                val manifest = loadManifest()
                 val downloadedAtEpochMillis = clock.nowEpochMillis()
                 val tempFile = tempFileFactory.create(context.cacheDir)
 
                 try {
-                    val actualChecksum = service.downloadGeosite().writeToFileAndDigest(tempFile)
-                    if (actualChecksum != expectedChecksum) {
-                        throw HostPackChecksumMismatchException(expectedChecksum, actualChecksum)
-                    }
-
-                    val catalog = parseCuratedCatalog(tempFile.inputStream(), downloadedAtEpochMillis)
+                    val actualChecksum = service.downloadCatalog(manifest.catalogUrl).writeToFileAndDigest(tempFile)
+                    val payload = tempFile.readBytes()
+                    verifier.verify(
+                        manifest = manifest,
+                        payload = payload,
+                        actualChecksumSha256 = actualChecksum,
+                    )
+                    val catalog =
+                        parseCuratedCatalog(
+                            inputStream = payload.inputStream(),
+                            downloadedAtEpochMillis = downloadedAtEpochMillis,
+                            sourceUrl = manifest.catalogUrl,
+                        )
                     val snapshot =
                         HostPackCatalogSnapshot(
                             catalog = catalog,
                             source = HostPackCatalogSourceDownloaded,
                             lastFetchedAtEpochMillis = downloadedAtEpochMillis,
-                            verifiedChecksumSha256 = expectedChecksum,
+                            manifestVersion = manifest.version,
+                            verifiedChecksumSha256 = manifest.catalogChecksumSha256.lowercase(),
+                            verifiedSignatureBase64 = manifest.catalogSignatureBase64,
+                            verifiedSigningKeyId = manifest.keyId,
                         )
                     cacheFile().let { cacheFile ->
                         cacheFile.parentFile?.mkdirs()
@@ -129,6 +140,18 @@ class DefaultHostPackCatalogRepository
                     tempFile.delete()
                 }
             }
+
+        private suspend fun loadManifest(): HostPackManifest =
+            service
+                .downloadManifest()
+                .requireBodyText()
+                .let { payload ->
+                    runCatching {
+                        hostPackManifestFromJson(payload)
+                    }.getOrElse { error ->
+                        throw HostPackManifestParseException(error)
+                    }
+                }
 
         private fun loadBundledSnapshot(): HostPackCatalogSnapshot =
             HostPackCatalogSnapshot(
@@ -156,6 +179,7 @@ class DefaultHostPackCatalogRepository
         private fun parseCuratedCatalog(
             inputStream: InputStream,
             downloadedAtEpochMillis: Long,
+            sourceUrl: String,
         ): HostPackCatalog {
             val geositeCatalog =
                 runCatching {
@@ -167,7 +191,7 @@ class DefaultHostPackCatalogRepository
             val source =
                 HostPackSource(
                     name = HostPackCatalogRemoteSourceName,
-                    url = HostPackCatalogRemoteSourceUrl,
+                    url = sourceUrl,
                     ref = HostPackCatalogRemoteSourceRef,
                 )
             return runCatching {
@@ -183,22 +207,6 @@ class DefaultHostPackCatalogRepository
 
         private fun cacheFile(): File = File(context.filesDir, hostPackCatalogCachePath)
     }
-
-internal fun parseHostPackChecksum(payload: String): String {
-    val firstToken =
-        payload.lineSequence().firstNotNullOfOrNull { line ->
-            line
-                .trim()
-                .takeIf { it.isNotEmpty() }
-                ?.split(Regex("\\s+"))
-                ?.firstOrNull()
-        }
-    val normalized = firstToken?.lowercase(Locale.ROOT)
-    if (normalized?.matches(Regex("[0-9a-f]{64}")) != true) {
-        throw HostPackChecksumFormatException()
-    }
-    return normalized
-}
 
 internal fun Response<ResponseBody>.requireBodyText(): String {
     val body =

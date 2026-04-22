@@ -14,6 +14,7 @@ const val HostPackApplyModeReplace = "replace"
 const val HostPackApplyModeMerge = "merge"
 const val HostPackCatalogSourceBundled = "bundled"
 const val HostPackCatalogSourceDownloaded = "downloaded"
+const val HostPackCatalogSchemaVersion = 1
 const val HostPackCatalogRemoteSourceName = "runetfreedom/russia-blocked-geosite"
 const val HostPackCatalogRemoteSourceRef = "release"
 const val HostPackCatalogRemoteSourceUrl =
@@ -21,7 +22,7 @@ const val HostPackCatalogRemoteSourceUrl =
 
 @Serializable
 data class HostPackCatalog(
-    val version: Int = 1,
+    val version: Int = HostPackCatalogSchemaVersion,
     val generatedAt: String = "",
     val packs: List<HostPackPreset> = emptyList(),
 )
@@ -31,11 +32,26 @@ data class HostPackCatalogSnapshot(
     val catalog: HostPackCatalog = HostPackCatalog(),
     val source: String = HostPackCatalogSourceBundled,
     val lastFetchedAtEpochMillis: Long? = null,
+    val manifestVersion: String? = null,
     val verifiedChecksumSha256: String? = null,
+    val verifiedSignatureBase64: String? = null,
+    val verifiedSigningKeyId: String? = null,
 ) {
     val packs: List<HostPackPreset>
         get() = catalog.packs
 }
+
+@Serializable
+data class HostPackManifest(
+    val schemaVersion: Int = HostPackCatalogSchemaVersion,
+    val version: String,
+    val catalogUrl: String,
+    val catalogChecksumSha256: String,
+    val catalogSignatureBase64: String,
+    val signatureAlgorithm: String = StrategyPackSignatureAlgorithmSha256WithEcdsa,
+    // Host packs currently reuse the strategy-pack production signing key by policy.
+    val keyId: String = DefaultStrategyPackSigningKeyId,
+)
 
 @Serializable
 data class HostPackPreset(
@@ -99,6 +115,10 @@ fun hostPackCatalogSnapshotFromJson(payload: String): HostPackCatalogSnapshot =
     hostPackCatalogJson.decodeFromString(payload)
 
 fun HostPackCatalogSnapshot.toJson(): String = hostPackCatalogJson.encodeToString(this)
+
+fun hostPackManifestFromJson(payload: String): HostPackManifest = hostPackCatalogJson.decodeFromString(payload)
+
+fun HostPackManifest.toJson(): String = hostPackCatalogJson.encodeToString(this)
 
 @Suppress("ReturnCount")
 fun normalizeHostSpecToken(token: String): String? {

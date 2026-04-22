@@ -1,17 +1,14 @@
 package com.poyka.ripdpi.strategy
 
-import com.poyka.ripdpi.data.DefaultStrategyPackSigningKeyId
 import com.poyka.ripdpi.data.StrategyPackManifest
 import com.poyka.ripdpi.data.StrategyPackSignatureAlgorithmSha256WithEcdsa
+import com.poyka.ripdpi.security.AppTrustedSigningKeyResolver
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import java.io.IOException
-import java.security.KeyFactory
-import java.security.PublicKey
 import java.security.Signature
-import java.security.spec.X509EncodedKeySpec
 import java.util.Base64
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -52,11 +49,6 @@ class StrategyPackCompatibilityException(
     reason: String,
 ) : StrategyPackRefreshException(reason)
 
-fun interface StrategyPackPublicKeyResolver {
-    @Throws(StrategyPackUnknownSigningKeyException::class)
-    fun resolve(keyId: String): PublicKey
-}
-
 interface StrategyPackVerifier {
     @Throws(StrategyPackRefreshException::class)
     fun verify(
@@ -67,37 +59,10 @@ interface StrategyPackVerifier {
 }
 
 @Singleton
-class DefaultStrategyPackPublicKeyResolver
-    @Inject
-    constructor() : StrategyPackPublicKeyResolver {
-        private val keyFactory = KeyFactory.getInstance("EC")
-        private val trustedKeys =
-            mapOf(
-                DefaultStrategyPackSigningKeyId to loadPublicKey(strategyPackTrustedP256PublicKeyPem),
-            )
-
-        override fun resolve(keyId: String): PublicKey =
-            trustedKeys[keyId] ?: throw StrategyPackUnknownSigningKeyException(keyId)
-
-        private fun loadPublicKey(pem: String): PublicKey {
-            val der =
-                Base64
-                    .getMimeDecoder()
-                    .decode(
-                        pem
-                            .replace("-----BEGIN PUBLIC KEY-----", "")
-                            .replace("-----END PUBLIC KEY-----", "")
-                            .trim(),
-                    )
-            return keyFactory.generatePublic(X509EncodedKeySpec(der))
-        }
-    }
-
-@Singleton
 class DefaultStrategyPackVerifier
     @Inject
     constructor(
-        private val keyResolver: StrategyPackPublicKeyResolver,
+        private val keyResolver: AppTrustedSigningKeyResolver,
     ) : StrategyPackVerifier {
         override fun verify(
             manifest: StrategyPackManifest,
@@ -133,7 +98,10 @@ class DefaultStrategyPackVerifier
                     throw StrategyPackSignatureMismatchException()
                 }
 
-            signature.initVerify(keyResolver.resolve(manifest.keyId))
+            val publicKey =
+                keyResolver.resolveOrNull(manifest.keyId)
+                    ?: throw StrategyPackUnknownSigningKeyException(manifest.keyId)
+            signature.initVerify(publicKey)
             signature.update(payload)
             val valid =
                 runCatching { signature.verify(signatureBytes) }.getOrElse {
@@ -150,19 +118,5 @@ class DefaultStrategyPackVerifier
 abstract class StrategyPackVerifierBindingsModule {
     @Binds
     @Singleton
-    abstract fun bindStrategyPackPublicKeyResolver(
-        resolver: DefaultStrategyPackPublicKeyResolver,
-    ): StrategyPackPublicKeyResolver
-
-    @Binds
-    @Singleton
     abstract fun bindStrategyPackVerifier(verifier: DefaultStrategyPackVerifier): StrategyPackVerifier
 }
-
-private const val strategyPackTrustedP256PublicKeyPem =
-    """
-    -----BEGIN PUBLIC KEY-----
-    MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE9+0bf9ytpyS3fg6NTQUlPwE9GgPm
-    ijz0iL+gYFZtyyajtXyvSP+8IcikchvLOwWcGrhalKQH4Qi7/CrWiz84Zg==
-    -----END PUBLIC KEY-----
-    """
