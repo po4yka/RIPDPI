@@ -10,6 +10,7 @@ data class StrategyPackSettingsModel(
     val pinnedPackId: String = DefaultStrategyPackPinnedId,
     val pinnedPackVersion: String = DefaultStrategyPackPinnedVersion,
     val refreshPolicy: String = DefaultStrategyPackRefreshPolicy,
+    val allowRollbackOverride: Boolean = false,
 )
 
 fun AppSettings.toStrategyPackSettingsModel(): StrategyPackSettingsModel =
@@ -18,4 +19,5 @@ fun AppSettings.toStrategyPackSettingsModel(): StrategyPackSettingsModel =
         pinnedPackId = strategyPackPinnedId,
         pinnedPackVersion = strategyPackPinnedVersion,
         refreshPolicy = normalizeStrategyPackRefreshPolicy(strategyPackRefreshPolicy),
+        allowRollbackOverride = strategyPackAllowRollbackOverride,
     )

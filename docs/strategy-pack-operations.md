@@ -46,6 +46,7 @@ User-facing settings are modeled by:
 - `StrategyPackSettingsModel.pinnedPackId`
 - `StrategyPackSettingsModel.pinnedPackVersion`
 - `StrategyPackSettingsModel.refreshPolicy`
+- `StrategyPackSettingsModel.allowRollbackOverride` (debug-only local override)
 
 ## Verification Pipeline
 
@@ -58,8 +59,13 @@ The repository verifies downloaded catalogs in this order:
 5. Verify `catalogSignatureBase64` using the trusted ECDSA public key.
 6. Parse the catalog payload.
 7. Reject it if app or native compatibility fails.
-8. Cache the verified snapshot and expose it as `downloaded`.
-9. Fall back to the bundled asset if the cached or downloaded snapshot is incompatible.
+8. Enforce downloaded-catalog anti-rollback policy:
+   - require `sequence > 0`
+   - require parseable UTC `issuedAt`
+   - reject `issuedAt` older than 30 days
+   - reject `sequence <= last accepted downloaded sequence` for the same channel unless the debug override is enabled
+9. Cache the verified snapshot and expose it as `downloaded`.
+10. Fall back to the bundled asset if the cached or downloaded snapshot is incompatible.
 
 Important compatibility fields:
 
@@ -83,6 +89,8 @@ Trusted key id:
 
 The current catalog schema includes:
 
+- `sequence`
+- `issuedAt`
 - `packs`
 - `tlsProfiles`
 - `morphPolicies`
@@ -143,6 +151,15 @@ Do this only when:
 
 Do not bump schema version for ordinary pack, rollout, or TLS profile refreshes.
 
+## Anti-Rollback Rules
+
+- Anti-rollback applies only to downloaded catalogs.
+- The bundled asset remains the rollback-safe floor and does not need `sequence` monotonicity enforcement at load time.
+- `sequence` is monotonic per channel and must increase with every published downloaded catalog.
+- `issuedAt` must be an ISO-8601 UTC timestamp representing publication time for the signed catalog payload.
+- The signed object is the catalog payload itself, so anti-rollback metadata belongs in the catalog, not the manifest.
+- The debug override bypasses only the monotonic-sequence rejection. It does not bypass signature, checksum, compatibility, or freshness checks.
+
 ## Rollout Rules
 
 - New transport behavior should be enabled through catalog feature flags before any app-default change.
@@ -156,7 +173,7 @@ Use this order:
 
 1. Disable the relevant feature flag in the remote catalog.
 2. Reduce rollout percentage or move the affected pack out of the active cohort.
-3. Publish a new manifest and catalog with updated checksum and signature.
+3. Publish a new catalog with a higher `sequence` and a fresh `issuedAt`, then regenerate checksum and signature.
 4. Confirm compatible clients load the replacement snapshot.
 5. If needed, rely on bundled fallback by allowing downloaded snapshots to age out or become incompatible.
 
@@ -167,18 +184,21 @@ If the downloaded snapshot is rejected, the app should continue to operate from 
 Before shipping a catalog update:
 
 1. Keep `schemaVersion` at `3` unless compatibility truly changed.
-2. Verify `minAppVersion` and `minNativeVersion`.
-3. Confirm every referenced `tlsProfileSetId`, `morphPolicyId`, `transportModuleId`, and `featureFlagId` exists.
-4. Keep transport rollouts behind feature flags for non-trivial behavior changes.
-5. Recompute SHA-256 for the final payload.
-6. Sign the exact payload bytes that clients will download.
-7. Publish the manifest with matching checksum, signature, algorithm, and key id.
-8. Verify the bundled fallback still represents a safe baseline.
-9. Update `docs/strategy-pack-tls-refresh-log.json` when the bundled TLS profile-set catalog changes or is re-reviewed.
+2. Increment `sequence` above the last accepted downloaded catalog for that channel.
+3. Set `issuedAt` to the publication time in ISO-8601 UTC form.
+4. Verify `minAppVersion` and `minNativeVersion`.
+5. Confirm every referenced `tlsProfileSetId`, `morphPolicyId`, `transportModuleId`, and `featureFlagId` exists.
+6. Keep transport rollouts behind feature flags for non-trivial behavior changes.
+7. Recompute SHA-256 for the final payload.
+8. Sign the exact payload bytes that clients will download.
+9. Publish the manifest with matching checksum, signature, algorithm, and key id.
+10. Verify the bundled fallback still represents a safe baseline.
+11. Update `docs/strategy-pack-tls-refresh-log.json` when the bundled TLS profile-set catalog changes or is re-reviewed.
 
 ## What Not To Do
 
 - Do not use strategy packs to store secrets.
 - Do not bypass signature verification for expedient rollouts.
+- Do not publish an operational rollback by reusing or decrementing `sequence`; publish a new higher-sequence catalog instead.
 - Do not hardcode new transport defaults in app code when a catalog flag can express the rollout.
 - Do not bump schema version for routine content refreshes.

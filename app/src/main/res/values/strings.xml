@@ -876,6 +876,8 @@
     <string name="settings_diagnostics_retention_body">How long saved connection sessions, samples, diagnostics reports, and export records stay on-device before cleanup.</string>
     <string name="settings_diagnostics_export_history_title">Include history in diagnostics archives</string>
     <string name="settings_diagnostics_export_history_body">Attach stored history tables when building a diagnostics archive for sharing or local export.</string>
+    <string name="settings_strategy_pack_allow_rollback_override_title">Allow strategy-pack rollback</string>
+    <string name="settings_strategy_pack_allow_rollback_override_body">Debug only. Allow equal or lower downloaded strategy-pack sequences for local validation. Signature, compatibility, and freshness checks still apply.</string>
     <string name="settings_telemetry_salt_reset_body">Reset the per-install salt used to hash network fingerprints. Previously recorded hashes can no longer be correlated with future sessions.</string>
     <string name="settings_telemetry_salt_reset_action">Reset telemetry salt</string>
     <string name="config_cli_banner_title">Command line overrides enabled</string>

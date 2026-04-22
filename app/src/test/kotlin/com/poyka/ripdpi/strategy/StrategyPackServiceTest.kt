@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.StrategyPackCatalog
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceBundled
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
+import com.poyka.ripdpi.data.StrategyPackRefreshFailureCode
 import com.poyka.ripdpi.data.StrategyPackRefreshPolicyManual
 import com.poyka.ripdpi.data.StrategyPackSnapshot
 import kotlinx.coroutines.test.TestScope
@@ -135,6 +136,14 @@ class StrategyPackServiceTest {
             runCurrent()
             runCurrent()
             assertEquals(listOf("beta", "beta"), repository.refreshChannels)
+
+            appSettingsRepository.update {
+                setStrategyPackAllowRollbackOverride(true)
+            }
+            runCurrent()
+            runCurrent()
+            assertEquals(listOf("beta", "beta", "beta"), repository.refreshChannels)
+            assertEquals(listOf(false, false, true), repository.refreshOverrideFlags)
         }
 
     @Test
@@ -255,9 +264,19 @@ class StrategyPackServiceTest {
         runTest {
             val repository =
                 FakeStrategyPackRepository(
-                    initialSnapshot = downloadedSnapshot(fetchedAt = 0L),
+                    initialSnapshot = downloadedSnapshot(fetchedAt = 0L, sequence = 9),
                     clock = clock(),
-                    refreshOutcomes = ArrayDeque(listOf(RefreshOutcome.Failure(IllegalStateException("boom")))),
+                    refreshOutcomes =
+                        ArrayDeque(
+                            listOf(
+                                RefreshOutcome.Failure(
+                                    StrategyPackRollbackRejectedException(
+                                        acceptedSequence = 9,
+                                        rejectedSequence = 8,
+                                    ),
+                                ),
+                            ),
+                        ),
                 )
             val stateStore = InMemoryStrategyPackStateStore()
             val service =
@@ -273,12 +292,21 @@ class StrategyPackServiceTest {
             runCatching { service.refreshNow() }
                 .onSuccess { error("Expected refreshNow to fail") }
                 .onFailure { error ->
-                    assertEquals("boom", error.message)
+                    assertTrue(error is StrategyPackRollbackRejectedException)
                 }
 
             assertEquals(1, repository.refreshChannels.size)
             assertEquals(StrategyPackCatalogSourceDownloaded, stateStore.state.value.snapshot.source)
-            assertEquals("boom", stateStore.state.value.lastRefreshError)
+            assertEquals(9L, stateStore.state.value.lastAcceptedSequence)
+            assertEquals(8L, stateStore.state.value.lastRejectedSequence)
+            assertEquals(
+                StrategyPackRefreshFailureCode.RollbackRejected,
+                stateStore.state.value.lastRefreshFailureCode,
+            )
+            assertEquals(
+                "The downloaded strategy pack catalog sequence 8 is not newer than the accepted sequence 9.",
+                stateStore.state.value.lastRefreshError,
+            )
         }
 
     private fun TestScope.newService(
@@ -307,9 +335,17 @@ class StrategyPackServiceTest {
             lastFetchedAtEpochMillis = null,
         )
 
-    private fun downloadedSnapshot(fetchedAt: Long): StrategyPackSnapshot =
+    private fun downloadedSnapshot(
+        fetchedAt: Long,
+        sequence: Long = 7,
+    ): StrategyPackSnapshot =
         StrategyPackSnapshot(
-            catalog = StrategyPackCatalog(channel = "stable"),
+            catalog =
+                StrategyPackCatalog(
+                    channel = "stable",
+                    sequence = sequence,
+                    issuedAt = "2026-04-18T13:00:00Z",
+                ),
             source = StrategyPackCatalogSourceDownloaded,
             lastFetchedAtEpochMillis = fetchedAt,
         )
@@ -324,6 +360,7 @@ private class FakeStrategyPackRepository(
         private set
 
     val refreshChannels = mutableListOf<String>()
+    val refreshOverrideFlags = mutableListOf<Boolean>()
 
     private var snapshot: StrategyPackSnapshot = initialSnapshot
 
@@ -332,8 +369,12 @@ private class FakeStrategyPackRepository(
         return snapshot
     }
 
-    override suspend fun refreshSnapshot(channel: String): StrategyPackSnapshot {
+    override suspend fun refreshSnapshot(
+        channel: String,
+        allowRollbackOverride: Boolean,
+    ): StrategyPackSnapshot {
         refreshChannels += channel
+        refreshOverrideFlags += allowRollbackOverride
         val outcome = refreshOutcomes.removeFirstOrNull()
         return when (outcome) {
             is RefreshOutcome.Failure -> {
@@ -348,7 +389,11 @@ private class FakeStrategyPackRepository(
             null -> {
                 snapshot =
                     snapshot.copy(
-                        catalog = snapshot.catalog.copy(channel = channel),
+                        catalog =
+                            snapshot.catalog.copy(
+                                channel = channel,
+                                sequence = snapshot.catalog.sequence.takeIf { it > 0L } ?: 1L,
+                            ),
                         source = StrategyPackCatalogSourceDownloaded,
                         lastFetchedAtEpochMillis = clock(),
                     )

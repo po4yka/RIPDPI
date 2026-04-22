@@ -520,6 +520,7 @@ internal fun AppSettings.toUiState(
                 .takeIf { it > 0 }
                 ?: AppSettingsSerializer.defaultValue.diagnosticsHistoryRetentionDays,
         diagnosticsExportIncludeHistory = diagnosticsExportIncludeHistory,
+        strategyPackAllowRollbackOverride = strategyPackAllowRollbackOverride,
         serviceStatus = serviceStatus,
         isVpn = isVpn,
         selectedMode = if (isVpn) Mode.VPN else Mode.Proxy,

@@ -30,6 +30,12 @@ internal val toggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
                     setDiagnosticsExportIncludeHistory(enabled)
                 }
             },
+        AdvancedToggleSetting.StrategyPackAllowRollbackOverride to
+            { enabled ->
+                updateBoolean("strategyPackAllowRollbackOverride", enabled) {
+                    setStrategyPackAllowRollbackOverride(enabled)
+                }
+            },
         AdvancedToggleSetting.NoDomain to
             { enabled -> updateBoolean("noDomain", enabled) { setNoDomain(enabled) } },
         AdvancedToggleSetting.TcpFastOpen to

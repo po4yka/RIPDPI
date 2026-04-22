@@ -643,6 +643,7 @@ data class SettingsUiState(
     val diagnosticsSampleIntervalSeconds: Int = 15,
     val diagnosticsHistoryRetentionDays: Int = 14,
     val diagnosticsExportIncludeHistory: Boolean = true,
+    val strategyPackAllowRollbackOverride: Boolean = false,
     val serviceStatus: AppStatus = AppStatus.Halted,
     val isVpn: Boolean = true,
     val selectedMode: Mode = Mode.VPN,

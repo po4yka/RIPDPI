@@ -123,4 +123,38 @@ class StrategyPackCatalogTest {
             selection.featureFlags.map { it.id },
         )
     }
+
+    @Test
+    fun `json round trip preserves anti rollback metadata`() {
+        val catalog =
+            StrategyPackCatalog(
+                generatedAt = "2026-04-18T13:00:00Z",
+                sequence = 42,
+                issuedAt = "2026-04-18T13:00:00Z",
+                channel = StrategyPackChannelStable,
+            )
+
+        val decoded = strategyPackCatalogFromJson(catalog.toJson())
+
+        assertEquals(42, decoded.sequence)
+        assertEquals("2026-04-18T13:00:00Z", decoded.issuedAt)
+    }
+
+    @Test
+    fun `json decode stays backward compatible when anti rollback metadata is absent`() {
+        val decoded =
+            strategyPackCatalogFromJson(
+                """
+                {
+                  "schemaVersion": 3,
+                  "generatedAt": "2026-04-18T13:00:00Z",
+                  "channel": "stable",
+                  "packs": []
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(0L, decoded.sequence)
+        assertEquals("", decoded.issuedAt)
+    }
 }

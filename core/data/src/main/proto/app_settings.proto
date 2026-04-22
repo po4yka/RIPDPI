@@ -297,6 +297,7 @@ message AppSettings {
   string strategy_pack_pinned_id = 201;
   string strategy_pack_pinned_version = 202;
   string strategy_pack_refresh_policy = 203; // "manual" | "automatic"
+  bool strategy_pack_allow_rollback_override = 246;
 
   // Tier 4 TLS fingerprint profile for app-owned TLS clients
   string tls_fingerprint_profile = 204; // migration accepts "native_default"; runtime normalizes to "chrome_stable" | "firefox_stable"

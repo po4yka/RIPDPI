@@ -1,8 +1,9 @@
 # RIPDPI Roadmap
 
-All tracked roadmap work is complete in repo-owned scope.
+All previously tracked roadmap streams are complete in repo-owned scope. New
+incremental hardening work is recorded here as it lands.
 
-## Final Status (2026-04-18)
+## Final Status (2026-04-22)
 
 - Audit roadmap: COMPLETE.
 - Architecture refactor: COMPLETE.
@@ -10,12 +11,22 @@ All tracked roadmap work is complete in repo-owned scope.
 - Bypass modernization: COMPLETE in repo-owned scope.
 - Integrations / Track S: COMPLETE in repo-owned scope.
 
-## Remaining Work
+## Incremental Hardening
 
-No roadmap work remains in the repository.
+### 2026-04-22: Strategy-Pack Anti-Rollback
 
-Any future work should start from a new roadmap rather than reopening the
-completed implementation roadmaps that were used to land the current system.
+Status: COMPLETE.
+
+- Added signed-catalog anti-rollback metadata via `StrategyPackCatalog.sequence` and `StrategyPackCatalog.issuedAt`.
+- Enforced repository-side freshness and monotonic-sequence checks for downloaded catalogs only.
+- Added typed refresh failure reporting and runtime state fields for accepted/rejected sequences.
+- Added a debug-only local rollback override that bypasses only the monotonic-sequence rejection.
+- Updated bundled catalog metadata, operator docs, and regression coverage.
+
+## Roadmap Hygiene
+
+- Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.
+- Use this file for incremental hardening and productization follow-ups instead of resurrecting removed historical roadmaps.
 
 ## Removed Completed Roadmaps
 

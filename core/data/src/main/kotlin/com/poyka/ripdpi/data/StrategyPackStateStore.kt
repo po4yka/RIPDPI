@@ -28,6 +28,9 @@ data class StrategyPackRuntimeState(
     val lastResolvedAtEpochMillis: Long? = null,
     val lastRefreshAttemptAtEpochMillis: Long? = null,
     val lastRefreshError: String? = null,
+    val lastRefreshFailureCode: StrategyPackRefreshFailureCode? = null,
+    val lastAcceptedSequence: Long? = null,
+    val lastRejectedSequence: Long? = null,
     val refreshPolicy: String = DefaultStrategyPackRefreshPolicy,
 )
 

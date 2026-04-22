@@ -3,10 +3,12 @@ package com.poyka.ripdpi.strategy
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationScope
+import com.poyka.ripdpi.data.StrategyPackRefreshFailureCode
 import com.poyka.ripdpi.data.StrategyPackRefreshPolicyAutomatic
 import com.poyka.ripdpi.data.StrategyPackRuntimeState
 import com.poyka.ripdpi.data.StrategyPackSettingsModel
 import com.poyka.ripdpi.data.StrategyPackStateStore
+import com.poyka.ripdpi.data.acceptedSequenceOrNull
 import com.poyka.ripdpi.data.normalizeStrategyPackRefreshPolicy
 import com.poyka.ripdpi.data.resolveSelection
 import com.poyka.ripdpi.data.toStrategyPackSettingsModel
@@ -109,7 +111,10 @@ class DefaultStrategyPackService
             val key = StrategyPackRefreshKey(settings)
             val attemptedAt = clock.nowEpochMillis()
             runCatching {
-                repository.refreshSnapshot(settings.channel)
+                repository.refreshSnapshot(
+                    channel = settings.channel,
+                    allowRollbackOverride = settings.allowRollbackOverride,
+                )
             }.onSuccess { snapshot ->
                 schedulingMutex.withLock {
                     currentRefreshKey = key
@@ -121,14 +126,19 @@ class DefaultStrategyPackService
                     key = key,
                     lastRefreshAttemptAtEpochMillis = attemptedAt,
                     lastRefreshError = null,
+                    lastRefreshFailureCode = null,
+                    lastRejectedSequence = null,
                 )
                 scheduleAutomaticRefresh(key, StrategyPackRefreshScheduleReason.ManualRefreshReseed)
             }.onFailure { error ->
+                val currentState = stateStore.state.value
                 publishSelectionForSnapshot(
-                    snapshot = stateStore.state.value.snapshot,
+                    snapshot = currentState.snapshot,
                     key = key,
                     lastRefreshAttemptAtEpochMillis = attemptedAt,
                     lastRefreshError = error.message,
+                    lastRefreshFailureCode = error.toFailureCode(),
+                    lastRejectedSequence = error.toRejectedSequence(),
                 )
                 throw error
             }
@@ -148,6 +158,8 @@ class DefaultStrategyPackService
                 key = key,
                 lastRefreshAttemptAtEpochMillis = runtimeState.lastRefreshAttemptAtEpochMillis,
                 lastRefreshError = runtimeState.lastRefreshError,
+                lastRefreshFailureCode = runtimeState.lastRefreshFailureCode,
+                lastRejectedSequence = runtimeState.lastRejectedSequence,
             )
             scheduleAutomaticRefresh(key, StrategyPackRefreshScheduleReason.RelevantSettingsChanged)
         }
@@ -157,6 +169,8 @@ class DefaultStrategyPackService
             key: StrategyPackRefreshKey,
             lastRefreshAttemptAtEpochMillis: Long? = snapshot.lastFetchedAtEpochMillis,
             lastRefreshError: String?,
+            lastRefreshFailureCode: StrategyPackRefreshFailureCode? = null,
+            lastRejectedSequence: Long? = null,
         ) {
             val selection =
                 snapshot.catalog.resolveSelection(
@@ -182,6 +196,9 @@ class DefaultStrategyPackService
                     lastResolvedAtEpochMillis = clock.nowEpochMillis(),
                     lastRefreshAttemptAtEpochMillis = lastRefreshAttemptAtEpochMillis,
                     lastRefreshError = lastRefreshError,
+                    lastRefreshFailureCode = lastRefreshFailureCode,
+                    lastAcceptedSequence = snapshot.acceptedSequenceOrNull(),
+                    lastRejectedSequence = lastRejectedSequence,
                     refreshPolicy = key.refreshPolicy,
                 ),
             )
@@ -243,7 +260,10 @@ class DefaultStrategyPackService
 
             val attemptedAt = clock.nowEpochMillis()
             runCatching {
-                repository.refreshSnapshot(key.channel)
+                repository.refreshSnapshot(
+                    channel = key.channel,
+                    allowRollbackOverride = key.allowRollbackOverride,
+                )
             }.onSuccess { snapshot ->
                 val shouldPublish =
                     schedulingMutex.withLock {
@@ -264,6 +284,8 @@ class DefaultStrategyPackService
                     key = key,
                     lastRefreshAttemptAtEpochMillis = attemptedAt,
                     lastRefreshError = null,
+                    lastRefreshFailureCode = null,
+                    lastRejectedSequence = null,
                 )
                 scheduleAutomaticRefresh(key, StrategyPackRefreshScheduleReason.TtlDue)
             }.onFailure { error ->
@@ -289,6 +311,8 @@ class DefaultStrategyPackService
                     key = key,
                     lastRefreshAttemptAtEpochMillis = attemptedAt,
                     lastRefreshError = error.message,
+                    lastRefreshFailureCode = error.toFailureCode(),
+                    lastRejectedSequence = error.toRejectedSequence(),
                 )
                 scheduleAutomaticRefresh(key, StrategyPackRefreshScheduleReason.RetryBackoff)
             }
@@ -367,17 +391,24 @@ private data class StrategyPackRefreshKey(
     val refreshPolicy: String,
     val pinnedPackId: String,
     val pinnedPackVersion: String,
+    val allowRollbackOverride: Boolean,
 ) {
     constructor(settings: StrategyPackSettingsModel) : this(
         channel = settings.channel,
         refreshPolicy = normalizeStrategyPackRefreshPolicy(settings.refreshPolicy),
         pinnedPackId = settings.pinnedPackId,
         pinnedPackVersion = settings.pinnedPackVersion,
+        allowRollbackOverride = settings.allowRollbackOverride,
     )
 
     val isAutomatic: Boolean
         get() = refreshPolicy == StrategyPackRefreshPolicyAutomatic
 }
+
+private fun Throwable.toFailureCode(): StrategyPackRefreshFailureCode? =
+    (this as? StrategyPackRefreshException)?.failureCode
+
+private fun Throwable.toRejectedSequence(): Long? = (this as? StrategyPackRefreshException)?.rejectedSequence
 
 private data class StrategyPackSchedulePlan(
     val delayMs: Long,
