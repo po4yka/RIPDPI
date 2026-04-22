@@ -7,6 +7,7 @@ use hickory_proto::rr::RecordType;
 use lru::LruCache;
 use rustls::pki_types::CertificateDer;
 
+use crate::https_service_binding::{parse_https_service_bindings, HttpsRr, HttpsSvcbParseError};
 use crate::resolver::EncryptedDnsResolver;
 use crate::transport::{build_dns_query, DEFAULT_TIMEOUT};
 use crate::types::{EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsTransport};
@@ -211,11 +212,31 @@ impl DohResolverPipeline {
             records,
         })
     }
+
+    pub fn https_service_bindings(&self, lookup: &DohBatchLookup) -> Result<Vec<HttpsRr>, HttpsSvcbParseError> {
+        lookup.https_service_bindings()
+    }
 }
 
 impl std::fmt::Debug for DohResolverPipeline {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter.debug_struct("DohResolverPipeline").finish_non_exhaustive()
+    }
+}
+
+impl DohBatchLookup {
+    pub fn https_service_bindings(&self) -> Result<Vec<HttpsRr>, HttpsSvcbParseError> {
+        let mut bindings = Vec::new();
+        for record in &self.records {
+            if matches!(record.record_type, DohBatchRecordType::Https | DohBatchRecordType::Svcb) {
+                bindings.extend(parse_https_service_bindings(&record.response_bytes)?);
+            }
+        }
+        Ok(bindings)
+    }
+
+    pub fn ech_capable(&self) -> Result<bool, HttpsSvcbParseError> {
+        Ok(self.https_service_bindings()?.iter().any(|record| record.ech_capable))
     }
 }
 
