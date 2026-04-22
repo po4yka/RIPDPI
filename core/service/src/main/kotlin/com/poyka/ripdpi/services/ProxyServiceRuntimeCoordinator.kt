@@ -217,23 +217,33 @@ internal class ProxyServiceRuntimeCoordinator(
 
     override fun classifyHandoverFailure(error: Exception): FailureReason = classifyFailureReason(error)
 
-    private suspend fun handleProxyExit(result: Result<Int>) {
-        if (stopping) {
+    private suspend fun handleProxyExit(cause: SupervisorExitCause) {
+        if (cause is SupervisorExitCause.ExpectedStop) {
             return
         }
 
         val failureReason =
-            result.exceptionOrNull()?.let { throwable ->
-                val error = throwable as? Exception ?: IllegalStateException("Proxy runtime failed", throwable)
-                Logger.e(error) { "Proxy failed" }
-                classifyFailureReason(error)
-            } ?: result
-                .getOrNull()
-                ?.takeIf { it != 0 }
-                ?.let { code ->
-                    Logger.e { "Proxy stopped with code $code" }
-                    FailureReason.NativeError("Proxy exited with code $code")
+            when (cause) {
+                is SupervisorExitCause.Crash -> {
+                    Logger.e { "Proxy stopped with code ${cause.code}" }
+                    FailureReason.NativeError("Proxy exited with code ${cause.code}")
                 }
+
+                is SupervisorExitCause.StartupFailure -> {
+                    val error = cause.throwable
+                    Logger.e(error) { "Proxy failed" }
+                    classifyFailureReason(error)
+                }
+
+                SupervisorExitCause.Cancellation -> {
+                    Logger.e { "Proxy runtime was cancelled unexpectedly" }
+                    FailureReason.NativeError("Proxy runtime was cancelled unexpectedly")
+                }
+
+                SupervisorExitCause.ExpectedStop -> {
+                    null
+                }
+            }
 
         if (failureReason != null) {
             updateStatus(ServiceStatus.Failed, failureReason)
@@ -243,23 +253,33 @@ internal class ProxyServiceRuntimeCoordinator(
         host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
     }
 
-    private suspend fun handleWarpExit(result: Result<Int>) {
-        if (stopping) {
+    private suspend fun handleWarpExit(cause: SupervisorExitCause) {
+        if (cause is SupervisorExitCause.ExpectedStop) {
             return
         }
 
         val failureReason =
-            result.exceptionOrNull()?.let { throwable ->
-                val error = throwable as? Exception ?: IllegalStateException("WARP runtime failed", throwable)
-                Logger.e(error) { "WARP failed" }
-                classifyFailureReason(error)
-            } ?: result
-                .getOrNull()
-                ?.takeIf { it != 0 }
-                ?.let { code ->
-                    Logger.e { "WARP stopped with code $code" }
-                    FailureReason.WarpRuntimeFailed("WARP exited with code $code")
+            when (cause) {
+                is SupervisorExitCause.Crash -> {
+                    Logger.e { "WARP stopped with code ${cause.code}" }
+                    FailureReason.WarpRuntimeFailed("WARP exited with code ${cause.code}")
                 }
+
+                is SupervisorExitCause.StartupFailure -> {
+                    val error = cause.throwable
+                    Logger.e(error) { "WARP failed" }
+                    classifyFailureReason(error)
+                }
+
+                SupervisorExitCause.Cancellation -> {
+                    Logger.e { "WARP runtime was cancelled unexpectedly" }
+                    FailureReason.WarpRuntimeFailed("WARP runtime was cancelled unexpectedly")
+                }
+
+                SupervisorExitCause.ExpectedStop -> {
+                    null
+                }
+            }
 
         if (failureReason != null) {
             updateStatus(ServiceStatus.Failed, failureReason)
@@ -269,23 +289,33 @@ internal class ProxyServiceRuntimeCoordinator(
         host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
     }
 
-    private suspend fun handleRelayExit(result: Result<Int>) {
-        if (stopping) {
+    private suspend fun handleRelayExit(cause: SupervisorExitCause) {
+        if (cause is SupervisorExitCause.ExpectedStop) {
             return
         }
 
         val failureReason =
-            result.exceptionOrNull()?.let { throwable ->
-                val error = throwable as? Exception ?: IllegalStateException("Relay runtime failed", throwable)
-                Logger.e(error) { "Relay failed" }
-                classifyFailureReason(error)
-            } ?: result
-                .getOrNull()
-                ?.takeIf { it != 0 }
-                ?.let { code ->
-                    Logger.e { "Relay stopped with code $code" }
-                    FailureReason.NativeError("Relay exited with code $code")
+            when (cause) {
+                is SupervisorExitCause.Crash -> {
+                    Logger.e { "Relay stopped with code ${cause.code}" }
+                    FailureReason.NativeError("Relay exited with code ${cause.code}")
                 }
+
+                is SupervisorExitCause.StartupFailure -> {
+                    val error = cause.throwable
+                    Logger.e(error) { "Relay failed" }
+                    classifyFailureReason(error)
+                }
+
+                SupervisorExitCause.Cancellation -> {
+                    Logger.e { "Relay runtime was cancelled unexpectedly" }
+                    FailureReason.NativeError("Relay runtime was cancelled unexpectedly")
+                }
+
+                SupervisorExitCause.ExpectedStop -> {
+                    null
+                }
+            }
 
         if (failureReason != null) {
             updateStatus(ServiceStatus.Failed, failureReason)

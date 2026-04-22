@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -24,6 +25,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 internal class UpstreamRelaySupervisor(
@@ -94,11 +96,13 @@ internal class UpstreamRelaySupervisor(
 
     private var relayRuntime: RipDpiRelayRuntime? = null
     private var relayJob: Job? = null
+    private var stopRequested: Boolean = false
+    private var exitReporting: AtomicBoolean? = null
 
     suspend fun start(
         config: RipDpiRelayConfig,
         quicMigrationConfig: OwnedRelayQuicMigrationConfig = OwnedRelayQuicMigrationConfig(),
-        onUnexpectedExit: suspend (Result<Int>) -> Unit,
+        onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ) {
         check(relayJob == null) { "Relay fields not null" }
         val resolvedConfig = runtimeConfigResolver.resolve(config, quicMigrationConfig)
@@ -116,38 +120,56 @@ internal class UpstreamRelaySupervisor(
                 relayFactory.create()
             }
         relayRuntime = runtime
+        stopRequested = false
+        val shouldReportExit = AtomicBoolean(true)
+        exitReporting = shouldReportExit
 
-        val exitResult = CompletableDeferred<Result<Int>>()
+        val exitCause = CompletableDeferred<SupervisorExitCause>()
         val job =
             scope.launch(dispatcher, start = CoroutineStart.UNDISPATCHED) {
                 try {
-                    exitResult.complete(runCatching { runtime.start(resolvedConfig) })
+                    val result = runCatching { runtime.start(resolvedConfig) }
+                    exitCause.complete(result.toSupervisorExitCause(stopRequested = stopRequested))
                 } finally {
-                    if (!exitResult.isCompleted) {
-                        exitResult.complete(Result.failure(IllegalStateException("Relay job cancelled")))
+                    if (!exitCause.isCompleted) {
+                        exitCause.complete(
+                            Result
+                                .failure<Int>(CancellationException("Relay job cancelled"))
+                                .toSupervisorExitCause(stopRequested = stopRequested),
+                        )
                     }
                 }
             }
         relayJob = job
 
+        job.invokeOnCompletion {
+            scope.launch(dispatcher) {
+                if (!shouldReportExit.get()) {
+                    return@launch
+                }
+                onUnexpectedExit(exitCause.await())
+            }
+        }
+
         @Suppress("TooGenericExceptionCaught")
         try {
             runtime.awaitReady()
         } catch (readinessError: Exception) {
+            shouldReportExit.set(false)
             try {
+                stopRequested = true
                 runCatching { runtime.stop() }
                 job.join()
             } finally {
                 relayJob = null
                 relayRuntime = null
+                exitReporting = null
+                stopRequested = false
             }
-            throw readinessError
-        }
-
-        job.invokeOnCompletion {
-            scope.launch(dispatcher) {
-                onUnexpectedExit(exitResult.await())
-            }
+            val startupCause =
+                (exitCause.await() as? SupervisorExitCause.StartupFailure)
+                    ?: SupervisorExitCause.StartupFailure(readinessError)
+            throw SupervisorStartupFailureException(startupCause)
         }
     }
 
@@ -155,10 +177,13 @@ internal class UpstreamRelaySupervisor(
         val runtime = relayRuntime
         if (runtime == null) {
             relayJob = null
+            exitReporting = null
+            stopRequested = false
             return
         }
 
         try {
+            stopRequested = true
             runtime.stop()
             withTimeoutOrNull(stopTimeoutMillis) {
                 relayJob?.join()
@@ -166,12 +191,17 @@ internal class UpstreamRelaySupervisor(
         } finally {
             relayJob = null
             relayRuntime = null
+            exitReporting = null
+            stopRequested = false
         }
     }
 
     fun detach() {
+        exitReporting?.set(false)
         relayJob = null
         relayRuntime = null
+        exitReporting = null
+        stopRequested = false
     }
 
     suspend fun pollTelemetry(): NativeRuntimeSnapshot? = runCatching { relayRuntime?.pollTelemetry() }.getOrNull()

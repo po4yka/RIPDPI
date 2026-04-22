@@ -289,9 +289,9 @@ internal class SharedProxyRuntimeStack(
 ) {
     suspend fun start(
         proxyPreferences: RipDpiProxyPreferences,
-        onRelayExit: suspend (Result<Int>) -> Unit,
-        onWarpExit: suspend (Result<Int>) -> Unit,
-        onProxyExit: suspend (Result<Int>) -> Unit,
+        onRelayExit: suspend (SupervisorExitCause) -> Unit,
+        onWarpExit: suspend (SupervisorExitCause) -> Unit,
+        onProxyExit: suspend (SupervisorExitCause) -> Unit,
     ): LocalProxyEndpoint {
         val relayQuicMigrationConfig = proxyPreferences.ownedRelayQuicMigrationConfig()
         proxyPreferences.relayConfigOrNull()?.let { relayConfig ->
@@ -436,11 +436,12 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             }
                 ?: return
         val error = failure as? Exception ?: IllegalStateException("Failed to start $serviceLabel", failure)
-        Logger.e(error) { "Failed to start $serviceLabel" }
+        val classifiedError = error.unwrapSupervisorStartupFailure()
+        Logger.e(classifiedError) { "Failed to start $serviceLabel" }
         matchedRememberedPolicy?.let { policy ->
             rememberedNetworkPolicyStore.recordFailure(policy)
         }
-        val failureReason = classifyStartupFailure(error)
+        val failureReason = classifyStartupFailure(classifiedError)
         updateStatus(ServiceStatus.Failed, failureReason)
         stop()
     }

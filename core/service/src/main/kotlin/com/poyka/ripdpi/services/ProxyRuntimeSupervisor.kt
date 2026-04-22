@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -12,6 +13,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.atomic.AtomicBoolean
 
 internal class ProxyRuntimeSupervisor(
     private val scope: CoroutineScope,
@@ -22,31 +24,50 @@ internal class ProxyRuntimeSupervisor(
 ) {
     private var proxyRuntime: RipDpiProxyRuntime? = null
     private var proxyJob: Job? = null
+    private var stopRequested: Boolean = false
+    private var exitReporting: AtomicBoolean? = null
 
     val runtime: RipDpiProxyRuntime?
         get() = proxyRuntime
 
     suspend fun start(
         preferences: RipDpiProxyPreferences,
-        onUnexpectedExit: suspend (Result<Int>) -> Unit,
+        onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ): LocalProxyEndpoint {
         check(proxyJob == null) { "Proxy fields not null" }
 
         val proxyInstance = ripDpiProxyFactory.create()
         proxyRuntime = proxyInstance
+        stopRequested = false
+        val shouldReportExit = AtomicBoolean(true)
+        exitReporting = shouldReportExit
 
+        val exitCause = CompletableDeferred<SupervisorExitCause>()
         val exitResult = CompletableDeferred<Result<Int>>()
         val job =
             scope.launch(dispatcher, start = CoroutineStart.UNDISPATCHED) {
                 try {
-                    exitResult.complete(runCatching { proxyInstance.startProxy(preferences) })
+                    val result = runCatching { proxyInstance.startProxy(preferences) }
+                    exitResult.complete(result)
+                    exitCause.complete(result.toSupervisorExitCause(stopRequested = stopRequested))
                 } finally {
                     if (!exitResult.isCompleted) {
-                        exitResult.complete(Result.failure(IllegalStateException("Proxy job cancelled")))
+                        val cancellation = Result.failure<Int>(CancellationException("Proxy job cancelled"))
+                        exitResult.complete(cancellation)
+                        exitCause.complete(cancellation.toSupervisorExitCause(stopRequested = stopRequested))
                     }
                 }
             }
         proxyJob = job
+
+        job.invokeOnCompletion {
+            scope.launch(dispatcher) {
+                if (!shouldReportExit.get()) {
+                    return@launch
+                }
+                onUnexpectedExit(exitCause.await())
+            }
+        }
 
         @Suppress("TooGenericExceptionCaught")
         val endpoint =
@@ -58,6 +79,7 @@ internal class ProxyRuntimeSupervisor(
                 )
             } catch (readinessError: Exception) {
                 val proxyStartWasActive = job.isActive
+                shouldReportExit.set(false)
                 try {
                     runCatching {
                         if (proxyStartWasActive) {
@@ -68,19 +90,19 @@ internal class ProxyRuntimeSupervisor(
                 } finally {
                     proxyJob = null
                     proxyRuntime = null
+                    exitReporting = null
+                    stopRequested = false
                 }
-                throw resolveProxyStartupFailure(
-                    readinessError = readinessError,
-                    proxyStartWasActive = proxyStartWasActive,
-                    proxyStartResult = exitResult.await(),
+                val startupFailure =
+                    resolveProxyStartupFailure(
+                        readinessError = readinessError,
+                        proxyStartWasActive = proxyStartWasActive,
+                        proxyStartResult = exitResult.await(),
+                    )
+                throw SupervisorStartupFailureException(
+                    SupervisorExitCause.StartupFailure(startupFailure),
                 )
             }
-
-        job.invokeOnCompletion {
-            scope.launch(dispatcher) {
-                onUnexpectedExit(exitResult.await())
-            }
-        }
 
         runCatching { proxyInstance.updateNetworkSnapshot(networkSnapshotProvider.capture()) }
         return endpoint
@@ -90,10 +112,13 @@ internal class ProxyRuntimeSupervisor(
         val proxyInstance = proxyRuntime
         if (proxyInstance == null) {
             proxyJob = null
+            exitReporting = null
+            stopRequested = false
             return
         }
 
         try {
+            stopRequested = true
             proxyInstance.stopProxy()
             withTimeoutOrNull(stopTimeoutMillis) {
                 proxyJob?.join()
@@ -101,12 +126,17 @@ internal class ProxyRuntimeSupervisor(
         } finally {
             proxyJob = null
             proxyRuntime = null
+            exitReporting = null
+            stopRequested = false
         }
     }
 
     fun detach() {
+        exitReporting?.set(false)
         proxyJob = null
         proxyRuntime = null
+        exitReporting = null
+        stopRequested = false
     }
 
     suspend fun pollTelemetry(): NativeRuntimeSnapshot? = runCatching { proxyRuntime?.pollTelemetry() }.getOrNull()
