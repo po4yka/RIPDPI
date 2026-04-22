@@ -25,11 +25,26 @@ import java.io.IOException
  * to [LocalServerSocket(FileDescriptor)].
  */
 internal class VpnProtectSocketServer(
-    private val vpnService: VpnService,
     private val socketPath: String,
     private val protectFailureMonitor: VpnProtectFailureMonitor,
+    private val fdProtector: (Int) -> Boolean,
     private val clock: () -> Long = System::currentTimeMillis,
+    private val beforeProtectAncillaryFds: () -> Unit = {},
 ) {
+    constructor(
+        vpnService: VpnService,
+        socketPath: String,
+        protectFailureMonitor: VpnProtectFailureMonitor,
+        clock: () -> Long = System::currentTimeMillis,
+        beforeProtectAncillaryFds: () -> Unit = {},
+    ) : this(
+        socketPath = socketPath,
+        protectFailureMonitor = protectFailureMonitor,
+        fdProtector = vpnService::protect,
+        clock = clock,
+        beforeProtectAncillaryFds = beforeProtectAncillaryFds,
+    )
+
     private companion object {
         private val log = Logger.withTag("ProtectSocket")
         private const val LISTEN_BACKLOG = 5
@@ -64,7 +79,7 @@ internal class VpnProtectSocketServer(
                     while (running) {
                         try {
                             val client = server.accept()
-                            handleClient(client)
+                            handleClientSession(LocalSocketClientSession(client))
                         } catch (e: IOException) {
                             if (running) {
                                 log.w(e) { "protect socket accept error" }
@@ -79,28 +94,28 @@ internal class VpnProtectSocketServer(
             }
     }
 
-    private fun handleClient(client: LocalSocket) {
+    internal fun handleClientSession(session: ProtectSocketClientSession) {
         try {
-            client.use { socket ->
-                val bytesRead = socket.inputStream.read(ByteArray(1))
+            session.use { client ->
+                val bytesRead = client.readHandshake()
                 if (bytesRead <= 0) return
-                val allProtected = protectAncillaryFds(socket)
-                socket.outputStream.write(byteArrayOf(if (allProtected) 0 else 1))
-                socket.outputStream.flush()
+                val allProtected = protectAncillaryFds(client)
+                client.writeAck(success = allProtected)
             }
         } catch (e: IOException) {
             log.w(e) { "protect socket handle error" }
         }
     }
 
-    private fun protectAncillaryFds(socket: LocalSocket): Boolean {
-        val fds: Array<FileDescriptor> = socket.ancillaryFileDescriptors ?: return true
+    private fun protectAncillaryFds(session: ProtectSocketClientSession): Boolean {
+        beforeProtectAncillaryFds()
+        val fds: Array<FileDescriptor> = session.ancillaryFileDescriptors ?: return true
         var allProtected = true
         for (fd in fds) {
             val fdInt = extractFdInt(fd)
             if (fdInt >= 0) {
                 val protectResult =
-                    runCatching { vpnService.protect(fdInt) }
+                    runCatching { fdProtector(fdInt) }
                         .fold(
                             onSuccess = { protected ->
                                 if (protected) {
@@ -212,5 +227,31 @@ internal class VpnProtectSocketServer(
         thread = null
         File(socketPath).delete()
         log.i { "stopped" }
+    }
+}
+
+internal interface ProtectSocketClientSession : AutoCloseable {
+    val ancillaryFileDescriptors: Array<FileDescriptor>?
+
+    fun readHandshake(): Int
+
+    fun writeAck(success: Boolean)
+}
+
+private class LocalSocketClientSession(
+    private val socket: LocalSocket,
+) : ProtectSocketClientSession {
+    override val ancillaryFileDescriptors: Array<FileDescriptor>?
+        get() = socket.ancillaryFileDescriptors
+
+    override fun readHandshake(): Int = socket.inputStream.read(ByteArray(1))
+
+    override fun writeAck(success: Boolean) {
+        socket.outputStream.write(byteArrayOf(if (success) 0 else 1))
+        socket.outputStream.flush()
+    }
+
+    override fun close() {
+        socket.close()
     }
 }

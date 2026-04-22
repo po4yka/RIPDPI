@@ -98,6 +98,40 @@ class ProxyRuntimeSupervisorTest {
         }
 
     @Test
+    fun repeatedStartStopRecoversAfterScriptedCrash() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val factory = TestRipDpiProxyFactory()
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = factory,
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+            val exits = mutableListOf<SupervisorExitCause>()
+
+            supervisor.start(RipDpiProxyUIPreferences()) { exits += it }
+            supervisor.stop()
+            advanceUntilIdle()
+
+            supervisor.start(RipDpiProxyUIPreferences()) { exits += it }
+            supervisor.stop()
+            advanceUntilIdle()
+
+            assertEquals(2, factory.runtimes.size)
+            assertEquals(1, factory.runtimes[0].stopCount)
+            assertEquals(1, factory.runtimes[1].stopCount)
+            assertEquals(
+                listOf(
+                    SupervisorExitCause.ExpectedStop,
+                    SupervisorExitCause.ExpectedStop,
+                ),
+                exits,
+            )
+        }
+
+    @Test
     fun pollTelemetryReturnsNullWhenRuntimeThrows() =
         runTest {
             val dispatcher = StandardTestDispatcher(testScheduler)
