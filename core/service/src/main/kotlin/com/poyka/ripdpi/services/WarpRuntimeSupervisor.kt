@@ -19,6 +19,7 @@ import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -26,6 +27,7 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -181,50 +183,70 @@ internal class WarpRuntimeSupervisor(
 ) {
     private var warpRuntime: RipDpiWarpRuntime? = null
     private var warpJob: Job? = null
+    private var stopRequested: Boolean = false
+    private var exitReporting: AtomicBoolean? = null
 
     val runtime: RipDpiWarpRuntime?
         get() = warpRuntime
 
     suspend fun start(
         config: RipDpiWarpConfig,
-        onUnexpectedExit: suspend (Result<Int>) -> Unit,
+        onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ) {
         check(warpJob == null) { "WARP fields not null" }
         val runtime = warpFactory.create()
         val resolvedConfig = runtimeConfigResolver.resolve(config)
         warpRuntime = runtime
+        stopRequested = false
+        val shouldReportExit = AtomicBoolean(true)
+        exitReporting = shouldReportExit
 
-        val exitResult = CompletableDeferred<Result<Int>>()
+        val exitCause = CompletableDeferred<SupervisorExitCause>()
         val job =
             scope.launch(dispatcher, start = CoroutineStart.UNDISPATCHED) {
                 try {
-                    exitResult.complete(runCatching { runtime.start(resolvedConfig) })
+                    val result = runCatching { runtime.start(resolvedConfig) }
+                    exitCause.complete(result.toSupervisorExitCause(stopRequested = stopRequested))
                 } finally {
-                    if (!exitResult.isCompleted) {
-                        exitResult.complete(Result.failure(IllegalStateException("WARP job cancelled")))
+                    if (!exitCause.isCompleted) {
+                        exitCause.complete(
+                            Result
+                                .failure<Int>(CancellationException("WARP job cancelled"))
+                                .toSupervisorExitCause(stopRequested = stopRequested),
+                        )
                     }
                 }
             }
         warpJob = job
 
+        job.invokeOnCompletion {
+            scope.launch(dispatcher) {
+                if (!shouldReportExit.get()) {
+                    return@launch
+                }
+                onUnexpectedExit(exitCause.await())
+            }
+        }
+
         @Suppress("TooGenericExceptionCaught")
         try {
             runtime.awaitReady()
         } catch (readinessError: Exception) {
+            shouldReportExit.set(false)
             try {
+                stopRequested = true
                 runCatching { runtime.stop() }
                 job.join()
             } finally {
                 warpJob = null
                 warpRuntime = null
+                exitReporting = null
+                stopRequested = false
             }
-            throw readinessError
-        }
-
-        job.invokeOnCompletion {
-            scope.launch(dispatcher) {
-                onUnexpectedExit(exitResult.await())
-            }
+            val startupCause =
+                (exitCause.await() as? SupervisorExitCause.StartupFailure)
+                    ?: SupervisorExitCause.StartupFailure(readinessError)
+            throw SupervisorStartupFailureException(startupCause)
         }
     }
 
@@ -232,10 +254,13 @@ internal class WarpRuntimeSupervisor(
         val runtime = warpRuntime
         if (runtime == null) {
             warpJob = null
+            exitReporting = null
+            stopRequested = false
             return
         }
 
         try {
+            stopRequested = true
             runtime.stop()
             withTimeoutOrNull(stopTimeoutMillis) {
                 warpJob?.join()
@@ -243,12 +268,17 @@ internal class WarpRuntimeSupervisor(
         } finally {
             warpJob = null
             warpRuntime = null
+            exitReporting = null
+            stopRequested = false
         }
     }
 
     fun detach() {
+        exitReporting?.set(false)
         warpJob = null
         warpRuntime = null
+        exitReporting = null
+        stopRequested = false
     }
 
     suspend fun pollTelemetry(): NativeRuntimeSnapshot? = runCatching { warpRuntime?.pollTelemetry() }.getOrNull()

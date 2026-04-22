@@ -25,6 +25,8 @@ import com.poyka.ripdpi.data.StrategyFeatureFinalmask
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -40,6 +42,57 @@ class UpstreamRelaySupervisorTest {
     }
 
     private fun providerAuthFixture(): String = listOf("provider", "auth").joinToString("-")
+
+    @Test
+    fun `explicit stop reports expected relay exit cause`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+                )
+            val exits = mutableListOf<SupervisorExitCause>()
+
+            supervisor.start(
+                config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
+                onUnexpectedExit = { exits += it },
+            )
+            supervisor.stop()
+            advanceUntilIdle()
+
+            assertEquals(listOf(SupervisorExitCause.ExpectedStop), exits)
+        }
+
+    @Test
+    fun `non zero relay exit reports crash cause`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+                )
+            val exits = mutableListOf<SupervisorExitCause>()
+
+            supervisor.start(
+                config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
+                onUnexpectedExit = { exits += it },
+            )
+            relayFactory.lastRuntime.complete(23)
+            runCurrent()
+            advanceUntilIdle()
+
+            assertEquals(listOf(SupervisorExitCause.Crash(23)), exits)
+        }
 
     @Test
     fun `start resolves stored profile and credentials before native runtime launch`() =
