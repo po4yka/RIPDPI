@@ -77,6 +77,12 @@ test = false
 doc = false
 
 [[bin]]
+name = "dns_https_service_binding"
+path = "fuzz_targets/dns_https_service_binding.rs"
+test = false
+doc = false
+
+[[bin]]
 name = "monitor_dns_response"
 path = "fuzz_targets/monitor_dns_response.rs"
 test = false

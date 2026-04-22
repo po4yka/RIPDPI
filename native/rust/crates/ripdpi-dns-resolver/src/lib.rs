@@ -3,6 +3,7 @@ mod doh_pipeline;
 mod health;
 #[cfg(feature = "hickory-backend")]
 mod hickory_backend;
+mod https_service_binding;
 mod pool;
 mod resolver;
 mod transport;
@@ -17,6 +18,10 @@ pub use doh_pipeline::{
     DohResolverRole,
 };
 pub use health::{HealthRegistry, HealthScoreSnapshot};
+pub use https_service_binding::{
+    parse_https_service_bindings, EchCipherSuite, EchConfig, EchConfigEntry, EchExtension, HttpsRr, HttpsRrRecordType,
+    HttpsSvcbParseError,
+};
 pub use pool::{ResolverPool, ResolverPoolBuilder};
 pub use resolver::EncryptedDnsResolver;
 pub use transport::extract_ip_answers;

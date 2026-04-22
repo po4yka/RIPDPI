@@ -1,3 +1,4 @@
+mod https_service_binding;
 mod pipeline;
 
 use super::*;

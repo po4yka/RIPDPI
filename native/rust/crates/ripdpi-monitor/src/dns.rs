@@ -1,10 +1,8 @@
 use std::net::{IpAddr, Ipv4Addr};
 
-use hickory_proto::op::Message;
-use hickory_proto::rr::rdata::svcb::SvcParamValue;
-use hickory_proto::rr::RData;
 use ripdpi_dns_resolver::{
-    extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
+    extract_ip_answers, parse_https_service_bindings, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver,
+    EncryptedDnsTransport,
 };
 
 use crate::transport::{relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr, TransportConfig};
@@ -240,21 +238,10 @@ pub(crate) fn build_dns_query_with_type(domain: &str, query_id: u16, record_type
 }
 
 pub(crate) fn extract_ech_config_list_from_https_response(packet: &[u8]) -> Result<Option<Vec<u8>>, String> {
-    let message = Message::from_vec(packet).map_err(|err| err.to_string())?;
-    for answer in message.answers() {
-        let data = answer.data();
-        let RData::HTTPS(https) = data else {
-            continue;
-        };
-        for (_, param) in https.svc_params() {
-            if let SvcParamValue::EchConfigList(configs) = param {
-                if !configs.0.is_empty() {
-                    return Ok(Some(configs.0.clone()));
-                }
-            }
-        }
-    }
-    Ok(None)
+    Ok(parse_https_service_bindings(packet)
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .find_map(|record| record.ech_config.map(|config| config.raw_list_bytes)))
 }
 
 pub(crate) fn encrypted_dns_endpoint_for_resolver_id(resolver_id: &str) -> EncryptedDnsEndpoint {
