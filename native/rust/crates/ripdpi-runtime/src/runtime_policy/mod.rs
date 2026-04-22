@@ -19,7 +19,9 @@ pub use types::{
     RouteAdvance, TransportProtocol,
 };
 
-pub(crate) use matching::{extract_host, extract_host_info, group_requires_payload, route_matches_payload};
+pub(crate) use matching::{
+    extract_host, extract_host_info, group_requires_payload, is_tls_client_hello_payload, route_matches_payload,
+};
 
 const HOST_AUTOLEARN_STORE_VERSION: u32 = 1;
 const DEFAULT_NETWORK_SCOPE_KEY: &str = "default";

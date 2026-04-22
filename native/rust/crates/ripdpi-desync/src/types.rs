@@ -28,6 +28,16 @@ pub struct ProtoInfo {
     pub(crate) tls: Option<TlsProtoInfo>,
 }
 
+impl ProtoInfo {
+    pub fn is_tls_client_hello(&self) -> bool {
+        self.tls.is_some()
+    }
+
+    pub fn tls_host_bytes(&self) -> Option<&[u8]> {
+        self.tls.as_ref().map(|tls| tls.host_bytes.as_ref())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActivationTransport {
     Tcp,
