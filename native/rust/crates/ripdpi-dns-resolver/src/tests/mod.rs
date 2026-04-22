@@ -1,9 +1,11 @@
+mod pipeline;
+
 use super::*;
 
 use crypto_box::aead::Aead;
 use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
 use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
-use hickory_proto::rr::rdata::{A, TXT};
+use hickory_proto::rr::rdata::{A, AAAA, CNAME, TXT};
 use hickory_proto::rr::{Name, RData, Record, RecordType};
 use rcgen::generate_simple_self_signed;
 use ring::signature::{Ed25519KeyPair, KeyPair};
@@ -28,6 +30,10 @@ fn build_query(name: &str) -> Vec<u8> {
     build_dns_query(name, RecordType::A).expect("query serializes")
 }
 
+fn build_query_for_type(name: &str, record_type: RecordType) -> Vec<u8> {
+    build_dns_query(name, record_type).expect("query serializes")
+}
+
 fn build_response(query: &[u8], answer_ip: Ipv4Addr) -> Vec<u8> {
     let request = Message::from_vec(query).expect("query parses");
     let mut response = Message::new();
@@ -42,6 +48,62 @@ fn build_response(query: &[u8], answer_ip: Ipv4Addr) -> Vec<u8> {
         response.add_query(query.clone());
         if query.query_type() == RecordType::A {
             response.add_answer(Record::from_rdata(query.name().clone(), 60, RData::A(A(answer_ip))));
+        }
+    }
+    response.to_vec().expect("response serializes")
+}
+
+fn build_empty_response(query: &[u8]) -> Vec<u8> {
+    let request = Message::from_vec(query).expect("query parses");
+    let mut response = Message::new();
+    response
+        .set_id(request.id())
+        .set_message_type(MessageType::Response)
+        .set_op_code(OpCode::Query)
+        .set_recursion_desired(request.recursion_desired())
+        .set_recursion_available(true)
+        .set_response_code(ResponseCode::NoError);
+    for query in request.queries() {
+        response.add_query(query.clone());
+    }
+    response.to_vec().expect("response serializes")
+}
+
+fn build_response_with_record(query: &[u8], ttl_secs: u32) -> Vec<u8> {
+    let request = Message::from_vec(query).expect("query parses");
+    let mut response = Message::new();
+    response
+        .set_id(request.id())
+        .set_message_type(MessageType::Response)
+        .set_op_code(OpCode::Query)
+        .set_recursion_desired(request.recursion_desired())
+        .set_recursion_available(true)
+        .set_response_code(ResponseCode::NoError);
+    for query in request.queries() {
+        response.add_query(query.clone());
+        match query.query_type() {
+            RecordType::A => {
+                response.add_answer(Record::from_rdata(
+                    query.name().clone(),
+                    ttl_secs,
+                    RData::A(A(Ipv4Addr::new(198, 18, 0, 10))),
+                ));
+            }
+            RecordType::AAAA => {
+                response.add_answer(Record::from_rdata(
+                    query.name().clone(),
+                    ttl_secs,
+                    RData::AAAA(AAAA("2001:db8::10".parse().expect("ipv6"))),
+                ));
+            }
+            RecordType::CNAME => {
+                response.add_answer(Record::from_rdata(
+                    query.name().clone(),
+                    ttl_secs,
+                    RData::CNAME(CNAME(Name::from_ascii("alias.fixture.test").expect("cname"))),
+                ));
+            }
+            _ => {}
         }
     }
     response.to_vec().expect("response serializes")

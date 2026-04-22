@@ -1,4 +1,5 @@
 mod dnscrypt;
+mod doh_pipeline;
 mod health;
 #[cfg(feature = "hickory-backend")]
 mod hickory_backend;
@@ -11,6 +12,10 @@ mod types;
 mod tests;
 
 // Public API re-exports
+pub use doh_pipeline::{
+    DohBatchLookup, DohBatchRecordResponse, DohBatchRecordType, DohResolverPipeline, DohResolverPipelineBuilder,
+    DohResolverRole,
+};
 pub use health::{HealthRegistry, HealthScoreSnapshot};
 pub use pool::{ResolverPool, ResolverPoolBuilder};
 pub use resolver::EncryptedDnsResolver;
