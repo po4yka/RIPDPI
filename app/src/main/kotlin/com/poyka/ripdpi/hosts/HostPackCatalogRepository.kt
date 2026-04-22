@@ -15,6 +15,7 @@ import com.poyka.ripdpi.data.hostPackCatalogSnapshotFromJson
 import com.poyka.ripdpi.data.hostPackManifestFromJson
 import com.poyka.ripdpi.data.toJson
 import com.poyka.ripdpi.proto.GeositeCatalog
+import com.poyka.ripdpi.storage.AtomicTextFileWriter
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -95,6 +96,7 @@ class DefaultHostPackCatalogRepository
         private val verifier: HostPackVerifier,
         private val clock: HostPackCatalogClock,
         private val tempFileFactory: HostPackCatalogTempFileFactory,
+        private val snapshotWriter: AtomicTextFileWriter,
     ) : HostPackCatalogRepository {
         override suspend fun loadSnapshot(): HostPackCatalogSnapshot =
             withContext(Dispatchers.IO) {
@@ -131,10 +133,10 @@ class DefaultHostPackCatalogRepository
                             verifiedSignatureBase64 = manifest.catalogSignatureBase64,
                             verifiedSigningKeyId = manifest.keyId,
                         )
-                    cacheFile().let { cacheFile ->
-                        cacheFile.parentFile?.mkdirs()
-                        cacheFile.writeText(snapshot.toJson(), Charsets.UTF_8)
-                    }
+                    snapshotWriter.write(
+                        file = cacheFile(),
+                        payload = snapshot.toJson(),
+                    )
                     snapshot
                 } finally {
                     tempFile.delete()
