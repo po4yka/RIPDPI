@@ -31,6 +31,8 @@ data class StrategyPackRuntimeState(
     val lastRefreshFailureCode: StrategyPackRefreshFailureCode? = null,
     val lastAcceptedSequence: Long? = null,
     val lastRejectedSequence: Long? = null,
+    val cacheDegradationCode: ControlPlaneCacheDegradationCode? = null,
+    val cacheDegradationDetail: String? = null,
     val refreshPolicy: String = DefaultStrategyPackRefreshPolicy,
 )
 

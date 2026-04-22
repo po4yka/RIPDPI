@@ -23,6 +23,16 @@ Status: COMPLETE.
 - Added a debug-only local rollback override that bypasses only the monotonic-sequence rejection.
 - Updated bundled catalog metadata, operator docs, and regression coverage.
 
+### 2026-04-22: Typed Cache Degradation
+
+Status: COMPLETE.
+
+- Added a shared typed cache-degradation contract for cached control-plane snapshots.
+- Converted host-pack and strategy-pack startup loads to return both the active snapshot and any cached-snapshot degradation reason.
+- Threaded strategy cache degradation into `StrategyPackRuntimeState` and host-pack cache degradation into settings UI state.
+- Added a warning-style host-pack bundled-fallback status when the cached snapshot is unreadable.
+- Added load-path regression coverage for unreadable and incompatible cached snapshots.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.

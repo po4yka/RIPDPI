@@ -1435,6 +1435,9 @@ Source: %2$s</string>
     <string name="host_pack_apply_dismiss">Cancel</string>
     <string name="host_pack_bundled_status_title">Using bundled snapshot</string>
     <string name="host_pack_bundled_status_body">RIPDPI is using the curated host-pack snapshot shipped with the app. Refresh downloads the latest geosite.dat, verifies its SHA-256 checksum, and only then replaces the on-device cache.</string>
+    <string name="host_pack_degraded_status_title">Cached snapshot was discarded</string>
+    <string name="host_pack_degraded_status_body_unreadable">RIPDPI could not read the cached curated host-pack snapshot on this device, so it fell back to the bundled snapshot shipped with the app.</string>
+    <string name="host_pack_degraded_status_body_incompatible">RIPDPI could not use the cached control-plane snapshot on this device, so it fell back to the bundled snapshot shipped with the app.</string>
     <string name="host_pack_downloaded_status_title">Using verified download</string>
     <string name="host_pack_downloaded_status_body">The current curated host packs came from a checksum-verified geosite.dat download stored on this device.</string>
     <string name="host_pack_refresh_status_title">Refreshing curated host packs</string>

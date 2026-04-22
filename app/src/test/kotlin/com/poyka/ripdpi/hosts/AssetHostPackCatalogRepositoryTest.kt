@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.hosts
 
 import android.app.Application
+import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.DefaultStrategyPackSigningKeyId
 import com.poyka.ripdpi.data.HostPackCatalogSourceBundled
 import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded
@@ -19,6 +20,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -68,11 +70,31 @@ class AssetHostPackCatalogRepositoryTest {
         runTest {
             val repository = createRepository(service = FakeHostPackCatalogDownloadService())
 
-            val snapshot = repository.loadSnapshot()
+            val loadResult = repository.loadSnapshot()
+            val snapshot = loadResult.snapshot
 
             assertEquals(HostPackCatalogSourceBundled, snapshot.source)
             assertEquals(listOf("youtube", "telegram", "discord"), snapshot.packs.map { it.id })
             assertTrue(snapshot.packs.all { it.hostCount == it.hosts.size })
+            assertNull(loadResult.cacheDegradation)
+        }
+
+    @Test
+    fun `loadSnapshot falls back to bundled host packs when cached snapshot is unreadable`() =
+        runTest {
+            application.filesDir.resolve(hostPackCatalogCachePath).apply {
+                parentFile?.mkdirs()
+                writeText("{broken json")
+            }
+            val repository = createRepository(service = FakeHostPackCatalogDownloadService())
+
+            val loadResult = repository.loadSnapshot()
+
+            assertEquals(HostPackCatalogSourceBundled, loadResult.snapshot.source)
+            assertEquals(
+                ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable,
+                loadResult.cacheDegradation?.code,
+            )
         }
 
     @Test
@@ -108,19 +130,25 @@ class AssetHostPackCatalogRepositoryTest {
             assertEquals(manifest.catalogSignatureBase64, snapshot.verifiedSignatureBase64)
             assertEquals(manifest.keyId, snapshot.verifiedSigningKeyId)
             assertEquals(refreshClock.nowEpochMillis(), snapshot.lastFetchedAtEpochMillis)
-            assertEquals(HostPackCatalogSourceDownloaded, reloaded.source)
-            assertEquals(manifest.version, reloaded.manifestVersion)
-            assertEquals(manifest.keyId, reloaded.verifiedSigningKeyId)
+            assertEquals(HostPackCatalogSourceDownloaded, reloaded.snapshot.source)
+            assertEquals(manifest.version, reloaded.snapshot.manifestVersion)
+            assertEquals(manifest.keyId, reloaded.snapshot.verifiedSigningKeyId)
             assertFalse(tempFile.exists())
             assertEquals(
                 catalogUrl,
-                reloaded.packs
+                reloaded.snapshot.packs
                     .first()
                     .sources
                     .single()
                     .url,
             )
-            assertEquals(listOf("youtube.com", "ytimg.com"), reloaded.packs.first().hosts)
+            assertEquals(
+                listOf("youtube.com", "ytimg.com"),
+                reloaded.snapshot.packs
+                    .first()
+                    .hosts,
+            )
+            assertNull(reloaded.cacheDegradation)
         }
 
     @Test
@@ -153,8 +181,9 @@ class AssetHostPackCatalogRepositoryTest {
 
             val fallbackSnapshot = repository.loadSnapshot()
 
-            assertEquals(HostPackCatalogSourceBundled, fallbackSnapshot.source)
-            assertTrue(fallbackSnapshot.lastFetchedAtEpochMillis == null)
+            assertEquals(HostPackCatalogSourceBundled, fallbackSnapshot.snapshot.source)
+            assertTrue(fallbackSnapshot.snapshot.lastFetchedAtEpochMillis == null)
+            assertNull(fallbackSnapshot.cacheDegradation)
             assertFalse(tempFile.exists())
         }
 
@@ -395,7 +424,7 @@ class AssetHostPackCatalogRepositoryTest {
                     assertTrue(error is IOException)
                 }
 
-            val preservedSnapshot = failingRepository.loadSnapshot()
+            val preservedSnapshot = failingRepository.loadSnapshot().snapshot
             assertEquals(initialSnapshot.manifestVersion, preservedSnapshot.manifestVersion)
             assertEquals(initialSnapshot.packs.first().hosts, preservedSnapshot.packs.first().hosts)
         }

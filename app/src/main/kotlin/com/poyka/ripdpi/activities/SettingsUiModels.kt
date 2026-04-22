@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.AdaptiveMarkerSniExt
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
+import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
@@ -787,6 +788,8 @@ data class SettingsUiState(
 data class HostPackCatalogUiState(
     val snapshot: HostPackCatalogSnapshot = HostPackCatalogSnapshot(),
     val isRefreshing: Boolean = false,
+    val cacheDegradationCode: ControlPlaneCacheDegradationCode? = null,
+    val cacheDegradationDetail: String? = null,
 ) {
     val presets: List<HostPackPreset>
         get() = snapshot.packs

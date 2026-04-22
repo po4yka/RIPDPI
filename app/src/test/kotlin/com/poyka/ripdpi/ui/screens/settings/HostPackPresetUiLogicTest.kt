@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.SettingsUiState
+import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.HostPackCatalog
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded
@@ -9,6 +11,7 @@ import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.HostPackSource
 import com.poyka.ripdpi.data.HostPackTargetBlacklist
 import com.poyka.ripdpi.data.HostPackTargetWhitelist
+import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -103,5 +106,19 @@ class HostPackPresetUiLogicTest {
             )
 
         assertEquals(listOf("youtube"), state.presets.map { it.id })
+    }
+
+    @Test
+    fun `degraded bundled host-pack state uses warning status copy`() {
+        val status =
+            hostPackCatalogStatusSpec(
+                HostPackCatalogUiState(
+                    cacheDegradationCode = ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable,
+                ),
+            )
+
+        assertEquals(R.string.host_pack_degraded_status_title, status.labelResId)
+        assertEquals(R.string.host_pack_degraded_status_body_unreadable, status.bodyResId)
+        assertEquals(StatusIndicatorTone.Warning, status.tone)
     }
 }

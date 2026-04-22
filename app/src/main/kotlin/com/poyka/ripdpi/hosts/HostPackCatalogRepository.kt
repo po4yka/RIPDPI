@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.hosts
 
 import android.content.Context
+import com.poyka.ripdpi.data.ControlPlaneCacheDegradation
+import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.HostPackCatalog
 import com.poyka.ripdpi.data.HostPackCatalogRemoteSourceName
 import com.poyka.ripdpi.data.HostPackCatalogRemoteSourceRef
@@ -39,10 +41,15 @@ private const val hexByteBase = 0x100
 private const val hexRadix = 16
 
 interface HostPackCatalogRepository {
-    suspend fun loadSnapshot(): HostPackCatalogSnapshot
+    suspend fun loadSnapshot(): HostPackCatalogLoadResult
 
     suspend fun refreshSnapshot(): HostPackCatalogSnapshot
 }
+
+data class HostPackCatalogLoadResult(
+    val snapshot: HostPackCatalogSnapshot,
+    val cacheDegradation: ControlPlaneCacheDegradation? = null,
+)
 
 fun interface HostPackCatalogClock {
     fun nowEpochMillis(): Long
@@ -98,9 +105,29 @@ class DefaultHostPackCatalogRepository
         private val tempFileFactory: HostPackCatalogTempFileFactory,
         private val snapshotWriter: AtomicTextFileWriter,
     ) : HostPackCatalogRepository {
-        override suspend fun loadSnapshot(): HostPackCatalogSnapshot =
+        override suspend fun loadSnapshot(): HostPackCatalogLoadResult =
             withContext(Dispatchers.IO) {
-                loadCachedSnapshot() ?: loadBundledSnapshot()
+                val cachedResult = loadCachedSnapshot()
+                when {
+                    cachedResult.snapshot != null -> {
+                        HostPackCatalogLoadResult(snapshot = cachedResult.snapshot)
+                    }
+
+                    cachedResult.error != null -> {
+                        HostPackCatalogLoadResult(
+                            snapshot = loadBundledSnapshot(),
+                            cacheDegradation =
+                                ControlPlaneCacheDegradation(
+                                    code = ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable,
+                                    detail = cachedResult.error.message,
+                                ),
+                        )
+                    }
+
+                    else -> {
+                        HostPackCatalogLoadResult(snapshot = loadBundledSnapshot())
+                    }
+                }
             }
 
         override suspend fun refreshSnapshot(): HostPackCatalogSnapshot =
@@ -168,15 +195,20 @@ class DefaultHostPackCatalogRepository
                 }
             }.getOrDefault(HostPackCatalog())
 
-        private fun loadCachedSnapshot(): HostPackCatalogSnapshot? =
-            runCatching {
-                val snapshotFile = cacheFile()
-                if (!snapshotFile.exists()) {
-                    null
-                } else {
-                    hostPackCatalogSnapshotFromJson(snapshotFile.readText(Charsets.UTF_8))
-                }
-            }.getOrNull()
+        private fun loadCachedSnapshot(): CachedHostPackCatalogSnapshotResult {
+            val snapshotFile = cacheFile()
+            if (!snapshotFile.exists()) {
+                return CachedHostPackCatalogSnapshotResult()
+            }
+
+            return runCatching {
+                CachedHostPackCatalogSnapshotResult(
+                    snapshot = hostPackCatalogSnapshotFromJson(snapshotFile.readText(Charsets.UTF_8)),
+                )
+            }.getOrElse { error ->
+                CachedHostPackCatalogSnapshotResult(error = error)
+            }
+        }
 
         private fun parseCuratedCatalog(
             inputStream: InputStream,
@@ -209,6 +241,11 @@ class DefaultHostPackCatalogRepository
 
         private fun cacheFile(): File = File(context.filesDir, hostPackCatalogCachePath)
     }
+
+private data class CachedHostPackCatalogSnapshotResult(
+    val snapshot: HostPackCatalogSnapshot? = null,
+    val error: Throwable? = null,
+)
 
 internal fun Response<ResponseBody>.requireBodyText(): String {
     val body =
