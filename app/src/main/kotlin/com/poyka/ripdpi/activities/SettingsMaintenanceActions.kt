@@ -45,9 +45,12 @@ internal class SettingsMaintenanceActions(
 ) {
     fun loadInitialHostPackCatalog() {
         mutations.launch {
+            val loadResult = hostPackCatalogRepository.loadSnapshot()
             hostPackCatalogState.value =
                 HostPackCatalogUiState(
-                    snapshot = hostPackCatalogRepository.loadSnapshot(),
+                    snapshot = loadResult.snapshot,
+                    cacheDegradationCode = loadResult.cacheDegradation?.code,
+                    cacheDegradationDetail = loadResult.cacheDegradation?.detail,
                 )
         }
     }
@@ -94,7 +97,7 @@ internal class SettingsMaintenanceActions(
     }
 
     fun refreshHostPackCatalog() {
-        val previousSnapshot = hostPackCatalogState.value.snapshot
+        val previousState = hostPackCatalogState.value
         hostPackCatalogState.update { current ->
             current.copy(isRefreshing = true)
         }
@@ -109,6 +112,8 @@ internal class SettingsMaintenanceActions(
                             HostPackCatalogUiState(
                                 snapshot = snapshot,
                                 isRefreshing = false,
+                                cacheDegradationCode = null,
+                                cacheDegradationDetail = null,
                             )
                         SettingsEffect.Notice(
                             title = stringResolver.getString(R.string.notice_host_packs_refreshed_title),
@@ -119,8 +124,10 @@ internal class SettingsMaintenanceActions(
                     onFailure = { error ->
                         hostPackCatalogState.value =
                             HostPackCatalogUiState(
-                                snapshot = previousSnapshot,
+                                snapshot = previousState.snapshot,
                                 isRefreshing = false,
+                                cacheDegradationCode = previousState.cacheDegradationCode,
+                                cacheDegradationDetail = previousState.cacheDegradationDetail,
                             )
                         when (error) {
                             is HostPackChecksumMismatchException,

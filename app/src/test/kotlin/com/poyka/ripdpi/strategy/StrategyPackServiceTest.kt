@@ -2,6 +2,8 @@ package com.poyka.ripdpi.strategy
 
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.ControlPlaneCacheDegradation
+import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.StrategyPackCatalog
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceBundled
@@ -96,6 +98,37 @@ class StrategyPackServiceTest {
             runCurrent()
 
             assertEquals(listOf("stable"), repository.refreshChannels)
+        }
+
+    @Test
+    fun `initialize publishes cache degradation from the initial load result`() =
+        runTest {
+            val repository =
+                FakeStrategyPackRepository(
+                    initialSnapshot = bundledSnapshot(),
+                    clock = clock(),
+                    initialLoadDegradation =
+                        ControlPlaneCacheDegradation(
+                            code = ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable,
+                            detail = "Unexpected EOF",
+                        ),
+                )
+            val stateStore = InMemoryStrategyPackStateStore()
+            val service =
+                newService(
+                    repository = repository,
+                    stateStore = stateStore,
+                )
+
+            service.initialize()
+            runCurrent()
+            runCurrent()
+
+            assertEquals(
+                ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable,
+                stateStore.state.value.cacheDegradationCode,
+            )
+            assertEquals("Unexpected EOF", stateStore.state.value.cacheDegradationDetail)
         }
 
     @Test
@@ -237,8 +270,21 @@ class StrategyPackServiceTest {
     fun `refreshNow bypasses ttl and reseeds automatic schedule on success`() =
         runTest {
             val repository =
-                FakeStrategyPackRepository(initialSnapshot = downloadedSnapshot(fetchedAt = 0L), clock = clock())
-            val service = newService(repository = repository)
+                FakeStrategyPackRepository(
+                    initialSnapshot = downloadedSnapshot(fetchedAt = 0L),
+                    clock = clock(),
+                    initialLoadDegradation =
+                        ControlPlaneCacheDegradation(
+                            code = ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable,
+                            detail = "Unexpected EOF",
+                        ),
+                )
+            val stateStore = InMemoryStrategyPackStateStore()
+            val service =
+                newService(
+                    repository = repository,
+                    stateStore = stateStore,
+                )
 
             service.initialize()
             runCurrent()
@@ -257,6 +303,8 @@ class StrategyPackServiceTest {
             runCurrent()
             runCurrent()
             assertEquals(2, repository.refreshChannels.size)
+            assertNull(stateStore.state.value.cacheDegradationCode)
+            assertNull(stateStore.state.value.cacheDegradationDetail)
         }
 
     @Test
@@ -266,6 +314,11 @@ class StrategyPackServiceTest {
                 FakeStrategyPackRepository(
                     initialSnapshot = downloadedSnapshot(fetchedAt = 0L, sequence = 9),
                     clock = clock(),
+                    initialLoadDegradation =
+                        ControlPlaneCacheDegradation(
+                            code = ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable,
+                            detail = "Unexpected EOF",
+                        ),
                     refreshOutcomes =
                         ArrayDeque(
                             listOf(
@@ -307,6 +360,11 @@ class StrategyPackServiceTest {
                 "The downloaded strategy pack catalog sequence 8 is not newer than the accepted sequence 9.",
                 stateStore.state.value.lastRefreshError,
             )
+            assertEquals(
+                ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable,
+                stateStore.state.value.cacheDegradationCode,
+            )
+            assertEquals("Unexpected EOF", stateStore.state.value.cacheDegradationDetail)
         }
 
     private fun TestScope.newService(
@@ -354,6 +412,7 @@ class StrategyPackServiceTest {
 private class FakeStrategyPackRepository(
     initialSnapshot: StrategyPackSnapshot,
     private val clock: () -> Long,
+    private val initialLoadDegradation: ControlPlaneCacheDegradation? = null,
     private val refreshOutcomes: ArrayDeque<RefreshOutcome> = ArrayDeque(),
 ) : StrategyPackRepository {
     var loadSnapshotCalls: Int = 0
@@ -364,9 +423,12 @@ private class FakeStrategyPackRepository(
 
     private var snapshot: StrategyPackSnapshot = initialSnapshot
 
-    override suspend fun loadSnapshot(): StrategyPackSnapshot {
+    override suspend fun loadSnapshot(): StrategyPackLoadResult {
         loadSnapshotCalls += 1
-        return snapshot
+        return StrategyPackLoadResult(
+            snapshot = snapshot,
+            cacheDegradation = initialLoadDegradation,
+        )
     }
 
     override suspend fun refreshSnapshot(

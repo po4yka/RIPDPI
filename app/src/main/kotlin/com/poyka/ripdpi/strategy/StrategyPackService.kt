@@ -3,6 +3,7 @@ package com.poyka.ripdpi.strategy
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ApplicationScope
+import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.StrategyPackRefreshFailureCode
 import com.poyka.ripdpi.data.StrategyPackRefreshPolicyAutomatic
 import com.poyka.ripdpi.data.StrategyPackRuntimeState
@@ -71,7 +72,8 @@ class DefaultStrategyPackService
             applicationScope.launch {
                 val initialSettings = appSettingsRepository.snapshot().toStrategyPackSettingsModel()
                 val initialKey = StrategyPackRefreshKey(initialSettings)
-                val initialSnapshot = repository.loadSnapshot()
+                val initialLoad = repository.loadSnapshot()
+                val initialSnapshot = initialLoad.snapshot
 
                 schedulingMutex.withLock {
                     currentRefreshKey = initialKey
@@ -84,6 +86,8 @@ class DefaultStrategyPackService
                     key = initialKey,
                     lastRefreshAttemptAtEpochMillis = initialSnapshot.lastFetchedAtEpochMillis,
                     lastRefreshError = null,
+                    cacheDegradationCode = initialLoad.cacheDegradation?.code,
+                    cacheDegradationDetail = initialLoad.cacheDegradation?.detail,
                 )
                 scheduleAutomaticRefresh(initialKey, StrategyPackRefreshScheduleReason.Startup)
 
@@ -128,6 +132,8 @@ class DefaultStrategyPackService
                     lastRefreshError = null,
                     lastRefreshFailureCode = null,
                     lastRejectedSequence = null,
+                    cacheDegradationCode = null,
+                    cacheDegradationDetail = null,
                 )
                 scheduleAutomaticRefresh(key, StrategyPackRefreshScheduleReason.ManualRefreshReseed)
             }.onFailure { error ->
@@ -139,6 +145,8 @@ class DefaultStrategyPackService
                     lastRefreshError = error.message,
                     lastRefreshFailureCode = error.toFailureCode(),
                     lastRejectedSequence = error.toRejectedSequence(),
+                    cacheDegradationCode = currentState.cacheDegradationCode,
+                    cacheDegradationDetail = currentState.cacheDegradationDetail,
                 )
                 throw error
             }
@@ -160,6 +168,8 @@ class DefaultStrategyPackService
                 lastRefreshError = runtimeState.lastRefreshError,
                 lastRefreshFailureCode = runtimeState.lastRefreshFailureCode,
                 lastRejectedSequence = runtimeState.lastRejectedSequence,
+                cacheDegradationCode = runtimeState.cacheDegradationCode,
+                cacheDegradationDetail = runtimeState.cacheDegradationDetail,
             )
             scheduleAutomaticRefresh(key, StrategyPackRefreshScheduleReason.RelevantSettingsChanged)
         }
@@ -171,6 +181,8 @@ class DefaultStrategyPackService
             lastRefreshError: String?,
             lastRefreshFailureCode: StrategyPackRefreshFailureCode? = null,
             lastRejectedSequence: Long? = null,
+            cacheDegradationCode: ControlPlaneCacheDegradationCode? = null,
+            cacheDegradationDetail: String? = null,
         ) {
             val selection =
                 snapshot.catalog.resolveSelection(
@@ -199,6 +211,8 @@ class DefaultStrategyPackService
                     lastRefreshFailureCode = lastRefreshFailureCode,
                     lastAcceptedSequence = snapshot.acceptedSequenceOrNull(),
                     lastRejectedSequence = lastRejectedSequence,
+                    cacheDegradationCode = cacheDegradationCode,
+                    cacheDegradationDetail = cacheDegradationDetail,
                     refreshPolicy = key.refreshPolicy,
                 ),
             )

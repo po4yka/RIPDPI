@@ -1,13 +1,17 @@
 package com.poyka.ripdpi.strategy
 
 import android.app.Application
+import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.DefaultStrategyPackSigningKeyId
+import com.poyka.ripdpi.data.StrategyPackCatalog
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceBundled
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
 import com.poyka.ripdpi.data.StrategyPackChannelStable
 import com.poyka.ripdpi.data.StrategyPackManifest
 import com.poyka.ripdpi.data.StrategyPackRefreshPolicyAutomatic
 import com.poyka.ripdpi.data.StrategyPackSignatureAlgorithmSha256WithEcdsa
+import com.poyka.ripdpi.data.StrategyPackSnapshot
+import com.poyka.ripdpi.data.toJson
 import com.poyka.ripdpi.data.toStrategyPackSettingsModel
 import com.poyka.ripdpi.security.AppTrustedSigningKeyResolver
 import com.poyka.ripdpi.storage.AtomicTextFileWriter
@@ -18,6 +22,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -63,7 +68,8 @@ class AssetStrategyPackRepositoryTest {
         runTest {
             val repository = createRepository(service = FakeStrategyPackDownloadService())
 
-            val snapshot = repository.loadSnapshot()
+            val loadResult = repository.loadSnapshot()
+            val snapshot = loadResult.snapshot
 
             assertEquals(StrategyPackCatalogSourceBundled, snapshot.source)
             assertEquals("stable", snapshot.catalog.channel)
@@ -73,6 +79,54 @@ class AssetStrategyPackRepositoryTest {
                 snapshot.catalog.tlsProfiles
                     .first()
                     .id,
+            )
+            assertNull(loadResult.cacheDegradation)
+        }
+
+    @Test
+    fun `loadSnapshot falls back to bundled snapshot when cached snapshot is unreadable`() =
+        runTest {
+            application.filesDir.resolve(strategyPackCatalogCachePath).apply {
+                parentFile?.mkdirs()
+                writeText("{broken json")
+            }
+            val repository = createRepository(service = FakeStrategyPackDownloadService())
+
+            val loadResult = repository.loadSnapshot()
+
+            assertEquals(StrategyPackCatalogSourceBundled, loadResult.snapshot.source)
+            assertEquals(
+                ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable,
+                loadResult.cacheDegradation?.code,
+            )
+        }
+
+    @Test
+    fun `loadSnapshot falls back to bundled snapshot when cached snapshot is incompatible`() =
+        runTest {
+            application.filesDir.resolve(strategyPackCatalogCachePath).apply {
+                parentFile?.mkdirs()
+                writeText(
+                    StrategyPackSnapshot(
+                        catalog =
+                            StrategyPackCatalog(
+                                channel = StrategyPackChannelStable,
+                                minAppVersion = "9.9.9",
+                                minNativeVersion = "9.9.9",
+                            ),
+                        source = StrategyPackCatalogSourceDownloaded,
+                        lastFetchedAtEpochMillis = refreshClock.nowEpochMillis(),
+                    ).toJson(),
+                )
+            }
+            val repository = createRepository(service = FakeStrategyPackDownloadService())
+
+            val loadResult = repository.loadSnapshot()
+
+            assertEquals(StrategyPackCatalogSourceBundled, loadResult.snapshot.source)
+            assertEquals(
+                ControlPlaneCacheDegradationCode.CachedSnapshotIncompatible,
+                loadResult.cacheDegradation?.code,
             )
         }
 
@@ -98,7 +152,7 @@ class AssetStrategyPackRepositoryTest {
                     channel = StrategyPackChannelStable,
                     allowRollbackOverride = false,
                 )
-            val reloaded = repository.loadSnapshot()
+            val reloaded = repository.loadSnapshot().snapshot
 
             assertEquals(StrategyPackCatalogSourceDownloaded, snapshot.source)
             assertEquals(checksum, snapshot.verifiedChecksumSha256)
@@ -156,7 +210,7 @@ class AssetStrategyPackRepositoryTest {
                     channel = StrategyPackChannelStable,
                     allowRollbackOverride = false,
                 )
-            val reloaded = repository.loadSnapshot()
+            val reloaded = repository.loadSnapshot().snapshot
 
             assertEquals(8L, refreshed.catalog.sequence)
             assertEquals(8L, reloaded.catalog.sequence)
@@ -196,7 +250,7 @@ class AssetStrategyPackRepositoryTest {
                     assertTrue(error is StrategyPackRollbackRejectedException)
                 }
 
-            val preservedSnapshot = repository.loadSnapshot()
+            val preservedSnapshot = repository.loadSnapshot().snapshot
             assertEquals(initialSnapshot.manifestVersion, preservedSnapshot.manifestVersion)
             assertEquals(initialSnapshot.catalog.sequence, preservedSnapshot.catalog.sequence)
         }
@@ -235,7 +289,7 @@ class AssetStrategyPackRepositoryTest {
                     assertTrue(error is StrategyPackRollbackRejectedException)
                 }
 
-            val preservedSnapshot = repository.loadSnapshot()
+            val preservedSnapshot = repository.loadSnapshot().snapshot
             assertEquals(initialSnapshot.manifestVersion, preservedSnapshot.manifestVersion)
             assertEquals(initialSnapshot.catalog.sequence, preservedSnapshot.catalog.sequence)
         }
@@ -269,7 +323,7 @@ class AssetStrategyPackRepositoryTest {
                     assertTrue(error is StrategyPackSignatureMismatchException)
                 }
 
-            val fallbackSnapshot = repository.loadSnapshot()
+            val fallbackSnapshot = repository.loadSnapshot().snapshot
             assertEquals(StrategyPackCatalogSourceBundled, fallbackSnapshot.source)
         }
 
@@ -347,7 +401,7 @@ class AssetStrategyPackRepositoryTest {
                     assertTrue(error is StrategyPackCompatibilityException)
                 }
 
-            val fallbackSnapshot = repository.loadSnapshot()
+            val fallbackSnapshot = repository.loadSnapshot().snapshot
             assertEquals(StrategyPackCatalogSourceBundled, fallbackSnapshot.source)
             assertEquals(StrategyPackRefreshPolicyAutomatic, applicationStrategyPackDefaults().refreshPolicy)
         }
@@ -384,7 +438,7 @@ class AssetStrategyPackRepositoryTest {
                     assertTrue(error is StrategyPackStaleCatalogException)
                 }
 
-            val preservedSnapshot = repository.loadSnapshot()
+            val preservedSnapshot = repository.loadSnapshot().snapshot
             assertEquals(7L, preservedSnapshot.catalog.sequence)
             assertEquals("2026.04.1", preservedSnapshot.manifestVersion)
         }
@@ -470,7 +524,7 @@ class AssetStrategyPackRepositoryTest {
                     channel = StrategyPackChannelStable,
                     allowRollbackOverride = true,
                 )
-            val reloaded = repository.loadSnapshot()
+            val reloaded = repository.loadSnapshot().snapshot
 
             assertEquals(8L, refreshed.catalog.sequence)
             assertEquals(8L, reloaded.catalog.sequence)
@@ -543,7 +597,7 @@ class AssetStrategyPackRepositoryTest {
                     assertTrue(error is IOException)
                 }
 
-            val preservedSnapshot = failingRepository.loadSnapshot()
+            val preservedSnapshot = failingRepository.loadSnapshot().snapshot
             assertEquals(initialSnapshot.manifestVersion, preservedSnapshot.manifestVersion)
             assertEquals(initialSnapshot.packs.single().id, preservedSnapshot.packs.single().id)
         }

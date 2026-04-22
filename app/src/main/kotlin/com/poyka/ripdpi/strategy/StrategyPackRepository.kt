@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.strategy
 
 import android.content.Context
+import com.poyka.ripdpi.data.ControlPlaneCacheDegradation
+import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.DefaultStrategyPackChannel
 import com.poyka.ripdpi.data.StrategyPackCatalog
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceBundled
@@ -31,13 +33,18 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 interface StrategyPackRepository {
-    suspend fun loadSnapshot(): StrategyPackSnapshot
+    suspend fun loadSnapshot(): StrategyPackLoadResult
 
     suspend fun refreshSnapshot(
         channel: String = DefaultStrategyPackChannel,
         allowRollbackOverride: Boolean = false,
     ): StrategyPackSnapshot
 }
+
+data class StrategyPackLoadResult(
+    val snapshot: StrategyPackSnapshot,
+    val cacheDegradation: ControlPlaneCacheDegradation? = null,
+)
 
 fun interface StrategyPackClock {
     fun nowEpochMillis(): Long
@@ -73,13 +80,46 @@ class DefaultStrategyPackRepository
         private val buildProvenanceProvider: StrategyPackBuildProvenanceProvider,
         private val snapshotWriter: AtomicTextFileWriter,
     ) : StrategyPackRepository {
-        override suspend fun loadSnapshot(): StrategyPackSnapshot =
+        override suspend fun loadSnapshot(): StrategyPackLoadResult =
             withContext(Dispatchers.IO) {
                 val provenance = buildProvenanceProvider.current()
-                loadCachedSnapshot()
-                    ?.takeIf { it.isCompatibleWith(provenance) }
-                    ?: loadBundledSnapshot().takeIf { it.isCompatibleWith(provenance) }
-                    ?: StrategyPackSnapshot()
+                val cachedResult = loadCachedSnapshot()
+                val compatibleCachedSnapshot = cachedResult.snapshot?.takeIf { it.isCompatibleWith(provenance) }
+
+                when {
+                    compatibleCachedSnapshot != null -> {
+                        StrategyPackLoadResult(snapshot = compatibleCachedSnapshot)
+                    }
+
+                    cachedResult.snapshot != null -> {
+                        StrategyPackLoadResult(
+                            snapshot = loadCompatibleBundledSnapshot(provenance),
+                            cacheDegradation =
+                                ControlPlaneCacheDegradation(
+                                    code = ControlPlaneCacheDegradationCode.CachedSnapshotIncompatible,
+                                    detail =
+                                        cachedResult.snapshot.catalog
+                                            .checkCompatibilityVersions()
+                                            .reason,
+                                ),
+                        )
+                    }
+
+                    cachedResult.error != null -> {
+                        StrategyPackLoadResult(
+                            snapshot = loadCompatibleBundledSnapshot(provenance),
+                            cacheDegradation =
+                                ControlPlaneCacheDegradation(
+                                    code = ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable,
+                                    detail = cachedResult.error.message,
+                                ),
+                        )
+                    }
+
+                    else -> {
+                        StrategyPackLoadResult(snapshot = loadCompatibleBundledSnapshot(provenance))
+                    }
+                }
             }
 
         override suspend fun refreshSnapshot(
@@ -88,7 +128,7 @@ class DefaultStrategyPackRepository
         ): StrategyPackSnapshot =
             withContext(Dispatchers.IO) {
                 val normalizedChannel = normalizeStrategyPackChannel(channel)
-                val previousSnapshot = loadCachedSnapshot()
+                val previousSnapshot = loadCachedSnapshot().snapshot
                 val manifest = loadManifest(normalizedChannel)
                 val downloadedAtEpochMillis = clock.nowEpochMillis()
                 val tempFile = tempFileFactory.create(context.cacheDir)
@@ -195,6 +235,9 @@ class DefaultStrategyPackRepository
             }
         }
 
+        private fun loadCompatibleBundledSnapshot(provenance: StrategyPackBuildProvenance): StrategyPackSnapshot =
+            loadBundledSnapshot().takeIf { it.isCompatibleWith(provenance) } ?: StrategyPackSnapshot()
+
         private fun loadBundledSnapshot(): StrategyPackSnapshot =
             runCatching {
                 StrategyPackSnapshot(
@@ -207,15 +250,20 @@ class DefaultStrategyPackRepository
                 )
             }.getOrDefault(StrategyPackSnapshot())
 
-        private fun loadCachedSnapshot(): StrategyPackSnapshot? =
-            runCatching {
-                val file = cacheFile()
-                if (!file.exists()) {
-                    null
-                } else {
-                    strategyPackSnapshotFromJson(file.readText(Charsets.UTF_8))
-                }
-            }.getOrNull()
+        private fun loadCachedSnapshot(): CachedStrategyPackSnapshotResult {
+            val file = cacheFile()
+            if (!file.exists()) {
+                return CachedStrategyPackSnapshotResult()
+            }
+
+            return runCatching {
+                CachedStrategyPackSnapshotResult(
+                    snapshot = strategyPackSnapshotFromJson(file.readText(Charsets.UTF_8)),
+                )
+            }.getOrElse { error ->
+                CachedStrategyPackSnapshotResult(error = error)
+            }
+        }
 
         private fun StrategyPackSnapshot.isCompatibleWith(provenance: StrategyPackBuildProvenance): Boolean =
             catalog
@@ -232,6 +280,11 @@ class DefaultStrategyPackRepository
 
         private fun cacheFile(): File = File(context.filesDir, strategyPackCatalogCachePath)
     }
+
+private data class CachedStrategyPackSnapshotResult(
+    val snapshot: StrategyPackSnapshot? = null,
+    val error: Throwable? = null,
+)
 
 internal fun strategyPackManifestUrl(channel: String): String =
     "$strategyPackBaseUrl$strategyPackManifestPathPrefix/${normalizeStrategyPackChannel(
