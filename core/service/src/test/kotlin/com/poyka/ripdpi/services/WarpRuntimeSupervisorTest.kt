@@ -55,6 +55,40 @@ class WarpRuntimeSupervisorTest {
             assertEquals(listOf(SupervisorExitCause.Crash(29)), exits)
         }
 
+    @Test
+    fun repeatedStartStopRecoversAfterScriptedWarpCrash() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val warpFactory = TestRipDpiWarpFactory()
+            val supervisor =
+                WarpRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    warpFactory = warpFactory,
+                    runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
+                )
+            val exits = mutableListOf<SupervisorExitCause>()
+
+            supervisor.start(sampleWarpConfig()) { exits += it }
+            supervisor.stop()
+            advanceUntilIdle()
+
+            supervisor.start(sampleWarpConfig()) { exits += it }
+            supervisor.stop()
+            advanceUntilIdle()
+
+            assertEquals(2, warpFactory.runtimes.size)
+            assertEquals(1, warpFactory.runtimes[0].stopCount)
+            assertEquals(1, warpFactory.runtimes[1].stopCount)
+            assertEquals(
+                listOf(
+                    SupervisorExitCause.ExpectedStop,
+                    SupervisorExitCause.ExpectedStop,
+                ),
+                exits,
+            )
+        }
+
     private fun sampleWarpConfig(): RipDpiWarpConfig =
         RipDpiWarpConfig(
             enabled = true,
