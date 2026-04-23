@@ -14,8 +14,8 @@ members = [
     "crates/ripdpi-telemetry",
     "crates/ripdpi-native-protect",
     "crates/ripdpi-android",
-    "crates/ripdpi-relay-core",
     "crates/ripdpi-relay-android",
+    "crates/ripdpi-apps-script-core",
     "crates/ripdpi-warp-core",
     "crates/ripdpi-warp-android",
     "crates/ripdpi-packets",
@@ -63,6 +63,7 @@ ripdpi-telemetry = { path = "crates/ripdpi-telemetry" }
 ripdpi-native-protect = { path = "crates/ripdpi-native-protect" }
 ripdpi-relay-core = { path = "crates/ripdpi-relay-core" }
 ripdpi-relay-mux = { path = "crates/ripdpi-relay-mux" }
+ripdpi-apps-script-core = { path = "crates/ripdpi-apps-script-core" }
 ripdpi-warp-core = { path = "crates/ripdpi-warp-core" }
 ripdpi-packets = { path = "crates/ripdpi-packets" }
 ripdpi-ipfrag = { path = "crates/ripdpi-ipfrag" }
@@ -147,6 +148,9 @@ futures = "0.3"
 h3-datagram = "0.0.2"
 rand = "0.10"
 sha2 = "0.11"
+flate2 = "1"
+rustls-pemfile = "2"
+time = "0.3"
 
 [workspace.lints.clippy]
 # Correctness & suspicious (errors)

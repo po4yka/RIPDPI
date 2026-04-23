@@ -957,6 +957,7 @@ val rustNativePackageDirs =
     listOf(
         "android-support",
         "ripdpi-android",
+        "ripdpi-apps-script-core",
         "ripdpi-relay-android",
         "ripdpi-config",
         "ripdpi-desync",

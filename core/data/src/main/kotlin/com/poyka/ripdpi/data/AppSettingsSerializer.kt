@@ -113,6 +113,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setRelayUdpEnabled(false)
             .setRelayTcpFallbackEnabled(true)
             .setRelayFinalmaskType(RelayFinalmaskTypeOff)
+            .setRelayAppsScriptVerifySsl(DefaultRelayAppsScriptVerifySsl)
             .setAppIconVariant("default")
             .setAppIconStyle("themed")
             .setDiagnosticsMonitorEnabled(true)

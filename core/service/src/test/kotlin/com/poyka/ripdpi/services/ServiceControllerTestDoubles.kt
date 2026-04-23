@@ -786,6 +786,17 @@ internal class TestNaiveProxyRuntimeFactory(
         }
 }
 
+internal class TestGoogleAppsScriptRelayRuntimeFactory(
+    private val runtimeFactory: () -> TestRelayRuntime = { TestRelayRuntime() },
+) : GoogleAppsScriptRelayRuntimeFactory {
+    val runtimes = mutableListOf<TestRelayRuntime>()
+
+    override fun create(): RipDpiRelayRuntime =
+        runtimeFactory().also { runtime ->
+            runtimes += runtime
+        }
+}
+
 internal class TestCloudflarePublishRuntimeFactory(
     private val runtimeFactory: () -> TestRelayRuntime = { TestRelayRuntime() },
 ) : CloudflarePublishRuntimeFactory {

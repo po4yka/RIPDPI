@@ -49,6 +49,13 @@ data class RelayProfileRecord(
     val tuicCongestionControl: String = RelayCongestionControlBbr,
     val shadowTlsInnerProfileId: String = "",
     val naivePath: String = "",
+    val appsScriptScriptIds: List<String> = emptyList(),
+    val appsScriptGoogleIp: String = "",
+    val appsScriptFrontDomain: String = "",
+    val appsScriptSniHosts: List<String> = emptyList(),
+    val appsScriptVerifySsl: Boolean = DefaultRelayAppsScriptVerifySsl,
+    val appsScriptParallelRelay: Boolean = false,
+    val appsScriptDirectHosts: List<String> = emptyList(),
     val ptBridgeLine: String = "",
     val ptWebTunnelUrl: String = "",
     val ptSnowflakeBrokerUrl: String = DefaultSnowflakeBrokerUrl,
@@ -86,6 +93,7 @@ data class RelayCredentialRecord(
     val masqueClientPrivateKeyPem: String? = null,
     val cloudflareTunnelToken: String? = null,
     val cloudflareTunnelCredentialsJson: String? = null,
+    val appsScriptAuthKey: String? = null,
     @EncodeDefault
     val updatedAtEpochMillis: Long = System.currentTimeMillis(),
 )
