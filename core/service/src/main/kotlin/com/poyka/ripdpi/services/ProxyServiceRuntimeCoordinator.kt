@@ -8,12 +8,14 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
+import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.classifyFailureReason
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.data.toStatus
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -124,15 +126,12 @@ internal class ProxyServiceRuntimeCoordinator(
     override fun startModeTelemetryUpdates() {
         replaceTelemetryJob {
             while (status == ServiceStatus.Connected) {
-                val proxyTelemetry =
-                    proxyRuntimeSupervisor.pollTelemetry()
-                        ?: NativeRuntimeSnapshot.idle(source = "proxy")
-                val relayTelemetry =
-                    upstreamRelaySupervisor.pollTelemetry()
-                        ?: NativeRuntimeSnapshot.idle(source = "relay")
-                val warpTelemetry =
-                    warpRuntimeSupervisor.pollTelemetry()
-                        ?: NativeRuntimeSnapshot.idle(source = "warp")
+                val proxyTelemetryOutcome = proxyRuntimeSupervisor.pollTelemetry()
+                val relayTelemetryOutcome = upstreamRelaySupervisor.pollTelemetry()
+                val warpTelemetryOutcome = warpRuntimeSupervisor.pollTelemetry()
+                val proxyTelemetry = proxyTelemetryOutcome.snapshotOrIdle(source = "proxy")
+                val relayTelemetry = relayTelemetryOutcome.snapshotOrIdle(source = "relay")
+                val warpTelemetry = warpTelemetryOutcome.snapshotOrIdle(source = "warp")
                 val tunnelTelemetry =
                     consumePendingNetworkHandoverClass()
                         ?.let { classification ->
@@ -149,6 +148,10 @@ internal class ProxyServiceRuntimeCoordinator(
                     relayTelemetry = relayTelemetry,
                     warpTelemetry = warpTelemetry,
                     tunnelTelemetry = tunnelTelemetry,
+                    proxyTelemetryStatus = proxyTelemetryOutcome.toStatus(),
+                    relayTelemetryStatus = relayTelemetryOutcome.toStatus(),
+                    warpTelemetryStatus = warpTelemetryOutcome.toStatus(),
+                    tunnelTelemetryStatus = RuntimeTelemetryOutcome.NoData.toStatus(),
                     tunnelRecoveryRetryCount = 0,
                 )
                 if (statusReporter.startedAt != null && screenStateObserver.isInteractive.value) {
@@ -324,4 +327,13 @@ internal class ProxyServiceRuntimeCoordinator(
         upstreamRelaySupervisor.detach()
         host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
     }
+
+    private fun RuntimeTelemetryOutcome.snapshotOrIdle(source: String): NativeRuntimeSnapshot =
+        when (this) {
+            is RuntimeTelemetryOutcome.Snapshot -> snapshot
+
+            RuntimeTelemetryOutcome.NoData,
+            is RuntimeTelemetryOutcome.EngineError,
+            -> NativeRuntimeSnapshot.idle(source = source)
+        }
 }

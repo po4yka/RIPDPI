@@ -9,6 +9,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
+import com.poyka.ripdpi.data.RuntimeTelemetryState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
 
@@ -168,6 +169,15 @@ data class TelemetrySampleEntity(
     val resolverFallbackActive: Boolean = false,
     val resolverFallbackReason: String? = null,
     val networkHandoverClass: String? = null,
+    val networkHandoverState: String? = null,
+    val proxyTelemetryState: String = RuntimeTelemetryState.NoData.wireValue,
+    val proxyTelemetryMessage: String? = null,
+    val relayTelemetryState: String = RuntimeTelemetryState.NoData.wireValue,
+    val relayTelemetryMessage: String? = null,
+    val warpTelemetryState: String = RuntimeTelemetryState.NoData.wireValue,
+    val warpTelemetryMessage: String? = null,
+    val tunnelTelemetryState: String = RuntimeTelemetryState.NoData.wireValue,
+    val tunnelTelemetryMessage: String? = null,
     val lastFailureClass: String? = null,
     val lastFallbackAction: String? = null,
     val txPackets: Long,
@@ -766,7 +776,7 @@ interface DiagnosticsDao {
         NetworkDnsBlockedPathEntity::class,
         NetworkEdgePreferenceEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class DiagnosticsDatabase : RoomDatabase() {

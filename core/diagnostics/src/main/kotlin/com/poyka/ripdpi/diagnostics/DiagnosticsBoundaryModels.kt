@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
+import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
@@ -171,6 +172,14 @@ data class DiagnosticTelemetrySample(
     val resolverFallbackReason: String? = null,
     val networkHandoverClass: String? = null,
     val networkHandoverState: String? = null,
+    val proxyTelemetryState: String = RuntimeTelemetryState.NoData.wireValue,
+    val proxyTelemetryMessage: String? = null,
+    val relayTelemetryState: String = RuntimeTelemetryState.NoData.wireValue,
+    val relayTelemetryMessage: String? = null,
+    val warpTelemetryState: String = RuntimeTelemetryState.NoData.wireValue,
+    val warpTelemetryMessage: String? = null,
+    val tunnelTelemetryState: String = RuntimeTelemetryState.NoData.wireValue,
+    val tunnelTelemetryMessage: String? = null,
     val lastFailureClass: String? = null,
     val lastFallbackAction: String? = null,
     val txPackets: Long,

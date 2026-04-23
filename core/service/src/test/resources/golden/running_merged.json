@@ -32,6 +32,16 @@
         "totalErrors": 1,
         "totalSessions": 9
     },
+    "proxyTelemetryStatus": {
+        "causeClass": null,
+        "message": null,
+        "state": "snapshot"
+    },
+    "relayTelemetryStatus": {
+        "causeClass": null,
+        "message": null,
+        "state": "no_data"
+    },
     "restartCount": 1,
     "serviceStartedAt": 0,
     "status": "Running",
@@ -60,6 +70,16 @@
             "txBytes": 30,
             "txPackets": 3
         }
+    },
+    "tunnelTelemetryStatus": {
+        "causeClass": null,
+        "message": null,
+        "state": "snapshot"
+    },
+    "warpTelemetryStatus": {
+        "causeClass": null,
+        "message": null,
+        "state": "no_data"
     },
     "updatedAt": 0
 }
