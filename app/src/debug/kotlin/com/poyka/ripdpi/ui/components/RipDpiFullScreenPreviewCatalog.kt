@@ -21,6 +21,7 @@ import com.poyka.ripdpi.activities.LogsUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.ProxyNetworkUiState
 import com.poyka.ripdpi.activities.SettingsUiState
+import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
 import com.poyka.ripdpi.activities.TlsPreludeUiState
 import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.activities.toConfigDraft
@@ -154,6 +155,7 @@ internal fun RipDpiAdvancedSettingsPreviewScene() {
                     serviceStatus = AppStatus.Running,
                 ),
             hostPackCatalog = HostPackCatalogUiState(snapshot = HostPackCatalogSnapshot()),
+            strategyPackCatalog = StrategyPackCatalogUiState(),
             notice = null,
             actions = noopAdvancedSettingsActions(),
         )
@@ -168,6 +170,7 @@ private fun noopAdvancedSettingsActions(): AdvancedSettingsActions =
         onOptionSelected = { _, _ -> },
         onApplyHostPackPreset = { _, _, _ -> },
         onRefreshHostPackCatalog = {},
+        onRefreshStrategyPackCatalog = {},
         onForgetLearnedHosts = {},
         onClearRememberedNetworks = {},
         onWsTunnelModeChanged = {},

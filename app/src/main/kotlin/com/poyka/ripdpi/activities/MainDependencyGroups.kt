@@ -1,9 +1,12 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
+import com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator
+import com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
@@ -34,6 +37,14 @@ class MainDiagnosticsDependencies
         val diagnosticsScanController: DiagnosticsScanController,
         val diagnosticsShareService: DiagnosticsShareService,
         val homeDiagnosticsServices: HomeDiagnosticsServices,
+    )
+
+class MainControlPlaneDependencies
+    @Inject
+    constructor(
+        val hostPackCatalogUiStateStore: HostPackCatalogUiStateStore,
+        val hostPackCatalogUiStateCoordinator: HostPackCatalogUiStateCoordinator,
+        val strategyPackStateStore: StrategyPackStateStore,
     )
 
 class MainLifecycleDependencies

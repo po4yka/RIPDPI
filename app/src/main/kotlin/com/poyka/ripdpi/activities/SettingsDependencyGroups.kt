@@ -7,7 +7,8 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.WarpPayloadGenCatalog
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
-import com.poyka.ripdpi.hosts.HostPackCatalogRepository
+import com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator
+import com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore
 import com.poyka.ripdpi.platform.HostAutolearnStoreController
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.StringResolver
@@ -34,7 +35,8 @@ class SettingsUiDependencies
 class SettingsActionDependencies
     @Inject
     constructor(
-        val hostPackCatalogRepository: HostPackCatalogRepository,
+        val hostPackCatalogUiStateCoordinator: HostPackCatalogUiStateCoordinator,
+        val hostPackCatalogUiStateStore: HostPackCatalogUiStateStore,
         val strategyPackStateStore: StrategyPackStateStore,
         val launcherIconController: LauncherIconController,
         val stringResolver: StringResolver,

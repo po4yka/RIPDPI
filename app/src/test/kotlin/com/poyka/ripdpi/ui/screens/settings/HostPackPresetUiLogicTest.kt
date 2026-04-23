@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
+import com.poyka.ripdpi.activities.HostPackRefreshFailureCodeUiModel
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.HostPackCatalog
@@ -120,5 +121,20 @@ class HostPackPresetUiLogicTest {
         assertEquals(R.string.host_pack_degraded_status_title, status.labelResId)
         assertEquals(R.string.host_pack_degraded_status_body_unreadable, status.bodyResId)
         assertEquals(StatusIndicatorTone.Warning, status.tone)
+    }
+
+    @Test
+    fun `host refresh failure wins over downloaded state`() {
+        val status =
+            hostPackCatalogStatusSpec(
+                HostPackCatalogUiState(
+                    snapshot = HostPackCatalogSnapshot(source = HostPackCatalogSourceDownloaded),
+                    lastRefreshFailureCode = HostPackRefreshFailureCodeUiModel.VerificationFailed,
+                ),
+            )
+
+        assertEquals(R.string.host_pack_verification_failed_status_title, status.labelResId)
+        assertEquals(R.string.host_pack_verification_failed_status_body, status.bodyResId)
+        assertEquals(StatusIndicatorTone.Error, status.tone)
     }
 }

@@ -18,6 +18,7 @@ import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.HttpParserUiState
 import com.poyka.ripdpi.activities.ProxyNetworkUiState
 import com.poyka.ripdpi.activities.SettingsUiState
+import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
 import com.poyka.ripdpi.activities.TlsPreludeUiState
 import com.poyka.ripdpi.activities.WarpUiState
 import com.poyka.ripdpi.data.FakeOrderAllFakesFirst
@@ -215,6 +216,7 @@ internal data class AdvancedSettingsActions(
     val onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
     val onApplyHostPackPreset: (HostPackPreset, String, String) -> Unit,
     val onRefreshHostPackCatalog: () -> Unit,
+    val onRefreshStrategyPackCatalog: () -> Unit,
     val onForgetLearnedHosts: () -> Unit,
     val onClearRememberedNetworks: () -> Unit,
     val onWsTunnelModeChanged: (String) -> Unit,
@@ -266,6 +268,7 @@ private data class AdvancedSettingsContentState(
 internal fun AdvancedSettingsScreen(
     uiState: SettingsUiState,
     hostPackCatalog: HostPackCatalogUiState,
+    strategyPackCatalog: StrategyPackCatalogUiState,
     notice: AdvancedNotice?,
     actions: AdvancedSettingsActions,
     modifier: Modifier = Modifier,
@@ -300,6 +303,7 @@ internal fun AdvancedSettingsScreen(
     AdvancedSettingsContent(
         uiState = uiState,
         hostPackCatalog = hostPackCatalog,
+        strategyPackCatalog = strategyPackCatalog,
         notice = notice,
         actions = actions,
         contentState = contentState,
@@ -463,6 +467,7 @@ private fun rememberUdpFakeProfileOptions() =
 private fun AdvancedSettingsContent(
     uiState: SettingsUiState,
     hostPackCatalog: HostPackCatalogUiState,
+    strategyPackCatalog: StrategyPackCatalogUiState,
     notice: AdvancedNotice?,
     actions: AdvancedSettingsActions,
     contentState: AdvancedSettingsContentState,
@@ -486,6 +491,7 @@ private fun AdvancedSettingsContent(
         advancedSettingsSecondarySections(
             uiState = uiState,
             hostPackCatalog = hostPackCatalog,
+            strategyPackCatalog = strategyPackCatalog,
             actions = actions,
             contentState = contentState,
             pendingHostPack = pendingHostPack,
@@ -581,6 +587,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsPrima
 private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecondarySections(
     uiState: SettingsUiState,
     hostPackCatalog: HostPackCatalogUiState,
+    strategyPackCatalog: StrategyPackCatalogUiState,
     actions: AdvancedSettingsActions,
     contentState: AdvancedSettingsContentState,
     pendingHostPack: HostPackPreset?,
@@ -590,6 +597,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsSecon
     advancedSettingsProtocolSections(
         uiState = uiState,
         hostPackCatalog = hostPackCatalog,
+        strategyPackCatalog = strategyPackCatalog,
         actions = actions,
         contentState = contentState,
         pendingHostPack = pendingHostPack,
@@ -639,6 +647,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsProte
 private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsProtocolSections(
     uiState: SettingsUiState,
     hostPackCatalog: HostPackCatalogUiState,
+    strategyPackCatalog: StrategyPackCatalogUiState,
     actions: AdvancedSettingsActions,
     contentState: AdvancedSettingsContentState,
     pendingHostPack: HostPackPreset?,
@@ -696,6 +705,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsProto
         onRefreshHostPackCatalog = actions.onRefreshHostPackCatalog,
         onOptionSelected = actions.onOptionSelected,
         onTextConfirmed = actions.onTextConfirmed,
+    )
+    strategyPackSection(
+        strategyPackCatalog = strategyPackCatalog,
+        onRefreshStrategyPackCatalog = actions.onRefreshStrategyPackCatalog,
     )
 }
 
@@ -764,6 +777,7 @@ private fun AdvancedSettingsScreenPreview() {
                     serviceStatus = com.poyka.ripdpi.data.AppStatus.Running,
                 ),
             hostPackCatalog = previewHostPackCatalog(source = "bundled"),
+            strategyPackCatalog = StrategyPackCatalogUiState(),
             notice = null,
             actions = previewAdvancedSettingsActions(),
         )
@@ -782,6 +796,7 @@ private fun AdvancedSettingsScreenDarkPreview() {
                     source = HostPackCatalogSourceDownloaded,
                     lastFetchedAtEpochMillis = 1_741_765_600_000,
                 ),
+            strategyPackCatalog = StrategyPackCatalogUiState(),
             notice = null,
             actions = previewAdvancedSettingsActions(),
         )
@@ -851,6 +866,7 @@ private fun previewAdvancedSettingsActions(): AdvancedSettingsActions =
         onOptionSelected = { _, _ -> },
         onApplyHostPackPreset = { _, _, _ -> },
         onRefreshHostPackCatalog = {},
+        onRefreshStrategyPackCatalog = {},
         onForgetLearnedHosts = {},
         onClearRememberedNetworks = {},
         onWsTunnelModeChanged = {},
