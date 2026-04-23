@@ -63,4 +63,10 @@ class RipDpiNavHostLogicTest {
         assertTrue(Route.all.contains(Route.Logs))
         assertFalse(Route.topLevel.contains(Route.Logs))
     }
+
+    @Test
+    fun `owned stack browser route stays off the bottom navigation`() {
+        assertTrue(Route.all.contains(Route.OwnedStackBrowser()))
+        assertFalse(Route.topLevel.contains(Route.OwnedStackBrowser()))
+    }
 }

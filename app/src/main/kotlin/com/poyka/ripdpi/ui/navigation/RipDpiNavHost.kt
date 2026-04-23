@@ -31,6 +31,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navDeepLink
+import androidx.navigation.toRoute
 import com.poyka.ripdpi.activities.ConfigViewModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsViewModel
@@ -39,6 +40,7 @@ import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
+import com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserRoute
 import com.poyka.ripdpi.ui.screens.config.ConfigRoute
 import com.poyka.ripdpi.ui.screens.config.ModeEditorRoute
 import com.poyka.ripdpi.ui.screens.customization.AboutRoute
@@ -313,6 +315,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
             onRequestVpnPermission = mainViewModel::onOpenVpnPermissionRequested,
             onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
+            onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
             initialSection = diagnosticsInitialSection,
             onInitialSectionHandled = { onDiagnosticsInitialSectionChanged(null) },
             viewModel = diagnosticsViewModel,
@@ -413,6 +416,13 @@ private fun NavGraphBuilder.addSettingsRoutes(
         }
         composable<Route.DetectionCheck> {
             DetectionCheckRoute(onBack = { navController.popBackStack() })
+        }
+        composable<Route.OwnedStackBrowser> { backStackEntry ->
+            val route = backStackEntry.toRoute<Route.OwnedStackBrowser>()
+            OwnedStackBrowserRoute(
+                initialUrl = route.initialUrl,
+                onBack = { navController.popBackStack() },
+            )
         }
     }
 }
@@ -546,6 +556,7 @@ internal fun NavDestination.stableRouteKey(): String? =
         hasRoute<Route.About>() -> Route.About.stableRoute
         hasRoute<Route.DataTransparency>() -> Route.DataTransparency.stableRoute
         hasRoute<Route.DetectionCheck>() -> Route.DetectionCheck.stableRoute
+        hasRoute<Route.OwnedStackBrowser>() -> Route.OwnedStackBrowser().stableRoute
         else -> null
     }
 
@@ -566,6 +577,7 @@ internal fun NavDestination.matchesRoute(route: Route): Boolean =
         Route.About -> hasRoute<Route.About>()
         Route.DataTransparency -> hasRoute<Route.DataTransparency>()
         Route.DetectionCheck -> hasRoute<Route.DetectionCheck>()
+        is Route.OwnedStackBrowser -> hasRoute<Route.OwnedStackBrowser>()
     }
 
 internal fun shouldNavigateToHomeFromLaunchRequest(

@@ -130,6 +130,20 @@ sealed class Route {
         override val icon: ImageVector? = null
     }
 
+    @Serializable
+    data class OwnedStackBrowser(
+        val initialUrl: String = "",
+    ) : Route() {
+        @kotlinx.serialization.Transient
+        override val stableRoute = "owned_stack_browser"
+
+        @kotlinx.serialization.Transient
+        override val titleRes = R.string.title_owned_stack_browser
+
+        @kotlinx.serialization.Transient
+        override val icon: ImageVector? = RipDpiIcons.Public
+    }
+
     companion object {
         val topLevel: List<Route>
             get() = listOf(Home, Config, Diagnostics, Settings)
@@ -152,6 +166,7 @@ sealed class Route {
                     About,
                     DataTransparency,
                     DetectionCheck,
+                    OwnedStackBrowser(),
                 )
 
         fun fromStableRoute(route: String?): Route? = route?.let { key -> all.firstOrNull { it.stableRoute == key } }

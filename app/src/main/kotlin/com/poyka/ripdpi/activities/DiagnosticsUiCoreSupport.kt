@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import android.content.Context
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.diagnostics.BackgroundAutomaticProbeCanceledToStartManualDiagnosticsSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
@@ -12,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.deriveProbeRetryCount
+import com.poyka.ripdpi.services.ownedStackBrowserLaunchUrl
 import kotlinx.collections.immutable.toImmutableList
 import java.time.Instant
 import java.time.ZoneId
@@ -81,6 +83,7 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
 ): DiagnosticsSessionRowUiModel {
     val report = session.report
     val pathMode = parsePathMode(session.pathMode)
+    val directModeVerdict = report?.directModeVerdict
     return DiagnosticsSessionRowUiModel(
         id = session.id,
         profileId = session.profileId,
@@ -107,6 +110,13 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
                 ?: toneForSessionStatus(session.status),
         launchOrigin = session.launchOrigin,
         triggerClassification = session.launchTrigger?.classification,
+        ownedStackLaunchUrl =
+            if (directModeVerdict?.result == DirectModeVerdictResult.OWNED_STACK_ONLY) {
+                ownedStackBrowserLaunchUrl(directModeVerdict.authority)
+            } else {
+                null
+            },
+        ownedStackOnly = directModeVerdict?.result == DirectModeVerdictResult.OWNED_STACK_ONLY,
     )
 }
 
