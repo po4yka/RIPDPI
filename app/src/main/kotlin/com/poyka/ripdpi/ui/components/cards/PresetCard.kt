@@ -30,7 +30,6 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
 private const val disabledAlpha = 0.38f
 
@@ -52,7 +51,7 @@ fun PresetCard(
     val type = RipDpiThemeTokens.type
     val shape = RipDpiThemeTokens.shapes.xl
     val surfaceStyle =
-        ripDpiSurfaceStyle(
+        RipDpiThemeTokens.surfaces.resolve(
             if (selected) {
                 RipDpiSurfaceRole.SelectedCard
             } else {
@@ -169,15 +168,17 @@ private data class PresetCardBadgePalette(
 @Composable
 private fun presetCardBadgePalette(selected: Boolean): PresetCardBadgePalette {
     val colors = RipDpiThemeTokens.colors
+    val selectedCardSurface = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.SelectedCard)
+    val tonalCardSurface = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.TonalCard)
 
     return if (selected) {
         PresetCardBadgePalette(
-            container = colors.foreground,
+            container = selectedCardSurface.content,
             content = colors.background,
         )
     } else {
         PresetCardBadgePalette(
-            container = colors.inputBackground,
+            container = tonalCardSurface.container,
             content = colors.mutedForeground,
         )
     }

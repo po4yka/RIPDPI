@@ -34,7 +34,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
 enum class WarningBannerTone {
     Warning,
@@ -54,7 +53,7 @@ fun WarningBanner(
     onClick: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
 ) {
-    val surfaceStyle = ripDpiSurfaceStyle(RipDpiSurfaceRole.Banner)
+    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.Banner)
     val state = RipDpiThemeTokens.state.banner.resolve(tone.toStateRole())
     val resolvedIcon = icon ?: defaultWarningBannerIcon(tone)
     val surfaceModifier =

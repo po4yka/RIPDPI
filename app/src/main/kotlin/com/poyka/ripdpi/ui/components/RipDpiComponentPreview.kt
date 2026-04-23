@@ -11,15 +11,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import com.poyka.ripdpi.ui.theme.RipDpiContrastLevel
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
 internal fun RipDpiComponentPreview(
     themePreference: String = "light",
+    contrastLevel: RipDpiContrastLevel = RipDpiContrastLevel.Standard,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    RipDpiTheme(themePreference = themePreference) {
+    RipDpiTheme(themePreference = themePreference, contrastLevel = contrastLevel) {
         Surface(color = MaterialTheme.colorScheme.background) {
             Column(
                 modifier =

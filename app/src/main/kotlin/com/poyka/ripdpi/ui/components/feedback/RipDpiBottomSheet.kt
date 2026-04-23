@@ -42,7 +42,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
 data class RipDpiSheetAction(
     val label: String,
@@ -111,7 +110,7 @@ fun RipDpiBottomSheetCard(
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val type = RipDpiThemeTokens.type
-    val surfaceStyle = ripDpiSurfaceStyle(RipDpiSurfaceRole.Sheet)
+    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.BottomSheet)
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -182,20 +181,20 @@ private fun RipDpiBottomSheetHandle() {
 
 @Composable
 private fun RipDpiBottomSheetIconBadge(icon: ImageVector) {
-    val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
+    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.BottomSheetIconBadge)
 
     Box(
         modifier =
             Modifier
                 .size(components.dialogIconSize)
-                .background(color = colors.inputBackground, shape = RipDpiThemeTokens.shapes.full),
+                .background(color = surfaceStyle.container, shape = RipDpiThemeTokens.shapes.full),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = colors.foreground,
+            tint = surfaceStyle.content,
             modifier = Modifier.size(RipDpiIconSizes.Default),
         )
     }
