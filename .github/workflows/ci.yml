@@ -91,6 +91,12 @@ jobs:
       - name: Lint DESIGN.md
         run: npx --yes @google/design.md lint DESIGN.md
 
+      - name: Run DESIGN.md drift check
+        run: python3 scripts/ci/verify_design_md.py
+
+      - name: Run DESIGN.md verifier unit tests
+        run: python3 -m unittest scripts.tests.test_verify_design_md
+
   build:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
