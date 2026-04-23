@@ -200,6 +200,69 @@ class BaseServiceRuntimeCoordinatorTest {
             assertNull(env.runtimeRegistry.current(Mode.Proxy))
         }
 
+    @Test
+    fun stopCancelsScheduledHandoverRetry() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val env =
+                newEnv(fingerprint = initialFingerprint).also {
+                    it.coordinator.handoverFailuresRemaining = 1
+                }
+
+            env.coordinator.start()
+            runCurrent()
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            runCurrent()
+            assertEquals(1, env.coordinator.restartCalls)
+
+            env.coordinator.stop()
+            runCurrent()
+            env.clock.advanceBy(31_000L)
+            advanceTimeBy(31_000L)
+            repeat(4) { runCurrent() }
+
+            assertEquals(1, env.coordinator.restartCalls)
+            assertEquals(1, env.coordinator.stopCalls)
+            assertTrue(env.handoverEvents.published.isEmpty())
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
+    @Test
+    fun lateHandoverEventsAreIgnoredAfterCoordinatorStops() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val env = newEnv(fingerprint = initialFingerprint)
+
+            env.coordinator.start()
+            runCurrent()
+            env.coordinator.stop()
+            runCurrent()
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = env.clock.nowMillis(),
+                ),
+            )
+            runCurrent()
+
+            assertEquals(0, env.coordinator.restartCalls)
+            assertTrue(env.handoverEvents.published.isEmpty())
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
     @Suppress("UnusedParameter")
     private fun TestScope.newEnv(fingerprint: NetworkFingerprint? = sampleFingerprint()): Env {
         val dispatcher = StandardTestDispatcher(testScheduler)

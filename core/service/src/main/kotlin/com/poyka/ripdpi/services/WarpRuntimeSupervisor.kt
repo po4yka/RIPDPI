@@ -221,6 +221,9 @@ internal class WarpRuntimeSupervisor(
 
         job.invokeOnCompletion {
             scope.launch(dispatcher) {
+                if (warpRuntime !== runtime) {
+                    return@launch
+                }
                 if (!shouldReportExit.get()) {
                     return@launch
                 }

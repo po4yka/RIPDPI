@@ -7,6 +7,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -75,6 +76,54 @@ class MainStartupSideEffectsCoordinatorTest {
                 isBatteryBannerDismissed = { true },
             ) {}
 
+            advanceUntilIdle()
+
+            assertFalse(repository.snapshot().batteryBannerDismissed)
+        }
+
+    @Test
+    fun `start ignores missing crash report`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val reader = CrashReportReader(tempFolder.root)
+            val coordinator = MainStartupSideEffectsCoordinator(repository, reader)
+            var callbackCalls = 0
+
+            coordinator.start(
+                scope = backgroundScope,
+                batteryOptimizationStatus = MutableStateFlow(PermissionStatus.Granted),
+                isBatteryBannerDismissed = { false },
+            ) {
+                callbackCalls += 1
+            }
+
+            advanceUntilIdle()
+
+            assertEquals(0, callbackCalls)
+        }
+
+    @Test
+    fun `repeated requires settings emissions clear battery banner only once`() =
+        runTest {
+            val repository =
+                FakeAppSettingsRepository(
+                    AppSettings
+                        .newBuilder()
+                        .setBatteryBannerDismissed(true)
+                        .build(),
+                )
+            val reader = CrashReportReader(tempFolder.root)
+            val coordinator = MainStartupSideEffectsCoordinator(repository, reader)
+            val statuses = MutableSharedFlow<PermissionStatus>(extraBufferCapacity = 4)
+
+            coordinator.start(
+                scope = this,
+                batteryOptimizationStatus = statuses,
+                isBatteryBannerDismissed = { true },
+            ) {}
+
+            statuses.emit(PermissionStatus.RequiresSettings)
+            statuses.emit(PermissionStatus.RequiresSettings)
             advanceUntilIdle()
 
             assertFalse(repository.snapshot().batteryBannerDismissed)
