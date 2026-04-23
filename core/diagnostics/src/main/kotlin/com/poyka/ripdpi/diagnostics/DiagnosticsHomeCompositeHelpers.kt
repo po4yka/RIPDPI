@@ -96,6 +96,7 @@ internal fun buildHomeCompositeOutcome(
         coverageSummary = auditOutcome?.coverageSummary,
         appliedSettings = auditOutcome?.appliedSettings.orEmpty(),
         capabilityEvidence = auditOutcome?.capabilityEvidence.orEmpty(),
+        directModeVerdict = auditOutcome?.directModeVerdict,
         recommendedSessionId = auditOutcome?.takeIf { it.actionable }?.sessionId,
         stageSummaries = stageSummaries,
         completedStageCount = completedStageCount,

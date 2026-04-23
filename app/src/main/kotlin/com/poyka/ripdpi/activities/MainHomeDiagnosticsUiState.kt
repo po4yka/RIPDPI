@@ -120,6 +120,10 @@ internal fun buildHomeDiagnosticsUiState(
                 totalStageCount = outcome.stageSummaries.size,
                 stale = fingerprintMismatch,
                 actionable = outcome.actionable && !fingerprintMismatch,
+                directModeResult = outcome.directModeVerdict?.result,
+                directModeReasonCode = outcome.directModeVerdict?.reasonCode,
+                directTransportClass = outcome.directModeVerdict?.transportClass,
+                transportRemediationEvidence = outcome.capabilityEvidence.toTransportRemediationEvidence(),
             )
         }
     val remediationLadder =
