@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// Callback invoked for each packet written during desync execution.
 /// The bool parameter is `true` for outbound packets.
@@ -20,6 +20,7 @@ use ripdpi_desync::{
 };
 use ripdpi_packets::entropy;
 use ripdpi_packets::tls_marker_info;
+use ripdpi_packets::OracleRng;
 use ripdpi_proxy_config::ProxyDirectPathCapability;
 use ripdpi_session::OutboundProgress;
 use socket2::SockRef;
@@ -36,6 +37,26 @@ use super::tcp_lowering::{
     send_oob_with_android_ttl_fallback, should_ignore_android_ttl_error, write_payload_with_android_ttl_fallback,
     TcpLoweringCapabilities,
 };
+
+const TWO_PHASE_FIRST_WRITE_MIN: usize = 64;
+const TWO_PHASE_FIRST_WRITE_MAX: usize = 256;
+const TWO_PHASE_GAP_MS_MIN: u16 = 5;
+const TWO_PHASE_GAP_MS_MAX: u16 = 15;
+const TRANSPARENT_TLS_RUNTIME_INVARIANT_ENABLED: bool = cfg!(debug_assertions);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TransparentTlsVariant {
+    offset_delta: i64,
+    first_write_len: Option<usize>,
+    phase_gap_ms: Option<u16>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TransparentTlsFamilyError {
+    UnsupportedPayload,
+    InvalidBoundary,
+    ByteInvariantViolation,
+}
 
 #[derive(Debug)]
 pub(super) struct OutboundSendOutcome {
@@ -468,6 +489,7 @@ pub(crate) fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'stati
 fn strategy_fallback_family(strategy_family: &'static str) -> Option<&'static str> {
     match strategy_family {
         "seg_mid_sni" => Some("seg_pre_sni"),
+        "seg_post_sni" => Some("seg_mid_sni"),
         "rec_mid_sni" => Some("rec_pre_sni"),
         "seqovl" => Some("split"),
         "tlsrec_seqovl" => Some("tlsrec_split"),
@@ -531,33 +553,277 @@ fn transparent_tls_family_strategy(
     match capability.tcp_family.trim().to_ascii_uppercase().as_str() {
         "SEG_PRE_SNI" => Some("seg_pre_sni"),
         "SEG_MID_SNI" => Some("seg_mid_sni"),
+        "SEG_POST_SNI" => Some("seg_post_sni"),
         "REC_PRE_SNI" => Some("rec_pre_sni"),
         "REC_MID_SNI" => Some("rec_mid_sni"),
+        "TWO_PHASE_SEND" => Some("two_phase_send"),
         _ => None,
     }
 }
 
-fn transparent_tls_family_chain(strategy_family: &'static str) -> Vec<TcpChainStep> {
-    let offset = match strategy_family {
-        "seg_pre_sni" | "rec_pre_sni" => OffsetExpr::tls_marker(OffsetBase::SniExt, 0),
-        "seg_mid_sni" | "rec_mid_sni" => OffsetExpr::tls_marker(OffsetBase::MidSld, 0),
-        _ => OffsetExpr::tls_marker(OffsetBase::SniExt, 0),
-    };
-    let kind = match strategy_family {
-        "seg_pre_sni" | "seg_mid_sni" => TcpChainStepKind::Split,
-        "rec_pre_sni" | "rec_mid_sni" => TcpChainStepKind::TlsRec,
-        _ => TcpChainStepKind::Split,
-    };
-    vec![TcpChainStep::new(kind, offset)]
+fn transparent_tls_variant_seed(strategy_family: &'static str, payload: &[u8]) -> u32 {
+    let epoch_nanos =
+        SystemTime::now().duration_since(UNIX_EPOCH).map(|value| value.as_nanos() as u64).unwrap_or_default();
+    let mut mix = epoch_nanos ^ ((payload.len() as u64) << 16);
+    for byte in strategy_family.bytes() {
+        mix = mix.rotate_left(5) ^ u64::from(byte);
+    }
+    (mix as u32).wrapping_add(((mix >> 32) as u32).wrapping_mul(31))
 }
 
-fn apply_transparent_tls_family(group: &DesyncGroup, strategy_family: &'static str) -> DesyncGroup {
+fn weighted_family_delta(strategy_family: &'static str, rng: &mut OracleRng) -> i64 {
+    let bucket = rng.next_mod(10);
+    match strategy_family {
+        "seg_pre_sni" | "rec_pre_sni" => match bucket {
+            0 => -2,
+            1..=3 => -1,
+            _ => 0,
+        },
+        "seg_mid_sni" | "rec_mid_sni" => match bucket {
+            0 => -2,
+            1..=2 => -1,
+            3..=6 => 0,
+            7..=8 => 1,
+            _ => 2,
+        },
+        "seg_post_sni" => match bucket {
+            0..=5 => 0,
+            6..=8 => 1,
+            _ => 2,
+        },
+        _ => 0,
+    }
+}
+
+fn transparent_tls_variant_with_seed(
+    strategy_family: &'static str,
+    payload: &[u8],
+    seed: u32,
+) -> Result<TransparentTlsVariant, TransparentTlsFamilyError> {
+    let mut rng = OracleRng::seeded(seed.max(1));
+    match strategy_family {
+        "seg_pre_sni" | "seg_mid_sni" | "seg_post_sni" | "rec_pre_sni" | "rec_mid_sni" => {
+            if tls_marker_info(payload).is_none() {
+                return Err(TransparentTlsFamilyError::UnsupportedPayload);
+            }
+            Ok(TransparentTlsVariant {
+                offset_delta: weighted_family_delta(strategy_family, &mut rng),
+                first_write_len: None,
+                phase_gap_ms: None,
+            })
+        }
+        "two_phase_send" => {
+            if payload.len() <= TWO_PHASE_FIRST_WRITE_MIN {
+                return Err(TransparentTlsFamilyError::InvalidBoundary);
+            }
+            if tls_marker_info(payload).is_none() {
+                return Err(TransparentTlsFamilyError::UnsupportedPayload);
+            }
+            let upper = TWO_PHASE_FIRST_WRITE_MAX.min(payload.len().saturating_sub(1));
+            if upper < TWO_PHASE_FIRST_WRITE_MIN {
+                return Err(TransparentTlsFamilyError::InvalidBoundary);
+            }
+            let first_write_len =
+                TWO_PHASE_FIRST_WRITE_MIN + rng.next_mod(upper.saturating_sub(TWO_PHASE_FIRST_WRITE_MIN) + 1);
+            let phase_gap_ms = TWO_PHASE_GAP_MS_MIN
+                + u16::try_from(rng.next_mod(usize::from(TWO_PHASE_GAP_MS_MAX - TWO_PHASE_GAP_MS_MIN + 1)))
+                    .unwrap_or_default();
+            Ok(TransparentTlsVariant {
+                offset_delta: 0,
+                first_write_len: Some(first_write_len),
+                phase_gap_ms: Some(phase_gap_ms),
+            })
+        }
+        _ => Err(TransparentTlsFamilyError::UnsupportedPayload),
+    }
+}
+
+fn transparent_tls_variant(
+    strategy_family: &'static str,
+    payload: &[u8],
+) -> Result<TransparentTlsVariant, TransparentTlsFamilyError> {
+    transparent_tls_variant_with_seed(strategy_family, payload, transparent_tls_variant_seed(strategy_family, payload))
+}
+
+fn transparent_tls_canonical_variant(
+    strategy_family: &'static str,
+    payload: &[u8],
+) -> Result<TransparentTlsVariant, TransparentTlsFamilyError> {
+    match strategy_family {
+        "seg_pre_sni" | "seg_mid_sni" | "seg_post_sni" | "rec_pre_sni" | "rec_mid_sni" => {
+            if tls_marker_info(payload).is_none() {
+                return Err(TransparentTlsFamilyError::UnsupportedPayload);
+            }
+            Ok(TransparentTlsVariant { offset_delta: 0, first_write_len: None, phase_gap_ms: None })
+        }
+        "two_phase_send" => {
+            let upper = TWO_PHASE_FIRST_WRITE_MAX.min(payload.len().saturating_sub(1));
+            if upper < TWO_PHASE_FIRST_WRITE_MIN {
+                return Err(TransparentTlsFamilyError::InvalidBoundary);
+            }
+            if tls_marker_info(payload).is_none() {
+                return Err(TransparentTlsFamilyError::UnsupportedPayload);
+            }
+            Ok(TransparentTlsVariant {
+                offset_delta: 0,
+                first_write_len: Some((payload.len() / 2).clamp(TWO_PHASE_FIRST_WRITE_MIN, upper)),
+                phase_gap_ms: Some(TWO_PHASE_GAP_MS_MIN),
+            })
+        }
+        _ => Err(TransparentTlsFamilyError::UnsupportedPayload),
+    }
+}
+
+fn transparent_tls_family_chain(
+    strategy_family: &'static str,
+    variant: TransparentTlsVariant,
+) -> Result<Vec<TcpChainStep>, TransparentTlsFamilyError> {
+    match strategy_family {
+        "seg_pre_sni" | "seg_mid_sni" | "seg_post_sni" | "rec_pre_sni" | "rec_mid_sni" => {
+            let offset_base = match strategy_family {
+                "seg_pre_sni" | "rec_pre_sni" => OffsetBase::SniExt,
+                "seg_mid_sni" | "rec_mid_sni" => OffsetBase::MidSld,
+                "seg_post_sni" => OffsetBase::EndHost,
+                _ => OffsetBase::SniExt,
+            };
+            let kind = match strategy_family {
+                "rec_pre_sni" | "rec_mid_sni" => TcpChainStepKind::TlsRec,
+                _ => TcpChainStepKind::Split,
+            };
+            Ok(vec![TcpChainStep::new(kind, OffsetExpr::tls_marker(offset_base, variant.offset_delta))])
+        }
+        "two_phase_send" => {
+            let mut step = TcpChainStep::new(
+                TcpChainStepKind::Split,
+                OffsetExpr::absolute(variant.first_write_len.ok_or(TransparentTlsFamilyError::InvalidBoundary)? as i64),
+            );
+            step.inter_segment_delay_ms =
+                u32::from(variant.phase_gap_ms.ok_or(TransparentTlsFamilyError::InvalidBoundary)?);
+            Ok(vec![step])
+        }
+        _ => Err(TransparentTlsFamilyError::UnsupportedPayload),
+    }
+}
+
+fn flatten_tls_record_payload(buffer: &[u8]) -> Option<Vec<u8>> {
+    let mut cursor = 0usize;
+    let mut flattened = Vec::new();
+    while cursor < buffer.len() {
+        let header = buffer.get(cursor..cursor + 5)?;
+        if header.first().copied()? != 0x16 {
+            return None;
+        }
+        let record_len = usize::from(u16::from_be_bytes([header[3], header[4]]));
+        let payload_start = cursor + 5;
+        let payload_end = payload_start.checked_add(record_len)?;
+        flattened.extend_from_slice(buffer.get(payload_start..payload_end)?);
+        cursor = payload_end;
+    }
+    Some(flattened)
+}
+
+fn collect_transport_write_chunks(actions: &[DesyncAction]) -> Option<Vec<Vec<u8>>> {
+    let mut chunks = Vec::new();
+    for action in actions {
+        match action {
+            DesyncAction::Write(bytes) => chunks.push(bytes.clone()),
+            DesyncAction::AwaitWritable => {}
+            DesyncAction::Delay(_) => {}
+            _ => return None,
+        }
+    }
+    Some(chunks)
+}
+
+fn validate_transparent_tls_family(
+    payload: &[u8],
+    strategy_family: &'static str,
+    group: &DesyncGroup,
+) -> Result<(), TransparentTlsFamilyError> {
+    let progress = OutboundProgress {
+        round: 1,
+        payload_size: payload.len(),
+        stream_start: 0,
+        stream_end: payload.len().saturating_sub(1),
+    };
+    let context = activation_context_from_progress(
+        progress,
+        ActivationTransport::Tcp,
+        Some(payload),
+        None,
+        None,
+        None,
+        AdaptivePlannerHints::default(),
+    );
+    let plan = plan_tcp(group, payload, DESYNC_SEED_BASE, 64, context)
+        .map_err(|_| TransparentTlsFamilyError::InvalidBoundary)?;
+    match strategy_family {
+        "seg_pre_sni" | "seg_mid_sni" | "seg_post_sni" | "two_phase_send" => {
+            let chunks =
+                collect_transport_write_chunks(&plan.actions).ok_or(TransparentTlsFamilyError::InvalidBoundary)?;
+            if chunks.len() < 2 || chunks.iter().any(Vec::is_empty) {
+                return Err(TransparentTlsFamilyError::InvalidBoundary);
+            }
+            let rebuilt = chunks.into_iter().flatten().collect::<Vec<_>>();
+            if rebuilt != payload {
+                return Err(TransparentTlsFamilyError::ByteInvariantViolation);
+            }
+            if strategy_family == "two_phase_send" {
+                let delay_ms = plan
+                    .actions
+                    .iter()
+                    .find_map(|action| match action {
+                        DesyncAction::Delay(value) => Some(*value),
+                        _ => None,
+                    })
+                    .ok_or(TransparentTlsFamilyError::InvalidBoundary)?;
+                if !(TWO_PHASE_GAP_MS_MIN..=TWO_PHASE_GAP_MS_MAX).contains(&delay_ms) {
+                    return Err(TransparentTlsFamilyError::InvalidBoundary);
+                }
+            }
+        }
+        "rec_pre_sni" | "rec_mid_sni" => {
+            let original = flatten_tls_record_payload(payload).ok_or(TransparentTlsFamilyError::UnsupportedPayload)?;
+            let transformed =
+                flatten_tls_record_payload(&plan.tampered).ok_or(TransparentTlsFamilyError::ByteInvariantViolation)?;
+            if transformed != original {
+                return Err(TransparentTlsFamilyError::ByteInvariantViolation);
+            }
+        }
+        _ => return Err(TransparentTlsFamilyError::UnsupportedPayload),
+    }
+    Ok(())
+}
+
+fn apply_transparent_tls_family(
+    group: &DesyncGroup,
+    strategy_family: &'static str,
+    payload: &[u8],
+) -> Result<DesyncGroup, TransparentTlsFamilyError> {
+    let mut variant = transparent_tls_variant(strategy_family, payload)?;
     let mut adjusted = group.clone();
     adjusted.actions = DesyncGroupActionSettings {
-        tcp_chain: transparent_tls_family_chain(strategy_family),
+        tcp_chain: transparent_tls_family_chain(strategy_family, variant)?,
         ..DesyncGroupActionSettings::default()
     };
-    adjusted
+    if TRANSPARENT_TLS_RUNTIME_INVARIANT_ENABLED {
+        if let Err(original_error) = validate_transparent_tls_family(payload, strategy_family, &adjusted) {
+            variant = transparent_tls_canonical_variant(strategy_family, payload)?;
+            adjusted.actions = DesyncGroupActionSettings {
+                tcp_chain: transparent_tls_family_chain(strategy_family, variant)?,
+                ..DesyncGroupActionSettings::default()
+            };
+            validate_transparent_tls_family(payload, strategy_family, &adjusted).map_err(|_| original_error)?;
+        }
+    }
+    tracing::debug!(
+        strategy_family,
+        offset_delta = variant.offset_delta,
+        first_write_len = variant.first_write_len.unwrap_or_default(),
+        phase_gap_ms = variant.phase_gap_ms.unwrap_or_default(),
+        "selected transparent tls family variant"
+    );
+    Ok(adjusted)
 }
 
 fn apply_tcp_capability_policy<'a>(
@@ -572,7 +838,12 @@ fn apply_tcp_capability_policy<'a>(
     if let Some(strategy_family) =
         capability.and_then(|value| transparent_tls_family_strategy(value, payload, progress))
     {
-        return (Cow::Owned(apply_transparent_tls_family(group, strategy_family)), Some(strategy_family));
+        match apply_transparent_tls_family(group, strategy_family, payload) {
+            Ok(adjusted) => return (Cow::Owned(adjusted), Some(strategy_family)),
+            Err(error) => {
+                tracing::warn!(strategy_family, ?error, "skipping transparent tls family due to invalid plan");
+            }
+        }
     }
     (apply_tcp_capability_fallback(group, capability), None)
 }
@@ -588,7 +859,7 @@ fn tcp_fallback_kind_for_strategy(strategy_family: &'static str) -> Option<TcpCh
 
 fn write_action_name(strategy_family: &'static str) -> &'static str {
     match strategy_family {
-        "split" | "seg_pre_sni" | "seg_mid_sni" => "write_split",
+        "split" | "seg_pre_sni" | "seg_mid_sni" | "seg_post_sni" | "two_phase_send" => "write_split",
         "seqovl" | "tlsrec_seqovl" => "write_seqovl",
         "disorder" => "write_disorder",
         "oob" => "write_oob",
@@ -622,7 +893,7 @@ fn should_fallback_seqovl_error_kind(kind: io::ErrorKind) -> bool {
 
 fn await_writable_action_name(strategy_family: &'static str) -> &'static str {
     match strategy_family {
-        "split" | "seg_pre_sni" | "seg_mid_sni" => "await_writable_split",
+        "split" | "seg_pre_sni" | "seg_mid_sni" | "seg_post_sni" | "two_phase_send" => "await_writable_split",
         "seqovl" | "tlsrec_seqovl" => "await_writable_seqovl",
         "disorder" => "await_writable_disorder",
         "oob" => "await_writable_oob",
@@ -3194,6 +3465,31 @@ mod tests {
     }
 
     #[test]
+    fn tcp_capability_policy_injects_seg_post_sni_family_for_first_client_hello() {
+        let payload = rust_packet_seeds::tls_client_hello();
+        let capability = capability_with_family("SEG_POST_SNI");
+        let group = test_group();
+
+        let (adjusted, strategy_family) = apply_tcp_capability_policy(
+            &group,
+            Some(&capability),
+            &payload,
+            OutboundProgress {
+                round: 1,
+                payload_size: payload.len(),
+                stream_start: 0,
+                stream_end: payload.len().saturating_sub(1),
+            },
+        );
+        let adjusted = adjusted.into_owned();
+
+        assert_eq!(strategy_family, Some("seg_post_sni"));
+        assert_eq!(adjusted.actions.tcp_chain.len(), 1);
+        assert_eq!(adjusted.actions.tcp_chain[0].kind, TcpChainStepKind::Split);
+        assert_eq!(adjusted.actions.tcp_chain[0].offset.base, OffsetBase::EndHost);
+    }
+
+    #[test]
     fn tcp_capability_policy_injects_rec_pre_sni_family_for_first_client_hello() {
         let payload = rust_packet_seeds::tls_client_hello();
         let capability = capability_with_family("REC_PRE_SNI");
@@ -3216,6 +3512,74 @@ mod tests {
         assert_eq!(adjusted.actions.tcp_chain.len(), 1);
         assert_eq!(adjusted.actions.tcp_chain[0].kind, TcpChainStepKind::TlsRec);
         assert_eq!(adjusted.actions.tcp_chain[0].offset.base, OffsetBase::SniExt);
+    }
+
+    #[test]
+    fn tcp_capability_policy_injects_two_phase_send_family_for_first_client_hello() {
+        let payload = rust_packet_seeds::tls_client_hello();
+        let capability = capability_with_family("TWO_PHASE_SEND");
+        let group = test_group();
+
+        let (adjusted, strategy_family) = apply_tcp_capability_policy(
+            &group,
+            Some(&capability),
+            &payload,
+            OutboundProgress {
+                round: 1,
+                payload_size: payload.len(),
+                stream_start: 0,
+                stream_end: payload.len().saturating_sub(1),
+            },
+        );
+        let adjusted = adjusted.into_owned();
+        let step = &adjusted.actions.tcp_chain[0];
+
+        assert_eq!(strategy_family, Some("two_phase_send"));
+        assert_eq!(step.kind, TcpChainStepKind::Split);
+        assert_eq!(step.offset.base, OffsetBase::Abs);
+        assert!(step.offset.delta >= TWO_PHASE_FIRST_WRITE_MIN as i64);
+        assert!(step.offset.delta < payload.len() as i64);
+        assert!(
+            (u32::from(TWO_PHASE_GAP_MS_MIN)..=u32::from(TWO_PHASE_GAP_MS_MAX)).contains(&step.inter_segment_delay_ms)
+        );
+    }
+
+    #[test]
+    fn transparent_tls_variant_generation_covers_post_sni_and_two_phase() {
+        let payload = rust_packet_seeds::tls_client_hello();
+
+        let seg_post = transparent_tls_variant_with_seed("seg_post_sni", &payload, 17).expect("seg post variant");
+        assert!((0..=2).contains(&seg_post.offset_delta));
+
+        let two_phase = transparent_tls_variant_with_seed("two_phase_send", &payload, 29).expect("two phase variant");
+        assert!(
+            matches!(two_phase.first_write_len, Some(value) if (TWO_PHASE_FIRST_WRITE_MIN..=TWO_PHASE_FIRST_WRITE_MAX).contains(&value))
+        );
+        assert!(
+            matches!(two_phase.phase_gap_ms, Some(value) if (TWO_PHASE_GAP_MS_MIN..=TWO_PHASE_GAP_MS_MAX).contains(&value))
+        );
+    }
+
+    #[test]
+    fn transparent_tls_invariant_rejects_too_short_two_phase_payloads() {
+        let payload = vec![0x16; TWO_PHASE_FIRST_WRITE_MIN];
+        let error =
+            transparent_tls_variant_with_seed("two_phase_send", &payload, 7).expect_err("short payload must fail");
+
+        assert_eq!(error, TransparentTlsFamilyError::InvalidBoundary);
+    }
+
+    #[test]
+    fn transparent_tls_invariant_preserves_plaintext_for_record_and_two_phase_families() {
+        let payload = rust_packet_seeds::tls_client_hello();
+
+        let record_group = apply_transparent_tls_family(&test_group(), "rec_mid_sni", &payload)
+            .expect("record family should validate");
+        validate_transparent_tls_family(&payload, "rec_mid_sni", &record_group).expect("record invariant");
+
+        let two_phase_group =
+            apply_transparent_tls_family(&test_group(), "two_phase_send", &payload).expect("two phase should validate");
+        validate_transparent_tls_family(&payload, "two_phase_send", &two_phase_group).expect("two phase invariant");
     }
 
     #[test]
@@ -3599,8 +3963,10 @@ mod tests {
         assert_eq!(write_action_name("split"), "write_split");
         assert_eq!(write_action_name("seg_pre_sni"), "write_split");
         assert_eq!(write_action_name("seg_mid_sni"), "write_split");
+        assert_eq!(write_action_name("seg_post_sni"), "write_split");
         assert_eq!(write_action_name("rec_pre_sni"), "write_tlsrec");
         assert_eq!(write_action_name("rec_mid_sni"), "write_tlsrec");
+        assert_eq!(write_action_name("two_phase_send"), "write_split");
         assert_eq!(write_action_name("seqovl"), "write_seqovl");
         assert_eq!(write_action_name("tlsrec_seqovl"), "write_seqovl");
         assert_eq!(write_action_name("disorder"), "write_disorder");
@@ -3635,8 +4001,10 @@ mod tests {
         assert_eq!(await_writable_action_name("split"), "await_writable_split");
         assert_eq!(await_writable_action_name("seg_pre_sni"), "await_writable_split");
         assert_eq!(await_writable_action_name("seg_mid_sni"), "await_writable_split");
+        assert_eq!(await_writable_action_name("seg_post_sni"), "await_writable_split");
         assert_eq!(await_writable_action_name("rec_pre_sni"), "await_writable_tlsrec");
         assert_eq!(await_writable_action_name("rec_mid_sni"), "await_writable_tlsrec");
+        assert_eq!(await_writable_action_name("two_phase_send"), "await_writable_split");
         assert_eq!(await_writable_action_name("seqovl"), "await_writable_seqovl");
         assert_eq!(await_writable_action_name("tlsrec_seqovl"), "await_writable_seqovl");
         assert_eq!(await_writable_action_name("disorder"), "await_writable_disorder");
