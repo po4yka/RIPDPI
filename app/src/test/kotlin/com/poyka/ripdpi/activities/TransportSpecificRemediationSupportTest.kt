@@ -15,6 +15,18 @@ import org.robolectric.RuntimeEnvironment
 @RunWith(RobolectricTestRunner::class)
 class TransportSpecificRemediationSupportTest {
     @Test
+    fun `transport remediation returns owned stack action when verdict requires owned stack`() {
+        assertEquals(
+            TransportRemediationKind.OWNED_STACK_ACTION,
+            recommendTransportRemediation(
+                result = DirectModeVerdictResult.OWNED_STACK_ONLY,
+                reasonCode = DirectModeReasonCode.OWNED_STACK_REQUIRED,
+                transportClass = null,
+            ),
+        )
+    }
+
+    @Test
     fun `transport remediation prefers browser fallback when TLS failure points away from QUIC`() {
         assertEquals(
             TransportRemediationKind.BROWSER_FALLBACK,
@@ -22,6 +34,18 @@ class TransportSpecificRemediationSupportTest {
                 result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
                 reasonCode = DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE,
                 transportClass = DirectTransportClass.SNI_TLS_SUSPECT,
+            ),
+        )
+    }
+
+    @Test
+    fun `transport remediation falls back to no reliable hint when evidence is absent`() {
+        assertEquals(
+            TransportRemediationKind.NO_RELIABLE_RELAY_HINT,
+            recommendTransportRemediation(
+                result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
+                reasonCode = DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE,
+                transportClass = null,
             ),
         )
     }
