@@ -37,7 +37,6 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
-private const val textFieldDisabledAlpha = 0.38f
 private const val textFieldContentSpacingDp = 8
 
 // Internal threshold for detecting a focused/thickened border — not a design token.
@@ -77,14 +76,13 @@ fun RipDpiTextField(
     val resolvedTextStyle = behavior.textStyle ?: RipDpiThemeTokens.type.monoValue
     val resolvedInteractionSource = behavior.interactionSource ?: remember { MutableInteractionSource() }
     val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
-    val colors =
-        resolveTextFieldColors(
+    val state =
+        RipDpiThemeTokens.state.textField.resolve(
             enabled = behavior.enabled,
             hasError = decoration.errorText != null,
             isFocused = isFocused,
             isEmpty = value.isEmpty(),
         )
-    val borderWidth = resolveBorderWidth(enabled = behavior.enabled, hasError = decoration.errorText != null, isFocused)
 
     Column(
         modifier = modifier,
@@ -94,7 +92,7 @@ fun RipDpiTextField(
             Text(
                 text = it,
                 style = RipDpiThemeTokens.type.smallLabel,
-                color = colors.labelColor,
+                color = state.label,
             )
         }
         BasicTextField(
@@ -103,7 +101,7 @@ fun RipDpiTextField(
             enabled = behavior.enabled,
             readOnly = behavior.readOnly,
             singleLine = behavior.singleLine,
-            textStyle = resolvedTextStyle.copy(color = colors.contentColor),
+            textStyle = resolvedTextStyle.copy(color = state.content),
             keyboardOptions = behavior.keyboardOptions,
             keyboardActions = behavior.keyboardActions,
             visualTransformation = behavior.visualTransformation,
@@ -118,10 +116,11 @@ fun RipDpiTextField(
                     },
             decorationBox = { innerTextField ->
                 RipDpiTextFieldShell(
-                    enabled = behavior.enabled,
                     shape = RipDpiThemeTokens.shapes.xl,
-                    borderColor = colors.borderColor,
-                    borderWidth = borderWidth,
+                    containerColor = state.container,
+                    borderColor = state.border,
+                    borderWidth = state.borderWidth,
+                    alpha = state.alpha,
                     minHeight = behavior.minHeight ?: components.controlHeight,
                     density = behavior.density,
                     trailingContent = trailingContent,
@@ -131,7 +130,7 @@ fun RipDpiTextField(
                             Text(
                                 text = decoration.placeholder,
                                 style = resolvedTextStyle,
-                                color = RipDpiThemeTokens.colors.mutedForeground,
+                                color = state.placeholder,
                             )
                         }
                         innerTextField()
@@ -143,8 +142,8 @@ fun RipDpiTextField(
             Text(
                 text = it,
                 style = RipDpiThemeTokens.type.caption,
-                color = colors.helperColor,
-                modifier = Modifier.alpha(if (behavior.enabled) 1f else textFieldDisabledAlpha),
+                color = state.helper,
+                modifier = Modifier.alpha(state.alpha),
             )
         }
     }
@@ -184,16 +183,16 @@ fun RipDpiConfigTextField(
 
 @Composable
 private fun RipDpiTextFieldShell(
-    enabled: Boolean,
     shape: Shape,
+    containerColor: Color,
     borderColor: Color,
     borderWidth: androidx.compose.ui.unit.Dp,
+    alpha: Float,
     minHeight: androidx.compose.ui.unit.Dp,
     density: RipDpiControlDensity,
     trailingContent: (@Composable () -> Unit)?,
     content: @Composable RowScope.() -> Unit,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val basePadding =
         if (borderWidth > FocusedPaddingMinimumDp) {
@@ -212,10 +211,10 @@ private fun RipDpiTextFieldShell(
             Modifier
                 .fillMaxWidth()
                 .heightIn(min = minHeight)
-                .background(colors.inputBackground, shape)
+                .background(containerColor, shape)
                 .border(borderWidth, borderColor, shape)
                 .padding(start = horizontalPadding, end = horizontalPadding)
-                .alpha(if (enabled) 1f else textFieldDisabledAlpha),
+                .alpha(alpha),
         horizontalArrangement = Arrangement.spacedBy(textFieldContentSpacingDp.dp),
         verticalAlignment = Alignment.CenterVertically,
         content = {
@@ -224,51 +223,6 @@ private fun RipDpiTextFieldShell(
         },
     )
 }
-
-private data class RipDpiTextFieldColors(
-    val borderColor: Color,
-    val contentColor: Color,
-    val helperColor: Color,
-    val labelColor: Color,
-)
-
-@Composable
-private fun resolveTextFieldColors(
-    enabled: Boolean,
-    hasError: Boolean,
-    isFocused: Boolean,
-    isEmpty: Boolean,
-): RipDpiTextFieldColors {
-    val colors = RipDpiThemeTokens.colors
-    return RipDpiTextFieldColors(
-        borderColor =
-            when {
-                !enabled -> colors.border
-                hasError -> colors.destructive
-                isFocused -> colors.foreground
-                else -> colors.outlineVariant
-            },
-        contentColor =
-            when {
-                !enabled || isEmpty -> colors.mutedForeground
-                isFocused || hasError -> colors.foreground
-                else -> colors.mutedForeground
-            },
-        helperColor = if (hasError) colors.destructive else colors.mutedForeground,
-        labelColor = if (hasError) colors.destructive else colors.mutedForeground,
-    )
-}
-
-private fun resolveBorderWidth(
-    enabled: Boolean,
-    hasError: Boolean,
-    isFocused: Boolean,
-): Dp =
-    when {
-        !enabled -> 1.dp
-        hasError || isFocused -> 2.dp
-        else -> 1.dp
-    }
 
 @Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)

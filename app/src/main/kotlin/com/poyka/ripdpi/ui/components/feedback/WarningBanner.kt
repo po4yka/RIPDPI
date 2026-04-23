@@ -14,10 +14,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -29,6 +27,8 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiBannerStateRole
+import com.poyka.ripdpi.ui.theme.RipDpiBannerStateStyle
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -55,7 +55,7 @@ fun WarningBanner(
     onDismiss: (() -> Unit)? = null,
 ) {
     val surfaceStyle = ripDpiSurfaceStyle(RipDpiSurfaceRole.Banner)
-    val palette = warningBannerPalette(tone)
+    val state = RipDpiThemeTokens.state.banner.resolve(tone.toStateRole())
     val resolvedIcon = icon ?: defaultWarningBannerIcon(tone)
     val surfaceModifier =
         modifier
@@ -66,9 +66,9 @@ fun WarningBanner(
     Surface(
         modifier = onClick?.let { surfaceModifier.ripDpiClickable(onClick = it) } ?: surfaceModifier,
         shape = RipDpiThemeTokens.shapes.xl,
-        color = palette.container,
-        border = BorderStroke(RipDpiStroke.Thin, palette.border),
-        contentColor = palette.title,
+        color = state.container,
+        border = BorderStroke(RipDpiStroke.Thin, state.border),
+        contentColor = state.title,
         shadowElevation = surfaceStyle.shadowElevation,
     ) {
         WarningBannerContent(
@@ -76,7 +76,7 @@ fun WarningBanner(
             message = message,
             icon = resolvedIcon,
             iconContentDescription = tone.name,
-            palette = palette,
+            state = state,
             onDismiss = onDismiss,
         )
     }
@@ -88,7 +88,7 @@ private fun WarningBannerContent(
     message: String,
     icon: ImageVector,
     iconContentDescription: String,
-    palette: WarningBannerPalette,
+    state: RipDpiBannerStateStyle,
     onDismiss: (() -> Unit)? = null,
 ) {
     val components = RipDpiThemeTokens.components
@@ -108,13 +108,13 @@ private fun WarningBannerContent(
             modifier =
                 Modifier
                     .size(components.decorativeBadgeSize)
-                    .background(palette.iconContainer, RipDpiThemeTokens.shapes.full),
+                    .background(state.iconContainer, RipDpiThemeTokens.shapes.full),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = iconContentDescription,
-                tint = palette.icon,
+                tint = state.icon,
                 modifier = Modifier.size(RipDpiIconSizes.Small),
             )
         }
@@ -125,12 +125,12 @@ private fun WarningBannerContent(
             Text(
                 text = title,
                 style = type.bodyEmphasis,
-                color = palette.title,
+                color = state.title,
             )
             Text(
                 text = message,
                 style = type.secondaryBody,
-                color = palette.message,
+                color = state.message,
             )
         }
         if (onDismiss != null) {
@@ -144,71 +144,10 @@ private fun WarningBannerContent(
                 Icon(
                     imageVector = RipDpiIcons.Close,
                     contentDescription = stringResource(R.string.action_dismiss),
-                    tint = palette.title,
+                    tint = state.title,
                     modifier = Modifier.size(RipDpiIconSizes.Small),
                 )
             }
-        }
-    }
-}
-
-@Immutable
-private data class WarningBannerPalette(
-    val container: Color,
-    val border: Color,
-    val iconContainer: Color,
-    val icon: Color,
-    val title: Color,
-    val message: Color,
-)
-
-@Composable
-private fun warningBannerPalette(tone: WarningBannerTone): WarningBannerPalette {
-    val colors = RipDpiThemeTokens.colors
-
-    return when (tone) {
-        WarningBannerTone.Warning -> {
-            WarningBannerPalette(
-                container = colors.warningContainer,
-                border = colors.warning.copy(alpha = 0.52f),
-                iconContainer = colors.warning.copy(alpha = 0.12f),
-                icon = colors.warning,
-                title = colors.warningContainerForeground,
-                message = colors.warningContainerForeground,
-            )
-        }
-
-        WarningBannerTone.Error -> {
-            WarningBannerPalette(
-                container = colors.destructiveContainer,
-                border = colors.destructive.copy(alpha = 0.52f),
-                iconContainer = colors.destructive.copy(alpha = 0.12f),
-                icon = colors.destructive,
-                title = colors.destructiveContainerForeground,
-                message = colors.destructiveContainerForeground,
-            )
-        }
-
-        WarningBannerTone.Info -> {
-            WarningBannerPalette(
-                container = colors.infoContainer,
-                border = colors.info.copy(alpha = 0.48f),
-                iconContainer = colors.info.copy(alpha = 0.12f),
-                icon = colors.info,
-                title = colors.infoContainerForeground,
-                message = colors.infoContainerForeground,
-            )
-        }
-
-        WarningBannerTone.Restricted -> {
-            WarningBannerPalette(
-                container = colors.restrictedContainer,
-                border = colors.restricted.copy(alpha = 0.52f),
-                iconContainer = colors.restricted.copy(alpha = 0.12f),
-                icon = colors.restricted,
-                title = colors.restrictedContainerForeground,
-                message = colors.restrictedContainerForeground,
-            )
         }
     }
 }
@@ -219,6 +158,14 @@ private fun defaultWarningBannerIcon(tone: WarningBannerTone): ImageVector =
         WarningBannerTone.Error -> RipDpiIcons.Error
         WarningBannerTone.Info -> RipDpiIcons.Info
         WarningBannerTone.Restricted -> RipDpiIcons.Lock
+    }
+
+private fun WarningBannerTone.toStateRole(): RipDpiBannerStateRole =
+    when (this) {
+        WarningBannerTone.Warning -> RipDpiBannerStateRole.Warning
+        WarningBannerTone.Error -> RipDpiBannerStateRole.Error
+        WarningBannerTone.Info -> RipDpiBannerStateRole.Info
+        WarningBannerTone.Restricted -> RipDpiBannerStateRole.Restricted
     }
 
 @Suppress("UnusedPrivateMember")

@@ -578,6 +578,7 @@ Component behavior rules:
 - Settings rows use stable vertical rhythm and must clearly communicate selected, navigable, and toggle states.
 - Warning and remediation surfaces use semantic containers, not full-saturation fills by default.
 - Monospace treatments belong in diagnostic or configuration contexts, not in general navigation chrome.
+- Shared components should resolve pressed, focused, disabled, loading, selected, and error visuals from a first-class state-token layer instead of rebuilding those palettes inline.
 
 ## Do's and Don'ts
 
