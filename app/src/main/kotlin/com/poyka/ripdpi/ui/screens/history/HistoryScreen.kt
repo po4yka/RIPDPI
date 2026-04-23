@@ -53,6 +53,9 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiTelemetryEntry
+import com.poyka.ripdpi.ui.components.chrome.RipDpiTelemetryRows
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
@@ -446,7 +449,7 @@ private fun ConnectionsSection(
 
         if (uiState.connections.sessions.isEmpty()) {
             item {
-                EmptyStateCard(
+                RipDpiEmptyStateCard(
                     title = stringResource(R.string.history_connections_empty_title),
                     body = stringResource(R.string.history_connections_empty_body),
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryConnectionsStateEmpty),
@@ -515,7 +518,7 @@ private fun DiagnosticsSection(
 
         if (uiState.diagnostics.sessions.isEmpty()) {
             item {
-                EmptyStateCard(
+                RipDpiEmptyStateCard(
                     title = stringResource(R.string.history_diagnostics_empty_title),
                     body = stringResource(R.string.history_diagnostics_empty_body),
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryDiagnosticsStateEmpty),
@@ -612,7 +615,7 @@ private fun EventsSection(
 
         if (uiState.groupedEvents.isEmpty()) {
             item {
-                EmptyStateCard(
+                RipDpiEmptyStateCard(
                     title = stringResource(R.string.history_events_empty_title),
                     body = stringResource(R.string.history_events_empty_body),
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryEventsStateEmpty),
@@ -986,36 +989,16 @@ private fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
 
 @Composable
 private fun MetricList(metrics: List<com.poyka.ripdpi.activities.DiagnosticsMetricUiModel>) {
-    metrics.forEachIndexed { index, metric ->
-        SettingsRow(
-            title = metric.label,
-            value = metric.value,
-            showDivider = index != metrics.lastIndex,
-        )
-    }
-}
-
-@Composable
-private fun EmptyStateCard(
-    title: String,
-    body: String,
-    modifier: Modifier = Modifier,
-) {
-    RipDpiCard(
-        modifier = modifier,
-        variant = RipDpiCardVariant.Outlined,
-    ) {
-        Text(
-            text = title,
-            style = RipDpiThemeTokens.type.bodyEmphasis,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
-        Text(
-            text = body,
-            style = RipDpiThemeTokens.type.body,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
-    }
+    RipDpiTelemetryRows(
+        entries =
+            metrics.map { metric ->
+                RipDpiTelemetryEntry(
+                    label = metric.label,
+                    value = metric.value,
+                    monospaceValue = metric.value.length > 18,
+                )
+            },
+    )
 }
 
 private fun statusTone(tone: DiagnosticsTone): StatusIndicatorTone =

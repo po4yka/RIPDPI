@@ -65,6 +65,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
@@ -567,7 +568,7 @@ private fun EventsSection(
         }
         if (uiState.events.events.isEmpty()) {
             item {
-                EmptyStateCard(
+                RipDpiEmptyStateCard(
                     title = stringResource(R.string.logs_filtered_empty_title),
                     body = stringResource(R.string.logs_filtered_empty_body),
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsEventsStateEmpty),

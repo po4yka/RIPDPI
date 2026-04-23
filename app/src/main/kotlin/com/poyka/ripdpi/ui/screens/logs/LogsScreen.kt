@@ -50,6 +50,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
@@ -512,36 +513,27 @@ private fun LogsEmptyStateCard(
     hasBufferedLogs: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
-
-    RipDpiCard(modifier = modifier) {
-        Text(
-            text =
-                stringResource(
-                    if (hasBufferedLogs) {
-                        R.string.logs_filtered_empty_title
-                    } else {
-                        R.string.logs_empty_title
-                    },
-                ),
-            style = RipDpiThemeTokens.type.bodyEmphasis,
-            color = colors.foreground,
-        )
-        Text(
-            text =
-                stringResource(
-                    if (hasBufferedLogs) {
-                        R.string.logs_filtered_empty_body
-                    } else {
-                        R.string.logs_empty_body
-                    },
-                ),
-            style = RipDpiThemeTokens.type.body,
-            color = colors.mutedForeground,
-            maxLines = 3,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+    RipDpiEmptyStateCard(
+        title =
+            stringResource(
+                if (hasBufferedLogs) {
+                    R.string.logs_filtered_empty_title
+                } else {
+                    R.string.logs_empty_title
+                },
+            ),
+        body =
+            stringResource(
+                if (hasBufferedLogs) {
+                    R.string.logs_filtered_empty_body
+                } else {
+                    R.string.logs_empty_body
+                },
+            ),
+        modifier = modifier,
+        bodyMaxLines = 3,
+        bodyOverflow = TextOverflow.Ellipsis,
+    )
 }
 
 @Composable
