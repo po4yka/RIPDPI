@@ -171,9 +171,9 @@ private fun SwitchToggleControl(
         )
     val interactive = enabled && !readOnly && onCheckedChange != null
     val thumbTravel =
-        components.switchWidth -
-            components.switchThumbSize -
-            (components.switchThumbPadding * 2)
+        components.inputs.switchWidth -
+            components.inputs.switchThumbSize -
+            (components.inputs.switchThumbPadding * 2)
     val thumbOffset by animateDpAsState(
         targetValue = if (checked) thumbTravel else 0.dp,
         label = "switchOffset",
@@ -191,11 +191,11 @@ private fun SwitchToggleControl(
         onCheckedChange = onCheckedChange,
         dimensions =
             SwitchDimensions(
-                width = components.switchWidth,
-                height = components.switchHeight,
-                trackHeight = components.switchTrackHeight,
-                thumbPadding = components.switchThumbPadding,
-                thumbSize = components.switchThumbSize,
+                width = components.inputs.switchWidth,
+                height = components.inputs.switchHeight,
+                trackHeight = components.inputs.switchTrackHeight,
+                thumbPadding = components.inputs.switchThumbPadding,
+                thumbSize = components.inputs.switchThumbSize,
             ),
         trackColor = trackColor,
         thumbColor = thumbColor,

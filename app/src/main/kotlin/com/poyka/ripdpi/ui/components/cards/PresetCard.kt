@@ -65,7 +65,7 @@ fun PresetCard(
         modifier =
             modifier
                 .fillMaxWidth()
-                .heightIn(min = components.settingsRowMinHeightWithSubtitle)
+                .heightIn(min = components.rows.settingsRowMinHeightWithSubtitle)
                 .shadow(surfaceStyle.shadowElevation, shape, clip = false)
                 .clip(shape)
                 .background(surfaceStyle.container, shape)
@@ -81,8 +81,8 @@ fun PresetCard(
                     interactionSource = resolvedInteractionSource,
                     onClick = onClick,
                 ).padding(
-                    horizontal = components.fieldHorizontalPadding,
-                    vertical = components.settingsRowVerticalPadding,
+                    horizontal = components.inputs.fieldHorizontalPadding,
+                    vertical = components.rows.settingsRowVerticalPadding,
                 ),
         verticalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
@@ -106,8 +106,8 @@ fun PresetCard(
                                 color = badgePalette.container,
                                 shape = RipDpiThemeTokens.shapes.xxl,
                             ).padding(
-                                horizontal = components.compactPillHorizontalPadding,
-                                vertical = components.compactPillVerticalPadding,
+                                horizontal = components.rows.compactPillHorizontalPadding,
+                                vertical = components.rows.compactPillVerticalPadding,
                             ),
                 ) {
                     Text(

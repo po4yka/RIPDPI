@@ -67,18 +67,24 @@ fun RipDpiChip(
     val horizontalPadding =
         when (density) {
             RipDpiControlDensity.Default -> {
-                components.chipHorizontalPadding
+                components.inputs.chipHorizontalPadding
             }
 
             RipDpiControlDensity.Compact -> {
-                components.chipHorizontalPadding -
-                    components.chipFocusedHorizontalPaddingOffset
+                components.inputs.chipHorizontalPadding -
+                    components.inputs.chipFocusedHorizontalPaddingOffset
             }
         }
     val verticalPadding =
         when (density) {
-            RipDpiControlDensity.Default -> components.chipVerticalPadding
-            RipDpiControlDensity.Compact -> components.chipVerticalPadding - components.chipFocusedVerticalPaddingOffset
+            RipDpiControlDensity.Default -> {
+                components.inputs.chipVerticalPadding
+            }
+
+            RipDpiControlDensity.Compact -> {
+                components.inputs.chipVerticalPadding -
+                    components.inputs.chipFocusedVerticalPaddingOffset
+            }
         }
     val animatedContainer by animateColorAsState(
         targetValue = state.container,
@@ -139,7 +145,7 @@ fun RipDpiChip(
                     imageVector = it,
                     contentDescription = null,
                     tint = animatedContentColor,
-                    modifier = Modifier.size(components.chipIconSize),
+                    modifier = Modifier.size(components.inputs.chipIconSize),
                 )
             }
         }

@@ -86,7 +86,7 @@ fun RipDpiTextField(
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(components.textFieldLabelGap),
+        verticalArrangement = Arrangement.spacedBy(components.inputs.textFieldLabelGap),
     ) {
         decoration.label?.let {
             Text(
@@ -121,7 +121,7 @@ fun RipDpiTextField(
                     borderColor = state.border,
                     borderWidth = state.borderWidth,
                     alpha = state.alpha,
-                    minHeight = behavior.minHeight ?: components.controlHeight,
+                    minHeight = behavior.minHeight ?: components.inputs.controlHeight,
                     density = behavior.density,
                     trailingContent = trailingContent,
                 ) {
@@ -172,7 +172,7 @@ fun RipDpiConfigTextField(
                 textStyle = behavior.textStyle ?: RipDpiThemeTokens.type.monoConfig,
                 minHeight =
                     if (multiline) {
-                        behavior.minHeight ?: components.multilineFieldMinHeight
+                        behavior.minHeight ?: components.inputs.multilineFieldMinHeight
                     } else {
                         behavior.minHeight
                     },
@@ -196,9 +196,9 @@ private fun RipDpiTextFieldShell(
     val components = RipDpiThemeTokens.components
     val basePadding =
         if (borderWidth > FocusedPaddingMinimumDp) {
-            components.fieldFocusedHorizontalPadding
+            components.inputs.fieldFocusedHorizontalPadding
         } else {
-            components.fieldHorizontalPadding
+            components.inputs.fieldHorizontalPadding
         }
     val horizontalPadding =
         when (density) {

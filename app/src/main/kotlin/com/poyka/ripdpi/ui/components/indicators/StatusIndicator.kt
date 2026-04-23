@@ -109,7 +109,7 @@ fun StatusIndicator(
                 contentDescription = statusDescription
                 liveRegion = LiveRegionMode.Polite
             },
-        horizontalArrangement = Arrangement.spacedBy(components.statusMarkerSpacing),
+        horizontalArrangement = Arrangement.spacedBy(components.indicators.statusMarkerSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(contentAlignment = Alignment.Center) {
@@ -117,7 +117,7 @@ fun StatusIndicator(
                 Box(
                     modifier =
                         Modifier
-                            .size(components.statusMarkerSmall)
+                            .size(components.indicators.statusMarkerSmall)
                             .scale(pulseScale)
                             .background(animatedIndicatorColor.copy(alpha = pulseAlpha), CircleShape),
                 )
@@ -127,13 +127,13 @@ fun StatusIndicator(
                     Box(
                         modifier =
                             Modifier
-                                .size(components.statusMarkerSmall)
+                                .size(components.indicators.statusMarkerSmall)
                                 .background(animatedIndicatorColor, CircleShape),
                     )
                 }
 
                 StatusIndicatorTone.Warning -> {
-                    Canvas(modifier = Modifier.size(components.statusMarkerLarge)) {
+                    Canvas(modifier = Modifier.size(components.indicators.statusMarkerLarge)) {
                         val path =
                             Path().apply {
                                 moveTo(size.width / 2f, 0f)
@@ -146,13 +146,13 @@ fun StatusIndicator(
                 }
 
                 StatusIndicatorTone.Error -> {
-                    Canvas(modifier = Modifier.size(components.statusMarkerSmall)) {
+                    Canvas(modifier = Modifier.size(components.indicators.statusMarkerSmall)) {
                         drawRect(animatedIndicatorColor)
                     }
                 }
 
                 StatusIndicatorTone.Idle -> {
-                    Canvas(modifier = Modifier.size(components.statusMarkerMedium)) {
+                    Canvas(modifier = Modifier.size(components.indicators.statusMarkerMedium)) {
                         val cx = size.width / 2f
                         val cy = size.height / 2f
                         val r = size.width / 2f

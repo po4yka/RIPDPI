@@ -125,7 +125,7 @@ data class RipDpiBannerStateStyle(
 data class RipDpiButtonStateTokens(
     private val colors: RipDpiExtendedColors,
     private val colorScheme: ColorScheme,
-    private val components: RipDpiComponentMetrics,
+    private val shapes: RipDpiShapeMetrics,
     private val motion: RipDpiMotion,
 ) {
     fun resolve(
@@ -208,9 +208,9 @@ data class RipDpiButtonStateTokens(
             borderWidth = borderWidth,
             cornerRadius =
                 if (isPressed && interactive) {
-                    components.controlIncreasedCornerRadius
+                    shapes.controlIncreasedCornerRadius
                 } else {
-                    components.controlCornerRadius
+                    shapes.controlCornerRadius
                 },
             scale = if (isPressed && interactive) motion.pressScale else 1f,
             contentAlpha = if (loading) LoadingContentAlpha else 1f,
@@ -317,7 +317,7 @@ data class RipDpiTextFieldStateTokens(
 data class RipDpiChipStateTokens(
     private val colors: RipDpiExtendedColors,
     private val colorScheme: ColorScheme,
-    private val components: RipDpiComponentMetrics,
+    private val shapes: RipDpiShapeMetrics,
     private val motion: RipDpiMotion,
 ) {
     fun resolve(
@@ -347,9 +347,9 @@ data class RipDpiChipStateTokens(
                 },
             cornerRadius =
                 if (isPressed && interactive) {
-                    components.controlCornerRadius
+                    shapes.controlCornerRadius
                 } else {
-                    components.largeCornerRadius
+                    shapes.largeCornerRadius
                 },
             scale =
                 when {
@@ -505,14 +505,14 @@ data class RipDpiStateTokens(
 fun ripDpiStateTokens(
     colors: RipDpiExtendedColors,
     colorScheme: ColorScheme,
-    components: RipDpiComponentMetrics,
+    components: RipDpiComponents,
     motion: RipDpiMotion,
 ): RipDpiStateTokens =
     RipDpiStateTokens(
-        button = RipDpiButtonStateTokens(colors, colorScheme, components, motion),
+        button = RipDpiButtonStateTokens(colors, colorScheme, components.shapes, motion),
         iconButton = RipDpiIconButtonStateTokens(colors, colorScheme, motion),
         textField = RipDpiTextFieldStateTokens(colors),
-        chip = RipDpiChipStateTokens(colors, colorScheme, components, motion),
+        chip = RipDpiChipStateTokens(colors, colorScheme, components.shapes, motion),
         switch = RipDpiSwitchStateTokens(colors, colorScheme),
         settingsRow = RipDpiSettingsRowStateTokens(colors),
         banner = RipDpiBannerStateTokens(colors),
@@ -572,7 +572,7 @@ internal val LocalRipDpiStateTokens =
         ripDpiStateTokens(
             colors = LightRipDpiExtendedColors,
             colorScheme = ripDpiLightColorScheme(),
-            components = DefaultRipDpiComponentMetrics,
+            components = DefaultRipDpiComponents,
             motion = DefaultRipDpiMotion,
         )
     }

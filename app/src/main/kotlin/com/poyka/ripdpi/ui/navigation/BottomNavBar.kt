@@ -80,14 +80,17 @@ fun BottomNavBar(
                         .widthIn(
                             max = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding,
                         ).height(layout.bottomBarHeight)
-                        .padding(horizontal = components.bottomNavHorizontalPadding),
+                        .padding(horizontal = components.navigation.bottomNavHorizontalPadding),
             ) {
                 val density = LocalDensity.current
                 val slotWidth = maxWidth / destinations.size.coerceAtLeast(1)
                 val indicatorOffsetPxTarget =
                     selectedIndex?.let { index ->
                         with(density) {
-                            (slotWidth * index + ((slotWidth - components.bottomNavIndicatorWidth) / 2)).toPx()
+                            (
+                                slotWidth * index +
+                                    ((slotWidth - components.navigation.bottomNavIndicatorWidth) / 2)
+                            ).toPx()
                         }
                     } ?: 0f
                 val indicatorOffsetPx by animateFloatAsState(
@@ -111,7 +114,7 @@ fun BottomNavBar(
                 )
                 val indicatorTopOffsetPx =
                     with(density) {
-                        components.bottomNavIndicatorTopOffset.toPx()
+                        components.navigation.bottomNavIndicatorTopOffset.toPx()
                     }
 
                 Box(
@@ -121,8 +124,8 @@ fun BottomNavBar(
                         modifier =
                             Modifier
                                 .size(
-                                    width = components.bottomNavIndicatorWidth,
-                                    height = components.bottomNavIndicatorHeight,
+                                    width = components.navigation.bottomNavIndicatorWidth,
+                                    height = components.navigation.bottomNavIndicatorHeight,
                                 ).graphicsLayer {
                                     translationX = indicatorOffsetPx
                                     translationY = indicatorTopOffsetPx
@@ -213,8 +216,8 @@ private fun RowScope.BottomNavItem(
             modifier =
                 Modifier
                     .size(
-                        width = components.bottomNavIndicatorWidth,
-                        height = components.bottomNavIndicatorHeight,
+                        width = components.navigation.bottomNavIndicatorWidth,
+                        height = components.navigation.bottomNavIndicatorHeight,
                     ),
             contentAlignment = Alignment.Center,
         ) {

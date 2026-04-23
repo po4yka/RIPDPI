@@ -106,7 +106,7 @@ private fun WarningBannerContent(
         Box(
             modifier =
                 Modifier
-                    .size(components.decorativeBadgeSize)
+                    .size(components.feedback.decorativeBadgeSize)
                     .background(state.iconContainer, RipDpiThemeTokens.shapes.full),
             contentAlignment = Alignment.Center,
         ) {
@@ -137,7 +137,7 @@ private fun WarningBannerContent(
                 onClick = onDismiss,
                 modifier =
                     Modifier
-                        .size(components.decorativeBadgeSize)
+                        .size(components.feedback.decorativeBadgeSize)
                         .ripDpiTestTag(RipDpiTestTags.WarningBannerDismiss),
             ) {
                 Icon(
