@@ -8,11 +8,11 @@
 
 package com.poyka.ripdpi.services
 
+import android.net.InetAddresses
+import android.os.Build
 import java.io.Closeable
 import java.io.EOFException
 import java.io.IOException
-import java.net.Inet4Address
-import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
@@ -56,6 +56,65 @@ internal fun splitPtAuthArgs(arguments: String): Pair<ByteArray, ByteArray> {
         bytes.copyOfRange(0, 255) to bytes.copyOfRange(255, bytes.size)
     }
 }
+
+internal fun encodeManagedClientSocksConnectRequest(
+    host: String,
+    port: Int,
+): ByteArray {
+    require(port in 1..65_535) { "SOCKS target port is out of range" }
+    val request = mutableListOf<Byte>()
+    request.add(0x05)
+    request.add(0x01)
+    request.add(0x00)
+    val numericAddress = parseNumericAddressOrNull(host)
+    when {
+        numericAddress?.address?.size == Ipv4AddressByteCount -> {
+            request.add(0x01)
+            request.addAll(numericAddress.address.toList())
+        }
+
+        numericAddress?.address?.size == Ipv6AddressByteCount -> {
+            request.add(0x04)
+            request.addAll(numericAddress.address.toList())
+        }
+
+        else -> {
+            val addressBytes = host.toByteArray(Charsets.UTF_8)
+            require(addressBytes.size <= 255) { "SOCKS target host is too long" }
+            request.add(0x03)
+            request.add(addressBytes.size.toByte())
+            request.addAll(addressBytes.toList())
+        }
+    }
+    request.add(((port ushr 8) and 0xFF).toByte())
+    request.add((port and 0xFF).toByte())
+    return request.toByteArray()
+}
+
+private fun parseNumericAddressOrNull(host: String): InetAddress? {
+    val trimmed = host.trim()
+    if (trimmed.isEmpty()) return null
+    parseIpv4Literal(trimmed)?.let { return it }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && InetAddresses.isNumericAddress(trimmed)) {
+        return InetAddresses.parseNumericAddress(trimmed)
+    }
+    return null
+}
+
+private fun parseIpv4Literal(value: String): InetAddress? {
+    val octets = value.split('.')
+    if (octets.size != Ipv4AddressByteCount) return null
+    val bytes =
+        octets.map { part ->
+            if (part.isEmpty() || part.length > 3) return null
+            if (part.length > 1 && part.startsWith('0')) return null
+            part.toIntOrNull()?.takeIf { it in 0..255 }?.toByte() ?: return null
+        }
+    return InetAddress.getByAddress(bytes.toByteArray())
+}
+
+private const val Ipv4AddressByteCount = 4
+private const val Ipv6AddressByteCount = 16
 
 internal class ManagedClientSocksBridge(
     private val listenHost: String,
@@ -218,35 +277,7 @@ internal class ManagedClientSocksBridge(
         host: String,
         port: Int,
     ) {
-        val addressBytes = host.toByteArray(Charsets.UTF_8)
-        val header =
-            mutableListOf<Byte>().apply {
-                add(0x05)
-                add(0x01)
-                add(0x00)
-                val inetAddress = runCatching { InetAddress.getByName(host) }.getOrNull()
-                when (inetAddress) {
-                    is Inet4Address -> {
-                        add(0x01)
-                        addAll(inetAddress.address.toList())
-                    }
-
-                    is Inet6Address -> {
-                        add(0x04)
-                        addAll(inetAddress.address.toList())
-                    }
-
-                    else -> {
-                        require(addressBytes.size <= 255) { "SOCKS target host is too long" }
-                        add(0x03)
-                        add(addressBytes.size.toByte())
-                        addAll(addressBytes.toList())
-                    }
-                }
-                add(((port ushr 8) and 0xFF).toByte())
-                add((port and 0xFF).toByte())
-            }
-        output.write(header.toByteArray())
+        output.write(encodeManagedClientSocksConnectRequest(host, port))
     }
 
     private fun writeOuterReply(

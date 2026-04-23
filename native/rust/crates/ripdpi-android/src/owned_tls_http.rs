@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 use std::io;
+use std::net::{IpAddr, SocketAddr, TcpStream as StdTcpStream};
+use std::os::fd::AsRawFd;
 use std::time::Duration;
 
 use base64::Engine;
@@ -9,14 +11,25 @@ use http::{Method, Request, StatusCode};
 use http_body_util::{BodyExt, Full};
 use hyper::client::conn::http1;
 use hyper_util::rt::TokioIo;
+use ripdpi_dns_resolver::{
+    extract_ip_answers, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver,
+    EncryptedDnsTransport,
+};
+use ripdpi_native_protect::{has_protect_callback, protect_socket_via_callback};
 use ripdpi_tls_profiles::{configure_builder, profile_catalog_version, selected_profile_metadata};
 use serde::{Deserialize, Serialize};
-use tokio::net::TcpStream;
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+use tokio::net::{TcpSocket, TcpStream};
 use tokio::time::timeout;
 use url::Url;
 
 const HTTP11_ALPN: &[u8] = b"\x08http/1.1";
 const DEFAULT_TLS_PROFILE: &str = "chrome_stable";
+const DNS_RECORD_TYPE_A: u16 = 1;
+const DNS_RECORD_TYPE_AAAA: u16 = 28;
+const OWNED_FETCH_DOH_HOST: &str = "dns.adguard-dns.com";
+const OWNED_FETCH_DOH_URL: &str = "https://dns.adguard-dns.com/dns-query";
+const OWNED_FETCH_DOH_BOOTSTRAP_IPS: &[&str] = &["94.140.14.14", "94.140.15.15"];
 
 #[derive(Debug, Deserialize)]
 pub struct NativeOwnedTlsHttpRequest {
@@ -140,7 +153,7 @@ async fn execute_async(request: NativeOwnedTlsHttpRequest) -> io::Result<NativeO
 
     loop {
         let response = execute_once(&method, &current_url, &request).await?;
-        if let Some(location) = redirect_target(&current_url, &response) {
+        if let Some(location) = redirect_target(&current_url, &response)? {
             if redirects_remaining == 0 {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidData,
@@ -183,18 +196,34 @@ async fn execute_async(request: NativeOwnedTlsHttpRequest) -> io::Result<NativeO
     }
 }
 
-fn redirect_target(current_url: &Url, response: &RawHttpResponse) -> Option<Url> {
+fn redirect_target(current_url: &Url, response: &RawHttpResponse) -> io::Result<Option<Url>> {
     match response.status_code {
         StatusCode::MOVED_PERMANENTLY
         | StatusCode::FOUND
         | StatusCode::SEE_OTHER
         | StatusCode::TEMPORARY_REDIRECT
-        | StatusCode::PERMANENT_REDIRECT => response
-            .headers
-            .get(LOCATION)
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| current_url.join(value).ok()),
-        _ => None,
+        | StatusCode::PERMANENT_REDIRECT => {
+            let Some(location) = response.headers.get(LOCATION) else {
+                return Ok(None);
+            };
+            let location = location.to_str().map_err(|error| {
+                io::Error::new(io::ErrorKind::InvalidData, format!("invalid redirect location: {error}"))
+            })?;
+            let location = current_url.join(location).map_err(|error| {
+                io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("invalid redirect target from {}: {error}", current_url),
+                )
+            })?;
+            if current_url.scheme() == "https" && location.scheme() == "http" {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("refusing HTTPS to HTTP redirect downgrade from {current_url} to {location}"),
+                ));
+            }
+            Ok(Some(location))
+        }
+        _ => Ok(None),
     }
 }
 
@@ -239,9 +268,154 @@ async fn execute_once(method: &Method, url: &Url, request: &NativeOwnedTlsHttpRe
 }
 
 async fn connect_transport(host: &str, port: u16, connect_timeout_ms: u64) -> io::Result<TcpStream> {
-    timeout(Duration::from_millis(connect_timeout_ms), TcpStream::connect((host, port)))
+    timeout(Duration::from_millis(connect_timeout_ms), connect_transport_inner(host, port))
         .await
         .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, format!("connect to {host}:{port} timed out")))?
+}
+
+async fn connect_transport_inner(host: &str, port: u16) -> io::Result<TcpStream> {
+    let targets = resolve_connect_targets(host, port).await?;
+    let mut last_error = None;
+    for target in targets {
+        let socket = tcp_socket_for(target)?;
+        protect_socket_if_available(&socket)?;
+        match socket.connect(target).await {
+            Ok(stream) => return Ok(stream),
+            Err(error) => {
+                last_error = Some(io::Error::new(error.kind(), format!("connect to {target}: {error}")));
+            }
+        }
+    }
+    Err(last_error.unwrap_or_else(|| {
+        io::Error::new(io::ErrorKind::AddrNotAvailable, format!("connect to {host}:{port}: no usable addresses"))
+    }))
+}
+
+async fn resolve_connect_targets(host: &str, port: u16) -> io::Result<Vec<SocketAddr>> {
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return Ok(vec![SocketAddr::new(ip, port)]);
+    }
+
+    let resolver = owned_fetch_encrypted_resolver()?;
+    let mut targets = encrypted_dns_targets(&resolver, host, port, DNS_RECORD_TYPE_A).await?;
+    targets.extend(encrypted_dns_targets(&resolver, host, port, DNS_RECORD_TYPE_AAAA).await?);
+    if targets.is_empty() {
+        return Err(io::Error::new(
+            io::ErrorKind::AddrNotAvailable,
+            format!("encrypted DNS resolved no addresses for {host}:{port}"),
+        ));
+    }
+    Ok(targets)
+}
+
+fn owned_fetch_encrypted_resolver() -> io::Result<EncryptedDnsResolver> {
+    let bootstrap_ips = OWNED_FETCH_DOH_BOOTSTRAP_IPS
+        .iter()
+        .map(|value| {
+            value.parse::<IpAddr>().map_err(|error| {
+                io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("invalid owned fetch DoH bootstrap IP {value}: {error}"),
+                )
+            })
+        })
+        .collect::<io::Result<Vec<_>>>()?;
+    EncryptedDnsResolver::with_connect_hooks(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doh,
+            resolver_id: Some("adguard".to_string()),
+            host: OWNED_FETCH_DOH_HOST.to_string(),
+            port: 443,
+            tls_server_name: Some(OWNED_FETCH_DOH_HOST.to_string()),
+            bootstrap_ips,
+            doh_url: Some(OWNED_FETCH_DOH_URL.to_string()),
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        },
+        EncryptedDnsTransport::Direct,
+        owned_fetch_dns_connect_hooks(),
+    )
+    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("build owned fetch resolver: {error}")))
+}
+
+async fn encrypted_dns_targets(
+    resolver: &EncryptedDnsResolver,
+    host: &str,
+    port: u16,
+    record_type: u16,
+) -> io::Result<Vec<SocketAddr>> {
+    let query = build_dns_query(host, record_type, dns_query_id())?;
+    let response = resolver
+        .exchange(&query)
+        .await
+        .map_err(|error| io::Error::other(format!("encrypted DNS resolve {host}: {error}")))?;
+    let answers =
+        extract_ip_answers(&response).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error.to_string()))?;
+    Ok(answers
+        .into_iter()
+        .filter_map(|answer| answer.parse::<IpAddr>().ok())
+        .map(|ip| SocketAddr::new(ip, port))
+        .collect())
+}
+
+fn owned_fetch_dns_connect_hooks() -> EncryptedDnsConnectHooks {
+    EncryptedDnsConnectHooks::new().with_direct_tcp_connector(|target, timeout| {
+        let domain = match target {
+            SocketAddr::V4(_) => Domain::IPV4,
+            SocketAddr::V6(_) => Domain::IPV6,
+        };
+        let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
+        if has_protect_callback() {
+            protect_socket_via_callback(socket.as_raw_fd())
+                .map_err(|error| io::Error::new(error.kind(), format!("protect owned fetch DNS socket: {error}")))?;
+        }
+        socket.connect_timeout(&SockAddr::from(target), timeout)?;
+        let stream: StdTcpStream = socket.into();
+        stream.set_nodelay(true)?;
+        Ok(stream)
+    })
+}
+
+fn build_dns_query(domain: &str, record_type: u16, query_id: u16) -> io::Result<Vec<u8>> {
+    let mut packet = Vec::with_capacity(512);
+    packet.extend(query_id.to_be_bytes());
+    packet.extend(0x0100u16.to_be_bytes());
+    packet.extend(1u16.to_be_bytes());
+    packet.extend(0u16.to_be_bytes());
+    packet.extend(0u16.to_be_bytes());
+    packet.extend(0u16.to_be_bytes());
+    for label in domain.trim_end_matches('.').split('.') {
+        if label.is_empty() || label.len() > 63 {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("invalid DNS name: {domain}")));
+        }
+        packet.push(label.len() as u8);
+        packet.extend(label.as_bytes());
+    }
+    packet.push(0);
+    packet.extend(record_type.to_be_bytes());
+    packet.extend(1u16.to_be_bytes());
+    Ok(packet)
+}
+
+fn dns_query_id() -> u16 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    (((SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_nanos() as u64) & 0xffff) as u16).max(1)
+}
+
+fn tcp_socket_for(target: SocketAddr) -> io::Result<TcpSocket> {
+    match target {
+        SocketAddr::V4(_) => TcpSocket::new_v4(),
+        SocketAddr::V6(_) => TcpSocket::new_v6(),
+    }
+}
+
+fn protect_socket_if_available(socket: &TcpSocket) -> io::Result<()> {
+    if has_protect_callback() {
+        protect_socket_via_callback(socket.as_raw_fd())
+            .map_err(|error| io::Error::new(error.kind(), format!("protect native TLS fetch socket: {error}")))?;
+    }
+    Ok(())
 }
 
 async fn send_request<T>(
@@ -349,10 +523,15 @@ mod tests {
 
     use std::io::{Read, Write};
     use std::net::TcpListener;
+    use std::sync::atomic::{AtomicI32, Ordering};
+    use std::sync::{Arc, Mutex};
     use std::thread;
 
     use base64::engine::general_purpose::STANDARD;
+    use ripdpi_native_protect::{register_protect_callback, unregister_protect_callback, ProtectCallback};
     use serde_json::Value;
+
+    static PROTECT_TEST_MUTEX: Mutex<()> = Mutex::new(());
 
     #[test]
     fn execute_fetches_plain_http_response() {
@@ -401,6 +580,78 @@ mod tests {
         assert_eq!(response["tlsJa3ParityTarget"], "chrome-stable");
         assert_eq!(response["tlsJa4ParityTarget"], "chrome-stable");
         assert_eq!(response["tlsTemplateGreaseStyle"], "chromium_single_grease");
+    }
+
+    #[test]
+    fn redirect_target_rejects_https_to_http_downgrade() {
+        let current_url = Url::parse("https://example.com/start.json").expect("current url");
+        let response = RawHttpResponse {
+            status_code: StatusCode::FOUND,
+            headers: http::HeaderMap::from_iter([(
+                LOCATION,
+                HeaderValue::from_static("http://example.com/insecure.json"),
+            )]),
+            body: Bytes::new(),
+        };
+
+        let error = redirect_target(&current_url, &response).expect_err("downgrade should be rejected");
+
+        assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+        assert!(error.to_string().contains("HTTPS to HTTP redirect downgrade"));
+    }
+
+    #[test]
+    fn execute_protects_socket_before_connect_when_callback_registered() {
+        let _lock = PROTECT_TEST_MUTEX.lock().expect("test mutex");
+        let guard = ProtectRegistrationGuard::register();
+        let callback = Arc::new(TestProtectCallback::default());
+        let callback_for_registration: Arc<dyn ProtectCallback> = callback.clone();
+        guard.install(callback_for_registration);
+
+        let server = spawn_http_server(vec![http_response("200 OK", &[], b"manifest")]);
+        let port = server.local_addr().expect("local addr").port();
+        let request = serde_json::json!({
+            "url": format!("http://127.0.0.1:{port}/manifest.json"),
+            "headers": {"User-Agent": "RIPDPI test"},
+            "tlsProfileId": "chrome_stable",
+        });
+
+        let payload = execute(&request.to_string()).expect("execute");
+        let response: Value = serde_json::from_str(&payload).expect("json response");
+
+        assert_eq!(response["statusCode"], 200);
+        assert!(callback.last_fd.load(Ordering::Relaxed) >= 0, "protect callback should observe a socket fd");
+    }
+
+    #[derive(Default)]
+    struct TestProtectCallback {
+        last_fd: AtomicI32,
+    }
+
+    impl ProtectCallback for TestProtectCallback {
+        fn protect(&self, fd: std::os::fd::RawFd) -> io::Result<()> {
+            self.last_fd.store(fd, Ordering::Relaxed);
+            Ok(())
+        }
+    }
+
+    struct ProtectRegistrationGuard;
+
+    impl ProtectRegistrationGuard {
+        fn register() -> Self {
+            unregister_protect_callback();
+            Self
+        }
+
+        fn install(&self, callback: Arc<dyn ProtectCallback>) {
+            register_protect_callback(callback);
+        }
+    }
+
+    impl Drop for ProtectRegistrationGuard {
+        fn drop(&mut self) {
+            unregister_protect_callback();
+        }
     }
 
     fn http_response(status_line: &str, headers: &[(&str, &str)], body: &[u8]) -> Vec<u8> {

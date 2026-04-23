@@ -9,14 +9,19 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
-class CommunityComparisonClient {
-    private val json = Json { ignoreUnknownKeys = true }
-    private val client =
+class CommunityComparisonClient internal constructor(
+    private val client: OkHttpClient,
+) {
+    constructor() : this(
         OkHttpClient
             .Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(15, TimeUnit.SECONDS)
-            .build()
+            .callTimeout(15, TimeUnit.SECONDS)
+            .build(),
+    )
+
+    private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun fetchStats(githubUrl: String): Result<CommunityStats> =
         withContext(Dispatchers.IO) {
@@ -32,12 +37,18 @@ class CommunityComparisonClient {
                         .url(githubUrl)
                         .get()
                         .build()
-                val response = client.newCall(request).execute()
-                if (!response.isSuccessful) {
-                    return@withContext Result.failure(Exception("HTTP ${response.code}"))
+                client.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        return@withContext Result.failure(Exception("HTTP ${response.code}"))
+                    }
+                    val responseBody = response.body.string()
+                    val body =
+                        responseBody.takeIf(String::isNotBlank)
+                            ?: return@withContext Result.failure(
+                                IllegalStateException("Community stats response body was empty"),
+                            )
+                    Result.success(json.decodeFromString<CommunityStats>(body))
                 }
-                val body = response.body.string()
-                Result.success(json.decodeFromString<CommunityStats>(body))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

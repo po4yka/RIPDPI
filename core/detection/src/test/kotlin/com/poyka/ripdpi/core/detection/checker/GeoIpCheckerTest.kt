@@ -90,19 +90,52 @@ class GeoIpCheckerTest {
     @Test
     fun `evaluate from JSON parses correctly`() {
         val json =
-            JSONObject().apply {
-                put("status", "success")
-                put("query", "1.2.3.4")
-                put("country", "Russia")
-                put("countryCode", "RU")
-                put("isp", "ISP")
-                put("org", "Org")
-                put("as", "AS1234")
-                put("proxy", false)
-                put("hosting", false)
-            }
+            JSONObject(
+                """
+                {
+                  "status": "success",
+                  "query": "1.2.3.4",
+                  "country": "Russia",
+                  "countryCode": "RU",
+                  "isp": "ISP",
+                  "org": "Org",
+                  "as": "AS1234",
+                  "proxy": false,
+                  "hosting": false
+                }
+                """.trimIndent(),
+            )
         val result = GeoIpChecker.evaluate(json)
         assertFalse(result.detected)
         assertEquals("GeoIP", result.name)
+    }
+
+    @Test
+    fun `evaluate from current HTTPS JSON parses nested connection and security fields`() {
+        val json =
+            JSONObject(
+                """
+                {
+                  "success": true,
+                  "ip": "8.8.8.8",
+                  "country": "United States",
+                  "country_code": "US",
+                  "connection": {
+                    "asn": 15169,
+                    "isp": "Google LLC",
+                    "org": "Google LLC"
+                  },
+                  "security": {
+                    "vpn": true,
+                    "hosting": true
+                  }
+                }
+                """.trimIndent(),
+            )
+
+        val result = GeoIpChecker.evaluate(json)
+
+        assertTrue(result.detected)
+        assertTrue(result.findings.any { it.description.contains("Google LLC") })
     }
 }

@@ -21,6 +21,7 @@ hyper = { workspace = true }
 hyper-util = { workspace = true }
 ripdpi-config = { workspace = true }
 ripdpi-desync = { workspace = true }
+ripdpi-dns-resolver = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-session = { workspace = true }
 jni = { workspace = true }
