@@ -98,7 +98,7 @@ Status: COMPLETE.
 - Promoted the existing native `dns_integrity` probe into a typed direct-mode DNS classifier instead of leaving HTTPS/SVCB parsing as unused groundwork.
 - Added stable classifier details for five-state DNS classification, answer-class evidence, selected encrypted-resolver role, and HTTPS/ECH support counts on the native diagnostics path.
 - Threaded typed DNS classification through the direct-path capability envelope, capability summaries, runtime-context JSON contract, and connection-policy resolution.
-- Promoted poisoned DNS results into authority-scoped `DOH_PRIMARY` / `DOH_SECONDARY` policy hints while leaving full resolver-mapping enforcement as a follow-up slice.
+- Promoted poisoned DNS results into authority-scoped `DOH_PRIMARY` / `DOH_SECONDARY` policy hints so the later runtime-enforcement slice could consume them directly.
 - Added focused Kotlin and Rust regression coverage for the new classifier contract, policy persistence, and runtime-context sanitization.
 
 ### 2026-04-23: Honest Direct-Mode Transport Verdicts
@@ -110,6 +110,17 @@ Status: COMPLETE.
 - Added a false-positive guard in the runtime learner so `ALL_IPS_FAILED` must reappear on the next flow before persisting `NO_DIRECT_SOLUTION` / `IP_BLOCK_SUSPECT`.
 - Kept tuple-scoped cached policy in place while preventing the new re-verification guard from regressing later positive signals like `QUIC_SUCCESS`.
 - Added service and diagnostics regression coverage for the re-verification path and the reason-specific verdict summary text.
+
+### 2026-04-23: DNS And Transport Enforcement Slices
+
+Status: PARTIAL.
+
+- Promoted the cached direct-path DNS hint from passive metadata into active enforcement: VPN startup can now promote a converged hostname-backed `DOH_PRIMARY` / `DOH_SECONDARY` policy into the active resolver instead of waiting for runtime DNS failures.
+- Added authority-scoped encrypted-DNS resolver selection on the native hostname-resolution path so direct-path capability records can steer individual hosts to the intended DoH provider at runtime.
+- Gated DoQ on the same transport policy signal: when an authority is not UDP-clean, runtime DNS resolution now automatically downgrades a DoQ context back to DoH for that host.
+- Tightened direct-path transport enforcement so `NO_TCP_FALLBACK` no longer leaves the runtime in an inconsistent state where UDP suppression is disabled but the adaptive UDP/QUIC hint layer still behaves as if QUIC is broken for the same authority.
+- Added focused Kotlin and Rust regressions for converged VPN DNS promotion, authority-scoped resolver selection, DoQ downgrade, and the `NO_TCP_FALLBACK` adaptive-hint guard.
+- Remaining follow-up work is narrower: true per-app-family invalidation on package-version change is still open, and the DNS side still lacks a dedicated `(host, NetProfile)` fastest-resolver cache.
 
 ### 2026-04-23: Transparent TLS Family Engine
 
