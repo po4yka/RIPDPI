@@ -3,11 +3,6 @@ package com.poyka.ripdpi.ui.screens.dns
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,7 +62,6 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.utility.checkNotLocalIp
@@ -366,36 +360,8 @@ internal fun DnsSettingsScreen(
 
         AnimatedVisibility(
             visible = uiState.dns.dnsMode == DnsModeEncrypted,
-            enter =
-                expandVertically(
-                    animationSpec =
-                        tween(
-                            motion.duration(motion.emphasizedDurationMillis),
-                            easing = RipDpiMotion.EmphasizedDecelerate,
-                        ),
-                ) +
-                    fadeIn(
-                        animationSpec =
-                            tween(
-                                motion.duration(motion.stateDurationMillis),
-                                easing = RipDpiMotion.EmphasizedDecelerate,
-                            ),
-                    ),
-            exit =
-                shrinkVertically(
-                    animationSpec =
-                        tween(
-                            motion.duration(motion.quickDurationMillis),
-                            easing = RipDpiMotion.EmphasizedAccelerate,
-                        ),
-                ) +
-                    fadeOut(
-                        animationSpec =
-                            tween(
-                                motion.duration(motion.quickDurationMillis),
-                                easing = RipDpiMotion.EmphasizedAccelerate,
-                            ),
-                    ),
+            enter = motion.sectionEnterTransition(),
+            exit = motion.sectionExitTransition(),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                 SettingsCategoryHeader(title = stringResource(R.string.dns_protocol_section))
@@ -437,36 +403,8 @@ internal fun DnsSettingsScreen(
             visible =
                 uiState.dns.dnsMode == DnsModeEncrypted &&
                     uiState.dns.encryptedDnsProtocol == EncryptedDnsProtocolDoh,
-            enter =
-                expandVertically(
-                    animationSpec =
-                        tween(
-                            motion.duration(motion.emphasizedDurationMillis),
-                            easing = RipDpiMotion.EmphasizedDecelerate,
-                        ),
-                ) +
-                    fadeIn(
-                        animationSpec =
-                            tween(
-                                motion.duration(motion.stateDurationMillis),
-                                easing = RipDpiMotion.EmphasizedDecelerate,
-                            ),
-                    ),
-            exit =
-                shrinkVertically(
-                    animationSpec =
-                        tween(
-                            motion.duration(motion.quickDurationMillis),
-                            easing = RipDpiMotion.EmphasizedAccelerate,
-                        ),
-                ) +
-                    fadeOut(
-                        animationSpec =
-                            tween(
-                                motion.duration(motion.quickDurationMillis),
-                                easing = RipDpiMotion.EmphasizedAccelerate,
-                            ),
-                    ),
+            enter = motion.sectionEnterTransition(),
+            exit = motion.sectionExitTransition(),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                 SettingsCategoryHeader(title = stringResource(R.string.dns_resolvers_section))
@@ -497,11 +435,7 @@ internal fun DnsSettingsScreen(
             RipDpiCard(
                 modifier =
                     Modifier.animateContentSize(
-                        animationSpec =
-                            tween(
-                                durationMillis = motion.duration(motion.stateDurationMillis),
-                                easing = RipDpiMotion.StandardEasing,
-                            ),
+                        animationSpec = motion.stateTween(),
                     ),
             ) {
                 when (uiState.dns.dnsMode) {

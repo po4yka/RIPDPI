@@ -309,6 +309,11 @@ Motion rules:
 - prefer calm spring or eased motion over theatrical bounce
 - reduced motion must disable infinite motion and clamp emphasis
 - preview and screenshot code should remain stable under static-motion mode
+- shared controls and screens should consume semantic motion presets from `RipDpiMotion` instead of rebuilding raw `tween(...)` and visibility transitions inline
+- use the quick/state/emphasized/route tween buckets consistently: quick for borders, alpha, and icon swaps; state for color and content settling; emphasized for section reveal; route for screen navigation
+- use shared section enter and exit transitions for expandable settings or form groups before inventing a feature-local visibility animation
+- `standardSpring` is for routine press and settle motion, `expressiveSpring` is for selected or emphasized lift, and `motionAwareSpring` is the default when reduced-motion safety matters
+- infinite motion is reserved for status or progress affordances that already gate through `allowsInfiniteMotion`; settings, forms, and route chrome should stay finite
 
 ## Icon Rules
 

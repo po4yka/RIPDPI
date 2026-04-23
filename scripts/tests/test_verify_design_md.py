@@ -145,6 +145,9 @@ class VerifyDesignMdTest(unittest.TestCase):
                 ## Screen Contracts
                 Sample
 
+                ## Motion Baselines
+                Sample
+
                 ## Drift Checks
                 Sample
                 """,

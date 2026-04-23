@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.components.indicators
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -87,7 +86,7 @@ private fun StageProgressSegments(
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
     val segmentShape = RipDpiThemeTokens.shapes.xs
-    val animSpec = tween<Color>(durationMillis = motion.duration(motion.stateDurationMillis))
+    val animSpec = motion.stateTween<Color>()
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
