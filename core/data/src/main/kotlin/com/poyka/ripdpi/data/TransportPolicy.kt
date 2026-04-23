@@ -4,6 +4,8 @@ import kotlinx.serialization.Serializable
 
 const val CurrentTransportPolicyEnvelopeVersion = 1
 const val DirectModeNoDirectSolutionCooldownMs = 30 * 60 * 1000L
+const val DirectModePolicyTtlMs = 7L * 24L * 60L * 60L * 1000L
+const val DirectModePolicyRevalidationFailureThreshold = 3
 
 @Serializable
 enum class QuicMode {

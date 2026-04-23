@@ -181,6 +181,7 @@ class ConnectionPolicyResolverTest {
         runTest {
             val fingerprint = sampleFingerprint()
             val capabilityStore = TestServerCapabilityStore()
+            val now = System.currentTimeMillis()
             capabilityStore.rememberDirectPathObservation(
                 fingerprint = fingerprint,
                 authority = "Example.org:443",
@@ -198,12 +199,13 @@ class ConnectionPolicyResolverTest {
                                 tcpFamily = TcpFamily.NONE,
                                 outcome = DirectModeOutcome.TRANSPARENT_OK,
                             ),
+                        policyConfirmedAt = now,
                         ipSetDigest = "deadbeef",
                         dnsClassification = DirectDnsClassification.POISONED,
                         transportClass = DirectTransportClass.QUIC_BLOCK_SUSPECT,
                         reasonCode = DirectModeReasonCode.QUIC_BLOCKED,
                     ),
-                recordedAt = 123L,
+                recordedAt = now,
             )
             capabilityStore.rememberDirectPathObservation(
                 fingerprint = fingerprint,
@@ -222,12 +224,13 @@ class ConnectionPolicyResolverTest {
                                 tcpFamily = TcpFamily.REC_PRE_SNI,
                                 outcome = DirectModeOutcome.NO_DIRECT_SOLUTION,
                             ),
+                        policyConfirmedAt = now,
                         ipSetDigest = "feedface",
                         transportClass = DirectTransportClass.IP_BLOCK_SUSPECT,
                         reasonCode = DirectModeReasonCode.IP_BLOCKED,
-                        cooldownUntil = 999L,
+                        cooldownUntil = now + 60_000L,
                     ),
-                recordedAt = 124L,
+                recordedAt = now,
             )
             val resolver =
                 DefaultConnectionPolicyResolver(
@@ -264,7 +267,7 @@ class ConnectionPolicyResolverTest {
             assertEquals(DirectModeOutcome.TRANSPARENT_OK, softDisable?.outcome)
             assertEquals(DirectTransportClass.QUIC_BLOCK_SUSPECT, softDisable?.transportClass)
             assertEquals(DirectModeReasonCode.QUIC_BLOCKED, softDisable?.reasonCode)
-            assertEquals(123L, softDisable?.updatedAt)
+            assertEquals(now, softDisable?.updatedAt)
 
             assertNotNull(noDirect)
             assertEquals("example.org:443", noDirect?.authority)
@@ -274,8 +277,126 @@ class ConnectionPolicyResolverTest {
             assertEquals(DirectModeOutcome.NO_DIRECT_SOLUTION, noDirect?.outcome)
             assertEquals(DirectTransportClass.IP_BLOCK_SUSPECT, noDirect?.transportClass)
             assertEquals(DirectModeReasonCode.IP_BLOCKED, noDirect?.reasonCode)
-            assertEquals(999L, noDirect?.cooldownUntil)
-            assertEquals(124L, noDirect?.updatedAt)
+            assertEquals(now + 60_000L, noDirect?.cooldownUntil)
+            assertEquals(now, noDirect?.updatedAt)
+        }
+
+    @Test
+    fun `resolver excludes unconfirmed direct path capabilities from runtime context`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val capabilityStore = TestServerCapabilityStore()
+            capabilityStore.rememberDirectPathObservation(
+                fingerprint = fingerprint,
+                authority = "Example.org:443",
+                observation =
+                    ServerCapabilityObservation(
+                        transportPolicy =
+                            TransportPolicy(
+                                quicMode = QuicMode.SOFT_DISABLE,
+                                preferredStack = PreferredStack.H2,
+                                dnsMode = DnsMode.SYSTEM,
+                                tcpFamily = TcpFamily.NONE,
+                                outcome = DirectModeOutcome.TRANSPARENT_OK,
+                            ),
+                        ipSetDigest = "deadbeef",
+                        transportClass = DirectTransportClass.QUIC_BLOCK_SUSPECT,
+                        reasonCode = DirectModeReasonCode.QUIC_BLOCKED,
+                    ),
+                recordedAt = 123L,
+            )
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = RootHelperManager(),
+                    serverCapabilityStore = capabilityStore,
+                )
+
+            val resolution = resolver.resolve(mode = Mode.Proxy)
+            val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+
+            assertTrue(
+                uiPreferences
+                    ?.runtimeContext
+                    ?.directPathCapabilities
+                    .orEmpty()
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun `resolver excludes stale or over-failed direct path capabilities from runtime context`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val capabilityStore = TestServerCapabilityStore()
+            capabilityStore.rememberDirectPathObservation(
+                fingerprint = fingerprint,
+                authority = "stale.example:443",
+                observation =
+                    ServerCapabilityObservation(
+                        transportPolicy =
+                            TransportPolicy(
+                                quicMode = QuicMode.SOFT_DISABLE,
+                                preferredStack = PreferredStack.H2,
+                                dnsMode = DnsMode.SYSTEM,
+                                tcpFamily = TcpFamily.NONE,
+                                outcome = DirectModeOutcome.TRANSPARENT_OK,
+                            ),
+                        ipSetDigest = "stale",
+                        policyConfirmedAt = 1L,
+                    ),
+                recordedAt = 1L,
+            )
+            capabilityStore.rememberDirectPathObservation(
+                fingerprint = fingerprint,
+                authority = "failed.example:443",
+                observation =
+                    ServerCapabilityObservation(
+                        transportPolicy =
+                            TransportPolicy(
+                                quicMode = QuicMode.SOFT_DISABLE,
+                                preferredStack = PreferredStack.H2,
+                                dnsMode = DnsMode.SYSTEM,
+                                tcpFamily = TcpFamily.NONE,
+                                outcome = DirectModeOutcome.TRANSPARENT_OK,
+                            ),
+                        ipSetDigest = "failed",
+                        policyConfirmedAt = System.currentTimeMillis(),
+                        policyFailureCount = 3,
+                    ),
+                recordedAt = System.currentTimeMillis(),
+            )
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(AppSettingsSerializer.defaultValue),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = RootHelperManager(),
+                    serverCapabilityStore = capabilityStore,
+                )
+
+            val resolution = resolver.resolve(mode = Mode.Proxy)
+            val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+
+            assertTrue(
+                uiPreferences
+                    ?.runtimeContext
+                    ?.directPathCapabilities
+                    .orEmpty()
+                    .isEmpty(),
+            )
         }
 
     @Test
