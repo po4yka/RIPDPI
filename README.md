@@ -21,11 +21,12 @@ Android application for optimizing network connectivity with:
 
 - local proxy mode
 - local VPN redirection mode
-- encrypted DNS in VPN mode with DoH/DoT/DNSCrypt
+- encrypted DNS in VPN mode with DoH/DoT/DNSCrypt/DoQ
 - advanced strategy controls with semantic markers, adaptive split placement, QUIC/TLS/DNS lane separation, per-network policy memory, and automatic probing/audit
 - handover-aware live policy re-evaluation across Wi-Fi, cellular, and roaming changes
 - relay transports including WARP, VLESS Reality/xHTTP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, and NaiveProxy
 - strategy-pack and TLS-catalog driven rollout control for transport defaults, feature flags, and fingerprint rotation
+- direct-mode DNS classification, transport verdicts, and transport-specific remediation for restricted authorities
 - owned-stack RIPDPI Browser plus a shared `SecureHttpClient` path for app-originated traffic we control
 - repo-local offline analytics pipeline for clustering censorship/device fingerprints and mining reviewed signature catalogs
 - xHTTP-side Finalmask support for supported relay profiles and Cloudflare Tunnel paths
@@ -54,47 +55,65 @@ RIPDPI runs a local SOCKS5 proxy built from in-repository Rust modules. In manua
 ## Architecture
 
 ```mermaid
-graph TD
-    subgraph Android / Kotlin
-        APP[app]
-        SVC[core:service]
-        DIAG[core:diagnostics]
-        DATA[core:data]
-        ENG[core:engine]
+flowchart LR
+    subgraph Android["Android / Kotlin"]
+        UI["app / Compose UI"]
+        BROW["RIPDPI Browser"]
+        SHC["SecureHttpClient"]
+        SVC["core:service"]
+        DIAG["core:diagnostics"]
+        DATA["core:data"]
+        ENG["core:engine"]
     end
 
-    subgraph JNI Boundary
-        JNI_P[libripdpi.so]
-        JNI_T[libripdpi-tunnel.so]
+    subgraph Policy["Policy / control plane"]
+        STORE["remembered policy store\nhost autolearn\nstrategy-pack / TLS catalog"]
+        OFFLINE["offline analytics pipeline\nreviewed candidate packs"]
     end
 
-    subgraph Rust Native
-        RT[ripdpi-runtime<br/>SOCKS5 proxy]
-        MON[ripdpi-monitor<br/>diagnostics]
-        TC[ripdpi-tunnel-core<br/>TUN bridge]
-        DNS[ripdpi-dns-resolver<br/>DoH / DoT / DNSCrypt<br/>fallback chain]
-        DSN[ripdpi-desync<br/>DPI evasion]
-        CFG[ripdpi-proxy-config<br/>strategy bridge]
-        PKT[ripdpi-packets<br/>protocol classification]
+    subgraph JNI["JNI boundary"]
+        JNI_P["libripdpi.so"]
+        JNI_T["libripdpi-tunnel.so"]
     end
 
-    subgraph Root Helper
-        RH[ripdpi-root-helper<br/>privileged raw sockets]
+    subgraph Native["Rust native workspace"]
+        RT["ripdpi-runtime\nlocal proxy + relay runtime"]
+        MON["ripdpi-monitor\ndiagnostics + DNS classifier"]
+        TC["ripdpi-tunnel-core\nTUN bridge + MapDNS"]
+        DNS["ripdpi-dns-resolver\nDoH / DoT / DNSCrypt / DoQ"]
+        CFG["ripdpi-proxy-config\nstrategy / policy bridge"]
+        PKT["ripdpi-packets + failure classifier\nprotocol + verdict helpers"]
+        ROOT["ripdpi-root-helper\nprivileged raw sockets"]
     end
 
-    APP --> SVC & DIAG & DATA & ENG
+    UI --> SVC
+    UI --> DIAG
+    UI --> DATA
+    UI --> ENG
+    UI --> BROW
+    UI --> SHC
+    BROW --> SVC
+    SHC --> SVC
+    SVC --> DATA
+    DIAG --> DATA
+    DATA --> STORE
+    OFFLINE -.->|reviewed inputs| STORE
+    STORE --> CFG
     SVC --> ENG
     DIAG --> ENG
-    ENG -->|Proxy & Diagnostics| JNI_P
-    ENG -->|VPN mode| JNI_T
-
-    JNI_P --> RT & MON
+    ENG -->|proxy + diagnostics| JNI_P
+    ENG -->|VPN tunnel| JNI_T
+    JNI_P --> RT
+    JNI_P --> MON
     JNI_T --> TC
-    RT --> DSN & CFG & DNS & PKT
-    RT -.->|root mode IPC| RH
-    RH --> RT
-    MON --> RT & CFG & DNS
+    RT --> DNS
+    RT --> CFG
+    RT --> PKT
+    MON --> DNS
+    MON --> CFG
+    MON --> PKT
     TC --> DNS
+    RT -.->|root IPC| ROOT
 ```
 
 ## Diagnostics
@@ -107,15 +126,18 @@ Implemented diagnostic mechanisms:
 - Automatic probing profiles in `RAW_PATH`, plus hidden `quick_v1` re-checks after first-seen network handovers
 - Automatic audit in `RAW_PATH` with rotating curated target cohorts, full TCP/QUIC matrix evaluation, confidence/coverage scoring, and manual recommendations
 - 4-stage home composite analysis: automatic audit, default connectivity, DPI full (ru-dpi-full), DPI strategy probe (ru-dpi-strategy) with per-stage timeouts
-- 21 TCP + 6 QUIC strategy probe candidates covering split, TLS record fragmentation, random TLS record fragmentation, disorder, OOB (TCP urgent pointer), disoob, fake packets, hostfake, parser evasion, and ECH techniques
+- 24 TCP + 6 QUIC strategy probe candidates covering semantic split families, TLS record families, transparent TLS first-flight families, disorder, OOB (TCP urgent pointer), disoob, fake packets, hostfake, parser evasion, and ECH techniques
 - Tournament bracket qualifier: tests each candidate against 1 domain first, eliminates ~70% of failing candidates before the full-matrix round
 - Within-candidate domain parallelism: 3 domains tested concurrently per candidate via `thread::scope`
-- DNS integrity checks across UDP DNS and encrypted resolvers (DoH/DoT/DNSCrypt) with fallback resolver chain (AdGuard, DNS.SB, Google IP, Mullvad)
+- DNS integrity checks across UDP DNS and encrypted resolvers (DoH/DoT/DNSCrypt/DoQ) with fallback resolver chain (AdGuard, DNS.SB, Google IP, Mullvad)
+- Authority-scoped DNS classification into clean, poisoned, divergent, ECH-capable, and no-HTTPS-RR outcomes, feeding direct-mode resolver and transport hints
 - Domain reachability checks with TLS and HTTP classification
 - TCP 16-20 KB cutoff detection with repeated fat-header requests
 - Whitelist SNI retry detection for restricted TLS paths
 - Resolver recommendations with diversified DoH/DoT/DNSCrypt path candidates, bootstrap validation, temporary session overrides, and save-to-settings actions
 - Eager DNS failover for catastrophic errors (connection reset, refused) on first query
+- Direct-mode policy persistence with confirmation/revalidation, honest verdicts (`TRANSPARENT_WORKS`, `OWNED_STACK_ONLY`, `NO_DIRECT_SOLUTION`, `IP_BLOCK_SUSPECT`), and transport-family replay
+- Transport-specific remediation that branches to the owned-stack browser, browser-camouflage relay, QUIC-heavy relay, or manual review instead of one generic relay hint
 - Strategy-probe progress with live TCP/QUIC lane, candidate index, and candidate label during automatic probing/audit
 - Partial results recovery: 3s grace period after timeout to retrieve results from the native engine
 - Configurable native scan deadline (Kotlin timeout - 30s) ensures native engine finalizes before Kotlin gives up
@@ -182,7 +204,7 @@ RIPDPI now ships a separate owned-stack request path for traffic the app origina
 
 **Does the application require root?** No. On rooted devices an opt-in root mode unlocks additional evasion techniques (FakeRst, MultiDisorder, IP fragmentation, full SeqOverlap) via a privileged helper process.
 
-**Is this a VPN?** No. It uses Android's VPN mode to redirect traffic locally. It does not encrypt general app traffic or hide your IP address. When encrypted DNS is enabled, only DNS lookups are sent through DoH/DoT/DNSCrypt.
+**Is this a VPN?** No. It uses Android's VPN mode to redirect traffic locally. It does not encrypt general app traffic or hide your IP address. When encrypted DNS is enabled, only DNS lookups are sent through DoH/DoT/DNSCrypt/DoQ.
 
 **How to use with AdGuard?**
 
@@ -218,6 +240,7 @@ Options: `--device <serial>` to target a specific device, `--skip-capture` to re
 - [Debug a runtime issue](docs/native/debug-runtime-issue.md)
 - [Cloudflare Tunnel operations](docs/native/cloudflare-tunnel-operations.md)
 - [MASQUE current state](docs/native/relay-masque-status.md)
+- [MASQUE field validation report](docs/native/relay-masque-field-validation.md)
 - [NaiveProxy runtime](docs/native/relay-naiveproxy-decision.md)
 - [Finalmask compatibility and example configs](docs/native/finalmask-compatibility.md)
 

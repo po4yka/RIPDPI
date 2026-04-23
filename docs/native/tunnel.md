@@ -18,7 +18,7 @@ flowchart LR
     B --> C["ripdpi-tunnel-core\npacket parsing"]
     C --> D{"DNS query?"}
     D -- Yes --> E["MapDNS listener\n198.18.0.53"]
-    D -- No --> F["SOCKS5 session\nto 127.0.0.1:1080"]
+    D -- No --> F["SOCKS5 session\nto 127.0.0.1:<ephemeral port>\nRFC 1929 auth token"]
     E --> G["Encrypted resolver\nDoH / DoT / DNSCrypt / DoQ"]
     G --> H["Map real IP\nto synthetic 198.18.x.x"]
     H --> I["DNS response\nback to app"]
@@ -121,7 +121,8 @@ The Rust crate graph is centered on:
 ## Android-specific Notes
 
 - RIPDPI now starts the tunnel with an in-memory JSON config payload and an already established Android TUN fd.
-- The config still points the tunnel to the local SOCKS5 proxy on `127.0.0.1:$port`.
+- The config points the tunnel to the session-local SOCKS5 proxy endpoint on `127.0.0.1:$port`, where `$port` is the telemetry-resolved ephemeral bind selected by the active proxy session.
+- VPN-mode tunnel sessions also use the per-session localhost auth token that the proxy runtime rotates on first start and on full handover restarts.
 - In encrypted DNS mode the config also enables `mapdns` on `198.18.0.53:53` with a synthetic `198.18.0.0/15` address pool and passes the active encrypted resolver definition into native code.
 - `RipDpiVpnService` resolves connection policy before startup and can overlay a remembered VPN-only DNS policy without changing the user's selected app mode.
 - Actionable handovers now trigger a full proxy+tunnel restart under the service mutex instead of a DNS-only refresh path, so the SOCKS listener, mapped-DNS resolver, and tunnel are rebound together on the new network.

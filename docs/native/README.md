@@ -66,19 +66,31 @@ Recent integration hardening in this layer:
 flowchart LR
   A["Proxy mode service"] --> B["RipDpiProxy.kt"]
   C["VPN mode service"] --> B
-  B --> D["libripdpi.so"]
   C --> E["Tun2SocksTunnel.kt"]
+  H["Diagnostics screen"] --> I["NetworkDiagnostics.kt"]
+  J["RIPDPI Browser / SecureHttpClient"] --> K["OwnedStackBrowserService"]
+  L["Remembered policy + strategy packs"] --> B
+  L --> I
+  B --> D["libripdpi.so"]
   E --> F["libripdpi-tunnel.so"]
   F --> G["Android TUN fd"]
   F --> D
-  H["Diagnostics screen"] --> I["NetworkDiagnostics.kt"]
   I --> D
-  J["Passive monitor"] --> B
-  J --> E
-  K["ripdpi CLI (desktop)"] --> L["ripdpi-runtime"]
-  L --> M["ripdpi-config"]
-  N["Root helper (uid 0)"] -.->|Unix socket IPC| D
+  K --> M["Android 17 HttpEngine"]
+  K --> N["native owned TLS fallback"]
+  O["ripdpi CLI (desktop)"] --> P["ripdpi-runtime"]
+  P --> Q["ripdpi-config"]
+  R["Root helper (uid 0)"] -.->|Unix socket IPC| D
 ```
+
+## Owned-Stack Boundary
+
+App-originated traffic that RIPDPI controls itself no longer always traverses the local SOCKS5 proxy.
+
+- `OwnedStackBrowserService` is the shared Kotlin service path used by the RIPDPI Browser and the repo-local `SecureHttpClient`.
+- On Android 17 / API 37, it prefers platform `HttpEngine` only when authority-scoped DNS evidence says the host is `ECH_CAPABLE` or when the app ships an explicit `xml-v37` override.
+- The platform path retries with QUIC disabled before falling back to RIPDPI's native owned TLS path.
+- The local proxy runtime described in the rest of this document still handles proxy mode, VPN mode, diagnostics probes, relay orchestration, and localhost policy replay.
 
 ## Diagnostics and Telemetry
 

@@ -51,7 +51,8 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 
 ## Roadmap
 
-- [Integrations roadmap](roadmap-integrations.md)
+- [Current roadmap](../ROADMAP.md)
+- [Main README architecture overview](../README.md#architecture)
 
 ## User Manuals
 
