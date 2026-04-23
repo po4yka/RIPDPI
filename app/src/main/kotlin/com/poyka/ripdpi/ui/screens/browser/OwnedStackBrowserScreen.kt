@@ -18,6 +18,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -26,6 +27,9 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.services.OwnedStackBrowserBackend
+import com.poyka.ripdpi.services.OwnedStackExecutionTrace
+import com.poyka.ripdpi.services.OwnedStackNativeFallbackReason
+import com.poyka.ripdpi.services.SecureHttpEchMode
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -74,6 +78,7 @@ internal fun OwnedStackBrowserScreen(
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
@@ -201,6 +206,13 @@ internal fun OwnedStackBrowserScreen(
                             color = colors.mutedForeground,
                         )
                     }
+                    ownedStackTraceSummary(page.executionTrace)?.let { summary ->
+                        Text(
+                            text = context.getString(summary),
+                            style = type.secondaryBody,
+                            color = colors.mutedForeground,
+                        )
+                    }
                 }
                 RipDpiCard(variant = RipDpiCardVariant.Outlined) {
                     SelectionContainer {
@@ -218,3 +230,35 @@ internal fun OwnedStackBrowserScreen(
         }
     }
 }
+
+@Composable
+private fun ownedStackTraceSummary(trace: OwnedStackExecutionTrace): Int? =
+    when {
+        trace.nativeFallbackReason == OwnedStackNativeFallbackReason.ECH_CONFIRMATION_MISSING -> {
+            R.string.owned_stack_browser_trace_native_ech_missing
+        }
+
+        trace.nativeFallbackReason == OwnedStackNativeFallbackReason.PLATFORM_FAILURE -> {
+            R.string.owned_stack_browser_trace_native_platform_failure
+        }
+
+        trace.nativeFallbackReason == OwnedStackNativeFallbackReason.PLATFORM_UNAVAILABLE -> {
+            R.string.owned_stack_browser_trace_native_platform_unavailable
+        }
+
+        trace.h2RetryTriggered -> {
+            R.string.owned_stack_browser_trace_h2_retry
+        }
+
+        trace.effectiveEchMode == SecureHttpEchMode.REQUIRE_CONFIRMED -> {
+            R.string.owned_stack_browser_trace_confirmed_ech
+        }
+
+        trace.platformAttempted -> {
+            R.string.owned_stack_browser_trace_opportunistic_platform
+        }
+
+        else -> {
+            null
+        }
+    }

@@ -26,6 +26,7 @@ Android application for optimizing network connectivity with:
 - handover-aware live policy re-evaluation across Wi-Fi, cellular, and roaming changes
 - relay transports including WARP, VLESS Reality/xHTTP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, and NaiveProxy
 - strategy-pack and TLS-catalog driven rollout control for transport defaults, feature flags, and fingerprint rotation
+- owned-stack RIPDPI Browser plus a shared `SecureHttpClient` path for app-originated traffic we control
 - repo-local offline analytics pipeline for clustering censorship/device fingerprints and mining reviewed signature catalogs
 - xHTTP-side Finalmask support for supported relay profiles and Cloudflare Tunnel paths
 - integrated diagnostics and passive telemetry
@@ -167,6 +168,15 @@ RIPDPI's current Android and native strategy stack includes:
 - diagnostics-side automatic probing and automatic audit with candidate-aware progress, confidence-scored reports, winners-first review, and manual recommendations
 
 Implementation details and the native call path are documented in [docs/native/proxy-engine.md](docs/native/proxy-engine.md).
+
+## Owned-Stack Android 17 ECH
+
+RIPDPI now ships a separate owned-stack request path for traffic the app originates itself.
+
+- The RIPDPI Browser and the repo-local `SecureHttpClient` surface both use the same owned-stack request service in `:core:service`.
+- On Android 17 / API 37, the platform `HttpEngine` path is treated as confirmed ECH-capable only for authorities with cached `ECH_CAPABLE` DNS evidence or explicit `xml-v37` domain overrides.
+- The platform path first tries a QUIC-capable `HttpEngine` request and automatically retries with QUIC disabled (H2-only) before falling back to RIPDPI's native owned TLS bridge.
+- On pre-17 devices, or when confirmed ECH evidence is unavailable, owned-stack mode degrades gracefully to non-platform owned TLS. This is still useful for `OWNED_STACK_ONLY` hosts, but it does not imply universal ECH support or hide server IPs.
 
 ## FAQ
 

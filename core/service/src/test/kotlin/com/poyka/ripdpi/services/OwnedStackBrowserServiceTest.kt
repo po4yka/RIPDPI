@@ -3,29 +3,45 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcher
 import com.poyka.ripdpi.core.NativeOwnedTlsHttpRequest
 import com.poyka.ripdpi.core.NativeOwnedTlsHttpResult
+import com.poyka.ripdpi.data.DirectDnsClassification
+import com.poyka.ripdpi.data.ServerCapabilityObservation
+import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.net.URI
 import javax.inject.Provider
 
 class OwnedStackBrowserServiceTest {
     @Test
-    fun `service uses platform executor when HttpEngine path is available`() =
-        kotlinx.coroutines.test.runTest {
+    fun `secure client uses platform path when confirmed ECH-capable authority is cached`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val capabilityStore =
+                TestServerCapabilityStore().also { store ->
+                    store.rememberDirectPathObservation(
+                        fingerprint = fingerprint,
+                        authority = "example.org:443",
+                        observation =
+                            ServerCapabilityObservation(
+                                dnsClassification = DirectDnsClassification.ECH_CAPABLE,
+                            ),
+                        recordedAt = System.currentTimeMillis(),
+                    )
+                }
             val platformExecutor =
-                FakeOwnedStackPlatformBrowserExecutor(
-                    response =
-                        OwnedStackPlatformResponse(
-                            finalUrl = "https://example.org/final",
-                            statusCode = 200,
-                            body = "<html><body>Hello</body></html>".toByteArray(),
-                            contentType = "text/html; charset=UTF-8",
-                        ),
-                )
-            val service =
-                DefaultOwnedStackBrowserService(
+                FakeOwnedStackPlatformBrowserExecutor {
+                    OwnedStackPlatformResponse(
+                        finalUrl = "https://example.org/final",
+                        statusCode = 200,
+                        body = "platform ok".toByteArray(),
+                        contentType = "text/plain",
+                    )
+                }
+            val client =
+                DefaultSecureHttpClient(
                     supportProvider =
                         FixedOwnedStackBrowserSupportProvider(
                             OwnedStackBrowserSupport(
@@ -36,20 +52,68 @@ class OwnedStackBrowserServiceTest {
                     platformExecutorProvider = providerOf(platformExecutor),
                     nativeOwnedTlsHttpFetcher = FakeNativeOwnedTlsHttpFetcher(),
                     tlsClientFactory = FakeOwnedTlsClientFactory(),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    serverCapabilityStore = capabilityStore,
                 )
 
-            val page = service.fetch("example.org/final")
+            val response =
+                client.execute(
+                    SecureHttpRequest(
+                        url = "example.org/final",
+                        echMode = SecureHttpEchMode.REQUIRE_CONFIRMED,
+                    ),
+                )
 
-            assertEquals(OwnedStackBrowserBackend.HTTP_ENGINE, page.backend)
-            assertTrue(page.android17EchEligible)
-            assertEquals("https://example.org/final", page.requestedUrl)
-            assertEquals("https://example.org/final", platformExecutor.seenUrls.single())
-            assertEquals("<html><body>Hello</body></html>", page.bodyText)
+            assertEquals(OwnedStackBrowserBackend.HTTP_ENGINE, response.backend)
+            assertEquals(SecureHttpEchMode.REQUIRE_CONFIRMED, response.executionTrace.effectiveEchMode)
+            assertTrue(response.executionTrace.confirmedEchCapableAuthority)
+            assertEquals(1, platformExecutor.requests.size)
+            assertTrue(platformExecutor.requests.single().quicEnabled)
         }
 
     @Test
-    fun `service falls back to native owned tls when platform stack is unavailable`() =
-        kotlinx.coroutines.test.runTest {
+    fun `secure client retries with H2-only platform stack after QUIC-capable failure`() =
+        runTest {
+            val platformExecutor =
+                FakeOwnedStackPlatformBrowserExecutor { request ->
+                    if (request.quicEnabled) {
+                        throw IllegalStateException("quic path failed")
+                    }
+                    OwnedStackPlatformResponse(
+                        finalUrl = "https://example.org/h2",
+                        statusCode = 200,
+                        body = "h2 ok".toByteArray(),
+                        contentType = "text/plain",
+                    )
+                }
+            val client =
+                DefaultSecureHttpClient(
+                    supportProvider =
+                        FixedOwnedStackBrowserSupportProvider(
+                            OwnedStackBrowserSupport(
+                                platformHttpEngineAvailable = true,
+                                android17EchEligible = false,
+                            ),
+                        ),
+                    platformExecutorProvider = providerOf(platformExecutor),
+                    nativeOwnedTlsHttpFetcher = FakeNativeOwnedTlsHttpFetcher(),
+                    tlsClientFactory = FakeOwnedTlsClientFactory(),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    serverCapabilityStore = TestServerCapabilityStore(),
+                )
+
+            val response = client.execute(SecureHttpRequest(url = "example.org/h2"))
+
+            assertEquals(OwnedStackBrowserBackend.HTTP_ENGINE, response.backend)
+            assertTrue(response.executionTrace.platformAttempted)
+            assertTrue(response.executionTrace.h2RetryTriggered)
+            assertEquals(SecureHttpQuicPolicy.H2_ONLY, response.executionTrace.finalQuicPolicy)
+            assertEquals(listOf(true, false), platformExecutor.requests.map(OwnedStackPlatformRequest::quicEnabled))
+        }
+
+    @Test
+    fun `secure client falls back to native when confirmed ECH is required but not cached`() =
+        runTest {
             val nativeFetcher =
                 FakeNativeOwnedTlsHttpFetcher(
                     result =
@@ -59,27 +123,70 @@ class OwnedStackBrowserServiceTest {
                             finalUrl = "https://blocked.example/",
                         ),
                 )
-            val service =
-                DefaultOwnedStackBrowserService(
+            val client =
+                DefaultSecureHttpClient(
                     supportProvider =
                         FixedOwnedStackBrowserSupportProvider(
                             OwnedStackBrowserSupport(
-                                platformHttpEngineAvailable = false,
-                                android17EchEligible = false,
+                                platformHttpEngineAvailable = true,
+                                android17EchEligible = true,
                             ),
                         ),
                     platformExecutorProvider = providerOf(FakeOwnedStackPlatformBrowserExecutor()),
                     nativeOwnedTlsHttpFetcher = nativeFetcher,
                     tlsClientFactory = FakeOwnedTlsClientFactory(),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(sampleFingerprint()),
+                    serverCapabilityStore = TestServerCapabilityStore(),
                 )
 
-            val page = service.fetch("blocked.example")
+            val response =
+                client.execute(
+                    SecureHttpRequest(
+                        url = "blocked.example",
+                        echMode = SecureHttpEchMode.REQUIRE_CONFIRMED,
+                    ),
+                )
 
-            assertEquals(OwnedStackBrowserBackend.NATIVE_OWNED_TLS, page.backend)
-            assertFalse(page.android17EchEligible)
+            assertEquals(OwnedStackBrowserBackend.NATIVE_OWNED_TLS, response.backend)
+            assertEquals(
+                OwnedStackNativeFallbackReason.ECH_CONFIRMATION_MISSING,
+                response.executionTrace.nativeFallbackReason,
+            )
+            assertFalse(response.executionTrace.platformAttempted)
             assertEquals("https://blocked.example", nativeFetcher.requests.single().url)
-            assertEquals("firefox_ech_stable", page.tlsProfileId)
-            assertEquals("fallback ok", page.bodyText)
+        }
+
+    @Test
+    fun `browser service delegates through secure client and decodes response body`() =
+        runTest {
+            val browserService =
+                DefaultOwnedStackBrowserService(
+                    secureHttpClient =
+                        FakeSecureHttpClient(
+                            response =
+                                SecureHttpResponse(
+                                    requestedUrl = "https://example.org/",
+                                    finalUrl = "https://example.org/final",
+                                    statusCode = 200,
+                                    body = "<html><body>Hello</body></html>".toByteArray(),
+                                    contentType = "text/html; charset=UTF-8",
+                                    backend = OwnedStackBrowserBackend.HTTP_ENGINE,
+                                    android17EchEligible = true,
+                                    executionTrace =
+                                        OwnedStackExecutionTrace(
+                                            platformAttempted = true,
+                                            effectiveEchMode = SecureHttpEchMode.OPPORTUNISTIC,
+                                        ),
+                                ),
+                        ),
+                )
+
+            val page = browserService.fetch("example.org")
+
+            assertEquals(OwnedStackBrowserBackend.HTTP_ENGINE, page.backend)
+            assertEquals("https://example.org/final", page.finalUrl)
+            assertEquals("<html><body>Hello</body></html>", page.bodyText)
+            assertTrue(page.executionTrace.platformAttempted)
         }
 
     @Test
@@ -89,16 +196,13 @@ class OwnedStackBrowserServiceTest {
 
     @Test
     fun `normalizeUrl rejects non https schemes`() {
-        val service =
+        val browserService =
             DefaultOwnedStackBrowserService(
-                supportProvider = FixedOwnedStackBrowserSupportProvider(OwnedStackBrowserSupport(false, false)),
-                platformExecutorProvider = providerOf(FakeOwnedStackPlatformBrowserExecutor()),
-                nativeOwnedTlsHttpFetcher = FakeNativeOwnedTlsHttpFetcher(),
-                tlsClientFactory = FakeOwnedTlsClientFactory(),
+                secureHttpClient = FakeSecureHttpClient(),
             )
 
         val error =
-            runCatching { service.normalizeUrl("http://example.org") }
+            runCatching { browserService.normalizeUrl("http://example.org") }
                 .exceptionOrNull()
 
         requireNotNull(error)
@@ -113,20 +217,57 @@ private class FixedOwnedStackBrowserSupportProvider(
 }
 
 private class FakeOwnedStackPlatformBrowserExecutor(
-    private val response: OwnedStackPlatformResponse =
-        OwnedStackPlatformResponse(
+    private val block: suspend (OwnedStackPlatformRequest) -> OwnedStackPlatformResponse =
+        {
+            OwnedStackPlatformResponse(
+                finalUrl = "https://example.org/",
+                statusCode = 200,
+                body = ByteArray(0),
+                contentType = "text/plain",
+            )
+        },
+) : OwnedStackPlatformBrowserExecutor {
+    val requests = mutableListOf<OwnedStackPlatformRequest>()
+
+    override suspend fun execute(request: OwnedStackPlatformRequest): OwnedStackPlatformResponse {
+        requests += request
+        return block(request)
+    }
+}
+
+private class FakeSecureHttpClient(
+    private val support: OwnedStackBrowserSupport = OwnedStackBrowserSupport(true, true),
+    private val response: SecureHttpResponse =
+        SecureHttpResponse(
+            requestedUrl = "https://example.org/",
             finalUrl = "https://example.org/",
             statusCode = 200,
             body = ByteArray(0),
             contentType = "text/plain",
+            backend = OwnedStackBrowserBackend.HTTP_ENGINE,
+            android17EchEligible = true,
         ),
-) : OwnedStackPlatformBrowserExecutor {
-    val seenUrls = mutableListOf<String>()
+) : SecureHttpClient {
+    override fun currentSupport(): OwnedStackBrowserSupport = support
 
-    override suspend fun execute(url: String): OwnedStackPlatformResponse {
-        seenUrls += url
-        return response
-    }
+    override fun normalizeUrl(rawUrl: String): String =
+        rawUrl.trim().let { candidate ->
+            require(candidate.isNotBlank()) { "Enter a URL to open in the RIPDPI browser." }
+            val withScheme =
+                if ("://" in candidate) {
+                    candidate
+                } else {
+                    "https://$candidate"
+                }
+            val parsed = URI(withScheme)
+            require(parsed.scheme.equals("https", ignoreCase = true)) {
+                "Only HTTPS URLs are supported in the RIPDPI browser."
+            }
+            require(!parsed.host.isNullOrBlank()) { "Enter a valid HTTPS host." }
+            parsed.toString()
+        }
+
+    override suspend fun execute(request: SecureHttpRequest): SecureHttpResponse = response
 }
 
 private class FakeNativeOwnedTlsHttpFetcher(
