@@ -8,6 +8,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DirectModeReasonCode
+import com.poyka.ripdpi.data.DirectModeVerdictResult
+import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.StrategyPackRuntimeState
@@ -96,6 +99,10 @@ data class HomeDiagnosticsLatestAuditUiState(
     val totalStageCount: Int = 0,
     val stale: Boolean = false,
     val actionable: Boolean = false,
+    val directModeResult: DirectModeVerdictResult? = null,
+    val directModeReasonCode: DirectModeReasonCode? = null,
+    val directTransportClass: DirectTransportClass? = null,
+    val transportRemediationEvidence: TransportRemediationEvidence = TransportRemediationEvidence(),
 )
 
 enum class AnalysisStageStatus {

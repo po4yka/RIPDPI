@@ -177,6 +177,79 @@ class DiagnosticsScreenTest {
     }
 
     @Test
+    fun relayRemediationLadderOpensModeEditor() {
+        var openModeEditorCalls = 0
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Scan.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Scan,
+                            scan =
+                                DiagnosticsScanUiModel(
+                                    selectedProfile =
+                                        DiagnosticsProfileOptionUiModel(
+                                            id = "automatic-probing",
+                                            name = "Automatic probing",
+                                            source = "bundled",
+                                            kind = ScanKind.STRATEGY_PROBE,
+                                            strategyProbeSuiteId = "quick_v1",
+                                        ),
+                                    remediationLadder =
+                                        remediationLadder(
+                                            title = "Prefer a browser-camouflage relay",
+                                            summary = "Open Mode Editor and switch relay family.",
+                                            actionLabel = "Open Mode Editor",
+                                            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR,
+                                        ),
+                                ),
+                        ),
+                    pagerState = pagerState,
+                    onSelectSection = {},
+                    onSelectProfile = {},
+                    onRunRawScan = {},
+                    onRunInPathScan = {},
+                    onCancelScan = {},
+                    onKeepResolverRecommendation = {},
+                    onSaveResolverRecommendation = {},
+                    onSelectSession = {},
+                    onDismissSessionDetail = {},
+                    onSelectStrategyProbeCandidate = {},
+                    onDismissStrategyProbeCandidate = {},
+                    onSelectApproachMode = {},
+                    onSelectApproach = {},
+                    onDismissApproachDetail = {},
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                    onSelectProbe = {},
+                    onDismissProbeDetail = {},
+                    onToggleSensitiveSessionDetails = {},
+                    onSessionPathFilter = {},
+                    onSessionStatusFilter = {},
+                    onSessionSearch = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onEventAutoScroll = {},
+                    onShareSummary = {},
+                    onShareArchive = {},
+                    onSaveArchive = {},
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                    onOpenModeEditor = { openModeEditorCalls += 1 },
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderAction).performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(1, openModeEditorCalls) }
+    }
+
+    @Test
     fun hiddenProbeConflictDialogWiresWaitCancelAndDismissActions() {
         var waitClicks = 0
         var cancelClicks = 0

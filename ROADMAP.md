@@ -143,8 +143,10 @@ Status: PARTIAL.
 - Added a direct-path policy persistence coordinator that consults the previously stored authority record before pinning a new verdict, so diagnostics now has a lightweight Phase 0 passive prior instead of always deciding from zero.
 - Enforced confirmation-before-pin for persisted direct-mode policy: transparent and owned-stack outcomes now require corroborating DNS/active evidence or a matching previously confirmed record, and negative verdicts now require repeated active failures before they are promoted into stored policy.
 - Added a 7-day direct-path policy TTL plus three-failure revalidation retirement; runtime policy resolution now excludes unconfirmed, over-failed, expired, or cooldown-expired `NO_DIRECT_SOLUTION` entries from the injected direct-path capability set.
+- Added a transport-specific remediation branch in Diagnostics and Home: typed direct-mode verdict metadata now survives into both surfaces, and the ladder can hand users to the owned-stack browser, a browser-camouflage relay path, a QUIC-heavy relay path, or an explicit "no reliable relay hint yet" review branch instead of collapsing everything into generic History/Diagnostics fallback copy.
+- Added a shared remediation selector plus focused unit/UI coverage so Home can also use saved authority capability evidence to choose between browser-camouflage and QUIC-heavy relay guidance before opening Mode Editor.
 - Added focused diagnostics/service regressions for confirmation, failure-budget retirement, and runtime filtering.
-- Remaining epic work is still open: the explicit ranked-arm dispatcher, per-class attempt-budget enforcement, and deterministic integration coverage for the full class-to-arm execution ladder.
+- Remaining epic work is still open: the explicit ranked-arm dispatcher, per-class attempt-budget enforcement, deterministic integration coverage for the full class-to-arm execution ladder, and unifying Config relay preset suggestions onto the same transport-remediation selector.
 
 ### 2026-04-23: Owned-Stack Android 17 ECH Slice
 

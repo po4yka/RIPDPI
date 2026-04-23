@@ -103,6 +103,7 @@ internal fun ScanSection(
     onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
     onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenModeEditor: () -> Unit,
     onOpenOwnedStackBrowser: (String) -> Unit,
 ) {
     TrackRecomposition("ScanSection")
@@ -188,6 +189,7 @@ internal fun ScanSection(
                     onOpenDnsSettings = onOpenDnsSettings,
                     onRequestVpnPermission = onRequestVpnPermission,
                     onOpenHistory = onOpenHistory,
+                    onOpenModeEditor = onOpenModeEditor,
                     onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
                     modifier = Modifier.ripDpiTestTag(scanStateTag),
                 )
@@ -881,6 +883,7 @@ internal fun DiagnosticsScanWorkflowCard(
     onOpenDnsSettings: () -> Unit,
     onRequestVpnPermission: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenModeEditor: () -> Unit,
     onOpenOwnedStackBrowser: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -936,6 +939,10 @@ internal fun DiagnosticsScanWorkflowCard(
 
                         DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> {
                             onOpenHistory()
+                        }
+
+                        DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR -> {
+                            onOpenModeEditor()
                         }
 
                         DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER -> {

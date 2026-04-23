@@ -12,6 +12,7 @@ fun HomeRoute(
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
+    onOpenModeEditor: () -> Unit,
     onOpenVpnPermissionDialog: () -> Unit,
     viewModel: MainViewModel,
 ) {
@@ -23,6 +24,7 @@ fun HomeRoute(
         onOpenDiagnostics = onOpenDiagnostics,
         onOpenHistory = onOpenHistory,
         onOpenAdvancedSettings = onOpenAdvancedSettings,
+        onOpenModeEditor = onOpenModeEditor,
         onRepairPermission = viewModel::onRepairPermissionRequested,
         onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
         onDismissBatteryBanner = viewModel::onDismissBatteryBanner,
