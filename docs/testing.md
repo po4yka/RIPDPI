@@ -27,18 +27,21 @@ These run through Gradle on the host JVM and cover the Android-facing logic with
   - diagnostics runtime coordination
   - relay supervisor coverage for Cloudflare Tunnel publish mode, MASQUE URL validation, feature gating, helper orchestration, and NaiveProxy watchdog behavior
   - connection-policy resolution, remembered-policy replay, and active-policy signature tracking
+  - direct-mode DNS and transport-policy enforcement, confirmation/revalidation, and transport-family replay
+  - owned-stack browser / `SecureHttpClient` execution path, Android 17 ECH gating, H2-only retry, and native owned-TLS fallback trace handling
   - handover monitor debounce/classification and service restart behavior
   - merged service telemetry golden contracts
 - `core:diagnostics`
   - diagnostics manager orchestration
   - automatic probing profile wiring, hidden handover-triggered `quick_v1` probes, `full_matrix_v1` audit cohort rotation/provenance, recommendation persistence, and recommendation invariant validation
+  - authority-scoped DNS classification, honest direct-mode verdict persistence, and transport-specific remediation projection
   - resolver recommendation ranking, diversified encrypted-DNS path planning, and temporary encrypted-DNS override flow
   - candidate-aware strategy-probe progress, audit confidence/coverage assessment, and summary/export metadata projection
   - runtime-history persistence of resolver telemetry and remembered-network proof/suppression state
   - export/archive contents
   - persisted passive-monitor and native-event golden contracts
 - `app`
-  - settings and diagnostics ViewModel coverage for chain DSL, fake payload/fake TLS controls, adaptive split placement, activation windows, adaptive fake TTL, remembered-network presentation, automatic probing/audit presentation, exact remediation states, and winners-first audit reports
+  - settings and diagnostics ViewModel coverage for chain DSL, fake payload/fake TLS controls, adaptive split placement, activation windows, adaptive fake TTL, remembered-network presentation, automatic probing/audit presentation, exact remediation states, transport-specific remediation, owned-stack browser flow, and winners-first audit reports
 
 Main command:
 

@@ -20,6 +20,14 @@ The diagnostics path also links the shared `ripdpi-dns-resolver` crate, so encry
 
 That means `libripdpi.so` is no longer only the proxy engine. It is also the diagnostics entry point used by the Diagnostics screen.
 
+## Owned-Stack Boundary
+
+Not every RIPDPI-managed request now goes through the local SOCKS5 proxy.
+
+- App-originated traffic from the RIPDPI Browser and the repo-local `SecureHttpClient` uses `OwnedStackBrowserService` in `:core:service`.
+- On Android 17 / API 37, that path prefers platform `HttpEngine` only for authorities with fresh `ECH_CAPABLE` DNS evidence or explicit `xml-v37` overrides, then retries H2-only before falling back to the native owned TLS path.
+- This document covers the local proxy runtime used for proxy mode, VPN mode, diagnostics probes, relay transports, and localhost policy replay. The owned-stack path is adjacent to it, not a replacement for it.
+
 ## Call Chains
 
 ### Desktop CLI (macOS/Linux)
@@ -45,6 +53,10 @@ Relevant sources:
 ### Android VPN mode
 
 `RipDpiVpnService.startProxy()` -> `ConnectionPolicyResolver.resolve()` -> `RipDpiProxy.startProxy()` -> `jniCreate(configJson)` -> `jniStart(handle)` -> `runtime::create_listener()` -> `runtime::run_proxy_with_embedded_control()`
+
+### App-owned request path (owned-stack)
+
+`OwnedStackBrowserViewModel` / `SecureHttpClient` -> `OwnedStackBrowserService.execute(...)` -> platform `HttpEngine` (Android 17 with confirmed ECH evidence) -> H2-only retry -> native owned TLS fallback
 
 ### VPN localhost hardening
 
