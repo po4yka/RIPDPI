@@ -9,6 +9,7 @@ internal const val ScanCancelledSummary = "Scan cancelled"
 internal const val ScanCompletedWithPartialResultsSummary = "Scan completed with partial results"
 
 private const val ScanCompletedWithDnsFallbackSummary = "Scan completed with DNS fallback"
+private const val TransparentDirectModeSummary = "Direct mode works transparently"
 
 internal fun ScanReport.displaySummary(defaultSummary: String = summary): String =
     deriveDisplaySummary(
@@ -61,6 +62,10 @@ private fun directModeVerdictSummary(verdict: DirectModeVerdict?): String? =
             "Direct mode works only in RIPDPI owned stack"
         }
 
+        DirectModeVerdictResult.TRANSPARENT_WORKS -> {
+            TransparentDirectModeSummary
+        }
+
         DirectModeVerdictResult.NO_DIRECT_SOLUTION -> {
             when (verdict.reasonCode) {
                 DirectModeReasonCode.IP_BLOCKED -> {
@@ -85,7 +90,6 @@ private fun directModeVerdictSummary(verdict: DirectModeVerdict?): String? =
             }
         }
 
-        DirectModeVerdictResult.TRANSPARENT_WORKS,
         null,
         -> {
             null

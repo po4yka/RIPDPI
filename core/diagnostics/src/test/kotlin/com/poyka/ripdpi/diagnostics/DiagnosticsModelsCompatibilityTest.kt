@@ -193,6 +193,34 @@ class DiagnosticsModelsCompatibilityTest {
     }
 
     @Test
+    fun `engine scan report round trips strategy recommendation`() {
+        val report =
+            EngineScanReportWire(
+                sessionId = "session-1",
+                profileId = "automatic-probing",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 1L,
+                finishedAt = 2L,
+                summary = "strategy recommendation",
+                strategyRecommendation =
+                    StrategyRecommendation(
+                        triggerOutcomes = listOf("tls_blocked"),
+                        recommendedFamily = "tlsrec_split",
+                        blockingPattern = "sni_tls_suspect",
+                        rationale = "Escalate to TLS record split families",
+                        evidence = listOf("tls_post_client_hello_failure"),
+                    ),
+            )
+
+        val encoded = json.encodeToString(EngineScanReportWire.serializer(), report)
+        val decoded = json.decodeFromString(EngineScanReportWire.serializer(), encoded)
+
+        assertEquals("tlsrec_split", decoded.strategyRecommendation?.recommendedFamily)
+        assertEquals("sni_tls_suspect", decoded.strategyRecommendation?.blockingPattern)
+        assertEquals("Escalate to TLS record split families", decoded.strategyRecommendation?.rationale)
+    }
+
+    @Test
     fun `engine scan request wire round trips probe tasks and target packs`() {
         val request =
             EngineScanRequestWire(

@@ -140,7 +140,8 @@ private fun diagnosticsSessionWithResolverRecommendation(
         summary = "resolver recommendation",
         reportJson =
             json.encodeToString(
-                ScanReport.serializer(),
+                com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                    .serializer(),
                 ScanReport(
                     sessionId = sessionId,
                     profileId = "default",
@@ -170,7 +171,7 @@ private fun diagnosticsSessionWithResolverRecommendation(
                             rationale = "Use encrypted DNS",
                             persistable = true,
                         ),
-                ),
+                ).toEngineScanReportWire(),
             ),
     )
 }

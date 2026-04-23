@@ -11,6 +11,7 @@ import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
+import com.poyka.ripdpi.diagnostics.StrategyRecommendation
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -38,6 +39,7 @@ data class DiagnosticsProfileProjection(
 data class DiagnosticsSessionProjection(
     val results: List<ProbeResult> = emptyList(),
     val resolverRecommendation: ResolverRecommendation? = null,
+    val strategyRecommendation: StrategyRecommendation? = null,
     val directModeVerdict: DirectModeVerdict? = null,
     val strategyProbeReport: StrategyProbeReport? = null,
     val observations: List<ObservationFact> = emptyList(),
