@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
@@ -40,8 +38,6 @@ import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-
-private const val chipDisabledAlpha = 0.38f
 
 private const val chipContentSpacingDp = 6
 
@@ -57,14 +53,18 @@ fun RipDpiChip(
     leadingIcon: ImageVector? = if (selected) RipDpiIcons.Check else null,
     hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Selection,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
-    val scheme = MaterialTheme.colorScheme
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
+    val state =
+        RipDpiThemeTokens.state.chip.resolve(
+            selected = selected,
+            enabled = enabled,
+            isPressed = isPressed,
+        )
     val chipCornerRadius by animateDpAsState(
-        targetValue = if (isPressed && enabled) components.controlCornerRadius else components.largeCornerRadius,
+        targetValue = state.cornerRadius,
         animationSpec = motion.motionAwareSpring(),
         label = "chipCorner",
     )
@@ -85,48 +85,30 @@ fun RipDpiChip(
             RipDpiControlDensity.Default -> components.chipVerticalPadding
             RipDpiControlDensity.Compact -> components.chipVerticalPadding - components.chipFocusedVerticalPaddingOffset
         }
-    val container =
-        when {
-            selected -> colors.foreground
-            isPressed -> scheme.surfaceVariant
-            else -> Color.Transparent
-        }
-    val borderColor =
-        when {
-            selected -> colors.foreground
-            enabled -> colors.outlineVariant
-            else -> colors.border
-        }
-    val contentColor =
-        when {
-            selected -> colors.background
-            enabled -> colors.foreground
-            else -> colors.mutedForeground
-        }
     val animatedContainer by animateColorAsState(
-        targetValue = container,
+        targetValue = state.container,
         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
         label = "chipContainer",
     )
     val animatedBorderColor by animateColorAsState(
-        targetValue = borderColor,
+        targetValue = state.border,
         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
         label = "chipBorder",
     )
     val animatedContentColor by animateColorAsState(
-        targetValue = contentColor,
+        targetValue = state.content,
         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
         label = "chipContent",
     )
     val scale by animateFloatAsState(
-        targetValue =
-            when {
-                isPressed && enabled -> motion.pressScale
-                selected -> motion.selectionScale
-                else -> 1f
-            },
+        targetValue = state.scale,
         animationSpec = motion.motionAwareSpring(expressive = selected),
         label = "chipScale",
+    )
+    val alpha by animateFloatAsState(
+        targetValue = state.alpha,
+        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        label = "chipAlpha",
     )
 
     Row(
@@ -148,7 +130,7 @@ fun RipDpiChip(
                 ).padding(
                     horizontal = horizontalPadding,
                     vertical = verticalPadding,
-                ).alpha(if (enabled) 1f else chipDisabledAlpha),
+                ).alpha(alpha),
         horizontalArrangement = Arrangement.spacedBy(chipContentSpacingDp.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
