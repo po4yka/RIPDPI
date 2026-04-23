@@ -164,12 +164,14 @@ enum class DiagnosticsRemediationActionKindUiModel {
     OPEN_DNS_SETTINGS,
     OPEN_DIAGNOSTICS,
     OPEN_HISTORY,
+    OPEN_OWNED_STACK_BROWSER,
 }
 
 @Immutable
 data class DiagnosticsRemediationActionUiModel(
     val label: String,
     val kind: DiagnosticsRemediationActionKindUiModel,
+    val targetUrl: String? = null,
 )
 
 @Immutable
@@ -316,6 +318,8 @@ data class DiagnosticsSessionRowUiModel(
     val tone: DiagnosticsTone,
     val launchOrigin: DiagnosticsScanLaunchOrigin = DiagnosticsScanLaunchOrigin.UNKNOWN,
     val triggerClassification: String? = null,
+    val ownedStackLaunchUrl: String? = null,
+    val ownedStackOnly: Boolean = false,
 )
 
 @Immutable

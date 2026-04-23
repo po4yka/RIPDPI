@@ -207,7 +207,7 @@ internal fun HomeDiagnosticsCard(
             DiagnosticsRemediationLadderCard(
                 ladder = ladder,
                 onAction = { action ->
-                    when (action) {
+                    when (action.kind) {
                         DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS -> onOpenAdvancedSettings()
 
                         DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> onOpenDiagnostics()
@@ -216,6 +216,7 @@ internal fun HomeDiagnosticsCard(
 
                         DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION,
                         DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,
+                        DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER,
                         -> Unit
                     }
                 },
@@ -458,7 +459,7 @@ internal fun HomeDiagnosticsBottomSheetHost(
                     ladder = ladder,
                     onAction = { action ->
                         onDismissAnalysisSheet()
-                        when (action) {
+                        when (action.kind) {
                             DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS -> onOpenAdvancedSettings()
 
                             DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> onOpenDiagnostics()
@@ -467,6 +468,7 @@ internal fun HomeDiagnosticsBottomSheetHost(
 
                             DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION,
                             DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,
+                            DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER,
                             -> Unit
                         }
                     },

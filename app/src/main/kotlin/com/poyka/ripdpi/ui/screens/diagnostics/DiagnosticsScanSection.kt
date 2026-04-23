@@ -103,6 +103,7 @@ internal fun ScanSection(
     onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
     onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenOwnedStackBrowser: (String) -> Unit,
 ) {
     TrackRecomposition("ScanSection")
     val spacing = RipDpiThemeTokens.spacing
@@ -187,6 +188,7 @@ internal fun ScanSection(
                     onOpenDnsSettings = onOpenDnsSettings,
                     onRequestVpnPermission = onRequestVpnPermission,
                     onOpenHistory = onOpenHistory,
+                    onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
                     modifier = Modifier.ripDpiTestTag(scanStateTag),
                 )
             }
@@ -879,6 +881,7 @@ internal fun DiagnosticsScanWorkflowCard(
     onOpenDnsSettings: () -> Unit,
     onRequestVpnPermission: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenOwnedStackBrowser: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     TrackRecomposition("DiagnosticsScanWorkflowCard")
@@ -918,12 +921,30 @@ internal fun DiagnosticsScanWorkflowCard(
             DiagnosticsRemediationLadderCard(
                 ladder = ladder,
                 onAction = { action ->
-                    when (action) {
-                        DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS -> onOpenAdvancedSettings()
-                        DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION -> onRequestVpnPermission()
-                        DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS -> onOpenDnsSettings()
-                        DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> onOpenHistory()
-                        DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> Unit
+                    when (action.kind) {
+                        DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS -> {
+                            onOpenAdvancedSettings()
+                        }
+
+                        DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION -> {
+                            onRequestVpnPermission()
+                        }
+
+                        DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS -> {
+                            onOpenDnsSettings()
+                        }
+
+                        DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> {
+                            onOpenHistory()
+                        }
+
+                        DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER -> {
+                            action.targetUrl?.let(onOpenOwnedStackBrowser)
+                        }
+
+                        DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> {
+                            Unit
+                        }
                     }
                 },
                 cardTestTag = RipDpiTestTags.DiagnosticsRemediationLadderCard,

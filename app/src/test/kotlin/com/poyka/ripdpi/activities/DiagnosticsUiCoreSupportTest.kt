@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
+import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
@@ -92,5 +94,34 @@ class DiagnosticsUiCoreSupportTest {
         assertEquals(DiagnosticsTone.Info, support.toneForEventLevel("info"))
         assertEquals(DiagnosticsTone.Warning, support.toneForEventLevel("warn"))
         assertEquals(DiagnosticsTone.Negative, support.toneForEventLevel("error"))
+    }
+
+    @Test
+    fun `session row exposes owned stack launch target when verdict requires owned stack`() {
+        val support = DiagnosticsUiCoreSupport()
+        val session =
+            DiagnosticScanSession(
+                id = "session-owned-stack",
+                profileId = "profile-1",
+                pathMode = ScanPathMode.RAW_PATH.name,
+                serviceMode = "VPN",
+                status = "completed",
+                summary = "Owned stack required",
+                report =
+                    DiagnosticsSessionProjection(
+                        directModeVerdict =
+                            DirectModeVerdict(
+                                result = DirectModeVerdictResult.OWNED_STACK_ONLY,
+                                authority = "example.org:443",
+                            ),
+                    ),
+                startedAt = 0L,
+                finishedAt = 1L,
+            )
+
+        val row = support.toSessionRowUiModel(session)
+
+        assertEquals("https://example.org:443/", row.ownedStackLaunchUrl)
+        assertEquals(true, row.ownedStackOnly)
     }
 }
