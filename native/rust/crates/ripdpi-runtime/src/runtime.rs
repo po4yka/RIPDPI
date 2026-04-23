@@ -1,5 +1,6 @@
 mod adaptive;
 mod desync;
+mod direct_path_learning;
 mod handshake;
 mod listeners;
 mod morph;
@@ -447,6 +448,9 @@ mod tests {
             strategy_evolver: Arc::new(crate::sync::RwLock::new(crate::strategy_evolver::StrategyEvolver::new(
                 false, 0.0,
             ))),
+            direct_path_learning: Arc::new(crate::sync::RwLock::new(
+                crate::runtime::direct_path_learning::DirectPathLearningState::default(),
+            )),
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry: None,
             runtime_context: None,

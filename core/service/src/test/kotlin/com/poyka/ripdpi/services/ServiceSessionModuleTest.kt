@@ -52,6 +52,7 @@ class ServiceSessionModuleTest {
                     proxyRuntimeSupervisor = proxyRuntimeSupervisor,
                     statusReporter = statusReporter,
                     screenStateObserver = TestScreenStateObserver(),
+                    directPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
                 )
 
             assertEquals(1, proxyFactory.createCalls)
@@ -116,6 +117,7 @@ class ServiceSessionModuleTest {
                     warpRuntimeSupervisor = warpRuntimeSupervisor,
                     proxyRuntimeSupervisor = proxyRuntimeSupervisor,
                     statusReporter = statusReporter,
+                    directPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
                 )
 
             assertEquals(1, proxyFactory.createCalls)

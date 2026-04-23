@@ -389,19 +389,31 @@ internal class TestServerCapabilityStore : ServerCapabilityStore {
                     if (!hasPolicyData) {
                         existingEnvelope
                     } else {
-                        TransportPolicyEnvelope(
-                            version = CurrentTransportPolicyEnvelopeVersion,
-                            policy = observation.transportPolicy ?: existingEnvelope?.policy ?: TransportPolicy(),
-                            ipSetDigest =
-                                observation.ipSetDigest
-                                    ?.trim()
-                                    .orEmpty()
-                                    .ifEmpty { existingEnvelope?.ipSetDigest.orEmpty() },
-                            transportClass = observation.transportClass ?: existingEnvelope?.transportClass,
-                            reasonCode = observation.reasonCode ?: existingEnvelope?.reasonCode,
-                            cooldownUntil =
-                                observation.cooldownUntil?.takeIf { it > 0L } ?: existingEnvelope?.cooldownUntil,
-                        )
+                        val observationPolicy = observation.transportPolicy
+                        if (observationPolicy != null) {
+                            TransportPolicyEnvelope(
+                                version = CurrentTransportPolicyEnvelopeVersion,
+                                policy = observationPolicy,
+                                ipSetDigest = observation.ipSetDigest?.trim().orEmpty(),
+                                transportClass = observation.transportClass,
+                                reasonCode = observation.reasonCode,
+                                cooldownUntil = observation.cooldownUntil?.takeIf { it > 0L },
+                            )
+                        } else {
+                            TransportPolicyEnvelope(
+                                version = CurrentTransportPolicyEnvelopeVersion,
+                                policy = existingEnvelope?.policy ?: TransportPolicy(),
+                                ipSetDigest =
+                                    observation.ipSetDigest
+                                        ?.trim()
+                                        .orEmpty()
+                                        .ifEmpty { existingEnvelope?.ipSetDigest.orEmpty() },
+                                transportClass = observation.transportClass ?: existingEnvelope?.transportClass,
+                                reasonCode = observation.reasonCode ?: existingEnvelope?.reasonCode,
+                                cooldownUntil =
+                                    observation.cooldownUntil?.takeIf { it > 0L } ?: existingEnvelope?.cooldownUntil,
+                            )
+                        }
                     }
                 ServerCapabilityRecord(
                     scope = scope.wireValue,

@@ -22,7 +22,8 @@ use crate::ws_bootstrap::{build_encrypted_dns_resolver, encrypted_dns_label, run
 
 use super::adaptive::{
     capability_blocks_transport, direct_path_capability_for_targets, note_adaptive_fake_ttl_failure,
-    note_adaptive_tcp_failure, note_evolver_failure, now_millis,
+    note_adaptive_tcp_failure, note_direct_path_all_ips_failed, note_direct_path_tls_post_client_hello_failure,
+    note_direct_path_transport_attempt, note_direct_path_udp_suppressed, note_evolver_failure, now_millis,
 };
 use super::retry::{build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure};
 use super::state::{flush_autolearn_updates, RuntimeState};
@@ -115,6 +116,9 @@ pub(super) fn preferred_targets_for_transport(
     }
     if let Some(capability) = direct_path_capability_for_targets(state.runtime_context.as_ref(), host, &targets) {
         if capability_blocks_transport(capability, transport, now_millis()) {
+            if transport == TransportProtocol::Udp && capability.reason_code.as_deref() != Some("NO_TCP_FALLBACK") {
+                let _ = note_direct_path_udp_suppressed(state, host, &targets);
+            }
             return Vec::new();
         }
     }
@@ -168,6 +172,7 @@ pub(super) fn connect_target_with_route(
     let mut retries: usize = 0;
     loop {
         let attempt_targets = preferred_targets_for_transport(state, target, host.as_deref(), TransportProtocol::Tcp);
+        let _ = note_direct_path_transport_attempt(state, host.as_deref(), &attempt_targets, TransportProtocol::Tcp);
         match connect_target_candidates_via_group(&attempt_targets, state, route.group_index, payload, true) {
             Ok(stream) => return Ok((stream, route)),
             Err(mut err) => {
@@ -191,11 +196,13 @@ pub(super) fn connect_target_with_route(
                 }
                 note_block_signal_for_failure(state, host.as_deref(), &failure, err.tcp_total_retransmissions);
                 if retries > max_retries {
+                    let _ = note_direct_path_all_ips_failed(state, host.as_deref(), &attempt_targets);
                     return Err(err.into_io_error());
                 }
                 emit_failure_classified(state, target, &failure, host.as_deref());
                 let next = advance_route_for_failure(state, target, &route, host.clone(), payload, &failure)?;
                 let Some(next) = next else {
+                    let _ = note_direct_path_all_ips_failed(state, host.as_deref(), &attempt_targets);
                     return Err(err.into_io_error());
                 };
                 route = next;
@@ -290,6 +297,10 @@ pub(super) fn advance_route_for_failure(
     let _ = note_retry_failure(state, target, route.group_index, host.as_deref(), payload, TransportProtocol::Tcp)?;
     let penalize = failure_penalizes_strategy(failure);
     if penalize {
+        if matches!(failure.class, FailureClass::TlsAlert | FailureClass::TlsHandshakeFailure) {
+            let targets = preferred_targets_for_transport(state, target, host.as_deref(), TransportProtocol::Tcp);
+            let _ = note_direct_path_tls_post_client_hello_failure(state, host.as_deref(), &targets);
+        }
         if let Some(payload) = payload {
             note_adaptive_tcp_failure(state, target, route.group_index, host.as_deref(), payload)?;
         }

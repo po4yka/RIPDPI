@@ -11,6 +11,7 @@
     "chainEntryState": null,
     "chainExitState": null,
     "dhtTriggerObservations": null,
+    "directPathLearningSignals": [],
     "dnsCacheHits": 0,
     "dnsCacheMisses": 0,
     "dnsFailuresTotal": 0,
@@ -44,6 +45,7 @@
     "nativeEvents": [
         {
             "createdAt": 0,
+            "kind": "runtime_ready",
             "fingerprintHash": null,
             "level": "info",
             "message": "listener started addr=127.0.0.1:<port> maxClients=512 groups=2",

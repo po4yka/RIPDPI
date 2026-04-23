@@ -34,6 +34,24 @@ data class NativeRuntimeEvent(
 )
 
 @Serializable
+enum class DirectPathLearningEvent {
+    QUIC_SUCCESS,
+    QUIC_BLOCKED_TCP_OK,
+    TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK,
+    ALL_IPS_FAILED,
+    NO_TCP_FALLBACK_DETECTED,
+}
+
+@Serializable
+data class DirectPathLearningSignal(
+    val authority: String,
+    val ipSetDigest: String,
+    val event: DirectPathLearningEvent,
+    val strategyFamily: String? = null,
+    val capturedAt: Long = 0,
+)
+
+@Serializable
 data class NativeRuntimeSnapshot(
     val source: String,
     val state: String = "idle",
@@ -108,6 +126,7 @@ data class NativeRuntimeSnapshot(
     val lastAutolearnAction: String? = null,
     val slotExhaustions: Long = 0,
     val tunnelStats: TunnelStats = TunnelStats(),
+    val directPathLearningSignals: List<DirectPathLearningSignal> = emptyList(),
     val nativeEvents: List<NativeRuntimeEvent> = emptyList(),
     val latencyDistributions: LatencyDistributions? = null,
     val capturedAt: Long = 0,
