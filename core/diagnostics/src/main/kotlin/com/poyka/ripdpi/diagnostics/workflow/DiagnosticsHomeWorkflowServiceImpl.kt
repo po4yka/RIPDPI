@@ -354,6 +354,7 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
                 appliedSettings = allApplied,
                 capabilityEvidence = capabilityEvidence,
                 strategyAdequacy = strategyAdequacy,
+                directModeVerdict = report.directModeVerdict,
             )
         }
 

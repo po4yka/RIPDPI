@@ -130,6 +130,7 @@ internal fun HomeDiagnosticsCard(
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
+    onOpenModeEditor: () -> Unit,
     onRunFullAnalysis: () -> Unit,
     onRunQuickAnalysis: () -> Unit,
     onStartVerifiedVpn: () -> Unit,
@@ -213,6 +214,8 @@ internal fun HomeDiagnosticsCard(
                         DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> onOpenDiagnostics()
 
                         DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> onOpenHistory()
+
+                        DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR -> onOpenModeEditor()
 
                         DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION,
                         DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,
@@ -408,6 +411,7 @@ internal fun HomeDiagnosticsBottomSheetHost(
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
+    onOpenModeEditor: () -> Unit,
     onShareAnalysis: () -> Unit,
     onDismissAnalysisSheet: () -> Unit,
     onDismissVerificationSheet: () -> Unit,
@@ -465,6 +469,8 @@ internal fun HomeDiagnosticsBottomSheetHost(
                             DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> onOpenDiagnostics()
 
                             DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> onOpenHistory()
+
+                            DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR -> onOpenModeEditor()
 
                             DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION,
                             DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,

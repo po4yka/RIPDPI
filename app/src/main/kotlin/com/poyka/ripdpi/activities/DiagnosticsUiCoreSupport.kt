@@ -117,6 +117,9 @@ internal fun DiagnosticsUiCoreSupport.toSessionRowUiModel(
                 null
             },
         ownedStackOnly = directModeVerdict?.result == DirectModeVerdictResult.OWNED_STACK_ONLY,
+        directModeResult = directModeVerdict?.result,
+        directModeReasonCode = directModeVerdict?.reasonCode,
+        directTransportClass = directModeVerdict?.transportClass,
     )
 }
 

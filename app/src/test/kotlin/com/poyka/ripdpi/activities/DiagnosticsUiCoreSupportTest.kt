@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
+import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import com.poyka.ripdpi.diagnostics.ProbeResult
@@ -123,5 +125,39 @@ class DiagnosticsUiCoreSupportTest {
 
         assertEquals("https://example.org:443/", row.ownedStackLaunchUrl)
         assertEquals(true, row.ownedStackOnly)
+        assertEquals(DirectModeVerdictResult.OWNED_STACK_ONLY, row.directModeResult)
+        assertEquals(null, row.directModeReasonCode)
+        assertEquals(null, row.directTransportClass)
+    }
+
+    @Test
+    fun `session row preserves transport verdict metadata for remediation branching`() {
+        val support = DiagnosticsUiCoreSupport()
+        val session =
+            DiagnosticScanSession(
+                id = "session-transport",
+                profileId = "profile-1",
+                pathMode = ScanPathMode.RAW_PATH.name,
+                serviceMode = "VPN",
+                status = "completed",
+                summary = "Direct mode unavailable",
+                report =
+                    DiagnosticsSessionProjection(
+                        directModeVerdict =
+                            DirectModeVerdict(
+                                result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
+                                reasonCode = DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE,
+                                transportClass = DirectTransportClass.SNI_TLS_SUSPECT,
+                            ),
+                    ),
+                startedAt = 0L,
+                finishedAt = 1L,
+            )
+
+        val row = support.toSessionRowUiModel(session)
+
+        assertEquals(DirectModeVerdictResult.NO_DIRECT_SOLUTION, row.directModeResult)
+        assertEquals(DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE, row.directModeReasonCode)
+        assertEquals(DirectTransportClass.SNI_TLS_SUSPECT, row.directTransportClass)
     }
 }

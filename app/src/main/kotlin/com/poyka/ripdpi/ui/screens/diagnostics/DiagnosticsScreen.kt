@@ -139,6 +139,7 @@ fun DiagnosticsScreen(
     onOpenDetectionCheck: () -> Unit = {},
     onRequestVpnPermission: () -> Unit = {},
     onOpenHistory: () -> Unit,
+    onOpenModeEditor: () -> Unit = {},
     onOpenOwnedStackBrowser: (String) -> Unit = {},
     pcapRecording: Boolean = false,
     onTogglePcapRecording: () -> Unit = {},
@@ -243,6 +244,7 @@ fun DiagnosticsScreen(
                                 onSelectStrategyProbeCandidate = onSelectStrategyProbeCandidate,
                                 onSelectProbe = onSelectProbe,
                                 onOpenHistory = onOpenHistory,
+                                onOpenModeEditor = onOpenModeEditor,
                                 onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
                             )
                         }

@@ -297,6 +297,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             },
             onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
             onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
+            onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
             onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
             viewModel = mainViewModel,
         )
@@ -315,6 +316,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
             onRequestVpnPermission = mainViewModel::onOpenVpnPermissionRequested,
             onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
+            onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
             onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
             initialSection = diagnosticsInitialSection,
             onInitialSectionHandled = { onDiagnosticsInitialSectionChanged(null) },

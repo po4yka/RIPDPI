@@ -414,6 +414,51 @@ class HomeScreenTest {
     }
 
     @Test
+    fun `home remediation ladder opens mode editor`() {
+        var openedModeEditor = false
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            homeDiagnostics =
+                                HomeDiagnosticsUiState(
+                                    analysisAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Run Full Analysis",
+                                            supportingText = "Ready",
+                                            enabled = true,
+                                        ),
+                                    verifiedVpnAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Start Verified VPN",
+                                            supportingText = "Review the latest analysis.",
+                                            enabled = false,
+                                        ),
+                                    remediationLadder =
+                                        remediationLadder(
+                                            title = "Prefer a browser-camouflage relay",
+                                            summary = "Open Mode Editor and switch relay family.",
+                                            actionLabel = "Open Mode Editor",
+                                            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR,
+                                        ),
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onOpenModeEditor = { openedModeEditor = true },
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRemediationAction).performScrollTo().performClick()
+        assertTrue(openedModeEditor)
+    }
+
+    @Test
     fun `analysis progress indicator shown when analysis is busy with progress`() {
         composeRule.setContent {
             RipDpiTheme {

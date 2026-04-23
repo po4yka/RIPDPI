@@ -140,6 +140,7 @@ data class DiagnosticsHomeAuditOutcome(
     val appliedSettings: List<DiagnosticsAppliedSetting> = emptyList(),
     val capabilityEvidence: List<DiagnosticsCapabilityEvidence> = emptyList(),
     val strategyAdequacy: StrategyAdequacy? = null,
+    val directModeVerdict: DirectModeVerdict? = null,
 )
 
 data class DiagnosticsHomeVerificationOutcome(
@@ -275,6 +276,7 @@ data class DiagnosticsHomeCompositeOutcome(
     val coverageSummary: String? = null,
     val appliedSettings: List<DiagnosticsAppliedSetting> = emptyList(),
     val capabilityEvidence: List<DiagnosticsCapabilityEvidence> = emptyList(),
+    val directModeVerdict: DirectModeVerdict? = null,
     val recommendedSessionId: String? = null,
     val stageSummaries: List<DiagnosticsHomeCompositeStageSummary> = emptyList(),
     val completedStageCount: Int = 0,
