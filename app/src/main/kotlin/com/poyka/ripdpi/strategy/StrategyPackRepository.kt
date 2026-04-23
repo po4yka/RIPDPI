@@ -25,6 +25,7 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.security.MessageDigest
 import java.time.Instant
@@ -128,8 +129,19 @@ class DefaultStrategyPackRepository
         ): StrategyPackSnapshot =
             withContext(Dispatchers.IO) {
                 val normalizedChannel = normalizeStrategyPackChannel(channel)
+                val provenance = buildProvenanceProvider.current()
                 val previousSnapshot = loadCachedSnapshot().snapshot
-                val manifest = loadManifest(normalizedChannel)
+                val manifest =
+                    runCatching { loadManifest(normalizedChannel) }
+                        .getOrElse { error ->
+                            if (error.isMissingRemoteManifest()) {
+                                return@withContext loadRefreshFallbackSnapshot(
+                                    channel = normalizedChannel,
+                                    provenance = provenance,
+                                )
+                            }
+                            throw error
+                        }
                 val downloadedAtEpochMillis = clock.nowEpochMillis()
                 val tempFile = tempFileFactory.create(context.cacheDir)
 
@@ -250,6 +262,17 @@ class DefaultStrategyPackRepository
                 )
             }.getOrDefault(StrategyPackSnapshot())
 
+        private fun loadRefreshFallbackSnapshot(
+            channel: String,
+            provenance: StrategyPackBuildProvenance,
+        ): StrategyPackSnapshot =
+            loadCachedSnapshot()
+                .snapshot
+                ?.takeIf { snapshot ->
+                    snapshot.isCompatibleWith(provenance) &&
+                        normalizeStrategyPackChannel(snapshot.catalog.channel) == channel
+                } ?: loadCompatibleBundledSnapshot(provenance)
+
         private fun loadCachedSnapshot(): CachedStrategyPackSnapshotResult {
             val file = cacheFile()
             if (!file.exists()) {
@@ -339,3 +362,8 @@ private const val strategyPackMaxAgeDays = 30L
 const val strategyPackCatalogAssetPath = "strategy-packs/catalog.json"
 const val strategyPackCatalogCachePath = "strategy-packs/catalog.snapshot.json"
 const val strategyPackManifestPathPrefix = "poyka/ripdpi-strategy-packs/main"
+
+private fun Throwable.isMissingRemoteManifest(): Boolean =
+    this is IOException &&
+        message?.contains("HTTP 404") == true &&
+        message?.contains("/manifest.json") == true
