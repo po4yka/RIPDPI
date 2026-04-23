@@ -188,6 +188,12 @@ class MainActivityContentTest {
             ),
         serviceController: FakeServiceController = FakeServiceController(),
         permissionStatusProvider: FakePermissionStatusProvider = FakePermissionStatusProvider(),
+        hostPackCatalogUiStateStore: com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore =
+            com.poyka.ripdpi.hosts
+                .HostPackCatalogUiStateStore(),
+        strategyPackStateStore: com.poyka.ripdpi.data.InMemoryStrategyPackStateStore =
+            com.poyka.ripdpi.data
+                .InMemoryStrategyPackStateStore(),
     ): MainViewModel {
         val crashReportReader =
             com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
@@ -220,6 +226,33 @@ class MainActivityContentTest {
                             workflowService = StubDiagnosticsHomeWorkflowService(),
                             compositeRunService = StubDiagnosticsHomeCompositeRunService(),
                         ),
+                ),
+            mainControlPlaneDependencies =
+                MainControlPlaneDependencies(
+                    hostPackCatalogUiStateStore = hostPackCatalogUiStateStore,
+                    hostPackCatalogUiStateCoordinator =
+                        com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator(
+                            repository =
+                                object : com.poyka.ripdpi.hosts.HostPackCatalogRepository {
+                                    override suspend fun loadSnapshot(): com.poyka.ripdpi.hosts
+                                        .HostPackCatalogLoadResult =
+                                        com.poyka.ripdpi.hosts.HostPackCatalogLoadResult(
+                                            snapshot =
+                                                com.poyka.ripdpi.data
+                                                    .HostPackCatalogSnapshot(),
+                                        )
+
+                                    override suspend fun refreshSnapshot(): com.poyka.ripdpi.data
+                                        .HostPackCatalogSnapshot =
+                                        com.poyka.ripdpi.data
+                                            .HostPackCatalogSnapshot()
+                                },
+                            clock =
+                                com.poyka.ripdpi.hosts
+                                    .HostPackCatalogClock { 0L },
+                            stateStore = hostPackCatalogUiStateStore,
+                        ),
+                    strategyPackStateStore = strategyPackStateStore,
                 ),
             mainLifecycleDependencies =
                 MainLifecycleDependencies(

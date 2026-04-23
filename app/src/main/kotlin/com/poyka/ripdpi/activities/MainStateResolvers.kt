@@ -101,5 +101,10 @@ internal fun buildMainUiState(
                 runtime = homeDiagnostics,
                 stringResolver = stringResolver,
             ),
+        controlPlaneHealthSummary =
+            stringResolver.buildControlPlaneHealthSummary(
+                hostPackCatalog = inputs.hostPackCatalog,
+                strategyPackRuntimeState = inputs.strategyPackRuntimeState,
+            ),
     )
 }

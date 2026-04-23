@@ -71,6 +71,16 @@ Status: COMPLETE.
 - Threaded the same ladder model through Home diagnostics and the Home analysis sheet so stale, blocked, and non-actionable outcomes present structured next steps instead of free-form fallback text.
 - Added dedicated English and Russian remediation copy plus app/UI regression coverage for Diagnostics and Home ladder mappings.
 
+### 2026-04-23: Strategy-Pack / Host-Pack Health UX
+
+Status: COMPLETE.
+
+- Added a detailed strategy-pack health surface in Advanced Settings with typed status rendering for cache degradation, anti-rollback rejection, verification failures, compatibility rejections, and bundled versus verified-download state.
+- Upgraded the existing host-pack status card so typed refresh failures now persist structurally alongside bundled/downloaded and degraded-cache states.
+- Introduced a shared host-pack UI-state store plus an idempotent loader/refresh coordinator so Home and Settings consume the same host-pack health state.
+- Added an attention-only Home control-plane summary card that groups host-pack and strategy-pack issues behind one Advanced Settings action when either update feed needs review.
+- Added English and Russian control-plane copy plus helper/UI regression coverage for the new host-pack, strategy-pack, and Home summary mappings.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.

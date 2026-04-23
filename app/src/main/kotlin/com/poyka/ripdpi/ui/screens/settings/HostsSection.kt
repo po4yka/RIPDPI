@@ -155,6 +155,10 @@ internal fun HostPackCatalogStatusCard(
         remember(hostPackCatalog.snapshot.lastFetchedAtEpochMillis) {
             hostPackCatalog.snapshot.lastFetchedAtEpochMillis?.let(::formatHostPackFetchedAt)
         }
+    val lastRefreshAttempt =
+        remember(hostPackCatalog.lastRefreshAttemptAtEpochMillis) {
+            hostPackCatalog.lastRefreshAttemptAtEpochMillis?.let(::formatHostPackFetchedAt)
+        }
     val downloadedBadge = stringResource(R.string.host_pack_badge_downloaded)
     val bundledBadge = stringResource(R.string.host_pack_badge_bundled)
     val packCountBadge = stringResource(R.string.host_pack_packs_badge, hostPackCatalog.snapshot.packs.size)
@@ -214,6 +218,19 @@ internal fun HostPackCatalogStatusCard(
             label = stringResource(R.string.host_pack_last_fetch_label),
             value = lastFetchedAt ?: stringResource(R.string.host_pack_last_fetch_never),
         )
+        ProfileSummaryLine(
+            label = stringResource(R.string.host_pack_last_refresh_attempt_label),
+            value = lastRefreshAttempt ?: stringResource(R.string.host_pack_last_refresh_attempt_never),
+        )
+        hostPackCatalog.lastRefreshFailureMessage
+            ?.takeIf { hostPackCatalog.lastRefreshFailureCode != null }
+            ?.let { detail ->
+                Text(
+                    text = detail,
+                    style = type.caption,
+                    color = colors.mutedForeground,
+                )
+            }
         Text(
             text = stringResource(R.string.host_pack_refresh_source_hint),
             style = type.caption,

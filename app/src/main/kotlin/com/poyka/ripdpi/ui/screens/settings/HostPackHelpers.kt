@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
+import com.poyka.ripdpi.activities.HostPackRefreshFailureCodeUiModel
 import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.HostPackCatalog
@@ -53,6 +54,30 @@ internal fun hostPackCatalogStatusSpec(hostPackCatalog: HostPackCatalogUiState):
             HostPackCatalogStatusSpec(
                 labelResId = com.poyka.ripdpi.R.string.host_pack_degraded_status_title,
                 bodyResId = com.poyka.ripdpi.R.string.host_pack_degraded_status_body_incompatible,
+                tone = StatusIndicatorTone.Warning,
+            )
+        }
+
+        hostPackCatalog.lastRefreshFailureCode == HostPackRefreshFailureCodeUiModel.VerificationFailed -> {
+            HostPackCatalogStatusSpec(
+                labelResId = com.poyka.ripdpi.R.string.host_pack_verification_failed_status_title,
+                bodyResId = com.poyka.ripdpi.R.string.host_pack_verification_failed_status_body,
+                tone = StatusIndicatorTone.Error,
+            )
+        }
+
+        hostPackCatalog.lastRefreshFailureCode == HostPackRefreshFailureCodeUiModel.InvalidSnapshot -> {
+            HostPackCatalogStatusSpec(
+                labelResId = com.poyka.ripdpi.R.string.host_pack_invalid_snapshot_status_title,
+                bodyResId = com.poyka.ripdpi.R.string.host_pack_invalid_snapshot_status_body,
+                tone = StatusIndicatorTone.Warning,
+            )
+        }
+
+        hostPackCatalog.lastRefreshFailureCode == HostPackRefreshFailureCodeUiModel.DownloadFailed -> {
+            HostPackCatalogStatusSpec(
+                labelResId = com.poyka.ripdpi.R.string.host_pack_download_failed_status_title,
+                bodyResId = com.poyka.ripdpi.R.string.host_pack_download_failed_status_body,
                 tone = StatusIndicatorTone.Warning,
             )
         }
