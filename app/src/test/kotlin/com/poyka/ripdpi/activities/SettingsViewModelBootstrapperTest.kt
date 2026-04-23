@@ -11,6 +11,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -85,5 +86,96 @@ class SettingsViewModelBootstrapperTest {
             assertFalse(settings.biometricEnabled)
 
             assertEquals(strategyPackStateStore.state.value, runtimeStates.last())
+        }
+
+    @Test
+    fun `initialize keeps propagating later strategy pack runtime state updates`() =
+        runTest {
+            val settingsRepository = FakeAppSettingsRepository()
+            val strategyPackStateStore = InMemoryStrategyPackStateStore()
+            val effects = MutableSharedFlow<SettingsEffect>(extraBufferCapacity = 1)
+            val runtimeStates = mutableListOf<StrategyPackRuntimeState>()
+
+            SettingsViewModelBootstrapper(
+                appSettingsRepository = settingsRepository,
+                strategyPackStateStore = strategyPackStateStore,
+                pinVerifier =
+                    object : PinVerifier {
+                        override fun hashPin(pin: String): String = pin
+
+                        override fun verify(
+                            candidatePin: String,
+                            storedHash: String,
+                        ): Boolean = candidatePin == storedHash
+
+                        override fun isKeyAvailable(): Boolean = true
+                    },
+            ).initialize(
+                scope = backgroundScope,
+                stringResolver = FakeStringResolver(),
+                effects = effects,
+                loadInitialHostPackCatalog = {},
+                loadInitialStrategyPackCatalog = {},
+                updateStrategyPackCatalogRuntimeState = { runtimeState ->
+                    runtimeStates += runtimeState
+                },
+            )
+
+            val updatedState =
+                StrategyPackRuntimeState(
+                    selectedPackId = "pack-b",
+                    selectedPackVersion = "2026.04.23",
+                )
+            strategyPackStateStore.update(updatedState)
+            advanceUntilIdle()
+
+            assertEquals(updatedState, runtimeStates.last())
+        }
+
+    @Test
+    fun `initialize leaves pin state unchanged when key is available`() =
+        runTest {
+            val initialSettings =
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setBackupPin("1234")
+                    .setBiometricEnabled(true)
+                    .build()
+            val settingsRepository = FakeAppSettingsRepository(initialSettings)
+            val strategyPackStateStore = InMemoryStrategyPackStateStore()
+            val effects = MutableSharedFlow<SettingsEffect>(extraBufferCapacity = 1)
+            val emittedEffects = mutableListOf<SettingsEffect>()
+            val collector = backgroundScope.launch { effects.collect { emittedEffects += it } }
+
+            SettingsViewModelBootstrapper(
+                appSettingsRepository = settingsRepository,
+                strategyPackStateStore = strategyPackStateStore,
+                pinVerifier =
+                    object : PinVerifier {
+                        override fun hashPin(pin: String): String = pin
+
+                        override fun verify(
+                            candidatePin: String,
+                            storedHash: String,
+                        ): Boolean = candidatePin == storedHash
+
+                        override fun isKeyAvailable(): Boolean = true
+                    },
+            ).initialize(
+                scope = backgroundScope,
+                stringResolver = FakeStringResolver(),
+                effects = effects,
+                loadInitialHostPackCatalog = {},
+                loadInitialStrategyPackCatalog = {},
+                updateStrategyPackCatalogRuntimeState = {},
+            )
+
+            advanceUntilIdle()
+            collector.cancel()
+
+            val settings = settingsRepository.snapshot()
+            assertEquals("1234", settings.backupPin)
+            assertTrue(settings.biometricEnabled)
+            assertTrue(emittedEffects.isEmpty())
         }
 }

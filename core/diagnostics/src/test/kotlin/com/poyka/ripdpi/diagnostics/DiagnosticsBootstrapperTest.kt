@@ -1,18 +1,25 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
+import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticProfileWire
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsCatalogWire
 import com.poyka.ripdpi.diagnostics.contract.profile.BundledDiagnosticsPackWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
 import javax.inject.Provider
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsBootstrapperTest {
     private val json = diagnosticsTestJson()
 
@@ -39,6 +46,41 @@ class DiagnosticsBootstrapperTest {
         }
 
     @Test
+    fun `initialize registers only one automatic probe subscription`() =
+        runTest {
+            val stores =
+                FakeDiagnosticsHistoryStores().also { history ->
+                    history.telemetryState.value =
+                        listOf(
+                            telemetrySample(createdAt = System.currentTimeMillis()),
+                        )
+                }
+            val runtimeHistoryStartup = RecordingRuntimeHistoryStartup()
+            val archiveExporter = RecordingArchiveExporter()
+            val handoverStore = FakePolicyHandoverEventStore()
+            val launcher = BootstrapperRecordingAutomaticProbeLauncher()
+            val bootstrapper =
+                createBootstrapper(
+                    stores = stores,
+                    runtimeHistoryStartup = runtimeHistoryStartup,
+                    archiveExporter = archiveExporter,
+                    policyHandoverEventStore = handoverStore,
+                    automaticProbeLauncher = launcher,
+                    importBundledProfilesOnInitialize = false,
+                    scope = backgroundScope,
+                )
+
+            bootstrapper.initialize()
+            bootstrapper.initialize()
+            handoverStore.publish(handoverEvent())
+            advanceTimeBy(100L)
+            runCurrent()
+
+            assertEquals(1, launcher.events.size)
+            assertEquals("fingerprint-b", launcher.events.single().currentFingerprintHash)
+        }
+
+    @Test
     fun `runtime history startup failure does not abort diagnostics bootstrap`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -47,26 +89,36 @@ class DiagnosticsBootstrapperTest {
                     failure = IllegalStateException("boom"),
                 )
             val archiveExporter = RecordingArchiveExporter()
+            val handoverStore = FakePolicyHandoverEventStore()
+            val launcher = BootstrapperRecordingAutomaticProbeLauncher()
             val bootstrapper =
                 createBootstrapper(
                     stores = stores,
                     runtimeHistoryStartup = runtimeHistoryStartup,
                     archiveExporter = archiveExporter,
+                    policyHandoverEventStore = handoverStore,
+                    automaticProbeLauncher = launcher,
                     importBundledProfilesOnInitialize = true,
                     scope = backgroundScope,
                 )
 
             bootstrapper.initialize()
+            handoverStore.publish(handoverEvent())
+            advanceTimeBy(100L)
+            runCurrent()
 
             assertEquals(1, runtimeHistoryStartup.startCalls)
             assertEquals(1, archiveExporter.cleanupCalls)
             assertFalse(stores.profilesState.value.isEmpty())
+            assertEquals(1, launcher.events.size)
         }
 
     private fun createBootstrapper(
         stores: FakeDiagnosticsHistoryStores,
         runtimeHistoryStartup: RuntimeHistoryStartup,
         archiveExporter: RecordingArchiveExporter,
+        policyHandoverEventStore: FakePolicyHandoverEventStore = FakePolicyHandoverEventStore(),
+        automaticProbeLauncher: AutomaticProbeLauncher = NoopAutomaticProbeLauncher,
         importBundledProfilesOnInitialize: Boolean,
         scope: CoroutineScope,
     ): DefaultDiagnosticsBootstrapper =
@@ -81,7 +133,7 @@ class DiagnosticsBootstrapperTest {
                     json = json,
                 ),
             runtimeHistoryStartup = runtimeHistoryStartup,
-            policyHandoverEventStore = FakePolicyHandoverEventStore(),
+            policyHandoverEventStore = policyHandoverEventStore,
             automaticProbeScheduler =
                 AutomaticProbeScheduler(
                     appSettingsRepository = FakeAppSettingsRepository(),
@@ -91,7 +143,7 @@ class DiagnosticsBootstrapperTest {
                             TestDiagnosticsHistoryClock(),
                         ),
                     diagnosticsArtifactReadStore = stores,
-                    launcherProvider = constantProvider(NoopAutomaticProbeLauncher),
+                    launcherProvider = constantProvider(automaticProbeLauncher),
                     automaticHandoverProbeDelayMs = 100L,
                     automaticHandoverProbeCooldownMs = 0L,
                     automaticStrategyFailureProbeCooldownMs = 0L,
@@ -181,3 +233,49 @@ private fun constantProvider(launcher: AutomaticProbeLauncher): Provider<Automat
     object : Provider<AutomaticProbeLauncher> {
         override fun get(): AutomaticProbeLauncher = launcher
     }
+
+private class BootstrapperRecordingAutomaticProbeLauncher : AutomaticProbeLauncher {
+    val events = mutableListOf<PolicyHandoverEvent>()
+
+    override fun hasActiveScan(): Boolean = false
+
+    override suspend fun launchAutomaticProbe(
+        settings: com.poyka.ripdpi.proto.AppSettings,
+        event: PolicyHandoverEvent,
+    ): Boolean {
+        events += event
+        return true
+    }
+}
+
+private fun handoverEvent() =
+    PolicyHandoverEvent(
+        mode = Mode.VPN,
+        previousFingerprintHash = "fingerprint-a",
+        currentFingerprintHash = "fingerprint-b",
+        classification = "transport_switch",
+        currentNetworkValidated = true,
+        currentCaptivePortalDetected = false,
+        usedRememberedPolicy = false,
+        policySignature = "policy-1",
+        occurredAt = 100L,
+    )
+
+private fun telemetrySample(createdAt: Long) =
+    TelemetrySampleEntity(
+        id = "telemetry-1",
+        sessionId = null,
+        connectionSessionId = "conn-1",
+        activeMode = Mode.VPN.name,
+        connectionState = "Running",
+        networkType = "wifi",
+        publicIp = null,
+        failureClass = "dns_tampering",
+        telemetryNetworkFingerprintHash = "fingerprint-b",
+        lastFailureClass = null,
+        txPackets = 0L,
+        txBytes = 0L,
+        rxPackets = 0L,
+        rxBytes = 0L,
+        createdAt = createdAt,
+    )

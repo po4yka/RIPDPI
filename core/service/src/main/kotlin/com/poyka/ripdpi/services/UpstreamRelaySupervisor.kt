@@ -144,6 +144,9 @@ internal class UpstreamRelaySupervisor(
 
         job.invokeOnCompletion {
             scope.launch(dispatcher) {
+                if (relayRuntime !== runtime) {
+                    return@launch
+                }
                 if (!shouldReportExit.get()) {
                     return@launch
                 }

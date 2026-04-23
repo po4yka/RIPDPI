@@ -1,11 +1,16 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiProxyFactory
+import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.RipDpiWarpConfig
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeNetworkSnapshot
+import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.WarpRouteModeRules
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -239,6 +244,177 @@ class ProxyServiceRuntimeCoordinatorTest {
             assertTrue(env.store.eventHistory.any { it is ServiceEvent.Failed })
         }
 
+    @Test
+    fun staleSupersededProxyExitDoesNotHaltReplacementSession() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val store = TestServiceStateStore()
+            val events = mutableListOf<String>()
+            val host = TestProxyServiceHost(backgroundScope)
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val resolver =
+                TestConnectionPolicyResolver(
+                    sampleResolution(mode = Mode.Proxy, policySignature = "initial"),
+                ).also {
+                    it.enqueue(
+                        sampleResolution(mode = Mode.Proxy, policySignature = "initial"),
+                        sampleResolution(mode = Mode.Proxy, policySignature = "handover"),
+                    )
+                }
+            val runtimeRegistry = DefaultServiceRuntimeRegistry()
+            val handoverMonitor = TestNetworkHandoverMonitor()
+            val handoverEvents = TestPolicyHandoverEventStore()
+            val oldRuntime = DelayedStopProxyRuntime(events)
+            val newRuntime = TestProxyRuntime(events)
+            val proxyFactory =
+                object : RipDpiProxyFactory {
+                    private var calls = 0
+
+                    override fun create() =
+                        when (calls++) {
+                            0 -> oldRuntime
+                            else -> newRuntime
+                        }
+                }
+            val coordinator =
+                ProxyServiceRuntimeCoordinator(
+                    host = host,
+                    connectionPolicyResolver = resolver,
+                    serviceRuntimeRegistry = runtimeRegistry,
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    networkHandoverMonitor = handoverMonitor,
+                    policyHandoverEventStore = handoverEvents,
+                    permissionWatchdog = TestPermissionWatchdog(),
+                    upstreamRelaySupervisor =
+                        UpstreamRelaySupervisor(
+                            scope = backgroundScope,
+                            dispatcher = dispatcher,
+                            relayFactory = TestRipDpiRelayFactory(),
+                            naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                            relayProfileStore = TestRelayProfileStore(),
+                            relayCredentialStore = TestRelayCredentialStore(),
+                        ),
+                    warpRuntimeSupervisor =
+                        WarpRuntimeSupervisor(
+                            scope = backgroundScope,
+                            dispatcher = dispatcher,
+                            warpFactory = TestRipDpiWarpFactory(),
+                            runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
+                        ),
+                    proxyRuntimeSupervisor =
+                        ProxyRuntimeSupervisor(
+                            scope = backgroundScope,
+                            dispatcher = dispatcher,
+                            ripDpiProxyFactory = proxyFactory,
+                            networkSnapshotProvider =
+                                object : NativeNetworkSnapshotProvider {
+                                    override fun capture(): NativeNetworkSnapshot =
+                                        NativeNetworkSnapshot(transport = "wifi")
+                                },
+                        ),
+                    statusReporter =
+                        ServiceStatusReporter(
+                            mode = Mode.Proxy,
+                            sender = com.poyka.ripdpi.data.Sender.Proxy,
+                            serviceStateStore = store,
+                            networkFingerprintProvider = TestNetworkFingerprintProvider(initialFingerprint),
+                            telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
+                            runtimeExperimentSelectionProvider =
+                                object : RuntimeExperimentSelectionProvider {
+                                    override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+                                },
+                            clock = TestServiceClock(now = 1_000L),
+                        ),
+                    screenStateObserver = TestScreenStateObserver(),
+                    ioDispatcher = dispatcher,
+                    clock = TestServiceClock(now = 1_000L),
+                )
+
+            coordinator.start()
+            runCurrent()
+
+            handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "link_refresh",
+                    occurredAt = 2_000L,
+                ),
+            )
+            advanceTimeBy(5_000L)
+            repeat(4) { runCurrent() }
+
+            oldRuntime.complete(17)
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Running to Mode.Proxy, store.status.value)
+            assertTrue(store.eventHistory.none { it is ServiceEvent.Failed })
+            assertEquals(1, oldRuntime.stopCount)
+            assertNotNull(runtimeRegistry.current(Mode.Proxy))
+        }
+
+    @Test
+    fun handoverRestartStopsSupersededWarpRuntimeExactlyOnce() =
+        runTest {
+            val initialFingerprint = sampleFingerprint()
+            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+            val env =
+                newEnv(
+                    fingerprint = initialFingerprint,
+                    resolutions =
+                        listOf(
+                            sampleResolution(
+                                mode = Mode.Proxy,
+                                policySignature = "initial",
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        warp =
+                                            RipDpiWarpConfig(
+                                                enabled = true,
+                                                routeMode = WarpRouteModeRules,
+                                                routeHosts = "example.com",
+                                            ),
+                                    ),
+                            ),
+                            sampleResolution(
+                                mode = Mode.Proxy,
+                                policySignature = "handover",
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        warp =
+                                            RipDpiWarpConfig(
+                                                enabled = true,
+                                                routeMode = WarpRouteModeRules,
+                                                routeHosts = "example.com",
+                                            ),
+                                    ),
+                            ),
+                        ),
+                )
+
+            env.coordinator.start()
+            runCurrent()
+
+            env.handoverMonitor.emit(
+                NetworkHandoverEvent(
+                    previousFingerprint = initialFingerprint,
+                    currentFingerprint = newFingerprint,
+                    classification = "transport_switch",
+                    occurredAt = 2_000L,
+                ),
+            )
+            repeat(4) { runCurrent() }
+
+            assertEquals(2, env.warpFactory.runtimes.size)
+            assertEquals(1, env.warpFactory.runtimes[0].stopCount)
+            assertEquals(0, env.warpFactory.runtimes[1].stopCount)
+            assertEquals(2, env.factory.runtimes.size)
+            assertEquals(1, env.factory.runtimes[0].stopCount)
+            assertEquals(0, env.factory.runtimes[1].stopCount)
+            assertEquals(AppStatus.Running to Mode.Proxy, env.store.status.value)
+        }
+
     private fun TestScope.newEnv(
         fingerprint: com.poyka.ripdpi.data.NetworkFingerprint? = sampleFingerprint(),
         resolutions: List<com.poyka.ripdpi.services.ConnectionPolicyResolution> =
@@ -318,5 +494,43 @@ class ProxyServiceRuntimeCoordinatorTest {
             handoverEvents = handoverEvents,
             resolver = resolver,
         )
+    }
+}
+
+private class DelayedStopProxyRuntime(
+    private val events: MutableList<String>,
+) : com.poyka.ripdpi.core.RipDpiProxyRuntime {
+    private val exitCode = CompletableDeferred<Int>()
+
+    var stopCount: Int = 0
+        private set
+    private val telemetry =
+        com.poyka.ripdpi.data.NativeRuntimeSnapshot(
+            source = "proxy",
+            state = "running",
+            health = "healthy",
+            listenerAddress = "127.0.0.1:1080",
+        )
+
+    override suspend fun startProxy(preferences: RipDpiProxyPreferences): Int {
+        events += "proxy:start"
+        return exitCode.await()
+    }
+
+    override suspend fun awaitReady(timeoutMillis: Long) = Unit
+
+    override suspend fun stopProxy() {
+        stopCount += 1
+        events += "proxy:stop"
+    }
+
+    override suspend fun pollTelemetry() = telemetry
+
+    override suspend fun updateNetworkSnapshot(snapshot: NativeNetworkSnapshot) = Unit
+
+    fun complete(code: Int) {
+        if (!exitCode.isCompleted) {
+            exitCode.complete(code)
+        }
     }
 }
