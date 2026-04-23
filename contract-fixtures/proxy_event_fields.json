@@ -1,6 +1,7 @@
 [
   "createdAt",
   "fingerprintHash",
+  "kind",
   "level",
   "message",
   "mode",

@@ -51,6 +51,7 @@
   "morphRollbackReason",
   "nativeEvents[].createdAt",
   "nativeEvents[].fingerprintHash",
+  "nativeEvents[].kind",
   "nativeEvents[].level",
   "nativeEvents[].message",
   "nativeEvents[].mode",

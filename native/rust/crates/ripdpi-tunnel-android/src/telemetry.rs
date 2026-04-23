@@ -21,6 +21,8 @@ pub(crate) struct NativeRuntimeEvent {
     pub(crate) message: String,
     pub(crate) created_at: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) runtime_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) mode: Option<String>,
@@ -305,6 +307,7 @@ impl From<NativeEventRecord> for NativeRuntimeEvent {
             level: value.level,
             message: value.message,
             created_at: value.created_at,
+            kind: value.kind,
             runtime_id: value.runtime_id,
             mode: value.mode,
             policy_signature: value.policy_signature,
@@ -595,6 +598,7 @@ mod tests {
                 level: "info".to_string(),
                 message: "test".to_string(),
                 created_at: 1000,
+                kind: Some("runtime_stopped".to_string()),
                 runtime_id: Some("rt-1".to_string()),
                 mode: Some("auto".to_string()),
                 policy_signature: Some("sig".to_string()),
@@ -645,6 +649,7 @@ mod tests {
             level: "info".to_string(),
             message: "test".to_string(),
             created_at: 1000,
+            kind: Some("runtime_stopped".to_string()),
             runtime_id: Some("rt-1".to_string()),
             mode: Some("auto".to_string()),
             policy_signature: Some("sig".to_string()),

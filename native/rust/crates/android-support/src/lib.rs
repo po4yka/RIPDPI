@@ -73,6 +73,7 @@ pub struct NativeEventRecord {
     pub level: String,
     pub message: String,
     pub created_at: u64,
+    pub kind: Option<String>,
     pub runtime_id: Option<String>,
     pub mode: Option<String>,
     pub policy_signature: Option<String>,
@@ -84,19 +85,29 @@ pub struct NativeEventRecord {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RingConfig {
     pub proxy_capacity: usize,
+    pub relay_capacity: usize,
+    pub warp_capacity: usize,
     pub tunnel_capacity: usize,
     pub diagnostics_capacity: usize,
 }
 
 impl Default for RingConfig {
     fn default() -> Self {
-        Self { proxy_capacity: 128, tunnel_capacity: 128, diagnostics_capacity: 256 }
+        Self {
+            proxy_capacity: 128,
+            relay_capacity: 128,
+            warp_capacity: 128,
+            tunnel_capacity: 128,
+            diagnostics_capacity: 256,
+        }
     }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum EventRing {
     Proxy,
+    Relay,
+    Warp,
     Tunnel,
     Diagnostics,
 }
@@ -105,6 +116,8 @@ impl EventRing {
     fn from_routing_field(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "proxy" => Some(Self::Proxy),
+            "relay" => Some(Self::Relay),
+            "warp" => Some(Self::Warp),
             "tunnel" => Some(Self::Tunnel),
             "diagnostics" | "monitor" => Some(Self::Diagnostics),
             _ => None,
@@ -114,6 +127,8 @@ impl EventRing {
     fn default_subsystem(self) -> &'static str {
         match self {
             Self::Proxy => "proxy",
+            Self::Relay => "relay",
+            Self::Warp => "warp",
             Self::Tunnel => "tunnel",
             Self::Diagnostics => "diagnostics",
         }
@@ -123,6 +138,8 @@ impl EventRing {
 struct EventRingBuffersInner {
     config: RingConfig,
     proxy: Mutex<VecDeque<NativeEventRecord>>,
+    relay: Mutex<VecDeque<NativeEventRecord>>,
+    warp: Mutex<VecDeque<NativeEventRecord>>,
     tunnel: Mutex<VecDeque<NativeEventRecord>>,
     diagnostics: Mutex<VecDeque<NativeEventRecord>>,
 }
@@ -143,6 +160,8 @@ impl EventRingBuffers {
         Self {
             inner: Arc::new(EventRingBuffersInner {
                 proxy: Mutex::new(VecDeque::with_capacity(config.proxy_capacity)),
+                relay: Mutex::new(VecDeque::with_capacity(config.relay_capacity)),
+                warp: Mutex::new(VecDeque::with_capacity(config.warp_capacity)),
                 tunnel: Mutex::new(VecDeque::with_capacity(config.tunnel_capacity)),
                 diagnostics: Mutex::new(VecDeque::with_capacity(config.diagnostics_capacity)),
                 config,
@@ -171,6 +190,14 @@ impl EventRingBuffers {
         self.drain(EventRing::Proxy)
     }
 
+    pub fn drain_relay(&self) -> Vec<NativeEventRecord> {
+        self.drain(EventRing::Relay)
+    }
+
+    pub fn drain_warp(&self) -> Vec<NativeEventRecord> {
+        self.drain(EventRing::Warp)
+    }
+
     pub fn drain_tunnel(&self) -> Vec<NativeEventRecord> {
         self.drain(EventRing::Tunnel)
     }
@@ -181,6 +208,14 @@ impl EventRingBuffers {
 
     pub fn clear_proxy(&self) {
         self.clear(EventRing::Proxy);
+    }
+
+    pub fn clear_relay(&self) {
+        self.clear(EventRing::Relay);
+    }
+
+    pub fn clear_warp(&self) {
+        self.clear(EventRing::Warp);
     }
 
     pub fn clear_tunnel(&self) {
@@ -194,6 +229,8 @@ impl EventRingBuffers {
     fn ring(&self, ring: EventRing) -> &Mutex<VecDeque<NativeEventRecord>> {
         match ring {
             EventRing::Proxy => &self.inner.proxy,
+            EventRing::Relay => &self.inner.relay,
+            EventRing::Warp => &self.inner.warp,
             EventRing::Tunnel => &self.inner.tunnel,
             EventRing::Diagnostics => &self.inner.diagnostics,
         }
@@ -202,6 +239,8 @@ impl EventRingBuffers {
     fn capacity(&self, ring: EventRing) -> usize {
         match ring {
             EventRing::Proxy => self.inner.config.proxy_capacity,
+            EventRing::Relay => self.inner.config.relay_capacity,
+            EventRing::Warp => self.inner.config.warp_capacity,
             EventRing::Tunnel => self.inner.config.tunnel_capacity,
             EventRing::Diagnostics => self.inner.config.diagnostics_capacity,
         }
@@ -217,6 +256,14 @@ pub fn drain_proxy_events() -> Vec<NativeEventRecord> {
     global_event_rings().drain_proxy()
 }
 
+pub fn drain_relay_events() -> Vec<NativeEventRecord> {
+    global_event_rings().drain_relay()
+}
+
+pub fn drain_warp_events() -> Vec<NativeEventRecord> {
+    global_event_rings().drain_warp()
+}
+
 pub fn drain_tunnel_events() -> Vec<NativeEventRecord> {
     global_event_rings().drain_tunnel()
 }
@@ -227,6 +274,14 @@ pub fn drain_diagnostics_events() -> Vec<NativeEventRecord> {
 
 pub fn clear_proxy_events() {
     global_event_rings().clear_proxy();
+}
+
+pub fn clear_relay_events() {
+    global_event_rings().clear_relay();
+}
+
+pub fn clear_warp_events() {
+    global_event_rings().clear_warp();
 }
 
 pub fn clear_tunnel_events() {
@@ -513,6 +568,7 @@ where
                 level: metadata.level().as_str().to_ascii_lowercase(),
                 message: visitor.message_or_target(metadata.target()),
                 created_at: now_ms(),
+                kind: visitor.kind(),
                 runtime_id: visitor.runtime_id(),
                 mode: visitor.mode().map(|value| value.to_ascii_lowercase()),
                 policy_signature: visitor.policy_signature(),
@@ -535,6 +591,7 @@ pub(crate) struct MessageFieldFormatter {
     profile: Option<String>,
     path_mode: Option<String>,
     source: Option<String>,
+    kind: Option<String>,
     runtime_id: Option<String>,
     mode: Option<String>,
     policy_signature: Option<String>,
@@ -598,6 +655,7 @@ impl MessageFieldFormatter {
             "profile" => self.profile = Some(value),
             "path_mode" | "pathMode" => self.path_mode = Some(value),
             "source" => self.source = Some(value),
+            "kind" => self.kind = Some(value),
             "runtime_id" | "runtimeId" => self.runtime_id = Some(value),
             "mode" => self.mode = Some(value),
             "policy_signature" | "policySignature" => self.policy_signature = Some(value),
@@ -625,6 +683,11 @@ impl MessageFieldFormatter {
     #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
     pub(crate) fn source(&self) -> Option<String> {
         self.source.clone()
+    }
+
+    #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
+    pub(crate) fn kind(&self) -> Option<String> {
+        self.kind.clone()
     }
 
     #[cfg_attr(not(any(test, target_os = "android")), allow(dead_code))]
@@ -753,8 +816,13 @@ mod tests {
 
     #[test]
     fn event_ring_layer_routes_and_drains_correlation_fields() {
-        let buffers =
-            EventRingBuffers::new(RingConfig { proxy_capacity: 8, tunnel_capacity: 8, diagnostics_capacity: 8 });
+        let buffers = EventRingBuffers::new(RingConfig {
+            proxy_capacity: 8,
+            relay_capacity: 8,
+            warp_capacity: 8,
+            tunnel_capacity: 8,
+            diagnostics_capacity: 8,
+        });
         let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
 
         tracing::subscriber::with_default(subscriber, || {
@@ -784,6 +852,7 @@ mod tests {
                 level: "warn".to_string(),
                 message: "probe failed target=example.org".to_string(),
                 created_at: events[0].created_at,
+                kind: None,
                 runtime_id: Some("vpn-runtime-1".to_string()),
                 mode: Some("vpn".to_string()),
                 policy_signature: Some("policy-123".to_string()),
@@ -796,8 +865,13 @@ mod tests {
 
     #[test]
     fn event_ring_layer_respects_capacity_per_ring() {
-        let buffers =
-            EventRingBuffers::new(RingConfig { proxy_capacity: 2, tunnel_capacity: 2, diagnostics_capacity: 2 });
+        let buffers = EventRingBuffers::new(RingConfig {
+            proxy_capacity: 2,
+            relay_capacity: 2,
+            warp_capacity: 2,
+            tunnel_capacity: 2,
+            diagnostics_capacity: 2,
+        });
         let subscriber = tracing_subscriber::registry().with(EventRingLayer::new(buffers.clone()));
 
         tracing::subscriber::with_default(subscriber, || {

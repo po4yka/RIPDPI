@@ -46,6 +46,8 @@ pub(crate) struct NativeRuntimeEvent {
     pub(crate) message: String,
     pub(crate) created_at: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) kind: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) runtime_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) mode: Option<String>,
@@ -254,7 +256,7 @@ impl ProxyTelemetryState {
         &self.log_scope
     }
 
-    fn emit_event(&self, source: &str, level: &str, message: &str) {
+    fn emit_event(&self, source: &str, level: &str, message: &str, kind: Option<&str>) {
         let log_context = self.log_context.as_ref();
         let runtime_id = log_context.and_then(|context| context.runtime_id.as_deref()).unwrap_or("");
         let mode = log_context.and_then(|context| context.mode.as_deref()).unwrap_or("");
@@ -262,12 +264,14 @@ impl ProxyTelemetryState {
         let fingerprint_hash = log_context.and_then(|context| context.fingerprint_hash.as_deref()).unwrap_or("");
         let diagnostics_session_id =
             log_context.and_then(|context| context.diagnostics_session_id.as_deref()).unwrap_or("");
+        let kind = kind.unwrap_or("");
         match level.trim().to_ascii_lowercase().as_str() {
             "trace" => tracing::trace!(
                 ring = "proxy",
                 subsystem = "proxy",
                 session = self.session_id.as_str(),
                 source,
+                kind,
                 runtime_id,
                 mode,
                 policy_signature,
@@ -280,6 +284,7 @@ impl ProxyTelemetryState {
                 subsystem = "proxy",
                 session = self.session_id.as_str(),
                 source,
+                kind,
                 runtime_id,
                 mode,
                 policy_signature,
@@ -292,6 +297,7 @@ impl ProxyTelemetryState {
                 subsystem = "proxy",
                 session = self.session_id.as_str(),
                 source,
+                kind,
                 runtime_id,
                 mode,
                 policy_signature,
@@ -304,6 +310,7 @@ impl ProxyTelemetryState {
                 subsystem = "proxy",
                 session = self.session_id.as_str(),
                 source,
+                kind,
                 runtime_id,
                 mode,
                 policy_signature,
@@ -316,6 +323,7 @@ impl ProxyTelemetryState {
                 subsystem = "proxy",
                 session = self.session_id.as_str(),
                 source,
+                kind,
                 runtime_id,
                 mode,
                 policy_signature,
@@ -343,7 +351,7 @@ impl ProxyTelemetryState {
         // Ordering: Release -- pairs with Acquire load in snapshot(); signals override cleared.
         self.adaptive_override_active.store(false, Ordering::Release);
         let message = format!("listener started addr={bind_addr} maxClients={max_clients} groups={group_count}");
-        self.emit_event("proxy", "info", &message);
+        self.emit_event("proxy", "info", &message, Some("runtime_ready"));
         self.update_strings(|s| {
             s.listener_address = Some(bind_addr.clone());
             s.adaptive_trigger_mask = None;
@@ -363,7 +371,7 @@ impl ProxyTelemetryState {
         // Ordering: Release -- pairs with Acquire load in snapshot(); signals override cleared.
         self.adaptive_override_active.store(false, Ordering::Release);
         let message = "listener stopped".to_string();
-        self.emit_event("proxy", "info", &message);
+        self.emit_event("proxy", "info", &message, Some("runtime_stopped"));
     }
 
     pub(crate) fn on_client_accepted(&self) {
@@ -386,7 +394,7 @@ impl ProxyTelemetryState {
         // Ordering: Relaxed -- counter read for display only, no happens-before needed.
         self.total_errors.fetch_add(1, Ordering::Relaxed);
         let message = format!("client error: {error}");
-        self.emit_event("proxy", "warn", &message);
+        self.emit_event("proxy", "warn", &message, None);
         self.update_strings(|s| s.last_error = Some(error.clone()));
     }
 
@@ -399,7 +407,7 @@ impl ProxyTelemetryState {
         }
         let error_str = error.to_string();
         let message = format!("client error: {error_str}");
-        self.emit_event("proxy", "warn", &message);
+        self.emit_event("proxy", "warn", &message, None);
         self.update_strings(|s| s.last_error = Some(error_str.clone()));
     }
 
@@ -413,7 +421,7 @@ impl ProxyTelemetryState {
             target,
             host.as_deref().unwrap_or("<none>")
         );
-        self.emit_event("proxy", "info", &message);
+        self.emit_event("proxy", "info", &message, None);
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.last_host = host.clone();
@@ -440,7 +448,7 @@ impl ProxyTelemetryState {
             trigger,
             host.as_deref().unwrap_or("<none>")
         );
-        self.emit_event("proxy", "warn", &message);
+        self.emit_event("proxy", "warn", &message, None);
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.last_host = host.clone();
@@ -470,7 +478,7 @@ impl ProxyTelemetryState {
             reason,
             host.as_deref().unwrap_or("<none>")
         );
-        self.emit_event("proxy", "warn", &message);
+        self.emit_event("proxy", "warn", &message, None);
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.last_host = host.clone();
@@ -491,7 +499,7 @@ impl ProxyTelemetryState {
             host.as_deref().unwrap_or("<none>"),
             failure.evidence.summary
         );
-        self.emit_event("proxy", level, &message);
+        self.emit_event("proxy", level, &message, None);
         {
             let evidence = failure.evidence.summary.clone();
             let class = failure.class.as_str().to_string();
@@ -519,7 +527,7 @@ impl ProxyTelemetryState {
         }
         let message =
             format!("retry pacing target={target} group={group_index} reason={reason} backoffMs={backoff_ms}");
-        self.emit_event("proxy", "info", &message);
+        self.emit_event("proxy", "info", &message, None);
         {
             let reason_str = reason.to_string();
             self.update_strings(|s| {
@@ -531,7 +539,7 @@ impl ProxyTelemetryState {
 
     pub(crate) fn on_telegram_dc_detected(&self, target: String, dc: u8) {
         let message = format!("telegram dc detected target={target} dc={dc}");
-        self.emit_event("proxy", "info", &message);
+        self.emit_event("proxy", "info", &message, None);
         self.update_strings(|s| s.last_target = Some(target.clone()));
     }
 
@@ -539,13 +547,13 @@ impl ProxyTelemetryState {
         let level = if success { "info" } else { "warn" };
         let result = if success { "success" } else { "failed" };
         let message = format!("ws tunnel escalation target={target} dc={dc} result={result}");
-        self.emit_event("proxy", level, &message);
+        self.emit_event("proxy", level, &message, None);
         self.update_strings(|s| s.last_target = Some(target.clone()));
     }
 
     pub(crate) fn on_quic_migration_status(&self, target: String, status: &'static str, reason: &'static str) {
         let message = format!("quic migration target={target} status={status} reason={reason}");
-        self.emit_event("proxy", "info", &message);
+        self.emit_event("proxy", "info", &message, None);
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.quic_migration_status = Some(status.to_string());
@@ -555,7 +563,7 @@ impl ProxyTelemetryState {
 
     pub(crate) fn on_morph_hint_applied(&self, target: String, policy_id: &str, family: &str) {
         let message = format!("morph hint applied target={target} policyId={policy_id} family={family}");
-        self.emit_event("proxy", "info", &message);
+        self.emit_event("proxy", "info", &message, None);
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.morph_hint_family = Some(family.to_string());
@@ -564,7 +572,7 @@ impl ProxyTelemetryState {
 
     pub(crate) fn on_morph_rollback(&self, target: String, policy_id: &str, reason: &str) {
         let message = format!("morph rollback target={target} policyId={policy_id} reason={reason}");
-        self.emit_event("proxy", "warn", &message);
+        self.emit_event("proxy", "warn", &message, None);
         self.update_strings(|s| {
             s.last_target = Some(target.clone());
             s.morph_rollback_reason = Some(reason.to_string());
@@ -760,7 +768,7 @@ impl ProxyTelemetryState {
     }
 
     pub(crate) fn push_event(&self, source: &str, level: &str, message: String) {
-        self.emit_event(source, level, &message);
+        self.emit_event(source, level, &message, None);
     }
 }
 
@@ -771,6 +779,7 @@ impl From<NativeEventRecord> for NativeRuntimeEvent {
             level: value.level,
             message: value.message,
             created_at: value.created_at,
+            kind: value.kind,
             runtime_id: value.runtime_id,
             mode: value.mode,
             policy_signature: value.policy_signature,
@@ -1017,6 +1026,7 @@ mod tests {
             assert_eq!(first.last_autolearn_group, Some(2));
             assert_eq!(first.last_autolearn_action.as_deref(), Some("host_promoted"));
             assert_eq!(first.native_events.len(), 5);
+            assert_eq!(first.native_events[0].kind.as_deref(), Some("runtime_ready"));
 
             let second = snapshot_with_captured_events(&state, &buffers);
             assert!(second.native_events.is_empty());
@@ -1027,6 +1037,7 @@ mod tests {
             assert_eq!(stopped.state, "idle");
             assert_eq!(stopped.active_sessions, 0);
             assert_eq!(stopped.native_events.len(), 1);
+            assert_eq!(stopped.native_events[0].kind.as_deref(), Some("runtime_stopped"));
         });
     }
 
@@ -1319,6 +1330,7 @@ mod tests {
                 level: "info".to_string(),
                 message: "test".to_string(),
                 created_at: 1000,
+                kind: Some("runtime_ready".to_string()),
                 runtime_id: Some("rt-1".to_string()),
                 mode: Some("auto".to_string()),
                 policy_signature: Some("sig".to_string()),
@@ -1369,6 +1381,7 @@ mod tests {
             level: "info".to_string(),
             message: "test".to_string(),
             created_at: 1000,
+            kind: Some("runtime_ready".to_string()),
             runtime_id: Some("rt-1".to_string()),
             mode: Some("auto".to_string()),
             policy_signature: Some("sig".to_string()),

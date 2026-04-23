@@ -25,6 +25,7 @@ data class NativeRuntimeEvent(
     val level: String,
     val message: String,
     val createdAt: Long,
+    val kind: String? = null,
     val runtimeId: String? = null,
     val mode: String? = null,
     val policySignature: String? = null,

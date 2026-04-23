@@ -45,6 +45,7 @@
         {
             "createdAt": 0,
             "fingerprintHash": null,
+            "kind": "runtime_ready",
             "level": "info",
             "message": "listener started addr=127.0.0.1:<port> maxClients=512 groups=2",
             "mode": null,
