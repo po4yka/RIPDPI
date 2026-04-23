@@ -6,6 +6,8 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RuntimeTelemetryState
+import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
@@ -32,7 +34,9 @@ class ServiceTelemetryGoldenTest {
                 status = AppStatus.Running,
                 tunnelStats = TunnelStats(txPackets = 3, txBytes = 30, rxPackets = 4, rxBytes = 40),
                 proxyTelemetry = proxyTelemetry(),
+                proxyTelemetryStatus = snapshotStatus(),
                 tunnelTelemetry = tunnelTelemetry(),
+                tunnelTelemetryStatus = snapshotStatus(),
                 updatedAt = 123L,
             ),
         )
@@ -55,7 +59,9 @@ class ServiceTelemetryGoldenTest {
                 status = AppStatus.Running,
                 tunnelStats = TunnelStats(txPackets = 3, txBytes = 30, rxPackets = 4, rxBytes = 40),
                 proxyTelemetry = proxyTelemetry(),
+                proxyTelemetryStatus = snapshotStatus(),
                 tunnelTelemetry = tunnelTelemetry(),
+                tunnelTelemetryStatus = snapshotStatus(),
                 updatedAt = 123L,
             ),
         )
@@ -67,7 +73,9 @@ class ServiceTelemetryGoldenTest {
                 status = AppStatus.Halted,
                 tunnelStats = TunnelStats(txPackets = 5, txBytes = 50, rxPackets = 6, rxBytes = 60),
                 proxyTelemetry = proxyTelemetry(),
+                proxyTelemetryStatus = snapshotStatus(),
                 tunnelTelemetry = tunnelTelemetry(),
+                tunnelTelemetryStatus = snapshotStatus(),
                 updatedAt = 456L,
             ),
         )
@@ -91,6 +99,10 @@ class ServiceTelemetryGoldenTest {
                 put("lastFailureAt", snapshot.lastFailureAt)
                 put("updatedAt", snapshot.updatedAt)
                 put("networkHandoverState", snapshot.networkHandoverState)
+                put("proxyTelemetryStatus", telemetryStatusAsJson(snapshot.proxyTelemetryStatus))
+                put("relayTelemetryStatus", telemetryStatusAsJson(snapshot.relayTelemetryStatus))
+                put("warpTelemetryStatus", telemetryStatusAsJson(snapshot.warpTelemetryStatus))
+                put("tunnelTelemetryStatus", telemetryStatusAsJson(snapshot.tunnelTelemetryStatus))
                 put(
                     "tunnelStats",
                     json.parseToJsonElement(json.encodeToString(TunnelStats.serializer(), snapshot.tunnelStats)),
@@ -109,6 +121,15 @@ class ServiceTelemetryGoldenTest {
                 )
             },
         )
+
+    private fun telemetryStatusAsJson(status: RuntimeTelemetryStatus): JsonElement =
+        buildJsonObject {
+            put("state", status.state.wireValue)
+            put("message", status.message)
+            put("causeClass", status.causeClass)
+        }
+
+    private fun snapshotStatus() = RuntimeTelemetryStatus(state = RuntimeTelemetryState.Snapshot)
 
     private fun scrubVolatileFields(value: JsonElement): JsonElement =
         when (value) {

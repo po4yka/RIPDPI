@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
+import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStatus
@@ -34,6 +35,10 @@ internal class ServiceStatusReporter(
         tunnelRecoveryRetryCount: Long,
         relayTelemetry: NativeRuntimeSnapshot? = null,
         warpTelemetry: NativeRuntimeSnapshot? = null,
+        proxyTelemetryStatus: RuntimeTelemetryStatus? = null,
+        relayTelemetryStatus: RuntimeTelemetryStatus? = null,
+        warpTelemetryStatus: RuntimeTelemetryStatus? = null,
+        tunnelTelemetryStatus: RuntimeTelemetryStatus? = null,
         failureReason: FailureReason? = null,
     ) {
         val currentTelemetry = serviceStateStore.telemetry.value
@@ -74,9 +79,28 @@ internal class ServiceStatusReporter(
                 status = appStatus,
                 tunnelStats = tunnelStatsFor(mode, proxyTelemetry, tunnelTelemetry),
                 proxyTelemetry = enrichRuntimeSnapshot(proxyTelemetry),
+                proxyTelemetryStatus = proxyTelemetryStatusFor(newStatus, currentTelemetry, proxyTelemetryStatus),
                 relayTelemetry = enrichRuntimeSnapshot(effectiveRelayTelemetry),
+                relayTelemetryStatus =
+                    telemetryStatusFor(
+                        newStatus,
+                        currentTelemetry.relayTelemetryStatus,
+                        relayTelemetryStatus,
+                    ),
                 warpTelemetry = enrichRuntimeSnapshot(effectiveWarpTelemetry),
+                warpTelemetryStatus =
+                    telemetryStatusFor(
+                        newStatus,
+                        currentTelemetry.warpTelemetryStatus,
+                        warpTelemetryStatus,
+                    ),
                 tunnelTelemetry = enrichRuntimeSnapshot(tunnelTelemetry),
+                tunnelTelemetryStatus =
+                    telemetryStatusFor(
+                        newStatus,
+                        currentTelemetry.tunnelTelemetryStatus,
+                        tunnelTelemetryStatus,
+                    ),
                 networkHandoverState = currentNetworkHandoverState(),
                 runtimeFieldTelemetry =
                     deriveRuntimeFieldTelemetry(
@@ -105,6 +129,10 @@ internal class ServiceStatusReporter(
         relayTelemetry: NativeRuntimeSnapshot,
         warpTelemetry: NativeRuntimeSnapshot,
         tunnelTelemetry: NativeRuntimeSnapshot,
+        proxyTelemetryStatus: RuntimeTelemetryStatus,
+        relayTelemetryStatus: RuntimeTelemetryStatus,
+        warpTelemetryStatus: RuntimeTelemetryStatus,
+        tunnelTelemetryStatus: RuntimeTelemetryStatus,
         tunnelRecoveryRetryCount: Long,
         failureReason: FailureReason? = null,
     ) {
@@ -123,9 +151,13 @@ internal class ServiceStatusReporter(
                 status = AppStatus.Running,
                 tunnelStats = tunnelStatsFor(mode, proxyTelemetry, enrichedTunnelTelemetry),
                 proxyTelemetry = enrichRuntimeSnapshot(proxyTelemetry),
+                proxyTelemetryStatus = proxyTelemetryStatus,
                 relayTelemetry = enrichRuntimeSnapshot(relayTelemetry),
+                relayTelemetryStatus = relayTelemetryStatus,
                 warpTelemetry = enrichRuntimeSnapshot(warpTelemetry),
+                warpTelemetryStatus = warpTelemetryStatus,
                 tunnelTelemetry = enrichRuntimeSnapshot(enrichedTunnelTelemetry),
+                tunnelTelemetryStatus = tunnelTelemetryStatus,
                 networkHandoverState = currentNetworkHandoverState(),
                 runtimeFieldTelemetry =
                     deriveRuntimeFieldTelemetry(
@@ -187,6 +219,25 @@ internal class ServiceStatusReporter(
     private fun currentTelemetryFingerprintHash(fallback: RuntimeFieldTelemetry): String? =
         telemetryFingerprintHasher.hash(networkFingerprintProvider.capture())
             ?: fallback.telemetryNetworkFingerprintHash
+
+    private fun proxyTelemetryStatusFor(
+        newStatus: ServiceStatus,
+        currentTelemetry: ServiceTelemetrySnapshot,
+        reportedStatus: RuntimeTelemetryStatus?,
+    ): RuntimeTelemetryStatus = telemetryStatusFor(newStatus, currentTelemetry.proxyTelemetryStatus, reportedStatus)
+
+    private fun telemetryStatusFor(
+        newStatus: ServiceStatus,
+        currentStatus: RuntimeTelemetryStatus,
+        reportedStatus: RuntimeTelemetryStatus?,
+    ): RuntimeTelemetryStatus =
+        when (newStatus) {
+            ServiceStatus.Failed -> reportedStatus ?: currentStatus
+
+            ServiceStatus.Connected,
+            ServiceStatus.Disconnected,
+            -> reportedStatus ?: RuntimeTelemetryStatus.NoData
+        }
 
     private fun applyPendingNetworkHandoverClass(
         snapshot: NativeRuntimeSnapshot,

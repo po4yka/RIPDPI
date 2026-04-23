@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.activeDnsSettings
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -239,7 +240,7 @@ class VpnTunnelRuntimeTest {
         }
 
     @Test
-    fun `pollTelemetry returns failure Result when bridge throws`() =
+    fun `pollTelemetry returns engine error when bridge throws`() =
         runTest {
             val bridge = TestTun2SocksBridge().apply { telemetryFailure = IOException("telemetry crash") }
             val runtime =
@@ -258,7 +259,21 @@ class VpnTunnelRuntimeTest {
             )
             val result = runtime.pollTelemetry()
 
-            assertTrue(result.isFailure)
+            assertTrue(result is RuntimeTelemetryOutcome.EngineError)
+        }
+
+    @Test
+    fun `pollTelemetry returns no data when tunnel is not running`() =
+        runTest {
+            val runtime =
+                VpnTunnelRuntime(
+                    vpnHost = TestVpnServiceHost(backgroundScope),
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    tun2SocksBridgeFactory = TestTun2SocksBridgeFactory(),
+                    vpnTunnelSessionProvider = TestVpnTunnelSessionProvider(session = TestVpnTunnelSession()),
+                )
+
+            assertEquals(RuntimeTelemetryOutcome.NoData, runtime.pollTelemetry())
         }
 
     @Test

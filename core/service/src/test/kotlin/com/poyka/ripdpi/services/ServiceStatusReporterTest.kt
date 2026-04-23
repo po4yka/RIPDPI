@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
@@ -220,6 +221,10 @@ class ServiceStatusReporterTest {
             relayTelemetry = NativeRuntimeSnapshot.idle(source = "relay"),
             warpTelemetry = NativeRuntimeSnapshot.idle(source = "warp"),
             tunnelTelemetry = tunnelTelemetry,
+            proxyTelemetryStatus = RuntimeTelemetryStatus.NoData,
+            relayTelemetryStatus = RuntimeTelemetryStatus.NoData,
+            warpTelemetryStatus = RuntimeTelemetryStatus.NoData,
+            tunnelTelemetryStatus = RuntimeTelemetryStatus.NoData,
             tunnelRecoveryRetryCount = 4L,
         )
 

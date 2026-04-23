@@ -1783,6 +1783,7 @@ Source: %2$s</string>
     <string name="diagnostics_metric_network">Network</string>
     <string name="diagnostics_metric_mode">Mode</string>
     <string name="diagnostics_metric_idle">Idle</string>
+    <string name="diagnostics_metric_telemetry_error">Telemetry error</string>
     <string name="diagnostics_metric_latest_native_failure">Latest native failure</string>
     <string name="diagnostics_metric_fallback_action">Fallback action</string>
     <string name="diagnostics_metric_failure_class">Failure class</string>
@@ -1833,6 +1834,7 @@ Source: %2$s</string>
     <string name="diagnostics_live_updated_format">Updated %1$s</string>
     <string name="diagnostics_live_no_telemetry">No live telemetry</string>
     <string name="diagnostics_live_body_waiting">Continuous monitor is waiting for an active RIPDPI session.</string>
+    <string name="diagnostics_live_telemetry_error_format">Telemetry polling issue: %1$s</string>
     <string name="diagnostics_live_failure_class_format">Latest failure class: %1$s</string>
     <string name="diagnostics_live_dns_override_format">Encrypted DNS override active: %1$s</string>
     <string name="diagnostics_live_handover_state_format">Network handover state: %1$s</string>

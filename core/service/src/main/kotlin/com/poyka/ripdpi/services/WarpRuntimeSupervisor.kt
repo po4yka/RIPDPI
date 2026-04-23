@@ -11,7 +11,7 @@ import com.poyka.ripdpi.core.RipDpiWarpRuntime
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.GlobalWarpEndpointScopeKey
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.WarpEndpointStore
@@ -281,7 +281,19 @@ internal class WarpRuntimeSupervisor(
         stopRequested = false
     }
 
-    suspend fun pollTelemetry(): NativeRuntimeSnapshot? = runCatching { warpRuntime?.pollTelemetry() }.getOrNull()
+    suspend fun pollTelemetry(): RuntimeTelemetryOutcome {
+        val runtime = warpRuntime ?: return RuntimeTelemetryOutcome.NoData
+        return runCatching { runtime.pollTelemetry() }
+            .fold(
+                onSuccess = { RuntimeTelemetryOutcome.Snapshot(it) },
+                onFailure = { error ->
+                    RuntimeTelemetryOutcome.EngineError(
+                        message = error.message ?: "WARP telemetry polling failed",
+                        causeClass = error.javaClass.name,
+                    )
+                },
+            )
+    }
 }
 
 internal open class WarpRuntimeSupervisorFactory

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -132,7 +133,7 @@ class ProxyRuntimeSupervisorTest {
         }
 
     @Test
-    fun pollTelemetryReturnsNullWhenRuntimeThrows() =
+    fun pollTelemetryReturnsEngineErrorWhenRuntimeThrows() =
         runTest {
             val dispatcher = StandardTestDispatcher(testScheduler)
             val runtime = TestProxyRuntime()
@@ -150,7 +151,25 @@ class ProxyRuntimeSupervisorTest {
 
             val telemetry = supervisor.pollTelemetry()
 
-            assertNull(telemetry)
+            assertTrue(telemetry is RuntimeTelemetryOutcome.EngineError)
+            assertEquals("telemetry crash", (telemetry as RuntimeTelemetryOutcome.EngineError).message)
+        }
+
+    @Test
+    fun pollTelemetryReturnsNoDataWhenRuntimeIsMissing() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val supervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = TestRipDpiProxyFactory(),
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                )
+
+            val telemetry = supervisor.pollTelemetry()
+
+            assertEquals(RuntimeTelemetryOutcome.NoData, telemetry)
         }
 
     @Test

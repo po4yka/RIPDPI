@@ -11,6 +11,9 @@ import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ResolverOverrideStore
+import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
+import com.poyka.ripdpi.data.RuntimeTelemetryState
+import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStatus
@@ -19,6 +22,8 @@ import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsBlockedPathStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.data.toRuntimeException
+import com.poyka.ripdpi.data.toStatus
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -240,18 +245,23 @@ internal class VpnServiceRuntimeCoordinator(
     }
 
     private suspend fun pollCurrentTelemetry(): VpnTelemetrySnapshot {
-        val proxyTelemetry = proxyRuntimeSupervisor.pollTelemetry() ?: NativeRuntimeSnapshot.idle(source = "proxy")
-        val relayTelemetry = upstreamRelaySupervisor.pollTelemetry() ?: NativeRuntimeSnapshot.idle(source = "relay")
-        val warpTelemetry = warpRuntimeSupervisor.pollTelemetry() ?: NativeRuntimeSnapshot.idle(source = "warp")
-        val tunnelTelemetryResult = vpnTunnelRuntime.pollTelemetry()
-        val tunnelTelemetry =
-            tunnelTelemetryResult.getOrNull() ?: NativeRuntimeSnapshot.idle(source = "tunnel")
+        val proxyTelemetryOutcome = proxyRuntimeSupervisor.pollTelemetry()
+        val relayTelemetryOutcome = upstreamRelaySupervisor.pollTelemetry()
+        val warpTelemetryOutcome = warpRuntimeSupervisor.pollTelemetry()
+        val tunnelTelemetryOutcome = vpnTunnelRuntime.pollTelemetry()
+        val proxyTelemetry = proxyTelemetryOutcome.snapshotOrIdle(source = "proxy")
+        val relayTelemetry = relayTelemetryOutcome.snapshotOrIdle(source = "relay")
+        val warpTelemetry = warpTelemetryOutcome.snapshotOrIdle(source = "warp")
+        val tunnelTelemetry = tunnelTelemetryOutcome.snapshotOrIdle(source = "tunnel")
         return VpnTelemetrySnapshot(
             proxyTelemetry = proxyTelemetry,
+            proxyTelemetryStatus = proxyTelemetryOutcome.toStatus(),
             relayTelemetry = relayTelemetry,
+            relayTelemetryStatus = relayTelemetryOutcome.toStatus(),
             warpTelemetry = warpTelemetry,
+            warpTelemetryStatus = warpTelemetryOutcome.toStatus(),
             tunnelTelemetry = applyPendingNetworkHandoverClass(tunnelTelemetry),
-            tunnelTelemetryResult = tunnelTelemetryResult,
+            tunnelTelemetryStatus = tunnelTelemetryOutcome.toStatus(),
         )
     }
 
@@ -287,6 +297,10 @@ internal class VpnServiceRuntimeCoordinator(
             relayTelemetry = telemetry.relayTelemetry,
             warpTelemetry = telemetry.warpTelemetry,
             tunnelTelemetry = telemetry.tunnelTelemetry,
+            proxyTelemetryStatus = telemetry.proxyTelemetryStatus,
+            relayTelemetryStatus = telemetry.relayTelemetryStatus,
+            warpTelemetryStatus = telemetry.warpTelemetryStatus,
+            tunnelTelemetryStatus = telemetry.tunnelTelemetryStatus,
             tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
             failureReason = failureReason,
         )
@@ -316,6 +330,10 @@ internal class VpnServiceRuntimeCoordinator(
             relayTelemetry = telemetry.relayTelemetry,
             warpTelemetry = telemetry.warpTelemetry,
             tunnelTelemetry = telemetry.tunnelTelemetry,
+            proxyTelemetryStatus = telemetry.proxyTelemetryStatus,
+            relayTelemetryStatus = telemetry.relayTelemetryStatus,
+            warpTelemetryStatus = telemetry.warpTelemetryStatus,
+            tunnelTelemetryStatus = telemetry.tunnelTelemetryStatus,
             tunnelRecoveryRetryCount = vpnTunnelRuntime.tunnelRecoveryRetryCount,
         )
         if (statusReporter.startedAt != null && screenStateObserver.isInteractive.value) {
@@ -573,14 +591,27 @@ internal class VpnServiceRuntimeStatusDependencies
 
 private data class VpnTelemetrySnapshot(
     val proxyTelemetry: NativeRuntimeSnapshot,
+    val proxyTelemetryStatus: RuntimeTelemetryStatus,
     val relayTelemetry: NativeRuntimeSnapshot,
+    val relayTelemetryStatus: RuntimeTelemetryStatus,
     val warpTelemetry: NativeRuntimeSnapshot,
+    val warpTelemetryStatus: RuntimeTelemetryStatus,
     val tunnelTelemetry: NativeRuntimeSnapshot,
-    val tunnelTelemetryResult: Result<NativeRuntimeSnapshot?>,
+    val tunnelTelemetryStatus: RuntimeTelemetryStatus,
 ) {
     fun failureReason(): FailureReason? =
-        tunnelTelemetryResult.exceptionOrNull()?.let { throwable ->
-            val error = throwable as? Exception ?: IllegalStateException("Tunnel telemetry failed", throwable)
-            classifyFailureReason(error, isTunnelContext = true)
+        if (tunnelTelemetryStatus.state == RuntimeTelemetryState.EngineError) {
+            classifyFailureReason(tunnelTelemetryStatus.toRuntimeException(), isTunnelContext = true)
+        } else {
+            null
         }
 }
+
+private fun RuntimeTelemetryOutcome.snapshotOrIdle(source: String): NativeRuntimeSnapshot =
+    when (this) {
+        is RuntimeTelemetryOutcome.Snapshot -> snapshot
+
+        RuntimeTelemetryOutcome.NoData,
+        is RuntimeTelemetryOutcome.EngineError,
+        -> NativeRuntimeSnapshot.idle(source = source)
+    }

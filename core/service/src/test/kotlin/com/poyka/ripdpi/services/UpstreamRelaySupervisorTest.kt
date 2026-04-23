@@ -19,6 +19,7 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish
 import com.poyka.ripdpi.data.StrategyFeatureFinalmask
@@ -33,6 +34,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UpstreamRelaySupervisorTest {
@@ -133,6 +135,48 @@ class UpstreamRelaySupervisorTest {
                 ),
                 exits,
             )
+        }
+
+    @Test
+    fun `pollTelemetry returns engine error when relay runtime throws`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val relayFactory = TestRipDpiRelayFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+                )
+
+            supervisor.start(
+                config = RipDpiRelayConfig(enabled = true, kind = RelayKindVlessReality, profileId = "edge"),
+                onUnexpectedExit = {},
+            )
+            relayFactory.lastRuntime.telemetryFailure = IOException("relay telemetry crash")
+
+            val telemetry = supervisor.pollTelemetry()
+
+            assertTrue(telemetry is RuntimeTelemetryOutcome.EngineError)
+            assertEquals("relay telemetry crash", (telemetry as RuntimeTelemetryOutcome.EngineError).message)
+        }
+
+    @Test
+    fun `pollTelemetry returns no data when relay runtime is missing`() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    relayFactory = TestRipDpiRelayFactory(),
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(),
+                )
+
+            assertEquals(RuntimeTelemetryOutcome.NoData, supervisor.pollTelemetry())
         }
 
     @Test

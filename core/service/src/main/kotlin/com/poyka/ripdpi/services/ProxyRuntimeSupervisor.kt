@@ -4,7 +4,7 @@ import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyPreferences
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -139,5 +139,17 @@ internal class ProxyRuntimeSupervisor(
         stopRequested = false
     }
 
-    suspend fun pollTelemetry(): NativeRuntimeSnapshot? = runCatching { proxyRuntime?.pollTelemetry() }.getOrNull()
+    suspend fun pollTelemetry(): RuntimeTelemetryOutcome {
+        val runtime = proxyRuntime ?: return RuntimeTelemetryOutcome.NoData
+        return runCatching { runtime.pollTelemetry() }
+            .fold(
+                onSuccess = { RuntimeTelemetryOutcome.Snapshot(it) },
+                onFailure = { error ->
+                    RuntimeTelemetryOutcome.EngineError(
+                        message = error.message ?: "Proxy telemetry polling failed",
+                        causeClass = error.javaClass.name,
+                    )
+                },
+            )
+    }
 }

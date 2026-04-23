@@ -43,6 +43,16 @@ Status: COMPLETE.
 - Switched Kotlin `awaitReady()` wrappers to wait for typed readiness events instead of treating `state == "running"` as sufficient.
 - Updated contract fixtures, telemetry goldens, and wrapper/supervisor regression coverage for the stricter readiness handshake.
 
+### 2026-04-23: Typed Telemetry Outcomes
+
+Status: COMPLETE.
+
+- Added a shared typed runtime telemetry outcome contract so polling distinguishes real snapshots, no-data runtime absence, and engine polling errors.
+- Switched proxy, relay, WARP, and tunnel telemetry polling to return typed outcomes instead of collapsing failures into `null` or idle snapshots.
+- Threaded per-runtime telemetry status through `ServiceTelemetrySnapshot`, diagnostics persistence, exports, and current diagnostics UI surfaces.
+- Preserved existing tunnel failure handling while keeping proxy, relay, and WARP polling failures observational only in this pass.
+- Bumped the diagnostics Room schema, added the new schema snapshot, and updated telemetry regression fixtures and goldens for the richer status model.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.
