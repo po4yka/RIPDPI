@@ -1,85 +1,170 @@
 ---
 version: alpha
 name: RIPDPI
-description: Monochrome-first Android VPN utility UI with compact operator tooling and restrained status color.
+description: Monochrome-first Android VPN utility UI with compact operator tooling, explicit state visibility, and restrained semantic status color.
 colors:
   primary: "#1A1A1A"
-  secondary: "#444444"
-  tertiary: "#E8E8E8"
-  neutral: "#FAFAFA"
-  surface: "#FFFFFF"
-  surface-variant: "#F0F0F0"
-  outline: "#757575"
-  outline-variant: "#D0D0D0"
+  background: "#FAFAFA"
+  foreground: "#1A1A1A"
+  card: "#FFFFFF"
+  cardForeground: "#1A1A1A"
+  muted: "#F5F5F5"
+  mutedForeground: "#575757"
+  accent: "#E8E8E8"
+  accentForeground: "#1A1A1A"
+  border: "#E0E0E0"
+  cardBorder: "#E8E8E8"
+  inputBackground: "#F5F5F5"
   success: "#047857"
   warning: "#B45309"
-  warning-container: "#FFF7ED"
+  warningForeground: "#FFFFFF"
+  warningContainer: "#FFF7ED"
+  warningContainerForeground: "#1A1A1A"
   destructive: "#B91C1C"
-  destructive-container: "#FEF2F2"
+  destructiveForeground: "#FFFFFF"
+  destructiveContainer: "#FEF2F2"
+  destructiveContainerForeground: "#7F1D1D"
   info: "#1D4ED8"
-  info-container: "#EFF6FF"
+  infoForeground: "#FFFFFF"
+  infoContainer: "#EFF6FF"
+  infoContainerForeground: "#1E3A8A"
   restricted: "#6B7280"
-  restricted-container: "#F3F4F6"
+  restrictedForeground: "#FFFFFF"
+  restrictedContainer: "#F3F4F6"
+  restrictedContainerForeground: "#374151"
+  divider: "#F0F0F0"
+  hairline: "#666666"
+  outline: "#757575"
+  outlineVariant: "#D0D0D0"
+  scrim: "#000000"
 typography:
-  screen-title:
+  screenTitle:
     fontFamily: Geist Sans
     fontSize: 22px
     fontWeight: 500
     lineHeight: 28px
-  app-bar-title:
+  appBarTitle:
     fontFamily: Geist Sans
     fontSize: 20px
     fontWeight: 500
     lineHeight: 28px
-  section-title:
+  sheetTitle:
+    fontFamily: Geist Sans
+    fontSize: 18px
+    fontWeight: 500
+    lineHeight: 24px
+  sectionTitle:
     fontFamily: Geist Sans
     fontSize: 13px
     fontWeight: 500
     lineHeight: 18px
     letterSpacing: 0.72px
+  introAction:
+    fontFamily: Geist Sans
+    fontSize: 14px
+    fontWeight: 400
+    lineHeight: 21px
+  introTitle:
+    fontFamily: Geist Sans
+    fontSize: 22px
+    fontWeight: 500
+    lineHeight: 30px
+  introBody:
+    fontFamily: Geist Sans
+    fontSize: 15px
+    fontWeight: 400
+    lineHeight: 22px
+  screenTitleEmphasis:
+    fontFamily: Geist Sans
+    fontSize: 22px
+    fontWeight: 700
+    lineHeight: 28px
   body:
     fontFamily: Geist Sans
     fontSize: 14px
     fontWeight: 400
     lineHeight: 20px
-  body-emphasis:
+  bodyEmphasis:
     fontFamily: Geist Sans
     fontSize: 14px
     fontWeight: 500
+    lineHeight: 20px
+  bodyEmphasisBold:
+    fontFamily: Geist Sans
+    fontSize: 14px
+    fontWeight: 700
+    lineHeight: 20px
+  secondaryBody:
+    fontFamily: Geist Sans
+    fontSize: 14px
+    fontWeight: 400
     lineHeight: 20px
   caption:
     fontFamily: Geist Sans
     fontSize: 12px
     fontWeight: 400
     lineHeight: 16px
+  smallLabel:
+    fontFamily: Geist Sans
+    fontSize: 12px
+    fontWeight: 500
+    lineHeight: 16px
   button:
     fontFamily: Geist Sans
     fontSize: 15px
     fontWeight: 500
     lineHeight: 20px
-  mono-inline:
+  navLabel:
+    fontFamily: Geist Sans
+    fontSize: 12px
+    fontWeight: 500
+    lineHeight: 16px
+  monoValue:
+    fontFamily: Geist Mono
+    fontSize: 14px
+    fontWeight: 400
+    lineHeight: 20px
+  monoConfig:
+    fontFamily: Geist Mono
+    fontSize: 14px
+    fontWeight: 400
+    lineHeight: 20px
+  monoInline:
     fontFamily: Geist Mono
     fontSize: 13px
     fontWeight: 400
     lineHeight: 20px
-  mono-log:
+  monoLog:
     fontFamily: Geist Mono
     fontSize: 12px
     fontWeight: 400
     lineHeight: 20px
-  brand-mark:
+  monoSmall:
+    fontFamily: Geist Mono
+    fontSize: 12px
+    fontWeight: 400
+    lineHeight: 16px
+  brandMark:
     fontFamily: Geist Pixel Circle
     fontSize: 32px
     fontWeight: 400
     lineHeight: 48px
     letterSpacing: 0.8px
+  brandStatus:
+    fontFamily: Geist Mono
+    fontSize: 13px
+    fontWeight: 500
+    lineHeight: 18px
 rounded:
   xs: 4px
   sm: 8px
-  md: 12px
-  lg: 16px
-  xl: 28px
-  hero: 48px
+  md: 10px
+  lg: 12px
+  xl: 16px
+  xlIncreased: 20px
+  xxl: 28px
+  xxlIncreased: 32px
+  xxxl: 48px
   full: 999px
 spacing:
   xs: 4px
@@ -92,94 +177,296 @@ spacing:
   section: 40px
   screen: 48px
 components:
-  button-primary:
+  screenCanvas:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    padding: "{spacing.screen}"
+  modalScrim:
+    backgroundColor: "{colors.scrim}"
+    size: 48px
+  screenTitlePanel:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.screenTitle}"
+    padding: "{spacing.lg}"
+  screenTitleEmphasisPanel:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.screenTitleEmphasis}"
+    padding: "{spacing.lg}"
+  sheetHeader:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.cardForeground}"
+    typography: "{typography.sheetTitle}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.lg}"
+  sectionLabel:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.sectionTitle}"
+    padding: "{spacing.sm}"
+  introHero:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.introTitle}"
+    padding: "{spacing.xl}"
+  introActionBar:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.introAction}"
+    padding: "{spacing.md}"
+  introBodyCopy:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.introBody}"
+    padding: "{spacing.md}"
+  textBody:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.body}"
+    padding: "{spacing.sm}"
+  textBodyEmphasis:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.bodyEmphasis}"
+    padding: "{spacing.sm}"
+  textBodyStrong:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.bodyEmphasisBold}"
+    padding: "{spacing.sm}"
+  textSecondary:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.mutedForeground}"
+    typography: "{typography.secondaryBody}"
+    padding: "{spacing.sm}"
+  textCaption:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.mutedForeground}"
+    typography: "{typography.caption}"
+    padding: "{spacing.xs}"
+  textSmallLabel:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.smallLabel}"
+    padding: "{spacing.xs}"
+  navItem:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.navLabel}"
+    padding: "{spacing.sm}"
+  inlineCode:
+    backgroundColor: "{colors.muted}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.monoInline}"
+    rounded: "{rounded.sm}"
+    padding: "{spacing.sm}"
+  logRow:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.monoLog}"
+    padding: "{spacing.sm}"
+  denseTelemetry:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.monoSmall}"
+    padding: "{spacing.xs}"
+  brandMarkBanner:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.brandMark}"
+    rounded: "{rounded.xxxl}"
+    padding: "{spacing.xl}"
+  statusLabel:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.brandStatus}"
+    padding: "{spacing.xs}"
+  buttonPrimary:
     backgroundColor: "{colors.primary}"
-    textColor: "{colors.surface}"
+    textColor: "{colors.background}"
     typography: "{typography.button}"
-    rounded: "{rounded.lg}"
+    rounded: "{rounded.xl}"
     height: 48px
-    padding: 20px
-  button-destructive:
+    padding: "{spacing.xl}"
+  buttonSecondary:
+    backgroundColor: "{colors.muted}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.button}"
+    rounded: "{rounded.xl}"
+    height: 48px
+    padding: "{spacing.xl}"
+  buttonOutline:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.button}"
+    rounded: "{rounded.xl}"
+    height: 48px
+    padding: "{spacing.xl}"
+  buttonGhostDisabled:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.mutedForeground}"
+    typography: "{typography.button}"
+    rounded: "{rounded.xl}"
+    height: 48px
+    padding: "{spacing.xl}"
+  buttonDestructive:
     backgroundColor: "{colors.destructive}"
-    textColor: "{colors.surface}"
+    textColor: "{colors.destructiveForeground}"
     typography: "{typography.button}"
-    rounded: "{rounded.lg}"
+    rounded: "{rounded.xl}"
     height: 48px
-    padding: 20px
-  input-default:
-    backgroundColor: "{colors.surface-variant}"
-    textColor: "{colors.primary}"
-    typography: "{typography.body}"
-    rounded: "{rounded.lg}"
-    height: 48px
-    padding: 16px
-  card-default:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.primary}"
-    rounded: "{rounded.lg}"
-    padding: 16px
-  screen-default:
-    backgroundColor: "{colors.neutral}"
-    textColor: "{colors.primary}"
-    padding: 48px
-  label-secondary:
-    backgroundColor: "{colors.neutral}"
-    textColor: "{colors.secondary}"
-    typography: "{typography.body}"
-    padding: 4px
-  surface-muted:
-    backgroundColor: "{colors.tertiary}"
-    textColor: "{colors.primary}"
-    rounded: "{rounded.md}"
-    padding: 12px
-  rule-strong:
-    backgroundColor: "{colors.outline}"
-    height: 1px
-    width: 48px
-  rule-subtle:
-    backgroundColor: "{colors.outline-variant}"
-    height: 1px
-    width: 48px
-  status-success:
-    backgroundColor: "{colors.success}"
-    textColor: "{colors.surface}"
+    padding: "{spacing.xl}"
+  iconButtonGhost:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
     rounded: "{rounded.full}"
-    padding: 8px
-  status-warning:
+    size: 48px
+  chipDefault:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.smallLabel}"
+    rounded: "{rounded.lg}"
+    padding: "{spacing.md}"
+  chipSelected:
+    backgroundColor: "{colors.foreground}"
+    textColor: "{colors.background}"
+    typography: "{typography.smallLabel}"
+    rounded: "{rounded.lg}"
+    padding: "{spacing.md}"
+  textFieldDefault:
+    backgroundColor: "{colors.inputBackground}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.monoValue}"
+    rounded: "{rounded.xl}"
+    height: 48px
+    padding: "{spacing.lg}"
+  textFieldConfig:
+    backgroundColor: "{colors.inputBackground}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.monoConfig}"
+    rounded: "{rounded.xl}"
+    height: 96px
+    padding: "{spacing.lg}"
+  textFieldError:
+    backgroundColor: "{colors.inputBackground}"
+    textColor: "{colors.destructive}"
+    typography: "{typography.monoValue}"
+    rounded: "{rounded.xl}"
+    height: 48px
+    padding: "{spacing.lg}"
+  cardOutlined:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.cardForeground}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.lg}"
+  cardTonal:
+    backgroundColor: "{colors.muted}"
+    textColor: "{colors.foreground}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.lg}"
+  cardElevated:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.cardForeground}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.lg}"
+  cardStatus:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.accentForeground}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.lg}"
+  settingsRow:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.body}"
+    rounded: "{rounded.lg}"
+    height: 52px
+    padding: "{spacing.lg}"
+  settingsRowSelected:
+    backgroundColor: "{colors.accent}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.bodyEmphasis}"
+    rounded: "{rounded.lg}"
+    height: 68px
+    padding: "{spacing.lg}"
+  topAppBar:
+    backgroundColor: "{colors.background}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.appBarTitle}"
+    height: 56px
+    padding: "{spacing.lg}"
+  warningBadge:
     backgroundColor: "{colors.warning}"
-    textColor: "{colors.surface}"
-    rounded: "{rounded.md}"
-    padding: 8px
-  banner-warning:
-    backgroundColor: "{colors.warning-container}"
-    textColor: "{colors.primary}"
-    rounded: "{rounded.md}"
-    padding: 16px
-  banner-destructive:
-    backgroundColor: "{colors.destructive-container}"
-    textColor: "{colors.primary}"
-    rounded: "{rounded.md}"
-    padding: 16px
-  status-info:
+    textColor: "{colors.warningForeground}"
+    typography: "{typography.brandStatus}"
+    rounded: "{rounded.full}"
+    padding: "{spacing.sm}"
+  successBadge:
+    backgroundColor: "{colors.success}"
+    textColor: "{colors.background}"
+    typography: "{typography.brandStatus}"
+    rounded: "{rounded.full}"
+    padding: "{spacing.sm}"
+  warningBanner:
+    backgroundColor: "{colors.warningContainer}"
+    textColor: "{colors.warningContainerForeground}"
+    typography: "{typography.body}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.lg}"
+  destructiveBanner:
+    backgroundColor: "{colors.destructiveContainer}"
+    textColor: "{colors.destructiveContainerForeground}"
+    typography: "{typography.body}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.lg}"
+  infoBadge:
     backgroundColor: "{colors.info}"
-    textColor: "{colors.surface}"
-    rounded: "{rounded.md}"
-    padding: 8px
-  banner-info:
-    backgroundColor: "{colors.info-container}"
-    textColor: "{colors.primary}"
-    rounded: "{rounded.md}"
-    padding: 16px
-  status-restricted:
+    textColor: "{colors.infoForeground}"
+    typography: "{typography.brandStatus}"
+    rounded: "{rounded.full}"
+    padding: "{spacing.sm}"
+  infoBanner:
+    backgroundColor: "{colors.infoContainer}"
+    textColor: "{colors.infoContainerForeground}"
+    typography: "{typography.body}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.lg}"
+  restrictedBadge:
     backgroundColor: "{colors.restricted}"
-    textColor: "{colors.surface}"
-    rounded: "{rounded.md}"
-    padding: 8px
-  banner-restricted:
-    backgroundColor: "{colors.restricted-container}"
-    textColor: "{colors.primary}"
-    rounded: "{rounded.md}"
-    padding: 16px
+    textColor: "{colors.restrictedForeground}"
+    typography: "{typography.brandStatus}"
+    rounded: "{rounded.full}"
+    padding: "{spacing.sm}"
+  restrictedBanner:
+    backgroundColor: "{colors.restrictedContainer}"
+    textColor: "{colors.restrictedContainerForeground}"
+    typography: "{typography.body}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.lg}"
+  dividerRule:
+    backgroundColor: "{colors.divider}"
+    height: 1px
+    width: 48px
+  borderRule:
+    backgroundColor: "{colors.border}"
+    height: 1px
+    width: 48px
+  cardBorderRule:
+    backgroundColor: "{colors.cardBorder}"
+    height: 1px
+    width: 48px
+  outlineRule:
+    backgroundColor: "{colors.outline}"
+    height: 2px
+    width: 48px
+  outlineVariantRule:
+    backgroundColor: "{colors.outlineVariant}"
+    height: 1px
+    width: 48px
+  hairlineRule:
+    backgroundColor: "{colors.hairline}"
+    height: 1px
+    width: 48px
 ---
 
 # RIPDPI Design
@@ -187,82 +474,110 @@ components:
 ## Overview
 
 RIPDPI is an operator-facing Android utility, not a lifestyle product. The interface should feel quiet,
-deliberate, and technically trustworthy. The default tone is monochrome-first: dense information, strong
-contrast, minimal ornament, and only narrow use of semantic status color where the state itself matters.
+deliberate, and technically trustworthy. The visual language is monochrome-first: dense information, strong
+contrast, stable geometry, and narrow use of semantic status color only when the state itself matters.
 
-The UI should read like instrumentation rather than marketing. Surfaces stay matte and restrained. Controls
-are crisp, touch-safe, and stable under large font sizes. Dark mode mirrors the same hierarchy instead of
-introducing a different visual identity.
+The YAML tokens above describe the default light-theme baseline that agents can reuse across tools. The
+implementation adapts those roles for dark theme and high-contrast modes in Compose; those rules are part of
+the design contract and are described in the prose below.
 
 ## Colors
 
-The palette is intentionally conservative.
+Core UI uses achromatic structure:
 
-- **Primary (`#1A1A1A`)**: the core ink for primary text, key actions, and visual anchors.
-- **Secondary (`#444444`)**: subdued utility text and structural support where full ink would feel heavy.
-- **Tertiary (`#E8E8E8`)**: a pale support tone for containers and subdued emphasis.
-- **Neutral (`#FAFAFA`)**: the app canvas; it should feel clean but not stark.
-- **Surface (`#FFFFFF`)** and **Surface Variant (`#F0F0F0`)**: layered content backgrounds with subtle separation.
-- **Outline (`#757575`)** and **Outline Variant (`#D0D0D0`)**: durable borders and dividers.
+- `background`, `card`, and `muted` define the page, card, and secondary-surface hierarchy.
+- `foreground`, `cardForeground`, and `mutedForeground` define the text hierarchy.
+- `primary` is a portability alias for the same deep ink role as `foreground`.
+- `accent` and `accentForeground` are for selected status cards or emphasized neutral surfaces, not for
+  playful branding.
+- `border`, `cardBorder`, `divider`, `hairline`, `outline`, and `outlineVariant` encode structure and focus.
 
-Status colors are reserved for diagnostics, warnings, destructive actions, and system health:
+Status color is intentionally scarce and semantic:
 
-- **Success (`#047857`)** for healthy or active confirmation.
-- **Warning (`#B45309`)** and **Warning Container (`#FFF7ED`)** for caution states.
-- **Destructive (`#B91C1C`)** and **Destructive Container (`#FEF2F2`)** for resets, failures, and danger.
-- **Info (`#1D4ED8`)** and **Info Container (`#EFF6FF`)** for explanatory state.
-- **Restricted (`#6B7280`)** and **Restricted Container (`#F3F4F6`)** for constrained or unavailable modes.
+- `success` means connected, healthy, or passed.
+- `warning` and `warningContainer` mean degraded or cautionary state.
+- `destructive` and `destructiveContainer` mean dangerous, failed, reset, or disconnect.
+- `info` and `infoContainer` mean explanatory state or guidance.
+- `restricted` and `restrictedContainer` mean limited capability or unavailable mode.
 
-Dark mode should preserve the same semantic hierarchy. It inverts contrast and surface depth, but it should
-not become colorful or glossy.
+Dark mode preserves the same role mapping instead of inventing a separate visual identity. Contrast settings
+increase readability by tightening muted, border, and outline relationships without making the app visually loud.
 
 ## Typography
 
-Typography uses bundled Geist families.
+Typography uses bundled Geist families only:
 
-- **Geist Sans** is the default UI face for titles, labels, and body text.
-- **Geist Mono** is reserved for logs, config fragments, strategy labels, and dense technical values.
-- **Geist Pixel Circle** is reserved for the home brand mark only.
+- `Geist Sans` for general UI, titles, and labels.
+- `Geist Mono` for telemetry, configuration, values, logs, and protocol-oriented strings.
+- `Geist Pixel Circle` for the home brand mark only.
 
-Text should stay compact and readable. Screen and app-bar titles are medium-weight rather than oversized.
-Section labels are small, tightly structured, and slightly tracked for grouping. Monospace text should feel
-operator-oriented, never decorative.
+Text should stay compact and readable. Emphasis comes from weight promotion before size changes. Agents should
+prefer `bodyEmphasis` and `bodyEmphasisBold` over inventing larger ad hoc styles for routine emphasis.
+
+Reserved usage matters:
+
+- `brandMark` is home-header only.
+- `brandStatus` is for compact status badges and telemetry labels.
+- `sectionTitle` is for section grouping labels, not for body emphasis.
+- `monoValue`, `monoConfig`, `monoInline`, `monoLog`, and `monoSmall` are operator-facing monospace roles.
 
 ## Layout
 
-The layout uses a 4px-derived spacing system with practical Android touch targets.
+The spacing system is based on a practical 4px grid:
 
-- Small steps (`4px`, `8px`, `12px`, `16px`) drive local control spacing.
-- Larger steps (`20px`, `24px`, `32px`, `40px`, `48px`) structure sections and screens.
-- Interactive controls should preserve a minimum visible height of `48px`.
+- `xs` to `lg` are for local control spacing and dense information layouts.
+- `xl` to `screen` are for section rhythm, scaffold padding, and larger breaks.
 
-RIPDPI is adaptive. Compact layouts should feel efficient, not cramped. Wider layouts should center or split
-content instead of stretching a single column edge to edge. Large font scale must remain supported without
-clipping or collapsing hierarchy.
+Layout is adaptive and width-aware:
+
+- `Compact`: under `600dp`
+- `Medium`: `600dp` to `839dp`
+- `Expanded`: `840dp` and above
+
+Compact layouts should feel efficient, not cramped. Expanded layouts should split primary and secondary
+panels instead of stretching one long column edge to edge. Form and settings flows should stay narrower than
+dashboard-style content.
+
+## Elevation & Depth
+
+RIPDPI uses depth conservatively:
+
+- Default cards stay flat and rely on borders and tonal separation first.
+- Elevated cards and sheets are reserved for dialogs, bottom sheets, and higher-priority content.
+- Status cards can carry modest lift, but decorative floating chrome is out of scope.
+- Scrims should feel functional and calm, never cinematic.
 
 ## Shapes
 
-Corners are rounded but restrained.
+Corners are rounded but restrained:
 
-- Small utility controls can use `4px` to `8px` radii.
-- Standard controls and cards typically use `12px` to `16px`.
-- Pills and segmented controls can use `28px` or fully rounded treatments.
-- Hero or brand surfaces may use a larger `48px` radius, but only when the screen family already supports it.
+- `xs`, `sm`, and `md` are for compact controls, small clusters, and subtle shape changes.
+- `lg` and `xl` are the default radii for chips, rows, buttons, cards, and fields.
+- `xlIncreased` and `xxlIncreased` are for expressive pressed or emphasized states, not a new default baseline.
+- `xxl`, `xxxl`, and `full` are for pills, hero surfaces, and circular controls where the shape communicates function.
 
-The shape language should feel precise and engineered, not playful.
+The shape language should feel precise and engineered, not soft or playful.
 
 ## Components
 
-Core components should follow a simple hierarchy:
+The primary reusable components are:
 
-- **Primary buttons** use dark ink fills with light text and a clear `48px` minimum height.
-- **Destructive buttons** use the destructive red only when the action is actually dangerous.
-- **Inputs** use muted container fills rather than stark outlined-only treatment.
-- **Cards** stay flat and quiet, relying on subtle borders and surface separation instead of heavy elevation.
-- **Warning and info banners** use pale semantic containers with strong readable foreground text.
+- Actions: `RipDpiButton`, `RipDpiIconButton`, `RipDpiChip`
+- Inputs: `RipDpiTextField`, `RipDpiConfigTextField`, `RipDpiDropdown`, `RipDpiSwitch`
+- Containers: `RipDpiCard`, `PresetCard`, `SettingsRow`, `RipDpiDialog`, `RipDpiBottomSheet`, `RipDpiSnackbar`, `WarningBanner`
+- Navigation: `RipDpiTopAppBar`, bottom navigation, `SettingsCategoryHeader`
+- Indicators: `StatusIndicator`, `LogRow`, `StageProgressIndicator`, `AnalysisProgressIndicator`, `RipDpiPageIndicators`
+- Scaffolds: `RipDpiContentScreenScaffold`, `RipDpiSettingsScaffold`, `RipDpiDashboardScaffold`, `RipDpiIntroScaffold`
 
-Disabled, focused, pressed, error, and selected states must remain visible. Icon-only actions require an
-accessible label. Monospace treatments belong in data-heavy or log-heavy surfaces, not in general navigation.
+Component behavior rules:
+
+- Primary buttons use `foreground` on `background` and keep a `48dp` minimum height.
+- Secondary buttons use tonal neutral treatment instead of accent color.
+- Ghost and outline actions stay visually light, but their disabled state must still be legible.
+- Text fields and dropdowns use filled muted surfaces, not raw outlined-only treatment.
+- Settings rows use stable vertical rhythm and must clearly communicate selected, navigable, and toggle states.
+- Warning and remediation surfaces use semantic containers, not full-saturation fills by default.
+- Monospace treatments belong in diagnostic or configuration contexts, not in general navigation chrome.
 
 ## Do's and Don'ts
 
@@ -270,14 +585,113 @@ Do:
 
 - keep the default UI monochrome-first
 - use semantic status color sparingly and intentionally
-- rely on shared tokens before introducing local visual values
-- preserve readable hierarchy in both light and dark themes
-- keep diagnostics and logs feeling dense, technical, and stable
+- reuse shared tokens before introducing local values
+- preserve stable hierarchy in light, dark, and high-contrast modes
+- favor dense, calm information presentation over decorative flourish
+- keep state changes visible even when color is reduced
 
 Don't:
 
 - turn the app into a gradient-heavy consumer dashboard
-- use bright accent colors for routine actions
-- hardcode one-off colors, spacing, or icon styles in screens
+- use bright accent color for routine actions
+- hardcode one-off colors, spacing, shapes, or icon styles in screens
 - use branding typography outside the reserved home-brand surface
-- rely on color alone to communicate warnings, selection, or disabled state
+- rely on color alone to communicate warning, selection, or disabled state
+- expand forms or settings flows to full-width panels on large screens
+
+## Accessibility
+
+Accessibility is a design requirement, not an afterthought:
+
+- Interactive elements must expose a semantic hit area of at least `48dp`.
+- Buttons, icon buttons, inputs, switches, chips, and selectable cards must keep visible disabled, focused,
+  pressed, loading, and error states where applicable.
+- Icon-only buttons require a content description.
+- `RipDpiDropdown`, `RipDpiTextField`, and `RipDpiSwitch` must surface labels and errors semantically.
+- Secondary text roles must remain readable in both light and dark themes.
+- Selectable surfaces such as `PresetCard` must expose selection state semantically, not only visually.
+- Large font scale must not clip primary actions, titles, or onboarding content.
+
+## Motion
+
+Motion should feel crisp and utilitarian:
+
+- Quick interactions use `120ms` timing.
+- General state changes use `220ms`.
+- Emphasized entry and exit transitions use `320ms`.
+- Route transitions use `260ms`.
+
+Interaction scale is modest:
+
+- Pressed surfaces can shrink to `0.98`.
+- Selection can grow to `1.02`.
+- Emphasis can reach `1.04`.
+
+Compose implementation uses both cubic easing and spring motion. Reduced-motion behavior is mandatory:
+
+- if animations are disabled, durations collapse to zero
+- if reduced motion applies, durations are reduced and infinite motion is disabled
+- press and emphasis springs must remain controlled and not become playful bounce animations
+
+## Iconography
+
+Icon rules are strict:
+
+- screens and components import icons only through `RipDpiIcons`
+- the action and navigation icon language is outlined Material
+- exceptions are limited to app assets and illustration surfaces
+- iconography should read as utility chrome, not branding
+
+## Theme Variants
+
+RIPDPI has three runtime presentation dimensions:
+
+- Light theme: the baseline defined in the YAML tokens above
+- Dark theme: same hierarchy and semantics, inverted for low-light use without changing personality
+- Contrast level: `Standard`, `Medium`, and `High`
+
+Contrast changes tighten readability rather than recolor the app:
+
+- `Medium` strengthens muted text and borders
+- `High` strengthens muted text, borders, and outline relationships further
+- dark high-contrast also nudges `inputBackground` toward stronger separation
+
+Agents should preserve semantic role names across variants rather than introducing theme-specific content
+branches unless a screen is intentionally showing theme comparison.
+
+## Screen Recipes
+
+Home:
+
+- use `RipDpiDashboardScaffold`
+- present a calm status header, primary connection actions, and split primary and secondary panels on expanded widths
+- reserve accent and status color for live connection, health, and recommendation state
+
+Settings and advanced settings:
+
+- use `RipDpiSettingsScaffold` or `RipDpiContentScreenScaffold` with form-width constraints
+- compose with `SettingsRow`, `RipDpiCard`, and section labels
+- keep controls dense, aligned, and monotone by default
+
+Diagnostics:
+
+- prefer card and banner groupings over unstructured long text
+- use monospace styles for probes, labels, and low-level evidence where the data is operator-facing
+- use semantic status color to distinguish health, caution, errors, and restricted actions
+
+Logs and history:
+
+- emphasize monospace rhythm and compact vertical spacing
+- use `LogRow` and quiet separators
+- keep chrome minimal so the data remains dominant
+
+Config and mode editor:
+
+- use filled text fields and monospace values for exact strings and protocol-oriented inputs
+- show validation and destructive affordances explicitly, never implicitly
+
+Onboarding, auth, and permission flows:
+
+- use `RipDpiIntroScaffold`
+- center the core narrative, keep the footer action stable, and preserve large-font integrity
+- use larger spacing and stronger title treatment without abandoning the monochrome personality
