@@ -38,6 +38,7 @@ REQUIRED_EXTENDED_SECTIONS = {
     "Iconography",
     "Theme Variants",
     "Screen Recipes",
+    "Screen Contracts",
 }
 REQUIRED_DOC_HEADINGS = {
     "Source of Truth",
@@ -45,6 +46,7 @@ REQUIRED_DOC_HEADINGS = {
     "Component Mapping",
     "Theme Variants",
     "Screen Recipes",
+    "Screen Contracts",
     "Drift Checks",
 }
 REQUIRED_DESIGN_SCREENSHOT_FUNCTIONS = {

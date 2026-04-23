@@ -112,6 +112,9 @@ class VerifyDesignMdTest(unittest.TestCase):
 
                 ## Screen Recipes
                 Sample
+
+                ## Screen Contracts
+                Sample
                 """,
             )
             self.write_file(
@@ -131,6 +134,9 @@ class VerifyDesignMdTest(unittest.TestCase):
                 Sample
 
                 ## Screen Recipes
+                Sample
+
+                ## Screen Contracts
                 Sample
 
                 ## Drift Checks

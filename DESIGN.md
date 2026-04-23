@@ -715,3 +715,44 @@ Onboarding, auth, and permission flows:
 - use `RipDpiIntroScaffold`
 - center the core narrative, keep the footer action stable, and preserve large-font integrity
 - use larger spacing and stronger title treatment without abandoning the monochrome personality
+
+## Screen Contracts
+
+Home:
+
+- keep banners above the dashboard content
+- make `HomeStatusCard` the first primary block and `HomeDiagnosticsCard` the second
+- keep the default order: banners, status, diagnostics, optional approach, history, then stats
+- keep approach, history, and stats as supporting content rather than competing hero panels
+- preserve the expanded-width split between primary operational panels and secondary overview content
+
+Diagnostics:
+
+- anchor the screen with `RipDpiScreenScaffold`, `RipDpiTopAppBar`, and `DiagnosticsSectionSwitcher`
+- keep dashboard, scan, and tools responsibilities separated instead of mixing them into one card stack
+- group evidence and recommendations with cards, banners, chips, rows, and dialogs rather than free-form text
+- keep dashboard, scan, tools, sessions, and events as the top-level information buckets
+- reserve monospace treatment for operator-facing artifacts such as ids, domains, protocols, and candidate labels
+
+Logs:
+
+- keep the order `LogsOverviewCard`, `LogsFiltersSection`, then the stream section
+- use `SettingsRow` for filters and facts only, and `LogRow` for actual log entries
+- keep the stream inside `LogsStreamCard` with `LogRow` and quiet separators
+- render empty states as cards, not loose body text
+- keep chrome minimal so the log data stays dominant
+
+Settings:
+
+- build the main settings surface with `RipDpiSettingsScaffold`
+- compose sections from `SettingsCategoryHeader`, `RipDpiCard`, and `SettingsRow`
+- let banners precede the affected card, not replace the card structure
+- use banners for cautions and permission guidance, and dialogs or form controls for edits and confirmations
+- keep advanced settings in the same dense list language instead of switching to a different visual system
+
+Config:
+
+- keep `ConfigScreen` for preset browsing and `ModeEditorScreen` for exact editing
+- preserve the overview, presets, and summary structure on `ConfigScreen`
+- use `PresetCard` for preset choice and `SettingsRow` for summary values
+- keep `ModeEditorScreen` as a bounded form with network, relay, engine, and override sections, plus a persistent cancel/save bottom bar and explicit validation feedback

@@ -178,6 +178,66 @@ Onboarding and permission flows:
 - Keep the centered narrative, stable footer action, and large-font resilience.
 - Increase breathing room, not decorative flourish.
 
+## Screen Contracts
+
+### Home
+
+- Build with `RipDpiDashboardScaffold` and keep warning or permission banners above the main dashboard content.
+- The first primary block must be `HomeStatusCard`; connection state, verification state, and the primary toggle live there and should not be split across multiple cards.
+- The second primary block must be `HomeDiagnosticsCard`; it owns analysis actions, latest audit summary, remediation ladder, and scan-progress affordances.
+- Supporting overview content should stay in secondary cards such as `HomeApproachCard`, `HomeHistoryCard`, and `HomeStatsGrid`.
+- The default order is banners, `HomeStatusCard`, `HomeDiagnosticsCard`, optional `HomeApproachCard`, `HomeHistoryCard`, then overview stats.
+- Use `WarningBanner`, `RipDpiButton`, `StatusIndicator`, `DiagnosticsRemediationLadderCard`, `StageProgressIndicator`, `AnalysisProgressIndicator`, and `RipDpiBottomSheet` as the default Home primitive set.
+- Expanded width should preserve a two-column hierarchy: status and diagnostics on the primary column, overview and history on the secondary column.
+- Use `WarningBanner` only for service errors, permission recovery, or background-guidance issues. Do not restyle those concerns as neutral cards.
+- Do not introduce decorative hero art, floating metric tiles, alternate action bars above the status card, or inline raw diagnostics tables that belong in Diagnostics or a bottom sheet.
+
+### Diagnostics
+
+- Build with `RipDpiScreenScaffold` and `RipDpiTopAppBar`, then anchor the body with `DiagnosticsSectionSwitcher` followed by section content inside the pager.
+- Dashboard, Scan, Tools, Sessions, and Events remain top-level sections. New diagnostics content should attach to one of those sections before introducing another root tab.
+- Dashboard should own health summary, active profile context, remembered-network state, and grouped warnings.
+- Scan should own profile selection, workflow controls, live progress, latest session, strategy reports, and latest evidence.
+- Tools should own approach selection, preview or export actions, and optional debug or performance cards.
+- Evidence and recommendations must be grouped in `RipDpiCard`, `WarningBanner`, `SettingsRow`, `StatusIndicator`, `RipDpiChip`, and `RipDpiBottomSheet` compositions rather than raw text blocks.
+- Operator-facing artifacts such as candidate ids, domains, resolver names, or transport evidence should use monospace roles and stable row layouts.
+- Destructive or high-risk actions must stay behind explicit buttons or dialogs such as `RipDpiDialog`; they must not hide inside row taps.
+- Feedback belongs in `RipDpiSnackbarHost` or semantic banners, not inline ad hoc color changes.
+- Do not mix scan controls, live evidence, and export tools into one undifferentiated card, and do not build feature-local tone palettes when a shared diagnostic primitive should own the state.
+
+### Logs
+
+- Build with `RipDpiScreenScaffold` and keep the screen visually quiet so the log stream remains dominant.
+- The top stack must keep `LogsOverviewCard`, `LogsFiltersSection`, and the stream section in that order.
+- Filter controls belong in `SettingsRow`, `RipDpiChip`, and `SettingsCategoryHeader`; `SettingsRow` is for binary filters and compact facts only, not for actual log entries.
+- The stream itself should stay inside `LogsStreamCard` and render entries with `LogRow`; preserve monospace rhythm, compact spacing, and divider discipline.
+- Empty or filtered-empty states should use a dedicated card such as `LogsEmptyStateCard`, never a raw placeholder string in the list viewport.
+- Copy, save, clear, refresh, and support-bundle feedback belongs in snackbar or explicit action rows, not transient inline text.
+- Do not add strong background fills, heavy chrome, oversized badges, or banners between individual log rows.
+
+### Settings
+
+- Build top-level settings with `RipDpiSettingsScaffold`; use `RipDpiContentScreenScaffold` only for narrower detail flows that do not behave like the main settings list.
+- Compose sections from `SettingsCategoryHeader`, `RipDpiCard`, and `SettingsRow`; a settings section should read as a compact list, not a collection of bespoke cards.
+- Keep connectivity, security, personalization, transparency, and maintenance concerns in separate sections with stable ordering.
+- A category should resolve to one primary grouped container with stable divider rhythm. Inline banners may precede the affected card, but banners do not replace section structure.
+- Use `WarningBanner` for VPN-specific cautions, permission guidance, or stateful advisories. Do not encode those states only through subtitle color.
+- Use `RipDpiDropdown`, `RipDpiTextField`, `RipDpiConfigTextField`, and dialogs for editable configuration, confirmation, and credential flows. Do not overload row subtitles with inline form editing.
+- Advanced settings should continue the same list-and-section language even when the content becomes dense; density may increase, but the primitive vocabulary should not change.
+- Do not introduce alternate typography hierarchies, floating save bars, decorative containers that break the settings rhythm, or multiple banners as a substitute for missing section hierarchy.
+
+### Config
+
+- Treat Config as two coordinated flows: `ConfigScreen` for preset selection and summary, and `ModeEditorScreen` for exact editing.
+- `ConfigScreen` should keep this order: CLI warning if present, overview card with active preset and mode chips, presets list, then summary card.
+- Preset selection belongs in `PresetCard`; selection state must remain explicit and semantic, never implied only by position or accent color.
+- Summary values should use `SettingsRow`, with monospace values for addresses, ports, TTLs, and chain-like strings.
+- `ModeEditorScreen` should keep an intro card followed by network, relay, engine, and override sections as needed, all within the same bounded form column.
+- `ModeEditorScreen` must use `RipDpiScreenScaffold` with a stable top app bar, a bounded form column, and a persistent two-action bottom bar for cancel and save.
+- Use `RipDpiConfigTextField` for multi-line or raw config payloads, `RipDpiTextField` for discrete scalar fields, and `RipDpiSwitch` for boolean options.
+- Validation should be field-local first and banner-level second. Validation, import, and destructive confirmation must surface through `WarningBanner`, snackbar, or `RipDpiDialog`; never hide validation only in placeholder text or button disablement.
+- Do not merge preset browsing and raw editing into one scrolling surface, and do not reuse `PresetCard` outside preset selection.
+
 ## Typography Rules
 
 - `brandMark`: reserved for the home brand header only.
