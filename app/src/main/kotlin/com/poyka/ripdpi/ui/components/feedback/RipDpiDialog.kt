@@ -33,7 +33,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
 enum class RipDpiDialogTone {
     Default,
@@ -108,7 +107,7 @@ fun RipDpiDialogCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val hasConfirmAction = confirmAction != null
-    val surfaceStyle = ripDpiSurfaceStyle(RipDpiSurfaceRole.Sheet)
+    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.Dialog)
 
     Surface(
         modifier = modifier,
@@ -172,36 +171,31 @@ private fun RipDpiModalIconBadge(
     tone: RipDpiDialogTone,
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
-    val containerColor =
+    val surfaceStyle =
         when (tone) {
-            RipDpiDialogTone.Destructive -> colors.destructiveContainer
+            RipDpiDialogTone.Destructive -> {
+                RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.DialogDestructiveIconBadge)
+            }
 
             RipDpiDialogTone.Info,
             RipDpiDialogTone.Default,
-            -> colors.inputBackground
-        }
-    val iconTint =
-        when (tone) {
-            RipDpiDialogTone.Destructive -> colors.destructive
-
-            RipDpiDialogTone.Info,
-            RipDpiDialogTone.Default,
-            -> colors.foreground
+            -> {
+                RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.DialogIconBadge)
+            }
         }
 
     Box(
         modifier =
             modifier
                 .size(components.dialogIconSize)
-                .background(color = containerColor, shape = RipDpiThemeTokens.shapes.full),
+                .background(color = surfaceStyle.container, shape = RipDpiThemeTokens.shapes.full),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = tone.name,
-            tint = iconTint,
+            tint = surfaceStyle.content,
             modifier = Modifier.size(RipDpiIconSizes.Default),
         )
     }

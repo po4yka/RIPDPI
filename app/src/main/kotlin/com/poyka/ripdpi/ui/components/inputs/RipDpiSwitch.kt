@@ -36,7 +36,6 @@ import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
 @Composable
 fun RipDpiSwitch(
@@ -252,7 +251,8 @@ private fun SwitchLayout(
                         .offset(x = dimensions.thumbPadding + thumbOffset)
                         .size(dimensions.thumbSize)
                         .shadow(
-                            elevation = ripDpiSurfaceStyle(RipDpiSurfaceRole.SwitchThumb).shadowElevation,
+                            elevation =
+                                RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.SwitchThumb).shadowElevation,
                             shape = CircleShape,
                             clip = false,
                         ).background(thumbColor.copy(alpha = alpha), CircleShape),

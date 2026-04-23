@@ -547,6 +547,24 @@ RIPDPI uses depth conservatively:
 - Status cards can carry modest lift, but decorative floating chrome is out of scope.
 - Scrims should feel functional and calm, never cinematic.
 
+## Surface Roles
+
+Shared containers use named surface roles instead of one-off container and border recipes:
+
+- Panel roles: standard card, tonal card, elevated card, status card, selected card.
+- Modal roles: dialog and bottom sheet.
+- Feedback roles: banner and snackbar.
+- Chrome roles: dropdown menu, bottom bar, bottom-bar indicator, and switch thumb.
+- Icon-badge roles: neutral dialog badge, destructive dialog badge, and bottom-sheet badge.
+
+Role rules:
+
+- `StatusCard` is neutral emphasis, not a warning or error container.
+- `SelectedCard` is for explicit picked-state surfaces such as preset selection.
+- Dialog and bottom-sheet surfaces may currently look aligned, but they are distinct roles and should stay named separately.
+- Shared containers should resolve these roles from the theme surface-token layer instead of rebuilding container,
+  border, content, or elevation inline.
+
 ## Shapes
 
 Corners are rounded but restrained:
@@ -579,6 +597,7 @@ Component behavior rules:
 - Warning and remediation surfaces use semantic containers, not full-saturation fills by default.
 - Monospace treatments belong in diagnostic or configuration contexts, not in general navigation chrome.
 - Shared components should resolve pressed, focused, disabled, loading, selected, and error visuals from a first-class state-token layer instead of rebuilding those palettes inline.
+- Shared panels, modals, menus, and navigation chrome should resolve their structure from first-class surface roles.
 
 ## Do's and Don'ts
 
