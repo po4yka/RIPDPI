@@ -9,7 +9,10 @@ use ripdpi_session::SessionState;
 
 use super::actions::{execute_udp_actions, UdpActionExecContext};
 use super::sockets::build_udp_upstream_socket;
-use crate::runtime::adaptive::{note_adaptive_udp_failure, note_evolver_failure, resolve_udp_hints_with_evolver};
+use crate::runtime::adaptive::{
+    note_adaptive_udp_failure, note_direct_path_all_ips_failed, note_direct_path_udp_failure, note_evolver_failure,
+    resolve_udp_hints_with_evolver,
+};
 use crate::runtime::morph::{emit_morph_hint_applied, udp_morph_hint_family};
 use crate::runtime::retry::{
     build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure,
@@ -100,6 +103,7 @@ pub(super) fn expire_udp_flows(
             Some(entry.payload.as_slice()),
             TransportProtocol::Udp,
         )?;
+        let _ = note_direct_path_udp_failure(state, entry.host.as_deref(), &entry.target_candidates);
         note_adaptive_udp_failure(
             state,
             failed_target,
@@ -145,6 +149,8 @@ pub(super) fn expire_udp_flows(
                 DETECT_CONNECT,
                 entry.host.as_deref(),
             );
+        } else {
+            let _ = note_direct_path_all_ips_failed(state, entry.host.as_deref(), &entry.target_candidates);
         }
     }
     Ok(())

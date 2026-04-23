@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class NativeRuntimeSnapshotTest {
@@ -53,5 +54,50 @@ class NativeRuntimeSnapshotTest {
         assertEquals(0L, stats.txBytes)
         assertEquals(0L, stats.rxPackets)
         assertEquals(0L, stats.rxBytes)
+    }
+
+    @Test
+    fun `direct path learning signals round trip through snapshot json`() {
+        val snapshot =
+            NativeRuntimeSnapshot(
+                source = "proxy",
+                state = "running",
+                directPathLearningSignals =
+                    listOf(
+                        DirectPathLearningSignal(
+                            authority = "example.org:443",
+                            ipSetDigest = "deadbeef",
+                            event = DirectPathLearningEvent.TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK,
+                            strategyFamily = "tlsrec_disorder",
+                            capturedAt = 123L,
+                        ),
+                        DirectPathLearningSignal(
+                            authority = "example.net:443",
+                            ipSetDigest = "",
+                            event = DirectPathLearningEvent.QUIC_SUCCESS,
+                            capturedAt = 456L,
+                        ),
+                    ),
+            )
+
+        val encoded = snapshotJson.encodeToString(NativeRuntimeSnapshot.serializer(), snapshot)
+        val decoded = snapshotJson.decodeFromString(NativeRuntimeSnapshot.serializer(), encoded)
+
+        assertEquals(2, decoded.directPathLearningSignals.size)
+        assertEquals(
+            DirectPathLearningEvent.TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK,
+            decoded.directPathLearningSignals.first().event,
+        )
+        assertEquals("tlsrec_disorder", decoded.directPathLearningSignals.first().strategyFamily)
+        assertEquals(456L, decoded.directPathLearningSignals.last().capturedAt)
+        assertNull(decoded.directPathLearningSignals.last().strategyFamily)
+    }
+
+    private companion object {
+        val snapshotJson =
+            kotlinx.serialization.json.Json {
+                explicitNulls = true
+                encodeDefaults = true
+            }
     }
 }

@@ -19,7 +19,10 @@ use self::flow::{
     should_migrate_quic_flow, store_udp_route_hint, udp_flow_at_capacity, udp_flow_limit, UdpFlowActivationState,
 };
 pub(crate) use self::sockets::{build_udp_relay_sockets, build_udp_upstream_socket};
-use super::adaptive::{note_adaptive_udp_success, note_evolver_success};
+use super::adaptive::{
+    emit_due_direct_path_learning_timeouts, note_adaptive_udp_success, note_direct_path_quic_success,
+    note_evolver_success,
+};
 use super::retry::note_retry_success;
 use super::routing::{note_route_success_for_transport, preferred_targets_for_transport};
 use super::state::RuntimeState;
@@ -37,6 +40,7 @@ pub(super) fn udp_associate_loop(
     let flow_limit = udp_flow_limit(&state.config);
 
     while running.load(Ordering::Relaxed) {
+        emit_due_direct_path_learning_timeouts(&state)?;
         expire_udp_flows(&state, &mut flow_state, protect_path.as_deref(), Instant::now())?;
         let mut made_progress = false;
         match client_relay.recv_from(&mut client_buffer) {
@@ -150,6 +154,7 @@ pub(super) fn udp_associate_loop(
                     entry.last_used = now;
                     entry.session.observe_inbound(&upstream_buffer[..n]);
                     if entry.awaiting_response {
+                        let _ = note_direct_path_quic_success(&state, entry.host.as_deref(), &entry.target_candidates);
                         note_adaptive_udp_success(
                             &state,
                             entry.current_target,
@@ -276,6 +281,9 @@ mod tests {
             adaptive_tuning: Arc::new(crate::sync::RwLock::new(AdaptivePlannerResolver::default())),
             retry_stealth: Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
             strategy_evolver: Arc::new(crate::sync::RwLock::new(StrategyEvolver::new(false, 0.0))),
+            direct_path_learning: Arc::new(crate::sync::RwLock::new(
+                crate::runtime::direct_path_learning::DirectPathLearningState::default(),
+            )),
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry: None,
             runtime_context,

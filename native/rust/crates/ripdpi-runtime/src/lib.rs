@@ -99,6 +99,15 @@ pub trait RuntimeTelemetrySink: Send + Sync {
     fn on_ws_tunnel_escalation(&self, _target: SocketAddr, _dc: u8, _success: bool) {}
 
     fn on_quic_migration_status(&self, _target: SocketAddr, _status: &'static str, _reason: &'static str) {}
+
+    fn on_direct_path_learning_signal(
+        &self,
+        _authority: &str,
+        _ip_set_digest: &str,
+        _event: &'static str,
+        _strategy_family: Option<&str>,
+    ) {
+    }
 }
 
 #[derive(Clone)]

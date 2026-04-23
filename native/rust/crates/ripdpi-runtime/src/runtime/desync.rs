@@ -429,7 +429,7 @@ fn has_tcp_actions(group: &DesyncGroup) -> bool {
     !group.effective_tcp_chain().is_empty() || group.actions.mod_http != 0 || group.actions.tlsminor.is_some()
 }
 
-pub(super) fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'static str> {
+pub(crate) fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'static str> {
     let chain = group.effective_tcp_chain();
     let has_tls_prelude = chain.iter().any(|step| step.kind.is_tls_prelude());
     chain.into_iter().find(|step| !step.kind.is_tls_prelude()).map(|step| match step.kind {

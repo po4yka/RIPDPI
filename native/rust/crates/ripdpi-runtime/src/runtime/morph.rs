@@ -215,6 +215,7 @@ mod tests {
     use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
     use crate::adaptive_tuning::AdaptivePlannerResolver;
     use crate::retry_stealth::RetryPacer;
+    use crate::runtime::direct_path_learning::DirectPathLearningState;
     use crate::runtime::state::RuntimeState;
     use crate::runtime_policy::RuntimePolicy;
     use crate::strategy_evolver::StrategyEvolver;
@@ -231,6 +232,7 @@ mod tests {
             adaptive_tuning: Arc::new(RwLock::new(AdaptivePlannerResolver::default())),
             retry_stealth: Arc::new(RwLock::new(RetryPacer::default())),
             strategy_evolver: Arc::new(RwLock::new(StrategyEvolver::new(false, 0.0))),
+            direct_path_learning: Arc::new(RwLock::new(DirectPathLearningState::default())),
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry: None,
             runtime_context: Some(ProxyRuntimeContext {

@@ -111,7 +111,7 @@ fun ServerCapabilityRecord.effectiveTransportPolicyEnvelope(): TransportPolicyEn
                     quicMode = QuicMode.HARD_DISABLE,
                     preferredStack = PreferredStack.H2,
                     dnsMode = DnsMode.SYSTEM,
-                    tcpFamily = TcpFamily.REC_PRE_SNI,
+                    tcpFamily = normalizeStrategyFamilyToTcpFamily("tlsrec"),
                     outcome = DirectModeOutcome.TRANSPARENT_OK,
                 )
             }
@@ -339,9 +339,19 @@ private fun mergeTransportPolicyEnvelope(
     if (!hasObservationPolicyData) {
         return existingEnvelope
     }
+    if (observation.transportPolicy != null) {
+        return TransportPolicyEnvelope(
+            version = CurrentTransportPolicyEnvelopeVersion,
+            policy = observation.transportPolicy,
+            ipSetDigest = observation.ipSetDigest?.trim().orEmpty(),
+            transportClass = observation.transportClass,
+            reasonCode = observation.reasonCode,
+            cooldownUntil = observation.cooldownUntil?.takeIf { it > 0L },
+        )
+    }
     return TransportPolicyEnvelope(
         version = CurrentTransportPolicyEnvelopeVersion,
-        policy = observation.transportPolicy ?: existingEnvelope?.policy ?: TransportPolicy(),
+        policy = existingEnvelope?.policy ?: TransportPolicy(),
         ipSetDigest =
             observation.ipSetDigest
                 ?.trim()
