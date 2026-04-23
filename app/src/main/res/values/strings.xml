@@ -371,7 +371,7 @@
     <string name="home_diagnostics_actionable_section">What to do next</string>
     <string name="home_diagnostics_network_section">On this network</string>
     <string name="home_diagnostics_network_transport">Transport</string>
-    <string name="home_diagnostics_network_operator">Operator / SSID</string>
+    <string name="home_diagnostics_network_operator">Operator / network</string>
     <string name="home_diagnostics_network_asn">ASN / ISP</string>
     <string name="home_diagnostics_network_public_ip">Public IP</string>
     <string name="home_diagnostics_network_captive_portal">Captive portal</string>
@@ -505,7 +505,7 @@
     <string name="config_relay_masque_import_private_key">Import private key</string>
     <string name="config_relay_masque_import_pkcs12">Import PKCS#12 bundle</string>
     <string name="config_relay_masque_cloudflare_geohash_enabled">Enable Cloudflare egress hints</string>
-    <string name="config_relay_masque_cloudflare_geohash_helper">Best-effort coarse location adds the optional sec-ch-geohash header for Cloudflare direct routing.</string>
+    <string name="config_relay_masque_cloudflare_geohash_helper">Best-effort coarse location adds an optional country-plus-region sec-ch-geohash header for Cloudflare direct routing.</string>
     <string name="config_relay_masque_pkcs12_dialog_title">Import PKCS#12 identity</string>
     <string name="config_relay_masque_pkcs12_password">Bundle password</string>
     <string name="config_relay_masque_pkcs12_password_helper">Leave empty if the PKCS#12 bundle has no password.</string>
