@@ -183,6 +183,134 @@ class DiagnosticsHomeCompositeRunServiceTest {
         }
 
     @Test
+    fun `strategy stage timeout reuses partial cancellation results instead of retrying immediately`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = MutableDiagnosticsTimelineSource()
+            val scanController =
+                object : DiagnosticsScanController {
+                    override val hiddenAutomaticProbeActive = MutableStateFlow(false)
+                    val startedRequests = mutableListOf<Pair<ScanPathMode, String?>>()
+                    private var nextId = 0
+                    private var activeStrategySessionId: String? = null
+
+                    override suspend fun startScan(
+                        pathMode: ScanPathMode,
+                        selectedProfileId: String?,
+                        skipActiveScanCheck: Boolean,
+                        allowSensitiveProfileStart: Boolean,
+                        scanDeadlineMs: Long?,
+                        maxCandidates: Int?,
+                        targetOverrides: DiagnosticsScanTargetOverrides?,
+                    ): DiagnosticsManualScanStartResult {
+                        nextId += 1
+                        val sessionId = "scan-$nextId"
+                        val profileId = requireNotNull(selectedProfileId)
+                        startedRequests += pathMode to profileId
+                        val status = if (profileId == "ru-dpi-strategy") "running" else "completed"
+                        val summary =
+                            if (status == "running") {
+                                "$profileId running"
+                            } else {
+                                "$profileId complete"
+                            }
+                        val session =
+                            diagnosticsSession(
+                                id = sessionId,
+                                profileId = profileId,
+                                pathMode = pathMode.name,
+                                status = status,
+                                summary = summary,
+                                reportJson = if (status == "running") null else "{}",
+                            )
+                        stores.sessionsState.value = stores.sessionsState.value + session
+                        timelineSource.sessions.value =
+                            timelineSource.sessions.value + diagnosticScanSession(sessionId, profileId, status, summary)
+                        if (profileId == "ru-dpi-strategy") {
+                            activeStrategySessionId = sessionId
+                        }
+                        return DiagnosticsManualScanStartResult.Started(sessionId)
+                    }
+
+                    override suspend fun resolveHiddenProbeConflict(
+                        requestId: String,
+                        action: HiddenProbeConflictAction,
+                    ): DiagnosticsManualScanResolution = error("unused")
+
+                    override suspend fun cancelActiveScan() {
+                        val sessionId = activeStrategySessionId ?: return
+                        val recoveredSession =
+                            diagnosticsSession(
+                                id = sessionId,
+                                profileId = "ru-dpi-strategy",
+                                pathMode = ScanPathMode.RAW_PATH.name,
+                                status = "completed",
+                                summary = ScanCompletedWithPartialResultsSummary,
+                                reportJson = "{}",
+                            )
+                        stores.sessionsState.value =
+                            stores.sessionsState.value.filterNot { it.id == sessionId } + recoveredSession
+                        timelineSource.sessions.value =
+                            timelineSource.sessions.value.filterNot { it.id == sessionId } +
+                            diagnosticScanSession(
+                                sessionId,
+                                "ru-dpi-strategy",
+                                "completed",
+                                ScanCompletedWithPartialResultsSummary,
+                            )
+                        activeStrategySessionId = null
+                    }
+
+                    override suspend fun setActiveProfile(profileId: String) = Unit
+                }
+            val workflowService =
+                object : DiagnosticsHomeWorkflowService {
+                    override suspend fun currentFingerprintHash(): String = "fp-partial"
+
+                    override suspend fun finalizeHomeAudit(sessionId: String): DiagnosticsHomeAuditOutcome =
+                        DiagnosticsHomeAuditOutcome(
+                            sessionId = sessionId,
+                            fingerprintHash = "fp-partial",
+                            actionable = true,
+                            headline = "Analysis complete and settings applied",
+                            summary = "Reusable settings found.",
+                        )
+
+                    override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
+                        error("unused")
+                }
+            val service =
+                DefaultDiagnosticsHomeCompositeRunService(
+                    detectionStageRunner = NoopHomeDetectionStageRunner,
+                    detectorCatalogSource = NoopHomeDetectorCatalogSource,
+                    analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
+                    networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
+                    diagnosticsProfileCatalog = stores,
+                    diagnosticsScanController = scanController,
+                    diagnosticsTimelineSource = timelineSource,
+                    diagnosticsHomeWorkflowService = workflowService,
+                    scanRecordStore = stores,
+                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                    networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    probeResultCache = NoOpProbeResultCache(),
+                    json = diagnosticsTestJson(),
+                    scope = backgroundScope,
+                )
+
+            val started = service.startHomeAnalysis()
+            advanceUntilIdle()
+            val outcome = service.finalizeHomeRun(started.runId)
+
+            assertEquals(1, scanController.startedRequests.count { it.second == "ru-dpi-strategy" })
+            assertEquals(
+                DiagnosticsHomeCompositeStageStatus.COMPLETED,
+                outcome.stageSummaries.first { it.stageKey == "dpi_strategy" }.status,
+            )
+            assertTrue(outcome.bundleSessionIds.contains("scan-6"))
+        }
+
+    @Test
     fun `audit failure skips remaining stages`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()

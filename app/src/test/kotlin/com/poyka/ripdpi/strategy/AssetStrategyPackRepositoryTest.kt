@@ -602,6 +602,74 @@ class AssetStrategyPackRepositoryTest {
             assertEquals(initialSnapshot.packs.single().id, preservedSnapshot.packs.single().id)
         }
 
+    @Test
+    fun `refresh falls back to bundled snapshot when remote manifest is missing`() =
+        runTest {
+            val repository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestError =
+                                IOException(
+                                    "Remote request failed with HTTP 404 for " +
+                                        "https://raw.githubusercontent.com/poyka/ripdpi-strategy-packs/main/stable/manifest.json",
+                                ),
+                        ),
+                )
+
+            val refreshed =
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
+
+            assertEquals(StrategyPackCatalogSourceBundled, refreshed.source)
+            assertEquals("stable", refreshed.catalog.channel)
+            assertNull(refreshed.manifestVersion)
+        }
+
+    @Test
+    fun `refresh preserves cached downloaded snapshot when remote manifest is missing`() =
+        runTest {
+            val initialCatalogPayload = refreshedCatalogJson(sequence = 7)
+            val initialManifest = manifestFor(initialCatalogPayload, version = "2026.04.4")
+            val initialRepository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestPayload = Json.encodeToString(initialManifest),
+                            catalogPayload = initialCatalogPayload,
+                        ),
+                )
+
+            val initialSnapshot =
+                initialRepository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
+            val failingRepository =
+                createRepository(
+                    service =
+                        FakeStrategyPackDownloadService(
+                            manifestError =
+                                IOException(
+                                    "Remote request failed with HTTP 404 for " +
+                                        "https://raw.githubusercontent.com/poyka/ripdpi-strategy-packs/main/stable/manifest.json",
+                                ),
+                        ),
+                )
+
+            val refreshed =
+                failingRepository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
+
+            assertEquals(StrategyPackCatalogSourceDownloaded, refreshed.source)
+            assertEquals(initialSnapshot.manifestVersion, refreshed.manifestVersion)
+            assertEquals(initialSnapshot.catalog.sequence, refreshed.catalog.sequence)
+        }
+
     private fun createRepository(
         service: StrategyPackDownloadService,
         tempFileName: String = "strategy-pack-temp.json",
@@ -626,10 +694,18 @@ class AssetStrategyPackRepositoryTest {
     private class FakeStrategyPackDownloadService(
         private val manifestPayload: String = "",
         private val catalogPayload: String = "",
+        private val manifestError: Throwable? = null,
+        private val catalogError: Throwable? = null,
     ) : StrategyPackDownloadService {
-        override suspend fun downloadManifest(url: String): ByteArray = manifestPayload.toByteArray(Charsets.UTF_8)
+        override suspend fun downloadManifest(url: String): ByteArray {
+            manifestError?.let { throw it }
+            return manifestPayload.toByteArray(Charsets.UTF_8)
+        }
 
-        override suspend fun downloadCatalog(url: String): ByteArray = catalogPayload.toByteArray(Charsets.UTF_8)
+        override suspend fun downloadCatalog(url: String): ByteArray {
+            catalogError?.let { throw it }
+            return catalogPayload.toByteArray(Charsets.UTF_8)
+        }
     }
 
     private fun strategyPackTempFileFactory(fileName: String): StrategyPackTempFileFactory =
