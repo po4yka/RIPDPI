@@ -3025,6 +3025,7 @@ dependencies = [
  "proptest",
  "ripdpi-config",
  "ripdpi-desync",
+ "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-monitor",
  "ripdpi-native-protect",
