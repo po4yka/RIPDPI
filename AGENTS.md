@@ -342,6 +342,18 @@ Additional Rust/native skills in `.claude/skills/`:
 
 Treat the tables above as an index only. The source of truth for each skill is its own `SKILL.md`.
 
+## Design Sources
+
+For UI work, use these sources in order:
+
+1. `DESIGN.md` at the repository root for the portable design-system summary that agents can carry across tools
+2. `docs/design-system.md` for RIPDPI-specific engineering constraints not captured by the current `DESIGN.md` format
+3. `app/src/main/kotlin/com/poyka/ripdpi/ui/theme/` as the implementation source of truth for Compose tokens
+4. Roborazzi baselines under `app/src/test/screenshots/` for visual regression verification
+
+`DESIGN.md` is descriptive and portable. The Compose theme code and screenshot baselines remain canonical when
+there is any conflict.
+
 ## Repo-local Codex subagents
 
 Project-local Codex subagents live in `.codex/agents/` and should be delegated explicitly.
