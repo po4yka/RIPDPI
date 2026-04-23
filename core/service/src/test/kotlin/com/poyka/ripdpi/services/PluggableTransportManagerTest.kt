@@ -62,4 +62,54 @@ class PluggableTransportManagerTest {
         assertEquals(65, password.size)
         assertArrayEquals(payload.toByteArray(Charsets.UTF_8), username + password)
     }
+
+    @Test
+    fun `managed client connect request preserves domain target`() {
+        val encoded = encodeManagedClientSocksConnectRequest("example.com", 443)
+
+        assertArrayEquals(
+            byteArrayOf(
+                0x05,
+                0x01,
+                0x00,
+                0x03,
+                11,
+                'e'.code.toByte(),
+                'x'.code.toByte(),
+                'a'.code.toByte(),
+                'm'.code.toByte(),
+                'p'.code.toByte(),
+                'l'.code.toByte(),
+                'e'.code.toByte(),
+                '.'.code.toByte(),
+                'c'.code.toByte(),
+                'o'.code.toByte(),
+                'm'.code.toByte(),
+                0x01,
+                0xbb.toByte(),
+            ),
+            encoded,
+        )
+    }
+
+    @Test
+    fun `managed client connect request encodes numeric ipv4 without dns`() {
+        val encoded = encodeManagedClientSocksConnectRequest("203.0.113.9", 9001)
+
+        assertArrayEquals(
+            byteArrayOf(
+                0x05,
+                0x01,
+                0x00,
+                0x01,
+                203.toByte(),
+                0,
+                113,
+                9,
+                0x23,
+                0x29,
+            ),
+            encoded,
+        )
+    }
 }
