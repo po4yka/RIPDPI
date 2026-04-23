@@ -23,6 +23,7 @@ pub(crate) fn record_stream_relay_success(
     route: &ConnectionRoute,
     success_host: Option<&str>,
     success_payload: Option<&[u8]>,
+    strategy_family: Option<&str>,
 ) -> io::Result<()> {
     if !should_track_strategy_target(target) {
         return Ok(());
@@ -35,7 +36,8 @@ pub(crate) fn record_stream_relay_success(
             state,
             success_host,
             &targets,
-            state.config.groups.get(route.group_index).and_then(primary_tcp_strategy_family),
+            strategy_family
+                .or_else(|| state.config.groups.get(route.group_index).and_then(primary_tcp_strategy_family)),
         )?;
     }
     note_adaptive_fake_ttl_success(state, target, route.group_index, success_host)?;

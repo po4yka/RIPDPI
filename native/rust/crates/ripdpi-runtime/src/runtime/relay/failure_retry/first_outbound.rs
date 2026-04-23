@@ -25,6 +25,7 @@ pub(crate) struct PreparedRelay {
     pub(crate) success_recorded: bool,
     pub(crate) success_host: Option<String>,
     pub(crate) success_payload: Option<Vec<u8>>,
+    pub(crate) success_strategy_family: Option<&'static str>,
     pub(crate) client_closed: bool,
 }
 
@@ -51,6 +52,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         )?;
         let mut success_host = first_request.as_ref().and_then(|payload| extract_host(&self.state.config, payload));
         let mut success_payload = first_request.clone();
+        let mut success_strategy_family = None;
         let mut route = self.route;
 
         let Some(original_request) = first_request else {
@@ -61,6 +63,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                 success_recorded,
                 success_host,
                 success_payload,
+                success_strategy_family,
                 client_closed: true,
             });
         };
@@ -144,6 +147,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                 bytes_committed = send_outcome.bytes_committed,
                 "first outbound payload forwarded"
             );
+            success_strategy_family = send_outcome.strategy_family;
 
             if !inspect_first_response {
                 break;
@@ -181,6 +185,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                             &route,
                             host.as_deref(),
                             Some(&original_request),
+                            success_strategy_family,
                         )?;
                         success_recorded = true;
                     }
@@ -256,6 +261,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
             success_recorded,
             success_host,
             success_payload,
+            success_strategy_family,
             client_closed: false,
         })
     }

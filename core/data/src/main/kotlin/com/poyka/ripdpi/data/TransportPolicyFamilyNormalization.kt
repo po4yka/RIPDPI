@@ -11,6 +11,10 @@ fun normalizeStrategyFamilyToTcpFamily(strategyFamily: String?): TcpFamily {
             .orEmpty()
 
     return when (normalized) {
+        "rec_pre_sni" -> TcpFamily.REC_PRE_SNI
+
+        "rec_mid_sni" -> TcpFamily.REC_MID_SNI
+
         "tlsrec",
         "tlsrec_split",
         "tlsrec_seqovl",
@@ -19,6 +23,10 @@ fun normalizeStrategyFamilyToTcpFamily(strategyFamily: String?): TcpFamily {
         "tlsrec_fake",
         "tlsrandrec",
         -> TcpFamily.REC_PRE_SNI
+
+        "seg_pre_sni" -> TcpFamily.SEG_PRE_SNI
+
+        "seg_mid_sni" -> TcpFamily.SEG_MID_SNI
 
         "split",
         "seqovl",
