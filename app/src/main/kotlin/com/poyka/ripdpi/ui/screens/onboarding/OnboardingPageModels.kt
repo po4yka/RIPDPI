@@ -88,7 +88,7 @@ internal val OnboardingPages: List<OnboardingPage> =
         ),
         OnboardingPage.Setup(
             kind = SetupPageKind.ConnectionTest,
-            titleRes = R.string.onboarding_setup_test_title,
+            titleRes = R.string.onboarding_setup_validate_title,
             buttonLabelRes = R.string.onboarding_setup_finish,
         ),
     )

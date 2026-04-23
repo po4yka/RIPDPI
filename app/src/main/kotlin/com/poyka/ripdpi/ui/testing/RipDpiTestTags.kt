@@ -101,8 +101,12 @@ internal object RipDpiTestTags {
     const val OnboardingContinue = "onboarding-continue"
     const val OnboardingModeVpn = "onboarding-mode-vpn"
     const val OnboardingModeProxy = "onboarding-mode-proxy"
-    const val OnboardingRunTest = "onboarding-run-test"
-    const val OnboardingTestResult = "onboarding-test-result"
+    const val OnboardingValidateAction = "onboarding-validate-action"
+    const val OnboardingValidationStatus = "onboarding-validation-status"
+    const val OnboardingFinishKeepRunning = "onboarding-finish-keep-running"
+    const val OnboardingFinishDisconnected = "onboarding-finish-disconnected"
+    const val OnboardingFinishAnyway = "onboarding-finish-anyway"
+    const val OnboardingSwitchSuggestedMode = "onboarding-switch-suggested-mode"
 
     val onboardingDnsProvider: (String) -> String = { providerId -> "onboarding-dns-${sanitize(providerId)}" }
 
