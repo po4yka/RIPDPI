@@ -29,6 +29,7 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.toPolicyJson
 import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
+import com.poyka.ripdpi.data.isRuntimeUsableDirectPolicy
 import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.toActiveDnsSettings
 import com.poyka.ripdpi.data.toVpnDnsPolicyJson
@@ -277,9 +278,12 @@ class DefaultConnectionPolicyResolver
             if (networkScopeKey == null) {
                 emptyList()
             } else {
+                val now = System.currentTimeMillis()
                 serverCapabilityStore
                     .directPathCapabilitiesForFingerprint(networkScopeKey)
-                    .map { record ->
+                    .filter { record ->
+                        record.transportPolicyEnvelope == null || record.isRuntimeUsableDirectPolicy(now)
+                    }.map { record ->
                         val transportPolicyEnvelope = record.effectiveTransportPolicyEnvelope()
                         RipDpiDirectPathCapability(
                             authority = record.authority,

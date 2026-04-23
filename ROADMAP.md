@@ -129,8 +129,11 @@ Status: PARTIAL.
 - Fixed the diagnostics persistence boundary so orchestrator outputs now survive the stored engine-wire path instead of losing `strategyRecommendation` after finalization.
 - Threaded the typed direct-mode result through session projections and derived summaries, including an explicit positive `TRANSPARENT_WORKS` summary alongside the existing owned-stack and no-direct outcomes.
 - Restored the Home audit fallback path that applies persisted strategy recommendations when a reusable full strategy-probe winner is unavailable.
-- Updated diagnostics contract and workflow regressions to exercise the persisted wire format rather than serializing `ScanReport` directly in affected tests.
-- Remaining epic work is still open: Phase 0 passive observation, full Phase 1–4 arm orchestration, attempt-budget enforcement, confirmation-before-pin, and persistence revalidation / rotation.
+- Added a direct-path policy persistence coordinator that consults the previously stored authority record before pinning a new verdict, so diagnostics now has a lightweight Phase 0 passive prior instead of always deciding from zero.
+- Enforced confirmation-before-pin for persisted direct-mode policy: transparent and owned-stack outcomes now require corroborating DNS/active evidence or a matching previously confirmed record, and negative verdicts now require repeated active failures before they are promoted into stored policy.
+- Added a 7-day direct-path policy TTL plus three-failure revalidation retirement; runtime policy resolution now excludes unconfirmed, over-failed, expired, or cooldown-expired `NO_DIRECT_SOLUTION` entries from the injected direct-path capability set.
+- Added focused diagnostics/service regressions for confirmation, failure-budget retirement, and runtime filtering.
+- Remaining epic work is still open: the explicit ranked-arm dispatcher, per-class attempt-budget enforcement, and deterministic integration coverage for the full class-to-arm execution ladder.
 
 ### 2026-04-23: Owned-Stack Android 17 ECH Slice
 

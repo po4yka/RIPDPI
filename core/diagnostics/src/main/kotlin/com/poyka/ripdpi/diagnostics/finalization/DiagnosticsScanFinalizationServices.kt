@@ -198,7 +198,12 @@ class ScanFinalizationService
             fingerprint: NetworkFingerprint,
             report: ScanReport,
         ) {
-            collectDirectPathCapabilityObservations(report).forEach { (authority, observation) ->
+            val existingRecords =
+                serverCapabilityStore.directPathCapabilitiesForFingerprint(fingerprint.scopeKey())
+            buildPersistableDirectPathObservations(
+                report = report,
+                existingRecords = existingRecords,
+            ).forEach { (authority, observation) ->
                 serverCapabilityStore.rememberDirectPathObservation(
                     fingerprint = fingerprint,
                     authority = authority,
