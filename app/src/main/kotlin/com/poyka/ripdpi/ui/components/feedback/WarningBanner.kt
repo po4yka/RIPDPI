@@ -32,7 +32,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiBannerStateStyle
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
-import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 enum class WarningBannerTone {
@@ -53,8 +52,11 @@ fun WarningBanner(
     onClick: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
 ) {
-    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.Banner)
-    val state = RipDpiThemeTokens.state.banner.resolve(tone.toStateRole())
+    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.feedback.banner)
+    val state =
+        RipDpiThemeTokens.state.banner.resolve(
+            RipDpiThemeTokens.stateRoles.banner.fromTone(tone),
+        )
     val resolvedIcon = icon ?: defaultWarningBannerIcon(tone)
     val surfaceModifier =
         modifier
@@ -157,14 +159,6 @@ private fun defaultWarningBannerIcon(tone: WarningBannerTone): ImageVector =
         WarningBannerTone.Error -> RipDpiIcons.Error
         WarningBannerTone.Info -> RipDpiIcons.Info
         WarningBannerTone.Restricted -> RipDpiIcons.Lock
-    }
-
-private fun WarningBannerTone.toStateRole(): RipDpiBannerStateRole =
-    when (this) {
-        WarningBannerTone.Warning -> RipDpiBannerStateRole.Warning
-        WarningBannerTone.Error -> RipDpiBannerStateRole.Error
-        WarningBannerTone.Info -> RipDpiBannerStateRole.Info
-        WarningBannerTone.Restricted -> RipDpiBannerStateRole.Restricted
     }
 
 @Suppress("UnusedPrivateMember")

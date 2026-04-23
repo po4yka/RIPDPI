@@ -38,7 +38,6 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiClickable
-import com.poyka.ripdpi.ui.theme.RipDpiButtonStateRole
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -73,7 +72,7 @@ fun RipDpiButton(
     val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
     val state =
         RipDpiThemeTokens.state.button.resolve(
-            role = variant.toStateRole(),
+            role = RipDpiThemeTokens.stateRoles.button.fromVariant(variant),
             enabled = enabled,
             loading = loading,
             isPressed = isPressed,
@@ -219,15 +218,6 @@ private fun RipDpiButtonIcon(
         modifier = Modifier.size(RipDpiIconSizes.Default),
     )
 }
-
-private fun RipDpiButtonVariant.toStateRole(): RipDpiButtonStateRole =
-    when (this) {
-        RipDpiButtonVariant.Primary -> RipDpiButtonStateRole.Primary
-        RipDpiButtonVariant.Secondary -> RipDpiButtonStateRole.Secondary
-        RipDpiButtonVariant.Outline -> RipDpiButtonStateRole.Outline
-        RipDpiButtonVariant.Ghost -> RipDpiButtonStateRole.Ghost
-        RipDpiButtonVariant.Destructive -> RipDpiButtonStateRole.Destructive
-    }
 
 @Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)

@@ -36,7 +36,6 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
-import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 enum class RipDpiSnackbarTone {
@@ -215,7 +214,7 @@ private data class RipDpiSnackbarPalette(
 @Composable
 private fun ripDpiSnackbarPalette(tone: RipDpiSnackbarTone): RipDpiSnackbarPalette {
     val colors = RipDpiThemeTokens.colors
-    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.Snackbar)
+    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.feedback.snackbar)
 
     return when (tone) {
         RipDpiSnackbarTone.Default -> {
