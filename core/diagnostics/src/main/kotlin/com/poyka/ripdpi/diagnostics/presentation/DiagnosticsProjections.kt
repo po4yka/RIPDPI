@@ -4,6 +4,7 @@ import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.DiagnosticsLegalSafety
 import com.poyka.ripdpi.diagnostics.DiagnosticsProfileIntentBucket
+import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import com.poyka.ripdpi.diagnostics.ObservationFact
 import com.poyka.ripdpi.diagnostics.ProbePersistencePolicy
 import com.poyka.ripdpi.diagnostics.ProbeResult
@@ -37,6 +38,7 @@ data class DiagnosticsProfileProjection(
 data class DiagnosticsSessionProjection(
     val results: List<ProbeResult> = emptyList(),
     val resolverRecommendation: ResolverRecommendation? = null,
+    val directModeVerdict: DirectModeVerdict? = null,
     val strategyProbeReport: StrategyProbeReport? = null,
     val observations: List<ObservationFact> = emptyList(),
     val engineAnalysisVersion: String? = null,

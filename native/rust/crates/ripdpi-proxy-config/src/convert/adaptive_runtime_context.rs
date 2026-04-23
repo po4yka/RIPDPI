@@ -43,6 +43,32 @@ pub(crate) fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeConte
             if capability.authority.is_empty() {
                 return None;
             }
+            capability.transport_policy_version = capability.transport_policy_version.max(0);
+            capability.ip_set_digest = capability.ip_set_digest.trim().to_string();
+            capability.quic_mode = capability.quic_mode.trim().to_ascii_uppercase();
+            if capability.quic_mode.is_empty() {
+                capability.quic_mode = "ALLOW".to_string();
+            }
+            capability.preferred_stack = capability.preferred_stack.trim().to_ascii_uppercase();
+            if capability.preferred_stack.is_empty() {
+                capability.preferred_stack = "H3".to_string();
+            }
+            capability.dns_mode = capability.dns_mode.trim().to_ascii_uppercase();
+            if capability.dns_mode.is_empty() {
+                capability.dns_mode = "SYSTEM".to_string();
+            }
+            capability.tcp_family = capability.tcp_family.trim().to_ascii_uppercase();
+            if capability.tcp_family.is_empty() {
+                capability.tcp_family = "NONE".to_string();
+            }
+            capability.outcome = capability.outcome.trim().to_ascii_uppercase();
+            if capability.outcome.is_empty() {
+                capability.outcome = "TRANSPARENT_OK".to_string();
+            }
+            capability.transport_class =
+                trim_non_empty(capability.transport_class).map(|value| value.to_ascii_uppercase());
+            capability.reason_code = trim_non_empty(capability.reason_code).map(|value| value.to_ascii_uppercase());
+            capability.cooldown_until = capability.cooldown_until.filter(|value| *value > 0);
             capability.repeated_handshake_failure_class = trim_non_empty(capability.repeated_handshake_failure_class);
             capability.updated_at = capability.updated_at.max(0);
             Some(capability)

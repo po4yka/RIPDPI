@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.ServerCapabilityRecord
+import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
 import java.util.Locale
 
 private const val CapabilitySummaryItemLimit = 3
@@ -58,7 +60,9 @@ internal fun collectDirectPathCapabilityObservations(report: ScanReport): Map<St
         }
         aggregated[authority] = mergeObservation(aggregated[authority], derived)
     }
-    return aggregated
+    return aggregated.mapValues { (authority, observation) ->
+        enrichDirectPathCapabilityObservation(report, authority, observation)
+    }
 }
 
 private fun mergeCapabilityRecords(records: List<ServerCapabilityRecord>): ServerCapabilityRecord {
@@ -83,6 +87,10 @@ private fun mergeCapabilityRecords(records: List<ServerCapabilityRecord>): Serve
             records
                 .mapNotNull(ServerCapabilityRecord::repeatedHandshakeFailureClass)
                 .firstOrNull { it.isNotBlank() },
+        transportPolicyEnvelope =
+            records
+                .sortedByDescending(ServerCapabilityRecord::updatedAt)
+                .firstNotNullOfOrNull { it.transportPolicyEnvelope ?: it.effectiveTransportPolicyEnvelope() },
         source = records.first().source,
         updatedAt = records.maxOf(ServerCapabilityRecord::updatedAt),
     )
@@ -90,6 +98,13 @@ private fun mergeCapabilityRecords(records: List<ServerCapabilityRecord>): Serve
 
 private fun capabilitySummaryLine(record: ServerCapabilityRecord): String =
     buildList {
+        record.transportPolicyEnvelope?.policy?.outcome?.let { outcome ->
+            when (outcome) {
+                DirectModeOutcome.OWNED_STACK_ONLY -> add("Owned stack required")
+                DirectModeOutcome.NO_DIRECT_SOLUTION -> add("No direct solution")
+                DirectModeOutcome.TRANSPARENT_OK -> Unit
+            }
+        }
         record.quicUsable?.let { add(if (it) "QUIC usable" else "QUIC blocked") }
         record.udpUsable?.let { add(if (it) "UDP usable" else "UDP blocked") }
         record.authModeAccepted?.let { add(if (it) "Auth accepted" else "Auth rejected") }
@@ -110,6 +125,14 @@ private fun capabilitySummaryLine(record: ServerCapabilityRecord): String =
 
 private fun capabilityDetailFields(record: ServerCapabilityRecord): List<DiagnosticsAppliedSetting> =
     buildList {
+        record.transportPolicyEnvelope?.let { envelope ->
+            add(DiagnosticsAppliedSetting("Policy", envelope.policy.outcome.name))
+            add(DiagnosticsAppliedSetting("QUIC mode", envelope.policy.quicMode.name))
+            add(DiagnosticsAppliedSetting("Preferred stack", envelope.policy.preferredStack.name))
+            add(DiagnosticsAppliedSetting("TCP family", envelope.policy.tcpFamily.name))
+            envelope.transportClass?.let { add(DiagnosticsAppliedSetting("Transport class", it.name)) }
+            envelope.reasonCode?.let { add(DiagnosticsAppliedSetting("Reason", it.name)) }
+        }
         record.quicUsable?.let { add(DiagnosticsAppliedSetting("QUIC", capabilityFlagLabel(it))) }
         record.udpUsable?.let { add(DiagnosticsAppliedSetting("UDP", capabilityFlagLabel(it))) }
         record.authModeAccepted?.let { add(DiagnosticsAppliedSetting("Auth", capabilityFlagLabel(it))) }
@@ -157,6 +180,11 @@ private fun mergeObservation(
         fallbackRequired = incoming.fallbackRequired ?: existing?.fallbackRequired,
         repeatedHandshakeFailureClass =
             incoming.repeatedHandshakeFailureClass ?: existing?.repeatedHandshakeFailureClass,
+        transportPolicy = incoming.transportPolicy ?: existing?.transportPolicy,
+        ipSetDigest = incoming.ipSetDigest ?: existing?.ipSetDigest,
+        transportClass = incoming.transportClass ?: existing?.transportClass,
+        reasonCode = incoming.reasonCode ?: existing?.reasonCode,
+        cooldownUntil = incoming.cooldownUntil ?: existing?.cooldownUntil,
     )
 
 private fun ServerCapabilityObservation.isEmpty(): Boolean =
@@ -167,7 +195,12 @@ private fun ServerCapabilityObservation.isEmpty(): Boolean =
         shadowTlsCamouflageAccepted == null &&
         naiveHttpsProxyAccepted == null &&
         fallbackRequired == null &&
-        repeatedHandshakeFailureClass == null
+        repeatedHandshakeFailureClass == null &&
+        transportPolicy == null &&
+        ipSetDigest == null &&
+        transportClass == null &&
+        reasonCode == null &&
+        cooldownUntil == null
 
 private fun ProbeResult.directPathCapabilityAuthority(): String? =
     detailValue("targetHost")

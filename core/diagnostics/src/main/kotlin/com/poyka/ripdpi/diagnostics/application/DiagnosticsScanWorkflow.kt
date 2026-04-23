@@ -116,10 +116,12 @@ internal object DiagnosticsScanWorkflow {
                 report = report,
                 currentTcpFamily = settings.deriveStrategyLaneFamilies().tcpStrategyFamily,
             )
+        val directModeVerdict = deriveDirectModeVerdict(report)
         return report.copy(
             strategyProbeReport = strategyProbe,
             resolverRecommendation = resolverRecommendation,
             strategyRecommendation = strategyRecommendation,
+            directModeVerdict = directModeVerdict,
         )
     }
 

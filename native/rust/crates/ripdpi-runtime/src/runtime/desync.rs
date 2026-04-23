@@ -3022,6 +3022,16 @@ mod tests {
             udp_usable: None,
             fallback_required: Some(true),
             repeated_handshake_failure_class: Some("tcp_reset".to_string()),
+            transport_policy_version: 0,
+            ip_set_digest: String::new(),
+            quic_mode: "ALLOW".to_string(),
+            preferred_stack: "H2".to_string(),
+            dns_mode: "SYSTEM".to_string(),
+            tcp_family: "REC_PRE_SNI".to_string(),
+            outcome: "TRANSPARENT_OK".to_string(),
+            transport_class: Some("SNI_TLS_SUSPECT".to_string()),
+            reason_code: Some("TCP_POST_CLIENT_HELLO_FAILURE".to_string()),
+            cooldown_until: None,
             updated_at: 1,
         };
 
@@ -3046,6 +3056,16 @@ mod tests {
             udp_usable: Some(true),
             fallback_required: Some(false),
             repeated_handshake_failure_class: None,
+            transport_policy_version: 0,
+            ip_set_digest: String::new(),
+            quic_mode: "ALLOW".to_string(),
+            preferred_stack: "H3".to_string(),
+            dns_mode: "SYSTEM".to_string(),
+            tcp_family: "NONE".to_string(),
+            outcome: "TRANSPARENT_OK".to_string(),
+            transport_class: None,
+            reason_code: None,
+            cooldown_until: None,
             updated_at: 1,
         };
 

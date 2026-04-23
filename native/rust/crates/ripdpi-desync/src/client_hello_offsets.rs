@@ -150,7 +150,9 @@ fn parse_client_hello_layout_in_handshake_with_base(
     let mut extensions = Vec::new();
     let mut ext_cursor = extensions_start;
     while ext_cursor < extensions_end {
-        let ext_type = read_u16(buffer, ext_cursor).ok_or(ClientHelloOffsetsError::InvalidExtensionListLength)?;
+        let ext_type = read_u16(buffer, ext_cursor)
+            .and_then(|value| u16::try_from(value).ok())
+            .ok_or(ClientHelloOffsetsError::InvalidExtensionListLength)?;
         let ext_data_len =
             read_u16(buffer, ext_cursor + 2).ok_or(ClientHelloOffsetsError::InvalidExtensionListLength)?;
         let data_offset = ext_cursor + 4;

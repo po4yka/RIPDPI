@@ -661,6 +661,16 @@ fn runtime_context_sanitizes_direct_path_capabilities() {
                     udp_usable: Some(false),
                     fallback_required: Some(true),
                     repeated_handshake_failure_class: Some(" tcp_reset ".to_string()),
+                    transport_policy_version: -1,
+                    ip_set_digest: " 203.0.113.10,203.0.113.11 ".to_string(),
+                    quic_mode: " soft_disable ".to_string(),
+                    preferred_stack: " h2 ".to_string(),
+                    dns_mode: " doh_primary ".to_string(),
+                    tcp_family: " rec_pre_sni ".to_string(),
+                    outcome: " no_direct_solution ".to_string(),
+                    transport_class: Some(" sni_tls_suspect ".to_string()),
+                    reason_code: Some(" tcp_post_client_hello_failure ".to_string()),
+                    cooldown_until: Some(-1),
                     updated_at: -10,
                 },
                 ProxyDirectPathCapability {
@@ -669,6 +679,16 @@ fn runtime_context_sanitizes_direct_path_capabilities() {
                     udp_usable: None,
                     fallback_required: None,
                     repeated_handshake_failure_class: None,
+                    transport_policy_version: 0,
+                    ip_set_digest: String::new(),
+                    quic_mode: "ALLOW".to_string(),
+                    preferred_stack: "H3".to_string(),
+                    dns_mode: "SYSTEM".to_string(),
+                    tcp_family: "NONE".to_string(),
+                    outcome: "TRANSPARENT_OK".to_string(),
+                    transport_class: None,
+                    reason_code: None,
+                    cooldown_until: None,
                     updated_at: 0,
                 },
             ],
@@ -699,6 +719,16 @@ fn runtime_context_sanitizes_direct_path_capabilities() {
     assert_eq!(capability.udp_usable, Some(false));
     assert_eq!(capability.fallback_required, Some(true));
     assert_eq!(capability.repeated_handshake_failure_class.as_deref(), Some("tcp_reset"));
+    assert_eq!(capability.transport_policy_version, 0);
+    assert_eq!(capability.ip_set_digest, "203.0.113.10,203.0.113.11");
+    assert_eq!(capability.quic_mode, "SOFT_DISABLE");
+    assert_eq!(capability.preferred_stack, "H2");
+    assert_eq!(capability.dns_mode, "DOH_PRIMARY");
+    assert_eq!(capability.tcp_family, "REC_PRE_SNI");
+    assert_eq!(capability.outcome, "NO_DIRECT_SOLUTION");
+    assert_eq!(capability.transport_class.as_deref(), Some("SNI_TLS_SUSPECT"));
+    assert_eq!(capability.reason_code.as_deref(), Some("TCP_POST_CLIENT_HELLO_FAILURE"));
+    assert_eq!(capability.cooldown_until, None);
     assert_eq!(capability.updated_at, 0);
     assert_eq!(morph_policy.id, "balanced");
     assert_eq!(morph_policy.first_flight_size_min, 0);
