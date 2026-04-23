@@ -438,6 +438,14 @@ private fun buildResolvedRelayConfig(
         masquePrivacyPassProviderAuthToken = resolution.privacyPassRuntime?.providerAuthToken,
         cloudflareTunnelToken = credentials?.cloudflareTunnelToken,
         cloudflareTunnelCredentialsJson = credentials?.cloudflareTunnelCredentialsJson,
+        appsScriptScriptIds = effectiveConfig.appsScriptScriptIds,
+        appsScriptGoogleIp = effectiveConfig.appsScriptGoogleIp,
+        appsScriptFrontDomain = effectiveConfig.appsScriptFrontDomain,
+        appsScriptSniHosts = effectiveConfig.appsScriptSniHosts,
+        appsScriptVerifySsl = effectiveConfig.appsScriptVerifySsl,
+        appsScriptParallelRelay = effectiveConfig.appsScriptParallelRelay,
+        appsScriptDirectHosts = effectiveConfig.appsScriptDirectHosts,
+        appsScriptAuthKey = credentials?.appsScriptAuthKey,
         finalmask =
             ResolvedRelayFinalmaskConfig(
                 type = effectiveConfig.finalmask.type,

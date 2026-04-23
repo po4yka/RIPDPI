@@ -239,7 +239,7 @@ message AppSettings {
 
   // Tier 3 upstream relay
   bool relay_enabled = 170;
-  string relay_kind = 171; // "off" | "vless_reality" | "hysteria2" | "chain_relay" | "masque" | "cloudflare_tunnel" | "tuic_v5" | "shadowtls_v3" | "naiveproxy"
+  string relay_kind = 171; // "off" | "vless_reality" | "hysteria2" | "chain_relay" | "masque" | "cloudflare_tunnel" | "tuic_v5" | "shadowtls_v3" | "naiveproxy" | "google_apps_script"
   string relay_profile_id = 172;
   string relay_server = 173;
   int32 relay_server_port = 174;
@@ -281,6 +281,13 @@ message AppSettings {
   int32 relay_finalmask_fragment_min_bytes = 243;
   int32 relay_finalmask_fragment_max_bytes = 244;
   string ip_id_mode = 245; // "" | "seq" | "seqgroup" | "rnd" | "zero"
+  repeated string relay_apps_script_script_ids = 247;
+  string relay_apps_script_google_ip = 248;
+  string relay_apps_script_front_domain = 249;
+  bool relay_apps_script_verify_ssl = 250;
+  bool relay_apps_script_parallel_relay = 251;
+  repeated string relay_apps_script_sni_hosts = 252;
+  repeated string relay_apps_script_direct_hosts = 253;
   string relay_vless_transport = 214; // "reality_tcp" | "xhttp"
   string relay_xhttp_path = 215;
   string relay_xhttp_host = 216;

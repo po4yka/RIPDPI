@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.FakeTlsSniModeRandomized
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.QuicFakeProfileRealisticInitial
+import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
@@ -302,6 +303,48 @@ class RipDpiProxyPreferencesTest {
         assertEquals(2090, payload.int("localSocksPort"))
         assertEquals("false", payload.string("udpEnabled"))
         assertEquals("true", payload.string("tcpFallbackEnabled"))
+        assertEquals(original.relay, decoded?.relay)
+    }
+
+    @Test
+    fun uiPreferencesEncodeAndRoundTripGoogleAppsScriptRelayConfig() {
+        val original =
+            RipDpiProxyUIPreferences(
+                relay =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindGoogleAppsScript,
+                        profileId = "gas",
+                        appsScriptScriptIds = listOf("script-a", "script-b"),
+                        appsScriptGoogleIp = "142.250.185.142",
+                        appsScriptFrontDomain = "script.google.com",
+                        appsScriptSniHosts = listOf("script.google.com", "www.google.com"),
+                        appsScriptVerifySsl = false,
+                        appsScriptParallelRelay = true,
+                        appsScriptDirectHosts = listOf("youtube.com", "ytimg.com"),
+                    ),
+            )
+
+        val payload = original.toNativeConfigJson().parseJsonObject().objectAt("upstreamRelay")
+        val decoded = decodeRipDpiProxyUiPreferences(original.toNativeConfigJson())
+
+        assertEquals(RelayKindGoogleAppsScript, payload.string("kind"))
+        assertEquals(
+            listOf("script-a", "script-b"),
+            payload.array("appsScriptScriptIds").map { it.jsonPrimitive.content },
+        )
+        assertEquals("142.250.185.142", payload.string("appsScriptGoogleIp"))
+        assertEquals("script.google.com", payload.string("appsScriptFrontDomain"))
+        assertEquals(
+            listOf("script.google.com", "www.google.com"),
+            payload.array("appsScriptSniHosts").map { it.jsonPrimitive.content },
+        )
+        assertEquals("false", payload.string("appsScriptVerifySsl"))
+        assertEquals("true", payload.string("appsScriptParallelRelay"))
+        assertEquals(
+            listOf("youtube.com", "ytimg.com"),
+            payload.array("appsScriptDirectHosts").map { it.jsonPrimitive.content },
+        )
         assertEquals(original.relay, decoded?.relay)
     }
 

@@ -181,6 +181,14 @@ data class ResolvedRipDpiRelayConfig(
     val masquePrivacyPassProviderAuthToken: String? = null,
     val cloudflareTunnelToken: String? = null,
     val cloudflareTunnelCredentialsJson: String? = null,
+    val appsScriptScriptIds: List<String> = emptyList(),
+    val appsScriptGoogleIp: String = "",
+    val appsScriptFrontDomain: String = "",
+    val appsScriptSniHosts: List<String> = emptyList(),
+    val appsScriptVerifySsl: Boolean = com.poyka.ripdpi.data.DefaultRelayAppsScriptVerifySsl,
+    val appsScriptParallelRelay: Boolean = false,
+    val appsScriptDirectHosts: List<String> = emptyList(),
+    val appsScriptAuthKey: String? = null,
     val finalmask: ResolvedRelayFinalmaskConfig = ResolvedRelayFinalmaskConfig(),
 )
 

@@ -274,6 +274,40 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
+    fun `start selects Google Apps Script runtime for Google Apps Script kind`() =
+        runTest {
+            val relayFactory = TestRipDpiRelayFactory()
+            val googleAppsScriptFactory = TestGoogleAppsScriptRelayRuntimeFactory()
+            val supervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = StandardTestDispatcher(testScheduler),
+                    relayFactory = relayFactory,
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    googleAppsScriptRelayRuntimeFactory = googleAppsScriptFactory,
+                    runtimeConfigResolver =
+                        TestUpstreamRelayRuntimeConfigResolver(
+                            resolvedConfig = sampleResolvedRelayConfig(kind = RelayKindGoogleAppsScript),
+                        ),
+                )
+
+            supervisor.start(
+                config =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindGoogleAppsScript,
+                        profileId = "edge",
+                    ),
+                onUnexpectedExit = {},
+            )
+
+            assertEquals(1, googleAppsScriptFactory.runtimes.size)
+            assertEquals(0, relayFactory.runtimes.size)
+
+            supervisor.stop()
+        }
+
+    @Test
     fun `start passes owned quic migration policy to native runtime`() =
         runTest {
             val relayFactory = TestRipDpiRelayFactory()

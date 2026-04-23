@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
+import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
@@ -92,6 +93,22 @@ internal fun mergeRelayConfig(
         tuicCongestionControl = profile.tuicCongestionControl,
         shadowTlsInnerProfileId = profile.shadowTlsInnerProfileId.ifBlank { config.shadowTlsInnerProfileId },
         naivePath = profile.naivePath.ifBlank { config.naivePath },
+        appsScriptScriptIds =
+            profile.appsScriptScriptIds.takeIf {
+                it.isNotEmpty()
+            } ?: config.appsScriptScriptIds,
+        appsScriptGoogleIp = profile.appsScriptGoogleIp.ifBlank { config.appsScriptGoogleIp },
+        appsScriptFrontDomain = profile.appsScriptFrontDomain.ifBlank { config.appsScriptFrontDomain },
+        appsScriptSniHosts =
+            profile.appsScriptSniHosts.takeIf {
+                it.isNotEmpty()
+            } ?: config.appsScriptSniHosts,
+        appsScriptVerifySsl = profile.appsScriptVerifySsl,
+        appsScriptParallelRelay = profile.appsScriptParallelRelay,
+        appsScriptDirectHosts =
+            profile.appsScriptDirectHosts.takeIf {
+                it.isNotEmpty()
+            } ?: config.appsScriptDirectHosts,
         ptBridgeLine = profile.ptBridgeLine.ifBlank { config.ptBridgeLine },
         ptWebTunnelUrl = profile.ptWebTunnelUrl.ifBlank { config.ptWebTunnelUrl },
         ptSnowflakeBrokerUrl = profile.ptSnowflakeBrokerUrl.ifBlank { config.ptSnowflakeBrokerUrl },
@@ -136,6 +153,7 @@ internal fun validateDefaultRelayCredentials(
             RelayKindVlessReality -> !credentials?.vlessUuid.isNullOrBlank()
             RelayKindHysteria2 -> !credentials?.hysteriaPassword.isNullOrBlank()
             RelayKindTuicV5 -> !credentials?.tuicUuid.isNullOrBlank() && !credentials.tuicPassword.isNullOrBlank()
+            RelayKindGoogleAppsScript -> !credentials?.appsScriptAuthKey.isNullOrBlank()
             else -> true
         }
     requireRelayCredentials(profileId, hasRequiredCredentials)
@@ -247,6 +265,11 @@ internal fun validateDefaultRelayFeatures(
                 "Hysteria2 is blocked until Chrome-like QUIC fingerprinting is implemented",
             ),
         )
+    }
+    if (config.kind == RelayKindGoogleAppsScript) {
+        require(config.appsScriptScriptIds.isNotEmpty()) {
+            "Google Apps Script relay requires at least one Apps Script deployment id"
+        }
     }
 }
 

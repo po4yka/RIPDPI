@@ -237,6 +237,13 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             relayTuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
             relayShadowTlsInnerProfileId = relayShadowtlsInnerProfileId,
             relayNaivePath = relayNaivePath,
+            relayAppsScriptScriptIds = normalizeRelayStringList(relayAppsScriptScriptIdsList),
+            relayAppsScriptGoogleIp = relayAppsScriptGoogleIp.trim(),
+            relayAppsScriptFrontDomain = relayAppsScriptFrontDomain.trim(),
+            relayAppsScriptSniHosts = normalizeRelayStringList(relayAppsScriptSniHostsList),
+            relayAppsScriptVerifySsl = relayAppsScriptVerifySsl,
+            relayAppsScriptParallelRelay = relayAppsScriptParallelRelay,
+            relayAppsScriptDirectHosts = normalizeRelayStringList(relayAppsScriptDirectHostsList),
             relayLocalSocksHost = relayLocalSocksHost.ifBlank { DefaultRelayLocalSocksHost },
             relayLocalSocksPort = relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort,
             relayUdpEnabled = relayUdpEnabled,
@@ -475,6 +482,16 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setRelayTuicCongestionControl(normalizeRelayCongestionControl(relayTuicCongestionControl))
         .setRelayShadowtlsInnerProfileId(relayShadowTlsInnerProfileId)
         .setRelayNaivePath(relayNaivePath)
+        .clearRelayAppsScriptScriptIds()
+        .addAllRelayAppsScriptScriptIds(normalizeRelayStringList(relayAppsScriptScriptIds))
+        .setRelayAppsScriptGoogleIp(relayAppsScriptGoogleIp.trim())
+        .setRelayAppsScriptFrontDomain(relayAppsScriptFrontDomain.trim())
+        .clearRelayAppsScriptSniHosts()
+        .addAllRelayAppsScriptSniHosts(normalizeRelayStringList(relayAppsScriptSniHosts))
+        .setRelayAppsScriptVerifySsl(relayAppsScriptVerifySsl)
+        .setRelayAppsScriptParallelRelay(relayAppsScriptParallelRelay)
+        .clearRelayAppsScriptDirectHosts()
+        .addAllRelayAppsScriptDirectHosts(normalizeRelayStringList(relayAppsScriptDirectHosts))
         .setRelayLocalSocksHost(relayLocalSocksHost.ifBlank { DefaultRelayLocalSocksHost })
         .setRelayLocalSocksPort(relayLocalSocksPort.takeIf { it > 0 } ?: DefaultRelayLocalSocksPort)
         .setRelayUdpEnabled(relayUdpEnabled)

@@ -62,6 +62,21 @@ class RelayStoresTest {
     }
 
     @Test
+    fun `relay credential record preserves google apps script auth key`() {
+        val json = Json { ignoreUnknownKeys = true }
+        val record =
+            RelayCredentialRecord(
+                profileId = "gas",
+                appsScriptAuthKey = "apps-script-auth-fixture",
+            )
+
+        val encoded = json.encodeToString(RelayCredentialRecord.serializer(), record)
+        val decoded = json.decodeFromString(RelayCredentialRecord.serializer(), encoded)
+
+        assertEquals(record, decoded)
+    }
+
+    @Test
     fun `relay profile record preserves xHTTP and Cloudflare tunnel fields`() {
         val json = Json { ignoreUnknownKeys = true }
         val record =
@@ -101,6 +116,28 @@ class RelayStoresTest {
                 tuicCongestionControl = RelayCongestionControlCubic,
                 shadowTlsInnerProfileId = "inner",
                 naivePath = "/proxy",
+            )
+
+        val encoded = json.encodeToString(RelayProfileRecord.serializer(), record)
+        val decoded = json.decodeFromString(RelayProfileRecord.serializer(), encoded)
+
+        assertEquals(record, decoded)
+    }
+
+    @Test
+    fun `relay profile record preserves google apps script fields`() {
+        val json = Json { ignoreUnknownKeys = true }
+        val record =
+            RelayProfileRecord(
+                id = "gas",
+                kind = RelayKindGoogleAppsScript,
+                appsScriptScriptIds = listOf("script-a", "script-b"),
+                appsScriptGoogleIp = "142.250.185.142",
+                appsScriptFrontDomain = "script.google.com",
+                appsScriptSniHosts = listOf("script.google.com", "www.google.com"),
+                appsScriptVerifySsl = false,
+                appsScriptParallelRelay = true,
+                appsScriptDirectHosts = listOf("youtube.com", "ytimg.com"),
             )
 
         val encoded = json.encodeToString(RelayProfileRecord.serializer(), record)

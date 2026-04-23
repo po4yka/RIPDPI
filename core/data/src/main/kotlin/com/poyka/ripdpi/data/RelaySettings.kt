@@ -11,6 +11,7 @@ const val RelayKindCloudflareTunnel = "cloudflare_tunnel"
 const val RelayKindTuicV5 = "tuic_v5"
 const val RelayKindShadowTlsV3 = "shadowtls_v3"
 const val RelayKindNaiveProxy = "naiveproxy"
+const val RelayKindGoogleAppsScript = "google_apps_script"
 const val RelayKindSnowflake = "snowflake"
 const val RelayKindWebTunnel = "webtunnel"
 const val RelayKindObfs4 = "obfs4"
@@ -32,6 +33,7 @@ const val RelayCongestionControlCubic = "cubic"
 const val DefaultRelayProfileId = "default"
 const val DefaultRelayLocalSocksHost = "127.0.0.1"
 const val DefaultRelayLocalSocksPort = 11980
+const val DefaultRelayAppsScriptVerifySsl = true
 const val DefaultSnowflakeBrokerUrl = "https://snowflake-broker.torproject.net/"
 const val DefaultSnowflakeFrontDomain = "cdn.sstatic.net"
 
@@ -45,11 +47,20 @@ fun normalizeRelayKind(value: String): String =
         RelayKindTuicV5 -> RelayKindTuicV5
         RelayKindShadowTlsV3 -> RelayKindShadowTlsV3
         RelayKindNaiveProxy -> RelayKindNaiveProxy
+        RelayKindGoogleAppsScript -> RelayKindGoogleAppsScript
         RelayKindSnowflake -> RelayKindSnowflake
         RelayKindWebTunnel -> RelayKindWebTunnel
         RelayKindObfs4 -> RelayKindObfs4
         else -> RelayKindOff
     }
+
+fun normalizeRelayStringList(values: Iterable<String>): List<String> =
+    values
+        .asSequence()
+        .map(String::trim)
+        .filter(String::isNotEmpty)
+        .distinct()
+        .toList()
 
 fun normalizeRelayVlessTransport(
     value: String,
@@ -147,6 +158,13 @@ data class RelayProfileModel(
     val tuicCongestionControl: String = RelayCongestionControlBbr,
     val shadowTlsInnerProfileId: String = "",
     val naivePath: String = "",
+    val appsScriptScriptIds: List<String> = emptyList(),
+    val appsScriptGoogleIp: String = "",
+    val appsScriptFrontDomain: String = "",
+    val appsScriptSniHosts: List<String> = emptyList(),
+    val appsScriptVerifySsl: Boolean = DefaultRelayAppsScriptVerifySsl,
+    val appsScriptParallelRelay: Boolean = false,
+    val appsScriptDirectHosts: List<String> = emptyList(),
     val ptBridgeLine: String = "",
     val ptWebTunnelUrl: String = "",
     val ptSnowflakeBrokerUrl: String = DefaultSnowflakeBrokerUrl,
@@ -208,6 +226,13 @@ fun AppSettings.toRelaySettingsModel(): RelaySettingsModel {
                 tuicCongestionControl = normalizeRelayCongestionControl(relayTuicCongestionControl),
                 shadowTlsInnerProfileId = relayShadowtlsInnerProfileId,
                 naivePath = relayNaivePath,
+                appsScriptScriptIds = normalizeRelayStringList(relayAppsScriptScriptIdsList),
+                appsScriptGoogleIp = relayAppsScriptGoogleIp.trim(),
+                appsScriptFrontDomain = relayAppsScriptFrontDomain.trim(),
+                appsScriptSniHosts = normalizeRelayStringList(relayAppsScriptSniHostsList),
+                appsScriptVerifySsl = relayAppsScriptVerifySsl,
+                appsScriptParallelRelay = relayAppsScriptParallelRelay,
+                appsScriptDirectHosts = normalizeRelayStringList(relayAppsScriptDirectHostsList),
                 ptBridgeLine = "",
                 ptWebTunnelUrl = "",
                 ptSnowflakeBrokerUrl = DefaultSnowflakeBrokerUrl,

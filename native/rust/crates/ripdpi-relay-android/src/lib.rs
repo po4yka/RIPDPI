@@ -6,11 +6,12 @@ use jni::objects::{JObject, JString};
 use jni::sys::{jint, jlong};
 use jni::{EnvUnowned, JavaVM, Outcome};
 use once_cell::sync::Lazy;
-use ripdpi_relay_core::{RelayRuntime, RelayTelemetry, ResolvedRelayRuntimeConfig};
+use ripdpi_apps_script_core::{AppsScriptRuntimeConfig, RelayRuntime as AppsScriptRelayRuntime};
+use ripdpi_relay_core::{RelayRuntime as StandardRelayRuntime, ResolvedRelayRuntimeConfig};
 use serde::Serialize;
 
 static NEXT_HANDLE: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(1));
-static SESSIONS: Lazy<Mutex<HashMap<u64, Arc<RelayRuntime>>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static SESSIONS: Lazy<Mutex<HashMap<u64, SessionRuntime>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -35,9 +36,9 @@ struct NativeRuntimeEvent {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct RelayNativeRuntimeSnapshot {
+struct NativeRuntimeSnapshot<T> {
     #[serde(flatten)]
-    telemetry: RelayTelemetry,
+    telemetry: T,
     native_events: Vec<NativeRuntimeEvent>,
 }
 
@@ -58,15 +59,62 @@ impl From<NativeEventRecord> for NativeRuntimeEvent {
     }
 }
 
-fn snapshot_from_telemetry(telemetry: RelayTelemetry) -> RelayNativeRuntimeSnapshot {
-    RelayNativeRuntimeSnapshot {
+fn snapshot_from_telemetry<T>(telemetry: T) -> NativeRuntimeSnapshot<T> {
+    NativeRuntimeSnapshot {
         telemetry,
         native_events: drain_relay_events().into_iter().map(NativeRuntimeEvent::from).collect(),
     }
 }
 
-fn serialize_telemetry(session: &RelayRuntime) -> Option<String> {
+fn serialize_standard_telemetry(session: &StandardRelayRuntime) -> Option<String> {
     serde_json::to_string(&snapshot_from_telemetry(session.telemetry())).ok()
+}
+
+fn serialize_apps_script_telemetry(session: &AppsScriptRelayRuntime) -> Option<String> {
+    serde_json::to_string(&snapshot_from_telemetry(session.telemetry())).ok()
+}
+
+#[derive(Clone)]
+enum SessionRuntime {
+    Standard(Arc<StandardRelayRuntime>),
+    AppsScript(Arc<AppsScriptRelayRuntime>),
+}
+
+impl SessionRuntime {
+    async fn run(&self) -> std::io::Result<()> {
+        match self {
+            Self::Standard(session) => session.clone().run().await,
+            Self::AppsScript(session) => session.clone().run().await,
+        }
+    }
+
+    fn stop(&self) {
+        match self {
+            Self::Standard(session) => session.stop(),
+            Self::AppsScript(session) => session.stop(),
+        }
+    }
+
+    fn telemetry_json(&self) -> Option<String> {
+        match self {
+            Self::Standard(session) => serialize_standard_telemetry(session.as_ref()),
+            Self::AppsScript(session) => serialize_apps_script_telemetry(session.as_ref()),
+        }
+    }
+}
+
+fn create_session(config_json: &str) -> Option<SessionRuntime> {
+    if relay_kind(config_json).as_deref() == Some("google_apps_script") {
+        let config = AppsScriptRuntimeConfig::from_json(config_json).ok()?;
+        return Some(SessionRuntime::AppsScript(AppsScriptRelayRuntime::new(config)));
+    }
+    let config = serde_json::from_str::<ResolvedRelayRuntimeConfig>(config_json).ok()?;
+    Some(SessionRuntime::Standard(StandardRelayRuntime::new(config)))
+}
+
+fn relay_kind(config_json: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(config_json).ok()?;
+    value.get("kind")?.as_str().map(ToOwned::to_owned)
 }
 
 /// # Safety
@@ -80,6 +128,7 @@ pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void)
         android_support::ignore_sigpipe();
         init_android_logging("ripdpi-relay-native");
         android_support::install_panic_hook();
+        let _ = rustls::crypto::ring::default_provider().install_default();
         JNI_VERSION
     }) {
         Ok(version) => version,
@@ -96,7 +145,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_jniC
     match env
         .with_env(move |env| -> jni::errors::Result<jlong> {
             let config_json: String = config_json.mutf8_chars(env)?.to_str().into_owned();
-            let Ok(config) = serde_json::from_str::<ResolvedRelayRuntimeConfig>(&config_json) else {
+            let Some(session) = create_session(&config_json) else {
                 return Ok(0);
             };
             let handle = {
@@ -106,7 +155,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_jniC
                 value
             };
             clear_relay_events();
-            SESSIONS.lock().expect("session mutex").insert(handle, RelayRuntime::new(config));
+            SESSIONS.lock().expect("session mutex").insert(handle, session);
             Ok(jlong::try_from(handle).unwrap_or(0))
         })
         .into_outcome()
@@ -155,9 +204,9 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_jniP
     match env
         .with_env(move |env| -> jni::errors::Result<jni::sys::jstring> {
             let payload =
-                session_from_handle(handle).and_then(|session| serialize_telemetry(session.as_ref())).unwrap_or_else(
-                    || "{\"source\":\"relay\",\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}".to_string(),
-                );
+                session_from_handle(handle).and_then(|session| session.telemetry_json()).unwrap_or_else(|| {
+                    "{\"source\":\"relay\",\"state\":\"idle\",\"health\":\"idle\",\"capturedAt\":0}".to_string()
+                });
             Ok(env.new_string(payload)?.into_raw())
         })
         .into_outcome()
@@ -178,7 +227,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiRelayNativeBindings_jniD
     }
 }
 
-fn session_from_handle(handle: jlong) -> Option<Arc<RelayRuntime>> {
+fn session_from_handle(handle: jlong) -> Option<SessionRuntime> {
     let handle = u64::try_from(handle).ok()?;
     SESSIONS.lock().expect("session mutex").get(&handle).cloned()
 }
@@ -187,10 +236,11 @@ fn session_from_handle(handle: jlong) -> Option<Arc<RelayRuntime>> {
 mod tests {
     use super::*;
     use android_support::{EventRingBuffers, EventRingLayer, RingConfig};
+    use ripdpi_relay_core::RelayTelemetry as StandardRelayTelemetry;
     use tracing_subscriber::prelude::*;
 
-    fn sample_telemetry() -> RelayTelemetry {
-        RelayTelemetry {
+    fn sample_telemetry() -> StandardRelayTelemetry {
+        StandardRelayTelemetry {
             source: "relay",
             state: "running".to_string(),
             health: "healthy".to_string(),
@@ -221,8 +271,8 @@ mod tests {
         }
     }
 
-    fn snapshot_from_buffers(buffers: &EventRingBuffers) -> RelayNativeRuntimeSnapshot {
-        RelayNativeRuntimeSnapshot {
+    fn snapshot_from_buffers(buffers: &EventRingBuffers) -> NativeRuntimeSnapshot<StandardRelayTelemetry> {
+        NativeRuntimeSnapshot {
             telemetry: sample_telemetry(),
             native_events: buffers.drain_relay().into_iter().map(NativeRuntimeEvent::from).collect(),
         }

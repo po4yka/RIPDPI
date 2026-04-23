@@ -33,6 +33,11 @@ internal class UpstreamRelaySupervisor(
     private val dispatcher: CoroutineDispatcher,
     private val relayFactory: RipDpiRelayFactory,
     private val naiveProxyRuntimeFactory: NaiveProxyRuntimeFactory,
+    private val googleAppsScriptRelayRuntimeFactory: GoogleAppsScriptRelayRuntimeFactory =
+        object : GoogleAppsScriptRelayRuntimeFactory {
+            override fun create(): RipDpiRelayRuntime =
+                error("Google Apps Script relay runtime factory is not configured")
+        },
     private val cloudflarePublishRuntimeFactory: CloudflarePublishRuntimeFactory =
         object : CloudflarePublishRuntimeFactory {
             override fun create(): RipDpiRelayRuntime = error("Cloudflare publish runtime factory is not configured")
@@ -49,6 +54,11 @@ internal class UpstreamRelaySupervisor(
         dispatcher: CoroutineDispatcher,
         relayFactory: RipDpiRelayFactory,
         naiveProxyRuntimeFactory: NaiveProxyRuntimeFactory,
+        googleAppsScriptRelayRuntimeFactory: GoogleAppsScriptRelayRuntimeFactory =
+            object : GoogleAppsScriptRelayRuntimeFactory {
+                override fun create(): RipDpiRelayRuntime =
+                    error("Google Apps Script relay runtime factory is not configured")
+            },
         cloudflarePublishRuntimeFactory: CloudflarePublishRuntimeFactory =
             object : CloudflarePublishRuntimeFactory {
                 override fun create(): RipDpiRelayRuntime =
@@ -80,6 +90,7 @@ internal class UpstreamRelaySupervisor(
         dispatcher = dispatcher,
         relayFactory = relayFactory,
         naiveProxyRuntimeFactory = naiveProxyRuntimeFactory,
+        googleAppsScriptRelayRuntimeFactory = googleAppsScriptRelayRuntimeFactory,
         cloudflarePublishRuntimeFactory = cloudflarePublishRuntimeFactory,
         pluggableTransportRuntimeFactory = pluggableTransportRuntimeFactory,
         runtimeConfigResolver =
@@ -109,6 +120,8 @@ internal class UpstreamRelaySupervisor(
         val runtime =
             if (resolvedConfig.kind == RelayKindNaiveProxy) {
                 naiveProxyRuntimeFactory.create()
+            } else if (resolvedConfig.kind == RelayKindGoogleAppsScript) {
+                googleAppsScriptRelayRuntimeFactory.create()
             } else if (
                 resolvedConfig.kind == RelayKindCloudflareTunnel &&
                 resolvedConfig.cloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin
@@ -227,6 +240,7 @@ internal open class UpstreamRelaySupervisorFactory
     constructor(
         private val relayFactory: RipDpiRelayFactory,
         private val naiveProxyRuntimeFactory: NaiveProxyRuntimeFactory,
+        private val googleAppsScriptRelayRuntimeFactory: GoogleAppsScriptRelayRuntimeFactory,
         private val cloudflarePublishRuntimeFactory: CloudflarePublishRuntimeFactory,
         private val pluggableTransportRuntimeFactory: PluggableTransportRuntimeFactory,
         private val runtimeConfigResolver: UpstreamRelayRuntimeConfigResolver,
@@ -240,6 +254,10 @@ internal open class UpstreamRelaySupervisorFactory
             object : NaiveProxyRuntimeFactory {
                 override fun create(): RipDpiRelayRuntime =
                     error("NaiveProxy runtime factory is not configured in this test harness")
+            },
+            object : GoogleAppsScriptRelayRuntimeFactory {
+                override fun create(): RipDpiRelayRuntime =
+                    error("Google Apps Script relay runtime factory is not configured in this test harness")
             },
             object : CloudflarePublishRuntimeFactory {
                 override fun create(): RipDpiRelayRuntime =
@@ -277,6 +295,7 @@ internal open class UpstreamRelaySupervisorFactory
                 dispatcher = dispatcher,
                 relayFactory = relayFactory,
                 naiveProxyRuntimeFactory = naiveProxyRuntimeFactory,
+                googleAppsScriptRelayRuntimeFactory = googleAppsScriptRelayRuntimeFactory,
                 cloudflarePublishRuntimeFactory = cloudflarePublishRuntimeFactory,
                 pluggableTransportRuntimeFactory = pluggableTransportRuntimeFactory,
                 runtimeConfigResolver = runtimeConfigResolver,

@@ -930,6 +930,13 @@ class NativeConfigContractSnapshotTest {
         tuicCongestionControl: String = "bbr",
         shadowTlsInnerProfileId: String = "",
         naivePath: String = "",
+        appsScriptScriptIds: List<String> = emptyList(),
+        appsScriptGoogleIp: String = "",
+        appsScriptFrontDomain: String = "",
+        appsScriptSniHosts: List<String> = emptyList(),
+        appsScriptVerifySsl: Boolean = com.poyka.ripdpi.data.DefaultRelayAppsScriptVerifySsl,
+        appsScriptParallelRelay: Boolean = false,
+        appsScriptDirectHosts: List<String> = emptyList(),
         localSocksHost: String = "127.0.0.1",
         localSocksPort: Int = 11980,
         udpEnabled: Boolean = false,
@@ -971,6 +978,13 @@ class NativeConfigContractSnapshotTest {
             put("tuicCongestionControl", JsonPrimitive(tuicCongestionControl))
             put("shadowTlsInnerProfileId", JsonPrimitive(shadowTlsInnerProfileId))
             put("naivePath", JsonPrimitive(naivePath))
+            put("appsScriptScriptIds", JsonArray(appsScriptScriptIds.map(::JsonPrimitive)))
+            put("appsScriptGoogleIp", JsonPrimitive(appsScriptGoogleIp))
+            put("appsScriptFrontDomain", JsonPrimitive(appsScriptFrontDomain))
+            put("appsScriptSniHosts", JsonArray(appsScriptSniHosts.map(::JsonPrimitive)))
+            put("appsScriptVerifySsl", JsonPrimitive(appsScriptVerifySsl))
+            put("appsScriptParallelRelay", JsonPrimitive(appsScriptParallelRelay))
+            put("appsScriptDirectHosts", JsonArray(appsScriptDirectHosts.map(::JsonPrimitive)))
             put("localSocksHost", JsonPrimitive(localSocksHost))
             put("localSocksPort", JsonPrimitive(localSocksPort))
             put("udpEnabled", JsonPrimitive(udpEnabled))
