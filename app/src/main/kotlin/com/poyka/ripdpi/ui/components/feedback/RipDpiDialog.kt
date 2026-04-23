@@ -31,7 +31,6 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
-import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 enum class RipDpiDialogTone {
@@ -107,7 +106,7 @@ fun RipDpiDialogCard(
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val hasConfirmAction = confirmAction != null
-    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.Dialog)
+    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.feedback.dialog)
 
     Surface(
         modifier = modifier,
@@ -173,17 +172,9 @@ private fun RipDpiModalIconBadge(
 ) {
     val components = RipDpiThemeTokens.components
     val surfaceStyle =
-        when (tone) {
-            RipDpiDialogTone.Destructive -> {
-                RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.DialogDestructiveIconBadge)
-            }
-
-            RipDpiDialogTone.Info,
-            RipDpiDialogTone.Default,
-            -> {
-                RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.DialogIconBadge)
-            }
-        }
+        RipDpiThemeTokens.surfaces.resolve(
+            RipDpiThemeTokens.surfaceRoles.feedback.dialogIconBadge(tone),
+        )
 
     Box(
         modifier =

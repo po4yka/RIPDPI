@@ -34,7 +34,6 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
@@ -218,6 +217,11 @@ private fun SwitchLayout(
     thumbOffset: androidx.compose.ui.unit.Dp,
     alpha: Float,
 ) {
+    val thumbShadowElevation =
+        RipDpiThemeTokens.surfaces
+            .resolve(RipDpiThemeTokens.surfaceRoles.inputs.switchThumb)
+            .shadowElevation
+
     Box(
         modifier =
             modifier
@@ -251,8 +255,7 @@ private fun SwitchLayout(
                         .offset(x = dimensions.thumbPadding + thumbOffset)
                         .size(dimensions.thumbSize)
                         .shadow(
-                            elevation =
-                                RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.SwitchThumb).shadowElevation,
+                            elevation = thumbShadowElevation,
                             shape = CircleShape,
                             clip = false,
                         ).background(thumbColor.copy(alpha = alpha), CircleShape),
