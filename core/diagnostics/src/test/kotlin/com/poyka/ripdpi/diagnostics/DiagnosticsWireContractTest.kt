@@ -105,6 +105,14 @@ class DiagnosticsWireContractTest {
                     rationale = "DNS tampering detected",
                     persistable = true,
                 ),
+            strategyRecommendation =
+                StrategyRecommendation(
+                    triggerOutcomes = listOf("tls_blocked"),
+                    recommendedFamily = "tlsrec_split",
+                    blockingPattern = "sni_tls_suspect",
+                    rationale = "Escalate to TLS record split families",
+                    evidence = listOf("tls_post_client_hello_failure"),
+                ),
             directModeVerdict =
                 DirectModeVerdict(
                     result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,

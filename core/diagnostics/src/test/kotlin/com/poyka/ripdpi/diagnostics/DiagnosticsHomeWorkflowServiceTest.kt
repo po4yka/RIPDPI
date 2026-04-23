@@ -38,7 +38,8 @@ class DiagnosticsHomeWorkflowServiceTest {
                         summary = "Audit complete",
                         reportJson =
                             json.encodeToString(
-                                ScanReport.serializer(),
+                                com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                                    .serializer(),
                                 strategyAuditReport(
                                     sessionId = "audit-session",
                                     recommendedProxyConfigJson =
@@ -51,7 +52,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                                     entries = "example.com",
                                                 ),
                                         ).toNativeConfigJson(),
-                                ),
+                                ).toEngineScanReportWire(),
                             ),
                     ).copy(triggerCurrentFingerprintHash = "fp-audit"),
                 )
@@ -88,7 +89,8 @@ class DiagnosticsHomeWorkflowServiceTest {
                         summary = "Audit complete",
                         reportJson =
                             json.encodeToString(
-                                ScanReport.serializer(),
+                                com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                                    .serializer(),
                                 strategyAuditReport(
                                     sessionId = "warp-audit-session",
                                     recommendedProxyConfigJson =
@@ -113,7 +115,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                                         ),
                                                 ),
                                         ).toNativeConfigJson(),
-                                ),
+                                ).toEngineScanReportWire(),
                             ),
                     ),
                 )
@@ -167,8 +169,9 @@ class DiagnosticsHomeWorkflowServiceTest {
                         summary = "Audit complete",
                         reportJson =
                             json.encodeToString(
-                                ScanReport.serializer(),
-                                strategyAuditReport("capability-session"),
+                                com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                                    .serializer(),
+                                strategyAuditReport("capability-session").toEngineScanReportWire(),
                             ),
                     ).copy(triggerCurrentFingerprintHash = fingerprint.scopeKey()),
                 )
@@ -216,7 +219,8 @@ class DiagnosticsHomeWorkflowServiceTest {
                         summary = "Audit complete",
                         reportJson =
                             json.encodeToString(
-                                ScanReport.serializer(),
+                                com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                                    .serializer(),
                                 strategyAuditReport(
                                     sessionId = "tier4-audit-session",
                                     recommendedProxyConfigJson =
@@ -237,7 +241,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                                     evolutionEpsilon = 0.2,
                                                 ),
                                         ).toNativeConfigJson(),
-                                ),
+                                ).toEngineScanReportWire(),
                             ),
                     ),
                 )
@@ -287,8 +291,9 @@ class DiagnosticsHomeWorkflowServiceTest {
                         summary = "Resolver recommendation",
                         reportJson =
                             json.encodeToString(
-                                ScanReport.serializer(),
-                                resolverOnlyAuditReport("resolver-session"),
+                                com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                                    .serializer(),
+                                resolverOnlyAuditReport("resolver-session").toEngineScanReportWire(),
                             ),
                     ),
                 )
@@ -308,6 +313,50 @@ class DiagnosticsHomeWorkflowServiceTest {
         }
 
     @Test
+    fun `finalizeHomeAudit uses persisted strategy recommendation when probe result is not reusable`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val appSettingsRepository = FakeAppSettingsRepository()
+            stores.sessionsState.value =
+                listOf(
+                    diagnosticsSession(
+                        id = "strategy-recommendation-session",
+                        profileId = "automatic-audit",
+                        pathMode = ScanPathMode.RAW_PATH.name,
+                        summary = "Strategy recommendation",
+                        reportJson =
+                            json.encodeToString(
+                                com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                                    .serializer(),
+                                strategyRecommendationOnlyAuditReport(
+                                    sessionId = "strategy-recommendation-session",
+                                ).toEngineScanReportWire(),
+                            ),
+                    ),
+                )
+
+            val outcome =
+                createHomeWorkflowService(
+                    stores = stores,
+                    appSettingsRepository = appSettingsRepository,
+                ).finalizeHomeAudit("strategy-recommendation-session")
+
+            assertTrue(outcome.actionable)
+            assertEquals("Prefer TLS record split on this network", outcome.recommendationSummary)
+            assertEquals(StrategyAdequacy.STRATEGY_RECOMMENDED, outcome.strategyAdequacy)
+            assertTrue(
+                outcome.appliedSettings.any {
+                    it.label == "Strategy recommendation" && it.value == "TLS record split"
+                },
+            )
+            assertTrue(
+                outcome.appliedSettings.any {
+                    it.label == "Blocking pattern" && it.value == "SNI/TLS suspected"
+                },
+            )
+        }
+
+    @Test
     fun `finalizeHomeAudit leaves settings unchanged for low confidence results`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
@@ -322,11 +371,12 @@ class DiagnosticsHomeWorkflowServiceTest {
                         summary = "Low confidence audit",
                         reportJson =
                             json.encodeToString(
-                                ScanReport.serializer(),
+                                com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                                    .serializer(),
                                 strategyAuditReport(
                                     sessionId = "low-confidence-session",
                                     confidenceLevel = StrategyProbeAuditConfidenceLevel.MEDIUM,
-                                ),
+                                ).toEngineScanReportWire(),
                             ),
                     ),
                 )
@@ -355,7 +405,8 @@ class DiagnosticsHomeWorkflowServiceTest {
                         summary = "Verification complete",
                         reportJson =
                             json.encodeToString(
-                                ScanReport.serializer(),
+                                com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
+                                    .serializer(),
                                 ScanReport(
                                     sessionId = "verify-session",
                                     profileId = "default",
@@ -378,7 +429,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                                 summary = "The current path is still blocked.",
                                             ),
                                         ),
-                                ),
+                                ).toEngineScanReportWire(),
                             ),
                     ),
                 )
@@ -549,6 +600,24 @@ class DiagnosticsHomeWorkflowServiceTest {
                     selectedDohUrl = "https://cloudflare-dns.com/dns-query",
                     rationale = "Use encrypted DNS",
                     persistable = true,
+                ),
+        )
+
+    private fun strategyRecommendationOnlyAuditReport(sessionId: String): ScanReport =
+        ScanReport(
+            sessionId = sessionId,
+            profileId = "automatic-audit",
+            pathMode = ScanPathMode.RAW_PATH,
+            startedAt = 10L,
+            finishedAt = 20L,
+            summary = "Prefer TLS record split on this network",
+            strategyRecommendation =
+                StrategyRecommendation(
+                    triggerOutcomes = listOf("tls_blocked"),
+                    recommendedFamily = "tlsrec_split",
+                    blockingPattern = "sni_tls_suspect",
+                    rationale = "Prefer TLS record split on this network",
+                    evidence = listOf("tls_post_client_hello_failure"),
                 ),
         )
 }

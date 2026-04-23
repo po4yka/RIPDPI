@@ -19,6 +19,7 @@ import com.poyka.ripdpi.diagnostics.ServiceTarget
 import com.poyka.ripdpi.diagnostics.StrategyProbeLiveProgress
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.diagnostics.StrategyProbeRequest
+import com.poyka.ripdpi.diagnostics.StrategyRecommendation
 import com.poyka.ripdpi.diagnostics.TcpTarget
 import com.poyka.ripdpi.diagnostics.TelegramTarget
 import com.poyka.ripdpi.diagnostics.ThroughputTarget
@@ -95,6 +96,7 @@ data class EngineScanReportWire(
     val summary: String,
     val results: List<EngineProbeResultWire> = emptyList(),
     val resolverRecommendation: ResolverRecommendation? = null,
+    val strategyRecommendation: StrategyRecommendation? = null,
     val directModeVerdict: DirectModeVerdict? = null,
     val strategyProbeReport: StrategyProbeReport? = null,
     val observations: List<ObservationFact> = emptyList(),
