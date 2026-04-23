@@ -3312,8 +3312,11 @@ dependencies = [
  "jni 0.22.4",
  "once_cell",
  "ripdpi-relay-core",
+ "serde",
  "serde_json",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -3563,6 +3566,8 @@ dependencies = [
  "serde_json",
  "tokio",
  "tokio-boring",
+ "tracing",
+ "tracing-subscriber",
  "url",
 ]
 

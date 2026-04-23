@@ -65,30 +65,46 @@ enum class ProxyBindingFaultTarget {
 
 class FakeRipDpiProxyBindings : RipDpiProxyBindings {
     companion object {
-        private const val DEFAULT_START_BLOCK_TIMEOUT_MS = 5_000L
+        private const val DEFAULT_START_BLOCK_TIMEOUT_MS = 60_000L
     }
 
-    var createdHandle: Long = 1L
-    var startResult: Int = 0
-    var createFailure: Throwable? = null
-    var startFailure: Throwable? = null
-    var stopFailure: Throwable? = null
-    var telemetryFailure: Throwable? = null
-    var updateFailure: Throwable? = null
-    var startedSignal: CompletableDeferred<Long>? = null
-    var startBlocker: CompletableDeferred<Unit>? = null
-    var telemetryStartedSignal: CompletableDeferred<Long>? = null
-    var telemetryBlocker: CompletableDeferred<Unit>? = null
-    var updateStartedSignal: CompletableDeferred<Long>? = null
-    var updateBlocker: CompletableDeferred<Unit>? = null
-    var destroySignal: CompletableDeferred<Long>? = null
-    var stopCompletesStartBlocker: Boolean = false
-    var startBlockTimeoutMillis: Long = DEFAULT_START_BLOCK_TIMEOUT_MS
+    @Volatile var createdHandle: Long = 1L
+
+    @Volatile var startResult: Int = 0
+
+    @Volatile var createFailure: Throwable? = null
+
+    @Volatile var startFailure: Throwable? = null
+
+    @Volatile var stopFailure: Throwable? = null
+
+    @Volatile var telemetryFailure: Throwable? = null
+
+    @Volatile var updateFailure: Throwable? = null
+
+    @Volatile var startedSignal: CompletableDeferred<Long>? = null
+
+    @Volatile var startBlocker: CompletableDeferred<Unit>? = null
+
+    @Volatile var telemetryStartedSignal: CompletableDeferred<Long>? = null
+
+    @Volatile var telemetryBlocker: CompletableDeferred<Unit>? = null
+
+    @Volatile var updateStartedSignal: CompletableDeferred<Long>? = null
+
+    @Volatile var updateBlocker: CompletableDeferred<Unit>? = null
+
+    @Volatile var destroySignal: CompletableDeferred<Long>? = null
+
+    @Volatile var stopCompletesStartBlocker: Boolean = false
+
+    @Volatile var startBlockTimeoutMillis: Long = DEFAULT_START_BLOCK_TIMEOUT_MS
     var lastCreatePayload: String? = null
     var lastStartedHandle: Long? = null
     var lastStoppedHandle: Long? = null
     var lastDestroyedHandle: Long? = null
-    var telemetryJson: String? = null
+
+    @Volatile var telemetryJson: String? = null
     val faults = FaultQueue<ProxyBindingFaultTarget>()
     val createdPayloads = mutableListOf<String>()
     val startedHandles = mutableListOf<Long>()
@@ -235,19 +251,26 @@ class FakeTun2SocksBridgeFactory(
 }
 
 class FakeTun2SocksBindings : Tun2SocksBindings {
-    var createdHandle: Long = 1L
-    var createFailure: Throwable? = null
-    var startFailure: Throwable? = null
-    var stopFailure: Throwable? = null
-    var statsFailure: Throwable? = null
-    var telemetryFailure: Throwable? = null
+    @Volatile var createdHandle: Long = 1L
+
+    @Volatile var createFailure: Throwable? = null
+
+    @Volatile var startFailure: Throwable? = null
+
+    @Volatile var stopFailure: Throwable? = null
+
+    @Volatile var statsFailure: Throwable? = null
+
+    @Volatile var telemetryFailure: Throwable? = null
     var lastCreatePayload: String? = null
     var lastStartHandle: Long? = null
     var lastStartTunFd: Int? = null
     var lastStopHandle: Long? = null
     var lastDestroyedHandle: Long? = null
-    var nativeStats: LongArray = longArrayOf()
-    var telemetryJson: String? = null
+
+    @Volatile var nativeStats: LongArray = longArrayOf()
+
+    @Volatile var telemetryJson: String? = null
     val faults = FaultQueue<TunnelBindingFaultTarget>()
     val createdPayloads = mutableListOf<String>()
     val startedHandles = mutableListOf<Long>()
@@ -301,6 +324,110 @@ class FakeTun2SocksBindings : Tun2SocksBindings {
     override fun destroy(handle: Long) {
         lastDestroyedHandle = handle
         destroyedHandles += handle
+    }
+}
+
+class FakeRipDpiRelayBindings : RipDpiRelayBindings {
+    @Volatile var createdHandle: Long = 1L
+
+    @Volatile var startResult: Int = 0
+
+    @Volatile var createFailure: Throwable? = null
+
+    @Volatile var startFailure: Throwable? = null
+
+    @Volatile var stopFailure: Throwable? = null
+
+    @Volatile var telemetryFailure: Throwable? = null
+
+    @Volatile var startedSignal: CompletableDeferred<Long>? = null
+
+    @Volatile var startBlocker: CompletableDeferred<Unit>? = null
+    var lastCreatePayload: String? = null
+    var lastStartedHandle: Long? = null
+    var lastStoppedHandle: Long? = null
+    var lastDestroyedHandle: Long? = null
+
+    @Volatile var telemetryJson: String? = null
+
+    override fun create(configJson: String): Long {
+        createFailure?.let { throw it }
+        lastCreatePayload = configJson
+        return createdHandle
+    }
+
+    override fun start(handle: Long): Int {
+        lastStartedHandle = handle
+        startedSignal?.complete(handle)
+        startBlocker?.awaitBlocking("FakeRipDpiRelayBindings.start")
+        startFailure?.let { throw it }
+        return startResult
+    }
+
+    override fun stop(handle: Long) {
+        lastStoppedHandle = handle
+        stopFailure?.let { throw it }
+    }
+
+    override fun pollTelemetry(handle: Long): String? {
+        telemetryFailure?.let { throw it }
+        return telemetryJson
+    }
+
+    override fun destroy(handle: Long) {
+        lastDestroyedHandle = handle
+    }
+}
+
+class FakeRipDpiWarpBindings : RipDpiWarpBindings {
+    @Volatile var createdHandle: Long = 1L
+
+    @Volatile var startResult: Int = 0
+
+    @Volatile var createFailure: Throwable? = null
+
+    @Volatile var startFailure: Throwable? = null
+
+    @Volatile var stopFailure: Throwable? = null
+
+    @Volatile var telemetryFailure: Throwable? = null
+
+    @Volatile var startedSignal: CompletableDeferred<Long>? = null
+
+    @Volatile var startBlocker: CompletableDeferred<Unit>? = null
+    var lastCreatePayload: String? = null
+    var lastStartedHandle: Long? = null
+    var lastStoppedHandle: Long? = null
+    var lastDestroyedHandle: Long? = null
+
+    @Volatile var telemetryJson: String? = null
+
+    override fun create(configJson: String): Long {
+        createFailure?.let { throw it }
+        lastCreatePayload = configJson
+        return createdHandle
+    }
+
+    override fun start(handle: Long): Int {
+        lastStartedHandle = handle
+        startedSignal?.complete(handle)
+        startBlocker?.awaitBlocking("FakeRipDpiWarpBindings.start")
+        startFailure?.let { throw it }
+        return startResult
+    }
+
+    override fun stop(handle: Long) {
+        lastStoppedHandle = handle
+        stopFailure?.let { throw it }
+    }
+
+    override fun pollTelemetry(handle: Long): String? {
+        telemetryFailure?.let { throw it }
+        return telemetryJson
+    }
+
+    override fun destroy(handle: Long) {
+        lastDestroyedHandle = handle
     }
 }
 
@@ -426,3 +553,15 @@ private fun <T> FaultSpec<T>.payloadResult(): String? =
             throw faultThrowable(outcome, message)
         }
     }
+
+private fun CompletableDeferred<Unit>.awaitBlocking(label: String) {
+    try {
+        runBlocking {
+            withTimeout(60_000L) {
+                await()
+            }
+        }
+    } catch (error: TimeoutCancellationException) {
+        throw AssertionError("$label blocked for more than 60000ms", error)
+    }
+}

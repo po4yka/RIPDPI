@@ -33,6 +33,16 @@ Status: COMPLETE.
 - Added a warning-style host-pack bundled-fallback status when the cached snapshot is unreadable.
 - Added load-path regression coverage for unreadable and incompatible cached snapshots.
 
+### 2026-04-23: Native Readiness Events
+
+Status: COMPLETE.
+
+- Added typed native runtime event kinds so readiness and shutdown are keyed off structured `runtime_ready` and `runtime_stopped` events.
+- Split Android native event transport into first-class proxy, relay, and WARP rings instead of multiplexing non-proxy events through the proxy ring.
+- Emitted explicit readiness events from the embedded proxy, relay, and WARP runtimes only after their listeners were actually bound.
+- Switched Kotlin `awaitReady()` wrappers to wait for typed readiness events instead of treating `state == "running"` as sufficient.
+- Updated contract fixtures, telemetry goldens, and wrapper/supervisor regression coverage for the stricter readiness handshake.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.

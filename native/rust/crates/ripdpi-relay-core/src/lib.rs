@@ -26,6 +26,20 @@ use crate::socks5::{decode_udp_frame, encode_udp_frame, read_target, write_reply
 const ACCEPT_POLL_INTERVAL: Duration = Duration::from_millis(100);
 const UDP_BUFFER_SIZE: usize = 65_536;
 
+fn emit_runtime_ready(bind_addr: &str) {
+    tracing::info!(
+        ring = "relay",
+        subsystem = "relay",
+        source = "relay",
+        kind = "runtime_ready",
+        "listener started addr={bind_addr}"
+    );
+}
+
+fn emit_runtime_stopped() {
+    tracing::info!(ring = "relay", subsystem = "relay", source = "relay", kind = "runtime_stopped", "listener stopped");
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedRelayFinalmaskConfig {
@@ -908,6 +922,7 @@ impl RelayRuntime {
         let listener = TcpListener::bind(&bind_addr).await?;
         *self.listener_address.lock().expect("listener address") = Some(bind_addr);
         self.running.store(true, Ordering::SeqCst);
+        emit_runtime_ready(self.listener_address.lock().expect("listener address").as_deref().unwrap_or_default());
 
         while !self.stop_requested.load(Ordering::SeqCst) {
             match timeout(ACCEPT_POLL_INTERVAL, listener.accept()).await {
@@ -931,6 +946,7 @@ impl RelayRuntime {
         }
 
         self.running.store(false, Ordering::SeqCst);
+        emit_runtime_stopped();
         *self.backend.lock().expect("relay backend") = None;
         Ok(())
     }

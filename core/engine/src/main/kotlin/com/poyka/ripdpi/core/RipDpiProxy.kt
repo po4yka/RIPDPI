@@ -7,10 +7,12 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -224,33 +226,47 @@ class RipDpiProxy(
             } ?: throw NativeError.NotRunning("Proxy")
 
         Logger.d { "Awaiting proxy readiness (timeout=${timeoutMillis}ms)" }
-        val deadline = System.currentTimeMillis() + timeoutMillis
         var pollCount = 0L
-        while (true) {
-            if (startupSignal.isCompleted) {
-                startupSignal.await()
-                return
-            }
+        var lastState = "idle"
+        var lastEventMessage: String? = null
+        try {
+            withTimeout(timeoutMillis) {
+                while (true) {
+                    if (startupSignal.isCompleted) {
+                        startupSignal.await()
+                        return@withTimeout
+                    }
 
-            val telemetry = pollTelemetry()
-            if (telemetry.state == "running") {
-                startupSignal.complete(Unit)
-                startupSignal.await()
-                return
-            }
+                    val telemetry = pollTelemetry()
+                    lastState = telemetry.state
+                    lastEventMessage = telemetry.nativeEvents.lastOrNull()?.message
+                    if (telemetry.hasRuntimeReadyEvent()) {
+                        startupSignal.complete(Unit)
+                        startupSignal.await()
+                        return@withTimeout
+                    }
 
-            pollCount++
-            if (pollCount % readyLogPollInterval == 0L) {
-                val elapsed = timeoutMillis - (deadline - System.currentTimeMillis())
-                Logger.d { "Proxy readiness: state=${telemetry.state} elapsed=${elapsed}ms" }
-            }
+                    pollCount++
+                    if (pollCount % readyLogPollInterval == 0L) {
+                        Logger.d { "Proxy readiness: state=${telemetry.state} polls=$pollCount" }
+                    }
 
-            if (System.currentTimeMillis() >= deadline) {
-                Logger.w { "Proxy readiness timed out after ${timeoutMillis}ms" }
-                error("Timed out waiting for proxy readiness")
+                    delay(READY_POLL_INTERVAL_MS)
+                }
             }
-
-            delay(READY_POLL_INTERVAL_MS)
+        } catch (_: TimeoutCancellationException) {
+            val details =
+                buildString {
+                    append("Timed out waiting for proxy readiness")
+                    append(" state=")
+                    append(lastState)
+                    lastEventMessage?.let {
+                        append(" lastEvent=")
+                        append(it)
+                    }
+                }
+            Logger.w { "$details after ${timeoutMillis}ms" }
+            error(details)
         }
     }
 
@@ -282,3 +298,5 @@ class RipDpiProxy(
             ?: NativeRuntimeSnapshot.idle(source = "proxy")
     }
 }
+
+private fun NativeRuntimeSnapshot.hasRuntimeReadyEvent(): Boolean = nativeEvents.any { it.kind == "runtime_ready" }
