@@ -2,11 +2,18 @@ internal fun policy(
     manualOnly: Boolean,
     allowBackground: Boolean,
     requiresRawPath: Boolean,
+    probePersistencePolicy: CatalogProbePersistencePolicy =
+        if (allowBackground) {
+            CatalogProbePersistencePolicy.BACKGROUND_ONLY
+        } else {
+            CatalogProbePersistencePolicy.MANUAL_ONLY
+        },
 ): ProfileExecutionPolicyDefinition =
     ProfileExecutionPolicyDefinition(
         manualOnly = manualOnly,
         allowBackground = allowBackground,
         requiresRawPath = requiresRawPath,
+        probePersistencePolicy = probePersistencePolicy,
     )
 
 internal fun domainTargets(

@@ -19,7 +19,7 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import kotlinx.serialization.json.Json
 
 internal fun Json.decodeProfileSpecWire(payload: String): ProfileSpecWire =
-    decodeFromString(ProfileSpecWire.serializer(), payload)
+    decodeFromString(ProfileSpecWire.serializer(), payload).backfillLegacyProbePersistencePolicy()
 
 internal fun Json.decodeEngineScanReportWire(payload: String): EngineScanReportWire =
     decodeFromString(EngineScanReportWire.serializer(), payload)
@@ -46,6 +46,26 @@ internal fun ProbePersistencePolicyWire.toDomainPolicy(): ProbePersistencePolicy
 internal fun ProfileExecutionPolicyWire.normalizedProbePersistencePolicy(): ProbePersistencePolicyWire =
     requireNotNull(probePersistencePolicy) {
         "Probe persistence policy must be normalized before use"
+    }
+
+private fun ProfileSpecWire.backfillLegacyProbePersistencePolicy(): ProfileSpecWire {
+    val policy = executionPolicy ?: return this
+    if (policy.probePersistencePolicy != null) {
+        return this
+    }
+    return copy(
+        executionPolicy =
+            policy.copy(
+                probePersistencePolicy = policy.legacyProbePersistencePolicy(),
+            ),
+    )
+}
+
+private fun ProfileExecutionPolicyWire.legacyProbePersistencePolicy(): ProbePersistencePolicyWire =
+    if (allowBackground) {
+        ProbePersistencePolicyWire.BACKGROUND_ONLY
+    } else {
+        ProbePersistencePolicyWire.MANUAL_ONLY
     }
 
 internal fun ProbeTask.toEngineProbeTaskWire(): EngineProbeTaskWire =
