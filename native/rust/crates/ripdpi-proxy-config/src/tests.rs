@@ -663,6 +663,7 @@ fn runtime_context_sanitizes_direct_path_capabilities() {
                     repeated_handshake_failure_class: Some(" tcp_reset ".to_string()),
                     transport_policy_version: -1,
                     ip_set_digest: " 203.0.113.10,203.0.113.11 ".to_string(),
+                    dns_classification: Some(" ech_capable ".to_string()),
                     quic_mode: " soft_disable ".to_string(),
                     preferred_stack: " h2 ".to_string(),
                     dns_mode: " doh_primary ".to_string(),
@@ -681,6 +682,7 @@ fn runtime_context_sanitizes_direct_path_capabilities() {
                     repeated_handshake_failure_class: None,
                     transport_policy_version: 0,
                     ip_set_digest: String::new(),
+                    dns_classification: None,
                     quic_mode: "ALLOW".to_string(),
                     preferred_stack: "H3".to_string(),
                     dns_mode: "SYSTEM".to_string(),
@@ -721,6 +723,7 @@ fn runtime_context_sanitizes_direct_path_capabilities() {
     assert_eq!(capability.repeated_handshake_failure_class.as_deref(), Some("tcp_reset"));
     assert_eq!(capability.transport_policy_version, 0);
     assert_eq!(capability.ip_set_digest, "203.0.113.10,203.0.113.11");
+    assert_eq!(capability.dns_classification.as_deref(), Some("ECH_CAPABLE"));
     assert_eq!(capability.quic_mode, "SOFT_DISABLE");
     assert_eq!(capability.preferred_stack, "H2");
     assert_eq!(capability.dns_mode, "DOH_PRIMARY");

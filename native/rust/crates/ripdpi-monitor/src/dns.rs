@@ -2,7 +2,7 @@ use std::net::{IpAddr, Ipv4Addr};
 
 use ripdpi_dns_resolver::{
     extract_ip_answers, parse_https_service_bindings, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver,
-    EncryptedDnsTransport,
+    EncryptedDnsTransport, HttpsRr,
 };
 
 use crate::transport::{relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr, TransportConfig};
@@ -10,6 +10,7 @@ use crate::types::DnsTarget;
 use crate::util::{now_ms, DEFAULT_DOH_BOOTSTRAP_IPS, DEFAULT_DOH_HOST, DEFAULT_DOH_PORT, DEFAULT_DOH_URL};
 
 const DNS_RECORD_TYPE_A: u16 = 1;
+const DNS_RECORD_TYPE_SVCB: u16 = 64;
 const DNS_RECORD_TYPE_HTTPS: u16 = 65;
 
 /// Returns hardcoded bootstrap IPs for well-known DoH resolver identifiers.
@@ -189,6 +190,19 @@ pub(crate) fn resolve_https_ech_configs_via_encrypted_dns_with_endpoint(
             Ok(Some(bytes)) => EchResolutionOutcome::Available(bytes),
         },
     }
+}
+
+pub(crate) fn resolve_https_service_bindings_via_encrypted_dns_with_endpoint(
+    domain: &str,
+    endpoint: EncryptedDnsEndpoint,
+    transport: &TransportConfig,
+) -> Result<Vec<HttpsRr>, String> {
+    let mut bindings = Vec::new();
+    for record_type in [DNS_RECORD_TYPE_HTTPS, DNS_RECORD_TYPE_SVCB] {
+        let response = exchange_encrypted_dns_query(domain, record_type, endpoint.clone(), transport)?;
+        bindings.extend(parse_https_service_bindings(&response).map_err(|error| error.to_string())?);
+    }
+    Ok(bindings)
 }
 
 pub(crate) fn exchange_encrypted_dns_query(

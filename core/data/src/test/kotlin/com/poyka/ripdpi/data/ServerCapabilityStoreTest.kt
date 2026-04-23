@@ -84,6 +84,29 @@ class ServerCapabilityStoreTest {
     }
 
     @Test
+    fun `merge capability record persists dns classification in transport policy envelope`() {
+        val merged =
+            mergeCapabilityRecord(
+                existing = null,
+                scope = ServerCapabilityScope.DirectPath,
+                fingerprintHash = "fp",
+                authority = "example.org:443",
+                relayProfileId = null,
+                observation =
+                    ServerCapabilityObservation(
+                        dnsClassification = DirectDnsClassification.ECH_CAPABLE,
+                    ),
+                source = "test",
+                recordedAt = 20L,
+            )
+
+        val envelope = merged.effectiveTransportPolicyEnvelope()
+
+        assertEquals(DirectDnsClassification.ECH_CAPABLE, envelope.dnsClassification)
+        assertEquals(DnsMode.SYSTEM, envelope.policy.dnsMode)
+    }
+
+    @Test
     fun `effective transport policy envelope decodes legacy direct path evidence conservatively`() {
         val record =
             ServerCapabilityRecord(
@@ -167,6 +190,7 @@ class ServerCapabilityStoreTest {
         assertEquals(TcpFamily.NONE, envelope.policy.tcpFamily)
         assertEquals(DirectModeOutcome.TRANSPARENT_OK, envelope.policy.outcome)
         assertEquals("", envelope.ipSetDigest)
+        assertNull(envelope.dnsClassification)
         assertNull(envelope.transportClass)
         assertNull(envelope.reasonCode)
         assertNull(envelope.cooldownUntil)
