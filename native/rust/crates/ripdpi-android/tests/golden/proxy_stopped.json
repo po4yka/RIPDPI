@@ -37,6 +37,7 @@
   "nativeEvents": [
     {
       "createdAt": 0,
+      "kind": "runtime_stopped",
       "level": "info",
       "message": "listener stopped",
       "source": "proxy",

@@ -45,6 +45,7 @@
         {
             "createdAt": 0,
             "fingerprintHash": null,
+            "kind": "runtime_ready",
             "level": "info",
             "message": "listener started addr=127.0.0.1:<port> maxClients=512 groups=2",
             "mode": null,
@@ -56,6 +57,7 @@
         {
             "createdAt": 1,
             "fingerprintHash": null,
+            "kind": null,
             "level": "info",
             "message": "telegram dc detected target=149.154.167.91:443 dc=2",
             "mode": null,
@@ -67,6 +69,7 @@
         {
             "createdAt": 2,
             "fingerprintHash": null,
+            "kind": null,
             "level": "warn",
             "message": "ws tunnel escalation target=149.154.167.91:443 dc=2 result=failed",
             "mode": null,

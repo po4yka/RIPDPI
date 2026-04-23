@@ -248,6 +248,7 @@ class NativeTelemetryGoldenTest {
                                 level = "info",
                                 message = "listener started addr=127.0.0.1:<port> maxClients=512 groups=2",
                                 createdAt = 0L,
+                                kind = "runtime_ready",
                             ),
                         )
                     } else {
@@ -270,7 +271,8 @@ class NativeTelemetryGoldenTest {
               "source": "proxy",
               "level": "info",
               "message": "listener started addr=127.0.0.1:<port> maxClients=512 groups=2",
-              "createdAt": 0
+              "createdAt": 0,
+              "kind": "runtime_ready"
             },
             {
               "source": "proxy",

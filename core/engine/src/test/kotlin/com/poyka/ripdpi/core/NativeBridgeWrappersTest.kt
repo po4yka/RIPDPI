@@ -5,8 +5,10 @@ import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -62,59 +64,75 @@ class NativeBridgeWrappersTest {
         }
 
     @Test
-    fun proxyWrapperAwaitReadyCompletesAfterRunningTelemetryAppears() =
+    fun proxyWrapperAwaitReadyCompletesAfterRuntimeReadyEventAppears() =
         runTest {
-            val blocker = CompletableDeferred<Unit>()
-            val startedSignal = CompletableDeferred<Long>()
-            val bindings =
-                FakeRipDpiProxyBindings().apply {
-                    this.startedSignal = startedSignal
-                    startBlocker = blocker
-                }
+            val bindings = FakeRipDpiProxyBindings()
             val proxy = RipDpiProxy(bindings)
+            armRuntime(proxy, "Proxy")
 
-            val start =
-                async {
-                    proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1082)))
-                }
-
-            assertEquals(1L, startedSignal.await())
             bindings.telemetryJson =
                 json.encodeToString(
                     NativeRuntimeSnapshot.serializer(),
-                    NativeRuntimeSnapshot(source = "proxy", state = "running", health = "healthy"),
+                    NativeRuntimeSnapshot(
+                        source = "proxy",
+                        state = "running",
+                        health = "healthy",
+                        nativeEvents =
+                            listOf(
+                                NativeRuntimeEvent(
+                                    source = "proxy",
+                                    level = "info",
+                                    message = "listener started",
+                                    createdAt = 1L,
+                                    kind = "runtime_ready",
+                                ),
+                            ),
+                    ),
                 )
 
-            proxy.awaitReady()
-
-            blocker.complete(Unit)
-            assertEquals(0, start.await())
+            val telemetry = proxy.pollTelemetry()
+            assertEquals("running", telemetry.state)
+            assertEquals("runtime_ready", telemetry.nativeEvents.single().kind)
+            withContext(Dispatchers.Default) {
+                proxy.awaitReady()
+            }
         }
 
     @Test
     fun proxyWrapperAwaitReadyPropagatesNativeStartFailure() =
         runTest {
-            val startedSignal = CompletableDeferred<Long>()
-            val bindings =
-                FakeRipDpiProxyBindings().apply {
-                    this.startedSignal = startedSignal
-                    startFailure = IOException("proxy boom")
-                }
+            val bindings = FakeRipDpiProxyBindings()
             val proxy = RipDpiProxy(bindings)
-
-            val start =
-                async {
-                    runCatching {
-                        proxy.startProxy(RipDpiProxyUIPreferences(listen = RipDpiListenConfig(port = 1082)))
-                    }.exceptionOrNull()
-                }
-
-            assertEquals(1L, startedSignal.await())
+            val startupSignal = armRuntime(proxy, "Proxy")
+            startupSignal.completeExceptionally(IOException("proxy boom"))
 
             val error = runCatching { proxy.awaitReady() }.exceptionOrNull()
 
             assertTrue(error is IOException)
-            assertTrue(start.await() is IOException)
+        }
+
+    @Test
+    fun proxyWrapperAwaitReadyIgnoresRunningTelemetryWithoutRuntimeReadyEvent() =
+        runTest {
+            val bindings =
+                FakeRipDpiProxyBindings().apply {
+                    telemetryJson =
+                        json.encodeToString(
+                            NativeRuntimeSnapshot.serializer(),
+                            NativeRuntimeSnapshot(source = "proxy", state = "running", health = "healthy"),
+                        )
+                }
+            val proxy = RipDpiProxy(bindings)
+            armRuntime(proxy, "Proxy")
+
+            val error =
+                runCatching {
+                    withContext(Dispatchers.Default) {
+                        proxy.awaitReady(timeoutMillis = 100)
+                    }
+                }.exceptionOrNull()
+
+            assertTrue(error is IllegalStateException)
         }
 
     @Test
@@ -202,6 +220,7 @@ class NativeBridgeWrappersTest {
                                             level = "info",
                                             message = "accepted",
                                             createdAt = 1L,
+                                            kind = "runtime_ready",
                                         ),
                                     ),
                                 capturedAt = 2L,
@@ -253,6 +272,120 @@ class NativeBridgeWrappersTest {
             assertTrue(telemetry.nativeEvents.isEmpty())
             blocker.complete(Unit)
             assertEquals(0, start.await())
+        }
+
+    @Test
+    fun relayWrapperAwaitReadyCompletesAfterRuntimeReadyEventAppears() =
+        runTest {
+            val bindings = FakeRipDpiRelayBindings()
+            val relay = RipDpiRelay(bindings)
+            armRuntime(relay, "relay")
+            bindings.telemetryJson =
+                json.encodeToString(
+                    NativeRuntimeSnapshot.serializer(),
+                    NativeRuntimeSnapshot(
+                        source = "relay",
+                        state = "running",
+                        health = "healthy",
+                        nativeEvents =
+                            listOf(
+                                NativeRuntimeEvent(
+                                    source = "relay",
+                                    level = "info",
+                                    message = "listener started",
+                                    createdAt = 1L,
+                                    kind = "runtime_ready",
+                                ),
+                            ),
+                    ),
+                )
+
+            val telemetry = relay.pollTelemetry()
+            assertEquals("running", telemetry.state)
+            assertEquals("runtime_ready", telemetry.nativeEvents.single().kind)
+            withContext(Dispatchers.Default) {
+                relay.awaitReady()
+            }
+        }
+
+    @Test
+    fun relayWrapperAwaitReadyIgnoresRunningTelemetryWithoutRuntimeReadyEvent() =
+        runTest {
+            val bindings =
+                FakeRipDpiRelayBindings().apply {
+                    telemetryJson =
+                        json.encodeToString(
+                            NativeRuntimeSnapshot.serializer(),
+                            NativeRuntimeSnapshot(source = "relay", state = "running", health = "healthy"),
+                        )
+                }
+            val relay = RipDpiRelay(bindings)
+            armRuntime(relay, "relay")
+            val error =
+                runCatching {
+                    withContext(Dispatchers.Default) {
+                        relay.awaitReady(timeoutMillis = 100)
+                    }
+                }.exceptionOrNull()
+
+            assertTrue(error is IllegalStateException)
+        }
+
+    @Test
+    fun warpWrapperAwaitReadyCompletesAfterRuntimeReadyEventAppears() =
+        runTest {
+            val bindings = FakeRipDpiWarpBindings()
+            val warp = RipDpiWarp(bindings)
+            armRuntime(warp, "WARP")
+            bindings.telemetryJson =
+                json.encodeToString(
+                    NativeRuntimeSnapshot.serializer(),
+                    NativeRuntimeSnapshot(
+                        source = "warp",
+                        state = "running",
+                        health = "healthy",
+                        nativeEvents =
+                            listOf(
+                                NativeRuntimeEvent(
+                                    source = "warp",
+                                    level = "info",
+                                    message = "listener started",
+                                    createdAt = 1L,
+                                    kind = "runtime_ready",
+                                ),
+                            ),
+                    ),
+                )
+
+            val telemetry = warp.pollTelemetry()
+            assertEquals("running", telemetry.state)
+            assertEquals("runtime_ready", telemetry.nativeEvents.single().kind)
+            withContext(Dispatchers.Default) {
+                warp.awaitReady()
+            }
+        }
+
+    @Test
+    fun warpWrapperAwaitReadyIgnoresRunningTelemetryWithoutRuntimeReadyEvent() =
+        runTest {
+            val bindings =
+                FakeRipDpiWarpBindings().apply {
+                    telemetryJson =
+                        json.encodeToString(
+                            NativeRuntimeSnapshot.serializer(),
+                            NativeRuntimeSnapshot(source = "warp", state = "running", health = "healthy"),
+                        )
+                }
+            val warp = RipDpiWarp(bindings)
+            armRuntime(warp, "WARP")
+            val error =
+                runCatching {
+                    withContext(Dispatchers.Default) {
+                        warp.awaitReady(timeoutMillis = 100)
+                    }
+                }.exceptionOrNull()
+
+            assertTrue(error is IllegalStateException)
         }
 
     @Test
@@ -368,6 +501,7 @@ class NativeBridgeWrappersTest {
                                             level = "info",
                                             message = "tick",
                                             createdAt = 3L,
+                                            kind = "runtime_stopped",
                                         ),
                                     ),
                                 capturedAt = 4L,
@@ -402,4 +536,20 @@ class NativeBridgeWrappersTest {
             assertTrue(telemetry.nativeEvents.isEmpty())
             tunnel.stop()
         }
+
+    private fun armRuntime(
+        runtime: Any,
+        name: String,
+    ): CompletableDeferred<Unit> {
+        val startupSignal = CompletableDeferred<Unit>()
+        runtime.javaClass.getDeclaredField("handle").apply {
+            isAccessible = true
+            setLong(runtime, 1L)
+        }
+        runtime.javaClass.getDeclaredField("readinessSignal").apply {
+            isAccessible = true
+            set(runtime, startupSignal)
+        }
+        return startupSignal
+    }
 }

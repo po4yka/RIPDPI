@@ -30,6 +30,20 @@ const MAX_PACKET: usize = 65_536;
 const MIN_VIRTUAL_PORT: u16 = 1000;
 const MAX_VIRTUAL_PORT: u16 = 60_999;
 
+fn emit_runtime_ready(bind_addr: &str) {
+    tracing::info!(
+        ring = "warp",
+        subsystem = "warp",
+        source = "warp",
+        kind = "runtime_ready",
+        "listener started addr={bind_addr}"
+    );
+}
+
+fn emit_runtime_stopped() {
+    tracing::info!(ring = "warp", subsystem = "warp", source = "warp", kind = "runtime_stopped", "listener stopped");
+}
+
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Ord, PartialOrd, Serialize)]
 #[serde(rename_all = "snake_case")]
 enum PortProtocol {
@@ -408,6 +422,7 @@ impl WarpRuntime {
         let listener = TcpListener::bind(&bind_addr).await?;
         *self.listener_address.lock().expect("listener address") = Some(bind_addr);
         self.running.store(true, Ordering::SeqCst);
+        emit_runtime_ready(self.listener_address.lock().expect("listener address").as_deref().unwrap_or_default());
 
         while !self.stop_requested.load(Ordering::SeqCst) {
             match timeout(ACCEPT_POLL_INTERVAL, listener.accept()).await {
@@ -433,6 +448,7 @@ impl WarpRuntime {
         }
 
         self.running.store(false, Ordering::SeqCst);
+        emit_runtime_stopped();
         Ok(())
     }
 }

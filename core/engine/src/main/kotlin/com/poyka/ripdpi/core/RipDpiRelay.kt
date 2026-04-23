@@ -8,10 +8,12 @@ import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -265,21 +267,37 @@ class RipDpiRelay(
             mutex.withLock {
                 readinessSignal
             } ?: throw NativeError.NotRunning("relay")
-        val deadline = System.currentTimeMillis() + timeoutMillis
-        while (true) {
-            if (startupSignal.isCompleted) {
-                startupSignal.await()
-                return
+        var lastState = "idle"
+        var lastEventMessage: String? = null
+        try {
+            withTimeout(timeoutMillis) {
+                while (true) {
+                    if (startupSignal.isCompleted) {
+                        startupSignal.await()
+                        return@withTimeout
+                    }
+                    val telemetry = pollTelemetry()
+                    lastState = telemetry.state
+                    lastEventMessage = telemetry.nativeEvents.lastOrNull()?.message
+                    if (telemetry.hasRuntimeReadyEvent()) {
+                        startupSignal.complete(Unit)
+                        startupSignal.await()
+                        return@withTimeout
+                    }
+                    delay(ReadyPollIntervalMs)
+                }
             }
-            if (pollTelemetry().state == "running") {
-                startupSignal.complete(Unit)
-                startupSignal.await()
-                return
-            }
-            if (System.currentTimeMillis() >= deadline) {
-                error("Relay readiness timed out")
-            }
-            delay(ReadyPollIntervalMs)
+        } catch (_: TimeoutCancellationException) {
+            error(
+                buildString {
+                    append("Relay readiness timed out state=")
+                    append(lastState)
+                    lastEventMessage?.let {
+                        append(" lastEvent=")
+                        append(it)
+                    }
+                },
+            )
         }
     }
 
@@ -317,3 +335,5 @@ class RipDpiRelay(
             ?: NativeRuntimeSnapshot.idle(source = "relay")
     }
 }
+
+private fun NativeRuntimeSnapshot.hasRuntimeReadyEvent(): Boolean = nativeEvents.any { it.kind == "runtime_ready" }
