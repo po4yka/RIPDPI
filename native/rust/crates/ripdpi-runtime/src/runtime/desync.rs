@@ -9,7 +9,10 @@ use std::time::Duration;
 pub type PcapHook = Arc<dyn Fn(&[u8], bool) + Send + Sync>;
 
 use crate::platform;
-use ripdpi_config::{DesyncGroup, EntropyMode, FakeOrder, FakeSeqMode, RuntimeConfig, TcpChainStep, TcpChainStepKind};
+use ripdpi_config::{
+    DesyncGroup, DesyncGroupActionSettings, EntropyMode, FakeOrder, FakeSeqMode, OffsetBase, OffsetExpr, RuntimeConfig,
+    TcpChainStep, TcpChainStepKind,
+};
 use ripdpi_desync::{
     activation_filter_matches, build_fake_packet, build_fake_region_bytes, build_hostfake_bytes,
     build_secondary_fake_packet, plan_tcp, resolve_hostfake_span, ActivationContext, ActivationTcpState,
@@ -345,7 +348,7 @@ pub(super) fn send_with_group(
     target: SocketAddr,
 ) -> Result<OutboundSendOutcome, OutboundSendError> {
     let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
-    let effective_group = apply_tcp_capability_fallback(group, capability);
+    let (effective_group, strategy_family_override) = apply_tcp_capability_policy(group, capability, payload, progress);
     let effective_group = effective_group.as_ref();
     let resolved_fake_ttl = resolve_adaptive_fake_ttl(state, target, group_index, effective_group, host)?;
     let adaptive_hints = resolve_tcp_hints_with_evolver(state, target, group_index, effective_group, host, payload)?;
@@ -366,7 +369,7 @@ pub(super) fn send_with_group(
     // corrupt the application stream.
     let entropy_override = adaptive_hints.entropy_mode.filter(|_| group_has_fake_steps(effective_group));
     let effective_payload = apply_entropy_padding(effective_group, payload, entropy_override);
-    let strategy_family = primary_tcp_strategy_family(effective_group);
+    let strategy_family = strategy_family_override.or_else(|| primary_tcp_strategy_family(effective_group));
     if should_desync_tcp(effective_group, context) {
         let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
         match plan_tcp(effective_group, &effective_payload, seed, state.config.network.default_ttl, context) {
@@ -464,6 +467,8 @@ pub(crate) fn primary_tcp_strategy_family(group: &DesyncGroup) -> Option<&'stati
 
 fn strategy_fallback_family(strategy_family: &'static str) -> Option<&'static str> {
     match strategy_family {
+        "seg_mid_sni" => Some("seg_pre_sni"),
+        "rec_mid_sni" => Some("rec_pre_sni"),
         "seqovl" => Some("split"),
         "tlsrec_seqovl" => Some("tlsrec_split"),
         "disorder" => Some("split"),
@@ -512,6 +517,66 @@ fn apply_tcp_capability_fallback<'a>(
     }
 }
 
+fn transparent_tls_family_strategy(
+    capability: &ProxyDirectPathCapability,
+    payload: &[u8],
+    progress: OutboundProgress,
+) -> Option<&'static str> {
+    if progress.round != 1 || progress.stream_start != 0 || tls_marker_info(payload).is_none() {
+        return None;
+    }
+    if capability.outcome.trim().to_ascii_uppercase() != "TRANSPARENT_OK" {
+        return None;
+    }
+    match capability.tcp_family.trim().to_ascii_uppercase().as_str() {
+        "SEG_PRE_SNI" => Some("seg_pre_sni"),
+        "SEG_MID_SNI" => Some("seg_mid_sni"),
+        "REC_PRE_SNI" => Some("rec_pre_sni"),
+        "REC_MID_SNI" => Some("rec_mid_sni"),
+        _ => None,
+    }
+}
+
+fn transparent_tls_family_chain(strategy_family: &'static str) -> Vec<TcpChainStep> {
+    let offset = match strategy_family {
+        "seg_pre_sni" | "rec_pre_sni" => OffsetExpr::tls_marker(OffsetBase::SniExt, 0),
+        "seg_mid_sni" | "rec_mid_sni" => OffsetExpr::tls_marker(OffsetBase::MidSld, 0),
+        _ => OffsetExpr::tls_marker(OffsetBase::SniExt, 0),
+    };
+    let kind = match strategy_family {
+        "seg_pre_sni" | "seg_mid_sni" => TcpChainStepKind::Split,
+        "rec_pre_sni" | "rec_mid_sni" => TcpChainStepKind::TlsRec,
+        _ => TcpChainStepKind::Split,
+    };
+    vec![TcpChainStep::new(kind, offset)]
+}
+
+fn apply_transparent_tls_family(group: &DesyncGroup, strategy_family: &'static str) -> DesyncGroup {
+    let mut adjusted = group.clone();
+    adjusted.actions = DesyncGroupActionSettings {
+        tcp_chain: transparent_tls_family_chain(strategy_family),
+        ..DesyncGroupActionSettings::default()
+    };
+    adjusted
+}
+
+fn apply_tcp_capability_policy<'a>(
+    group: &'a DesyncGroup,
+    capability: Option<&ProxyDirectPathCapability>,
+    payload: &[u8],
+    progress: OutboundProgress,
+) -> (Cow<'a, DesyncGroup>, Option<&'static str>) {
+    if !group.actions.tcp_chain.is_empty() || group.actions.mod_http != 0 || group.actions.tlsminor.is_some() {
+        return (apply_tcp_capability_fallback(group, capability), None);
+    }
+    if let Some(strategy_family) =
+        capability.and_then(|value| transparent_tls_family_strategy(value, payload, progress))
+    {
+        return (Cow::Owned(apply_transparent_tls_family(group, strategy_family)), Some(strategy_family));
+    }
+    (apply_tcp_capability_fallback(group, capability), None)
+}
+
 fn tcp_fallback_kind_for_strategy(strategy_family: &'static str) -> Option<TcpChainStepKind> {
     match strategy_family {
         "seqovl" | "tlsrec_seqovl" | "disorder" => Some(TcpChainStepKind::Split),
@@ -523,7 +588,7 @@ fn tcp_fallback_kind_for_strategy(strategy_family: &'static str) -> Option<TcpCh
 
 fn write_action_name(strategy_family: &'static str) -> &'static str {
     match strategy_family {
-        "split" => "write_split",
+        "split" | "seg_pre_sni" | "seg_mid_sni" => "write_split",
         "seqovl" | "tlsrec_seqovl" => "write_seqovl",
         "disorder" => "write_disorder",
         "oob" => "write_oob",
@@ -532,6 +597,7 @@ fn write_action_name(strategy_family: &'static str) -> &'static str {
         "fakedsplit" => "write_fakesplit",
         "fakeddisorder" => "write_fakeddisorder",
         "hostfake" => "write_hostfake",
+        "rec_pre_sni" | "rec_mid_sni" => "write_tlsrec",
         _ => "write",
     }
 }
@@ -556,7 +622,7 @@ fn should_fallback_seqovl_error_kind(kind: io::ErrorKind) -> bool {
 
 fn await_writable_action_name(strategy_family: &'static str) -> &'static str {
     match strategy_family {
-        "split" => "await_writable_split",
+        "split" | "seg_pre_sni" | "seg_mid_sni" => "await_writable_split",
         "seqovl" | "tlsrec_seqovl" => "await_writable_seqovl",
         "disorder" => "await_writable_disorder",
         "oob" => "await_writable_oob",
@@ -564,6 +630,7 @@ fn await_writable_action_name(strategy_family: &'static str) -> &'static str {
         "fakedsplit" => "await_writable_fakesplit",
         "fakeddisorder" => "await_writable_fakeddisorder",
         "hostfake" => "await_writable_hostfake",
+        "rec_pre_sni" | "rec_mid_sni" => "await_writable_tlsrec",
         _ => "await_writable",
     }
 }
@@ -2081,7 +2148,7 @@ enum TcpPlanLoopControl {
 
 fn tcp_step_strategy_family(kind: TcpChainStepKind, strategy_family: Option<&'static str>) -> &'static str {
     match kind {
-        TcpChainStepKind::Split | TcpChainStepKind::SynData => "split",
+        TcpChainStepKind::Split | TcpChainStepKind::SynData => strategy_family.unwrap_or("split"),
         TcpChainStepKind::SeqOverlap => strategy_family.unwrap_or("seqovl"),
         TcpChainStepKind::MultiDisorder => strategy_family.unwrap_or("multidisorder"),
         TcpChainStepKind::Oob => "oob",
@@ -2864,6 +2931,28 @@ mod tests {
         ]
     }
 
+    fn capability_with_family(tcp_family: &str) -> ProxyDirectPathCapability {
+        ProxyDirectPathCapability {
+            authority: "example.org:443".to_string(),
+            quic_usable: None,
+            udp_usable: None,
+            fallback_required: Some(true),
+            repeated_handshake_failure_class: Some("tcp_reset".to_string()),
+            transport_policy_version: 0,
+            ip_set_digest: String::new(),
+            dns_classification: None,
+            quic_mode: "ALLOW".to_string(),
+            preferred_stack: "H2".to_string(),
+            dns_mode: "SYSTEM".to_string(),
+            tcp_family: tcp_family.to_string(),
+            outcome: "TRANSPARENT_OK".to_string(),
+            transport_class: Some("SNI_TLS_SUSPECT".to_string()),
+            reason_code: Some("TCP_POST_CLIENT_HELLO_FAILURE".to_string()),
+            cooldown_until: None,
+            updated_at: 1,
+        }
+    }
+
     #[test]
     fn tcp_desync_helpers_require_actionable_groups_and_matching_rounds() {
         let mut group = test_group();
@@ -3074,6 +3163,115 @@ mod tests {
         let adjusted = apply_tcp_capability_fallback(&group, Some(&capability));
 
         assert!(matches!(adjusted, Cow::Borrowed(_)));
+    }
+
+    #[test]
+    fn tcp_capability_policy_injects_seg_mid_sni_family_for_first_client_hello() {
+        let payload = rust_packet_seeds::tls_client_hello();
+        let mut group = test_group();
+        group.actions.fake_tcp_timestamp_enabled = true;
+        let capability = capability_with_family("SEG_MID_SNI");
+
+        let (adjusted, strategy_family) = apply_tcp_capability_policy(
+            &group,
+            Some(&capability),
+            &payload,
+            OutboundProgress {
+                round: 1,
+                payload_size: payload.len(),
+                stream_start: 0,
+                stream_end: payload.len().saturating_sub(1),
+            },
+        );
+        let adjusted = adjusted.into_owned();
+
+        assert_eq!(strategy_family, Some("seg_mid_sni"));
+        assert_eq!(adjusted.actions.tcp_chain.len(), 1);
+        assert_eq!(adjusted.actions.tcp_chain[0].kind, TcpChainStepKind::Split);
+        assert_eq!(adjusted.actions.tcp_chain[0].offset.base, OffsetBase::MidSld);
+        assert_eq!(adjusted.actions.mod_http, 0);
+        assert!(!adjusted.actions.fake_tcp_timestamp_enabled);
+    }
+
+    #[test]
+    fn tcp_capability_policy_injects_rec_pre_sni_family_for_first_client_hello() {
+        let payload = rust_packet_seeds::tls_client_hello();
+        let capability = capability_with_family("REC_PRE_SNI");
+        let group = test_group();
+
+        let (adjusted, strategy_family) = apply_tcp_capability_policy(
+            &group,
+            Some(&capability),
+            &payload,
+            OutboundProgress {
+                round: 1,
+                payload_size: payload.len(),
+                stream_start: 0,
+                stream_end: payload.len().saturating_sub(1),
+            },
+        );
+        let adjusted = adjusted.into_owned();
+
+        assert_eq!(strategy_family, Some("rec_pre_sni"));
+        assert_eq!(adjusted.actions.tcp_chain.len(), 1);
+        assert_eq!(adjusted.actions.tcp_chain[0].kind, TcpChainStepKind::TlsRec);
+        assert_eq!(adjusted.actions.tcp_chain[0].offset.base, OffsetBase::SniExt);
+    }
+
+    #[test]
+    fn tcp_capability_policy_skips_non_first_or_non_transparent_tls_arm_requests() {
+        let payload = rust_packet_seeds::tls_client_hello();
+        let mut capability = capability_with_family("SEG_PRE_SNI");
+        capability.outcome = "NO_DIRECT_SOLUTION".to_string();
+        let group = test_group();
+
+        let (non_transparent, strategy_family) = apply_tcp_capability_policy(
+            &group,
+            Some(&capability),
+            &payload,
+            OutboundProgress {
+                round: 1,
+                payload_size: payload.len(),
+                stream_start: 0,
+                stream_end: payload.len().saturating_sub(1),
+            },
+        );
+        assert!(matches!(non_transparent, Cow::Borrowed(_)));
+        assert_eq!(strategy_family, None);
+
+        let capability = capability_with_family("SEG_PRE_SNI");
+        let group = test_group();
+        let (not_first, strategy_family) = apply_tcp_capability_policy(
+            &group,
+            Some(&capability),
+            &payload,
+            OutboundProgress {
+                round: 2,
+                payload_size: payload.len(),
+                stream_start: payload.len(),
+                stream_end: payload.len().saturating_mul(2).saturating_sub(1),
+            },
+        );
+        assert!(matches!(not_first, Cow::Borrowed(_)));
+        assert_eq!(strategy_family, None);
+
+        let mut explicit_group = test_group();
+        explicit_group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Disorder, test_offset()));
+        let capability = capability_with_family("SEG_PRE_SNI");
+        let (explicit_group, strategy_family) = apply_tcp_capability_policy(
+            &explicit_group,
+            Some(&capability),
+            &payload,
+            OutboundProgress {
+                round: 1,
+                payload_size: payload.len(),
+                stream_start: 0,
+                stream_end: payload.len().saturating_sub(1),
+            },
+        );
+        let explicit_group = explicit_group.into_owned();
+        assert_eq!(explicit_group.actions.tcp_chain[0].kind, TcpChainStepKind::Split);
+        assert_eq!(strategy_family, None);
     }
 
     #[test]
@@ -3382,6 +3580,8 @@ mod tests {
 
     #[test]
     fn strategy_fallback_maps_all_families() {
+        assert_eq!(strategy_fallback_family("seg_mid_sni"), Some("seg_pre_sni"));
+        assert_eq!(strategy_fallback_family("rec_mid_sni"), Some("rec_pre_sni"));
         assert_eq!(strategy_fallback_family("disorder"), Some("split"));
         assert_eq!(strategy_fallback_family("seqovl"), Some("split"));
         assert_eq!(strategy_fallback_family("tlsrec_seqovl"), Some("tlsrec_split"));
@@ -3397,6 +3597,10 @@ mod tests {
     #[test]
     fn write_action_name_maps_all_families() {
         assert_eq!(write_action_name("split"), "write_split");
+        assert_eq!(write_action_name("seg_pre_sni"), "write_split");
+        assert_eq!(write_action_name("seg_mid_sni"), "write_split");
+        assert_eq!(write_action_name("rec_pre_sni"), "write_tlsrec");
+        assert_eq!(write_action_name("rec_mid_sni"), "write_tlsrec");
         assert_eq!(write_action_name("seqovl"), "write_seqovl");
         assert_eq!(write_action_name("tlsrec_seqovl"), "write_seqovl");
         assert_eq!(write_action_name("disorder"), "write_disorder");
@@ -3429,6 +3633,10 @@ mod tests {
     #[test]
     fn await_writable_action_name_maps_all() {
         assert_eq!(await_writable_action_name("split"), "await_writable_split");
+        assert_eq!(await_writable_action_name("seg_pre_sni"), "await_writable_split");
+        assert_eq!(await_writable_action_name("seg_mid_sni"), "await_writable_split");
+        assert_eq!(await_writable_action_name("rec_pre_sni"), "await_writable_tlsrec");
+        assert_eq!(await_writable_action_name("rec_mid_sni"), "await_writable_tlsrec");
         assert_eq!(await_writable_action_name("seqovl"), "await_writable_seqovl");
         assert_eq!(await_writable_action_name("tlsrec_seqovl"), "await_writable_seqovl");
         assert_eq!(await_writable_action_name("disorder"), "await_writable_disorder");

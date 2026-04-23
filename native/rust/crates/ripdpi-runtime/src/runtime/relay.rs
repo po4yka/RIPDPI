@@ -31,6 +31,7 @@ pub(super) fn relay(
         success_recorded,
         success_host,
         success_payload,
+        success_strategy_family,
         client_closed,
     } = prepare_relay(&mut client, upstream, state, target, route, seed_request)?;
 
@@ -49,6 +50,7 @@ pub(super) fn relay(
         success_recorded,
         success_host.as_deref(),
         success_payload.as_deref(),
+        success_strategy_family,
     )?;
     relay_result.map(|_| ())
 }
