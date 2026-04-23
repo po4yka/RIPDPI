@@ -19,6 +19,7 @@ import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.CurrentTransportPolicyEnvelopeVersion
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
@@ -45,15 +46,22 @@ import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TemporaryResolverOverride
+import com.poyka.ripdpi.data.TransportPolicy
+import com.poyka.ripdpi.data.TransportPolicyEnvelope
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.WifiNetworkIdentityTuple
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.data.derivedFallbackRequired
+import com.poyka.ripdpi.data.derivedHandshakeFailureClass
+import com.poyka.ripdpi.data.derivedQuicUsable
+import com.poyka.ripdpi.data.derivedUdpUsable
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -355,24 +363,72 @@ internal class TestServerCapabilityStore : ServerCapabilityStore {
         recordedAt: Long?,
     ): ServerCapabilityRecord {
         val normalizedAuthority = authority.trim().lowercase()
+        val fingerprintHash = fingerprint.scopeKey()
+        val recordKey =
+            buildString {
+                append(fingerprintHash)
+                append('|')
+                append(normalizedAuthority)
+                observation.ipSetDigest?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                    append('|')
+                    append(it.lowercase())
+                }
+                append('|')
+                append(relayProfileId.orEmpty())
+            }
         val record =
-            ServerCapabilityRecord(
-                scope = scope.wireValue,
-                fingerprintHash = fingerprint.scopeKey(),
-                authority = normalizedAuthority,
-                relayProfileId = relayProfileId,
-                quicUsable = observation.quicUsable,
-                udpUsable = observation.udpUsable,
-                authModeAccepted = observation.authModeAccepted,
-                multiplexReusable = observation.multiplexReusable,
-                shadowTlsCamouflageAccepted = observation.shadowTlsCamouflageAccepted,
-                naiveHttpsProxyAccepted = observation.naiveHttpsProxyAccepted,
-                fallbackRequired = observation.fallbackRequired,
-                repeatedHandshakeFailureClass = observation.repeatedHandshakeFailureClass,
-                source = source,
-                updatedAt = recordedAt ?: 0L,
-            )
-        records["${record.fingerprintHash}|${record.authority}|${record.relayProfileId.orEmpty()}"] = record
+            records[recordKey].let { existing ->
+                val existingEnvelope = existing?.effectiveTransportPolicyEnvelope()
+                val hasPolicyData =
+                    observation.transportPolicy != null ||
+                        observation.ipSetDigest != null ||
+                        observation.transportClass != null ||
+                        observation.reasonCode != null ||
+                        observation.cooldownUntil != null
+                val envelope =
+                    if (!hasPolicyData) {
+                        existingEnvelope
+                    } else {
+                        TransportPolicyEnvelope(
+                            version = CurrentTransportPolicyEnvelopeVersion,
+                            policy = observation.transportPolicy ?: existingEnvelope?.policy ?: TransportPolicy(),
+                            ipSetDigest =
+                                observation.ipSetDigest
+                                    ?.trim()
+                                    .orEmpty()
+                                    .ifEmpty { existingEnvelope?.ipSetDigest.orEmpty() },
+                            transportClass = observation.transportClass ?: existingEnvelope?.transportClass,
+                            reasonCode = observation.reasonCode ?: existingEnvelope?.reasonCode,
+                            cooldownUntil =
+                                observation.cooldownUntil?.takeIf { it > 0L } ?: existingEnvelope?.cooldownUntil,
+                        )
+                    }
+                ServerCapabilityRecord(
+                    scope = scope.wireValue,
+                    fingerprintHash = fingerprintHash,
+                    authority = normalizedAuthority,
+                    relayProfileId = relayProfileId ?: existing?.relayProfileId,
+                    quicUsable = observation.quicUsable ?: envelope?.derivedQuicUsable() ?: existing?.quicUsable,
+                    udpUsable = observation.udpUsable ?: envelope?.derivedUdpUsable() ?: existing?.udpUsable,
+                    authModeAccepted = observation.authModeAccepted ?: existing?.authModeAccepted,
+                    multiplexReusable = observation.multiplexReusable ?: existing?.multiplexReusable,
+                    shadowTlsCamouflageAccepted =
+                        observation.shadowTlsCamouflageAccepted ?: existing?.shadowTlsCamouflageAccepted,
+                    naiveHttpsProxyAccepted =
+                        observation.naiveHttpsProxyAccepted ?: existing?.naiveHttpsProxyAccepted,
+                    fallbackRequired =
+                        observation.fallbackRequired ?: envelope?.derivedFallbackRequired()
+                            ?: existing?.fallbackRequired,
+                    repeatedHandshakeFailureClass =
+                        observation.repeatedHandshakeFailureClass
+                            ?: envelope?.derivedHandshakeFailureClass()
+                            ?: existing?.repeatedHandshakeFailureClass,
+                    transportPolicyEnvelope = envelope,
+                    source = source,
+                    updatedAt = recordedAt ?: 0L,
+                )
+            }
+        records[recordKey] = record
         return record
     }
 }

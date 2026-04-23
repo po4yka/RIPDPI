@@ -134,7 +134,47 @@ pub struct ProxyDirectPathCapability {
     #[serde(default)]
     pub repeated_handshake_failure_class: Option<String>,
     #[serde(default)]
+    pub transport_policy_version: i32,
+    #[serde(default)]
+    pub ip_set_digest: String,
+    #[serde(default = "default_quic_mode")]
+    pub quic_mode: String,
+    #[serde(default = "default_preferred_stack")]
+    pub preferred_stack: String,
+    #[serde(default = "default_transport_dns_mode")]
+    pub dns_mode: String,
+    #[serde(default = "default_tcp_family")]
+    pub tcp_family: String,
+    #[serde(default = "default_direct_mode_outcome")]
+    pub outcome: String,
+    #[serde(default)]
+    pub transport_class: Option<String>,
+    #[serde(default)]
+    pub reason_code: Option<String>,
+    #[serde(default)]
+    pub cooldown_until: Option<i64>,
+    #[serde(default)]
     pub updated_at: i64,
+}
+
+fn default_quic_mode() -> String {
+    "ALLOW".to_string()
+}
+
+fn default_preferred_stack() -> String {
+    "H3".to_string()
+}
+
+fn default_transport_dns_mode() -> String {
+    "SYSTEM".to_string()
+}
+
+fn default_tcp_family() -> String {
+    "NONE".to_string()
+}
+
+fn default_direct_mode_outcome() -> String {
+    "TRANSPARENT_OK".to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Default)]

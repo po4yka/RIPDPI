@@ -33,6 +33,11 @@ data class ServerCapabilityObservation(
     val naiveHttpsProxyAccepted: Boolean? = null,
     val fallbackRequired: Boolean? = null,
     val repeatedHandshakeFailureClass: String? = null,
+    val transportPolicy: TransportPolicy? = null,
+    val ipSetDigest: String? = null,
+    val transportClass: DirectTransportClass? = null,
+    val reasonCode: DirectModeReasonCode? = null,
+    val cooldownUntil: Long? = null,
 )
 
 @Serializable
@@ -49,6 +54,7 @@ data class ServerCapabilityRecord(
     val naiveHttpsProxyAccepted: Boolean? = null,
     val fallbackRequired: Boolean? = null,
     val repeatedHandshakeFailureClass: String? = null,
+    val transportPolicyEnvelope: TransportPolicyEnvelope? = null,
     val source: String = "runtime",
     val updatedAt: Long = System.currentTimeMillis(),
 )
@@ -63,25 +69,86 @@ internal fun mergeCapabilityRecord(
     source: String,
     recordedAt: Long,
 ): ServerCapabilityRecord =
-    ServerCapabilityRecord(
-        scope = scope.wireValue,
-        fingerprintHash = fingerprintHash,
-        authority = authority.normalizeCapabilityAuthority(),
-        relayProfileId = relayProfileId?.trim()?.takeIf { it.isNotEmpty() } ?: existing?.relayProfileId,
-        quicUsable = observation.quicUsable ?: existing?.quicUsable,
-        udpUsable = observation.udpUsable ?: existing?.udpUsable,
-        authModeAccepted = observation.authModeAccepted ?: existing?.authModeAccepted,
-        multiplexReusable = observation.multiplexReusable ?: existing?.multiplexReusable,
-        shadowTlsCamouflageAccepted =
-            observation.shadowTlsCamouflageAccepted ?: existing?.shadowTlsCamouflageAccepted,
-        naiveHttpsProxyAccepted = observation.naiveHttpsProxyAccepted ?: existing?.naiveHttpsProxyAccepted,
-        fallbackRequired = observation.fallbackRequired ?: existing?.fallbackRequired,
-        repeatedHandshakeFailureClass =
-            observation.repeatedHandshakeFailureClass?.trim()?.takeIf { it.isNotEmpty() }
-                ?: existing?.repeatedHandshakeFailureClass,
-        source = source.trim().ifBlank { existing?.source ?: "runtime" },
-        updatedAt = recordedAt,
+    mergeTransportPolicyEnvelope(existing, observation).let { policyEnvelope ->
+        ServerCapabilityRecord(
+            scope = scope.wireValue,
+            fingerprintHash = fingerprintHash,
+            authority = authority.normalizeCapabilityAuthority(),
+            relayProfileId = relayProfileId?.trim()?.takeIf { it.isNotEmpty() } ?: existing?.relayProfileId,
+            quicUsable = observation.quicUsable ?: policyEnvelope?.derivedQuicUsable() ?: existing?.quicUsable,
+            udpUsable = observation.udpUsable ?: policyEnvelope?.derivedUdpUsable() ?: existing?.udpUsable,
+            authModeAccepted = observation.authModeAccepted ?: existing?.authModeAccepted,
+            multiplexReusable = observation.multiplexReusable ?: existing?.multiplexReusable,
+            shadowTlsCamouflageAccepted =
+                observation.shadowTlsCamouflageAccepted ?: existing?.shadowTlsCamouflageAccepted,
+            naiveHttpsProxyAccepted = observation.naiveHttpsProxyAccepted ?: existing?.naiveHttpsProxyAccepted,
+            fallbackRequired =
+                observation.fallbackRequired ?: policyEnvelope?.derivedFallbackRequired() ?: existing?.fallbackRequired,
+            repeatedHandshakeFailureClass =
+                observation.repeatedHandshakeFailureClass?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: policyEnvelope?.derivedHandshakeFailureClass()
+                    ?: existing?.repeatedHandshakeFailureClass,
+            transportPolicyEnvelope = policyEnvelope,
+            source = source.trim().ifBlank { existing?.source ?: "runtime" },
+            updatedAt = recordedAt,
+        )
+    }
+
+fun ServerCapabilityRecord.effectiveTransportPolicyEnvelope(): TransportPolicyEnvelope {
+    val existingEnvelope = transportPolicyEnvelope
+    if (existingEnvelope != null) {
+        return existingEnvelope.copy(
+            version = existingEnvelope.version.coerceAtLeast(CurrentTransportPolicyEnvelopeVersion),
+            ipSetDigest = existingEnvelope.ipSetDigest.trim(),
+            cooldownUntil = existingEnvelope.cooldownUntil?.takeIf { it > 0L },
+        )
+    }
+    val hasTlsFallbackEvidence = fallbackRequired == true || !repeatedHandshakeFailureClass.isNullOrBlank()
+    val policy =
+        when {
+            hasTlsFallbackEvidence -> {
+                TransportPolicy(
+                    quicMode = QuicMode.HARD_DISABLE,
+                    preferredStack = PreferredStack.H2,
+                    dnsMode = DnsMode.SYSTEM,
+                    tcpFamily = TcpFamily.REC_PRE_SNI,
+                    outcome = DirectModeOutcome.TRANSPARENT_OK,
+                )
+            }
+
+            quicUsable == false || udpUsable == false -> {
+                TransportPolicy(
+                    quicMode = QuicMode.SOFT_DISABLE,
+                    preferredStack = PreferredStack.H2,
+                    dnsMode = DnsMode.SYSTEM,
+                    tcpFamily = TcpFamily.NONE,
+                    outcome = DirectModeOutcome.TRANSPARENT_OK,
+                )
+            }
+
+            else -> {
+                TransportPolicy()
+            }
+        }
+    return TransportPolicyEnvelope(
+        version = CurrentTransportPolicyEnvelopeVersion,
+        policy = policy,
+        ipSetDigest = "",
+        transportClass =
+            when {
+                hasTlsFallbackEvidence -> DirectTransportClass.SNI_TLS_SUSPECT
+                quicUsable == false || udpUsable == false -> DirectTransportClass.QUIC_BLOCK_SUSPECT
+                else -> null
+            },
+        reasonCode =
+            when {
+                hasTlsFallbackEvidence -> DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
+                quicUsable == false || udpUsable == false -> DirectModeReasonCode.QUIC_BLOCKED
+                else -> null
+            },
+        cooldownUntil = null,
     )
+}
 
 interface ServerCapabilityStore {
     suspend fun relayCapabilitiesForFingerprint(fingerprintHash: String): List<ServerCapabilityRecord>
@@ -204,7 +271,14 @@ class SharedPreferencesServerCapabilityStore
         ): ServerCapabilityRecord {
             val normalizedAuthority = authority.normalizeCapabilityAuthority()
             require(normalizedAuthority.isNotEmpty()) { "Capability authority must not be blank" }
-            val key = capabilityPrefKey(prefix, fingerprintHash, normalizedAuthority, relayProfileId)
+            val key =
+                capabilityPrefKey(
+                    prefix = prefix,
+                    fingerprintHash = fingerprintHash,
+                    authority = normalizedAuthority,
+                    relayProfileId = relayProfileId,
+                    ipSetDigest = observation.ipSetDigest,
+                )
             val existing = preferences.getString(key, null)?.let(::decodeRecord)
             val merged =
                 mergeCapabilityRecord(
@@ -231,12 +305,17 @@ class SharedPreferencesServerCapabilityStore
             fingerprintHash: String,
             authority: String,
             relayProfileId: String?,
+            ipSetDigest: String? = null,
         ): String =
             buildString {
                 append(prefix)
                 append(fingerprintHash)
                 append(':')
                 append(authority)
+                ipSetDigest?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                    append(':')
+                    append(it.lowercase(Locale.US))
+                }
                 relayProfileId?.trim()?.takeIf { it.isNotEmpty() }?.let {
                     append(':')
                     append(it.lowercase(Locale.US))
@@ -245,6 +324,34 @@ class SharedPreferencesServerCapabilityStore
     }
 
 private fun String.normalizeCapabilityAuthority(): String = trim().lowercase(Locale.US)
+
+private fun mergeTransportPolicyEnvelope(
+    existing: ServerCapabilityRecord?,
+    observation: ServerCapabilityObservation,
+): TransportPolicyEnvelope? {
+    val existingEnvelope = existing?.effectiveTransportPolicyEnvelope()
+    val hasObservationPolicyData =
+        observation.transportPolicy != null ||
+            observation.ipSetDigest != null ||
+            observation.transportClass != null ||
+            observation.reasonCode != null ||
+            observation.cooldownUntil != null
+    if (!hasObservationPolicyData) {
+        return existingEnvelope
+    }
+    return TransportPolicyEnvelope(
+        version = CurrentTransportPolicyEnvelopeVersion,
+        policy = observation.transportPolicy ?: existingEnvelope?.policy ?: TransportPolicy(),
+        ipSetDigest =
+            observation.ipSetDigest
+                ?.trim()
+                .orEmpty()
+                .ifEmpty { existingEnvelope?.ipSetDigest.orEmpty() },
+        transportClass = observation.transportClass ?: existingEnvelope?.transportClass,
+        reasonCode = observation.reasonCode ?: existingEnvelope?.reasonCode,
+        cooldownUntil = observation.cooldownUntil?.takeIf { it > 0L } ?: existingEnvelope?.cooldownUntil,
+    )
+}
 
 @Module
 @InstallIn(SingletonComponent::class)

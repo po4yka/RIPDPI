@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.DirectModeReasonCode
+import com.poyka.ripdpi.data.DirectModeVerdictResult
+import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.diagnostics.contract.engine.DiagnosticsEngineSchemaVersion
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProgressWire
@@ -101,6 +104,14 @@ class DiagnosticsWireContractTest {
                     selectedDohUrl = "https://cloudflare-dns.com/dns-query",
                     rationale = "DNS tampering detected",
                     persistable = true,
+                ),
+            directModeVerdict =
+                DirectModeVerdict(
+                    result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
+                    reasonCode = DirectModeReasonCode.IP_BLOCKED,
+                    transportClass = DirectTransportClass.IP_BLOCK_SUSPECT,
+                    authority = "example.org",
+                    cooldownUntil = 2600,
                 ),
             strategyProbeReport = buildSampleStrategyProbeReport(dnsShortCircuitRationale),
             engineAnalysisVersion = "1.0",

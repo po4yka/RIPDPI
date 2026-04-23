@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.DirectModeReasonCode
+import com.poyka.ripdpi.data.DirectModeVerdictResult
+import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -167,6 +170,50 @@ class DiagnosticsDisplaySummaryTest {
         val approach = summaries.first { it.approachId.value == "strategy-1" }
 
         assertEquals(ScanCompletedWithPartialResultsSummary, approach.lastValidatedResult)
+    }
+
+    @Test
+    fun `summary projector surfaces owned stack only direct verdict`() {
+        val summary =
+            ScanReport(
+                sessionId = "session-owned-stack",
+                profileId = "automatic-probing",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 10L,
+                finishedAt = 20L,
+                summary = "Scan completed",
+                directModeVerdict =
+                    DirectModeVerdict(
+                        result = DirectModeVerdictResult.OWNED_STACK_ONLY,
+                        reasonCode = DirectModeReasonCode.OWNED_STACK_REQUIRED,
+                        transportClass = DirectTransportClass.SNI_TLS_SUSPECT,
+                        authority = "example.org",
+                    ),
+            ).displaySummary()
+
+        assertEquals("Direct mode works only in RIPDPI owned stack", summary)
+    }
+
+    @Test
+    fun `summary projector surfaces no direct solution verdict`() {
+        val summary =
+            ScanReport(
+                sessionId = "session-no-direct",
+                profileId = "automatic-probing",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 10L,
+                finishedAt = 20L,
+                summary = "Scan completed",
+                directModeVerdict =
+                    DirectModeVerdict(
+                        result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
+                        reasonCode = DirectModeReasonCode.IP_BLOCKED,
+                        transportClass = DirectTransportClass.IP_BLOCK_SUSPECT,
+                        authority = "example.org",
+                    ),
+            ).displaySummary()
+
+        assertEquals("No direct solution for this authority", summary)
     }
 
     private fun strategyProbeReport(completionKind: StrategyProbeCompletionKind): StrategyProbeReport =

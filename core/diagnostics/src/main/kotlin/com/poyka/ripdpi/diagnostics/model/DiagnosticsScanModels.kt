@@ -2,6 +2,10 @@
 
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.DirectModeOutcome
+import com.poyka.ripdpi.data.DirectModeReasonCode
+import com.poyka.ripdpi.data.DirectModeVerdictResult
+import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -538,6 +542,15 @@ data class StrategyRecommendation(
 )
 
 @Serializable
+data class DirectModeVerdict(
+    val result: DirectModeVerdictResult,
+    val reasonCode: DirectModeReasonCode? = null,
+    val transportClass: DirectTransportClass? = null,
+    val authority: String? = null,
+    val cooldownUntil: Long? = null,
+)
+
+@Serializable
 data class ScanReport(
     val sessionId: String,
     val profileId: String,
@@ -548,6 +561,7 @@ data class ScanReport(
     val results: List<ProbeResult> = emptyList(),
     val resolverRecommendation: ResolverRecommendation? = null,
     val strategyRecommendation: StrategyRecommendation? = null,
+    val directModeVerdict: DirectModeVerdict? = null,
     val strategyProbeReport: StrategyProbeReport? = null,
     val observations: List<ObservationFact> = emptyList(),
     val engineAnalysisVersion: String? = null,

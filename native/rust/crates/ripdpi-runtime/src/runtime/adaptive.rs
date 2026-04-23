@@ -12,7 +12,9 @@
 
 use std::io;
 use std::net::SocketAddr;
+use std::time::{SystemTime, UNIX_EPOCH};
 
+use ring::digest;
 use ripdpi_config::{DesyncGroup, QuicFakeProfile, RuntimeConfig};
 use ripdpi_desync::{AdaptivePlannerHints, AdaptiveUdpBurstProfile};
 use ripdpi_packets::{is_quic_initial, parse_quic_initial, tls_marker_info};
@@ -20,7 +22,7 @@ use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
 
 use super::morph::{apply_tcp_morph_policy_to_hints, apply_udp_morph_policy_to_hints, emit_morph_rollback};
 use super::state::RuntimeState;
-use crate::runtime_policy::is_tls_client_hello_payload;
+use crate::runtime_policy::{is_tls_client_hello_payload, TransportProtocol};
 use crate::strategy_evolver::{
     CapabilityContext, LearningAlpnClass, LearningContext, LearningHostingFamily, LearningReachabilitySet,
     LearningTargetBucket, LearningTransportKind, ResolverHealthClass,
@@ -391,9 +393,49 @@ pub(super) fn direct_path_capability_for_route<'a>(
     capabilities.iter().find(|capability| candidates.contains(&capability.authority))
 }
 
+pub(super) fn direct_path_capability_for_targets<'a>(
+    runtime_context: Option<&'a ProxyRuntimeContext>,
+    host: Option<&str>,
+    targets: &[SocketAddr],
+) -> Option<&'a ProxyDirectPathCapability> {
+    let capabilities = runtime_context?.direct_path_capabilities.as_slice();
+    let candidates = direct_path_authority_candidates_for_targets(host, targets);
+    let ip_set_digest = direct_path_ip_set_digest(targets);
+    capabilities.iter().find(|capability| {
+        candidates.contains(&capability.authority)
+            && (capability.ip_set_digest.trim().is_empty() || capability.ip_set_digest == ip_set_digest)
+    })
+}
+
 pub(super) fn capability_requires_desync_fallback(capability: &ProxyDirectPathCapability) -> bool {
     capability.fallback_required == Some(true)
         || capability.repeated_handshake_failure_class.as_deref().is_some_and(|value| !value.trim().is_empty())
+        || matches!(capability.quic_mode.trim().to_ascii_uppercase().as_str(), "SOFT_DISABLE" | "HARD_DISABLE")
+        || matches!(capability.outcome.trim().to_ascii_uppercase().as_str(), "OWNED_STACK_ONLY" | "NO_DIRECT_SOLUTION")
+}
+
+pub(super) fn capability_blocks_transport(
+    capability: &ProxyDirectPathCapability,
+    transport: TransportProtocol,
+    now_millis: i64,
+) -> bool {
+    let cooldown_active = capability.cooldown_until.is_some_and(|value| value > now_millis);
+    let outcome = capability.outcome.trim().to_ascii_uppercase();
+    if outcome == "OWNED_STACK_ONLY" {
+        return true;
+    }
+    if outcome == "NO_DIRECT_SOLUTION" && cooldown_active {
+        return true;
+    }
+    match transport {
+        TransportProtocol::Udp => {
+            if capability.reason_code.as_deref() == Some("NO_TCP_FALLBACK") {
+                return false;
+            }
+            matches!(capability.quic_mode.trim().to_ascii_uppercase().as_str(), "SOFT_DISABLE" | "HARD_DISABLE")
+        }
+        TransportProtocol::Tcp => false,
+    }
 }
 
 pub(super) fn merge_udp_hints_with_capability(
@@ -447,8 +489,47 @@ fn direct_path_authority_candidates(host: Option<&str>, target: SocketAddr) -> V
     candidates
 }
 
+fn direct_path_authority_candidates_for_targets(host: Option<&str>, targets: &[SocketAddr]) -> Vec<String> {
+    let mut candidates = Vec::new();
+    if let Some(host) = normalize_authority(host) {
+        candidates.push(host.clone());
+        for target in targets {
+            candidates.push(format!("{host}:{}", target.port()));
+        }
+    }
+    for target in targets {
+        let target_authority = target.to_string();
+        if let Some(normalized) = normalize_authority(Some(target_authority.as_str())) {
+            candidates.push(normalized);
+        }
+        let target_ip = target.ip().to_string();
+        if let Some(normalized) = normalize_authority(Some(target_ip.as_str())) {
+            candidates.push(normalized);
+        }
+    }
+    candidates.sort();
+    candidates.dedup();
+    candidates
+}
+
+pub(super) fn direct_path_ip_set_digest(targets: &[SocketAddr]) -> String {
+    if targets.is_empty() {
+        return String::new();
+    }
+    let mut members = targets.iter().map(|target| target.ip().to_string()).collect::<Vec<_>>();
+    members.sort();
+    members.dedup();
+    let joined = members.join(",");
+    let digest = digest::digest(&digest::SHA256, joined.as_bytes());
+    digest.as_ref()[..8].iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
 fn normalize_authority(value: Option<&str>) -> Option<String> {
     value.map(str::trim).map(|entry| entry.trim_end_matches('.').to_ascii_lowercase()).filter(|entry| !entry.is_empty())
+}
+
+pub(super) fn now_millis() -> i64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|value| value.as_millis() as i64).unwrap_or(0)
 }
 
 #[cfg(test)]
@@ -463,6 +544,16 @@ mod tests {
             udp_usable: None,
             fallback_required: None,
             repeated_handshake_failure_class: None,
+            transport_policy_version: 0,
+            ip_set_digest: String::new(),
+            quic_mode: "ALLOW".to_string(),
+            preferred_stack: "H3".to_string(),
+            dns_mode: "SYSTEM".to_string(),
+            tcp_family: "NONE".to_string(),
+            outcome: "TRANSPARENT_OK".to_string(),
+            transport_class: None,
+            reason_code: None,
+            cooldown_until: None,
             updated_at: 0,
         }
     }
@@ -503,6 +594,16 @@ mod tests {
             udp_usable: Some(false),
             fallback_required: Some(true),
             repeated_handshake_failure_class: Some("tcp_reset".to_string()),
+            transport_policy_version: 0,
+            ip_set_digest: String::new(),
+            quic_mode: "SOFT_DISABLE".to_string(),
+            preferred_stack: "H2".to_string(),
+            dns_mode: "SYSTEM".to_string(),
+            tcp_family: "NONE".to_string(),
+            outcome: "TRANSPARENT_OK".to_string(),
+            transport_class: Some("QUIC_BLOCK_SUSPECT".to_string()),
+            reason_code: Some("QUIC_BLOCKED".to_string()),
+            cooldown_until: None,
             updated_at: 10,
         };
 
@@ -510,6 +611,53 @@ mod tests {
 
         assert_eq!(merged.udp_burst_profile, Some(AdaptiveUdpBurstProfile::Aggressive));
         assert_eq!(merged.quic_fake_profile, Some(QuicFakeProfile::CompatDefault));
+    }
+
+    #[test]
+    fn capability_blocks_udp_for_soft_disable_but_respects_no_tcp_fallback() {
+        let mut capability = capability("example.org:443");
+        capability.quic_mode = "SOFT_DISABLE".to_string();
+        assert!(capability_blocks_transport(&capability, TransportProtocol::Udp, 0));
+
+        capability.reason_code = Some("NO_TCP_FALLBACK".to_string());
+        assert!(!capability_blocks_transport(&capability, TransportProtocol::Udp, 0));
+    }
+
+    #[test]
+    fn capability_blocks_tcp_for_owned_stack_and_active_no_direct_solution() {
+        let mut owned_stack = capability("example.org:443");
+        owned_stack.outcome = "OWNED_STACK_ONLY".to_string();
+        assert!(capability_blocks_transport(&owned_stack, TransportProtocol::Tcp, 0));
+
+        let mut no_direct = capability("example.org:443");
+        no_direct.outcome = "NO_DIRECT_SOLUTION".to_string();
+        no_direct.cooldown_until = Some(500);
+        assert!(capability_blocks_transport(&no_direct, TransportProtocol::Tcp, 100));
+        assert!(!capability_blocks_transport(&no_direct, TransportProtocol::Tcp, 1000));
+    }
+
+    #[test]
+    fn direct_path_capability_matches_targets_with_ip_set_digest() {
+        let targets =
+            vec!["203.0.113.10:443".parse().expect("first target"), "203.0.113.11:443".parse().expect("second target")];
+        let digest = direct_path_ip_set_digest(&targets);
+        assert_eq!(digest, "ae7c89389f929dcb");
+        let runtime_context = ProxyRuntimeContext {
+            encrypted_dns: None,
+            protect_path: None,
+            preferred_edges: std::collections::BTreeMap::default(),
+            direct_path_capabilities: vec![ProxyDirectPathCapability {
+                authority: "example.org:443".to_string(),
+                ip_set_digest: digest,
+                ..capability("example.org:443")
+            }],
+            morph_policy: None,
+        };
+
+        let matched = direct_path_capability_for_targets(Some(&runtime_context), Some("example.org"), &targets)
+            .expect("capability");
+
+        assert_eq!(matched.authority, "example.org:443");
     }
 
     #[test]

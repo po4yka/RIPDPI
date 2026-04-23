@@ -161,6 +161,7 @@ internal fun EngineScanReportWire.toSessionProjection(): DiagnosticsSessionProje
     DiagnosticsSessionProjection(
         results = results.map(EngineProbeResultWire::toProbeResult),
         resolverRecommendation = resolverRecommendation,
+        directModeVerdict = directModeVerdict,
         strategyProbeReport = strategyProbeReport,
         observations = observations,
         engineAnalysisVersion = engineAnalysisVersion,
@@ -179,6 +180,7 @@ internal fun EngineScanReportWire.toScanReport(): ScanReport =
         summary = summary,
         results = results.map(EngineProbeResultWire::toProbeResult),
         resolverRecommendation = resolverRecommendation,
+        directModeVerdict = directModeVerdict,
         strategyProbeReport = strategyProbeReport,
         observations = observations,
         engineAnalysisVersion = engineAnalysisVersion,
@@ -197,6 +199,7 @@ internal fun ScanReport.toEngineScanReportWire(): EngineScanReportWire =
         summary = summary,
         results = results.map(ProbeResult::toEngineProbeResultWire),
         resolverRecommendation = resolverRecommendation,
+        directModeVerdict = directModeVerdict,
         strategyProbeReport = strategyProbeReport,
         observations = observations,
         engineAnalysisVersion = engineAnalysisVersion,

@@ -7,7 +7,14 @@ import com.poyka.ripdpi.core.RipDpiMorphPolicy
 import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.normalizeLogContext
 import com.poyka.ripdpi.core.normalizeRuntimeContext
+import com.poyka.ripdpi.data.DirectModeOutcome
+import com.poyka.ripdpi.data.DirectModeReasonCode
+import com.poyka.ripdpi.data.DirectTransportClass
+import com.poyka.ripdpi.data.DnsMode
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
+import com.poyka.ripdpi.data.PreferredStack
+import com.poyka.ripdpi.data.QuicMode
+import com.poyka.ripdpi.data.TcpFamily
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -52,6 +59,16 @@ internal data class NativeDirectPathCapability(
     val udpUsable: Boolean? = null,
     val fallbackRequired: Boolean? = null,
     val repeatedHandshakeFailureClass: String? = null,
+    val transportPolicyVersion: Int = 0,
+    val ipSetDigest: String = "",
+    val quicMode: QuicMode = QuicMode.ALLOW,
+    val preferredStack: PreferredStack = PreferredStack.H3,
+    val dnsMode: DnsMode = DnsMode.SYSTEM,
+    val tcpFamily: TcpFamily = TcpFamily.NONE,
+    val outcome: DirectModeOutcome = DirectModeOutcome.TRANSPARENT_OK,
+    val transportClass: DirectTransportClass? = null,
+    val reasonCode: DirectModeReasonCode? = null,
+    val cooldownUntil: Long? = null,
     val updatedAt: Long = 0L,
 )
 
@@ -155,6 +172,16 @@ internal object ProxyRuntimeContextCodec {
                                 udpUsable = capability.udpUsable,
                                 fallbackRequired = capability.fallbackRequired,
                                 repeatedHandshakeFailureClass = capability.repeatedHandshakeFailureClass,
+                                transportPolicyVersion = capability.transportPolicyVersion,
+                                ipSetDigest = capability.ipSetDigest,
+                                quicMode = capability.quicMode,
+                                preferredStack = capability.preferredStack,
+                                dnsMode = capability.dnsMode,
+                                tcpFamily = capability.tcpFamily,
+                                outcome = capability.outcome,
+                                transportClass = capability.transportClass,
+                                reasonCode = capability.reasonCode,
+                                cooldownUntil = capability.cooldownUntil,
                                 updatedAt = capability.updatedAt,
                             )
                         },
@@ -219,6 +246,16 @@ internal object ProxyRuntimeContextCodec {
                             udpUsable = capability.udpUsable,
                             fallbackRequired = capability.fallbackRequired,
                             repeatedHandshakeFailureClass = capability.repeatedHandshakeFailureClass,
+                            transportPolicyVersion = capability.transportPolicyVersion,
+                            ipSetDigest = capability.ipSetDigest,
+                            quicMode = capability.quicMode,
+                            preferredStack = capability.preferredStack,
+                            dnsMode = capability.dnsMode,
+                            tcpFamily = capability.tcpFamily,
+                            outcome = capability.outcome,
+                            transportClass = capability.transportClass,
+                            reasonCode = capability.reasonCode,
+                            cooldownUntil = capability.cooldownUntil,
                             updatedAt = capability.updatedAt,
                         )
                     },

@@ -28,6 +28,7 @@ import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.toPolicyJson
+import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
 import com.poyka.ripdpi.data.strategyFamily
 import com.poyka.ripdpi.data.toActiveDnsSettings
 import com.poyka.ripdpi.data.toVpnDnsPolicyJson
@@ -279,12 +280,23 @@ class DefaultConnectionPolicyResolver
                 serverCapabilityStore
                     .directPathCapabilitiesForFingerprint(networkScopeKey)
                     .map { record ->
+                        val transportPolicyEnvelope = record.effectiveTransportPolicyEnvelope()
                         RipDpiDirectPathCapability(
                             authority = record.authority,
                             quicUsable = record.quicUsable,
                             udpUsable = record.udpUsable,
                             fallbackRequired = record.fallbackRequired,
                             repeatedHandshakeFailureClass = record.repeatedHandshakeFailureClass,
+                            transportPolicyVersion = transportPolicyEnvelope.version,
+                            ipSetDigest = transportPolicyEnvelope.ipSetDigest,
+                            quicMode = transportPolicyEnvelope.policy.quicMode,
+                            preferredStack = transportPolicyEnvelope.policy.preferredStack,
+                            dnsMode = transportPolicyEnvelope.policy.dnsMode,
+                            tcpFamily = transportPolicyEnvelope.policy.tcpFamily,
+                            outcome = transportPolicyEnvelope.policy.outcome,
+                            transportClass = transportPolicyEnvelope.transportClass,
+                            reasonCode = transportPolicyEnvelope.reasonCode,
+                            cooldownUntil = transportPolicyEnvelope.cooldownUntil,
                             updatedAt = record.updatedAt,
                         )
                     }

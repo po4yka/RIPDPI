@@ -628,7 +628,7 @@ impl ProxyTelemetryState {
             host.as_deref().unwrap_or("<none>"),
             group_index.map_or_else(|| "<none>".to_string(), |value| value.to_string())
         );
-        self.emit_event("autolearn", level, &message);
+        self.emit_event("autolearn", level, &message, None);
         {
             let action_str = action.to_string();
             self.update_strings(|s| {
