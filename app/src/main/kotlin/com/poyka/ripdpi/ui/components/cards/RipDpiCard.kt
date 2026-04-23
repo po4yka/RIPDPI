@@ -24,7 +24,6 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
 
 private const val disabledAlpha = 0.38f
 
@@ -49,10 +48,10 @@ fun RipDpiCard(
     val shape = RipDpiThemeTokens.shapes.xl
     val surfaceStyle =
         when (variant) {
-            RipDpiCardVariant.Outlined -> ripDpiSurfaceStyle(RipDpiSurfaceRole.Card)
-            RipDpiCardVariant.Tonal -> ripDpiSurfaceStyle(RipDpiSurfaceRole.TonalCard)
-            RipDpiCardVariant.Elevated -> ripDpiSurfaceStyle(RipDpiSurfaceRole.ElevatedCard)
-            RipDpiCardVariant.Status -> ripDpiSurfaceStyle(RipDpiSurfaceRole.StatusCard)
+            RipDpiCardVariant.Outlined -> RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.Card)
+            RipDpiCardVariant.Tonal -> RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.TonalCard)
+            RipDpiCardVariant.Elevated -> RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.ElevatedCard)
+            RipDpiCardVariant.Status -> RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.StatusCard)
         }
     val interactionSource = remember { MutableInteractionSource() }
     val cardModifier =

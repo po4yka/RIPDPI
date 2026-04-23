@@ -48,6 +48,11 @@ fun RipDpiTheme(
         }
     val layout = ripDpiLayoutForWidth(screenWidthDp = screenWidthDp)
     val motion = rememberRipDpiMotion()
+    val surfaces =
+        ripDpiSurfaceTokens(
+            colors = extendedColors,
+            colorScheme = colorScheme,
+        )
     val state =
         ripDpiStateTokens(
             colors = extendedColors,
@@ -65,6 +70,7 @@ fun RipDpiTheme(
         LocalRipDpiComponentMetrics provides DefaultRipDpiComponentMetrics,
         LocalRipDpiShapes provides DefaultRipDpiShapes,
         LocalRipDpiMotion provides motion,
+        LocalRipDpiSurfaceTokens provides surfaces,
         LocalRipDpiStateTokens provides state,
     ) {
         MaterialTheme(
@@ -97,6 +103,9 @@ object RipDpiThemeTokens {
 
     val motion: RipDpiMotion
         @Composable get() = LocalRipDpiMotion.current
+
+    val surfaces: RipDpiSurfaceTokens
+        @Composable get() = LocalRipDpiSurfaceTokens.current
 
     val state: RipDpiStateTokens
         @Composable get() = LocalRipDpiStateTokens.current

@@ -29,6 +29,10 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
 import com.poyka.ripdpi.ui.components.cards.PresetCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.cards.SettingsRowVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbar
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -41,22 +45,31 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.theme.RipDpiContrastLevel
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
-internal fun RipDpiDesignSystemPreviewMatrixCatalog(themePreference: String) {
+internal fun RipDpiDesignSystemPreviewMatrixCatalog(
+    themePreference: String,
+    contrastLevel: RipDpiContrastLevel = RipDpiContrastLevel.Standard,
+) {
     RipDpiDesignSystemCatalog(
         themePreference = themePreference,
+        contrastLevel = contrastLevel,
         includeInteractiveStates = true,
     )
 }
 
 @Composable
-internal fun RipDpiDesignSystemScreenshotCatalog(themePreference: String) {
+internal fun RipDpiDesignSystemScreenshotCatalog(
+    themePreference: String,
+    contrastLevel: RipDpiContrastLevel = RipDpiContrastLevel.Standard,
+) {
     RipDpiDesignSystemCatalog(
         themePreference = themePreference,
+        contrastLevel = contrastLevel,
         includeInteractiveStates = false,
     )
 }
@@ -64,6 +77,7 @@ internal fun RipDpiDesignSystemScreenshotCatalog(themePreference: String) {
 @Composable
 private fun RipDpiDesignSystemCatalog(
     themePreference: String,
+    contrastLevel: RipDpiContrastLevel,
     includeInteractiveStates: Boolean,
 ) {
     val dropdownOptions =
@@ -73,7 +87,7 @@ private fun RipDpiDesignSystemCatalog(
             RipDpiDropdownOption("proxy", "SOCKS5 proxy"),
         )
 
-    RipDpiComponentPreview(themePreference = themePreference) {
+    RipDpiComponentPreview(themePreference = themePreference, contrastLevel = contrastLevel) {
         PreviewSection(title = "Controls") {
             PreviewMatrixRow(
                 title = "Buttons",
@@ -415,7 +429,72 @@ private fun RipDpiDesignSystemCatalog(
 
         PreviewSection(title = "Semantic Tones") {
             PreviewMatrixRow(
+                title = "Surface Roles",
+                framed = false,
+                cells =
+                    listOf(
+                        "Card" to {
+                            RipDpiCard {
+                                Text(
+                                    text = "Outlined card",
+                                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                                    color = RipDpiThemeTokens.colors.foreground,
+                                )
+                                Text(
+                                    text = "Default grouped panel surface.",
+                                    style = RipDpiThemeTokens.type.secondaryBody,
+                                    color = RipDpiThemeTokens.colors.mutedForeground,
+                                )
+                            }
+                        },
+                        "Tonal" to {
+                            RipDpiCard(variant = RipDpiCardVariant.Tonal) {
+                                Text(
+                                    text = "Tonal card",
+                                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                                    color = RipDpiThemeTokens.colors.foreground,
+                                )
+                                Text(
+                                    text = "Muted container for dense inline groups.",
+                                    style = RipDpiThemeTokens.type.secondaryBody,
+                                    color = RipDpiThemeTokens.colors.mutedForeground,
+                                )
+                            }
+                        },
+                        "Elevated" to {
+                            RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+                                Text(
+                                    text = "Elevated card",
+                                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                                    color = RipDpiThemeTokens.colors.foreground,
+                                )
+                                Text(
+                                    text = "Raised panel for higher-priority content.",
+                                    style = RipDpiThemeTokens.type.secondaryBody,
+                                    color = RipDpiThemeTokens.colors.mutedForeground,
+                                )
+                            }
+                        },
+                        "Status" to {
+                            RipDpiCard(variant = RipDpiCardVariant.Status) {
+                                Text(
+                                    text = "Status card",
+                                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                                    color = RipDpiThemeTokens.colors.foreground,
+                                )
+                                Text(
+                                    text = "Neutral emphasis without warning color.",
+                                    style = RipDpiThemeTokens.type.secondaryBody,
+                                    color = RipDpiThemeTokens.colors.mutedForeground,
+                                )
+                            }
+                        },
+                    ),
+            )
+
+            PreviewMatrixRow(
                 title = "Selectable Cards",
+                framed = false,
                 cells =
                     listOf(
                         "Selected" to {
@@ -446,7 +525,51 @@ private fun RipDpiDesignSystemCatalog(
             )
 
             PreviewMatrixRow(
+                title = "Settings Rows",
+                framed = false,
+                cells =
+                    listOf(
+                        "Default" to {
+                            RipDpiCard(
+                                paddingValues =
+                                    androidx.compose.foundation.layout
+                                        .PaddingValues(0.dp),
+                            ) {
+                                SettingsRow(
+                                    title = "DNS provider",
+                                    subtitle = "Cloudflare DoH",
+                                    value = "Edit",
+                                    showChevron = true,
+                                    onClick = {},
+                                    variant = SettingsRowVariant.Default,
+                                )
+                            }
+                        },
+                        "Tonal" to {
+                            SettingsRow(
+                                title = "Background diagnostics",
+                                subtitle = "Runs after reconnect",
+                                checked = true,
+                                onCheckedChange = {},
+                                variant = SettingsRowVariant.Tonal,
+                            )
+                        },
+                        "Selected" to {
+                            SettingsRow(
+                                title = "Recommended path",
+                                subtitle = "Best result from the latest audit",
+                                value = "Apply",
+                                showChevron = true,
+                                onClick = {},
+                                variant = SettingsRowVariant.Selected,
+                            )
+                        },
+                    ),
+            )
+
+            PreviewMatrixRow(
                 title = "Banners",
+                framed = false,
                 cells =
                     listOf(
                         "Warning" to {
@@ -482,6 +605,7 @@ private fun RipDpiDesignSystemCatalog(
 
             PreviewMatrixRow(
                 title = "Snackbars",
+                framed = false,
                 cells =
                     listOf(
                         "Warning" to {
@@ -577,6 +701,7 @@ private fun PreviewSection(
 private fun PreviewMatrixRow(
     title: String,
     cells: List<Pair<String, @Composable () -> Unit>>,
+    framed: Boolean = true,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -592,7 +717,7 @@ private fun PreviewMatrixRow(
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
         ) {
             cells.forEach { (label, content) ->
-                PreviewMatrixCell(label = label, content = content)
+                PreviewMatrixCell(label = label, framed = framed, content = content)
             }
         }
     }
@@ -601,20 +726,43 @@ private fun PreviewMatrixRow(
 @Composable
 private fun PreviewMatrixCell(
     label: String,
+    framed: Boolean,
     content: @Composable () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
 
-    Surface(
-        modifier = Modifier.width(248.dp),
-        shape = MaterialTheme.shapes.large,
-        color = colors.card,
-        tonalElevation = 0.dp,
-        border = androidx.compose.foundation.BorderStroke(RipDpiStroke.Thin, colors.cardBorder),
-    ) {
+    if (framed) {
+        Surface(
+            modifier = Modifier.width(248.dp),
+            shape = MaterialTheme.shapes.large,
+            color = colors.card,
+            tonalElevation = 0.dp,
+            border = androidx.compose.foundation.BorderStroke(RipDpiStroke.Thin, colors.cardBorder),
+        ) {
+            Column(
+                modifier = Modifier.padding(spacing.md),
+                verticalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                Text(
+                    text = label,
+                    style = RipDpiThemeTokens.type.smallLabel,
+                    color = colors.mutedForeground,
+                )
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .widthIn(min = 0.dp)
+                            .heightIn(min = 56.dp),
+                ) {
+                    content()
+                }
+            }
+        }
+    } else {
         Column(
-            modifier = Modifier.padding(spacing.md),
+            modifier = Modifier.width(248.dp),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             Text(

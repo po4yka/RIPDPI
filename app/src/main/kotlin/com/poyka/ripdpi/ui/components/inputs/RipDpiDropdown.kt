@@ -39,6 +39,7 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiTextFieldStateStyle
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
@@ -212,14 +213,19 @@ private fun <T> DropdownOptionsMenu(
     onDismiss: () -> Unit,
     optionTagForValue: ((T) -> String)?,
 ) {
-    val colors = RipDpiThemeTokens.colors
+    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.DropdownMenu)
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
         modifier =
             Modifier
                 .fillMaxWidth(dropdownWidthFraction)
-                .background(MaterialTheme.colorScheme.surface, RipDpiThemeTokens.shapes.xl),
+                .background(surfaceStyle.container, RipDpiThemeTokens.shapes.xl)
+                .border(
+                    width = if (surfaceStyle.border == androidx.compose.ui.graphics.Color.Transparent) 0.dp else 1.dp,
+                    color = surfaceStyle.border,
+                    shape = RipDpiThemeTokens.shapes.xl,
+                ),
     ) {
         options.forEach { option ->
             DropdownMenuItem(
@@ -228,7 +234,7 @@ private fun <T> DropdownOptionsMenu(
                     Text(
                         text = option.label,
                         style = RipDpiThemeTokens.type.body,
-                        color = colors.foreground,
+                        color = surfaceStyle.content,
                     )
                 },
                 onClick = {
