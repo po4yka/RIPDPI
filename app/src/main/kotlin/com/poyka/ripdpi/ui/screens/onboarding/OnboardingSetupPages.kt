@@ -21,7 +21,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.ConnectionTestState
+import com.poyka.ripdpi.activities.OnboardingUiState
+import com.poyka.ripdpi.activities.OnboardingValidationState
 import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderGoogle
@@ -107,23 +108,30 @@ internal fun OnboardingDnsSelectionContent(
     }
 }
 
-@Suppress("LongMethod")
 @Composable
-internal fun OnboardingConnectionTestContent(
-    testState: ConnectionTestState,
-    onRunTest: () -> Unit,
+internal fun OnboardingModeValidationContent(
+    uiState: OnboardingUiState,
+    onRunValidation: () -> Unit,
+    onFinishKeepingRunning: () -> Unit,
+    onFinishDisconnected: () -> Unit,
+    onFinishAnyway: () -> Unit,
+    onAcceptSuggestedMode: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
+    val selectedModeLabel = stringResource(modeLabelRes(uiState.selectedMode))
 
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = stringResource(R.string.onboarding_setup_test_hint),
+            text = stringResource(R.string.onboarding_validation_idle_hint, selectedModeLabel),
             style = type.introBody,
             color = colors.mutedForeground,
             textAlign = TextAlign.Center,
@@ -132,70 +140,135 @@ internal fun OnboardingConnectionTestContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         AnimatedContent(
-            targetState = testState,
+            targetState = uiState.validationState,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
             contentAlignment = Alignment.Center,
-            label = "connection-test",
+            label = "mode-validation",
         ) { state ->
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 when (state) {
-                    is ConnectionTestState.Idle -> {
+                    OnboardingValidationState.Idle -> {
                         RipDpiButton(
-                            text = stringResource(R.string.onboarding_setup_test_run),
-                            onClick = onRunTest,
+                            text = stringResource(R.string.onboarding_validation_run),
+                            onClick = onRunValidation,
+                            variant = RipDpiButtonVariant.Primary,
+                            modifier =
+                                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingValidateAction),
+                        )
+                        RipDpiButton(
+                            text = stringResource(R.string.onboarding_validation_finish_anyway),
+                            onClick = onFinishAnyway,
                             variant = RipDpiButtonVariant.Outline,
                             modifier =
-                                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingRunTest),
+                                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingFinishAnyway),
                         )
                     }
 
-                    is ConnectionTestState.Running -> {
-                        CircularProgressIndicator(
-                            color = colors.foreground,
-                            modifier = Modifier.size(32.dp),
-                            strokeWidth = 2.dp,
-                        )
-                        Text(
-                            text = stringResource(R.string.onboarding_setup_test_running),
-                            style = type.introBody,
-                            color = colors.mutedForeground,
+                    OnboardingValidationState.RequestingNotifications -> {
+                        ValidationBusyState(
+                            message = stringResource(R.string.onboarding_validation_requesting_notifications),
                         )
                     }
 
-                    is ConnectionTestState.Success -> {
-                        Text(
-                            text = stringResource(R.string.onboarding_setup_test_success, state.latencyMs),
-                            style = type.introBody,
-                            color = colors.foreground,
-                            modifier =
-                                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingTestResult),
-                        )
-                        RipDpiButton(
-                            text = stringResource(R.string.onboarding_setup_test_run),
-                            onClick = onRunTest,
-                            variant = RipDpiButtonVariant.Outline,
-                            modifier =
-                                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingRunTest),
+                    OnboardingValidationState.RequestingVpnConsent -> {
+                        ValidationBusyState(
+                            message = stringResource(R.string.onboarding_validation_requesting_vpn_permission),
                         )
                     }
 
-                    is ConnectionTestState.Failed -> {
+                    is OnboardingValidationState.StartingMode -> {
+                        ValidationBusyState(
+                            message =
+                                stringResource(
+                                    when (state.mode) {
+                                        Mode.VPN -> R.string.onboarding_validation_starting_vpn
+                                        Mode.Proxy -> R.string.onboarding_validation_starting_proxy
+                                    },
+                                ),
+                        )
+                    }
+
+                    is OnboardingValidationState.RunningTrafficCheck -> {
+                        ValidationBusyState(
+                            message =
+                                stringResource(
+                                    when (state.mode) {
+                                        Mode.VPN -> R.string.onboarding_validation_checking_vpn
+                                        Mode.Proxy -> R.string.onboarding_validation_checking_proxy
+                                    },
+                                ),
+                        )
+                    }
+
+                    is OnboardingValidationState.Success -> {
                         Text(
-                            text = stringResource(R.string.onboarding_setup_test_failed, state.reason),
+                            text =
+                                stringResource(
+                                    R.string.onboarding_validation_success,
+                                    stringResource(modeLabelRes(state.mode)),
+                                    state.latencyMs,
+                                ),
                             style = type.introBody,
                             color = colors.foreground,
+                            textAlign = TextAlign.Center,
                             modifier =
-                                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingTestResult),
+                                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus),
                         )
                         RipDpiButton(
-                            text = stringResource(R.string.onboarding_setup_test_run),
-                            onClick = onRunTest,
+                            text = stringResource(R.string.onboarding_validation_finish_keep_running),
+                            onClick = onFinishKeepingRunning,
+                            modifier =
+                                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingFinishKeepRunning),
+                        )
+                        RipDpiButton(
+                            text = stringResource(R.string.onboarding_validation_finish_disconnected),
+                            onClick = onFinishDisconnected,
                             variant = RipDpiButtonVariant.Outline,
                             modifier =
-                                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingRunTest),
+                                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingFinishDisconnected),
+                        )
+                    }
+
+                    is OnboardingValidationState.Failed -> {
+                        Text(
+                            text = stringResource(R.string.onboarding_validation_failed, state.reason),
+                            style = type.introBody,
+                            color = colors.foreground,
+                            textAlign = TextAlign.Center,
+                            modifier =
+                                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus),
+                        )
+                        RipDpiButton(
+                            text = stringResource(R.string.onboarding_validation_retry),
+                            onClick = onRunValidation,
+                            variant = RipDpiButtonVariant.Primary,
+                            modifier =
+                                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingValidateAction),
+                        )
+                        state.suggestedMode?.let { suggestedMode ->
+                            RipDpiButton(
+                                text =
+                                    stringResource(
+                                        when (suggestedMode) {
+                                            Mode.VPN -> R.string.onboarding_validation_switch_to_vpn
+                                            Mode.Proxy -> R.string.onboarding_validation_switch_to_proxy
+                                        },
+                                    ),
+                                onClick = onAcceptSuggestedMode,
+                                variant = RipDpiButtonVariant.Outline,
+                                modifier =
+                                    Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingSwitchSuggestedMode),
+                            )
+                        }
+                        RipDpiButton(
+                            text = stringResource(R.string.onboarding_validation_finish_anyway),
+                            onClick = onFinishAnyway,
+                            variant = RipDpiButtonVariant.Outline,
+                            modifier =
+                                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingFinishAnyway),
                         )
                     }
                 }
@@ -203,3 +276,35 @@ internal fun OnboardingConnectionTestContent(
         }
     }
 }
+
+@Composable
+private fun ValidationBusyState(message: String) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        CircularProgressIndicator(
+            color = colors.foreground,
+            modifier = Modifier.size(32.dp),
+            strokeWidth = 2.dp,
+        )
+        Text(
+            text = message,
+            style = type.introBody,
+            color = colors.mutedForeground,
+            textAlign = TextAlign.Center,
+            modifier =
+                Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus),
+        )
+    }
+}
+
+@Composable
+private fun modeLabelRes(mode: Mode): Int =
+    when (mode) {
+        Mode.VPN -> R.string.onboarding_setup_mode_vpn_title
+        Mode.Proxy -> R.string.onboarding_setup_mode_proxy_title
+    }

@@ -81,6 +81,16 @@ Status: COMPLETE.
 - Added an attention-only Home control-plane summary card that groups host-pack and strategy-pack issues behind one Advanced Settings action when either update feed needs review.
 - Added English and Russian control-plane copy plus helper/UI regression coverage for the new host-pack, strategy-pack, and Home summary mappings.
 
+### 2026-04-23: Onboarding Chosen-Mode Validation
+
+Status: COMPLETE.
+
+- Replaced the generic onboarding connectivity check with a mode-aware validation flow that starts the selected mode and proves traffic works through that active path.
+- Added onboarding-owned notifications and VPN-consent effect handling so validation can request only the prerequisites needed to start the chosen mode.
+- Persisted provisional mode and DNS selections during onboarding so reopened onboarding resumes from the real in-progress configuration instead of hardcoded defaults.
+- Reworked the final onboarding page to show validation progress, failure recovery with alternate-mode suggestions, and explicit finish actions for keeping the validated mode running or finishing disconnected.
+- Added English and Russian onboarding copy plus ViewModel, screen, and effect-handler regression coverage for the new validation and finish paths.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.

@@ -1,5 +1,11 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
+import android.Manifest
+import android.content.Intent
+import android.net.VpnService
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,6 +38,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -41,11 +48,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.ConnectionTestState
 import com.poyka.ripdpi.activities.OnboardingEffect
 import com.poyka.ripdpi.activities.OnboardingUiState
+import com.poyka.ripdpi.activities.OnboardingValidationState
 import com.poyka.ripdpi.activities.OnboardingViewModel
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.indicators.RipDpiPageIndicators
 import com.poyka.ripdpi.ui.components.intro.rememberRipDpiIntroScaffoldMetrics
@@ -57,6 +65,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.coroutines.flow.SharedFlow
 import kotlin.math.absoluteValue
 
 // Animation / alpha keyframe fractions
@@ -146,16 +155,42 @@ fun OnboardingRoute(
     viewModel: OnboardingViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    val currentOnComplete by rememberUpdatedState(onComplete)
-
-    LaunchedEffect(Unit) {
-        viewModel.effects.collect { effect ->
-            if (effect is OnboardingEffect.OnboardingComplete) {
-                currentOnComplete()
-            }
+    val context = LocalContext.current
+    val notificationsPermissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            viewModel.onNotificationPermissionResult(
+                result =
+                    if (granted) {
+                        PermissionResult.Granted
+                    } else {
+                        PermissionResult.Denied
+                    },
+            )
         }
-    }
+    val vpnConsentLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            viewModel.onVpnPermissionResult(
+                result =
+                    if (VpnService.prepare(context) == null) {
+                        PermissionResult.Granted
+                    } else {
+                        PermissionResult.Denied
+                    },
+            )
+        }
+
+    OnboardingEffectsHandler(
+        effects = viewModel.effects,
+        onComplete = onComplete,
+        onRequestNotificationsPermission = {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                notificationsPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                viewModel.onNotificationPermissionResult(PermissionResult.Granted)
+            }
+        },
+        onRequestVpnConsent = vpnConsentLauncher::launch,
+    )
 
     OnboardingScreen(
         uiState = uiState,
@@ -164,15 +199,35 @@ fun OnboardingRoute(
         onSkip = viewModel::skip,
         onModeSelected = viewModel::selectMode,
         onDnsSelected = viewModel::selectDnsProvider,
-        onRunTest = viewModel::runConnectionTest,
-        onContinue = {
-            if (uiState.currentPage == OnboardingPages.lastIndex) {
-                viewModel.finish()
-            } else {
-                viewModel.nextPage()
-            }
-        },
+        onRunValidation = viewModel::runValidation,
+        onFinishKeepingRunning = viewModel::finishKeepingRunning,
+        onFinishDisconnected = viewModel::finishDisconnected,
+        onFinishAnyway = viewModel::finishAnyway,
+        onAcceptSuggestedMode = viewModel::acceptSuggestedMode,
+        onContinue = viewModel::nextPage,
     )
+}
+
+@Composable
+internal fun OnboardingEffectsHandler(
+    effects: SharedFlow<OnboardingEffect>,
+    onComplete: () -> Unit,
+    onRequestNotificationsPermission: () -> Unit,
+    onRequestVpnConsent: (Intent) -> Unit,
+) {
+    val currentOnComplete by rememberUpdatedState(onComplete)
+    val currentOnRequestNotificationsPermission by rememberUpdatedState(onRequestNotificationsPermission)
+    val currentOnRequestVpnConsent by rememberUpdatedState(onRequestVpnConsent)
+
+    LaunchedEffect(effects) {
+        effects.collect { effect ->
+            when (effect) {
+                OnboardingEffect.OnboardingComplete -> currentOnComplete()
+                OnboardingEffect.RequestNotificationsPermission -> currentOnRequestNotificationsPermission()
+                is OnboardingEffect.RequestVpnConsent -> currentOnRequestVpnConsent(effect.intent)
+            }
+        }
+    }
 }
 
 @Suppress("LongMethod")
@@ -184,7 +239,11 @@ fun OnboardingScreen(
     onContinue: () -> Unit,
     onModeSelected: (Mode) -> Unit,
     onDnsSelected: (String) -> Unit,
-    onRunTest: () -> Unit,
+    onRunValidation: () -> Unit,
+    onFinishKeepingRunning: () -> Unit,
+    onFinishDisconnected: () -> Unit,
+    onFinishAnyway: () -> Unit,
+    onAcceptSuggestedMode: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -212,6 +271,7 @@ fun OnboardingScreen(
     val settledPage = pagerState.settledPage.coerceIn(0, OnboardingPages.lastIndex)
     val currentPage = OnboardingPages[settledPage]
     val isLastPage = settledPage == OnboardingPages.lastIndex
+    val validationBusy = uiState.validationState.isBusy
 
     RipDpiIntroScaffold(
         modifier =
@@ -232,9 +292,13 @@ fun OnboardingScreen(
                     style = type.introAction,
                     color = colors.mutedForeground,
                     modifier =
-                        Modifier
-                            .ripDpiTestTag(RipDpiTestTags.OnboardingSkip)
-                            .ripDpiClickable(role = Role.Button, onClick = onSkip)
+                        (
+                            if (validationBusy) {
+                                Modifier
+                            } else {
+                                Modifier.ripDpiClickable(role = Role.Button, onClick = onSkip)
+                            }
+                        ).ripDpiTestTag(RipDpiTestTags.OnboardingSkip)
                             .padding(horizontal = 12.dp),
                 )
             }
@@ -252,23 +316,26 @@ fun OnboardingScreen(
                     pageCount = uiState.totalPages.coerceAtMost(OnboardingPages.size),
                     sectionBreakAfter = OnboardingInfoPageCount,
                 )
-                Spacer(modifier = Modifier.height(introLayout.footerProgressGap))
-                RipDpiButton(
-                    text = stringResource(currentPage.buttonLabelRes),
-                    onClick = onContinue,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = introLayout.footerButtonHorizontalInset)
-                            .heightIn(min = introLayout.footerButtonMinHeight)
-                            .ripDpiTestTag(RipDpiTestTags.OnboardingContinue),
-                    trailingIcon = if (isLastPage) null else RipDpiIcons.ChevronRight,
-                )
+                if (!isLastPage) {
+                    Spacer(modifier = Modifier.height(introLayout.footerProgressGap))
+                    RipDpiButton(
+                        text = stringResource(currentPage.buttonLabelRes),
+                        onClick = onContinue,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = introLayout.footerButtonHorizontalInset)
+                                .heightIn(min = introLayout.footerButtonMinHeight)
+                                .ripDpiTestTag(RipDpiTestTags.OnboardingContinue),
+                        trailingIcon = RipDpiIcons.ChevronRight,
+                    )
+                }
             }
         },
     ) {
         HorizontalPager(
             state = pagerState,
+            userScrollEnabled = !validationBusy,
             modifier =
                 Modifier
                     .weight(1f)
@@ -289,7 +356,11 @@ fun OnboardingScreen(
                         uiState = uiState,
                         onModeSelected = onModeSelected,
                         onDnsSelected = onDnsSelected,
-                        onRunTest = onRunTest,
+                        onRunValidation = onRunValidation,
+                        onFinishKeepingRunning = onFinishKeepingRunning,
+                        onFinishDisconnected = onFinishDisconnected,
+                        onFinishAnyway = onFinishAnyway,
+                        onAcceptSuggestedMode = onAcceptSuggestedMode,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -297,6 +368,21 @@ fun OnboardingScreen(
         }
     }
 }
+
+private val OnboardingValidationState.isBusy: Boolean
+    get() =
+        when (this) {
+            OnboardingValidationState.Idle,
+            is OnboardingValidationState.Success,
+            is OnboardingValidationState.Failed,
+            -> false
+
+            OnboardingValidationState.RequestingNotifications,
+            OnboardingValidationState.RequestingVpnConsent,
+            is OnboardingValidationState.StartingMode,
+            is OnboardingValidationState.RunningTrafficCheck,
+            -> true
+        }
 
 @Composable
 private fun OnboardingInfoPageScene(
@@ -387,7 +473,11 @@ private fun OnboardingSetupPageScene(
     uiState: OnboardingUiState,
     onModeSelected: (Mode) -> Unit,
     onDnsSelected: (String) -> Unit,
-    onRunTest: () -> Unit,
+    onRunValidation: () -> Unit,
+    onFinishKeepingRunning: () -> Unit,
+    onFinishDisconnected: () -> Unit,
+    onFinishAnyway: () -> Unit,
+    onAcceptSuggestedMode: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -427,9 +517,13 @@ private fun OnboardingSetupPageScene(
             }
 
             SetupPageKind.ConnectionTest -> {
-                OnboardingConnectionTestContent(
-                    testState = uiState.connectionTestState,
-                    onRunTest = onRunTest,
+                OnboardingModeValidationContent(
+                    uiState = uiState,
+                    onRunValidation = onRunValidation,
+                    onFinishKeepingRunning = onFinishKeepingRunning,
+                    onFinishDisconnected = onFinishDisconnected,
+                    onFinishAnyway = onFinishAnyway,
+                    onAcceptSuggestedMode = onAcceptSuggestedMode,
                 )
             }
         }
@@ -660,7 +754,11 @@ private fun OnboardingScreenPreview() {
             onContinue = {},
             onModeSelected = {},
             onDnsSelected = {},
-            onRunTest = {},
+            onRunValidation = {},
+            onFinishKeepingRunning = {},
+            onFinishDisconnected = {},
+            onFinishAnyway = {},
+            onAcceptSuggestedMode = {},
         )
     }
 }
@@ -681,7 +779,11 @@ private fun OnboardingScreenSetupPreview() {
             onContinue = {},
             onModeSelected = {},
             onDnsSelected = {},
-            onRunTest = {},
+            onRunValidation = {},
+            onFinishKeepingRunning = {},
+            onFinishDisconnected = {},
+            onFinishAnyway = {},
+            onAcceptSuggestedMode = {},
         )
     }
 }
@@ -698,7 +800,11 @@ private fun OnboardingScreenDarkPreview() {
             onContinue = {},
             onModeSelected = {},
             onDnsSelected = {},
-            onRunTest = {},
+            onRunValidation = {},
+            onFinishKeepingRunning = {},
+            onFinishDisconnected = {},
+            onFinishAnyway = {},
+            onAcceptSuggestedMode = {},
         )
     }
 }
