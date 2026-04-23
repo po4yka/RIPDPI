@@ -59,10 +59,11 @@ pub(super) fn record_relay_result(
     success_recorded: bool,
     success_host: Option<&str>,
     success_payload: Option<&[u8]>,
+    success_strategy_family: Option<&str>,
 ) -> io::Result<()> {
     if let Ok(final_state) = relay_result {
         if !success_recorded && final_state.recv_count > 0 {
-            record_stream_relay_success(state, target, route, success_host, success_payload)?;
+            record_stream_relay_success(state, target, route, success_host, success_payload, success_strategy_family)?;
         }
     }
     if let Err(err) = relay_result {

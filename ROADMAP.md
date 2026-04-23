@@ -111,6 +111,17 @@ Status: COMPLETE.
 - Kept tuple-scoped cached policy in place while preventing the new re-verification guard from regressing later positive signals like `QUIC_SUCCESS`.
 - Added service and diagnostics regression coverage for the re-verification path and the reason-specific verdict summary text.
 
+### 2026-04-23: Transparent TLS Family Runtime Slice
+
+Status: PARTIAL.
+
+- Made the native first-flight send path consume cached direct-path `tcp_family` for round-one TLS ClientHello traffic instead of treating that policy field as inert metadata.
+- Added runtime-backed transparent family synthesis for `SEG_PRE_SNI`, `SEG_MID_SNI`, `REC_PRE_SNI`, and `REC_MID_SNI`, using the existing split / TLS-record planning path rather than introducing a parallel executor.
+- Scoped the new shaping to plain first-flight TLS only, leaving already-explicit TCP desync groups on their existing execution path.
+- Threaded the actual transparent family label through relay success recording so learned wins keep `seg_mid_sni` / `rec_mid_sni` instead of collapsing back to generic `split` / `tlsrec`.
+- Extended Kotlin family normalization plus focused Rust/Kotlin regression coverage for the new runtime labels and first-flight capability policy path.
+- Remaining epic work is still open: `seg_post_sni`, `two_phase_send`, explicit byte-invariant enforcement, and winner rotation/cache.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.
