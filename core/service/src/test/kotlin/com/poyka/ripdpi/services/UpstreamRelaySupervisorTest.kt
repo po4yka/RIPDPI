@@ -398,7 +398,7 @@ class UpstreamRelaySupervisorTest {
                         },
                     cloudflareMasqueGeohashResolver =
                         object : CloudflareMasqueGeohashResolver {
-                            override suspend fun resolveHeaderValue(): String? = "u4pruyd-GB"
+                            override suspend fun resolveHeaderValue(): String? = "u4p-GB"
                         },
                 )
 
@@ -416,7 +416,7 @@ class UpstreamRelaySupervisorTest {
             assertEquals(RelayMasqueAuthModeCloudflareMtls, resolved?.masqueAuthMode)
             assertEquals("cert-chain", resolved?.masqueClientCertificateChainPem)
             assertEquals("private-key", resolved?.masqueClientPrivateKeyPem)
-            assertEquals("u4pruyd-GB", resolved?.masqueCloudflareGeohashHeader)
+            assertEquals("u4p-GB", resolved?.masqueCloudflareGeohashHeader)
 
             supervisor.stop()
         }
