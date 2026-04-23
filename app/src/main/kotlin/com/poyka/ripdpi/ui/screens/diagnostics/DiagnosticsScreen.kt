@@ -135,6 +135,7 @@ fun DiagnosticsScreen(
     onSaveArchive: (String?) -> Unit,
     onSaveLogs: () -> Unit,
     onOpenAdvancedSettings: () -> Unit = {},
+    onOpenDnsSettings: () -> Unit = {},
     onOpenDetectionCheck: () -> Unit = {},
     onRequestVpnPermission: () -> Unit = {},
     onOpenHistory: () -> Unit,
@@ -234,11 +235,13 @@ fun DiagnosticsScreen(
                                 onRunInPathScan = onRunInPathScan,
                                 onCancelScan = onCancelScan,
                                 onOpenAdvancedSettings = onOpenAdvancedSettings,
+                                onOpenDnsSettings = onOpenDnsSettings,
                                 onRequestVpnPermission = onRequestVpnPermission,
                                 onKeepResolverRecommendation = onKeepResolverRecommendation,
                                 onSaveResolverRecommendation = onSaveResolverRecommendation,
                                 onSelectStrategyProbeCandidate = onSelectStrategyProbeCandidate,
                                 onSelectProbe = onSelectProbe,
+                                onOpenHistory = onOpenHistory,
                             )
                         }
 

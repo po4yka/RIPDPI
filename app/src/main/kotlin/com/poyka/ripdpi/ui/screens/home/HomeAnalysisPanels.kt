@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.activities.HomeApproachSummaryUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -29,6 +30,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.feedback.DiagnosticsRemediationLadderCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSheetAction
 import com.poyka.ripdpi.ui.components.indicators.AnalysisProgressIndicator
@@ -123,6 +125,9 @@ internal fun HomeHistoryCard(onOpenHistory: () -> Unit) {
 @Suppress("LongMethod")
 internal fun HomeDiagnosticsCard(
     uiState: MainUiState,
+    onOpenDiagnostics: () -> Unit,
+    onOpenHistory: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit,
     onRunFullAnalysis: () -> Unit,
     onRunQuickAnalysis: () -> Unit,
     onStartVerifiedVpn: () -> Unit,
@@ -187,6 +192,27 @@ internal fun HomeDiagnosticsCard(
                     color = colors.warning,
                 )
             }
+        }
+        uiState.homeDiagnostics.remediationLadder?.let { ladder ->
+            Spacer(modifier = Modifier.height(spacing.sm))
+            DiagnosticsRemediationLadderCard(
+                ladder = ladder,
+                onAction = { action ->
+                    when (action) {
+                        DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS -> onOpenAdvancedSettings()
+
+                        DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> onOpenDiagnostics()
+
+                        DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> onOpenHistory()
+
+                        DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION,
+                        DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,
+                        -> Unit
+                    }
+                },
+                cardTestTag = RipDpiTestTags.HomeDiagnosticsRemediationCard,
+                actionTestTag = RipDpiTestTags.HomeDiagnosticsRemediationAction,
+            )
         }
         Spacer(modifier = Modifier.height(spacing.md))
         HorizontalDivider(color = colors.divider)
@@ -313,6 +339,8 @@ internal fun HomeDiagnosticsCard(
 internal fun HomeDiagnosticsBottomSheetHost(
     uiState: MainUiState,
     onOpenDiagnostics: () -> Unit,
+    onOpenHistory: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit,
     onShareAnalysis: () -> Unit,
     onDismissAnalysisSheet: () -> Unit,
     onDismissVerificationSheet: () -> Unit,
@@ -320,6 +348,10 @@ internal fun HomeDiagnosticsBottomSheetHost(
     val colors = RipDpiThemeTokens.colors
 
     uiState.homeDiagnostics.analysisSheet?.let { sheet ->
+        val openDiagnosticsFromSheet = {
+            onDismissAnalysisSheet()
+            onOpenDiagnostics()
+        }
         RipDpiBottomSheet(
             onDismissRequest = onDismissAnalysisSheet,
             title = stringResource(R.string.home_diagnostics_analysis_sheet_title),
@@ -334,17 +366,48 @@ internal fun HomeDiagnosticsBottomSheetHost(
                     enabled = !sheet.shareBusy,
                 ),
             secondaryAction =
-                RipDpiSheetAction(
-                    label = stringResource(R.string.home_diagnostics_open_diagnostics_action),
-                    onClick = {
-                        onDismissAnalysisSheet()
-                        onOpenDiagnostics()
+                sheet.remediationLadder
+                    ?.takeIf { it.primaryAction.kind != DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS }
+                    ?.let {
+                        RipDpiSheetAction(
+                            label = stringResource(R.string.home_diagnostics_open_diagnostics_action),
+                            onClick = openDiagnosticsFromSheet,
+                            testTag = RipDpiTestTags.HomeDiagnosticsOpenDiagnosticsAction,
+                            variant = RipDpiButtonVariant.Outline,
+                        )
+                    }
+                    ?: if (sheet.remediationLadder == null) {
+                        RipDpiSheetAction(
+                            label = stringResource(R.string.home_diagnostics_open_diagnostics_action),
+                            onClick = openDiagnosticsFromSheet,
+                            testTag = RipDpiTestTags.HomeDiagnosticsOpenDiagnosticsAction,
+                            variant = RipDpiButtonVariant.Outline,
+                        )
+                    } else {
+                        null
                     },
-                    testTag = RipDpiTestTags.HomeDiagnosticsOpenDiagnosticsAction,
-                    variant = RipDpiButtonVariant.Outline,
-                ),
         ) {
-            sheet.actionableHeadline?.takeIf { it.isNotBlank() }?.let { headline ->
+            sheet.remediationLadder?.let { ladder ->
+                DiagnosticsRemediationLadderCard(
+                    ladder = ladder,
+                    onAction = { action ->
+                        onDismissAnalysisSheet()
+                        when (action) {
+                            DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS -> onOpenAdvancedSettings()
+
+                            DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> onOpenDiagnostics()
+
+                            DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> onOpenHistory()
+
+                            DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION,
+                            DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,
+                            -> Unit
+                        }
+                    },
+                    cardTestTag = RipDpiTestTags.HomeDiagnosticsRemediationCard,
+                    actionTestTag = RipDpiTestTags.HomeDiagnosticsRemediationAction,
+                )
+            } ?: sheet.actionableHeadline?.takeIf { it.isNotBlank() }?.let { headline ->
                 Column(
                     modifier =
                         Modifier

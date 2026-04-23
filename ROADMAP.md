@@ -62,6 +62,15 @@ Status: COMPLETE.
 - Expanded diagnostics bootstrap coverage to lock in one-time automatic-probe subscription wiring and preserve scheduling when runtime-history startup fails.
 - Added app-startup bootstrap regressions for subsystem initialization ordering, swallowed detection-observer failures, distinct battery-banner clearing, missing crash-report handling, and continued strategy-pack UI propagation.
 
+### 2026-04-23: Diagnostics Remediation Ladder
+
+Status: COMPLETE.
+
+- Added a shared app-layer remediation ladder model with route-only actions for Advanced Settings, VPN permission, DNS Settings, Diagnostics, and History.
+- Replaced the fragmented diagnostics workflow restriction and resolver-action surfaces with a single ladder card inside the scan workflow area.
+- Threaded the same ladder model through Home diagnostics and the Home analysis sheet so stale, blocked, and non-actionable outcomes present structured next steps instead of free-form fallback text.
+- Added dedicated English and Russian remediation copy plus app/UI regression coverage for Diagnostics and Home ladder mappings.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.
