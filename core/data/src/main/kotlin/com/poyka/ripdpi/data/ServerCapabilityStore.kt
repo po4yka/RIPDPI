@@ -39,6 +39,8 @@ data class ServerCapabilityObservation(
     val transportClass: DirectTransportClass? = null,
     val reasonCode: DirectModeReasonCode? = null,
     val cooldownUntil: Long? = null,
+    val policyConfirmedAt: Long? = null,
+    val policyFailureCount: Int? = null,
 )
 
 @Serializable
@@ -56,6 +58,8 @@ data class ServerCapabilityRecord(
     val fallbackRequired: Boolean? = null,
     val repeatedHandshakeFailureClass: String? = null,
     val transportPolicyEnvelope: TransportPolicyEnvelope? = null,
+    val policyConfirmedAt: Long? = null,
+    val policyFailureCount: Int = 0,
     val source: String = "runtime",
     val updatedAt: Long = System.currentTimeMillis(),
 )
@@ -90,10 +94,34 @@ internal fun mergeCapabilityRecord(
                     ?: policyEnvelope?.derivedHandshakeFailureClass()
                     ?: existing?.repeatedHandshakeFailureClass,
             transportPolicyEnvelope = policyEnvelope,
+            policyConfirmedAt = observation.policyConfirmedAt?.takeIf { it > 0L } ?: existing?.policyConfirmedAt,
+            policyFailureCount = observation.policyFailureCount?.coerceAtLeast(0) ?: existing?.policyFailureCount ?: 0,
             source = source.trim().ifBlank { existing?.source ?: "runtime" },
             updatedAt = recordedAt,
         )
     }
+
+fun ServerCapabilityRecord.hasConfirmedDirectPolicy(): Boolean = policyConfirmedAt?.let { it > 0L } == true
+
+fun ServerCapabilityRecord.hasExceededDirectPolicyFailureBudget(): Boolean =
+    policyFailureCount >= DirectModePolicyRevalidationFailureThreshold
+
+fun ServerCapabilityRecord.isFreshDirectPolicy(nowMillis: Long): Boolean {
+    if (updatedAt <= 0L || nowMillis - updatedAt > DirectModePolicyTtlMs) {
+        return false
+    }
+    val envelope = effectiveTransportPolicyEnvelope()
+    return when (envelope.policy.outcome) {
+        DirectModeOutcome.NO_DIRECT_SOLUTION -> envelope.isCooldownActive(nowMillis)
+
+        DirectModeOutcome.OWNED_STACK_ONLY,
+        DirectModeOutcome.TRANSPARENT_OK,
+        -> true
+    }
+}
+
+fun ServerCapabilityRecord.isRuntimeUsableDirectPolicy(nowMillis: Long): Boolean =
+    hasConfirmedDirectPolicy() && !hasExceededDirectPolicyFailureBudget() && isFreshDirectPolicy(nowMillis)
 
 fun ServerCapabilityRecord.effectiveTransportPolicyEnvelope(): TransportPolicyEnvelope {
     val existingEnvelope = transportPolicyEnvelope
@@ -339,7 +367,9 @@ private fun mergeTransportPolicyEnvelope(
             observation.dnsClassification != null ||
             observation.transportClass != null ||
             observation.reasonCode != null ||
-            observation.cooldownUntil != null
+            observation.cooldownUntil != null ||
+            observation.policyConfirmedAt != null ||
+            observation.policyFailureCount != null
     if (!hasObservationPolicyData) {
         return existingEnvelope
     }

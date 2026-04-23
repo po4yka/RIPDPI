@@ -61,9 +61,19 @@ internal fun collectDirectPathCapabilityObservations(report: ScanReport): Map<St
         }
         aggregated[authority] = mergeObservation(aggregated[authority], derived)
     }
-    return aggregated.mapValues { (authority, observation) ->
-        enrichDirectPathCapabilityObservation(report, authority, observation)
-    }
+    report.results
+        .mapNotNull(ProbeResult::directPathCapabilityAuthority)
+        .forEach { authority ->
+            if (authority !in aggregated) {
+                aggregated[authority] = ServerCapabilityObservation()
+            }
+        }
+    return aggregated
+        .mapValues { (authority, observation) ->
+            enrichDirectPathCapabilityObservation(report, authority, observation)
+        }.filterValues { observation ->
+            !observation.isEmpty()
+        }
 }
 
 private fun mergeCapabilityRecords(records: List<ServerCapabilityRecord>): ServerCapabilityRecord {

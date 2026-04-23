@@ -443,6 +443,11 @@ internal class TestServerCapabilityStore : ServerCapabilityStore {
                             ?: envelope?.derivedHandshakeFailureClass()
                             ?: existing?.repeatedHandshakeFailureClass,
                     transportPolicyEnvelope = envelope,
+                    policyConfirmedAt =
+                        observation.policyConfirmedAt?.takeIf {
+                            it > 0L
+                        } ?: existing?.policyConfirmedAt,
+                    policyFailureCount = observation.policyFailureCount ?: existing?.policyFailureCount ?: 0,
                     source = source,
                     updatedAt = recordedAt ?: 0L,
                 )
