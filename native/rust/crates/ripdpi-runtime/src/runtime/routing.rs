@@ -20,7 +20,10 @@ use crate::platform;
 use crate::runtime_policy::{is_tls_client_hello_payload, ConnectionRoute, RouteAdvance, TransportProtocol};
 use crate::ws_bootstrap::{build_encrypted_dns_resolver, encrypted_dns_label, runtime_encrypted_dns_context};
 
-use super::adaptive::{note_adaptive_fake_ttl_failure, note_adaptive_tcp_failure, note_evolver_failure};
+use super::adaptive::{
+    capability_blocks_transport, direct_path_capability_for_targets, note_adaptive_fake_ttl_failure,
+    note_adaptive_tcp_failure, note_evolver_failure, now_millis,
+};
 use super::retry::{build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure};
 use super::state::{flush_autolearn_updates, RuntimeState};
 
@@ -109,6 +112,11 @@ pub(super) fn preferred_targets_for_transport(
     }
     if !targets.contains(&original_target) {
         targets.push(original_target);
+    }
+    if let Some(capability) = direct_path_capability_for_targets(state.runtime_context.as_ref(), host, &targets) {
+        if capability_blocks_transport(capability, transport, now_millis()) {
+            return Vec::new();
+        }
     }
     targets
 }

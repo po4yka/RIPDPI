@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.CircumventionTarget
 import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
+import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import com.poyka.ripdpi.diagnostics.DnsTarget
 import com.poyka.ripdpi.diagnostics.DomainTarget
 import com.poyka.ripdpi.diagnostics.ObservationFact
@@ -94,6 +95,7 @@ data class EngineScanReportWire(
     val summary: String,
     val results: List<EngineProbeResultWire> = emptyList(),
     val resolverRecommendation: ResolverRecommendation? = null,
+    val directModeVerdict: DirectModeVerdict? = null,
     val strategyProbeReport: StrategyProbeReport? = null,
     val observations: List<ObservationFact> = emptyList(),
     val engineAnalysisVersion: String? = null,

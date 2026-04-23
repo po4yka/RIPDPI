@@ -11,6 +11,7 @@ private const val ScanCompletedWithDnsFallbackSummary = "Scan completed with DNS
 internal fun ScanReport.displaySummary(defaultSummary: String = summary): String =
     deriveDisplaySummary(
         rawSummary = summary.ifBlank { defaultSummary },
+        directModeVerdict = directModeVerdict,
         strategyCompletionKind = strategyProbeReport?.completionKind,
         hasPartialResults = results.isNotEmpty() || observations.isNotEmpty(),
     )
@@ -23,16 +24,26 @@ internal fun ScanSessionEntity.displaySummary(report: DiagnosticsSessionProjecti
 internal fun DiagnosticsSessionProjection.displaySummary(rawSummary: String): String =
     deriveDisplaySummary(
         rawSummary = rawSummary,
+        directModeVerdict = directModeVerdict,
         strategyCompletionKind = strategyProbeReport?.completionKind,
         hasPartialResults = results.isNotEmpty() || observations.isNotEmpty(),
     )
 
 private fun deriveDisplaySummary(
     rawSummary: String,
+    directModeVerdict: DirectModeVerdict?,
     strategyCompletionKind: StrategyProbeCompletionKind?,
     hasPartialResults: Boolean,
 ): String =
     when {
+        directModeVerdict?.result == com.poyka.ripdpi.data.DirectModeVerdictResult.OWNED_STACK_ONLY -> {
+            "Direct mode works only in RIPDPI owned stack"
+        }
+
+        directModeVerdict?.result == com.poyka.ripdpi.data.DirectModeVerdictResult.NO_DIRECT_SOLUTION -> {
+            "No direct solution for this authority"
+        }
+
         strategyCompletionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK -> {
             ScanCompletedWithDnsFallbackSummary
         }

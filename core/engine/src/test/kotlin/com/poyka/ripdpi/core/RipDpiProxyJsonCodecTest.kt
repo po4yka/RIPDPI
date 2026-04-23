@@ -1,9 +1,16 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.DirectModeOutcome
+import com.poyka.ripdpi.data.DirectModeReasonCode
+import com.poyka.ripdpi.data.DirectTransportClass
+import com.poyka.ripdpi.data.DnsMode
 import com.poyka.ripdpi.data.NumericRangeModel
+import com.poyka.ripdpi.data.PreferredStack
+import com.poyka.ripdpi.data.QuicMode
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.data.TcpFamily
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -200,22 +207,60 @@ class RipDpiProxyJsonCodecTest {
                                     udpUsable = true,
                                     fallbackRequired = true,
                                     repeatedHandshakeFailureClass = " tcp_reset ",
+                                    transportPolicyVersion = 1,
+                                    ipSetDigest = "deadbeef",
+                                    quicMode = QuicMode.SOFT_DISABLE,
+                                    preferredStack = PreferredStack.H2,
+                                    dnsMode = DnsMode.DOH_PRIMARY,
+                                    tcpFamily = TcpFamily.REC_PRE_SNI,
+                                    outcome = DirectModeOutcome.NO_DIRECT_SOLUTION,
+                                    transportClass = DirectTransportClass.IP_BLOCK_SUSPECT,
+                                    reasonCode = DirectModeReasonCode.IP_BLOCKED,
+                                    cooldownUntil = 999L,
                                     updatedAt = 321L,
+                                ),
+                                RipDpiDirectPathCapability(
+                                    authority = "Example.org:443",
+                                    ipSetDigest = "feedface",
+                                    quicMode = QuicMode.ALLOW,
+                                    preferredStack = PreferredStack.H3,
+                                    dnsMode = DnsMode.SYSTEM,
+                                    tcpFamily = TcpFamily.NONE,
+                                    outcome = DirectModeOutcome.TRANSPARENT_OK,
+                                    updatedAt = 322L,
                                 ),
                             ),
                     ),
             )
 
         val decoded = decodeRipDpiProxyUiPreferences(preferences.toNativeConfigJson())
-        val capability = decoded?.runtimeContext?.directPathCapabilities?.singleOrNull()
+        val capabilities = decoded?.runtimeContext?.directPathCapabilities.orEmpty()
+        val blocked = capabilities.firstOrNull { it.ipSetDigest == "deadbeef" }
+        val transparent = capabilities.firstOrNull { it.ipSetDigest == "feedface" }
 
-        assertNotNull(capability)
-        assertEquals("example.org:443", capability?.authority)
-        assertEquals(false, capability?.quicUsable)
-        assertEquals(true, capability?.udpUsable)
-        assertEquals(true, capability?.fallbackRequired)
-        assertEquals("tcp_reset", capability?.repeatedHandshakeFailureClass)
-        assertEquals(321L, capability?.updatedAt)
+        assertEquals(2, capabilities.size)
+        assertNotNull(blocked)
+        assertEquals("example.org:443", blocked?.authority)
+        assertEquals(false, blocked?.quicUsable)
+        assertEquals(true, blocked?.udpUsable)
+        assertEquals(true, blocked?.fallbackRequired)
+        assertEquals("tcp_reset", blocked?.repeatedHandshakeFailureClass)
+        assertEquals(1, blocked?.transportPolicyVersion)
+        assertEquals("deadbeef", blocked?.ipSetDigest)
+        assertEquals(QuicMode.SOFT_DISABLE, blocked?.quicMode)
+        assertEquals(PreferredStack.H2, blocked?.preferredStack)
+        assertEquals(DnsMode.DOH_PRIMARY, blocked?.dnsMode)
+        assertEquals(TcpFamily.REC_PRE_SNI, blocked?.tcpFamily)
+        assertEquals(DirectModeOutcome.NO_DIRECT_SOLUTION, blocked?.outcome)
+        assertEquals(DirectTransportClass.IP_BLOCK_SUSPECT, blocked?.transportClass)
+        assertEquals(DirectModeReasonCode.IP_BLOCKED, blocked?.reasonCode)
+        assertEquals(999L, blocked?.cooldownUntil)
+        assertEquals(321L, blocked?.updatedAt)
+
+        assertNotNull(transparent)
+        assertEquals("example.org:443", transparent?.authority)
+        assertEquals(QuicMode.ALLOW, transparent?.quicMode)
+        assertEquals(322L, transparent?.updatedAt)
     }
 
     @Test

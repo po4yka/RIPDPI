@@ -4,6 +4,10 @@ import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AsnRoutingMapCatalog
 import com.poyka.ripdpi.data.AsnRoutingMapEntry
+import com.poyka.ripdpi.data.DirectModeOutcome
+import com.poyka.ripdpi.data.DirectModeReasonCode
+import com.poyka.ripdpi.data.DirectTransportClass
+import com.poyka.ripdpi.data.DnsMode
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
@@ -16,7 +20,11 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.PreferredEdgeIpVersionV4
 import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
+import com.poyka.ripdpi.data.PreferredStack
+import com.poyka.ripdpi.data.QuicMode
 import com.poyka.ripdpi.data.ServerCapabilityObservation
+import com.poyka.ripdpi.data.TcpFamily
+import com.poyka.ripdpi.data.TransportPolicy
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
 import com.poyka.ripdpi.data.toTemporaryResolverOverride
 import kotlinx.coroutines.test.runTest
@@ -181,8 +189,43 @@ class ConnectionPolicyResolverTest {
                         udpUsable = false,
                         fallbackRequired = true,
                         repeatedHandshakeFailureClass = "tcp_reset",
+                        transportPolicy =
+                            TransportPolicy(
+                                quicMode = QuicMode.SOFT_DISABLE,
+                                preferredStack = PreferredStack.H2,
+                                dnsMode = DnsMode.SYSTEM,
+                                tcpFamily = TcpFamily.NONE,
+                                outcome = DirectModeOutcome.TRANSPARENT_OK,
+                            ),
+                        ipSetDigest = "deadbeef",
+                        transportClass = DirectTransportClass.QUIC_BLOCK_SUSPECT,
+                        reasonCode = DirectModeReasonCode.QUIC_BLOCKED,
                     ),
                 recordedAt = 123L,
+            )
+            capabilityStore.rememberDirectPathObservation(
+                fingerprint = fingerprint,
+                authority = "Example.org:443",
+                observation =
+                    ServerCapabilityObservation(
+                        quicUsable = false,
+                        udpUsable = false,
+                        fallbackRequired = true,
+                        repeatedHandshakeFailureClass = "tls_alert",
+                        transportPolicy =
+                            TransportPolicy(
+                                quicMode = QuicMode.HARD_DISABLE,
+                                preferredStack = PreferredStack.H2,
+                                dnsMode = DnsMode.SYSTEM,
+                                tcpFamily = TcpFamily.REC_PRE_SNI,
+                                outcome = DirectModeOutcome.NO_DIRECT_SOLUTION,
+                            ),
+                        ipSetDigest = "feedface",
+                        transportClass = DirectTransportClass.IP_BLOCK_SUSPECT,
+                        reasonCode = DirectModeReasonCode.IP_BLOCKED,
+                        cooldownUntil = 999L,
+                    ),
+                recordedAt = 124L,
             )
             val resolver =
                 DefaultConnectionPolicyResolver(
@@ -200,15 +243,36 @@ class ConnectionPolicyResolverTest {
 
             val resolution = resolver.resolve(mode = Mode.Proxy)
             val uiPreferences = decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
-            val capability = uiPreferences?.runtimeContext?.directPathCapabilities?.singleOrNull()
+            val capabilities = uiPreferences?.runtimeContext?.directPathCapabilities.orEmpty()
+            val softDisable = capabilities.firstOrNull { it.ipSetDigest == "deadbeef" }
+            val noDirect = capabilities.firstOrNull { it.ipSetDigest == "feedface" }
 
-            assertNotNull(capability)
-            assertEquals("example.org:443", capability?.authority)
-            assertEquals(false, capability?.quicUsable)
-            assertEquals(false, capability?.udpUsable)
-            assertEquals(true, capability?.fallbackRequired)
-            assertEquals("tcp_reset", capability?.repeatedHandshakeFailureClass)
-            assertEquals(123L, capability?.updatedAt)
+            assertEquals(2, capabilities.size)
+            assertNotNull(softDisable)
+            assertEquals("example.org:443", softDisable?.authority)
+            assertEquals(false, softDisable?.quicUsable)
+            assertEquals(false, softDisable?.udpUsable)
+            assertEquals(true, softDisable?.fallbackRequired)
+            assertEquals("tcp_reset", softDisable?.repeatedHandshakeFailureClass)
+            assertEquals(QuicMode.SOFT_DISABLE, softDisable?.quicMode)
+            assertEquals(PreferredStack.H2, softDisable?.preferredStack)
+            assertEquals(DnsMode.SYSTEM, softDisable?.dnsMode)
+            assertEquals(TcpFamily.NONE, softDisable?.tcpFamily)
+            assertEquals(DirectModeOutcome.TRANSPARENT_OK, softDisable?.outcome)
+            assertEquals(DirectTransportClass.QUIC_BLOCK_SUSPECT, softDisable?.transportClass)
+            assertEquals(DirectModeReasonCode.QUIC_BLOCKED, softDisable?.reasonCode)
+            assertEquals(123L, softDisable?.updatedAt)
+
+            assertNotNull(noDirect)
+            assertEquals("example.org:443", noDirect?.authority)
+            assertEquals("feedface", noDirect?.ipSetDigest)
+            assertEquals(QuicMode.HARD_DISABLE, noDirect?.quicMode)
+            assertEquals(TcpFamily.REC_PRE_SNI, noDirect?.tcpFamily)
+            assertEquals(DirectModeOutcome.NO_DIRECT_SOLUTION, noDirect?.outcome)
+            assertEquals(DirectTransportClass.IP_BLOCK_SUSPECT, noDirect?.transportClass)
+            assertEquals(DirectModeReasonCode.IP_BLOCKED, noDirect?.reasonCode)
+            assertEquals(999L, noDirect?.cooldownUntil)
+            assertEquals(124L, noDirect?.updatedAt)
         }
 
     @Test
