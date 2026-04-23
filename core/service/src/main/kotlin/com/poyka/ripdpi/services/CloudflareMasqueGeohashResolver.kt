@@ -18,6 +18,9 @@ import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
+internal const val DefaultCloudflareMasqueGeohashPrecision = 3
+internal const val CloudflareMasqueBase32Alphabet = "0123456789bcdefghjkmnpqrstuvwxyz"
+
 interface CloudflareMasqueGeohashResolver {
     suspend fun resolveHeaderValue(): String?
 }
@@ -33,13 +36,8 @@ class AndroidCloudflareMasqueGeohashResolver
                 return null
             }
             val location = bestLastKnownLocation() ?: return null
-            val geohash = encodeGeohash(location.latitude, location.longitude, precision = 7)
             val countryCode = resolveCountryCode(location).ifBlank { Locale.getDefault().country }
-            return if (geohash.isBlank() || countryCode.isBlank()) {
-                null
-            } else {
-                "$geohash-${countryCode.uppercase(Locale.US)}"
-            }
+            return buildCloudflareMasqueRegionalHint(location.latitude, location.longitude, countryCode)
         }
 
         private fun hasCoarseLocationPermission(): Boolean =
@@ -76,53 +74,63 @@ class AndroidCloudflareMasqueGeohashResolver
                     .orEmpty()
             }.getOrDefault("")
         }
+    }
 
-        private fun encodeGeohash(
-            latitude: Double,
-            longitude: Double,
-            precision: Int,
-        ): String {
-            var latRange = -90.0 to 90.0
-            var lonRange = -180.0 to 180.0
-            var bit = 0
-            var ch = 0
-            var evenBit = true
-            val output = StringBuilder(precision)
+internal fun buildCloudflareMasqueRegionalHint(
+    latitude: Double,
+    longitude: Double,
+    countryCode: String,
+    precision: Int = DefaultCloudflareMasqueGeohashPrecision,
+): String? {
+    val normalizedCountryCode = countryCode.trim().uppercase(Locale.US)
+    if (normalizedCountryCode.isBlank() || precision <= 0) {
+        return null
+    }
+    val geohash = encodeGeohash(latitude, longitude, precision)
+    return geohash.takeIf(String::isNotBlank)?.let { "$it-$normalizedCountryCode" }
+}
 
-            while (output.length < precision) {
-                if (evenBit) {
-                    val mid = (lonRange.first + lonRange.second) / 2.0
-                    if (longitude >= mid) {
-                        ch = ch or (1 shl (4 - bit))
-                        lonRange = mid to lonRange.second
-                    } else {
-                        lonRange = lonRange.first to mid
-                    }
-                } else {
-                    val mid = (latRange.first + latRange.second) / 2.0
-                    if (latitude >= mid) {
-                        ch = ch or (1 shl (4 - bit))
-                        latRange = mid to latRange.second
-                    } else {
-                        latRange = latRange.first to mid
-                    }
-                }
-                evenBit = !evenBit
-                if (bit < 4) {
-                    bit += 1
-                } else {
-                    output.append(Base32Alphabet[ch])
-                    bit = 0
-                    ch = 0
-                }
+internal fun encodeGeohash(
+    latitude: Double,
+    longitude: Double,
+    precision: Int,
+): String {
+    var latRange = -90.0 to 90.0
+    var lonRange = -180.0 to 180.0
+    var bit = 0
+    var ch = 0
+    var evenBit = true
+    val output = StringBuilder(precision)
+
+    while (output.length < precision) {
+        if (evenBit) {
+            val mid = (lonRange.first + lonRange.second) / 2.0
+            if (longitude >= mid) {
+                ch = ch or (1 shl (4 - bit))
+                lonRange = mid to lonRange.second
+            } else {
+                lonRange = lonRange.first to mid
             }
-            return output.toString()
+        } else {
+            val mid = (latRange.first + latRange.second) / 2.0
+            if (latitude >= mid) {
+                ch = ch or (1 shl (4 - bit))
+                latRange = mid to latRange.second
+            } else {
+                latRange = latRange.first to mid
+            }
         }
-
-        private companion object {
-            const val Base32Alphabet = "0123456789bcdefghjkmnpqrstuvwxyz"
+        evenBit = !evenBit
+        if (bit < 4) {
+            bit += 1
+        } else {
+            output.append(CloudflareMasqueBase32Alphabet[ch])
+            bit = 0
+            ch = 0
         }
     }
+    return output.toString()
+}
 
 @Module
 @InstallIn(SingletonComponent::class)

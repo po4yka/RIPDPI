@@ -4,7 +4,6 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.LinkProperties
 import android.net.NetworkCapabilities
-import android.os.Build
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -69,7 +68,11 @@ class DefaultHomeAnalysisAugmentationSource
                     val capabilities: NetworkCapabilities? = activeNetwork?.let { cm.getNetworkCapabilities(it) }
                     val linkProps: LinkProperties? = activeNetwork?.let { cm.getLinkProperties(it) }
                     val transport = describeTransport(capabilities, fingerprint?.transport)
-                    val operator = describeOperatorOrSsid(capabilities)
+                    val operator =
+                        describeOperatorOrSsid(
+                            transport = transport,
+                            cellularOperatorCode = fingerprint?.cellular?.operatorCode,
+                        )
                     val captivePortal =
                         capabilities?.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL) == true
                     val mtu = linkPropertiesMtuOrNull(linkProps)
@@ -222,15 +225,14 @@ class DefaultHomeAnalysisAugmentationSource
             }
         }
 
-        @Suppress("DEPRECATION")
-        private fun describeOperatorOrSsid(caps: NetworkCapabilities?): String? {
-            if (caps == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                return null
-            }
-            val infoString = caps.transportInfo?.toString().orEmpty()
-            val ssidMatch = Regex("ssid=([^,\\s]+)").find(infoString)?.groupValues?.getOrNull(1)
-            return ssidMatch?.takeIf(String::isNotBlank)?.trim('"')
-        }
+        private fun describeOperatorOrSsid(
+            transport: String?,
+            cellularOperatorCode: String?,
+        ): String? =
+            homeNetworkIdentitySignal(
+                transport = transport,
+                cellularOperatorCode = cellularOperatorCode,
+            )
 
         private fun resolveSystem(host: String): List<String> =
             runCatching { InetAddress.getAllByName(host).map { it.hostAddress.orEmpty() }.filter { it.isNotBlank() } }
@@ -300,5 +302,21 @@ class DefaultHomeAnalysisAugmentationSource
             val aV4 = a.filter { runCatching { InetAddress.getByName(it) is Inet4Address }.getOrDefault(false) }.toSet()
             val bV4 = b.filter { runCatching { InetAddress.getByName(it) is Inet4Address }.getOrDefault(false) }.toSet()
             return aV4.isNotEmpty() && bV4.isNotEmpty() && (aV4 intersect bV4).isEmpty()
+        }
+    }
+
+internal fun homeNetworkIdentitySignal(
+    transport: String?,
+    cellularOperatorCode: String? = null,
+): String? =
+    when (transport) {
+        "cellular" -> {
+            cellularOperatorCode
+                ?.takeUnless { it.isBlank() || it == "unknown" }
+                ?.let { "Carrier $it" }
+        }
+
+        else -> {
+            null
         }
     }
