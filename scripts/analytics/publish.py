@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 from .common import (
+    DEFAULT_BASELINE_STRATEGY_PACK_CATALOG,
     DEFAULT_BLESSED_DEVICE_FINGERPRINT_CATALOG,
     DEFAULT_BLESSED_WINNER_MAPPING_CATALOG,
     DEVICE_FINGERPRINT_CATALOG_SCHEMA_VERSION,
@@ -14,6 +15,7 @@ from .common import (
     write_json,
     write_text,
 )
+from .strategy_pack import build_candidate_strategy_pack_catalog
 
 
 def publish_outputs(
@@ -22,6 +24,7 @@ def publish_outputs(
     clustered_payload: dict[str, Any],
     output_dir: Path,
     corpus_name: str,
+    baseline_strategy_pack_catalog_path: Path = DEFAULT_BASELINE_STRATEGY_PACK_CATALOG,
     blessed_device_catalog_path: Path = DEFAULT_BLESSED_DEVICE_FINGERPRINT_CATALOG,
     blessed_winner_mapping_path: Path = DEFAULT_BLESSED_WINNER_MAPPING_CATALOG,
 ) -> dict[str, Path]:
@@ -36,24 +39,34 @@ def publish_outputs(
         device_catalog=device_catalog,
         corpus_name=corpus_name,
     )
+    strategy_pack_catalog = build_candidate_strategy_pack_catalog(
+        extracted_payload=extracted_payload,
+        device_catalog=device_catalog,
+        winner_catalog=winner_catalog,
+        corpus_name=corpus_name,
+        baseline_catalog_path=baseline_strategy_pack_catalog_path,
+    )
     drift_report = build_drift_report(device_catalog, blessed_device_catalog)
-    report_text = build_markdown_report(device_catalog, winner_catalog, drift_report)
+    report_text = build_markdown_report(device_catalog, winner_catalog, strategy_pack_catalog, drift_report)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     records_path = output_dir / "offline-records.json"
     clusters_path = output_dir / "device-fingerprint-catalog.candidate.json"
     winners_path = output_dir / "device-fingerprint-winner-mappings.candidate.json"
+    strategy_pack_path = output_dir / "strategy-pack-catalog.candidate.json"
     drift_path = output_dir / "drift-report.json"
     report_path = output_dir / "report.md"
     write_json(records_path, extracted_payload)
     write_json(clusters_path, device_catalog)
     write_json(winners_path, winner_catalog)
+    write_json(strategy_pack_path, strategy_pack_catalog)
     write_json(drift_path, drift_report)
     write_text(report_path, report_text)
     return {
         "records": records_path,
         "deviceCatalog": clusters_path,
         "winnerCatalog": winners_path,
+        "strategyPackCatalog": strategy_pack_path,
         "driftReport": drift_path,
         "report": report_path,
     }
@@ -180,6 +193,7 @@ def build_drift_report(
 def build_markdown_report(
     device_catalog: dict[str, Any],
     winner_catalog: dict[str, Any],
+    strategy_pack_catalog: dict[str, Any],
     drift_report: dict[str, Any],
 ) -> str:
     lines = [
@@ -190,9 +204,29 @@ def build_markdown_report(
         f"- Source archives: {device_catalog['sourceArchiveCount']}",
         f"- Device clusters: {device_catalog['clusterCount']}",
         f"- Winner mappings: {winner_catalog['mappingCount']}",
+        f"- Generated strategy packs: {max(0, len(strategy_pack_catalog.get('packs', [])) -  len(load_baseline_pack_ids(strategy_pack_catalog)))}",
         f"- New clusters vs blessed baseline: {drift_report['newClusterCount']}",
         "",
     ]
+    generated_packs = [
+        pack
+        for pack in strategy_pack_catalog.get("packs", [])
+        if pack.get("id", "").startswith("offline-")
+    ]
+    if generated_packs:
+        lines.extend(["## Generated Strategy Packs", ""])
+        for pack in generated_packs:
+            lines.extend(
+                [
+                    f"### {pack['id']}",
+                    "",
+                    f"- Title: {pack['title']}",
+                    f"- Rollout staged: {pack.get('rollout', {}).get('staged', False)}",
+                    f"- Trigger metadata: {', '.join(pack.get('triggerMetadata', [])) or 'none'}",
+                    f"- Strategies: {', '.join(strategy['id'] for strategy in pack.get('strategies', [])) or 'none'}",
+                    "",
+                ]
+            )
     for cluster in device_catalog.get("clusters", []):
         lines.extend(
             [
@@ -210,3 +244,10 @@ def build_markdown_report(
         )
     return "\n".join(lines).rstrip() + "\n"
 
+
+def load_baseline_pack_ids(strategy_pack_catalog: dict[str, Any]) -> set[str]:
+    return {
+        pack["id"]
+        for pack in strategy_pack_catalog.get("packs", [])
+        if not str(pack.get("id", "")).startswith("offline-")
+    }
