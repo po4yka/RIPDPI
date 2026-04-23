@@ -16,7 +16,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         DiagnosticsProfileDefinition(
             id = "default",
             name = "Default diagnostics",
-            version = 2,
+            version = 3,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
             legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = false, requiresRawPath = false),
@@ -46,7 +46,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         DiagnosticsProfileDefinition(
             id = "automatic-probing",
             name = "Automatic probing",
-            version = 2,
+            version = 3,
             kind = CatalogScanKind.STRATEGY_PROBE,
             family = CatalogDiagnosticProfileFamily.AUTOMATIC_PROBING,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
@@ -74,7 +74,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         DiagnosticsProfileDefinition(
             id = "automatic-audit",
             name = "Automatic audit",
-            version = 2,
+            version = 3,
             kind = CatalogScanKind.STRATEGY_PROBE,
             family = CatalogDiagnosticProfileFamily.AUTOMATIC_AUDIT,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
@@ -102,7 +102,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         DiagnosticsProfileDefinition(
             id = "dpi-detector-full",
             name = "DPI Detector Full",
-            version = 2,
+            version = 3,
             intentBucket = CatalogProfileIntentBucket.SAFE_DEFAULT,
             legalSafety = CatalogLegalSafety.SAFE,
             executionPolicy = policy(manualOnly = false, allowBackground = false, requiresRawPath = false),
@@ -124,7 +124,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-web-connectivity",
             name = "Russia Web Connectivity",
-            version = 2,
+            version = 3,
             family = CatalogDiagnosticProfileFamily.WEB_CONNECTIVITY,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -149,7 +149,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-messaging",
             name = "Russia Messaging Services",
-            version = 3,
+            version = 4,
             family = CatalogDiagnosticProfileFamily.MESSAGING,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -172,7 +172,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-circumvention",
             name = "Russia Sensitive Services Reachability",
-            version = 2,
+            version = 3,
             family = CatalogDiagnosticProfileFamily.CIRCUMVENTION,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -194,7 +194,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-throttling",
             name = "Russia Throttling Check",
-            version = 3,
+            version = 4,
             family = CatalogDiagnosticProfileFamily.THROTTLING,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -221,7 +221,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-dpi-full",
             name = "Russia DPI Full",
-            version = 4,
+            version = 5,
             family = CatalogDiagnosticProfileFamily.DPI_FULL,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,

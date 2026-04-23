@@ -54,6 +54,51 @@ class DiagnosticsModelsCompatibilityTest {
     }
 
     @Test
+    fun `decode profile spec backfills legacy probe persistence policy`() {
+        val manualProfile =
+            json.decodeProfileSpecWire(
+                """
+                {
+                  "profileId": "default",
+                  "displayName": "Default diagnostics",
+                  "kind": "CONNECTIVITY",
+                  "family": "GENERAL",
+                  "executionPolicy": {
+                    "manualOnly": false,
+                    "allowBackground": false,
+                    "requiresRawPath": false
+                  }
+                }
+                """.trimIndent(),
+            )
+        val backgroundProfile =
+            json.decodeProfileSpecWire(
+                """
+                {
+                  "profileId": "automatic-probing",
+                  "displayName": "Automatic probing",
+                  "kind": "STRATEGY_PROBE",
+                  "family": "AUTOMATIC_PROBING",
+                  "executionPolicy": {
+                    "manualOnly": false,
+                    "allowBackground": true,
+                    "requiresRawPath": true
+                  }
+                }
+                """.trimIndent(),
+            )
+
+        assertEquals(
+            ProbePersistencePolicyWire.MANUAL_ONLY,
+            manualProfile.normalizedExecutionPolicy().probePersistencePolicy,
+        )
+        assertEquals(
+            ProbePersistencePolicyWire.BACKGROUND_ONLY,
+            backgroundProfile.normalizedExecutionPolicy().probePersistencePolicy,
+        )
+    }
+
+    @Test
     fun `current profile spec round trips strategy probe target cohorts`() {
         val profile =
             ProfileSpecWire(
