@@ -9,15 +9,15 @@ import androidx.compose.ui.graphics.Shape
 
 @Immutable
 data class RipDpiShapeTokens(
-    val xs: Shape = RoundedCornerShape(DefaultRipDpiComponentMetrics.extraSmallCornerRadius),
-    val sm: Shape = RoundedCornerShape(DefaultRipDpiComponentMetrics.compactCornerRadius),
-    val md: Shape = RoundedCornerShape(DefaultRipDpiComponentMetrics.mediumCornerRadius),
-    val lg: Shape = RoundedCornerShape(DefaultRipDpiComponentMetrics.largeCornerRadius),
-    val xl: Shape = RoundedCornerShape(DefaultRipDpiComponentMetrics.controlCornerRadius),
-    val xlIncreased: Shape = RoundedCornerShape(DefaultRipDpiComponentMetrics.controlIncreasedCornerRadius),
-    val xxl: Shape = RoundedCornerShape(DefaultRipDpiComponentMetrics.pillCornerRadius),
-    val xxlIncreased: Shape = RoundedCornerShape(DefaultRipDpiComponentMetrics.pillIncreasedCornerRadius),
-    val xxxl: Shape = RoundedCornerShape(DefaultRipDpiComponentMetrics.heroCornerRadius),
+    val xs: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.extraSmallCornerRadius),
+    val sm: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.compactCornerRadius),
+    val md: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.mediumCornerRadius),
+    val lg: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.largeCornerRadius),
+    val xl: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.controlCornerRadius),
+    val xlIncreased: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.controlIncreasedCornerRadius),
+    val xxl: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.pillCornerRadius),
+    val xxlIncreased: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.pillIncreasedCornerRadius),
+    val xxxl: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.heroCornerRadius),
     val full: Shape = CircleShape,
 )
 
@@ -25,11 +25,11 @@ val DefaultRipDpiShapes = RipDpiShapeTokens()
 
 val RipDpiShapes =
     Shapes(
-        extraSmall = RoundedCornerShape(DefaultRipDpiComponentMetrics.compactCornerRadius),
-        small = RoundedCornerShape(DefaultRipDpiComponentMetrics.mediumCornerRadius),
-        medium = RoundedCornerShape(DefaultRipDpiComponentMetrics.largeCornerRadius),
-        large = RoundedCornerShape(DefaultRipDpiComponentMetrics.controlCornerRadius),
-        extraLarge = RoundedCornerShape(DefaultRipDpiComponentMetrics.pillCornerRadius),
+        extraSmall = RoundedCornerShape(DefaultRipDpiComponents.shapes.compactCornerRadius),
+        small = RoundedCornerShape(DefaultRipDpiComponents.shapes.mediumCornerRadius),
+        medium = RoundedCornerShape(DefaultRipDpiComponents.shapes.largeCornerRadius),
+        large = RoundedCornerShape(DefaultRipDpiComponents.shapes.controlCornerRadius),
+        extraLarge = RoundedCornerShape(DefaultRipDpiComponents.shapes.pillCornerRadius),
     )
 
 internal val LocalRipDpiShapes = staticCompositionLocalOf { DefaultRipDpiShapes }

@@ -85,15 +85,15 @@ fun <T> RipDpiDropdown(
         )
     val horizontalPadding =
         dropdownHorizontalPadding(
-            focusedHorizontalPadding = components.fieldFocusedHorizontalPadding,
-            defaultHorizontalPadding = components.fieldHorizontalPadding,
+            focusedHorizontalPadding = components.inputs.fieldFocusedHorizontalPadding,
+            defaultHorizontalPadding = components.inputs.fieldHorizontalPadding,
             density = density,
             borderWidth = fieldState.borderWidth,
         )
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(components.textFieldLabelGap),
+        verticalArrangement = Arrangement.spacedBy(components.inputs.textFieldLabelGap),
     ) {
         label?.let {
             Text(text = it, style = type.smallLabel, color = fieldState.label)
@@ -169,7 +169,7 @@ private fun DropdownField(
                 Modifier
                     .ripDpiTestTag(testTag)
                     .fillMaxWidth()
-                    .height(components.controlHeight)
+                    .height(components.inputs.controlHeight)
                     .background(fieldState.container, RipDpiThemeTokens.shapes.xl)
                     .border(animatedBorderWidth, animatedBorderColor, RipDpiThemeTokens.shapes.xl)
                     .focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)

@@ -48,7 +48,7 @@ fun LogRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .heightIn(min = components.decorativeBadgeSize)
+                .heightIn(min = components.feedback.decorativeBadgeSize)
                 .semantics(mergeDescendants = true) {
                     contentDescription = "$timestamp ${type.uppercase()} $message ${metadataChips.joinToString(" ")}"
                 },
@@ -70,8 +70,8 @@ fun LogRow(
                     Modifier
                         .background(palette.badgeContainer, RipDpiThemeTokens.shapes.xxl)
                         .padding(
-                            horizontal = components.compactPillHorizontalPadding,
-                            vertical = components.compactPillVerticalPadding,
+                            horizontal = components.rows.compactPillHorizontalPadding,
+                            vertical = components.rows.compactPillVerticalPadding,
                         ),
             ) {
                 androidx.compose.material3.Text(
@@ -99,8 +99,8 @@ fun LogRow(
                                 .wrapContentWidth()
                                 .background(colors.inputBackground, RipDpiThemeTokens.shapes.xxl)
                                 .padding(
-                                    horizontal = components.compactPillHorizontalPadding,
-                                    vertical = components.compactPillVerticalPadding,
+                                    horizontal = components.rows.compactPillHorizontalPadding,
+                                    vertical = components.rows.compactPillVerticalPadding,
                                 ),
                     ) {
                         androidx.compose.material3.Text(

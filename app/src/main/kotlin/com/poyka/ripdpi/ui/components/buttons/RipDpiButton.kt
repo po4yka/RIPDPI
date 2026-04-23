@@ -89,12 +89,12 @@ fun RipDpiButton(
     val horizontalPadding =
         when (density) {
             RipDpiControlDensity.Default -> {
-                components.buttonHorizontalPadding
+                components.buttons.horizontalPadding
             }
 
             RipDpiControlDensity.Compact -> {
-                components.buttonHorizontalPadding -
-                    components.buttonFocusedHorizontalPaddingOffset
+                components.buttons.horizontalPadding -
+                    components.buttons.focusedHorizontalPaddingOffset
             }
         }
     val animatedContainerColor by animateColorAsState(
@@ -126,7 +126,7 @@ fun RipDpiButton(
     Box(
         modifier =
             modifier
-                .defaultMinSize(minHeight = components.buttonMinHeight)
+                .defaultMinSize(minHeight = components.buttons.minHeight)
                 .clip(shape)
                 .background(animatedContainerColor, shape)
                 .border(width = state.borderWidth, color = animatedBorderColor, shape = shape)
@@ -148,9 +148,9 @@ fun RipDpiButton(
                         scaleY = pressedScale
                     }.padding(
                         horizontal = horizontalPadding,
-                        vertical = components.buttonVerticalPadding,
+                        vertical = components.buttons.verticalPadding,
                     ),
-            horizontalArrangement = Arrangement.spacedBy(components.buttonIconGap),
+            horizontalArrangement = Arrangement.spacedBy(components.buttons.iconGap),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (loading || leadingIcon != null) {

@@ -79,7 +79,7 @@ fun RipDpiSnackbar(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .defaultMinSize(minHeight = components.controlHeight)
+                    .defaultMinSize(minHeight = components.inputs.controlHeight)
                     .padding(horizontal = spacing.lg, vertical = spacing.md),
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
             verticalAlignment = Alignment.CenterVertically,

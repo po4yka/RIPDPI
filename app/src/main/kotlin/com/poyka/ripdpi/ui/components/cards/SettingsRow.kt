@@ -114,9 +114,9 @@ private fun Modifier.settingsRowModifier(
     val components = RipDpiThemeTokens.components
     val minHeight =
         if (subtitle == null) {
-            components.settingsRowMinHeight
+            components.rows.settingsRowMinHeight
         } else {
-            components.settingsRowMinHeightWithSubtitle
+            components.rows.settingsRowMinHeightWithSubtitle
         }
     val baseModifier =
         this
@@ -132,10 +132,10 @@ private fun Modifier.settingsRowModifier(
                 if (variant == SettingsRowVariant.Default) {
                     Modifier
                 } else {
-                    Modifier.padding(horizontal = components.compactPillHorizontalPadding)
+                    Modifier.padding(horizontal = components.rows.compactPillHorizontalPadding)
                 },
             ).heightIn(min = minHeight)
-            .padding(vertical = components.settingsRowVerticalPadding)
+            .padding(vertical = components.rows.settingsRowVerticalPadding)
     return when {
         checked != null && onCheckedChange != null -> {
             baseModifier.ripDpiToggleable(
@@ -172,7 +172,7 @@ private fun SettingsRowLeadingIcon(
     Box(
         modifier =
             Modifier
-                .size(components.decorativeBadgeSize)
+                .size(components.feedback.decorativeBadgeSize)
                 .background(state.leadingBadgeContainer, RipDpiThemeTokens.shapes.full),
         contentAlignment = Alignment.Center,
     ) {
@@ -195,7 +195,7 @@ private fun RowScope.SettingsRowText(
     val type = RipDpiThemeTokens.type
     Column(
         modifier = Modifier.weight(1f),
-        verticalArrangement = Arrangement.spacedBy(components.compactPillVerticalPadding),
+        verticalArrangement = Arrangement.spacedBy(components.rows.compactPillVerticalPadding),
     ) {
         Text(text = title, style = type.body, color = state.title)
         subtitle?.let {

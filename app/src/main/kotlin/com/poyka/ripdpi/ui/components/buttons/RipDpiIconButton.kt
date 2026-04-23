@@ -107,7 +107,7 @@ fun RipDpiIconButton(
     Row(
         modifier =
             modifier
-                .size(components.iconButtonSize)
+                .size(components.buttons.iconButtonSize)
                 .clip(shape)
                 .background(animatedBackground, shape)
                 .border(animatedBorderWidth, animatedBorderColor, shape)

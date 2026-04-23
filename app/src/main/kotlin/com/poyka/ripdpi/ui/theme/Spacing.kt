@@ -50,8 +50,7 @@ data class RipDpiLayout(
 )
 
 @Immutable
-data class RipDpiComponentMetrics(
-    val controlHeight: Dp = 48.dp,
+data class RipDpiShapeMetrics(
     val extraSmallCornerRadius: Dp = 4.dp,
     val compactCornerRadius: Dp = 8.dp,
     val mediumCornerRadius: Dp = 10.dp,
@@ -63,11 +62,21 @@ data class RipDpiComponentMetrics(
     val pillCornerRadius: Dp = 28.dp,
     val pillIncreasedCornerRadius: Dp = 32.dp,
     val heroCornerRadius: Dp = 48.dp,
-    val buttonMinHeight: Dp = 48.dp,
-    val buttonHorizontalPadding: Dp = 20.dp,
-    val buttonFocusedHorizontalPaddingOffset: Dp = 4.dp,
-    val buttonIconGap: Dp = 8.dp,
-    val buttonVerticalPadding: Dp = 10.dp,
+)
+
+@Immutable
+data class RipDpiButtonMetrics(
+    val minHeight: Dp = 48.dp,
+    val horizontalPadding: Dp = 20.dp,
+    val focusedHorizontalPaddingOffset: Dp = 4.dp,
+    val iconGap: Dp = 8.dp,
+    val verticalPadding: Dp = 10.dp,
+    val iconButtonSize: Dp = 48.dp,
+)
+
+@Immutable
+data class RipDpiInputMetrics(
+    val controlHeight: Dp = 48.dp,
     val fieldHorizontalPadding: Dp = 17.dp,
     val fieldFocusedHorizontalPadding: Dp = 18.dp,
     val textFieldLabelGap: Dp = 6.dp,
@@ -77,30 +86,61 @@ data class RipDpiComponentMetrics(
     val chipVerticalPadding: Dp = 6.dp,
     val chipFocusedVerticalPaddingOffset: Dp = 2.dp,
     val chipIconSize: Dp = 14.dp,
-    val iconButtonSize: Dp = 48.dp,
     val switchWidth: Dp = 52.dp,
     val switchHeight: Dp = 48.dp,
     val switchTrackHeight: Dp = 32.dp,
     val switchThumbSize: Dp = 24.dp,
     val switchThumbPadding: Dp = 4.dp,
-    val dialogIconSize: Dp = 40.dp,
-    val decorativeBadgeSize: Dp = 28.dp,
+)
+
+@Immutable
+data class RipDpiRowMetrics(
     val compactPillHorizontalPadding: Dp = 8.dp,
     val compactPillVerticalPadding: Dp = 2.dp,
     val settingsRowVerticalPadding: Dp = 14.dp,
-    val sheetHandleTopPadding: Dp = 12.dp,
-    val sheetHandleWidth: Dp = 36.dp,
-    val sheetHandleHeight: Dp = 4.dp,
     val settingsRowMinHeight: Dp = 52.dp,
     val settingsRowMinHeightWithSubtitle: Dp = 68.dp,
+)
+
+@Immutable
+data class RipDpiSheetMetrics(
+    val handleTopPadding: Dp = 12.dp,
+    val handleWidth: Dp = 36.dp,
+    val handleHeight: Dp = 4.dp,
+)
+
+@Immutable
+data class RipDpiNavigationMetrics(
     val bottomNavIndicatorWidth: Dp = 64.dp,
     val bottomNavIndicatorHeight: Dp = 28.dp,
     val bottomNavHorizontalPadding: Dp = 0.dp,
     val bottomNavIndicatorTopOffset: Dp = 10.dp,
+)
+
+@Immutable
+data class RipDpiIndicatorMetrics(
     val statusMarkerSmall: Dp = 8.dp,
     val statusMarkerMedium: Dp = 9.dp,
     val statusMarkerLarge: Dp = 10.dp,
     val statusMarkerSpacing: Dp = 8.dp,
+)
+
+@Immutable
+data class RipDpiFeedbackMetrics(
+    val dialogIconSize: Dp = 40.dp,
+    val decorativeBadgeSize: Dp = 28.dp,
+)
+
+@Immutable
+data class RipDpiComponents(
+    val shapes: RipDpiShapeMetrics = RipDpiShapeMetrics(),
+    val buttons: RipDpiButtonMetrics = RipDpiButtonMetrics(),
+    val inputs: RipDpiInputMetrics = RipDpiInputMetrics(),
+    val rows: RipDpiRowMetrics = RipDpiRowMetrics(),
+    val sheets: RipDpiSheetMetrics = RipDpiSheetMetrics(),
+    val navigation: RipDpiNavigationMetrics = RipDpiNavigationMetrics(),
+    val indicators: RipDpiIndicatorMetrics = RipDpiIndicatorMetrics(),
+    val feedback: RipDpiFeedbackMetrics = RipDpiFeedbackMetrics(),
 )
 
 object RipDpiStroke {
@@ -110,7 +150,7 @@ object RipDpiStroke {
 
 val DefaultRipDpiSpacing = RipDpiSpacing()
 val DefaultRipDpiLayout = ripDpiLayoutForWidth(screenWidthDp = 360)
-val DefaultRipDpiComponentMetrics = RipDpiComponentMetrics()
+val DefaultRipDpiComponents = RipDpiComponents()
 
 fun ripDpiWidthClassForWidth(screenWidthDp: Int): RipDpiWidthClass =
     when {
@@ -175,4 +215,4 @@ fun ripDpiLayoutForWidth(screenWidthDp: Int): RipDpiLayout =
 
 internal val LocalRipDpiSpacing = staticCompositionLocalOf { DefaultRipDpiSpacing }
 internal val LocalRipDpiLayout = staticCompositionLocalOf { DefaultRipDpiLayout }
-internal val LocalRipDpiComponentMetrics = staticCompositionLocalOf { DefaultRipDpiComponentMetrics }
+internal val LocalRipDpiComponents = staticCompositionLocalOf { DefaultRipDpiComponents }
