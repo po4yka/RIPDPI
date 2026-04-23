@@ -26,6 +26,7 @@ When any of these disagree, the Compose theme code and screenshot baselines win.
 | Component metrics | `ui/theme/Spacing.kt` | Control heights, paddings, switch sizes, badge sizes, row heights |
 | Shapes | `ui/theme/Shape.kt` | Rounded-corner token scale and Material 3 shape bridge |
 | Motion | `ui/theme/RipDpiMotion.kt` | Durations, scales, easing, spring behavior, reduced-motion handling |
+| State tokens | `ui/theme/RipDpiState.kt` | First-class pressed, focused, disabled, loading, selected, and semantic tone resolution for shared components |
 
 Feature geometry does not belong in the shared theme. Flow-specific measurements stay close to the screen
 family that owns them, for example `HomeChromeMetrics` and `RipDpiIntroScaffoldMetrics`.
@@ -39,18 +40,33 @@ family that owns them, for example `HomeChromeMetrics` and `RipDpiIntroScaffoldM
 - Indicators: `StatusIndicator`, `RipDpiPageIndicators`, `LogRow`, `StageProgressIndicator`, `AnalysisProgressIndicator`
 - Scaffolds: `RipDpiContentScreenScaffold`, `RipDpiSettingsScaffold`, `RipDpiDashboardScaffold`, `RipDpiIntroScaffold`
 
+## Interaction State Layer
+
+Shared components should resolve interaction and semantic states from `RipDpiStateTokens`, not by rebuilding
+pressed, focused, disabled, selected, loading, or error colors inline.
+
+Current first-class state families:
+
+- `button`
+- `iconButton`
+- `textField`
+- `chip`
+- `switch`
+- `settingsRow`
+- `banner`
+
 ## Component Mapping
 
 | Design concept | Compose entry point | Primary token sources | Visual verification |
 |----------------|---------------------|-----------------------|--------------------|
-| Primary and secondary actions | `ui/components/buttons/RipDpiButton.kt` | `colors`, `type.button`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
-| Icon-only actions | `ui/components/buttons/RipDpiIconButton.kt` | `colors`, icon sizes, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
-| Filter and selection chips | `ui/components/inputs/RipDpiChip.kt` | `colors`, `type.smallLabel`, `shapes`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
-| Text and config fields | `ui/components/inputs/RipDpiTextField.kt` | `colors`, `type.monoValue`, `type.monoConfig`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
-| Dropdowns and switches | `ui/components/inputs/RipDpiDropdown.kt`, `ui/components/inputs/RipDpiSwitch.kt` | `colors`, `type`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
+| Primary and secondary actions | `ui/components/buttons/RipDpiButton.kt` | `state.button`, `type.button`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
+| Icon-only actions | `ui/components/buttons/RipDpiIconButton.kt` | `state.iconButton`, icon sizes, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
+| Filter and selection chips | `ui/components/inputs/RipDpiChip.kt` | `state.chip`, `type.smallLabel`, `shapes`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
+| Text and config fields | `ui/components/inputs/RipDpiTextField.kt` | `state.textField`, `type.monoValue`, `type.monoConfig`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
+| Dropdowns and switches | `ui/components/inputs/RipDpiDropdown.kt`, `ui/components/inputs/RipDpiSwitch.kt` | `state.textField`, `state.switch`, `type`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
 | Cards and selectable presets | `ui/components/cards/RipDpiCard.kt`, `ui/components/cards/PresetCard.kt` | `colors`, `layout.cardPadding`, `shapes`, surface roles | `RipDpiDesignSystemScreenshotCatalog`, screen catalogs |
-| Settings rows | `ui/components/cards/SettingsRow.kt` | `colors`, `type`, component metrics | settings screen screenshots |
-| Feedback surfaces | `ui/components/feedback/WarningBanner.kt`, `RipDpiDialog.kt`, `RipDpiBottomSheet.kt`, `RipDpiSnackbar.kt` | semantic status colors, `type`, layout widths, `motion` | design system and screen catalogs |
+| Settings rows | `ui/components/cards/SettingsRow.kt` | `state.settingsRow`, `type`, component metrics | settings screen screenshots |
+| Feedback surfaces | `ui/components/feedback/WarningBanner.kt`, `RipDpiDialog.kt`, `RipDpiBottomSheet.kt`, `RipDpiSnackbar.kt` | `state.banner`, semantic status colors, `type`, layout widths, `motion` | design system and screen catalogs |
 | Navigation chrome | `ui/components/navigation/RipDpiTopAppBar.kt`, bottom navigation | `layout`, `type.appBarTitle`, icon rules, component metrics | home/settings/config screenshots |
 | Status and telemetry indicators | `ui/components/indicators/StatusIndicator.kt`, `LogRow.kt`, progress indicators | semantic colors, monospace roles, component metrics, `motion` | home, diagnostics, logs screenshots |
 | Screen scaffolds | `ui/components/scaffold/RipDpiScaffolds.kt` | `layout`, `spacing`, background color | all screen screenshot catalogs |
@@ -189,6 +205,7 @@ Motion rules:
 ## Contributor Rules
 
 - Do not hardcode colors or spacing in screens when an existing token covers the need.
+- Do not rebuild component state palettes inline when `RipDpiStateTokens` already owns the state family.
 - Do not import raw Material icons into screens or components; add to `RipDpiIcons` first.
 - Do not add feature-local geometry to theme tokens.
 - Do not introduce a new screen scaffold without reusing an existing scaffold or documenting the exception.

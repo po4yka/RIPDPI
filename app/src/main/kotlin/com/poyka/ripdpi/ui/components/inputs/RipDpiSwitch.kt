@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,8 +22,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -40,16 +37,6 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiSurfaceStyle
-
-private const val luminanceMidpoint = 0.5f
-
-private const val switchTrackDarkBlendFraction = 0.25f
-private const val switchTrackLightBlendFraction = 0.16f
-private const val switchThumbDarkBlendFraction = 0.5f
-
-private const val PressedCheckedTrackBlend = 0.18f
-private const val PressedDarkTrackBlend = 0.32f
-private const val PressedLightTrackBlend = 0.22f
 
 @Composable
 fun RipDpiSwitch(
@@ -177,7 +164,12 @@ private fun SwitchToggleControl(
     val components = RipDpiThemeTokens.components
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
     val isPressed by resolvedInteractionSource.collectIsPressedAsState()
-    val visualState = rememberSwitchVisualState(checked = checked, enabled = enabled, isPressed = isPressed)
+    val state =
+        RipDpiThemeTokens.state.switch.resolve(
+            checked = checked,
+            enabled = enabled,
+            isPressed = isPressed,
+        )
     val interactive = enabled && !readOnly && onCheckedChange != null
     val thumbTravel =
         components.switchWidth -
@@ -187,7 +179,9 @@ private fun SwitchToggleControl(
         targetValue = if (checked) thumbTravel else 0.dp,
         label = "switchOffset",
     )
-    val alpha by animateFloatAsState(targetValue = visualState.alpha, label = "switchAlpha")
+    val trackColor by animateColorAsState(targetValue = state.track, label = "switchTrack")
+    val thumbColor by animateColorAsState(targetValue = state.thumb, label = "switchThumb")
+    val alpha by animateFloatAsState(targetValue = state.alpha, label = "switchAlpha")
 
     SwitchLayout(
         modifier = modifier,
@@ -204,48 +198,10 @@ private fun SwitchToggleControl(
                 thumbPadding = components.switchThumbPadding,
                 thumbSize = components.switchThumbSize,
             ),
-        trackColor = visualState.trackColor,
-        thumbColor = visualState.thumbColor,
-        thumbOffset = thumbOffset,
-        alpha = alpha,
-    )
-}
-
-@Composable
-private fun rememberSwitchVisualState(
-    checked: Boolean,
-    enabled: Boolean,
-    isPressed: Boolean,
-): SwitchVisualState {
-    val colors = RipDpiThemeTokens.colors
-    val scheme = MaterialTheme.colorScheme
-    val isDark = scheme.background.luminance() < luminanceMidpoint
-    val trackColor by animateColorAsState(
-        targetValue =
-            switchTrackColor(
-                backgroundColor = colors.background,
-                foregroundColor = colors.foreground,
-                onSurfaceVariant = scheme.onSurfaceVariant,
-                checked = checked,
-                isPressed = isPressed,
-                isDark = isDark,
-            ),
-        label = "switchTrack",
-    )
-    val thumbColor by animateColorAsState(
-        targetValue =
-            switchThumbColor(
-                backgroundColor = colors.background,
-                foregroundColor = colors.foreground,
-                checked = checked,
-                isDark = isDark,
-            ),
-        label = "switchThumb",
-    )
-    return SwitchVisualState(
         trackColor = trackColor,
         thumbColor = thumbColor,
-        alpha = if (enabled) 1f else 0.38f,
+        thumbOffset = thumbOffset,
+        alpha = alpha,
     )
 }
 
@@ -305,12 +261,6 @@ private fun SwitchLayout(
     }
 }
 
-private data class SwitchVisualState(
-    val trackColor: Color,
-    val thumbColor: Color,
-    val alpha: Float,
-)
-
 private data class SwitchDimensions(
     val width: androidx.compose.ui.unit.Dp,
     val height: androidx.compose.ui.unit.Dp,
@@ -318,53 +268,6 @@ private data class SwitchDimensions(
     val thumbPadding: androidx.compose.ui.unit.Dp,
     val thumbSize: androidx.compose.ui.unit.Dp,
 )
-
-private fun switchTrackColor(
-    backgroundColor: Color,
-    foregroundColor: Color,
-    onSurfaceVariant: Color,
-    checked: Boolean,
-    isPressed: Boolean,
-    isDark: Boolean,
-): Color =
-    when {
-        isPressed && checked -> {
-            lerp(foregroundColor, onSurfaceVariant, PressedCheckedTrackBlend)
-        }
-
-        isPressed -> {
-            lerp(
-                backgroundColor,
-                foregroundColor,
-                if (isDark) PressedDarkTrackBlend else PressedLightTrackBlend,
-            )
-        }
-
-        checked -> {
-            foregroundColor
-        }
-
-        isDark -> {
-            lerp(backgroundColor, foregroundColor, switchTrackDarkBlendFraction)
-        }
-
-        else -> {
-            lerp(backgroundColor, foregroundColor, switchTrackLightBlendFraction)
-        }
-    }
-
-private fun switchThumbColor(
-    backgroundColor: Color,
-    foregroundColor: Color,
-    checked: Boolean,
-    isDark: Boolean,
-): Color =
-    when {
-        checked && isDark -> backgroundColor
-        checked -> backgroundColor
-        isDark -> lerp(backgroundColor, foregroundColor, switchThumbDarkBlendFraction)
-        else -> backgroundColor
-    }
 
 @Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)

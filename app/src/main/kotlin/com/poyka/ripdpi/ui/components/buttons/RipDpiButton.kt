@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,7 +35,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,12 +44,9 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.theme.RipDpiButtonStateRole
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-
-private const val primaryPressedLerp = 0.35f
-private const val secondaryPressedLerp = 0.5f
-private const val destructivePressedLerp = 0.3f
 
 enum class RipDpiButtonVariant {
     Primary,
@@ -76,28 +71,27 @@ fun RipDpiButton(
     interactionSource: MutableInteractionSource? = null,
     hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action,
 ) {
-    val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
     val type = RipDpiThemeTokens.type
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
     val isPressed by resolvedInteractionSource.collectIsPressedAsState()
     val isFocused by resolvedInteractionSource.collectIsFocusedAsState()
+    val state =
+        RipDpiThemeTokens.state.button.resolve(
+            role = variant.toStateRole(),
+            enabled = enabled,
+            loading = loading,
+            isPressed = isPressed,
+            isFocused = isFocused,
+        )
     val isInteractive = enabled && !loading
     val cornerRadius by animateDpAsState(
-        targetValue =
-            if (isPressed &&
-                isInteractive
-            ) {
-                components.controlIncreasedCornerRadius
-            } else {
-                components.controlCornerRadius
-            },
+        targetValue = state.cornerRadius,
         animationSpec = motion.motionAwareSpring(),
         label = "buttonCorner",
     )
     val shape = RoundedCornerShape(cornerRadius)
-    val base = buttonPalette(variant = variant, enabled = isInteractive, isPressed = isPressed)
     val horizontalPadding =
         when (density) {
             RipDpiControlDensity.Default -> {
@@ -109,42 +103,28 @@ fun RipDpiButton(
                     components.buttonFocusedHorizontalPaddingOffset
             }
         }
-    val borderWidth =
-        when {
-            !isInteractive && variant == RipDpiButtonVariant.Ghost -> 0.dp
-            isFocused -> 2.dp
-            variant == RipDpiButtonVariant.Outline -> 1.dp
-            else -> 0.dp
-        }
-    val borderColor =
-        when {
-            !isInteractive && variant == RipDpiButtonVariant.Outline -> colors.border
-            isFocused -> colors.outline
-            variant == RipDpiButtonVariant.Outline -> colors.border
-            else -> Color.Transparent
-        }
     val animatedContainerColor by animateColorAsState(
-        targetValue = base.container,
+        targetValue = state.container,
         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
         label = "buttonContainer",
     )
     val animatedContentColor by animateColorAsState(
-        targetValue = base.content,
+        targetValue = state.content,
         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
         label = "buttonContent",
     )
     val animatedBorderColor by animateColorAsState(
-        targetValue = borderColor,
+        targetValue = state.border,
         animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
         label = "buttonBorder",
     )
     val pressedScale by animateFloatAsState(
-        targetValue = if (isPressed && isInteractive) motion.pressScale else 1f,
+        targetValue = state.scale,
         animationSpec = motion.motionAwareSpring(),
         label = "buttonScale",
     )
     val contentAlpha by animateFloatAsState(
-        targetValue = if (loading) 0.92f else 1f,
+        targetValue = state.contentAlpha,
         animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
         label = "buttonContentAlpha",
     )
@@ -155,7 +135,7 @@ fun RipDpiButton(
                 .defaultMinSize(minHeight = components.buttonMinHeight)
                 .clip(shape)
                 .background(animatedContainerColor, shape)
-                .border(width = borderWidth, color = animatedBorderColor, shape = shape)
+                .border(width = state.borderWidth, color = animatedBorderColor, shape = shape)
                 .focusable(enabled = isInteractive, interactionSource = resolvedInteractionSource)
                 .ripDpiClickable(
                     enabled = isInteractive,
@@ -263,88 +243,14 @@ private fun RipDpiButtonIcon(
     )
 }
 
-private data class RipDpiButtonPalette(
-    val container: Color,
-    val content: Color,
-)
-
-@Composable
-private fun buttonPalette(
-    variant: RipDpiButtonVariant,
-    enabled: Boolean,
-    isPressed: Boolean,
-): RipDpiButtonPalette {
-    val colors = RipDpiThemeTokens.colors
-    val scheme = MaterialTheme.colorScheme
-
-    if (!enabled) {
-        return when (variant) {
-            RipDpiButtonVariant.Primary,
-            RipDpiButtonVariant.Secondary,
-            RipDpiButtonVariant.Destructive,
-            -> {
-                RipDpiButtonPalette(
-                    container = colors.border,
-                    content = colors.mutedForeground,
-                )
-            }
-
-            RipDpiButtonVariant.Outline,
-            RipDpiButtonVariant.Ghost,
-            -> {
-                RipDpiButtonPalette(
-                    container = Color.Transparent,
-                    content = colors.mutedForeground,
-                )
-            }
-        }
+private fun RipDpiButtonVariant.toStateRole(): RipDpiButtonStateRole =
+    when (this) {
+        RipDpiButtonVariant.Primary -> RipDpiButtonStateRole.Primary
+        RipDpiButtonVariant.Secondary -> RipDpiButtonStateRole.Secondary
+        RipDpiButtonVariant.Outline -> RipDpiButtonStateRole.Outline
+        RipDpiButtonVariant.Ghost -> RipDpiButtonStateRole.Ghost
+        RipDpiButtonVariant.Destructive -> RipDpiButtonStateRole.Destructive
     }
-
-    val pressedOverlay = scheme.onSurfaceVariant
-    return when (variant) {
-        RipDpiButtonVariant.Primary -> {
-            val base = colors.foreground
-            RipDpiButtonPalette(
-                container = if (isPressed) lerp(base, pressedOverlay, primaryPressedLerp) else base,
-                content = colors.background,
-            )
-        }
-
-        RipDpiButtonVariant.Secondary -> {
-            val base = scheme.secondary
-            RipDpiButtonPalette(
-                container = if (isPressed) lerp(base, scheme.surfaceVariant, secondaryPressedLerp) else base,
-                content = scheme.onSecondary,
-            )
-        }
-
-        RipDpiButtonVariant.Outline -> {
-            RipDpiButtonPalette(
-                container = if (isPressed) scheme.surfaceVariant else Color.Transparent,
-                content = colors.foreground,
-            )
-        }
-
-        RipDpiButtonVariant.Ghost -> {
-            RipDpiButtonPalette(
-                container = if (isPressed) scheme.surfaceVariant else Color.Transparent,
-                content = colors.foreground,
-            )
-        }
-
-        RipDpiButtonVariant.Destructive -> {
-            RipDpiButtonPalette(
-                container =
-                    if (isPressed) {
-                        lerp(colors.destructive, pressedOverlay, destructivePressedLerp)
-                    } else {
-                        colors.destructive
-                    },
-                content = colors.destructiveForeground,
-            )
-        }
-    }
-}
 
 @Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
