@@ -15,6 +15,10 @@ fun normalizeStrategyFamilyToTcpFamily(strategyFamily: String?): TcpFamily {
 
         "rec_mid_sni" -> TcpFamily.REC_MID_SNI
 
+        "seg_post_sni" -> TcpFamily.SEG_POST_SNI
+
+        "two_phase_send" -> TcpFamily.TWO_PHASE_SEND
+
         "tlsrec",
         "tlsrec_split",
         "tlsrec_seqovl",
