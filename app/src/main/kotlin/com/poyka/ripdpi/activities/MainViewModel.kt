@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.StrategyPackRuntimeState
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeStageSummary
@@ -41,6 +42,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.ZERO
@@ -204,6 +206,7 @@ data class MainUiState(
     val permissionSummary: PermissionSummaryUiState = PermissionSummaryUiState(),
     val approachSummary: HomeApproachSummaryUiState? = null,
     val homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
+    val controlPlaneHealthSummary: ControlPlaneHealthSummaryUiModel? = null,
 ) {
     val isConnected: Boolean
         get() = connectionState == ConnectionState.Connected
@@ -242,6 +245,16 @@ internal data class MainUiInputs(
     val runtime: ConnectionRuntimeState,
     val permissions: PermissionRuntimeState,
     val approachStats: List<com.poyka.ripdpi.diagnostics.BypassApproachSummary>,
+    val hostPackCatalog: HostPackCatalogUiState,
+    val strategyPackRuntimeState: StrategyPackRuntimeState,
+)
+
+internal data class MainUiInputsBase(
+    val settings: AppSettings,
+    val statusAndMode: Pair<AppStatus, Mode>,
+    val runtime: ConnectionRuntimeState,
+    val permissions: PermissionRuntimeState,
+    val approachStats: List<com.poyka.ripdpi.diagnostics.BypassApproachSummary>,
 )
 
 internal fun calculateTransferredBytes(
@@ -275,6 +288,7 @@ class MainViewModel
         private val mainServiceDependencies: MainServiceDependencies,
         private val mainPermissionDependencies: MainPermissionDependencies,
         private val mainDiagnosticsDependencies: MainDiagnosticsDependencies,
+        private val mainControlPlaneDependencies: MainControlPlaneDependencies,
         private val mainLifecycleDependencies: MainLifecycleDependencies,
         private val stringResolver: StringResolver,
     ) : ViewModel() {
@@ -379,12 +393,26 @@ class MainViewModel
                 permissionState,
                 mainDiagnosticsDependencies.diagnosticsTimelineSource.approachStats,
             ) { settings, statusAndMode, runtime, permissions, approachStats ->
-                MainUiInputs(
+                MainUiInputsBase(
                     settings = settings,
                     statusAndMode = statusAndMode,
                     runtime = runtime,
                     permissions = permissions,
                     approachStats = approachStats,
+                )
+            }.combine(mainControlPlaneDependencies.hostPackCatalogUiStateStore.state) { base, hostPackCatalog ->
+                base to hostPackCatalog
+            }.combine(
+                mainControlPlaneDependencies.strategyPackStateStore.state,
+            ) { (base, hostPackCatalog), strategyPackRuntimeState ->
+                MainUiInputs(
+                    settings = base.settings,
+                    statusAndMode = base.statusAndMode,
+                    runtime = base.runtime,
+                    permissions = base.permissions,
+                    approachStats = base.approachStats,
+                    hostPackCatalog = hostPackCatalog,
+                    strategyPackRuntimeState = strategyPackRuntimeState,
                 )
             }.combine(homeDiagnosticsState) { inputs, homeDiagnostics ->
                 val settings = inputs.settings
@@ -415,6 +443,9 @@ class MainViewModel
             permissionActions.refreshPermissionSnapshot()
             connectionActions.initialize()
             homeDiagnosticsActions.initialize()
+            viewModelScope.launch {
+                mainControlPlaneDependencies.hostPackCatalogUiStateCoordinator.ensureLoaded()
+            }
             mainLifecycleDependencies.appLockLifecycleCoordinator.start(
                 isBiometricEnabled = { settingsState.value.biometricEnabled },
             ) {

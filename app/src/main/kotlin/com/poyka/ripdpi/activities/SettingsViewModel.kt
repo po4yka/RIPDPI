@@ -30,7 +30,6 @@ class SettingsViewModel
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
             )
         private val hostAutolearnStoreRefresh = MutableStateFlow(0)
-        private val hostPackCatalogState = MutableStateFlow(HostPackCatalogUiState())
         private val strategyPackCatalogState = MutableStateFlow(StrategyPackCatalogUiState())
         private val mutations =
             SettingsMutationRunner(
@@ -40,7 +39,8 @@ class SettingsViewModel
             )
 
         val effects: SharedFlow<SettingsEffect> = _effects.asSharedFlow()
-        val hostPackCatalog: StateFlow<HostPackCatalogUiState> = hostPackCatalogState
+        val hostPackCatalog: StateFlow<HostPackCatalogUiState> =
+            settingsActionDependencies.hostPackCatalogUiStateStore.state
         val strategyPackCatalog: StateFlow<StrategyPackCatalogUiState> = strategyPackCatalogState
 
         val uiState: StateFlow<SettingsUiState> =
@@ -65,13 +65,13 @@ class SettingsViewModel
                 stringResolver = settingsActionDependencies.stringResolver,
                 hostAutolearnStoreController = settingsActionDependencies.hostAutolearnStoreController,
                 rememberedPolicySource = settingsActionDependencies.rememberedPolicySource,
-                hostPackCatalogRepository = settingsActionDependencies.hostPackCatalogRepository,
                 strategyPackService = settingsActionDependencies.strategyPackService,
                 strategyPackStateStore = settingsActionDependencies.strategyPackStateStore,
+                hostPackCatalogUiStateCoordinator = settingsActionDependencies.hostPackCatalogUiStateCoordinator,
+                hostPackCatalogUiStateStore = settingsActionDependencies.hostPackCatalogUiStateStore,
                 telemetrySaltStore = settingsActionDependencies.telemetrySaltStore,
                 mutations = mutations,
                 hostAutolearnStoreRefresh = hostAutolearnStoreRefresh,
-                hostPackCatalogState = hostPackCatalogState,
                 strategyPackCatalogState = strategyPackCatalogState,
                 currentUiState = { uiState.value },
                 currentServiceStatus = { settingsActionDependencies.serviceStateStore.status.value.first },

@@ -13,6 +13,9 @@ import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.activities.AnalysisProgressUiState
 import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
+import com.poyka.ripdpi.activities.ControlPlaneHealthItemUiModel
+import com.poyka.ripdpi.activities.ControlPlaneHealthSeverityUiModel
+import com.poyka.ripdpi.activities.ControlPlaneHealthSummaryUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
@@ -166,6 +169,45 @@ class HomeScreenTest {
                 .boundsInRoot
                 .top
         assertTrue(diagnosticsTop > connectionTop)
+    }
+
+    @Test
+    fun `control plane summary opens advanced settings`() {
+        var openedAdvancedSettings = false
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            controlPlaneHealthSummary =
+                                ControlPlaneHealthSummaryUiModel(
+                                    title = "Control plane",
+                                    summary = "Review the active snapshots.",
+                                    items =
+                                        persistentListOf(
+                                            ControlPlaneHealthItemUiModel(
+                                                label = "Strategy packs",
+                                                summary = "Rollback rejected",
+                                                severity = ControlPlaneHealthSeverityUiModel.Warning,
+                                            ),
+                                        ),
+                                    actionLabel = "Open Advanced Settings",
+                                    severity = ControlPlaneHealthSeverityUiModel.Warning,
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onOpenAdvancedSettings = { openedAdvancedSettings = true },
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeControlPlaneHealthCard).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeControlPlaneHealthAction).performClick()
+        assertTrue(openedAdvancedSettings)
     }
 
     @Test

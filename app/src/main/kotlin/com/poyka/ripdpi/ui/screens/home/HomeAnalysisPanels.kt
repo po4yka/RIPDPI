@@ -22,6 +22,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.ControlPlaneHealthSeverityUiModel
+import com.poyka.ripdpi.activities.ControlPlaneHealthSummaryUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.activities.HomeApproachSummaryUiState
 import com.poyka.ripdpi.activities.MainUiState
@@ -155,6 +157,13 @@ internal fun HomeDiagnosticsCard(
             style = RipDpiThemeTokens.type.body,
             color = colors.foreground,
         )
+        uiState.controlPlaneHealthSummary?.let { summary ->
+            Spacer(modifier = Modifier.height(spacing.sm))
+            HomeControlPlaneHealthCard(
+                summary = summary,
+                onOpenAdvancedSettings = onOpenAdvancedSettings,
+            )
+        }
         uiState.homeDiagnostics.latestAudit?.let { result ->
             Spacer(modifier = Modifier.height(spacing.sm))
             val allStagesCompleted =
@@ -329,6 +338,63 @@ internal fun HomeDiagnosticsCard(
                 Modifier
                     .fillMaxWidth()
                     .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsVerifiedVpn),
+        )
+    }
+}
+
+@Composable
+private fun HomeControlPlaneHealthCard(
+    summary: ControlPlaneHealthSummaryUiModel,
+    onOpenAdvancedSettings: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val tone =
+        when (summary.severity) {
+            ControlPlaneHealthSeverityUiModel.Error -> {
+                com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone.Error
+            }
+
+            ControlPlaneHealthSeverityUiModel.Warning -> {
+                com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone.Warning
+            }
+
+            ControlPlaneHealthSeverityUiModel.Info -> {
+                com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone.Idle
+            }
+        }
+
+    RipDpiCard(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeControlPlaneHealthCard),
+        variant = RipDpiCardVariant.Outlined,
+    ) {
+        com.poyka.ripdpi.ui.components.indicators.StatusIndicator(
+            label = summary.title,
+            tone = tone,
+        )
+        Text(
+            text = summary.summary,
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.foreground,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
+            summary.items.forEach { item ->
+                Text(
+                    text = "${item.label}: ${item.summary}",
+                    style = RipDpiThemeTokens.type.secondaryBody,
+                    color = colors.mutedForeground,
+                )
+            }
+        }
+        RipDpiButton(
+            text = summary.actionLabel,
+            onClick = onOpenAdvancedSettings,
+            variant = RipDpiButtonVariant.Secondary,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = spacing.xs)
+                    .ripDpiTestTag(RipDpiTestTags.HomeControlPlaneHealthAction),
         )
     }
 }

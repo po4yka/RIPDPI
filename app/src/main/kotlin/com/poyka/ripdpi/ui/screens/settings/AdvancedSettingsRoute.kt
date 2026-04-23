@@ -27,6 +27,7 @@ fun AdvancedSettingsRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val hostPackCatalog by viewModel.hostPackCatalog.collectAsStateWithLifecycle()
+    val strategyPackCatalog by viewModel.strategyPackCatalog.collectAsStateWithLifecycle()
     val binder = remember(viewModel) { AdvancedSettingsBinder(viewModel::updateSetting) }
     var notice by rememberSaveable(
         stateSaver =
@@ -71,6 +72,7 @@ fun AdvancedSettingsRoute(
     AdvancedSettingsScreen(
         uiState = uiState,
         hostPackCatalog = hostPackCatalog,
+        strategyPackCatalog = strategyPackCatalog,
         notice = notice,
         actions =
             AdvancedSettingsActions(
@@ -92,6 +94,7 @@ fun AdvancedSettingsRoute(
                 },
                 onApplyHostPackPreset = viewModel::applyHostPackPreset,
                 onRefreshHostPackCatalog = viewModel::refreshHostPackCatalog,
+                onRefreshStrategyPackCatalog = viewModel::refreshStrategyPackCatalog,
                 onForgetLearnedHosts = viewModel::forgetLearnedHosts,
                 onClearRememberedNetworks = viewModel::clearRememberedNetworks,
                 onWsTunnelModeChanged = binder::onWsTunnelModeChanged,

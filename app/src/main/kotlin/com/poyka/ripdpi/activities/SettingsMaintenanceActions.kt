@@ -16,11 +16,9 @@ import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.applyCuratedHostPack
 import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
-import com.poyka.ripdpi.hosts.HostPackCatalogBuildException
-import com.poyka.ripdpi.hosts.HostPackCatalogParseException
-import com.poyka.ripdpi.hosts.HostPackCatalogRepository
-import com.poyka.ripdpi.hosts.HostPackChecksumFormatException
-import com.poyka.ripdpi.hosts.HostPackChecksumMismatchException
+import com.poyka.ripdpi.hosts.HostPackCatalogRefreshResult
+import com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator
+import com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore
 import com.poyka.ripdpi.platform.HostAutolearnStoreController
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.TelemetryInstallSaltStore
@@ -32,26 +30,20 @@ internal class SettingsMaintenanceActions(
     private val stringResolver: StringResolver,
     private val hostAutolearnStoreController: HostAutolearnStoreController,
     private val rememberedPolicySource: DiagnosticsRememberedPolicySource,
-    private val hostPackCatalogRepository: HostPackCatalogRepository,
     private val strategyPackService: StrategyPackService,
     private val strategyPackStateStore: StrategyPackStateStore,
+    private val hostPackCatalogUiStateCoordinator: HostPackCatalogUiStateCoordinator,
+    private val hostPackCatalogUiStateStore: HostPackCatalogUiStateStore,
     private val telemetrySaltStore: TelemetryInstallSaltStore,
     private val mutations: SettingsMutationRunner,
     private val hostAutolearnStoreRefresh: MutableStateFlow<Int>,
-    private val hostPackCatalogState: MutableStateFlow<HostPackCatalogUiState>,
     private val strategyPackCatalogState: MutableStateFlow<StrategyPackCatalogUiState>,
     private val currentUiState: () -> SettingsUiState,
     private val currentServiceStatus: () -> AppStatus,
 ) {
     fun loadInitialHostPackCatalog() {
         mutations.launch {
-            val loadResult = hostPackCatalogRepository.loadSnapshot()
-            hostPackCatalogState.value =
-                HostPackCatalogUiState(
-                    snapshot = loadResult.snapshot,
-                    cacheDegradationCode = loadResult.cacheDegradation?.code,
-                    cacheDegradationDetail = loadResult.cacheDegradation?.detail,
-                )
+            hostPackCatalogUiStateCoordinator.ensureLoaded()
         }
     }
 
@@ -97,42 +89,20 @@ internal class SettingsMaintenanceActions(
     }
 
     fun refreshHostPackCatalog() {
-        val previousState = hostPackCatalogState.value
-        hostPackCatalogState.update { current ->
-            current.copy(isRefreshing = true)
-        }
-
         mutations.launch {
             val effect =
-                runCatching {
-                    hostPackCatalogRepository.refreshSnapshot()
-                }.fold(
-                    onSuccess = { snapshot ->
-                        hostPackCatalogState.value =
-                            HostPackCatalogUiState(
-                                snapshot = snapshot,
-                                isRefreshing = false,
-                                cacheDegradationCode = null,
-                                cacheDegradationDetail = null,
-                            )
+                when (hostPackCatalogUiStateCoordinator.refresh()) {
+                    is HostPackCatalogRefreshResult.Success -> {
                         SettingsEffect.Notice(
                             title = stringResolver.getString(R.string.notice_host_packs_refreshed_title),
                             message = stringResolver.getString(R.string.notice_host_packs_refreshed_message),
                             tone = SettingsNoticeTone.Info,
                         )
-                    },
-                    onFailure = { error ->
-                        hostPackCatalogState.value =
-                            HostPackCatalogUiState(
-                                snapshot = previousState.snapshot,
-                                isRefreshing = false,
-                                cacheDegradationCode = previousState.cacheDegradationCode,
-                                cacheDegradationDetail = previousState.cacheDegradationDetail,
-                            )
-                        when (error) {
-                            is HostPackChecksumMismatchException,
-                            is HostPackChecksumFormatException,
-                            -> {
+                    }
+
+                    is HostPackCatalogRefreshResult.Failure -> {
+                        when (hostPackCatalogUiStateStore.state.value.lastRefreshFailureCode) {
+                            HostPackRefreshFailureCodeUiModel.VerificationFailed -> {
                                 SettingsEffect.Notice(
                                     title =
                                         stringResolver.getString(
@@ -146,9 +116,7 @@ internal class SettingsMaintenanceActions(
                                 )
                             }
 
-                            is HostPackCatalogParseException,
-                            is HostPackCatalogBuildException,
-                            -> {
+                            HostPackRefreshFailureCodeUiModel.InvalidSnapshot -> {
                                 SettingsEffect.Notice(
                                     title = stringResolver.getString(R.string.notice_host_pack_refresh_failed_title),
                                     message =
@@ -159,7 +127,9 @@ internal class SettingsMaintenanceActions(
                                 )
                             }
 
-                            else -> {
+                            HostPackRefreshFailureCodeUiModel.DownloadFailed,
+                            null,
+                            -> {
                                 SettingsEffect.Notice(
                                     title = stringResolver.getString(R.string.notice_host_pack_download_failed_title),
                                     message =
@@ -170,8 +140,8 @@ internal class SettingsMaintenanceActions(
                                 )
                             }
                         }
-                    },
-                )
+                    }
+                }
             emit(effect)
         }
     }
@@ -191,8 +161,10 @@ internal class SettingsMaintenanceActions(
                     )
                 emit(
                     SettingsEffect.Notice(
-                        title = "Strategy pack refresh failed",
-                        message = error.message ?: "The strategy pack catalog could not be refreshed.",
+                        title = stringResolver.getString(R.string.notice_strategy_pack_refresh_failed_title),
+                        message =
+                            error.message
+                                ?: stringResolver.getString(R.string.notice_strategy_pack_refresh_failed_message),
                         tone = SettingsNoticeTone.Warning,
                     ),
                 )
@@ -205,8 +177,8 @@ internal class SettingsMaintenanceActions(
                 )
             emit(
                 SettingsEffect.Notice(
-                    title = "Strategy packs refreshed",
-                    message = "The active strategy-pack catalog has been updated.",
+                    title = stringResolver.getString(R.string.notice_strategy_packs_refreshed_title),
+                    message = stringResolver.getString(R.string.notice_strategy_packs_refreshed_message),
                     tone = SettingsNoticeTone.Info,
                 ),
             )

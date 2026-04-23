@@ -851,6 +851,12 @@ class MainViewModelTest {
         diagnosticsTimelineSource: FakeMainDiagnosticsTimelineSource = FakeMainDiagnosticsTimelineSource(),
         diagnosticsScanController: StubDiagnosticsScanController = StubDiagnosticsScanController(),
         diagnosticsShareService: StubDiagnosticsShareService = StubDiagnosticsShareService(),
+        hostPackCatalogUiStateStore: com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore =
+            com.poyka.ripdpi.hosts
+                .HostPackCatalogUiStateStore(),
+        strategyPackStateStore: com.poyka.ripdpi.data.InMemoryStrategyPackStateStore =
+            com.poyka.ripdpi.data
+                .InMemoryStrategyPackStateStore(),
         homeDiagnosticsServices: HomeDiagnosticsServices =
             HomeDiagnosticsServices(
                 workflowService = StubDiagnosticsHomeWorkflowService(),
@@ -882,6 +888,33 @@ class MainViewModelTest {
                     diagnosticsScanController = diagnosticsScanController,
                     diagnosticsShareService = diagnosticsShareService,
                     homeDiagnosticsServices = homeDiagnosticsServices,
+                ),
+            mainControlPlaneDependencies =
+                MainControlPlaneDependencies(
+                    hostPackCatalogUiStateStore = hostPackCatalogUiStateStore,
+                    hostPackCatalogUiStateCoordinator =
+                        com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator(
+                            repository =
+                                object : com.poyka.ripdpi.hosts.HostPackCatalogRepository {
+                                    override suspend fun loadSnapshot(): com.poyka.ripdpi.hosts
+                                        .HostPackCatalogLoadResult =
+                                        com.poyka.ripdpi.hosts.HostPackCatalogLoadResult(
+                                            snapshot =
+                                                com.poyka.ripdpi.data
+                                                    .HostPackCatalogSnapshot(),
+                                        )
+
+                                    override suspend fun refreshSnapshot(): com.poyka.ripdpi.data
+                                        .HostPackCatalogSnapshot =
+                                        com.poyka.ripdpi.data
+                                            .HostPackCatalogSnapshot()
+                                },
+                            clock =
+                                com.poyka.ripdpi.hosts
+                                    .HostPackCatalogClock { 0L },
+                            stateStore = hostPackCatalogUiStateStore,
+                        ),
+                    strategyPackStateStore = strategyPackStateStore,
                 ),
             mainLifecycleDependencies =
                 MainLifecycleDependencies(

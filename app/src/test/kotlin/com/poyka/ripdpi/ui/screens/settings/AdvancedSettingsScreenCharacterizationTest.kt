@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToKey
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.SettingsUiState
+import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -86,6 +87,14 @@ class AdvancedSettingsScreenCharacterizationTest {
 
         scrollToKey("advanced_network_strategy_memory")
         composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("network_strategy_memory")).assertExists()
+    }
+
+    @Test
+    fun `strategy packs section renders`() {
+        setScreen()
+
+        scrollToKey("advanced_strategy_packs")
+        composeRule.onNodeWithTag(RipDpiTestTags.advancedSection("strategy_packs")).assertExists()
     }
 
     // -- Command-line override banner --
@@ -257,6 +266,7 @@ class AdvancedSettingsScreenCharacterizationTest {
     private fun setScreen(
         uiState: SettingsUiState = SettingsUiState(),
         hostPackCatalog: HostPackCatalogUiState = HostPackCatalogUiState(),
+        strategyPackCatalog: StrategyPackCatalogUiState = StrategyPackCatalogUiState(),
         notice: AdvancedNotice? = null,
         onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit = { _, _ -> },
         onTextConfirmed: (AdvancedTextSetting, String) -> Unit = { _, _ -> },
@@ -267,6 +277,7 @@ class AdvancedSettingsScreenCharacterizationTest {
                 AdvancedSettingsScreen(
                     uiState = uiState,
                     hostPackCatalog = hostPackCatalog,
+                    strategyPackCatalog = strategyPackCatalog,
                     notice = notice,
                     actions =
                         AdvancedSettingsActions(
@@ -276,6 +287,7 @@ class AdvancedSettingsScreenCharacterizationTest {
                             onOptionSelected = onOptionSelected,
                             onApplyHostPackPreset = { _, _, _ -> },
                             onRefreshHostPackCatalog = {},
+                            onRefreshStrategyPackCatalog = {},
                             onForgetLearnedHosts = {},
                             onClearRememberedNetworks = {},
                             onWsTunnelModeChanged = {},
