@@ -6,10 +6,14 @@ use ripdpi_failure_classifier::{
     FailureStage,
 };
 
-use crate::runtime::adaptive::{note_adaptive_fake_ttl_success, note_adaptive_tcp_success, note_evolver_success};
-use crate::runtime::desync::OutboundSendError;
+use crate::runtime::adaptive::{
+    note_adaptive_fake_ttl_success, note_adaptive_tcp_success, note_direct_path_tcp_success, note_evolver_success,
+};
+use crate::runtime::desync::{primary_tcp_strategy_family, OutboundSendError};
 use crate::runtime::retry::note_retry_success;
-use crate::runtime::routing::{note_route_success, route_uses_direct_syn_data_tfo, should_track_strategy_target};
+use crate::runtime::routing::{
+    note_route_success, preferred_targets_for_transport, route_uses_direct_syn_data_tfo, should_track_strategy_target,
+};
 use crate::runtime::state::RuntimeState;
 use crate::runtime_policy::{ConnectionRoute, TransportProtocol};
 
@@ -24,8 +28,15 @@ pub(crate) fn record_stream_relay_success(
         return Ok(());
     }
     if let Some(request) = success_payload {
+        let targets = preferred_targets_for_transport(state, target, success_host, TransportProtocol::Tcp);
         note_adaptive_tcp_success(state, target, route.group_index, success_host, request)?;
         note_retry_success(state, target, route.group_index, success_host, Some(request), TransportProtocol::Tcp)?;
+        note_direct_path_tcp_success(
+            state,
+            success_host,
+            &targets,
+            state.config.groups.get(route.group_index).and_then(primary_tcp_strategy_family),
+        )?;
     }
     note_adaptive_fake_ttl_success(state, target, route.group_index, success_host)?;
     note_evolver_success(state, 0);

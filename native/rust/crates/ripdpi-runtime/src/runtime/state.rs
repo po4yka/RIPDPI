@@ -4,6 +4,7 @@ use std::time::Duration;
 use crate::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
 use crate::adaptive_tuning::AdaptivePlannerResolver;
 use crate::retry_stealth::RetryPacer;
+use crate::runtime::direct_path_learning::DirectPathLearningState;
 use crate::runtime_policy::RuntimePolicy;
 use crate::strategy_evolver::StrategyEvolver;
 use crate::{EmbeddedProxyControl, RuntimeTelemetrySink};
@@ -29,6 +30,7 @@ pub(super) struct RuntimeState {
     pub(super) adaptive_tuning: Arc<RwLock<AdaptivePlannerResolver>>,
     pub(super) retry_stealth: Arc<RwLock<RetryPacer>>,
     pub(super) strategy_evolver: Arc<RwLock<StrategyEvolver>>,
+    pub(super) direct_path_learning: Arc<RwLock<DirectPathLearningState>>,
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     pub(super) runtime_context: Option<ProxyRuntimeContext>,

@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.TcpFamily
 import com.poyka.ripdpi.data.TransportPolicy
 import com.poyka.ripdpi.data.TransportPolicyEnvelope
+import com.poyka.ripdpi.data.normalizeStrategyFamilyToTcpFamily
 import java.security.MessageDigest
 import java.util.Locale
 
@@ -93,7 +94,14 @@ private fun deriveDirectModePolicyEvaluation(
                     quicMode = if (hasQuicBlocked) QuicMode.HARD_DISABLE else QuicMode.ALLOW,
                     preferredStack = PreferredStack.H2,
                     dnsMode = DnsMode.SYSTEM,
-                    tcpFamily = if (hasTlsPostClientHelloFailure) TcpFamily.REC_PRE_SNI else TcpFamily.NONE,
+                    tcpFamily =
+                        if (hasTlsPostClientHelloFailure) {
+                            normalizeStrategyFamilyToTcpFamily(
+                                "tlsrec",
+                            )
+                        } else {
+                            TcpFamily.NONE
+                        },
                     outcome = DirectModeOutcome.OWNED_STACK_ONLY,
                 )
             }
@@ -108,7 +116,14 @@ private fun deriveDirectModePolicyEvaluation(
                         },
                     preferredStack = PreferredStack.H2,
                     dnsMode = DnsMode.SYSTEM,
-                    tcpFamily = if (hasTlsPostClientHelloFailure) TcpFamily.REC_PRE_SNI else TcpFamily.NONE,
+                    tcpFamily =
+                        if (hasTlsPostClientHelloFailure) {
+                            normalizeStrategyFamilyToTcpFamily(
+                                "tlsrec",
+                            )
+                        } else {
+                            TcpFamily.NONE
+                        },
                     outcome = DirectModeOutcome.NO_DIRECT_SOLUTION,
                 )
             }
@@ -118,7 +133,7 @@ private fun deriveDirectModePolicyEvaluation(
                     quicMode = QuicMode.HARD_DISABLE,
                     preferredStack = PreferredStack.H2,
                     dnsMode = DnsMode.SYSTEM,
-                    tcpFamily = TcpFamily.REC_PRE_SNI,
+                    tcpFamily = normalizeStrategyFamilyToTcpFamily("tlsrec"),
                     outcome = DirectModeOutcome.TRANSPARENT_OK,
                 )
             }

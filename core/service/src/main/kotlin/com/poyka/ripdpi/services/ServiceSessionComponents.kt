@@ -167,6 +167,7 @@ internal object ProxyServiceSessionModule {
         proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
         statusReporter: ServiceStatusReporter,
         screenStateObserver: ScreenStateObserver,
+        directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
     ): ProxyServiceRuntimeCoordinator =
         ProxyServiceRuntimeCoordinator(
             host = host,
@@ -181,6 +182,7 @@ internal object ProxyServiceSessionModule {
             proxyRuntimeSupervisor = proxyRuntimeSupervisor,
             statusReporter = statusReporter,
             screenStateObserver = screenStateObserver,
+            directPathPolicyTelemetryConsumer = directPathPolicyTelemetryConsumer,
         )
 }
 
@@ -280,6 +282,7 @@ internal object VpnServiceSessionModule {
         warpRuntimeSupervisor: WarpRuntimeSupervisor,
         proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
         statusReporter: ServiceStatusReporter,
+        directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
     ): VpnServiceRuntimeCoordinator =
         VpnServiceRuntimeCoordinator(
             vpnHost = host,
@@ -299,6 +302,7 @@ internal object VpnServiceSessionModule {
             proxyRuntimeSupervisor = proxyRuntimeSupervisor,
             statusReporter = statusReporter,
             screenStateObserver = runtimeDependencies.screenStateObserver,
+            directPathPolicyTelemetryConsumer = directPathPolicyTelemetryConsumer,
         )
 }
 

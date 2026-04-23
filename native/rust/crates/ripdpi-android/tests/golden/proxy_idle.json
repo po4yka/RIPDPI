@@ -6,6 +6,7 @@
   "capturedAt": 0,
   "chainEntryState": null,
   "chainExitState": null,
+  "directPathLearningSignals": [],
   "fallbackMode": null,
   "health": "idle",
   "lastAutolearnAction": null,

@@ -34,6 +34,8 @@ internal class ProxyServiceRuntimeCoordinator(
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
     private val statusReporter: ServiceStatusReporter,
     private val screenStateObserver: ScreenStateObserver,
+    private val directPathPolicyTelemetryConsumer:
+        DirectPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     clock: ServiceClock = SystemServiceClock,
 ) : BaseServiceRuntimeCoordinator<ProxyRuntimeSession>(
@@ -140,6 +142,7 @@ internal class ProxyServiceRuntimeCoordinator(
                             )
                         }
                         ?: NativeRuntimeSnapshot.idle(source = "tunnel")
+                directPathPolicyTelemetryConsumer.consume(proxyTelemetry)
                 statusReporter.reportTelemetry(
                     activePolicy = runtimeSession?.currentActiveConnectionPolicy,
                     consumePendingNetworkHandoverClass = { null },

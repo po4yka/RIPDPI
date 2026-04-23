@@ -1,5 +1,5 @@
 use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU64, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use arc_swap::ArcSwap;
 
@@ -57,6 +57,17 @@ pub(crate) struct NativeRuntimeEvent {
     pub(crate) fingerprint_hash: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) subsystem: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DirectPathLearningSignal {
+    pub(crate) authority: String,
+    pub(crate) ip_set_digest: String,
+    pub(crate) event: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) strategy_family: Option<String>,
+    pub(crate) captured_at: u64,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -141,6 +152,7 @@ pub(crate) struct NativeRuntimeSnapshot {
     pub(crate) chain_entry_state: Option<String>,
     pub(crate) chain_exit_state: Option<String>,
     pub(crate) tunnel_stats: TunnelStatsSnapshot,
+    pub(crate) direct_path_learning_signals: Vec<DirectPathLearningSignal>,
     pub(crate) native_events: Vec<NativeRuntimeEvent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(crate) latency_distributions: Option<LatencyDistributions>,
@@ -193,6 +205,7 @@ pub(crate) struct ProxyTelemetryState {
     last_autolearn_group: AtomicI64,
     slot_exhaustions: AtomicU64,
     strings: ArcSwap<TelemetryStrings>,
+    direct_path_learning_signals: Mutex<Vec<DirectPathLearningSignal>>,
     tcp_connect_histogram: LatencyHistogram,
     tls_handshake_histogram: LatencyHistogram,
 }
@@ -225,6 +238,7 @@ impl ProxyTelemetryState {
             blocked_host_count: AtomicU64::new(0),
             last_autolearn_group: AtomicI64::new(-1),
             slot_exhaustions: AtomicU64::new(0),
+            direct_path_learning_signals: Mutex::new(Vec::new()),
             strings: ArcSwap::from_pointee(TelemetryStrings {
                 listener_address: None,
                 upstream_address: None,
@@ -660,6 +674,11 @@ impl ProxyTelemetryState {
         let last_autolearn_action = strings.last_autolearn_action.clone();
         let last_block_signal = strings.last_block_signal.clone();
         let last_block_provider = strings.last_block_provider.clone();
+        let direct_path_learning_signals = self
+            .direct_path_learning_signals
+            .lock()
+            .map(|mut signals| std::mem::take(&mut *signals))
+            .unwrap_or_default();
         NativeRuntimeSnapshot {
             source: "proxy".to_string(),
             // Ordering: Acquire -- pairs with Release stores in mark_running/mark_stopped.
@@ -752,6 +771,7 @@ impl ProxyTelemetryState {
             chain_entry_state: None,
             chain_exit_state: None,
             tunnel_stats: TunnelStatsSnapshot { tx_packets: 0, tx_bytes: 0, rx_packets: 0, rx_bytes: 0 },
+            direct_path_learning_signals,
             native_events: drain_proxy_events().into_iter().map(NativeRuntimeEvent::from).collect(),
             latency_distributions: LatencyDistributions {
                 tcp_connect: self.tcp_connect_histogram.snapshot(),
@@ -769,6 +789,25 @@ impl ProxyTelemetryState {
 
     pub(crate) fn push_event(&self, source: &str, level: &str, message: String) {
         self.emit_event(source, level, &message, None);
+    }
+
+    pub(crate) fn on_direct_path_learning_signal(
+        &self,
+        authority: &str,
+        ip_set_digest: &str,
+        event: &'static str,
+        strategy_family: Option<&str>,
+    ) {
+        let signal = DirectPathLearningSignal {
+            authority: authority.trim().to_ascii_lowercase(),
+            ip_set_digest: ip_set_digest.trim().to_ascii_lowercase(),
+            event: event.to_string(),
+            strategy_family: strategy_family.map(ToOwned::to_owned),
+            captured_at: now_ms(),
+        };
+        if let Ok(mut signals) = self.direct_path_learning_signals.lock() {
+            signals.push(signal);
+        }
     }
 }
 
@@ -923,6 +962,16 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
 
     fn on_morph_rollback(&self, target: std::net::SocketAddr, policy_id: &str, reason: &str) {
         self.state.on_morph_rollback(target.to_string(), policy_id, reason);
+    }
+
+    fn on_direct_path_learning_signal(
+        &self,
+        authority: &str,
+        ip_set_digest: &str,
+        event: &'static str,
+        strategy_family: Option<&str>,
+    ) {
+        self.state.on_direct_path_learning_signal(authority, ip_set_digest, event, strategy_family);
     }
 }
 
@@ -1363,6 +1412,7 @@ mod tests {
                     count: 150,
                 }),
             }),
+            direct_path_learning_signals: vec![],
             captured_at: 1000,
         };
 

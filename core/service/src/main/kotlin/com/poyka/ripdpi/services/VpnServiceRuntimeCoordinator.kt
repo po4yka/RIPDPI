@@ -51,6 +51,8 @@ internal class VpnServiceRuntimeCoordinator(
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
     private val statusReporter: ServiceStatusReporter,
     private val screenStateObserver: ScreenStateObserver,
+    private val directPathPolicyTelemetryConsumer:
+        DirectPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     clock: ServiceClock = SystemServiceClock,
 ) : BaseServiceRuntimeCoordinator<VpnRuntimeSession>(
@@ -289,6 +291,7 @@ internal class VpnServiceRuntimeCoordinator(
             telemetryFailure ?: FailureReason.NativeError(
                 telemetry.tunnelTelemetry.lastError ?: "Tunnel exited unexpectedly",
             )
+        directPathPolicyTelemetryConsumer.consume(telemetry.proxyTelemetry)
         statusReporter.reportTelemetry(
             activePolicy = runtimeSession?.currentActiveConnectionPolicy,
             consumePendingNetworkHandoverClass = { null },
@@ -321,7 +324,8 @@ internal class VpnServiceRuntimeCoordinator(
             telemetry = telemetry.tunnelTelemetry,
         )
 
-    private fun reportTelemetry(telemetry: VpnTelemetrySnapshot) {
+    private suspend fun reportTelemetry(telemetry: VpnTelemetrySnapshot) {
+        directPathPolicyTelemetryConsumer.consume(telemetry.proxyTelemetry)
         statusReporter.reportTelemetry(
             activePolicy = runtimeSession?.currentActiveConnectionPolicy,
             consumePendingNetworkHandoverClass = { null },

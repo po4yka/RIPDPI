@@ -11,6 +11,7 @@
     "chainEntryState": null,
     "chainExitState": null,
     "dhtTriggerObservations": null,
+    "directPathLearningSignals": [],
     "dnsCacheHits": 0,
     "dnsCacheMisses": 0,
     "dnsFailuresTotal": 0,

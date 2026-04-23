@@ -543,6 +543,9 @@ mod tests {
             adaptive_tuning: crate::sync::Arc::new(crate::sync::RwLock::new(AdaptivePlannerResolver::default())),
             retry_stealth: crate::sync::Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
             strategy_evolver: crate::sync::Arc::new(crate::sync::RwLock::new(StrategyEvolver::new(false, 0.0))),
+            direct_path_learning: crate::sync::Arc::new(crate::sync::RwLock::new(
+                crate::runtime::direct_path_learning::DirectPathLearningState::default(),
+            )),
             active_clients: crate::sync::Arc::new(crate::sync::AtomicUsize::new(0)),
             telemetry,
             runtime_context: None,
