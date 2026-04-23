@@ -38,7 +38,6 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiTextFieldStateStyle
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
@@ -212,7 +211,7 @@ private fun <T> DropdownOptionsMenu(
     onDismiss: () -> Unit,
     optionTagForValue: ((T) -> String)?,
 ) {
-    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.DropdownMenu)
+    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.inputs.dropdownMenu)
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,

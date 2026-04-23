@@ -33,7 +33,6 @@ import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiSettingsRowStateRole
 import com.poyka.ripdpi.ui.theme.RipDpiSettingsRowStateStyle
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -62,7 +61,10 @@ fun SettingsRow(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val state = RipDpiThemeTokens.state.settingsRow.resolve(variant.toStateRole())
+    val state =
+        RipDpiThemeTokens.state.settingsRow.resolve(
+            RipDpiThemeTokens.stateRoles.settingsRow.fromVariant(variant),
+        )
     Column(modifier = modifier.fillMaxWidth()) {
         val rowInteractionSource = remember { MutableInteractionSource() }
         Row(
@@ -250,13 +252,6 @@ private fun RowScope.SettingsRowTrailing(
         }
     }
 }
-
-private fun SettingsRowVariant.toStateRole(): RipDpiSettingsRowStateRole =
-    when (this) {
-        SettingsRowVariant.Default -> RipDpiSettingsRowStateRole.Default
-        SettingsRowVariant.Tonal -> RipDpiSettingsRowStateRole.Tonal
-        SettingsRowVariant.Selected -> RipDpiSettingsRowStateRole.Selected
-    }
 
 @Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)

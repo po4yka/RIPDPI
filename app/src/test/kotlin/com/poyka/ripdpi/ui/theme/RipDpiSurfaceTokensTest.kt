@@ -2,6 +2,8 @@ package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -68,5 +70,17 @@ class RipDpiSurfaceTokensTest {
         assertEquals(LightRipDpiExtendedColors.destructiveContainer, style.container)
         assertEquals(LightRipDpiExtendedColors.destructive, style.content)
         assertEquals(Color.Transparent, style.border)
+    }
+
+    @Test
+    fun `surface role mappings centralize card variants and dialog badge roles`() {
+        assertEquals(
+            RipDpiSurfaceRole.ElevatedCard,
+            DefaultRipDpiSurfaceRoleMappings.cards.fromVariant(RipDpiCardVariant.Elevated),
+        )
+        assertEquals(
+            RipDpiSurfaceRole.DialogDestructiveIconBadge,
+            DefaultRipDpiSurfaceRoleMappings.feedback.dialogIconBadge(RipDpiDialogTone.Destructive),
+        )
     }
 }

@@ -28,7 +28,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
-import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val disabledAlpha = 0.38f
@@ -52,11 +51,7 @@ fun PresetCard(
     val shape = RipDpiThemeTokens.shapes.xl
     val surfaceStyle =
         RipDpiThemeTokens.surfaces.resolve(
-            if (selected) {
-                RipDpiSurfaceRole.SelectedCard
-            } else {
-                RipDpiSurfaceRole.Card
-            },
+            RipDpiThemeTokens.surfaceRoles.presetCard.card(selected),
         )
     val badgePalette = presetCardBadgePalette(selected = selected)
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
@@ -168,17 +163,19 @@ private data class PresetCardBadgePalette(
 @Composable
 private fun presetCardBadgePalette(selected: Boolean): PresetCardBadgePalette {
     val colors = RipDpiThemeTokens.colors
-    val selectedCardSurface = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.SelectedCard)
-    val tonalCardSurface = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.TonalCard)
+    val badgeSurface =
+        RipDpiThemeTokens.surfaces.resolve(
+            RipDpiThemeTokens.surfaceRoles.presetCard.badge(selected),
+        )
 
     return if (selected) {
         PresetCardBadgePalette(
-            container = selectedCardSurface.content,
+            container = badgeSurface.content,
             content = colors.background,
         )
     } else {
         PresetCardBadgePalette(
-            container = tonalCardSurface.container,
+            container = badgeSurface.container,
             content = colors.mutedForeground,
         )
     }

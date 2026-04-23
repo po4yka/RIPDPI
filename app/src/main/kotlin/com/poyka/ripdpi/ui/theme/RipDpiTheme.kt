@@ -107,8 +107,14 @@ object RipDpiThemeTokens {
     val surfaces: RipDpiSurfaceTokens
         @Composable get() = LocalRipDpiSurfaceTokens.current
 
+    val surfaceRoles: RipDpiSurfaceRoleMappings
+        get() = DefaultRipDpiSurfaceRoleMappings
+
     val state: RipDpiStateTokens
         @Composable get() = LocalRipDpiStateTokens.current
+
+    val stateRoles: RipDpiStateRoleMappings
+        get() = DefaultRipDpiStateRoleMappings
 
     val contrastLevel: RipDpiContrastLevel
         @Composable get() = LocalRipDpiContrastLevel.current

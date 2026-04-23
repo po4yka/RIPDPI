@@ -39,7 +39,6 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
-import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -53,8 +52,10 @@ fun BottomNavBar(
     val components = RipDpiThemeTokens.components
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
-    val bottomBarSurface = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.BottomBar)
-    val indicatorSurface = RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.BottomBarIndicator)
+    val bottomBarSurface =
+        RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.navigation.bottomBar)
+    val indicatorSurface =
+        RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.navigation.bottomBarIndicator)
     val destinations = Route.topLevel
     val selectedIndex = destinations.indexOfFirst { it == selectedRoute }.takeIf { it >= 0 }
 

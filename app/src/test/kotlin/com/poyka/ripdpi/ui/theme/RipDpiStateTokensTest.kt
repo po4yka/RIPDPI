@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
+import com.poyka.ripdpi.ui.components.cards.SettingsRowVariant
+import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -88,5 +92,25 @@ class RipDpiStateTokensTest {
         assertEquals(LightRipDpiExtendedColors.warningContainer, style.container)
         assertEquals(LightRipDpiExtendedColors.warning, style.icon)
         assertEquals(LightRipDpiExtendedColors.warningContainerForeground, style.title)
+    }
+
+    @Test
+    fun `state role mappings centralize component variant translation`() {
+        assertEquals(
+            RipDpiButtonStateRole.Destructive,
+            DefaultRipDpiStateRoleMappings.button.fromVariant(RipDpiButtonVariant.Destructive),
+        )
+        assertEquals(
+            RipDpiIconButtonStateRole.Outline,
+            DefaultRipDpiStateRoleMappings.iconButton.fromStyle(RipDpiIconButtonStyle.Outline),
+        )
+        assertEquals(
+            RipDpiSettingsRowStateRole.Selected,
+            DefaultRipDpiStateRoleMappings.settingsRow.fromVariant(SettingsRowVariant.Selected),
+        )
+        assertEquals(
+            RipDpiBannerStateRole.Restricted,
+            DefaultRipDpiStateRoleMappings.banner.fromTone(WarningBannerTone.Restricted),
+        )
     }
 }

@@ -22,7 +22,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiClickable
-import com.poyka.ripdpi.ui.theme.RipDpiSurfaceRole
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val disabledAlpha = 0.38f
@@ -47,12 +46,9 @@ fun RipDpiCard(
     val spacing = RipDpiThemeTokens.spacing
     val shape = RipDpiThemeTokens.shapes.xl
     val surfaceStyle =
-        when (variant) {
-            RipDpiCardVariant.Outlined -> RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.Card)
-            RipDpiCardVariant.Tonal -> RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.TonalCard)
-            RipDpiCardVariant.Elevated -> RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.ElevatedCard)
-            RipDpiCardVariant.Status -> RipDpiThemeTokens.surfaces.resolve(RipDpiSurfaceRole.StatusCard)
-        }
+        RipDpiThemeTokens.surfaces.resolve(
+            RipDpiThemeTokens.surfaceRoles.cards.fromVariant(variant),
+        )
     val interactionSource = remember { MutableInteractionSource() }
     val cardModifier =
         modifier
