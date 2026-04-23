@@ -7,6 +7,7 @@ import com.poyka.ripdpi.core.RipDpiMorphPolicy
 import com.poyka.ripdpi.core.RipDpiRuntimeContext
 import com.poyka.ripdpi.core.normalizeLogContext
 import com.poyka.ripdpi.core.normalizeRuntimeContext
+import com.poyka.ripdpi.data.DirectDnsClassification
 import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectTransportClass
@@ -61,6 +62,7 @@ internal data class NativeDirectPathCapability(
     val repeatedHandshakeFailureClass: String? = null,
     val transportPolicyVersion: Int = 0,
     val ipSetDigest: String = "",
+    val dnsClassification: DirectDnsClassification? = null,
     val quicMode: QuicMode = QuicMode.ALLOW,
     val preferredStack: PreferredStack = PreferredStack.H3,
     val dnsMode: DnsMode = DnsMode.SYSTEM,
@@ -174,6 +176,7 @@ internal object ProxyRuntimeContextCodec {
                                 repeatedHandshakeFailureClass = capability.repeatedHandshakeFailureClass,
                                 transportPolicyVersion = capability.transportPolicyVersion,
                                 ipSetDigest = capability.ipSetDigest,
+                                dnsClassification = capability.dnsClassification,
                                 quicMode = capability.quicMode,
                                 preferredStack = capability.preferredStack,
                                 dnsMode = capability.dnsMode,
@@ -248,6 +251,7 @@ internal object ProxyRuntimeContextCodec {
                             repeatedHandshakeFailureClass = capability.repeatedHandshakeFailureClass,
                             transportPolicyVersion = capability.transportPolicyVersion,
                             ipSetDigest = capability.ipSetDigest,
+                            dnsClassification = capability.dnsClassification,
                             quicMode = capability.quicMode,
                             preferredStack = capability.preferredStack,
                             dnsMode = capability.dnsMode,

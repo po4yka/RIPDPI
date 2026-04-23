@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.DirectDnsClassification
 import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.ServerCapabilityRecord
@@ -105,6 +106,7 @@ private fun capabilitySummaryLine(record: ServerCapabilityRecord): String =
                 DirectModeOutcome.TRANSPARENT_OK -> Unit
             }
         }
+        record.transportPolicyEnvelope?.dnsClassification?.let { add("DNS ${it.name.lowercase(Locale.US)}") }
         record.quicUsable?.let { add(if (it) "QUIC usable" else "QUIC blocked") }
         record.udpUsable?.let { add(if (it) "UDP usable" else "UDP blocked") }
         record.authModeAccepted?.let { add(if (it) "Auth accepted" else "Auth rejected") }
@@ -127,6 +129,7 @@ private fun capabilityDetailFields(record: ServerCapabilityRecord): List<Diagnos
     buildList {
         record.transportPolicyEnvelope?.let { envelope ->
             add(DiagnosticsAppliedSetting("Policy", envelope.policy.outcome.name))
+            envelope.dnsClassification?.let { add(DiagnosticsAppliedSetting("DNS class", it.name)) }
             add(DiagnosticsAppliedSetting("QUIC mode", envelope.policy.quicMode.name))
             add(DiagnosticsAppliedSetting("Preferred stack", envelope.policy.preferredStack.name))
             add(DiagnosticsAppliedSetting("TCP family", envelope.policy.tcpFamily.name))
@@ -182,6 +185,7 @@ private fun mergeObservation(
             incoming.repeatedHandshakeFailureClass ?: existing?.repeatedHandshakeFailureClass,
         transportPolicy = incoming.transportPolicy ?: existing?.transportPolicy,
         ipSetDigest = incoming.ipSetDigest ?: existing?.ipSetDigest,
+        dnsClassification = incoming.dnsClassification ?: existing?.dnsClassification,
         transportClass = incoming.transportClass ?: existing?.transportClass,
         reasonCode = incoming.reasonCode ?: existing?.reasonCode,
         cooldownUntil = incoming.cooldownUntil ?: existing?.cooldownUntil,
@@ -198,6 +202,7 @@ private fun ServerCapabilityObservation.isEmpty(): Boolean =
         repeatedHandshakeFailureClass == null &&
         transportPolicy == null &&
         ipSetDigest == null &&
+        dnsClassification == null &&
         transportClass == null &&
         reasonCode == null &&
         cooldownUntil == null
@@ -230,6 +235,12 @@ private fun ProbeResult.directPathCapabilityObservation(): ServerCapabilityObser
                 repeatedHandshakeFailureClass =
                     detailValue("failureClass")?.trim()?.takeIf { it.isNotEmpty() }
                         ?: outcome.trim().takeIf { it.isNotEmpty() },
+            )
+        }
+
+        "dns_integrity" -> {
+            ServerCapabilityObservation(
+                dnsClassification = detailValue("dnsClassification")?.toDirectDnsClassificationOrNull(),
             )
         }
 
@@ -281,3 +292,6 @@ private fun List<ServerCapabilityRecord>.reduceCapabilityFlag(
     }
 
 private fun String.normalizeCapabilityHost(): String = substringBefore(':').trim().lowercase(Locale.US)
+
+private fun String.toDirectDnsClassificationOrNull(): DirectDnsClassification? =
+    runCatching { DirectDnsClassification.valueOf(trim().uppercase(Locale.US)) }.getOrNull()

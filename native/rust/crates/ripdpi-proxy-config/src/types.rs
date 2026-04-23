@@ -137,6 +137,8 @@ pub struct ProxyDirectPathCapability {
     pub transport_policy_version: i32,
     #[serde(default)]
     pub ip_set_digest: String,
+    #[serde(default)]
+    pub dns_classification: Option<String>,
     #[serde(default = "default_quic_mode")]
     pub quic_mode: String,
     #[serde(default = "default_preferred_stack")]

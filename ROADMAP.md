@@ -91,6 +91,16 @@ Status: COMPLETE.
 - Reworked the final onboarding page to show validation progress, failure recovery with alternate-mode suggestions, and explicit finish actions for keeping the validated mode running or finishing disconnected.
 - Added English and Russian onboarding copy plus ViewModel, screen, and effect-handler regression coverage for the new validation and finish paths.
 
+### 2026-04-23: Direct-Mode DNS Classifier
+
+Status: COMPLETE.
+
+- Promoted the existing native `dns_integrity` probe into a typed direct-mode DNS classifier instead of leaving HTTPS/SVCB parsing as unused groundwork.
+- Added stable classifier details for five-state DNS classification, answer-class evidence, selected encrypted-resolver role, and HTTPS/ECH support counts on the native diagnostics path.
+- Threaded typed DNS classification through the direct-path capability envelope, capability summaries, runtime-context JSON contract, and connection-policy resolution.
+- Promoted poisoned DNS results into authority-scoped `DOH_PRIMARY` / `DOH_SECONDARY` policy hints while leaving full resolver-mapping enforcement as a follow-up slice.
+- Added focused Kotlin and Rust regression coverage for the new classifier contract, policy persistence, and runtime-context sanitization.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.

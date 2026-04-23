@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActiveDnsSettings
+import com.poyka.ripdpi.data.DirectDnsClassification
 import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectTransportClass
@@ -48,6 +49,7 @@ data class RipDpiDirectPathCapability(
     val repeatedHandshakeFailureClass: String? = null,
     val transportPolicyVersion: Int = 0,
     val ipSetDigest: String = "",
+    val dnsClassification: DirectDnsClassification? = null,
     val quicMode: QuicMode = QuicMode.ALLOW,
     val preferredStack: PreferredStack = PreferredStack.H3,
     val dnsMode: DnsMode = DnsMode.SYSTEM,
@@ -171,6 +173,7 @@ internal fun normalizeRuntimeContext(runtimeContext: RipDpiRuntimeContext?): Rip
                                 ?.takeIf { it.isNotEmpty() },
                         transportPolicyVersion = capability.transportPolicyVersion.coerceAtLeast(0),
                         ipSetDigest = capability.ipSetDigest.trim(),
+                        dnsClassification = capability.dnsClassification,
                         quicMode = capability.quicMode,
                         preferredStack = capability.preferredStack,
                         dnsMode = capability.dnsMode,
