@@ -49,6 +49,7 @@ REQUIRED_DOC_HEADINGS = {
     "Screen Recipes",
     "Layout Recipes",
     "Screen Contracts",
+    "Motion Baselines",
     "Drift Checks",
 }
 REQUIRED_DESIGN_SCREENSHOT_FUNCTIONS = {

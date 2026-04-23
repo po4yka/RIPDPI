@@ -652,6 +652,9 @@ Compose implementation uses both cubic easing and spring motion. Reduced-motion 
 - if animations are disabled, durations collapse to zero
 - if reduced motion applies, durations are reduced and infinite motion is disabled
 - press and emphasis springs must remain controlled and not become playful bounce animations
+- shared controls and screens should consume semantic motion presets from `RipDpiMotion` instead of rebuilding raw tweens and visibility transitions inline
+- quick, state, emphasized, and route buckets should remain distinct and should map to borders or alpha, content settling, section reveal, and navigation respectively
+- infinite motion should be limited to status or progress signals that already respect reduced or static motion
 
 ## Iconography
 

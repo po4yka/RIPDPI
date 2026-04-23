@@ -4,11 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -87,17 +82,17 @@ fun RipDpiChip(
         }
     val animatedContainer by animateColorAsState(
         targetValue = state.container,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "chipContainer",
     )
     val animatedBorderColor by animateColorAsState(
         targetValue = state.border,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "chipBorder",
     )
     val animatedContentColor by animateColorAsState(
         targetValue = state.content,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "chipContent",
     )
     val scale by animateFloatAsState(
@@ -107,7 +102,7 @@ fun RipDpiChip(
     )
     val alpha by animateFloatAsState(
         targetValue = state.alpha,
-        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        animationSpec = motion.quickTween(),
         label = "chipAlpha",
     )
 
@@ -136,8 +131,8 @@ fun RipDpiChip(
     ) {
         AnimatedVisibility(
             visible = leadingIcon != null,
-            enter = fadeIn() + scaleIn(initialScale = 0.8f),
-            exit = fadeOut() + scaleOut(targetScale = 0.8f),
+            enter = motion.quickContentTransform(initialScale = 0.8f, targetScale = 0.8f).targetContentEnter,
+            exit = motion.quickContentTransform(initialScale = 0.8f, targetScale = 0.8f).initialContentExit,
         ) {
             leadingIcon?.let {
                 Icon(

@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.components.inputs
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -151,17 +150,17 @@ private fun DropdownField(
     val motion = RipDpiThemeTokens.motion
     val animatedBorderWidth by animateDpAsState(
         targetValue = fieldState.borderWidth,
-        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        animationSpec = motion.quickTween(),
         label = "dropdownBorderWidth",
     )
     val animatedBorderColor by animateColorAsState(
         targetValue = fieldState.border,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "dropdownBorderColor",
     )
     val animatedChevronRotation by animateFloatAsState(
         targetValue = if (expanded) 270f else 90f,
-        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        animationSpec = motion.quickTween(),
         label = "dropdownChevronRotation",
     )
     Box {
