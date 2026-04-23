@@ -7,6 +7,7 @@ import com.poyka.ripdpi.services.OwnedStackBrowserBackend
 import com.poyka.ripdpi.services.OwnedStackBrowserPage
 import com.poyka.ripdpi.services.OwnedStackBrowserService
 import com.poyka.ripdpi.services.OwnedStackBrowserSupport
+import com.poyka.ripdpi.services.OwnedStackExecutionTrace
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -100,6 +101,7 @@ data class OwnedStackBrowserPageUiModel(
     val backend: OwnedStackBrowserBackend,
     val android17EchEligible: Boolean,
     val tlsProfileId: String? = null,
+    val executionTrace: OwnedStackExecutionTrace = OwnedStackExecutionTrace(),
 )
 
 private fun OwnedStackBrowserPage.toUiModel(): OwnedStackBrowserPageUiModel =
@@ -118,4 +120,5 @@ private fun OwnedStackBrowserPage.toUiModel(): OwnedStackBrowserPageUiModel =
         backend = backend,
         android17EchEligible = android17EchEligible,
         tlsProfileId = tlsProfileId,
+        executionTrace = executionTrace,
     )

@@ -148,16 +148,16 @@ Status: PARTIAL.
 - Added focused diagnostics/service regressions for confirmation, failure-budget retirement, and runtime filtering.
 - Remaining epic work is still open: the explicit ranked-arm dispatcher, per-class attempt-budget enforcement, deterministic integration coverage for the full class-to-arm execution ladder, and unifying Config relay preset suggestions onto the same transport-remediation selector.
 
-### 2026-04-23: Owned-Stack Android 17 ECH Slice
+### 2026-04-23: Owned-Stack Android 17 ECH
 
-Status: PARTIAL.
+Status: COMPLETE in repo-owned scope.
 
-- Added a first owned-stack browser path for `OWNED_STACK_ONLY` authorities instead of leaving the Android 17 ECH track as planning-only work.
-- Introduced a shared owned-stack request entry point that prefers platform `HttpEngine` on supported devices and falls back to the existing native owned-TLS fetcher elsewhere.
-- Added Android-version-aware capability reporting so the product now surfaces Android 17 / API 37 as the platform-ECH-eligible path while degrading honestly on older releases.
-- Added a minimal RIPDPI browser screen plus diagnostics remediation action that opens `OWNED_STACK_ONLY` authorities directly into that owned-stack path.
-- Added `xml-v37` `network_security_config` overlays with opportunistic `domainEncryption` plus enabled per-domain blocks for the current owned-stack probe hosts, while preserving older-platform behavior.
-- Remaining epic work is still open: general SDK surface, broader per-domain ECH enforcement, telemetry for H3/H2 fallback behavior, and Android 17 instrumented proof that ECH is actually attempted when HTTPS RR supplies a config.
+- Promoted the earlier browser-only slice into a shared owned-stack request service: both RIPDPI Browser and the new repo-local `SecureHttpClient` surface now execute through one typed entry point instead of separate browser-local logic.
+- Tightened Android 17 ECH policy from coarse device gating to authority-aware routing: the platform `HttpEngine` path is treated as confirmed-ECH only for hosts with fresh cached `ECH_CAPABLE` DNS evidence or explicit `xml-v37` enabled-domain overrides.
+- Added automatic QUIC-capable platform request retry with QUIC disabled (H2-only) before native fallback, and surfaced the owned-stack execution trace so browser/UI consumers can distinguish confirmed ECH use, opportunistic platform use, H2 retry, and native fallback causes.
+- Kept the static Android 17 `network_security_config` enforcement list explicit and synced it with the owned-stack Kotlin policy, while preserving graceful pre-17 fallback to the native owned-TLS bridge.
+- Added focused service/browser regression coverage plus README/platform documentation for the owned-stack request API, Android 17 requirement, DNS capability dependency, and fallback matrix.
+- Device-side proof still depends on running the committed code on an actual Android 17 environment with an ECH-capable authority, but there is no remaining repo-owned implementation gap in the browser / SDK / policy / fallback stack for this epic.
 
 ### 2026-04-23: Offline Learner Strategy-Pack Generation Slice
 

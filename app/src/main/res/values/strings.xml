@@ -2217,6 +2217,12 @@ Source: %2$s</string>
     <string name="owned_stack_browser_backend_native_fallback">RIPDPI native fallback</string>
     <string name="owned_stack_browser_status_value">HTTP %1$d · %2$s</string>
     <string name="owned_stack_browser_tls_profile_value">TLS profile: %1$s</string>
+    <string name="owned_stack_browser_trace_confirmed_ech">Using Android platform path with confirmed ECH-capable authority policy.</string>
+    <string name="owned_stack_browser_trace_opportunistic_platform">Using Android platform path opportunistically; no confirmed ECH-capable authority is cached for this host.</string>
+    <string name="owned_stack_browser_trace_h2_retry">Retried with H2-only platform stack after the QUIC-capable attempt failed.</string>
+    <string name="owned_stack_browser_trace_native_ech_missing">Confirmed Android 17 ECH is unavailable for this authority, so RIPDPI used native owned TLS.</string>
+    <string name="owned_stack_browser_trace_native_platform_failure">Android platform stack failed, so RIPDPI used native owned TLS.</string>
+    <string name="owned_stack_browser_trace_native_platform_unavailable">Android platform stack is unavailable on this device, so RIPDPI used native owned TLS.</string>
     <string name="owned_stack_browser_empty_body">No response body.</string>
     <string name="detection_permission_rationale">Additional permissions improve check accuracy. Grant them for better results.</string>
     <string name="detection_permission_settings">Permissions were denied. Open settings to grant them manually.</string>

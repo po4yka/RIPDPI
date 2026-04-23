@@ -4,6 +4,7 @@
         <domainEncryption mode="opportunistic" />
     </base-config>
 
+    <!-- Keep enabled domains in sync with core/service OwnedStackBrowserService.kt. -->
     <domain-config>
         <domain includeSubdomains="true">raw.githubusercontent.com</domain>
         <domainEncryption mode="enabled" />
