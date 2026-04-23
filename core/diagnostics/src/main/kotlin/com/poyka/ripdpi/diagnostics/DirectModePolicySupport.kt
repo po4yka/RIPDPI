@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.DirectDnsClassification
 import com.poyka.ripdpi.data.DirectModeNoDirectSolutionCooldownMs
 import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.DirectModeReasonCode
@@ -24,6 +25,11 @@ internal data class DirectModePolicyEvaluation(
     val verdict: DirectModeVerdict?,
 )
 
+private data class DirectModeDnsPolicyObservation(
+    val classification: DirectDnsClassification? = null,
+    val dnsMode: DnsMode? = null,
+)
+
 internal fun deriveDirectModeVerdict(report: ScanReport): DirectModeVerdict? =
     collectDirectModePolicyEvaluations(report)
         .maxByOrNull { it.priority() }
@@ -41,6 +47,7 @@ internal fun enrichDirectPathCapabilityObservation(
     return observation.copy(
         transportPolicy = evaluation.envelope.policy,
         ipSetDigest = evaluation.envelope.ipSetDigest,
+        dnsClassification = evaluation.envelope.dnsClassification,
         transportClass = evaluation.envelope.transportClass,
         reasonCode = evaluation.envelope.reasonCode,
         cooldownUntil = evaluation.envelope.cooldownUntil,
@@ -63,6 +70,7 @@ private fun deriveDirectModePolicyEvaluation(
     results: List<ProbeResult>,
     finishedAt: Long,
 ): DirectModePolicyEvaluation {
+    val dnsObservation = deriveDnsPolicyObservation(results)
     val hasTransparentSuccess = results.any(ProbeResult::edgeSuccess)
     val hasQuicBlocked =
         results.any { result ->
@@ -151,6 +159,8 @@ private fun deriveDirectModePolicyEvaluation(
             else -> {
                 TransportPolicy()
             }
+        }.let { resolvedPolicy ->
+            dnsObservation.dnsMode?.let { dnsMode -> resolvedPolicy.copy(dnsMode = dnsMode) } ?: resolvedPolicy
         }
     val reasonCode =
         when {
@@ -165,6 +175,7 @@ private fun deriveDirectModePolicyEvaluation(
         TransportPolicyEnvelope(
             policy = policy,
             ipSetDigest = deriveIpSetDigest(results),
+            dnsClassification = dnsObservation.classification,
             transportClass = transportClass,
             reasonCode = reasonCode,
             cooldownUntil =
@@ -223,6 +234,54 @@ private fun DirectModePolicyEvaluation.priority(): Int =
         DirectModeVerdictResult.NO_DIRECT_SOLUTION -> 2
         DirectModeVerdictResult.TRANSPARENT_WORKS -> 1
         null -> 0
+    }
+
+private fun deriveDnsPolicyObservation(results: List<ProbeResult>): DirectModeDnsPolicyObservation {
+    val dnsResults = results.filter { it.probeType == "dns_integrity" }
+    if (dnsResults.isEmpty()) {
+        return DirectModeDnsPolicyObservation()
+    }
+    val classification =
+        dnsResults
+            .asSequence()
+            .mapNotNull { result -> result.detailValue("dnsClassification")?.toDirectDnsClassificationOrNull() }
+            .maxByOrNull(::dnsClassificationPriority)
+    val answerClass =
+        dnsResults
+            .asSequence()
+            .mapNotNull { result -> result.detailValue("dnsAnswerClass")?.trim()?.uppercase(Locale.US) }
+            .firstOrNull { it == "POISONED" }
+    val selectedResolverRole =
+        dnsResults
+            .asSequence()
+            .mapNotNull { result -> result.detailValue("dnsSelectedResolverRole")?.trim()?.lowercase(Locale.US) }
+            .firstOrNull()
+    val dnsMode =
+        if (answerClass == "POISONED") {
+            when (selectedResolverRole) {
+                "primary" -> DnsMode.DOH_PRIMARY
+                "secondary" -> DnsMode.DOH_SECONDARY
+                else -> null
+            }
+        } else {
+            null
+        }
+    return DirectModeDnsPolicyObservation(
+        classification = classification,
+        dnsMode = dnsMode,
+    )
+}
+
+private fun String.toDirectDnsClassificationOrNull(): DirectDnsClassification? =
+    runCatching { DirectDnsClassification.valueOf(trim().uppercase(Locale.US)) }.getOrNull()
+
+private fun dnsClassificationPriority(classification: DirectDnsClassification): Int =
+    when (classification) {
+        DirectDnsClassification.ECH_CAPABLE -> 4
+        DirectDnsClassification.POISONED -> 3
+        DirectDnsClassification.DIVERGENT -> 2
+        DirectDnsClassification.CLEAN -> 1
+        DirectDnsClassification.NO_HTTPS_RR -> 0
     }
 
 private fun ProbeResult.directModeAuthority(): String? =

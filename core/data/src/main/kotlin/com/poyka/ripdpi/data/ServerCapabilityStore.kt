@@ -35,6 +35,7 @@ data class ServerCapabilityObservation(
     val repeatedHandshakeFailureClass: String? = null,
     val transportPolicy: TransportPolicy? = null,
     val ipSetDigest: String? = null,
+    val dnsClassification: DirectDnsClassification? = null,
     val transportClass: DirectTransportClass? = null,
     val reasonCode: DirectModeReasonCode? = null,
     val cooldownUntil: Long? = null,
@@ -100,6 +101,7 @@ fun ServerCapabilityRecord.effectiveTransportPolicyEnvelope(): TransportPolicyEn
         return existingEnvelope.copy(
             version = existingEnvelope.version.coerceAtLeast(CurrentTransportPolicyEnvelopeVersion),
             ipSetDigest = existingEnvelope.ipSetDigest.trim(),
+            dnsClassification = existingEnvelope.dnsClassification,
             cooldownUntil = existingEnvelope.cooldownUntil?.takeIf { it > 0L },
         )
     }
@@ -134,6 +136,7 @@ fun ServerCapabilityRecord.effectiveTransportPolicyEnvelope(): TransportPolicyEn
         version = CurrentTransportPolicyEnvelopeVersion,
         policy = policy,
         ipSetDigest = "",
+        dnsClassification = null,
         transportClass =
             when {
                 hasTlsFallbackEvidence -> DirectTransportClass.SNI_TLS_SUSPECT
@@ -333,6 +336,7 @@ private fun mergeTransportPolicyEnvelope(
     val hasObservationPolicyData =
         observation.transportPolicy != null ||
             observation.ipSetDigest != null ||
+            observation.dnsClassification != null ||
             observation.transportClass != null ||
             observation.reasonCode != null ||
             observation.cooldownUntil != null
@@ -344,6 +348,7 @@ private fun mergeTransportPolicyEnvelope(
             version = CurrentTransportPolicyEnvelopeVersion,
             policy = observation.transportPolicy,
             ipSetDigest = observation.ipSetDigest?.trim().orEmpty(),
+            dnsClassification = observation.dnsClassification ?: existingEnvelope?.dnsClassification,
             transportClass = observation.transportClass,
             reasonCode = observation.reasonCode,
             cooldownUntil = observation.cooldownUntil?.takeIf { it > 0L },
@@ -357,6 +362,7 @@ private fun mergeTransportPolicyEnvelope(
                 ?.trim()
                 .orEmpty()
                 .ifEmpty { existingEnvelope?.ipSetDigest.orEmpty() },
+        dnsClassification = observation.dnsClassification ?: existingEnvelope?.dnsClassification,
         transportClass = observation.transportClass ?: existingEnvelope?.transportClass,
         reasonCode = observation.reasonCode ?: existingEnvelope?.reasonCode,
         cooldownUntil = observation.cooldownUntil?.takeIf { it > 0L } ?: existingEnvelope?.cooldownUntil,

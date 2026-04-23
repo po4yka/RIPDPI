@@ -45,6 +45,8 @@ pub(crate) fn sanitize_runtime_context(runtime_context: Option<ProxyRuntimeConte
             }
             capability.transport_policy_version = capability.transport_policy_version.max(0);
             capability.ip_set_digest = capability.ip_set_digest.trim().to_string();
+            capability.dns_classification =
+                trim_non_empty(capability.dns_classification).map(|value| value.to_ascii_uppercase());
             capability.quic_mode = capability.quic_mode.trim().to_ascii_uppercase();
             if capability.quic_mode.is_empty() {
                 capability.quic_mode = "ALLOW".to_string();

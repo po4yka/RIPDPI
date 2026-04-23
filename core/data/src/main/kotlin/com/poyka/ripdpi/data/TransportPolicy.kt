@@ -27,6 +27,15 @@ enum class DnsMode {
 }
 
 @Serializable
+enum class DirectDnsClassification {
+    CLEAN,
+    POISONED,
+    DIVERGENT,
+    ECH_CAPABLE,
+    NO_HTTPS_RR,
+}
+
+@Serializable
 enum class TcpFamily {
     NONE,
     SEG_PRE_SNI,
@@ -80,6 +89,7 @@ data class TransportPolicyEnvelope(
     val version: Int = CurrentTransportPolicyEnvelopeVersion,
     val policy: TransportPolicy = TransportPolicy(),
     val ipSetDigest: String = "",
+    val dnsClassification: DirectDnsClassification? = null,
     val transportClass: DirectTransportClass? = null,
     val reasonCode: DirectModeReasonCode? = null,
     val cooldownUntil: Long? = null,

@@ -382,6 +382,7 @@ internal class TestServerCapabilityStore : ServerCapabilityStore {
                 val hasPolicyData =
                     observation.transportPolicy != null ||
                         observation.ipSetDigest != null ||
+                        observation.dnsClassification != null ||
                         observation.transportClass != null ||
                         observation.reasonCode != null ||
                         observation.cooldownUntil != null
@@ -395,6 +396,9 @@ internal class TestServerCapabilityStore : ServerCapabilityStore {
                                 version = CurrentTransportPolicyEnvelopeVersion,
                                 policy = observationPolicy,
                                 ipSetDigest = observation.ipSetDigest?.trim().orEmpty(),
+                                dnsClassification =
+                                    observation.dnsClassification
+                                        ?: existingEnvelope?.dnsClassification,
                                 transportClass = observation.transportClass,
                                 reasonCode = observation.reasonCode,
                                 cooldownUntil = observation.cooldownUntil?.takeIf { it > 0L },
@@ -408,6 +412,9 @@ internal class TestServerCapabilityStore : ServerCapabilityStore {
                                         ?.trim()
                                         .orEmpty()
                                         .ifEmpty { existingEnvelope?.ipSetDigest.orEmpty() },
+                                dnsClassification =
+                                    observation.dnsClassification
+                                        ?: existingEnvelope?.dnsClassification,
                                 transportClass = observation.transportClass ?: existingEnvelope?.transportClass,
                                 reasonCode = observation.reasonCode ?: existingEnvelope?.reasonCode,
                                 cooldownUntil =

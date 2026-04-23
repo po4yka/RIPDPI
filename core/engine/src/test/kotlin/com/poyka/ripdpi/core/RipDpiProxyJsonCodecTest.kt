@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.DirectDnsClassification
 import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectTransportClass
@@ -209,6 +210,7 @@ class RipDpiProxyJsonCodecTest {
                                     repeatedHandshakeFailureClass = " tcp_reset ",
                                     transportPolicyVersion = 1,
                                     ipSetDigest = "deadbeef",
+                                    dnsClassification = DirectDnsClassification.ECH_CAPABLE,
                                     quicMode = QuicMode.SOFT_DISABLE,
                                     preferredStack = PreferredStack.H2,
                                     dnsMode = DnsMode.DOH_PRIMARY,
@@ -247,6 +249,7 @@ class RipDpiProxyJsonCodecTest {
         assertEquals("tcp_reset", blocked?.repeatedHandshakeFailureClass)
         assertEquals(1, blocked?.transportPolicyVersion)
         assertEquals("deadbeef", blocked?.ipSetDigest)
+        assertEquals(DirectDnsClassification.ECH_CAPABLE, blocked?.dnsClassification)
         assertEquals(QuicMode.SOFT_DISABLE, blocked?.quicMode)
         assertEquals(PreferredStack.H2, blocked?.preferredStack)
         assertEquals(DnsMode.DOH_PRIMARY, blocked?.dnsMode)

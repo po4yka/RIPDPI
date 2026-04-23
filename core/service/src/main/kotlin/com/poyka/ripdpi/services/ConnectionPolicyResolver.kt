@@ -289,6 +289,7 @@ class DefaultConnectionPolicyResolver
                             repeatedHandshakeFailureClass = record.repeatedHandshakeFailureClass,
                             transportPolicyVersion = transportPolicyEnvelope.version,
                             ipSetDigest = transportPolicyEnvelope.ipSetDigest,
+                            dnsClassification = transportPolicyEnvelope.dnsClassification,
                             quicMode = transportPolicyEnvelope.policy.quicMode,
                             preferredStack = transportPolicyEnvelope.policy.preferredStack,
                             dnsMode = transportPolicyEnvelope.policy.dnsMode,

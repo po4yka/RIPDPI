@@ -4,6 +4,7 @@ import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AsnRoutingMapCatalog
 import com.poyka.ripdpi.data.AsnRoutingMapEntry
+import com.poyka.ripdpi.data.DirectDnsClassification
 import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectTransportClass
@@ -198,6 +199,7 @@ class ConnectionPolicyResolverTest {
                                 outcome = DirectModeOutcome.TRANSPARENT_OK,
                             ),
                         ipSetDigest = "deadbeef",
+                        dnsClassification = DirectDnsClassification.POISONED,
                         transportClass = DirectTransportClass.QUIC_BLOCK_SUSPECT,
                         reasonCode = DirectModeReasonCode.QUIC_BLOCKED,
                     ),
@@ -255,6 +257,7 @@ class ConnectionPolicyResolverTest {
             assertEquals(true, softDisable?.fallbackRequired)
             assertEquals("tcp_reset", softDisable?.repeatedHandshakeFailureClass)
             assertEquals(QuicMode.SOFT_DISABLE, softDisable?.quicMode)
+            assertEquals(DirectDnsClassification.POISONED, softDisable?.dnsClassification)
             assertEquals(PreferredStack.H2, softDisable?.preferredStack)
             assertEquals(DnsMode.SYSTEM, softDisable?.dnsMode)
             assertEquals(TcpFamily.NONE, softDisable?.tcpFamily)
