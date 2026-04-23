@@ -4,12 +4,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -105,17 +99,17 @@ fun RipDpiButton(
         }
     val animatedContainerColor by animateColorAsState(
         targetValue = state.container,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "buttonContainer",
     )
     val animatedContentColor by animateColorAsState(
         targetValue = state.content,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "buttonContent",
     )
     val animatedBorderColor by animateColorAsState(
         targetValue = state.border,
-        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        animationSpec = motion.quickTween(),
         label = "buttonBorder",
     )
     val pressedScale by animateFloatAsState(
@@ -125,7 +119,7 @@ fun RipDpiButton(
     )
     val contentAlpha by animateFloatAsState(
         targetValue = state.contentAlpha,
-        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        animationSpec = motion.quickTween(),
         label = "buttonContentAlpha",
     )
 
@@ -166,17 +160,7 @@ fun RipDpiButton(
                 ) {
                     AnimatedContent(
                         targetState = loading,
-                        transitionSpec = {
-                            (
-                                fadeIn(
-                                    animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                                ) + scaleIn(initialScale = 0.92f)
-                            ) togetherWith (
-                                fadeOut(
-                                    animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                                ) + scaleOut(targetScale = 0.92f)
-                            )
-                        },
+                        transitionSpec = { motion.quickContentTransform() },
                         label = "buttonLeadingContent",
                     ) { isLoading ->
                         if (isLoading) {
@@ -210,14 +194,7 @@ fun RipDpiButton(
                 ) {
                     AnimatedContent(
                         targetState = loading,
-                        transitionSpec = {
-                            fadeIn(
-                                animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                            ) togetherWith
-                                fadeOut(
-                                    animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                                )
-                        },
+                        transitionSpec = { motion.quickFadeContentTransform() },
                         label = "buttonTrailingContent",
                     ) { isLoading ->
                         if (!isLoading) {

@@ -4,12 +4,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
@@ -86,22 +80,22 @@ fun RipDpiIconButton(
         }
     val animatedBackground by animateColorAsState(
         targetValue = state.container,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "iconButtonBackground",
     )
     val animatedIconTint by animateColorAsState(
         targetValue = state.content,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "iconButtonTint",
     )
     val animatedBorderColor by animateColorAsState(
         targetValue = state.border,
-        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        animationSpec = motion.quickTween(),
         label = "iconButtonBorder",
     )
     val animatedBorderWidth by animateDpAsState(
         targetValue = state.borderWidth,
-        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        animationSpec = motion.quickTween(),
         label = "iconButtonBorderWidth",
     )
     val pressedScale by animateFloatAsState(
@@ -133,17 +127,7 @@ fun RipDpiIconButton(
     ) {
         AnimatedContent(
             targetState = loading,
-            transitionSpec = {
-                (
-                    fadeIn(
-                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                    ) + scaleIn(initialScale = 0.92f)
-                ) togetherWith (
-                    fadeOut(
-                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                    ) + scaleOut(targetScale = 0.92f)
-                )
-            },
+            transitionSpec = { motion.quickContentTransform() },
             label = "iconButtonContent",
         ) { isLoading ->
             if (isLoading) {

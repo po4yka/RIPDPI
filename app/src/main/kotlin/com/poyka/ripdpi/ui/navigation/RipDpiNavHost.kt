@@ -1,14 +1,5 @@
 package com.poyka.ripdpi.ui.navigation
 
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -157,9 +148,7 @@ fun RipDpiNavHost(
             startDestination = startDestination,
             innerPadding = innerPadding,
             navController = navController,
-            animationsEnabled = motion.animationsEnabled,
-            routeDurationMillis = motion.duration(motion.routeDurationMillis),
-            quickDurationMillis = motion.duration(motion.quickDurationMillis),
+            motion = motion,
             actions = actions,
             mainViewModel = mainViewModel,
             mainUiState = mainUiState,
@@ -230,9 +219,7 @@ private fun RipDpiNavGraph(
     startDestination: Route,
     innerPadding: androidx.compose.foundation.layout.PaddingValues,
     navController: NavHostController,
-    animationsEnabled: Boolean,
-    routeDurationMillis: Int,
-    quickDurationMillis: Int,
+    motion: RipDpiMotion,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
     mainUiState: MainUiState,
@@ -243,10 +230,10 @@ private fun RipDpiNavGraph(
         navController = navController,
         startDestination = startDestination,
         modifier = Modifier.padding(innerPadding),
-        enterTransition = { routeEnterTransition(animationsEnabled, routeDurationMillis) },
-        exitTransition = { routeExitTransition(animationsEnabled, quickDurationMillis) },
-        popEnterTransition = { routePopEnterTransition(animationsEnabled, routeDurationMillis) },
-        popExitTransition = { routePopExitTransition(animationsEnabled, quickDurationMillis) },
+        enterTransition = { motion.routeEnterTransition() },
+        exitTransition = { motion.routeExitTransition() },
+        popEnterTransition = { motion.routeEnterTransition(initialScale = 0.992f) },
+        popExitTransition = { motion.routePopExitTransition() },
     ) {
         addPrimaryRoutes(
             navController = navController,
@@ -441,97 +428,9 @@ private fun NavHostController.navigateTopLevel(destination: Route) {
     }
 }
 
-private fun routeEnterTransition(
-    animationsEnabled: Boolean,
-    routeDurationMillis: Int,
-): EnterTransition =
-    if (!animationsEnabled) {
-        EnterTransition.None
-    } else {
-        fadeIn(
-            animationSpec = tween(durationMillis = routeDurationMillis, easing = RipDpiMotion.EmphasizedDecelerate),
-        ) +
-            scaleIn(
-                initialScale = 0.985f,
-                animationSpec = tween(durationMillis = routeDurationMillis, easing = RipDpiMotion.EmphasizedDecelerate),
-            )
-    }
+internal fun nestedEnterTransition(motion: RipDpiMotion) = motion.nestedEnterTransition()
 
-private fun routeExitTransition(
-    animationsEnabled: Boolean,
-    quickDurationMillis: Int,
-): ExitTransition =
-    if (!animationsEnabled) {
-        ExitTransition.None
-    } else {
-        fadeOut(
-            animationSpec = tween(durationMillis = quickDurationMillis, easing = RipDpiMotion.EmphasizedAccelerate),
-        )
-    }
-
-private fun routePopEnterTransition(
-    animationsEnabled: Boolean,
-    routeDurationMillis: Int,
-): EnterTransition =
-    if (!animationsEnabled) {
-        EnterTransition.None
-    } else {
-        fadeIn(
-            animationSpec = tween(durationMillis = routeDurationMillis, easing = RipDpiMotion.EmphasizedDecelerate),
-        ) +
-            scaleIn(
-                initialScale = 0.992f,
-                animationSpec = tween(durationMillis = routeDurationMillis, easing = RipDpiMotion.EmphasizedDecelerate),
-            )
-    }
-
-private fun routePopExitTransition(
-    animationsEnabled: Boolean,
-    quickDurationMillis: Int,
-): ExitTransition =
-    if (!animationsEnabled) {
-        ExitTransition.None
-    } else {
-        fadeOut(
-            animationSpec = tween(durationMillis = quickDurationMillis, easing = RipDpiMotion.EmphasizedAccelerate),
-        ) +
-            scaleOut(
-                targetScale = 0.992f,
-                animationSpec = tween(durationMillis = quickDurationMillis, easing = RipDpiMotion.EmphasizedAccelerate),
-            )
-    }
-
-internal fun nestedEnterTransition(
-    animationsEnabled: Boolean,
-    routeDurationMillis: Int,
-): EnterTransition =
-    if (!animationsEnabled) {
-        EnterTransition.None
-    } else {
-        slideInHorizontally(
-            initialOffsetX = { fullWidth -> (fullWidth * 0.15f).toInt() },
-            animationSpec = tween(durationMillis = routeDurationMillis, easing = RipDpiMotion.EmphasizedDecelerate),
-        ) +
-            fadeIn(
-                animationSpec = tween(durationMillis = routeDurationMillis, easing = RipDpiMotion.EmphasizedDecelerate),
-            )
-    }
-
-internal fun nestedPopExitTransition(
-    animationsEnabled: Boolean,
-    quickDurationMillis: Int,
-): ExitTransition =
-    if (!animationsEnabled) {
-        ExitTransition.None
-    } else {
-        slideOutHorizontally(
-            targetOffsetX = { fullWidth -> (fullWidth * 0.15f).toInt() },
-            animationSpec = tween(durationMillis = quickDurationMillis, easing = RipDpiMotion.EmphasizedAccelerate),
-        ) +
-            fadeOut(
-                animationSpec = tween(durationMillis = quickDurationMillis, easing = RipDpiMotion.EmphasizedAccelerate),
-            )
-    }
+internal fun nestedPopExitTransition(motion: RipDpiMotion) = motion.nestedPopExitTransition()
 
 /**
  * Returns the stable route key (e.g. "home") for a Nav destination.

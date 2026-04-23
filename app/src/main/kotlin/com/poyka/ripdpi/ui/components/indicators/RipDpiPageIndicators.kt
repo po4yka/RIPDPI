@@ -1,9 +1,7 @@
 package com.poyka.ripdpi.ui.components.indicators
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +27,7 @@ fun RipDpiPageIndicators(
 ) {
     val colors = RipDpiThemeTokens.colors
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
+    val motion = RipDpiThemeTokens.motion
 
     Row(
         modifier = modifier,
@@ -47,11 +46,12 @@ fun RipDpiPageIndicators(
                     } else {
                         introLayout.indicatorSize
                     },
-                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                animationSpec = motion.motionAwareSpring(),
                 label = "pageIndicatorWidth",
             )
             val color by animateColorAsState(
                 targetValue = if (selected) colors.foreground else colors.border,
+                animationSpec = motion.stateTween(),
                 label = "pageIndicatorColor",
             )
             Box(

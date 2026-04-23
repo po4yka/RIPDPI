@@ -1,9 +1,24 @@
 package com.poyka.ripdpi.ui.theme
 
 import android.animation.ValueAnimator
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.SpringSpec
+import androidx.compose.animation.core.TweenSpec
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -41,6 +56,93 @@ data class RipDpiMotion(
 
     val allowsInfiniteMotion: Boolean
         get() = animationsEnabled && !reducedMotion
+
+    fun <T> quickTween(easing: Easing = StandardEasing): TweenSpec<T> =
+        tween(durationMillis = duration(quickDurationMillis), easing = easing)
+
+    fun <T> stateTween(easing: Easing = StandardEasing): TweenSpec<T> =
+        tween(durationMillis = duration(stateDurationMillis), easing = easing)
+
+    fun <T> emphasizedTween(easing: Easing = EmphasizedDecelerate): TweenSpec<T> =
+        tween(durationMillis = duration(emphasizedDurationMillis), easing = easing)
+
+    fun <T> routeTween(easing: Easing = EmphasizedDecelerate): TweenSpec<T> =
+        tween(durationMillis = duration(routeDurationMillis), easing = easing)
+
+    fun sectionEnterTransition(): EnterTransition =
+        if (!animationsEnabled) {
+            EnterTransition.None
+        } else {
+            expandVertically(animationSpec = emphasizedTween(easing = EmphasizedDecelerate)) +
+                fadeIn(animationSpec = stateTween(easing = EmphasizedDecelerate))
+        }
+
+    fun sectionExitTransition(): ExitTransition =
+        if (!animationsEnabled) {
+            ExitTransition.None
+        } else {
+            shrinkVertically(animationSpec = quickTween(easing = EmphasizedAccelerate)) +
+                fadeOut(animationSpec = quickTween(easing = EmphasizedAccelerate))
+        }
+
+    fun quickContentTransform(
+        initialScale: Float = 0.92f,
+        targetScale: Float = 0.92f,
+    ): ContentTransform =
+        (
+            fadeIn(animationSpec = quickTween()) +
+                scaleIn(initialScale = initialScale, animationSpec = quickTween())
+        ) togetherWith (
+            fadeOut(animationSpec = quickTween()) +
+                scaleOut(targetScale = targetScale, animationSpec = quickTween())
+        )
+
+    fun quickFadeContentTransform(): ContentTransform =
+        fadeIn(animationSpec = quickTween()) togetherWith
+            fadeOut(animationSpec = quickTween())
+
+    fun routeEnterTransition(initialScale: Float = 0.985f): EnterTransition =
+        if (!animationsEnabled) {
+            EnterTransition.None
+        } else {
+            fadeIn(animationSpec = routeTween()) +
+                scaleIn(initialScale = initialScale, animationSpec = routeTween())
+        }
+
+    fun routeExitTransition(): ExitTransition =
+        if (!animationsEnabled) {
+            ExitTransition.None
+        } else {
+            fadeOut(animationSpec = quickTween(easing = EmphasizedAccelerate))
+        }
+
+    fun routePopExitTransition(targetScale: Float = 0.992f): ExitTransition =
+        if (!animationsEnabled) {
+            ExitTransition.None
+        } else {
+            fadeOut(animationSpec = quickTween(easing = EmphasizedAccelerate)) +
+                scaleOut(targetScale = targetScale, animationSpec = quickTween(easing = EmphasizedAccelerate))
+        }
+
+    fun nestedEnterTransition(): EnterTransition =
+        if (!animationsEnabled) {
+            EnterTransition.None
+        } else {
+            slideInHorizontally(
+                initialOffsetX = { fullWidth -> (fullWidth * 0.15f).toInt() },
+                animationSpec = routeTween(),
+            ) + fadeIn(animationSpec = routeTween())
+        }
+
+    fun nestedPopExitTransition(): ExitTransition =
+        if (!animationsEnabled) {
+            ExitTransition.None
+        } else {
+            slideOutHorizontally(
+                targetOffsetX = { fullWidth -> (fullWidth * 0.15f).toInt() },
+                animationSpec = quickTween(easing = EmphasizedAccelerate),
+            ) + fadeOut(animationSpec = quickTween(easing = EmphasizedAccelerate))
+        }
 
     /** Spring spec for interactive press/release animations (M3 Expressive standard scheme). */
     fun <T> standardSpring(): SpringSpec<T> =
