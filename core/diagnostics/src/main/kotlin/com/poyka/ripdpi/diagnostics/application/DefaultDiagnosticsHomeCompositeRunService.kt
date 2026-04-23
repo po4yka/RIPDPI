@@ -59,6 +59,7 @@ class DefaultDiagnosticsHomeCompositeRunService
     ) : DiagnosticsHomeCompositeRunService {
         private companion object {
             private val log = Logger.withTag("HomeAnalysis")
+            private const val TimedOutStageRecoveryTimeoutMs = 5_000L
         }
 
         private val progressState = MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>(emptyMap())
@@ -764,6 +765,26 @@ class DefaultDiagnosticsHomeCompositeRunService
             maxCandidates: Int? = null,
             targetOverrides: DiagnosticsScanTargetOverrides? = null,
         ): Pair<String, DiagnosticScanSession>? {
+            val stageSessionId =
+                launchStageSession(
+                    runId = runId,
+                    stageIndex = stageIndex,
+                    spec = spec,
+                    quickScan = false,
+                    maxCandidates = maxCandidates,
+                    targetOverrides = targetOverrides,
+                ) ?: return null
+            return awaitStageSignal(runId, stageIndex, spec, stageSessionId)
+        }
+
+        private suspend fun launchStageSession(
+            runId: String,
+            stageIndex: Int,
+            spec: HomeCompositeStageSpec,
+            quickScan: Boolean,
+            maxCandidates: Int? = null,
+            targetOverrides: DiagnosticsScanTargetOverrides? = null,
+        ): String? {
             updateStage(runId, stageIndex) { stage ->
                 stage.copy(
                     status = DiagnosticsHomeCompositeStageStatus.RUNNING,
@@ -771,12 +792,15 @@ class DefaultDiagnosticsHomeCompositeRunService
                     summary = "Starting ${spec.label.lowercase()}.",
                 )
             }
-            log.i { "stage ${spec.key} started (profile=${spec.profileId} timeout=${stageTimeoutMs(spec)}ms)" }
+            log.i {
+                "stage ${spec.key} started (profile=${spec.profileId} timeout=${stageTimeoutMs(spec, quickScan)}ms)"
+            }
             val stageSessionId =
                 startStageSession(
                     runId = runId,
                     stageIndex = stageIndex,
                     spec = spec,
+                    quickScan = quickScan,
                     maxCandidates = maxCandidates,
                     targetOverrides = targetOverrides,
                 ) ?: return null
@@ -788,7 +812,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                     summary = "Collecting diagnostics for ${spec.label.lowercase()}.",
                 )
             }
-            return awaitStageSignal(runId, stageIndex, spec, stageSessionId)
+            return stageSessionId
         }
 
         private suspend fun startStageSession(
@@ -883,21 +907,61 @@ class DefaultDiagnosticsHomeCompositeRunService
             maxCandidates: Int? = null,
             targetOverrides: DiagnosticsScanTargetOverrides? = null,
         ): Pair<String, DiagnosticScanSession>? =
-            withTimeoutOrNull(stageTimeoutMs(spec, quickScan)) {
-                executeStage(
+            run {
+                val stageSessionId =
+                    launchStageSession(
+                        runId = runId,
+                        stageIndex = stageIndex,
+                        spec = spec,
+                        quickScan = quickScan,
+                        maxCandidates = maxCandidates,
+                        targetOverrides = targetOverrides,
+                    ) ?: return@run null
+
+                withTimeoutOrNull(stageTimeoutMs(spec, quickScan)) {
+                    awaitStageSignal(runId, stageIndex, spec, stageSessionId)
+                } ?: handleTimedOutStage(
                     runId = runId,
                     stageIndex = stageIndex,
                     spec = spec,
-                    maxCandidates = maxCandidates,
-                    targetOverrides = targetOverrides,
+                    quickScan = quickScan,
+                    stageSessionId = stageSessionId,
                 )
-            }.also { result ->
-                if (result == null) {
-                    log.w { "stage ${spec.key} timed out after ${stageTimeoutMs(spec, quickScan)}ms" }
-                    // Signal the native side to stop — otherwise the Rust probe thread
-                    // runs orphaned until its own deadline or completion.
-                    runCatching { diagnosticsScanController.cancelActiveScan() }
-                }
+            }
+
+        private suspend fun handleTimedOutStage(
+            runId: String,
+            stageIndex: Int,
+            spec: HomeCompositeStageSpec,
+            quickScan: Boolean,
+            stageSessionId: String,
+        ): Pair<String, DiagnosticScanSession>? {
+            log.w { "stage ${spec.key} timed out after ${stageTimeoutMs(spec, quickScan)}ms" }
+            // Signal the native side to stop — otherwise the Rust probe thread
+            // runs orphaned until its own deadline or completion.
+            runCatching { diagnosticsScanController.cancelActiveScan() }
+            val recoveredSession =
+                awaitTimedOutStageRecovery(stageSessionId)
+            if (recoveredSession != null) {
+                log.i { "stage ${spec.key} recovered after timeout status=${recoveredSession.status}" }
+                return stageSessionId to recoveredSession
+            }
+            markStageFailure(
+                runId = runId,
+                stageIndex = stageIndex,
+                headline = "${spec.label} timed out",
+                summary = "The stage did not complete within the allowed time.",
+            )
+            return null
+        }
+
+        private suspend fun awaitTimedOutStageRecovery(stageSessionId: String): DiagnosticScanSession? =
+            withTimeoutOrNull(TimedOutStageRecoveryTimeoutMs) {
+                diagnosticsTimelineSource.sessions
+                    .map { sessions ->
+                        sessions.firstOrNull { it.id == stageSessionId && it.status != "running" }
+                    }.filterNotNull()
+                    .first()
             }
 
         private fun markStageFailure(
