@@ -167,6 +167,54 @@ class AppStartupInitializerTest {
             assertEquals(application, detectionObservationStarter.contexts.single())
         }
 
+    @Test
+    fun `detection observation failure is swallowed after successful subsystem initialization`() =
+        runTest {
+            val compatibilityResetter = RecordingAppCompatibilityResetter()
+            val strategyPackService = RecordingStrategyPackService()
+            val diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper()
+            val detectionObservationStarter =
+                RecordingDetectionObservationStarter(
+                    failure = IllegalStateException("detect-boom"),
+                )
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = compatibilityResetter,
+                    strategyPackService = strategyPackService,
+                    diagnosticsBootstrapper = diagnosticsBootstrapper,
+                    detectionObservationStarter = detectionObservationStarter,
+                    scope = backgroundScope,
+                )
+
+            initializer.initialize()
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(1, compatibilityResetter.calls)
+            assertEquals(1, strategyPackService.initializeCalls)
+            assertEquals(1, diagnosticsBootstrapper.calls)
+            assertEquals(1, detectionObservationStarter.startCalls)
+        }
+
+    @Test
+    fun `initializeSubsystems preserves subsystem ordering`() =
+        runTest {
+            val callOrder = mutableListOf<String>()
+            val initializer =
+                createInitializer(
+                    compatibilityResetter =
+                        RecordingAppCompatibilityResetter(onReset = { callOrder += "compatibility" }),
+                    strategyPackService =
+                        RecordingStrategyPackService(onInitialize = { callOrder += "strategy" }),
+                    diagnosticsBootstrapper =
+                        RecordingDiagnosticsBootstrapper(onInitialize = { callOrder += "diagnostics" }),
+                    scope = backgroundScope,
+                )
+
+            initializer.initializeSubsystems()
+
+            assertEquals(listOf("compatibility", "strategy", "diagnostics"), callOrder)
+        }
+
     private fun createInitializer(
         compatibilityResetter: AppCompatibilityResetter,
         strategyPackService: StrategyPackService,
@@ -186,24 +234,28 @@ class AppStartupInitializerTest {
 
 private class RecordingAppCompatibilityResetter(
     private val failure: Throwable? = null,
+    private val onReset: (() -> Unit)? = null,
 ) : AppCompatibilityResetter {
     var calls: Int = 0
         private set
 
     override fun resetIfNeeded() {
         calls += 1
+        onReset?.invoke()
         failure?.let { throw it }
     }
 }
 
 private class RecordingStrategyPackService(
     private val initializeFailure: Throwable? = null,
+    private val onInitialize: (() -> Unit)? = null,
 ) : StrategyPackService {
     var initializeCalls: Int = 0
         private set
 
     override fun initialize() {
         initializeCalls += 1
+        onInitialize?.invoke()
         initializeFailure?.let { throw it }
     }
 
@@ -214,12 +266,14 @@ private class RecordingStrategyPackService(
 
 private class RecordingDiagnosticsBootstrapper(
     private val failure: Throwable? = null,
+    private val onInitialize: (() -> Unit)? = null,
 ) : DiagnosticsBootstrapper {
     var calls: Int = 0
         private set
 
     override suspend fun initialize() {
         calls += 1
+        onInitialize?.invoke()
         failure?.let { throw it }
     }
 }

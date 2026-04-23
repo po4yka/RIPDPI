@@ -62,6 +62,9 @@ internal class ProxyRuntimeSupervisor(
 
         job.invokeOnCompletion {
             scope.launch(dispatcher) {
+                if (proxyRuntime !== proxyInstance) {
+                    return@launch
+                }
                 if (!shouldReportExit.get()) {
                     return@launch
                 }

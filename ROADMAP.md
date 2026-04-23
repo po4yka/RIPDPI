@@ -53,6 +53,15 @@ Status: COMPLETE.
 - Preserved existing tunnel failure handling while keeping proxy, relay, and WARP polling failures observational only in this pass.
 - Bumped the diagnostics Room schema, added the new schema snapshot, and updated telemetry regression fixtures and goldens for the richer status model.
 
+### 2026-04-23: Missing Orchestration Regression Tests
+
+Status: COMPLETE.
+
+- Added deterministic coordinator regressions for delayed handover retries, ignored late handover events after stop, and stale superseded runtime exits across proxy and VPN service modes.
+- Hardened proxy, relay, and WARP runtime supervisors so completion callbacks from superseded runtime instances are ignored instead of tearing down replacement sessions.
+- Expanded diagnostics bootstrap coverage to lock in one-time automatic-probe subscription wiring and preserve scheduling when runtime-history startup fails.
+- Added app-startup bootstrap regressions for subsystem initialization ordering, swallowed detection-observer failures, distinct battery-banner clearing, missing crash-report handling, and continued strategy-pack UI propagation.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.
