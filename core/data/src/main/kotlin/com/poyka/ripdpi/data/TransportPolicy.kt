@@ -40,8 +40,10 @@ enum class TcpFamily {
     NONE,
     SEG_PRE_SNI,
     SEG_MID_SNI,
+    SEG_POST_SNI,
     REC_PRE_SNI,
     REC_MID_SNI,
+    TWO_PHASE_SEND,
 }
 
 @Serializable

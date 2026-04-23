@@ -8,7 +8,9 @@ class TransportPolicyFamilyNormalizationTest {
     fun `normalizeStrategyFamilyToTcpFamily preserves transparent tls family labels`() {
         assertEquals(TcpFamily.SEG_PRE_SNI, normalizeStrategyFamilyToTcpFamily("seg_pre_sni"))
         assertEquals(TcpFamily.SEG_MID_SNI, normalizeStrategyFamilyToTcpFamily("seg_mid_sni"))
+        assertEquals(TcpFamily.SEG_POST_SNI, normalizeStrategyFamilyToTcpFamily("seg_post_sni"))
         assertEquals(TcpFamily.REC_PRE_SNI, normalizeStrategyFamilyToTcpFamily("rec_pre_sni"))
         assertEquals(TcpFamily.REC_MID_SNI, normalizeStrategyFamilyToTcpFamily("rec_mid_sni"))
+        assertEquals(TcpFamily.TWO_PHASE_SEND, normalizeStrategyFamilyToTcpFamily("two_phase_send"))
     }
 }

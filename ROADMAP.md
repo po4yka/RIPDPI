@@ -111,16 +111,16 @@ Status: COMPLETE.
 - Kept tuple-scoped cached policy in place while preventing the new re-verification guard from regressing later positive signals like `QUIC_SUCCESS`.
 - Added service and diagnostics regression coverage for the re-verification path and the reason-specific verdict summary text.
 
-### 2026-04-23: Transparent TLS Family Runtime Slice
+### 2026-04-23: Transparent TLS Family Engine
 
-Status: PARTIAL.
+Status: COMPLETE in repo-owned scope.
 
-- Made the native first-flight send path consume cached direct-path `tcp_family` for round-one TLS ClientHello traffic instead of treating that policy field as inert metadata.
-- Added runtime-backed transparent family synthesis for `SEG_PRE_SNI`, `SEG_MID_SNI`, `REC_PRE_SNI`, and `REC_MID_SNI`, using the existing split / TLS-record planning path rather than introducing a parallel executor.
-- Scoped the new shaping to plain first-flight TLS only, leaving already-explicit TCP desync groups on their existing execution path.
-- Threaded the actual transparent family label through relay success recording so learned wins keep `seg_mid_sni` / `rec_mid_sni` instead of collapsing back to generic `split` / `tlsrec`.
-- Extended Kotlin family normalization plus focused Rust/Kotlin regression coverage for the new runtime labels and first-flight capability policy path.
-- Remaining epic work is still open: `seg_post_sni`, `two_phase_send`, explicit byte-invariant enforcement, and winner rotation/cache.
+- Finished the native first-flight family runtime so cached direct-path `tcp_family` now drives all six transparent TLS arms on round-one ClientHello sends: `SEG_PRE_SNI`, `SEG_MID_SNI`, `SEG_POST_SNI`, `REC_PRE_SNI`, `REC_MID_SNI`, and `TWO_PHASE_SEND`.
+- Added weighted per-flow neighborhood rotation for the semantic split/record families instead of pinning one exact boundary forever, while keeping the learned cached family label stable.
+- Implemented `two_phase_send` as a randomized split plus jittered inter-phase delay on the existing TCP write path, with per-flow `first_write_len` and `phase_gap_ms` selection.
+- Added a typed transparent-family validation gate so invalid short-boundary plans or byte-mutating synthesized first flights are refused before the arm is applied; debug builds automatically enforce the ClientHello byte-preservation invariant.
+- Kept winner caching on the existing direct-path capability store path, which already persists the learned family per network fingerprint + authority + IP-set tuple and now covers the full family set instead of only the earlier partial slice.
+- Packet-capture validation on the Android VPN path remains a separate verification task, but the repo-owned engine/runtime, policy-model, and regression-test scope for the semantic TLS family epic is now landed.
 
 ### 2026-04-23: Direct-Mode Diagnostic Orchestrator Slice
 
