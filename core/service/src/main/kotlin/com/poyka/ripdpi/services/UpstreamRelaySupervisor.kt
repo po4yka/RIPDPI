@@ -6,7 +6,6 @@ import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayFactory
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
@@ -16,6 +15,7 @@ import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayProfileStore
+import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -204,7 +204,19 @@ internal class UpstreamRelaySupervisor(
         stopRequested = false
     }
 
-    suspend fun pollTelemetry(): NativeRuntimeSnapshot? = runCatching { relayRuntime?.pollTelemetry() }.getOrNull()
+    suspend fun pollTelemetry(): RuntimeTelemetryOutcome {
+        val runtime = relayRuntime ?: return RuntimeTelemetryOutcome.NoData
+        return runCatching { runtime.pollTelemetry() }
+            .fold(
+                onSuccess = { RuntimeTelemetryOutcome.Snapshot(it) },
+                onFailure = { error ->
+                    RuntimeTelemetryOutcome.EngineError(
+                        message = error.message ?: "Relay telemetry polling failed",
+                        causeClass = error.javaClass.name,
+                    )
+                },
+            )
+    }
 }
 
 internal open class UpstreamRelaySupervisorFactory

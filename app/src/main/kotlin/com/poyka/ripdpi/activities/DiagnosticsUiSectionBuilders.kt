@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
@@ -610,6 +611,9 @@ private fun DiagnosticsUiFactorySupport.buildTelemetryLiveMetrics(
                 telemetry.activeMode ?: context.getString(R.string.diagnostics_metric_idle),
             ),
         )
+        telemetry.telemetryErrorSummary()?.let {
+            addWarningMetric(R.string.diagnostics_metric_telemetry_error, it)
+        }
         telemetry.lastFailureClass?.let { addWarningMetric(R.string.diagnostics_metric_latest_native_failure, it) }
         telemetry.lastFallbackAction?.let { addInfoMetric(R.string.diagnostics_metric_fallback_action, it) }
         telemetry.failureClass?.let { addWarningMetric(R.string.diagnostics_metric_failure_class, it) }
@@ -659,6 +663,29 @@ private fun DiagnosticsUiFactorySupport.buildTelemetryLiveMetrics(
         addInfoMetric(R.string.diagnostics_metric_rx_packets, telemetry.rxPackets.toString())
     }
 }
+
+private fun DiagnosticTelemetrySample.telemetryErrorSummary(): String? =
+    listOfNotNull(
+        telemetryErrorEntry("proxy", proxyTelemetryState, proxyTelemetryMessage),
+        telemetryErrorEntry("relay", relayTelemetryState, relayTelemetryMessage),
+        telemetryErrorEntry("warp", warpTelemetryState, warpTelemetryMessage),
+        telemetryErrorEntry("tunnel", tunnelTelemetryState, tunnelTelemetryMessage),
+    ).takeIf { it.isNotEmpty() }?.joinToString(" · ")
+
+private fun telemetryErrorEntry(
+    runtime: String,
+    state: String,
+    message: String?,
+): String? =
+    if (state == RuntimeTelemetryState.EngineError.wireValue) {
+        if (message.isNullOrBlank()) {
+            "$runtime telemetry failed"
+        } else {
+            "$runtime: $message"
+        }
+    } else {
+        null
+    }
 
 private fun DiagnosticsUiFactorySupport.buildLiveHighlights(
     telemetry: DiagnosticTelemetrySample?,
@@ -825,6 +852,13 @@ private fun DiagnosticsUiFactorySupport.buildLiveBody(
 
         telemetry == null -> {
             context.getString(R.string.diagnostics_live_body_waiting)
+        }
+
+        telemetry.telemetryErrorSummary() != null -> {
+            context.getString(
+                R.string.diagnostics_live_telemetry_error_format,
+                telemetry.telemetryErrorSummary(),
+            )
         }
 
         telemetry.lastFailureClass != null || telemetry.lastFallbackAction != null -> {

@@ -15,6 +15,8 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RuntimeTelemetryState
+import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
@@ -207,6 +209,8 @@ class AndroidDiagnosticsContextProvider
                 return "none"
             }
             return listOfNotNull(
+                telemetry.proxyTelemetryStatus.engineErrorMessageOrNull(),
+                telemetry.tunnelTelemetryStatus.engineErrorMessageOrNull(),
                 telemetry.proxyTelemetry.lastError?.takeIf { it.isNotBlank() },
                 telemetry.tunnelTelemetry.lastError?.takeIf { it.isNotBlank() },
             ).firstOrNull() ?: "none"
@@ -229,9 +233,13 @@ internal fun buildServiceRuntimeAssessment(
     serviceStatus: AppStatus,
     telemetry: ServiceTelemetrySnapshot,
 ): ConnectivityServiceRuntimeAssessment {
-    val failureClass = telemetry.runtimeFieldTelemetry.failureClass ?: "none"
+    val failureClass = telemetry.runtimeFieldTelemetry.failureClass?.wireValue ?: "none"
     val lastError =
         listOfNotNull(
+            telemetry.proxyTelemetryStatus.engineErrorMessageOrNull(),
+            telemetry.tunnelTelemetryStatus.engineErrorMessageOrNull(),
+            telemetry.relayTelemetryStatus.engineErrorMessageOrNull(),
+            telemetry.warpTelemetryStatus.engineErrorMessageOrNull(),
             telemetry.proxyTelemetry.lastError?.takeIf { it.isNotBlank() },
             telemetry.tunnelTelemetry.lastError?.takeIf { it.isNotBlank() },
             telemetry.relayTelemetry.lastError?.takeIf { it.isNotBlank() },
@@ -241,6 +249,10 @@ internal fun buildServiceRuntimeAssessment(
         serviceStatus == AppStatus.Halted &&
             (
                 failureClass != "none" ||
+                    telemetry.proxyTelemetryStatus.state == RuntimeTelemetryState.EngineError ||
+                    telemetry.tunnelTelemetryStatus.state == RuntimeTelemetryState.EngineError ||
+                    telemetry.relayTelemetryStatus.state == RuntimeTelemetryState.EngineError ||
+                    telemetry.warpTelemetryStatus.state == RuntimeTelemetryState.EngineError ||
                     lastError != "none" ||
                     !telemetry.proxyTelemetry.isIdleRuntimeSnapshot() ||
                     !telemetry.tunnelTelemetry.isIdleRuntimeSnapshot()
@@ -271,6 +283,13 @@ private fun NativeRuntimeSnapshot.isIdleRuntimeSnapshot(): Boolean =
         totalErrors == 0L &&
         lastError.isNullOrBlank() &&
         lastFailureClass.isNullOrBlank()
+
+private fun RuntimeTelemetryStatus.engineErrorMessageOrNull(): String? =
+    if (state == RuntimeTelemetryState.EngineError) {
+        message?.takeIf { it.isNotBlank() } ?: "runtime telemetry polling failed"
+    } else {
+        null
+    }
 
 internal fun booleanState(value: Boolean?): String =
     when (value) {

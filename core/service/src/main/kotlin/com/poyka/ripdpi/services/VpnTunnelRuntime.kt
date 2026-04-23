@@ -6,7 +6,7 @@ import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DnsModeEncrypted
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 
 internal class VpnTunnelRuntime(
     private val vpnHost: VpnCoordinatorHost,
@@ -83,7 +83,19 @@ internal class VpnTunnelRuntime(
         }
     }
 
-    suspend fun pollTelemetry(): Result<NativeRuntimeSnapshot?> = runCatching { tun2SocksBridge?.telemetry() }
+    suspend fun pollTelemetry(): RuntimeTelemetryOutcome {
+        val bridge = tun2SocksBridge ?: return RuntimeTelemetryOutcome.NoData
+        return runCatching { bridge.telemetry() }
+            .fold(
+                onSuccess = { RuntimeTelemetryOutcome.Snapshot(it) },
+                onFailure = { error ->
+                    RuntimeTelemetryOutcome.EngineError(
+                        message = error.message ?: "Tunnel telemetry polling failed",
+                        causeClass = error.javaClass.name,
+                    )
+                },
+            )
+    }
 
     fun resetRuntimeState() {
         currentDnsSignature = null

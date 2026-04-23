@@ -51,6 +51,8 @@ private fun buildTelemetryCsv(
         appendLine(
             "createdAt,activeMode,connectionState,networkType,publicIp,failureClass," +
                 "lastFailureClass,lastFallbackAction," +
+                "proxyTelemetryState,proxyTelemetryMessage,relayTelemetryState,relayTelemetryMessage," +
+                "warpTelemetryState,warpTelemetryMessage,tunnelTelemetryState,tunnelTelemetryMessage," +
                 "telemetryNetworkFingerprintHash,winningTcpStrategyFamily,winningQuicStrategyFamily," +
                 "winningStrategyFamily,networkIdentityBucket,targetBucket,recommendedTcpEmitterTier," +
                 "recommendedQuicEmitterTier,acceptanceMatrixCoveragePercent,winnerCoveragePercent," +
@@ -71,6 +73,14 @@ private fun buildTelemetryCsv(
                     sample.failureClass.orEmpty(),
                     sample.lastFailureClass.orEmpty(),
                     sample.lastFallbackAction.orEmpty(),
+                    sample.proxyTelemetryState,
+                    sample.proxyTelemetryMessage.orEmpty(),
+                    sample.relayTelemetryState,
+                    sample.relayTelemetryMessage.orEmpty(),
+                    sample.warpTelemetryState,
+                    sample.warpTelemetryMessage.orEmpty(),
+                    sample.tunnelTelemetryState,
+                    sample.tunnelTelemetryMessage.orEmpty(),
                     sample.telemetryNetworkFingerprintHash.orEmpty(),
                     sample.winningTcpStrategyFamily.orEmpty(),
                     sample.winningQuicStrategyFamily.orEmpty(),

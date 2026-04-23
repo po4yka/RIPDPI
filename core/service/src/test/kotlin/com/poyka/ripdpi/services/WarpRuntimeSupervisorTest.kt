@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiWarpConfig
+import com.poyka.ripdpi.data.RuntimeTelemetryOutcome
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -8,7 +9,9 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class WarpRuntimeSupervisorTest {
@@ -87,6 +90,43 @@ class WarpRuntimeSupervisorTest {
                 ),
                 exits,
             )
+        }
+
+    @Test
+    fun pollTelemetryReturnsEngineErrorWhenWarpRuntimeThrows() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val warpFactory = TestRipDpiWarpFactory()
+            val supervisor =
+                WarpRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    warpFactory = warpFactory,
+                    runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
+                )
+
+            supervisor.start(sampleWarpConfig()) {}
+            warpFactory.lastRuntime.telemetryFailure = IOException("warp telemetry crash")
+
+            val telemetry = supervisor.pollTelemetry()
+
+            assertTrue(telemetry is RuntimeTelemetryOutcome.EngineError)
+            assertEquals("warp telemetry crash", (telemetry as RuntimeTelemetryOutcome.EngineError).message)
+        }
+
+    @Test
+    fun pollTelemetryReturnsNoDataWhenWarpRuntimeIsMissing() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            val supervisor =
+                WarpRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    warpFactory = TestRipDpiWarpFactory(),
+                    runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
+                )
+
+            assertEquals(RuntimeTelemetryOutcome.NoData, supervisor.pollTelemetry())
         }
 
     private fun sampleWarpConfig(): RipDpiWarpConfig =
