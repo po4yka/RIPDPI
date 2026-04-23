@@ -88,11 +88,14 @@ private fun deriveDirectModePolicyEvaluation(
         }
     val hasOwnedStackOnly = results.any { it.outcome == "tls_ech_only" }
     val allAttemptsFailed = results.isNotEmpty() && results.all(ProbeResult::isDirectModeFailure)
+    val noDirectTlsFailure = allAttemptsFailed && (hasOwnedStackOnly || hasTlsPostClientHelloFailure)
+    val noDirectQuicFailure = allAttemptsFailed && hasQuicBlocked && !noDirectTlsFailure
+    val noDirectIpFailure = allAttemptsFailed && !noDirectTlsFailure && !noDirectQuicFailure
     val transportClass =
         when {
-            allAttemptsFailed -> DirectTransportClass.IP_BLOCK_SUSPECT
-            hasTlsPostClientHelloFailure || hasOwnedStackOnly -> DirectTransportClass.SNI_TLS_SUSPECT
+            hasOwnedStackOnly || hasTlsPostClientHelloFailure -> DirectTransportClass.SNI_TLS_SUSPECT
             hasQuicBlocked -> DirectTransportClass.QUIC_BLOCK_SUSPECT
+            noDirectIpFailure -> DirectTransportClass.IP_BLOCK_SUSPECT
             else -> null
         }
     val policy =
@@ -118,14 +121,14 @@ private fun deriveDirectModePolicyEvaluation(
                 TransportPolicy(
                     quicMode =
                         when {
-                            hasTlsPostClientHelloFailure -> QuicMode.HARD_DISABLE
-                            hasQuicBlocked -> QuicMode.SOFT_DISABLE
+                            noDirectTlsFailure -> QuicMode.HARD_DISABLE
+                            noDirectQuicFailure -> QuicMode.SOFT_DISABLE
                             else -> QuicMode.ALLOW
                         },
                     preferredStack = PreferredStack.H2,
                     dnsMode = DnsMode.SYSTEM,
                     tcpFamily =
-                        if (hasTlsPostClientHelloFailure) {
+                        if (noDirectTlsFailure) {
                             normalizeStrategyFamilyToTcpFamily(
                                 "tlsrec",
                             )
@@ -165,7 +168,9 @@ private fun deriveDirectModePolicyEvaluation(
     val reasonCode =
         when {
             hasOwnedStackOnly -> DirectModeReasonCode.OWNED_STACK_REQUIRED
-            allAttemptsFailed -> DirectModeReasonCode.IP_BLOCKED
+            noDirectTlsFailure -> DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
+            noDirectQuicFailure -> DirectModeReasonCode.QUIC_BLOCKED
+            noDirectIpFailure -> DirectModeReasonCode.IP_BLOCKED
             hasTlsPostClientHelloFailure -> DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
             hasQuicBlocked -> DirectModeReasonCode.QUIC_BLOCKED
             hasTransparentSuccess -> null

@@ -149,7 +149,7 @@ class DirectPathPolicyLearnerTest {
         }
 
     @Test
-    fun `all ips failed sets cooldown and later quic success clears negative verdict`() =
+    fun `all ips failed requires revalidation before persisting no direct solution`() =
         runTest {
             val fingerprint = sampleFingerprint()
             val store = TestServerCapabilityStore()
@@ -193,6 +193,76 @@ class DirectPathPolicyLearnerTest {
                 ),
             )
 
+            val record = store.directPathCapabilitiesForFingerprint(fingerprint.scopeKey()).single()
+            val envelope = record.effectiveTransportPolicyEnvelope()
+
+            assertEquals(100L, record.updatedAt)
+            assertEquals(DirectModeOutcome.TRANSPARENT_OK, envelope.policy.outcome)
+            assertEquals(DirectTransportClass.SNI_TLS_SUSPECT, envelope.transportClass)
+            assertEquals(DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE, envelope.reasonCode)
+            assertNull(envelope.cooldownUntil)
+        }
+
+    @Test
+    fun `verified all ips failed sets cooldown and later quic success clears negative verdict`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val store = TestServerCapabilityStore()
+            val learner =
+                DirectPathPolicyLearner(
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    serverCapabilityStore = store,
+                )
+            val authority = "example.org:443"
+            val digest = "feedface"
+
+            learner.consume(
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    state = "running",
+                    directPathLearningSignals =
+                        listOf(
+                            DirectPathLearningSignal(
+                                authority = authority,
+                                ipSetDigest = digest,
+                                event = DirectPathLearningEvent.TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK,
+                                strategyFamily = "tlsrec_disorder",
+                                capturedAt = 100L,
+                            ),
+                        ),
+                ),
+            )
+            learner.consume(
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    state = "running",
+                    directPathLearningSignals =
+                        listOf(
+                            DirectPathLearningSignal(
+                                authority = authority,
+                                ipSetDigest = digest,
+                                event = DirectPathLearningEvent.ALL_IPS_FAILED,
+                                capturedAt = 200L,
+                            ),
+                        ),
+                ),
+            )
+            learner.consume(
+                NativeRuntimeSnapshot(
+                    source = "proxy",
+                    state = "running",
+                    directPathLearningSignals =
+                        listOf(
+                            DirectPathLearningSignal(
+                                authority = authority,
+                                ipSetDigest = digest,
+                                event = DirectPathLearningEvent.ALL_IPS_FAILED,
+                                capturedAt = 250L,
+                            ),
+                        ),
+                ),
+            )
+
             var record = store.directPathCapabilitiesForFingerprint(fingerprint.scopeKey()).single()
             var envelope = record.effectiveTransportPolicyEnvelope()
             assertEquals(QuicMode.HARD_DISABLE, envelope.policy.quicMode)
@@ -200,7 +270,7 @@ class DirectPathPolicyLearnerTest {
             assertEquals(DirectModeOutcome.NO_DIRECT_SOLUTION, envelope.policy.outcome)
             assertEquals(DirectTransportClass.IP_BLOCK_SUSPECT, envelope.transportClass)
             assertEquals(DirectModeReasonCode.IP_BLOCKED, envelope.reasonCode)
-            assertEquals(200L + DirectModeNoDirectSolutionCooldownMs, envelope.cooldownUntil)
+            assertEquals(250L + DirectModeNoDirectSolutionCooldownMs, envelope.cooldownUntil)
 
             learner.consume(
                 NativeRuntimeSnapshot(
