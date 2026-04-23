@@ -1,5 +1,10 @@
 # RIPDPI Design System
 
+`DESIGN.md` at the repository root is the portable, agent-readable summary of the RIPDPI visual identity.
+This document is the engineering supplement for behaviors and constraints that the current `DESIGN.md`
+format does not express well enough, such as adaptive layout rules, icon policy, accessibility baselines,
+and screenshot testing.
+
 ## Primitives
 
 The shared design system exposed through `RipDpiThemeTokens` is limited to four app-level primitives:

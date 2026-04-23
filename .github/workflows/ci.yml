@@ -77,6 +77,20 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  design-md-lint:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Lint DESIGN.md
+        run: npx --yes @google/design.md lint DESIGN.md
+
   build:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest

@@ -39,6 +39,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 
 ## UI & Design
 
+- [Portable design spec](../DESIGN.md)
 - [Design system](design-system.md)
 - [Host-pack presets](host-pack-presets.md)
 
