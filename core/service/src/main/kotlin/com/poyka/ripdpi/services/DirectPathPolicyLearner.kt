@@ -41,6 +41,7 @@ internal class DirectPathPolicyLearner
         private var cachedFingerprintHash: String? = null
         private val cachedEnvelopes = linkedMapOf<DirectPathTupleKey, TransportPolicyEnvelope>()
         private val lastAppliedSignatures = linkedMapOf<DirectPathTupleKey, String>()
+        private val pendingNoDirectSolutions = linkedMapOf<DirectPathTupleKey, Long>()
 
         override suspend fun consume(snapshot: NativeRuntimeSnapshot) {
             if (snapshot.directPathLearningSignals.isEmpty()) {
@@ -52,6 +53,16 @@ internal class DirectPathPolicyLearner
 
             collapseSignals(snapshot.directPathLearningSignals).forEach { (tupleKey, signal) ->
                 val current = cachedEnvelopes[tupleKey]
+                if (signal.event == DirectPathLearningEvent.ALL_IPS_FAILED &&
+                    !shouldPersistNoDirectSolution(tupleKey, current)
+                ) {
+                    pendingNoDirectSolutions[tupleKey] = signal.capturedAt
+                    trimCaches()
+                    return@forEach
+                }
+                if (signal.event != DirectPathLearningEvent.ALL_IPS_FAILED) {
+                    pendingNoDirectSolutions.remove(tupleKey)
+                }
                 val next = computeEnvelope(signal, current) ?: return@forEach
                 val signature = envelopeSignature(next)
                 if (current == next || lastAppliedSignatures[tupleKey] == signature) {
@@ -86,6 +97,7 @@ internal class DirectPathPolicyLearner
             cachedFingerprintHash = fingerprintHash
             cachedEnvelopes.clear()
             lastAppliedSignatures.clear()
+            pendingNoDirectSolutions.clear()
             serverCapabilityStore
                 .directPathCapabilitiesForFingerprint(fingerprintHash)
                 .forEach { record ->
@@ -97,6 +109,16 @@ internal class DirectPathPolicyLearner
                     cachedEnvelopes[tupleKey] = record.effectiveTransportPolicyEnvelope()
                     lastAppliedSignatures[tupleKey] = envelopeSignature(record.effectiveTransportPolicyEnvelope())
                 }
+        }
+
+        private fun shouldPersistNoDirectSolution(
+            tupleKey: DirectPathTupleKey,
+            current: TransportPolicyEnvelope?,
+        ): Boolean {
+            if (current?.policy?.outcome == DirectModeOutcome.NO_DIRECT_SOLUTION) {
+                return true
+            }
+            return pendingNoDirectSolutions.remove(tupleKey) != null
         }
 
         private fun collapseSignals(
@@ -232,6 +254,10 @@ internal class DirectPathPolicyLearner
                 val eldest = cachedEnvelopes.entries.firstOrNull()?.key ?: break
                 cachedEnvelopes.remove(eldest)
                 lastAppliedSignatures.remove(eldest)
+            }
+            while (pendingNoDirectSolutions.size > CacheLimit) {
+                val eldest = pendingNoDirectSolutions.entries.firstOrNull()?.key ?: break
+                pendingNoDirectSolutions.remove(eldest)
             }
         }
     }

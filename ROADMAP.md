@@ -101,6 +101,16 @@ Status: COMPLETE.
 - Promoted poisoned DNS results into authority-scoped `DOH_PRIMARY` / `DOH_SECONDARY` policy hints while leaving full resolver-mapping enforcement as a follow-up slice.
 - Added focused Kotlin and Rust regression coverage for the new classifier contract, policy persistence, and runtime-context sanitization.
 
+### 2026-04-23: Honest Direct-Mode Transport Verdicts
+
+Status: COMPLETE.
+
+- Tightened direct-mode verdict derivation so `NO_DIRECT_SOLUTION` now preserves the real transport cause instead of collapsing every all-fail authority into `IP_BLOCK_SUSPECT`.
+- Differentiated TLS-blocked, QUIC-blocked, and likely-IP-blocked direct failures in diagnostics while keeping `OWNED_STACK_ONLY` as a separate outcome.
+- Added a false-positive guard in the runtime learner so `ALL_IPS_FAILED` must reappear on the next flow before persisting `NO_DIRECT_SOLUTION` / `IP_BLOCK_SUSPECT`.
+- Kept tuple-scoped cached policy in place while preventing the new re-verification guard from regressing later positive signals like `QUIC_SUCCESS`.
+- Added service and diagnostics regression coverage for the re-verification path and the reason-specific verdict summary text.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.

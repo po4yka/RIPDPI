@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.DirectModeReasonCode
+import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 
@@ -36,12 +38,8 @@ private fun deriveDisplaySummary(
     hasPartialResults: Boolean,
 ): String =
     when {
-        directModeVerdict?.result == com.poyka.ripdpi.data.DirectModeVerdictResult.OWNED_STACK_ONLY -> {
-            "Direct mode works only in RIPDPI owned stack"
-        }
-
-        directModeVerdict?.result == com.poyka.ripdpi.data.DirectModeVerdictResult.NO_DIRECT_SOLUTION -> {
-            "No direct solution for this authority"
+        directModeVerdictSummary(directModeVerdict) != null -> {
+            directModeVerdictSummary(directModeVerdict).orEmpty()
         }
 
         strategyCompletionKind == StrategyProbeCompletionKind.DNS_TAMPERING_WITH_FALLBACK -> {
@@ -54,5 +52,42 @@ private fun deriveDisplaySummary(
 
         else -> {
             rawSummary
+        }
+    }
+
+private fun directModeVerdictSummary(verdict: DirectModeVerdict?): String? =
+    when (verdict?.result) {
+        DirectModeVerdictResult.OWNED_STACK_ONLY -> {
+            "Direct mode works only in RIPDPI owned stack"
+        }
+
+        DirectModeVerdictResult.NO_DIRECT_SOLUTION -> {
+            when (verdict.reasonCode) {
+                DirectModeReasonCode.IP_BLOCKED -> {
+                    "No direct solution: likely IP block for this authority"
+                }
+
+                DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE -> {
+                    "No direct solution: TLS blocked after ClientHello"
+                }
+
+                DirectModeReasonCode.QUIC_BLOCKED -> {
+                    "No direct solution: QUIC blocked without TCP recovery"
+                }
+
+                DirectModeReasonCode.NO_TCP_FALLBACK -> {
+                    "No direct solution: app did not fall back from QUIC"
+                }
+
+                else -> {
+                    "No direct solution for this authority"
+                }
+            }
+        }
+
+        DirectModeVerdictResult.TRANSPARENT_WORKS,
+        null,
+        -> {
+            null
         }
     }

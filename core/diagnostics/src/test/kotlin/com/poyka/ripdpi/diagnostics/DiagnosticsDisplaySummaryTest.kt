@@ -213,7 +213,51 @@ class DiagnosticsDisplaySummaryTest {
                     ),
             ).displaySummary()
 
-        assertEquals("No direct solution for this authority", summary)
+        assertEquals("No direct solution: likely IP block for this authority", summary)
+    }
+
+    @Test
+    fun `summary projector surfaces tls blocked no direct solution reason`() {
+        val summary =
+            ScanReport(
+                sessionId = "session-no-direct-tls",
+                profileId = "automatic-probing",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 10L,
+                finishedAt = 20L,
+                summary = "Scan completed",
+                directModeVerdict =
+                    DirectModeVerdict(
+                        result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
+                        reasonCode = DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE,
+                        transportClass = DirectTransportClass.SNI_TLS_SUSPECT,
+                        authority = "example.org",
+                    ),
+            ).displaySummary()
+
+        assertEquals("No direct solution: TLS blocked after ClientHello", summary)
+    }
+
+    @Test
+    fun `summary projector surfaces no tcp fallback no direct solution reason`() {
+        val summary =
+            ScanReport(
+                sessionId = "session-no-direct-quic",
+                profileId = "automatic-probing",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 10L,
+                finishedAt = 20L,
+                summary = "Scan completed",
+                directModeVerdict =
+                    DirectModeVerdict(
+                        result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
+                        reasonCode = DirectModeReasonCode.NO_TCP_FALLBACK,
+                        transportClass = DirectTransportClass.QUIC_BLOCK_SUSPECT,
+                        authority = "example.org",
+                    ),
+            ).displaySummary()
+
+        assertEquals("No direct solution: app did not fall back from QUIC", summary)
     }
 
     private fun strategyProbeReport(completionKind: StrategyProbeCompletionKind): StrategyProbeReport =
