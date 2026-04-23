@@ -68,6 +68,7 @@ import com.poyka.ripdpi.data.normalizeQuicFakeProfile
 import com.poyka.ripdpi.data.normalizeQuicInitialMode
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
 import com.poyka.ripdpi.data.normalizeRelayKind
+import com.poyka.ripdpi.data.normalizeRelayStringList
 import com.poyka.ripdpi.data.normalizeRelayVlessTransport
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
 import com.poyka.ripdpi.data.normalizeTlsFakeProfile
@@ -202,6 +203,13 @@ internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig 
         tuicCongestionControl = normalizeRelayCongestionControl(config.tuicCongestionControl),
         shadowTlsInnerProfileId = config.shadowTlsInnerProfileId.trim(),
         naivePath = config.naivePath.trim(),
+        appsScriptScriptIds = normalizeRelayStringList(config.appsScriptScriptIds),
+        appsScriptGoogleIp = config.appsScriptGoogleIp.trim(),
+        appsScriptFrontDomain = config.appsScriptFrontDomain.trim(),
+        appsScriptSniHosts = normalizeRelayStringList(config.appsScriptSniHosts),
+        appsScriptVerifySsl = config.appsScriptVerifySsl,
+        appsScriptParallelRelay = config.appsScriptParallelRelay,
+        appsScriptDirectHosts = normalizeRelayStringList(config.appsScriptDirectHosts),
         localSocksHost = config.localSocksHost.ifBlank { DefaultRelayLocalSocksHost },
         localSocksPort = config.localSocksPort.takeIf { it in 1..MaxValidPortNumber } ?: DefaultRelayLocalSocksPort,
         udpEnabled =

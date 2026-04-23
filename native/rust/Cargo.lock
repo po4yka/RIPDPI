@@ -3046,6 +3046,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-apps-script-core"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "flate2",
+ "rcgen",
+ "rustls",
+ "rustls-pemfile",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "time",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+ "webpki-roots 1.0.6",
+]
+
+[[package]]
 name = "ripdpi-bench"
 version = "0.1.0"
 dependencies = [
@@ -3311,7 +3330,9 @@ dependencies = [
  "android-support",
  "jni 0.22.4",
  "once_cell",
+ "ripdpi-apps-script-core",
  "ripdpi-relay-core",
+ "rustls",
  "serde",
  "serde_json",
  "tokio",
@@ -3703,6 +3724,15 @@ dependencies = [
  "rustls-pki-types",
  "schannel",
  "security-framework",
+]
+
+[[package]]
+name = "rustls-pemfile"
+version = "2.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dce314e5fee3f39953d46bb63bb8a46d40c2f8fb7cc5a3b6cab2bde9721d6e50"
+dependencies = [
+ "rustls-pki-types",
 ]
 
 [[package]]
