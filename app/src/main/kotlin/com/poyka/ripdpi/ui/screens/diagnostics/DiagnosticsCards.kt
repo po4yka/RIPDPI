@@ -68,6 +68,10 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
+import com.poyka.ripdpi.ui.components.chrome.RipDpiScreenSectionHeader
+import com.poyka.ripdpi.ui.components.chrome.RipDpiTelemetryEntry
+import com.poyka.ripdpi.ui.components.chrome.RipDpiTelemetryRows
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
@@ -220,15 +224,9 @@ internal fun CompactProbeRow(
 internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard {
-        Text(
-            text = snapshot.title.uppercase(),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
-        Text(
-            text = snapshot.subtitle,
-            style = RipDpiThemeTokens.type.secondaryBody,
-            color = RipDpiThemeTokens.colors.foreground,
+        RipDpiPanelHeader(
+            title = snapshot.title,
+            supporting = snapshot.subtitle,
         )
         snapshot.fieldGroups.forEachIndexed { groupIndex, group ->
             val visibleFields =
@@ -243,14 +241,16 @@ internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
             if (snapshot.fieldGroups.size > 1) {
                 SettingsCategoryHeader(title = group.header, showDivider = true)
             }
-            visibleFields.forEachIndexed { fieldIndex, field ->
-                SettingsRow(
-                    title = field.label,
-                    value = field.value,
-                    monospaceValue = field.value.length > MonospaceThresholdChars,
-                    showDivider = fieldIndex != visibleFields.lastIndex,
-                )
-            }
+            RipDpiTelemetryRows(
+                entries =
+                    visibleFields.map { field ->
+                        RipDpiTelemetryEntry(
+                            label = field.label,
+                            value = field.value,
+                            monospaceValue = field.value.length > MonospaceThresholdChars,
+                        )
+                    },
+            )
         }
     }
 }
@@ -260,19 +260,17 @@ internal fun ContextGroupCard(group: DiagnosticsContextGroupUiModel) {
     val visibleFields = group.fields.filter { it.value.isNotBlank() && !it.value.equals("Unknown", ignoreCase = true) }
     if (visibleFields.isEmpty()) return
     RipDpiCard {
-        Text(
-            text = group.title.uppercase(),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = RipDpiThemeTokens.colors.mutedForeground,
+        RipDpiScreenSectionHeader(title = group.title)
+        RipDpiTelemetryRows(
+            entries =
+                visibleFields.map { field ->
+                    RipDpiTelemetryEntry(
+                        label = field.label,
+                        value = field.value,
+                        monospaceValue = field.value.length > 18,
+                    )
+                },
         )
-        visibleFields.forEachIndexed { index, field ->
-            SettingsRow(
-                title = field.label,
-                value = field.value,
-                monospaceValue = field.value.length > 18,
-                showDivider = index != visibleFields.lastIndex,
-            )
-        }
     }
 }
 
@@ -1121,26 +1119,6 @@ internal fun DiagnosticsPreviewCard(
                 tone = statusTone(archiveStateTone),
             )
         }
-    }
-}
-
-@Composable
-internal fun EmptyStateCard(
-    title: String,
-    body: String,
-    modifier: Modifier = Modifier,
-) {
-    RipDpiCard(modifier = modifier) {
-        Text(
-            text = title,
-            style = RipDpiThemeTokens.type.bodyEmphasis,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
-        Text(
-            text = body,
-            style = RipDpiThemeTokens.type.body,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
     }
 }
 
