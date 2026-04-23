@@ -188,7 +188,7 @@ private fun RipDpiModalIconBadge(
     Box(
         modifier =
             modifier
-                .size(components.dialogIconSize)
+                .size(components.feedback.dialogIconSize)
                 .background(color = surfaceStyle.container, shape = RipDpiThemeTokens.shapes.full),
         contentAlignment = Alignment.Center,
     ) {

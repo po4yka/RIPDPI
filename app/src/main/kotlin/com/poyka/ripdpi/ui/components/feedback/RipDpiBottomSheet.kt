@@ -173,8 +173,8 @@ private fun RipDpiBottomSheetHandle() {
     Box(
         modifier =
             Modifier
-                .padding(top = components.sheetHandleTopPadding)
-                .size(width = components.sheetHandleWidth, height = components.sheetHandleHeight)
+                .padding(top = components.sheets.handleTopPadding)
+                .size(width = components.sheets.handleWidth, height = components.sheets.handleHeight)
                 .background(color = colors.border, shape = RipDpiThemeTokens.shapes.full),
     )
 }
@@ -187,7 +187,7 @@ private fun RipDpiBottomSheetIconBadge(icon: ImageVector) {
     Box(
         modifier =
             Modifier
-                .size(components.dialogIconSize)
+                .size(components.feedback.dialogIconSize)
                 .background(color = surfaceStyle.container, shape = RipDpiThemeTokens.shapes.full),
         contentAlignment = Alignment.Center,
     ) {

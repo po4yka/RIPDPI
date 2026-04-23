@@ -9,7 +9,7 @@ class RipDpiStateTokensTest {
         ripDpiStateTokens(
             colors = LightRipDpiExtendedColors,
             colorScheme = ripDpiLightColorScheme(),
-            components = DefaultRipDpiComponentMetrics,
+            components = DefaultRipDpiComponents,
             motion = DefaultRipDpiMotion,
         )
 

@@ -893,8 +893,8 @@ private fun EventRow(
                                 color = colors.inputBackground,
                                 shape = RipDpiThemeTokens.shapes.xxl,
                             ).padding(
-                                horizontal = components.compactPillHorizontalPadding,
-                                vertical = components.compactPillVerticalPadding,
+                                horizontal = components.rows.compactPillHorizontalPadding,
+                                vertical = components.rows.compactPillVerticalPadding,
                             ),
                 ) {
                     Text(
