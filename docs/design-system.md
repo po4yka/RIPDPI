@@ -178,6 +178,48 @@ Onboarding and permission flows:
 - Keep the centered narrative, stable footer action, and large-font resilience.
 - Increase breathing room, not decorative flourish.
 
+## Layout Recipes
+
+### Two-Column Dashboard Split
+
+- Use `RipDpiDashboardScaffold` as the outer scaffold and prefer `RipDpiAdaptiveColumns` or the equivalent primary/secondary column split for expanded widths.
+- Keep the primary column for current state, primary actions, and live remediation. Keep the secondary column for overview, supporting history, or lower-priority context.
+- Preserve the same content order when collapsing to one column; compact layouts stack the primary column before the secondary column instead of reinterpreting section meaning.
+- Use section gaps and card boundaries to separate concerns rather than adding nested background panels inside each column.
+- Do not stretch dashboard cards edge to edge on large screens and do not create a third competing action rail.
+
+### Dense Settings List
+
+- Use `RipDpiSettingsScaffold` for list-heavy settings and `RipDpiContentScreenScaffold` for bounded settings detail flows.
+- Structure the body as `SettingsCategoryHeader` followed by one primary `RipDpiCard` or grouped container with `SettingsRow`, fields, or toggles inside.
+- Keep section width bounded to form width, preserve stable divider rhythm, and let density come from compact rows rather than reduced hit targets.
+- Place banners immediately above the affected category card when needed; banners annotate the list but do not replace the list structure.
+- Do not mix full-width free-floating controls, bespoke cards, and row groups inside one category without a clear hierarchy reason.
+
+### Diagnostics Evidence Panel
+
+- Use `RipDpiCard` as the evidence frame and divide evidence into labeled groups with `SettingsCategoryHeader`, `SettingsRow`, `StatusIndicator`, and monospace value roles.
+- Put workflow controls, progress, recommendations, and latest evidence in separate card or section boundaries even when they appear in the same diagnostic tab.
+- Keep operator-facing facts scannable: labels on the left, stable values on the right or below, and semantic tone only where judgment changes.
+- Move session, event, and probe drill-down into `RipDpiBottomSheet` or dialog detail instead of endlessly expanding the main card stack.
+- Do not use ungrouped long text dumps or feature-local tinted containers when a shared evidence card structure is available.
+
+### Monospace Log Stream
+
+- Use `RipDpiScreenScaffold` with a quiet overview card and filters above a single dominant `LogsStreamCard`.
+- Render every actual entry with `LogRow`; reserve `SettingsRow` for stream controls, binary filters, and summary facts only.
+- Keep the stream within one bounded card, using compact spacing, quiet separators, and monospace roles for timestamps, subsystem labels, and payload text.
+- Empty or filtered-empty states should appear as dedicated cards occupying the stream slot so the screen layout does not jump.
+- Do not wrap each log line in its own card, insert banners between entries, or add loud status color to routine rows.
+
+### Intro Hero + Footer Flow
+
+- Use `RipDpiIntroScaffold` and `rememberRipDpiIntroScaffoldMetrics()` to keep top action, centered hero content, and footer actions aligned across onboarding and permission flows.
+- Keep the hero vertically centered with illustration or badge, title, body, and optional inline content, while the footer remains pinned and stable at the bottom.
+- Reserve the top action row for skip, dismiss, or lightweight navigation text; primary decisions belong in the footer action cluster.
+- Maintain large-font resilience by using bounded intro width, generous vertical gaps, and stable footer spacing instead of shrinking controls.
+- Do not push primary actions into the centered hero stack or let the footer float upward unpredictably as content changes.
+
 ## Screen Contracts
 
 ### Home
