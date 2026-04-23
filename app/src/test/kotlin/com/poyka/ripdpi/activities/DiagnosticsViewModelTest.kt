@@ -668,9 +668,14 @@ class DiagnosticsViewModelTest {
             assertTrue(scan.selectedProfileScopeLabel.orEmpty().contains("raw-path only"))
             assertNotNull(scan.runRawHint)
             assertNotNull(scan.workflowRestriction)
+            assertNotNull(scan.remediationLadder)
             assertEquals(
                 DiagnosticsWorkflowRestrictionReasonUiModel.COMMAND_LINE_MODE_ACTIVE,
                 scan.workflowRestriction?.reason,
+            )
+            assertEquals(
+                DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS,
+                scan.remediationLadder?.primaryAction?.kind,
             )
             assertTrue(
                 scan.workflowRestriction
@@ -1686,7 +1691,7 @@ class DiagnosticsViewModelTest {
                             ),
                         )
                 }
-            val appContext = RuntimeEnvironment.getApplication<android.content.Context>()
+            val appContext: android.content.Context = RuntimeEnvironment.getApplication()
             val viewModel =
                 createDiagnosticsViewModel(
                     appContext,

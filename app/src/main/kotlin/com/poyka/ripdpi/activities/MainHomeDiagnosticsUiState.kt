@@ -109,6 +109,29 @@ internal fun buildHomeDiagnosticsUiState(
                 stringResolver.getString(R.string.home_diagnostics_verified_vpn_body)
             }
         }
+    val latestAudit =
+        runtime.latestCompositeOutcome?.let { outcome ->
+            HomeDiagnosticsLatestAuditUiState(
+                headline = outcome.headline,
+                summary = outcome.summary,
+                recommendationSummary = outcome.recommendationSummary,
+                completedStageCount = outcome.completedStageCount,
+                failedStageCount = outcome.failedStageCount,
+                totalStageCount = outcome.stageSummaries.size,
+                stale = fingerprintMismatch,
+                actionable = outcome.actionable && !fingerprintMismatch,
+            )
+        }
+    val remediationLadder =
+        if (analysisBusy || verificationBusy || runtime.externalScanActive) {
+            null
+        } else {
+            stringResolver.buildHomeRemediationLadder(
+                commandLineBlocked = settings.enableCmdSettings,
+                fingerprintMismatch = fingerprintMismatch,
+                latestOutcome = latestAudit,
+            )
+        }
 
     val quickScanBusy = analysisBusy && runtime.quickScanActive
     val pcapToggleVisible = settings.rootModeEnabled
@@ -130,19 +153,8 @@ internal fun buildHomeDiagnosticsUiState(
                 enabled = verificationEnabled,
                 busy = verificationBusy,
             ),
-        latestAudit =
-            runtime.latestCompositeOutcome?.let { outcome ->
-                HomeDiagnosticsLatestAuditUiState(
-                    headline = outcome.headline,
-                    summary = outcome.summary,
-                    recommendationSummary = outcome.recommendationSummary,
-                    completedStageCount = outcome.completedStageCount,
-                    failedStageCount = outcome.failedStageCount,
-                    totalStageCount = outcome.stageSummaries.size,
-                    stale = fingerprintMismatch,
-                    actionable = outcome.actionable && !fingerprintMismatch,
-                )
-            },
+        latestAudit = latestAudit,
+        remediationLadder = remediationLadder,
         analysisProgress =
             runtime.activeRunProgress?.takeIf { analysisBusy }?.let { progress ->
                 AnalysisProgressUiState(
@@ -231,6 +243,7 @@ internal fun buildHomeDiagnosticsUiState(
                         installedVpnDetectorCount = outcome.installedVpnDetectorCount,
                         installedVpnDetectorTopApps = outcome.installedVpnDetectorTopApps,
                         pcapRecordingRequested = outcome.pcapRecordingRequested,
+                        remediationLadder = remediationLadder,
                         actionableHeadline = outcome.actionableHeadline,
                         actionableNextSteps = outcome.actionableNextSteps,
                         networkCharacterRows = buildNetworkCharacterRows(outcome.networkCharacter, stringResolver),

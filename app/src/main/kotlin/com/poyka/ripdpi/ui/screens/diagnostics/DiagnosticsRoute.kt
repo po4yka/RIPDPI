@@ -185,6 +185,7 @@ fun DiagnosticsRoute(
         onSaveArchive = viewModel::saveArchive,
         onSaveLogs = onSaveLogs,
         onOpenAdvancedSettings = onOpenAdvancedSettings,
+        onOpenDnsSettings = onOpenDnsSettings,
         onOpenDetectionCheck = onOpenDetectionCheck,
         onRequestVpnPermission = onRequestVpnPermission,
         onOpenHistory = onOpenHistory,

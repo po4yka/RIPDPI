@@ -21,6 +21,10 @@ import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRemediationStepUiModel
 import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSection
@@ -76,7 +80,8 @@ class DiagnosticsScreenTest {
 
     @Suppress("LongMethod")
     @Test
-    fun resolverRecommendationActionsAreRendered() {
+    fun resolverRecommendationLadderOpensDnsSettings() {
+        var openDnsSettingsCalls = 0
         composeRule.setContent {
             val pagerState =
                 rememberPagerState(
@@ -90,6 +95,14 @@ class DiagnosticsScreenTest {
                             selectedSection = DiagnosticsSection.Scan,
                             scan =
                                 DiagnosticsScanUiModel(
+                                    selectedProfile =
+                                        DiagnosticsProfileOptionUiModel(
+                                            id = "automatic-probing",
+                                            name = "Automatic probing",
+                                            source = "bundled",
+                                            kind = ScanKind.STRATEGY_PROBE,
+                                            strategyProbeSuiteId = "quick_v1",
+                                        ),
                                     latestSession =
                                         DiagnosticsSessionRowUiModel(
                                             id = "session-1",
@@ -111,6 +124,13 @@ class DiagnosticsScreenTest {
                                             fields = emptyList(),
                                             appliedTemporarily = true,
                                             persistable = true,
+                                        ),
+                                    remediationLadder =
+                                        remediationLadder(
+                                            title = "Review DNS remediation",
+                                            summary = "Open DNS settings and review the recommended resolver.",
+                                            actionLabel = "Open DNS Settings",
+                                            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,
                                         ),
                                 ),
                         ),
@@ -144,14 +164,16 @@ class DiagnosticsScreenTest {
                     onShareArchive = {},
                     onSaveArchive = {},
                     onSaveLogs = {},
+                    onOpenDnsSettings = { openDnsSettingsCalls += 1 },
                     onOpenHistory = {},
                 )
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsResolverRecommendationCard).fetchSemanticsNode()
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsResolverKeepSession).fetchSemanticsNode()
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsResolverSaveSetting).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderCard).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsResolverRecommendationCard).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderAction).performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(1, openDnsSettingsCalls) }
     }
 
     @Test
@@ -1009,6 +1031,16 @@ class DiagnosticsScreenTest {
                     selectedProfileScopeLabel = "Automatic audit · raw-path only · blocked by command-line mode",
                     runRawEnabled = false,
                     runInPathEnabled = false,
+                    remediationLadder =
+                        remediationLadder(
+                            title = "Automatic audit unavailable",
+                            summary =
+                                "Automatic audit is blocked because Use command line settings is enabled. " +
+                                    "Turn it off in Advanced Settings before running this workflow.",
+                            actionLabel = "Open Advanced Settings",
+                            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS,
+                            tone = DiagnosticsTone.Negative,
+                        ),
                     workflowRestriction =
                         workflowRestriction(
                             title = "Automatic audit unavailable",
@@ -1020,10 +1052,12 @@ class DiagnosticsScreenTest {
             onOpenAdvancedSettings = { openAdvancedSettingsCalls += 1 },
         )
 
-        composeRule.onRoot().performTouchInput { swipeUp() }
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).fetchSemanticsNode()
-        composeRule.onNodeWithText("Use command line settings").fetchSemanticsNode()
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionAction).performClick()
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.DiagnosticsRemediationLadderCard,
+            ).performScrollTo()
+            .fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderAction).performScrollTo().performClick()
         composeRule.runOnIdle { assertEquals(1, openAdvancedSettingsCalls) }
     }
 
@@ -1043,6 +1077,16 @@ class DiagnosticsScreenTest {
                     selectedProfileScopeLabel = "Automatic probing · raw-path only · blocked by command-line mode",
                     runRawEnabled = false,
                     runInPathEnabled = false,
+                    remediationLadder =
+                        remediationLadder(
+                            title = "Automatic probing unavailable",
+                            summary =
+                                "Automatic probing is blocked because Use command line settings is enabled. " +
+                                    "Turn it off in Advanced Settings before running this workflow.",
+                            actionLabel = "Open Advanced Settings",
+                            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS,
+                            tone = DiagnosticsTone.Negative,
+                        ),
                     workflowRestriction =
                         workflowRestriction(
                             title = "Automatic probing unavailable",
@@ -1053,9 +1097,11 @@ class DiagnosticsScreenTest {
                 ),
         )
 
-        composeRule.onRoot().performTouchInput { swipeUp() }
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).fetchSemanticsNode()
-        composeRule.onNodeWithText("Use command line settings").fetchSemanticsNode()
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.DiagnosticsRemediationLadderCard,
+            ).performScrollTo()
+            .fetchSemanticsNode()
     }
 
     @Test
@@ -1084,7 +1130,7 @@ class DiagnosticsScreenTest {
 
         composeRule.onRoot().performTouchInput { swipeUp() }
         composeRule.onNodeWithText("Automatic probing · raw-path only").fetchSemanticsNode()
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderCard).assertDoesNotExist()
     }
 
     @Test
@@ -1104,7 +1150,7 @@ class DiagnosticsScreenTest {
                 ),
         )
 
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderCard).assertDoesNotExist()
     }
 
     @Test
@@ -1124,6 +1170,16 @@ class DiagnosticsScreenTest {
                         ),
                     runRawEnabled = true,
                     runInPathEnabled = false,
+                    remediationLadder =
+                        remediationLadder(
+                            title = "VPN permission recommended",
+                            summary =
+                                "Automatic probing recommendations assume VPN routing. " +
+                                    "Without VPN permission, the recommended strategy cannot be applied " +
+                                    "in VPN mode. Grant permission before running this audit for actionable results.",
+                            actionLabel = "Grant VPN permission",
+                            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION,
+                        ),
                     workflowRestriction =
                         vpnPermissionRestriction(
                             title = "VPN permission recommended",
@@ -1137,11 +1193,30 @@ class DiagnosticsScreenTest {
         )
 
         composeRule.onRoot().performTouchInput { swipeUp() }
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderCard).fetchSemanticsNode()
         composeRule.onNodeWithText("Use command line settings").assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionAction).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderAction).performClick()
         composeRule.runOnIdle { assertEquals(1, vpnPermissionClicks) }
     }
+
+    private fun remediationLadder(
+        title: String,
+        summary: String,
+        actionLabel: String,
+        actionKind: DiagnosticsRemediationActionKindUiModel,
+        tone: DiagnosticsTone = DiagnosticsTone.Warning,
+    ) = DiagnosticsRemediationLadderUiModel(
+        title = title,
+        summary = summary,
+        steps =
+            persistentListOf(
+                DiagnosticsRemediationStepUiModel("Open the recommended next step."),
+                DiagnosticsRemediationStepUiModel("Review the current diagnostics state."),
+                DiagnosticsRemediationStepUiModel("Retry the workflow after the change."),
+            ),
+        primaryAction = DiagnosticsRemediationActionUiModel(label = actionLabel, kind = actionKind),
+        tone = tone,
+    )
 
     @Suppress("LongMethod")
     private fun auditReport(
@@ -1349,6 +1424,8 @@ class DiagnosticsScreenTest {
         scan: DiagnosticsScanUiModel,
         onOpenAdvancedSettings: () -> Unit = {},
         onRequestVpnPermission: () -> Unit = {},
+        onOpenDnsSettings: () -> Unit = {},
+        onOpenHistory: () -> Unit = {},
     ) {
         composeRule.setContent {
             val pagerState =
@@ -1394,8 +1471,9 @@ class DiagnosticsScreenTest {
                     onSaveArchive = {},
                     onSaveLogs = {},
                     onOpenAdvancedSettings = onOpenAdvancedSettings,
+                    onOpenDnsSettings = onOpenDnsSettings,
                     onRequestVpnPermission = onRequestVpnPermission,
-                    onOpenHistory = {},
+                    onOpenHistory = onOpenHistory,
                 )
             }
         }

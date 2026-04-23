@@ -97,6 +97,14 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
         } else {
             null
         }
+    val remediationLadder =
+        buildScanRemediationLadder(
+            selectedProfile = selectedProfile,
+            workflowRestriction = workflowRestriction,
+            resolverRecommendation = params.latestResolverRecommendation,
+            strategyProbeReport = params.latestStrategyProbeReport,
+            latestSession = params.latestProfileSession?.let(::toSessionRowUiModel),
+        )
 
     return DiagnosticsScanUiModel(
         profiles = params.profiles.map(::toProfileOptionUiModel),
@@ -140,6 +148,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
                 null
             },
         workflowRestriction = workflowRestriction,
+        remediationLadder = remediationLadder,
         resolverRecommendation = params.latestResolverRecommendation,
         strategyProbeReport = params.latestStrategyProbeReport,
         hiddenProbeConflictDialog = params.hiddenProbeConflictDialog,

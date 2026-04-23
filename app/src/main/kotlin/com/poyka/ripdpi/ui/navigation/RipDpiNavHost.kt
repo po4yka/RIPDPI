@@ -294,6 +294,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
                 }
             },
             onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
+            onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
             onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
             viewModel = mainViewModel,
         )

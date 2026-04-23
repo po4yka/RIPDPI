@@ -36,6 +36,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -637,6 +638,7 @@ class MainViewModelTest {
             advanceUntilIdle()
 
             assertTrue(viewModel.uiState.value.homeDiagnostics.verifiedVpnAction.enabled)
+            assertNull(viewModel.uiState.value.homeDiagnostics.remediationLadder)
             assertEquals(
                 "home-run",
                 viewModel.uiState.value.homeDiagnostics.analysisSheet
@@ -706,6 +708,88 @@ class MainViewModelTest {
             assertTrue(
                 viewModel.uiState.value.homeDiagnostics.latestAudit
                     ?.stale == true,
+            )
+            assertEquals(
+                DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS,
+                viewModel.uiState.value.homeDiagnostics.remediationLadder
+                    ?.primaryAction
+                    ?.kind,
+            )
+            collector.cancel()
+        }
+
+    @Test
+    fun `command line mode exposes home remediation ladder to advanced settings`() =
+        runTest {
+            val settings =
+                AppSettings
+                    .newBuilder()
+                    .setOnboardingComplete(true)
+                    .setRipdpiMode("vpn")
+                    .setEnableCmdSettings(true)
+                    .build()
+            val viewModel =
+                createViewModel(
+                    appSettingsRepository = FakeAppSettingsRepository(settings),
+                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            val ladder = viewModel.uiState.value.homeDiagnostics.remediationLadder
+            assertNotNull(ladder)
+            assertEquals(
+                DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS,
+                ladder?.primaryAction?.kind,
+            )
+            collector.cancel()
+        }
+
+    @Test
+    fun `non actionable home audit exposes history remediation ladder`() =
+        runTest {
+            val compositeRunService = StubDiagnosticsHomeCompositeRunService()
+            val homeWorkflowService =
+                StubDiagnosticsHomeWorkflowService().apply {
+                    currentFingerprint = "fp-1"
+                }
+            val viewModel =
+                createViewModel(
+                    homeDiagnosticsServices =
+                        HomeDiagnosticsServices(
+                            workflowService = homeWorkflowService,
+                            compositeRunService = compositeRunService,
+                        ),
+                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.onRunHomeFullAnalysis()
+            compositeRunService.completeRun(
+                outcome =
+                    homeCompositeOutcome(
+                        runId = "home-run",
+                        fingerprintHash = "fp-1",
+                        actionable = false,
+                        recommendedSessionId = "audit-session",
+                    ),
+            )
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.homeDiagnostics.verifiedVpnAction.enabled)
+            assertEquals(
+                DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY,
+                viewModel.uiState.value.homeDiagnostics.remediationLadder
+                    ?.primaryAction
+                    ?.kind,
+            )
+            assertEquals(
+                DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY,
+                viewModel.uiState.value.homeDiagnostics.analysisSheet
+                    ?.remediationLadder
+                    ?.primaryAction
+                    ?.kind,
             )
             collector.cancel()
         }

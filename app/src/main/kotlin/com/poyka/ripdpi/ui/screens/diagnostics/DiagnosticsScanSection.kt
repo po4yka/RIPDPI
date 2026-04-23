@@ -42,6 +42,7 @@ import com.poyka.ripdpi.activities.CompletedProbeUiModel
 import com.poyka.ripdpi.activities.DiagnosticsDiagnosisUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
 import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
@@ -67,6 +68,7 @@ import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.feedback.DiagnosticsRemediationLadderCard
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
@@ -94,11 +96,13 @@ internal fun ScanSection(
     onRunInPathScan: () -> Unit,
     onCancelScan: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
+    onOpenDnsSettings: () -> Unit,
     onRequestVpnPermission: () -> Unit,
     onKeepResolverRecommendation: (String?) -> Unit,
     onSaveResolverRecommendation: (String?) -> Unit,
     onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
     onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit,
+    onOpenHistory: () -> Unit,
 ) {
     TrackRecomposition("ScanSection")
     val spacing = RipDpiThemeTokens.spacing
@@ -180,7 +184,9 @@ internal fun ScanSection(
                     onRunInPathScan = onRunInPathScan,
                     onCancelScan = onCancelScan,
                     onOpenAdvancedSettings = onOpenAdvancedSettings,
+                    onOpenDnsSettings = onOpenDnsSettings,
                     onRequestVpnPermission = onRequestVpnPermission,
+                    onOpenHistory = onOpenHistory,
                     modifier = Modifier.ripDpiTestTag(scanStateTag),
                 )
             }
@@ -235,15 +241,6 @@ internal fun ScanSection(
                     session = session,
                     onClick = {},
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSession(session.id)),
-                )
-            }
-        }
-        scan.resolverRecommendation?.let { recommendation ->
-            item {
-                ResolverRecommendationCard(
-                    recommendation = recommendation,
-                    onKeepForSession = { onKeepResolverRecommendation(scan.latestSession?.id) },
-                    onSaveAsSetting = { onSaveResolverRecommendation(scan.latestSession?.id) },
                 )
             }
         }
@@ -879,7 +876,9 @@ internal fun DiagnosticsScanWorkflowCard(
     onRunInPathScan: () -> Unit,
     onCancelScan: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
+    onOpenDnsSettings: () -> Unit,
     onRequestVpnPermission: () -> Unit,
+    onOpenHistory: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     TrackRecomposition("DiagnosticsScanWorkflowCard")
@@ -915,11 +914,20 @@ internal fun DiagnosticsScanWorkflowCard(
                 color = colors.mutedForeground,
             )
         }
-        scan.workflowRestriction?.let { restriction ->
-            WorkflowRestrictionCard(
-                restriction = restriction,
-                onOpenAdvancedSettings = onOpenAdvancedSettings,
-                onRequestVpnPermission = onRequestVpnPermission,
+        scan.remediationLadder?.let { ladder ->
+            DiagnosticsRemediationLadderCard(
+                ladder = ladder,
+                onAction = { action ->
+                    when (action) {
+                        DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS -> onOpenAdvancedSettings()
+                        DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION -> onRequestVpnPermission()
+                        DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS -> onOpenDnsSettings()
+                        DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> onOpenHistory()
+                        DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> Unit
+                    }
+                },
+                cardTestTag = RipDpiTestTags.DiagnosticsRemediationLadderCard,
+                actionTestTag = RipDpiTestTags.DiagnosticsRemediationLadderAction,
             )
         }
         scan.runRawHint?.let { hint ->

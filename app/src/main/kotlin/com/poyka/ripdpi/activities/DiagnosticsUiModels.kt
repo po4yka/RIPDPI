@@ -158,6 +158,34 @@ data class DiagnosticsWorkflowRestrictionUiModel(
     val actionKind: DiagnosticsWorkflowRestrictionActionKindUiModel,
 )
 
+enum class DiagnosticsRemediationActionKindUiModel {
+    OPEN_ADVANCED_SETTINGS,
+    OPEN_VPN_PERMISSION,
+    OPEN_DNS_SETTINGS,
+    OPEN_DIAGNOSTICS,
+    OPEN_HISTORY,
+}
+
+@Immutable
+data class DiagnosticsRemediationActionUiModel(
+    val label: String,
+    val kind: DiagnosticsRemediationActionKindUiModel,
+)
+
+@Immutable
+data class DiagnosticsRemediationStepUiModel(
+    val text: String,
+)
+
+@Immutable
+data class DiagnosticsRemediationLadderUiModel(
+    val title: String,
+    val summary: String,
+    val steps: ImmutableList<DiagnosticsRemediationStepUiModel>,
+    val primaryAction: DiagnosticsRemediationActionUiModel,
+    val tone: DiagnosticsTone = DiagnosticsTone.Warning,
+)
+
 @Immutable
 data class DiagnosticsStrategyProbeLiveProgressUiModel(
     val lane: DiagnosticsStrategyProbeProgressLaneUiModel,
@@ -478,6 +506,7 @@ data class DiagnosticsScanUiModel(
     val runInPathHint: String? = null,
     val policyNoticeMessage: String? = null,
     val workflowRestriction: DiagnosticsWorkflowRestrictionUiModel? = null,
+    val remediationLadder: DiagnosticsRemediationLadderUiModel? = null,
     val resolverRecommendation: DiagnosticsResolverRecommendationUiModel? = null,
     val strategyProbeReport: DiagnosticsStrategyProbeReportUiModel? = null,
     val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,

@@ -9,9 +9,15 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.poyka.ripdpi.activities.AnalysisProgressUiState
 import com.poyka.ripdpi.activities.AnalysisStageStatus
 import com.poyka.ripdpi.activities.AnalysisStageUiState
+import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRemediationStepUiModel
+import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
@@ -263,6 +269,109 @@ class HomeScreenTest {
     }
 
     @Test
+    fun `home diagnostics remediation card opens advanced settings`() {
+        var openedAdvancedSettings = false
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            homeDiagnostics =
+                                HomeDiagnosticsUiState(
+                                    analysisAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Run Full Analysis",
+                                            supportingText = "Unavailable while command line settings are active.",
+                                            enabled = false,
+                                        ),
+                                    verifiedVpnAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Start Verified VPN",
+                                            supportingText = "Run analysis first.",
+                                            enabled = false,
+                                        ),
+                                    remediationLadder =
+                                        remediationLadder(
+                                            title = "Full analysis unavailable",
+                                            summary = "Turn off command line settings before running the workflow.",
+                                            actionLabel = "Open Advanced Settings",
+                                            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS,
+                                            tone = DiagnosticsTone.Negative,
+                                        ),
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onOpenAdvancedSettings = { openedAdvancedSettings = true },
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRemediationCard).performScrollTo().fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRemediationAction).performScrollTo().performClick()
+        assertTrue(openedAdvancedSettings)
+    }
+
+    @Test
+    fun `analysis sheet renders remediation ladder instead of duplicate diagnostics cta`() {
+        var openedHistory = false
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState =
+                        MainUiState(
+                            homeDiagnostics =
+                                HomeDiagnosticsUiState(
+                                    analysisAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Run Full Analysis",
+                                            supportingText = "Ready",
+                                            enabled = true,
+                                        ),
+                                    verifiedVpnAction =
+                                        HomeDiagnosticsActionUiState(
+                                            label = "Start Verified VPN",
+                                            supportingText = "Review the latest audit.",
+                                            enabled = false,
+                                        ),
+                                    analysisSheet =
+                                        HomeDiagnosticsAnalysisSheetUiState(
+                                            runId = "home-run",
+                                            headline = "Review the latest analysis",
+                                            summary = "Some stages were incomplete.",
+                                            remediationLadder =
+                                                remediationLadder(
+                                                    title = "Review incomplete results",
+                                                    summary = "Open history and compare the failed stage details.",
+                                                    actionLabel = "Open History",
+                                                    actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY,
+                                                ),
+                                            actionableHeadline = "Old free-form next steps",
+                                            actionableNextSteps = listOf("This text should not render."),
+                                        ),
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = { openedHistory = true },
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsAnalysisSheet).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRemediationCard).performScrollTo().fetchSemanticsNode()
+        composeRule.onNodeWithText("Old free-form next steps").assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsOpenDiagnosticsAction).fetchSemanticsNode()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRemediationAction).performScrollTo().performClick()
+        assertTrue(openedHistory)
+    }
+
+    @Test
     fun `analysis progress indicator shown when analysis is busy with progress`() {
         composeRule.setContent {
             RipDpiTheme {
@@ -373,4 +482,23 @@ class HomeScreenTest {
                         ),
                 ),
         )
+
+    private fun remediationLadder(
+        title: String,
+        summary: String,
+        actionLabel: String,
+        actionKind: DiagnosticsRemediationActionKindUiModel,
+        tone: DiagnosticsTone = DiagnosticsTone.Warning,
+    ) = DiagnosticsRemediationLadderUiModel(
+        title = title,
+        summary = summary,
+        steps =
+            persistentListOf(
+                DiagnosticsRemediationStepUiModel("Open the suggested screen."),
+                DiagnosticsRemediationStepUiModel("Review the latest diagnostics context."),
+                DiagnosticsRemediationStepUiModel("Retry after making the change."),
+            ),
+        primaryAction = DiagnosticsRemediationActionUiModel(label = actionLabel, kind = actionKind),
+        tone = tone,
+    )
 }

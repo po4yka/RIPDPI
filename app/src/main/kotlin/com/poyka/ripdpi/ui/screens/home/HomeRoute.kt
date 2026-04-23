@@ -11,6 +11,7 @@ fun HomeRoute(
     modifier: Modifier = Modifier,
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit,
     onOpenVpnPermissionDialog: () -> Unit,
     viewModel: MainViewModel,
 ) {
@@ -21,6 +22,7 @@ fun HomeRoute(
         onToggleConnection = remember(viewModel) { { viewModel.onPrimaryConnectionAction() } },
         onOpenDiagnostics = onOpenDiagnostics,
         onOpenHistory = onOpenHistory,
+        onOpenAdvancedSettings = onOpenAdvancedSettings,
         onRepairPermission = viewModel::onRepairPermissionRequested,
         onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
         onDismissBatteryBanner = viewModel::onDismissBatteryBanner,

@@ -52,6 +52,7 @@ fun HomeScreen(
     onToggleConnection: () -> Unit,
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenAdvancedSettings: () -> Unit = {},
     onRepairPermission: (PermissionKind) -> Unit,
     onOpenVpnPermissionDialog: () -> Unit,
     modifier: Modifier = Modifier,
@@ -198,6 +199,9 @@ fun HomeScreen(
                     HomeStatusCard(uiState = uiState, onToggleConnection = onToggleConnection)
                     HomeDiagnosticsCard(
                         uiState = uiState,
+                        onOpenDiagnostics = onOpenDiagnostics,
+                        onOpenHistory = onOpenHistory,
+                        onOpenAdvancedSettings = onOpenAdvancedSettings,
                         onRunFullAnalysis = onRunFullAnalysis,
                         onRunQuickAnalysis = onRunQuickAnalysis,
                         onStartVerifiedVpn = onStartVerifiedVpn,
@@ -224,6 +228,9 @@ fun HomeScreen(
             HomeStatusCard(uiState = uiState, onToggleConnection = onToggleConnection)
             HomeDiagnosticsCard(
                 uiState = uiState,
+                onOpenDiagnostics = onOpenDiagnostics,
+                onOpenHistory = onOpenHistory,
+                onOpenAdvancedSettings = onOpenAdvancedSettings,
                 onRunFullAnalysis = onRunFullAnalysis,
                 onRunQuickAnalysis = onRunQuickAnalysis,
                 onStartVerifiedVpn = onStartVerifiedVpn,
@@ -250,6 +257,8 @@ fun HomeScreen(
         HomeDiagnosticsBottomSheetHost(
             uiState = uiState,
             onOpenDiagnostics = onOpenDiagnostics,
+            onOpenHistory = onOpenHistory,
+            onOpenAdvancedSettings = onOpenAdvancedSettings,
             onShareAnalysis = onShareAnalysis,
             onDismissAnalysisSheet = onDismissAnalysisSheet,
             onDismissVerificationSheet = onDismissVerificationSheet,
