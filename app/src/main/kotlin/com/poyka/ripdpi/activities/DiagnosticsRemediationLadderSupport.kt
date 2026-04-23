@@ -19,12 +19,27 @@ private fun remediationLadder(
     actionKind: DiagnosticsRemediationActionKindUiModel,
     tone: DiagnosticsTone,
     vararg steps: String,
+): DiagnosticsRemediationLadderUiModel = remediationLadder(title, summary, actionLabel, actionKind, null, tone, *steps)
+
+private fun remediationLadder(
+    title: String,
+    summary: String,
+    actionLabel: String,
+    actionKind: DiagnosticsRemediationActionKindUiModel,
+    actionTargetUrl: String?,
+    tone: DiagnosticsTone,
+    vararg steps: String,
 ): DiagnosticsRemediationLadderUiModel =
     DiagnosticsRemediationLadderUiModel(
         title = title,
         summary = summary,
         steps = remediationSteps(*steps),
-        primaryAction = DiagnosticsRemediationActionUiModel(label = actionLabel, kind = actionKind),
+        primaryAction =
+            DiagnosticsRemediationActionUiModel(
+                label = actionLabel,
+                kind = actionKind,
+                targetUrl = actionTargetUrl,
+            ),
         tone = tone,
     )
 
@@ -93,6 +108,20 @@ internal fun DiagnosticsUiFactorySupport.buildScanRemediationLadder(
             context.getString(R.string.diagnostics_remediation_partial_step_open_history),
             context.getString(R.string.diagnostics_remediation_partial_step_review),
             context.getString(R.string.diagnostics_remediation_partial_step_retry),
+        )
+    }
+
+    if (latestSession?.ownedStackOnly == true && latestSession.ownedStackLaunchUrl != null) {
+        return remediationLadder(
+            title = context.getString(R.string.diagnostics_remediation_owned_stack_title),
+            summary = context.getString(R.string.diagnostics_remediation_owned_stack_summary),
+            actionLabel = context.getString(R.string.diagnostics_remediation_open_owned_stack_action),
+            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER,
+            actionTargetUrl = latestSession.ownedStackLaunchUrl,
+            tone = DiagnosticsTone.Warning,
+            context.getString(R.string.diagnostics_remediation_owned_stack_step_open_browser),
+            context.getString(R.string.diagnostics_remediation_owned_stack_step_verify_result),
+            context.getString(R.string.diagnostics_remediation_owned_stack_step_android17_note),
         )
     }
 

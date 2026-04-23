@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <domainEncryption mode="opportunistic" />
+    </base-config>
+
+    <domain-config>
+        <domain includeSubdomains="true">raw.githubusercontent.com</domain>
+        <domainEncryption mode="enabled" />
+    </domain-config>
+
+    <domain-config>
+        <domain includeSubdomains="false">connectivitycheck.gstatic.com</domain>
+        <domainEncryption mode="enabled" />
+    </domain-config>
+</network-security-config>

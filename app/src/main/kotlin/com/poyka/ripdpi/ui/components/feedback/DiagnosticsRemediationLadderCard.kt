@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -21,7 +21,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @Composable
 internal fun DiagnosticsRemediationLadderCard(
     ladder: DiagnosticsRemediationLadderUiModel,
-    onAction: (DiagnosticsRemediationActionKindUiModel) -> Unit,
+    onAction: (DiagnosticsRemediationActionUiModel) -> Unit,
     modifier: Modifier = Modifier,
     cardTestTag: String? = null,
     actionTestTag: String? = null,
@@ -67,7 +67,7 @@ internal fun DiagnosticsRemediationLadderCard(
         }
         RipDpiButton(
             text = ladder.primaryAction.label,
-            onClick = { onAction(ladder.primaryAction.kind) },
+            onClick = { onAction(ladder.primaryAction) },
             variant = RipDpiButtonVariant.Secondary,
             modifier =
                 Modifier

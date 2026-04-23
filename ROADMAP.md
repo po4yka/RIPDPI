@@ -132,6 +132,17 @@ Status: PARTIAL.
 - Updated diagnostics contract and workflow regressions to exercise the persisted wire format rather than serializing `ScanReport` directly in affected tests.
 - Remaining epic work is still open: Phase 0 passive observation, full Phase 1–4 arm orchestration, attempt-budget enforcement, confirmation-before-pin, and persistence revalidation / rotation.
 
+### 2026-04-23: Owned-Stack Android 17 ECH Slice
+
+Status: PARTIAL.
+
+- Added a first owned-stack browser path for `OWNED_STACK_ONLY` authorities instead of leaving the Android 17 ECH track as planning-only work.
+- Introduced a shared owned-stack request entry point that prefers platform `HttpEngine` on supported devices and falls back to the existing native owned-TLS fetcher elsewhere.
+- Added Android-version-aware capability reporting so the product now surfaces Android 17 / API 37 as the platform-ECH-eligible path while degrading honestly on older releases.
+- Added a minimal RIPDPI browser screen plus diagnostics remediation action that opens `OWNED_STACK_ONLY` authorities directly into that owned-stack path.
+- Added `xml-v37` `network_security_config` overlays with opportunistic `domainEncryption` plus enabled per-domain blocks for the current owned-stack probe hosts, while preserving older-platform behavior.
+- Remaining epic work is still open: general SDK surface, broader per-domain ECH enforcement, telemetry for H3/H2 fallback behavior, and Android 17 instrumented proof that ECH is actually attempted when HTTPS RR supplies a config.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.
