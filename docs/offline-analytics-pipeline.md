@@ -30,6 +30,7 @@ Schemas:
 - `scripts/analytics/schemas/offline-record-schema-v1.json`
 - `scripts/analytics/schemas/device-fingerprint-catalog-schema-v1.json`
 - `scripts/analytics/schemas/device-fingerprint-winner-mappings-schema-v1.json`
+- `scripts/analytics/schemas/strategy-pack-catalog-schema-v3.json`
 
 Reviewed bundled artifacts:
 
@@ -63,8 +64,16 @@ The publish stage writes:
 - `offline-records.json`
 - `device-fingerprint-catalog.candidate.json`
 - `device-fingerprint-winner-mappings.candidate.json`
+- `strategy-pack-catalog.candidate.json`
 - `drift-report.json`
 - `report.md`
+
+The generated strategy-pack catalog is still review-gated:
+
+- it reuses the live strategy-pack schema and baseline metadata
+- it appends staged `offline-*` packs derived from stable winner mappings
+- it is not consumed by the runtime automatically
+- it is intended for analyst review and later signing/promotion if accepted
 
 ## Common Commands
 
@@ -136,9 +145,10 @@ The extractor accepts either:
 
 1. Run the pipeline on the target corpus and inspect `report.md`.
 2. Review cluster support counts, novelty, mined signatures, and winner mappings.
-3. Compare `drift-report.json` against the currently blessed catalogs.
-4. If the output is acceptable, bless the candidate artifacts into the repo assets.
-5. Commit both the blessed JSON and any sample-corpus or test updates together.
+3. Review `strategy-pack-catalog.candidate.json` to confirm generated packs, staged rollout metadata, and learned candidate families look sane.
+4. Compare `drift-report.json` against the currently blessed catalogs.
+5. If the output is acceptable, bless the reviewed device/winner artifacts into the repo assets and separately promote any accepted strategy-pack changes through the normal signing flow.
+6. Commit both the blessed JSON and any sample-corpus or test updates together.
 
 The blessed asset pair is the only source of truth for reviewed offline device fingerprints. Candidate outputs are intentionally marked `unreviewed`.
 

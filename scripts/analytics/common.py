@@ -22,6 +22,7 @@ DEFAULT_BLESSED_DEVICE_FINGERPRINT_CATALOG = (
 DEFAULT_BLESSED_WINNER_MAPPING_CATALOG = (
     ROOT / "app/src/main/assets/offline-analytics/device-fingerprint-winner-mappings.json"
 )
+DEFAULT_BASELINE_STRATEGY_PACK_CATALOG = ROOT / "app/src/main/assets/strategy-packs/catalog.json"
 TARGET_LABEL_MAX = 80
 EMPTY_VALUE = "none"
 
@@ -232,4 +233,3 @@ def safe_relative_path(path: Path) -> str:
         return path.resolve().relative_to(ROOT).as_posix()
     except ValueError:
         return str(path.resolve())
-

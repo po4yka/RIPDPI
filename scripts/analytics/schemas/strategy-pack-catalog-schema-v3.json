@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ripdpi.local/schemas/strategy-pack-catalog-schema-v3.json",
+  "title": "RIPDPI Strategy Pack Catalog",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "generatedAt",
+    "sequence",
+    "issuedAt",
+    "channel",
+    "minAppVersion",
+    "minNativeVersion",
+    "notes",
+    "packs",
+    "tlsProfiles",
+    "morphPolicies",
+    "hostLists",
+    "transportModules",
+    "featureFlags",
+    "rollout"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 3
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "issuedAt": {
+      "type": "string"
+    },
+    "channel": {
+      "type": "string"
+    },
+    "minAppVersion": {
+      "type": "string"
+    },
+    "minNativeVersion": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "packs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "version",
+          "title",
+          "description",
+          "strategies"
+        ],
+        "properties": {
+          "id": { "type": "string" },
+          "version": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "notes": { "type": "string" },
+          "triggerMetadata": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "hostListRefs": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "tlsProfileSetId": { "type": "string" },
+          "morphPolicyId": { "type": "string" },
+          "transportModuleIds": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "featureFlagIds": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "rollout": {
+            "type": "object"
+          },
+          "strategies": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "label",
+                "recommendedProxyConfigJson",
+                "candidateIds"
+              ],
+              "properties": {
+                "id": { "type": "string" },
+                "label": { "type": "string" },
+                "recommendedProxyConfigJson": { "type": "string" },
+                "candidateIds": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                },
+                "notes": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "tlsProfiles": { "type": "array" },
+    "morphPolicies": { "type": "array" },
+    "hostLists": { "type": "array" },
+    "transportModules": { "type": "array" },
+    "featureFlags": { "type": "array" },
+    "rollout": { "type": "object" }
+  }
+}

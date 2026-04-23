@@ -78,6 +78,7 @@ class OfflineAnalyticsPipelineTest(unittest.TestCase):
 
             device_catalog = load_json(outputs["deviceCatalog"])
             winner_catalog = load_json(outputs["winnerCatalog"])
+            strategy_pack_catalog = load_json(outputs["strategyPackCatalog"])
             drift_report = load_json(outputs["driftReport"])
             report_text = outputs["report"].read_text(encoding="utf-8")
 
@@ -86,6 +87,38 @@ class OfflineAnalyticsPipelineTest(unittest.TestCase):
         self.assertEqual(0, drift_report["stableClusterCount"])
         self.assertIn("Offline Analytics Report", report_text)
         self.assertGreaterEqual(winner_catalog["mappingCount"], 2)
+        self.assertEqual(3, strategy_pack_catalog["schemaVersion"])
+        self.assertGreater(
+            len([pack for pack in strategy_pack_catalog["packs"] if pack["id"].startswith("offline-")]),
+            0,
+        )
+
+    def test_publish_emits_staged_strategy_pack_candidates_from_stable_mappings(self) -> None:
+        extracted = run_extract(sample_inputs())
+        clustered = run_cluster(extracted)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            outputs = publish_outputs(
+                extracted_payload=extracted,
+                clustered_payload=clustered,
+                output_dir=temp_path,
+                corpus_name="sample",
+                blessed_device_catalog_path=temp_path / "missing-device.json",
+                blessed_winner_mapping_path=temp_path / "missing-winner.json",
+            )
+            strategy_pack_catalog = load_json(outputs["strategyPackCatalog"])
+
+        generated_packs = [pack for pack in strategy_pack_catalog["packs"] if pack["id"].startswith("offline-")]
+        generated_pack_ids = {pack["id"] for pack in generated_packs}
+
+        self.assertIn("offline-resolver_interference-24a7ba57fe53", generated_pack_ids)
+        self.assertIn("offline-tls_split-892893f70799", generated_pack_ids)
+        for pack in generated_packs:
+            self.assertTrue(pack["rollout"]["staged"])
+            self.assertEqual(0, pack["rollout"]["percentage"])
+            self.assertTrue(pack["strategies"][0]["candidateIds"])
+            self.assertIn("signatureHash", pack["strategies"][0]["recommendedProxyConfigJson"])
 
     def test_bless_promotes_candidates_to_reviewed_catalogs(self) -> None:
         extracted = run_extract(sample_inputs())
@@ -119,6 +152,7 @@ class OfflineAnalyticsPipelineTest(unittest.TestCase):
             "device-fingerprint-catalog-schema-v1.json",
             "device-fingerprint-winner-mappings-schema-v1.json",
             "offline-record-schema-v1.json",
+            "strategy-pack-catalog-schema-v3.json",
         }
         actual = {path.name for path in SCHEMA_DIR.iterdir() if path.is_file()}
         self.assertTrue(expected.issubset(actual))

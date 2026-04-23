@@ -143,6 +143,16 @@ Status: PARTIAL.
 - Added `xml-v37` `network_security_config` overlays with opportunistic `domainEncryption` plus enabled per-domain blocks for the current owned-stack probe hosts, while preserving older-platform behavior.
 - Remaining epic work is still open: general SDK surface, broader per-domain ECH enforcement, telemetry for H3/H2 fallback behavior, and Android 17 instrumented proof that ECH is actually attempted when HTTPS RR supplies a config.
 
+### 2026-04-23: Offline Learner Strategy-Pack Generation Slice
+
+Status: PARTIAL.
+
+- Extended the existing offline analytics pipeline so `publish` and `run-all` now emit `strategy-pack-catalog.candidate.json` instead of stopping at winner mappings and analyst reports.
+- Added deterministic generated `offline-*` packs derived from stable device-fingerprint winner mappings, preserving the live strategy-pack schema and baseline metadata while keeping rollout staged at `0%`.
+- Added strategy-pack-specific pipeline documentation, a schema file for the generated catalog shape, and regression coverage for pack emission on the checked-in sample corpus.
+- Kept the output review-gated and offline-only: generated packs are not auto-consumed by the runtime and still require analyst review plus the normal signing/promotion flow before shipping.
+- Remaining learner work is still open: runtime Bayesian arm scoring, rarity/retry penalties, attempt-budget enforcement, shared-priors upload constraints, and emulator/sim-to-field calibration beyond field-derived archive mining.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.
