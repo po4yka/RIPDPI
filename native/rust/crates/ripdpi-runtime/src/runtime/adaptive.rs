@@ -410,8 +410,23 @@ pub(super) fn direct_path_capability_for_targets<'a>(
 pub(super) fn capability_requires_desync_fallback(capability: &ProxyDirectPathCapability) -> bool {
     capability.fallback_required == Some(true)
         || capability.repeated_handshake_failure_class.as_deref().is_some_and(|value| !value.trim().is_empty())
-        || matches!(capability.quic_mode.trim().to_ascii_uppercase().as_str(), "SOFT_DISABLE" | "HARD_DISABLE")
+        || (matches!(capability.quic_mode.trim().to_ascii_uppercase().as_str(), "SOFT_DISABLE" | "HARD_DISABLE")
+            && !capability_preserves_udp_transport(capability))
         || matches!(capability.outcome.trim().to_ascii_uppercase().as_str(), "OWNED_STACK_ONLY" | "NO_DIRECT_SOLUTION")
+}
+
+pub(super) fn capability_preserves_udp_transport(capability: &ProxyDirectPathCapability) -> bool {
+    capability.reason_code.as_deref() == Some("NO_TCP_FALLBACK")
+}
+
+#[cfg(test)]
+fn capability_udp_clean(capability: &ProxyDirectPathCapability) -> bool {
+    if capability_preserves_udp_transport(capability) {
+        return true;
+    }
+    capability.udp_usable != Some(false)
+        && capability.quic_usable != Some(false)
+        && !matches!(capability.quic_mode.trim().to_ascii_uppercase().as_str(), "SOFT_DISABLE" | "HARD_DISABLE")
 }
 
 pub(super) fn capability_blocks_transport(
@@ -429,7 +444,7 @@ pub(super) fn capability_blocks_transport(
     }
     match transport {
         TransportProtocol::Udp => {
-            if capability.reason_code.as_deref() == Some("NO_TCP_FALLBACK") {
+            if capability_preserves_udp_transport(capability) {
                 return false;
             }
             matches!(capability.quic_mode.trim().to_ascii_uppercase().as_str(), "SOFT_DISABLE" | "HARD_DISABLE")
@@ -445,6 +460,9 @@ pub(super) fn merge_udp_hints_with_capability(
     let Some(capability) = capability else {
         return hints;
     };
+    if capability_preserves_udp_transport(capability) {
+        return hints;
+    }
     let should_conservatively_fallback = capability_requires_desync_fallback(capability)
         || capability.udp_usable == Some(false)
         || capability.quic_usable == Some(false);
@@ -706,9 +724,29 @@ mod tests {
         let mut capability = capability("example.org:443");
         capability.quic_mode = "SOFT_DISABLE".to_string();
         assert!(capability_blocks_transport(&capability, TransportProtocol::Udp, 0));
+        assert!(capability_requires_desync_fallback(&capability));
+        assert!(!capability_udp_clean(&capability));
 
         capability.reason_code = Some("NO_TCP_FALLBACK".to_string());
         assert!(!capability_blocks_transport(&capability, TransportProtocol::Udp, 0));
+        assert!(!capability_requires_desync_fallback(&capability));
+        assert!(capability_udp_clean(&capability));
+    }
+
+    #[test]
+    fn no_tcp_fallback_keeps_udp_hints_intact() {
+        let hints = AdaptivePlannerHints {
+            udp_burst_profile: Some(AdaptiveUdpBurstProfile::Conservative),
+            quic_fake_profile: Some(QuicFakeProfile::CompatDefault),
+            ..AdaptivePlannerHints::default()
+        };
+        let mut capability = capability("example.org:443");
+        capability.quic_mode = "SOFT_DISABLE".to_string();
+        capability.reason_code = Some("NO_TCP_FALLBACK".to_string());
+
+        let merged = merge_udp_hints_with_capability(hints.clone(), Some(&capability));
+
+        assert_eq!(merged, hints);
     }
 
     #[test]
