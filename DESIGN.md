@@ -716,6 +716,43 @@ Onboarding, auth, and permission flows:
 - center the core narrative, keep the footer action stable, and preserve large-font integrity
 - use larger spacing and stronger title treatment without abandoning the monochrome personality
 
+## Layout Recipes
+
+Two-column dashboard split:
+
+- use `RipDpiDashboardScaffold` and prefer a primary and secondary column split on expanded widths
+- keep status, primary actions, and live remediation in the primary column
+- keep overview, history, and supporting context in the secondary column
+- collapse by stacking primary content before secondary content without changing section meaning
+
+Dense settings list:
+
+- use `RipDpiSettingsScaffold` for list-heavy settings and `RipDpiContentScreenScaffold` for bounded detail flows
+- structure each category as a header plus one primary grouped card or container
+- keep density in rows and fields, not in reduced hit targets or full-width sprawl
+- let banners annotate a category from above instead of replacing the category structure
+
+Diagnostics evidence panel:
+
+- use cards, headers, rows, and monospace values to group evidence into scannable blocks
+- separate workflow controls, progress, recommendations, and latest evidence into clear section boundaries
+- move deep detail into sheets or dialogs instead of endlessly expanding the main stack
+- use semantic tone only when it changes operator judgment
+
+Monospace log stream:
+
+- keep one dominant stream card under overview and filter controls
+- render entries with `LogRow` and reserve `SettingsRow` for controls and facts
+- keep timestamps, subsystem labels, and payload text in a compact monospace rhythm
+- avoid per-entry cards, interleaved banners, or loud routine coloring
+
+Intro hero plus footer flow:
+
+- use `RipDpiIntroScaffold` with centered hero content and a stable bottom footer
+- keep the top action row light and reserve primary decisions for the footer action cluster
+- preserve bounded width and generous vertical gaps for large-font resilience
+- do not move primary actions into the hero stack or let the footer drift with content height
+
 ## Screen Contracts
 
 Home:

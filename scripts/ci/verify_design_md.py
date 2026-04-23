@@ -38,6 +38,7 @@ REQUIRED_EXTENDED_SECTIONS = {
     "Iconography",
     "Theme Variants",
     "Screen Recipes",
+    "Layout Recipes",
     "Screen Contracts",
 }
 REQUIRED_DOC_HEADINGS = {
@@ -46,6 +47,7 @@ REQUIRED_DOC_HEADINGS = {
     "Component Mapping",
     "Theme Variants",
     "Screen Recipes",
+    "Layout Recipes",
     "Screen Contracts",
     "Drift Checks",
 }

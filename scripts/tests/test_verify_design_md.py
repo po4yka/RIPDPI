@@ -113,6 +113,9 @@ class VerifyDesignMdTest(unittest.TestCase):
                 ## Screen Recipes
                 Sample
 
+                ## Layout Recipes
+                Sample
+
                 ## Screen Contracts
                 Sample
                 """,
@@ -134,6 +137,9 @@ class VerifyDesignMdTest(unittest.TestCase):
                 Sample
 
                 ## Screen Recipes
+                Sample
+
+                ## Layout Recipes
                 Sample
 
                 ## Screen Contracts
