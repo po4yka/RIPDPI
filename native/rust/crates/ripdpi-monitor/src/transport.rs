@@ -107,10 +107,6 @@ impl ConnectionStream {
 
 // --- Transport selection ---
 
-pub(crate) fn transport_for_request(request: &ScanRequest) -> TransportConfig {
-    transport_for_request_with_session(request, "default")
-}
-
 pub(crate) fn direct_transport() -> TransportConfig {
     TransportConfig::Direct { route_experiment: None }
 }
@@ -961,7 +957,7 @@ mod tests {
             route_probe: None,
             scan_deadline_ms: None,
         };
-        match transport_for_request(&request) {
+        match transport_for_request_with_session(&request, "default") {
             TransportConfig::Direct { .. } => {}
             TransportConfig::Socks5 { .. } => panic!("expected Direct for RawPath"),
         }
@@ -995,7 +991,7 @@ mod tests {
             route_probe: None,
             scan_deadline_ms: None,
         };
-        match transport_for_request(&request) {
+        match transport_for_request_with_session(&request, "default") {
             TransportConfig::Socks5 { host, port } => {
                 assert_eq!(host, "proxy");
                 assert_eq!(port, 1080);
