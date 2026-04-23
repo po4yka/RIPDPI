@@ -343,6 +343,7 @@ private fun ProfileExecutionPolicyDefinition.toJson(): JsonObject =
         put("manualOnly", manualOnly)
         put("allowBackground", allowBackground)
         put("requiresRawPath", requiresRawPath)
+        put("probePersistencePolicy", probePersistencePolicy.name)
     }
 
 private fun DomainTargetDefinition.toJson(): JsonObject =

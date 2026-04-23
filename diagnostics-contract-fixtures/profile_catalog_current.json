@@ -35,7 +35,7 @@
     {
       "id": "default",
       "name": "Default diagnostics",
-      "version": 2,
+      "version": 3,
       "request": {
         "profileId": "default",
         "displayName": "Default diagnostics",
@@ -46,7 +46,8 @@
         "executionPolicy": {
           "manualOnly": false,
           "allowBackground": false,
-          "requiresRawPath": false
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
         },
         "packRefs": [],
         "domainTargets": [
@@ -114,7 +115,7 @@
     {
       "id": "automatic-probing",
       "name": "Automatic probing",
-      "version": 2,
+      "version": 3,
       "request": {
         "profileId": "automatic-probing",
         "displayName": "Automatic probing",
@@ -125,7 +126,8 @@
         "executionPolicy": {
           "manualOnly": false,
           "allowBackground": true,
-          "requiresRawPath": true
+          "requiresRawPath": true,
+          "probePersistencePolicy": "BACKGROUND_ONLY"
         },
         "packRefs": [],
         "domainTargets": [
@@ -163,7 +165,7 @@
     {
       "id": "automatic-audit",
       "name": "Automatic audit",
-      "version": 2,
+      "version": 3,
       "request": {
         "profileId": "automatic-audit",
         "displayName": "Automatic audit",
@@ -174,7 +176,8 @@
         "executionPolicy": {
           "manualOnly": false,
           "allowBackground": true,
-          "requiresRawPath": true
+          "requiresRawPath": true,
+          "probePersistencePolicy": "BACKGROUND_ONLY"
         },
         "packRefs": [],
         "domainTargets": [
@@ -212,7 +215,7 @@
     {
       "id": "dpi-detector-full",
       "name": "DPI Detector Full",
-      "version": 2,
+      "version": 3,
       "request": {
         "profileId": "dpi-detector-full",
         "displayName": "DPI Detector Full",
@@ -223,7 +226,8 @@
         "executionPolicy": {
           "manualOnly": false,
           "allowBackground": false,
-          "requiresRawPath": false
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
         },
         "packRefs": [],
         "domainTargets": [
@@ -1352,7 +1356,7 @@
     {
       "id": "ru-web-connectivity",
       "name": "Russia Web Connectivity",
-      "version": 2,
+      "version": 3,
       "request": {
         "profileId": "ru-web-connectivity",
         "displayName": "Russia Web Connectivity",
@@ -1364,7 +1368,8 @@
         "executionPolicy": {
           "manualOnly": true,
           "allowBackground": false,
-          "requiresRawPath": false
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
         },
         "packRefs": [
           "ru-independent-media@1",
@@ -1468,7 +1473,7 @@
     {
       "id": "ru-messaging",
       "name": "Russia Messaging Services",
-      "version": 3,
+      "version": 4,
       "request": {
         "profileId": "ru-messaging",
         "displayName": "Russia Messaging Services",
@@ -1480,7 +1485,8 @@
         "executionPolicy": {
           "manualOnly": true,
           "allowBackground": false,
-          "requiresRawPath": false
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
         },
         "packRefs": [
           "ru-messaging@2",
@@ -1562,7 +1568,7 @@
     {
       "id": "ru-circumvention",
       "name": "Russia Sensitive Services Reachability",
-      "version": 2,
+      "version": 3,
       "request": {
         "profileId": "ru-circumvention",
         "displayName": "Russia Sensitive Services Reachability",
@@ -1574,7 +1580,8 @@
         "executionPolicy": {
           "manualOnly": true,
           "allowBackground": false,
-          "requiresRawPath": false
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
         },
         "packRefs": [
           "ru-circumvention@1",
@@ -1606,7 +1613,7 @@
     {
       "id": "ru-throttling",
       "name": "Russia Throttling Check",
-      "version": 3,
+      "version": 4,
       "request": {
         "profileId": "ru-throttling",
         "displayName": "Russia Throttling Check",
@@ -1618,7 +1625,8 @@
         "executionPolicy": {
           "manualOnly": true,
           "allowBackground": false,
-          "requiresRawPath": false
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
         },
         "packRefs": [
           "ru-throttling@1",
@@ -1672,7 +1680,7 @@
     {
       "id": "ru-dpi-full",
       "name": "Russia DPI Full",
-      "version": 4,
+      "version": 5,
       "request": {
         "profileId": "ru-dpi-full",
         "displayName": "Russia DPI Full",
@@ -1684,7 +1692,8 @@
         "executionPolicy": {
           "manualOnly": true,
           "allowBackground": false,
-          "requiresRawPath": false
+          "requiresRawPath": false,
+          "probePersistencePolicy": "MANUAL_ONLY"
         },
         "packRefs": [
           "ru-independent-media@1",

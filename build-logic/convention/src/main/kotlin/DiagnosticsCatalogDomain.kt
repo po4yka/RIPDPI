@@ -63,10 +63,17 @@ internal enum class CatalogProfileIntentBucket {
     LAB_ONLY,
 }
 
+internal enum class CatalogProbePersistencePolicy {
+    MANUAL_ONLY,
+    BACKGROUND_ONLY,
+    ALWAYS,
+}
+
 internal data class ProfileExecutionPolicyDefinition(
     val manualOnly: Boolean,
     val allowBackground: Boolean,
     val requiresRawPath: Boolean,
+    val probePersistencePolicy: CatalogProbePersistencePolicy,
 )
 
 internal data class DomainTargetDefinition(
