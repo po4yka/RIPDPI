@@ -195,6 +195,27 @@ class DiagnosticsDisplaySummaryTest {
     }
 
     @Test
+    fun `summary projector surfaces transparent direct mode verdict`() {
+        val summary =
+            ScanReport(
+                sessionId = "session-transparent",
+                profileId = "automatic-probing",
+                pathMode = ScanPathMode.RAW_PATH,
+                startedAt = 10L,
+                finishedAt = 20L,
+                summary = "Scan completed",
+                directModeVerdict =
+                    DirectModeVerdict(
+                        result = DirectModeVerdictResult.TRANSPARENT_WORKS,
+                        transportClass = DirectTransportClass.SNI_TLS_SUSPECT,
+                        authority = "example.org",
+                    ),
+            ).displaySummary()
+
+        assertEquals("Direct mode works transparently", summary)
+    }
+
+    @Test
     fun `summary projector surfaces no direct solution verdict`() {
         val summary =
             ScanReport(

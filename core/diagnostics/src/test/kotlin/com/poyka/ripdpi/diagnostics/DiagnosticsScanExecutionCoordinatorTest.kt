@@ -82,10 +82,9 @@ class DiagnosticsScanExecutionCoordinatorTest {
             val preferredPath =
                 stores.getNetworkDnsPathPreference(networkFingerprintProvider.capture().scopeKey())
             val persistedReport =
-                diagnosticsTestJson().decodeFromString(
-                    ScanReport.serializer(),
-                    requireNotNull(session.reportJson),
-                )
+                diagnosticsTestJson()
+                    .decodeEngineScanReportWire(requireNotNull(session.reportJson))
+                    .toScanReport()
 
             assertEquals("completed", session.status)
             assertTrue(requireNotNull(persistedReport.resolverRecommendation).appliedTemporarily)

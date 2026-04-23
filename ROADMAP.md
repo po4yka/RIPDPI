@@ -122,6 +122,16 @@ Status: PARTIAL.
 - Extended Kotlin family normalization plus focused Rust/Kotlin regression coverage for the new runtime labels and first-flight capability policy path.
 - Remaining epic work is still open: `seg_post_sni`, `two_phase_send`, explicit byte-invariant enforcement, and winner rotation/cache.
 
+### 2026-04-23: Direct-Mode Diagnostic Orchestrator Slice
+
+Status: PARTIAL.
+
+- Fixed the diagnostics persistence boundary so orchestrator outputs now survive the stored engine-wire path instead of losing `strategyRecommendation` after finalization.
+- Threaded the typed direct-mode result through session projections and derived summaries, including an explicit positive `TRANSPARENT_WORKS` summary alongside the existing owned-stack and no-direct outcomes.
+- Restored the Home audit fallback path that applies persisted strategy recommendations when a reusable full strategy-probe winner is unavailable.
+- Updated diagnostics contract and workflow regressions to exercise the persisted wire format rather than serializing `ScanReport` directly in affected tests.
+- Remaining epic work is still open: Phase 0 passive observation, full Phase 1–4 arm orchestration, attempt-budget enforcement, confirmation-before-pin, and persistence revalidation / rotation.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.
