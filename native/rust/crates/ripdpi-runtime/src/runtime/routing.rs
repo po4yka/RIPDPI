@@ -18,7 +18,9 @@ use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use crate::platform;
 use crate::runtime_policy::{is_tls_client_hello_payload, ConnectionRoute, RouteAdvance, TransportProtocol};
-use crate::ws_bootstrap::{build_encrypted_dns_resolver, encrypted_dns_label, runtime_encrypted_dns_context};
+use crate::ws_bootstrap::{
+    build_encrypted_dns_resolver_for_host, encrypted_dns_label, runtime_encrypted_dns_context_for_host,
+};
 
 use super::adaptive::{
     capability_blocks_transport, direct_path_capability_for_targets, note_adaptive_fake_ttl_failure,
@@ -395,10 +397,13 @@ pub(super) fn classify_response_failure(
 }
 
 fn confirm_dns_tampering_for_host(state: &RuntimeState, host: &str, target_ip: IpAddr) -> Option<ClassifiedFailure> {
-    let resolver_context = runtime_encrypted_dns_context(state.runtime_context.as_ref());
-    let resolver =
-        build_encrypted_dns_resolver(state.runtime_context.as_ref(), state.config.process.protect_path.as_deref())
-            .ok()?;
+    let resolver_context = runtime_encrypted_dns_context_for_host(host, state.runtime_context.as_ref());
+    let resolver = build_encrypted_dns_resolver_for_host(
+        host,
+        state.runtime_context.as_ref(),
+        state.config.process.protect_path.as_deref(),
+    )
+    .ok()?;
     let query_id = ((SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_nanos() as u64) & 0xffff) as u16;
     let query = build_dns_query(host, query_id.max(1)).ok()?;
     let response = resolver.exchange_blocking(&query).ok()?;

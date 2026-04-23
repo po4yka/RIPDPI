@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.DnsMode
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
+import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.DnsProviderQuad9
@@ -279,6 +280,97 @@ class ConnectionPolicyResolverTest {
             assertEquals(DirectModeReasonCode.IP_BLOCKED, noDirect?.reasonCode)
             assertEquals(now + 60_000L, noDirect?.cooldownUntil)
             assertEquals(now, noDirect?.updatedAt)
+        }
+
+    @Test
+    fun `resolver derives vpn doh primary path from converged direct path dns hints`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val capabilityStore = TestServerCapabilityStore()
+            val now = System.currentTimeMillis()
+            listOf("Example.org:443", "Video.example.org:443").forEach { authority ->
+                capabilityStore.rememberDirectPathObservation(
+                    fingerprint = fingerprint,
+                    authority = authority,
+                    observation =
+                        ServerCapabilityObservation(
+                            quicUsable = false,
+                            udpUsable = false,
+                            fallbackRequired = true,
+                            transportPolicy =
+                                TransportPolicy(
+                                    quicMode = QuicMode.SOFT_DISABLE,
+                                    preferredStack = PreferredStack.H2,
+                                    dnsMode = DnsMode.DOH_PRIMARY,
+                                    tcpFamily = TcpFamily.NONE,
+                                    outcome = DirectModeOutcome.TRANSPARENT_OK,
+                                ),
+                            policyConfirmedAt = now,
+                            dnsClassification = DirectDnsClassification.POISONED,
+                            transportClass = DirectTransportClass.QUIC_BLOCK_SUSPECT,
+                            reasonCode = DirectModeReasonCode.QUIC_BLOCKED,
+                        ),
+                    recordedAt = now,
+                )
+            }
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(plainUdpSettings()),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = RootHelperManager(),
+                    serverCapabilityStore = capabilityStore,
+                )
+
+            val resolution = resolver.resolve(mode = Mode.VPN)
+
+            assertEquals(DnsProviderAdGuard, resolution.activeDns.providerId)
+            assertEquals(EncryptedDnsProtocolDoh, resolution.activeDns.encryptedDnsProtocol)
+            assertEquals("dns.adguard-dns.com", resolution.activeDns.encryptedDnsHost)
+        }
+
+    @Test
+    fun `resolver ignores ip-only direct path dns hints when deriving vpn path`() =
+        runTest {
+            val fingerprint = sampleFingerprint()
+            val capabilityStore = TestServerCapabilityStore()
+            val now = System.currentTimeMillis()
+            capabilityStore.rememberDirectPathObservation(
+                fingerprint = fingerprint,
+                authority = "203.0.113.10:443",
+                observation =
+                    ServerCapabilityObservation(
+                        transportPolicy =
+                            TransportPolicy(
+                                dnsMode = DnsMode.DOH_PRIMARY,
+                            ),
+                        policyConfirmedAt = now,
+                    ),
+                recordedAt = now,
+            )
+            val resolver =
+                DefaultConnectionPolicyResolver(
+                    context = RuntimeEnvironment.getApplication(),
+                    appSettingsRepository = TestAppSettingsRepository(encryptedGoogleSettings()),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(fingerprint),
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkEdgePreferenceStore = TestNetworkEdgePreferenceStore(),
+                    antiCorrelationRoutingPolicy = antiCorrelationRoutingPolicy(),
+                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+                    startupDnsProbe = VpnStartupDnsProbe(),
+                    rootHelperManager = RootHelperManager(),
+                    serverCapabilityStore = capabilityStore,
+                )
+
+            val resolution = resolver.resolve(mode = Mode.VPN)
+
+            assertEquals(DnsProviderGoogle, resolution.activeDns.providerId)
+            assertEquals("dns.google", resolution.activeDns.encryptedDnsHost)
         }
 
     @Test

@@ -6,7 +6,7 @@ use ripdpi_dns_resolver::{
     extract_ip_answers, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver,
     EncryptedDnsTransport,
 };
-use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
+use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_ws_tunnel::TelegramDc;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
@@ -17,6 +17,14 @@ const DNS_RECORD_TYPE_AAAA: u16 = 28;
 const DEFAULT_DOH_URL: &str = "https://cloudflare-dns.com/dns-query";
 const DEFAULT_DOH_HOST: &str = "cloudflare-dns.com";
 const DEFAULT_DOH_BOOTSTRAP_IPS: &[&str] = &["1.1.1.1", "1.0.0.1"];
+const PRIMARY_DOH_RESOLVER_ID: &str = "adguard";
+const PRIMARY_DOH_HOST: &str = "dns.adguard-dns.com";
+const PRIMARY_DOH_URL: &str = "https://dns.adguard-dns.com/dns-query";
+const PRIMARY_DOH_BOOTSTRAP_IPS: &[&str] = &["94.140.14.14", "94.140.15.15"];
+const SECONDARY_DOH_RESOLVER_ID: &str = "dnssb";
+const SECONDARY_DOH_HOST: &str = "dns.sb";
+const SECONDARY_DOH_URL: &str = "https://doh.dns.sb/dns-query";
+const SECONDARY_DOH_BOOTSTRAP_IPS: &[&str] = &["185.222.222.222", "45.11.45.11"];
 const WS_TUNNEL_PORT: u16 = 443;
 
 /// Resolve `kws{dc}.web.telegram.org` through the configured encrypted DNS
@@ -59,8 +67,52 @@ pub(crate) fn default_encrypted_dns_context() -> ProxyEncryptedDnsContext {
     }
 }
 
-pub(crate) fn runtime_encrypted_dns_context(runtime_context: Option<&ProxyRuntimeContext>) -> ProxyEncryptedDnsContext {
-    runtime_context.and_then(|context| context.encrypted_dns.clone()).unwrap_or_else(default_encrypted_dns_context)
+fn primary_encrypted_dns_context() -> ProxyEncryptedDnsContext {
+    ProxyEncryptedDnsContext {
+        resolver_id: Some(PRIMARY_DOH_RESOLVER_ID.to_string()),
+        protocol: "doh".to_string(),
+        host: PRIMARY_DOH_HOST.to_string(),
+        port: WS_TUNNEL_PORT,
+        tls_server_name: Some(PRIMARY_DOH_HOST.to_string()),
+        bootstrap_ips: PRIMARY_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect(),
+        doh_url: Some(PRIMARY_DOH_URL.to_string()),
+        dnscrypt_provider_name: None,
+        dnscrypt_public_key: None,
+    }
+}
+
+fn secondary_encrypted_dns_context() -> ProxyEncryptedDnsContext {
+    ProxyEncryptedDnsContext {
+        resolver_id: Some(SECONDARY_DOH_RESOLVER_ID.to_string()),
+        protocol: "doh".to_string(),
+        host: SECONDARY_DOH_HOST.to_string(),
+        port: WS_TUNNEL_PORT,
+        tls_server_name: Some(SECONDARY_DOH_HOST.to_string()),
+        bootstrap_ips: SECONDARY_DOH_BOOTSTRAP_IPS.iter().map(ToString::to_string).collect(),
+        doh_url: Some(SECONDARY_DOH_URL.to_string()),
+        dnscrypt_provider_name: None,
+        dnscrypt_public_key: None,
+    }
+}
+
+pub(crate) fn runtime_encrypted_dns_context_for_host(
+    host: &str,
+    runtime_context: Option<&ProxyRuntimeContext>,
+) -> ProxyEncryptedDnsContext {
+    runtime_encrypted_dns_context_for_host_with_default(host, runtime_context, default_encrypted_dns_context)
+}
+
+fn runtime_encrypted_dns_context_for_host_with_default(
+    host: &str,
+    runtime_context: Option<&ProxyRuntimeContext>,
+    default_context: impl FnOnce() -> ProxyEncryptedDnsContext,
+) -> ProxyEncryptedDnsContext {
+    let capability = direct_path_capability_for_host(runtime_context, host);
+    let base_context = capability
+        .and_then(capability_encrypted_dns_context)
+        .or_else(|| runtime_context.and_then(|context| context.encrypted_dns.clone()))
+        .unwrap_or_else(default_context);
+    gate_doq_for_capability(base_context, capability)
 }
 
 pub(crate) fn encrypted_dns_endpoint(context: &ProxyEncryptedDnsContext) -> io::Result<EncryptedDnsEndpoint> {
@@ -104,11 +156,12 @@ pub(crate) fn encrypted_dns_label(context: &ProxyEncryptedDnsContext) -> String 
         .unwrap_or_else(|| format!("{}:{}", context.host, context.port))
 }
 
-pub(crate) fn build_encrypted_dns_resolver(
+pub(crate) fn build_encrypted_dns_resolver_for_host(
+    host: &str,
     runtime_context: Option<&ProxyRuntimeContext>,
     protect_path: Option<&str>,
 ) -> io::Result<EncryptedDnsResolver> {
-    let resolver_context = runtime_encrypted_dns_context(runtime_context);
+    let resolver_context = runtime_encrypted_dns_context_for_host(host, runtime_context);
     let connect_hooks = build_direct_connect_hooks(protect_path);
     EncryptedDnsResolver::with_connect_hooks(
         encrypted_dns_endpoint(&resolver_context)?,
@@ -140,8 +193,7 @@ fn resolve_host_via_encrypted_dns_with_default(
     ipv6_enabled: bool,
     default_context: impl FnOnce() -> ProxyEncryptedDnsContext,
 ) -> io::Result<SocketAddr> {
-    let resolver_context =
-        runtime_context.and_then(|context| context.encrypted_dns.clone()).unwrap_or_else(default_context);
+    let resolver_context = runtime_encrypted_dns_context_for_host_with_default(host, runtime_context, default_context);
     let resolver = EncryptedDnsResolver::with_connect_hooks(
         encrypted_dns_endpoint(&resolver_context)?,
         EncryptedDnsTransport::Direct,
@@ -159,6 +211,60 @@ fn resolve_host_via_encrypted_dns_with_default(
     }
 
     Err(io::Error::new(io::ErrorKind::AddrNotAvailable, "encrypted DNS resolved no usable socket address"))
+}
+
+fn capability_encrypted_dns_context(capability: &ProxyDirectPathCapability) -> Option<ProxyEncryptedDnsContext> {
+    match capability.dns_mode.trim().to_ascii_uppercase().as_str() {
+        "DOH_PRIMARY" => Some(primary_encrypted_dns_context()),
+        "DOH_SECONDARY" => Some(secondary_encrypted_dns_context()),
+        _ => None,
+    }
+}
+
+fn gate_doq_for_capability(
+    mut context: ProxyEncryptedDnsContext,
+    capability: Option<&ProxyDirectPathCapability>,
+) -> ProxyEncryptedDnsContext {
+    if !context.protocol.eq_ignore_ascii_case("doq") {
+        return context;
+    }
+    let udp_clean = capability.is_none_or(capability_udp_clean_for_resolver);
+    if udp_clean {
+        return context;
+    }
+    context.protocol = "doh".to_string();
+    context.port = WS_TUNNEL_PORT;
+    context.tls_server_name = context.tls_server_name.or_else(|| Some(context.host.clone()));
+    if context.doh_url.as_deref().is_none_or(|value| value.trim().is_empty()) {
+        context.doh_url = Some(format!("https://{}/dns-query", context.host));
+    }
+    context
+}
+
+fn direct_path_capability_for_host<'a>(
+    runtime_context: Option<&'a ProxyRuntimeContext>,
+    host: &str,
+) -> Option<&'a ProxyDirectPathCapability> {
+    let normalized_host = normalize_authority(host)?;
+    let candidates = [normalized_host.clone(), format!("{normalized_host}:443")];
+    runtime_context?
+        .direct_path_capabilities
+        .iter()
+        .find(|capability| candidates.iter().any(|candidate| capability.authority == *candidate))
+}
+
+fn capability_udp_clean_for_resolver(capability: &ProxyDirectPathCapability) -> bool {
+    if capability.reason_code.as_deref() == Some("NO_TCP_FALLBACK") {
+        return true;
+    }
+    capability.udp_usable != Some(false)
+        && capability.quic_usable != Some(false)
+        && !matches!(capability.quic_mode.trim().to_ascii_uppercase().as_str(), "SOFT_DISABLE" | "HARD_DISABLE")
+}
+
+fn normalize_authority(value: &str) -> Option<String> {
+    let normalized = value.trim().trim_end_matches('.').to_ascii_lowercase();
+    (!normalized.is_empty()).then_some(normalized)
 }
 
 fn resolve_first_ip(
@@ -304,6 +410,56 @@ mod tests {
     }
 
     #[test]
+    fn authority_dns_hint_selects_primary_doh_context() {
+        let mut runtime_context = fixture_runtime_context(443);
+        runtime_context.direct_path_capabilities = vec![ProxyDirectPathCapability {
+            authority: "fixture.test:443".to_string(),
+            dns_mode: "DOH_PRIMARY".to_string(),
+            ..fixture_direct_path_capability("fixture.test:443")
+        }];
+
+        let context = runtime_encrypted_dns_context_for_host("fixture.test", Some(&runtime_context));
+
+        assert_eq!(context.resolver_id.as_deref(), Some("adguard"));
+        assert_eq!(context.protocol, "doh");
+        assert_eq!(context.host, "dns.adguard-dns.com");
+        assert_eq!(context.doh_url.as_deref(), Some("https://dns.adguard-dns.com/dns-query"));
+    }
+
+    #[test]
+    fn authority_transport_hint_downgrades_doq_when_udp_not_clean() {
+        let runtime_context = ProxyRuntimeContext {
+            encrypted_dns: Some(ProxyEncryptedDnsContext {
+                resolver_id: Some("fixture-doq".to_string()),
+                protocol: "doq".to_string(),
+                host: "dns.example".to_string(),
+                port: 853,
+                tls_server_name: Some("dns.example".to_string()),
+                bootstrap_ips: vec!["203.0.113.53".to_string()],
+                doh_url: None,
+                dnscrypt_provider_name: None,
+                dnscrypt_public_key: None,
+            }),
+            protect_path: None,
+            preferred_edges: std::collections::BTreeMap::default(),
+            direct_path_capabilities: vec![ProxyDirectPathCapability {
+                authority: "fixture.test:443".to_string(),
+                quic_usable: Some(false),
+                udp_usable: Some(false),
+                quic_mode: "SOFT_DISABLE".to_string(),
+                ..fixture_direct_path_capability("fixture.test:443")
+            }],
+            morph_policy: None,
+        };
+
+        let context = runtime_encrypted_dns_context_for_host("fixture.test", Some(&runtime_context));
+
+        assert_eq!(context.protocol, "doh");
+        assert_eq!(context.port, 443);
+        assert_eq!(context.doh_url.as_deref(), Some("https://dns.example/dns-query"));
+    }
+
+    #[test]
     fn ws_tunnel_host_supports_test_gateways() {
         assert_eq!(ws_tunnel_host(TelegramDc::from_raw(10_004).expect("test dc")), "kws4-test.web.telegram.org");
     }
@@ -329,6 +485,28 @@ mod tests {
             doh_url: Some(format!("http://127.0.0.1:{dns_http_port}/dns-query")),
             dnscrypt_provider_name: None,
             dnscrypt_public_key: None,
+        }
+    }
+
+    fn fixture_direct_path_capability(authority: &str) -> ProxyDirectPathCapability {
+        ProxyDirectPathCapability {
+            authority: authority.to_string(),
+            quic_usable: None,
+            udp_usable: None,
+            fallback_required: None,
+            repeated_handshake_failure_class: None,
+            transport_policy_version: 0,
+            ip_set_digest: String::new(),
+            dns_classification: None,
+            quic_mode: "ALLOW".to_string(),
+            preferred_stack: "H3".to_string(),
+            dns_mode: "SYSTEM".to_string(),
+            tcp_family: "NONE".to_string(),
+            outcome: "TRANSPARENT_OK".to_string(),
+            transport_class: None,
+            reason_code: None,
+            cooldown_until: None,
+            updated_at: 0,
         }
     }
 

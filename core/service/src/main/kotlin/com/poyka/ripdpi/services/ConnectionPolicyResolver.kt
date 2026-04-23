@@ -14,6 +14,9 @@ import com.poyka.ripdpi.core.stripRipDpiRuntimeContext
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.data.DnsMode
+import com.poyka.ripdpi.data.DnsProviderAdGuard
+import com.poyka.ripdpi.data.DnsProviderDnsSb
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
@@ -23,6 +26,7 @@ import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.StrategyLaneFamilies
 import com.poyka.ripdpi.data.TemporaryResolverOverride
 import com.poyka.ripdpi.data.VpnDnsPolicyJson
+import com.poyka.ripdpi.data.builtInEncryptedDnsPathCandidates
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
@@ -100,13 +104,14 @@ class DefaultConnectionPolicyResolver
             val dnsResolution = resolveEffectiveDns(settings, resolverOverride)
             val fingerprintSnapshot = fingerprint ?: networkFingerprintProvider.capture()
             val networkScopeKey = fingerprintSnapshot?.scopeKey()
+            val directPathCapabilities = resolveDirectPathCapabilities(networkScopeKey)
             val preferredVpnDnsPath =
                 resolvePreferredVpnDnsPath(
                     mode = mode,
                     dnsResolution = dnsResolution,
                     networkScopeKey = networkScopeKey,
+                    directPathCapabilities = directPathCapabilities,
                 )
-            val directPathCapabilities = resolveDirectPathCapabilities(networkScopeKey)
             val baselineVpnDnsSelection =
                 resolveVpnDnsSelection(
                     mode = mode,
@@ -400,6 +405,7 @@ class DefaultConnectionPolicyResolver
             mode: Mode,
             dnsResolution: EffectiveDnsResolution,
             networkScopeKey: String?,
+            directPathCapabilities: List<RipDpiDirectPathCapability>,
         ): EncryptedDnsPathCandidate? {
             if (mode != Mode.VPN || dnsResolution.override != null) {
                 return null
@@ -413,11 +419,47 @@ class DefaultConnectionPolicyResolver
                 // instead of waiting for 2 consecutive DNS failures via the failover controller.
                 return preferred
             }
+            derivePreferredVpnDnsPathFromDirectPathCapabilities(directPathCapabilities)?.let { preferred ->
+                return preferred
+            }
             // Cold start: no diagnostic has ever run on this network.
             // Do a quick DNS integrity check and switch to encrypted DNS if tampering detected.
             return startupDnsProbe.probeIfTampered(dnsResolution.activeDns.mode)
         }
+
+        private fun derivePreferredVpnDnsPathFromDirectPathCapabilities(
+            directPathCapabilities: List<RipDpiDirectPathCapability>,
+        ): EncryptedDnsPathCandidate? {
+            val dnsModes =
+                directPathCapabilities
+                    .asSequence()
+                    .filter { capability -> isResolvableHostnameAuthority(capability.authority) }
+                    .map(RipDpiDirectPathCapability::dnsMode)
+                    .filter { dnsMode -> dnsMode != DnsMode.SYSTEM }
+                    .distinct()
+                    .toList()
+            val selectedMode = dnsModes.singleOrNull() ?: return null
+            return when (selectedMode) {
+                DnsMode.DOH_PRIMARY -> builtInDohCandidate(DnsProviderAdGuard)
+                DnsMode.DOH_SECONDARY -> builtInDohCandidate(DnsProviderDnsSb)
+                DnsMode.SYSTEM -> null
+            }
+        }
     }
+
+private fun builtInDohCandidate(resolverId: String): EncryptedDnsPathCandidate? =
+    builtInEncryptedDnsPathCandidates().firstOrNull { candidate ->
+        candidate.resolverId == resolverId && candidate.protocol.equals("doh", ignoreCase = true)
+    }
+
+private fun isResolvableHostnameAuthority(authority: String): Boolean {
+    val host =
+        authority
+            .substringBefore(':')
+            .trim()
+            .trimEnd('.')
+    return host.isNotEmpty() && host.any(Char::isLetter)
+}
 
 @Suppress("ReturnCount")
 internal fun resolveVpnDnsSelection(
