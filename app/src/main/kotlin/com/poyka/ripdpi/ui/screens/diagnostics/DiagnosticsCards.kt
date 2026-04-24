@@ -4,9 +4,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -97,7 +94,6 @@ private const val SparklineSelectedMarkerRadius = 5f
 private const val SparklineSelectedMarkerInnerRadius = 3f
 private const val SparklineStrokeWidth = 4f
 private const val SparklineDividerStrokeWidth = 1f
-private const val CollapsibleSectionAnimDurationMs = 200
 private const val ProbeRowMinHeightDp = 52
 private const val MonospaceThresholdChars = 18
 private const val MetricCardHorizontalPaddingDp = 14
@@ -116,6 +112,7 @@ internal fun CollapsibleSection(
     TrackRecomposition("CollapsibleSection")
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
+    val motion = RipDpiThemeTokens.motion
     var expanded by remember { mutableStateOf(defaultExpanded) }
     val expandedLabel = stringResource(R.string.semantic_state_expanded)
     val collapsedLabel = stringResource(R.string.semantic_state_collapsed)
@@ -123,7 +120,7 @@ internal fun CollapsibleSection(
     val collapseActionLabel = stringResource(R.string.semantic_action_collapse)
     val rotationAngle by animateFloatAsState(
         targetValue = if (expanded) 180f else 0f,
-        animationSpec = tween(durationMillis = CollapsibleSectionAnimDurationMs),
+        animationSpec = motion.stateTween(),
         label = "chevronRotation",
     )
 
@@ -174,8 +171,8 @@ internal fun CollapsibleSection(
         }
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically(animationSpec = tween(CollapsibleSectionAnimDurationMs)),
-            exit = shrinkVertically(animationSpec = tween(CollapsibleSectionAnimDurationMs)),
+            enter = motion.sectionEnterTransition(),
+            exit = motion.sectionExitTransition(),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
                 content()
@@ -332,7 +329,7 @@ internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSp
     val dividerColor = colors.divider
     val animatedStrokeColor by animateColorAsState(
         targetValue = metricStyle.content,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "telemetrySparklineStroke",
     )
     var previousValues by remember(trend.label) { mutableStateOf(trend.values) }
@@ -348,7 +345,7 @@ internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSp
         transitionProgress.snapTo(0f)
         transitionProgress.animateTo(
             targetValue = 1f,
-            animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
+            animationSpec = motion.emphasizedTween(),
         )
     }
 

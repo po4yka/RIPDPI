@@ -6,7 +6,6 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -59,7 +58,7 @@ fun StatusIndicator(
         }
     val animatedIndicatorColor by animateColorAsState(
         targetValue = indicatorColor,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "statusIndicatorColor",
     )
     val pulseTransition =
@@ -75,8 +74,8 @@ fun StatusIndicator(
             animationSpec =
                 infiniteRepeatable(
                     animation =
-                        tween(
-                            durationMillis = motion.duration(motion.emphasizedDurationMillis * 2),
+                        motion.durationTween(
+                            baseDurationMillis = motion.emphasizedDurationMillis * 2,
                             easing = LinearEasing,
                         ),
                     repeatMode = RepeatMode.Restart,
@@ -91,8 +90,8 @@ fun StatusIndicator(
             animationSpec =
                 infiniteRepeatable(
                     animation =
-                        tween(
-                            durationMillis = motion.duration(motion.emphasizedDurationMillis * 2),
+                        motion.durationTween(
+                            baseDurationMillis = motion.emphasizedDurationMillis * 2,
                             easing = LinearEasing,
                         ),
                     repeatMode = RepeatMode.Restart,

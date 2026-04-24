@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.dns
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,7 +29,6 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
@@ -74,11 +72,7 @@ internal fun DnsActiveConfigurationCard(
         variant = if (uiState.dns.dnsMode == DnsModeEncrypted) RipDpiCardVariant.Elevated else RipDpiCardVariant.Tonal,
         modifier =
             Modifier.animateContentSize(
-                animationSpec =
-                    tween(
-                        durationMillis = motion.duration(motion.stateDurationMillis),
-                        easing = RipDpiMotion.StandardEasing,
-                    ),
+                animationSpec = motion.stateTween(),
             ),
     ) {
         Text(
@@ -204,11 +198,7 @@ internal fun DnsOptionCard(
         onClick = onClick,
         modifier =
             Modifier.animateContentSize(
-                animationSpec =
-                    tween(
-                        durationMillis = motion.duration(motion.stateDurationMillis),
-                        easing = RipDpiMotion.StandardEasing,
-                    ),
+                animationSpec = motion.stateTween(),
             ),
     ) {
         Row(
@@ -332,11 +322,7 @@ internal fun DnsResolverCard(
         modifier =
             Modifier
                 .animateContentSize(
-                    animationSpec =
-                        tween(
-                            durationMillis = motion.duration(motion.stateDurationMillis),
-                            easing = RipDpiMotion.StandardEasing,
-                        ),
+                    animationSpec = motion.stateTween(),
                 ).ripDpiTestTag(RipDpiTestTags.dnsResolver(resolver.providerId)),
     ) {
         Row(

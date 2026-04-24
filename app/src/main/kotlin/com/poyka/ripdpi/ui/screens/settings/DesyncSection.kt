@@ -1,10 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyListScope
@@ -804,6 +800,7 @@ private fun ChainEditorWithCollapsibleHelp(
 @Composable
 private fun ChainEditorCollapsibleDescription() {
     val colors = RipDpiThemeTokens.colors
+    val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
     var expanded by rememberSaveable { mutableStateOf(false) }
 
@@ -815,8 +812,8 @@ private fun ChainEditorCollapsibleDescription() {
         )
         AnimatedVisibility(
             visible = expanded,
-            enter = expandVertically() + fadeIn(),
-            exit = shrinkVertically() + fadeOut(),
+            enter = motion.sectionEnterTransition(),
+            exit = motion.sectionExitTransition(),
         ) {
             Text(
                 text = stringResource(R.string.config_chain_editor_helper_full),
