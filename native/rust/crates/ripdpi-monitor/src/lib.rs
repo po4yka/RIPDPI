@@ -14,6 +14,7 @@ mod fat_header;
 mod http;
 mod ja3;
 mod observations;
+mod platform;
 mod platform_ttl;
 mod strategy;
 mod telegram;
@@ -27,10 +28,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
-use android_support::{
-    android_log_level_from_str, clear_android_log_scope_level, clear_diagnostics_events, drain_diagnostics_events,
-    set_android_log_scope_level, NativeEventRecord,
-};
 use log::LevelFilter;
 use rustls::client::danger::ServerCertVerifier;
 
@@ -38,6 +35,7 @@ use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
 
 use connectivity::set_progress;
 use engine::*;
+use platform::NoopMonitorPlatformBridge;
 use types::SharedState;
 
 #[cfg(test)]
@@ -45,6 +43,7 @@ mod test_fixtures;
 #[cfg(test)]
 mod tests;
 
+pub use platform::{MonitorPlatformBridge, ScopedMonitorLogLevel};
 pub use types::{
     CircumventionTarget, Diagnosis, DiagnosticProfileFamily, DnsObservationFact, DnsObservationStatus, DnsTarget,
     DomainObservationFact, DomainTarget, EndpointProbeStatus, HttpProbeStatus, NativeSessionEvent, ObservationKind,
@@ -75,27 +74,12 @@ pub fn fuzz_parse_http_response(headers: &[u8], body: &[u8]) -> Result<(), Strin
     Ok(())
 }
 
-impl From<NativeEventRecord> for NativeSessionEvent {
-    fn from(value: NativeEventRecord) -> Self {
-        Self {
-            source: value.source,
-            level: value.level,
-            message: value.message,
-            created_at: value.created_at,
-            runtime_id: value.runtime_id,
-            mode: value.mode,
-            policy_signature: value.policy_signature,
-            fingerprint_hash: value.fingerprint_hash,
-            subsystem: value.subsystem,
-        }
-    }
-}
-
 pub struct MonitorSession {
     shared: Arc<Mutex<SharedState>>,
     cancel: Arc<AtomicBool>,
     worker: Mutex<Option<JoinHandle<()>>>,
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+    platform_bridge: Arc<dyn MonitorPlatformBridge>,
 }
 
 impl Default for MonitorSession {
@@ -106,20 +90,27 @@ impl Default for MonitorSession {
 
 impl MonitorSession {
     pub fn new() -> Self {
-        Self {
-            shared: Arc::new(Mutex::new(SharedState::default())),
-            cancel: Arc::new(AtomicBool::new(false)),
-            worker: Mutex::new(None),
-            tls_verifier: None,
-        }
+        Self::with_parts(None, Arc::new(NoopMonitorPlatformBridge))
+    }
+
+    pub fn with_platform_bridge(platform_bridge: Arc<dyn MonitorPlatformBridge>) -> Self {
+        Self::with_parts(None, platform_bridge)
     }
 
     pub fn with_tls_verifier(tls_verifier: Option<Arc<dyn ServerCertVerifier>>) -> Self {
+        Self::with_parts(tls_verifier, Arc::new(NoopMonitorPlatformBridge))
+    }
+
+    fn with_parts(
+        tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+        platform_bridge: Arc<dyn MonitorPlatformBridge>,
+    ) -> Self {
         Self {
             shared: Arc::new(Mutex::new(SharedState::default())),
             cancel: Arc::new(AtomicBool::new(false)),
             worker: Mutex::new(None),
             tls_verifier,
+            platform_bridge,
         }
     }
 
@@ -129,7 +120,7 @@ impl MonitorSession {
             .native_log_level
             .as_deref()
             .map(|value| {
-                android_log_level_from_str(value)
+                native_log_level_from_str(value)
                     .ok_or_else(|| format!("Unsupported diagnostics nativeLogLevel: {value}"))
             })
             .transpose()?;
@@ -139,7 +130,7 @@ impl MonitorSession {
             return Err("diagnostics scan already running".to_string());
         }
         self.cancel.store(false, Ordering::Release);
-        clear_diagnostics_events();
+        self.platform_bridge.clear_passive_events();
         {
             let mut shared = self.shared.lock().map_err(|_| "monitor shared state poisoned".to_string())?;
             shared.progress = None;
@@ -149,12 +140,13 @@ impl MonitorSession {
         let shared = self.shared.clone();
         let cancel = self.cancel.clone();
         let tls_verifier = self.tls_verifier.clone();
+        let platform_bridge = self.platform_bridge.clone();
         let domain_request: ScanRequest = request.into();
         let shared_panic = shared.clone();
         let session_id_panic = session_id.clone();
         let handle = thread::spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                run_scan(shared, cancel, session_id, domain_request, tls_verifier, native_log_level);
+                run_scan(shared, cancel, session_id, domain_request, tls_verifier, platform_bridge, native_log_level);
             }));
             if let Err(panic_payload) = result {
                 let msg = panic_payload
@@ -208,7 +200,7 @@ impl MonitorSession {
     }
 
     pub fn poll_passive_events_json(&self) -> Result<Option<String>, String> {
-        let events: Vec<NativeSessionEvent> = drain_diagnostics_events().into_iter().map(Into::into).collect();
+        let events = self.platform_bridge.drain_passive_events();
         serde_json::to_string(&events).map(Some).map_err(|err| err.to_string())
     }
 
@@ -242,32 +234,28 @@ fn run_scan(
     session_id: String,
     request: ScanRequest,
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+    platform_bridge: Arc<dyn MonitorPlatformBridge>,
     native_log_level: Option<LevelFilter>,
 ) {
     let _log_scope =
-        native_log_level.map(|level| ScopedAndroidLogLevel::new(diagnostics_log_scope(&session_id), level));
+        native_log_level.map(|level| platform_bridge.scoped_log_level(diagnostics_log_scope(&session_id), level));
     run_engine_scan(shared, cancel, session_id, request, tls_verifier);
-}
-
-struct ScopedAndroidLogLevel {
-    scope: String,
-}
-
-impl ScopedAndroidLogLevel {
-    fn new(scope: String, level: LevelFilter) -> Self {
-        set_android_log_scope_level(scope.clone(), level);
-        Self { scope }
-    }
-}
-
-impl Drop for ScopedAndroidLogLevel {
-    fn drop(&mut self) {
-        clear_android_log_scope_level(&self.scope);
-    }
 }
 
 fn diagnostics_log_scope(session_id: &str) -> String {
     format!("diagnostics:{session_id}")
+}
+
+fn native_log_level_from_str(level: &str) -> Option<LevelFilter> {
+    match level.trim().to_ascii_lowercase().as_str() {
+        "trace" => Some(LevelFilter::Trace),
+        "debug" => Some(LevelFilter::Debug),
+        "info" => Some(LevelFilter::Info),
+        "warn" | "warning" => Some(LevelFilter::Warn),
+        "error" => Some(LevelFilter::Error),
+        "off" => Some(LevelFilter::Off),
+        _ => None,
+    }
 }
 
 fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), String> {
