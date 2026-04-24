@@ -16,6 +16,8 @@ const val DefaultStrategyPackRefreshPolicy = StrategyPackRefreshPolicyAutomatic
 const val DefaultStrategyPackPinnedId = ""
 const val DefaultStrategyPackPinnedVersion = ""
 const val StrategyPackCatalogSchemaVersion = 3
+const val StrategyPackSignatureAlgorithmSha256WithEcdsa = "SHA256withECDSA"
+const val DefaultStrategyPackSigningKeyId = "ripdpi-prod-p256"
 
 const val DefaultTlsProfileCatalogVersion = "v1"
 const val DefaultTlsProfileSetId = "browser_family_v2"
@@ -312,7 +314,7 @@ fun StrategyPackCatalog.checkCompatibility(
     return StrategyPackCompatibility(isCompatible = true)
 }
 
-internal fun compareVersionStrings(
+fun compareVersionStrings(
     left: String,
     right: String,
 ): Int {

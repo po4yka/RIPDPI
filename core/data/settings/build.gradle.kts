@@ -3,21 +3,22 @@ import com.android.build.api.dsl.LibraryExtension
 plugins {
     id("ripdpi.android.coverage")
     id("ripdpi.android.library")
+    id("ripdpi.android.hilt")
     id("ripdpi.android.quality")
+    id("ripdpi.android.serialization")
 }
 
 extensions.configure<LibraryExtension> {
-    namespace = "com.poyka.ripdpi.core.data"
+    namespace = "com.poyka.ripdpi.core.data.settings"
 }
 
 dependencies {
     api(project(":core:data:model"))
     api(project(":core:data:catalog"))
-    api(project(":core:data:settings"))
-    api(project(":core:data:runtime-state"))
+    implementation(libs.androidx.datastore)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.kotlinx.serialization.json)
 
     testImplementation(libs.bundles.unit.test)
-    testImplementation(libs.androidx.datastore)
     testImplementation(libs.androidx.test.core.ktx)
-    testImplementation(libs.kotlinx.serialization.json)
 }

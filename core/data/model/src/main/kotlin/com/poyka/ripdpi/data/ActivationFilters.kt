@@ -125,14 +125,14 @@ private fun NumericRange.toModel(): NumericRangeModel =
         end = end.takeUnless { it == ActivationFilterUnset },
     )
 
-internal fun NumericRangeModel.toProto(): NumericRange =
+fun NumericRangeModel.toProto(): NumericRange =
     NumericRange
         .newBuilder()
         .setStart(start ?: ActivationFilterUnset)
         .setEnd(end ?: ActivationFilterUnset)
         .build()
 
-internal fun ActivationFilter.toModel(): ActivationFilterModel =
+fun ActivationFilter.toModel(): ActivationFilterModel =
     ActivationFilterModel(
         round = if (hasRound()) round.toModel() else NumericRangeModel(),
         payloadSize = if (hasPayloadSize()) payloadSize.toModel() else NumericRangeModel(),
@@ -143,7 +143,7 @@ internal fun ActivationFilter.toModel(): ActivationFilterModel =
         tcpMssBelow = tcpMssBelow.takeIf { hasTcpMssBelow() },
     )
 
-internal fun ActivationFilterModel.toProto(): ActivationFilter =
+fun ActivationFilterModel.toProto(): ActivationFilter =
     ActivationFilter
         .newBuilder()
         .apply {
