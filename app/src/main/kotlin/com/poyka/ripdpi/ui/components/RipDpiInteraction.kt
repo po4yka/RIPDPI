@@ -88,6 +88,7 @@ fun rememberRipDpiHapticPerformer(): (RipDpiHapticFeedback) -> Unit {
 fun Modifier.ripDpiClickable(
     enabled: Boolean = true,
     role: Role? = null,
+    onClickLabel: String? = null,
     interactionSource: MutableInteractionSource? = null,
     hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action,
     onClick: () -> Unit,
@@ -99,6 +100,7 @@ fun Modifier.ripDpiClickable(
         minimumInteractiveComponentSize().clickable(
             enabled = enabled,
             role = role,
+            onClickLabel = onClickLabel,
             interactionSource = resolvedInteractionSource,
             indication = LocalIndication.current,
             onClick = {

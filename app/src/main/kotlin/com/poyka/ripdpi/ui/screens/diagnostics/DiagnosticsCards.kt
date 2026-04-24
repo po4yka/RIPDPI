@@ -9,7 +9,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -79,6 +78,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.indicators.ripDpiMetricToneStyle
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -134,11 +134,11 @@ internal fun CollapsibleSection(
                     .fillMaxWidth()
                     .semantics {
                         stateDescription = if (expanded) expandedLabel else collapsedLabel
-                    }.clickable(
+                    }.ripDpiClickable(
                         role = Role.Button,
                         onClickLabel = if (expanded) collapseActionLabel else expandActionLabel,
-                    ) { expanded = !expanded }
-                    .padding(vertical = spacing.sm),
+                        onClick = { expanded = !expanded },
+                    ).padding(vertical = spacing.sm),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -194,7 +194,7 @@ internal fun CompactProbeRow(
         modifier =
             modifier
                 .fillMaxWidth()
-                .clickable(onClick = onClick)
+                .ripDpiClickable(role = Role.Button, onClick = onClick)
                 .heightIn(min = ProbeRowMinHeightDp.dp)
                 .padding(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
