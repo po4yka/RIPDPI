@@ -16,8 +16,6 @@ import com.poyka.ripdpi.storage.AtomicTextFileWriter
 import com.poyka.ripdpi.storage.DefaultAtomicTextFileWriter
 import com.poyka.ripdpi.testsupport.CorruptFileFixture
 import kotlinx.coroutines.test.runTest
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -27,7 +25,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
-import retrofit2.Response
 import java.io.File
 import java.io.IOException
 import java.security.KeyPair
@@ -467,12 +464,11 @@ class AssetHostPackCatalogRepositoryTest {
     ) : HostPackCatalogDownloadService {
         var requestedCatalogUrl: String? = null
 
-        override suspend fun downloadManifest() =
-            Response.success(manifestPayload.toResponseBody("application/json".toMediaType()))
+        override suspend fun downloadManifest(): String = manifestPayload
 
-        override suspend fun downloadCatalog(url: String): Response<okhttp3.ResponseBody> {
+        override suspend fun downloadCatalog(url: String): ByteArray {
             requestedCatalogUrl = url
-            return Response.success(geositePayload.toResponseBody("application/octet-stream".toMediaType()))
+            return geositePayload
         }
     }
 

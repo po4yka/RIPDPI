@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.strategy
 
-import com.poyka.ripdpi.activities.FakeAppSettingsRepository
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradation
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
@@ -11,6 +11,10 @@ import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
 import com.poyka.ripdpi.data.StrategyPackRefreshFailureCode
 import com.poyka.ripdpi.data.StrategyPackRefreshPolicyManual
 import com.poyka.ripdpi.data.StrategyPackSnapshot
+import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -20,6 +24,7 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class StrategyPackServiceTest {
     @Test
     fun `initialize is idempotent and does not duplicate startup refresh`() =
@@ -105,7 +110,7 @@ class StrategyPackServiceTest {
         runTest {
             val repository =
                 FakeStrategyPackRepository(
-                    initialSnapshot = bundledSnapshot(),
+                    initialSnapshot = downloadedSnapshot(fetchedAt = 0L),
                     clock = clock(),
                     initialLoadDegradation =
                         ControlPlaneCacheDegradation(
@@ -462,6 +467,28 @@ private class FakeStrategyPackRepository(
                 snapshot
             }
         }
+    }
+}
+
+private class FakeAppSettingsRepository(
+    initialSettings: AppSettings = AppSettingsSerializer.defaultValue,
+) : AppSettingsRepository {
+    private val state = MutableStateFlow(initialSettings)
+
+    override val settings: Flow<AppSettings> = state
+
+    override suspend fun snapshot(): AppSettings = state.value
+
+    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
+        state.value =
+            state.value
+                .toBuilder()
+                .apply(transform)
+                .build()
+    }
+
+    override suspend fun replace(settings: AppSettings) {
+        state.value = settings
     }
 }
 

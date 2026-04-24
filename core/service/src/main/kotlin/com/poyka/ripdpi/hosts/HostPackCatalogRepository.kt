@@ -25,8 +25,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.ResponseBody
-import retrofit2.Response
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
@@ -44,6 +42,12 @@ interface HostPackCatalogRepository {
     suspend fun loadSnapshot(): HostPackCatalogLoadResult
 
     suspend fun refreshSnapshot(): HostPackCatalogSnapshot
+}
+
+interface HostPackCatalogDownloadService {
+    suspend fun downloadManifest(): String
+
+    suspend fun downloadCatalog(url: String): ByteArray
 }
 
 data class HostPackCatalogLoadResult(
@@ -137,8 +141,8 @@ class DefaultHostPackCatalogRepository
                 val tempFile = tempFileFactory.create(context.cacheDir)
 
                 try {
-                    val actualChecksum = service.downloadCatalog(manifest.catalogUrl).writeToFileAndDigest(tempFile)
-                    val payload = tempFile.readBytes()
+                    val payload = service.downloadCatalog(manifest.catalogUrl)
+                    val actualChecksum = payload.writeToFileAndDigest(tempFile)
                     verifier.verify(
                         manifest = manifest,
                         payload = payload,
@@ -173,7 +177,6 @@ class DefaultHostPackCatalogRepository
         private suspend fun loadManifest(): HostPackManifest =
             service
                 .downloadManifest()
-                .requireBodyText()
                 .let { payload ->
                     runCatching {
                         hostPackManifestFromJson(payload)
@@ -247,32 +250,12 @@ private data class CachedHostPackCatalogSnapshotResult(
     val error: Throwable? = null,
 )
 
-internal fun Response<ResponseBody>.requireBodyText(): String {
-    val body =
-        if (isSuccessful) {
-            body()
-        } else {
-            null
-        }
-            ?: throw IOException("Remote request failed with HTTP ${code()} for ${raw().request.url}")
-    return body.use(ResponseBody::string)
-}
-
-internal fun Response<ResponseBody>.writeToFileAndDigest(target: File): String {
-    val body =
-        if (isSuccessful) {
-            body()
-        } else {
-            null
-        }
-            ?: throw IOException("Remote request failed with HTTP ${code()} for ${raw().request.url}")
-
-    return body.use { responseBody ->
+internal fun ByteArray.writeToFileAndDigest(target: File): String =
+    inputStream().use { input ->
         target.outputStream().use { output ->
-            responseBody.byteStream().copyToAndDigest(output)
+            input.copyToAndDigest(output)
         }
     }
-}
 
 internal fun InputStream.copyToAndDigest(output: java.io.OutputStream): String {
     val digest = MessageDigest.getInstance("SHA-256")
@@ -288,7 +271,7 @@ internal fun InputStream.copyToAndDigest(output: java.io.OutputStream): String {
     return digest.digest().toHexString()
 }
 
-internal fun ByteArray.toHexString(): String =
+fun ByteArray.toHexString(): String =
     joinToString(separator = "") { byte ->
         ((byte.toInt() and byteUnsignedMask) + hexByteBase).toString(hexRadix).substring(1)
     }

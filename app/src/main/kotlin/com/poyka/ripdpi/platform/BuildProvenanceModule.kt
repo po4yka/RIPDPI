@@ -15,6 +15,10 @@ object BuildProvenanceModule {
     fun provideGitCommit(): String = BuildConfig.GIT_COMMIT
 
     @Provides
+    @Named("appVersionName")
+    fun provideAppVersionName(): String = BuildConfig.VERSION_NAME
+
+    @Provides
     @Named("nativeLibVersion")
     fun provideNativeLibVersion(): String = BuildConfig.NATIVE_LIB_VERSION
 }

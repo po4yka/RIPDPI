@@ -53,6 +53,10 @@ extensions.configure<LibraryExtension> {
             "\"${masquePrivacyPassProviderAuthToken.orEmpty()}\"",
         )
     }
+
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
 }
 
 dependencies {
@@ -67,6 +71,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kermit)
     implementation(libs.okhttp)
+    implementation(libs.retrofit)
 
     testImplementation(libs.bundles.unit.test)
     testImplementation(libs.kotlinx.serialization.json)
