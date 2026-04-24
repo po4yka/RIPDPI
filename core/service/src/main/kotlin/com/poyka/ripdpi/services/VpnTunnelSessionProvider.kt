@@ -26,7 +26,7 @@ internal class ParcelFileDescriptorVpnTunnelSession(
 }
 
 interface VpnTunnelSessionProvider {
-    fun establish(
+    suspend fun establish(
         host: VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,
@@ -37,7 +37,7 @@ interface VpnTunnelSessionProvider {
 class DefaultVpnTunnelSessionProvider
     @Inject
     constructor() : VpnTunnelSessionProvider {
-        override fun establish(
+        override suspend fun establish(
             host: VpnTunnelBuilderHost,
             dns: String,
             ipv6: Boolean,

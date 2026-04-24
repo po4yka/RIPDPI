@@ -175,7 +175,7 @@ class RipDpiVpnService :
     }
 
     @Suppress("UnusedParameter")
-    override fun createTunnelBuilder(
+    override suspend fun createTunnelBuilder(
         dns: String,
         ipv6: Boolean,
     ): VpnTunnelBuilder =
@@ -234,7 +234,7 @@ class RipDpiVpnService :
         )
 
     @Suppress("UnusedParameter")
-    internal fun createBuilder(
+    internal suspend fun createBuilder(
         dns: String,
         ipv6: Boolean,
     ): Builder {
@@ -280,7 +280,7 @@ class RipDpiVpnService :
         return builder
     }
 
-    private fun applyDhtMitigation(builder: Builder) {
+    private suspend fun applyDhtMitigation(builder: Builder) {
         val supportsRouteExclusion = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
         val plan = vpnDhtMitigationPolicy.buildPlan(supportsRouteExclusion = supportsRouteExclusion)
 

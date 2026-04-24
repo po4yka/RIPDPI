@@ -14,7 +14,6 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.runBlocking
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -34,7 +33,7 @@ interface DhtTriggerCidrsCatalogProvider {
 }
 
 interface VpnDhtMitigationPolicy {
-    fun buildPlan(supportsRouteExclusion: Boolean): VpnDhtMitigationPlan
+    suspend fun buildPlan(supportsRouteExclusion: Boolean): VpnDhtMitigationPlan
 }
 
 @Singleton
@@ -65,8 +64,8 @@ class DefaultVpnDhtMitigationPolicy
         private val appSettingsRepository: AppSettingsRepository,
         private val catalogProvider: DhtTriggerCidrsCatalogProvider,
     ) : VpnDhtMitigationPolicy {
-        override fun buildPlan(supportsRouteExclusion: Boolean): VpnDhtMitigationPlan {
-            val settings = runBlocking { appSettingsRepository.snapshot() }
+        override suspend fun buildPlan(supportsRouteExclusion: Boolean): VpnDhtMitigationPlan {
+            val settings = appSettingsRepository.snapshot()
             if (settings.fullTunnelMode) {
                 return VpnDhtMitigationPlan()
             }

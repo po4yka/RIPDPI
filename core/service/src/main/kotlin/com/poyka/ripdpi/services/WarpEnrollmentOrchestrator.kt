@@ -45,7 +45,6 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.decodeFromString
@@ -189,7 +188,7 @@ class DefaultWarpEndpointProbe
                 runCatching { probeBlocking(candidate, timeoutMillis.coerceAtLeast(250)) }.getOrNull()
             }
 
-        private fun probeBlocking(
+        private suspend fun probeBlocking(
             candidate: WarpEndpointCacheEntry,
             timeoutMillis: Int,
         ): WarpEndpointCacheEntry? {
@@ -197,14 +196,14 @@ class DefaultWarpEndpointProbe
             return probeFallbackUdp(candidate, timeoutMillis)
         }
 
-        private fun probeNative(
+        private suspend fun probeNative(
             candidate: WarpEndpointCacheEntry,
             timeoutMillis: Int,
         ): WarpEndpointCacheEntry? {
-            val credentials = runBlocking { credentialStore.load(candidate.profileId) } ?: return null
+            val credentials = credentialStore.load(candidate.profileId) ?: return null
             val privateKey = credentials.privateKey?.takeIf(String::isNotBlank) ?: return null
             val peerPublicKey = credentials.peerPublicKey?.takeIf(String::isNotBlank) ?: return null
-            val settings = runBlocking { appSettingsRepository.snapshot() }
+            val settings = appSettingsRepository.snapshot()
             val request =
                 WarpEndpointProbeNativeRequest(
                     endpoint = candidate.toResolvedEndpoint(),

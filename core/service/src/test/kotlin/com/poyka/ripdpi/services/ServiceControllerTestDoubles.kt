@@ -1094,7 +1094,7 @@ internal class TestVpnTunnelSessionProvider(
     var lastIpv6: Boolean? = null
         private set
 
-    override fun establish(
+    override suspend fun establish(
         host: VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,
@@ -1148,7 +1148,7 @@ internal class TestVpnServiceHost(
         underlyingNetworkSyncs += 1
     }
 
-    override fun createTunnelBuilder(
+    override suspend fun createTunnelBuilder(
         dns: String,
         ipv6: Boolean,
     ): VpnTunnelBuilder =

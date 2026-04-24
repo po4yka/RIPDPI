@@ -36,6 +36,7 @@ class DetectionCheckScheduler
         @param:ApplicationContext private val appContext: Context,
         private val serviceStateStore: ServiceStateStore,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
+        private val detectionCheckRunner: DetectionCheckRunner,
     ) : DetectionObservationStarter {
         private var observeJob: Job? = null
         private var handoverJob: Job? = null
@@ -118,7 +119,7 @@ class DetectionCheckScheduler
                         includeTlsFingerprintCheck = false,
                         includeTimingAnalysis = false,
                     )
-                val result = DetectionRunner.run(context = context, config = config)
+                val result = detectionCheckRunner.run(context = context, config = config)
                 val score = StealthScore.compute(result)
 
                 if (result.verdict == Verdict.DETECTED || score < 50) {
