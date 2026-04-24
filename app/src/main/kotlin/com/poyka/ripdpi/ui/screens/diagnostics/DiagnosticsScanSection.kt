@@ -9,7 +9,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -36,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
@@ -79,6 +79,7 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.indicators.ripDpiMetricToneStyle
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -1739,7 +1740,7 @@ private fun WinningPathCandidateCard(
                 .ripDpiTestTag(testTag)
                 .let { modifier ->
                     if (onClick != null) {
-                        modifier.clickable(onClick = onClick)
+                        modifier.ripDpiClickable(role = Role.Button, onClick = onClick)
                     } else {
                         modifier
                     }
@@ -1860,7 +1861,7 @@ private fun StrategyProbeCandidateRow(
                 .ripDpiTestTag(RipDpiTestTags.diagnosticsStrategyCandidate(candidate.id))
                 .let { modifier ->
                     if (onClick != null) {
-                        modifier.clickable(onClick = onClick)
+                        modifier.ripDpiClickable(role = Role.Button, onClick = onClick)
                     } else {
                         modifier
                     }
