@@ -347,13 +347,15 @@ The design contract is enforced by:
 
 - `npx --yes @google/design.md lint DESIGN.md`
 - `python3 scripts/ci/verify_design_md.py`
+- `./gradlew :app:testDebugUnitTest --tests com.poyka.ripdpi.ui.DesignSystemSourceRulesTest`
 
-The verifier checks:
+These checks cover:
 
 - `DESIGN.md` token names against `Color.kt`, `Type.kt`, `Spacing.kt`, and `Shape.kt`
 - required extended headings in `DESIGN.md`
 - required implementation guidance headings in this file
 - presence of the design-system and theme-variant screenshot tests
+- source import boundaries for icons, shared interaction semantics, governed Material primitives, and motion tokens
 
 ## Screenshot Testing
 

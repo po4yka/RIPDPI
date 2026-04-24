@@ -56,6 +56,7 @@ REQUIRED_DESIGN_SCREENSHOT_FUNCTIONS = {
     "designSystemCatalogLightCompact",
     "designSystemCatalogDarkMedium",
     "designSystemCatalogLargeFont",
+    "designSystemCatalogHighContrast",
 }
 REQUIRED_SCREENSHOT_FUNCTIONS = {
     "homeDarkScreen",

@@ -160,6 +160,7 @@ private fun SwitchToggleControl(
     testTag: String?,
 ) {
     val components = RipDpiThemeTokens.components
+    val motion = RipDpiThemeTokens.motion
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
     val isPressed by resolvedInteractionSource.collectIsPressedAsState()
     val state =
@@ -175,11 +176,24 @@ private fun SwitchToggleControl(
             (components.inputs.switchThumbPadding * 2)
     val thumbOffset by animateDpAsState(
         targetValue = if (checked) thumbTravel else 0.dp,
+        animationSpec = motion.stateTween(),
         label = "switchOffset",
     )
-    val trackColor by animateColorAsState(targetValue = state.track, label = "switchTrack")
-    val thumbColor by animateColorAsState(targetValue = state.thumb, label = "switchThumb")
-    val alpha by animateFloatAsState(targetValue = state.alpha, label = "switchAlpha")
+    val trackColor by animateColorAsState(
+        targetValue = state.track,
+        animationSpec = motion.stateTween(),
+        label = "switchTrack",
+    )
+    val thumbColor by animateColorAsState(
+        targetValue = state.thumb,
+        animationSpec = motion.stateTween(),
+        label = "switchThumb",
+    )
+    val alpha by animateFloatAsState(
+        targetValue = state.alpha,
+        animationSpec = motion.quickTween(),
+        label = "switchAlpha",
+    )
 
     SwitchLayout(
         modifier = modifier,
