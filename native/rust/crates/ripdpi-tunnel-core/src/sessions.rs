@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-use android_support::bounded_heap::BoundedHeap;
+use ripdpi_collections::bounded_heap::BoundedHeap;
 use smoltcp::iface::SocketHandle;
 use std::io;
 use tokio::io::DuplexStream;

@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use android_support::bounded_heap::BoundedHeap;
+use ripdpi_collections::bounded_heap::BoundedHeap;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 

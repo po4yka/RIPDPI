@@ -156,8 +156,8 @@ pub async fn io_loop_task(
     // Channel for UDP associations to return packets and lifecycle events.
     let (udp_tx, mut udp_rx) = tokio::sync::mpsc::channel::<UdpEvent>(256);
     let mut udp_associations: HashMap<SocketAddr, UdpAssociation> = HashMap::new();
-    let mut udp_eviction_heap: android_support::bounded_heap::BoundedHeap<UdpEvictionEntry> =
-        android_support::bounded_heap::BoundedHeap::new(DEFAULT_MAX_UDP_ASSOCIATIONS);
+    let mut udp_eviction_heap: ripdpi_collections::bounded_heap::BoundedHeap<UdpEvictionEntry> =
+        ripdpi_collections::bounded_heap::BoundedHeap::new(DEFAULT_MAX_UDP_ASSOCIATIONS);
     let mut next_udp_association_id = 1u64;
 
     let (mut dns_req_tx, mut dns_resp_rx) = if let Some(resolver) = build_encrypted_dns_resolver(&config)
