@@ -46,7 +46,12 @@ New Maestro/Appium flows should reuse those IDs instead of inventing local selec
 ## Key Examples
 
 - Home root: `home-screen`
-- Home connect button: `home-connection-button`
+- Home connection actuator root: `home-connection-button`
+- Home connection route label: `home-connection-route-label`
+- Home connection actuator stages:
+  `home-connection-stage-network`, `home-connection-stage-dns`,
+  `home-connection-stage-handshake`, `home-connection-stage-tunnel`,
+  `home-connection-stage-route`
 - Open advanced settings: `settings-advanced-settings`
 - Advanced diagnostics retention input:
   `advanced-input-diagnostics-history-retention-days`

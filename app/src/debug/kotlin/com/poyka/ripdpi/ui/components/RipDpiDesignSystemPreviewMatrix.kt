@@ -24,6 +24,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.activities.HomeConnectionActuatorStage
+import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
+import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
+import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
+import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
@@ -40,6 +45,7 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.LogRow
 import com.poyka.ripdpi.ui.components.indicators.LogRowTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
+import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
@@ -49,6 +55,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiContrastLevel
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.persistentListOf
 
 @Composable
 internal fun RipDpiDesignSystemPreviewMatrixCatalog(
@@ -427,6 +434,10 @@ private fun RipDpiDesignSystemCatalog(
             )
         }
 
+        PreviewSection(title = "Connection Actuator") {
+            ActuatorPreviewColumn(includeInteractiveStates = includeInteractiveStates)
+        }
+
         PreviewSection(title = "Semantic Tones") {
             PreviewMatrixRow(
                 title = "Surface Roles",
@@ -677,6 +688,133 @@ private fun RipDpiDesignSystemCatalog(
             )
         }
     }
+}
+
+@Composable
+private fun ActuatorPreviewColumn(includeInteractiveStates: Boolean) {
+    val spacing = RipDpiThemeTokens.spacing
+    val states =
+        buildList {
+            add(actuatorPreviewState(HomeConnectionActuatorStatus.Open))
+            if (includeInteractiveStates) {
+                add(actuatorPreviewState(HomeConnectionActuatorStatus.Engaging))
+            }
+            add(actuatorPreviewState(HomeConnectionActuatorStatus.Locked))
+            add(actuatorPreviewState(HomeConnectionActuatorStatus.Fault))
+            add(actuatorPreviewState(HomeConnectionActuatorStatus.Degraded))
+        }
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        states.forEach { state ->
+            RipDpiConnectionActuator(
+                state = state,
+                onActivate = {},
+                onDeactivate = {},
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+private fun actuatorPreviewState(status: HomeConnectionActuatorStatus): HomeConnectionActuatorUiState {
+    val stages =
+        when (status) {
+            HomeConnectionActuatorStatus.Open -> {
+                previewStages()
+            }
+
+            HomeConnectionActuatorStatus.Engaging -> {
+                previewStages(active = HomeConnectionActuatorStage.Handshake)
+            }
+
+            HomeConnectionActuatorStatus.Locked -> {
+                previewStages(complete = true)
+            }
+
+            HomeConnectionActuatorStatus.Fault -> {
+                previewStages(failed = HomeConnectionActuatorStage.Tunnel)
+            }
+
+            HomeConnectionActuatorStatus.Degraded -> {
+                previewStages(complete = true, warning = HomeConnectionActuatorStage.Dns)
+            }
+        }
+    return HomeConnectionActuatorUiState(
+        status = status,
+        leadingLabel = "Open",
+        trailingLabel = "Secure",
+        routeLabel = "quick_v1 · Local VPN",
+        statusDescription =
+            when (status) {
+                HomeConnectionActuatorStatus.Open -> "Secure line open"
+                HomeConnectionActuatorStatus.Engaging -> "Secure line engaging"
+                HomeConnectionActuatorStatus.Locked -> "Secure line locked"
+                HomeConnectionActuatorStatus.Degraded -> "Secure line locked, warning at DNS"
+                HomeConnectionActuatorStatus.Fault -> "Secure line fault at Tunnel"
+            },
+        actionLabel =
+            if (status == HomeConnectionActuatorStatus.Locked || status == HomeConnectionActuatorStatus.Degraded) {
+                "Release secure line"
+            } else {
+                "Engage secure line"
+            },
+        carriageFraction =
+            when (status) {
+                HomeConnectionActuatorStatus.Open -> 0f
+
+                HomeConnectionActuatorStatus.Engaging -> 0.48f
+
+                HomeConnectionActuatorStatus.Locked,
+                HomeConnectionActuatorStatus.Degraded,
+                -> 1f
+
+                HomeConnectionActuatorStatus.Fault -> 0.71f
+            },
+        stages = stages,
+    )
+}
+
+private fun previewStages(
+    complete: Boolean = false,
+    active: HomeConnectionActuatorStage? = null,
+    warning: HomeConnectionActuatorStage? = null,
+    failed: HomeConnectionActuatorStage? = null,
+) = persistentListOf(
+    previewStage(HomeConnectionActuatorStage.Network, complete, active, warning, failed),
+    previewStage(HomeConnectionActuatorStage.Dns, complete, active, warning, failed),
+    previewStage(HomeConnectionActuatorStage.Handshake, complete, active, warning, failed),
+    previewStage(HomeConnectionActuatorStage.Tunnel, complete, active, warning, failed),
+    previewStage(HomeConnectionActuatorStage.Route, complete, active, warning, failed),
+)
+
+private fun previewStage(
+    stage: HomeConnectionActuatorStage,
+    complete: Boolean,
+    active: HomeConnectionActuatorStage?,
+    warning: HomeConnectionActuatorStage?,
+    failed: HomeConnectionActuatorStage?,
+): HomeConnectionActuatorStageUiState {
+    val state =
+        when {
+            stage == failed -> HomeConnectionActuatorStageState.Failed
+            failed != null && stage.ordinal < failed.ordinal -> HomeConnectionActuatorStageState.Complete
+            stage == warning -> HomeConnectionActuatorStageState.Warning
+            complete -> HomeConnectionActuatorStageState.Complete
+            stage == active -> HomeConnectionActuatorStageState.Active
+            active != null && stage.ordinal < active.ordinal -> HomeConnectionActuatorStageState.Complete
+            else -> HomeConnectionActuatorStageState.Pending
+        }
+    return HomeConnectionActuatorStageUiState(
+        stage = stage,
+        label =
+            when (stage) {
+                HomeConnectionActuatorStage.Network -> "Network"
+                HomeConnectionActuatorStage.Dns -> "DNS"
+                HomeConnectionActuatorStage.Handshake -> "Handshake"
+                HomeConnectionActuatorStage.Tunnel -> "Tunnel"
+                HomeConnectionActuatorStage.Route -> "Route"
+            },
+        state = state,
+    )
 }
 
 @Composable
