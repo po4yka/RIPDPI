@@ -7,13 +7,8 @@ import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
-import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-
-internal data class MetricPalette(
-    val container: androidx.compose.ui.graphics.Color,
-    val content: androidx.compose.ui.graphics.Color,
-)
 
 @Composable
 internal fun DiagnosticsSection.label(): String =
@@ -48,6 +43,15 @@ internal fun statusTone(tone: DiagnosticsTone): StatusIndicatorTone =
         DiagnosticsTone.Neutral, DiagnosticsTone.Info -> StatusIndicatorTone.Idle
     }
 
+internal fun metricTone(tone: DiagnosticsTone): RipDpiMetricTone =
+    when (tone) {
+        DiagnosticsTone.Positive -> RipDpiMetricTone.Positive
+        DiagnosticsTone.Warning -> RipDpiMetricTone.Warning
+        DiagnosticsTone.Negative -> RipDpiMetricTone.Negative
+        DiagnosticsTone.Info -> RipDpiMetricTone.Info
+        DiagnosticsTone.Neutral -> RipDpiMetricTone.Neutral
+    }
+
 @Composable
 internal fun warningBannerTone(health: DiagnosticsHealth): WarningBannerTone =
     when (health) {
@@ -57,77 +61,10 @@ internal fun warningBannerTone(health: DiagnosticsHealth): WarningBannerTone =
         DiagnosticsHealth.Idle -> WarningBannerTone.Restricted
     }
 
-@Composable
-internal fun liveHeroPalette(health: DiagnosticsHealth): MetricPalette {
-    val colors = RipDpiThemeTokens.colors
-    return when (health) {
-        DiagnosticsHealth.Healthy -> {
-            MetricPalette(
-                container = colors.muted,
-                content = colors.success,
-            )
-        }
-
-        DiagnosticsHealth.Attention -> {
-            MetricPalette(
-                container = colors.warningContainer,
-                content = colors.warning,
-            )
-        }
-
-        DiagnosticsHealth.Degraded -> {
-            MetricPalette(
-                container = colors.destructiveContainer,
-                content = colors.destructive,
-            )
-        }
-
-        DiagnosticsHealth.Idle -> {
-            MetricPalette(
-                container = colors.accent,
-                content = colors.foreground,
-            )
-        }
+internal fun liveHeroTone(health: DiagnosticsHealth): RipDpiMetricTone =
+    when (health) {
+        DiagnosticsHealth.Healthy -> RipDpiMetricTone.Positive
+        DiagnosticsHealth.Attention -> RipDpiMetricTone.Warning
+        DiagnosticsHealth.Degraded -> RipDpiMetricTone.Negative
+        DiagnosticsHealth.Idle -> RipDpiMetricTone.Accent
     }
-}
-
-@Composable
-internal fun metricPalette(tone: DiagnosticsTone): MetricPalette {
-    val colors = RipDpiThemeTokens.colors
-    return when (tone) {
-        DiagnosticsTone.Positive -> {
-            MetricPalette(
-                container = colors.muted,
-                content = colors.success,
-            )
-        }
-
-        DiagnosticsTone.Warning -> {
-            MetricPalette(
-                container = colors.warningContainer,
-                content = colors.warning,
-            )
-        }
-
-        DiagnosticsTone.Negative -> {
-            MetricPalette(
-                container = colors.destructiveContainer,
-                content = colors.destructive,
-            )
-        }
-
-        DiagnosticsTone.Info -> {
-            MetricPalette(
-                container = colors.infoContainer,
-                content = colors.info,
-            )
-        }
-
-        DiagnosticsTone.Neutral -> {
-            MetricPalette(
-                container = colors.inputBackground,
-                content = colors.foreground,
-            )
-        }
-    }
-}

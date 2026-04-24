@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,10 +10,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -25,6 +21,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsLiveUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricSurface
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
@@ -119,25 +116,13 @@ internal fun LiveHeroCard(live: DiagnosticsLiveUiModel) {
     TrackRecomposition("LiveHeroCard")
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val motion = RipDpiThemeTokens.motion
-    val palette = liveHeroPalette(live.health)
+    val heroTone = liveHeroTone(live.health)
     val liveBadgeText = live.networkLabel ?: live.modeLabel ?: "Standby"
-    val animatedContainer by animateColorAsState(
-        targetValue = palette.container,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-        label = "liveHeroContainer",
-    )
-    val animatedAccent by animateColorAsState(
-        targetValue = palette.content,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-        label = "liveHeroAccent",
-    )
-    Surface(
+    RipDpiMetricSurface(
+        tone = heroTone,
         modifier = Modifier.fillMaxWidth(),
-        color = animatedContainer,
-        contentColor = colors.foreground,
         shape = RipDpiThemeTokens.shapes.xl,
-    ) {
+    ) { accentColor ->
         Column(
             modifier =
                 Modifier
@@ -172,12 +157,12 @@ internal fun LiveHeroCard(live: DiagnosticsLiveUiModel) {
             if (live.highlights.isNotEmpty()) {
                 LiveHighlightsGrid(highlights = live.highlights.take(liveHighlightsMaxCount).toImmutableList())
             }
-            HorizontalDivider(color = animatedAccent.copy(alpha = 0.14f))
+            HorizontalDivider(color = accentColor.copy(alpha = 0.14f))
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 Text(
                     text = live.signalLabel,
                     style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = animatedAccent,
+                    color = accentColor,
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                     Text(
@@ -226,24 +211,12 @@ internal fun LiveHighlightCard(
     metric: DiagnosticsMetricUiModel,
     modifier: Modifier = Modifier,
 ) {
-    val motion = RipDpiThemeTokens.motion
-    val palette = metricPalette(metric.tone)
-    val animatedContainer by animateColorAsState(
-        targetValue = palette.container.copy(alpha = 0.92f),
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-        label = "liveHighlightContainer",
-    )
-    val animatedContent by animateColorAsState(
-        targetValue = palette.content,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-        label = "liveHighlightContent",
-    )
-    Surface(
+    RipDpiMetricSurface(
+        tone = metricTone(metric.tone),
         modifier = modifier,
-        color = animatedContainer,
-        contentColor = animatedContent,
         shape = RipDpiThemeTokens.shapes.lg,
-    ) {
+        containerAlpha = 0.92f,
+    ) { contentColor ->
         Column(
             modifier =
                 Modifier.padding(
@@ -255,12 +228,12 @@ internal fun LiveHighlightCard(
             Text(
                 text = metric.label.uppercase(),
                 style = RipDpiThemeTokens.type.sectionTitle,
-                color = animatedContent.copy(alpha = HighlightCardLabelAlpha),
+                color = contentColor.copy(alpha = HighlightCardLabelAlpha),
             )
             Text(
                 text = metric.value,
                 style = RipDpiThemeTokens.type.monoValue,
-                color = animatedContent,
+                color = contentColor,
             )
         }
     }
