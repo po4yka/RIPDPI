@@ -26,6 +26,8 @@ internal object RipDpiTestTags {
 
     const val HomeConnectionButton = "home-connection-button"
     const val HomeConnectionRouteLabel = "home-connection-route-label"
+    const val RouteStack = "route-stack"
+    const val RouteOpportunityPanel = "route-opportunity-panel"
     const val HomeDiagnosticsCard = "home-diagnostics-card"
     const val HomeDiagnosticsRunAnalysis = "home-diagnostics-run-analysis"
     const val HomeDiagnosticsVerifiedVpn = "home-diagnostics-verified-vpn"
@@ -346,6 +348,10 @@ internal object RipDpiTestTags {
         { value -> "host-pack-apply-mode-${sanitize(value)}" }
 
     fun homeConnectionStage(stage: String): String = "home-connection-stage-${sanitize(stage)}"
+
+    fun routeProfile(routeId: String): String = "route-profile-${sanitize(routeId)}"
+
+    fun routeCapability(kind: String): String = "route-capability-${sanitize(kind)}"
 
     fun dropdownOption(
         tag: String,

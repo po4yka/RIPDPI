@@ -51,10 +51,22 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.routes.RipDpiRouteAvailabilityState
+import com.poyka.ripdpi.ui.components.routes.RipDpiRouteCapabilityKind
+import com.poyka.ripdpi.ui.components.routes.RipDpiRouteCapabilityPill
+import com.poyka.ripdpi.ui.components.routes.RipDpiRouteCapabilityUiState
+import com.poyka.ripdpi.ui.components.routes.RipDpiRouteOpportunityPanel
+import com.poyka.ripdpi.ui.components.routes.RipDpiRouteProfileCard
+import com.poyka.ripdpi.ui.components.routes.RipDpiRouteProfileUiState
+import com.poyka.ripdpi.ui.components.routes.RipDpiRouteStackDiagram
+import com.poyka.ripdpi.ui.components.routes.RipDpiRouteStackNodeUiState
+import com.poyka.ripdpi.ui.components.routes.RipDpiRouteStackUiState
+import com.poyka.ripdpi.ui.components.routes.RipDpiRouteTransportKind
 import com.poyka.ripdpi.ui.theme.RipDpiContrastLevel
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
 @Composable
@@ -438,6 +450,10 @@ private fun RipDpiDesignSystemCatalog(
             ActuatorPreviewColumn(includeInteractiveStates = includeInteractiveStates)
         }
 
+        PreviewSection(title = "Secure Routes") {
+            RoutePreviewColumn()
+        }
+
         PreviewSection(title = "Semantic Tones") {
             PreviewMatrixRow(
                 title = "Surface Roles",
@@ -689,6 +705,238 @@ private fun RipDpiDesignSystemCatalog(
         }
     }
 }
+
+@Composable
+private fun RoutePreviewColumn() {
+    val spacing = RipDpiThemeTokens.spacing
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        PreviewMatrixRow(
+            title = "Route Profiles",
+            framed = false,
+            cells =
+                routePreviewProfiles().map { profile ->
+                    profile.title to {
+                        RipDpiRouteProfileCard(
+                            state = profile,
+                            onClick = {},
+                        )
+                    }
+                },
+        )
+        PreviewMatrixRow(
+            title = "Capabilities",
+            cells =
+                routePreviewCapabilities().map { capability ->
+                    capability.label to {
+                        RipDpiRouteCapabilityPill(capability = capability)
+                    }
+                },
+        )
+        PreviewMatrixRow(
+            title = "Route Stack",
+            cells =
+                listOf(
+                    "Healthy" to {
+                        RipDpiRouteStackDiagram(state = routePreviewStack())
+                    },
+                    "Warning" to {
+                        RipDpiRouteStackDiagram(state = routePreviewStack(warningNodeId = "dns"))
+                    },
+                    "Failed" to {
+                        RipDpiRouteStackDiagram(state = routePreviewStack(failedNodeId = "relay"))
+                    },
+                ),
+        )
+        PreviewMatrixRow(
+            title = "Opportunity Panels",
+            framed = false,
+            cells =
+                listOf(
+                    "Provider setup" to {
+                        RipDpiRouteOpportunityPanel(
+                            title = "VPN provider route available",
+                            message = "Add credentials to use this secure route as a provider-backed tunnel.",
+                            state = RipDpiRouteAvailabilityState.NeedsSetup,
+                            actionLabel = "Setup",
+                            onAction = {},
+                        )
+                    },
+                    "Configured" to {
+                        RipDpiRouteOpportunityPanel(
+                            title = "Relay route configured",
+                            message = "This route can carry VPN-style traffic through the selected relay path.",
+                            state = RipDpiRouteAvailabilityState.Configured,
+                        )
+                    },
+                    "Restricted" to {
+                        RipDpiRouteOpportunityPanel(
+                            title = "Route unavailable",
+                            message = "This secure route requires VPN permission before it can be selected.",
+                            state = RipDpiRouteAvailabilityState.Restricted,
+                        )
+                    },
+                ),
+        )
+    }
+}
+
+private fun routePreviewProfiles(): List<RipDpiRouteProfileUiState> =
+    listOf(
+        routeProfile(
+            id = "local-vpn",
+            title = "Local VPN route",
+            subtitle = "Device traffic enters RIPDPI through Android VPN and exits through the selected local path.",
+            transportLabel = "Local VPN",
+            providerLabel = "RIPDPI",
+            state = RipDpiRouteAvailabilityState.Active,
+            selected = true,
+            active = true,
+            capabilities =
+                persistentListOf(
+                    routeCapability(RipDpiRouteCapabilityKind.VpnPrivacy, "VPN", RipDpiRouteAvailabilityState.Active),
+                    routeCapability(RipDpiRouteCapabilityKind.DnsProtection, "DNS"),
+                    routeCapability(RipDpiRouteCapabilityKind.AntiDpi, "Anti-DPI"),
+                ),
+        ),
+        routeProfile(
+            id = "local-proxy",
+            title = "Local proxy route",
+            subtitle = "Apps can opt into the local SOCKS path while the rest of the device remains unchanged.",
+            transportLabel = "Local proxy",
+            providerLabel = "127.0.0.1:1080",
+            capabilities =
+                persistentListOf(
+                    routeCapability(RipDpiRouteCapabilityKind.SplitTunnel, "Split"),
+                    routeCapability(RipDpiRouteCapabilityKind.TrafficModification, "Modify"),
+                ),
+        ),
+        routeProfile(
+            id = "warp-backed",
+            title = "WARP-backed route",
+            subtitle = "DNS and selected traffic can use the WARP path when the profile is provisioned.",
+            transportLabel = "WARP",
+            providerLabel = "Cloudflare",
+            state = RipDpiRouteAvailabilityState.Configured,
+            capabilities =
+                persistentListOf(
+                    routeCapability(RipDpiRouteCapabilityKind.VpnPrivacy, "VPN"),
+                    routeCapability(RipDpiRouteCapabilityKind.DnsProtection, "DNS"),
+                    routeCapability(RipDpiRouteCapabilityKind.SplitTunnel, "Rules"),
+                ),
+        ),
+        routeProfile(
+            id = "relay-backed",
+            title = "Relay-backed route",
+            subtitle = "Uses an upstream relay profile for networks where the direct local path is weak.",
+            transportLabel = "Relay",
+            providerLabel = "MASQUE",
+            state = RipDpiRouteAvailabilityState.Degraded,
+            capabilities =
+                persistentListOf(
+                    routeCapability(RipDpiRouteCapabilityKind.Relay, "Relay", RipDpiRouteAvailabilityState.Degraded),
+                    routeCapability(RipDpiRouteCapabilityKind.FullTunnel, "Full"),
+                ),
+        ),
+        routeProfile(
+            id = "provider-vpn",
+            title = "Provider VPN route",
+            subtitle = "Future provider-backed route slot for imported VPN credentials and remote endpoints.",
+            transportLabel = "Provider VPN",
+            providerLabel = "External",
+            state = RipDpiRouteAvailabilityState.NeedsSetup,
+            capabilities =
+                persistentListOf(
+                    routeCapability(
+                        kind = RipDpiRouteCapabilityKind.VpnPrivacy,
+                        label = "VPN",
+                        state = RipDpiRouteAvailabilityState.NeedsSetup,
+                    ),
+                    routeCapability(RipDpiRouteCapabilityKind.FullTunnel, "Full"),
+                ),
+        ),
+        routeProfile(
+            id = "anti-dpi-advanced",
+            title = "Anti-DPI technique route",
+            subtitle = "Advanced packet handling remains a route capability, not the whole product model.",
+            transportLabel = "Advanced technique",
+            providerLabel = "RIPDPI",
+            capabilities =
+                persistentListOf(
+                    routeCapability(RipDpiRouteCapabilityKind.AntiDpi, "Anti-DPI"),
+                    routeCapability(RipDpiRouteCapabilityKind.TrafficModification, "Modify"),
+                ),
+        ),
+    )
+
+private fun routePreviewCapabilities(): List<RipDpiRouteCapabilityUiState> =
+    listOf(
+        routeCapability(
+            kind = RipDpiRouteCapabilityKind.VpnPrivacy,
+            label = "VPN",
+            state = RipDpiRouteAvailabilityState.Active,
+        ),
+        routeCapability(RipDpiRouteCapabilityKind.DnsProtection, "DNS"),
+        routeCapability(RipDpiRouteCapabilityKind.AntiDpi, "Anti-DPI"),
+        routeCapability(
+            kind = RipDpiRouteCapabilityKind.Relay,
+            label = "Relay",
+            state = RipDpiRouteAvailabilityState.Configured,
+        ),
+        routeCapability(RipDpiRouteCapabilityKind.FullTunnel, "Full tunnel"),
+        routeCapability(RipDpiRouteCapabilityKind.SplitTunnel, "Split"),
+        routeCapability(RipDpiRouteCapabilityKind.TrafficModification, "Modify"),
+    )
+
+private fun routeProfile(
+    id: String,
+    title: String,
+    subtitle: String,
+    transportLabel: String,
+    providerLabel: String,
+    state: RipDpiRouteAvailabilityState = RipDpiRouteAvailabilityState.Available,
+    selected: Boolean = false,
+    active: Boolean = false,
+    capabilities: ImmutableList<RipDpiRouteCapabilityUiState>,
+): RipDpiRouteProfileUiState =
+    RipDpiRouteProfileUiState(
+        id = id,
+        title = title,
+        subtitle = subtitle,
+        transportLabel = transportLabel,
+        providerLabel = providerLabel,
+        capabilities = capabilities,
+        state = state,
+        isSelected = selected,
+        isActive = active,
+    )
+
+private fun routeCapability(
+    kind: RipDpiRouteCapabilityKind,
+    label: String,
+    state: RipDpiRouteAvailabilityState = RipDpiRouteAvailabilityState.Available,
+): RipDpiRouteCapabilityUiState =
+    RipDpiRouteCapabilityUiState(
+        kind = kind,
+        label = label,
+        state = state,
+    )
+
+private fun routePreviewStack(
+    warningNodeId: String? = null,
+    failedNodeId: String? = null,
+): RipDpiRouteStackUiState =
+    RipDpiRouteStackUiState(
+        nodes =
+            persistentListOf(
+                RipDpiRouteStackNodeUiState("device", "Device", RipDpiRouteTransportKind.LocalVpn),
+                RipDpiRouteStackNodeUiState("dns", "DNS", RipDpiRouteTransportKind.Warp),
+                RipDpiRouteStackNodeUiState("relay", "Relay", RipDpiRouteTransportKind.Relay),
+                RipDpiRouteStackNodeUiState("internet", "Internet", RipDpiRouteTransportKind.ExternalVpn),
+            ),
+        activeNodeId = "relay",
+        warningNodeId = warningNodeId,
+        failedNodeId = failedNodeId,
+    )
 
 @Composable
 private fun ActuatorPreviewColumn(includeInteractiveStates: Boolean) {

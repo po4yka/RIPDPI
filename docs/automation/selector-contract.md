@@ -52,6 +52,9 @@ New Maestro/Appium flows should reuse those IDs instead of inventing local selec
   `home-connection-stage-network`, `home-connection-stage-dns`,
   `home-connection-stage-handshake`, `home-connection-stage-tunnel`,
   `home-connection-stage-route`
+- Secure route design-system samples:
+  `route-profile-{id}`, `route-capability-{kind}`, `route-stack`,
+  `route-opportunity-panel`
 - Open advanced settings: `settings-advanced-settings`
 - Advanced diagnostics retention input:
   `advanced-input-diagnostics-history-retention-days`
