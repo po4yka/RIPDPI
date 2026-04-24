@@ -3253,7 +3253,6 @@ dependencies = [
 name = "ripdpi-monitor"
 version = "0.1.0"
 dependencies = [
- "android-support",
  "boring",
  "golden-test-support",
  "hickory-proto",
