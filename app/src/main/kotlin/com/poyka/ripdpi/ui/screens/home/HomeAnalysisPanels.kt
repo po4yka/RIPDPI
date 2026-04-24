@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -37,6 +36,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSheetAction
 import com.poyka.ripdpi.ui.components.indicators.AnalysisProgressIndicator
 import com.poyka.ripdpi.ui.components.indicators.StageProgressIndicator
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
@@ -294,32 +294,15 @@ internal fun HomeDiagnosticsCard(
         )
         if (uiState.homeDiagnostics.pcapToggleVisible) {
             Spacer(modifier = Modifier.height(spacing.sm))
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsPcapToggle),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.home_diagnostics_pcap_toggle),
-                        style = RipDpiThemeTokens.type.body,
-                        color = colors.foreground,
-                    )
-                    Text(
-                        text = stringResource(R.string.home_diagnostics_pcap_helper),
-                        style = RipDpiThemeTokens.type.secondaryBody,
-                        color = colors.mutedForeground,
-                    )
-                }
-                Switch(
-                    checked = uiState.homeDiagnostics.pcapRecordingRequested,
-                    onCheckedChange = { onTogglePcapRecording() },
-                    enabled = uiState.homeDiagnostics.analysisAction.enabled,
-                )
-            }
+            RipDpiSwitch(
+                checked = uiState.homeDiagnostics.pcapRecordingRequested,
+                onCheckedChange = { onTogglePcapRecording() },
+                modifier = Modifier.fillMaxWidth(),
+                label = stringResource(R.string.home_diagnostics_pcap_toggle),
+                helperText = stringResource(R.string.home_diagnostics_pcap_helper),
+                enabled = uiState.homeDiagnostics.analysisAction.enabled,
+                testTag = RipDpiTestTags.HomeDiagnosticsPcapToggle,
+            )
         }
         Spacer(modifier = Modifier.height(spacing.md))
         Text(
