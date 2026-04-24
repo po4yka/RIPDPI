@@ -8,10 +8,10 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-android-support = { path = "../android-support" }
 ripdpi-tunnel-config = { workspace = true }
 ripdpi-tun-driver = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
+ripdpi-collections = { workspace = true }
 smoltcp = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
 tokio-util = { workspace = true, features = ["rt"] }
