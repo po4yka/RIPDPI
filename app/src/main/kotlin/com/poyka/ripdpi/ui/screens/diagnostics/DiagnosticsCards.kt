@@ -28,7 +28,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -72,8 +71,13 @@ import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.chrome.RipDpiScreenSectionHeader
 import com.poyka.ripdpi.ui.components.chrome.RipDpiTelemetryEntry
 import com.poyka.ripdpi.ui.components.chrome.RipDpiTelemetryRows
+import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricPill
+import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricSurface
+import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricTone
+import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricToneStyle
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.components.indicators.ripDpiMetricToneStyle
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -294,23 +298,10 @@ internal fun MetricsRow(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
 
 @Composable
 internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
-    val motion = RipDpiThemeTokens.motion
-    val palette = metricPalette(metric.tone)
-    val animatedContainer by animateColorAsState(
-        targetValue = palette.container,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-        label = "telemetryMetricContainer",
-    )
-    val animatedContent by animateColorAsState(
-        targetValue = palette.content,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-        label = "telemetryMetricContent",
-    )
-    Surface(
-        color = animatedContainer,
-        contentColor = animatedContent,
-        shape = MaterialTheme.shapes.large,
-    ) {
+    RipDpiMetricSurface(
+        tone = metricTone(metric.tone),
+        shape = RipDpiThemeTokens.shapes.xl,
+    ) { contentColor ->
         Column(
             modifier =
                 Modifier
@@ -320,12 +311,12 @@ internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
             Text(
                 text = metric.label.uppercase(),
                 style = RipDpiThemeTokens.type.sectionTitle,
-                color = animatedContent.copy(alpha = 0.75f),
+                color = contentColor.copy(alpha = 0.75f),
             )
             Text(
                 text = metric.value,
                 style = RipDpiThemeTokens.type.monoValue,
-                color = animatedContent,
+                color = contentColor,
             )
         }
     }
@@ -337,10 +328,10 @@ internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSp
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val motion = RipDpiThemeTokens.motion
-    val palette = metricPalette(trend.tone)
+    val metricStyle = ripDpiMetricToneStyle(metricTone(trend.tone))
     val dividerColor = colors.divider
     val animatedStrokeColor by animateColorAsState(
-        targetValue = palette.content,
+        targetValue = metricStyle.content,
         animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
         label = "telemetrySparklineStroke",
     )
@@ -367,7 +358,7 @@ internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSp
         SparklineHeader(
             label = trend.label,
             displayValue = sparklineState.displayValue,
-            valueColor = palette.content,
+            valueColor = metricStyle.content,
             labelColor = colors.foreground,
         )
         SparklineChartRow(
@@ -383,8 +374,8 @@ internal fun TelemetrySparkline(trend: com.poyka.ripdpi.activities.DiagnosticsSp
             selectionColor = colors.mutedForeground,
             cardColor = colors.card,
             selectedValue = sparklineState.selectedValue,
-            chipContainerColor = palette.container,
-            chipContentColor = palette.content,
+            chipContainerColor = metricStyle.container,
+            chipContentColor = metricStyle.content,
         )
     }
 }
@@ -678,18 +669,21 @@ private fun SparklineValueChip(
     contentColor: androidx.compose.ui.graphics.Color,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
+    RipDpiMetricSurface(
+        style =
+            RipDpiMetricToneStyle(
+                container = containerColor,
+                content = contentColor,
+            ),
         modifier = modifier,
-        color = containerColor,
-        contentColor = contentColor,
         shape = RipDpiThemeTokens.shapes.sm,
         tonalElevation = 2.dp,
-    ) {
+    ) { chipContentColor ->
         Text(
             text = value,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
             style = RipDpiThemeTokens.type.monoSmall,
-            color = contentColor,
+            color = chipContentColor,
         )
     }
 }
@@ -720,17 +714,13 @@ internal fun SessionRow(
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 if (session.launchOrigin == DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND) {
-                    Surface(
-                        color = RipDpiThemeTokens.colors.inputBackground,
+                    RipDpiMetricPill(
+                        text = stringResource(R.string.diagnostics_history_background_probe_badge),
+                        tone = RipDpiMetricTone.Muted,
                         shape = RipDpiThemeTokens.shapes.xxl,
-                    ) {
-                        Text(
-                            text = stringResource(R.string.diagnostics_history_background_probe_badge),
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                            style = RipDpiThemeTokens.type.smallLabel,
-                            color = RipDpiThemeTokens.colors.mutedForeground,
-                        )
-                    }
+                        textStyle = RipDpiThemeTokens.type.smallLabel,
+                        paddingValues = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    )
                 }
                 Text(
                     text = session.title,
@@ -1034,19 +1024,12 @@ internal fun EventBadge(
     text: String,
     tone: DiagnosticsTone,
 ) {
-    val palette = metricPalette(tone)
-    Surface(
-        color = palette.container,
-        contentColor = palette.content,
-        shape = MaterialTheme.shapes.small,
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            style = RipDpiThemeTokens.type.monoSmall,
-            color = palette.content,
-        )
-    }
+    RipDpiMetricPill(
+        text = text,
+        tone = metricTone(tone),
+        shape = RipDpiThemeTokens.shapes.md,
+        paddingValues = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+    )
 }
 
 @Composable

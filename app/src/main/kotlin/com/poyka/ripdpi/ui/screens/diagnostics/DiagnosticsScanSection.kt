@@ -12,6 +12,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -71,8 +72,12 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.DiagnosticsRemediationLadderCard
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricPill
+import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricSurface
+import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.components.indicators.ripDpiMetricToneStyle
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -492,23 +497,10 @@ private fun ScanProgressCard(
 
 @Composable
 private fun PhaseChip(step: PhaseStepUiModel) {
-    val motion = RipDpiThemeTokens.motion
-    val palette = metricPalette(step.tone)
-    val animatedContainer by animateColorAsState(
-        targetValue = palette.container,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-        label = "phaseChipContainer",
-    )
-    val animatedContent by animateColorAsState(
-        targetValue = palette.content,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-        label = "phaseChipContent",
-    )
-    Surface(
+    RipDpiMetricSurface(
+        tone = metricTone(step.tone),
         shape = RipDpiThemeTokens.shapes.full,
-        color = animatedContainer,
-        contentColor = animatedContent,
-    ) {
+    ) { contentColor ->
         Row(
             modifier = Modifier.padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -527,7 +519,7 @@ private fun PhaseChip(step: PhaseStepUiModel) {
                         else -> step.label
                     },
                 style = RipDpiThemeTokens.type.monoSmall,
-                color = animatedContent.copy(alpha = dotAlpha),
+                color = contentColor.copy(alpha = dotAlpha),
             )
         }
     }
@@ -540,57 +532,52 @@ private fun DnsBaselineBadge(status: DnsBaselineStatus) {
             DnsBaselineStatus.CLEAN -> DiagnosticsTone.Positive
             DnsBaselineStatus.TAMPERED -> DiagnosticsTone.Warning
         }
-    val palette = metricPalette(tone)
-    Surface(
+    RipDpiMetricPill(
+        text =
+            when (status) {
+                DnsBaselineStatus.CLEAN -> "DNS: Clean"
+                DnsBaselineStatus.TAMPERED -> "DNS: Tampered (DoH fallback)"
+            },
+        tone = metricTone(tone),
         shape = RipDpiThemeTokens.shapes.full,
-        color = palette.container,
-        contentColor = palette.content,
-    ) {
-        Text(
-            text =
-                when (status) {
-                    DnsBaselineStatus.CLEAN -> "DNS: Clean"
-                    DnsBaselineStatus.TAMPERED -> "DNS: Tampered (DoH fallback)"
-                },
-            style = RipDpiThemeTokens.type.monoSmall,
-            modifier = Modifier.padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 4.dp),
-        )
-    }
+        paddingValues =
+            PaddingValues(
+                horizontal = RipDpiThemeTokens.spacing.sm,
+                vertical = 4.dp,
+            ),
+    )
 }
 
 @Composable
 private fun DpiFailureClassBadge(failureClass: DpiFailureClass) {
-    val palette = metricPalette(DiagnosticsTone.Negative)
-    Surface(
+    RipDpiMetricPill(
+        text = "DPI: ${failureClass.label}",
+        tone = RipDpiMetricTone.Negative,
         shape = RipDpiThemeTokens.shapes.full,
-        color = palette.container,
-        contentColor = palette.content,
-    ) {
-        Text(
-            text = "DPI: ${failureClass.label}",
-            style = RipDpiThemeTokens.type.monoSmall,
-            modifier = Modifier.padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 4.dp),
-        )
-    }
+        paddingValues =
+            PaddingValues(
+                horizontal = RipDpiThemeTokens.spacing.sm,
+                vertical = 4.dp,
+            ),
+    )
 }
 
 @Composable
 private fun NetworkContextRow(context: ScanNetworkContextUiModel) {
     val spacing = RipDpiThemeTokens.spacing
-    val palette = metricPalette(DiagnosticsTone.Info)
     Row(
         horizontalArrangement = Arrangement.spacedBy(spacing.xs),
     ) {
         NetworkContextChip(
             text = context.transport + (context.signalLabel?.let { " $it" } ?: ""),
-            palette = palette,
+            tone = RipDpiMetricTone.Info,
         )
         context.resolverLabel?.let { resolver ->
-            NetworkContextChip(text = resolver, palette = palette)
+            NetworkContextChip(text = resolver, tone = RipDpiMetricTone.Info)
         }
         NetworkContextChip(
             text = if (context.validated) "Validated" else "Not validated",
-            palette = palette,
+            tone = if (context.validated) RipDpiMetricTone.Positive else RipDpiMetricTone.Neutral,
         )
     }
 }
@@ -598,19 +585,18 @@ private fun NetworkContextRow(context: ScanNetworkContextUiModel) {
 @Composable
 private fun NetworkContextChip(
     text: String,
-    palette: MetricPalette,
+    tone: RipDpiMetricTone,
 ) {
-    Surface(
+    RipDpiMetricPill(
+        text = text,
+        tone = tone,
         shape = RipDpiThemeTokens.shapes.full,
-        color = palette.container,
-        contentColor = palette.content,
-    ) {
-        Text(
-            text = text,
-            style = RipDpiThemeTokens.type.monoSmall,
-            modifier = Modifier.padding(horizontal = RipDpiThemeTokens.spacing.sm, vertical = 4.dp),
-        )
-    }
+        paddingValues =
+            PaddingValues(
+                horizontal = RipDpiThemeTokens.spacing.sm,
+                vertical = 4.dp,
+            ),
+    )
 }
 
 @Composable
@@ -631,12 +617,10 @@ private fun CandidateTimeline(entries: List<StrategyCandidateTimelineEntryUiMode
 
 @Composable
 private fun CandidateTimelineChip(entry: StrategyCandidateTimelineEntryUiModel) {
-    val palette = metricPalette(entry.tone)
-    Surface(
+    RipDpiMetricSurface(
+        tone = metricTone(entry.tone),
         shape = RipDpiThemeTokens.shapes.full,
-        color = palette.container,
-        contentColor = palette.content,
-    ) {
+    ) { contentColor ->
         Row(
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(3.dp),
@@ -658,7 +642,7 @@ private fun CandidateTimelineChip(entry: StrategyCandidateTimelineEntryUiModel) 
                 CandidateSparkline(
                     succeeded = entry.succeededTargets,
                     total = entry.totalTargets,
-                    color = palette.content,
+                    color = contentColor,
                 )
             }
         }
@@ -701,7 +685,7 @@ private fun LiveProbeResultRow(
     modifier: Modifier = Modifier,
 ) {
     TrackRecomposition("LiveProbeResultRow")
-    val palette = metricPalette(probe.tone)
+    val metricStyle = ripDpiMetricToneStyle(metricTone(probe.tone))
     Row(
         modifier =
             modifier
@@ -723,7 +707,7 @@ private fun LiveProbeResultRow(
         Text(
             text = probe.target,
             style = RipDpiThemeTokens.type.monoInline,
-            color = palette.content,
+            color = metricStyle.content,
             modifier = Modifier.weight(1f),
         )
     }
