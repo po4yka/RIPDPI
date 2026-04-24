@@ -13,6 +13,7 @@ import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.StrategyPackRuntimeState
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
@@ -207,6 +208,7 @@ data class MainUiState(
     val proxyPort: String = "1080",
     val theme: String = "system",
     val connectionState: ConnectionState = ConnectionState.Disconnected,
+    val connectionActuator: HomeConnectionActuatorUiState = HomeConnectionActuatorUiState(),
     val connectionDuration: Duration = ZERO,
     val dataTransferred: Long = 0L,
     val errorMessage: String? = null,
@@ -233,6 +235,7 @@ data class HomeApproachSummaryUiState(
 internal data class ConnectionRuntimeState(
     val connectionState: ConnectionState = ConnectionState.Disconnected,
     val errorMessage: String? = null,
+    val connectingStartedAtMs: Long? = null,
     val connectionStartedAtMs: Long? = null,
     val baselineTransferredBytes: Long = 0L,
     val dataTransferred: Long = 0L,
@@ -250,6 +253,7 @@ internal data class MainUiInputs(
     val settings: AppSettings,
     val statusAndMode: Pair<AppStatus, Mode>,
     val runtime: ConnectionRuntimeState,
+    val telemetry: ServiceTelemetrySnapshot,
     val permissions: PermissionRuntimeState,
     val approachStats: List<com.poyka.ripdpi.diagnostics.BypassApproachSummary>,
     val hostPackCatalog: HostPackCatalogUiState,
@@ -260,6 +264,7 @@ internal data class MainUiInputsBase(
     val settings: AppSettings,
     val statusAndMode: Pair<AppStatus, Mode>,
     val runtime: ConnectionRuntimeState,
+    val telemetry: ServiceTelemetrySnapshot,
     val permissions: PermissionRuntimeState,
     val approachStats: List<com.poyka.ripdpi.diagnostics.BypassApproachSummary>,
 )
@@ -404,11 +409,14 @@ class MainViewModel
                     settings = settings,
                     statusAndMode = statusAndMode,
                     runtime = runtime,
+                    telemetry = mainServiceDependencies.serviceStateStore.telemetry.value,
                     permissions = permissions,
                     approachStats = approachStats,
                 )
             }.combine(mainControlPlaneDependencies.hostPackCatalogUiStateStore.state) { base, hostPackCatalog ->
                 base to hostPackCatalog
+            }.combine(mainServiceDependencies.serviceStateStore.telemetry) { (base, hostPackCatalog), telemetry ->
+                base.copy(telemetry = telemetry) to hostPackCatalog
             }.combine(
                 mainControlPlaneDependencies.strategyPackStateStore.state,
             ) { (base, hostPackCatalog), strategyPackRuntimeState ->
@@ -416,6 +424,7 @@ class MainViewModel
                     settings = base.settings,
                     statusAndMode = base.statusAndMode,
                     runtime = base.runtime,
+                    telemetry = base.telemetry,
                     permissions = base.permissions,
                     approachStats = base.approachStats,
                     hostPackCatalog = hostPackCatalog,

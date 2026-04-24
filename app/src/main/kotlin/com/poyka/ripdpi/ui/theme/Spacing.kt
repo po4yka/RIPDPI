@@ -94,6 +94,19 @@ data class RipDpiInputMetrics(
 )
 
 @Immutable
+data class RipDpiActuatorMetrics(
+    val height: Dp = 116.dp,
+    val railHeight: Dp = 48.dp,
+    val carriageWidth: Dp = 128.dp,
+    val carriageHeight: Dp = 52.dp,
+    val terminalSlotWidth: Dp = 72.dp,
+    val terminalSlotHeight: Dp = 56.dp,
+    val pipelineHeight: Dp = 28.dp,
+    val gripWidth: Dp = 2.dp,
+    val gripHeight: Dp = 20.dp,
+)
+
+@Immutable
 data class RipDpiRowMetrics(
     val compactPillHorizontalPadding: Dp = 8.dp,
     val compactPillVerticalPadding: Dp = 2.dp,
@@ -136,6 +149,7 @@ data class RipDpiComponents(
     val shapes: RipDpiShapeMetrics = RipDpiShapeMetrics(),
     val buttons: RipDpiButtonMetrics = RipDpiButtonMetrics(),
     val inputs: RipDpiInputMetrics = RipDpiInputMetrics(),
+    val actuator: RipDpiActuatorMetrics = RipDpiActuatorMetrics(),
     val rows: RipDpiRowMetrics = RipDpiRowMetrics(),
     val sheets: RipDpiSheetMetrics = RipDpiSheetMetrics(),
     val navigation: RipDpiNavigationMetrics = RipDpiNavigationMetrics(),

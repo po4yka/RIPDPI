@@ -25,6 +25,7 @@ internal object RipDpiTestTags {
     const val MainErrorSnackbar = "main-error-snackbar"
 
     const val HomeConnectionButton = "home-connection-button"
+    const val HomeConnectionRouteLabel = "home-connection-route-label"
     const val HomeDiagnosticsCard = "home-diagnostics-card"
     const val HomeDiagnosticsRunAnalysis = "home-diagnostics-run-analysis"
     const val HomeDiagnosticsVerifiedVpn = "home-diagnostics-verified-vpn"
@@ -343,6 +344,8 @@ internal object RipDpiTestTags {
 
     val hostPackApplyModeOption: (String) -> String =
         { value -> "host-pack-apply-mode-${sanitize(value)}" }
+
+    fun homeConnectionStage(stage: String): String = "home-connection-stage-${sanitize(stage)}"
 
     fun dropdownOption(
         tag: String,

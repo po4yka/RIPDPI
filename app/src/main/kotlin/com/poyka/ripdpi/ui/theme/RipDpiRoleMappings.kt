@@ -69,12 +69,21 @@ data class RipDpiNavigationSurfaceRoles(
 )
 
 @Immutable
+data class RipDpiActuatorSurfaceRoles(
+    val rail: RipDpiSurfaceRole = RipDpiSurfaceRole.ActuatorRail,
+    val carriage: RipDpiSurfaceRole = RipDpiSurfaceRole.ActuatorCarriage,
+    val terminalSlot: RipDpiSurfaceRole = RipDpiSurfaceRole.ActuatorTerminalSlot,
+    val pipelineSegment: RipDpiSurfaceRole = RipDpiSurfaceRole.ActuatorPipelineSegment,
+)
+
+@Immutable
 data class RipDpiSurfaceRoleMappings(
     val cards: RipDpiCardSurfaceRoles = RipDpiCardSurfaceRoles(),
     val presetCard: RipDpiPresetCardSurfaceRoles = RipDpiPresetCardSurfaceRoles(),
     val feedback: RipDpiFeedbackSurfaceRoles = RipDpiFeedbackSurfaceRoles(),
     val inputs: RipDpiInputSurfaceRoles = RipDpiInputSurfaceRoles(),
     val navigation: RipDpiNavigationSurfaceRoles = RipDpiNavigationSurfaceRoles(),
+    val actuator: RipDpiActuatorSurfaceRoles = RipDpiActuatorSurfaceRoles(),
 )
 
 @Immutable
@@ -142,11 +151,31 @@ data class RipDpiBannerStateRoles(
 }
 
 @Immutable
+data class RipDpiActuatorStateRoles(
+    val open: RipDpiActuatorStateRole = RipDpiActuatorStateRole.Open,
+    val engaging: RipDpiActuatorStateRole = RipDpiActuatorStateRole.Engaging,
+    val locked: RipDpiActuatorStateRole = RipDpiActuatorStateRole.Locked,
+    val degraded: RipDpiActuatorStateRole = RipDpiActuatorStateRole.Degraded,
+    val fault: RipDpiActuatorStateRole = RipDpiActuatorStateRole.Fault,
+)
+
+@Immutable
+data class RipDpiActuatorStageRoles(
+    val pending: RipDpiActuatorStageRole = RipDpiActuatorStageRole.Pending,
+    val active: RipDpiActuatorStageRole = RipDpiActuatorStageRole.Active,
+    val complete: RipDpiActuatorStageRole = RipDpiActuatorStageRole.Complete,
+    val warning: RipDpiActuatorStageRole = RipDpiActuatorStageRole.Warning,
+    val failed: RipDpiActuatorStageRole = RipDpiActuatorStageRole.Failed,
+)
+
+@Immutable
 data class RipDpiStateRoleMappings(
     val button: RipDpiButtonStateRoles = RipDpiButtonStateRoles(),
     val iconButton: RipDpiIconButtonStateRoles = RipDpiIconButtonStateRoles(),
     val settingsRow: RipDpiSettingsRowStateRoles = RipDpiSettingsRowStateRoles(),
     val banner: RipDpiBannerStateRoles = RipDpiBannerStateRoles(),
+    val actuator: RipDpiActuatorStateRoles = RipDpiActuatorStateRoles(),
+    val actuatorStage: RipDpiActuatorStageRoles = RipDpiActuatorStageRoles(),
 )
 
 val DefaultRipDpiSurfaceRoleMappings = RipDpiSurfaceRoleMappings()

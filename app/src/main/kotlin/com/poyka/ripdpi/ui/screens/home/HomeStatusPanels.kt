@@ -59,6 +59,7 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
@@ -150,11 +151,11 @@ internal fun HomeStatusCard(
                 color = colors.mutedForeground,
             )
         }
-        HomeConnectionButton(
-            state = uiState.connectionState,
-            label = homePrimaryActionLabel(uiState),
-            modeLabel = homeModeLabel(currentMode(uiState)),
-            onClick = onToggleConnection,
+        RipDpiConnectionActuator(
+            state = uiState.connectionActuator,
+            onActivate = onToggleConnection,
+            onDeactivate = onToggleConnection,
+            testTag = RipDpiTestTags.HomeConnectionButton,
         )
     }
 }
@@ -671,30 +672,6 @@ private fun homeSupportingCopy(uiState: MainUiState): String =
         ConnectionState.Connecting -> stringResource(R.string.home_status_connecting_body)
         ConnectionState.Connected -> stringResource(R.string.home_status_connected_body)
         ConnectionState.Error -> stringResource(R.string.home_status_error_body)
-    }
-
-@Composable
-private fun homePrimaryActionLabel(uiState: MainUiState): String =
-    when (uiState.connectionState) {
-        ConnectionState.Connecting -> {
-            stringResource(R.string.home_connection_button_connecting)
-        }
-
-        ConnectionState.Connected -> {
-            when (uiState.activeMode) {
-                Mode.VPN -> stringResource(R.string.vpn_disconnect)
-                Mode.Proxy -> stringResource(R.string.proxy_stop)
-            }
-        }
-
-        ConnectionState.Disconnected,
-        ConnectionState.Error,
-        -> {
-            when (uiState.configuredMode) {
-                Mode.VPN -> stringResource(R.string.vpn_connect)
-                Mode.Proxy -> stringResource(R.string.proxy_start)
-            }
-        }
     }
 
 @Composable

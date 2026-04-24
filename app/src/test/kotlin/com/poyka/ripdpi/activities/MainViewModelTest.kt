@@ -1,9 +1,14 @@
 package com.poyka.ripdpi.activities
 
+import android.os.SystemClock
 import app.cash.turbine.test
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.RuntimeFieldTelemetry
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.diagnostics.BypassApproachId
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
@@ -124,6 +129,143 @@ class MainViewModelTest {
                 connectionState = ConnectionState.Disconnected,
                 appStatus = AppStatus.Halted,
             ),
+        )
+    }
+
+    @Test
+    fun `connection actuator maps disconnected state to open pending pipeline`() {
+        val state =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Disconnected,
+                runtime = ConnectionRuntimeState(),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = null,
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(HomeConnectionActuatorStatus.Open, state.status)
+        assertEquals(0f, state.carriageFraction)
+        assertTrue(state.stages.all { it.state == HomeConnectionActuatorStageState.Pending })
+    }
+
+    @Test
+    fun `connection actuator maps connecting state to synthetic active stage`() {
+        val state =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connecting,
+                runtime =
+                    ConnectionRuntimeState(
+                        connectionState = ConnectionState.Connecting,
+                        connectingStartedAtMs = SystemClock.elapsedRealtime() - 2_500L,
+                    ),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = null,
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(HomeConnectionActuatorStatus.Engaging, state.status)
+        assertTrue(state.carriageFraction in 0.01f..0.99f)
+        assertTrue(state.stages.any { it.state == HomeConnectionActuatorStageState.Active })
+    }
+
+    @Test
+    fun `connection actuator maps connected state to locked complete pipeline`() {
+        val state =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.Proxy,
+                connectionState = ConnectionState.Connected,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = null,
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(HomeConnectionActuatorStatus.Locked, state.status)
+        assertEquals(1f, state.carriageFraction)
+        assertTrue(state.stages.all { it.state == HomeConnectionActuatorStageState.Complete })
+    }
+
+    @Test
+    fun `connection actuator localizes error to tunnel by default`() {
+        val state =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Error,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Error),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = null,
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(HomeConnectionActuatorStatus.Fault, state.status)
+        assertEquals(
+            HomeConnectionActuatorStageState.Failed,
+            state.stages.single { it.stage == HomeConnectionActuatorStage.Tunnel }.state,
+        )
+        assertTrue(state.carriageFraction < 1f)
+    }
+
+    @Test
+    fun `connection actuator keeps degraded sessions locked with localized warning`() {
+        val state =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry =
+                    ServiceTelemetrySnapshot(
+                        tunnelTelemetry =
+                            NativeRuntimeSnapshot
+                                .idle(source = "tunnel")
+                                .copy(resolverFallbackActive = true),
+                    ),
+                approachSummary = null,
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(HomeConnectionActuatorStatus.Degraded, state.status)
+        assertEquals(1f, state.carriageFraction)
+        assertEquals(
+            HomeConnectionActuatorStageState.Warning,
+            state.stages.single { it.stage == HomeConnectionActuatorStage.Dns }.state,
+        )
+    }
+
+    @Test
+    fun `connection actuator maps DNS failure class to DNS fault`() {
+        val state =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Error,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Error),
+                telemetry =
+                    ServiceTelemetrySnapshot(
+                        runtimeFieldTelemetry =
+                            RuntimeFieldTelemetry(
+                                failureClass = FailureClass.DnsInterference,
+                            ),
+                    ),
+                approachSummary = null,
+                stringResolver = FakeStringResolver(),
+            )
+
+        assertEquals(
+            HomeConnectionActuatorStageState.Failed,
+            state.stages.single { it.stage == HomeConnectionActuatorStage.Dns }.state,
         )
     }
 
