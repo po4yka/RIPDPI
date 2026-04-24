@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import android.content.Context
-import com.poyka.ripdpi.core.detection.DetectionRunner
+import com.poyka.ripdpi.core.detection.DetectionCheckRunner
 import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
@@ -20,6 +20,7 @@ class DefaultHomeDetectionStageRunner
     constructor(
         @param:ApplicationContext private val context: Context,
         private val appSettingsRepository: AppSettingsRepository,
+        private val detectionCheckRunner: DetectionCheckRunner,
     ) : HomeDetectionStageRunner {
         override suspend fun run(
             onProgress: suspend (label: String, detail: String) -> Unit,
@@ -34,7 +35,7 @@ class DefaultHomeDetectionStageRunner
                     tlsFingerprintProfile = settings.tlsFingerprintProfile.ifEmpty { "chrome_stable" },
                 )
             val result =
-                DetectionRunner.run(
+                detectionCheckRunner.run(
                     context = context,
                     config = config,
                     onProgress = { progress ->

@@ -13,7 +13,6 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.runBlocking
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -21,7 +20,7 @@ import javax.inject.Singleton
 interface VpnAppExclusionPolicy {
     fun shouldExcludeOwnPackage(): Boolean
 
-    fun russianAppsToExclude(): List<String>
+    suspend fun russianAppsToExclude(): List<String>
 }
 
 interface AppRoutingCatalogProvider {
@@ -78,8 +77,8 @@ class DefaultVpnAppExclusionPolicy
     ) : VpnAppExclusionPolicy {
         override fun shouldExcludeOwnPackage(): Boolean = true
 
-        override fun russianAppsToExclude(): List<String> {
-            val settings = runBlocking { appSettingsRepository.snapshot() }
+        override suspend fun russianAppsToExclude(): List<String> {
+            val settings = appSettingsRepository.snapshot()
             if (settings.fullTunnelMode) return emptyList()
             val presetIds = settings.effectiveAppRoutingEnabledPresetIds().toSet()
             if (presetIds.isEmpty()) return emptyList()

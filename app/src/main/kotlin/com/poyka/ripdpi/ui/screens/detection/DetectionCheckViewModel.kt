@@ -10,13 +10,13 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.core.detection.AutoTuneFix
 import com.poyka.ripdpi.core.detection.DetectionAutoTuner
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
+import com.poyka.ripdpi.core.detection.DetectionCheckRunner
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
 import com.poyka.ripdpi.core.detection.DetectionHistoryStore
 import com.poyka.ripdpi.core.detection.DetectionPermissionPlanner
 import com.poyka.ripdpi.core.detection.DetectionProgress
 import com.poyka.ripdpi.core.detection.DetectionRecommendations
 import com.poyka.ripdpi.core.detection.DetectionReportFormatter
-import com.poyka.ripdpi.core.detection.DetectionRunner
 import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
 import com.poyka.ripdpi.core.detection.MethodologyVersion
 import com.poyka.ripdpi.core.detection.Recommendation
@@ -67,6 +67,7 @@ class DetectionCheckViewModel
         private val appSettingsRepository: AppSettingsRepository,
         private val networkFingerprintProvider: com.poyka.ripdpi.data.NetworkFingerprintProvider,
         private val routingProtectionCatalogService: RoutingProtectionCatalogService,
+        private val detectionCheckRunner: DetectionCheckRunner,
     ) : AndroidViewModel(application) {
         private val _uiState = MutableStateFlow(DetectionCheckUiState())
         val uiState: StateFlow<DetectionCheckUiState> = _uiState.asStateFlow()
@@ -172,7 +173,7 @@ class DetectionCheckViewModel
                             val settings = appSettingsRepository.settings.first()
                             val config = settings.toDetectionRunnerConfig(application.packageName)
                             val result =
-                                DetectionRunner.run(
+                                detectionCheckRunner.run(
                                     context = application,
                                     config = config,
                                     onProgress = { progress ->
