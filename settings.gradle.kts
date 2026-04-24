@@ -22,6 +22,10 @@ dependencyResolutionManagement {
 rootProject.name = "RipDpi"
 include(":app")
 include(":core:data")
+include(":core:data:catalog")
+include(":core:data:model")
+include(":core:data:runtime-state")
+include(":core:data:settings")
 include(":core:diagnostics")
 include(":core:diagnostics-data")
 include(":core:detection")

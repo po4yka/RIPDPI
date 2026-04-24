@@ -64,7 +64,7 @@ data class ServerCapabilityRecord(
     val updatedAt: Long = System.currentTimeMillis(),
 )
 
-internal fun mergeCapabilityRecord(
+fun mergeCapabilityRecord(
     existing: ServerCapabilityRecord?,
     scope: ServerCapabilityScope,
     fingerprintHash: String,
