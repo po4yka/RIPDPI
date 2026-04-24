@@ -216,6 +216,7 @@ internal fun DiagnosticsPerformanceCard(
 ) {
     TrackRecomposition("DiagnosticsPerformanceCard")
     val colors = RipDpiThemeTokens.colors
+    val motion = RipDpiThemeTokens.motion
     var expanded by remember { mutableStateOf(false) }
     val timingBreakdown =
         remember(performance) {
@@ -251,7 +252,11 @@ internal fun DiagnosticsPerformanceCard(
             style = RipDpiThemeTokens.type.monoSmall,
             color = colors.mutedForeground,
         )
-        AnimatedVisibility(visible = expanded) {
+        AnimatedVisibility(
+            visible = expanded,
+            enter = motion.sectionEnterTransition(),
+            exit = motion.sectionExitTransition(),
+        ) {
             androidx.compose.foundation.layout.Column(
                 verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
             ) {

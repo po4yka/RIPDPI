@@ -11,9 +11,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateIntAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -450,12 +447,12 @@ private fun VerdictScoreCard(
                 score >= 40 -> colors.warning
                 else -> colors.destructive
             },
-        animationSpec = tween(motion.stateDurationMillis),
+        animationSpec = motion.stateTween(),
         label = "scoreColor",
     )
     val animatedScore by animateIntAsState(
         targetValue = score ?: 0,
-        animationSpec = tween(motion.emphasizedDurationMillis),
+        animationSpec = motion.emphasizedTween(),
         label = "score",
     )
 
@@ -674,6 +671,7 @@ private fun CollapsibleCard(
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
+    val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
 
     val tone =
@@ -723,8 +721,8 @@ private fun CollapsibleCard(
         }
         AnimatedVisibility(
             visible = isExpanded,
-            enter = expandVertically(),
-            exit = shrinkVertically(),
+            enter = motion.sectionEnterTransition(),
+            exit = motion.sectionExitTransition(),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 findings.forEach { FindingRow(it) }

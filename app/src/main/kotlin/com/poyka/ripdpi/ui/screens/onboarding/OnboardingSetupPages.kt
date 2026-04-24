@@ -1,9 +1,6 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -119,6 +116,7 @@ internal fun OnboardingModeValidationContent(
     modifier: Modifier = Modifier,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val motion = RipDpiThemeTokens.motion
     val type = RipDpiThemeTokens.type
     val selectedModeLabel = stringResource(modeLabelRes(uiState.selectedMode))
 
@@ -141,7 +139,7 @@ internal fun OnboardingModeValidationContent(
 
         AnimatedContent(
             targetState = uiState.validationState,
-            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            transitionSpec = { motion.quickFadeContentTransform() },
             contentAlignment = Alignment.Center,
             label = "mode-validation",
         ) { state ->

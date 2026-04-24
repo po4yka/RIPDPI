@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.history
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -189,26 +188,18 @@ internal fun HistoryScreen(
                             val enterSlide =
                                 slideInHorizontally(
                                     initialOffsetX = { fullWidth -> fullWidth / 4 * if (direction >= 0) 1 else -1 },
-                                    animationSpec =
-                                        tween(
-                                            motion.duration(motion.stateDurationMillis),
-                                            easing = RipDpiMotion.EmphasizedDecelerate,
-                                        ),
+                                    animationSpec = motion.stateTween(easing = RipDpiMotion.EmphasizedDecelerate),
                                 ) +
                                     fadeIn(
-                                        animationSpec = tween(motion.duration(motion.stateDurationMillis)),
+                                        animationSpec = motion.stateTween(),
                                     )
                             val exitSlide =
                                 slideOutHorizontally(
                                     targetOffsetX = { fullWidth -> fullWidth / 4 * if (direction >= 0) -1 else 1 },
-                                    animationSpec =
-                                        tween(
-                                            motion.duration(motion.quickDurationMillis),
-                                            easing = RipDpiMotion.EmphasizedAccelerate,
-                                        ),
+                                    animationSpec = motion.quickTween(easing = RipDpiMotion.EmphasizedAccelerate),
                                 ) +
                                     fadeOut(
-                                        animationSpec = tween(motion.duration(motion.quickDurationMillis)),
+                                        animationSpec = motion.quickTween(),
                                     )
                             enterSlide togetherWith exitSlide
                         },

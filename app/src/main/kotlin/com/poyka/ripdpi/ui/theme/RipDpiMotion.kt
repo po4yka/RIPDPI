@@ -66,6 +66,11 @@ data class RipDpiMotion(
     fun <T> emphasizedTween(easing: Easing = EmphasizedDecelerate): TweenSpec<T> =
         tween(durationMillis = duration(emphasizedDurationMillis), easing = easing)
 
+    fun <T> durationTween(
+        baseDurationMillis: Int,
+        easing: Easing = StandardEasing,
+    ): TweenSpec<T> = tween(durationMillis = duration(baseDurationMillis), easing = easing)
+
     fun <T> routeTween(easing: Easing = EmphasizedDecelerate): TweenSpec<T> =
         tween(durationMillis = duration(routeDurationMillis), easing = easing)
 

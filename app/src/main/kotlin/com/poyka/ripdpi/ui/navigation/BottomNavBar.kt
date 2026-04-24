@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.navigation
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -96,21 +95,17 @@ fun BottomNavBar(
                     } ?: 0f
                 val indicatorOffsetPx by animateFloatAsState(
                     targetValue = indicatorOffsetPxTarget,
-                    animationSpec =
-                        tween(
-                            durationMillis = motion.duration(motion.emphasizedDurationMillis),
-                            easing = FastOutSlowInEasing,
-                        ),
+                    animationSpec = motion.emphasizedTween(easing = FastOutSlowInEasing),
                     label = "bottomNavIndicatorOffset",
                 )
                 val indicatorAlpha by animateFloatAsState(
                     targetValue = if (selectedIndex != null) 1f else 0f,
-                    animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                    animationSpec = motion.stateTween(),
                     label = "bottomNavIndicatorAlpha",
                 )
                 val indicatorScaleX by animateFloatAsState(
                     targetValue = if (selectedIndex != null) 1f else 0.88f,
-                    animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                    animationSpec = motion.quickTween(),
                     label = "bottomNavIndicatorScaleX",
                 )
                 val indicatorTopOffsetPx =
@@ -168,28 +163,24 @@ private fun RowScope.BottomNavItem(
     val type = RipDpiThemeTokens.type
     val iconTint by animateColorAsState(
         targetValue = if (selected) colors.foreground else colors.mutedForeground,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "bottomNavIconTint",
     )
     val labelColor by animateColorAsState(
         targetValue = if (selected) colors.foreground else colors.mutedForeground,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "bottomNavLabelColor",
     )
     val selectionScale by animateFloatAsState(
         targetValue = if (selected) motion.selectionScale else 1f,
-        animationSpec =
-            tween(
-                durationMillis = motion.duration(motion.quickDurationMillis),
-                easing = FastOutSlowInEasing,
-            ),
+        animationSpec = motion.quickTween(easing = FastOutSlowInEasing),
         label = "bottomNavSelectionScale",
     )
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val contentAlpha by animateFloatAsState(
         targetValue = if (isPressed) 0.6f else 1f,
-        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        animationSpec = motion.quickTween(),
         label = "bottomNavContentAlpha",
     )
 

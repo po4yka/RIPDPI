@@ -4,8 +4,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
@@ -221,7 +221,10 @@ internal fun ScanSection(
                         visible = true,
                         enter =
                             if (motion.animationsEnabled) {
-                                fadeIn() + slideInVertically { it / 2 }
+                                fadeIn(animationSpec = motion.stateTween()) +
+                                    slideInVertically(
+                                        animationSpec = motion.stateTween(),
+                                    ) { it / 2 }
                             } else {
                                 EnterTransition.None
                             },
@@ -443,12 +446,8 @@ private fun ScanProgressCard(
         AnimatedContent(
             targetState = progress.currentProbeLabel,
             transitionSpec = {
-                androidx.compose.animation.fadeIn(
-                    animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
-                ) togetherWith
-                    androidx.compose.animation.fadeOut(
-                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
-                    )
+                fadeIn(animationSpec = motion.stateTween()) togetherWith
+                    fadeOut(animationSpec = motion.quickTween())
             },
             label = "scanProgressLabel",
         ) { label ->
