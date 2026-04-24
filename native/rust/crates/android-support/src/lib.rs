@@ -1,5 +1,3 @@
-pub mod bounded_heap;
-pub mod enum_map;
 mod sync;
 
 use std::collections::{HashMap, VecDeque};

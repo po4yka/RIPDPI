@@ -3,7 +3,7 @@
 //! Wraps existing stateless `is_*()` / `parse_*()` detection functions behind
 //! a common [`ProtocolClassifier`] trait with a registry for ordered lookup.
 
-use android_support::enum_map::{EnumKey, EnumMap};
+use ripdpi_collections::enum_map::{EnumKey, EnumMap};
 
 use crate::{is_http, is_tls_client_hello, parse_http, parse_tls};
 

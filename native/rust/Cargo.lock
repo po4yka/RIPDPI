@@ -3116,6 +3116,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-collections"
+version = "0.1.0"
+
+[[package]]
 name = "ripdpi-config"
 version = "0.1.0"
 dependencies = [
@@ -3303,10 +3307,10 @@ name = "ripdpi-packets"
 version = "0.1.0"
 dependencies = [
  "aes",
- "android-support",
  "nom 8.0.0",
  "proptest",
  "ring",
+ "ripdpi-collections",
  "serde_json",
  "tls-parser",
 ]
@@ -3526,7 +3530,6 @@ dependencies = [
 name = "ripdpi-tunnel-core"
 version = "0.1.0"
 dependencies = [
- "android-support",
  "anyhow",
  "etherparse",
  "fast-socks5",
@@ -3535,6 +3538,7 @@ dependencies = [
  "local-network-fixture",
  "lru",
  "proptest",
+ "ripdpi-collections",
  "ripdpi-dns-resolver",
  "ripdpi-io-uring",
  "ripdpi-tun-driver",
