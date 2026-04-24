@@ -8,7 +8,6 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-android-support = { workspace = true }
 log = { workspace = true }
 tracing = { workspace = true }
 ripdpi-config = { workspace = true }

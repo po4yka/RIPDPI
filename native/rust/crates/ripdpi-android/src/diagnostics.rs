@@ -1,3 +1,4 @@
+mod platform_bridge;
 mod polling;
 mod registry;
 mod scan;
