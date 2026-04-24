@@ -73,12 +73,12 @@ internal data class RelayCapabilitySummary(
     val repeatedHandshakeFailureClass: String? = null,
 )
 
-internal fun decodeRelayPresetCatalog(json: String): List<RelayPresetDefinition> =
+fun decodeRelayPresetCatalog(json: String): List<RelayPresetDefinition> =
     relayPresetCatalogJson
         .decodeFromString(RelayPresetCatalogPayload.serializer(), json)
         .presets
 
-internal fun suggestRelayPreset(
+fun suggestRelayPreset(
     snapshot: NativeNetworkSnapshot?,
     presets: List<RelayPresetDefinition>,
     capabilityRecords: List<ServerCapabilityRecord> = emptyList(),

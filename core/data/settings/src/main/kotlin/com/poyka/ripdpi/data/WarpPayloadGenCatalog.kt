@@ -70,7 +70,7 @@ internal fun decodeWarpPayloadGenCatalog(json: String): List<WarpPayloadGenPrese
         .presets
 
 @Suppress("ReturnCount")
-internal fun suggestWarpPayloadGenPreset(
+fun suggestWarpPayloadGenPreset(
     snapshot: NativeNetworkSnapshot?,
     presets: List<WarpPayloadGenPresetDefinition>,
 ): WarpPayloadGenSuggestion? {
@@ -94,7 +94,7 @@ internal fun suggestWarpPayloadGenPreset(
     }
 }
 
-internal fun builtInWarpPayloadGenPresets(): List<WarpPayloadGenPresetDefinition> =
+fun builtInWarpPayloadGenPresets(): List<WarpPayloadGenPresetDefinition> =
     decodeWarpPayloadGenCatalog(
         """
         {
