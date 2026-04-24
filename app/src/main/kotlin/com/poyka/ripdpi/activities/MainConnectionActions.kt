@@ -65,6 +65,7 @@ internal class MainConnectionActions(
                 current.copy(
                     connectionState = ConnectionState.Disconnected,
                     errorMessage = null,
+                    connectingStartedAtMs = null,
                 )
             }
         }
@@ -76,6 +77,7 @@ internal class MainConnectionActions(
             it.copy(
                 connectionState = ConnectionState.Disconnected,
                 errorMessage = null,
+                connectingStartedAtMs = null,
                 connectionStartedAtMs = null,
                 baselineTransferredBytes = 0L,
                 dataTransferred = 0L,
@@ -176,6 +178,7 @@ internal class MainConnectionActions(
                 current.copy(
                     connectionState = ConnectionState.Connected,
                     errorMessage = null,
+                    connectingStartedAtMs = null,
                     connectionStartedAtMs = connectedAtMs,
                     baselineTransferredBytes = baselineBytes,
                     dataTransferred = 0L,
@@ -193,6 +196,7 @@ internal class MainConnectionActions(
             if (current.connectionState == ConnectionState.Error) {
                 current.copy(
                     connectionStartedAtMs = null,
+                    connectingStartedAtMs = null,
                     baselineTransferredBytes = 0L,
                     dataTransferred = 0L,
                     connectionDuration = ZERO,
@@ -219,6 +223,7 @@ internal class MainConnectionActions(
             it.copy(
                 connectionState = ConnectionState.Error,
                 errorMessage = message,
+                connectingStartedAtMs = null,
                 connectionStartedAtMs = null,
                 baselineTransferredBytes = 0L,
                 dataTransferred = 0L,
@@ -234,6 +239,7 @@ internal class MainConnectionActions(
             it.copy(
                 connectionState = ConnectionState.Connecting,
                 errorMessage = null,
+                connectingStartedAtMs = SystemClock.elapsedRealtime(),
                 connectionStartedAtMs = null,
                 baselineTransferredBytes = 0L,
                 dataTransferred = 0L,

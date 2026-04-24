@@ -581,6 +581,7 @@ The shape language should feel precise and engineered, not soft or playful.
 The primary reusable components are:
 
 - Actions: `RipDpiButton`, `RipDpiIconButton`, `RipDpiChip`
+- Connection: `RipDpiConnectionActuator`
 - Inputs: `RipDpiTextField`, `RipDpiConfigTextField`, `RipDpiDropdown`, `RipDpiSwitch`
 - Containers: `RipDpiCard`, `PresetCard`, `SettingsRow`, `RipDpiDialog`, `RipDpiBottomSheet`, `RipDpiSnackbar`, `WarningBanner`
 - Navigation: `RipDpiTopAppBar`, bottom navigation, `SettingsCategoryHeader`
@@ -594,6 +595,9 @@ Component behavior rules:
 - Ghost and outline actions stay visually light, but their disabled state must still be legible.
 - Text fields and dropdowns use filled muted surfaces, not raw outlined-only treatment.
 - Settings rows use stable vertical rhythm and must clearly communicate selected, navigable, and toggle states.
+- `RipDpiConnectionActuator` is the Home primary connection primitive: a horizontal slider-lock with fixed
+  Network, DNS, Handshake, Tunnel, and Route stages, localized fault/warning treatment, a visible route label,
+  and a locked terminal slot for connected or degraded-but-active sessions.
 - Warning and remediation surfaces use semantic containers, not full-saturation fills by default.
 - Monospace treatments belong in diagnostic or configuration contexts, not in general navigation chrome.
 - Shared components should resolve pressed, focused, disabled, loading, selected, and error visuals from a first-class state-token layer instead of rebuilding those palettes inline.
@@ -687,7 +691,7 @@ branches unless a screen is intentionally showing theme comparison.
 Home:
 
 - use `RipDpiDashboardScaffold`
-- present a calm status header, primary connection actions, and split primary and secondary panels on expanded widths
+- present a calm status header, the `RipDpiConnectionActuator`, and split primary and secondary panels on expanded widths
 - reserve accent and status color for live connection, health, and recommendation state
 
 Settings and advanced settings:
@@ -762,6 +766,7 @@ Home:
 
 - keep banners above the dashboard content
 - make `HomeStatusCard` the first primary block and `HomeDiagnosticsCard` the second
+- keep the connection actuator inside `HomeStatusCard`; do not reintroduce a large circular VPN power button
 - keep the default order: banners, status, diagnostics, optional approach, history, then stats
 - keep approach, history, and stats as supporting content rather than competing hero panels
 - preserve the expanded-width split between primary operational panels and secondary overview content

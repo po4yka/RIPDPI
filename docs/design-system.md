@@ -23,7 +23,7 @@ When any of these disagree, the Compose theme code and screenshot baselines win.
 | Typography | `ui/theme/Type.kt` | Geist families, text-role naming, weight hierarchy, and Material 3 mapping |
 | Spacing | `ui/theme/Spacing.kt` | 4px-derived spacing scale |
 | Layout | `ui/theme/Spacing.kt` | Width classes, max widths, section gaps, scaffold dimensions |
-| Component metrics | `ui/theme/Spacing.kt` | Control heights, paddings, switch sizes, badge sizes, row heights |
+| Component metrics | `ui/theme/Spacing.kt` | Control heights, paddings, switch and actuator sizes, badge sizes, row heights |
 | Shapes | `ui/theme/Shape.kt` | Rounded-corner token scale and Material 3 shape bridge |
 | Motion | `ui/theme/RipDpiMotion.kt` | Durations, scales, easing, spring behavior, reduced-motion handling |
 | Surface tokens | `ui/theme/RipDpiSurface.kt` | First-class panel, modal, feedback, menu, and navigation-chrome surfaces |
@@ -35,6 +35,7 @@ family that owns them, for example `HomeChromeMetrics` and `RipDpiIntroScaffoldM
 ## Component Taxonomy
 
 - Actions: `RipDpiButton`, `RipDpiIconButton`, `RipDpiChip`
+- Connection: `RipDpiConnectionActuator`
 - Inputs: `RipDpiTextField`, `RipDpiConfigTextField`, `RipDpiDropdown`, `RipDpiSwitch`
 - Containers: `RipDpiCard`, `PresetCard`, `SettingsRow`, `RipDpiBottomSheet`, `RipDpiDialog`, `RipDpiSnackbar`, `WarningBanner`
 - Navigation: `RipDpiTopAppBar`, bottom navigation, `SettingsCategoryHeader`
@@ -55,6 +56,8 @@ Current first-class state families:
 - `switch`
 - `settingsRow`
 - `banner`
+- `actuator`
+- `actuatorStage`
 
 ## Surface Roles
 
@@ -68,6 +71,7 @@ Current first-class surface roles:
 - Feedback: `Banner`, `Snackbar`
 - Chrome: `DropdownMenu`, `BottomBar`, `BottomBarIndicator`, `SwitchThumb`
 - Icon badges: `BottomSheetIconBadge`, `DialogIconBadge`, `DialogDestructiveIconBadge`
+- Actuator: `ActuatorRail`, `ActuatorCarriage`, `ActuatorTerminalSlot`, `ActuatorPipelineSegment`
 
 Usage rules:
 
@@ -82,6 +86,7 @@ Usage rules:
 |----------------|---------------------|-----------------------|--------------------|
 | Primary and secondary actions | `ui/components/buttons/RipDpiButton.kt` | `state.button`, `type.button`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
 | Icon-only actions | `ui/components/buttons/RipDpiIconButton.kt` | `state.iconButton`, icon sizes, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
+| Secure connection actuator | `ui/components/inputs/RipDpiConnectionActuator.kt` | `state.actuator`, `state.actuatorStage`, actuator component metrics, `RipDpiIcons`, `motion` | `RipDpiDesignSystemScreenshotCatalog`, home screenshots |
 | Filter and selection chips | `ui/components/inputs/RipDpiChip.kt` | `state.chip`, `type.smallLabel`, `shapes`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
 | Text and config fields | `ui/components/inputs/RipDpiTextField.kt` | `state.textField`, `type.monoValue`, `type.monoConfig`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
 | Dropdowns and switches | `ui/components/inputs/RipDpiDropdown.kt`, `ui/components/inputs/RipDpiSwitch.kt` | `state.textField`, `state.switch`, `type`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
@@ -148,6 +153,9 @@ Home:
 
 - Use `RipDpiDashboardScaffold`.
 - Keep a calm status summary above deeper operational detail.
+- Use `RipDpiConnectionActuator` as the primary connection primitive in `HomeStatusCard`; it replaces the
+  circular VPN power button and owns activation intent, route label, stage pipeline, localized fault, and
+  degraded-but-active visual states.
 - In expanded layouts, split primary status/actions from secondary analysis or supporting content.
 
 Settings and advanced settings:
@@ -226,6 +234,9 @@ Onboarding and permission flows:
 
 - Build with `RipDpiDashboardScaffold` and keep warning or permission banners above the main dashboard content.
 - The first primary block must be `HomeStatusCard`; connection state, verification state, and the primary toggle live there and should not be split across multiple cards.
+- `HomeStatusCard` must render `RipDpiConnectionActuator` with the stable root tag `home-connection-button`
+  and stage tags `home-connection-stage-network`, `home-connection-stage-dns`,
+  `home-connection-stage-handshake`, `home-connection-stage-tunnel`, and `home-connection-stage-route`.
 - The second primary block must be `HomeDiagnosticsCard`; it owns analysis actions, latest audit summary, remediation ladder, and scan-progress affordances.
 - Supporting overview content should stay in secondary cards such as `HomeApproachCard`, `HomeHistoryCard`, and `HomeStatsGrid`.
 - The default order is banners, `HomeStatusCard`, `HomeDiagnosticsCard`, optional `HomeApproachCard`, `HomeHistoryCard`, then overview stats.

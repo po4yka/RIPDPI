@@ -25,6 +25,10 @@ enum class RipDpiSurfaceRole {
     DropdownMenu,
     BottomBar,
     BottomBarIndicator,
+    ActuatorRail,
+    ActuatorCarriage,
+    ActuatorTerminalSlot,
+    ActuatorPipelineSegment,
 }
 
 @Immutable
@@ -176,6 +180,54 @@ data class RipDpiSurfaceTokens(
                     border = Color.Transparent,
                     content = colors.foreground,
                 )
+            }
+
+            RipDpiSurfaceRole.ActuatorRail,
+            RipDpiSurfaceRole.ActuatorCarriage,
+            RipDpiSurfaceRole.ActuatorTerminalSlot,
+            RipDpiSurfaceRole.ActuatorPipelineSegment,
+            -> {
+                resolveActuatorSurface(role)
+            }
+        }
+
+    private fun resolveActuatorSurface(role: RipDpiSurfaceRole): RipDpiSurfaceStyle =
+        when (role) {
+            RipDpiSurfaceRole.ActuatorRail -> {
+                RipDpiSurfaceStyle(
+                    container = colors.inputBackground,
+                    border = colors.border,
+                    content = colors.foreground,
+                )
+            }
+
+            RipDpiSurfaceRole.ActuatorCarriage -> {
+                RipDpiSurfaceStyle(
+                    container = colorScheme.surface,
+                    border = colors.outlineVariant,
+                    content = colors.foreground,
+                    shadowElevation = 8.dp,
+                )
+            }
+
+            RipDpiSurfaceRole.ActuatorTerminalSlot -> {
+                RipDpiSurfaceStyle(
+                    container = colors.accent,
+                    border = colors.outlineVariant,
+                    content = colors.foreground,
+                )
+            }
+
+            RipDpiSurfaceRole.ActuatorPipelineSegment -> {
+                RipDpiSurfaceStyle(
+                    container = colors.inputBackground,
+                    border = colors.border,
+                    content = colors.mutedForeground,
+                )
+            }
+
+            else -> {
+                error("Unsupported actuator surface role: $role")
             }
         }
 }
