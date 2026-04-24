@@ -11,11 +11,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -188,7 +185,7 @@ internal fun HomeConnectionButton(
             } else {
                 1f
             },
-        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        animationSpec = motion.quickTween(),
         label = "homeConnectionPressScale",
     )
     val buttonScale = remember { Animatable(1f) }
@@ -239,22 +236,22 @@ internal fun HomeConnectionButton(
         }
     val animatedContainerColor by animateColorAsState(
         targetValue = containerColor,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "homeConnectionContainer",
     )
     val animatedContentColor by animateColorAsState(
         targetValue = contentColor,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "homeConnectionContent",
     )
     val animatedHaloColor by animateColorAsState(
         targetValue = haloColor,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "homeConnectionHalo",
     )
     val animatedBorderColor by animateColorAsState(
         targetValue = borderColor,
-        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+        animationSpec = motion.quickTween(),
         label = "homeConnectionBorder",
     )
     val connectingPulse =
@@ -270,8 +267,8 @@ internal fun HomeConnectionButton(
             animationSpec =
                 infiniteRepeatable(
                     animation =
-                        tween(
-                            durationMillis = motion.duration(connectingPulseDurationMs),
+                        motion.durationTween(
+                            baseDurationMillis = connectingPulseDurationMs,
                             easing = LinearEasing,
                         ),
                     repeatMode = RepeatMode.Reverse,
@@ -279,7 +276,7 @@ internal fun HomeConnectionButton(
             label = "connectingHaloAlpha",
         ) ?: animateFloatAsState(
             targetValue = 1f,
-            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+            animationSpec = motion.stateTween(),
             label = "connectingHaloAlphaStatic",
         )
     )
@@ -304,22 +301,22 @@ internal fun HomeConnectionButton(
                         buttonScale.snapTo(buttonScaleConnectingInitial)
                         buttonScale.animateTo(
                             targetValue = buttonScaleConnectingTarget,
-                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                            animationSpec = motion.quickTween(),
                         )
                         buttonScale.animateTo(
                             targetValue = 1f,
-                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                            animationSpec = motion.stateTween(),
                         )
                     }
                     launch {
                         haloScale.snapTo(haloScaleConnectingInitial)
                         haloScale.animateTo(
                             targetValue = haloScaleConnectingTarget,
-                            animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
+                            animationSpec = motion.emphasizedTween(),
                         )
                         haloScale.animateTo(
                             targetValue = haloScaleConnectingSettle,
-                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                            animationSpec = motion.stateTween(),
                         )
                     }
                     launch { shakeOffset.snapTo(0f) }
@@ -333,24 +330,24 @@ internal fun HomeConnectionButton(
                         buttonScale.snapTo(buttonScaleConnectedInitial)
                         buttonScale.animateTo(
                             targetValue = motion.selectionScale,
-                            animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
+                            animationSpec = motion.emphasizedTween(),
                         )
                     }
                     launch {
                         haloScale.snapTo(haloScaleConnectedInitial)
                         haloScale.animateTo(
                             targetValue = haloScaleConnectedTarget,
-                            animationSpec = tween(durationMillis = motion.duration(motion.emphasizedDurationMillis)),
+                            animationSpec = motion.emphasizedTween(),
                         )
                         haloScale.animateTo(
                             targetValue = haloScaleConnectedSettle,
-                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                            animationSpec = motion.stateTween(),
                         )
                     }
                     launch {
                         shakeOffset.animateTo(
                             targetValue = 0f,
-                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                            animationSpec = motion.quickTween(),
                         )
                     }
                 }
@@ -363,18 +360,18 @@ internal fun HomeConnectionButton(
                         buttonScale.snapTo(buttonScaleErrorInitial)
                         buttonScale.animateTo(
                             targetValue = 1f,
-                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                            animationSpec = motion.stateTween(),
                         )
                     }
                     launch {
                         haloScale.snapTo(haloScaleErrorInitial)
                         haloScale.animateTo(
                             targetValue = haloScaleErrorTarget,
-                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                            animationSpec = motion.quickTween(),
                         )
                         haloScale.animateTo(
                             targetValue = 1f,
-                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                            animationSpec = motion.stateTween(),
                         )
                     }
                     launch {
@@ -407,19 +404,19 @@ internal fun HomeConnectionButton(
                     launch {
                         buttonScale.animateTo(
                             targetValue = 1f,
-                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                            animationSpec = motion.stateTween(),
                         )
                     }
                     launch {
                         haloScale.animateTo(
                             targetValue = 1f,
-                            animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                            animationSpec = motion.stateTween(),
                         )
                     }
                     launch {
                         shakeOffset.animateTo(
                             targetValue = 0f,
-                            animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                            animationSpec = motion.quickTween(),
                         )
                     }
                 }
@@ -479,12 +476,9 @@ internal fun HomeConnectionButton(
             AnimatedContent(
                 targetState = icon,
                 transitionSpec = {
-                    (
-                        fadeIn(animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis))) +
-                            scaleIn(initialScale = iconTransitionScale)
-                    ) togetherWith (
-                        fadeOut(animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis))) +
-                            scaleOut(targetScale = iconTransitionScale)
+                    motion.quickContentTransform(
+                        initialScale = iconTransitionScale,
+                        targetScale = iconTransitionScale,
                     )
                 },
                 label = "homeConnectionIcon",
@@ -501,9 +495,9 @@ internal fun HomeConnectionButton(
                 targetState = label,
                 transitionSpec = {
                     fadeIn(
-                        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                        animationSpec = motion.stateTween(),
                     ) togetherWith
-                        fadeOut(animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)))
+                        fadeOut(animationSpec = motion.quickTween())
                 },
                 label = "homeConnectionLabel",
             ) { currentLabel ->
@@ -519,9 +513,9 @@ internal fun HomeConnectionButton(
                 targetState = modeLabel,
                 transitionSpec = {
                     fadeIn(
-                        animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                        animationSpec = motion.quickTween(),
                     ) togetherWith
-                        fadeOut(animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)))
+                        fadeOut(animationSpec = motion.quickTween())
                 },
                 label = "homeConnectionModeLabel",
             ) { currentModeLabel ->

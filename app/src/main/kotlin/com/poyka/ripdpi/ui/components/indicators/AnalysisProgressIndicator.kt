@@ -103,8 +103,8 @@ fun AnalysisProgressIndicator(
             targetState = stageLabel,
             transitionSpec = {
                 (
-                    fadeIn(tween(durationMillis = motion.duration(motion.stateDurationMillis))) togetherWith
-                        fadeOut(tween(durationMillis = motion.duration(motion.quickDurationMillis)))
+                    fadeIn(motion.stateTween()) togetherWith
+                        fadeOut(motion.quickTween())
                 ).using(SizeTransform(clip = false))
             },
             modifier = Modifier.defaultMinSize(minHeight = twoLineHeight),
@@ -281,7 +281,7 @@ private fun PipelineSegment(
         }
     val animatedColor by animateColorAsState(
         targetValue = targetColor,
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "segmentColor$index",
     )
     val isActive = index == activeStageIndex
@@ -293,11 +293,11 @@ private fun PipelineSegment(
             if (isCompleted) {
                 completionScale.animateTo(
                     targetValue = CompletionScalePeak,
-                    animationSpec = tween(durationMillis = motion.duration(motion.quickDurationMillis)),
+                    animationSpec = motion.quickTween(),
                 )
                 completionScale.animateTo(
                     targetValue = 1f,
-                    animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+                    animationSpec = motion.stateTween(),
                 )
             }
         }
@@ -309,7 +309,7 @@ private fun PipelineSegment(
                 isActive -> stage.progress.coerceIn(0f, 1f)
                 else -> 0f
             },
-        animationSpec = tween(durationMillis = motion.duration(motion.stateDurationMillis)),
+        animationSpec = motion.stateTween(),
         label = "segmentFill$index",
     )
     Box(

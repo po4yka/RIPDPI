@@ -137,6 +137,7 @@ internal fun HomeDiagnosticsCard(
     onTogglePcapRecording: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
 
     RipDpiCard(
@@ -236,6 +237,7 @@ internal fun HomeDiagnosticsCard(
             uiState.homeDiagnostics.analysisAction.busy && analysisProgress != null && !isQuickScan
         Crossfade(
             targetState = showFullAnalysisProgress,
+            animationSpec = motion.stateTween(),
             label = "analysisProgressSwitch",
         ) { showProgress ->
             if (showProgress && analysisProgress != null) {
@@ -267,6 +269,7 @@ internal fun HomeDiagnosticsCard(
         val showQuickScanProgress = isQuickScan && analysisProgress != null
         Crossfade(
             targetState = showQuickScanProgress,
+            animationSpec = motion.stateTween(),
             label = "quickScanProgressSwitch",
         ) { showProgress ->
             if (showProgress && analysisProgress != null) {
