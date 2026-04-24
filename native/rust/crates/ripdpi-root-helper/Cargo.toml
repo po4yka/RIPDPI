@@ -12,7 +12,8 @@ path = "src/main.rs"
 workspace = true
 
 [dependencies]
-ripdpi-runtime = { workspace = true }
+ripdpi-privileged-ops = { workspace = true }
+ripdpi-root-helper-protocol = { workspace = true }
 ripdpi-ipfrag = { workspace = true }
 nix = { workspace = true }
 libc = { workspace = true }

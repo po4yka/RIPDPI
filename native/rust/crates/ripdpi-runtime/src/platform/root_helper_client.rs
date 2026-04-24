@@ -6,40 +6,26 @@
 
 use std::io;
 use std::net::SocketAddr;
-use std::os::fd::{AsRawFd, RawFd};
+use std::os::fd::RawFd;
 use std::os::unix::net::UnixStream;
 use std::time::Duration;
 
-use nix::sys::socket::{self, ControlMessage, MsgFlags};
-use serde::{Deserialize, Serialize};
+use ripdpi_root_helper_protocol::{
+    recv_message, send_message, FakeRstParams, FlaggedTcpPayloadParams, HelperRequest, HelperResponse, IpFragTcpParams,
+    IpFragUdpParams, MultiDisorderParams, OrderedTcpSegmentParams, OrderedTcpSegmentsParams, SegmentSpec, SeqOvlParams,
+    CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FLAGGED_TCP_PAYLOAD,
+    CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP,
+    CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP,
+};
 
 use super::{
-    recv_line_with_optional_fd, CapabilityOutcome, CapabilityUnavailable, IcmpWrappedUdpRecvFilter, IcmpWrappedUdpSpec,
+    CapabilityOutcome, CapabilityUnavailable, IcmpWrappedUdpRecvFilter, IcmpWrappedUdpSpec,
     IpFragmentationCapabilities, ReceivedIcmpWrappedUdp, RuntimeCapability, SynHideTcpSpec, TcpFlagOverrides,
 };
 
 /// Client for communicating with the root helper process.
 pub struct RootHelperClient {
     socket_path: String,
-}
-
-// ---------------------------------------------------------------------------
-// Wire types (must match ripdpi-root-helper/src/protocol.rs)
-// ---------------------------------------------------------------------------
-
-#[derive(Serialize)]
-struct HelperRequest {
-    command: String,
-    #[serde(skip_serializing_if = "serde_json::Value::is_null")]
-    params: serde_json::Value,
-}
-
-#[derive(Deserialize)]
-struct HelperResponse {
-    ok: bool,
-    error: Option<String>,
-    #[serde(default)]
-    data: serde_json::Value,
 }
 
 impl RootHelperClient {
@@ -54,7 +40,7 @@ impl RootHelperClient {
 
     /// Probe what privileged capabilities the helper process has.
     pub fn probe_capabilities(&self) -> io::Result<IpFragmentationCapabilities> {
-        let (resp, _fd) = self.send_command("probe_capabilities", serde_json::Value::Null, None)?;
+        let (resp, _fd) = self.send_command(CMD_PROBE_CAPABILITIES, serde_json::Value::Null, None)?;
         Ok(IpFragmentationCapabilities {
             raw_ipv4: resp.data.get("raw_ipv4").and_then(serde_json::Value::as_bool).unwrap_or(false),
             raw_ipv6: resp.data.get("raw_ipv6").and_then(serde_json::Value::as_bool).unwrap_or(false),
@@ -70,13 +56,13 @@ impl RootHelperClient {
         flags: TcpFlagOverrides,
         ipv4_identification: Option<u16>,
     ) -> io::Result<()> {
-        let params = serde_json::json!({
-            "default_ttl": default_ttl,
-            "tcp_flags_set": flags.set,
-            "tcp_flags_unset": flags.unset,
-            "ipv4_identification": ipv4_identification,
-        });
-        let (_resp, _fd) = self.send_command("send_fake_rst", params, Some(stream_fd))?;
+        let params = command_params(FakeRstParams {
+            default_ttl,
+            tcp_flags_set: flags.set,
+            tcp_flags_unset: flags.unset,
+            ipv4_identification,
+        })?;
+        let (_resp, _fd) = self.send_command(CMD_SEND_FAKE_RST, params, Some(stream_fd))?;
         Ok(())
     }
 
@@ -89,15 +75,15 @@ impl RootHelperClient {
         flags: TcpFlagOverrides,
         ipv4_identification: Option<u16>,
     ) -> io::Result<Option<RawFd>> {
-        let params = serde_json::json!({
-            "payload": payload,
-            "default_ttl": default_ttl,
-            "md5sig": md5sig,
-            "tcp_flags_set": flags.set,
-            "tcp_flags_unset": flags.unset,
-            "ipv4_identification": ipv4_identification,
-        });
-        let (_resp, fd) = self.send_command("send_flagged_tcp_payload", params, Some(stream_fd))?;
+        let params = command_params(FlaggedTcpPayloadParams {
+            payload: payload.to_vec(),
+            default_ttl,
+            md5sig,
+            tcp_flags_set: flags.set,
+            tcp_flags_unset: flags.unset,
+            ipv4_identification,
+        })?;
+        let (_resp, fd) = self.send_command(CMD_SEND_FLAGGED_TCP_PAYLOAD, params, Some(stream_fd))?;
         Ok(fd)
     }
 
@@ -112,16 +98,16 @@ impl RootHelperClient {
         flags: TcpFlagOverrides,
         ipv4_identification: Option<u16>,
     ) -> io::Result<Option<RawFd>> {
-        let params = serde_json::json!({
-            "real_chunk": real_chunk,
-            "fake_prefix": fake_prefix,
-            "default_ttl": default_ttl,
-            "md5sig": md5sig,
-            "tcp_flags_set": flags.set,
-            "tcp_flags_unset": flags.unset,
-            "ipv4_identification": ipv4_identification,
-        });
-        let (_resp, fd) = self.send_command("send_seqovl_tcp", params, Some(stream_fd))?;
+        let params = command_params(SeqOvlParams {
+            real_chunk: real_chunk.to_vec(),
+            fake_prefix: fake_prefix.to_vec(),
+            default_ttl,
+            md5sig,
+            tcp_flags_set: flags.set,
+            tcp_flags_unset: flags.unset,
+            ipv4_identification,
+        })?;
+        let (_resp, fd) = self.send_command(CMD_SEND_SEQOVL_TCP, params, Some(stream_fd))?;
         Ok(fd)
     }
 
@@ -138,19 +124,18 @@ impl RootHelperClient {
         flags: TcpFlagOverrides,
         ipv4_identifications: &[u16],
     ) -> io::Result<Option<RawFd>> {
-        let seg_specs: Vec<serde_json::Value> =
-            segments.iter().map(|s| serde_json::json!({ "start": s.start, "end": s.end })).collect();
-        let params = serde_json::json!({
-            "payload": payload,
-            "segments": seg_specs,
-            "default_ttl": default_ttl,
-            "inter_segment_delay_ms": inter_segment_delay_ms,
-            "md5sig": md5sig,
-            "tcp_flags_set": flags.set,
-            "tcp_flags_unset": flags.unset,
-            "ipv4_identifications": ipv4_identifications,
-        });
-        let (_resp, fd) = self.send_command("send_multi_disorder_tcp", params, Some(stream_fd))?;
+        let segments = segments.iter().map(|s| SegmentSpec { start: s.start, end: s.end }).collect();
+        let params = command_params(MultiDisorderParams {
+            payload: payload.to_vec(),
+            segments,
+            default_ttl,
+            inter_segment_delay_ms,
+            md5sig,
+            tcp_flags_set: flags.set,
+            tcp_flags_unset: flags.unset,
+            ipv4_identifications: ipv4_identifications.to_vec(),
+        })?;
+        let (_resp, fd) = self.send_command(CMD_SEND_MULTI_DISORDER_TCP, params, Some(stream_fd))?;
         Ok(fd)
     }
 
@@ -167,30 +152,28 @@ impl RootHelperClient {
         ipv4_identifications: &[u16],
         wait: super::TcpStageWait,
     ) -> io::Result<Option<RawFd>> {
-        let segment_specs: Vec<serde_json::Value> = segments
+        let segment_specs: Vec<OrderedTcpSegmentParams> = segments
             .iter()
-            .map(|segment| {
-                serde_json::json!({
-                    "payload": segment.payload,
-                    "ttl": segment.ttl,
-                    "tcp_flags_set": segment.flags.set,
-                    "tcp_flags_unset": segment.flags.unset,
-                    "sequence_offset": segment.sequence_offset,
-                    "use_fake_timestamp": segment.use_fake_timestamp,
-                })
+            .map(|segment| OrderedTcpSegmentParams {
+                payload: segment.payload.to_vec(),
+                ttl: segment.ttl,
+                tcp_flags_set: segment.flags.set,
+                tcp_flags_unset: segment.flags.unset,
+                sequence_offset: segment.sequence_offset,
+                use_fake_timestamp: segment.use_fake_timestamp,
             })
             .collect();
-        let params = serde_json::json!({
-            "segments": segment_specs,
-            "original_payload_len": original_payload_len,
-            "default_ttl": default_ttl,
-            "md5sig": md5sig,
-            "timestamp_delta_ticks": timestamp_delta_ticks,
-            "ipv4_identifications": ipv4_identifications,
-            "wait_enabled": wait.0,
-            "wait_poll_ms": wait.1.as_millis() as u64,
-        });
-        let (_resp, fd) = self.send_command("send_ordered_tcp_segments", params, Some(stream_fd))?;
+        let params = command_params(OrderedTcpSegmentsParams {
+            segments: segment_specs,
+            original_payload_len,
+            default_ttl,
+            md5sig,
+            timestamp_delta_ticks,
+            ipv4_identifications: ipv4_identifications.to_vec(),
+            wait_enabled: wait.0,
+            wait_poll_ms: wait.1.as_millis() as u64,
+        })?;
+        let (_resp, fd) = self.send_command(CMD_SEND_ORDERED_TCP_SEGMENTS, params, Some(stream_fd))?;
         Ok(fd)
     }
 
@@ -205,16 +188,16 @@ impl RootHelperClient {
         flags: TcpFlagOverrides,
         ipv4_identification: Option<u16>,
     ) -> io::Result<Option<RawFd>> {
-        let params = serde_json::json!({
-            "payload": payload,
-            "split_offset": split_offset,
-            "default_ttl": default_ttl,
-            "disorder": disorder,
-            "tcp_flags_set": flags.set,
-            "tcp_flags_unset": flags.unset,
-            "ipv4_identification": ipv4_identification,
-        });
-        let (_resp, fd) = self.send_command("send_ip_fragmented_tcp", params, Some(stream_fd))?;
+        let params = command_params(IpFragTcpParams {
+            payload: payload.to_vec(),
+            split_offset,
+            default_ttl,
+            disorder,
+            tcp_flags_set: flags.set,
+            tcp_flags_unset: flags.unset,
+            ipv4_identification,
+        })?;
+        let (_resp, fd) = self.send_command(CMD_SEND_IP_FRAGMENTED_TCP, params, Some(stream_fd))?;
         Ok(fd)
     }
 
@@ -229,36 +212,36 @@ impl RootHelperClient {
         disorder: bool,
         ipv4_identification: Option<u16>,
     ) -> io::Result<()> {
-        let params = serde_json::json!({
-            "target_addr": target.to_string(),
-            "payload": payload,
-            "split_offset": split_offset,
-            "default_ttl": default_ttl,
-            "disorder": disorder,
-            "ipv4_identification": ipv4_identification,
-        });
-        let (_resp, _fd) = self.send_command("send_ip_fragmented_udp", params, Some(socket_fd))?;
+        let params = command_params(IpFragUdpParams {
+            target_addr: target.to_string(),
+            payload: payload.to_vec(),
+            split_offset,
+            default_ttl,
+            disorder,
+            ipv4_identification,
+        })?;
+        let (_resp, _fd) = self.send_command(CMD_SEND_IP_FRAGMENTED_UDP, params, Some(socket_fd))?;
         Ok(())
     }
 
     pub fn send_syn_hide_tcp(&self, spec: SynHideTcpSpec) -> io::Result<()> {
         let params = serde_json::to_value(spec)
             .map_err(|error| io::Error::other(format!("serialize syn hide spec: {error}")))?;
-        let (_resp, _fd) = self.send_command("send_syn_hide_tcp", params, None)?;
+        let (_resp, _fd) = self.send_command(CMD_SEND_SYN_HIDE_TCP, params, None)?;
         Ok(())
     }
 
     pub fn send_icmp_wrapped_udp(&self, spec: &IcmpWrappedUdpSpec) -> io::Result<()> {
         let params = serde_json::to_value(spec)
             .map_err(|error| io::Error::other(format!("serialize ICMP-wrapped UDP spec: {error}")))?;
-        let (_resp, _fd) = self.send_command("send_icmp_wrapped_udp", params, None)?;
+        let (_resp, _fd) = self.send_command(CMD_SEND_ICMP_WRAPPED_UDP, params, None)?;
         Ok(())
     }
 
     pub fn recv_icmp_wrapped_udp(&self, filter: IcmpWrappedUdpRecvFilter) -> io::Result<ReceivedIcmpWrappedUdp> {
         let params = serde_json::to_value(filter)
             .map_err(|error| io::Error::other(format!("serialize ICMP-wrapped UDP filter: {error}")))?;
-        let (resp, _fd) = self.send_command("recv_icmp_wrapped_udp", params, None)?;
+        let (resp, _fd) = self.send_command(CMD_RECV_ICMP_WRAPPED_UDP, params, None)?;
         serde_json::from_value(resp.data).map_err(|error| {
             io::Error::new(io::ErrorKind::InvalidData, format!("invalid ICMP-wrapped UDP reply: {error}"))
         })
@@ -282,10 +265,10 @@ impl RootHelperClient {
         let json = serde_json::to_vec(&request).map_err(|e| io::Error::other(format!("serialize request: {e}")))?;
 
         // Send request + optional fd via SCM_RIGHTS.
-        send_with_fd(&stream, &json, fd)?;
+        send_message(&stream, &json, fd)?;
 
         // Receive response + optional replacement fd.
-        let (resp_bytes, reply_fd) = recv_with_fd(&stream)?;
+        let (resp_bytes, reply_fd) = recv_message(&stream, "helper closed connection")?;
 
         let response: HelperResponse = serde_json::from_slice(&resp_bytes)
             .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("invalid response: {e}")))?;
@@ -299,30 +282,8 @@ impl RootHelperClient {
     }
 }
 
-fn send_with_fd(stream: &UnixStream, json: &[u8], fd: Option<RawFd>) -> io::Result<()> {
-    use std::io::IoSlice;
-
-    let mut payload = Vec::with_capacity(json.len() + 1);
-    payload.extend_from_slice(json);
-    payload.push(b'\n');
-
-    let iov = [IoSlice::new(&payload)];
-
-    if let Some(fd) = fd {
-        let fds = [fd];
-        let cmsg = [ControlMessage::ScmRights(&fds)];
-        socket::sendmsg::<()>(stream.as_raw_fd(), &iov, &cmsg, MsgFlags::empty(), None).map_err(io::Error::from)?;
-    } else {
-        socket::sendmsg::<()>(stream.as_raw_fd(), &iov, &[], MsgFlags::empty(), None).map_err(io::Error::from)?;
-    }
-    Ok(())
-}
-
-fn recv_with_fd(stream: &UnixStream) -> io::Result<(Vec<u8>, Option<RawFd>)> {
-    let fd = stream.as_raw_fd();
-    let mut buf = [0u8; 8192];
-    let mut cmsg_buf = [0u8; 64];
-    recv_line_with_optional_fd(fd, &mut buf, &mut cmsg_buf, "helper closed connection")
+fn command_params<T: serde::Serialize>(params: T) -> io::Result<serde_json::Value> {
+    serde_json::to_value(params).map_err(|error| io::Error::other(format!("serialize root-helper params: {error}")))
 }
 
 // ---------------------------------------------------------------------------
@@ -338,10 +299,9 @@ fn recv_with_fd(stream: &UnixStream) -> io::Result<(Vec<u8>, Option<RawFd>)> {
 /// ```
 /// Unknown keys are ignored. Missing keys produce `Unavailable { reason: NotProbed }`.
 ///
-/// This function lives in `ripdpi-runtime` rather than `ripdpi-root-helper`
-/// because `RuntimeCapability` and `CapabilityOutcome` are defined here, and
-/// the dependency direction is ripdpi-root-helper → ripdpi-runtime (not the
-/// reverse).
+/// This function lives in `ripdpi-runtime` because `RuntimeCapability` and
+/// `CapabilityOutcome` are runtime/diagnostics concepts rather than helper IPC
+/// wire types.
 pub fn capability_outcome_from_probe_json(json: &str) -> Vec<(RuntimeCapability, CapabilityOutcome<bool>)> {
     let value: serde_json::Value = match serde_json::from_str(json) {
         Ok(v) => v,

@@ -3316,6 +3316,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-privileged-ops"
+version = "0.1.0"
+dependencies = [
+ "etherparse",
+ "libc",
+ "nix 0.31.2",
+ "ripdpi-config",
+ "ripdpi-desync",
+ "ripdpi-ipfrag",
+ "serde",
+ "socket2 0.6.3",
+ "tracing",
+]
+
+[[package]]
 name = "ripdpi-proxy-config"
 version = "0.1.0"
 dependencies = [
@@ -3376,11 +3391,22 @@ dependencies = [
  "libc",
  "nix 0.31.2",
  "ripdpi-ipfrag",
- "ripdpi-runtime",
+ "ripdpi-privileged-ops",
+ "ripdpi-root-helper-protocol",
  "serde",
  "serde_json",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "ripdpi-root-helper-protocol"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "nix 0.31.2",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3410,6 +3436,7 @@ dependencies = [
  "ripdpi-native-protect",
  "ripdpi-packets",
  "ripdpi-proxy-config",
+ "ripdpi-root-helper-protocol",
  "ripdpi-session",
  "ripdpi-ws-tunnel",
  "rustls",

@@ -1,12 +1,14 @@
 use std::net::TcpStream;
 use std::os::fd::{FromRawFd, IntoRawFd, RawFd};
 
-use serde::Deserialize;
 use tracing::{debug, error, info};
 
-use ripdpi_runtime::platform::{self, IcmpWrappedUdpRecvFilter, IcmpWrappedUdpSpec, SynHideTcpSpec, TcpPayloadSegment};
-
-use crate::protocol::HelperResponse;
+use ripdpi_privileged_ops as platform;
+use ripdpi_privileged_ops::{IcmpWrappedUdpRecvFilter, IcmpWrappedUdpSpec, SynHideTcpSpec, TcpPayloadSegment};
+use ripdpi_root_helper_protocol::{
+    FakeRstParams, FlaggedTcpPayloadParams, HelperResponse, IpFragTcpParams, IpFragUdpParams, MultiDisorderParams,
+    OrderedTcpSegmentsParams, SeqOvlParams,
+};
 
 fn adopt_tcp_stream(fd: RawFd) -> TcpStream {
     // SAFETY: root-helper command fds come from SCM_RIGHTS and ownership is
@@ -47,21 +49,10 @@ pub fn handle_probe_capabilities() -> (HelperResponse, Option<RawFd>) {
 // send_fake_rst
 // ---------------------------------------------------------------------------
 
-#[derive(Deserialize)]
-pub struct FakeRstParams {
-    pub default_ttl: u8,
-    #[serde(default)]
-    pub tcp_flags_set: u16,
-    #[serde(default)]
-    pub tcp_flags_unset: u16,
-    #[serde(default)]
-    pub ipv4_identification: Option<u16>,
-}
-
 pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, ttl = params.default_ttl, "send_fake_rst");
     let stream = adopt_tcp_stream(fd);
-    match platform::send_fake_rst_reserved(
+    match platform::send_fake_rst(
         &stream,
         params.default_ttl,
         None,
@@ -81,24 +72,10 @@ pub fn handle_send_fake_rst(fd: RawFd, params: FakeRstParams) -> (HelperResponse
     }
 }
 
-#[derive(Deserialize)]
-pub struct FlaggedTcpPayloadParams {
-    pub payload: Vec<u8>,
-    pub default_ttl: u8,
-    #[serde(default)]
-    pub md5sig: bool,
-    #[serde(default)]
-    pub tcp_flags_set: u16,
-    #[serde(default)]
-    pub tcp_flags_unset: u16,
-    #[serde(default)]
-    pub ipv4_identification: Option<u16>,
-}
-
 pub fn handle_send_flagged_tcp_payload(fd: RawFd, params: FlaggedTcpPayloadParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, len = params.payload.len(), "send_flagged_tcp_payload");
     let stream = adopt_tcp_stream(fd);
-    match platform::send_flagged_tcp_payload_reserved(
+    match platform::send_flagged_tcp_payload(
         &stream,
         &params.payload,
         params.default_ttl,
@@ -123,25 +100,10 @@ pub fn handle_send_flagged_tcp_payload(fd: RawFd, params: FlaggedTcpPayloadParam
 // send_seqovl_tcp
 // ---------------------------------------------------------------------------
 
-#[derive(Deserialize)]
-pub struct SeqOvlParams {
-    pub real_chunk: Vec<u8>,
-    pub fake_prefix: Vec<u8>,
-    pub default_ttl: u8,
-    #[serde(default)]
-    pub md5sig: bool,
-    #[serde(default)]
-    pub tcp_flags_set: u16,
-    #[serde(default)]
-    pub tcp_flags_unset: u16,
-    #[serde(default)]
-    pub ipv4_identification: Option<u16>,
-}
-
 pub fn handle_send_seqovl_tcp(fd: RawFd, params: SeqOvlParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, "send_seqovl_tcp");
     let stream = adopt_tcp_stream(fd);
-    match platform::send_seqovl_tcp_reserved(
+    match platform::send_seqovl_tcp(
         &stream,
         &params.real_chunk,
         &params.fake_prefix,
@@ -169,36 +131,13 @@ pub fn handle_send_seqovl_tcp(fd: RawFd, params: SeqOvlParams) -> (HelperRespons
 // send_multi_disorder_tcp
 // ---------------------------------------------------------------------------
 
-#[derive(Deserialize)]
-pub struct MultiDisorderParams {
-    pub payload: Vec<u8>,
-    pub segments: Vec<SegmentSpec>,
-    pub default_ttl: u8,
-    #[serde(default)]
-    pub inter_segment_delay_ms: u32,
-    #[serde(default)]
-    pub md5sig: bool,
-    #[serde(default)]
-    pub tcp_flags_set: u16,
-    #[serde(default)]
-    pub tcp_flags_unset: u16,
-    #[serde(default)]
-    pub ipv4_identifications: Vec<u16>,
-}
-
-#[derive(Deserialize)]
-pub struct SegmentSpec {
-    pub start: usize,
-    pub end: usize,
-}
-
 pub fn handle_send_multi_disorder_tcp(fd: RawFd, params: MultiDisorderParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, segments = params.segments.len(), "send_multi_disorder_tcp");
     let stream = adopt_tcp_stream(fd);
     let segments: Vec<TcpPayloadSegment> =
         params.segments.iter().map(|s| TcpPayloadSegment { start: s.start, end: s.end }).collect();
 
-    match platform::send_multi_disorder_tcp_reserved(
+    match platform::send_multi_disorder_tcp(
         &stream,
         &params.payload,
         &segments,
@@ -225,36 +164,6 @@ pub fn handle_send_multi_disorder_tcp(fd: RawFd, params: MultiDisorderParams) ->
 // send_ordered_tcp_segments
 // ---------------------------------------------------------------------------
 
-#[derive(Deserialize)]
-pub struct OrderedTcpSegmentParams {
-    pub payload: Vec<u8>,
-    pub ttl: u8,
-    #[serde(default)]
-    pub tcp_flags_set: u16,
-    #[serde(default)]
-    pub tcp_flags_unset: u16,
-    pub sequence_offset: usize,
-    #[serde(default)]
-    pub use_fake_timestamp: bool,
-}
-
-#[derive(Deserialize)]
-pub struct OrderedTcpSegmentsParams {
-    pub segments: Vec<OrderedTcpSegmentParams>,
-    pub original_payload_len: usize,
-    pub default_ttl: u8,
-    #[serde(default)]
-    pub md5sig: bool,
-    #[serde(default)]
-    pub timestamp_delta_ticks: Option<i32>,
-    #[serde(default)]
-    pub ipv4_identifications: Vec<u16>,
-    #[serde(default)]
-    pub wait_enabled: bool,
-    #[serde(default)]
-    pub wait_poll_ms: u64,
-}
-
 pub fn handle_send_ordered_tcp_segments(
     fd: RawFd,
     params: OrderedTcpSegmentsParams,
@@ -273,7 +182,7 @@ pub fn handle_send_ordered_tcp_segments(
         })
         .collect();
 
-    match platform::send_ordered_tcp_segments_reserved(
+    match platform::send_ordered_tcp_segments(
         &stream,
         &segments,
         params.original_payload_len,
@@ -300,25 +209,10 @@ pub fn handle_send_ordered_tcp_segments(
 // send_ip_fragmented_tcp
 // ---------------------------------------------------------------------------
 
-#[derive(Deserialize)]
-pub struct IpFragTcpParams {
-    pub payload: Vec<u8>,
-    pub split_offset: usize,
-    pub default_ttl: u8,
-    #[serde(default)]
-    pub disorder: bool,
-    #[serde(default)]
-    pub tcp_flags_set: u16,
-    #[serde(default)]
-    pub tcp_flags_unset: u16,
-    #[serde(default)]
-    pub ipv4_identification: Option<u16>,
-}
-
 pub fn handle_send_ip_fragmented_tcp(fd: RawFd, params: IpFragTcpParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, split = params.split_offset, "send_ip_fragmented_tcp");
     let stream = adopt_tcp_stream(fd);
-    match platform::send_ip_fragmented_tcp_reserved(
+    match platform::send_ip_fragmented_tcp(
         &stream,
         &params.payload,
         params.split_offset,
@@ -345,18 +239,6 @@ pub fn handle_send_ip_fragmented_tcp(fd: RawFd, params: IpFragTcpParams) -> (Hel
 // send_ip_fragmented_udp
 // ---------------------------------------------------------------------------
 
-#[derive(Deserialize)]
-pub struct IpFragUdpParams {
-    pub target_addr: String,
-    pub payload: Vec<u8>,
-    pub split_offset: usize,
-    pub default_ttl: u8,
-    #[serde(default)]
-    pub disorder: bool,
-    #[serde(default)]
-    pub ipv4_identification: Option<u16>,
-}
-
 pub fn handle_send_ip_fragmented_udp(fd: RawFd, params: IpFragUdpParams) -> (HelperResponse, Option<RawFd>) {
     debug!(fd, split = params.split_offset, "send_ip_fragmented_udp");
 
@@ -366,7 +248,7 @@ pub fn handle_send_ip_fragmented_udp(fd: RawFd, params: IpFragUdpParams) -> (Hel
     };
 
     let socket = adopt_udp_socket(fd);
-    match platform::send_ip_fragmented_udp_reserved(
+    match platform::send_ip_fragmented_udp(
         &socket,
         target,
         &params.payload,
