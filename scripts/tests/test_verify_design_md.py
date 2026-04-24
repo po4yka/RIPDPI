@@ -45,6 +45,12 @@ class VerifyDesignMdTest(unittest.TestCase):
         self.assertEqual({"md"}, parsed["spacing"])
         self.assertEqual({"buttonPrimary"}, parsed["components"])
 
+    def test_design_screenshot_contract_requires_high_contrast(self) -> None:
+        self.assertIn(
+            "designSystemCatalogHighContrast",
+            verify_design_md.REQUIRED_DESIGN_SCREENSHOT_FUNCTIONS,
+        )
+
     def test_collect_violations_accepts_aligned_design_contract(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
