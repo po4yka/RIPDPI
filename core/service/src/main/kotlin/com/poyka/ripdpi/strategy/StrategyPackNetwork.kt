@@ -14,37 +14,22 @@ import dagger.hilt.components.SingletonComponent
 import java.io.IOException
 import java.net.URI
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 private const val HttpSuccessStatusMin = 200
 private const val HttpSuccessStatusMax = 299
 
-interface StrategyPackDownloadService {
-    suspend fun downloadManifest(url: String): ByteArray
-
-    suspend fun downloadCatalog(url: String): ByteArray
-}
-
-data class StrategyPackBuildProvenance(
-    val appVersion: String,
-    val nativeVersion: String,
-)
-
-fun interface StrategyPackBuildProvenanceProvider {
-    fun current(): StrategyPackBuildProvenance
-}
-
 @Singleton
 class DefaultStrategyPackBuildProvenanceProvider
     @Inject
     constructor(
-        @param:javax.inject.Named("nativeLibVersion") private val nativeVersion: String,
+        @param:Named("appVersionName") private val appVersion: String,
+        @param:Named("nativeLibVersion") private val nativeVersion: String,
     ) : StrategyPackBuildProvenanceProvider {
         override fun current(): StrategyPackBuildProvenance =
             StrategyPackBuildProvenance(
-                appVersion =
-                    com.poyka.ripdpi.BuildConfig.VERSION_NAME
-                        .substringBefore('-'),
+                appVersion = appVersion.substringBefore('-'),
                 nativeVersion = nativeVersion,
             )
     }

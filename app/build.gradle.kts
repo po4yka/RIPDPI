@@ -149,7 +149,6 @@ dependencies {
     implementation(libs.kermit)
     implementation(libs.kotlinx.collections.immutable)
     implementation(libs.kotlinx.serialization.json)
-    implementation(libs.retrofit)
     implementation(libs.okhttp)
 
     testImplementation(libs.bundles.unit.test)
