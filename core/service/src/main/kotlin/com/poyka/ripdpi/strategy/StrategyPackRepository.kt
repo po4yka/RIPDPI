@@ -42,6 +42,21 @@ interface StrategyPackRepository {
     ): StrategyPackSnapshot
 }
 
+interface StrategyPackDownloadService {
+    suspend fun downloadManifest(url: String): ByteArray
+
+    suspend fun downloadCatalog(url: String): ByteArray
+}
+
+data class StrategyPackBuildProvenance(
+    val appVersion: String,
+    val nativeVersion: String,
+)
+
+fun interface StrategyPackBuildProvenanceProvider {
+    fun current(): StrategyPackBuildProvenance
+}
+
 data class StrategyPackLoadResult(
     val snapshot: StrategyPackSnapshot,
     val cacheDegradation: ControlPlaneCacheDegradation? = null,

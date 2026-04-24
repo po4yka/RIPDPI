@@ -16,12 +16,6 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-interface HostPackCatalogDownloadService {
-    suspend fun downloadManifest(): Response<ResponseBody>
-
-    suspend fun downloadCatalog(url: String): Response<ResponseBody>
-}
-
 private interface HostPackCatalogDownloadApi {
     @GET("runetfreedom/russia-blocked-geosite/release/manifest.json")
     suspend fun downloadManifest(): Response<ResponseBody>
@@ -39,11 +33,15 @@ class DefaultHostPackCatalogDownloadService
     constructor(
         private val tlsClientFactory: OwnedTlsClientFactory,
     ) : HostPackCatalogDownloadService {
-        override suspend fun downloadManifest(): Response<ResponseBody> =
-            api(authority = hostPackCatalogBaseUrl.authorityFromUrl()).downloadManifest()
+        override suspend fun downloadManifest(): String =
+            api(authority = hostPackCatalogBaseUrl.authorityFromUrl())
+                .downloadManifest()
+                .requireBodyText()
 
-        override suspend fun downloadCatalog(url: String): Response<ResponseBody> =
-            api(authority = url.authorityFromUrl()).downloadCatalog(url)
+        override suspend fun downloadCatalog(url: String): ByteArray =
+            api(authority = url.authorityFromUrl())
+                .downloadCatalog(url)
+                .requireBodyBytes()
 
         private fun api(authority: String?): HostPackCatalogDownloadApi =
             Retrofit
@@ -86,3 +84,14 @@ const val hostPackCatalogBaseUrl = "https://raw.githubusercontent.com/"
 const val hostPackCatalogUserAgent = "RIPDPI host-pack catalog"
 
 private fun String.authorityFromUrl(): String? = runCatching { URI(this).host }.getOrNull()
+
+private fun Response<ResponseBody>.requireBodyText(): String = requireSuccessfulBody().use(ResponseBody::string)
+
+private fun Response<ResponseBody>.requireBodyBytes(): ByteArray = requireSuccessfulBody().use(ResponseBody::bytes)
+
+private fun Response<ResponseBody>.requireSuccessfulBody(): ResponseBody {
+    if (isSuccessful) {
+        body()?.let { return it }
+    }
+    throw java.io.IOException("Remote request failed with HTTP ${code()} for ${raw().request.url}")
+}
