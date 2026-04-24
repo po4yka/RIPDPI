@@ -1,5 +1,4 @@
 mod handlers;
-mod protocol;
 
 use std::fs;
 use std::io;
@@ -10,7 +9,8 @@ use std::sync::Arc;
 
 use tracing::{error, info, warn};
 
-use protocol::{
+use ripdpi_root_helper_protocol as protocol;
+use ripdpi_root_helper_protocol::{
     HelperRequest, CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FLAGGED_TCP_PAYLOAD,
     CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP,
     CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
@@ -88,7 +88,7 @@ fn handle_connection(stream: &std::os::unix::net::UnixStream) -> io::Result<()> 
     stream.set_read_timeout(Some(Duration::from_secs(30)))?;
     stream.set_write_timeout(Some(Duration::from_secs(10)))?;
 
-    let (data, received_fd) = protocol::recv_message(stream)?;
+    let (data, received_fd) = protocol::recv_message(stream, "peer closed connection")?;
 
     let request: HelperRequest = serde_json::from_slice(&data)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("invalid request JSON: {e}")))?;

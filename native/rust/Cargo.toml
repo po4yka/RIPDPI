@@ -32,6 +32,8 @@ members = [
     "crates/ripdpi-cli",
     "crates/ripdpi-bench",
     "crates/ripdpi-io-uring",
+    "crates/ripdpi-privileged-ops",
+    "crates/ripdpi-root-helper-protocol",
     "crates/ripdpi-root-helper",
     "crates/ripdpi-relay-mux",
     "crates/ripdpi-vless",
@@ -75,6 +77,8 @@ ripdpi-config = { path = "crates/ripdpi-config" }
 ripdpi-desync = { path = "crates/ripdpi-desync" }
 ripdpi-cli = { path = "crates/ripdpi-cli" }
 ripdpi-io-uring = { path = "crates/ripdpi-io-uring" }
+ripdpi-privileged-ops = { path = "crates/ripdpi-privileged-ops" }
+ripdpi-root-helper-protocol = { path = "crates/ripdpi-root-helper-protocol" }
 ripdpi-vless = { path = "crates/ripdpi-vless" }
 ripdpi-shadowtls = { path = "crates/ripdpi-shadowtls" }
 ripdpi-masque = { path = "crates/ripdpi-masque" }
