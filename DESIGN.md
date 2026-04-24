@@ -375,6 +375,30 @@ components:
     textColor: "{colors.accentForeground}"
     rounded: "{rounded.xl}"
     padding: "{spacing.lg}"
+  routeProfileCard:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.cardForeground}"
+    typography: "{typography.body}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.lg}"
+  routeCapabilityPill:
+    backgroundColor: "{colors.muted}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.smallLabel}"
+    rounded: "{rounded.full}"
+    padding: "{spacing.sm}"
+  routeStackDiagram:
+    backgroundColor: "{colors.muted}"
+    textColor: "{colors.foreground}"
+    typography: "{typography.monoSmall}"
+    rounded: "{rounded.lg}"
+    padding: "{spacing.md}"
+  routeOpportunityPanel:
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.cardForeground}"
+    typography: "{typography.body}"
+    rounded: "{rounded.xl}"
+    padding: "{spacing.lg}"
   settingsRow:
     backgroundColor: "{colors.background}"
     textColor: "{colors.foreground}"
@@ -582,6 +606,7 @@ The primary reusable components are:
 
 - Actions: `RipDpiButton`, `RipDpiIconButton`, `RipDpiChip`
 - Connection: `RipDpiConnectionActuator`
+- Secure Routes: `RipDpiRouteProfileCard`, `RipDpiRouteCapabilityPill`, `RipDpiRouteStackDiagram`, `RipDpiRouteOpportunityPanel`
 - Inputs: `RipDpiTextField`, `RipDpiConfigTextField`, `RipDpiDropdown`, `RipDpiSwitch`
 - Containers: `RipDpiCard`, `PresetCard`, `SettingsRow`, `RipDpiDialog`, `RipDpiBottomSheet`, `RipDpiSnackbar`, `WarningBanner`
 - Navigation: `RipDpiTopAppBar`, bottom navigation, `SettingsCategoryHeader`
@@ -598,6 +623,10 @@ Component behavior rules:
 - `RipDpiConnectionActuator` is the Home primary connection primitive: a horizontal slider-lock with fixed
   Network, DNS, Handshake, Tunnel, and Route stages, localized fault/warning treatment, a visible route label,
   and a locked terminal slot for connected or degraded-but-active sessions.
+- Secure Route components describe any user-engageable protected path. Transport labels identify local VPN,
+  local proxy, relay, WARP, or future provider VPN paths; capability pills identify VPN privacy, DNS protection,
+  anti-DPI, relay, split/full tunnel, and traffic modification without making low-level techniques the product
+  identity.
 - Warning and remediation surfaces use semantic containers, not full-saturation fills by default.
 - Monospace treatments belong in diagnostic or configuration contexts, not in general navigation chrome.
 - Shared components should resolve pressed, focused, disabled, loading, selected, and error visuals from a first-class state-token layer instead of rebuilding those palettes inline.

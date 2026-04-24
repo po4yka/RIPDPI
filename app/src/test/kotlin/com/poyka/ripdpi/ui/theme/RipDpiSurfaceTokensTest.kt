@@ -73,6 +73,18 @@ class RipDpiSurfaceTokensTest {
     }
 
     @Test
+    fun `route roles resolve secure route design surfaces`() {
+        val profile = tokens.resolve(RipDpiSurfaceRole.RouteProfile)
+        val stack = tokens.resolve(RipDpiSurfaceRole.RouteStack)
+        val opportunity = tokens.resolve(RipDpiSurfaceRole.RouteOpportunity)
+
+        assertEquals(colorScheme.surface, profile.container)
+        assertEquals(LightRipDpiExtendedColors.inputBackground, stack.container)
+        assertEquals(LightRipDpiExtendedColors.border, stack.border)
+        assertEquals(colorScheme.surface, opportunity.container)
+    }
+
+    @Test
     fun `surface role mappings centralize card variants and dialog badge roles`() {
         assertEquals(
             RipDpiSurfaceRole.ElevatedCard,

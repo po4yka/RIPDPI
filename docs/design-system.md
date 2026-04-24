@@ -36,6 +36,7 @@ family that owns them, for example `HomeChromeMetrics` and `RipDpiIntroScaffoldM
 
 - Actions: `RipDpiButton`, `RipDpiIconButton`, `RipDpiChip`
 - Connection: `RipDpiConnectionActuator`
+- Secure Routes: `RipDpiRouteProfileCard`, `RipDpiRouteCapabilityPill`, `RipDpiRouteStackDiagram`, `RipDpiRouteOpportunityPanel`
 - Inputs: `RipDpiTextField`, `RipDpiConfigTextField`, `RipDpiDropdown`, `RipDpiSwitch`
 - Containers: `RipDpiCard`, `PresetCard`, `SettingsRow`, `RipDpiBottomSheet`, `RipDpiDialog`, `RipDpiSnackbar`, `WarningBanner`
 - Navigation: `RipDpiTopAppBar`, bottom navigation, `SettingsCategoryHeader`
@@ -58,6 +59,7 @@ Current first-class state families:
 - `banner`
 - `actuator`
 - `actuatorStage`
+- `route`
 
 ## Surface Roles
 
@@ -72,6 +74,7 @@ Current first-class surface roles:
 - Chrome: `DropdownMenu`, `BottomBar`, `BottomBarIndicator`, `SwitchThumb`
 - Icon badges: `BottomSheetIconBadge`, `DialogIconBadge`, `DialogDestructiveIconBadge`
 - Actuator: `ActuatorRail`, `ActuatorCarriage`, `ActuatorTerminalSlot`, `ActuatorPipelineSegment`
+- Secure Routes: `RouteProfile`, `RouteCapability`, `RouteStack`, `RouteProvider`, `RouteOpportunity`
 
 Usage rules:
 
@@ -79,6 +82,8 @@ Usage rules:
 - `SelectedCard` is for explicit picked-state surfaces such as presets.
 - `Dialog` and `BottomSheet` are separate roles even when they currently share the same visual recipe.
 - `SwitchThumb` stays in the surface taxonomy because its elevation and containment are structural, not textual.
+- Route roles describe secure-route opportunity and selection surfaces only. They must not imply a new runtime
+  protocol, provider integration, or persistence contract until the corresponding product layer exists.
 
 ## Component Mapping
 
@@ -87,6 +92,7 @@ Usage rules:
 | Primary and secondary actions | `ui/components/buttons/RipDpiButton.kt` | `state.button`, `type.button`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
 | Icon-only actions | `ui/components/buttons/RipDpiIconButton.kt` | `state.iconButton`, icon sizes, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
 | Secure connection actuator | `ui/components/inputs/RipDpiConnectionActuator.kt` | `state.actuator`, `state.actuatorStage`, actuator component metrics, `RipDpiIcons`, `motion` | `RipDpiDesignSystemScreenshotCatalog`, home screenshots |
+| Secure route profiles and capabilities | `ui/components/routes/RipDpiRouteComponents.kt` | `state.route`, route surface roles, `type.monoSmall`, `RipDpiIcons` | `RipDpiDesignSystemScreenshotCatalog` |
 | Filter and selection chips | `ui/components/inputs/RipDpiChip.kt` | `state.chip`, `type.smallLabel`, `shapes`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
 | Text and config fields | `ui/components/inputs/RipDpiTextField.kt` | `state.textField`, `type.monoValue`, `type.monoConfig`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
 | Dropdowns and switches | `ui/components/inputs/RipDpiDropdown.kt`, `ui/components/inputs/RipDpiSwitch.kt` | `state.textField`, `state.switch`, `type`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
@@ -156,6 +162,9 @@ Home:
 - Use `RipDpiConnectionActuator` as the primary connection primitive in `HomeStatusCard`; it replaces the
   circular VPN power button and owns activation intent, route label, stage pipeline, localized fault, and
   degraded-but-active visual states.
+- The actuator route label should name the selected Secure Route, not only the anti-DPI technique. Use Secure
+  Route components when a screen needs to compare available VPN, proxy, WARP, relay, provider, or advanced
+  technique opportunities.
 - In expanded layouts, split primary status/actions from secondary analysis or supporting content.
 
 Settings and advanced settings:

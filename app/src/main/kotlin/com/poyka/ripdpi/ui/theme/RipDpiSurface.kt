@@ -29,6 +29,11 @@ enum class RipDpiSurfaceRole {
     ActuatorCarriage,
     ActuatorTerminalSlot,
     ActuatorPipelineSegment,
+    RouteProfile,
+    RouteCapability,
+    RouteStack,
+    RouteProvider,
+    RouteOpportunity,
 }
 
 @Immutable
@@ -189,6 +194,15 @@ data class RipDpiSurfaceTokens(
             -> {
                 resolveActuatorSurface(role)
             }
+
+            RipDpiSurfaceRole.RouteProfile,
+            RipDpiSurfaceRole.RouteCapability,
+            RipDpiSurfaceRole.RouteStack,
+            RipDpiSurfaceRole.RouteProvider,
+            RipDpiSurfaceRole.RouteOpportunity,
+            -> {
+                resolveRouteSurface(role)
+            }
         }
 
     private fun resolveActuatorSurface(role: RipDpiSurfaceRole): RipDpiSurfaceStyle =
@@ -228,6 +242,53 @@ data class RipDpiSurfaceTokens(
 
             else -> {
                 error("Unsupported actuator surface role: $role")
+            }
+        }
+
+    private fun resolveRouteSurface(role: RipDpiSurfaceRole): RipDpiSurfaceStyle =
+        when (role) {
+            RipDpiSurfaceRole.RouteProfile -> {
+                RipDpiSurfaceStyle(
+                    container = colorScheme.surface,
+                    border = colors.cardBorder,
+                    content = colors.foreground,
+                )
+            }
+
+            RipDpiSurfaceRole.RouteCapability -> {
+                RipDpiSurfaceStyle(
+                    container = colors.inputBackground,
+                    border = colors.border,
+                    content = colors.foreground,
+                )
+            }
+
+            RipDpiSurfaceRole.RouteStack -> {
+                RipDpiSurfaceStyle(
+                    container = colors.inputBackground,
+                    border = colors.border,
+                    content = colors.foreground,
+                )
+            }
+
+            RipDpiSurfaceRole.RouteProvider -> {
+                RipDpiSurfaceStyle(
+                    container = colors.accent,
+                    border = colors.outlineVariant,
+                    content = colors.foreground,
+                )
+            }
+
+            RipDpiSurfaceRole.RouteOpportunity -> {
+                RipDpiSurfaceStyle(
+                    container = colorScheme.surface,
+                    border = colors.border,
+                    content = colors.foreground,
+                )
+            }
+
+            else -> {
+                error("Unsupported route surface role: $role")
             }
         }
 }

@@ -14,28 +14,28 @@ import org.robolectric.annotation.GraphicsMode
 class RipDpiDesignSystemScreenshotTest {
     @Test
     fun designSystemCatalogLightCompact() {
-        captureRipDpiScreenshot(widthDp = 390, heightDp = 2800) {
+        captureRipDpiScreenshot(widthDp = 390, heightDp = 3600) {
             RipDpiDesignSystemScreenshotCatalog(themePreference = "light")
         }
     }
 
     @Test
     fun designSystemCatalogDarkMedium() {
-        captureRipDpiScreenshot(widthDp = 720, heightDp = 2800) {
+        captureRipDpiScreenshot(widthDp = 720, heightDp = 3600) {
             RipDpiDesignSystemScreenshotCatalog(themePreference = "dark")
         }
     }
 
     @Test
     fun designSystemCatalogLargeFont() {
-        captureRipDpiScreenshot(widthDp = 720, heightDp = 2800, fontScale = 1.3f) {
+        captureRipDpiScreenshot(widthDp = 720, heightDp = 3600, fontScale = 1.3f) {
             RipDpiDesignSystemScreenshotCatalog(themePreference = "light")
         }
     }
 
     @Test
     fun designSystemCatalogHighContrast() {
-        captureRipDpiScreenshot(widthDp = 720, heightDp = 2800) {
+        captureRipDpiScreenshot(widthDp = 720, heightDp = 3600) {
             RipDpiDesignSystemScreenshotCatalog(
                 themePreference = "light",
                 contrastLevel = RipDpiContrastLevel.High,

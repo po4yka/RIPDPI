@@ -95,6 +95,19 @@ class RipDpiStateTokensTest {
     }
 
     @Test
+    fun `route states resolve semantic availability surfaces`() {
+        val active = tokens.route.resolve(RipDpiRouteAvailabilityStateRole.Active)
+        val setup = tokens.route.resolve(RipDpiRouteAvailabilityStateRole.NeedsSetup)
+        val failed = tokens.route.resolve(RipDpiRouteAvailabilityStateRole.Failed)
+
+        assertEquals(LightRipDpiExtendedColors.foreground, active.container)
+        assertEquals(LightRipDpiExtendedColors.background, active.content)
+        assertEquals(LightRipDpiExtendedColors.infoContainer, setup.container)
+        assertEquals(LightRipDpiExtendedColors.destructiveContainer, failed.container)
+        assertEquals(LightRipDpiExtendedColors.destructive, failed.border)
+    }
+
+    @Test
     fun `state role mappings centralize component variant translation`() {
         assertEquals(
             RipDpiButtonStateRole.Destructive,
