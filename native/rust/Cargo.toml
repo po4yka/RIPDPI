@@ -155,7 +155,6 @@ h3-datagram = "0.0.2"
 rand = "0.10"
 sha2 = "0.11"
 flate2 = "1"
-rustls-pemfile = "2"
 time = "0.3"
 
 [workspace.lints.clippy]
