@@ -649,6 +649,22 @@ pub struct RuntimeAdaptiveSettings {
     pub strategy_evolution: bool,
     /// Exploration rate in thousandths (0-1000 maps to 0.0-1.0). Default: 100 (= 10%).
     pub evolution_epsilon_permil: u32,
+    /// Wall-clock budget for a single experiment slot in the strategy
+    /// evolver. After elapsing, the next `suggest_hints()` drops the
+    /// pending experiment without recording stats and re-rolls. `0`
+    /// disables the TTL gate. Default 30 000 ms.
+    pub evolution_experiment_ttl_ms: u64,
+    /// Half-life for the recency-weighted decay applied to combo fitness
+    /// in the strategy evolver. `0` disables decay. Default 3 600 000 ms
+    /// (1 h).
+    pub evolution_decay_half_life_ms: u64,
+    /// Number of consecutive non-skip failures that trips a per-combo
+    /// cooldown in the strategy evolver. `0` disables the cooldown gate.
+    /// Default 3.
+    pub evolution_cooldown_after_failures: u32,
+    /// Length of the per-combo cooldown window in milliseconds.
+    /// Default 300 000 ms (5 min).
+    pub evolution_cooldown_ms: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -1120,6 +1136,10 @@ mod tests {
             ws_tunnel_fake_sni: None,
             strategy_evolution: false,
             evolution_epsilon_permil: 100,
+            evolution_experiment_ttl_ms: 30_000,
+            evolution_decay_half_life_ms: 3_600_000,
+            evolution_cooldown_after_failures: 3,
+            evolution_cooldown_ms: 300_000,
         };
         let autolearn = HostAutolearnSettings {
             enabled: true,

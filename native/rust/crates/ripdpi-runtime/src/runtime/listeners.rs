@@ -299,16 +299,24 @@ pub(super) fn run_proxy_with_listener_internal(
     let adaptive_tuning = AdaptivePlannerResolver::load(&config);
     let evolver_enabled = config.adaptive.strategy_evolution;
     let evolver_epsilon = config.adaptive.evolution_epsilon_permil as f64 / 1000.0;
+    let evolver_experiment_ttl_ms = config.adaptive.evolution_experiment_ttl_ms;
+    let evolver_decay_half_life_ms = config.adaptive.evolution_decay_half_life_ms;
+    let evolver_cooldown_after_failures = config.adaptive.evolution_cooldown_after_failures;
+    let evolver_cooldown_ms = config.adaptive.evolution_cooldown_ms;
     let state = RuntimeState {
         config: Arc::new(config),
         cache: Arc::new(RwLock::new(cache)),
         adaptive_fake_ttl: Arc::new(RwLock::new(AdaptiveFakeTtlResolver::default())),
         adaptive_tuning: Arc::new(RwLock::new(adaptive_tuning)),
         retry_stealth: Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
-        strategy_evolver: Arc::new(crate::sync::RwLock::new(crate::strategy_evolver::StrategyEvolver::new(
-            evolver_enabled,
-            evolver_epsilon,
-        ))),
+        strategy_evolver: Arc::new(crate::sync::RwLock::new(
+            crate::strategy_evolver::StrategyEvolver::new(evolver_enabled, evolver_epsilon).with_time_knobs(
+                evolver_experiment_ttl_ms,
+                evolver_decay_half_life_ms,
+                evolver_cooldown_after_failures,
+                evolver_cooldown_ms,
+            ),
+        )),
         direct_path_learning: Arc::new(RwLock::new(super::direct_path_learning::DirectPathLearningState::default())),
         active_clients: Arc::new(AtomicUsize::new(0)),
         telemetry: control.as_ref().and_then(|value| value.telemetry_sink()).or_else(current_runtime_telemetry),

@@ -169,9 +169,20 @@ Status: PARTIAL.
 - Kept the output review-gated and offline-only: generated packs are not auto-consumed by the runtime and still require analyst review plus the normal signing/promotion flow before shipping.
 - Remaining learner work is still open: runtime Bayesian arm scoring, rarity/retry penalties, attempt-budget enforcement, shared-priors upload constraints, and emulator/sim-to-field calibration beyond field-derived archive mining.
 
+### 2026-04-25: Strategy Evolver Time-Knob CLI Wiring
+
+Status: COMPLETE.
+
+- Closes the deferred follow-up from the time-aware selection change earlier today: the four numeric knobs on `StrategyEvolver` (experiment TTL, decay half-life, cooldown threshold, cooldown duration) are now configurable from `RuntimeConfig` rather than only the source defaults.
+- Added `evolution_experiment_ttl_ms`, `evolution_decay_half_life_ms`, `evolution_cooldown_after_failures`, `evolution_cooldown_ms` to `RuntimeAdaptiveSettings` with sensible defaults (30 s / 1 h / 3 / 5 min) so existing configs are unaffected.
+- Added matching CLI flags `--evolution-experiment-ttl-ms`, `--evolution-decay-half-life-ms`, `--evolution-cooldown-after-failures`, `--evolution-cooldown-ms` to `ripdpi-config`'s parser, including parse-error rejection on non-numeric input.
+- Threaded the four values through `runtime/listeners.rs` via the new `StrategyEvolver::with_time_knobs` builder, leaving `StrategyEvolver::new` unchanged.
+- Three new tests pass (`cli_parses_evolution_time_knobs`, `cli_rejects_invalid_evolution_time_knob_values`, `with_time_knobs_overrides_defaults`); the existing `cli_parses_strategy_evolution` was extended to assert the four defaults survive a partial-flag run.
+- No diagnostics wire-contract bump needed -- these knobs live on the Rust-side `RuntimeConfig` and never cross the JNI host-pack ingestion contract.
+
 ### 2026-04-25: Strategy Evolver Time-Aware Selection (TTL, Decay, Cooldown)
 
-Status: COMPLETE (host-pack knob wiring deferred to a separate PR).
+Status: COMPLETE.
 
 - Implemented the partial-adopt outcome of the timer/TTL/decay spike. The UCB1 strategy evolver in `ripdpi-runtime` now consumes wall-clock time on three read-side checks without adding a background timer thread: active-experiment TTL (default 30 s), idle-decay on combo stats (`exp(-Δt / half_life)` with default 1 h half-life), and consecutive-failure cooldown (default 3 → 5 min).
 - Switched the evolver's internal timing to a monotonic `Instant`-based clock so TTL/decay/cooldown survive `SystemTime` jumps and NTP corrections. `ComboStats.last_attempt_ms` keeps its name and now carries the monotonic delta.

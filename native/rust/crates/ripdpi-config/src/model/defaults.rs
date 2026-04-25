@@ -113,6 +113,10 @@ impl Default for RuntimeAdaptiveSettings {
             ws_tunnel_mode: WsTunnelMode::Off,
             ws_tunnel_fake_sni: None,
             strategy_evolution: false,
+            evolution_experiment_ttl_ms: 30_000,
+            evolution_decay_half_life_ms: 3_600_000,
+            evolution_cooldown_after_failures: 3,
+            evolution_cooldown_ms: 300_000,
         }
     }
 }
