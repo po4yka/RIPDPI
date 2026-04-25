@@ -6,6 +6,33 @@
 //! instance picks one [`StrategyCombo`] at a time and holds it until feedback
 //! (success/failure) arrives.
 //!
+//! # Time-driven semantics (2026-04-25)
+//!
+//! The bandit is connection-event driven, but it consumes wall-clock time on
+//! three read-side checks so it stays responsive to network drift without
+//! adding a background timer thread (see
+//! `docs/architecture/spike-evolver-timer-ttl-decay.md`):
+//!
+//! 1. **Active-experiment TTL** -- if a pending experiment has not seen a
+//!    success/failure within [`StrategyEvolver::experiment_ttl_ms`], the
+//!    next [`StrategyEvolver::suggest_hints`] call drops it silently and
+//!    re-rolls. Default 30 s. Closes the silent-stall gap where a stuck
+//!    flow could pin one combo for the entire session.
+//! 2. **Idle-decay on combo stats** -- [`combo_fitness_at`] applies an
+//!    `exp(-Δt / half_life)` weight to the success-rate term so stale
+//!    winners fade and the bandit can re-explore. Default half-life 1 h.
+//! 3. **Cooldown after consecutive failures** -- after
+//!    [`StrategyEvolver::cooldown_after_failures`] non-skip failures in a
+//!    row, the combo's stats record a `cooldown_until_ms` and selection
+//!    skips it for [`StrategyEvolver::cooldown_ms`] (default 5 min). The
+//!    next success clears the cooldown. If every bucket-matching combo is
+//!    cooling at once, [`StrategyEvolver::select_next_combo`] falls back
+//!    to [`pilot_combo_for_bucket`] so the evolver always returns a hint.
+//!
+//! The evolver uses a monotonic clock (`Instant` deltas relative to a
+//! per-evolver epoch) so TTL, decay, and cooldown survive `SystemTime`
+//! jumps and NTP corrections.
+//!
 //! # Interaction with per-flow adaptive tuning
 //!
 //! The crate also contains a per-flow adaptive tuning system in
@@ -37,7 +64,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use ripdpi_config::{EntropyMode, OffsetBase, QuicFakeProfile};
 use ripdpi_desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
@@ -50,6 +77,12 @@ use ripdpi_failure_classifier::FailureClass;
 fn now_millis() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }
+
+/// Default time-driven evolver knobs. See module-level docs.
+pub(crate) const DEFAULT_EXPERIMENT_TTL_MS: u64 = 30_000;
+pub(crate) const DEFAULT_DECAY_HALF_LIFE_MS: u64 = 3_600_000;
+pub(crate) const DEFAULT_COOLDOWN_AFTER_FAILURES: u32 = 3;
+pub(crate) const DEFAULT_COOLDOWN_MS: u64 = 300_000;
 
 /// Assign a stable discriminant for hashing. The exact values are arbitrary
 /// but must be consistent for the lifetime of the process.
@@ -343,6 +376,11 @@ const FITNESS_LATENCY_VARIANCE_WEIGHT: f64 = 20.0;
 const FITNESS_ENERGY_WEIGHT: f64 = 18.0;
 
 /// Per-combo performance statistics.
+///
+/// `last_attempt_ms`, `cooldown_until_ms`, and `consecutive_failure_count`
+/// drive the time-aware selection paths described in the module-level docs.
+/// `last_attempt_ms` is the evolver-monotonic millisecond clock (delta from
+/// the evolver epoch), not `SystemTime`.
 #[derive(Debug, Clone)]
 pub struct ComboStats {
     pub attempts: u32,
@@ -354,6 +392,12 @@ pub struct ComboStats {
     pub last_outcome_success: Option<bool>,
     pub outcome_flips: u32,
     pub detectability_events: u32,
+    /// Number of non-skip failures since the most recent success. Resets to
+    /// zero on the next success.
+    pub consecutive_failure_count: u32,
+    /// Monotonic millisecond timestamp at which the cooldown lifts. `None`
+    /// means the combo is selectable now.
+    pub cooldown_until_ms: Option<u64>,
 }
 
 impl ComboStats {
@@ -368,6 +412,8 @@ impl ComboStats {
             last_outcome_success: None,
             outcome_flips: 0,
             detectability_events: 0,
+            consecutive_failure_count: 0,
+            cooldown_until_ms: None,
         }
     }
 
@@ -377,24 +423,57 @@ impl ComboStats {
         latency_ms: u64,
         failure_class: Option<FailureClass>,
         last_attempt_ms: u64,
-    ) {
+        cooldown_after_failures: u32,
+        cooldown_ms: u64,
+    ) -> CooldownTransition {
         if self.last_outcome_success.is_some_and(|last| last != success) {
             self.outcome_flips += 1;
         }
         self.last_outcome_success = Some(success);
         self.attempts += 1;
+        let mut transition = CooldownTransition::Unchanged;
         if success {
             self.successes += 1;
             self.total_latency_ms += latency_ms;
             self.total_latency_square_ms += u128::from(latency_ms) * u128::from(latency_ms);
             self.last_failure_class = None;
+            self.consecutive_failure_count = 0;
+            if self.cooldown_until_ms.take().is_some() {
+                transition = CooldownTransition::Cleared;
+            }
         } else {
             self.last_failure_class = failure_class;
             if failure_class.is_some_and(is_detectability_failure) {
                 self.detectability_events += 1;
             }
+            self.consecutive_failure_count = self.consecutive_failure_count.saturating_add(1);
+            if cooldown_after_failures > 0 && self.consecutive_failure_count >= cooldown_after_failures {
+                let until = last_attempt_ms.saturating_add(cooldown_ms);
+                self.cooldown_until_ms = Some(until);
+                transition = CooldownTransition::Tripped { until_ms: until };
+            }
         }
         self.last_attempt_ms = last_attempt_ms;
+        transition
+    }
+
+    /// Returns `true` if the combo is currently cooling at `now_ms`.
+    pub fn is_cooled(&self, now_ms: u64) -> bool {
+        self.cooldown_until_ms.is_some_and(|until| until > now_ms)
+    }
+
+    /// Returns the recency-decay weight `exp(-Δt / half_life)` applied to
+    /// fitness scoring. Returns `1.0` for combos that have never been
+    /// touched (no time signal), `1.0` if `half_life_ms == 0` (decay
+    /// disabled), and decays toward zero as elapsed time grows.
+    fn decay_weight(&self, now_ms: u64, half_life_ms: u64) -> f64 {
+        if self.attempts == 0 || half_life_ms == 0 {
+            return 1.0;
+        }
+        let elapsed = now_ms.saturating_sub(self.last_attempt_ms) as f64;
+        let half_life = half_life_ms as f64;
+        // exp(-ln(2) * Δt / half_life)
+        (-std::f64::consts::LN_2 * elapsed / half_life).exp()
     }
 
     fn avg_latency_ms(&self) -> f64 {
@@ -415,7 +494,7 @@ impl ComboStats {
         (mean_square - mean * mean).max(0.0)
     }
 
-    /// Fitness score: higher is better.
+    /// Fitness score: higher is better. No idle-decay applied.
     ///
     /// `success_rate * FITNESS_SUCCESS_WEIGHT - avg_latency.min(FITNESS_LATENCY_CAP_MS) * FITNESS_LATENCY_PENALTY_PER_MS`
     ///
@@ -424,12 +503,23 @@ impl ComboStats {
     /// range), which is large enough to differentiate fast vs slow strategies
     /// when success rates are comparable.
     pub fn fitness(&self) -> f64 {
+        // Equivalent to fitness_at(self.last_attempt_ms, 0).
+        self.fitness_at(self.last_attempt_ms, 0)
+    }
+
+    /// Fitness score with idle-decay applied to the success-rate term.
+    ///
+    /// `now_ms` and `half_life_ms` use the evolver's monotonic clock. Pass
+    /// `half_life_ms == 0` to disable decay.
+    pub fn fitness_at(&self, now_ms: u64, half_life_ms: u64) -> f64 {
         if self.attempts == 0 {
             return 0.0;
         }
-        let success_rate = self.successes as f64 / self.attempts as f64;
+        let raw_success_rate = self.successes as f64 / self.attempts as f64;
+        let decay = self.decay_weight(now_ms, half_life_ms);
+        let success_rate = raw_success_rate * decay;
         let avg_latency = self.avg_latency_ms();
-        let failure_rate = 1.0 - success_rate;
+        let failure_rate = 1.0 - raw_success_rate;
         let stability_penalty = self.outcome_flips as f64 / self.attempts.max(1) as f64;
         let variance_penalty = (self.latency_variance_ms().sqrt() / FITNESS_LATENCY_CAP_MS).min(1.0);
         let detectability_penalty = self.detectability_events as f64 / self.attempts.max(1) as f64;
@@ -440,6 +530,17 @@ impl ComboStats {
             - variance_penalty * FITNESS_LATENCY_VARIANCE_WEIGHT
             - detectability_penalty * FITNESS_DETECTABILITY_WEIGHT
     }
+}
+
+/// Outcome of [`ComboStats::record_attempt`] for cooldown tracking.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CooldownTransition {
+    /// Cooldown state did not change.
+    Unchanged,
+    /// The combo just entered a cooldown window.
+    Tripped { until_ms: u64 },
+    /// The combo successfully cleared a previously active cooldown.
+    Cleared,
 }
 
 fn is_detectability_failure(class: FailureClass) -> bool {
@@ -469,8 +570,13 @@ fn combo_energy_cost(combo: &StrategyCombo) -> f64 {
     cost
 }
 
-fn combo_fitness(combo: &StrategyCombo, stats: &ComboStats) -> f64 {
-    stats.fitness() - combo_energy_cost(combo) * FITNESS_ENERGY_WEIGHT
+/// Idle-decayed combo fitness used by all selection / eviction paths.
+///
+/// Pass `half_life_ms == 0` to disable decay (legacy behaviour). The
+/// production paths in [`StrategyEvolver`] always pass the configured
+/// [`StrategyEvolver::decay_half_life_ms`].
+fn combo_fitness_at(combo: &StrategyCombo, stats: &ComboStats, now_ms: u64, half_life_ms: u64) -> f64 {
+    stats.fitness_at(now_ms, half_life_ms) - combo_energy_cost(combo) * FITNESS_ENERGY_WEIGHT
 }
 
 // ---------------------------------------------------------------------------
@@ -667,11 +773,31 @@ pub struct StrategyEvolver {
     current_experiment: Option<StrategyCombo>,
     current_experiment_context: Option<LearningContext>,
     current_experiment_family: Option<StrategyFamily>,
+    current_experiment_started_ms: Option<u64>,
     current_learning_context: LearningContext,
     explore_epsilon: f64,
     pub max_combos: usize,
     enabled: bool,
     rng_state: u64,
+    /// Monotonic clock anchor. All internal timestamps are millisecond
+    /// deltas from this instant.
+    epoch: Instant,
+    /// Wall-clock budget for a single experiment slot. After elapsing,
+    /// the next [`Self::suggest_hints`] drops the experiment without
+    /// updating stats and re-rolls.
+    pub experiment_ttl_ms: u64,
+    /// Half-life for the recency-weighted decay applied to combo
+    /// fitness. `0` disables decay.
+    pub decay_half_life_ms: u64,
+    /// Number of consecutive failures that trips a per-combo cooldown.
+    /// `0` disables cooldown.
+    pub cooldown_after_failures: u32,
+    /// Length of the cooldown window in milliseconds.
+    pub cooldown_ms: u64,
+    /// Test-only override for the monotonic clock; production code leaves
+    /// this `None` and the evolver uses [`Instant`] deltas.
+    #[cfg(test)]
+    test_clock_override_ms: Option<u64>,
 }
 
 impl StrategyEvolver {
@@ -682,6 +808,7 @@ impl StrategyEvolver {
             current_experiment: None,
             current_experiment_context: None,
             current_experiment_family: None,
+            current_experiment_started_ms: None,
             current_learning_context: LearningContext::default(),
             explore_epsilon: epsilon,
             max_combos: 64,
@@ -690,7 +817,32 @@ impl StrategyEvolver {
                 .wrapping_add(1)
                 .wrapping_mul(6_364_136_223_846_793_005)
                 .wrapping_add(std::process::id() as u64),
+            epoch: Instant::now(),
+            experiment_ttl_ms: DEFAULT_EXPERIMENT_TTL_MS,
+            decay_half_life_ms: DEFAULT_DECAY_HALF_LIFE_MS,
+            cooldown_after_failures: DEFAULT_COOLDOWN_AFTER_FAILURES,
+            cooldown_ms: DEFAULT_COOLDOWN_MS,
+            #[cfg(test)]
+            test_clock_override_ms: None,
         }
+    }
+
+    /// Monotonic ms-since-epoch tick used by all evolver-internal
+    /// timestamps. Independent of `SystemTime`, so TTL/decay/cooldown
+    /// survive NTP corrections.
+    fn monotonic_now_ms(&self) -> u64 {
+        #[cfg(test)]
+        if let Some(override_ms) = self.test_clock_override_ms {
+            return override_ms;
+        }
+        self.epoch.elapsed().as_millis() as u64
+    }
+
+    /// Test-only: pin the evolver's monotonic clock so TTL / decay /
+    /// cooldown can be exercised deterministically.
+    #[cfg(test)]
+    fn set_test_clock_ms(&mut self, ms: u64) {
+        self.test_clock_override_ms = Some(ms);
     }
 
     pub fn is_enabled(&self) -> bool {
@@ -709,6 +861,7 @@ impl StrategyEvolver {
         self.current_experiment = None;
         self.current_experiment_context = None;
         self.current_experiment_family = None;
+        self.current_experiment_started_ms = None;
     }
 
     pub fn current_learning_context(&self) -> &LearningContext {
@@ -733,6 +886,29 @@ impl StrategyEvolver {
             return None;
         }
 
+        let now_ms = self.monotonic_now_ms();
+
+        // Drop a pending experiment that has exceeded its TTL. The flow that
+        // started it never reported success or failure, so updating stats
+        // would record a phantom outcome.
+        if self.experiment_ttl_ms > 0 {
+            if let Some(started_ms) = self.current_experiment_started_ms {
+                let elapsed_ms = now_ms.saturating_sub(started_ms);
+                if elapsed_ms >= self.experiment_ttl_ms {
+                    let dropped = self.current_experiment.take();
+                    self.current_experiment_context = None;
+                    self.current_experiment_family = None;
+                    self.current_experiment_started_ms = None;
+                    tracing::debug!(
+                        combo = ?dropped,
+                        elapsed_ms,
+                        ttl_ms = self.experiment_ttl_ms,
+                        "strategy evolution dropped experiment due to TTL expiry",
+                    );
+                }
+            }
+        }
+
         // If we already have an outstanding experiment, return its hints.
         if let Some(ref combo) = self.current_experiment {
             let hints = combo.to_hints();
@@ -754,6 +930,7 @@ impl StrategyEvolver {
         );
         self.current_experiment_context = Some(self.current_learning_context.clone());
         self.current_experiment_family = Some(combo.family());
+        self.current_experiment_started_ms = Some(now_ms);
         self.current_experiment = Some(combo);
         Some(hints)
     }
@@ -765,11 +942,17 @@ impl StrategyEvolver {
         };
         let context = self.current_experiment_context.take().unwrap_or_else(|| self.current_learning_context.clone());
         let family = self.current_experiment_family.take().unwrap_or_else(|| combo.family());
+        self.current_experiment_started_ms = None;
         tracing::debug!(combo = ?combo, latency_ms, "strategy evolution recorded success");
-        self.evict_if_needed(&combo);
+        let now_ms = self.monotonic_now_ms();
+        self.evict_if_needed(&combo, now_ms);
         let stats = self.combos.entry(combo.clone()).or_insert_with(ComboStats::new);
-        stats.record_attempt(true, latency_ms, None, now_millis());
+        let transition =
+            stats.record_attempt(true, latency_ms, None, now_ms, self.cooldown_after_failures, self.cooldown_ms);
         let last_attempt_ms = stats.last_attempt_ms;
+        if matches!(transition, CooldownTransition::Cleared) {
+            tracing::debug!(combo = ?combo, "strategy evolution cooldown cleared by success");
+        }
         self.record_contextual_feedback(&context, family, &combo, true, latency_ms, None, last_attempt_ms);
         tracing::debug!(
             combos_tested = self.combos_tested(),
@@ -792,6 +975,7 @@ impl StrategyEvolver {
             self.current_experiment = None;
             self.current_experiment_context = None;
             self.current_experiment_family = None;
+            self.current_experiment_started_ms = None;
             return;
         }
         let Some(combo) = self.current_experiment.take() else {
@@ -799,11 +983,29 @@ impl StrategyEvolver {
         };
         let context = self.current_experiment_context.take().unwrap_or_else(|| self.current_learning_context.clone());
         let family = self.current_experiment_family.take().unwrap_or_else(|| combo.family());
+        self.current_experiment_started_ms = None;
         tracing::debug!(combo = ?combo, class = class.as_str(), "strategy evolution recorded failure");
-        self.evict_if_needed(&combo);
+        let now_ms = self.monotonic_now_ms();
+        self.evict_if_needed(&combo, now_ms);
         let stats = self.combos.entry(combo.clone()).or_insert_with(ComboStats::new);
-        stats.record_attempt(false, FITNESS_LATENCY_CAP_MS as u64, Some(class), now_millis());
+        let transition = stats.record_attempt(
+            false,
+            FITNESS_LATENCY_CAP_MS as u64,
+            Some(class),
+            now_ms,
+            self.cooldown_after_failures,
+            self.cooldown_ms,
+        );
         let last_attempt_ms = stats.last_attempt_ms;
+        if let CooldownTransition::Tripped { until_ms } = transition {
+            tracing::debug!(
+                combo = ?combo,
+                cooldown_until_ms = until_ms,
+                cooldown_ms = self.cooldown_ms,
+                consecutive_failures = self.cooldown_after_failures,
+                "strategy evolution combo entered cooldown",
+            );
+        }
         self.record_contextual_feedback(
             &context,
             family,
@@ -815,10 +1017,15 @@ impl StrategyEvolver {
         );
     }
 
-    /// Returns the best-performing combo found so far.
+    /// Returns the best-performing combo found so far. Decay is applied so
+    /// stale winners do not pin the result indefinitely.
     pub fn best_combo(&self) -> Option<(&StrategyCombo, &ComboStats)> {
+        let now_ms = self.monotonic_now_ms();
+        let half_life = self.decay_half_life_ms;
         self.combos.iter().max_by(|a, b| {
-            combo_fitness(a.0, a.1).partial_cmp(&combo_fitness(b.0, b.1)).unwrap_or(std::cmp::Ordering::Equal)
+            combo_fitness_at(a.0, a.1, now_ms, half_life)
+                .partial_cmp(&combo_fitness_at(b.0, b.1, now_ms, half_life))
+                .unwrap_or(std::cmp::Ordering::Equal)
         })
     }
 
@@ -829,7 +1036,9 @@ impl StrategyEvolver {
 
     /// Best fitness score.
     pub fn best_fitness(&self) -> f64 {
-        self.best_combo().map_or(0.0, |(combo, stats)| combo_fitness(combo, stats))
+        let now_ms = self.monotonic_now_ms();
+        let half_life = self.decay_half_life_ms;
+        self.best_combo().map_or(0.0, |(combo, stats)| combo_fitness_at(combo, stats, now_ms, half_life))
     }
 
     // -- internal -----------------------------------------------------------
@@ -844,25 +1053,12 @@ impl StrategyEvolver {
         self.lcg_next() as f64 / (u32::MAX as f64 + 1.0)
     }
 
-    fn generate_random_combo(&mut self) -> StrategyCombo {
-        let idx = self.lcg_next() as usize;
-        combo_from_pool(idx)
-    }
-
-    fn generate_random_combo_for_bucket(&mut self, bucket: LearningTargetBucket) -> StrategyCombo {
-        let matching: Vec<usize> =
-            (0..COMBO_POOL.len()).filter(|idx| combo_matches_bucket(&combo_from_pool(*idx), bucket)).collect();
-        if matching.is_empty() {
-            return self.generate_random_combo();
-        }
-        let idx = matching[self.lcg_next() as usize % matching.len()];
-        combo_from_pool(idx)
-    }
-
     fn select_next_combo(&mut self) -> StrategyCombo {
         let context = self.current_learning_context.clone();
         let bucket = context.target_bucket;
         let bucket_piloted = self.contexts.get(&context).is_some_and(|state| state.piloted_buckets.contains(&bucket));
+        let now_ms = self.monotonic_now_ms();
+        let half_life = self.decay_half_life_ms;
 
         if self.combos.is_empty() {
             return pilot_combo_for_bucket(bucket);
@@ -871,32 +1067,55 @@ impl StrategyEvolver {
             return pilot_combo_for_bucket(bucket);
         }
         if self.lcg_f64() < self.explore_epsilon {
-            return self.generate_random_combo_for_bucket(bucket);
+            return self.pick_non_cooled_random_for_bucket(bucket, now_ms);
         }
         let Some(state) = self.contexts.get(&context) else {
-            return self.generate_random_combo_for_bucket(bucket);
+            return self.pick_non_cooled_random_for_bucket(bucket, now_ms);
         };
         if let Some(niche) = state.niche_winners.get(&bucket) {
-            return niche.clone();
+            if !state.combos.get(niche).is_some_and(|stats| stats.is_cooled(now_ms)) {
+                return niche.clone();
+            }
         }
         let Some(family) = Self::select_next_family(state, bucket) else {
-            return self.generate_random_combo_for_bucket(bucket);
+            return self.pick_non_cooled_random_for_bucket(bucket, now_ms);
         };
-        Self::best_context_combo_for_family(state, family)
-            .unwrap_or_else(|| self.generate_random_combo_for_bucket(bucket))
+        Self::best_context_combo_for_family(state, family, now_ms, half_life)
+            .unwrap_or_else(|| self.pick_non_cooled_random_for_bucket(bucket, now_ms))
     }
 
-    fn evict_if_needed(&mut self, keep: &StrategyCombo) {
+    /// Random-from-pool fallback that prefers combos not currently cooling.
+    /// Falls back to [`pilot_combo_for_bucket`] when every bucket-matching
+    /// pool entry has stats still in cooldown.
+    fn pick_non_cooled_random_for_bucket(&mut self, bucket: LearningTargetBucket, now_ms: u64) -> StrategyCombo {
+        let available: Vec<usize> = (0..COMBO_POOL.len())
+            .filter(|idx| combo_matches_bucket(&combo_from_pool(*idx), bucket))
+            .filter(|idx| {
+                let combo = combo_from_pool(*idx);
+                !self.combos.get(&combo).is_some_and(|stats| stats.is_cooled(now_ms))
+            })
+            .collect();
+        if available.is_empty() {
+            return pilot_combo_for_bucket(bucket);
+        }
+        let idx = available[self.lcg_next() as usize % available.len()];
+        combo_from_pool(idx)
+    }
+
+    fn evict_if_needed(&mut self, keep: &StrategyCombo, now_ms: u64) {
         if self.combos.len() < self.max_combos {
             return;
         }
-        // Find the combo with the lowest fitness, excluding `keep`.
+        let half_life = self.decay_half_life_ms;
+        // Find the combo with the lowest decayed fitness, excluding `keep`.
         let worst = self
             .combos
             .iter()
             .filter(|(k, _)| *k != keep)
             .min_by(|a, b| {
-                combo_fitness(a.0, a.1).partial_cmp(&combo_fitness(b.0, b.1)).unwrap_or(std::cmp::Ordering::Equal)
+                combo_fitness_at(a.0, a.1, now_ms, half_life)
+                    .partial_cmp(&combo_fitness_at(b.0, b.1, now_ms, half_life))
+                    .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|(k, _)| k.clone());
         if let Some(w) = worst {
@@ -925,18 +1144,26 @@ impl StrategyEvolver {
             .map(|(family, _)| family)
     }
 
-    fn best_context_combo_for_family(state: &ContextBanditState, family: StrategyFamily) -> Option<StrategyCombo> {
+    fn best_context_combo_for_family(
+        state: &ContextBanditState,
+        family: StrategyFamily,
+        now_ms: u64,
+        half_life_ms: u64,
+    ) -> Option<StrategyCombo> {
         let total_attempts: u32 = state.combos.values().map(|stats| stats.attempts.max(1)).sum();
         let ln_total = (total_attempts as f64).ln().max(1.0);
         state
             .combos
             .iter()
             .filter(|(combo, _)| combo.family() == family || family == StrategyFamily::Mixed)
+            // Skip combos that are still cooling.
+            .filter(|(_, stats)| !stats.is_cooled(now_ms))
             .map(|(combo, stats)| {
                 let score = if stats.attempts == 0 {
                     f64::MAX
                 } else {
-                    combo_fitness(combo, stats) + 1.41 * (ln_total / stats.attempts as f64).sqrt()
+                    combo_fitness_at(combo, stats, now_ms, half_life_ms)
+                        + 1.41 * (ln_total / stats.attempts as f64).sqrt()
                 };
                 (combo.clone(), score)
             })
@@ -954,19 +1181,32 @@ impl StrategyEvolver {
         failure_class: Option<FailureClass>,
         last_attempt_ms: u64,
     ) {
+        let cooldown_after_failures = self.cooldown_after_failures;
+        let cooldown_ms = self.cooldown_ms;
+        let half_life = self.decay_half_life_ms;
         let state = self.contexts.entry(context.clone()).or_default();
         state.piloted_buckets.insert(context.target_bucket);
-        evict_context_if_needed(state, combo, self.max_combos);
+        evict_context_if_needed(state, combo, self.max_combos, last_attempt_ms, half_life);
         let stats = state.combos.entry(combo.clone()).or_insert_with(ComboStats::new);
-        stats.record_attempt(success, latency_ms, failure_class, last_attempt_ms);
-        let updated_fitness = combo_fitness(combo, stats);
+        let _ = stats.record_attempt(
+            success,
+            latency_ms,
+            failure_class,
+            last_attempt_ms,
+            cooldown_after_failures,
+            cooldown_ms,
+        );
+        let updated_fitness = combo_fitness_at(combo, stats, last_attempt_ms, half_life);
         let family_stats = state.families.entry(family).or_default();
         family_stats.attempts += 1;
         family_stats.total_reward += updated_fitness;
         let _ = stats;
 
         let niche_entry = state.niche_winners.entry(context.target_bucket).or_insert_with(|| combo.clone());
-        let niche_fitness = state.combos.get(niche_entry).map_or(f64::MIN, |stats| combo_fitness(niche_entry, stats));
+        let niche_fitness = state
+            .combos
+            .get(niche_entry)
+            .map_or(f64::MIN, |stats| combo_fitness_at(niche_entry, stats, last_attempt_ms, half_life));
         if updated_fitness >= niche_fitness {
             *niche_entry = combo.clone();
         }
@@ -1013,7 +1253,13 @@ fn pilot_combo_for_bucket(bucket: LearningTargetBucket) -> StrategyCombo {
     }
 }
 
-fn evict_context_if_needed(state: &mut ContextBanditState, keep: &StrategyCombo, max_combos: usize) {
+fn evict_context_if_needed(
+    state: &mut ContextBanditState,
+    keep: &StrategyCombo,
+    max_combos: usize,
+    now_ms: u64,
+    half_life_ms: u64,
+) {
     if state.combos.len() < max_combos {
         return;
     }
@@ -1022,7 +1268,9 @@ fn evict_context_if_needed(state: &mut ContextBanditState, keep: &StrategyCombo,
         .iter()
         .filter(|(combo, _)| *combo != keep)
         .min_by(|a, b| {
-            combo_fitness(a.0, a.1).partial_cmp(&combo_fitness(b.0, b.1)).unwrap_or(std::cmp::Ordering::Equal)
+            combo_fitness_at(a.0, a.1, now_ms, half_life_ms)
+                .partial_cmp(&combo_fitness_at(b.0, b.1, now_ms, half_life_ms))
+                .unwrap_or(std::cmp::Ordering::Equal)
         })
         .map(|(combo, _)| combo.clone());
     if let Some(worst_combo) = worst {
@@ -1323,7 +1571,7 @@ mod tests {
         e.combos.insert(other.clone(), ComboStats::new());
 
         // Evict should remove `other` (or any combo != keep), not `keep`
-        e.evict_if_needed(&keep);
+        e.evict_if_needed(&keep, 0);
         assert!(e.combos.contains_key(&keep), "keep combo should survive eviction");
         assert_eq!(e.combos.len(), 1);
     }
@@ -1346,7 +1594,7 @@ mod tests {
             ComboStats { attempts: 10, successes: 1, total_latency_ms: 5000, ..ComboStats::new() },
         );
 
-        e.evict_if_needed(&new_combo);
+        e.evict_if_needed(&new_combo, 0);
         assert!(e.combos.contains_key(&good), "good combo should survive");
         assert!(!e.combos.contains_key(&bad), "bad combo should be evicted");
     }
@@ -1714,5 +1962,193 @@ mod tests {
 
         let combo = evolver.select_next_combo();
         assert_eq!(combo.split_offset_base, Some(OffsetBase::EchExt));
+    }
+
+    // ── Time-driven evolver semantics: TTL, decay, cooldown ──
+
+    #[test]
+    fn experiment_ttl_drops_stale_pending_experiment_without_recording() {
+        let mut evolver = StrategyEvolver::new(true, 0.0);
+        evolver.experiment_ttl_ms = 30_000;
+        evolver.set_test_clock_ms(0);
+        let _hints = evolver.suggest_hints().expect("first roll");
+        let pending_before = evolver.current_experiment.clone();
+        assert!(pending_before.is_some());
+
+        evolver.set_test_clock_ms(60_000);
+        let _hints_after = evolver.suggest_hints().expect("post-TTL roll");
+        // The stats map must remain empty: TTL expiry never records an attempt.
+        assert!(evolver.combos.is_empty(), "TTL expiry must not record stats, got {} combo(s)", evolver.combos.len());
+        // A new experiment was rolled.
+        assert!(evolver.current_experiment.is_some());
+        assert_eq!(evolver.current_experiment_started_ms, Some(60_000));
+    }
+
+    #[test]
+    fn experiment_ttl_zero_disables_drop() {
+        let mut evolver = StrategyEvolver::new(true, 0.0);
+        evolver.experiment_ttl_ms = 0;
+        evolver.set_test_clock_ms(0);
+        let _ = evolver.suggest_hints().expect("first roll");
+        let pending = evolver.current_experiment.clone();
+
+        evolver.set_test_clock_ms(10_000_000);
+        let _ = evolver.suggest_hints().expect("still rolling");
+        assert_eq!(evolver.current_experiment, pending, "TTL=0 must not drop the pending experiment");
+    }
+
+    #[test]
+    fn idle_decay_demotes_stale_winners() {
+        // Two combos with the same record. The one observed long ago should
+        // score lower under decay than the freshly observed one.
+        let combo = StrategyCombo { split_offset_base: Some(OffsetBase::AutoHost), ..StrategyCombo::default_combo() };
+        let stats_fresh = ComboStats {
+            attempts: 4,
+            successes: 4,
+            total_latency_ms: 200,
+            total_latency_square_ms: 10_000,
+            last_attempt_ms: 1_000_000,
+            ..ComboStats::new()
+        };
+        let stats_stale = ComboStats { last_attempt_ms: 0, ..stats_fresh.clone() };
+
+        let now = 1_000_000;
+        let half_life = 60_000; // 1 minute
+        let fresh_score = combo_fitness_at(&combo, &stats_fresh, now, half_life);
+        let stale_score = combo_fitness_at(&combo, &stats_stale, now, half_life);
+
+        assert!(
+            fresh_score > stale_score,
+            "decayed stale fitness should be lower: fresh={fresh_score}, stale={stale_score}"
+        );
+
+        // half_life=0 disables decay -- the two scores should match.
+        let no_decay_fresh = combo_fitness_at(&combo, &stats_fresh, now, 0);
+        let no_decay_stale = combo_fitness_at(&combo, &stats_stale, now, 0);
+        assert!(
+            (no_decay_fresh - no_decay_stale).abs() < f64::EPSILON,
+            "half_life=0 must disable decay: fresh={no_decay_fresh}, stale={no_decay_stale}"
+        );
+    }
+
+    #[test]
+    fn cooldown_trips_after_consecutive_failures_and_clears_on_success() {
+        let mut stats = ComboStats::new();
+        // Two failures: not yet cooled.
+        let t = stats.record_attempt(false, 5000, Some(FailureClass::TcpReset), 1000, 3, 5_000);
+        assert!(matches!(t, CooldownTransition::Unchanged));
+        let t = stats.record_attempt(false, 5000, Some(FailureClass::TcpReset), 2000, 3, 5_000);
+        assert!(matches!(t, CooldownTransition::Unchanged));
+        assert!(stats.cooldown_until_ms.is_none());
+
+        // Third failure trips the cooldown.
+        let t = stats.record_attempt(false, 5000, Some(FailureClass::TcpReset), 3000, 3, 5_000);
+        assert!(matches!(t, CooldownTransition::Tripped { until_ms: 8_000 }));
+        assert_eq!(stats.cooldown_until_ms, Some(8_000));
+        assert_eq!(stats.consecutive_failure_count, 3);
+        assert!(stats.is_cooled(7_999));
+        assert!(!stats.is_cooled(8_000));
+
+        // Success clears the cooldown and resets the counter.
+        let t = stats.record_attempt(true, 100, None, 4000, 3, 5_000);
+        assert!(matches!(t, CooldownTransition::Cleared));
+        assert!(stats.cooldown_until_ms.is_none());
+        assert_eq!(stats.consecutive_failure_count, 0);
+    }
+
+    #[test]
+    fn cooldown_zero_failures_disables_gate() {
+        let mut stats = ComboStats::new();
+        for tick in 0..20 {
+            let t = stats.record_attempt(
+                false,
+                5000,
+                Some(FailureClass::TcpReset),
+                1000 * tick,
+                0, // disabled
+                5_000,
+            );
+            assert!(matches!(t, CooldownTransition::Unchanged));
+        }
+        assert!(stats.cooldown_until_ms.is_none());
+    }
+
+    #[test]
+    fn cooled_combo_is_skipped_by_best_context_combo_for_family() {
+        let mut state = ContextBanditState::default();
+        let cooled = StrategyCombo { split_offset_base: Some(OffsetBase::AutoHost), ..StrategyCombo::default_combo() };
+        let warm = StrategyCombo { split_offset_base: Some(OffsetBase::MidSld), ..StrategyCombo::default_combo() };
+        state.combos.insert(
+            cooled.clone(),
+            ComboStats {
+                attempts: 5,
+                successes: 5,
+                total_latency_ms: 250,
+                cooldown_until_ms: Some(10_000),
+                last_attempt_ms: 9_000,
+                ..ComboStats::new()
+            },
+        );
+        state.combos.insert(
+            warm.clone(),
+            ComboStats {
+                attempts: 5,
+                successes: 4,
+                total_latency_ms: 250,
+                last_attempt_ms: 9_000,
+                ..ComboStats::new()
+            },
+        );
+
+        let pick =
+            StrategyEvolver::best_context_combo_for_family(&state, StrategyFamily::SplitOffset, 9_500, 3_600_000);
+        assert_eq!(pick, Some(warm), "cooled combo must be filtered out at now < cooldown_until");
+    }
+
+    #[test]
+    fn select_falls_back_to_pilot_when_every_bucket_combo_cools() {
+        let mut evolver = StrategyEvolver::new(true, 0.0);
+        evolver.experiment_ttl_ms = 0;
+        evolver.set_test_clock_ms(1_000);
+        let bucket = LearningTargetBucket::Tls;
+        let context = LearningContext { target_bucket: bucket, ..LearningContext::default() };
+        evolver.set_learning_context(context.clone());
+
+        // Cool every TLS-bucket pool entry by inserting cooled stats.
+        for idx in 0..COMBO_POOL.len() {
+            let combo = combo_from_pool(idx);
+            if !combo_matches_bucket(&combo, bucket) {
+                continue;
+            }
+            evolver.combos.insert(
+                combo,
+                ComboStats {
+                    attempts: 5,
+                    successes: 0,
+                    cooldown_until_ms: Some(10_000),
+                    last_attempt_ms: 900,
+                    ..ComboStats::new()
+                },
+            );
+        }
+        // Mark the bucket as piloted so the selector reaches the cooldown
+        // filter rather than short-circuiting on the pilot path.
+        evolver.contexts.entry(context).or_default().piloted_buckets.insert(bucket);
+
+        let chosen = evolver.pick_non_cooled_random_for_bucket(bucket, evolver.monotonic_now_ms());
+        assert_eq!(chosen, pilot_combo_for_bucket(bucket));
+    }
+
+    #[test]
+    fn monotonic_clock_survives_systemtime_jumps() {
+        // The evolver epoch is `Instant::now()`, which is monotonic. A
+        // simulated `SystemTime` jump (test clock override) does not
+        // affect the production path -- here we exercise the override
+        // itself to confirm the helper returns the override when set.
+        let mut evolver = StrategyEvolver::new(true, 0.0);
+        evolver.set_test_clock_ms(123);
+        assert_eq!(evolver.monotonic_now_ms(), 123);
+        evolver.set_test_clock_ms(100); // simulate negative jump
+        assert_eq!(evolver.monotonic_now_ms(), 100);
     }
 }
