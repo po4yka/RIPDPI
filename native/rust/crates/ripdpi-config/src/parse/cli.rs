@@ -681,6 +681,26 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 let f = value.parse::<f64>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
                 config.adaptive.evolution_epsilon_permil = (f * 1000.0).clamp(0.0, 1000.0) as u32;
             }
+            "--evolution-experiment-ttl-ms" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                config.adaptive.evolution_experiment_ttl_ms =
+                    value.parse::<u64>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+            }
+            "--evolution-decay-half-life-ms" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                config.adaptive.evolution_decay_half_life_ms =
+                    value.parse::<u64>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+            }
+            "--evolution-cooldown-after-failures" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                config.adaptive.evolution_cooldown_after_failures =
+                    value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+            }
+            "--evolution-cooldown-ms" => {
+                let value = next_value(&effective_args, &mut idx, arg)?;
+                config.adaptive.evolution_cooldown_ms =
+                    value.parse::<u64>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+            }
             "--freeze-window" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 config.timeouts.freeze_window_ms =
@@ -1131,8 +1151,52 @@ mod tests {
             ParseResult::Run(config) => {
                 assert!(config.adaptive.strategy_evolution);
                 assert_eq!(config.adaptive.evolution_epsilon_permil, 200);
+                // Defaults survive a partial-flag run.
+                assert_eq!(config.adaptive.evolution_experiment_ttl_ms, 30_000);
+                assert_eq!(config.adaptive.evolution_decay_half_life_ms, 3_600_000);
+                assert_eq!(config.adaptive.evolution_cooldown_after_failures, 3);
+                assert_eq!(config.adaptive.evolution_cooldown_ms, 300_000);
             }
             _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_evolution_time_knobs() {
+        let args: Vec<String> = [
+            "--strategy-evolution",
+            "--evolution-experiment-ttl-ms",
+            "45000",
+            "--evolution-decay-half-life-ms",
+            "1800000",
+            "--evolution-cooldown-after-failures",
+            "5",
+            "--evolution-cooldown-ms",
+            "120000",
+        ]
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+        let startup = StartupEnv::default();
+        let result = parse_cli(&args, &startup).expect("parse");
+        match result {
+            ParseResult::Run(config) => {
+                assert!(config.adaptive.strategy_evolution);
+                assert_eq!(config.adaptive.evolution_experiment_ttl_ms, 45_000);
+                assert_eq!(config.adaptive.evolution_decay_half_life_ms, 1_800_000);
+                assert_eq!(config.adaptive.evolution_cooldown_after_failures, 5);
+                assert_eq!(config.adaptive.evolution_cooldown_ms, 120_000);
+            }
+            _ => panic!("expected Run"),
+        }
+    }
+
+    #[test]
+    fn cli_rejects_invalid_evolution_time_knob_values() {
+        for bad in ["abc", "-1", "1.5"] {
+            let args: Vec<String> = ["--evolution-experiment-ttl-ms", bad].iter().map(ToString::to_string).collect();
+            let startup = StartupEnv::default();
+            assert!(parse_cli(&args, &startup).is_err(), "should reject {bad}");
         }
     }
 

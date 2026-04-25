@@ -845,6 +845,23 @@ impl StrategyEvolver {
         self.test_clock_override_ms = Some(ms);
     }
 
+    /// Builder-style override for the four time-driven knobs. Used by the
+    /// runtime listener to thread `RuntimeAdaptiveSettings::evolution_*`
+    /// into the evolver without touching [`Self::new`]'s signature.
+    pub fn with_time_knobs(
+        mut self,
+        experiment_ttl_ms: u64,
+        decay_half_life_ms: u64,
+        cooldown_after_failures: u32,
+        cooldown_ms: u64,
+    ) -> Self {
+        self.experiment_ttl_ms = experiment_ttl_ms;
+        self.decay_half_life_ms = decay_half_life_ms;
+        self.cooldown_after_failures = cooldown_after_failures;
+        self.cooldown_ms = cooldown_ms;
+        self
+    }
+
     pub fn is_enabled(&self) -> bool {
         self.enabled
     }
@@ -2137,6 +2154,15 @@ mod tests {
 
         let chosen = evolver.pick_non_cooled_random_for_bucket(bucket, evolver.monotonic_now_ms());
         assert_eq!(chosen, pilot_combo_for_bucket(bucket));
+    }
+
+    #[test]
+    fn with_time_knobs_overrides_defaults() {
+        let evolver = StrategyEvolver::new(true, 0.0).with_time_knobs(60_000, 600_000, 5, 120_000);
+        assert_eq!(evolver.experiment_ttl_ms, 60_000);
+        assert_eq!(evolver.decay_half_life_ms, 600_000);
+        assert_eq!(evolver.cooldown_after_failures, 5);
+        assert_eq!(evolver.cooldown_ms, 120_000);
     }
 
     #[test]
