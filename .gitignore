@@ -10,6 +10,7 @@
 *.p12
 .env
 *.env.*
+.envrc
 
 # IDE state
 .idea/
@@ -57,6 +58,14 @@ PROMPT.md
 security-audit-report.*
 .omc/
 docs/superpowers/
+
+# Local-only regulatory-framing review skill (Claude Code + Codex).
+# Reviews public *.md edits against the Russian regulatory regime around
+# VPN/circumvention advertising. Wired up via the PostToolUse hook in
+# .claude/settings.json. Local to each contributor's machine; never
+# committed.
+.claude/skills/legal-check/
+.codex/agents/legal-check.toml
 
 # Test artifact: adaptive tuning state written by soak tests with random ephemeral ports
 native/rust/crates/ripdpi-monitor/adaptive-tuning-v1.json
