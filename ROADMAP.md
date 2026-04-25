@@ -169,6 +169,18 @@ Status: PARTIAL.
 - Kept the output review-gated and offline-only: generated packs are not auto-consumed by the runtime and still require analyst review plus the normal signing/promotion flow before shipping.
 - Remaining learner work is still open: runtime Bayesian arm scoring, rarity/retry penalties, attempt-budget enforcement, shared-priors upload constraints, and emulator/sim-to-field calibration beyond field-derived archive mining.
 
+### 2026-04-25: Strategy Evolver Time-Aware Selection (TTL, Decay, Cooldown)
+
+Status: COMPLETE (host-pack knob wiring deferred to a separate PR).
+
+- Implemented the partial-adopt outcome of the timer/TTL/decay spike. The UCB1 strategy evolver in `ripdpi-runtime` now consumes wall-clock time on three read-side checks without adding a background timer thread: active-experiment TTL (default 30 s), idle-decay on combo stats (`exp(-Δt / half_life)` with default 1 h half-life), and consecutive-failure cooldown (default 3 → 5 min).
+- Switched the evolver's internal timing to a monotonic `Instant`-based clock so TTL/decay/cooldown survive `SystemTime` jumps and NTP corrections. `ComboStats.last_attempt_ms` keeps its name and now carries the monotonic delta.
+- Added a typed `CooldownTransition` returned from `record_attempt` so the evolver emits `tracing::debug!` events on cooldown trip and clear without leaking the bookkeeping into call sites.
+- `select_next_combo` now skips cooled combos in the niche-winner cache and `best_context_combo_for_family`; when every bucket-matching pool entry is cooling, the new `pick_non_cooled_random_for_bucket` falls back to `pilot_combo_for_bucket` so the evolver always returns a hint.
+- Eviction (`evict_if_needed`, `evict_context_if_needed`) is now decay-aware -- a stale winner with high raw success-rate no longer outranks a fresh combo with no signal yet.
+- 8 new unit tests added (54 total in the `strategy_evolver` module): TTL drop without stats update, TTL=0 disables drop, decay-demotes-stale ranking, cooldown trip + clear, cooldown=0 disables gate, cooled-combo filtering, all-cooled fallback to pilot, monotonic-clock test-override semantics.
+- Host-pack knob wiring for the four numeric defaults (`experiment_ttl_ms`, `decay_half_life_ms`, `cooldown_after_failures`, `cooldown_ms`) is deferred to a separate PR -- it needs a schema bump, contract-fixture regeneration, and ingestion plumbing that are out of scope for this in-evolver change.
+
 ## Roadmap Hygiene
 
 - Keep `ROADMAP.md` updated in the same change as every future roadmap-scoped implementation.
