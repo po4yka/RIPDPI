@@ -17,23 +17,32 @@
 
 <p align="center"><b>English</b> | <a href="README-ru.md">Русский</a></p>
 
-Android application for optimizing network connectivity with:
+Android network-path diagnostics and performance toolkit. RIPDPI measures, classifies, and optimizes how individual flows traverse the local network and the path to the origin — useful when middleboxes, congested cellular links, mismatched MTUs, or middlebox-induced TLS handshake aborts degrade specific authorities while leaving others healthy. RIPDPI ships:
 
-- local proxy mode
-- local VPN redirection mode
+- **VLESS Reality and xHTTP** as the primary tunneled outbound for performance and privacy, implemented natively in `ripdpi-vless` / `ripdpi-relay-core` / `ripdpi-relay-mux` without a Go runtime, with `ripdpi-relay-android` providing the JNI surface and Android socket protection
+- additional tunneled-outbound protocols on the same path: WARP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, and NaiveProxy
+- local proxy mode and local VPN redirection mode for app-traffic routing, with or without a tunneled outbound attached
 - encrypted DNS in VPN mode with DoH/DoT/DNSCrypt/DoQ
 - advanced strategy controls with semantic markers, adaptive split placement, QUIC/TLS/DNS lane separation, per-network policy memory, and automatic probing/audit
 - handover-aware live policy re-evaluation across Wi-Fi, cellular, and roaming changes
-- relay transports including WARP, VLESS Reality/xHTTP, Cloudflare Tunnel, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, and NaiveProxy
 - strategy-pack and TLS-catalog driven rollout control for transport defaults, feature flags, and fingerprint rotation
-- direct-mode DNS classification, transport verdicts, and transport-specific remediation for restricted authorities
+- direct-path DNS classification, transport verdicts, and transport-specific remediation that branches between on-device path optimization, the owned-stack browser, a browser-camouflage tunnel, a QUIC-heavy tunnel, or manual review per authority
 - owned-stack RIPDPI Browser plus a shared `SecureHttpClient` path for app-originated traffic we control
-- repo-local offline analytics pipeline for clustering censorship/device fingerprints and mining reviewed signature catalogs
-- xHTTP-side Finalmask support for supported relay profiles and Cloudflare Tunnel paths
+- repo-local offline analytics pipeline for clustering middlebox/device fingerprints and mining reviewed signature catalogs
+- xHTTP-side Finalmask support for supported tunnel profiles and Cloudflare Tunnel paths
 - integrated diagnostics and passive telemetry
 - in-repository Rust native modules
 
-RIPDPI runs a local SOCKS5 proxy built from in-repository Rust modules. In manual Proxy mode it binds the configured fixed localhost port. In VPN mode it starts an internal ephemeral localhost proxy endpoint, protects it with per-session local auth, and routes Android traffic through that endpoint using a local TUN-to-SOCKS bridge.
+RIPDPI runs a local SOCKS5 proxy built from in-repository Rust modules. In manual Proxy mode it binds the configured fixed localhost port. In VPN mode it starts an internal ephemeral localhost proxy endpoint, protects it with per-session local auth, and routes Android traffic through that endpoint using a local TUN-to-SOCKS bridge. When a tunneled outbound (VLESS Reality, xHTTP, WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, or Cloudflare Tunnel) is configured, the local proxy chains to that outbound inside the same Rust workspace — encrypting app traffic end-to-end to the configured endpoint. Without a tunnel, the same path applies on-device path optimization (TCP / TLS / QUIC mutation) and exits to the network directly.
+
+## Why RIPDPI
+
+Modern Android networks routinely apply active L7 fingerprinting (TLS JA3/JA4, QUIC, DTLS), aggressive QoS on cellular and shared Wi-Fi, MTU and ECN inconsistencies, middlebox-induced TLS handshake aborts, and uneven ECH rollout — all of which can degrade specific authorities while leaving others healthy. A single global setting cannot answer all of those at once. RIPDPI's design assumption is:
+
+1. **Pick the right answer per network and per authority**, not a global policy. Diagnostics classify each site as healthy raw, recoverable on-device, owned-stack-only, or tunneled-only — and remember the verdict per network fingerprint.
+2. **Mutate the local path when the network is solvable on-device.** Semantic markers, adaptive split placement, fake-payload chains, OOB / disorder, randomized TLS records, QUIC and DTLS handshake variation — composed from in-repo Rust crates, not an external strategy binary.
+3. **Fall back to a tunneled outbound when the direct path is degraded.** The native-Rust VLESS Reality / xHTTP outbound (and WARP, MASQUE, Hysteria2, TUIC v5, ShadowTLS v3, NaiveProxy, Cloudflare Tunnel) handles authorities the local path cannot recover.
+4. **Stay honest about failures.** Verdicts are typed (`TRANSPARENT_WORKS`, `OWNED_STACK_ONLY`, `NO_DIRECT_SOLUTION`, `IP_BLOCK_SUSPECT`); failure-classifier results are surfaced rather than swallowed; diagnostic exports redact secrets.
 
 ## Screenshots
 
@@ -126,14 +135,14 @@ Implemented diagnostic mechanisms:
 - Automatic probing profiles in `RAW_PATH`, plus hidden `quick_v1` re-checks after first-seen network handovers
 - Automatic audit in `RAW_PATH` with rotating curated target cohorts, full TCP/QUIC matrix evaluation, confidence/coverage scoring, and manual recommendations
 - 4-stage home composite analysis: automatic audit, default connectivity, DPI full (ru-dpi-full), DPI strategy probe (ru-dpi-strategy) with per-stage timeouts
-- 24 TCP + 6 QUIC strategy probe candidates covering semantic split families, TLS record families, transparent TLS first-flight families, disorder, OOB (TCP urgent pointer), disoob, fake packets, hostfake, parser evasion, and ECH techniques
+- 24 TCP + 6 QUIC strategy probe candidates covering semantic split families, TLS record families, transparent TLS first-flight families, disorder, OOB (TCP urgent pointer), disoob, fake packets, hostfake, parser-tolerant variants, and ECH techniques
 - Tournament bracket qualifier: tests each candidate against 1 domain first, eliminates ~70% of failing candidates before the full-matrix round
 - Within-candidate domain parallelism: 3 domains tested concurrently per candidate via `thread::scope`
 - DNS integrity checks across UDP DNS and encrypted resolvers (DoH/DoT/DNSCrypt/DoQ) with fallback resolver chain (AdGuard, DNS.SB, Google IP, Mullvad)
 - Authority-scoped DNS classification into clean, poisoned, divergent, ECH-capable, and no-HTTPS-RR outcomes, feeding direct-mode resolver and transport hints
 - Domain reachability checks with TLS and HTTP classification
 - TCP 16-20 KB cutoff detection with repeated fat-header requests
-- Whitelist SNI retry detection for restricted TLS paths
+- Allowlist-SNI retry detection for constrained TLS paths
 - Resolver recommendations with diversified DoH/DoT/DNSCrypt path candidates, bootstrap validation, temporary session overrides, and save-to-settings actions
 - Eager DNS failover for catastrophic errors (connection reset, refused) on first query
 - Direct-mode policy persistence with confirmation/revalidation, honest verdicts (`TRANSPARENT_WORKS`, `OWNED_STACK_ONLY`, `NO_DIRECT_SOLUTION`, `IP_BLOCK_SUSPECT`), and transport-family replay
@@ -159,52 +168,71 @@ What the app does not record:
 - Traffic payloads
 - TLS secrets
 
-## Settings
-
-The Android UI exposes a broad typed strategy surface beyond the command-line path.
-
 ## Advanced Strategy Surface
 
-RIPDPI's current Android and native strategy stack includes:
+RIPDPI's strategy stack is composable across TCP, TLS, QUIC/UDP, and DTLS layers, with policy memory and adaptive scheduling on top. The Android UI exposes the full typed surface beyond the command-line path.
 
-- semantic markers such as `host`, `endhost`, `midsld`, `sniext`, and `extlen`
-- adaptive markers such as `auto(balanced)` and `auto(host)` that resolve from live `TCP_INFO` hints
-- ordered TCP and UDP chain steps with per-step activation filters
-- runtime TCP-state branching on TCP steps through `ActivationFilter` predicates such as timestamp, ECH, window, and MSS checks
-- circular mid-connection TCP rotation that swaps fallback chains between outbound rounds on the same socket
-- zapret-style fake ordering variants (`altorder=0..3`) plus `duplicate` / `sequential` fake sequence control on `fake`, `fakedsplit`, `fakeddisorder`, and `hostfake`
-- per-step TCP flag crafting for both fake packets and original payload packets, with canonical named masks and a primary-step Advanced Settings chip editor when the chain is visually representable
-- group-wide IPv4 ID control for raw IPv4 packets, including exact `seqgroup` promotion so mixed fake/original TCP flows share one real ID sequence
+**TCP**
+
+- Semantic markers (`host`, `endhost`, `midsld`, `sniext`, `extlen`) and adaptive markers (`auto(balanced)`, `auto(host)`) that resolve from live `TCP_INFO` hints
+- Ordered TCP chain steps with per-step `ActivationFilter` predicates (timestamp, ECH, window, MSS) and runtime TCP-state branching
+- Circular mid-connection rotation that swaps fallback chains between outbound rounds on the same socket
+- Zapret-style fake ordering (`altorder=0..3`) plus `duplicate` / `sequential` fake sequence control on `fake`, `fakedsplit`, `fakeddisorder`, and `hostfake`
+- Per-step TCP flag crafting (named masks, chip editor for visually representable chains) for both fake and original payload packets
+- Group-wide IPv4 ID control with exact `seqgroup` promotion so mixed fake/original flows share one real ID sequence
+- Standalone disorder (TTL-based segment reordering), OOB (TCP urgent pointer injection), and disoob (disorder + OOB)
+- Host-targeted fake chunks (`hostfake`) and Linux/Android-focused `fakedsplit` / `fakeddisorder` approximations
+
+**TLS**
+
+- Randomized record fragmentation (`tlsrandrec`) with configurable fragment count and size bounds
+- Fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
+- Built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
+
+**QUIC / UDP**
+
+- QUIC handshake variation: SNI split, fake version field, dummy packet prepend, fake burst profiles
+- DTLS handshake fingerprint normalization: WebRTC-Chrome / WebRTC-Firefox shaped ClientHello and a randomized JA4-equivalent fingerprint slot (cipher and extension multiset-preserving shuffles, GREASE-aware) for WebRTC/DTLS transports interacting with strict middlebox policies
+
+**Policy and scheduling**
+
+- Per-network remembered policy replay with hashed network fingerprints and optional VPN-only DNS override
+- Per-network host autolearn scoping with telemetry/system host filtering, activation windows, and adaptive fake TTL
+- Separate TCP, QUIC, and DNS strategy families for diagnostics, telemetry, and remembered-policy scoring
+- Handover-aware full restarts with background `quick_v1` strategy probes on first-seen networks
+- Retry-stealth pacing with jitter, diversified candidate order, and adaptive tuning beyond fake TTL
+- Diagnostics-side automatic probing and audit with candidate-aware progress, confidence-scored reports, and winners-first review
+
+**Runtime hardening**
+
 - VPN-only localhost hardening with telemetry-resolved ephemeral SOCKS5 bind ports and per-session auth rotation shared by UI-config and command-line-config sessions
-- richer fake TLS mutations (`orig`, `rand`, `rndsni`, `dupsid`, `padencap`, size tuning)
-- built-in fake payload profile libraries for HTTP, TLS, UDP, and QUIC Initial traffic
-- host-targeted fake chunks (`hostfake`) and Linux/Android-focused `fakedsplit` / `fakeddisorder` approximations
-- standalone disorder (TTL-based segment reordering), OOB (TCP urgent pointer injection), and disoob (disorder + OOB combo)
-- randomized TLS record fragmentation (`tlsrandrec`) with configurable fragment count and size bounds
-- QUIC evasion: SNI split, fake version field, dummy packet prepend, and fake burst profiles
-- per-network remembered policy replay with hashed network fingerprints and optional VPN-only DNS override
-- per-network host autolearn scoping with telemetry/system host filtering, activation windows, and adaptive fake TTL for TCP fake sends
-- separate TCP, QUIC, and DNS strategy families for diagnostics, telemetry, and remembered-policy scoring
-- handover-aware full restarts with background `quick_v1` strategy probes for first-seen networks
-- retry-stealth pacing with jitter, diversified candidate order, and adaptive tuning beyond fake TTL
-- diagnostics-side automatic probing and automatic audit with candidate-aware progress, confidence-scored reports, winners-first review, and manual recommendations
 
 Implementation details and the native call path are documented in [docs/native/proxy-engine.md](docs/native/proxy-engine.md).
 
-## Owned-Stack Android 17 ECH
+## Android 17 (API 37)
 
-RIPDPI now ships a separate owned-stack request path for traffic the app originates itself.
+### Owned-stack ECH path
+
+RIPDPI ships a separate owned-stack request path for traffic the app originates itself.
 
 - The RIPDPI Browser and the repo-local `SecureHttpClient` surface both use the same owned-stack request service in `:core:service`.
 - On Android 17 / API 37, the platform `HttpEngine` path is treated as confirmed ECH-capable only for authorities with cached `ECH_CAPABLE` DNS evidence or explicit `xml-v37` domain overrides.
 - The platform path first tries a QUIC-capable `HttpEngine` request and automatically retries with QUIC disabled (H2-only) before falling back to RIPDPI's native owned TLS bridge.
 - On pre-17 devices, or when confirmed ECH evidence is unavailable, owned-stack mode degrades gracefully to non-platform owned TLS. This is still useful for `OWNED_STACK_ONLY` hosts, but it does not imply universal ECH support or hide server IPs.
 
+### Platform readiness
+
+Manifest, NSC, and runtime-permission scaffolding are landed ahead of the `targetSdk` bump to 37 so the bump itself is a property edit and smoke test rather than a refactor.
+
+- `ACCESS_LOCAL_NETWORK` declared in the manifest (NEARBY_DEVICES group, mandatory under API 37 for non-loopback LAN binds); a runtime-permission helper gates any future LAN-bind site without rewiring the activity host.
+- `network_security_config.xml` (base + `xml-v37`) carries an explicit `<domain-config cleartextTrafficPermitted="true">` for `127.0.0.1`, `localhost`, and `::1` so the loopback SOCKS / HTTP inbound survives the API 37 deprecation of `usesCleartextTraffic`.
+- `<trust-anchors>` plus per-domain `<certificate-transparency enforced="false">` template documented for pinned-cert flows that hit the platform stack; native rustls flows (relay, Reality, MASQUE, Hysteria2) do not engage platform CT and need no NSC change.
+
 ## FAQ
 
-**Does the application require root?** No. On rooted devices an opt-in root mode unlocks additional evasion techniques (FakeRst, MultiDisorder, IP fragmentation, full SeqOverlap) via a privileged helper process.
+**Does the application require root?** No. On rooted devices an opt-in root mode unlocks additional packet-mutation primitives (FakeRst, MultiDisorder, IP fragmentation, full SeqOverlap) via a privileged helper process.
 
-**Is this a VPN?** No. It uses Android's VPN mode to redirect traffic locally. It does not encrypt general app traffic or hide your IP address. When encrypted DNS is enabled, only DNS lookups are sent through DoH/DoT/DNSCrypt/DoQ.
+**Is this a VPN?** RIPDPI uses Android's `VpnService` API for system-level traffic routing. When a tunneled outbound is configured, traffic is encrypted end-to-end to the endpoint you configure — same as any standard tunneled-VPN setup; the choice of endpoint is yours. When no tunneled outbound is configured, the `VpnService` API is used purely as a local-traffic redirector to the on-device path-optimization engine; in that mode RIPDPI does not change the egress IP, and only DNS lookups go through encrypted DNS when configured.
 
 **How to use with AdGuard?**
 
@@ -385,8 +413,8 @@ To enable signed release builds, configure these repository secrets:
 - `native/rust/crates/ripdpi-monitor`: active diagnostics scans, passive diagnostics events, DNS tampering detection, and response parser framework (HTTP/TLS/SSH)
 - `native/rust/crates/ripdpi-dns-resolver`: shared encrypted DNS resolver used by diagnostics and VPN mode
 - `native/rust/crates/ripdpi-runtime`: shared proxy runtime layer used by `libripdpi.so`, protocol classification registry, and VPN socket protection callback registry
-- `native/rust/crates/ripdpi-packets`: protocol detection, packet mutation, protocol classification traits (`ProtocolClassifier`, `ProtocolField`, `FieldObserver`)
-- `native/rust/crates/ripdpi-failure-classifier`: response failure classification, blockpage fingerprinting, and field-based classification via `FieldCache`
+- `native/rust/crates/ripdpi-packets`: protocol detection, packet mutation, protocol classification traits (`ProtocolClassifier`, `ProtocolField`, `FieldObserver`), DTLS ClientHello classifier with JA4-equivalent fingerprint extraction and fingerprint-randomization profiles (WebRTC-Chrome / WebRTC-Firefox / Randomized) wired into the strategy evolver as COMBO_POOL slots 33–35
+- `native/rust/crates/ripdpi-failure-classifier`: response failure classification, error-page fingerprinting, field-based classification via `FieldCache`, and DTLS-fingerprint block detection
 - `native/rust/crates/ripdpi-root-helper`: standalone privileged helper binary for rooted devices, enables raw socket operations (FakeRst, MultiDisorder, IpFrag2, full SeqOverlap) via Unix socket IPC with SCM_RIGHTS fd passing
 - `native/rust/crates/android-support`: Android logging, JNI support helpers, and generic data structures (`BoundedHeap`, `EnumMap`)
 
