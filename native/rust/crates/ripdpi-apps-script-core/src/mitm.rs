@@ -7,6 +7,7 @@ use rcgen::{
     BasicConstraints, CertificateParams, DistinguishedName, DnType, ExtendedKeyUsagePurpose, IsCa, Issuer, KeyPair,
     KeyUsagePurpose, SanType,
 };
+use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::ServerConfig;
 
@@ -36,6 +37,8 @@ pub struct MitmCertManager {
 
 impl MitmCertManager {
     pub fn new_in(base_dir: &Path) -> Result<Self, MitmError> {
+        let _ = rustls::crypto::ring::default_provider().install_default();
+
         let ca_dir = base_dir.join(CA_DIR);
         let ca_key_path = base_dir.join(CA_KEY_FILE);
         let ca_cert_path = base_dir.join(CA_CERT_FILE);
@@ -67,13 +70,9 @@ impl MitmCertManager {
 
     fn load(key_path: &Path, cert_path: &Path) -> Result<Self, MitmError> {
         let key_pem = fs::read_to_string(key_path)?;
-        let cert_pem = fs::read_to_string(cert_path)?;
-
         let ca_key_pair = KeyPair::from_pem(&key_pem)?;
-        let mut cert_bytes = cert_pem.as_bytes();
-        let mut certs = rustls_pemfile::certs(&mut cert_bytes).collect::<Result<Vec<_>, _>>()?;
-        let ca_cert_der =
-            certs.drain(..1).next().ok_or_else(|| MitmError::Invalid("missing CA certificate".to_string()))?;
+        let ca_cert_der = CertificateDer::from_pem_file(cert_path)
+            .map_err(|error| MitmError::Invalid(format!("failed to load CA certificate: {error}")))?;
         Ok(Self { ca_cert_der, ca_params: build_ca_params(), ca_key_pair, cache: HashMap::new() })
     }
 

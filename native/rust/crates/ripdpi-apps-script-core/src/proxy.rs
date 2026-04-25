@@ -359,11 +359,10 @@ where
     S: AsyncRead + AsyncWrite + Unpin,
 {
     let transfer_encoding = header_value(headers, "transfer-encoding");
-    let is_chunked = transfer_encoding
-        .map(|value| value.split(',').any(|part| part.trim().eq_ignore_ascii_case("chunked")))
-        .unwrap_or(false);
+    let is_chunked =
+        transfer_encoding.is_some_and(|value| value.split(',').any(|part| part.trim().eq_ignore_ascii_case("chunked")));
     let content_length = header_value(headers, "content-length")
-        .map(|value| value.parse::<usize>())
+        .map(str::parse::<usize>)
         .transpose()
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid Content-Length"))?;
 
@@ -476,8 +475,7 @@ fn header_value<'a>(headers: &'a [(String, String)], name: &str) -> Option<&'a s
 
 fn expects_100_continue(headers: &[(String, String)]) -> bool {
     header_value(headers, "expect")
-        .map(|value| value.split(',').any(|part| part.trim().eq_ignore_ascii_case("100-continue")))
-        .unwrap_or(false)
+        .is_some_and(|value| value.split(',').any(|part| part.trim().eq_ignore_ascii_case("100-continue")))
 }
 
 fn looks_like_http(bytes: &[u8]) -> bool {

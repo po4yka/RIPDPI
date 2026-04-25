@@ -247,9 +247,8 @@ where
 
     let mut body = buffer[headers_end + 4..].to_vec();
     let content_length = header_value(&headers, "content-length").and_then(|value| value.parse::<usize>().ok());
-    let is_chunked = header_value(&headers, "transfer-encoding")
-        .map(|value| value.to_ascii_lowercase().contains("chunked"))
-        .unwrap_or(false);
+    let is_chunked =
+        header_value(&headers, "transfer-encoding").is_some_and(|value| value.to_ascii_lowercase().contains("chunked"));
 
     if is_chunked {
         body = read_chunked(stream, body).await?;
@@ -275,7 +274,7 @@ where
         }
     }
 
-    if header_value(&headers, "content-encoding").map(|value| value.eq_ignore_ascii_case("gzip")).unwrap_or(false) {
+    if header_value(&headers, "content-encoding").is_some_and(|value| value.eq_ignore_ascii_case("gzip")) {
         body = decode_gzip(&body).map_err(FronterError::Io)?;
     }
 

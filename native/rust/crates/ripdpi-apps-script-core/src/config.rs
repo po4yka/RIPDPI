@@ -61,7 +61,7 @@ impl AppsScriptRuntimeConfig {
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "Apps Script authKey is required"))?;
         let direct_hosts = normalize_string_list(raw.direct_hosts.unwrap_or_default());
         let data_dir =
-            raw.data_dir.filter(|value| !value.trim().is_empty()).map(PathBuf::from).unwrap_or_else(default_data_dir);
+            raw.data_dir.filter(|value| !value.trim().is_empty()).map_or_else(default_data_dir, PathBuf::from);
         let mut hosts = raw.hosts.unwrap_or_default();
         if hosts.is_empty() && !direct_hosts.is_empty() {
             for host in &direct_hosts {
