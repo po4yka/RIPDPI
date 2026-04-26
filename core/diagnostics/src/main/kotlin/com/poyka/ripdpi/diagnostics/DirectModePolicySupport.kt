@@ -25,6 +25,16 @@ internal data class DirectModePolicyEvaluation(
     val verdict: DirectModeVerdict?,
 )
 
+private const val VerdictPriorityOwnedStack = 3
+private const val VerdictPriorityNoDirectSolution = 2
+private const val VerdictPriorityTransparentWorks = 1
+
+private const val DnsClassificationPriorityEchCapable = 4
+private const val DnsClassificationPriorityPoisoned = 3
+private const val DnsClassificationPriorityDivergent = 2
+
+private const val IpSetDigestByteCount = 8
+
 private data class DirectModeDnsPolicyObservation(
     val classification: DirectDnsClassification? = null,
     val dnsMode: DnsMode? = null,
@@ -65,12 +75,19 @@ private fun collectDirectModePolicyEvaluations(report: ScanReport): List<DirectM
     }
 }
 
-private fun deriveDirectModePolicyEvaluation(
-    authority: String,
-    results: List<ProbeResult>,
-    finishedAt: Long,
-): DirectModePolicyEvaluation {
-    val dnsObservation = deriveDnsPolicyObservation(results)
+private data class DirectModeTransportSignals(
+    val hasTransparentSuccess: Boolean,
+    val hasQuicBlocked: Boolean,
+    val hasTlsPostClientHelloFailure: Boolean,
+    val hasOwnedStackOnly: Boolean,
+    val allAttemptsFailed: Boolean,
+    val noDirectTlsFailure: Boolean,
+    val noDirectQuicFailure: Boolean,
+    val noDirectIpFailure: Boolean,
+    val transportClass: DirectTransportClass?,
+)
+
+private fun deriveTransportSignals(results: List<ProbeResult>): DirectModeTransportSignals {
     val hasTransparentSuccess = results.any(ProbeResult::edgeSuccess)
     val hasQuicBlocked =
         results.any { result ->
@@ -98,18 +115,33 @@ private fun deriveDirectModePolicyEvaluation(
             noDirectIpFailure -> DirectTransportClass.IP_BLOCK_SUSPECT
             else -> null
         }
-    val policy =
+    return DirectModeTransportSignals(
+        hasTransparentSuccess = hasTransparentSuccess,
+        hasQuicBlocked = hasQuicBlocked,
+        hasTlsPostClientHelloFailure = hasTlsPostClientHelloFailure,
+        hasOwnedStackOnly = hasOwnedStackOnly,
+        allAttemptsFailed = allAttemptsFailed,
+        noDirectTlsFailure = noDirectTlsFailure,
+        noDirectQuicFailure = noDirectQuicFailure,
+        noDirectIpFailure = noDirectIpFailure,
+        transportClass = transportClass,
+    )
+}
+
+private fun deriveTransportPolicy(
+    signals: DirectModeTransportSignals,
+    dnsMode: DnsMode?,
+): TransportPolicy {
+    val base =
         when {
-            hasOwnedStackOnly -> {
+            signals.hasOwnedStackOnly -> {
                 TransportPolicy(
-                    quicMode = if (hasQuicBlocked) QuicMode.HARD_DISABLE else QuicMode.ALLOW,
+                    quicMode = if (signals.hasQuicBlocked) QuicMode.HARD_DISABLE else QuicMode.ALLOW,
                     preferredStack = PreferredStack.H2,
                     dnsMode = DnsMode.SYSTEM,
                     tcpFamily =
-                        if (hasTlsPostClientHelloFailure) {
-                            normalizeStrategyFamilyToTcpFamily(
-                                "tlsrec",
-                            )
+                        if (signals.hasTlsPostClientHelloFailure) {
+                            normalizeStrategyFamilyToTcpFamily("tlsrec")
                         } else {
                             TcpFamily.NONE
                         },
@@ -117,21 +149,19 @@ private fun deriveDirectModePolicyEvaluation(
                 )
             }
 
-            allAttemptsFailed -> {
+            signals.allAttemptsFailed -> {
                 TransportPolicy(
                     quicMode =
                         when {
-                            noDirectTlsFailure -> QuicMode.HARD_DISABLE
-                            noDirectQuicFailure -> QuicMode.SOFT_DISABLE
+                            signals.noDirectTlsFailure -> QuicMode.HARD_DISABLE
+                            signals.noDirectQuicFailure -> QuicMode.SOFT_DISABLE
                             else -> QuicMode.ALLOW
                         },
                     preferredStack = PreferredStack.H2,
                     dnsMode = DnsMode.SYSTEM,
                     tcpFamily =
-                        if (noDirectTlsFailure) {
-                            normalizeStrategyFamilyToTcpFamily(
-                                "tlsrec",
-                            )
+                        if (signals.noDirectTlsFailure) {
+                            normalizeStrategyFamilyToTcpFamily("tlsrec")
                         } else {
                             TcpFamily.NONE
                         },
@@ -139,7 +169,7 @@ private fun deriveDirectModePolicyEvaluation(
                 )
             }
 
-            hasTlsPostClientHelloFailure -> {
+            signals.hasTlsPostClientHelloFailure -> {
                 TransportPolicy(
                     quicMode = QuicMode.HARD_DISABLE,
                     preferredStack = PreferredStack.H2,
@@ -149,7 +179,7 @@ private fun deriveDirectModePolicyEvaluation(
                 )
             }
 
-            hasQuicBlocked -> {
+            signals.hasQuicBlocked -> {
                 TransportPolicy(
                     quicMode = QuicMode.SOFT_DISABLE,
                     preferredStack = PreferredStack.H2,
@@ -162,26 +192,80 @@ private fun deriveDirectModePolicyEvaluation(
             else -> {
                 TransportPolicy()
             }
-        }.let { resolvedPolicy ->
-            dnsObservation.dnsMode?.let { dnsMode -> resolvedPolicy.copy(dnsMode = dnsMode) } ?: resolvedPolicy
         }
-    val reasonCode =
-        when {
-            hasOwnedStackOnly -> DirectModeReasonCode.OWNED_STACK_REQUIRED
-            noDirectTlsFailure -> DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
-            noDirectQuicFailure -> DirectModeReasonCode.QUIC_BLOCKED
-            noDirectIpFailure -> DirectModeReasonCode.IP_BLOCKED
-            hasTlsPostClientHelloFailure -> DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
-            hasQuicBlocked -> DirectModeReasonCode.QUIC_BLOCKED
-            hasTransparentSuccess -> null
-            else -> DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE
+    return dnsMode?.let { base.copy(dnsMode = it) } ?: base
+}
+
+private fun deriveReasonCode(signals: DirectModeTransportSignals): DirectModeReasonCode? =
+    when {
+        signals.hasOwnedStackOnly -> DirectModeReasonCode.OWNED_STACK_REQUIRED
+        signals.noDirectTlsFailure -> DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
+        signals.noDirectQuicFailure -> DirectModeReasonCode.QUIC_BLOCKED
+        signals.noDirectIpFailure -> DirectModeReasonCode.IP_BLOCKED
+        signals.hasTlsPostClientHelloFailure -> DirectModeReasonCode.TCP_POST_CLIENT_HELLO_FAILURE
+        signals.hasQuicBlocked -> DirectModeReasonCode.QUIC_BLOCKED
+        signals.hasTransparentSuccess -> null
+        else -> DirectModeReasonCode.UNKNOWN_DIRECT_FAILURE
+    }
+
+private fun buildVerdict(
+    outcome: DirectModeOutcome,
+    signals: DirectModeTransportSignals,
+    reasonCode: DirectModeReasonCode?,
+    authority: String,
+    cooldownUntil: Long?,
+): DirectModeVerdict? =
+    when (outcome) {
+        DirectModeOutcome.TRANSPARENT_OK -> {
+            if (signals.hasTransparentSuccess || signals.hasQuicBlocked || signals.hasTlsPostClientHelloFailure) {
+                DirectModeVerdict(
+                    result = DirectModeVerdictResult.TRANSPARENT_WORKS,
+                    reasonCode = reasonCode,
+                    transportClass = signals.transportClass,
+                    authority = authority,
+                    cooldownUntil = cooldownUntil,
+                )
+            } else {
+                null
+            }
         }
+
+        DirectModeOutcome.OWNED_STACK_ONLY -> {
+            DirectModeVerdict(
+                result = DirectModeVerdictResult.OWNED_STACK_ONLY,
+                reasonCode = reasonCode,
+                transportClass = signals.transportClass,
+                authority = authority,
+                cooldownUntil = cooldownUntil,
+            )
+        }
+
+        DirectModeOutcome.NO_DIRECT_SOLUTION -> {
+            DirectModeVerdict(
+                result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
+                reasonCode = reasonCode,
+                transportClass = signals.transportClass,
+                authority = authority,
+                cooldownUntil = cooldownUntil,
+            )
+        }
+    }
+
+private fun deriveDirectModePolicyEvaluation(
+    authority: String,
+    results: List<ProbeResult>,
+    finishedAt: Long,
+): DirectModePolicyEvaluation {
+    val dnsObservation = deriveDnsPolicyObservation(results)
+    val signals = deriveTransportSignals(results)
+    val policy = deriveTransportPolicy(signals, dnsObservation.dnsMode)
+    val reasonCode = deriveReasonCode(signals)
     val envelope =
         TransportPolicyEnvelope(
             policy = policy,
             ipSetDigest = deriveIpSetDigest(results),
             dnsClassification = dnsObservation.classification,
-            transportClass = transportClass,
+            transportClass = signals.transportClass,
             reasonCode = reasonCode,
             cooldownUntil =
                 if (policy.outcome == DirectModeOutcome.NO_DIRECT_SOLUTION) {
@@ -190,42 +274,7 @@ private fun deriveDirectModePolicyEvaluation(
                     null
                 },
         )
-    val verdict =
-        when (policy.outcome) {
-            DirectModeOutcome.TRANSPARENT_OK -> {
-                if (hasTransparentSuccess || hasQuicBlocked || hasTlsPostClientHelloFailure) {
-                    DirectModeVerdict(
-                        result = DirectModeVerdictResult.TRANSPARENT_WORKS,
-                        reasonCode = reasonCode,
-                        transportClass = transportClass,
-                        authority = authority,
-                        cooldownUntil = envelope.cooldownUntil,
-                    )
-                } else {
-                    null
-                }
-            }
-
-            DirectModeOutcome.OWNED_STACK_ONLY -> {
-                DirectModeVerdict(
-                    result = DirectModeVerdictResult.OWNED_STACK_ONLY,
-                    reasonCode = reasonCode,
-                    transportClass = transportClass,
-                    authority = authority,
-                    cooldownUntil = envelope.cooldownUntil,
-                )
-            }
-
-            DirectModeOutcome.NO_DIRECT_SOLUTION -> {
-                DirectModeVerdict(
-                    result = DirectModeVerdictResult.NO_DIRECT_SOLUTION,
-                    reasonCode = reasonCode,
-                    transportClass = transportClass,
-                    authority = authority,
-                    cooldownUntil = envelope.cooldownUntil,
-                )
-            }
-        }
+    val verdict = buildVerdict(policy.outcome, signals, reasonCode, authority, envelope.cooldownUntil)
     return DirectModePolicyEvaluation(
         authority = authority,
         envelope = envelope,
@@ -235,9 +284,9 @@ private fun deriveDirectModePolicyEvaluation(
 
 private fun DirectModePolicyEvaluation.priority(): Int =
     when (verdict?.result) {
-        DirectModeVerdictResult.OWNED_STACK_ONLY -> 3
-        DirectModeVerdictResult.NO_DIRECT_SOLUTION -> 2
-        DirectModeVerdictResult.TRANSPARENT_WORKS -> 1
+        DirectModeVerdictResult.OWNED_STACK_ONLY -> VerdictPriorityOwnedStack
+        DirectModeVerdictResult.NO_DIRECT_SOLUTION -> VerdictPriorityNoDirectSolution
+        DirectModeVerdictResult.TRANSPARENT_WORKS -> VerdictPriorityTransparentWorks
         null -> 0
     }
 
@@ -282,9 +331,9 @@ private fun String.toDirectDnsClassificationOrNull(): DirectDnsClassification? =
 
 private fun dnsClassificationPriority(classification: DirectDnsClassification): Int =
     when (classification) {
-        DirectDnsClassification.ECH_CAPABLE -> 4
-        DirectDnsClassification.POISONED -> 3
-        DirectDnsClassification.DIVERGENT -> 2
+        DirectDnsClassification.ECH_CAPABLE -> DnsClassificationPriorityEchCapable
+        DirectDnsClassification.POISONED -> DnsClassificationPriorityPoisoned
+        DirectDnsClassification.DIVERGENT -> DnsClassificationPriorityDivergent
         DirectDnsClassification.CLEAN -> 1
         DirectDnsClassification.NO_HTTPS_RR -> 0
     }
@@ -317,7 +366,7 @@ private fun deriveIpSetDigest(results: List<ProbeResult>): String {
         return ""
     }
     val digest = MessageDigest.getInstance("SHA-256").digest(connectedIps.joinToString(",").toByteArray())
-    return digest.take(8).joinToString(separator = "") { byte -> "%02x".format(byte) }
+    return digest.take(IpSetDigestByteCount).joinToString(separator = "") { byte -> "%02x".format(byte) }
 }
 
 private fun String.normalizeDirectModeAuthority(): String = trim().trimEnd('.').lowercase(Locale.US)

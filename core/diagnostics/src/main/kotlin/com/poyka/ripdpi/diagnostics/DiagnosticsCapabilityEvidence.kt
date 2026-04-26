@@ -107,31 +107,29 @@ private fun mergeCapabilityRecords(records: List<ServerCapabilityRecord>): Serve
     )
 }
 
-private fun capabilitySummaryLine(record: ServerCapabilityRecord): String =
-    buildList {
+private fun capabilitySummaryItems(record: ServerCapabilityRecord): List<String> =
+    listOfNotNull(
         record.transportPolicyEnvelope?.policy?.outcome?.let { outcome ->
             when (outcome) {
-                DirectModeOutcome.OWNED_STACK_ONLY -> add("Owned stack required")
-                DirectModeOutcome.NO_DIRECT_SOLUTION -> add("No direct solution")
-                DirectModeOutcome.TRANSPARENT_OK -> Unit
+                DirectModeOutcome.OWNED_STACK_ONLY -> "Owned stack required"
+                DirectModeOutcome.NO_DIRECT_SOLUTION -> "No direct solution"
+                DirectModeOutcome.TRANSPARENT_OK -> null
             }
-        }
-        record.transportPolicyEnvelope?.dnsClassification?.let { add("DNS ${it.name.lowercase(Locale.US)}") }
-        record.quicUsable?.let { add(if (it) "QUIC usable" else "QUIC blocked") }
-        record.udpUsable?.let { add(if (it) "UDP usable" else "UDP blocked") }
-        record.authModeAccepted?.let { add(if (it) "Auth accepted" else "Auth rejected") }
-        record.multiplexReusable?.let { add(if (it) "Multiplex reusable" else "Multiplex limited") }
-        record.shadowTlsCamouflageAccepted?.let {
-            add(if (it) "ShadowTLS accepted" else "ShadowTLS rejected")
-        }
-        record.naiveHttpsProxyAccepted?.let {
-            add(if (it) "HTTPS proxy accepted" else "HTTPS proxy rejected")
-        }
-        if (record.fallbackRequired == true) {
-            add("Fallback required")
-        }
-        record.repeatedHandshakeFailureClass?.let { add("Failure $it") }
-    }.take(CapabilitySummaryItemLimit)
+        },
+        record.transportPolicyEnvelope?.dnsClassification?.let { "DNS ${it.name.lowercase(Locale.US)}" },
+        record.quicUsable?.let { if (it) "QUIC usable" else "QUIC blocked" },
+        record.udpUsable?.let { if (it) "UDP usable" else "UDP blocked" },
+        record.authModeAccepted?.let { if (it) "Auth accepted" else "Auth rejected" },
+        record.multiplexReusable?.let { if (it) "Multiplex reusable" else "Multiplex limited" },
+        record.shadowTlsCamouflageAccepted?.let { if (it) "ShadowTLS accepted" else "ShadowTLS rejected" },
+        record.naiveHttpsProxyAccepted?.let { if (it) "HTTPS proxy accepted" else "HTTPS proxy rejected" },
+        "Fallback required".takeIf { record.fallbackRequired == true },
+        record.repeatedHandshakeFailureClass?.let { "Failure $it" },
+    )
+
+private fun capabilitySummaryLine(record: ServerCapabilityRecord): String =
+    capabilitySummaryItems(record)
+        .take(CapabilitySummaryItemLimit)
         .joinToString(separator = " · ")
         .ifBlank { "Capability evidence recorded for this authority." }
 

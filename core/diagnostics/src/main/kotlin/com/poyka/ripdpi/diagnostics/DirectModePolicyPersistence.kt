@@ -5,6 +5,7 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.ServerCapabilityRecord
+import com.poyka.ripdpi.data.TransportPolicy
 import com.poyka.ripdpi.data.TransportPolicyEnvelope
 import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
 import com.poyka.ripdpi.data.hasConfirmedDirectPolicy
@@ -39,6 +40,16 @@ private fun persistableObservation(
     existing: ServerCapabilityRecord?,
 ): ServerCapabilityObservation {
     val policy = observation.transportPolicy ?: return observation
+    return resolvedObservation(report, authority, observation, existing, policy)
+}
+
+private fun resolvedObservation(
+    report: ScanReport,
+    authority: String,
+    observation: ServerCapabilityObservation,
+    existing: ServerCapabilityRecord?,
+    policy: TransportPolicy,
+): ServerCapabilityObservation {
     val currentEnvelope = observation.toEnvelope()
     val existingEnvelope = existing?.effectiveTransportPolicyEnvelope()
     val existingCompatible =
@@ -60,26 +71,32 @@ private fun persistableObservation(
                 existingCompatible || signals.activeFailureCount >= 2
             }
         }
-    if (confirmed) {
-        return observation.copy(
-            policyConfirmedAt = existing?.policyConfirmedAt ?: report.finishedAt,
-            policyFailureCount = 0,
-        )
+    return when {
+        confirmed -> {
+            observation.copy(
+                policyConfirmedAt = existing?.policyConfirmedAt ?: report.finishedAt,
+                policyFailureCount = 0,
+            )
+        }
+
+        existing?.hasConfirmedDirectPolicy() == true && existingEnvelope != null && signals.activeFailureCount > 0 -> {
+            ServerCapabilityObservation(
+                ipSetDigest = existingEnvelope.ipSetDigest,
+                policyFailureCount = existing.policyFailureCount + 1,
+            )
+        }
+
+        else -> {
+            observation.copy(
+                transportPolicy = null,
+                transportClass = null,
+                reasonCode = null,
+                cooldownUntil = null,
+                policyConfirmedAt = null,
+                policyFailureCount = existing?.policyFailureCount ?: 0,
+            )
+        }
     }
-    if (existing?.hasConfirmedDirectPolicy() == true && existingEnvelope != null && signals.activeFailureCount > 0) {
-        return ServerCapabilityObservation(
-            ipSetDigest = existingEnvelope.ipSetDigest,
-            policyFailureCount = existing.policyFailureCount + 1,
-        )
-    }
-    return observation.copy(
-        transportPolicy = null,
-        transportClass = null,
-        reasonCode = null,
-        cooldownUntil = null,
-        policyConfirmedAt = null,
-        policyFailureCount = existing?.policyFailureCount ?: 0,
-    )
 }
 
 private fun List<ServerCapabilityRecord>.bestMatchingRecord(

@@ -73,7 +73,9 @@ private fun isPolicyScopedToCountry(
     regionTag: String?,
     countryCode: String?,
 ): Boolean {
-    val normalizedRegion = regionTag?.takeIf(String::isNotBlank)?.lowercase(Locale.US) ?: return true
-    val normalizedCountry = countryCode?.takeIf(String::isNotBlank)?.lowercase(Locale.US) ?: return false
-    return normalizedRegion == normalizedCountry
+    val normalizedRegion =
+        regionTag?.takeIf(String::isNotBlank)?.lowercase(Locale.US)
+            ?: return true
+    val normalizedCountry = countryCode?.takeIf(String::isNotBlank)?.lowercase(Locale.US)
+    return normalizedCountry != null && normalizedRegion == normalizedCountry
 }

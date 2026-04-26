@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.diagnostics
+package com.poyka.ripdpi.diagnostics.testsupport
 
 import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.NetworkHandoverMonitor

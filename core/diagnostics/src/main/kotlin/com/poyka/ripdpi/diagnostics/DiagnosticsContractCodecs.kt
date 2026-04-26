@@ -50,15 +50,16 @@ internal fun ProfileExecutionPolicyWire.normalizedProbePersistencePolicy(): Prob
 
 private fun ProfileSpecWire.backfillLegacyProbePersistencePolicy(): ProfileSpecWire {
     val policy = executionPolicy ?: return this
-    if (policy.probePersistencePolicy != null) {
-        return this
+    return if (policy.probePersistencePolicy != null) {
+        this
+    } else {
+        copy(
+            executionPolicy =
+                policy.copy(
+                    probePersistencePolicy = policy.legacyProbePersistencePolicy(),
+                ),
+        )
     }
-    return copy(
-        executionPolicy =
-            policy.copy(
-                probePersistencePolicy = policy.legacyProbePersistencePolicy(),
-            ),
-    )
 }
 
 private fun ProfileExecutionPolicyWire.legacyProbePersistencePolicy(): ProbePersistencePolicyWire =
