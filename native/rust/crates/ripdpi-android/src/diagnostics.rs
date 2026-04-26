@@ -8,14 +8,10 @@ use jni::objects::JString;
 use jni::sys::{jlong, jstring};
 use jni::{EnvUnowned, Outcome};
 
-use crate::errors::extract_panic_message;
+use crate::errors::throw_panic;
 use polling::{poll_passive_events, poll_progress, take_report};
 use registry::{create_diagnostics_session, destroy_diagnostics_session};
 use scan::{cancel_diagnostics_scan, start_diagnostics_scan};
-
-fn throw_panic(env: &mut EnvUnowned<'_>, prefix: &str, payload: Box<dyn std::any::Any + Send>) {
-    throw_runtime_exception(env, format!("{prefix}: {}", extract_panic_message(payload)));
-}
 
 pub(crate) fn diagnostics_create_entry(mut env: EnvUnowned<'_>) -> jlong {
     init_android_logging("ripdpi-native");
