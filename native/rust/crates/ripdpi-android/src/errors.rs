@@ -2,9 +2,9 @@ use std::any::Any;
 
 use android_support::{
     sanitize_error_message, throw_illegal_argument_env, throw_illegal_state_env, throw_io_exception_env,
-    throw_runtime_exception_env,
+    throw_runtime_exception, throw_runtime_exception_env,
 };
-use jni::Env;
+use jni::{Env, EnvUnowned};
 
 #[derive(Debug, thiserror::Error)]
 pub(crate) enum JniProxyError {
@@ -51,6 +51,10 @@ pub(crate) fn extract_panic_message(payload: Box<dyn Any + Send>) -> String {
         .or_else(|| payload.downcast_ref::<&str>().copied())
         .unwrap_or("unknown panic")
         .to_string()
+}
+
+pub(crate) fn throw_panic(env: &mut EnvUnowned<'_>, prefix: &str, payload: Box<dyn Any + Send>) {
+    throw_runtime_exception(env, format!("{prefix}: {}", extract_panic_message(payload)));
 }
 
 #[cfg(test)]
