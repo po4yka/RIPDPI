@@ -240,8 +240,6 @@ fun DiagnosticsScreen(
                                 onOpenAdvancedSettings = onOpenAdvancedSettings,
                                 onOpenDnsSettings = onOpenDnsSettings,
                                 onRequestVpnPermission = onRequestVpnPermission,
-                                onKeepResolverRecommendation = onKeepResolverRecommendation,
-                                onSaveResolverRecommendation = onSaveResolverRecommendation,
                                 onSelectStrategyProbeCandidate = onSelectStrategyProbeCandidate,
                                 onSelectProbe = onSelectProbe,
                                 onOpenHistory = onOpenHistory,

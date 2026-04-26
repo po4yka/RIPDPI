@@ -102,48 +102,10 @@ internal fun StrategyPackCatalogStatusCard(
             color = colors.foreground,
         )
         SummaryCapsuleFlow(items = badges)
-        strategyPackCatalog.selectedPackId?.let { packId ->
-            ProfileSummaryLine(
-                label = stringResource(R.string.strategy_pack_selected_pack_label),
-                value =
-                    strategyPackCatalog.selectedPackVersion?.let { version ->
-                        "$packId · $version"
-                    } ?: packId,
-            )
-        }
-        ProfileSummaryLine(
-            label = stringResource(R.string.strategy_pack_last_fetch_label),
-            value = lastFetchedAt ?: stringResource(R.string.strategy_pack_last_fetch_never),
-        )
-        ProfileSummaryLine(
-            label = stringResource(R.string.strategy_pack_last_refresh_attempt_label),
-            value = lastRefreshAttempt ?: stringResource(R.string.strategy_pack_last_refresh_attempt_never),
-        )
-        strategyPackCatalog.lastAcceptedSequence?.let { acceptedSequence ->
-            ProfileSummaryLine(
-                label = stringResource(R.string.strategy_pack_last_accepted_sequence_label),
-                value = acceptedSequence.toString(),
-            )
-        }
-        strategyPackCatalog.lastRejectedSequence?.let { rejectedSequence ->
-            ProfileSummaryLine(
-                label = stringResource(R.string.strategy_pack_last_rejected_sequence_label),
-                value = rejectedSequence.toString(),
-            )
-        }
-        strategyPackCatalog.lastRefreshError
-            ?.takeIf { strategyPackCatalog.lastRefreshFailureCode != null }
-            ?.let { detail ->
-                Text(
-                    text = detail,
-                    style = type.caption,
-                    color = colors.mutedForeground,
-                )
-            }
-        Text(
-            text = stringResource(R.string.strategy_pack_refresh_source_hint),
-            style = type.caption,
-            color = colors.mutedForeground,
+        StrategyPackMetadataLines(
+            strategyPackCatalog = strategyPackCatalog,
+            lastFetchedAt = lastFetchedAt,
+            lastRefreshAttempt = lastRefreshAttempt,
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -166,13 +128,66 @@ internal fun StrategyPackCatalogStatusCard(
 }
 
 @Composable
-private fun rememberStrategyPackCatalogStatus(
+private fun StrategyPackMetadataLines(
     strategyPackCatalog: StrategyPackCatalogUiState,
-): StrategyPackCatalogStatusContent =
-    strategyPackCatalogStatusSpec(strategyPackCatalog).let { spec ->
-        StrategyPackCatalogStatusContent(
-            label = stringResource(spec.labelResId),
-            body = stringResource(spec.bodyResId, *spec.bodyArgs.toTypedArray()),
-            tone = spec.tone,
+    lastFetchedAt: String?,
+    lastRefreshAttempt: String?,
+) {
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+    strategyPackCatalog.selectedPackId?.let { packId ->
+        ProfileSummaryLine(
+            label = stringResource(R.string.strategy_pack_selected_pack_label),
+            value =
+                strategyPackCatalog.selectedPackVersion?.let { version ->
+                    "$packId · $version"
+                } ?: packId,
         )
     }
+    ProfileSummaryLine(
+        label = stringResource(R.string.strategy_pack_last_fetch_label),
+        value = lastFetchedAt ?: stringResource(R.string.strategy_pack_last_fetch_never),
+    )
+    ProfileSummaryLine(
+        label = stringResource(R.string.strategy_pack_last_refresh_attempt_label),
+        value = lastRefreshAttempt ?: stringResource(R.string.strategy_pack_last_refresh_attempt_never),
+    )
+    strategyPackCatalog.lastAcceptedSequence?.let { acceptedSequence ->
+        ProfileSummaryLine(
+            label = stringResource(R.string.strategy_pack_last_accepted_sequence_label),
+            value = acceptedSequence.toString(),
+        )
+    }
+    strategyPackCatalog.lastRejectedSequence?.let { rejectedSequence ->
+        ProfileSummaryLine(
+            label = stringResource(R.string.strategy_pack_last_rejected_sequence_label),
+            value = rejectedSequence.toString(),
+        )
+    }
+    strategyPackCatalog.lastRefreshError
+        ?.takeIf { strategyPackCatalog.lastRefreshFailureCode != null }
+        ?.let { detail ->
+            Text(
+                text = detail,
+                style = type.caption,
+                color = colors.mutedForeground,
+            )
+        }
+    Text(
+        text = stringResource(R.string.strategy_pack_refresh_source_hint),
+        style = type.caption,
+        color = colors.mutedForeground,
+    )
+}
+
+@Composable
+private fun rememberStrategyPackCatalogStatus(
+    strategyPackCatalog: StrategyPackCatalogUiState,
+): StrategyPackCatalogStatusContent {
+    val spec = strategyPackCatalogStatusSpec(strategyPackCatalog)
+    return StrategyPackCatalogStatusContent(
+        label = stringResource(spec.labelResId),
+        body = spec.body,
+        tone = spec.tone,
+    )
+}

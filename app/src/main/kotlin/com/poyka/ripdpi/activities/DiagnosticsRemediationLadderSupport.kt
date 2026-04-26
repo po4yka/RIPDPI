@@ -187,9 +187,15 @@ internal fun DiagnosticsUiFactorySupport.buildScanRemediationLadder(
     resolverRecommendation: DiagnosticsResolverRecommendationUiModel?,
     strategyProbeReport: DiagnosticsStrategyProbeReportUiModel?,
     latestSession: DiagnosticsSessionRowUiModel?,
-): DiagnosticsRemediationLadderUiModel? {
+): DiagnosticsRemediationLadderUiModel? =
+    scanWorkflowRestrictionLadder(workflowRestriction)
+        ?: scanProbeBasedLadder(selectedProfile, resolverRecommendation, strategyProbeReport, latestSession)
+
+private fun DiagnosticsUiFactorySupport.scanWorkflowRestrictionLadder(
+    workflowRestriction: DiagnosticsWorkflowRestrictionUiModel?,
+): DiagnosticsRemediationLadderUiModel? =
     workflowRestriction?.let { restriction ->
-        return when (restriction.reason) {
+        when (restriction.reason) {
             DiagnosticsWorkflowRestrictionReasonUiModel.COMMAND_LINE_MODE_ACTIVE -> {
                 remediationLadder(
                     title = context.getString(R.string.diagnostics_remediation_command_line_title),
@@ -217,136 +223,149 @@ internal fun DiagnosticsUiFactorySupport.buildScanRemediationLadder(
         }
     }
 
+private fun DiagnosticsUiFactorySupport.scanProbeBasedLadder(
+    selectedProfile: DiagnosticsProfileOptionUiModel?,
+    resolverRecommendation: DiagnosticsResolverRecommendationUiModel?,
+    strategyProbeReport: DiagnosticsStrategyProbeReportUiModel?,
+    latestSession: DiagnosticsSessionRowUiModel?,
+): DiagnosticsRemediationLadderUiModel? {
     val report = strategyProbeReport ?: return null
     val isFullAudit = selectedProfile?.isFullAudit == true
+    return scanDnsLadder(report, resolverRecommendation)
+        ?: scanPartialResultsLadder(report)
+        ?: latestSession?.let { scanTransportRemediationLadder(it) }
+        ?: scanReviewLadder(isFullAudit, report, latestSession)
+}
 
-    if (report.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED && resolverRecommendation != null) {
-        return remediationLadder(
-            title = context.getString(R.string.diagnostics_remediation_dns_title),
-            summary = resolverRecommendation.rationale,
-            actionLabel = context.getString(R.string.diagnostics_remediation_open_dns_settings_action),
-            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,
-            tone = DiagnosticsTone.Warning,
-            context.getString(R.string.diagnostics_remediation_dns_step_open_settings),
-            context.getString(
-                R.string.diagnostics_remediation_dns_step_review_recommendation,
-                resolverRecommendation.headline,
-            ),
-            context.getString(R.string.diagnostics_remediation_dns_step_retry),
-        )
+private fun DiagnosticsUiFactorySupport.scanDnsLadder(
+    report: DiagnosticsStrategyProbeReportUiModel,
+    resolverRecommendation: DiagnosticsResolverRecommendationUiModel?,
+): DiagnosticsRemediationLadderUiModel? {
+    if (report.completionKind != StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED || resolverRecommendation == null) {
+        return null
     }
+    return remediationLadder(
+        title = context.getString(R.string.diagnostics_remediation_dns_title),
+        summary = resolverRecommendation.rationale,
+        actionLabel = context.getString(R.string.diagnostics_remediation_open_dns_settings_action),
+        actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,
+        tone = DiagnosticsTone.Warning,
+        context.getString(R.string.diagnostics_remediation_dns_step_open_settings),
+        context.getString(
+            R.string.diagnostics_remediation_dns_step_review_recommendation,
+            resolverRecommendation.headline,
+        ),
+        context.getString(R.string.diagnostics_remediation_dns_step_retry),
+    )
+}
 
-    if (report.completionKind == StrategyProbeCompletionKind.PARTIAL_RESULTS) {
-        return remediationLadder(
-            title = context.getString(R.string.diagnostics_remediation_partial_title),
-            summary = context.getString(R.string.diagnostics_remediation_partial_summary),
-            actionLabel = context.getString(R.string.diagnostics_remediation_open_history_action),
-            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY,
-            tone = DiagnosticsTone.Warning,
-            context.getString(R.string.diagnostics_remediation_partial_step_open_history),
-            context.getString(R.string.diagnostics_remediation_partial_step_review),
-            context.getString(R.string.diagnostics_remediation_partial_step_retry),
-        )
-    }
+private fun DiagnosticsUiFactorySupport.scanPartialResultsLadder(
+    report: DiagnosticsStrategyProbeReportUiModel,
+): DiagnosticsRemediationLadderUiModel? {
+    if (report.completionKind != StrategyProbeCompletionKind.PARTIAL_RESULTS) return null
+    return remediationLadder(
+        title = context.getString(R.string.diagnostics_remediation_partial_title),
+        summary = context.getString(R.string.diagnostics_remediation_partial_summary),
+        actionLabel = context.getString(R.string.diagnostics_remediation_open_history_action),
+        actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY,
+        tone = DiagnosticsTone.Warning,
+        context.getString(R.string.diagnostics_remediation_partial_step_open_history),
+        context.getString(R.string.diagnostics_remediation_partial_step_review),
+        context.getString(R.string.diagnostics_remediation_partial_step_retry),
+    )
+}
 
-    latestSession?.let { session ->
-        scanTransportRemediationLadder(session)?.let { return it }
-    }
-
-    if (isFullAudit && report.winningPath == null && latestSession != null) {
-        return remediationLadder(
-            title = context.getString(R.string.diagnostics_remediation_review_title),
-            summary = latestSession.summary,
-            actionLabel = context.getString(R.string.diagnostics_remediation_open_history_action),
-            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY,
-            tone = DiagnosticsTone.Warning,
-            context.getString(R.string.diagnostics_remediation_review_step_open_history),
-            context.getString(R.string.diagnostics_remediation_review_step_compare_results),
-            context.getString(R.string.diagnostics_remediation_review_step_rerun),
-        )
-    }
-
-    return null
+private fun DiagnosticsUiFactorySupport.scanReviewLadder(
+    isFullAudit: Boolean,
+    report: DiagnosticsStrategyProbeReportUiModel,
+    latestSession: DiagnosticsSessionRowUiModel?,
+): DiagnosticsRemediationLadderUiModel? {
+    if (!isFullAudit || report.winningPath != null || latestSession == null) return null
+    return remediationLadder(
+        title = context.getString(R.string.diagnostics_remediation_review_title),
+        summary = latestSession.summary,
+        actionLabel = context.getString(R.string.diagnostics_remediation_open_history_action),
+        actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY,
+        tone = DiagnosticsTone.Warning,
+        context.getString(R.string.diagnostics_remediation_review_step_open_history),
+        context.getString(R.string.diagnostics_remediation_review_step_compare_results),
+        context.getString(R.string.diagnostics_remediation_review_step_rerun),
+    )
 }
 
 internal fun StringResolver.buildHomeRemediationLadder(
     commandLineBlocked: Boolean,
     fingerprintMismatch: Boolean,
     latestOutcome: HomeDiagnosticsLatestAuditUiState?,
-): DiagnosticsRemediationLadderUiModel? {
-    if (commandLineBlocked) {
-        return remediationLadder(
-            title = getString(R.string.home_remediation_command_line_title),
-            summary = getString(R.string.home_diagnostics_command_line_blocked),
-            actionLabel = getString(R.string.diagnostics_scan_open_advanced_settings),
-            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS,
-            tone = DiagnosticsTone.Negative,
-            getString(R.string.home_remediation_command_line_step_open_settings),
-            getString(R.string.home_remediation_command_line_step_disable_setting),
-            getString(R.string.home_remediation_command_line_step_retry),
-        )
-    }
+): DiagnosticsRemediationLadderUiModel? =
+    homeCommandLineLadder(commandLineBlocked)
+        ?: latestOutcome?.let { homeOutcomeLadder(fingerprintMismatch, it) }
 
-    val outcome = latestOutcome ?: return null
-    if (fingerprintMismatch || outcome.stale) {
-        return remediationLadder(
-            title = getString(R.string.home_remediation_stale_title),
-            summary = getString(R.string.home_diagnostics_run_again),
+private fun StringResolver.homeCommandLineLadder(commandLineBlocked: Boolean): DiagnosticsRemediationLadderUiModel? {
+    if (!commandLineBlocked) return null
+    return remediationLadder(
+        title = getString(R.string.home_remediation_command_line_title),
+        summary = getString(R.string.home_diagnostics_command_line_blocked),
+        actionLabel = getString(R.string.diagnostics_scan_open_advanced_settings),
+        actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS,
+        tone = DiagnosticsTone.Negative,
+        getString(R.string.home_remediation_command_line_step_open_settings),
+        getString(R.string.home_remediation_command_line_step_disable_setting),
+        getString(R.string.home_remediation_command_line_step_retry),
+    )
+}
+
+private fun StringResolver.homeOutcomeLadder(
+    fingerprintMismatch: Boolean,
+    outcome: HomeDiagnosticsLatestAuditUiState,
+): DiagnosticsRemediationLadderUiModel? =
+    homeStaleOrMismatchLadder(fingerprintMismatch, outcome)
+        ?: homeTransportRemediationLadder(outcome)
+        ?: homeNotActionableLadder(outcome)
+
+private fun StringResolver.homeStaleOrMismatchLadder(
+    fingerprintMismatch: Boolean,
+    outcome: HomeDiagnosticsLatestAuditUiState,
+): DiagnosticsRemediationLadderUiModel? {
+    if (!fingerprintMismatch && !outcome.stale) return null
+    return remediationLadder(
+        title = getString(R.string.home_remediation_stale_title),
+        summary = getString(R.string.home_diagnostics_run_again),
+        actionLabel = getString(R.string.home_remediation_open_diagnostics_action),
+        actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS,
+        tone = DiagnosticsTone.Warning,
+        getString(R.string.home_remediation_stale_step_open_diagnostics),
+        getString(R.string.home_remediation_stale_step_review),
+        getString(R.string.home_remediation_stale_step_rerun),
+    )
+}
+
+private fun StringResolver.homeNotActionableLadder(
+    outcome: HomeDiagnosticsLatestAuditUiState,
+): DiagnosticsRemediationLadderUiModel? {
+    if (outcome.actionable) return null
+    val needsHistoryReview = outcome.failedStageCount > 0 || outcome.completedStageCount < outcome.totalStageCount
+    return if (needsHistoryReview) {
+        remediationLadder(
+            title = getString(R.string.home_remediation_review_title),
+            summary = outcome.summary,
+            actionLabel = getString(R.string.diagnostics_remediation_open_history_action),
+            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY,
+            tone = DiagnosticsTone.Warning,
+            getString(R.string.home_remediation_review_step_open_history),
+            getString(R.string.home_remediation_review_step_compare_results),
+            getString(R.string.home_remediation_review_step_rerun),
+        )
+    } else {
+        remediationLadder(
+            title = getString(R.string.home_remediation_no_actionable_title),
+            summary = getString(R.string.home_diagnostics_no_actionable_result),
             actionLabel = getString(R.string.home_remediation_open_diagnostics_action),
             actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS,
             tone = DiagnosticsTone.Warning,
-            getString(R.string.home_remediation_stale_step_open_diagnostics),
-            getString(R.string.home_remediation_stale_step_review),
-            getString(R.string.home_remediation_stale_step_rerun),
+            getString(R.string.home_remediation_no_actionable_step_open_diagnostics),
+            getString(R.string.home_remediation_no_actionable_step_review),
+            getString(R.string.home_remediation_no_actionable_step_rerun),
         )
     }
-    homeTransportRemediationLadder(outcome)?.let { return it }
-
-    if (!outcome.actionable) {
-        val needsHistoryReview = outcome.failedStageCount > 0 || outcome.completedStageCount < outcome.totalStageCount
-        val steps =
-            if (needsHistoryReview) {
-                arrayOf(
-                    getString(R.string.home_remediation_review_step_open_history),
-                    getString(R.string.home_remediation_review_step_compare_results),
-                    getString(R.string.home_remediation_review_step_rerun),
-                )
-            } else {
-                arrayOf(
-                    getString(R.string.home_remediation_no_actionable_step_open_diagnostics),
-                    getString(R.string.home_remediation_no_actionable_step_review),
-                    getString(R.string.home_remediation_no_actionable_step_rerun),
-                )
-            }
-        return remediationLadder(
-            title =
-                if (needsHistoryReview) {
-                    getString(R.string.home_remediation_review_title)
-                } else {
-                    getString(R.string.home_remediation_no_actionable_title)
-                },
-            summary =
-                if (needsHistoryReview) {
-                    outcome.summary
-                } else {
-                    getString(R.string.home_diagnostics_no_actionable_result)
-                },
-            actionLabel =
-                if (needsHistoryReview) {
-                    getString(R.string.diagnostics_remediation_open_history_action)
-                } else {
-                    getString(R.string.home_remediation_open_diagnostics_action)
-                },
-            actionKind =
-                if (needsHistoryReview) {
-                    DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY
-                } else {
-                    DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS
-                },
-            tone = DiagnosticsTone.Warning,
-            *steps,
-        )
-    }
-
-    return null
 }

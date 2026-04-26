@@ -78,11 +78,7 @@ internal fun OwnedStackBrowserScreen(
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
-    val layout = RipDpiThemeTokens.layout
-    val type = RipDpiThemeTokens.type
 
     RipDpiScreenScaffold(
         modifier =
@@ -99,134 +95,153 @@ internal fun OwnedStackBrowserScreen(
             )
         },
     ) { innerPadding ->
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(horizontal = layout.horizontalPadding, vertical = spacing.sm)
-                    .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            WarningBanner(
-                title = stringResource(R.string.owned_stack_browser_banner_title),
-                message =
-                    if (uiState.support.android17EchEligible) {
-                        stringResource(R.string.owned_stack_browser_banner_android17)
-                    } else {
-                        stringResource(R.string.owned_stack_browser_banner_fallback)
-                    },
-                tone =
-                    if (uiState.support.android17EchEligible) {
-                        WarningBannerTone.Info
-                    } else {
-                        WarningBannerTone.Restricted
-                    },
-            )
-            RipDpiCard(variant = RipDpiCardVariant.Outlined) {
-                Text(
-                    text = stringResource(R.string.owned_stack_browser_url_label),
-                    style = type.bodyEmphasis,
-                    color = colors.foreground,
-                )
-                RipDpiTextField(
-                    value = uiState.inputUrl,
-                    onValueChange = onUrlChanged,
-                    decoration =
-                        RipDpiTextFieldDecoration(
-                            placeholder = stringResource(R.string.owned_stack_browser_url_placeholder),
-                        ),
-                    behavior =
-                        RipDpiTextFieldBehavior(
-                            keyboardOptions =
-                                KeyboardOptions(
-                                    keyboardType = KeyboardType.Uri,
-                                    imeAction = ImeAction.Go,
-                                ),
-                            singleLine = true,
-                        ),
-                )
-                RipDpiButton(
-                    text = stringResource(R.string.owned_stack_browser_open_action),
-                    onClick = onOpen,
-                    enabled = uiState.inputUrl.isNotBlank() && !uiState.isLoading,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            uiState.errorMessage?.let { message ->
-                WarningBanner(
-                    title = stringResource(R.string.owned_stack_browser_error_title),
-                    message = message,
-                    tone = WarningBannerTone.Warning,
-                )
-            }
-            if (uiState.isLoading) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
-            uiState.page?.let { page ->
-                RipDpiCard(variant = RipDpiCardVariant.Elevated) {
-                    StatusIndicator(
-                        label =
-                            when (page.backend) {
-                                OwnedStackBrowserBackend.HTTP_ENGINE -> {
-                                    stringResource(R.string.owned_stack_browser_backend_http_engine)
-                                }
+        OwnedStackBrowserContent(
+            uiState = uiState,
+            onUrlChanged = onUrlChanged,
+            onOpen = onOpen,
+            modifier = Modifier.padding(innerPadding),
+        )
+    }
+}
 
-                                OwnedStackBrowserBackend.NATIVE_OWNED_TLS -> {
-                                    stringResource(R.string.owned_stack_browser_backend_native_fallback)
-                                }
-                            },
-                        tone =
-                            if (page.statusCode in 200..299) {
-                                StatusIndicatorTone.Active
-                            } else {
-                                StatusIndicatorTone.Warning
-                            },
-                    )
-                    Text(
-                        text =
-                            stringResource(
-                                R.string.owned_stack_browser_status_value,
-                                page.statusCode,
-                                page.finalUrl,
+@Composable
+private fun OwnedStackBrowserContent(
+    uiState: OwnedStackBrowserUiState,
+    onUrlChanged: (String) -> Unit,
+    onOpen: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val layout = RipDpiThemeTokens.layout
+    val type = RipDpiThemeTokens.type
+
+    Column(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(horizontal = layout.horizontalPadding, vertical = spacing.sm)
+                .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        WarningBanner(
+            title = stringResource(R.string.owned_stack_browser_banner_title),
+            message =
+                if (uiState.support.android17EchEligible) {
+                    stringResource(R.string.owned_stack_browser_banner_android17)
+                } else {
+                    stringResource(R.string.owned_stack_browser_banner_fallback)
+                },
+            tone =
+                if (uiState.support.android17EchEligible) {
+                    WarningBannerTone.Info
+                } else {
+                    WarningBannerTone.Restricted
+                },
+        )
+        RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+            Text(
+                text = stringResource(R.string.owned_stack_browser_url_label),
+                style = type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            RipDpiTextField(
+                value = uiState.inputUrl,
+                onValueChange = onUrlChanged,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        placeholder = stringResource(R.string.owned_stack_browser_url_placeholder),
+                    ),
+                behavior =
+                    RipDpiTextFieldBehavior(
+                        keyboardOptions =
+                            KeyboardOptions(
+                                keyboardType = KeyboardType.Uri,
+                                imeAction = ImeAction.Go,
                             ),
-                        style = type.secondaryBody,
-                        color = colors.mutedForeground,
-                    )
-                    if (page.tlsProfileId != null) {
-                        Text(
-                            text = stringResource(R.string.owned_stack_browser_tls_profile_value, page.tlsProfileId),
-                            style = type.secondaryBody,
-                            color = colors.mutedForeground,
-                        )
-                    }
-                    ownedStackTraceSummary(page.executionTrace)?.let { summary ->
-                        Text(
-                            text = context.getString(summary),
-                            style = type.secondaryBody,
-                            color = colors.mutedForeground,
-                        )
-                    }
-                }
-                RipDpiCard(variant = RipDpiCardVariant.Outlined) {
-                    SelectionContainer {
-                        Text(
-                            text =
-                                page.bodyText.ifBlank {
-                                    stringResource(R.string.owned_stack_browser_empty_body)
-                                },
-                            style = type.body,
-                            color = colors.foreground,
-                        )
-                    }
-                }
+                        singleLine = true,
+                    ),
+            )
+            RipDpiButton(
+                text = stringResource(R.string.owned_stack_browser_open_action),
+                onClick = onOpen,
+                enabled = uiState.inputUrl.isNotBlank() && !uiState.isLoading,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        uiState.errorMessage?.let { message ->
+            WarningBanner(
+                title = stringResource(R.string.owned_stack_browser_error_title),
+                message = message,
+                tone = WarningBannerTone.Warning,
+            )
+        }
+        if (uiState.isLoading) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                CircularProgressIndicator()
             }
+        }
+        uiState.page?.let { page ->
+            OwnedStackPageResult(page = page)
+        }
+    }
+}
+
+@Composable
+private fun OwnedStackPageResult(page: OwnedStackBrowserPageUiModel) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+        StatusIndicator(
+            label =
+                when (page.backend) {
+                    OwnedStackBrowserBackend.HTTP_ENGINE -> {
+                        stringResource(R.string.owned_stack_browser_backend_http_engine)
+                    }
+
+                    OwnedStackBrowserBackend.NATIVE_OWNED_TLS -> {
+                        stringResource(R.string.owned_stack_browser_backend_native_fallback)
+                    }
+                },
+            tone =
+                if (page.statusCode in 200..299) {
+                    StatusIndicatorTone.Active
+                } else {
+                    StatusIndicatorTone.Warning
+                },
+        )
+        Text(
+            text = stringResource(R.string.owned_stack_browser_status_value, page.statusCode, page.finalUrl),
+            style = type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        if (page.tlsProfileId != null) {
+            Text(
+                text = stringResource(R.string.owned_stack_browser_tls_profile_value, page.tlsProfileId),
+                style = type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
+        ownedStackTraceSummary(page.executionTrace)?.let { summary ->
+            Text(
+                text = context.getString(summary),
+                style = type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
+    }
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        SelectionContainer {
+            Text(
+                text = page.bodyText.ifBlank { stringResource(R.string.owned_stack_browser_empty_body) },
+                style = type.body,
+                color = colors.foreground,
+            )
         }
     }
 }

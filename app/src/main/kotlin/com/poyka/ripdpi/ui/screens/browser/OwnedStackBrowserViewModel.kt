@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.IOException
 import javax.inject.Inject
 
 @HiltViewModel
@@ -73,7 +74,7 @@ class OwnedStackBrowserViewModel
                     }
                 } catch (error: CancellationException) {
                     throw error
-                } catch (error: Throwable) {
+                } catch (error: IOException) {
                     _uiState.update { state ->
                         state.copy(
                             isLoading = false,

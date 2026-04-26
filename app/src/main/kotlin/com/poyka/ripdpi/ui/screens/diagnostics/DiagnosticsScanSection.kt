@@ -93,7 +93,7 @@ private const val PhaseStepActiveAlpha = 1f
 private const val PhaseStepCompletedAlpha = 0.72f
 private const val PhaseStepPendingAlpha = 0.38f
 
-@Suppress("LongMethod", "CyclomaticComplexMethod")
+@Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 @Composable
 internal fun ScanSection(
     scan: DiagnosticsScanUiModel,
@@ -104,8 +104,6 @@ internal fun ScanSection(
     onOpenAdvancedSettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     onRequestVpnPermission: () -> Unit,
-    onKeepResolverRecommendation: (String?) -> Unit,
-    onSaveResolverRecommendation: (String?) -> Unit,
     onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
     onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit,
     onOpenHistory: () -> Unit,
@@ -998,65 +996,6 @@ private data class WorkflowBadgeUiModel(
     val text: String,
     val tone: DiagnosticsTone,
 )
-
-@Composable
-private fun WorkflowRestrictionCard(
-    restriction: com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionUiModel,
-    onOpenAdvancedSettings: () -> Unit,
-    onRequestVpnPermission: () -> Unit,
-) {
-    val spacing = RipDpiThemeTokens.spacing
-    val isVpnWarning =
-        restriction.reason ==
-            com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionReasonUiModel.VPN_PERMISSION_DISABLED
-    RipDpiCard(
-        variant = RipDpiCardVariant.Elevated,
-        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionCard),
-    ) {
-        StatusIndicator(
-            label = restriction.title,
-            tone = if (isVpnWarning) StatusIndicatorTone.Warning else StatusIndicatorTone.Error,
-        )
-        Text(
-            text = restriction.body,
-            style = RipDpiThemeTokens.type.secondaryBody,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
-        if (!isVpnWarning) {
-            SettingsRow(
-                title = stringResource(R.string.diagnostics_scan_blocked_setting_label),
-                value = stringResource(R.string.use_command_line_settings),
-            )
-        }
-        when (restriction.actionKind) {
-            DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_ADVANCED_SETTINGS -> {
-                RipDpiButton(
-                    text = restriction.actionLabel,
-                    onClick = onOpenAdvancedSettings,
-                    variant = RipDpiButtonVariant.Secondary,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(top = spacing.xs)
-                            .ripDpiTestTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionAction),
-                )
-            }
-
-            DiagnosticsWorkflowRestrictionActionKindUiModel.OPEN_VPN_PERMISSION -> {
-                RipDpiButton(
-                    text = restriction.actionLabel,
-                    onClick = onRequestVpnPermission,
-                    variant = RipDpiButtonVariant.Secondary,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(top = spacing.xs)
-                            .ripDpiTestTag(RipDpiTestTags.DiagnosticsWorkflowRestrictionAction),
-                )
-            }
-        }
-    }
-}
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable

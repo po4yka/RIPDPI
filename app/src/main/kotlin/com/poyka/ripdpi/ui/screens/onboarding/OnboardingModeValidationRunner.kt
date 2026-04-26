@@ -95,7 +95,14 @@ class DefaultOnboardingModeValidationRunner
             } catch (e: CancellationException) {
                 stopActiveValidation()
                 throw e
-            } catch (e: Exception) {
+            } catch (e: IOException) {
+                Logger.w(e) { "Onboarding validation failed for $mode" }
+                stopActiveValidation()
+                OnboardingValidationResult.Failed(
+                    reason = e.message ?: stringResolver.getString(R.string.onboarding_validation_failed_generic),
+                    suggestedMode = mode.alternateOrNull(),
+                )
+            } catch (e: ServiceStartupRejectedException) {
                 Logger.w(e) { "Onboarding validation failed for $mode" }
                 stopActiveValidation()
                 OnboardingValidationResult.Failed(
@@ -165,55 +172,62 @@ class DefaultOnboardingModeValidationRunner
             }
         }
 
-        @Suppress("TooGenericExceptionCaught")
         private suspend fun runConnectivityProbe(mode: Mode): Long {
-            var responseCode = 0
             val settings = appSettingsRepository.snapshot()
-            return try {
-                measureTimeMillis {
-                    val request =
-                        Request
-                            .Builder()
-                            .url(OnboardingConnectivityCheckUrl)
-                            .head()
-                            .build()
-                    tlsClientFactory
-                        .create {
-                            connectTimeout(ValidationTrafficTimeoutMs, TimeUnit.MILLISECONDS)
-                            readTimeout(ValidationTrafficTimeoutMs, TimeUnit.MILLISECONDS)
-                            callTimeout(ValidationTrafficTimeoutMs, TimeUnit.MILLISECONDS)
-                            followRedirects(false)
-                            if (mode == Mode.Proxy) {
-                                proxy(
-                                    Proxy(
-                                        Proxy.Type.SOCKS,
-                                        InetSocketAddress(
-                                            settings.proxyIp.ifBlank { DefaultProxyHost },
-                                            settings.proxyPort.takeIf { it > 0 } ?: DefaultProxyPort,
-                                        ),
-                                    ),
-                                )
-                            }
-                        }.newCall(request)
-                        .execute()
-                        .use { response ->
-                            responseCode = response.code
-                        }
-                }.also {
-                    if (responseCode !in HttpSuccessCodeMin..HttpSuccessCodeMax) {
-                        throw IOException("HTTP $responseCode")
+            val request =
+                Request
+                    .Builder()
+                    .url(OnboardingConnectivityCheckUrl)
+                    .head()
+                    .build()
+            val client =
+                tlsClientFactory.create {
+                    connectTimeout(ValidationTrafficTimeoutMs, TimeUnit.MILLISECONDS)
+                    readTimeout(ValidationTrafficTimeoutMs, TimeUnit.MILLISECONDS)
+                    callTimeout(ValidationTrafficTimeoutMs, TimeUnit.MILLISECONDS)
+                    followRedirects(false)
+                    if (mode == Mode.Proxy) {
+                        proxy(
+                            Proxy(
+                                Proxy.Type.SOCKS,
+                                InetSocketAddress(
+                                    settings.proxyIp.ifBlank { DefaultProxyHost },
+                                    settings.proxyPort.takeIf { it > 0 } ?: DefaultProxyPort,
+                                ),
+                            ),
+                        )
                     }
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: ServiceStartupRejectedException) {
-                throw IOException(e.reason.displayMessage)
-            } catch (e: Exception) {
-                if (e.message.isNullOrBlank()) {
-                    throw IOException(stringResolver.getString(R.string.onboarding_validation_failed_generic))
+            return runCatching {
+                var responseCode = 0
+                val elapsed =
+                    measureTimeMillis {
+                        client.newCall(request).execute().use { response ->
+                            responseCode = response.code
+                        }
+                    }
+                elapsed.also {
+                    if (responseCode !in HttpSuccessCodeMin..HttpSuccessCodeMax) {
+                        throwProbeFailure(IOException("HTTP $responseCode"))
+                    }
                 }
-                throw IOException(e.message)
-            }
+            }.getOrElse { e -> throwProbeFailure(e) }
+        }
+
+        private fun throwProbeFailure(e: Throwable): Nothing {
+            if (e is CancellationException) throw e
+            val message =
+                when (e) {
+                    is ServiceStartupRejectedException -> {
+                        e.reason.displayMessage
+                    }
+
+                    else -> {
+                        e.message?.takeIf { it.isNotBlank() }
+                            ?: stringResolver.getString(R.string.onboarding_validation_failed_generic)
+                    }
+                }
+            throw IOException(message, e)
         }
     }
 

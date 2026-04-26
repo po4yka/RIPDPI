@@ -163,34 +163,11 @@ fun RipDpiRouteProfileCard(
                 ).padding(components.inputs.fieldHorizontalPadding),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            RouteTransportGlyph(
-                icon = state.transportIcon(),
-                state = state.state,
-                active = state.isActive,
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = state.title,
-                    style = type.bodyEmphasis,
-                    color = effectiveContent,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = "${state.providerLabel} · ${state.transportLabel}",
-                    style = type.monoSmall,
-                    color = routeState.mutedContent,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            RouteStateBadge(state = state.state, active = state.isActive)
-        }
+        RouteProfileHeader(
+            state = state,
+            effectiveContent = effectiveContent,
+            routeState = routeState,
+        )
         Text(
             text = state.subtitle,
             style = type.secondaryBody,
@@ -206,6 +183,44 @@ fun RipDpiRouteProfileCard(
                 RipDpiRouteCapabilityPill(capability = capability)
             }
         }
+    }
+}
+
+@Composable
+private fun RouteProfileHeader(
+    state: RipDpiRouteProfileUiState,
+    effectiveContent: androidx.compose.ui.graphics.Color,
+    routeState: com.poyka.ripdpi.ui.theme.RipDpiRouteAvailabilityStateStyle,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RouteTransportGlyph(
+            icon = state.transportIcon(),
+            state = state.state,
+            active = state.isActive,
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = state.title,
+                style = type.bodyEmphasis,
+                color = effectiveContent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "${state.providerLabel} · ${state.transportLabel}",
+                style = type.monoSmall,
+                color = routeState.mutedContent,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        RouteStateBadge(state = state.state, active = state.isActive)
     }
 }
 

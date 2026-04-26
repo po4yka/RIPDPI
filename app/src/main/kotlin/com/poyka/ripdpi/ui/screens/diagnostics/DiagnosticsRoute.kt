@@ -20,7 +20,7 @@ import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 
-@Suppress("LongMethod", "CyclomaticComplexMethod")
+@Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun DiagnosticsRoute(

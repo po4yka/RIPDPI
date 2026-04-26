@@ -51,6 +51,44 @@ data class RipDpiSurfaceTokens(
 ) {
     fun resolve(role: RipDpiSurfaceRole): RipDpiSurfaceStyle =
         when (role) {
+            RipDpiSurfaceRole.Card,
+            RipDpiSurfaceRole.TonalCard,
+            RipDpiSurfaceRole.ElevatedCard,
+            RipDpiSurfaceRole.StatusCard,
+            RipDpiSurfaceRole.SelectedCard,
+            RipDpiSurfaceRole.Dialog,
+            RipDpiSurfaceRole.BottomSheet,
+            RipDpiSurfaceRole.Banner,
+            RipDpiSurfaceRole.Snackbar,
+            RipDpiSurfaceRole.SwitchThumb,
+            RipDpiSurfaceRole.BottomSheetIconBadge,
+            RipDpiSurfaceRole.DialogIconBadge,
+            RipDpiSurfaceRole.DialogDestructiveIconBadge,
+            RipDpiSurfaceRole.DropdownMenu,
+            RipDpiSurfaceRole.BottomBar,
+            RipDpiSurfaceRole.BottomBarIndicator,
+            -> resolveGeneralSurface(role)
+
+            RipDpiSurfaceRole.ActuatorRail,
+            RipDpiSurfaceRole.ActuatorCarriage,
+            RipDpiSurfaceRole.ActuatorTerminalSlot,
+            RipDpiSurfaceRole.ActuatorPipelineSegment,
+            -> resolveActuatorSurface(role)
+
+            RipDpiSurfaceRole.RouteProfile,
+            RipDpiSurfaceRole.RouteCapability,
+            RipDpiSurfaceRole.RouteStack,
+            RipDpiSurfaceRole.RouteProvider,
+            RipDpiSurfaceRole.RouteOpportunity,
+            -> resolveRouteSurface(role)
+        }
+
+    private fun resolveGeneralSurface(role: RipDpiSurfaceRole): RipDpiSurfaceStyle =
+        resolveCardOrOverlaySurface(role) ?: resolveChromeSurface(role)
+            ?: error("Unsupported general surface role: $role")
+
+    private fun resolveCardOrOverlaySurface(role: RipDpiSurfaceRole): RipDpiSurfaceStyle? =
+        when (role) {
             RipDpiSurfaceRole.Card -> {
                 RipDpiSurfaceStyle(
                     container = colorScheme.surface,
@@ -120,6 +158,13 @@ data class RipDpiSurfaceTokens(
                 )
             }
 
+            else -> {
+                null
+            }
+        }
+
+    private fun resolveChromeSurface(role: RipDpiSurfaceRole): RipDpiSurfaceStyle? =
+        when (role) {
             RipDpiSurfaceRole.Snackbar -> {
                 RipDpiSurfaceStyle(
                     container = colorScheme.inverseSurface,
@@ -138,15 +183,9 @@ data class RipDpiSurfaceTokens(
                 )
             }
 
-            RipDpiSurfaceRole.BottomSheetIconBadge -> {
-                RipDpiSurfaceStyle(
-                    container = colors.inputBackground,
-                    border = Color.Transparent,
-                    content = colors.foreground,
-                )
-            }
-
-            RipDpiSurfaceRole.DialogIconBadge -> {
+            RipDpiSurfaceRole.BottomSheetIconBadge,
+            RipDpiSurfaceRole.DialogIconBadge,
+            -> {
                 RipDpiSurfaceStyle(
                     container = colors.inputBackground,
                     border = Color.Transparent,
@@ -187,21 +226,8 @@ data class RipDpiSurfaceTokens(
                 )
             }
 
-            RipDpiSurfaceRole.ActuatorRail,
-            RipDpiSurfaceRole.ActuatorCarriage,
-            RipDpiSurfaceRole.ActuatorTerminalSlot,
-            RipDpiSurfaceRole.ActuatorPipelineSegment,
-            -> {
-                resolveActuatorSurface(role)
-            }
-
-            RipDpiSurfaceRole.RouteProfile,
-            RipDpiSurfaceRole.RouteCapability,
-            RipDpiSurfaceRole.RouteStack,
-            RipDpiSurfaceRole.RouteProvider,
-            RipDpiSurfaceRole.RouteOpportunity,
-            -> {
-                resolveRouteSurface(role)
+            else -> {
+                null
             }
         }
 
