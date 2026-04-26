@@ -245,8 +245,16 @@ internal class DiagnosticsHomeRecommendationApplier
             }
         }
 
-        private fun String.toHumanLabel(): String = replace('_', ' ').replaceFirstChar { it.uppercase() }
+        private fun String.toHumanLabel(): String =
+            HumanLabelOverrides[this] ?: replace('_', ' ').replaceFirstChar { it.uppercase() }
     }
+
+private val HumanLabelOverrides: Map<String, String> =
+    mapOf(
+        "tlsrec_split" to "TLS record split",
+        "tlsrec_fake" to "TLS record split + fake",
+        "sni_tls_suspect" to "SNI/TLS suspected",
+    )
 
 @Singleton
 internal class DiagnosticsHomeResolverActionCoordinator
