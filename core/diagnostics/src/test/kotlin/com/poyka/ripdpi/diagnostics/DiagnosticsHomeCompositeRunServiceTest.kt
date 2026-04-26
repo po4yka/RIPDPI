@@ -57,6 +57,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
                         error("unused")
                 }
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
@@ -64,14 +65,18 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
-                    diagnosticsScanController = scanController,
-                    diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
-                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    serviceStateStore = serviceStateStore,
                     probeResultCache = NoOpProbeResultCache(),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            diagnosticsScanController = scanController,
+                            diagnosticsTimelineSource = timelineSource,
+                            serviceStateStore = serviceStateStore,
+                        ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -146,6 +151,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
                         error("unused")
                 }
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
@@ -153,14 +159,18 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
-                    diagnosticsScanController = scanController,
-                    diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
-                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    serviceStateStore = serviceStateStore,
                     probeResultCache = NoOpProbeResultCache(),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            diagnosticsScanController = scanController,
+                            diagnosticsTimelineSource = timelineSource,
+                            serviceStateStore = serviceStateStore,
+                        ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -279,6 +289,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
                         error("unused")
                 }
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
@@ -286,14 +297,18 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
-                    diagnosticsScanController = scanController,
-                    diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
-                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    serviceStateStore = serviceStateStore,
                     probeResultCache = NoOpProbeResultCache(),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            diagnosticsScanController = scanController,
+                            diagnosticsTimelineSource = timelineSource,
+                            serviceStateStore = serviceStateStore,
+                        ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -349,6 +364,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
                         error("unused")
                 }
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
@@ -356,14 +372,18 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
-                    diagnosticsScanController = scanController,
-                    diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
-                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    serviceStateStore = serviceStateStore,
                     probeResultCache = NoOpProbeResultCache(),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            diagnosticsScanController = scanController,
+                            diagnosticsTimelineSource = timelineSource,
+                            serviceStateStore = serviceStateStore,
+                        ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -446,6 +466,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
                         error("unused")
                 }
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
@@ -453,14 +474,18 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
-                    diagnosticsScanController = scanController,
-                    diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = monitor,
-                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    serviceStateStore = serviceStateStore,
                     probeResultCache = NoOpProbeResultCache(),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            diagnosticsScanController = scanController,
+                            diagnosticsTimelineSource = timelineSource,
+                            serviceStateStore = serviceStateStore,
+                        ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -552,6 +577,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
                         error("unused")
                 }
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
@@ -559,14 +585,18 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
-                    diagnosticsScanController = scanController,
-                    diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
-                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    serviceStateStore = serviceStateStore,
                     probeResultCache = NoOpProbeResultCache(),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            diagnosticsScanController = scanController,
+                            diagnosticsTimelineSource = timelineSource,
+                            serviceStateStore = serviceStateStore,
+                        ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )
@@ -630,6 +660,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
                         error("unused")
                 }
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
@@ -637,14 +668,18 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
-                    diagnosticsScanController = scanController,
-                    diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
-                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    serviceStateStore = serviceStateStore,
                     probeResultCache = NoOpProbeResultCache(),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            diagnosticsScanController = scanController,
+                            diagnosticsTimelineSource = timelineSource,
+                            serviceStateStore = serviceStateStore,
+                        ),
                     json = json,
                     scope = backgroundScope,
                 )
@@ -782,6 +817,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     override suspend fun summarizeVerification(sessionId: String): DiagnosticsHomeVerificationOutcome =
                         error("unused")
                 }
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
             val service =
                 DefaultDiagnosticsHomeCompositeRunService(
                     detectionStageRunner = NoopHomeDetectionStageRunner,
@@ -789,14 +825,18 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
-                    diagnosticsScanController = scanController,
-                    diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
-                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    serviceStateStore = serviceStateStore,
                     probeResultCache = NoOpProbeResultCache(),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            diagnosticsScanController = scanController,
+                            diagnosticsTimelineSource = timelineSource,
+                            serviceStateStore = serviceStateStore,
+                        ),
                     json = json,
                     scope = backgroundScope,
                 )
@@ -857,14 +897,18 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     analysisAugmentationSource = NoopHomeAnalysisAugmentationSource,
                     networkEdgePreferenceStore = NoopNetworkEdgePreferenceStore,
                     diagnosticsProfileCatalog = stores,
-                    diagnosticsScanController = scanController,
-                    diagnosticsTimelineSource = timelineSource,
                     diagnosticsHomeWorkflowService = workflowService,
                     scanRecordStore = stores,
                     comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
                     networkHandoverMonitor = NoOpNetworkHandoverMonitor(),
                     serviceStateStore = serviceStateStore,
                     probeResultCache = NoOpProbeResultCache(),
+                    stageExecutor =
+                        HomeCompositeStageExecutor(
+                            diagnosticsScanController = scanController,
+                            diagnosticsTimelineSource = timelineSource,
+                            serviceStateStore = serviceStateStore,
+                        ),
                     json = diagnosticsTestJson(),
                     scope = backgroundScope,
                 )

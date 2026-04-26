@@ -240,31 +240,33 @@ async fn execute_once(method: &Method, url: &Url, request: &NativeOwnedTlsHttpRe
     tcp.set_nodelay(true)?;
 
     match url.scheme() {
-        "https" => {
-            let mut connector_builder = configure_builder(&request.tls_profile_id)
-                .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
-            connector_builder
-                .set_alpn_protos(HTTP11_ALPN)
-                .map_err(|error| io::Error::other(format!("TLS ALPN: {error}")))?;
-            let ssl = connector_builder
-                .build()
-                .configure()
-                .map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
-            let tls =
-                timeout(Duration::from_millis(request.connect_timeout_ms), tokio_boring::connect(ssl, &host, tcp))
-                    .await
-                    .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, format!("TLS handshake to {host} timed out")))?
-                    .map_err(|error| {
-                        io::Error::new(io::ErrorKind::ConnectionRefused, format!("TLS handshake failed: {error}"))
-                    })?;
-            send_request(method, &target_path, &host, port, request, TokioIo::new(tls)).await
-        }
+        "https" => execute_once_https(method, &target_path, &host, port, request, tcp).await,
         "http" => send_request(method, &target_path, &host, port, request, TokioIo::new(tcp)).await,
         scheme => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("unsupported scheme for native TLS fetch: {scheme}"),
         )),
     }
+}
+
+async fn execute_once_https(
+    method: &Method,
+    target_path: &str,
+    host: &str,
+    port: u16,
+    request: &NativeOwnedTlsHttpRequest,
+    tcp: TcpStream,
+) -> io::Result<RawHttpResponse> {
+    let mut connector_builder = configure_builder(&request.tls_profile_id)
+        .map_err(|error| io::Error::other(format!("TLS profile: {error}")))?;
+    connector_builder.set_alpn_protos(HTTP11_ALPN).map_err(|error| io::Error::other(format!("TLS ALPN: {error}")))?;
+    let ssl =
+        connector_builder.build().configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
+    let tls = timeout(Duration::from_millis(request.connect_timeout_ms), tokio_boring::connect(ssl, host, tcp))
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, format!("TLS handshake to {host} timed out")))?
+        .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("TLS handshake failed: {error}")))?;
+    send_request(method, target_path, host, port, request, TokioIo::new(tls)).await
 }
 
 async fn connect_transport(host: &str, port: u16, connect_timeout_ms: u64) -> io::Result<TcpStream> {
