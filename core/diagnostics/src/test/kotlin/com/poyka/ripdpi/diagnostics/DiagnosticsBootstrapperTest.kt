@@ -72,6 +72,7 @@ class DiagnosticsBootstrapperTest {
 
             bootstrapper.initialize()
             bootstrapper.initialize()
+            runCurrent()
             handoverStore.publish(handoverEvent())
             advanceTimeBy(100L)
             runCurrent()
@@ -83,7 +84,13 @@ class DiagnosticsBootstrapperTest {
     @Test
     fun `runtime history startup failure does not abort diagnostics bootstrap`() =
         runTest {
-            val stores = FakeDiagnosticsHistoryStores()
+            val stores =
+                FakeDiagnosticsHistoryStores().also { history ->
+                    history.telemetryState.value =
+                        listOf(
+                            telemetrySample(createdAt = System.currentTimeMillis()),
+                        )
+                }
             val runtimeHistoryStartup =
                 RecordingRuntimeHistoryStartup(
                     failure = IllegalStateException("boom"),
@@ -103,6 +110,7 @@ class DiagnosticsBootstrapperTest {
                 )
 
             bootstrapper.initialize()
+            runCurrent()
             handoverStore.publish(handoverEvent())
             advanceTimeBy(100L)
             runCurrent()
@@ -136,7 +144,13 @@ class DiagnosticsBootstrapperTest {
             policyHandoverEventStore = policyHandoverEventStore,
             automaticProbeScheduler =
                 AutomaticProbeScheduler(
-                    appSettingsRepository = FakeAppSettingsRepository(),
+                    appSettingsRepository =
+                        FakeAppSettingsRepository(
+                            defaultDiagnosticsAppSettings()
+                                .toBuilder()
+                                .setNetworkStrategyMemoryEnabled(true)
+                                .build(),
+                        ),
                     rememberedNetworkPolicyStore =
                         DefaultRememberedNetworkPolicyStore(
                             stores,
