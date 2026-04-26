@@ -11,6 +11,8 @@
         "default-session",
         "dpi-session"
     ],
+    "completedStageCount": 2,
+    "confidenceSummary": "Confidence high",
     "connectivityAssessment": {
         "affectedTargets": [
             "www.youtube.com",
@@ -23,8 +25,11 @@
         "inPathEvidence": {
             "affectedTargetFailureCount": 0,
             "affectedTargetSuccessCount": 0,
+            "affectedTargets": [],
             "controlFailureCount": 0,
-            "controlSuccessCount": 0
+            "controlSuccessCount": 0,
+            "controls": [],
+            "sessionIds": []
         },
         "rawPathEvidence": {
             "affectedTargetFailureCount": 2,
@@ -46,6 +51,8 @@
         },
         "recommendedNextAction": "Treat this as a direct-network blocking issue.",
         "resolverAssessment": {
+            "diagnosisCodes": [],
+            "mismatchTargets": [],
             "strongestSignal": "none",
             "summary": "No resolver interference signal recorded."
         },
@@ -57,8 +64,6 @@
             "summary": "No actionable native runtime failure recorded."
         }
     },
-    "completedStageCount": 2,
-    "confidenceSummary": "Confidence high",
     "coverageSummary": "Coverage 92%",
     "failedStageCount": 1,
     "fingerprintHash": "fp-home",
