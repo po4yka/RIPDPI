@@ -170,9 +170,10 @@ fn parse_client_hello_layout_in_handshake_with_base(
         ext_cursor = data_end;
     }
 
+    let payload_span = base..base + buffer.len();
     Ok(ParsedClientHelloLayout {
         raw: buffer.to_vec(),
-        payload_spans: vec![base..base + buffer.len()],
+        payload_spans: vec![payload_span],
         handshake_start: base,
         extensions_start: base + extensions_start,
         extensions_end: base + extensions_end,

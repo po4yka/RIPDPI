@@ -43,6 +43,9 @@ use super::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability, TcpActi
 mod experimental_tier3;
 mod fake_send;
 mod ip_fragmentation;
+mod mmap_region;
+
+pub(super) use mmap_region::{alloc_region, free_region, write_region};
 
 pub use experimental_tier3::{recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_syn_hide_tcp};
 pub use fake_send::{
@@ -1270,36 +1273,6 @@ fn wait_tcp_stage_fd(fd: libc::c_int, wait_send: bool, await_interval: Duration)
         if !tcp_has_notsent(fd)? {
             return Ok(());
         }
-    }
-}
-
-fn alloc_region(len: usize) -> io::Result<*mut u8> {
-    use nix::sys::mman::{mmap_anonymous, MapFlags, ProtFlags};
-    use std::num::NonZeroUsize;
-    let size =
-        NonZeroUsize::new(len).ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "zero-length mmap region"))?;
-    // SAFETY: anonymous private mapping; no backing fd; no aliasing with existing mappings.
-    let ptr =
-        unsafe { mmap_anonymous(None, size, ProtFlags::PROT_READ | ProtFlags::PROT_WRITE, MapFlags::MAP_PRIVATE) }
-            .map_err(io::Error::from)?;
-    Ok(ptr.as_ptr().cast())
-}
-
-fn free_region(region: *mut u8, len: usize) {
-    use std::ptr::NonNull;
-    if let Some(ptr) = NonNull::new(region) {
-        if len != 0 {
-            // SAFETY: `region` was allocated by mmap with the same length.
-            let _ = unsafe { nix::sys::mman::munmap(ptr.cast(), len) };
-        }
-    }
-}
-
-fn write_region(region: *mut u8, data: &[u8], len: usize) {
-    // SAFETY: `region` points to a writable mapping of `len` bytes.
-    unsafe {
-        ptr::write_bytes(region, 0, len);
-        ptr::copy_nonoverlapping(data.as_ptr(), region, data.len().min(len));
     }
 }
 
