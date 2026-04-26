@@ -393,7 +393,7 @@ abstract class DiagnosticsManagerModule {
 
     @Binds
     @Singleton
-    abstract fun bindDiagnosticsHomeCompositeRunService(
+    internal abstract fun bindDiagnosticsHomeCompositeRunService(
         service: DefaultDiagnosticsHomeCompositeRunService,
     ): DiagnosticsHomeCompositeRunService
 

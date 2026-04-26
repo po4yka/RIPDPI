@@ -17,12 +17,9 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -36,7 +33,7 @@ import javax.inject.Singleton
 
 @Suppress("detekt.LargeClass", "detekt.TooManyFunctions")
 @Singleton
-class DefaultDiagnosticsHomeCompositeRunService
+internal class DefaultDiagnosticsHomeCompositeRunService
     @Inject
     constructor(
         private val detectionStageRunner: HomeDetectionStageRunner,
@@ -44,14 +41,13 @@ class DefaultDiagnosticsHomeCompositeRunService
         private val analysisAugmentationSource: HomeAnalysisAugmentationSource,
         private val networkEdgePreferenceStore: NetworkEdgePreferenceStore,
         private val diagnosticsProfileCatalog: DiagnosticsProfileCatalog,
-        private val diagnosticsScanController: DiagnosticsScanController,
-        private val diagnosticsTimelineSource: DiagnosticsTimelineSource,
         private val diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
         private val scanRecordStore: DiagnosticsScanRecordStore,
         private val comparisonScanCoordinator: ComparisonScanCoordinator,
         private val networkHandoverMonitor: NetworkHandoverMonitor,
         private val serviceStateStore: ServiceStateStore,
         private val probeResultCache: ProbeResultCache,
+        private val stageExecutor: HomeCompositeStageExecutor,
         @param:Named("diagnosticsJson")
         private val json: Json,
         @param:ApplicationIoScope
@@ -59,7 +55,6 @@ class DefaultDiagnosticsHomeCompositeRunService
     ) : DiagnosticsHomeCompositeRunService {
         private companion object {
             private val log = Logger.withTag("HomeAnalysis")
-            private const val TimedOutStageRecoveryTimeoutMs = 5_000L
         }
 
         private val progressState = MutableStateFlow<Map<String, DiagnosticsHomeCompositeProgress>>(emptyMap())
@@ -149,10 +144,23 @@ class DefaultDiagnosticsHomeCompositeRunService
                 DiagnosticsQuickScanRunner(scanRecordStore, diagnosticsHomeWorkflowService, json)
                     .execute(
                         runId = runId,
-                        executeStage = ::executeStageWithTimeout,
+                        executeStage = { rId, idx, spec, quickScan, maxCandidates ->
+                            stageExecutor.executeStageWithTimeout(
+                                runId = rId,
+                                stageIndex = idx,
+                                spec = spec,
+                                progressState = progressState,
+                                quickScan = quickScan,
+                                maxCandidates = maxCandidates,
+                            )
+                        },
                         runDetectionStage = ::runDetectionStage,
-                        markStageFailure = ::markStageFailure,
-                        updateStage = ::updateStage,
+                        markStageFailure = { rId, idx, headline, summary ->
+                            stageExecutor.markStageFailure(progressState, rId, idx, headline, summary)
+                        },
+                        updateStage = { rId, idx, transform ->
+                            stageExecutor.updateStage(progressState, rId, idx, transform)
+                        },
                         isAuditRunning = {
                             progressState.value[runId]
                                 ?.stages
@@ -178,18 +186,22 @@ class DefaultDiagnosticsHomeCompositeRunService
                     }
                 }
 
-            val auditCompletedSession = executeStageWithTimeout(runId, auditIndex, auditSpec)
+            val auditCompletedSession =
+                stageExecutor.executeStageWithTimeout(
+                    runId,
+                    auditIndex,
+                    auditSpec,
+                    progressState,
+                )
             if (auditCompletedSession == null) {
-                // Stage either timed out or was marked failed by VPN-halt detection inside
-                // executeStage. Ensure the stage is recorded as failed if it is still running
-                // (the VPN-halt path already calls markStageFailure; the timeout path does not).
                 val currentStageStatus =
                     progressState.value[runId]
                         ?.stages
                         ?.getOrNull(auditIndex)
                         ?.status
                 if (currentStageStatus == DiagnosticsHomeCompositeStageStatus.RUNNING) {
-                    markStageFailure(
+                    stageExecutor.markStageFailure(
+                        progressState = progressState,
                         runId = runId,
                         stageIndex = auditIndex,
                         headline = "${auditSpec.label} timed out",
@@ -266,7 +278,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                     headline = completedSummary.headline,
                     summary = completedSummary.summary,
                 )
-            updateStage(runId, auditIndex) { completedSummary }
+            stageExecutor.updateStage(progressState, runId, auditIndex) { completedSummary }
             if (auditSession.status != "completed") {
                 skipRemainingStages(runId, reason = "Skipped due to network unavailability.")
                 return null
@@ -274,7 +286,7 @@ class DefaultDiagnosticsHomeCompositeRunService
             val finalizedAuditOutcome = diagnosticsHomeWorkflowService.finalizeHomeAudit(auditSessionId)
             auditOutcome = finalizedAuditOutcome
             log.i { "audit finalized actionable=${finalizedAuditOutcome.actionable}" }
-            updateStage(runId, auditIndex) { current ->
+            stageExecutor.updateStage(progressState, runId, auditIndex) { current ->
                 current.copy(
                     headline = finalizedAuditOutcome.headline,
                     summary = finalizedAuditOutcome.summary,
@@ -298,10 +310,10 @@ class DefaultDiagnosticsHomeCompositeRunService
                                 runDetectionStage(runId, stageIndex, spec)
                                 return@launch
                             }
-                            var result = executeStage(runId, stageIndex, spec)
+                            var result = stageExecutor.executeStage(runId, stageIndex, spec, progressState)
                             if (result == null) {
                                 delay(StageRetryDelayMs)
-                                result = executeStage(runId, stageIndex, spec)
+                                result = stageExecutor.executeStage(runId, stageIndex, spec, progressState)
                             }
                             if (result != null) {
                                 val (sessionId, completedSession) = result
@@ -313,7 +325,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                                         scanRecordStore,
                                         json,
                                     )
-                                updateStage(runId, stageIndex) { completedSummary }
+                                stageExecutor.updateStage(progressState, runId, stageIndex) { completedSummary }
                             }
                         }
                     }
@@ -329,9 +341,18 @@ class DefaultDiagnosticsHomeCompositeRunService
             stageIndex: Int,
             spec: HomeCompositeStageSpec,
         ) {
-            val selection = buildPathComparisonSelection(runId)
+            val selection =
+                buildPathComparisonSelection(
+                    runId = runId,
+                    progressState = progressState,
+                    diagnosticsProfileCatalog = diagnosticsProfileCatalog,
+                    scanRecordStore = scanRecordStore,
+                    json = json,
+                    serviceStateStore = serviceStateStore,
+                    comparisonScanCoordinator = comparisonScanCoordinator,
+                )
             if (selection == null) {
-                updateStage(runId, stageIndex) { current ->
+                stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
                     current.copy(
                         status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
                         headline = "${spec.label} skipped",
@@ -340,7 +361,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                 }
                 return
             }
-            updateStage(runId, stageIndex) { current ->
+            stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
                 current.copy(
                     summary =
                         "Comparing ${selection.domainTargets.size} domain controls/failures and " +
@@ -348,10 +369,11 @@ class DefaultDiagnosticsHomeCompositeRunService
                 )
             }
             var result =
-                executeStageWithTimeout(
+                stageExecutor.executeStageWithTimeout(
                     runId = runId,
                     stageIndex = stageIndex,
                     spec = spec,
+                    progressState = progressState,
                     targetOverrides =
                         DiagnosticsScanTargetOverrides(
                             domainTargets = selection.domainTargets,
@@ -362,10 +384,11 @@ class DefaultDiagnosticsHomeCompositeRunService
             if (result == null) {
                 delay(StageRetryDelayMs)
                 result =
-                    executeStageWithTimeout(
+                    stageExecutor.executeStageWithTimeout(
                         runId = runId,
                         stageIndex = stageIndex,
                         spec = spec,
+                        progressState = progressState,
                         targetOverrides =
                             DiagnosticsScanTargetOverrides(
                                 domainTargets = selection.domainTargets,
@@ -384,7 +407,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                         scanRecordStore = scanRecordStore,
                         json = json,
                     )
-                updateStage(runId, stageIndex) {
+                stageExecutor.updateStage(progressState, runId, stageIndex) {
                     completedSummary.copy(
                         summary =
                             completedSummary.summary +
@@ -397,148 +420,12 @@ class DefaultDiagnosticsHomeCompositeRunService
             }
         }
 
-        private suspend fun buildPathComparisonSelection(runId: String): PathComparisonSelection? {
-            val progress = progressState.value[runId] ?: return null
-            val rawStageSpecs =
-                HomeCompositeStageSpecs.filter { spec ->
-                    spec.key in setOf("default_connectivity", "ru_circumvention", "dpi_full")
-                }
-            val profileSpecs =
-                rawStageSpecs
-                    .mapNotNull { spec ->
-                        diagnosticsProfileCatalog.getProfile(spec.profileId)?.let { profile ->
-                            spec.profileId to json.decodeProfileSpecWire(profile.requestJson)
-                        }
-                    }.toMap()
-            val domainCatalog =
-                profileSpecs.values
-                    .flatMap { it.domainTargets }
-                    .associateBy { it.host.lowercase() }
-            val serviceCatalog =
-                profileSpecs.values
-                    .flatMap { it.serviceTargets }
-                    .associateBy { it.id.lowercase() }
-            val circumventionCatalog =
-                profileSpecs.values
-                    .flatMap { it.circumventionTargets }
-                    .associateBy { it.id.lowercase() }
-            val reports =
-                rawStageSpecs.mapNotNull { spec ->
-                    val sessionId =
-                        progress.stages.firstOrNull { it.stageKey == spec.key }?.sessionId ?: return@mapNotNull null
-                    decodeReport(scanRecordStore, sessionId, json)?.let { spec to it }
-                }
-            val controls =
-                reports
-                    .flatMap { (_, report) -> report.observations }
-                    .mapNotNull { observation ->
-                        observation.domain
-                            ?.takeIf {
-                                it.isControl &&
-                                    domainObservationSuccessful(it)
-                            }?.host
-                    }.distinct()
-                    .map { host -> domainCatalog[host.lowercase()] ?: DomainTarget(host = host, isControl = true) }
-                    .take(2)
-            if (controls.isEmpty()) return null
-            val failedDomains =
-                reports
-                    .flatMap { (_, report) -> report.observations }
-                    .mapNotNull { observation ->
-                        observation.domain
-                            ?.takeIf { !it.isControl && domainObservationFailed(it) }
-                            ?.host
-                    }.distinct()
-                    .map { host ->
-                        domainCatalog[host.lowercase()]?.copy(isControl = false) ?: DomainTarget(host = host)
-                    }.take(3)
-            val failedServices =
-                reports
-                    .flatMap { (_, report) -> report.observations }
-                    .mapNotNull { observation ->
-                        when {
-                            observation.service?.let(::serviceObservationFailed) == true -> {
-                                serviceCatalog[observation.target.lowercase()]
-                            }
-
-                            observation.circumvention?.let(::circumventionObservationFailed) == true -> {
-                                circumventionCatalog[observation.target.lowercase()]
-                            }
-
-                            else -> {
-                                null
-                            }
-                        }
-                    }.distinctBy { target ->
-                        when (target) {
-                            is ServiceTarget -> "service:${target.id}"
-                            is CircumventionTarget -> "circumvention:${target.id}"
-                            else -> target.toString()
-                        }
-                    }.take(2)
-            val serviceTargets = failedServices.filterIsInstance<ServiceTarget>()
-            val circumventionTargets = failedServices.filterIsInstance<CircumventionTarget>()
-            val serviceRuntime =
-                buildServiceRuntimeAssessment(
-                    serviceStatus = serviceStateStore.status.value.first,
-                    telemetry = serviceStateStore.telemetry.value,
-                )
-            if (failedDomains.isEmpty() && serviceTargets.isEmpty() && circumventionTargets.isEmpty() &&
-                !serviceRuntime.actionable
-            ) {
-                return null
-            }
-            val domainTargets =
-                (
-                    controls.map {
-                        it.copy(
-                            isControl = true,
-                        )
-                    } + failedDomains
-                ).distinctBy { it.host.lowercase() }
-            return PathComparisonSelection(
-                domainTargets = domainTargets,
-                serviceTargets = serviceTargets,
-                circumventionTargets = circumventionTargets,
-                failedTargetLabels =
-                    failedDomains.map(DomainTarget::host) + serviceTargets.map(ServiceTarget::id) +
-                        circumventionTargets.map(CircumventionTarget::id),
-            )
-        }
-
-        private suspend fun buildConnectivityAssessment(runId: String): ConnectivityAssessment? {
-            val progress = progressState.value[runId] ?: return null
-            val rawReports =
-                progress.stages
-                    .filter { it.pathMode == ScanPathMode.RAW_PATH }
-                    .mapNotNull { decodeReport(scanRecordStore, it.sessionId, json) }
-            if (rawReports.isEmpty()) return null
-            val inPathStage = progress.stages.firstOrNull { it.stageKey == "path_comparison" }
-            val inPathReport = decodeReport(scanRecordStore, inPathStage?.sessionId, json)
-            val serviceRuntime =
-                buildServiceRuntimeAssessment(
-                    serviceStatus = serviceStateStore.status.value.first,
-                    telemetry = serviceStateStore.telemetry.value,
-                )
-            return comparisonScanCoordinator.assessConnectivity(
-                rawReports = rawReports,
-                inPathReport = inPathReport,
-                rawPathSessionIds =
-                    progress.stages
-                        .filter {
-                            it.pathMode == ScanPathMode.RAW_PATH
-                        }.mapNotNull { it.sessionId },
-                inPathSessionId = inPathStage?.sessionId,
-                serviceRuntimeAssessment = serviceRuntime,
-            )
-        }
-
         private suspend fun runDetectionStage(
             runId: String,
             stageIndex: Int,
             spec: HomeCompositeStageSpec,
         ) {
-            updateStage(runId, stageIndex) { stage ->
+            stageExecutor.updateStage(progressState, runId, stageIndex) { stage ->
                 stage.copy(
                     status = DiagnosticsHomeCompositeStageStatus.RUNNING,
                     headline = "${spec.label} running",
@@ -550,7 +437,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                 runCatching {
                     withTimeoutOrNull(DetectionStageTimeoutMs) {
                         detectionStageRunner.run { label, detail ->
-                            updateStage(runId, stageIndex) { current ->
+                            stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
                                 current.copy(summary = "$label: $detail")
                             }
                         }
@@ -558,7 +445,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                 }.getOrNull()
             if (outcome == null) {
                 log.w { "detection stage failed or timed out" }
-                updateStage(runId, stageIndex) { current ->
+                stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
                     current.copy(
                         status = DiagnosticsHomeCompositeStageStatus.FAILED,
                         headline = "${spec.label} failed",
@@ -581,7 +468,7 @@ class DefaultDiagnosticsHomeCompositeRunService
                 } else {
                     "$verdictText."
                 }
-            updateStage(runId, stageIndex) { current ->
+            stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
                 current.copy(
                     status = DiagnosticsHomeCompositeStageStatus.COMPLETED,
                     headline = "${spec.label} complete",
@@ -597,7 +484,7 @@ class DefaultDiagnosticsHomeCompositeRunService
             HomeCompositeStageSpecs.drop(1).forEachIndexed { i, spec ->
                 val stageIndex = i + 1
                 log.i { "stage ${spec.key} skipped: $reason" }
-                updateStage(runId, stageIndex) { current ->
+                stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
                     current.copy(
                         status = DiagnosticsHomeCompositeStageStatus.SKIPPED,
                         headline = "${spec.label} skipped",
@@ -614,10 +501,17 @@ class DefaultDiagnosticsHomeCompositeRunService
             var auditOutcome = currentAuditOutcome
             val dpiStrategySpec = HomeCompositeStageSpecs.last()
             val dpiStrategyIndex = HomeCompositeStageSpecs.lastIndex
-            var dpiStrategyResult = executeStageWithTimeout(runId, dpiStrategyIndex, dpiStrategySpec)
+            var dpiStrategyResult =
+                stageExecutor.executeStageWithTimeout(
+                    runId,
+                    dpiStrategyIndex,
+                    dpiStrategySpec,
+                    progressState,
+                )
             if (dpiStrategyResult == null) {
                 delay(StageRetryDelayMs)
-                dpiStrategyResult = executeStageWithTimeout(runId, dpiStrategyIndex, dpiStrategySpec)
+                dpiStrategyResult =
+                    stageExecutor.executeStageWithTimeout(runId, dpiStrategyIndex, dpiStrategySpec, progressState)
             }
             if (dpiStrategyResult != null) {
                 val (dpiStrategySessionId, dpiStrategySession) = dpiStrategyResult
@@ -629,15 +523,13 @@ class DefaultDiagnosticsHomeCompositeRunService
                         scanRecordStore = scanRecordStore,
                         json = json,
                     )
-                updateStage(runId, dpiStrategyIndex) { dpiStrategySummary }
-                // If the audit stage did not produce actionable recommendations,
-                // let the strategy probe contribute its own recommendation.
+                stageExecutor.updateStage(progressState, runId, dpiStrategyIndex) { dpiStrategySummary }
                 if (auditOutcome?.actionable != true && dpiStrategySession.status == "completed") {
                     val strategyAuditOutcome =
                         diagnosticsHomeWorkflowService.finalizeHomeAudit(dpiStrategySessionId)
                     if (strategyAuditOutcome.actionable) {
                         auditOutcome = strategyAuditOutcome
-                        updateStage(runId, dpiStrategyIndex) { current ->
+                        stageExecutor.updateStage(progressState, runId, dpiStrategyIndex) { current ->
                             current.copy(
                                 headline = strategyAuditOutcome.headline,
                                 summary = strategyAuditOutcome.summary,
@@ -707,7 +599,15 @@ class DefaultDiagnosticsHomeCompositeRunService
                     regressionDelta = computeRegressionDelta(baseOutcome, previousOutcome),
                     bufferbloat = bufferbloat,
                     dnsCharacterization = dnsCharacterization,
-                    connectivityAssessment = buildConnectivityAssessment(runId),
+                    connectivityAssessment =
+                        buildConnectivityAssessment(
+                            runId = runId,
+                            progressState = progressState,
+                            scanRecordStore = scanRecordStore,
+                            json = json,
+                            serviceStateStore = serviceStateStore,
+                            comparisonScanCoordinator = comparisonScanCoordinator,
+                        ),
                 )
             val reproAction =
                 outcomeWithoutSynthesis.connectivityAssessment
@@ -758,244 +658,6 @@ class DefaultDiagnosticsHomeCompositeRunService
             }
         }
 
-        private suspend fun executeStage(
-            runId: String,
-            stageIndex: Int,
-            spec: HomeCompositeStageSpec,
-            maxCandidates: Int? = null,
-            targetOverrides: DiagnosticsScanTargetOverrides? = null,
-        ): Pair<String, DiagnosticScanSession>? {
-            val stageSessionId =
-                launchStageSession(
-                    runId = runId,
-                    stageIndex = stageIndex,
-                    spec = spec,
-                    quickScan = false,
-                    maxCandidates = maxCandidates,
-                    targetOverrides = targetOverrides,
-                ) ?: return null
-            return awaitStageSignal(runId, stageIndex, spec, stageSessionId)
-        }
-
-        private suspend fun launchStageSession(
-            runId: String,
-            stageIndex: Int,
-            spec: HomeCompositeStageSpec,
-            quickScan: Boolean,
-            maxCandidates: Int? = null,
-            targetOverrides: DiagnosticsScanTargetOverrides? = null,
-        ): String? {
-            updateStage(runId, stageIndex) { stage ->
-                stage.copy(
-                    status = DiagnosticsHomeCompositeStageStatus.RUNNING,
-                    headline = "${spec.label} running",
-                    summary = "Starting ${spec.label.lowercase()}.",
-                )
-            }
-            log.i {
-                "stage ${spec.key} started (profile=${spec.profileId} timeout=${stageTimeoutMs(spec, quickScan)}ms)"
-            }
-            val stageSessionId =
-                startStageSession(
-                    runId = runId,
-                    stageIndex = stageIndex,
-                    spec = spec,
-                    quickScan = quickScan,
-                    maxCandidates = maxCandidates,
-                    targetOverrides = targetOverrides,
-                ) ?: return null
-            updateStage(runId, stageIndex) { current ->
-                current.copy(
-                    sessionId = stageSessionId,
-                    status = DiagnosticsHomeCompositeStageStatus.RUNNING,
-                    headline = "${spec.label} running",
-                    summary = "Collecting diagnostics for ${spec.label.lowercase()}.",
-                )
-            }
-            return stageSessionId
-        }
-
-        private suspend fun startStageSession(
-            runId: String,
-            stageIndex: Int,
-            spec: HomeCompositeStageSpec,
-            quickScan: Boolean = false,
-            maxCandidates: Int? = null,
-            targetOverrides: DiagnosticsScanTargetOverrides? = null,
-        ): String? =
-            runCatching {
-                diagnosticsScanController.startScan(
-                    pathMode = spec.pathMode,
-                    selectedProfileId = spec.profileId,
-                    skipActiveScanCheck = true,
-                    scanDeadlineMs = stageTimeoutMs(spec, quickScan) - 30_000L,
-                    maxCandidates = maxCandidates,
-                    targetOverrides = targetOverrides,
-                )
-            }.fold(
-                onSuccess = { result ->
-                    when (result) {
-                        is DiagnosticsManualScanStartResult.Started -> {
-                            result.sessionId
-                        }
-
-                        is DiagnosticsManualScanStartResult.RequiresHiddenProbeResolution -> {
-                            markStageFailure(
-                                runId = runId,
-                                stageIndex = stageIndex,
-                                headline = "${spec.label} unavailable",
-                                summary = "Another diagnostics run is already active.",
-                            )
-                            null
-                        }
-                    }
-                },
-                onFailure = {
-                    markStageFailure(
-                        runId = runId,
-                        stageIndex = stageIndex,
-                        headline = "${spec.label} failed",
-                        summary = it.message ?: "Unable to start ${spec.label.lowercase()}.",
-                    )
-                    null
-                },
-            )
-
-        private suspend fun awaitStageSignal(
-            runId: String,
-            stageIndex: Int,
-            spec: HomeCompositeStageSpec,
-            stageSessionId: String,
-        ): Pair<String, DiagnosticScanSession>? {
-            val sessionFinished: Flow<StageSessionSignal> =
-                diagnosticsTimelineSource.sessions
-                    .map { sessions ->
-                        sessions.firstOrNull { it.id == stageSessionId && it.status != "running" }
-                    }.filterNotNull()
-                    .map { StageSessionSignal.Finished(it) }
-
-            val vpnHalted: Flow<StageSessionSignal> =
-                serviceStateStore.status
-                    .drop(1) // skip current snapshot; only react to future transitions
-                    .filter { pair -> pair.first == AppStatus.Halted }
-                    .map { StageSessionSignal.VpnHalted }
-
-            return when (val signal = merge(sessionFinished, vpnHalted).first()) {
-                is StageSessionSignal.Finished -> {
-                    log.i { "stage ${spec.key} completed status=${signal.session.status}" }
-                    stageSessionId to signal.session
-                }
-
-                StageSessionSignal.VpnHalted -> {
-                    log.w { "VPN halted during stage ${spec.key}" }
-                    markStageFailure(
-                        runId = runId,
-                        stageIndex = stageIndex,
-                        headline = "${spec.label} failed",
-                        summary = "VPN service stopped while the stage was running.",
-                    )
-                    null
-                }
-            }
-        }
-
-        private suspend fun executeStageWithTimeout(
-            runId: String,
-            stageIndex: Int,
-            spec: HomeCompositeStageSpec,
-            quickScan: Boolean = false,
-            maxCandidates: Int? = null,
-            targetOverrides: DiagnosticsScanTargetOverrides? = null,
-        ): Pair<String, DiagnosticScanSession>? =
-            run {
-                val stageSessionId =
-                    launchStageSession(
-                        runId = runId,
-                        stageIndex = stageIndex,
-                        spec = spec,
-                        quickScan = quickScan,
-                        maxCandidates = maxCandidates,
-                        targetOverrides = targetOverrides,
-                    ) ?: return@run null
-
-                withTimeoutOrNull(stageTimeoutMs(spec, quickScan)) {
-                    awaitStageSignal(runId, stageIndex, spec, stageSessionId)
-                } ?: handleTimedOutStage(
-                    runId = runId,
-                    stageIndex = stageIndex,
-                    spec = spec,
-                    quickScan = quickScan,
-                    stageSessionId = stageSessionId,
-                )
-            }
-
-        private suspend fun handleTimedOutStage(
-            runId: String,
-            stageIndex: Int,
-            spec: HomeCompositeStageSpec,
-            quickScan: Boolean,
-            stageSessionId: String,
-        ): Pair<String, DiagnosticScanSession>? {
-            log.w { "stage ${spec.key} timed out after ${stageTimeoutMs(spec, quickScan)}ms" }
-            // Signal the native side to stop — otherwise the Rust probe thread
-            // runs orphaned until its own deadline or completion.
-            runCatching { diagnosticsScanController.cancelActiveScan() }
-            val recoveredSession =
-                awaitTimedOutStageRecovery(stageSessionId)
-            if (recoveredSession != null) {
-                log.i { "stage ${spec.key} recovered after timeout status=${recoveredSession.status}" }
-                return stageSessionId to recoveredSession
-            }
-            markStageFailure(
-                runId = runId,
-                stageIndex = stageIndex,
-                headline = "${spec.label} timed out",
-                summary = "The stage did not complete within the allowed time.",
-            )
-            return null
-        }
-
-        private suspend fun awaitTimedOutStageRecovery(stageSessionId: String): DiagnosticScanSession? =
-            withTimeoutOrNull(TimedOutStageRecoveryTimeoutMs) {
-                diagnosticsTimelineSource.sessions
-                    .map { sessions ->
-                        sessions.firstOrNull { it.id == stageSessionId && it.status != "running" }
-                    }.filterNotNull()
-                    .first()
-            }
-
-        private fun markStageFailure(
-            runId: String,
-            stageIndex: Int,
-            headline: String,
-            summary: String,
-        ) {
-            updateStage(runId, stageIndex) { current ->
-                current.copy(
-                    status = DiagnosticsHomeCompositeStageStatus.FAILED,
-                    headline = headline,
-                    summary = summary,
-                )
-            }
-        }
-
-        private fun updateStage(
-            runId: String,
-            stageIndex: Int,
-            transform: (DiagnosticsHomeCompositeStageSummary) -> DiagnosticsHomeCompositeStageSummary,
-        ) {
-            progressState.update { current ->
-                current.updatedRun(runId) { progress ->
-                    val updatedStages = progress.stages.updated(stageIndex, transform)
-                    progress.copy(
-                        activeStageIndex = stageIndex,
-                        activeSessionId = updatedStages.getOrNull(stageIndex)?.sessionId,
-                        stages = updatedStages,
-                    )
-                }
-            }
-        }
-
         private fun mostRecentCompletedRunBefore(currentRunId: String): DiagnosticsHomeCompositeOutcome? =
             completedRuns.entries
                 .asSequence()
@@ -1003,37 +665,3 @@ class DefaultDiagnosticsHomeCompositeRunService
                 .map { (_, value) -> value }
                 .maxByOrNull { it.bundleSessionIds.size }
     }
-
-private data class PathComparisonSelection(
-    val domainTargets: List<DomainTarget>,
-    val serviceTargets: List<ServiceTarget>,
-    val circumventionTargets: List<CircumventionTarget>,
-    val failedTargetLabels: List<String>,
-)
-
-private fun domainObservationSuccessful(fact: DomainObservationFact): Boolean =
-    fact.httpStatus == HttpProbeStatus.OK ||
-        fact.tls13Status == TlsProbeStatus.OK ||
-        fact.tls12Status == TlsProbeStatus.OK ||
-        fact.tls13Status == TlsProbeStatus.VERSION_SPLIT ||
-        fact.tls12Status == TlsProbeStatus.VERSION_SPLIT
-
-private fun domainObservationFailed(fact: DomainObservationFact): Boolean =
-    fact.transportFailure != TransportFailureKind.NONE ||
-        fact.httpStatus == HttpProbeStatus.UNREACHABLE ||
-        fact.tls13Status == TlsProbeStatus.HANDSHAKE_FAILED ||
-        fact.tls12Status == TlsProbeStatus.HANDSHAKE_FAILED ||
-        fact.tls13Status == TlsProbeStatus.CERT_INVALID ||
-        fact.tls12Status == TlsProbeStatus.CERT_INVALID
-
-private fun serviceObservationFailed(fact: ServiceObservationFact): Boolean =
-    fact.endpointStatus == EndpointProbeStatus.BLOCKED ||
-        fact.endpointStatus == EndpointProbeStatus.FAILED ||
-        fact.bootstrapStatus == HttpProbeStatus.UNREACHABLE ||
-        fact.mediaStatus == HttpProbeStatus.UNREACHABLE ||
-        fact.quicStatus == QuicProbeStatus.ERROR
-
-private fun circumventionObservationFailed(fact: CircumventionObservationFact): Boolean =
-    fact.handshakeStatus == EndpointProbeStatus.BLOCKED ||
-        fact.handshakeStatus == EndpointProbeStatus.FAILED ||
-        fact.bootstrapStatus == HttpProbeStatus.UNREACHABLE
