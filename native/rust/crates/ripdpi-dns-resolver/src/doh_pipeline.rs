@@ -95,12 +95,9 @@ impl DohResolverPipeline {
             return Ok(cached);
         }
 
-        match self.lookup_with_resolver(domain, DohResolverRole::Primary, &self.inner.primary).await {
-            Ok(lookup) => {
-                self.cache_lookup(domain, &lookup);
-                return Ok(lookup);
-            }
-            Err(_) => {}
+        if let Ok(lookup) = self.lookup_with_resolver(domain, DohResolverRole::Primary, &self.inner.primary).await {
+            self.cache_lookup(domain, &lookup);
+            return Ok(lookup);
         }
 
         match self.lookup_with_resolver(domain, DohResolverRole::Secondary, &self.inner.secondary).await {
@@ -117,15 +114,12 @@ impl DohResolverPipeline {
             return Ok(cached);
         }
 
-        match self.lookup_with_resolver_blocking(domain, DohResolverRole::Primary, &self.inner.primary) {
-            Ok(lookup) => {
-                self.cache_lookup(domain, &lookup);
-                return Ok(lookup);
-            }
-            Err(_) => {}
+        if let Ok(lookup) = Self::lookup_with_resolver_blocking(domain, DohResolverRole::Primary, &self.inner.primary) {
+            self.cache_lookup(domain, &lookup);
+            return Ok(lookup);
         }
 
-        match self.lookup_with_resolver_blocking(domain, DohResolverRole::Secondary, &self.inner.secondary) {
+        match Self::lookup_with_resolver_blocking(domain, DohResolverRole::Secondary, &self.inner.secondary) {
             Ok(lookup) => {
                 self.cache_lookup(domain, &lookup);
                 Ok(lookup)
@@ -185,7 +179,6 @@ impl DohResolverPipeline {
     }
 
     fn lookup_with_resolver_blocking(
-        &self,
         domain: &str,
         resolver_role: DohResolverRole,
         resolver: &EncryptedDnsResolver,
@@ -342,6 +335,6 @@ fn min_ttl_secs(response_bytes: &[u8]) -> Option<u32> {
         .iter()
         .chain(message.name_servers().iter())
         .chain(message.additionals().iter())
-        .map(|record| record.ttl())
+        .map(hickory_proto::rr::Record::ttl)
         .min()
 }

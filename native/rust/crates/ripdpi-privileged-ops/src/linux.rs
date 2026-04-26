@@ -136,6 +136,7 @@ pub(crate) fn dup2_fd(source_fd: libc::c_int, target_fd: libc::c_int) -> io::Res
 }
 
 /// Safe wrapper around `libc::close` for owned transient descriptors.
+#[cfg(test)]
 pub(crate) fn close_fd(fd: libc::c_int) -> io::Result<()> {
     // SAFETY: callers guarantee `fd` is an owned live descriptor that should
     // be closed exactly once by this helper.

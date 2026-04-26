@@ -625,6 +625,11 @@ fn evict_context_if_needed(
 
 #[cfg(test)]
 mod tests {
+    use std::hash::{Hash, Hasher};
+
+    use ripdpi_config::EntropyMode;
+    use ripdpi_desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
+
     use super::*;
 
     #[test]
