@@ -1298,14 +1298,22 @@ mod tests {
     /// Query the number of BPF instructions in the currently attached socket filter.
     /// Returns `Err` if no filter is attached.
     fn get_bpf_filter_len(fd: libc::c_int) -> io::Result<usize> {
-        let mut len: libc::socklen_t = 0;
-        // SO_GET_FILTER shares the same constant as SO_ATTACH_FILTER on getsockopt path.
-        let rc = unsafe { libc::getsockopt(fd, libc::SOL_SOCKET, libc::SO_ATTACH_FILTER, ptr::null_mut(), &mut len) };
-        if rc == 0 {
-            Ok(len as usize / size_of::<libc::sock_filter>())
-        } else {
-            Err(io::Error::last_os_error())
+        // SO_GET_FILTER shares the same constant as SO_ATTACH_FILTER on the getsockopt
+        // path. The kernel returns the number of program instructions as the syscall
+        // return value (positive integer) and copies the filter bytes into `optval` if
+        // the buffer is large enough. glibc passes the positive return value through
+        // unchanged. Pass a buffer big enough for any filter we attach in this crate
+        // so the kernel's copy_to_sockptr step succeeds and the instruction count is
+        // surfaced via the rc value.
+        let mut buffer: [libc::sock_filter; 64] = unsafe { std::mem::zeroed() };
+        let mut len: libc::socklen_t = size_of_val(&buffer) as libc::socklen_t;
+        let rc = unsafe {
+            libc::getsockopt(fd, libc::SOL_SOCKET, libc::SO_ATTACH_FILTER, buffer.as_mut_ptr().cast(), &mut len)
+        };
+        if rc < 0 {
+            return Err(io::Error::last_os_error());
         }
+        Ok(rc as usize)
     }
 
     fn get_tcp_fastopen_connect(fd: libc::c_int) -> io::Result<bool> {

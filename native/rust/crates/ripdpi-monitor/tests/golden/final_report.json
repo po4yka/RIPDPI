@@ -124,6 +124,54 @@
         {
           "key": "probeRetryCount",
           "value": "0"
+        },
+        {
+          "key": "httpFuzzBaseline",
+          "value": "http_blockpage"
+        },
+        {
+          "key": "httpFuzzVariantCount",
+          "value": "3"
+        },
+        {
+          "key": "httpFuzzOutcomes",
+          "value": "host_case_mix=http_blockpage:status=403|host_extra_space=http_blockpage:status=403|unix_eol=http_unreachable:Resource temporarily unavailable (os error _)"
+        },
+        {
+          "key": "httpFuzzFieldOutcomes",
+          "value": "host_header_format=host_case_mix:http_blockpage,host_extra_space:http_blockpage;line_endings=unix_eol:http_unreachable"
+        },
+        {
+          "key": "httpFuzzChangedFields",
+          "value": "line_endings"
+        },
+        {
+          "key": "httpFuzzChangedCount",
+          "value": "1"
+        },
+        {
+          "key": "tlsFuzzBaseline",
+          "value": "tls_handshake_failed"
+        },
+        {
+          "key": "tlsFuzzVariantCount",
+          "value": "1"
+        },
+        {
+          "key": "tlsFuzzOutcomes",
+          "value": "expand_padding=tcp_connect_failed:Connection refused (os error _)"
+        },
+        {
+          "key": "tlsFuzzFieldOutcomes",
+          "value": "padding_extension=expand_padding:tcp_connect_failed"
+        },
+        {
+          "key": "tlsFuzzChangedFields",
+          "value": "padding_extension"
+        },
+        {
+          "key": "tlsFuzzChangedCount",
+          "value": "1"
         }
       ],
       "outcome": "http_blockpage",

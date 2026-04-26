@@ -125,7 +125,7 @@ pub(super) fn append_dns_trigger_fuzzing_details(
         };
         let variant_result = execute_dns_variant(udp_server, transport, &packet, query_id);
         let outcome = classify_dns_variant_outcome(&variant_result, encrypted_result);
-        let detail = variant_result.as_ref().map(|addresses| addresses.join("|")).unwrap_or_else(Clone::clone);
+        let detail = variant_result.as_ref().map_or_else(Clone::clone, |addresses| addresses.join("|"));
         outcomes.push(TriggerFuzzOutcome { id, field, outcome, detail });
     }
     append_trigger_fuzzing_summary(details, "dnsFuzz", baseline_outcome, &outcomes);
@@ -344,7 +344,7 @@ fn dns_query_id(offset: u16) -> u16 {
 }
 
 fn sanitize_detail_value(value: &str) -> String {
-    value.replace('|', "/").replace(';', "/").replace(',', "/").replace('\n', " ").replace('\r', " ")
+    value.replace(['|', ';', ','], "/").replace(['\n', '\r'], " ")
 }
 
 #[cfg(test)]
