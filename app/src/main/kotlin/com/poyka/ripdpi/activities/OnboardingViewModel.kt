@@ -177,7 +177,9 @@ class OnboardingViewModel
             _uiState.update {
                 it.copy(selectedMode = mode).withValidationState(OnboardingValidationState.Idle)
             }
-            persistSelections(mode = mode, dnsProviderId = current.selectedDnsProviderId)
+            viewModelScope.launch {
+                persistSelectionsNow(mode = mode, dnsProviderId = current.selectedDnsProviderId)
+            }
         }
 
         fun selectDnsProvider(providerId: String) {
@@ -189,7 +191,9 @@ class OnboardingViewModel
             _uiState.update {
                 it.copy(selectedDnsProviderId = providerId).withValidationState(OnboardingValidationState.Idle)
             }
-            persistSelections(mode = current.selectedMode, dnsProviderId = providerId)
+            viewModelScope.launch {
+                persistSelectionsNow(mode = current.selectedMode, dnsProviderId = providerId)
+            }
         }
 
         fun runValidation() {
@@ -242,7 +246,11 @@ class OnboardingViewModel
             when (result) {
                 PermissionResult.Granted -> {
                     pendingValidationPermission = null
-                    rerunValidationAfterPermission()
+                    validationJob?.cancel()
+                    validationJob =
+                        viewModelScope.launch {
+                            performValidation(_uiState.value.selectedMode)
+                        }
                 }
 
                 PermissionResult.Denied,
@@ -272,7 +280,11 @@ class OnboardingViewModel
             when (result) {
                 PermissionResult.Granted -> {
                     pendingValidationPermission = null
-                    rerunValidationAfterPermission()
+                    validationJob?.cancel()
+                    validationJob =
+                        viewModelScope.launch {
+                            performValidation(_uiState.value.selectedMode)
+                        }
                 }
 
                 PermissionResult.Denied,
@@ -393,28 +405,11 @@ class OnboardingViewModel
             }
         }
 
-        private fun rerunValidationAfterPermission() {
-            validationJob?.cancel()
-            validationJob =
-                viewModelScope.launch {
-                    performValidation(_uiState.value.selectedMode)
-                }
-        }
-
         private fun invalidateValidation() {
             validationJob?.cancel()
             validationJob = null
             pendingValidationPermission = null
             validationRunner.stopActiveValidation()
-        }
-
-        private fun persistSelections(
-            mode: Mode,
-            dnsProviderId: String,
-        ) {
-            viewModelScope.launch {
-                persistSelectionsNow(mode = mode, dnsProviderId = dnsProviderId)
-            }
         }
 
         private suspend fun persistSelectionsNow(

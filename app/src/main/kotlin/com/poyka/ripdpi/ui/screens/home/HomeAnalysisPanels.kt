@@ -24,7 +24,9 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ControlPlaneHealthSeverityUiModel
 import com.poyka.ripdpi.activities.ControlPlaneHealthSummaryUiModel
 import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
+import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
 import com.poyka.ripdpi.activities.HomeApproachSummaryUiState
+import com.poyka.ripdpi.activities.HomeDiagnosticsLatestAuditUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -137,7 +139,6 @@ internal fun HomeDiagnosticsCard(
     onTogglePcapRecording: () -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val motion = RipDpiThemeTokens.motion
     val spacing = RipDpiThemeTokens.spacing
 
     RipDpiCard(
@@ -168,145 +169,27 @@ internal fun HomeDiagnosticsCard(
         }
         uiState.homeDiagnostics.latestAudit?.let { result ->
             Spacer(modifier = Modifier.height(spacing.sm))
-            val allStagesCompleted =
-                result.completedStageCount == result.totalStageCount && result.totalStageCount > 0
-            val headlineColor =
-                when {
-                    result.failedStageCount > 0 -> colors.destructive
-                    allStagesCompleted -> colors.success
-                    else -> colors.foreground
-                }
-            Text(
-                text = result.headline,
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = headlineColor,
-            )
-            if (result.totalStageCount > 0) {
-                Spacer(modifier = Modifier.height(spacing.xs))
-                StageProgressIndicator(
-                    completedCount = result.completedStageCount,
-                    failedCount = result.failedStageCount,
-                    totalCount = result.totalStageCount,
-                )
-            }
-            result.recommendationSummary?.let { recommendation ->
-                Text(
-                    text = recommendation,
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = colors.foreground,
-                )
-            }
-            if (result.stale) {
-                Text(
-                    text = stringResource(R.string.home_diagnostics_run_again),
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = colors.warning,
-                )
-            }
+            HomeLatestAuditSection(result = result)
         }
         uiState.homeDiagnostics.remediationLadder?.let { ladder ->
             Spacer(modifier = Modifier.height(spacing.sm))
-            DiagnosticsRemediationLadderCard(
+            HomeRemediationSection(
                 ladder = ladder,
-                onAction = { action ->
-                    when (action.kind) {
-                        DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS -> onOpenAdvancedSettings()
-
-                        DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> onOpenDiagnostics()
-
-                        DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> onOpenHistory()
-
-                        DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR -> onOpenModeEditor()
-
-                        DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION,
-                        DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,
-                        DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER,
-                        -> Unit
-                    }
-                },
-                cardTestTag = RipDpiTestTags.HomeDiagnosticsRemediationCard,
-                actionTestTag = RipDpiTestTags.HomeDiagnosticsRemediationAction,
+                onOpenAdvancedSettings = onOpenAdvancedSettings,
+                onOpenDiagnostics = onOpenDiagnostics,
+                onOpenHistory = onOpenHistory,
+                onOpenModeEditor = onOpenModeEditor,
             )
         }
         Spacer(modifier = Modifier.height(spacing.md))
         HorizontalDivider(color = colors.divider)
         Spacer(modifier = Modifier.height(spacing.md))
-        val analysisProgress = uiState.homeDiagnostics.analysisProgress
-        val isQuickScan = uiState.homeDiagnostics.quickScanBusy
-        val showFullAnalysisProgress =
-            uiState.homeDiagnostics.analysisAction.busy && analysisProgress != null && !isQuickScan
-        Crossfade(
-            targetState = showFullAnalysisProgress,
-            animationSpec = motion.stateTween(),
-            label = "analysisProgressSwitch",
-        ) { showProgress ->
-            if (showProgress && analysisProgress != null) {
-                AnalysisProgressIndicator(
-                    stages = analysisProgress.stages,
-                    activeStageIndex = analysisProgress.activeStageIndex,
-                    stageLabel = uiState.homeDiagnostics.analysisAction.supportingText,
-                )
-            } else {
-                Text(
-                    text = uiState.homeDiagnostics.analysisAction.supportingText,
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = colors.mutedForeground,
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(spacing.sm))
-        RipDpiButton(
-            text = uiState.homeDiagnostics.analysisAction.label,
-            onClick = onRunFullAnalysis,
-            enabled = uiState.homeDiagnostics.analysisAction.enabled,
-            variant = RipDpiButtonVariant.Primary,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis),
+        HomeAnalysisActionsSection(
+            uiState = uiState,
+            onRunFullAnalysis = onRunFullAnalysis,
+            onRunQuickAnalysis = onRunQuickAnalysis,
+            onTogglePcapRecording = onTogglePcapRecording,
         )
-        Spacer(modifier = Modifier.height(spacing.sm))
-        val showQuickScanProgress = isQuickScan && analysisProgress != null
-        Crossfade(
-            targetState = showQuickScanProgress,
-            animationSpec = motion.stateTween(),
-            label = "quickScanProgressSwitch",
-        ) { showProgress ->
-            if (showProgress && analysisProgress != null) {
-                AnalysisProgressIndicator(
-                    stages = analysisProgress.stages,
-                    activeStageIndex = analysisProgress.activeStageIndex,
-                    stageLabel = uiState.homeDiagnostics.analysisAction.supportingText,
-                )
-            } else {
-                Text(
-                    text = stringResource(R.string.home_diagnostics_quick_scan_body),
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = colors.mutedForeground,
-                )
-            }
-        }
-        Spacer(modifier = Modifier.height(spacing.xs))
-        RipDpiButton(
-            text = stringResource(R.string.home_diagnostics_quick_scan),
-            onClick = onRunQuickAnalysis,
-            enabled = uiState.homeDiagnostics.analysisAction.enabled,
-            loading = isQuickScan,
-            variant = RipDpiButtonVariant.Secondary,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        if (uiState.homeDiagnostics.pcapToggleVisible) {
-            Spacer(modifier = Modifier.height(spacing.sm))
-            RipDpiSwitch(
-                checked = uiState.homeDiagnostics.pcapRecordingRequested,
-                onCheckedChange = { onTogglePcapRecording() },
-                modifier = Modifier.fillMaxWidth(),
-                label = stringResource(R.string.home_diagnostics_pcap_toggle),
-                helperText = stringResource(R.string.home_diagnostics_pcap_helper),
-                enabled = uiState.homeDiagnostics.analysisAction.enabled,
-                testTag = RipDpiTestTags.HomeDiagnosticsPcapToggle,
-            )
-        }
         Spacer(modifier = Modifier.height(spacing.md))
         Text(
             text = uiState.homeDiagnostics.verifiedVpnAction.supportingText,
@@ -328,6 +211,154 @@ internal fun HomeDiagnosticsCard(
                 Modifier
                     .fillMaxWidth()
                     .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsVerifiedVpn),
+        )
+    }
+}
+
+@Composable
+private fun HomeLatestAuditSection(result: HomeDiagnosticsLatestAuditUiState) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val allStagesCompleted = result.completedStageCount == result.totalStageCount && result.totalStageCount > 0
+    val headlineColor =
+        when {
+            result.failedStageCount > 0 -> colors.destructive
+            allStagesCompleted -> colors.success
+            else -> colors.foreground
+        }
+    Text(text = result.headline, style = RipDpiThemeTokens.type.bodyEmphasis, color = headlineColor)
+    if (result.totalStageCount > 0) {
+        Spacer(modifier = Modifier.height(spacing.xs))
+        StageProgressIndicator(
+            completedCount = result.completedStageCount,
+            failedCount = result.failedStageCount,
+            totalCount = result.totalStageCount,
+        )
+    }
+    result.recommendationSummary?.let { recommendation ->
+        Text(text = recommendation, style = RipDpiThemeTokens.type.secondaryBody, color = colors.foreground)
+    }
+    if (result.stale) {
+        Text(
+            text = stringResource(R.string.home_diagnostics_run_again),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = colors.warning,
+        )
+    }
+}
+
+@Composable
+private fun HomeRemediationSection(
+    ladder: DiagnosticsRemediationLadderUiModel,
+    onOpenAdvancedSettings: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
+    onOpenHistory: () -> Unit,
+    onOpenModeEditor: () -> Unit,
+) {
+    DiagnosticsRemediationLadderCard(
+        ladder = ladder,
+        onAction = { action ->
+            when (action.kind) {
+                DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS -> onOpenAdvancedSettings()
+
+                DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS -> onOpenDiagnostics()
+
+                DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY -> onOpenHistory()
+
+                DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR -> onOpenModeEditor()
+
+                DiagnosticsRemediationActionKindUiModel.OPEN_VPN_PERMISSION,
+                DiagnosticsRemediationActionKindUiModel.OPEN_DNS_SETTINGS,
+                DiagnosticsRemediationActionKindUiModel.OPEN_OWNED_STACK_BROWSER,
+                -> Unit
+            }
+        },
+        cardTestTag = RipDpiTestTags.HomeDiagnosticsRemediationCard,
+        actionTestTag = RipDpiTestTags.HomeDiagnosticsRemediationAction,
+    )
+}
+
+@Composable
+private fun HomeAnalysisActionsSection(
+    uiState: MainUiState,
+    onRunFullAnalysis: () -> Unit,
+    onRunQuickAnalysis: () -> Unit,
+    onTogglePcapRecording: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val motion = RipDpiThemeTokens.motion
+    val spacing = RipDpiThemeTokens.spacing
+    val analysisProgress = uiState.homeDiagnostics.analysisProgress
+    val isQuickScan = uiState.homeDiagnostics.quickScanBusy
+    val showFullAnalysisProgress =
+        uiState.homeDiagnostics.analysisAction.busy && analysisProgress != null && !isQuickScan
+    Crossfade(
+        targetState = showFullAnalysisProgress,
+        animationSpec = motion.stateTween(),
+        label = "analysisProgressSwitch",
+    ) { showProgress ->
+        if (showProgress && analysisProgress != null) {
+            AnalysisProgressIndicator(
+                stages = analysisProgress.stages,
+                activeStageIndex = analysisProgress.activeStageIndex,
+                stageLabel = uiState.homeDiagnostics.analysisAction.supportingText,
+            )
+        } else {
+            Text(
+                text = uiState.homeDiagnostics.analysisAction.supportingText,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
+    }
+    Spacer(modifier = Modifier.height(spacing.sm))
+    RipDpiButton(
+        text = uiState.homeDiagnostics.analysisAction.label,
+        onClick = onRunFullAnalysis,
+        enabled = uiState.homeDiagnostics.analysisAction.enabled,
+        variant = RipDpiButtonVariant.Primary,
+        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis),
+    )
+    Spacer(modifier = Modifier.height(spacing.sm))
+    val showQuickScanProgress = isQuickScan && analysisProgress != null
+    Crossfade(
+        targetState = showQuickScanProgress,
+        animationSpec = motion.stateTween(),
+        label = "quickScanProgressSwitch",
+    ) { showProgress ->
+        if (showProgress && analysisProgress != null) {
+            AnalysisProgressIndicator(
+                stages = analysisProgress.stages,
+                activeStageIndex = analysisProgress.activeStageIndex,
+                stageLabel = uiState.homeDiagnostics.analysisAction.supportingText,
+            )
+        } else {
+            Text(
+                text = stringResource(R.string.home_diagnostics_quick_scan_body),
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
+    }
+    Spacer(modifier = Modifier.height(spacing.xs))
+    RipDpiButton(
+        text = stringResource(R.string.home_diagnostics_quick_scan),
+        onClick = onRunQuickAnalysis,
+        enabled = uiState.homeDiagnostics.analysisAction.enabled,
+        loading = isQuickScan,
+        variant = RipDpiButtonVariant.Secondary,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    if (uiState.homeDiagnostics.pcapToggleVisible) {
+        Spacer(modifier = Modifier.height(spacing.sm))
+        RipDpiSwitch(
+            checked = uiState.homeDiagnostics.pcapRecordingRequested,
+            onCheckedChange = { onTogglePcapRecording() },
+            modifier = Modifier.fillMaxWidth(),
+            label = stringResource(R.string.home_diagnostics_pcap_toggle),
+            helperText = stringResource(R.string.home_diagnostics_pcap_helper),
+            enabled = uiState.homeDiagnostics.analysisAction.enabled,
+            testTag = RipDpiTestTags.HomeDiagnosticsPcapToggle,
         )
     }
 }

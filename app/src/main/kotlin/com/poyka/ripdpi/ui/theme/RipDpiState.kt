@@ -200,71 +200,9 @@ data class RipDpiButtonStateTokens(
         isFocused: Boolean,
     ): RipDpiButtonStateStyle {
         val interactive = enabled && !loading
-        val containerAndContent =
-            if (!interactive) {
-                when (role) {
-                    RipDpiButtonStateRole.Primary,
-                    RipDpiButtonStateRole.Secondary,
-                    RipDpiButtonStateRole.Destructive,
-                    -> {
-                        colors.border to colors.mutedForeground
-                    }
-
-                    RipDpiButtonStateRole.Outline,
-                    RipDpiButtonStateRole.Ghost,
-                    -> {
-                        Color.Transparent to colors.mutedForeground
-                    }
-                }
-            } else {
-                val pressedOverlay = colorScheme.onSurfaceVariant
-                when (role) {
-                    RipDpiButtonStateRole.Primary -> {
-                        val base = colors.foreground
-                        (if (isPressed) lerp(base, pressedOverlay, PrimaryPressedLerp) else base) to colors.background
-                    }
-
-                    RipDpiButtonStateRole.Secondary -> {
-                        val base = colorScheme.secondary
-                        (if (isPressed) lerp(base, colorScheme.surfaceVariant, SecondaryPressedLerp) else base) to
-                            colorScheme.onSecondary
-                    }
-
-                    RipDpiButtonStateRole.Outline -> {
-                        (if (isPressed) colorScheme.surfaceVariant else Color.Transparent) to colors.foreground
-                    }
-
-                    RipDpiButtonStateRole.Ghost -> {
-                        (if (isPressed) colorScheme.surfaceVariant else Color.Transparent) to colors.foreground
-                    }
-
-                    RipDpiButtonStateRole.Destructive -> {
-                        (
-                            if (isPressed) {
-                                lerp(colors.destructive, pressedOverlay, DestructivePressedLerp)
-                            } else {
-                                colors.destructive
-                            }
-                        ) to colors.destructiveForeground
-                    }
-                }
-            }
-
-        val borderWidth =
-            when {
-                !interactive && role == RipDpiButtonStateRole.Ghost -> 0.dp
-                isFocused -> 2.dp
-                role == RipDpiButtonStateRole.Outline -> 1.dp
-                else -> 0.dp
-            }
-        val borderColor =
-            when {
-                !interactive && role == RipDpiButtonStateRole.Outline -> colors.border
-                isFocused -> colors.outline
-                role == RipDpiButtonStateRole.Outline -> colors.border
-                else -> Color.Transparent
-            }
-
+        val containerAndContent = resolveButtonContainerAndContent(role, interactive, isPressed)
+        val borderWidth = resolveButtonBorderWidth(role, interactive, isFocused)
+        val borderColor = resolveButtonBorderColor(role, interactive, isFocused)
         return RipDpiButtonStateStyle(
             container = containerAndContent.first,
             content = containerAndContent.second,
@@ -280,6 +218,85 @@ data class RipDpiButtonStateTokens(
             contentAlpha = if (loading) LoadingContentAlpha else 1f,
         )
     }
+
+    private fun resolveButtonContainerAndContent(
+        role: RipDpiButtonStateRole,
+        interactive: Boolean,
+        isPressed: Boolean,
+    ): Pair<Color, Color> =
+        if (!interactive) {
+            when (role) {
+                RipDpiButtonStateRole.Primary,
+                RipDpiButtonStateRole.Secondary,
+                RipDpiButtonStateRole.Destructive,
+                -> colors.border to colors.mutedForeground
+
+                RipDpiButtonStateRole.Outline,
+                RipDpiButtonStateRole.Ghost,
+                -> Color.Transparent to colors.mutedForeground
+            }
+        } else {
+            resolveButtonInteractiveContainerAndContent(role, isPressed)
+        }
+
+    private fun resolveButtonInteractiveContainerAndContent(
+        role: RipDpiButtonStateRole,
+        isPressed: Boolean,
+    ): Pair<Color, Color> {
+        val pressedOverlay = colorScheme.onSurfaceVariant
+        return when (role) {
+            RipDpiButtonStateRole.Primary -> {
+                val base = colors.foreground
+                (if (isPressed) lerp(base, pressedOverlay, PrimaryPressedLerp) else base) to colors.background
+            }
+
+            RipDpiButtonStateRole.Secondary -> {
+                val base = colorScheme.secondary
+                (if (isPressed) lerp(base, colorScheme.surfaceVariant, SecondaryPressedLerp) else base) to
+                    colorScheme.onSecondary
+            }
+
+            RipDpiButtonStateRole.Outline,
+            RipDpiButtonStateRole.Ghost,
+            -> {
+                (if (isPressed) colorScheme.surfaceVariant else Color.Transparent) to colors.foreground
+            }
+
+            RipDpiButtonStateRole.Destructive -> {
+                val container =
+                    if (isPressed) {
+                        lerp(colors.destructive, pressedOverlay, DestructivePressedLerp)
+                    } else {
+                        colors.destructive
+                    }
+                container to colors.destructiveForeground
+            }
+        }
+    }
+
+    private fun resolveButtonBorderWidth(
+        role: RipDpiButtonStateRole,
+        interactive: Boolean,
+        isFocused: Boolean,
+    ): Dp =
+        when {
+            !interactive && role == RipDpiButtonStateRole.Ghost -> 0.dp
+            isFocused -> 2.dp
+            role == RipDpiButtonStateRole.Outline -> 1.dp
+            else -> 0.dp
+        }
+
+    private fun resolveButtonBorderColor(
+        role: RipDpiButtonStateRole,
+        interactive: Boolean,
+        isFocused: Boolean,
+    ): Color =
+        when {
+            !interactive && role == RipDpiButtonStateRole.Outline -> colors.border
+            isFocused -> colors.outline
+            role == RipDpiButtonStateRole.Outline -> colors.border
+            else -> Color.Transparent
+        }
 }
 
 @Immutable
@@ -297,6 +314,37 @@ data class RipDpiIconButtonStateTokens(
         isFocused: Boolean,
     ): RipDpiIconButtonStateStyle {
         val interactive = enabled && !loading
+        return RipDpiIconButtonStateStyle(
+            container = resolveIconButtonContainer(role, interactive, selected, isPressed),
+            content = resolveIconButtonContent(role, interactive),
+            border =
+                if (isFocused) {
+                    colors.outline
+                } else if (role ==
+                    RipDpiIconButtonStateRole.Outline
+                ) {
+                    colors.border
+                } else {
+                    Color.Transparent
+                },
+            borderWidth =
+                if (isFocused) {
+                    2.dp
+                } else if (role == RipDpiIconButtonStateRole.Outline) {
+                    1.dp
+                } else {
+                    0.dp
+                },
+            scale = if (isPressed && interactive) motion.pressScale else 1f,
+        )
+    }
+
+    private fun resolveIconButtonContainer(
+        role: RipDpiIconButtonStateRole,
+        interactive: Boolean,
+        selected: Boolean,
+        isPressed: Boolean,
+    ): Color {
         val baseContainer =
             when (role) {
                 RipDpiIconButtonStateRole.Ghost -> Color.Transparent
@@ -304,39 +352,23 @@ data class RipDpiIconButtonStateTokens(
                 RipDpiIconButtonStateRole.Filled -> colors.foreground
                 RipDpiIconButtonStateRole.Outline -> Color.Transparent
             }
-        val container =
-            when {
-                !interactive && role == RipDpiIconButtonStateRole.Ghost -> Color.Transparent
-                !interactive -> colors.border
-                isPressed -> lerp(baseContainer, colorScheme.onSurfaceVariant, IconButtonPressedLerp)
-                else -> baseContainer
-            }
-        val content =
-            when {
-                !interactive -> colors.mutedForeground
-                role == RipDpiIconButtonStateRole.Filled -> colors.background
-                else -> colors.foreground
-            }
-        val border =
-            when {
-                isFocused -> colors.outline
-                role == RipDpiIconButtonStateRole.Outline -> colors.border
-                else -> Color.Transparent
-            }
-        val borderWidth =
-            when {
-                isFocused -> 2.dp
-                role == RipDpiIconButtonStateRole.Outline -> 1.dp
-                else -> 0.dp
-            }
-        return RipDpiIconButtonStateStyle(
-            container = container,
-            content = content,
-            border = border,
-            borderWidth = borderWidth,
-            scale = if (isPressed && interactive) motion.pressScale else 1f,
-        )
+        return when {
+            !interactive && role == RipDpiIconButtonStateRole.Ghost -> Color.Transparent
+            !interactive -> colors.border
+            isPressed -> lerp(baseContainer, colorScheme.onSurfaceVariant, IconButtonPressedLerp)
+            else -> baseContainer
+        }
     }
+
+    private fun resolveIconButtonContent(
+        role: RipDpiIconButtonStateRole,
+        interactive: Boolean,
+    ): Color =
+        when {
+            !interactive -> colors.mutedForeground
+            role == RipDpiIconButtonStateRole.Filled -> colors.background
+            else -> colors.foreground
+        }
 }
 
 @Immutable
@@ -704,6 +736,23 @@ data class RipDpiRouteStateTokens(
 ) {
     fun resolve(role: RipDpiRouteAvailabilityStateRole): RipDpiRouteAvailabilityStateStyle =
         when (role) {
+            RipDpiRouteAvailabilityStateRole.Available,
+            RipDpiRouteAvailabilityStateRole.Selected,
+            RipDpiRouteAvailabilityStateRole.Configured,
+            RipDpiRouteAvailabilityStateRole.Active,
+            -> resolveNeutralOrActiveRouteStyle(role)
+
+            RipDpiRouteAvailabilityStateRole.NeedsSetup,
+            RipDpiRouteAvailabilityStateRole.Restricted,
+            RipDpiRouteAvailabilityStateRole.Degraded,
+            RipDpiRouteAvailabilityStateRole.Failed,
+            -> resolveAlertRouteStyle(role)
+        }
+
+    private fun resolveNeutralOrActiveRouteStyle(
+        role: RipDpiRouteAvailabilityStateRole,
+    ): RipDpiRouteAvailabilityStateStyle =
+        when (role) {
             RipDpiRouteAvailabilityStateRole.Available -> {
                 routeStyle(
                     container = colorScheme.surface,
@@ -735,6 +784,27 @@ data class RipDpiRouteStateTokens(
                 )
             }
 
+            RipDpiRouteAvailabilityStateRole.Active -> {
+                routeStyle(
+                    container = colors.foreground,
+                    border = colors.foreground,
+                    content = colors.background,
+                    mutedContent = colors.background,
+                    marker = colors.success,
+                    badgeContainer = colors.background,
+                    badgeBorder = colors.background,
+                    badgeContent = colors.foreground,
+                    borderWidth = 2.dp,
+                )
+            }
+
+            else -> {
+                error("Unexpected role in resolveNeutralOrActiveRouteStyle: $role")
+            }
+        }
+
+    private fun resolveAlertRouteStyle(role: RipDpiRouteAvailabilityStateRole): RipDpiRouteAvailabilityStateStyle =
+        when (role) {
             RipDpiRouteAvailabilityStateRole.NeedsSetup -> {
                 routeStyle(
                     container = colors.infoContainer,
@@ -762,20 +832,6 @@ data class RipDpiRouteStateTokens(
                 )
             }
 
-            RipDpiRouteAvailabilityStateRole.Active -> {
-                routeStyle(
-                    container = colors.foreground,
-                    border = colors.foreground,
-                    content = colors.background,
-                    mutedContent = colors.background,
-                    marker = colors.success,
-                    badgeContainer = colors.background,
-                    badgeBorder = colors.background,
-                    badgeContent = colors.foreground,
-                    borderWidth = 2.dp,
-                )
-            }
-
             RipDpiRouteAvailabilityStateRole.Degraded -> {
                 routeStyle(
                     container = colors.warningContainer,
@@ -800,6 +856,10 @@ data class RipDpiRouteStateTokens(
                     badgeBorder = colors.destructive,
                     badgeContent = colors.destructiveContainerForeground,
                 )
+            }
+
+            else -> {
+                error("Unexpected role in resolveAlertRouteStyle: $role")
             }
         }
 

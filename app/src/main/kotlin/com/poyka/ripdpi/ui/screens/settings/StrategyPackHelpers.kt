@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
 import com.poyka.ripdpi.activities.StrategyPackHealthFailureCodeUiModel
@@ -17,115 +19,134 @@ internal fun strategyPackRefreshEnabled(strategyPackCatalog: StrategyPackCatalog
 
 internal data class StrategyPackCatalogStatusSpec(
     val labelResId: Int,
-    val bodyResId: Int,
+    val body: String,
     val tone: StatusIndicatorTone,
-    val bodyArgs: List<Any> = emptyList(),
 )
 
+@Composable
+@Suppress("CyclomaticComplexMethod")
 internal fun strategyPackCatalogStatusSpec(
     strategyPackCatalog: StrategyPackCatalogUiState,
 ): StrategyPackCatalogStatusSpec =
+    strategyPackRefreshingOrDegradedSpec(strategyPackCatalog)
+        ?: strategyPackFailureCodeSpec(strategyPackCatalog)
+        ?: strategyPackSourceSpec(strategyPackCatalog)
+
+@Composable
+private fun strategyPackRefreshingOrDegradedSpec(catalog: StrategyPackCatalogUiState): StrategyPackCatalogStatusSpec? =
     when {
-        strategyPackCatalog.isRefreshing -> {
+        catalog.isRefreshing -> {
             StrategyPackCatalogStatusSpec(
                 labelResId = R.string.strategy_pack_refresh_status_title,
-                bodyResId = R.string.strategy_pack_refresh_status_body,
+                body = stringResource(R.string.strategy_pack_refresh_status_body),
                 tone = StatusIndicatorTone.Active,
             )
         }
 
-        strategyPackCatalog.cacheDegradationCode == ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable -> {
+        catalog.cacheDegradationCode == ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable -> {
             StrategyPackCatalogStatusSpec(
                 labelResId = R.string.strategy_pack_degraded_status_title,
-                bodyResId = R.string.strategy_pack_degraded_status_body_unreadable,
+                body = stringResource(R.string.strategy_pack_degraded_status_body_unreadable),
                 tone = StatusIndicatorTone.Warning,
             )
         }
 
-        strategyPackCatalog.cacheDegradationCode == ControlPlaneCacheDegradationCode.CachedSnapshotIncompatible -> {
+        catalog.cacheDegradationCode == ControlPlaneCacheDegradationCode.CachedSnapshotIncompatible -> {
             StrategyPackCatalogStatusSpec(
                 labelResId = R.string.strategy_pack_degraded_status_title,
-                bodyResId = R.string.strategy_pack_degraded_status_body_incompatible,
+                body = stringResource(R.string.strategy_pack_degraded_status_body_incompatible),
                 tone = StatusIndicatorTone.Warning,
-            )
-        }
-
-        strategyPackCatalog.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.RollbackRejected -> {
-            StrategyPackCatalogStatusSpec(
-                labelResId = R.string.strategy_pack_rollback_rejected_status_title,
-                bodyResId = R.string.strategy_pack_rollback_rejected_status_body,
-                tone = StatusIndicatorTone.Warning,
-                bodyArgs =
-                    listOf(
-                        strategyPackCatalog.lastRejectedSequence ?: 0L,
-                        strategyPackCatalog.lastAcceptedSequence ?: 0L,
-                    ),
-            )
-        }
-
-        strategyPackCatalog.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.StaleCatalog -> {
-            StrategyPackCatalogStatusSpec(
-                labelResId = R.string.strategy_pack_stale_status_title,
-                bodyResId = R.string.strategy_pack_stale_status_body,
-                tone = StatusIndicatorTone.Warning,
-            )
-        }
-
-        strategyPackCatalog.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.MissingSecurityMetadata -> {
-            StrategyPackCatalogStatusSpec(
-                labelResId = R.string.strategy_pack_security_rejected_status_title,
-                bodyResId = R.string.strategy_pack_security_rejected_status_body_missing_metadata,
-                tone = StatusIndicatorTone.Error,
-            )
-        }
-
-        strategyPackCatalog.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.InvalidIssuedAt -> {
-            StrategyPackCatalogStatusSpec(
-                labelResId = R.string.strategy_pack_security_rejected_status_title,
-                bodyResId = R.string.strategy_pack_security_rejected_status_body_invalid_issued_at,
-                tone = StatusIndicatorTone.Error,
-            )
-        }
-
-        strategyPackCatalog.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.VerificationFailed -> {
-            StrategyPackCatalogStatusSpec(
-                labelResId = R.string.strategy_pack_verification_failed_status_title,
-                bodyResId = R.string.strategy_pack_verification_failed_status_body,
-                tone = StatusIndicatorTone.Error,
-            )
-        }
-
-        strategyPackCatalog.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.CompatibilityRejected -> {
-            StrategyPackCatalogStatusSpec(
-                labelResId = R.string.strategy_pack_compatibility_failed_status_title,
-                bodyResId = R.string.strategy_pack_compatibility_failed_status_body,
-                tone = StatusIndicatorTone.Warning,
-            )
-        }
-
-        strategyPackCatalog.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.DownloadFailed -> {
-            StrategyPackCatalogStatusSpec(
-                labelResId = R.string.strategy_pack_download_failed_status_title,
-                bodyResId = R.string.strategy_pack_download_failed_status_body,
-                tone = StatusIndicatorTone.Warning,
-            )
-        }
-
-        strategyPackCatalog.source == StrategyPackCatalogSourceDownloaded -> {
-            StrategyPackCatalogStatusSpec(
-                labelResId = R.string.strategy_pack_downloaded_status_title,
-                bodyResId = R.string.strategy_pack_downloaded_status_body,
-                tone = StatusIndicatorTone.Active,
             )
         }
 
         else -> {
+            null
+        }
+    }
+
+@Composable
+private fun strategyPackFailureCodeSpec(catalog: StrategyPackCatalogUiState): StrategyPackCatalogStatusSpec? =
+    when (catalog.lastRefreshFailureCode) {
+        StrategyPackHealthFailureCodeUiModel.RollbackRejected -> {
             StrategyPackCatalogStatusSpec(
-                labelResId = R.string.strategy_pack_bundled_status_title,
-                bodyResId = R.string.strategy_pack_bundled_status_body,
-                tone = StatusIndicatorTone.Idle,
+                labelResId = R.string.strategy_pack_rollback_rejected_status_title,
+                body =
+                    stringResource(
+                        R.string.strategy_pack_rollback_rejected_status_body,
+                        catalog.lastRejectedSequence ?: 0L,
+                        catalog.lastAcceptedSequence ?: 0L,
+                    ),
+                tone = StatusIndicatorTone.Warning,
             )
         }
+
+        StrategyPackHealthFailureCodeUiModel.StaleCatalog -> {
+            StrategyPackCatalogStatusSpec(
+                labelResId = R.string.strategy_pack_stale_status_title,
+                body = stringResource(R.string.strategy_pack_stale_status_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+        }
+
+        StrategyPackHealthFailureCodeUiModel.MissingSecurityMetadata -> {
+            StrategyPackCatalogStatusSpec(
+                labelResId = R.string.strategy_pack_security_rejected_status_title,
+                body = stringResource(R.string.strategy_pack_security_rejected_status_body_missing_metadata),
+                tone = StatusIndicatorTone.Error,
+            )
+        }
+
+        StrategyPackHealthFailureCodeUiModel.InvalidIssuedAt -> {
+            StrategyPackCatalogStatusSpec(
+                labelResId = R.string.strategy_pack_security_rejected_status_title,
+                body = stringResource(R.string.strategy_pack_security_rejected_status_body_invalid_issued_at),
+                tone = StatusIndicatorTone.Error,
+            )
+        }
+
+        StrategyPackHealthFailureCodeUiModel.VerificationFailed -> {
+            StrategyPackCatalogStatusSpec(
+                labelResId = R.string.strategy_pack_verification_failed_status_title,
+                body = stringResource(R.string.strategy_pack_verification_failed_status_body),
+                tone = StatusIndicatorTone.Error,
+            )
+        }
+
+        StrategyPackHealthFailureCodeUiModel.CompatibilityRejected -> {
+            StrategyPackCatalogStatusSpec(
+                labelResId = R.string.strategy_pack_compatibility_failed_status_title,
+                body = stringResource(R.string.strategy_pack_compatibility_failed_status_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+        }
+
+        StrategyPackHealthFailureCodeUiModel.DownloadFailed -> {
+            StrategyPackCatalogStatusSpec(
+                labelResId = R.string.strategy_pack_download_failed_status_title,
+                body = stringResource(R.string.strategy_pack_download_failed_status_body),
+                tone = StatusIndicatorTone.Warning,
+            )
+        }
+
+        null -> {
+            null
+        }
+    }
+
+@Composable
+private fun strategyPackSourceSpec(catalog: StrategyPackCatalogUiState): StrategyPackCatalogStatusSpec =
+    if (catalog.source == StrategyPackCatalogSourceDownloaded) {
+        StrategyPackCatalogStatusSpec(
+            labelResId = R.string.strategy_pack_downloaded_status_title,
+            body = stringResource(R.string.strategy_pack_downloaded_status_body),
+            tone = StatusIndicatorTone.Active,
+        )
+    } else {
+        StrategyPackCatalogStatusSpec(
+            labelResId = R.string.strategy_pack_bundled_status_title,
+            body = stringResource(R.string.strategy_pack_bundled_status_body),
+            tone = StatusIndicatorTone.Idle,
+        )
     }
 
 internal fun strategyPackRefreshPolicyLabelResId(policy: String): Int =
