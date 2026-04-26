@@ -160,17 +160,14 @@ fn next_value<'a>(args: &'a [String], idx: &mut usize, option: &str) -> Result<&
 }
 
 fn parse_wsize(arg: &str, value: &str) -> Result<WsizeConfig, ConfigError> {
-    if let Some((win_str, scale_str)) = value.split_once(':') {
-        let window = win_str.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value.to_string())))?;
-        let scale = scale_str.parse::<u8>().map_err(|_| ConfigError::invalid(arg, Some(value.to_string())))?;
-        if scale > 14 {
-            return Err(ConfigError::invalid(arg, Some(value.to_string())));
-        }
-        Ok(WsizeConfig { window, scale: Some(scale) })
-    } else {
-        let window = value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value.to_string())))?;
-        Ok(WsizeConfig { window, scale: None })
+    let invalid = || ConfigError::invalid(arg, Some(value.to_string()));
+    let (win_str, scale_str) = value.split_once(':').map_or((value, None), |(w, s)| (w, Some(s)));
+    let window = win_str.parse::<u32>().map_err(|_| invalid())?;
+    let scale = scale_str.map(|s| s.parse::<u8>().map_err(|_| invalid())).transpose()?;
+    if scale.is_some_and(|s| s > 14) {
+        return Err(invalid());
     }
+    Ok(WsizeConfig { window, scale })
 }
 
 fn add_group(groups: &mut Vec<DesyncGroup>) -> Result<&mut DesyncGroup, ConfigError> {
@@ -183,6 +180,25 @@ fn add_group(groups: &mut Vec<DesyncGroup>) -> Result<&mut DesyncGroup, ConfigEr
 
 fn seqovl_step_mut(group: &mut DesyncGroup) -> Option<&mut TcpChainStep> {
     group.actions.tcp_chain.iter_mut().rev().find(|step| step.kind == TcpChainStepKind::SeqOverlap)
+}
+
+fn parse_ttl_byte(arg: &str, value: &str) -> Result<u8, ConfigError> {
+    let ttl = value.parse::<u16>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+    if ttl == 0 || ttl > 255 {
+        return Err(ConfigError::invalid(arg, Some(value)));
+    }
+    Ok(ttl as u8)
+}
+
+macro_rules! parse_value_into {
+    ($args:expr, $idx:expr, $arg:expr, $target:expr, secs_to_ms) => {{
+        let value = next_value($args, $idx, $arg)?;
+        $target = seconds_to_millis(value).map_err(|_| ConfigError::invalid($arg, Some(value)))?;
+    }};
+    ($args:expr, $idx:expr, $arg:expr, $target:expr, $ty:ty) => {{
+        let value = next_value($args, $idx, $arg)?;
+        $target = value.parse::<$ty>().map_err(|_| ConfigError::invalid($arg, Some(value)))?;
+    }};
 }
 
 pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, ConfigError> {
@@ -246,9 +262,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 group!().actions.entropy_padding_target_permil = Some((f * 1000.0) as u32);
             }
             "--entropy-max-pad" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().actions.entropy_padding_max =
-                    value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                parse_value_into!(&effective_args, &mut idx, arg, group!().actions.entropy_padding_max, u32);
             }
             "--entropy-mode" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -329,8 +343,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 config.process.debug = level;
             }
             "-y" | "--cache-file" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().policy.cache_file = Some(value.to_owned());
+                group!().policy.cache_file = Some(next_value(&effective_args, &mut idx, arg)?.to_owned());
             }
             "-L" | "--auto-mode" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -430,8 +443,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 config.host_autolearn.store_path = Some(value.to_owned());
             }
             "-T" | "--timeout" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                parse_timeout(value, &mut config)?;
+                parse_timeout(next_value(&effective_args, &mut idx, arg)?, &mut config)?;
             }
             "-K" | "--proto" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -491,31 +503,25 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 if !(1..=32).contains(&overlap) {
                     return Err(ConfigError::invalid(arg, Some(value)));
                 }
-                let step =
-                    seqovl_step_mut(group!()).ok_or_else(|| ConfigError::invalid(arg, Some("missing --seqovl")))?;
-                step.overlap_size = overlap;
+                seqovl_step_mut(group!())
+                    .ok_or_else(|| ConfigError::invalid(arg, Some("missing --seqovl")))?
+                    .overlap_size = overlap;
             }
             "--seqovl-fake-mode" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                let step =
-                    seqovl_step_mut(group!()).ok_or_else(|| ConfigError::invalid(arg, Some("missing --seqovl")))?;
-                step.seqovl_fake_mode = match value.trim().to_ascii_lowercase().as_str() {
+                seqovl_step_mut(group!())
+                    .ok_or_else(|| ConfigError::invalid(arg, Some("missing --seqovl")))?
+                    .seqovl_fake_mode = match value.trim().to_ascii_lowercase().as_str() {
                     "profile" => SeqOverlapFakeMode::Profile,
                     "rand" => SeqOverlapFakeMode::Rand,
                     _ => return Err(ConfigError::invalid(arg, Some(value))),
                 };
             }
             "-t" | "--ttl" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                let ttl = value.parse::<u16>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
-                if ttl == 0 || ttl > 255 {
-                    return Err(ConfigError::invalid(arg, Some(value)));
-                }
-                group!().actions.ttl = Some(ttl as u8);
+                group!().actions.ttl = Some(parse_ttl_byte(arg, next_value(&effective_args, &mut idx, arg)?)?);
             }
             "--auto-ttl" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().actions.auto_ttl = Some(parse_auto_ttl_spec(value)?);
+                group!().actions.auto_ttl = Some(parse_auto_ttl_spec(next_value(&effective_args, &mut idx, arg)?)?);
             }
             "-O" | "--fake-offset" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -532,8 +538,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 }
             }
             "-n" | "--fake-sni" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().actions.fake_sni_list.push(value.to_owned());
+                group!().actions.fake_sni_list.push(next_value(&effective_args, &mut idx, arg)?.to_owned());
             }
             "-l" | "--fake-data" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -542,16 +547,16 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 }
             }
             "--fake-http-profile" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().actions.http_fake_profile = parse_http_fake_profile(value)?;
+                group!().actions.http_fake_profile =
+                    parse_http_fake_profile(next_value(&effective_args, &mut idx, arg)?)?;
             }
             "--fake-tls-profile" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().actions.tls_fake_profile = parse_tls_fake_profile(value)?;
+                group!().actions.tls_fake_profile =
+                    parse_tls_fake_profile(next_value(&effective_args, &mut idx, arg)?)?;
             }
             "--fake-udp-profile" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().actions.udp_fake_profile = parse_udp_fake_profile(value)?;
+                group!().actions.udp_fake_profile =
+                    parse_udp_fake_profile(next_value(&effective_args, &mut idx, arg)?)?;
             }
             "-e" | "--oob-data" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -581,11 +586,7 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-m" | "--tlsminor" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                let tlsminor = value.parse::<u16>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
-                if tlsminor == 0 || tlsminor > 255 {
-                    return Err(ConfigError::invalid(arg, Some(value)));
-                }
-                group!().actions.tlsminor = Some(tlsminor as u8);
+                group!().actions.tlsminor = Some(parse_ttl_byte(arg, value)?);
             }
             "-a" | "--udp-fake" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -598,12 +599,12 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 }
             }
             "--fake-quic-profile" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().actions.quic_fake_profile = parse_quic_fake_profile(value)?;
+                group!().actions.quic_fake_profile =
+                    parse_quic_fake_profile(next_value(&effective_args, &mut idx, arg)?)?;
             }
             "--fake-quic-host" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().actions.quic_fake_host = Some(normalize_quic_fake_host(value)?);
+                group!().actions.quic_fake_host =
+                    Some(normalize_quic_fake_host(next_value(&effective_args, &mut idx, arg)?)?);
             }
             "-V" | "--pf" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -639,17 +640,11 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
             }
             "-g" | "--def-ttl" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
-                let ttl = value.parse::<u16>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
-                if ttl == 0 || ttl > 255 {
-                    return Err(ConfigError::invalid(arg, Some(value)));
-                }
-                config.network.default_ttl = ttl as u8;
+                config.network.default_ttl = parse_ttl_byte(arg, value)?;
                 config.network.custom_ttl = true;
             }
             "-W" | "--await-int" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                config.timeouts.await_interval =
-                    value.parse::<i32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                parse_value_into!(&effective_args, &mut idx, arg, config.timeouts.await_interval, i32);
             }
             "-C" | "--to-socks5" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
@@ -659,62 +654,49 @@ pub fn parse_cli(args: &[String], startup: &StartupEnv) -> Result<ParseResult, C
                 config.network.delay_conn = true;
             }
             "--connect-timeout" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                config.timeouts.connect_timeout_ms =
-                    seconds_to_millis(value).map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                parse_value_into!(&effective_args, &mut idx, arg, config.timeouts.connect_timeout_ms, secs_to_ms);
             }
             "-P" | "--protect-path" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                config.process.protect_path = Some(value.to_owned());
+                config.process.protect_path = Some(next_value(&effective_args, &mut idx, arg)?.to_owned());
             }
             "--comment" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                group!().policy.label = value.to_owned();
+                group!().policy.label = next_value(&effective_args, &mut idx, arg)?.to_owned();
             }
             "--ws-tunnel-fake-sni" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                config.adaptive.ws_tunnel_fake_sni = Some(value.to_string());
+                config.adaptive.ws_tunnel_fake_sni = Some(next_value(&effective_args, &mut idx, arg)?.to_string());
             }
             "--strategy-evolution" => config.adaptive.strategy_evolution = true,
             "--evolution-epsilon" => {
                 let value = next_value(&effective_args, &mut idx, arg)?;
                 let f = value.parse::<f64>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
-                config.adaptive.evolution_epsilon_permil = (f * 1000.0).clamp(0.0, 1000.0) as u32;
+                config.adaptive.evolution_epsilon_permil = (f * 1000.0).clamp(0.0, 1_000.0) as u32;
             }
             "--evolution-experiment-ttl-ms" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                config.adaptive.evolution_experiment_ttl_ms =
-                    value.parse::<u64>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                parse_value_into!(&effective_args, &mut idx, arg, config.adaptive.evolution_experiment_ttl_ms, u64);
             }
             "--evolution-decay-half-life-ms" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                config.adaptive.evolution_decay_half_life_ms =
-                    value.parse::<u64>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                parse_value_into!(&effective_args, &mut idx, arg, config.adaptive.evolution_decay_half_life_ms, u64);
             }
             "--evolution-cooldown-after-failures" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                config.adaptive.evolution_cooldown_after_failures =
-                    value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                parse_value_into!(
+                    &effective_args,
+                    &mut idx,
+                    arg,
+                    config.adaptive.evolution_cooldown_after_failures,
+                    u32
+                );
             }
             "--evolution-cooldown-ms" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                config.adaptive.evolution_cooldown_ms =
-                    value.parse::<u64>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                parse_value_into!(&effective_args, &mut idx, arg, config.adaptive.evolution_cooldown_ms, u64);
             }
             "--freeze-window" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                config.timeouts.freeze_window_ms =
-                    seconds_to_millis(value).map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                parse_value_into!(&effective_args, &mut idx, arg, config.timeouts.freeze_window_ms, secs_to_ms);
             }
             "--freeze-min-bytes" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                config.timeouts.freeze_min_bytes =
-                    value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                parse_value_into!(&effective_args, &mut idx, arg, config.timeouts.freeze_min_bytes, u32);
             }
             "--freeze-max-stalls" => {
-                let value = next_value(&effective_args, &mut idx, arg)?;
-                config.timeouts.freeze_max_stalls =
-                    value.parse::<u32>().map_err(|_| ConfigError::invalid(arg, Some(value)))?;
+                parse_value_into!(&effective_args, &mut idx, arg, config.timeouts.freeze_max_stalls, u32);
             }
             _ => return Err(ConfigError::invalid(arg, Option::<String>::None)),
         }

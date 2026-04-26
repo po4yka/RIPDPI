@@ -45,7 +45,7 @@ mod fake_send;
 mod ip_fragmentation;
 mod mmap_region;
 
-pub(super) use mmap_region::{alloc_region, free_region, write_region};
+use mmap_region::{alloc_region, free_region, write_region};
 
 pub use experimental_tier3::{recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_syn_hide_tcp};
 pub use fake_send::{
