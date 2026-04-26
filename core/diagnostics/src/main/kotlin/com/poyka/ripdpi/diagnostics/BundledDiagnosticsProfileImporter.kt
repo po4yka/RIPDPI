@@ -138,7 +138,8 @@ private fun BundledDiagnosticsCatalogWire.mergeOverride(
     overrideCatalog: BundledDiagnosticsCatalogWire,
 ): BundledDiagnosticsCatalogWire {
     require(schemaVersion == overrideCatalog.schemaVersion) {
-        "Diagnostics catalog override schema ${overrideCatalog.schemaVersion} does not match bundled schema $schemaVersion"
+        "Diagnostics catalog override schema ${overrideCatalog.schemaVersion}" +
+            " does not match bundled schema $schemaVersion"
     }
     return copy(
         generatedAt = overrideCatalog.generatedAt ?: generatedAt,

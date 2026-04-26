@@ -349,7 +349,6 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                     scanRecordStore = scanRecordStore,
                     json = json,
                     serviceStateStore = serviceStateStore,
-                    comparisonScanCoordinator = comparisonScanCoordinator,
                 )
             if (selection == null) {
                 stageExecutor.updateStage(progressState, runId, stageIndex) { current ->
@@ -365,7 +364,8 @@ internal class DefaultDiagnosticsHomeCompositeRunService
                 current.copy(
                     summary =
                         "Comparing ${selection.domainTargets.size} domain controls/failures and " +
-                            "${selection.serviceTargets.size + selection.circumventionTargets.size} service targets in path.",
+                            "${selection.serviceTargets.size + selection.circumventionTargets.size}" +
+                            " service targets in path.",
                 )
             }
             var result =

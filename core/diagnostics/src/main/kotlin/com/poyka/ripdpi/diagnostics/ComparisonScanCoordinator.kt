@@ -54,7 +54,7 @@ class ComparisonScanCoordinator
                         DomainPathComparison(
                             domain = target,
                             rawPathOutcome = raw.outcome,
-                            inPathOutcome = inPath?.outcome ?: NOT_TESTED,
+                            inPathOutcome = inPath?.outcome ?: NotTested,
                             vpnBypasses = !raw.success && (inPath?.success == true),
                             isControl = raw.isControl,
                         )
@@ -81,15 +81,62 @@ class ComparisonScanCoordinator
             val rawEvidence = rawTargets.toConnectivityEvidence(rawPathSessionIds)
             val inPathEvidence =
                 inPathTargets
-                    .filterKeys {
-                        it in rawTargets.keys
-                    }.toConnectivityEvidence(listOfNotNull(inPathSessionId))
+                    .filterKeys { it in rawTargets.keys }
+                    .toConnectivityEvidence(listOfNotNull(inPathSessionId))
             val resolverAssessment = buildResolverAssessment(rawReports)
             val rawControlSuccess = rawEvidence.controlSuccessCount > 0
             val rawControlFailure = rawEvidence.controlFailureCount > 0
             val rawAffectedFailure = rawEvidence.affectedTargetFailureCount > 0
             val inPathRegression = detectInPathRegression(rawTargets, inPathTargets)
             val code =
+                deriveAssessmentCode(
+                    rawControlSuccess = rawControlSuccess,
+                    rawControlFailure = rawControlFailure,
+                    rawAffectedFailure = rawAffectedFailure,
+                    inPathRegression = inPathRegression,
+                    resolverAssessment = resolverAssessment,
+                    serviceRuntimeAssessment = serviceRuntimeAssessment,
+                    inPathReport = inPathReport,
+                    inPathEvidence = inPathEvidence,
+                )
+            val confidence =
+                when (code) {
+                    ConnectivityAssessmentCode.MIXED_OR_INCONCLUSIVE -> "low"
+                    ConnectivityAssessmentCode.SERVICE_RUNTIME_FAILURE -> "medium"
+                    else -> "high"
+                }
+            val controlOutcome =
+                when {
+                    rawEvidence.controls.isEmpty() -> "no_controls"
+                    rawControlSuccess && !rawControlFailure -> "raw_controls_passed"
+                    rawControlSuccess -> "raw_controls_mixed"
+                    else -> "raw_controls_failed"
+                }
+            return ConnectivityAssessment(
+                assessmentCode = code,
+                assessmentSummary = assessmentSummary(code),
+                confidence = confidence,
+                rawPathEvidence = rawEvidence,
+                inPathEvidence = inPathEvidence,
+                controlOutcome = controlOutcome,
+                affectedTargets = rawEvidence.affectedTargets,
+                resolverAssessment = resolverAssessment,
+                serviceRuntimeAssessment = serviceRuntimeAssessment,
+                recommendedNextAction = assessmentNextAction(code),
+            )
+        }
+
+        companion object {
+            private fun deriveAssessmentCode(
+                rawControlSuccess: Boolean,
+                rawControlFailure: Boolean,
+                rawAffectedFailure: Boolean,
+                inPathRegression: Boolean,
+                resolverAssessment: ConnectivityResolverAssessment,
+                serviceRuntimeAssessment: ConnectivityServiceRuntimeAssessment,
+                inPathReport: ScanReport?,
+                inPathEvidence: ConnectivityEvidence,
+            ): ConnectivityAssessmentCode =
                 when {
                     rawControlFailure && !rawControlSuccess && rawAffectedFailure -> {
                         ConnectivityAssessmentCode.RAW_NETWORK_GENERAL_FAILURE
@@ -119,20 +166,8 @@ class ComparisonScanCoordinator
                         ConnectivityAssessmentCode.MIXED_OR_INCONCLUSIVE
                     }
                 }
-            val confidence =
-                when (code) {
-                    ConnectivityAssessmentCode.MIXED_OR_INCONCLUSIVE -> "low"
-                    ConnectivityAssessmentCode.SERVICE_RUNTIME_FAILURE -> "medium"
-                    else -> "high"
-                }
-            val controlOutcome =
-                when {
-                    rawEvidence.controls.isEmpty() -> "no_controls"
-                    rawControlSuccess && !rawControlFailure -> "raw_controls_passed"
-                    rawControlSuccess -> "raw_controls_mixed"
-                    else -> "raw_controls_failed"
-                }
-            val summary =
+
+            private fun assessmentSummary(code: ConnectivityAssessmentCode): String =
                 when (code) {
                     ConnectivityAssessmentCode.RAW_NETWORK_GENERAL_FAILURE -> {
                         "Raw-path control targets failed alongside affected targets, so the " +
@@ -164,7 +199,8 @@ class ComparisonScanCoordinator
                             "failure is raw-network, in-path, or both."
                     }
                 }
-            val nextAction =
+
+            private fun assessmentNextAction(code: ConnectivityAssessmentCode): String =
                 when (code) {
                     ConnectivityAssessmentCode.RAW_NETWORK_GENERAL_FAILURE -> {
                         "Verify the underlying network without RIPDPI before retrying diagnostics."
@@ -195,23 +231,6 @@ class ComparisonScanCoordinator
                             "in-path comparison on complaint-specific targets."
                     }
                 }
-
-            return ConnectivityAssessment(
-                assessmentCode = code,
-                assessmentSummary = summary,
-                confidence = confidence,
-                rawPathEvidence = rawEvidence,
-                inPathEvidence = inPathEvidence,
-                controlOutcome = controlOutcome,
-                affectedTargets = rawEvidence.affectedTargets,
-                resolverAssessment = resolverAssessment,
-                serviceRuntimeAssessment = serviceRuntimeAssessment,
-                recommendedNextAction = nextAction,
-            )
-        }
-
-        companion object {
-            private const val NOT_TESTED = "not_tested"
 
             private val ResolverDiagnosisCodes =
                 setOf(
@@ -291,72 +310,10 @@ class ComparisonScanCoordinator
 
             private fun ObservationFact.toTargetOutcome(): TargetOutcome? =
                 when (kind) {
-                    ObservationKind.DOMAIN -> {
-                        domain?.let { fact ->
-                            val success =
-                                fact.httpStatus == HttpProbeStatus.OK ||
-                                    fact.tls13Status == TlsProbeStatus.OK ||
-                                    fact.tls12Status == TlsProbeStatus.OK ||
-                                    fact.tls13Status == TlsProbeStatus.VERSION_SPLIT ||
-                                    fact.tls12Status == TlsProbeStatus.VERSION_SPLIT
-                            val failure =
-                                fact.transportFailure != TransportFailureKind.NONE ||
-                                    fact.httpStatus == HttpProbeStatus.UNREACHABLE ||
-                                    fact.tls13Status == TlsProbeStatus.HANDSHAKE_FAILED ||
-                                    fact.tls12Status == TlsProbeStatus.HANDSHAKE_FAILED ||
-                                    fact.tls13Status == TlsProbeStatus.CERT_INVALID ||
-                                    fact.tls12Status == TlsProbeStatus.CERT_INVALID
-                            TargetOutcome(
-                                id = fact.host,
-                                kind = TargetKind.DOMAIN,
-                                isControl = fact.isControl,
-                                success = success && !failure,
-                                outcome = domainOutcomeLabel(fact),
-                            )
-                        }
-                    }
-
-                    ObservationKind.SERVICE -> {
-                        service?.let { fact ->
-                            TargetOutcome(
-                                id = target,
-                                kind = TargetKind.SERVICE,
-                                success =
-                                    fact.endpointStatus == EndpointProbeStatus.OK ||
-                                        fact.bootstrapStatus == HttpProbeStatus.OK ||
-                                        fact.mediaStatus == HttpProbeStatus.OK,
-                                outcome = serviceOutcomeLabel(fact),
-                            )
-                        }
-                    }
-
-                    ObservationKind.CIRCUMVENTION -> {
-                        circumvention?.let { fact ->
-                            TargetOutcome(
-                                id = target,
-                                kind = TargetKind.CIRCUMVENTION,
-                                success =
-                                    fact.handshakeStatus == EndpointProbeStatus.OK ||
-                                        fact.bootstrapStatus == HttpProbeStatus.OK,
-                                outcome = circumventionOutcomeLabel(fact),
-                            )
-                        }
-                    }
-
-                    else -> {
-                        null
-                    }
-                }
-
-            private fun merge(
-                existing: TargetOutcome?,
-                next: TargetOutcome,
-            ): TargetOutcome =
-                when {
-                    existing == null -> next
-                    existing.success -> existing
-                    next.success -> next
-                    else -> existing
+                    ObservationKind.DOMAIN -> domain?.let { domainTargetOutcome(it) }
+                    ObservationKind.SERVICE -> service?.let { serviceTargetOutcome(target, it) }
+                    ObservationKind.CIRCUMVENTION -> circumvention?.let { circumventionTargetOutcome(target, it) }
+                    else -> null
                 }
 
             private fun Map<String, TargetOutcome>.toConnectivityEvidence(
@@ -374,69 +331,10 @@ class ComparisonScanCoordinator
                     affectedTargetFailureCount = values.count { !it.isControl && !it.success },
                 )
             }
-
-            private fun domainOutcomeLabel(fact: DomainObservationFact): String =
-                when {
-                    fact.httpStatus == HttpProbeStatus.OK -> {
-                        "http_ok"
-                    }
-
-                    fact.httpStatus == HttpProbeStatus.BLOCKPAGE -> {
-                        "http_blockpage"
-                    }
-
-                    fact.httpStatus == HttpProbeStatus.UNREACHABLE -> {
-                        "http_unreachable"
-                    }
-
-                    fact.tls13Status == TlsProbeStatus.OK || fact.tls12Status == TlsProbeStatus.OK -> {
-                        "tls_ok"
-                    }
-
-                    fact.tls13Status == TlsProbeStatus.VERSION_SPLIT ||
-                        fact.tls12Status == TlsProbeStatus.VERSION_SPLIT -> {
-                        "tls_version_split"
-                    }
-
-                    fact.tls13Status == TlsProbeStatus.CERT_INVALID ||
-                        fact.tls12Status == TlsProbeStatus.CERT_INVALID -> {
-                        "tls_cert_invalid"
-                    }
-
-                    fact.tls13Status == TlsProbeStatus.HANDSHAKE_FAILED ||
-                        fact.tls12Status == TlsProbeStatus.HANDSHAKE_FAILED -> {
-                        "tls_handshake_failed"
-                    }
-
-                    fact.transportFailure != TransportFailureKind.NONE -> {
-                        "transport_${fact.transportFailure.name.lowercase()}"
-                    }
-
-                    else -> {
-                        NOT_TESTED
-                    }
-                }
-
-            private fun serviceOutcomeLabel(fact: ServiceObservationFact): String =
-                when {
-                    fact.endpointStatus == EndpointProbeStatus.OK -> "service_ok"
-                    fact.endpointStatus == EndpointProbeStatus.BLOCKED -> "service_blocked"
-                    fact.endpointStatus == EndpointProbeStatus.FAILED -> "service_failed"
-                    fact.bootstrapStatus == HttpProbeStatus.UNREACHABLE -> "bootstrap_unreachable"
-                    fact.quicStatus == QuicProbeStatus.ERROR -> "quic_error"
-                    else -> NOT_TESTED
-                }
-
-            private fun circumventionOutcomeLabel(fact: CircumventionObservationFact): String =
-                when {
-                    fact.handshakeStatus == EndpointProbeStatus.OK -> "circumvention_ok"
-                    fact.handshakeStatus == EndpointProbeStatus.BLOCKED -> "circumvention_blocked"
-                    fact.handshakeStatus == EndpointProbeStatus.FAILED -> "circumvention_failed"
-                    fact.bootstrapStatus == HttpProbeStatus.UNREACHABLE -> "bootstrap_unreachable"
-                    else -> NOT_TESTED
-                }
         }
     }
+
+private const val NotTested = "not_tested"
 
 private enum class TargetKind {
     DOMAIN,
@@ -451,3 +349,125 @@ private data class TargetOutcome(
     val success: Boolean,
     val outcome: String,
 )
+
+private fun merge(
+    existing: TargetOutcome?,
+    next: TargetOutcome,
+): TargetOutcome =
+    when {
+        existing == null -> next
+        existing.success -> existing
+        next.success -> next
+        else -> existing
+    }
+
+private fun domainTargetOutcome(fact: DomainObservationFact): TargetOutcome {
+    val success =
+        fact.httpStatus == HttpProbeStatus.OK ||
+            fact.tls13Status == TlsProbeStatus.OK ||
+            fact.tls12Status == TlsProbeStatus.OK ||
+            fact.tls13Status == TlsProbeStatus.VERSION_SPLIT ||
+            fact.tls12Status == TlsProbeStatus.VERSION_SPLIT
+    val failure =
+        fact.transportFailure != TransportFailureKind.NONE ||
+            fact.httpStatus == HttpProbeStatus.UNREACHABLE ||
+            fact.tls13Status == TlsProbeStatus.HANDSHAKE_FAILED ||
+            fact.tls12Status == TlsProbeStatus.HANDSHAKE_FAILED ||
+            fact.tls13Status == TlsProbeStatus.CERT_INVALID ||
+            fact.tls12Status == TlsProbeStatus.CERT_INVALID
+    return TargetOutcome(
+        id = fact.host,
+        kind = TargetKind.DOMAIN,
+        isControl = fact.isControl,
+        success = success && !failure,
+        outcome = domainOutcomeLabel(fact),
+    )
+}
+
+private fun serviceTargetOutcome(
+    target: String,
+    fact: ServiceObservationFact,
+): TargetOutcome =
+    TargetOutcome(
+        id = target,
+        kind = TargetKind.SERVICE,
+        success =
+            fact.endpointStatus == EndpointProbeStatus.OK ||
+                fact.bootstrapStatus == HttpProbeStatus.OK ||
+                fact.mediaStatus == HttpProbeStatus.OK,
+        outcome = serviceOutcomeLabel(fact),
+    )
+
+private fun circumventionTargetOutcome(
+    target: String,
+    fact: CircumventionObservationFact,
+): TargetOutcome =
+    TargetOutcome(
+        id = target,
+        kind = TargetKind.CIRCUMVENTION,
+        success =
+            fact.handshakeStatus == EndpointProbeStatus.OK ||
+                fact.bootstrapStatus == HttpProbeStatus.OK,
+        outcome = circumventionOutcomeLabel(fact),
+    )
+
+private fun domainOutcomeLabel(fact: DomainObservationFact): String =
+    when {
+        fact.httpStatus == HttpProbeStatus.OK -> {
+            "http_ok"
+        }
+
+        fact.httpStatus == HttpProbeStatus.BLOCKPAGE -> {
+            "http_blockpage"
+        }
+
+        fact.httpStatus == HttpProbeStatus.UNREACHABLE -> {
+            "http_unreachable"
+        }
+
+        fact.tls13Status == TlsProbeStatus.OK || fact.tls12Status == TlsProbeStatus.OK -> {
+            "tls_ok"
+        }
+
+        fact.tls13Status == TlsProbeStatus.VERSION_SPLIT ||
+            fact.tls12Status == TlsProbeStatus.VERSION_SPLIT -> {
+            "tls_version_split"
+        }
+
+        fact.tls13Status == TlsProbeStatus.CERT_INVALID ||
+            fact.tls12Status == TlsProbeStatus.CERT_INVALID -> {
+            "tls_cert_invalid"
+        }
+
+        fact.tls13Status == TlsProbeStatus.HANDSHAKE_FAILED ||
+            fact.tls12Status == TlsProbeStatus.HANDSHAKE_FAILED -> {
+            "tls_handshake_failed"
+        }
+
+        fact.transportFailure != TransportFailureKind.NONE -> {
+            "transport_${fact.transportFailure.name.lowercase()}"
+        }
+
+        else -> {
+            NotTested
+        }
+    }
+
+private fun serviceOutcomeLabel(fact: ServiceObservationFact): String =
+    when {
+        fact.endpointStatus == EndpointProbeStatus.OK -> "service_ok"
+        fact.endpointStatus == EndpointProbeStatus.BLOCKED -> "service_blocked"
+        fact.endpointStatus == EndpointProbeStatus.FAILED -> "service_failed"
+        fact.bootstrapStatus == HttpProbeStatus.UNREACHABLE -> "bootstrap_unreachable"
+        fact.quicStatus == QuicProbeStatus.ERROR -> "quic_error"
+        else -> NotTested
+    }
+
+private fun circumventionOutcomeLabel(fact: CircumventionObservationFact): String =
+    when {
+        fact.handshakeStatus == EndpointProbeStatus.OK -> "circumvention_ok"
+        fact.handshakeStatus == EndpointProbeStatus.BLOCKED -> "circumvention_blocked"
+        fact.handshakeStatus == EndpointProbeStatus.FAILED -> "circumvention_failed"
+        fact.bootstrapStatus == HttpProbeStatus.UNREACHABLE -> "bootstrap_unreachable"
+        else -> NotTested
+    }

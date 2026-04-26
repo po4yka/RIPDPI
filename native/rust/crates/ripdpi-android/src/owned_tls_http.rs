@@ -227,7 +227,14 @@ fn redirect_target(current_url: &Url, response: &RawHttpResponse) -> io::Result<
     }
 }
 
-async fn execute_once(method: &Method, url: &Url, request: &NativeOwnedTlsHttpRequest) -> io::Result<RawHttpResponse> {
+struct UrlEndpoint {
+    host: String,
+    port: u16,
+    target_path: String,
+}
+
+#[inline(never)]
+fn parse_url_endpoint(url: &Url) -> io::Result<UrlEndpoint> {
     let host = url
         .host_str()
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "native TLS fetch URL has no host"))?
@@ -235,13 +242,19 @@ async fn execute_once(method: &Method, url: &Url, request: &NativeOwnedTlsHttpRe
     let port = url.port_or_known_default().unwrap_or(default_port(url.scheme()));
     let path = url.path().to_string();
     let query_suffix = url.query().map(|query| format!("?{query}")).unwrap_or_default();
-    let target_path = format!("{path}{query_suffix}");
-    let tcp = connect_transport(&host, port, request.connect_timeout_ms).await?;
+    Ok(UrlEndpoint { host, port, target_path: format!("{path}{query_suffix}") })
+}
+
+async fn execute_once(method: &Method, url: &Url, request: &NativeOwnedTlsHttpRequest) -> io::Result<RawHttpResponse> {
+    let endpoint = parse_url_endpoint(url)?;
+    let tcp = connect_transport(&endpoint.host, endpoint.port, request.connect_timeout_ms).await?;
     tcp.set_nodelay(true)?;
 
     match url.scheme() {
-        "https" => execute_once_https(method, &target_path, &host, port, request, tcp).await,
-        "http" => send_request(method, &target_path, &host, port, request, TokioIo::new(tcp)).await,
+        "https" => execute_once_https(method, &endpoint, request, tcp).await,
+        "http" => {
+            send_request(method, &endpoint.target_path, &endpoint.host, endpoint.port, request, TokioIo::new(tcp)).await
+        }
         scheme => Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             format!("unsupported scheme for native TLS fetch: {scheme}"),
@@ -251,9 +264,7 @@ async fn execute_once(method: &Method, url: &Url, request: &NativeOwnedTlsHttpRe
 
 async fn execute_once_https(
     method: &Method,
-    target_path: &str,
-    host: &str,
-    port: u16,
+    endpoint: &UrlEndpoint,
     request: &NativeOwnedTlsHttpRequest,
     tcp: TcpStream,
 ) -> io::Result<RawHttpResponse> {
@@ -262,11 +273,16 @@ async fn execute_once_https(
     connector_builder.set_alpn_protos(HTTP11_ALPN).map_err(|error| io::Error::other(format!("TLS ALPN: {error}")))?;
     let ssl =
         connector_builder.build().configure().map_err(|error| io::Error::other(format!("TLS configure: {error}")))?;
-    let tls = timeout(Duration::from_millis(request.connect_timeout_ms), tokio_boring::connect(ssl, host, tcp))
-        .await
-        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, format!("TLS handshake to {host} timed out")))?
-        .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("TLS handshake failed: {error}")))?;
-    send_request(method, target_path, host, port, request, TokioIo::new(tls)).await
+    let tls =
+        timeout(Duration::from_millis(request.connect_timeout_ms), tokio_boring::connect(ssl, &endpoint.host, tcp))
+            .await
+            .map_err(|_| {
+                io::Error::new(io::ErrorKind::TimedOut, format!("TLS handshake to {} timed out", endpoint.host))
+            })?
+            .map_err(|error| {
+                io::Error::new(io::ErrorKind::ConnectionRefused, format!("TLS handshake failed: {error}"))
+            })?;
+    send_request(method, &endpoint.target_path, &endpoint.host, endpoint.port, request, TokioIo::new(tls)).await
 }
 
 async fn connect_transport(host: &str, port: u16, connect_timeout_ms: u64) -> io::Result<TcpStream> {

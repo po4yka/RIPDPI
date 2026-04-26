@@ -78,24 +78,10 @@ class ScanAdmissionService
                     "Unknown diagnostics profile: $profileId"
                 }
             val request = json.decodeProfileSpecWire(profile.requestJson)
-            when (request.resolveLegalSafetyPolicy().access) {
-                DiagnosticsJurisdictionProfileAccess.BLOCKED -> {
-                    throw DiagnosticsScanStartRejectedException(
-                        DiagnosticsScanStartRejectionReason.BlockedByLegalSafetyPolicy,
-                    )
-                }
-
-                DiagnosticsJurisdictionProfileAccess.MANUAL_ONLY -> {
-                    if (!allowSensitiveProfileStart) {
-                        throw DiagnosticsScanStartRejectedException(
-                            DiagnosticsScanStartRejectionReason.SensitiveProfileConsentRequired,
-                        )
-                    }
-                }
-
-                DiagnosticsJurisdictionProfileAccess.ALLOWED -> {
-                    Unit
-                }
+            val rejectionReason =
+                resolveRejectionReason(request.resolveLegalSafetyPolicy().access, allowSensitiveProfileStart)
+            if (rejectionReason != null) {
+                throw DiagnosticsScanStartRejectedException(rejectionReason)
             }
             return if (activeScanRegistry.hasHiddenActiveScan()) {
                 ManualStartAdmission.HiddenAutomaticProbeConflict(settings = settings, profile = profile)
@@ -103,6 +89,28 @@ class ScanAdmissionService
                 ManualStartAdmission.Admitted(settings = settings, profile = profile)
             }
         }
+
+        private fun resolveRejectionReason(
+            access: DiagnosticsJurisdictionProfileAccess,
+            allowSensitiveProfileStart: Boolean,
+        ): DiagnosticsScanStartRejectionReason? =
+            when (access) {
+                DiagnosticsJurisdictionProfileAccess.BLOCKED -> {
+                    DiagnosticsScanStartRejectionReason.BlockedByLegalSafetyPolicy
+                }
+
+                DiagnosticsJurisdictionProfileAccess.MANUAL_ONLY -> {
+                    if (!allowSensitiveProfileStart) {
+                        DiagnosticsScanStartRejectionReason.SensitiveProfileConsentRequired
+                    } else {
+                        null
+                    }
+                }
+
+                DiagnosticsJurisdictionProfileAccess.ALLOWED -> {
+                    null
+                }
+            }
 
         @Suppress("ReturnCount", "UnusedParameter")
         suspend fun admitAutomaticProbe(

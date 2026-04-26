@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkHandoverEvent
 import com.poyka.ripdpi.data.NetworkHandoverMonitor
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.diagnostics.testsupport.ControllableNetworkHandoverMonitor
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -851,6 +852,90 @@ class DiagnosticsHomeCompositeRunServiceTest {
             )
         }
 
+    private fun diagnosticScanSession(
+        sessionId: String,
+        profileId: String,
+        status: String,
+        summary: String = "Completed",
+    ): DiagnosticScanSession =
+        DiagnosticScanSession(
+            id = sessionId,
+            profileId = profileId,
+            pathMode = ScanPathMode.RAW_PATH.name,
+            serviceMode = "VPN",
+            status = status,
+            summary = summary,
+            startedAt = 10L,
+            finishedAt = if (status == "completed" || status == "failed") 20L else null,
+        )
+}
+
+private class NoOpNetworkHandoverMonitor : NetworkHandoverMonitor {
+    override val events = MutableSharedFlow<NetworkHandoverEvent>()
+}
+
+private class RecordingHomeCompositeScanController(
+    private val onStart: suspend (ScanPathMode, String?, String) -> Unit,
+) : DiagnosticsScanController {
+    override val hiddenAutomaticProbeActive = MutableStateFlow(false)
+    val startedRequests = mutableListOf<Pair<ScanPathMode, String?>>()
+    private var nextId = 0
+
+    override suspend fun startScan(
+        pathMode: ScanPathMode,
+        selectedProfileId: String?,
+        skipActiveScanCheck: Boolean,
+        allowSensitiveProfileStart: Boolean,
+        scanDeadlineMs: Long?,
+        maxCandidates: Int?,
+        targetOverrides: DiagnosticsScanTargetOverrides?,
+    ): DiagnosticsManualScanStartResult {
+        nextId += 1
+        val sessionId = "scan-$nextId"
+        startedRequests += pathMode to selectedProfileId
+        onStart(pathMode, selectedProfileId, sessionId)
+        return DiagnosticsManualScanStartResult.Started(sessionId)
+    }
+
+    override suspend fun resolveHiddenProbeConflict(
+        requestId: String,
+        action: HiddenProbeConflictAction,
+    ): DiagnosticsManualScanResolution = error("unused")
+
+    override suspend fun cancelActiveScan() = Unit
+
+    override suspend fun setActiveProfile(profileId: String) = Unit
+}
+
+private class NoOpProbeResultCache : ProbeResultCache {
+    override suspend fun lookup(fingerprintHash: String): CachedProbeOutcome? = null
+
+    override suspend fun store(outcome: CachedProbeOutcome) = Unit
+
+    override suspend fun evict(fingerprintHash: String) = Unit
+
+    override suspend fun clear() = Unit
+}
+
+private class MutableDiagnosticsTimelineSource : DiagnosticsTimelineSource {
+    override val activeScanProgress = MutableStateFlow<ScanProgress?>(null)
+    override val activeConnectionSession = MutableStateFlow<DiagnosticConnectionSession?>(null)
+    override val profiles = MutableStateFlow(emptyList<DiagnosticProfile>())
+    override val sessions = MutableStateFlow(emptyList<DiagnosticScanSession>())
+    override val approachStats = MutableStateFlow(emptyList<BypassApproachSummary>())
+    override val snapshots = MutableStateFlow(emptyList<DiagnosticNetworkSnapshot>())
+    override val contexts = MutableStateFlow(emptyList<DiagnosticContextSnapshot>())
+    override val telemetry = MutableStateFlow(emptyList<DiagnosticTelemetrySample>())
+    override val nativeEvents = MutableStateFlow(emptyList<DiagnosticEvent>())
+    override val liveSnapshots = MutableStateFlow(emptyList<DiagnosticNetworkSnapshot>())
+    override val liveContexts = MutableStateFlow(emptyList<DiagnosticContextSnapshot>())
+    override val liveTelemetry = MutableStateFlow(emptyList<DiagnosticTelemetrySample>())
+    override val liveNativeEvents = MutableStateFlow(emptyList<DiagnosticEvent>())
+    override val exports = MutableStateFlow(emptyList<DiagnosticExportRecord>())
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class DiagnosticsHomeCompositeRunServiceVpnHaltTest {
     @Test
     fun `vpn service halting during audit stage marks stage failed and completes run`() =
         runTest {
@@ -938,85 +1023,4 @@ class DiagnosticsHomeCompositeRunServiceTest {
             // 7 remaining stages (detection_signals + 5 middle profile scans + dpi_strategy) were skipped.
             assertEquals(7, outcome.skippedStageCount)
         }
-
-    private fun diagnosticScanSession(
-        sessionId: String,
-        profileId: String,
-        status: String,
-        summary: String = "Completed",
-    ): DiagnosticScanSession =
-        DiagnosticScanSession(
-            id = sessionId,
-            profileId = profileId,
-            pathMode = ScanPathMode.RAW_PATH.name,
-            serviceMode = "VPN",
-            status = status,
-            summary = summary,
-            startedAt = 10L,
-            finishedAt = if (status == "completed" || status == "failed") 20L else null,
-        )
-}
-
-private class NoOpNetworkHandoverMonitor : NetworkHandoverMonitor {
-    override val events = MutableSharedFlow<NetworkHandoverEvent>()
-}
-
-private class RecordingHomeCompositeScanController(
-    private val onStart: suspend (ScanPathMode, String?, String) -> Unit,
-) : DiagnosticsScanController {
-    override val hiddenAutomaticProbeActive = MutableStateFlow(false)
-    val startedRequests = mutableListOf<Pair<ScanPathMode, String?>>()
-    private var nextId = 0
-
-    override suspend fun startScan(
-        pathMode: ScanPathMode,
-        selectedProfileId: String?,
-        skipActiveScanCheck: Boolean,
-        allowSensitiveProfileStart: Boolean,
-        scanDeadlineMs: Long?,
-        maxCandidates: Int?,
-        targetOverrides: DiagnosticsScanTargetOverrides?,
-    ): DiagnosticsManualScanStartResult {
-        nextId += 1
-        val sessionId = "scan-$nextId"
-        startedRequests += pathMode to selectedProfileId
-        onStart(pathMode, selectedProfileId, sessionId)
-        return DiagnosticsManualScanStartResult.Started(sessionId)
-    }
-
-    override suspend fun resolveHiddenProbeConflict(
-        requestId: String,
-        action: HiddenProbeConflictAction,
-    ): DiagnosticsManualScanResolution = error("unused")
-
-    override suspend fun cancelActiveScan() = Unit
-
-    override suspend fun setActiveProfile(profileId: String) = Unit
-}
-
-private class NoOpProbeResultCache : ProbeResultCache {
-    override suspend fun lookup(fingerprintHash: String): CachedProbeOutcome? = null
-
-    override suspend fun store(outcome: CachedProbeOutcome) = Unit
-
-    override suspend fun evict(fingerprintHash: String) = Unit
-
-    override suspend fun clear() = Unit
-}
-
-private class MutableDiagnosticsTimelineSource : DiagnosticsTimelineSource {
-    override val activeScanProgress = MutableStateFlow<ScanProgress?>(null)
-    override val activeConnectionSession = MutableStateFlow<DiagnosticConnectionSession?>(null)
-    override val profiles = MutableStateFlow(emptyList<DiagnosticProfile>())
-    override val sessions = MutableStateFlow(emptyList<DiagnosticScanSession>())
-    override val approachStats = MutableStateFlow(emptyList<BypassApproachSummary>())
-    override val snapshots = MutableStateFlow(emptyList<DiagnosticNetworkSnapshot>())
-    override val contexts = MutableStateFlow(emptyList<DiagnosticContextSnapshot>())
-    override val telemetry = MutableStateFlow(emptyList<DiagnosticTelemetrySample>())
-    override val nativeEvents = MutableStateFlow(emptyList<DiagnosticEvent>())
-    override val liveSnapshots = MutableStateFlow(emptyList<DiagnosticNetworkSnapshot>())
-    override val liveContexts = MutableStateFlow(emptyList<DiagnosticContextSnapshot>())
-    override val liveTelemetry = MutableStateFlow(emptyList<DiagnosticTelemetrySample>())
-    override val liveNativeEvents = MutableStateFlow(emptyList<DiagnosticEvent>())
-    override val exports = MutableStateFlow(emptyList<DiagnosticExportRecord>())
 }
