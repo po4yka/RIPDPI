@@ -175,7 +175,7 @@ pub(super) enum StrategyFamily {
     Mixed,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 pub struct LearningContext {
     pub network_identity: Option<String>,
     pub target_bucket: LearningTargetBucket,
@@ -187,23 +187,6 @@ pub struct LearningContext {
     pub resolver_health: ResolverHealthClass,
     pub rooted: bool,
     pub capability_context: CapabilityContext,
-}
-
-impl Default for LearningContext {
-    fn default() -> Self {
-        Self {
-            network_identity: None,
-            target_bucket: LearningTargetBucket::default(),
-            transport: LearningTransportKind::default(),
-            alpn_class: LearningAlpnClass::default(),
-            hosting_family: LearningHostingFamily::default(),
-            reachability_set: LearningReachabilitySet::default(),
-            ech_capable: false,
-            resolver_health: ResolverHealthClass::default(),
-            rooted: false,
-            capability_context: CapabilityContext::default(),
-        }
-    }
 }
 
 // ---------------------------------------------------------------------------

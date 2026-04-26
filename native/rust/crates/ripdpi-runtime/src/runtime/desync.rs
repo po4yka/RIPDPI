@@ -547,7 +547,7 @@ fn transparent_tls_family_strategy(
     if progress.round != 1 || progress.stream_start != 0 || tls_marker_info(payload).is_none() {
         return None;
     }
-    if capability.outcome.trim().to_ascii_uppercase() != "TRANSPARENT_OK" {
+    if !capability.outcome.trim().eq_ignore_ascii_case("TRANSPARENT_OK") {
         return None;
     }
     match capability.tcp_family.trim().to_ascii_uppercase().as_str() {
@@ -3174,7 +3174,6 @@ mod tests {
     use ripdpi_packets::http_marker_info;
     use std::net::{Ipv4Addr, TcpListener};
 
-    #[allow(dead_code)]
     mod rust_packet_seeds {
         include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../ripdpi-packets/tests/rust_packet_seeds.rs"));
     }

@@ -744,7 +744,7 @@ mod tests {
         capability.quic_mode = "SOFT_DISABLE".to_string();
         capability.reason_code = Some("NO_TCP_FALLBACK".to_string());
 
-        let merged = merge_udp_hints_with_capability(hints.clone(), Some(&capability));
+        let merged = merge_udp_hints_with_capability(hints, Some(&capability));
 
         assert_eq!(merged, hints);
     }
