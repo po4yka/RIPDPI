@@ -4,9 +4,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 fn spawn_batched_doh_fixture(
     expected_domain: &str,
-    expected_types: Vec<RecordType>,
+    expected_types: &[RecordType],
     response_bodies: Vec<Vec<u8>>,
 ) -> (u16, CertificateDer<'static>, Arc<AtomicUsize>, thread::JoinHandle<()>) {
+    let expected_types = expected_types.to_vec();
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
     let port = listener.local_addr().expect("local addr").port();
     let certificate = generate_simple_self_signed(vec!["fixture.test".to_string()]).expect("certificate");
@@ -85,7 +86,7 @@ fn pipeline_with_fixture(
 
 #[test]
 fn doh_pipeline_queries_primary_batch_and_returns_record_order() {
-    let expected_types = vec![RecordType::A, RecordType::AAAA, RecordType::CNAME, RecordType::HTTPS, RecordType::SVCB];
+    let expected_types = [RecordType::A, RecordType::AAAA, RecordType::CNAME, RecordType::HTTPS, RecordType::SVCB];
     let response_bodies = expected_types
         .iter()
         .map(|record_type| {
@@ -97,7 +98,7 @@ fn doh_pipeline_queries_primary_batch_and_returns_record_order() {
         })
         .collect::<Vec<_>>();
     let (port, certificate, query_count, server) =
-        spawn_batched_doh_fixture("fixture.test.", expected_types.clone(), response_bodies);
+        spawn_batched_doh_fixture("fixture.test.", &expected_types, response_bodies);
     let pipeline =
         pipeline_with_fixture(fixture_endpoint(port, "primary"), fixture_endpoint(port, "secondary"), certificate);
 
@@ -121,7 +122,7 @@ fn doh_pipeline_queries_primary_batch_and_returns_record_order() {
 
 #[test]
 fn doh_pipeline_falls_back_to_secondary_when_primary_fails() {
-    let expected_types = vec![RecordType::A, RecordType::AAAA, RecordType::CNAME, RecordType::HTTPS, RecordType::SVCB];
+    let expected_types = [RecordType::A, RecordType::AAAA, RecordType::CNAME, RecordType::HTTPS, RecordType::SVCB];
     let response_bodies = expected_types
         .iter()
         .map(|record_type| {
@@ -133,7 +134,7 @@ fn doh_pipeline_falls_back_to_secondary_when_primary_fails() {
         })
         .collect::<Vec<_>>();
     let (secondary_port, certificate, query_count, secondary_server) =
-        spawn_batched_doh_fixture("fixture.test.", expected_types, response_bodies);
+        spawn_batched_doh_fixture("fixture.test.", &expected_types, response_bodies);
     let pipeline = pipeline_with_fixture(
         fixture_endpoint(9, "primary"),
         fixture_endpoint(secondary_port, "secondary"),
@@ -149,7 +150,7 @@ fn doh_pipeline_falls_back_to_secondary_when_primary_fails() {
 
 #[test]
 fn doh_pipeline_reuses_fresh_cache_until_ttl_expires() {
-    let expected_types = vec![RecordType::A, RecordType::AAAA, RecordType::CNAME, RecordType::HTTPS, RecordType::SVCB];
+    let expected_types = [RecordType::A, RecordType::AAAA, RecordType::CNAME, RecordType::HTTPS, RecordType::SVCB];
     let response_bodies = expected_types
         .iter()
         .map(|record_type| {
@@ -161,7 +162,7 @@ fn doh_pipeline_reuses_fresh_cache_until_ttl_expires() {
         })
         .collect::<Vec<_>>();
     let (port, certificate, query_count, server) =
-        spawn_batched_doh_fixture("fixture.test.", expected_types, response_bodies);
+        spawn_batched_doh_fixture("fixture.test.", &expected_types, response_bodies);
     let pipeline =
         pipeline_with_fixture(fixture_endpoint(port, "primary"), fixture_endpoint(port, "secondary"), certificate);
 
@@ -175,7 +176,7 @@ fn doh_pipeline_reuses_fresh_cache_until_ttl_expires() {
 
 #[test]
 fn doh_pipeline_refreshes_after_ttl_expiry() {
-    let expected_types = vec![RecordType::A, RecordType::AAAA, RecordType::CNAME, RecordType::HTTPS, RecordType::SVCB];
+    let expected_types = [RecordType::A, RecordType::AAAA, RecordType::CNAME, RecordType::HTTPS, RecordType::SVCB];
     let response_bodies = expected_types
         .iter()
         .cycle()
@@ -188,9 +189,9 @@ fn doh_pipeline_refreshes_after_ttl_expiry() {
             }
         })
         .collect::<Vec<_>>();
-    let expected_cycle = expected_types.iter().cloned().cycle().take(10).collect::<Vec<_>>();
+    let expected_cycle = expected_types.iter().copied().cycle().take(10).collect::<Vec<_>>();
     let (port, certificate, query_count, server) =
-        spawn_batched_doh_fixture("fixture.test.", expected_cycle, response_bodies);
+        spawn_batched_doh_fixture("fixture.test.", &expected_cycle, response_bodies);
     let pipeline =
         pipeline_with_fixture(fixture_endpoint(port, "primary"), fixture_endpoint(port, "secondary"), certificate);
 
