@@ -1,82 +1,82 @@
 {
-    "hashAlgorithm": "sha256",
-    "schemaVersion": 4,
-    "generatedAt": 42,
     "files": [
         {
-            "name": "summary.txt",
             "byteCount": 2235,
+            "name": "summary.txt",
             "sha256": "4d1e4bbf97ea4ff0b184305979fddd09e19c2073e0dbc6a444223b4b14af0cd9"
         },
         {
+            "byteCount": 5482,
             "name": "manifest.json",
-            "byteCount": 5314,
-            "sha256": "353290025f1fb06db9c9d4b37bcd1e4578f8f6589f9cae28f3637fea2a17a4be"
+            "sha256": "e629af87d823c74e574fef5c2f58239ee7e34f65c4709ba86150676a8ae24a07"
         },
         {
+            "byteCount": 21343,
             "name": "report.json",
-            "byteCount": 21155,
-            "sha256": "ef99290b5c80e9901ea3a354b70df0c4aa17cb24287fe1ba920e28187cbcbc46"
+            "sha256": "b5ce4be7764c95e54063407deba19824c8d6beaa4ab9df887d0a699448613b88"
         },
         {
-            "name": "strategy-matrix.json",
             "byteCount": 4787,
+            "name": "strategy-matrix.json",
             "sha256": "2ca8ded08ddaeb88669d7847d5f2876a53491c3d25960f74a2c96a0c7bd2255f"
         },
         {
-            "name": "archive-provenance.json",
             "byteCount": 1050,
+            "name": "archive-provenance.json",
             "sha256": "ef614d8c9595bf8e420c0bb13362d2b545d52cc7ad270a891981e5a5bdc52e01"
         },
         {
-            "name": "runtime-config.json",
             "byteCount": 1501,
+            "name": "runtime-config.json",
             "sha256": "750c33fe4fc502d13096457ebf4e6968432729784ccf3e6a51a8d15ccca9a39a"
         },
         {
-            "name": "analysis.json",
             "byteCount": 6978,
+            "name": "analysis.json",
             "sha256": "6ecaaa2afc27e46d973b2e58b9178c83670044f5c1e6282e30b29aa990d4ebd0"
         },
         {
-            "name": "completeness.json",
             "byteCount": 1736,
+            "name": "completeness.json",
             "sha256": "3453b55427338c5dc949b22ecc8488255ac247cdb78ed7e80ed0fc630304bc92"
         },
         {
-            "name": "network-snapshots.json",
             "byteCount": 1553,
+            "name": "network-snapshots.json",
             "sha256": "4072e3c982b82c6a77728a0bedc624ae81b59cee98849d1ef12fa26f4bdd7187"
         },
         {
-            "name": "diagnostic-context.json",
             "byteCount": 3681,
+            "name": "diagnostic-context.json",
             "sha256": "35dc2146179457a40375ef983928f2b75c1fad6fc7e4b456e61a4f13dd388303"
         },
         {
-            "name": "developer-analytics.json",
             "byteCount": 201,
+            "name": "developer-analytics.json",
             "sha256": "16f4ba3f0524bcbf8159d66a88f72a0b7ddf252a4a2ed4b35764711cbc38ae41"
         },
         {
-            "name": "probe-results.csv",
             "byteCount": 229,
+            "name": "probe-results.csv",
             "sha256": "83d8824108a030c98bd7ecc737e6437f81d5073b17a49325ae2d254e18cdc8c5"
         },
         {
-            "name": "native-events.csv",
             "byteCount": 228,
+            "name": "native-events.csv",
             "sha256": "37ce8d8d0d007dae0924b291cfe39c6b8e09135ba4344c075673b764e95daf0e"
         },
         {
+            "byteCount": 1243,
             "name": "telemetry.csv",
-            "byteCount": 1039,
-            "sha256": "40a3274369efd800656e352a6fa157bc351f6a1312705c4dacdf8f5e7879178b"
+            "sha256": "6219bdcc17cb80b8c50d6a3e8da5b2a601a7ee4b532072c362a27b888b953f18"
         },
         {
-            "name": "logcat.txt",
             "byteCount": 47,
+            "name": "logcat.txt",
             "sha256": "4d66941470cbc7509a74eafca81b9084f11328aea4b80be39fe1e3c875e2c9be"
         }
-    ]
+    ],
+    "generatedAt": 42,
+    "hashAlgorithm": "sha256",
+    "schemaVersion": 4
 }

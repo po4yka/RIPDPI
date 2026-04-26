@@ -76,11 +76,15 @@
     "latestTelemetrySummary": {
         "proxyRouteRetryCount": 1,
         "proxyRttBand": "50_99",
+        "proxyTelemetryState": "no_data",
+        "relayTelemetryState": "no_data",
         "resolverRttBand": "lt50",
         "retryCount": 1,
         "rttBand": "50_99",
         "telemetryNetworkFingerprintHash": "fp-render",
         "tunnelRecoveryRetryCount": 0,
+        "tunnelTelemetryState": "no_data",
+        "warpTelemetryState": "no_data",
         "winningQuicStrategyFamily": "quic_sni_split",
         "winningStrategyFamily": "tlsrec_split + quic_sni_split",
         "winningTcpStrategyFamily": "tlsrec_split"

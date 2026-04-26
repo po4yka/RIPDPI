@@ -19,7 +19,6 @@
         "nativeEvents": [
             {
                 "createdAt": 0,
-                "kind": null,
                 "level": "info",
                 "message": "accepted",
                 "source": "proxy"
@@ -56,7 +55,6 @@
         "nativeEvents": [
             {
                 "createdAt": 0,
-                "kind": null,
                 "level": "warn",
                 "message": "slow upstream",
                 "source": "tunnel"
@@ -76,10 +74,10 @@
         "message": null,
         "state": "snapshot"
     },
+    "updatedAt": 0,
     "warpTelemetryStatus": {
         "causeClass": null,
         "message": null,
         "state": "no_data"
-    },
-    "updatedAt": 0
+    }
 }
