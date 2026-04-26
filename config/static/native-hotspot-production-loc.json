@@ -137,7 +137,7 @@
       "maxProductionLoc": 189
     },
     {
-      "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/tls_boundary.rs",
+      "path": "native/rust/crates/ripdpi-runtime/src/runtime/relay/tls_boundary/mod.rs",
       "maxProductionLoc": 143
     },
     {

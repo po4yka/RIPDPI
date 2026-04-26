@@ -32,9 +32,8 @@ pub(crate) fn destroy_diagnostics_session(env: &mut Env<'_>, handle: jlong) {
         throw_illegal_argument_env(env, "Invalid diagnostics handle");
         return;
     };
-    let Some(session) = DIAGNOSTIC_SESSIONS.remove(handle) else {
-        throw_illegal_argument_env(env, "Unknown diagnostics handle");
-        return;
-    };
-    session.destroy();
+    match DIAGNOSTIC_SESSIONS.remove(handle) {
+        Some(session) => session.destroy(),
+        None => throw_illegal_argument_env(env, "Unknown diagnostics handle"),
+    }
 }

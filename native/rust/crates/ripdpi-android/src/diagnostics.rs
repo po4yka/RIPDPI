@@ -13,6 +13,10 @@ use polling::{poll_passive_events, poll_progress, take_report};
 use registry::{create_diagnostics_session, destroy_diagnostics_session};
 use scan::{cancel_diagnostics_scan, start_diagnostics_scan};
 
+fn throw_panic(env: &mut EnvUnowned<'_>, prefix: &str, payload: Box<dyn std::any::Any + Send>) {
+    throw_runtime_exception(env, format!("{prefix}: {}", extract_panic_message(payload)));
+}
+
 pub(crate) fn diagnostics_create_entry(mut env: EnvUnowned<'_>) -> jlong {
     init_android_logging("ripdpi-native");
     match env.with_env(|_| -> jni::errors::Result<jlong> { Ok(create_diagnostics_session()) }).into_outcome() {
@@ -22,8 +26,7 @@ pub(crate) fn diagnostics_create_entry(mut env: EnvUnowned<'_>) -> jlong {
             0
         }
         Outcome::Panic(panic_payload) => {
-            let msg = extract_panic_message(panic_payload);
-            throw_runtime_exception(&mut env, format!("Diagnostics session creation panicked: {msg}"));
+            throw_panic(&mut env, "Diagnostics session creation panicked", panic_payload);
             0
         }
     }
@@ -47,10 +50,7 @@ pub(crate) fn diagnostics_start_scan_entry(
         Outcome::Err(err) => {
             throw_runtime_exception(&mut env, format!("Diagnostics scan start failed: {err}"));
         }
-        Outcome::Panic(panic_payload) => {
-            let msg = extract_panic_message(panic_payload);
-            throw_runtime_exception(&mut env, format!("Diagnostics scan start panicked: {msg}"));
-        }
+        Outcome::Panic(panic_payload) => throw_panic(&mut env, "Diagnostics scan start panicked", panic_payload),
     }
 }
 
@@ -67,10 +67,7 @@ pub(crate) fn diagnostics_cancel_scan_entry(mut env: EnvUnowned<'_>, handle: jlo
         Outcome::Err(err) => {
             throw_runtime_exception(&mut env, format!("Diagnostics cancel failed: {err}"));
         }
-        Outcome::Panic(panic_payload) => {
-            let msg = extract_panic_message(panic_payload);
-            throw_runtime_exception(&mut env, format!("Diagnostics cancel panicked: {msg}"));
-        }
+        Outcome::Panic(panic_payload) => throw_panic(&mut env, "Diagnostics cancel panicked", panic_payload),
     }
 }
 
@@ -83,8 +80,7 @@ pub(crate) fn diagnostics_poll_progress_entry(mut env: EnvUnowned<'_>, handle: j
             std::ptr::null_mut()
         }
         Outcome::Panic(panic_payload) => {
-            let msg = extract_panic_message(panic_payload);
-            throw_runtime_exception(&mut env, format!("Diagnostics progress polling panicked: {msg}"));
+            throw_panic(&mut env, "Diagnostics progress polling panicked", panic_payload);
             std::ptr::null_mut()
         }
     }
@@ -99,8 +95,7 @@ pub(crate) fn diagnostics_take_report_entry(mut env: EnvUnowned<'_>, handle: jlo
             std::ptr::null_mut()
         }
         Outcome::Panic(panic_payload) => {
-            let msg = extract_panic_message(panic_payload);
-            throw_runtime_exception(&mut env, format!("Diagnostics report polling panicked: {msg}"));
+            throw_panic(&mut env, "Diagnostics report polling panicked", panic_payload);
             std::ptr::null_mut()
         }
     }
@@ -118,8 +113,7 @@ pub(crate) fn diagnostics_poll_passive_events_entry(mut env: EnvUnowned<'_>, han
             std::ptr::null_mut()
         }
         Outcome::Panic(panic_payload) => {
-            let msg = extract_panic_message(panic_payload);
-            throw_runtime_exception(&mut env, format!("Diagnostics passive polling panicked: {msg}"));
+            throw_panic(&mut env, "Diagnostics passive polling panicked", panic_payload);
             std::ptr::null_mut()
         }
     }
@@ -138,10 +132,7 @@ pub(crate) fn diagnostics_destroy_entry(mut env: EnvUnowned<'_>, handle: jlong) 
         Outcome::Err(err) => {
             throw_runtime_exception(&mut env, format!("Diagnostics session destroy failed: {err}"));
         }
-        Outcome::Panic(panic_payload) => {
-            let msg = extract_panic_message(panic_payload);
-            throw_runtime_exception(&mut env, format!("Diagnostics session destroy panicked: {msg}"));
-        }
+        Outcome::Panic(panic_payload) => throw_panic(&mut env, "Diagnostics session destroy panicked", panic_payload),
     }
 }
 
