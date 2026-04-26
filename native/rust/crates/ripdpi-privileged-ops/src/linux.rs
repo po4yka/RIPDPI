@@ -410,8 +410,14 @@ pub fn attach_strip_timestamps(stream: &TcpStream) -> io::Result<()> {
 /// Clamp the TCP receive window to force the server to send small segments.
 ///
 /// Setting `size` to a low value (e.g., 1 or 2) causes the kernel to advertise
-/// a tiny window, preventing DPI from reassembling the response stream.
-/// A value of 0 removes the clamp and restores the default window behaviour.
+/// a tiny window, preventing DPI from reassembling the response stream. The
+/// kernel enforces a floor of `SOCK_MIN_RCVBUF / 2` so the effective window
+/// will not drop below ~1152 bytes regardless of how small `size` is.
+///
+/// To remove the clamp on an already-connected socket, pass a value larger
+/// than any reasonable advertised window (e.g., `1_000_000`); modern Linux
+/// rejects `size=0` on established sockets with `EINVAL` (only `TCP_CLOSE`
+/// sockets accept it).
 pub fn set_tcp_window_clamp(stream: &TcpStream, size: u32) -> io::Result<()> {
     let val = size as libc::c_int;
     set_c_int_sockopt(stream.as_raw_fd(), libc::IPPROTO_TCP, libc::TCP_WINDOW_CLAMP, val)
@@ -1476,20 +1482,29 @@ mod tests {
     #[test]
     fn tcp_window_clamp_set_and_readback() {
         let (client, _server) = connected_pair();
+        let baseline = get_tcp_window_clamp(&client).expect("read baseline clamp");
         set_tcp_window_clamp(&client, 2).expect("set clamp to 2");
         let val = get_tcp_window_clamp(&client).expect("read clamp");
-        // Kernel may enforce min(clamp, advmss/2) so value can be adjusted upward.
+        // Kernel enforces a floor (max(value, SOCK_MIN_RCVBUF / 2)) so the
+        // requested 2 is rounded up to the kernel's minimum (typically 1152
+        // bytes on modern Linux). Verify the clamp is positive and meaningfully
+        // tighter than the baseline rather than a fixed magic number.
         assert!(val > 0, "clamp should be positive after setting to 2, got {val}");
-        assert!(val <= 256, "clamp should be small after setting to 2, got {val}");
+        assert!(val < baseline, "clamp should be tighter than baseline {baseline} after setting to 2, got {val}");
     }
 
     #[test]
-    fn tcp_window_clamp_restore_to_zero() {
+    fn tcp_window_clamp_restore_to_large_value() {
+        // Modern Linux rejects TCP_WINDOW_CLAMP=0 on connected sockets with
+        // EINVAL (only sockets in TCP_CLOSE accept 0). The supported way to
+        // "remove" the clamp on an established socket is to set it to a value
+        // larger than any reasonable advertised window so the kernel's
+        // min(clamp, peer_window) gate becomes a no-op.
         let (client, _server) = connected_pair();
         set_tcp_window_clamp(&client, 2).expect("set clamp to 2");
-        set_tcp_window_clamp(&client, 0).expect("restore clamp to 0");
+        set_tcp_window_clamp(&client, 1_000_000).expect("restore clamp to large value");
         let val = get_tcp_window_clamp(&client).expect("read clamp after restore");
-        assert!(val == 0 || val > 256, "clamp after restore should be 0 or large, got {val}");
+        assert!(val > 256, "clamp after restore should be large, got {val}");
     }
 
     #[test]
