@@ -212,7 +212,7 @@ fn redirect_target(current_url: &Url, response: &RawHttpResponse) -> io::Result<
             let location = current_url.join(location).map_err(|error| {
                 io::Error::new(
                     io::ErrorKind::InvalidData,
-                    format!("invalid redirect target from {}: {error}", current_url),
+                    format!("invalid redirect target from {current_url}: {error}"),
                 )
             })?;
             if current_url.scheme() == "https" && location.scheme() == "http" {
@@ -603,10 +603,10 @@ mod tests {
     #[test]
     fn execute_protects_socket_before_connect_when_callback_registered() {
         let _lock = PROTECT_TEST_MUTEX.lock().expect("test mutex");
-        let guard = ProtectRegistrationGuard::register();
+        let _guard = ProtectRegistrationGuard::register();
         let callback = Arc::new(TestProtectCallback::default());
         let callback_for_registration: Arc<dyn ProtectCallback> = callback.clone();
-        guard.install(callback_for_registration);
+        ProtectRegistrationGuard::install(callback_for_registration);
 
         let server = spawn_http_server(vec![http_response("200 OK", &[], b"manifest")]);
         let port = server.local_addr().expect("local addr").port();
@@ -643,7 +643,7 @@ mod tests {
             Self
         }
 
-        fn install(&self, callback: Arc<dyn ProtectCallback>) {
+        fn install(callback: Arc<dyn ProtectCallback>) {
             register_protect_callback(callback);
         }
     }
