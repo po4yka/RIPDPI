@@ -177,10 +177,10 @@ fn tuple_key_for_targets(host: Option<&str>, targets: &[SocketAddr]) -> Option<T
 }
 
 fn normalize_authority(host: Option<&str>, target: SocketAddr) -> String {
-    host.map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(|value| format!("{}:{}", value.trim_end_matches('.').to_ascii_lowercase(), target.port()))
-        .unwrap_or_else(|| target.to_string().to_ascii_lowercase())
+    host.map(str::trim).filter(|value| !value.is_empty()).map_or_else(
+        || target.to_string().to_ascii_lowercase(),
+        |value| format!("{}:{}", value.trim_end_matches('.').to_ascii_lowercase(), target.port()),
+    )
 }
 
 #[cfg(test)]

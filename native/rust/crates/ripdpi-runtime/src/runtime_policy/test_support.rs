@@ -2,7 +2,6 @@ use std::net::SocketAddr;
 
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
 
-#[allow(dead_code)]
 pub(super) mod rust_packet_seeds {
     include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../ripdpi-packets/tests/rust_packet_seeds.rs"));
 }

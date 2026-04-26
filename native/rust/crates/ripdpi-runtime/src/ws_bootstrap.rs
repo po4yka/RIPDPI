@@ -247,10 +247,7 @@ fn direct_path_capability_for_host<'a>(
 ) -> Option<&'a ProxyDirectPathCapability> {
     let normalized_host = normalize_authority(host)?;
     let candidates = [normalized_host.clone(), format!("{normalized_host}:443")];
-    runtime_context?
-        .direct_path_capabilities
-        .iter()
-        .find(|capability| candidates.iter().any(|candidate| capability.authority == *candidate))
+    runtime_context?.direct_path_capabilities.iter().find(|capability| candidates.contains(&capability.authority))
 }
 
 fn capability_udp_clean_for_resolver(capability: &ProxyDirectPathCapability) -> bool {

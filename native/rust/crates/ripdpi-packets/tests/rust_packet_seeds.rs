@@ -4,6 +4,7 @@ use ring::aead::{self, Aad, LessSafeKey, UnboundKey, AES_128_GCM};
 use ring::hkdf::{self, KeyType, Salt, HKDF_SHA256};
 use ripdpi_packets::change_tls_sni_seeded_like_c;
 
+#[allow(dead_code)]
 struct HkdfLen(usize);
 impl KeyType for HkdfLen {
     fn len(&self) -> usize {
@@ -11,17 +12,22 @@ impl KeyType for HkdfLen {
     }
 }
 
+#[allow(dead_code)]
 const QUIC_V1_VERSION: u32 = 0x0000_0001;
+#[allow(dead_code)]
 const QUIC_V2_VERSION: u32 = 0x6b33_43cf;
+#[allow(dead_code)]
 const QUIC_V1_SALT: [u8; 20] = [
     0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f,
     0x0a,
 ];
+#[allow(dead_code)]
 const QUIC_V2_SALT: [u8; 20] = [
     0x0d, 0xed, 0xe3, 0xde, 0xf7, 0x00, 0xa6, 0xdb, 0x81, 0x93, 0x81, 0xbe, 0x6e, 0x26, 0x9d, 0xcb, 0xf9, 0xbd, 0x2e,
     0xd9,
 ];
 
+#[allow(dead_code)]
 fn decode_hex(input: &str) -> Vec<u8> {
     let filtered: String = input.chars().filter(|ch| !ch.is_ascii_whitespace()).collect();
     assert_eq!(filtered.len() % 2, 0, "hex payload must have even length");
@@ -37,31 +43,37 @@ fn decode_hex(input: &str) -> Vec<u8> {
         .collect()
 }
 
+#[allow(dead_code)]
 fn read_u16(data: &[u8], offset: usize) -> u16 {
     ((data[offset] as u16) << 8) | data[offset + 1] as u16
 }
 
+#[allow(dead_code)]
 fn write_u16(data: &mut [u8], offset: usize, value: u16) {
     data[offset] = ((value >> 8) & 0xff) as u8;
     data[offset + 1] = (value & 0xff) as u8;
 }
 
+#[allow(dead_code)]
 fn write_u24(data: &mut [u8], offset: usize, value: u32) {
     data[offset] = ((value >> 16) & 0xff) as u8;
     data[offset + 1] = ((value >> 8) & 0xff) as u8;
     data[offset + 2] = (value & 0xff) as u8;
 }
 
+#[allow(dead_code)]
 fn _write_u32(data: &mut [u8], offset: usize, value: u32) {
     data[offset..offset + 4].copy_from_slice(&value.to_be_bytes());
 }
 
+#[allow(dead_code)]
 fn find_ext_block(data: &[u8]) -> usize {
     let sid_len = data[43] as usize;
     let cip_len = read_u16(data, 44 + sid_len) as usize;
     44 + sid_len + 2 + cip_len + 2
 }
 
+#[allow(dead_code)]
 fn find_extension(data: &[u8], ext_type: u16) -> usize {
     let block = find_ext_block(data);
     let mut pos = block + 2;
@@ -77,16 +89,19 @@ fn find_extension(data: &[u8], ext_type: u16) -> usize {
     panic!("extension 0x{ext_type:04x} not found");
 }
 
+#[allow(dead_code)]
 pub fn http_request() -> Vec<u8> {
     b"GET / HTTP/1.1\r\nHost: www.wikipedia.org\r\n\r\n".to_vec()
 }
 
+#[allow(dead_code)]
 pub fn http_redirect_response() -> Vec<u8> {
     concat!("HTTP/1.1 302 Found\r\n", "Location: https://example.net/wiki\r\n", "Content-Length: 0\r\n", "\r\n")
         .as_bytes()
         .to_vec()
 }
 
+#[allow(dead_code)]
 pub fn tls_client_hello() -> Vec<u8> {
     let mut data = decode_hex(
         "
@@ -104,6 +119,7 @@ f9df0c2e8a55898231631aefa8be0858a7a35a18d3965f045cb462af89d70f8b003e130213031301
     data
 }
 
+#[allow(dead_code)]
 pub fn tls_server_hello_like() -> Vec<u8> {
     let mut data = tls_client_hello();
     let sid_len = data[43] as usize;
@@ -119,6 +135,7 @@ pub fn tls_server_hello_like() -> Vec<u8> {
     data
 }
 
+#[allow(dead_code)]
 pub fn tls_client_hello_ech() -> Vec<u8> {
     let mut data = tls_client_hello();
     let ech_extension = decode_hex("fe0d000e000000000000000201020002aabb");
@@ -140,6 +157,7 @@ pub fn tls_client_hello_ech() -> Vec<u8> {
     data
 }
 
+#[allow(dead_code)]
 fn encode_quic_varint(value: u64) -> Vec<u8> {
     match value {
         0..=63 => vec![value as u8],
@@ -153,6 +171,7 @@ fn encode_quic_varint(value: u64) -> Vec<u8> {
     }
 }
 
+#[allow(dead_code)]
 fn quic_hkdf_label(label: &str, out_len: usize) -> Vec<u8> {
     let mut info = Vec::with_capacity(2 + 1 + label.len() + 1);
     info.extend_from_slice(&(out_len as u16).to_be_bytes());
@@ -162,6 +181,7 @@ fn quic_hkdf_label(label: &str, out_len: usize) -> Vec<u8> {
     info
 }
 
+#[allow(dead_code)]
 fn quic_expand_label(secret: &[u8], label: &str, out: &mut [u8]) {
     let prk = hkdf::Prk::new_less_safe(HKDF_SHA256, secret);
     let info = quic_hkdf_label(label, out.len());
@@ -170,6 +190,7 @@ fn quic_expand_label(secret: &[u8], label: &str, out: &mut [u8]) {
     okm.fill(out).expect("quic seed fill");
 }
 
+#[allow(dead_code)]
 fn quic_client_initial_secret(version: u32, dcid: &[u8]) -> [u8; 32] {
     let salt_bytes = match version {
         QUIC_V1_VERSION => &QUIC_V1_SALT,
@@ -186,6 +207,7 @@ fn quic_client_initial_secret(version: u32, dcid: &[u8]) -> [u8; 32] {
     secret
 }
 
+#[allow(dead_code)]
 fn append_crypto_frame(out: &mut Vec<u8>, offset: u64, data: &[u8]) {
     out.push(0x06);
     out.extend_from_slice(&encode_quic_varint(offset));
@@ -193,6 +215,7 @@ fn append_crypto_frame(out: &mut Vec<u8>, offset: u64, data: &[u8]) {
     out.extend_from_slice(data);
 }
 
+#[allow(dead_code)]
 fn tls_client_hello_for_host(host: &str) -> Vec<u8> {
     let data = tls_client_hello();
     let mutation = change_tls_sni_seeded_like_c(&data, host.as_bytes(), data.len() + 64, 7);
@@ -200,6 +223,7 @@ fn tls_client_hello_for_host(host: &str) -> Vec<u8> {
     mutation.bytes
 }
 
+#[allow(dead_code)]
 fn tls_client_hello_without_sni() -> Vec<u8> {
     let mut data = tls_client_hello();
     let ext_block = find_ext_block(&data);
@@ -218,6 +242,7 @@ fn tls_client_hello_without_sni() -> Vec<u8> {
     data
 }
 
+#[allow(dead_code)]
 fn quic_initial_from_tls(version: u32, client_hello: &[u8], gap_after_split: usize) -> Vec<u8> {
     let dcid = [0x83, 0x94, 0xc8, 0xf0, 0x3e, 0x51, 0x57, 0x08];
     let scid = [0x11, 0x22, 0x33, 0x44];
@@ -287,24 +312,29 @@ fn quic_initial_from_tls(version: u32, client_hello: &[u8], gap_after_split: usi
     packet
 }
 
+#[allow(dead_code)]
 pub fn quic_initial_with_host(version: u32, host: &str) -> Vec<u8> {
     let client_hello = tls_client_hello_for_host(host);
     quic_initial_from_tls(version, &client_hello, 0)
 }
 
+#[allow(dead_code)]
 pub fn quic_initial_v1() -> Vec<u8> {
     quic_initial_with_host(QUIC_V1_VERSION, "docs.example.test")
 }
 
+#[allow(dead_code)]
 pub fn quic_initial_v2() -> Vec<u8> {
     quic_initial_with_host(QUIC_V2_VERSION, "media.example.test")
 }
 
+#[allow(dead_code)]
 pub fn quic_initial_with_crypto_gap(version: u32, host: &str) -> Vec<u8> {
     let client_hello = tls_client_hello_for_host(host);
     quic_initial_from_tls(version, &client_hello, 5)
 }
 
+#[allow(dead_code)]
 pub fn quic_initial_missing_sni(version: u32) -> Vec<u8> {
     let client_hello = tls_client_hello_without_sni();
     quic_initial_from_tls(version, &client_hello, 0)
