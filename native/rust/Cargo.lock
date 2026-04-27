@@ -1531,6 +1531,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "hickory-proto"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a916d0494600d99ecb15aadfab677ad97c4de559e8f1af0c129353a733ac1fcc"
+dependencies = [
+ "data-encoding",
+ "idna",
+ "ipnet",
+ "jni 0.22.4",
+ "once_cell",
+ "rand 0.10.1",
+ "ring",
+ "thiserror 2.0.18",
+ "tinyvec",
+ "tracing",
+ "url",
+]
+
+[[package]]
 name = "hickory-resolver"
 version = "0.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1538,7 +1557,7 @@ checksum = "dc62a9a99b0bfb44d2ab95a7208ac952d31060efc16241c87eaf36406fecf87a"
 dependencies = [
  "cfg-if",
  "futures-util",
- "hickory-proto",
+ "hickory-proto 0.25.2",
  "moka",
  "once_cell",
  "parking_lot",
@@ -2046,7 +2065,7 @@ version = "0.1.0"
 dependencies = [
  "crypto_box",
  "hex",
- "hickory-proto",
+ "hickory-proto 0.26.0",
  "quinn",
  "rcgen",
  "ring",
@@ -3149,7 +3168,7 @@ dependencies = [
  "boring",
  "crypto_box",
  "hex",
- "hickory-proto",
+ "hickory-proto 0.26.0",
  "hickory-resolver",
  "local-network-fixture",
  "lru",
@@ -3254,7 +3273,7 @@ version = "0.1.0"
 dependencies = [
  "boring",
  "golden-test-support",
- "hickory-proto",
+ "hickory-proto 0.26.0",
  "hickory-resolver",
  "libc",
  "local-network-fixture",
@@ -3558,7 +3577,7 @@ dependencies = [
  "anyhow",
  "etherparse",
  "fast-socks5",
- "hickory-proto",
+ "hickory-proto 0.26.0",
  "libc",
  "local-network-fixture",
  "lru",
