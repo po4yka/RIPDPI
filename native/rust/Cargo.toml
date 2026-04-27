@@ -99,7 +99,7 @@ arc-swap = "1"
 android_logger = "0.15"
 anyhow = "1"
 crypto_box = { version = "0.9", features = ["chacha20"] }
-etherparse = "0.19"
+etherparse = "0.20"
 fast-socks5 = "1.0"
 hex = "0.4"
 jni = "0.22"
