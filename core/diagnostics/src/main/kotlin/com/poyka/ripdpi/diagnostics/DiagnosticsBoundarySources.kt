@@ -107,6 +107,10 @@ class DefaultDiagnosticsActiveConnectionPolicySource
                     policies.mapValues { (_, policy) -> mapper.toDiagnosticActiveConnectionPolicy(policy) }
                 }.stateIn(
                     scope = scope,
+                    // Eagerly is intentional: this is a singleton bound to ApplicationIoScope.
+                    // Active connection policies must be available immediately when diagnostics
+                    // consumers query this source; deferring to WhileSubscribed would produce a
+                    // stale initial value for the first subscriber.
                     started = SharingStarted.Eagerly,
                     initialValue = emptyMap(),
                 )
