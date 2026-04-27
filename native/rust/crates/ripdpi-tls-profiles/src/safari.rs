@@ -1,3 +1,26 @@
+//! Apple Safari TLS fingerprint profile.
+//!
+//! **Design rationale:** Safari has a fingerprint that is genuinely distinct
+//! from any Chromium-based browser. Key differences from Chrome:
+//!
+//! | Parameter                | Safari                      | Chrome Android       |
+//! |--------------------------|-----------------------------|----------------------|
+//! | `extension_order_family` | `"safari_fixed"`            | `"chromium_permuted"`|
+//! | `grease_style`           | `"none"`                    | `"chromium_single_grease"` |
+//! | `grease_enabled`         | `false`                     | `true`               |
+//! | `permute_extensions`     | `false`                     | `true`               |
+//! | `supported_groups`       | X25519, P-256, P-384, P-521 | X25519, P-256, P-384 |
+//! | `record_choreography`    | `"single_record"`           | `"host_tail_two_record"` |
+//! | TLS 1.2 cipher priority  | AES-256 before AES-128      | AES-128 before AES-256 |
+//! | `client_hello_size_hint` | 498                         | 512                  |
+//!
+//! These differences are not cosmetic — they affect JA3/JA4 fingerprint hashes,
+//! extension ordering, and ClientHello byte layout. Safari is the only profile
+//! in the catalog that sends no GREASE values and uses a fixed extension order,
+//! making it valuable for servers that apply GREASE-based detection heuristics.
+//!
+//! Rotation weight: 10%. See ADR-009 for the full analysis.
+
 use boring::ssl::SslVersion;
 
 use crate::profile::ProfileConfig;
