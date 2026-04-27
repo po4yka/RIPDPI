@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
 import com.poyka.ripdpi.activities.StrategyPackHealthFailureCodeUiModel
@@ -19,11 +17,11 @@ internal fun strategyPackRefreshEnabled(strategyPackCatalog: StrategyPackCatalog
 
 internal data class StrategyPackCatalogStatusSpec(
     val labelResId: Int,
-    val body: String,
+    val bodyResId: Int,
+    val bodyArgs: List<Long> = emptyList(),
     val tone: StatusIndicatorTone,
 )
 
-@Composable
 @Suppress("CyclomaticComplexMethod")
 internal fun strategyPackCatalogStatusSpec(
     strategyPackCatalog: StrategyPackCatalogUiState,
@@ -32,13 +30,12 @@ internal fun strategyPackCatalogStatusSpec(
         ?: strategyPackFailureCodeSpec(strategyPackCatalog)
         ?: strategyPackSourceSpec(strategyPackCatalog)
 
-@Composable
 private fun strategyPackRefreshingOrDegradedSpec(catalog: StrategyPackCatalogUiState): StrategyPackCatalogStatusSpec? =
     when {
         catalog.isRefreshing -> {
             StrategyPackCatalogStatusSpec(
                 labelResId = R.string.strategy_pack_refresh_status_title,
-                body = stringResource(R.string.strategy_pack_refresh_status_body),
+                bodyResId = R.string.strategy_pack_refresh_status_body,
                 tone = StatusIndicatorTone.Active,
             )
         }
@@ -46,7 +43,7 @@ private fun strategyPackRefreshingOrDegradedSpec(catalog: StrategyPackCatalogUiS
         catalog.cacheDegradationCode == ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable -> {
             StrategyPackCatalogStatusSpec(
                 labelResId = R.string.strategy_pack_degraded_status_title,
-                body = stringResource(R.string.strategy_pack_degraded_status_body_unreadable),
+                bodyResId = R.string.strategy_pack_degraded_status_body_unreadable,
                 tone = StatusIndicatorTone.Warning,
             )
         }
@@ -54,7 +51,7 @@ private fun strategyPackRefreshingOrDegradedSpec(catalog: StrategyPackCatalogUiS
         catalog.cacheDegradationCode == ControlPlaneCacheDegradationCode.CachedSnapshotIncompatible -> {
             StrategyPackCatalogStatusSpec(
                 labelResId = R.string.strategy_pack_degraded_status_title,
-                body = stringResource(R.string.strategy_pack_degraded_status_body_incompatible),
+                bodyResId = R.string.strategy_pack_degraded_status_body_incompatible,
                 tone = StatusIndicatorTone.Warning,
             )
         }
@@ -64,15 +61,14 @@ private fun strategyPackRefreshingOrDegradedSpec(catalog: StrategyPackCatalogUiS
         }
     }
 
-@Composable
 private fun strategyPackFailureCodeSpec(catalog: StrategyPackCatalogUiState): StrategyPackCatalogStatusSpec? =
     when (catalog.lastRefreshFailureCode) {
         StrategyPackHealthFailureCodeUiModel.RollbackRejected -> {
             StrategyPackCatalogStatusSpec(
                 labelResId = R.string.strategy_pack_rollback_rejected_status_title,
-                body =
-                    stringResource(
-                        R.string.strategy_pack_rollback_rejected_status_body,
+                bodyResId = R.string.strategy_pack_rollback_rejected_status_body,
+                bodyArgs =
+                    listOf(
                         catalog.lastRejectedSequence ?: 0L,
                         catalog.lastAcceptedSequence ?: 0L,
                     ),
@@ -83,7 +79,7 @@ private fun strategyPackFailureCodeSpec(catalog: StrategyPackCatalogUiState): St
         StrategyPackHealthFailureCodeUiModel.StaleCatalog -> {
             StrategyPackCatalogStatusSpec(
                 labelResId = R.string.strategy_pack_stale_status_title,
-                body = stringResource(R.string.strategy_pack_stale_status_body),
+                bodyResId = R.string.strategy_pack_stale_status_body,
                 tone = StatusIndicatorTone.Warning,
             )
         }
@@ -91,7 +87,7 @@ private fun strategyPackFailureCodeSpec(catalog: StrategyPackCatalogUiState): St
         StrategyPackHealthFailureCodeUiModel.MissingSecurityMetadata -> {
             StrategyPackCatalogStatusSpec(
                 labelResId = R.string.strategy_pack_security_rejected_status_title,
-                body = stringResource(R.string.strategy_pack_security_rejected_status_body_missing_metadata),
+                bodyResId = R.string.strategy_pack_security_rejected_status_body_missing_metadata,
                 tone = StatusIndicatorTone.Error,
             )
         }
@@ -99,7 +95,7 @@ private fun strategyPackFailureCodeSpec(catalog: StrategyPackCatalogUiState): St
         StrategyPackHealthFailureCodeUiModel.InvalidIssuedAt -> {
             StrategyPackCatalogStatusSpec(
                 labelResId = R.string.strategy_pack_security_rejected_status_title,
-                body = stringResource(R.string.strategy_pack_security_rejected_status_body_invalid_issued_at),
+                bodyResId = R.string.strategy_pack_security_rejected_status_body_invalid_issued_at,
                 tone = StatusIndicatorTone.Error,
             )
         }
@@ -107,7 +103,7 @@ private fun strategyPackFailureCodeSpec(catalog: StrategyPackCatalogUiState): St
         StrategyPackHealthFailureCodeUiModel.VerificationFailed -> {
             StrategyPackCatalogStatusSpec(
                 labelResId = R.string.strategy_pack_verification_failed_status_title,
-                body = stringResource(R.string.strategy_pack_verification_failed_status_body),
+                bodyResId = R.string.strategy_pack_verification_failed_status_body,
                 tone = StatusIndicatorTone.Error,
             )
         }
@@ -115,7 +111,7 @@ private fun strategyPackFailureCodeSpec(catalog: StrategyPackCatalogUiState): St
         StrategyPackHealthFailureCodeUiModel.CompatibilityRejected -> {
             StrategyPackCatalogStatusSpec(
                 labelResId = R.string.strategy_pack_compatibility_failed_status_title,
-                body = stringResource(R.string.strategy_pack_compatibility_failed_status_body),
+                bodyResId = R.string.strategy_pack_compatibility_failed_status_body,
                 tone = StatusIndicatorTone.Warning,
             )
         }
@@ -123,7 +119,7 @@ private fun strategyPackFailureCodeSpec(catalog: StrategyPackCatalogUiState): St
         StrategyPackHealthFailureCodeUiModel.DownloadFailed -> {
             StrategyPackCatalogStatusSpec(
                 labelResId = R.string.strategy_pack_download_failed_status_title,
-                body = stringResource(R.string.strategy_pack_download_failed_status_body),
+                bodyResId = R.string.strategy_pack_download_failed_status_body,
                 tone = StatusIndicatorTone.Warning,
             )
         }
@@ -133,18 +129,17 @@ private fun strategyPackFailureCodeSpec(catalog: StrategyPackCatalogUiState): St
         }
     }
 
-@Composable
 private fun strategyPackSourceSpec(catalog: StrategyPackCatalogUiState): StrategyPackCatalogStatusSpec =
     if (catalog.source == StrategyPackCatalogSourceDownloaded) {
         StrategyPackCatalogStatusSpec(
             labelResId = R.string.strategy_pack_downloaded_status_title,
-            body = stringResource(R.string.strategy_pack_downloaded_status_body),
+            bodyResId = R.string.strategy_pack_downloaded_status_body,
             tone = StatusIndicatorTone.Active,
         )
     } else {
         StrategyPackCatalogStatusSpec(
             labelResId = R.string.strategy_pack_bundled_status_title,
-            body = stringResource(R.string.strategy_pack_bundled_status_body),
+            bodyResId = R.string.strategy_pack_bundled_status_body,
             tone = StatusIndicatorTone.Idle,
         )
     }
