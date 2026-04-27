@@ -1684,6 +1684,8 @@ Source: %2$s</string>
     <string name="settings_exclude_russian_apps_body">Banking, delivery, and government apps bypass the VPN to avoid detection issues</string>
     <string name="settings_full_tunnel_title">Full tunnel mode</string>
     <string name="settings_full_tunnel_body">Route all traffic through VPN with no app exclusions. Prevents spyware modules from sending traffic directly, but Russian apps may detect the VPN</string>
+    <string name="settings_full_tunnel_helper">When enabled, all traffic goes through the tunnel. Per-app exclusions are disabled in this mode.</string>
+    <string name="settings_full_tunnel_exclusions_disabled">Disabled because Full Tunnel mode is enabled</string>
     <string name="settings_vpn_flag_warning_title">VPN flag is visible</string>
     <string name="settings_vpn_flag_warning_body">Apps in all Android profiles (including Work Profile and Knox) can detect that a VPN is active. For full isolation, use a separate device for Russian apps</string>
     <string name="settings_tethering_dns_warning_title">Tethering DNS leak risk</string>
@@ -2260,6 +2262,9 @@ Source: %2$s</string>
     <string name="detection_community_reports">%d checks recorded</string>
     <string name="detection_community_avg_score">Average stealth score: %d/100</string>
     <string name="detection_community_detected_pct">%d%% of checks detected</string>
+    <string name="detection_community_loading">Loading community stats…</string>
+    <string name="detection_community_error">Could not load community stats</string>
+    <string name="detection_community_retry">Retry</string>
     <string name="detection_verdict_label">Verdict</string>
     <string name="detection_status_ok">OK</string>
     <string name="detection_status_review">Review</string>
