@@ -138,7 +138,7 @@ url = "2"
 boring = "5"
 tokio-boring = "5"
 webpki-roots = "1.0"
-io-uring = "=0.7.11"
+io-uring = "=0.7.12"
 flume = "0.12"
 x25519-dalek = { version = "2", features = ["static_secrets", "getrandom"] }
 h3 = "0.0.8"
