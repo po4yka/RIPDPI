@@ -70,6 +70,7 @@ class DetectionCheckViewModel
         private val networkFingerprintProvider: com.poyka.ripdpi.data.NetworkFingerprintProvider,
         private val routingProtectionCatalogService: RoutingProtectionCatalogService,
         private val detectionCheckRunner: DetectionCheckRunner,
+        private val historyStore: DetectionHistoryStore,
     ) : AndroidViewModel(application) {
         private val _uiState = MutableStateFlow(DetectionCheckUiState())
         val uiState: StateFlow<DetectionCheckUiState> = _uiState.asStateFlow()
@@ -78,7 +79,6 @@ class DetectionCheckViewModel
         private val prefs by lazy {
             application.getSharedPreferences("detection_check_prefs", android.content.Context.MODE_PRIVATE)
         }
-        private val historyStore by lazy { DetectionHistoryStore(application) }
         private val communityStore by lazy { CommunityComparisonStore(application) }
 
         init {
