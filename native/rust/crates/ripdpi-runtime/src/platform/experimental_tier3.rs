@@ -1,3 +1,14 @@
+//! Tier-3 evasion platform primitives (SYN hide, ICMP-wrapped UDP).
+//!
+//! **Status:** Internal platform primitives. NOT wired through `DesyncMode`
+//! and NOT exposed via UI. See
+//! `docs/architecture/adr-006-tier3-desync-platform-primitives.md` for the
+//! rationale and the conditions required for future activation.
+//!
+//! API stability: these functions are re-exported from `platform/mod.rs` with
+//! `pub(crate)` visibility only. External callers MUST NOT depend on these
+//! signatures — they may change without notice as part of the wire-up epic.
+
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::time::Duration;
@@ -15,6 +26,7 @@ const ICMP_UDP_FLAG_REPLY: u8 = 0x01;
 #[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 const ICMP_UDP_FLAG_XOR: u8 = 0x02;
 
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum SynHideMarkerKind {
@@ -47,6 +59,7 @@ impl IcmpWrappedUdpRole {
     }
 }
 
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct SynHideTcpSpec {
@@ -75,6 +88,7 @@ pub struct IcmpWrappedUdpSpec {
     pub xor_payload: bool,
 }
 
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct IcmpWrappedUdpRecvFilter {
@@ -85,6 +99,7 @@ pub struct IcmpWrappedUdpRecvFilter {
     pub timeout_ms: u64,
 }
 
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 impl IcmpWrappedUdpRecvFilter {
     pub fn timeout(self) -> Duration {
         Duration::from_millis(self.timeout_ms.max(1))
@@ -104,6 +119,7 @@ pub struct ReceivedIcmpWrappedUdp {
     pub xor_payload: bool,
 }
 
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 pub fn send_syn_hide_tcp(spec: SynHideTcpSpec, protect_path: Option<&str>) -> io::Result<()> {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     {
@@ -120,6 +136,7 @@ pub fn send_syn_hide_tcp(spec: SynHideTcpSpec, protect_path: Option<&str>) -> io
     }
 }
 
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 pub fn send_icmp_wrapped_udp(spec: &IcmpWrappedUdpSpec, protect_path: Option<&str>) -> io::Result<()> {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     {
@@ -136,6 +153,7 @@ pub fn send_icmp_wrapped_udp(spec: &IcmpWrappedUdpSpec, protect_path: Option<&st
     }
 }
 
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 pub fn recv_icmp_wrapped_udp(
     filter: IcmpWrappedUdpRecvFilter,
     protect_path: Option<&str>,
