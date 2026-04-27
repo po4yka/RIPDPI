@@ -55,7 +55,7 @@ Until then: keep entry through remediation only.
 
 ## Related
 
-- ROADMAP-CLEANUP.md task P1.5.1 — decision recorded 2026-04-27
+- Cleanup epic P1.5 (2026-04-27) — decision recorded; ROADMAP-CLEANUP.md removed after epic completion
 - `app/.../ui/screens/browser/OwnedStackBrowserScreen.kt` — KDoc on `OwnedStackBrowserRoute`
 - `app/.../ui/navigation/Route.kt` — `Route.topLevel` excludes `OwnedStackBrowser`
 - `app/.../navigation/RipDpiNavHostLogicTest.kt` — enforces the exclusion via assertion
