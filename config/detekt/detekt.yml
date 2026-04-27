@@ -7,6 +7,8 @@ diGuardrails:
     active: true
   HiltViewModelApplicationContext:
     active: true
+  NoResolverIpInLogs:
+    active: true
 
 complexity:
   LongParameterList:
