@@ -39,6 +39,17 @@ internal fun Project.resolvedNativeCargoProfile(): String {
 }
 
 internal fun Project.resolvedNativeAbis(): List<String> {
+    val ciOverrideAbis =
+        providers
+            .gradleProperty("ripdpi.nativeAbisOverride")
+            .orNull
+            ?.let(::parseAbiList)
+            .orEmpty()
+    if (ciOverrideAbis.isNotEmpty()) {
+        logger.lifecycle("Using native ABI override: ${ciOverrideAbis.joinToString()}")
+        return ciOverrideAbis
+    }
+
     val defaultAbis = parseAbiList(providers.gradleProperty("ripdpi.nativeAbis").get())
     val overrideAbis =
         providers
@@ -72,6 +83,13 @@ internal fun Project.resolvedNativeAbis(): List<String> {
         }
     }
 }
+
+internal fun Project.shouldSkipNativeBuild(): Boolean =
+    providers
+        .gradleProperty("ripdpi.skipNativeBuild")
+        .orNull
+        ?.toBooleanStrictOrNull()
+        ?: false
 
 internal fun Project.resolveAndroidSdkDir(): Provider<String> =
     providers.provider {

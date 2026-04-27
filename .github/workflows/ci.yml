@@ -96,8 +96,81 @@ jobs:
       - name: Run DESIGN.md verifier unit tests
         run: python3 -m unittest scripts.tests.test_verify_design_md
 
-  build:
+  # Builds Rust native libraries + helper binaries for one ABI per matrix shard.
+  # Each shard gets the full 4 vCPU runner for a single-ABI cross-compile, so
+  # the Rust phase parallelizes across shards instead of contending within one
+  # 4-thread executor pool. Outputs are uploaded as artifacts for build-android-debug.
+  rust-native:
     if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        abi:
+          - { name: arm64-v8a,    rust-target: aarch64-linux-android }
+          - { name: armeabi-v7a,  rust-target: armv7-linux-androideabi }
+          - { name: x86,          rust-target: i686-linux-android }
+          - { name: x86_64,       rust-target: x86_64-linux-android }
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-targets: ${{ matrix.abi.rust-target }}
+          rust-cache-shared-key: rust-android-${{ matrix.abi.name }}
+          rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Build Rust native libraries + helper binaries for ${{ matrix.abi.name }}
+        env:
+          RUSTC_WRAPPER: sccache
+        run: |
+          # buildPluggableTransportAssets is handled in build-android-debug
+          # (it's Go-based and benefits from its own task cache).
+          ./gradlew \
+            :core:engine:buildRustNativeLibs \
+            :core:engine:buildRustRootHelper \
+            :core:engine:buildRustNaiveProxy \
+            :core:engine:buildRustCloudflareOrigin \
+            -Pripdpi.nativeAbisOverride=${{ matrix.abi.name }}
+
+      - name: Stage native artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/native-shard"
+          # JNI libs: <generatedJniLibs>/<abi>/*.so
+          if [ -d "core/engine/build/generated/jniLibs/${{ matrix.abi.name }}" ]; then
+            cp -r "core/engine/build/generated/jniLibs/${{ matrix.abi.name }}" \
+              "$RUNNER_TEMP/native-shard/jniLibs-${{ matrix.abi.name }}"
+          else
+            echo "::error::JNI lib outputs missing for ${{ matrix.abi.name }}"
+            exit 1
+          fi
+          # Helper binaries: <generatedAssets>/bin/<abi>/<binname>
+          if [ -d "core/engine/build/generated/assets/bin/${{ matrix.abi.name }}" ]; then
+            cp -r "core/engine/build/generated/assets/bin/${{ matrix.abi.name }}" \
+              "$RUNNER_TEMP/native-shard/assetsBin-${{ matrix.abi.name }}"
+          else
+            echo "::error::Helper-binary outputs missing for ${{ matrix.abi.name }}"
+            exit 1
+          fi
+          ls -la "$RUNNER_TEMP/native-shard"
+
+      - name: Upload native artifacts (${{ matrix.abi.name }})
+        uses: actions/upload-artifact@v7
+        with:
+          name: native-shard-${{ matrix.abi.name }}
+          path: ${{ runner.temp }}/native-shard/*
+          if-no-files-found: error
+          retention-days: 7
+
+  # Assembles the debug APK using prebuilt native artifacts from the rust-native
+  # matrix. Skips cargo entirely via -Pripdpi.prebuilt*Dir properties, which the
+  # rust-native Gradle plugin honors by copying instead of running cargo.
+  build-android-debug:
+    if: github.event_name != 'schedule'
+    needs: [rust-native]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -105,26 +178,48 @@ jobs:
       - uses: ./.github/actions/setup-android-rust
         with:
           rust-components: ""
-          rust-cache-shared-key: rust-android
+          rust-cache-shared-key: rust-android-debug
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      - name: Build debug APK and run unit tests
+      - name: Download native shards
+        uses: actions/download-artifact@v6
+        with:
+          pattern: native-shard-*
+          path: ${{ runner.temp }}/native-shards
+
+      - name: Stage prebuilt native artifacts
+        run: |
+          set -euo pipefail
+          jni_root="$RUNNER_TEMP/prebuilt/jniLibs"
+          assets_root="$RUNNER_TEMP/prebuilt/assetsBin"
+          mkdir -p "$jni_root" "$assets_root"
+          for shard in "$RUNNER_TEMP/native-shards"/native-shard-*; do
+            for d in "$shard"/jniLibs-*; do
+              [ -d "$d" ] || continue
+              abi="${d##*/jniLibs-}"
+              cp -r "$d" "$jni_root/$abi"
+            done
+            for d in "$shard"/assetsBin-*; do
+              [ -d "$d" ] || continue
+              abi="${d##*/assetsBin-}"
+              cp -r "$d" "$assets_root/$abi"
+            done
+          done
+          echo "JNI staging:"
+          ls -la "$jni_root" || true
+          echo "Assets-bin staging:"
+          ls -la "$assets_root" || true
+
+      - name: Build debug APK with prebuilt natives
         env:
           RUSTC_WRAPPER: sccache
-        run: ./gradlew assembleDebug testDebugUnitTest
-
-      - name: Verify diagnostics-service boundary
-        run: python3 scripts/ci/verify_diagnostics_boundary.py
-
-      - name: Run sync script unit tests
-        run: python3 -m unittest discover -s scripts/tests -p "test_sync_*.py"
-
-      - name: Run offline analytics unit tests
-        run: python3 -m unittest scripts.tests.test_offline_analytics_pipeline
-
-      - name: Verify screenshot baselines
-        run: ./gradlew verifyRoborazziDebug
+        run: |
+          ./gradlew :app:assembleDebug \
+            -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt/jniLibs" \
+            -Pripdpi.prebuiltRootHelperDir="$RUNNER_TEMP/prebuilt/assetsBin" \
+            -Pripdpi.prebuiltNaiveProxyDir="$RUNNER_TEMP/prebuilt/assetsBin" \
+            -Pripdpi.prebuiltCloudflareOriginDir="$RUNNER_TEMP/prebuilt/assetsBin"
 
       - name: Verify packaged native ELFs
         run: python3 scripts/ci/verify_native_elfs.py
@@ -145,6 +240,35 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  # Runs JVM unit tests in parallel with the Rust matrix. Robolectric tests don't
+  # load JNI libraries, so -Pripdpi.skipNativeBuild=true safely skips the entire
+  # Rust dependency chain that preBuild normally pulls in.
+  build-android-tests:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-targets: ""
+          rust-cache-shared-key: rust-android-tests
+          rust-cache-save: "false"
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Run JVM unit tests
+        run: ./gradlew testDebugUnitTest -Pripdpi.skipNativeBuild=true
+
+      - name: Verify diagnostics-service boundary
+        run: python3 scripts/ci/verify_diagnostics_boundary.py
+
+      - name: Run sync script unit tests
+        run: python3 -m unittest discover -s scripts/tests -p "test_sync_*.py"
+
+      - name: Run offline analytics unit tests
+        run: python3 -m unittest scripts.tests.test_offline_analytics_pipeline
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -153,6 +277,32 @@ jobs:
           path: |
             **/build/reports/tests/
             **/build/golden-diffs/
+          retention-days: 7
+
+  # Roborazzi screenshot tests run in parallel; they don't load JNI either.
+  verify-roborazzi:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          rust-components: ""
+          rust-targets: ""
+          rust-cache-shared-key: rust-android-roborazzi
+          rust-cache-save: "false"
+          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Verify screenshot baselines
+        run: ./gradlew verifyRoborazziDebug -Pripdpi.skipNativeBuild=true
+
+      - name: Upload Roborazzi diffs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: roborazzi-results
+          path: |
             **/build/outputs/roborazzi/
           retention-days: 7
 
