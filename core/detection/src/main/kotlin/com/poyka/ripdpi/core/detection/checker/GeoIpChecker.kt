@@ -5,8 +5,9 @@ import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.IOException
@@ -37,9 +38,8 @@ object GeoIpChecker {
                     return@withContext errorResult(errorMessage)
                 }
                 evaluate(json)
-            } catch (e: CancellationException) {
-                throw e
             } catch (e: Exception) {
+                currentCoroutineContext().ensureActive()
                 errorResult("Failed to fetch GeoIP data: ${e.message}")
             }
         }
