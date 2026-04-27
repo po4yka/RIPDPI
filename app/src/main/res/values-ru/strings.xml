@@ -1394,6 +1394,7 @@ fakeddisorder endhost</string>
     <string name="settings_webrtc_body">Снизить вероятность утечек обнаружения партнёров, способных обойти локальный туннель.</string>
     <string name="settings_full_tunnel_helper">Когда включено, весь трафик идёт через туннель. Per-app исключения недоступны в этом режиме.</string>
     <string name="settings_full_tunnel_exclusions_disabled">Недоступно, так как включён режим полного туннеля</string>
+    <string name="settings_seqovl_unsupported_reason">Sequence overlap требует доступа к raw-сокетам, недоступного на этом устройстве. Включите root-режим в настройках для использования этой функции.</string>
     <string name="settings_biometric_title">Требовать аутентификацию</string>
     <string name="settings_biometric_body_with_pin">Биометрическая разблокировка включена с резервным PIN-кодом.</string>
     <string name="settings_biometric_body_without_pin">Биометрическая разблокировка включена. Добавьте резервный PIN-код для запасного доступа.</string>

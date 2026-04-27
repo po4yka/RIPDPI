@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -259,21 +260,53 @@ internal fun SettingsScreen(
                         showDivider = true,
                         testTag = RipDpiTestTags.SettingsWebRtcProtection,
                     )
-                    SettingsRow(
-                        title = stringResource(R.string.settings_exclude_russian_apps_title),
-                        subtitle = stringResource(R.string.settings_exclude_russian_apps_body),
-                        checked = uiState.excludeRussianAppsEnabled,
-                        onCheckedChange = onExcludeRussianAppsChanged,
-                        enabled = !uiState.fullTunnelMode,
-                        showDivider = true,
-                    )
-                    SettingsRow(
-                        title = stringResource(R.string.settings_full_tunnel_title),
-                        subtitle = stringResource(R.string.settings_full_tunnel_body),
-                        checked = uiState.fullTunnelMode,
-                        onCheckedChange = onFullTunnelModeChanged,
-                        showDivider = true,
-                    )
+                    Column {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_exclude_russian_apps_title),
+                            subtitle = stringResource(R.string.settings_exclude_russian_apps_body),
+                            checked = uiState.excludeRussianAppsEnabled,
+                            onCheckedChange = onExcludeRussianAppsChanged,
+                            enabled = !uiState.fullTunnelMode,
+                            showDivider = !uiState.fullTunnelMode,
+                        )
+                        if (uiState.fullTunnelMode) {
+                            Text(
+                                text = stringResource(R.string.settings_full_tunnel_exclusions_disabled),
+                                style = RipDpiThemeTokens.type.caption,
+                                color = RipDpiThemeTokens.colors.mutedForeground,
+                                modifier =
+                                    Modifier.padding(
+                                        start = RipDpiThemeTokens.spacing.md,
+                                        end = RipDpiThemeTokens.spacing.md,
+                                        bottom = RipDpiThemeTokens.spacing.sm,
+                                    ),
+                            )
+                            HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
+                        }
+                    }
+                    Column {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_full_tunnel_title),
+                            subtitle = stringResource(R.string.settings_full_tunnel_body),
+                            checked = uiState.fullTunnelMode,
+                            onCheckedChange = onFullTunnelModeChanged,
+                            showDivider = !uiState.fullTunnelMode,
+                        )
+                        if (uiState.fullTunnelMode) {
+                            Text(
+                                text = stringResource(R.string.settings_full_tunnel_helper),
+                                style = RipDpiThemeTokens.type.caption,
+                                color = RipDpiThemeTokens.colors.mutedForeground,
+                                modifier =
+                                    Modifier.padding(
+                                        start = RipDpiThemeTokens.spacing.md,
+                                        end = RipDpiThemeTokens.spacing.md,
+                                        bottom = RipDpiThemeTokens.spacing.sm,
+                                    ),
+                            )
+                            HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
+                        }
+                    }
                     SettingsRow(
                         title = stringResource(R.string.settings_biometric_title),
                         subtitle = stringResource(biometricSubtitleRes(uiState)),
