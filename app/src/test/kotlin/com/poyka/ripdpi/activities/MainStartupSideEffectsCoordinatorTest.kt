@@ -117,7 +117,7 @@ class MainStartupSideEffectsCoordinatorTest {
             val statuses = MutableSharedFlow<PermissionStatus>(extraBufferCapacity = 4)
 
             coordinator.start(
-                scope = this,
+                scope = backgroundScope,
                 batteryOptimizationStatus = statuses,
                 isBatteryBannerDismissed = { true },
             ) {}

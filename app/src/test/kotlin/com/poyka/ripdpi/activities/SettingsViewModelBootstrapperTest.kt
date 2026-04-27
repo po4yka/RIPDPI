@@ -13,7 +13,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -120,6 +122,8 @@ class SettingsViewModelBootstrapperTest {
                     runtimeStates += runtimeState
                 },
             )
+            yield()
+            runCurrent()
 
             val updatedState =
                 StrategyPackRuntimeState(
@@ -127,7 +131,8 @@ class SettingsViewModelBootstrapperTest {
                     selectedPackVersion = "2026.04.23",
                 )
             strategyPackStateStore.update(updatedState)
-            advanceUntilIdle()
+            yield()
+            runCurrent()
 
             assertEquals(updatedState, runtimeStates.last())
         }

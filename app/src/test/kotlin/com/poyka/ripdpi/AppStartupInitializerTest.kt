@@ -5,7 +5,9 @@ import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.strategy.StrategyPackService
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -158,7 +160,8 @@ class AppStartupInitializerTest {
                 )
 
             initializer.initialize()
-            testScheduler.advanceUntilIdle()
+            yield()
+            runCurrent()
 
             assertEquals(1, compatibilityResetter.calls)
             assertEquals(1, strategyPackService.initializeCalls)
@@ -187,7 +190,8 @@ class AppStartupInitializerTest {
                 )
 
             initializer.initialize()
-            testScheduler.advanceUntilIdle()
+            yield()
+            runCurrent()
 
             assertEquals(1, compatibilityResetter.calls)
             assertEquals(1, strategyPackService.initializeCalls)
