@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.net.http.HttpEngine
 import android.os.Build
@@ -194,22 +195,22 @@ class HttpEngineOwnedStackPlatformBrowserExecutor
     ) : OwnedStackPlatformBrowserExecutor {
         private val applicationContext = context.applicationContext
         private val quicEnabledEngine by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-            HttpEngine
-                .Builder(applicationContext)
-                .setEnableHttp2(true)
-                .setEnableQuic(true)
-                .setEnableBrotli(true)
-                .build()
+            buildHttpEngine(quicEnabled = true)
         }
         private val h2OnlyEngine by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+            buildHttpEngine(quicEnabled = false)
+        }
+
+        @SuppressLint("NewApi")
+        private fun buildHttpEngine(quicEnabled: Boolean): HttpEngine =
             HttpEngine
                 .Builder(applicationContext)
                 .setEnableHttp2(true)
-                .setEnableQuic(false)
+                .setEnableQuic(quicEnabled)
                 .setEnableBrotli(true)
                 .build()
-        }
 
+        @SuppressLint("NewApi")
         override suspend fun execute(request: OwnedStackPlatformRequest): OwnedStackPlatformResponse =
             withContext(Dispatchers.IO) {
                 val engine = if (request.quicEnabled) quicEnabledEngine else h2OnlyEngine
