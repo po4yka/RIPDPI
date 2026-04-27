@@ -2215,6 +2215,7 @@ Source: %2$s</string>
     <string name="settings_community_api_url_helper">Leave empty to use the default endpoint.</string>
     <string name="settings_community_api_url_save">Save</string>
     <string name="settings_community_api_url_reset">Reset to default</string>
+    <string name="settings_clear_community_cache">Clear community cache</string>
 
     <string name="title_detection_check">Detection Check</string>
     <string name="detection_check_subtitle">Check how visible your VPN/proxy setup is</string>

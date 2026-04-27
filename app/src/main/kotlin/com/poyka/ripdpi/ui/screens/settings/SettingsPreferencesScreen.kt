@@ -97,6 +97,7 @@ fun SettingsRoute(
         onSaveBackupPin = viewModel::setBackupPin,
         onResetSettings = viewModel::resetSettings,
         onCommunityApiUrlChanged = viewModel::setCommunityApiUrl,
+        onClearCommunityCache = viewModel::clearCommunityCache,
         modifier = modifier,
     )
 }
@@ -125,6 +126,7 @@ internal fun SettingsScreen(
     onSaveBackupPin: (String) -> Unit,
     onResetSettings: () -> Unit = {},
     onCommunityApiUrlChanged: (String) -> Unit = {},
+    onClearCommunityCache: () -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
@@ -455,6 +457,12 @@ internal fun SettingsScreen(
                         communityApiUrlDraft = ""
                         onCommunityApiUrlChanged("")
                     },
+                )
+                RipDpiButton(
+                    text = stringResource(R.string.settings_clear_community_cache),
+                    onClick = onClearCommunityCache,
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = RipDpiButtonVariant.Outline,
                 )
                 HorizontalDivider(color = colors.divider)
                 SettingsRow(

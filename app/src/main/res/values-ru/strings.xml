@@ -1902,6 +1902,7 @@ fakeddisorder endhost</string>
     <string name="settings_community_api_url_helper">Оставьте пустым для использования встроенного адреса.</string>
     <string name="settings_community_api_url_save">Сохранить</string>
     <string name="settings_community_api_url_reset">Сбросить</string>
+    <string name="settings_clear_community_cache">Очистить кеш сообщества</string>
 
     <string name="title_detection_check">Проверка обнаружения</string>
     <string name="detection_check_subtitle">Проверьте, насколько заметна ваша настройка VPN/прокси</string>
