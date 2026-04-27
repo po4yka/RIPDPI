@@ -185,9 +185,16 @@ private fun rememberStrategyPackCatalogStatus(
     strategyPackCatalog: StrategyPackCatalogUiState,
 ): StrategyPackCatalogStatusContent {
     val spec = strategyPackCatalogStatusSpec(strategyPackCatalog)
+    val body =
+        when (spec.bodyArgs.size) {
+            0 -> stringResource(spec.bodyResId)
+            1 -> stringResource(spec.bodyResId, spec.bodyArgs[0])
+            2 -> stringResource(spec.bodyResId, spec.bodyArgs[0], spec.bodyArgs[1])
+            else -> error("Unsupported strategy pack status body args size: ${spec.bodyArgs.size}")
+        }
     return StrategyPackCatalogStatusContent(
         label = stringResource(spec.labelResId),
-        body = spec.body,
+        body = body,
         tone = spec.tone,
     )
 }

@@ -68,7 +68,7 @@ class NativeBridgeWrappersTest {
         runTest {
             val bindings = FakeRipDpiProxyBindings()
             val proxy = RipDpiProxy(bindings)
-            armRuntime(proxy, "Proxy")
+            armRuntime(proxy)
 
             bindings.telemetryJson =
                 json.encodeToString(
@@ -103,7 +103,7 @@ class NativeBridgeWrappersTest {
         runTest {
             val bindings = FakeRipDpiProxyBindings()
             val proxy = RipDpiProxy(bindings)
-            val startupSignal = armRuntime(proxy, "Proxy")
+            val startupSignal = armRuntime(proxy)
             startupSignal.completeExceptionally(IOException("proxy boom"))
 
             val error = runCatching { proxy.awaitReady() }.exceptionOrNull()
@@ -123,7 +123,7 @@ class NativeBridgeWrappersTest {
                         )
                 }
             val proxy = RipDpiProxy(bindings)
-            armRuntime(proxy, "Proxy")
+            armRuntime(proxy)
 
             val error =
                 runCatching {
@@ -279,7 +279,7 @@ class NativeBridgeWrappersTest {
         runTest {
             val bindings = FakeRipDpiRelayBindings()
             val relay = RipDpiRelay(bindings)
-            armRuntime(relay, "relay")
+            armRuntime(relay)
             bindings.telemetryJson =
                 json.encodeToString(
                     NativeRuntimeSnapshot.serializer(),
@@ -320,7 +320,7 @@ class NativeBridgeWrappersTest {
                         )
                 }
             val relay = RipDpiRelay(bindings)
-            armRuntime(relay, "relay")
+            armRuntime(relay)
             val error =
                 runCatching {
                     withContext(Dispatchers.Default) {
@@ -336,7 +336,7 @@ class NativeBridgeWrappersTest {
         runTest {
             val bindings = FakeRipDpiWarpBindings()
             val warp = RipDpiWarp(bindings)
-            armRuntime(warp, "WARP")
+            armRuntime(warp)
             bindings.telemetryJson =
                 json.encodeToString(
                     NativeRuntimeSnapshot.serializer(),
@@ -377,7 +377,7 @@ class NativeBridgeWrappersTest {
                         )
                 }
             val warp = RipDpiWarp(bindings)
-            armRuntime(warp, "WARP")
+            armRuntime(warp)
             val error =
                 runCatching {
                     withContext(Dispatchers.Default) {
@@ -537,10 +537,7 @@ class NativeBridgeWrappersTest {
             tunnel.stop()
         }
 
-    private fun armRuntime(
-        runtime: Any,
-        name: String,
-    ): CompletableDeferred<Unit> {
+    private fun armRuntime(runtime: Any): CompletableDeferred<Unit> {
         val startupSignal = CompletableDeferred<Unit>()
         runtime.javaClass.getDeclaredField("handle").apply {
             isAccessible = true

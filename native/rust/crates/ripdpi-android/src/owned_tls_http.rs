@@ -262,6 +262,7 @@ async fn execute_once(method: &Method, url: &Url, request: &NativeOwnedTlsHttpRe
     }
 }
 
+#[inline(never)]
 async fn execute_once_https(
     method: &Method,
     endpoint: &UrlEndpoint,
