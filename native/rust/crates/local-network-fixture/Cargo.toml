@@ -1,8 +1,10 @@
+# Test-support only. Not shipped in APK, not part of public API.
 [package]
 name = "local-network-fixture"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
 
 [lints]
 workspace = true
