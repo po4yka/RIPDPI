@@ -1,5 +1,5 @@
 [versions]
-agp = "9.1.0"
+agp = "9.2.0"
 benchmark = "1.4.1"
 kotlin-compose = "2.3.21"
 ksp = "2.3.6"
