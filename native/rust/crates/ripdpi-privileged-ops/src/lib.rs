@@ -45,7 +45,6 @@ pub enum CapabilityUnavailable {
     Unsupported,
     PermissionDenied,
     MissingRootHelper,
-    NotImplemented,
 }
 
 #[derive(Debug, Clone)]
