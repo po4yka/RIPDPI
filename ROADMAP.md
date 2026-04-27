@@ -113,14 +113,14 @@ Status: COMPLETE.
 
 ### 2026-04-23: DNS And Transport Enforcement Slices
 
-Status: PARTIAL.
+Status: PARTIAL. Core enforcement landed; two follow-up items closed in cleanup epic (P4.2); `DnsPathPreferenceInvalidator.register()` hook-up deferred.
 
 - Promoted the cached direct-path DNS hint from passive metadata into active enforcement: VPN startup can now promote a converged hostname-backed `DOH_PRIMARY` / `DOH_SECONDARY` policy into the active resolver instead of waiting for runtime DNS failures.
 - Added authority-scoped encrypted-DNS resolver selection on the native hostname-resolution path so direct-path capability records can steer individual hosts to the intended DoH provider at runtime.
 - Gated DoQ on the same transport policy signal: when an authority is not UDP-clean, runtime DNS resolution now automatically downgrades a DoQ context back to DoH for that host.
 - Tightened direct-path transport enforcement so `NO_TCP_FALLBACK` no longer leaves the runtime in an inconsistent state where UDP suppression is disabled but the adaptive UDP/QUIC hint layer still behaves as if QUIC is broken for the same authority.
 - Added focused Kotlin and Rust regressions for converged VPN DNS promotion, authority-scoped resolver selection, DoQ downgrade, and the `NO_TCP_FALLBACK` adaptive-hint guard.
-- Remaining follow-up work is narrower: true per-app-family invalidation on package-version change is still open, and the DNS side still lacks a dedicated `(host, NetProfile)` fastest-resolver cache.
+- **P4.2 (2026-04-27):** Per-app-family invalidation on package-version change landed via `DnsPathPreferenceInvalidator` (11 tests). Fastest-resolver cache per `(host, NetProfile)` with 30-min TTL landed (17 tests). Remaining: `DnsPathPreferenceInvalidator.register()` is not yet hooked into `Application.onCreate()` — separate wiring PR.
 
 ### 2026-04-23: Transparent TLS Family Engine
 
@@ -135,7 +135,7 @@ Status: COMPLETE in repo-owned scope.
 
 ### 2026-04-23: Direct-Mode Diagnostic Orchestrator Slice
 
-Status: PARTIAL.
+Status: PARTIAL. Persistence, confirmation, TTL, and remediation ladder landed; ranked-arm dispatcher API landed (P4.3.1); attempt-budget, integration coverage, and relay-preset unification still deferred (ADR-010).
 
 - Fixed the diagnostics persistence boundary so orchestrator outputs now survive the stored engine-wire path instead of losing `strategyRecommendation` after finalization.
 - Threaded the typed direct-mode result through session projections and derived summaries, including an explicit positive `TRANSPARENT_WORKS` summary alongside the existing owned-stack and no-direct outcomes.
@@ -146,7 +146,7 @@ Status: PARTIAL.
 - Added a transport-specific remediation branch in Diagnostics and Home: typed direct-mode verdict metadata now survives into both surfaces, and the ladder can hand users to the owned-stack browser, a browser-camouflage relay path, a QUIC-heavy relay path, or an explicit "no reliable relay hint yet" review branch instead of collapsing everything into generic History/Diagnostics fallback copy.
 - Added a shared remediation selector plus focused unit/UI coverage so Home can also use saved authority capability evidence to choose between browser-camouflage and QUIC-heavy relay guidance before opening Mode Editor.
 - Added focused diagnostics/service regressions for confirmation, failure-budget retirement, and runtime filtering.
-- Remaining epic work is still open: the explicit ranked-arm dispatcher, per-class attempt-budget enforcement, deterministic integration coverage for the full class-to-arm execution ladder, and unifying Config relay preset suggestions onto the same transport-remediation selector.
+- **P4.3.1 (2026-04-27):** Ranked-arm dispatcher API exposed in `direct_path_learning.rs` — 8 tests (ADR-010). Remaining deferred: per-class attempt-budget enforcement, deterministic integration coverage for the full class-to-arm execution ladder, and unifying Config relay preset suggestions onto the same transport-remediation selector.
 
 ### 2026-04-23: Owned-Stack Android 17 ECH
 
@@ -161,13 +161,13 @@ Status: COMPLETE in repo-owned scope.
 
 ### 2026-04-23: Offline Learner Strategy-Pack Generation Slice
 
-Status: PARTIAL.
+Status: PARTIAL. Pipeline generation and Thompson sampling scorer landed (P4.4.1); rarity penalties, shared-priors upload, and sim-to-field calibration deferred (ADR-011).
 
 - Extended the existing offline analytics pipeline so `publish` and `run-all` now emit `strategy-pack-catalog.candidate.json` instead of stopping at winner mappings and analyst reports.
 - Added deterministic generated `offline-*` packs derived from stable device-fingerprint winner mappings, preserving the live strategy-pack schema and baseline metadata while keeping rollout staged at `0%`.
 - Added strategy-pack-specific pipeline documentation, a schema file for the generated catalog shape, and regression coverage for pack emission on the checked-in sample corpus.
 - Kept the output review-gated and offline-only: generated packs are not auto-consumed by the runtime and still require analyst review plus the normal signing/promotion flow before shipping.
-- Remaining learner work is still open: runtime Bayesian arm scoring, rarity/retry penalties, attempt-budget enforcement, shared-priors upload constraints, and emulator/sim-to-field calibration beyond field-derived archive mining.
+- **P4.4.1 (2026-04-27):** `ThompsonSampling<K>` scorer added in `strategy_evolver/thompson_sampling.rs` — 12 tests. Remaining deferred (ADR-011): rarity/retry penalties, attempt-budget enforcement, shared-priors upload constraints, and emulator/sim-to-field calibration. Note: `lcg_f64` shifts by 33 yielding `[0, 0.5)` — works with current `epsilon = 0.1` but is biased; tracked in ADR-011.
 
 ### 2026-04-25: Strategy Evolver Time-Knob CLI Wiring
 
@@ -182,7 +182,7 @@ Status: COMPLETE.
 
 ### 2026-04-25: Strategy Evolver Time-Aware Selection (TTL, Decay, Cooldown)
 
-Status: COMPLETE.
+Status: COMPLETE. In-evolver implementation and CLI wiring complete; host-pack proto wiring closed in cleanup epic (P4.1).
 
 - Implemented the partial-adopt outcome of the timer/TTL/decay spike. The UCB1 strategy evolver in `ripdpi-runtime` now consumes wall-clock time on three read-side checks without adding a background timer thread: active-experiment TTL (default 30 s), idle-decay on combo stats (`exp(-Δt / half_life)` with default 1 h half-life), and consecutive-failure cooldown (default 3 → 5 min).
 - Switched the evolver's internal timing to a monotonic `Instant`-based clock so TTL/decay/cooldown survive `SystemTime` jumps and NTP corrections. `ComboStats.last_attempt_ms` keeps its name and now carries the monotonic delta.
@@ -190,7 +190,72 @@ Status: COMPLETE.
 - `select_next_combo` now skips cooled combos in the niche-winner cache and `best_context_combo_for_family`; when every bucket-matching pool entry is cooling, the new `pick_non_cooled_random_for_bucket` falls back to `pilot_combo_for_bucket` so the evolver always returns a hint.
 - Eviction (`evict_if_needed`, `evict_context_if_needed`) is now decay-aware -- a stale winner with high raw success-rate no longer outranks a fresh combo with no signal yet.
 - 8 new unit tests added (54 total in the `strategy_evolver` module): TTL drop without stats update, TTL=0 disables drop, decay-demotes-stale ranking, cooldown trip + clear, cooldown=0 disables gate, cooled-combo filtering, all-cooled fallback to pilot, monotonic-clock test-override semantics.
-- Host-pack knob wiring for the four numeric defaults (`experiment_ttl_ms`, `decay_half_life_ms`, `cooldown_after_failures`, `cooldown_ms`) is deferred to a separate PR -- it needs a schema bump, contract-fixture regeneration, and ingestion plumbing that are out of scope for this in-evolver change.
+- **P4.1 (2026-04-27):** The four time-knobs (`experiment_ttl_ms`, `decay_half_life_ms`, `cooldown_after_failures`, `cooldown_ms`) are now wired through proto → `RipDpiAdaptiveFallbackConfig` → Settings UI, closing the deferred host-pack schema bump.
+
+### 2026-04-27: Cleanup Epic — Phase 1–5
+
+Status: COMPLETE.
+
+37 atomic commits closed all actionable items from a systematic incomplete-features audit.
+Six were genuine feature work; 12 were false positives (audit referenced stale code), all
+re-classified via ADR. Deferred sub-tasks have explicit roadmaps in their respective ADRs.
+
+**Phase 1 — Quick Wins (10 commits):** test-support workspace labelling,
+removal of dead `CapabilityUnavailable::NotImplemented`, exposed `community_api_url`
+in Settings, community stats loading/error states, full-tunnel-mode and SeqOverlap
+helper text, browser-route documented as remediation-only.
+
+**Phase 2 — Correctness (8 commits):** Release/Acquire ordering on `last_fd`,
+fd ownership tightening for `IoUringTunContext` and `Submission` types,
+CancellationException rethrow in `CommunityComparisonClient` / `GeoIpChecker` / `Tun2SocksTunnel`
+(others were already correct), DNS resolver IPs stripped from VPN service logs,
+new `NoResolverIpInLogs` detekt rule with 7 unit tests, `DetectionHistoryStore`
+injected via `@ApplicationContext` (closed an Activity-context leak path through
+`DetectionCheckScheduler.runQuickCheck`).
+
+**Phase 3 — Architectural Decisions (5 commits, all false positives):**
+ADRs 005–009 close audit findings that were demonstrably non-issues:
+Cloudflare `publish_local` already dispatched in Kotlin, `RelaySession::open_datagram`
+serves Hysteria2/TUIC/MASQUE UDP, Finalmask UI fields exist in `RelayFields.kt`,
+Edge/Safari TLS profiles are minimal-by-design (Edge inherits Chromium DNA,
+Safari has unique `safari_fixed` extension order and no GREASE), tier-3 platform
+primitives are wired through root-helper IPC.
+
+**Phase 4 — Feature Completion (8 commits):**
+- Stage timing instrumentation: real `wallClockMs` in developer analytics export
+- Strategy Evolver host-pack wiring: 4 time-knobs (`experiment_ttl_ms`,
+  `decay_half_life_ms`, `cooldown_after_failures`, `cooldown_ms`) propagated
+  through proto → `RipDpiAdaptiveFallbackConfig` → Settings UI
+- DNS enforcement: per-app-family invalidation via `DnsPathPreferenceInvalidator`,
+  fastest-resolver cache per `(host, NetProfile)` with 30-min TTL (17 tests)
+- Direct-Mode ranked-arm dispatcher API in `direct_path_learning.rs` — 8 tests;
+  attempt-budget / integration-coverage / relay-preset unification deferred (ADR-010)
+- Thompson sampling scorer in `strategy_evolver/thompson_sampling.rs` —
+  12 tests; rarity penalties / shared-priors upload / sim-to-field calibration
+  deferred (ADR-011)
+
+**Phase 5 — Strategic / Performance (6 commits):**
+- Community comparison cache: TTL was already 1h; added clear button in Settings
+- ECH config rotation: `EchConfigSource` trait + `BundledEchConfigSource`
+  (returns existing constant) + `RemoteEchConfigSource` stub + `CdnEchUpdater`
+  with TTL/fallback semantics. Remote DoH wiring deferred (ADR-012)
+- io_uring: `stream_copy_uring` busy-wait and `tun.rs` registered-buffer TX —
+  both deferred pending Criterion benchmark baselines; ADR-013 records the roadmap
+  and a latent correctness issue in `batch_tun_write` (`send_zc` with `buf_index: 0`)
+- `SharingStarted.Eagerly`: 3 of 3 occurrences are intentional warm-ups in
+  `ApplicationScope`/`ApplicationIoScope`, justified inline
+- Apps Script relay: actively dispatched via `UpstreamRelaySupervisor`; documented
+  in KDoc (not orphan)
+
+**Bonus correctness findings recorded for future fix:**
+- `batch_tun_write` uses `send_zc(buf_index: 0)` without a registered buffer
+  (wrong opcode for plain writes) — ADR-013
+- `lcg_f64` in `strategy_evolver` shifts by 33 (yields `[0, 0.5)`) — works
+  by accident with `epsilon = 0.1` but is biased — ADR-011
+- `DnsPathPreferenceInvalidator.register()` not yet hooked into `Application.onCreate()`
+  — separate wiring PR
+
+See `docs/architecture/adr-005` through `adr-013` for full decision records.
 
 ## Roadmap Hygiene
 
