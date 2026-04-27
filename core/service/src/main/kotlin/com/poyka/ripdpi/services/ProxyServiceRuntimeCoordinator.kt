@@ -21,6 +21,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+internal data class ProxyRuntimeSupervisorBundle(
+    val upstreamRelaySupervisor: UpstreamRelaySupervisor,
+    val warpRuntimeSupervisor: WarpRuntimeSupervisor,
+    val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
+)
+
 internal class ProxyServiceRuntimeCoordinator(
     host: ServiceCoordinatorHost,
     connectionPolicyResolver: ConnectionPolicyResolver,
@@ -29,9 +35,7 @@ internal class ProxyServiceRuntimeCoordinator(
     networkHandoverMonitor: NetworkHandoverMonitor,
     policyHandoverEventStore: PolicyHandoverEventStore,
     permissionWatchdog: PermissionWatchdog,
-    private val upstreamRelaySupervisor: UpstreamRelaySupervisor,
-    private val warpRuntimeSupervisor: WarpRuntimeSupervisor,
-    private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
+    supervisors: ProxyRuntimeSupervisorBundle,
     private val statusReporter: ServiceStatusReporter,
     private val screenStateObserver: ScreenStateObserver,
     private val directPathPolicyTelemetryConsumer:
@@ -54,6 +58,10 @@ internal class ProxyServiceRuntimeCoordinator(
         private const val TelemetryPollIntervalMs = 1_000L
         private const val TelemetryPollIntervalBackgroundMs = 5_000L
     }
+
+    private val upstreamRelaySupervisor = supervisors.upstreamRelaySupervisor
+    private val warpRuntimeSupervisor = supervisors.warpRuntimeSupervisor
+    private val proxyRuntimeSupervisor = supervisors.proxyRuntimeSupervisor
 
     private val proxyRuntimeStack =
         SharedProxyRuntimeStack(

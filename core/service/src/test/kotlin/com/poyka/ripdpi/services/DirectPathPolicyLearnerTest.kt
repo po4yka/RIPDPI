@@ -73,36 +73,8 @@ class DirectPathPolicyLearnerTest {
             val tupleAuthority = "example.org:443"
             val ipSetDigest = "deadbeef"
 
-            learner.consume(
-                NativeRuntimeSnapshot(
-                    source = "proxy",
-                    state = "running",
-                    directPathLearningSignals =
-                        listOf(
-                            DirectPathLearningSignal(
-                                authority = tupleAuthority,
-                                ipSetDigest = ipSetDigest,
-                                event = DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED,
-                                capturedAt = 100L,
-                            ),
-                        ),
-                ),
-            )
-            learner.consume(
-                NativeRuntimeSnapshot(
-                    source = "proxy",
-                    state = "running",
-                    directPathLearningSignals =
-                        listOf(
-                            DirectPathLearningSignal(
-                                authority = tupleAuthority,
-                                ipSetDigest = ipSetDigest,
-                                event = DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
-                                capturedAt = 200L,
-                            ),
-                        ),
-                ),
-            )
+            learner.consumeSignal(tupleAuthority, ipSetDigest, DirectPathLearningEvent.NO_TCP_FALLBACK_DETECTED, 100L)
+            learner.consumeSignal(tupleAuthority, ipSetDigest, DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK, 200L)
 
             var record = store.directPathCapabilitiesForFingerprint(fingerprint.scopeKey()).single()
             var envelope = record.effectiveTransportPolicyEnvelope()
@@ -110,36 +82,8 @@ class DirectPathPolicyLearnerTest {
             assertEquals(QuicMode.ALLOW, envelope.policy.quicMode)
             assertEquals(DirectModeReasonCode.NO_TCP_FALLBACK, envelope.reasonCode)
 
-            learner.consume(
-                NativeRuntimeSnapshot(
-                    source = "proxy",
-                    state = "running",
-                    directPathLearningSignals =
-                        listOf(
-                            DirectPathLearningSignal(
-                                authority = tupleAuthority,
-                                ipSetDigest = ipSetDigest,
-                                event = DirectPathLearningEvent.QUIC_SUCCESS,
-                                capturedAt = 300L,
-                            ),
-                        ),
-                ),
-            )
-            learner.consume(
-                NativeRuntimeSnapshot(
-                    source = "proxy",
-                    state = "running",
-                    directPathLearningSignals =
-                        listOf(
-                            DirectPathLearningSignal(
-                                authority = tupleAuthority,
-                                ipSetDigest = ipSetDigest,
-                                event = DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK,
-                                capturedAt = 400L,
-                            ),
-                        ),
-                ),
-            )
+            learner.consumeSignal(tupleAuthority, ipSetDigest, DirectPathLearningEvent.QUIC_SUCCESS, 300L)
+            learner.consumeSignal(tupleAuthority, ipSetDigest, DirectPathLearningEvent.QUIC_BLOCKED_TCP_OK, 400L)
 
             record = store.directPathCapabilitiesForFingerprint(fingerprint.scopeKey()).single()
             envelope = record.effectiveTransportPolicyEnvelope()
@@ -216,52 +160,15 @@ class DirectPathPolicyLearnerTest {
             val authority = "example.org:443"
             val digest = "feedface"
 
-            learner.consume(
-                NativeRuntimeSnapshot(
-                    source = "proxy",
-                    state = "running",
-                    directPathLearningSignals =
-                        listOf(
-                            DirectPathLearningSignal(
-                                authority = authority,
-                                ipSetDigest = digest,
-                                event = DirectPathLearningEvent.TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK,
-                                strategyFamily = "tlsrec_disorder",
-                                capturedAt = 100L,
-                            ),
-                        ),
-                ),
+            learner.consumeSignal(
+                authority,
+                digest,
+                DirectPathLearningEvent.TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK,
+                100L,
+                strategyFamily = "tlsrec_disorder",
             )
-            learner.consume(
-                NativeRuntimeSnapshot(
-                    source = "proxy",
-                    state = "running",
-                    directPathLearningSignals =
-                        listOf(
-                            DirectPathLearningSignal(
-                                authority = authority,
-                                ipSetDigest = digest,
-                                event = DirectPathLearningEvent.ALL_IPS_FAILED,
-                                capturedAt = 200L,
-                            ),
-                        ),
-                ),
-            )
-            learner.consume(
-                NativeRuntimeSnapshot(
-                    source = "proxy",
-                    state = "running",
-                    directPathLearningSignals =
-                        listOf(
-                            DirectPathLearningSignal(
-                                authority = authority,
-                                ipSetDigest = digest,
-                                event = DirectPathLearningEvent.ALL_IPS_FAILED,
-                                capturedAt = 250L,
-                            ),
-                        ),
-                ),
-            )
+            learner.consumeSignal(authority, digest, DirectPathLearningEvent.ALL_IPS_FAILED, 200L)
+            learner.consumeSignal(authority, digest, DirectPathLearningEvent.ALL_IPS_FAILED, 250L)
 
             var record = store.directPathCapabilitiesForFingerprint(fingerprint.scopeKey()).single()
             var envelope = record.effectiveTransportPolicyEnvelope()
@@ -272,21 +179,7 @@ class DirectPathPolicyLearnerTest {
             assertEquals(DirectModeReasonCode.IP_BLOCKED, envelope.reasonCode)
             assertEquals(250L + DirectModeNoDirectSolutionCooldownMs, envelope.cooldownUntil)
 
-            learner.consume(
-                NativeRuntimeSnapshot(
-                    source = "proxy",
-                    state = "running",
-                    directPathLearningSignals =
-                        listOf(
-                            DirectPathLearningSignal(
-                                authority = authority,
-                                ipSetDigest = digest,
-                                event = DirectPathLearningEvent.QUIC_SUCCESS,
-                                capturedAt = 300L,
-                            ),
-                        ),
-                ),
-            )
+            learner.consumeSignal(authority, digest, DirectPathLearningEvent.QUIC_SUCCESS, 300L)
 
             record = store.directPathCapabilitiesForFingerprint(fingerprint.scopeKey()).single()
             envelope = record.effectiveTransportPolicyEnvelope()
@@ -299,4 +192,29 @@ class DirectPathPolicyLearnerTest {
             assertNull(envelope.reasonCode)
             assertNull(envelope.cooldownUntil)
         }
+}
+
+private suspend fun DirectPathPolicyLearner.consumeSignal(
+    authority: String,
+    ipSetDigest: String,
+    event: DirectPathLearningEvent,
+    capturedAt: Long,
+    strategyFamily: String? = null,
+) {
+    consume(
+        NativeRuntimeSnapshot(
+            source = "proxy",
+            state = "running",
+            directPathLearningSignals =
+                listOf(
+                    DirectPathLearningSignal(
+                        authority = authority,
+                        ipSetDigest = ipSetDigest,
+                        event = event,
+                        capturedAt = capturedAt,
+                        strategyFamily = strategyFamily,
+                    ),
+                ),
+        ),
+    )
 }

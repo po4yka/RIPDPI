@@ -177,9 +177,12 @@ internal object ProxyServiceSessionModule {
             networkHandoverMonitor = networkHandoverMonitor,
             policyHandoverEventStore = policyHandoverEventStore,
             permissionWatchdog = permissionWatchdog,
-            upstreamRelaySupervisor = upstreamRelaySupervisor,
-            warpRuntimeSupervisor = warpRuntimeSupervisor,
-            proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+            supervisors =
+                ProxyRuntimeSupervisorBundle(
+                    upstreamRelaySupervisor = upstreamRelaySupervisor,
+                    warpRuntimeSupervisor = warpRuntimeSupervisor,
+                    proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+                ),
             statusReporter = statusReporter,
             screenStateObserver = screenStateObserver,
             directPathPolicyTelemetryConsumer = directPathPolicyTelemetryConsumer,

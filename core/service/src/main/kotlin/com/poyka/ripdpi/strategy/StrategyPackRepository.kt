@@ -239,14 +239,23 @@ class DefaultStrategyPackRepository
             val candidateSequence =
                 catalog.sequence.takeIf { it > 0L }
                     ?: throw StrategyPackMissingSecurityMetadataException(catalog.sequence.takeIf { it > 0L })
-            val issuedAt = catalog.issuedAt.trim()
-            if (issuedAt.isEmpty()) {
-                throw StrategyPackMissingSecurityMetadataException(candidateSequence)
+            enforceIssuedAtPolicy(catalog.issuedAt.trim(), candidateSequence, downloadedAtEpochMillis)
+            if (!allowRollbackOverride && acceptedSequence != null && candidateSequence <= acceptedSequence) {
+                throw StrategyPackRollbackRejectedException(
+                    acceptedSequence = acceptedSequence,
+                    rejectedSequence = candidateSequence,
+                )
             }
+        }
+
+        private fun enforceIssuedAtPolicy(
+            issuedAt: String,
+            candidateSequence: Long,
+            downloadedAtEpochMillis: Long,
+        ) {
             val issuedAtInstant =
-                runCatching { Instant.parse(issuedAt) }.getOrElse {
-                    throw StrategyPackInvalidIssuedAtException(issuedAt, candidateSequence)
-                }
+                parseIssuedAt(issuedAt, candidateSequence)
+                    ?: throw StrategyPackMissingSecurityMetadataException(candidateSequence)
             val oldestAllowedIssuedAt =
                 Instant
                     .ofEpochMilli(downloadedAtEpochMillis)
@@ -254,11 +263,15 @@ class DefaultStrategyPackRepository
             if (issuedAtInstant.isBefore(oldestAllowedIssuedAt)) {
                 throw StrategyPackStaleCatalogException(issuedAt, candidateSequence)
             }
-            if (!allowRollbackOverride && acceptedSequence != null && candidateSequence <= acceptedSequence) {
-                throw StrategyPackRollbackRejectedException(
-                    acceptedSequence = acceptedSequence,
-                    rejectedSequence = candidateSequence,
-                )
+        }
+
+        private fun parseIssuedAt(
+            issuedAt: String,
+            candidateSequence: Long,
+        ): Instant? {
+            if (issuedAt.isEmpty()) return null
+            return runCatching { Instant.parse(issuedAt) }.getOrElse {
+                throw StrategyPackInvalidIssuedAtException(issuedAt, candidateSequence)
             }
         }
 

@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.StrategyPackRefreshFailureCode
 import com.poyka.ripdpi.data.StrategyPackRefreshPolicyAutomatic
 import com.poyka.ripdpi.data.StrategyPackRuntimeState
 import com.poyka.ripdpi.data.StrategyPackSettingsModel
+import com.poyka.ripdpi.data.StrategyPackSnapshot
 import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.acceptedSequenceOrNull
 import com.poyka.ripdpi.data.normalizeStrategyPackRefreshPolicy
@@ -279,20 +280,29 @@ class DefaultStrategyPackService
                     allowRollbackOverride = key.allowRollbackOverride,
                 )
             }.onSuccess { snapshot ->
-                val shouldPublish =
-                    schedulingMutex.withLock {
-                        if (currentRefreshKey != key || automaticRefreshJob !== currentJob) {
-                            false
-                        } else {
-                            consecutiveAutomaticFailures = 0
-                            lastSuccessfulFetchAtEpochMillis = snapshot.lastFetchedAtEpochMillis
-                            true
-                        }
-                    }
-                if (!shouldPublish) {
-                    return
-                }
+                onRefreshSuccess(snapshot, key, currentJob, attemptedAt)
+            }.onFailure { error ->
+                onRefreshFailure(error, key, currentJob, attemptedAt)
+            }
+        }
 
+        private suspend fun onRefreshSuccess(
+            snapshot: StrategyPackSnapshot,
+            key: StrategyPackRefreshKey,
+            currentJob: Job?,
+            attemptedAt: Long,
+        ) {
+            val shouldPublish =
+                schedulingMutex.withLock {
+                    if (currentRefreshKey != key || automaticRefreshJob !== currentJob) {
+                        false
+                    } else {
+                        consecutiveAutomaticFailures = 0
+                        lastSuccessfulFetchAtEpochMillis = snapshot.lastFetchedAtEpochMillis
+                        true
+                    }
+                }
+            if (shouldPublish) {
                 publishSelectionForSnapshot(
                     snapshot = snapshot,
                     key = key,
@@ -302,20 +312,25 @@ class DefaultStrategyPackService
                     lastRejectedSequence = null,
                 )
                 scheduleAutomaticRefresh(key, StrategyPackRefreshScheduleReason.TtlDue)
-            }.onFailure { error ->
-                val shouldPublish =
-                    schedulingMutex.withLock {
-                        if (currentRefreshKey != key || automaticRefreshJob !== currentJob) {
-                            false
-                        } else {
-                            consecutiveAutomaticFailures += 1
-                            true
-                        }
-                    }
-                if (!shouldPublish) {
-                    return
-                }
+            }
+        }
 
+        private suspend fun onRefreshFailure(
+            error: Throwable,
+            key: StrategyPackRefreshKey,
+            currentJob: Job?,
+            attemptedAt: Long,
+        ) {
+            val shouldPublish =
+                schedulingMutex.withLock {
+                    if (currentRefreshKey != key || automaticRefreshJob !== currentJob) {
+                        false
+                    } else {
+                        consecutiveAutomaticFailures += 1
+                        true
+                    }
+                }
+            if (shouldPublish) {
                 val retryDelayMs = schedulingMutex.withLock { nextFailureBackoffLocked() }
                 Logger.w(error) {
                     "Automatic strategy-pack refresh failed; retrying in $retryDelayMs ms"
