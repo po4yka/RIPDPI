@@ -161,7 +161,7 @@ Status: COMPLETE in repo-owned scope.
 
 ### 2026-04-23: Offline Learner Strategy-Pack Generation Slice
 
-Status: PARTIAL. Pipeline generation and Thompson sampling scorer landed (P4.4.1); rarity penalties, shared-priors upload, and sim-to-field calibration deferred (ADR-011).
+Status: PARTIAL. Pipeline generation and Thompson sampling scorer landed (P4.4.1); rarity/retry penalties, attempt-budget enforcement, shared-priors upload constraints, and sim-to-field calibration deferred (ADR-011).
 
 - Extended the existing offline analytics pipeline so `publish` and `run-all` now emit `strategy-pack-catalog.candidate.json` instead of stopping at winner mappings and analyst reports.
 - Added deterministic generated `offline-*` packs derived from stable device-fingerprint winner mappings, preserving the live strategy-pack schema and baseline metadata while keeping rollout staged at `0%`.
@@ -231,8 +231,8 @@ primitives are wired through root-helper IPC.
 - Direct-Mode ranked-arm dispatcher API in `direct_path_learning.rs` — 8 tests;
   attempt-budget / integration-coverage / relay-preset unification deferred (ADR-010)
 - Thompson sampling scorer in `strategy_evolver/thompson_sampling.rs` —
-  12 tests; rarity penalties / shared-priors upload / sim-to-field calibration
-  deferred (ADR-011)
+  12 tests; rarity/retry penalties, attempt-budget enforcement, shared-priors
+  upload constraints, and sim-to-field calibration deferred (ADR-011)
 
 **Phase 5 — Strategic / Performance (6 commits):**
 - Community comparison cache: TTL was already 1h; added clear button in Settings
