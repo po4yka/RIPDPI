@@ -194,68 +194,89 @@ Status: COMPLETE. In-evolver implementation and CLI wiring complete; host-pack p
 
 ### 2026-04-27: Cleanup Epic — Phase 1–5
 
-Status: COMPLETE.
+Status: COMPLETE (audit pass; deferred items tracked under "Open follow-ups" below).
 
-37 atomic commits closed all actionable items from a systematic incomplete-features audit.
-Six were genuine feature work; 12 were false positives (audit referenced stale code), all
-re-classified via ADR. Deferred sub-tasks have explicit roadmaps in their respective ADRs.
+A systematic incomplete-features audit was run against the Kotlin app and the
+Rust workspace. ~41 atomic commits closed the actionable findings: roughly
+half landed correctness or feature work, the rest re-classified findings as
+already-resolved by-design and captured the rationale in 9 new ADRs
+(`adr-005`..`adr-013`) plus an architecture index at
+`docs/architecture/README.md`.
 
-**Phase 1 — Quick Wins (10 commits):** test-support workspace labelling,
-removal of dead `CapabilityUnavailable::NotImplemented`, exposed `community_api_url`
-in Settings, community stats loading/error states, full-tunnel-mode and SeqOverlap
-helper text, browser-route documented as remediation-only.
+**Phase 1 — Quick Wins (9 commits):** explicit `publish = false` on
+`ripdpi-bench`, `ripdpi-cli`, and the three test-support crates;
+`CapabilityUnavailable::NotImplemented` removed from the public API
+(never constructed); `community_api_url` surfaced in Settings;
+community-stats loading/error states; helper text for full-tunnel-mode and
+SeqOverlap-unsupported reason; owned-stack browser scope captured in
+`docs/architecture/browser-route-scope.md` as remediation-only entry.
 
-**Phase 2 — Correctness (8 commits):** Release/Acquire ordering on `last_fd`,
-fd ownership tightening for `IoUringTunContext` and `Submission` types,
-CancellationException rethrow in `CommunityComparisonClient` / `GeoIpChecker` / `Tun2SocksTunnel`
-(others were already correct), DNS resolver IPs stripped from VPN service logs,
-new `NoResolverIpInLogs` detekt rule with 7 unit tests, `DetectionHistoryStore`
-injected via `@ApplicationContext` (closed an Activity-context leak path through
-`DetectionCheckScheduler.runQuickCheck`).
+**Phase 2 — Correctness (8 commits):** Release/Acquire ordering on
+`last_fd` publish; fd-ownership tightening (`IoUringTunContext` →
+`OwnedFd`, `Submission` documented as non-owning);
+`CancellationException` rethrow in `CommunityComparisonClient`,
+`GeoIpChecker`, and `Tun2SocksTunnel` — the last also fixed
+`nativeBindings.destroy()` silently skipping under cancel via
+`withContext(NonCancellable)`; DNS resolver IPs stripped from VPN service
+logs; `NoResolverIpInLogs` detekt rule added (7 unit tests);
+`DetectionHistoryStore` injected via `@ApplicationContext` — closed an
+Activity-context leak path through `DetectionCheckScheduler.runQuickCheck`.
 
-**Phase 3 — Architectural Decisions (5 commits, all false positives):**
-ADRs 005–009 close audit findings that were demonstrably non-issues:
-Cloudflare `publish_local` already dispatched in Kotlin, `RelaySession::open_datagram`
-serves Hysteria2/TUIC/MASQUE UDP, Finalmask UI fields exist in `RelayFields.kt`,
-Edge/Safari TLS profiles are minimal-by-design (Edge inherits Chromium DNA,
-Safari has unique `safari_fixed` extension order and no GREASE), tier-3 platform
-primitives are wired through root-helper IPC.
+**Phase 3 — Architectural Decisions (5 commits, all audit false positives):**
+ADRs 005–009 record decisions on findings that were demonstrably
+non-issues — Cloudflare `publish_local` already dispatched in
+`UpstreamRelaySupervisor`; `RelaySession::open_datagram` serves
+Hysteria2/TUIC/MASQUE UDP; Finalmask UI fields exist in `RelayFields.kt`;
+Edge/Safari TLS profiles are minimal-by-design (Safari uses unique
+`safari_fixed` extension order with no GREASE, Edge inherits Chromium
+fingerprint shape); tier-3 platform primitives wired through root-helper IPC.
 
-**Phase 4 — Feature Completion (8 commits):**
-- Stage timing instrumentation: real `wallClockMs` in developer analytics export
-- Strategy Evolver host-pack wiring: 4 time-knobs (`experiment_ttl_ms`,
-  `decay_half_life_ms`, `cooldown_after_failures`, `cooldown_ms`) propagated
-  through proto → `RipDpiAdaptiveFallbackConfig` → Settings UI
-- DNS enforcement: per-app-family invalidation via `DnsPathPreferenceInvalidator`,
-  fastest-resolver cache per `(host, NetProfile)` with 30-min TTL (17 tests)
-- Direct-Mode ranked-arm dispatcher API in `direct_path_learning.rs` — 8 tests;
-  attempt-budget / integration-coverage / relay-preset unification deferred (ADR-010)
-- Thompson sampling scorer in `strategy_evolver/thompson_sampling.rs` —
-  12 tests; rarity/retry penalties, attempt-budget enforcement, shared-priors
-  upload constraints, and sim-to-field calibration deferred (ADR-011)
+**Phase 4 — Feature Completion (8 commits):** see the dated sections above
+for inline P4.X status — `P4.1` (Strategy Evolver host-pack proto wiring),
+`P4.2` (DNS Enforcement), `P4.3` (Direct-Mode Diagnostic Orchestrator),
+`P4.4` (Offline Learner Strategy-Pack Generation), and `P4.5` (developer
+analytics stage timings) all have status notes pointing at the relevant
+crate, test counts, and ADR references.
 
 **Phase 5 — Strategic / Performance (6 commits):**
-- Community comparison cache: TTL was already 1h; added clear button in Settings
-- ECH config rotation: `EchConfigSource` trait + `BundledEchConfigSource`
-  (returns existing constant) + `RemoteEchConfigSource` stub + `CdnEchUpdater`
-  with TTL/fallback semantics. Remote DoH wiring deferred (ADR-012)
-- io_uring: `stream_copy_uring` busy-wait and `tun.rs` registered-buffer TX —
-  both deferred pending Criterion benchmark baselines; ADR-013 records the roadmap
-  and a latent correctness issue in `batch_tun_write` (`send_zc` with `buf_index: 0`)
-- `SharingStarted.Eagerly`: 3 of 3 occurrences are intentional warm-ups in
-  `ApplicationScope`/`ApplicationIoScope`, justified inline
-- Apps Script relay: actively dispatched via `UpstreamRelaySupervisor`; documented
-  in KDoc (not orphan)
+- Community comparison cache: 1 h TTL was already in place; added a clear
+  button in Settings.
+- ECH config rotation: introduced `EchConfigSource` trait,
+  `BundledEchConfigSource` (returns the existing constant),
+  `RemoteEchConfigSource` stub, and `CdnEchUpdater` with TTL+fallback
+  semantics (5 unit tests). Remote DoH wiring deferred (ADR-012).
+- io_uring: `stream_copy_uring` busy-wait wakeup and `tun.rs`
+  registered-buffer TX path both deferred pending Criterion benchmark
+  baselines (ADR-013). Investigation also surfaced a latent correctness
+  issue in `batch_tun_write` (uses `send_zc` with `buf_index: 0` without
+  a registered buffer — wrong opcode for plain writes; tracked in ADR-013).
+- `SharingStarted.Eagerly`: 3 of 3 occurrences are intentional warm-ups
+  in `ApplicationScope` / `ApplicationIoScope`, now justified by inline
+  comments.
+- Apps Script relay: actively dispatched via `UpstreamRelaySupervisor`;
+  configuration path documented in KDoc (not orphan).
 
-**Bonus correctness findings recorded for future fix:**
-- `batch_tun_write` uses `send_zc(buf_index: 0)` without a registered buffer
-  (wrong opcode for plain writes) — ADR-013
-- `lcg_f64` in `strategy_evolver` shifts by 33 (yields `[0, 0.5)`) — works
-  by accident with `epsilon = 0.1` but is biased — ADR-011
-- `DnsPathPreferenceInvalidator.register()` not yet hooked into `Application.onCreate()`
-  — separate wiring PR
+**Open follow-ups (as of 2026-04-27).** Each item has an owning ADR or
+section that holds the implementation plan; nothing below is blocking the
+current release.
 
-See `docs/architecture/adr-005` through `adr-013` for full decision records.
+| Area | Item | Tracked in |
+|---|---|---|
+| Direct-Mode | Per-class attempt-budget enforcement | ADR-010 |
+| Direct-Mode | Deterministic integration coverage for the class-to-arm execution ladder | ADR-010 |
+| Direct-Mode | Unify Config relay preset suggestions onto the transport-remediation selector | ADR-010 |
+| Offline Learner | Bayesian rarity / retry penalties | ADR-011 |
+| Offline Learner | Attempt-budget enforcement in the learner | ADR-011 |
+| Offline Learner | Shared-priors upload constraints (max payload, rate limit) | ADR-011 |
+| Offline Learner | Emulator / sim-to-field calibration beyond archive mining | ADR-011 |
+| Offline Learner | Fix `lcg_f64 >> 33` bias (currently yields `[0, 0.5)`) | ADR-011 |
+| Monitor | `RemoteEchConfigSource` via DoH HTTPS RR query + scheduler integration | ADR-012 |
+| io_uring | Switch `stream_copy_uring` busy-wait to `thread::park` / `unpark` | ADR-013 |
+| io_uring | Registered-buffer TX path in `tun.rs::batch_tun_write` | ADR-013 |
+| io_uring | Fix `send_zc(buf_index: 0)` opcode bug in `batch_tun_write` | ADR-013 |
+| DNS | Hook `DnsPathPreferenceInvalidator.register()` into `Application.onCreate()` | DNS Enforcement Slice (above) |
+
+See `docs/architecture/README.md` for the ADR index.
 
 ## Roadmap Hygiene
 
