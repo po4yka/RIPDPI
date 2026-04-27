@@ -7,6 +7,58 @@ use crate::runtime_policy::TransportProtocol;
 
 const NO_TCP_FALLBACK_WINDOW_MS: u64 = 3_000;
 
+// ---------------------------------------------------------------------------
+// Ranked-arm dispatcher types (P4.3.1)
+// ---------------------------------------------------------------------------
+
+/// The observed block class for a direct-path (host, ip-set) tuple.
+///
+/// Derived from the accumulated `TupleState` flags and terminal state.  Each
+/// variant maps to a distinct ranked arm list via
+/// [`DirectPathLearningState::ranked_arms_for`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum DirectPathBlockClass {
+    /// No negative evidence — plain TCP or QUIC is worth trying first.
+    Clean,
+    /// UDP/QUIC datagrams are being dropped; TCP-based arms rank higher.
+    QuicBlocked,
+    /// TLS post-ClientHello interference detected; record-split arms rank higher.
+    TlsPostClientHello,
+    /// Both UDP blocked and TLS interference observed simultaneously.
+    QuicBlockedAndTlsPostClientHello,
+    /// UDP was suppressed and no TCP fallback appeared within the observation
+    /// window; the host may be UDP-only or completely unreachable directly.
+    NoTcpFallback,
+    /// Every known IP for the target failed; relay is the only remaining option.
+    AllIpsFailed,
+    /// A previous QUIC attempt succeeded; QUIC arms rank highest.
+    QuicConfirmed,
+}
+
+/// A single candidate arm returned by the ranked dispatcher.
+///
+/// Arms are ordered so that index 0 is the highest-priority choice.  The
+/// `score` field is a normalised `f32` in `[0, 1]` where higher means "try
+/// this arm first".  `attempt_budget` is a placeholder for future per-class
+/// budget enforcement (P4.3.2); it is currently set to a fixed default.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct RankedArm {
+    /// Short label identifying the transport / strategy arm.
+    pub(super) label: &'static str,
+    /// Normalised priority score.  Higher = preferred.
+    pub(super) score: f32,
+    /// Block class that caused this arm to be ranked at this position.
+    pub(super) class: DirectPathBlockClass,
+    /// Remaining attempt budget before the arm should be backed off.
+    /// Currently a conservative fixed value; per-class enforcement is deferred
+    /// to P4.3.2.
+    pub(super) attempt_budget: u32,
+}
+
+// ---------------------------------------------------------------------------
+// Internal state types
+// ---------------------------------------------------------------------------
+
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 struct TupleKey {
     authority: String,
@@ -146,6 +198,91 @@ impl DirectPathLearningState {
                 emit_learning_signal(state, &tuple_key, "NO_TCP_FALLBACK_DETECTED", None);
             }
         }
+    }
+
+    /// Derive the current [`DirectPathBlockClass`] for a (host, targets) tuple.
+    ///
+    /// Returns `DirectPathBlockClass::Clean` when no negative evidence has been
+    /// recorded yet, so callers can always obtain a valid class without special-
+    /// casing the absent-tuple case.
+    pub(super) fn block_class_for(&self, host: Option<&str>, targets: &[SocketAddr]) -> DirectPathBlockClass {
+        let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
+            return DirectPathBlockClass::Clean;
+        };
+        let Some(entry) = self.tuples.get(&tuple_key) else {
+            return DirectPathBlockClass::Clean;
+        };
+        block_class_from_state(entry)
+    }
+
+    /// Return a ranked list of transport arms for the given (host, targets) tuple.
+    ///
+    /// Arms are ordered from highest priority (index 0) to lowest.  The list
+    /// always contains at least one entry.  Callers may iterate and attempt each
+    /// arm in order, stopping on the first success.
+    pub(super) fn ranked_arms_for(&self, host: Option<&str>, targets: &[SocketAddr]) -> Vec<RankedArm> {
+        let class = self.block_class_for(host, targets);
+        ranked_arms_for_class(class)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Ranked-arm dispatcher implementation (P4.3.1)
+// ---------------------------------------------------------------------------
+
+/// Derive the block class from a recorded `TupleState`.
+fn block_class_from_state(entry: &TupleState) -> DirectPathBlockClass {
+    match entry.terminal_state {
+        Some(TerminalState::QuicSuccess) => DirectPathBlockClass::QuicConfirmed,
+        Some(TerminalState::AllIpsFailed) => DirectPathBlockClass::AllIpsFailed,
+        Some(TerminalState::NoTcpFallbackDetected) => DirectPathBlockClass::NoTcpFallback,
+        None => match (entry.udp_failed, entry.tls_post_client_hello_failed) {
+            (true, true) => DirectPathBlockClass::QuicBlockedAndTlsPostClientHello,
+            (true, false) => DirectPathBlockClass::QuicBlocked,
+            (false, true) => DirectPathBlockClass::TlsPostClientHello,
+            (false, false) => DirectPathBlockClass::Clean,
+        },
+    }
+}
+
+/// Default attempt budget used for all arms until P4.3.2 adds per-class
+/// enforcement backed by runtime metrics.
+const DEFAULT_ATTEMPT_BUDGET: u32 = 3;
+
+/// Return the ranked arm list for a given block class.
+///
+/// Each variant encodes expert knowledge about which transport arms are most
+/// likely to succeed for the given failure pattern.  Scores are chosen so that
+/// the relative ordering is clear but not sensitive to floating-point equality.
+fn ranked_arms_for_class(class: DirectPathBlockClass) -> Vec<RankedArm> {
+    match class {
+        DirectPathBlockClass::Clean => vec![
+            RankedArm { label: "quic", score: 0.9, class, attempt_budget: DEFAULT_ATTEMPT_BUDGET },
+            RankedArm { label: "tcp_plain", score: 0.8, class, attempt_budget: DEFAULT_ATTEMPT_BUDGET },
+        ],
+        DirectPathBlockClass::QuicBlocked => vec![
+            RankedArm { label: "tcp_plain", score: 0.9, class, attempt_budget: DEFAULT_ATTEMPT_BUDGET },
+            RankedArm { label: "tcp_tls_split", score: 0.7, class, attempt_budget: DEFAULT_ATTEMPT_BUDGET },
+        ],
+        DirectPathBlockClass::TlsPostClientHello => vec![
+            RankedArm { label: "tcp_tls_split", score: 0.9, class, attempt_budget: DEFAULT_ATTEMPT_BUDGET },
+            RankedArm { label: "tcp_plain", score: 0.6, class, attempt_budget: DEFAULT_ATTEMPT_BUDGET },
+        ],
+        DirectPathBlockClass::QuicBlockedAndTlsPostClientHello => vec![
+            RankedArm { label: "tcp_tls_split", score: 0.9, class, attempt_budget: DEFAULT_ATTEMPT_BUDGET },
+            RankedArm { label: "tcp_plain", score: 0.5, class, attempt_budget: DEFAULT_ATTEMPT_BUDGET },
+        ],
+        DirectPathBlockClass::NoTcpFallback => vec![
+            RankedArm { label: "quic", score: 0.8, class, attempt_budget: DEFAULT_ATTEMPT_BUDGET },
+            RankedArm { label: "tcp_plain", score: 0.3, class, attempt_budget: DEFAULT_ATTEMPT_BUDGET },
+        ],
+        DirectPathBlockClass::AllIpsFailed => {
+            vec![RankedArm { label: "relay_fallback", score: 0.9, class, attempt_budget: 1 }]
+        }
+        DirectPathBlockClass::QuicConfirmed => vec![
+            RankedArm { label: "quic", score: 1.0, class, attempt_budget: DEFAULT_ATTEMPT_BUDGET },
+            RankedArm { label: "tcp_plain", score: 0.4, class, attempt_budget: DEFAULT_ATTEMPT_BUDGET },
+        ],
     }
 }
 
@@ -368,5 +505,119 @@ mod tests {
         assert_eq!(signals.len(), 2);
         assert_eq!(signals[0].2, "QUIC_SUCCESS");
         assert_eq!(signals[1].2, "QUIC_BLOCKED_TCP_OK");
+    }
+
+    // ── Ranked-arm dispatcher (P4.3.1) ──────────────────────────────────────
+
+    #[test]
+    fn ranked_arms_clean_tuple_prefers_quic() {
+        let learner = DirectPathLearningState::default();
+        let targets = vec!["203.0.113.10:443".parse().expect("target")];
+        let arms = learner.ranked_arms_for(Some("example.org"), &targets);
+        assert!(!arms.is_empty(), "must return at least one arm");
+        assert_eq!(arms[0].label, "quic", "clean tuple: quic should rank first");
+        assert!(arms[0].score > arms[1].score, "scores must be strictly descending");
+        assert_eq!(arms[0].class, DirectPathBlockClass::Clean);
+    }
+
+    #[test]
+    fn ranked_arms_quic_blocked_prefers_tcp() {
+        let targets = vec!["203.0.113.10:443".parse().expect("target")];
+        let mut learner = DirectPathLearningState::default();
+        learner.note_udp_failure(Some("example.org"), &targets);
+
+        let arms = learner.ranked_arms_for(Some("example.org"), &targets);
+        assert_eq!(arms[0].label, "tcp_plain", "quic_blocked: tcp_plain should rank first");
+        assert_eq!(arms[0].class, DirectPathBlockClass::QuicBlocked);
+    }
+
+    #[test]
+    fn ranked_arms_tls_post_client_hello_prefers_split() {
+        let targets = vec!["203.0.113.10:443".parse().expect("target")];
+        let mut learner = DirectPathLearningState::default();
+        learner.note_tls_post_client_hello_failure(Some("example.org"), &targets);
+
+        let arms = learner.ranked_arms_for(Some("example.org"), &targets);
+        assert_eq!(arms[0].label, "tcp_tls_split", "tls_post_client_hello: split should rank first");
+        assert_eq!(arms[0].class, DirectPathBlockClass::TlsPostClientHello);
+    }
+
+    #[test]
+    fn ranked_arms_all_ips_failed_returns_relay_fallback_only() {
+        let telemetry = StdArc::new(RecordingTelemetry::default());
+        let state = runtime_state(telemetry.clone());
+        let targets = vec!["203.0.113.10:443".parse().expect("target")];
+        let mut learner = DirectPathLearningState::default();
+        learner.note_all_ips_failed(&state, Some("example.org"), &targets);
+
+        let arms = learner.ranked_arms_for(Some("example.org"), &targets);
+        assert_eq!(arms.len(), 1, "all_ips_failed: exactly one relay arm");
+        assert_eq!(arms[0].label, "relay_fallback");
+        assert_eq!(arms[0].attempt_budget, 1, "relay fallback budget should be 1");
+        assert_eq!(arms[0].class, DirectPathBlockClass::AllIpsFailed);
+    }
+
+    #[test]
+    fn ranked_arms_quic_confirmed_ranks_quic_with_score_one() {
+        let telemetry = StdArc::new(RecordingTelemetry::default());
+        let state = runtime_state(telemetry.clone());
+        let targets = vec!["203.0.113.10:443".parse().expect("target")];
+        let mut learner = DirectPathLearningState::default();
+        learner.note_quic_success(&state, Some("example.org"), &targets);
+
+        let arms = learner.ranked_arms_for(Some("example.org"), &targets);
+        assert_eq!(arms[0].label, "quic");
+        assert!((arms[0].score - 1.0_f32).abs() < f32::EPSILON, "quic_confirmed: score should be 1.0");
+        assert_eq!(arms[0].class, DirectPathBlockClass::QuicConfirmed);
+    }
+
+    #[test]
+    fn ranked_arms_unknown_host_returns_clean_arms() {
+        let learner = DirectPathLearningState::default();
+        // Host not seen before — should return Clean arms without panic.
+        let targets = vec!["203.0.113.99:443".parse().expect("target")];
+        let arms = learner.ranked_arms_for(Some("never-seen.example"), &targets);
+        assert_eq!(arms[0].class, DirectPathBlockClass::Clean);
+    }
+
+    #[test]
+    fn block_class_for_reflects_both_udp_and_tls_failures() {
+        let targets = vec!["203.0.113.10:443".parse().expect("target")];
+        let mut learner = DirectPathLearningState::default();
+        learner.note_udp_failure(Some("example.org"), &targets);
+        learner.note_tls_post_client_hello_failure(Some("example.org"), &targets);
+
+        let class = learner.block_class_for(Some("example.org"), &targets);
+        assert_eq!(class, DirectPathBlockClass::QuicBlockedAndTlsPostClientHello);
+
+        let arms = learner.ranked_arms_for(Some("example.org"), &targets);
+        assert_eq!(arms[0].label, "tcp_tls_split");
+        assert_eq!(arms[0].class, DirectPathBlockClass::QuicBlockedAndTlsPostClientHello);
+    }
+
+    #[test]
+    fn ranked_arms_are_strictly_score_descending() {
+        // For every block class, verify the returned slice is sorted descending.
+        let all_classes = [
+            DirectPathBlockClass::Clean,
+            DirectPathBlockClass::QuicBlocked,
+            DirectPathBlockClass::TlsPostClientHello,
+            DirectPathBlockClass::QuicBlockedAndTlsPostClientHello,
+            DirectPathBlockClass::NoTcpFallback,
+            DirectPathBlockClass::AllIpsFailed,
+            DirectPathBlockClass::QuicConfirmed,
+        ];
+        for class in all_classes {
+            let arms = ranked_arms_for_class(class);
+            assert!(!arms.is_empty(), "{class:?}: arm list must be non-empty");
+            for window in arms.windows(2) {
+                assert!(
+                    window[0].score >= window[1].score,
+                    "{class:?}: arms must be score-descending, got {} then {}",
+                    window[0].score,
+                    window[1].score,
+                );
+            }
+        }
     }
 }
