@@ -315,18 +315,7 @@ private class ProtectSocketSessionDispatcher(
         session: ProtectSocketClientSession,
         handler: (ProtectSocketClientSession) -> Unit,
     ): Boolean {
-        if (closed.get()) {
-            rejectSession(session)
-            return false
-        }
-
-        if (!permits.tryAcquire()) {
-            rejectSession(session)
-            return false
-        }
-
-        if (closed.get()) {
-            permits.release()
+        if (!tryAcquirePermit()) {
             rejectSession(session)
             return false
         }
@@ -342,6 +331,13 @@ private class ProtectSocketSessionDispatcher(
             rejectSession(session)
             false
         }
+    }
+
+    private fun tryAcquirePermit(): Boolean {
+        if (closed.get() || !permits.tryAcquire()) return false
+        val closedAfterAcquire = closed.get()
+        if (closedAfterAcquire) permits.release()
+        return !closedAfterAcquire
     }
 
     fun shutdown() {
@@ -361,16 +357,22 @@ private class ProtectSocketSessionDispatcher(
     }
 
     private fun awaitTerminationBefore(deadlineNanos: Long): Boolean {
-        while (true) {
+        var result = executor.isTerminated
+        while (!result) {
             val remainingNanos = deadlineNanos - System.nanoTime()
-            if (remainingNanos <= 0L) return executor.isTerminated
-            try {
-                return executor.awaitTermination(remainingNanos, TimeUnit.NANOSECONDS)
-            } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
-                return executor.isTerminated
+            if (remainingNanos <= 0L) {
+                result = executor.isTerminated
+                break
             }
+            result =
+                try {
+                    executor.awaitTermination(remainingNanos, TimeUnit.NANOSECONDS)
+                } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    executor.isTerminated
+                }
         }
+        return result
     }
 
     private fun closeActiveSessions() {

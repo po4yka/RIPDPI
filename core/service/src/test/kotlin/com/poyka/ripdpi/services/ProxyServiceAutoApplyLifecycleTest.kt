@@ -196,28 +196,31 @@ class ProxyServiceAutoApplyLifecycleTest {
                 networkHandoverMonitor = TestNetworkHandoverMonitor(),
                 policyHandoverEventStore = TestPolicyHandoverEventStore(),
                 permissionWatchdog = TestPermissionWatchdog(),
-                upstreamRelaySupervisor =
-                    UpstreamRelaySupervisor(
-                        scope = backgroundScope,
-                        dispatcher = dispatcher,
-                        relayFactory = TestRipDpiRelayFactory(),
-                        naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
-                        relayProfileStore = TestRelayProfileStore(),
-                        relayCredentialStore = TestRelayCredentialStore(),
-                    ),
-                warpRuntimeSupervisor =
-                    WarpRuntimeSupervisor(
-                        scope = backgroundScope,
-                        dispatcher = dispatcher,
-                        warpFactory = warpFactory,
-                        runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
-                    ),
-                proxyRuntimeSupervisor =
-                    ProxyRuntimeSupervisor(
-                        scope = backgroundScope,
-                        dispatcher = dispatcher,
-                        ripDpiProxyFactory = factory,
-                        networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                supervisors =
+                    ProxyRuntimeSupervisorBundle(
+                        upstreamRelaySupervisor =
+                            UpstreamRelaySupervisor(
+                                scope = backgroundScope,
+                                dispatcher = dispatcher,
+                                relayFactory = TestRipDpiRelayFactory(),
+                                naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                                relayProfileStore = TestRelayProfileStore(),
+                                relayCredentialStore = TestRelayCredentialStore(),
+                            ),
+                        warpRuntimeSupervisor =
+                            WarpRuntimeSupervisor(
+                                scope = backgroundScope,
+                                dispatcher = dispatcher,
+                                warpFactory = warpFactory,
+                                runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
+                            ),
+                        proxyRuntimeSupervisor =
+                            ProxyRuntimeSupervisor(
+                                scope = backgroundScope,
+                                dispatcher = dispatcher,
+                                ripDpiProxyFactory = factory,
+                                networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                            ),
                     ),
                 statusReporter =
                     ServiceStatusReporter(

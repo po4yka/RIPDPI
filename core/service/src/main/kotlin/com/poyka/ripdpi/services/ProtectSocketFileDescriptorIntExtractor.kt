@@ -46,64 +46,56 @@ internal object ReflectiveProtectSocketFileDescriptorIntExtractor :
     private val fieldResult by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { resolveDescriptorField() }
 
     override fun extract(fileDescriptor: FileDescriptor): ProtectSocketFdExtractionResult {
-        val field =
+        val fieldResolution =
             fieldResult.getOrElse { error ->
                 return ProtectSocketFdExtractionResult.Failed(mapFieldResolutionError(error))
             }
-
-        val value =
-            try {
-                field.getInt(fileDescriptor)
-            } catch (error: IllegalAccessException) {
-                return ProtectSocketFdExtractionResult.Failed(
-                    ProtectSocketFdExtractionError.InaccessibleDescriptorField(error),
-                )
-            } catch (error: SecurityException) {
-                return ProtectSocketFdExtractionResult.Failed(
-                    ProtectSocketFdExtractionError.InaccessibleDescriptorField(error),
-                )
-            } catch (error: RuntimeException) {
-                if (error.isInaccessibleObjectException()) {
-                    return ProtectSocketFdExtractionResult.Failed(
-                        ProtectSocketFdExtractionError.InaccessibleDescriptorField(error),
-                    )
-                }
-                throw error
-            }
-
-        return if (value >= 0) {
-            ProtectSocketFdExtractionResult.Extracted(value)
-        } else {
+        val readResult = readFieldValue(fieldResolution, fileDescriptor)
+        return readResult.getOrElse { error ->
             ProtectSocketFdExtractionResult.Failed(
-                ProtectSocketFdExtractionError.InvalidDescriptorValue(value),
+                ProtectSocketFdExtractionError.InaccessibleDescriptorField(error),
             )
         }
     }
 
-    private fun resolveDescriptorField(): Result<Field> {
-        var lastMissingField: NoSuchFieldException? = null
-        for (candidate in descriptorFieldNames) {
-            try {
-                val field = FileDescriptor::class.java.getDeclaredField(candidate)
-                field.isAccessible = true
-                return Result.success(field)
-            } catch (error: NoSuchFieldException) {
-                lastMissingField = error
-            } catch (error: SecurityException) {
-                return Result.failure(error)
-            } catch (error: RuntimeException) {
-                if (error.isInaccessibleObjectException()) {
-                    return Result.failure(error)
-                }
-                throw error
+    private fun readFieldValue(
+        field: Field,
+        fileDescriptor: FileDescriptor,
+    ): Result<ProtectSocketFdExtractionResult> {
+        val intResult = runCatching { field.getInt(fileDescriptor) }
+        val error = intResult.exceptionOrNull()
+        if (error is RuntimeException && !error.isInaccessibleObjectException()) throw error
+        return intResult.map { value ->
+            if (value >= 0) {
+                ProtectSocketFdExtractionResult.Extracted(value)
+            } else {
+                ProtectSocketFdExtractionResult.Failed(
+                    ProtectSocketFdExtractionError.InvalidDescriptorValue(value),
+                )
             }
         }
-        return Result.failure(
-            lastMissingField
-                ?: NoSuchFieldException(
-                    "No descriptor field found in ${FileDescriptor::class.java.name}",
-                ),
-        )
+    }
+
+    private fun resolveDescriptorField(): Result<Field> {
+        val results = descriptorFieldNames.map { tryGetDeclaredField(it) }
+        return results.firstOrNull { it.isSuccess }
+            ?: results.firstOrNull { it.exceptionOrNull() !is NoSuchFieldException }
+            ?: Result.failure(
+                results.firstNotNullOfOrNull { it.exceptionOrNull() as? NoSuchFieldException }
+                    ?: NoSuchFieldException("No descriptor field found in ${FileDescriptor::class.java.name}"),
+            )
+    }
+
+    private fun tryGetDeclaredField(name: String): Result<Field> {
+        val fieldResult =
+            runCatching {
+                val field = FileDescriptor::class.java.getDeclaredField(name)
+                field.isAccessible = true
+                field
+            }
+        val error = fieldResult.exceptionOrNull()
+        if (error is RuntimeException && !error.isInaccessibleObjectException()) throw error
+        return fieldResult
     }
 
     private fun mapFieldResolutionError(error: Throwable): ProtectSocketFdExtractionError =

@@ -29,16 +29,11 @@ class DefaultAtomicTextFileWriter
             file.parentFile?.mkdirs()
             val atomicFile = AtomicFile(file)
             val bytes = payload.toByteArray(Charsets.UTF_8)
-            val output =
-                try {
-                    atomicFile.startWrite()
-                } catch (error: IOException) {
-                    throw error
-                }
-            try {
+            val output = atomicFile.startWrite()
+            runCatching {
                 output.write(bytes)
                 atomicFile.finishWrite(output)
-            } catch (error: Throwable) {
+            }.onFailure { error ->
                 atomicFile.failWrite(output)
                 throw error
             }

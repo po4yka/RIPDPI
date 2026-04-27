@@ -77,7 +77,7 @@ class OwnedStackBrowserServiceTest {
             val platformExecutor =
                 FakeOwnedStackPlatformBrowserExecutor { request ->
                     if (request.quicEnabled) {
-                        throw IllegalStateException("quic path failed")
+                        error("quic path failed")
                     }
                     OwnedStackPlatformResponse(
                         finalUrl = "https://example.org/h2",

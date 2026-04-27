@@ -364,96 +364,98 @@ internal class TestServerCapabilityStore : ServerCapabilityStore {
     ): ServerCapabilityRecord {
         val normalizedAuthority = authority.trim().lowercase()
         val fingerprintHash = fingerprint.scopeKey()
-        val recordKey =
-            buildString {
-                append(fingerprintHash)
-                append('|')
-                append(normalizedAuthority)
-                observation.ipSetDigest?.trim()?.takeIf { it.isNotEmpty() }?.let {
-                    append('|')
-                    append(it.lowercase())
-                }
-                append('|')
-                append(relayProfileId.orEmpty())
-            }
+        val recordKey = buildRecordKey(fingerprintHash, normalizedAuthority, observation.ipSetDigest, relayProfileId)
+        val existing = records[recordKey]
+        val existingEnvelope = existing?.effectiveTransportPolicyEnvelope()
+        val envelope = buildEnvelope(observation, existingEnvelope)
         val record =
-            records[recordKey].let { existing ->
-                val existingEnvelope = existing?.effectiveTransportPolicyEnvelope()
-                val hasPolicyData =
-                    observation.transportPolicy != null ||
-                        observation.ipSetDigest != null ||
-                        observation.dnsClassification != null ||
-                        observation.transportClass != null ||
-                        observation.reasonCode != null ||
-                        observation.cooldownUntil != null
-                val envelope =
-                    if (!hasPolicyData) {
-                        existingEnvelope
-                    } else {
-                        val observationPolicy = observation.transportPolicy
-                        if (observationPolicy != null) {
-                            TransportPolicyEnvelope(
-                                version = CurrentTransportPolicyEnvelopeVersion,
-                                policy = observationPolicy,
-                                ipSetDigest = observation.ipSetDigest?.trim().orEmpty(),
-                                dnsClassification =
-                                    observation.dnsClassification
-                                        ?: existingEnvelope?.dnsClassification,
-                                transportClass = observation.transportClass,
-                                reasonCode = observation.reasonCode,
-                                cooldownUntil = observation.cooldownUntil?.takeIf { it > 0L },
-                            )
-                        } else {
-                            TransportPolicyEnvelope(
-                                version = CurrentTransportPolicyEnvelopeVersion,
-                                policy = existingEnvelope?.policy ?: TransportPolicy(),
-                                ipSetDigest =
-                                    observation.ipSetDigest
-                                        ?.trim()
-                                        .orEmpty()
-                                        .ifEmpty { existingEnvelope?.ipSetDigest.orEmpty() },
-                                dnsClassification =
-                                    observation.dnsClassification
-                                        ?: existingEnvelope?.dnsClassification,
-                                transportClass = observation.transportClass ?: existingEnvelope?.transportClass,
-                                reasonCode = observation.reasonCode ?: existingEnvelope?.reasonCode,
-                                cooldownUntil =
-                                    observation.cooldownUntil?.takeIf { it > 0L } ?: existingEnvelope?.cooldownUntil,
-                            )
-                        }
-                    }
-                ServerCapabilityRecord(
-                    scope = scope.wireValue,
-                    fingerprintHash = fingerprintHash,
-                    authority = normalizedAuthority,
-                    relayProfileId = relayProfileId ?: existing?.relayProfileId,
-                    quicUsable = observation.quicUsable ?: envelope?.derivedQuicUsable() ?: existing?.quicUsable,
-                    udpUsable = observation.udpUsable ?: envelope?.derivedUdpUsable() ?: existing?.udpUsable,
-                    authModeAccepted = observation.authModeAccepted ?: existing?.authModeAccepted,
-                    multiplexReusable = observation.multiplexReusable ?: existing?.multiplexReusable,
-                    shadowTlsCamouflageAccepted =
-                        observation.shadowTlsCamouflageAccepted ?: existing?.shadowTlsCamouflageAccepted,
-                    naiveHttpsProxyAccepted =
-                        observation.naiveHttpsProxyAccepted ?: existing?.naiveHttpsProxyAccepted,
-                    fallbackRequired =
-                        observation.fallbackRequired ?: envelope?.derivedFallbackRequired()
-                            ?: existing?.fallbackRequired,
-                    repeatedHandshakeFailureClass =
-                        observation.repeatedHandshakeFailureClass
-                            ?: envelope?.derivedHandshakeFailureClass()
-                            ?: existing?.repeatedHandshakeFailureClass,
-                    transportPolicyEnvelope = envelope,
-                    policyConfirmedAt =
-                        observation.policyConfirmedAt?.takeIf {
-                            it > 0L
-                        } ?: existing?.policyConfirmedAt,
-                    policyFailureCount = observation.policyFailureCount ?: existing?.policyFailureCount ?: 0,
-                    source = source,
-                    updatedAt = recordedAt ?: 0L,
-                )
-            }
+            ServerCapabilityRecord(
+                scope = scope.wireValue,
+                fingerprintHash = fingerprintHash,
+                authority = normalizedAuthority,
+                relayProfileId = relayProfileId ?: existing?.relayProfileId,
+                quicUsable = observation.quicUsable ?: envelope?.derivedQuicUsable() ?: existing?.quicUsable,
+                udpUsable = observation.udpUsable ?: envelope?.derivedUdpUsable() ?: existing?.udpUsable,
+                authModeAccepted = observation.authModeAccepted ?: existing?.authModeAccepted,
+                multiplexReusable = observation.multiplexReusable ?: existing?.multiplexReusable,
+                shadowTlsCamouflageAccepted =
+                    observation.shadowTlsCamouflageAccepted ?: existing?.shadowTlsCamouflageAccepted,
+                naiveHttpsProxyAccepted =
+                    observation.naiveHttpsProxyAccepted ?: existing?.naiveHttpsProxyAccepted,
+                fallbackRequired =
+                    observation.fallbackRequired ?: envelope?.derivedFallbackRequired()
+                        ?: existing?.fallbackRequired,
+                repeatedHandshakeFailureClass =
+                    observation.repeatedHandshakeFailureClass
+                        ?: envelope?.derivedHandshakeFailureClass()
+                        ?: existing?.repeatedHandshakeFailureClass,
+                transportPolicyEnvelope = envelope,
+                policyConfirmedAt =
+                    observation.policyConfirmedAt?.takeIf { it > 0L } ?: existing?.policyConfirmedAt,
+                policyFailureCount = observation.policyFailureCount ?: existing?.policyFailureCount ?: 0,
+                source = source,
+                updatedAt = recordedAt ?: 0L,
+            )
         records[recordKey] = record
         return record
+    }
+
+    private fun buildRecordKey(
+        fingerprintHash: String,
+        normalizedAuthority: String,
+        ipSetDigest: String?,
+        relayProfileId: String?,
+    ): String =
+        buildString {
+            append(fingerprintHash)
+            append('|')
+            append(normalizedAuthority)
+            ipSetDigest?.trim()?.takeIf { it.isNotEmpty() }?.let {
+                append('|')
+                append(it.lowercase())
+            }
+            append('|')
+            append(relayProfileId.orEmpty())
+        }
+
+    private fun buildEnvelope(
+        observation: ServerCapabilityObservation,
+        existingEnvelope: TransportPolicyEnvelope?,
+    ): TransportPolicyEnvelope? {
+        val hasPolicyData =
+            observation.transportPolicy != null ||
+                observation.ipSetDigest != null ||
+                observation.dnsClassification != null ||
+                observation.transportClass != null ||
+                observation.reasonCode != null ||
+                observation.cooldownUntil != null
+        if (!hasPolicyData) return existingEnvelope
+        val observationPolicy = observation.transportPolicy
+        return if (observationPolicy != null) {
+            TransportPolicyEnvelope(
+                version = CurrentTransportPolicyEnvelopeVersion,
+                policy = observationPolicy,
+                ipSetDigest = observation.ipSetDigest?.trim().orEmpty(),
+                dnsClassification = observation.dnsClassification ?: existingEnvelope?.dnsClassification,
+                transportClass = observation.transportClass,
+                reasonCode = observation.reasonCode,
+                cooldownUntil = observation.cooldownUntil?.takeIf { it > 0L },
+            )
+        } else {
+            TransportPolicyEnvelope(
+                version = CurrentTransportPolicyEnvelopeVersion,
+                policy = existingEnvelope?.policy ?: TransportPolicy(),
+                ipSetDigest =
+                    observation.ipSetDigest
+                        ?.trim()
+                        .orEmpty()
+                        .ifEmpty { existingEnvelope?.ipSetDigest.orEmpty() },
+                dnsClassification = observation.dnsClassification ?: existingEnvelope?.dnsClassification,
+                transportClass = observation.transportClass ?: existingEnvelope?.transportClass,
+                reasonCode = observation.reasonCode ?: existingEnvelope?.reasonCode,
+                cooldownUntil = observation.cooldownUntil?.takeIf { it > 0L } ?: existingEnvelope?.cooldownUntil,
+            )
+        }
     }
 }
 

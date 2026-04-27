@@ -35,10 +35,10 @@ internal fun Result<Int>.toSupervisorExitCause(stopRequested: Boolean): Supervis
         }
     }
 
-    val code = getOrNull() ?: return SupervisorExitCause.Cancellation
-    return if (stopRequested && code == 0) {
-        SupervisorExitCause.ExpectedStop
-    } else {
-        SupervisorExitCause.Crash(code)
+    val code = getOrNull()
+    return when {
+        code == null -> SupervisorExitCause.Cancellation
+        stopRequested && code == 0 -> SupervisorExitCause.ExpectedStop
+        else -> SupervisorExitCause.Crash(code)
     }
 }

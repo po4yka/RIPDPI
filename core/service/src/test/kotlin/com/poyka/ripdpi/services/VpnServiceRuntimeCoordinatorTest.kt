@@ -740,129 +740,15 @@ class VpnServiceRuntimeCoordinatorTest {
     @Test
     fun staleSupersededProxyExitDoesNotHaltRebuiltVpnSession() =
         runTest {
-            val dispatcher = StandardTestDispatcher(testScheduler)
-            val store = TestServiceStateStore()
-            val events = mutableListOf<String>()
-            val host = TestVpnServiceHost(backgroundScope)
-            val initialFingerprint = sampleFingerprint()
-            val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
-            val resolver =
-                TestConnectionPolicyResolver(
-                    sampleResolution(mode = Mode.VPN, policySignature = "initial"),
-                ).also {
-                    it.enqueue(
-                        sampleResolution(mode = Mode.VPN, policySignature = "initial"),
-                        sampleResolution(mode = Mode.VPN, policySignature = "handover"),
-                    )
-                }
-            val runtimeRegistry = DefaultServiceRuntimeRegistry()
-            val handoverMonitor = TestNetworkHandoverMonitor()
-            val handoverEvents = TestPolicyHandoverEventStore()
-            val permissionWatchdog = TestPermissionWatchdog()
-            val vpnProtectFailureMonitor = TestVpnProtectFailureMonitor()
-            val overrides = TestResolverOverrideStore()
-            val preferredPaths = TestNetworkDnsPathPreferenceStore()
-            val clock = TestServiceClock(now = 1_000L)
-            val oldRuntime = DelayedStopVpnProxyRuntime(events)
-            val newRuntime =
-                TestProxyRuntime(events).apply {
-                    telemetry = telemetry.copy(listenerAddress = "127.0.0.1:18081")
-                }
-            val proxyFactory =
-                object : RipDpiProxyFactory {
-                    private var calls = 0
+            val env = buildStaleProxyExitEnv()
 
-                    override fun create() =
-                        when (calls++) {
-                            0 -> oldRuntime
-                            else -> newRuntime
-                        }
-                }
-            val bridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events))
-            val tunnelProvider =
-                TestVpnTunnelSessionProvider(
-                    events = events,
-                    session = TestVpnTunnelSession(events = events),
-                )
-            val coordinator =
-                VpnServiceRuntimeCoordinator(
-                    vpnHost = host,
-                    connectionPolicyResolver = resolver,
-                    resolverOverrideStore = overrides,
-                    serviceRuntimeRegistry = runtimeRegistry,
-                    rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
-                    networkHandoverMonitor = handoverMonitor,
-                    policyHandoverEventStore = handoverEvents,
-                    permissionWatchdog = permissionWatchdog,
-                    vpnProtectFailureMonitor = vpnProtectFailureMonitor,
-                    vpnTunnelRuntime =
-                        VpnTunnelRuntime(
-                            vpnHost = host,
-                            appSettingsRepository = TestAppSettingsRepository(),
-                            tun2SocksBridgeFactory = bridgeFactory,
-                            vpnTunnelSessionProvider = tunnelProvider,
-                        ),
-                    resolverRefreshPlanner =
-                        VpnResolverRefreshPlanner(
-                            connectionPolicyResolver = resolver,
-                            resolverOverrideStore = overrides,
-                        ),
-                    encryptedDnsFailoverController =
-                        VpnEncryptedDnsFailoverController(
-                            resolverOverrideStore = overrides,
-                            networkDnsPathPreferenceStore = preferredPaths,
-                            networkDnsBlockedPathStore = TestNetworkDnsBlockedPathStore(),
-                            networkFingerprintProvider = TestNetworkFingerprintProvider(initialFingerprint),
-                            clock = clock,
-                        ),
-                    upstreamRelaySupervisor =
-                        UpstreamRelaySupervisor(
-                            scope = backgroundScope,
-                            dispatcher = dispatcher,
-                            relayFactory = TestRipDpiRelayFactory(),
-                            naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
-                            relayProfileStore = TestRelayProfileStore(),
-                            relayCredentialStore = TestRelayCredentialStore(),
-                        ),
-                    warpRuntimeSupervisor =
-                        WarpRuntimeSupervisor(
-                            scope = backgroundScope,
-                            dispatcher = dispatcher,
-                            warpFactory = TestRipDpiWarpFactory(),
-                            runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
-                        ),
-                    proxyRuntimeSupervisor =
-                        ProxyRuntimeSupervisor(
-                            scope = backgroundScope,
-                            dispatcher = dispatcher,
-                            ripDpiProxyFactory = proxyFactory,
-                            networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
-                        ),
-                    statusReporter =
-                        ServiceStatusReporter(
-                            mode = Mode.VPN,
-                            sender = com.poyka.ripdpi.data.Sender.VPN,
-                            serviceStateStore = store,
-                            networkFingerprintProvider = TestNetworkFingerprintProvider(initialFingerprint),
-                            telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
-                            runtimeExperimentSelectionProvider =
-                                object : RuntimeExperimentSelectionProvider {
-                                    override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
-                                },
-                            clock = clock,
-                        ),
-                    screenStateObserver = TestScreenStateObserver(),
-                    ioDispatcher = dispatcher,
-                    clock = clock,
-                )
-
-            coordinator.start()
+            env.coordinator.start()
             runCurrent()
 
-            handoverMonitor.emit(
+            env.handoverMonitor.emit(
                 NetworkHandoverEvent(
-                    previousFingerprint = initialFingerprint,
-                    currentFingerprint = newFingerprint,
+                    previousFingerprint = env.initialFingerprint,
+                    currentFingerprint = env.newFingerprint,
                     classification = "transport_switch",
                     occurredAt = 2_000L,
                 ),
@@ -870,13 +756,170 @@ class VpnServiceRuntimeCoordinatorTest {
             advanceTimeBy(5_000L)
             repeat(4) { runCurrent() }
 
-            oldRuntime.complete(23)
+            env.oldRuntime.complete(23)
             repeat(3) { runCurrent() }
 
-            assertEquals(AppStatus.Running to Mode.VPN, store.status.value)
-            assertTrue(store.eventHistory.none { it is ServiceEvent.Failed })
-            assertNotNull(runtimeRegistry.current(Mode.VPN))
+            assertEquals(AppStatus.Running to Mode.VPN, env.store.status.value)
+            assertTrue(env.store.eventHistory.none { it is ServiceEvent.Failed })
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
         }
+
+    private data class StaleProxyExitEnv(
+        val coordinator: VpnServiceRuntimeCoordinator,
+        val store: TestServiceStateStore,
+        val handoverMonitor: TestNetworkHandoverMonitor,
+        val runtimeRegistry: DefaultServiceRuntimeRegistry,
+        val oldRuntime: DelayedStopVpnProxyRuntime,
+        val newFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
+        val initialFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
+    )
+
+    private fun TestScope.buildStaleProxyExitEnv(): StaleProxyExitEnv {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val store = TestServiceStateStore()
+        val events = mutableListOf<String>()
+        val host = TestVpnServiceHost(backgroundScope)
+        val initialFingerprint = sampleFingerprint()
+        val newFingerprint = sampleFingerprint(dnsServers = listOf("8.8.8.8"))
+        val resolver =
+            TestConnectionPolicyResolver(
+                sampleResolution(mode = Mode.VPN, policySignature = "initial"),
+            ).also {
+                it.enqueue(
+                    sampleResolution(mode = Mode.VPN, policySignature = "initial"),
+                    sampleResolution(mode = Mode.VPN, policySignature = "handover"),
+                )
+            }
+        val runtimeRegistry = DefaultServiceRuntimeRegistry()
+        val handoverMonitor = TestNetworkHandoverMonitor()
+        val oldRuntime = DelayedStopVpnProxyRuntime(events)
+        val newRuntime =
+            TestProxyRuntime(events).apply {
+                telemetry = telemetry.copy(listenerAddress = "127.0.0.1:18081")
+            }
+        val proxyFactory =
+            object : RipDpiProxyFactory {
+                private var calls = 0
+
+                override fun create() =
+                    when (calls++) {
+                        0 -> oldRuntime
+                        else -> newRuntime
+                    }
+            }
+        val coordinator =
+            buildStaleProxyExitCoordinator(
+                dispatcher = dispatcher,
+                store = store,
+                events = events,
+                host = host,
+                initialFingerprint = initialFingerprint,
+                resolver = resolver,
+                runtimeRegistry = runtimeRegistry,
+                handoverMonitor = handoverMonitor,
+                proxyFactory = proxyFactory,
+            )
+        return StaleProxyExitEnv(
+            coordinator = coordinator,
+            store = store,
+            handoverMonitor = handoverMonitor,
+            runtimeRegistry = runtimeRegistry,
+            oldRuntime = oldRuntime,
+            newFingerprint = newFingerprint,
+            initialFingerprint = initialFingerprint,
+        )
+    }
+
+    private fun TestScope.buildStaleProxyExitCoordinator(
+        dispatcher: kotlinx.coroutines.CoroutineDispatcher,
+        store: TestServiceStateStore,
+        events: MutableList<String>,
+        host: TestVpnServiceHost,
+        initialFingerprint: com.poyka.ripdpi.data.NetworkFingerprint,
+        resolver: TestConnectionPolicyResolver,
+        runtimeRegistry: DefaultServiceRuntimeRegistry,
+        handoverMonitor: TestNetworkHandoverMonitor,
+        proxyFactory: RipDpiProxyFactory,
+    ): VpnServiceRuntimeCoordinator {
+        val overrides = TestResolverOverrideStore()
+        val clock = TestServiceClock(now = 1_000L)
+        val bridgeFactory = TestTun2SocksBridgeFactory(TestTun2SocksBridge(events))
+        val tunnelProvider =
+            TestVpnTunnelSessionProvider(
+                events = events,
+                session = TestVpnTunnelSession(events = events),
+            )
+        return VpnServiceRuntimeCoordinator(
+            vpnHost = host,
+            connectionPolicyResolver = resolver,
+            resolverOverrideStore = overrides,
+            serviceRuntimeRegistry = runtimeRegistry,
+            rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
+            networkHandoverMonitor = handoverMonitor,
+            policyHandoverEventStore = TestPolicyHandoverEventStore(),
+            permissionWatchdog = TestPermissionWatchdog(),
+            vpnProtectFailureMonitor = TestVpnProtectFailureMonitor(),
+            vpnTunnelRuntime =
+                VpnTunnelRuntime(
+                    vpnHost = host,
+                    appSettingsRepository = TestAppSettingsRepository(),
+                    tun2SocksBridgeFactory = bridgeFactory,
+                    vpnTunnelSessionProvider = tunnelProvider,
+                ),
+            resolverRefreshPlanner =
+                VpnResolverRefreshPlanner(
+                    connectionPolicyResolver = resolver,
+                    resolverOverrideStore = overrides,
+                ),
+            encryptedDnsFailoverController =
+                VpnEncryptedDnsFailoverController(
+                    resolverOverrideStore = overrides,
+                    networkDnsPathPreferenceStore = TestNetworkDnsPathPreferenceStore(),
+                    networkDnsBlockedPathStore = TestNetworkDnsBlockedPathStore(),
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(initialFingerprint),
+                    clock = clock,
+                ),
+            upstreamRelaySupervisor =
+                UpstreamRelaySupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    relayFactory = TestRipDpiRelayFactory(),
+                    naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                    relayProfileStore = TestRelayProfileStore(),
+                    relayCredentialStore = TestRelayCredentialStore(),
+                ),
+            warpRuntimeSupervisor =
+                WarpRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    warpFactory = TestRipDpiWarpFactory(),
+                    runtimeConfigResolver = TestWarpRuntimeConfigResolver(),
+                ),
+            proxyRuntimeSupervisor =
+                ProxyRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    ripDpiProxyFactory = proxyFactory,
+                    networkSnapshotProvider = TestNativeNetworkSnapshotProvider(),
+                ),
+            statusReporter =
+                ServiceStatusReporter(
+                    mode = Mode.VPN,
+                    sender = com.poyka.ripdpi.data.Sender.VPN,
+                    serviceStateStore = store,
+                    networkFingerprintProvider = TestNetworkFingerprintProvider(initialFingerprint),
+                    telemetryFingerprintHasher = TestTelemetryFingerprintHasher(),
+                    runtimeExperimentSelectionProvider =
+                        object : RuntimeExperimentSelectionProvider {
+                            override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
+                        },
+                    clock = clock,
+                ),
+            screenStateObserver = TestScreenStateObserver(),
+            ioDispatcher = dispatcher,
+            clock = clock,
+        )
+    }
 
     @Test
     fun stopPreventsPendingResolverRefreshFromRebuildingTunnel() =

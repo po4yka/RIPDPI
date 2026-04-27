@@ -1,5 +1,8 @@
-package com.poyka.ripdpi.services
+package com.poyka.ripdpi.services.testsupport
 
+import com.poyka.ripdpi.services.TestProxyRuntime
+import com.poyka.ripdpi.services.TestRelayRuntime
+import com.poyka.ripdpi.services.TestWarpRuntime
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger

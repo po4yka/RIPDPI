@@ -292,8 +292,47 @@ class DefaultSecureHttpClient
                     (request.echMode != SecureHttpEchMode.REQUIRE_CONFIRMED || confirmedPlatformEch)
 
             if (canAttemptPlatform) {
-                try {
-                    return executePlatformRequest(
+                return attemptPlatformWithFallback(
+                    requestedUrl = requestedUrl,
+                    support = support,
+                    request = request,
+                    headers = headers,
+                    authority = authority,
+                    defaultTrace = defaultTrace,
+                )
+            }
+
+            val fallbackReason =
+                if (support.platformHttpEngineAvailable) {
+                    OwnedStackNativeFallbackReason.ECH_CONFIRMATION_MISSING
+                } else {
+                    OwnedStackNativeFallbackReason.PLATFORM_UNAVAILABLE
+                }
+            if (fallbackReason == OwnedStackNativeFallbackReason.ECH_CONFIRMATION_MISSING) {
+                ownedStackLog.i {
+                    "Owned-stack request for ${authority.orEmpty()} requires confirmed Android 17 ECH;" +
+                        " using native owned TLS because no fresh ECH-capable authority evidence is cached"
+                }
+            }
+            return executeNativeRequest(
+                requestedUrl = requestedUrl,
+                support = support,
+                headers = headers,
+                trace = defaultTrace.copy(nativeFallbackReason = fallbackReason),
+            )
+        }
+
+        private suspend fun attemptPlatformWithFallback(
+            requestedUrl: String,
+            support: OwnedStackBrowserSupport,
+            request: SecureHttpRequest,
+            headers: Map<String, String>,
+            authority: String?,
+            defaultTrace: OwnedStackExecutionTrace,
+        ): SecureHttpResponse {
+            val result =
+                runCatching {
+                    executePlatformRequest(
                         requestedUrl = requestedUrl,
                         support = support,
                         request = request,
@@ -301,52 +340,34 @@ class DefaultSecureHttpClient
                         quicEnabled = request.quicPolicy != SecureHttpQuicPolicy.H2_ONLY,
                         trace = defaultTrace.copy(platformAttempted = true),
                     )
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (error: Throwable) {
-                    if (request.quicPolicy == SecureHttpQuicPolicy.AUTO) {
-                        ownedStackLog.w(error) {
-                            "Owned-stack platform request failed for ${authority.orEmpty()}; retrying with H2-only platform stack"
-                        }
-                        try {
-                            return executePlatformRequest(
-                                requestedUrl = requestedUrl,
-                                support = support,
-                                request = request,
-                                headers = headers,
-                                quicEnabled = false,
-                                trace =
-                                    defaultTrace.copy(
-                                        platformAttempted = true,
-                                        h2RetryTriggered = true,
-                                        finalQuicPolicy = SecureHttpQuicPolicy.H2_ONLY,
-                                    ),
-                            )
-                        } catch (retryError: CancellationException) {
-                            throw retryError
-                        } catch (retryError: Throwable) {
-                            ownedStackLog.w(retryError) {
-                                "Owned-stack H2-only retry failed for ${authority.orEmpty()}; falling back to native owned TLS"
-                            }
-                            return executeNativeRequest(
-                                requestedUrl = requestedUrl,
-                                support = support,
-                                headers = headers,
-                                trace =
-                                    defaultTrace.copy(
-                                        platformAttempted = true,
-                                        h2RetryTriggered = true,
-                                        finalQuicPolicy = SecureHttpQuicPolicy.H2_ONLY,
-                                        nativeFallbackReason = OwnedStackNativeFallbackReason.PLATFORM_FAILURE,
-                                    ),
-                            )
-                        }
-                    }
+                }
+            val error = result.exceptionOrNull()
+            return when {
+                result.isSuccess -> {
+                    result.getOrThrow()
+                }
 
+                error is CancellationException -> {
+                    throw error
+                }
+
+                request.quicPolicy == SecureHttpQuicPolicy.AUTO -> {
+                    attemptH2RetryWithNativeFallback(
+                        requestedUrl = requestedUrl,
+                        support = support,
+                        request = request,
+                        headers = headers,
+                        authority = authority,
+                        defaultTrace = defaultTrace,
+                        firstError = error!!,
+                    )
+                }
+
+                else -> {
                     ownedStackLog.w(error) {
                         "Owned-stack platform stack failed for ${authority.orEmpty()}; falling back to native owned TLS"
                     }
-                    return executeNativeRequest(
+                    executeNativeRequest(
                         requestedUrl = requestedUrl,
                         support = support,
                         headers = headers,
@@ -358,24 +379,50 @@ class DefaultSecureHttpClient
                     )
                 }
             }
+        }
 
-            val fallbackReason =
-                if (support.platformHttpEngineAvailable) {
-                    OwnedStackNativeFallbackReason.ECH_CONFIRMATION_MISSING
-                } else {
-                    OwnedStackNativeFallbackReason.PLATFORM_UNAVAILABLE
-                }
-            if (fallbackReason == OwnedStackNativeFallbackReason.ECH_CONFIRMATION_MISSING) {
-                ownedStackLog.i {
-                    "Owned-stack request for ${authority.orEmpty()} requires confirmed Android 17 ECH; using native owned TLS because no fresh ECH-capable authority evidence is cached"
-                }
+        private suspend fun attemptH2RetryWithNativeFallback(
+            requestedUrl: String,
+            support: OwnedStackBrowserSupport,
+            request: SecureHttpRequest,
+            headers: Map<String, String>,
+            authority: String?,
+            defaultTrace: OwnedStackExecutionTrace,
+            firstError: Throwable,
+        ): SecureHttpResponse {
+            ownedStackLog.w(firstError) {
+                "Owned-stack platform request failed for ${authority.orEmpty()}; retrying with H2-only platform stack"
             }
-            return executeNativeRequest(
-                requestedUrl = requestedUrl,
-                support = support,
-                headers = headers,
-                trace = defaultTrace.copy(nativeFallbackReason = fallbackReason),
-            )
+            val h2Trace =
+                defaultTrace.copy(
+                    platformAttempted = true,
+                    h2RetryTriggered = true,
+                    finalQuicPolicy = SecureHttpQuicPolicy.H2_ONLY,
+                )
+            val retryResult =
+                runCatching {
+                    executePlatformRequest(
+                        requestedUrl = requestedUrl,
+                        support = support,
+                        request = request,
+                        headers = headers,
+                        quicEnabled = false,
+                        trace = h2Trace,
+                    )
+                }
+            val retryError = retryResult.exceptionOrNull()
+            if (retryError is CancellationException) throw retryError
+            return retryResult.getOrElse { error ->
+                ownedStackLog.w(error) {
+                    "Owned-stack H2-only retry failed for ${authority.orEmpty()}; falling back to native owned TLS"
+                }
+                executeNativeRequest(
+                    requestedUrl = requestedUrl,
+                    support = support,
+                    headers = headers,
+                    trace = h2Trace.copy(nativeFallbackReason = OwnedStackNativeFallbackReason.PLATFORM_FAILURE),
+                )
+            }
         }
 
         private suspend fun executePlatformRequest(
@@ -446,25 +493,30 @@ class DefaultSecureHttpClient
             authority: String?,
             dnsPolicy: SecureHttpDnsPolicy,
         ): OwnedStackAuthorityEvidence {
-            val normalizedHost = authority?.normalizeOwnedStackHost() ?: return OwnedStackAuthorityEvidence()
+            val normalizedHost =
+                authority?.normalizeOwnedStackHost()
+                    ?: return OwnedStackAuthorityEvidence()
             val echEnforcedDomain = normalizedHost.matchesKnownAndroid17EchDomain()
-            if (dnsPolicy != SecureHttpDnsPolicy.CAPABILITY_SCOPED) {
-                return OwnedStackAuthorityEvidence(echEnforcedDomain = echEnforcedDomain)
-            }
             val fingerprintHash =
-                networkFingerprintProvider.capture()?.scopeKey()
-                    ?: return OwnedStackAuthorityEvidence(echEnforcedDomain = echEnforcedDomain)
-            val now = System.currentTimeMillis()
-            val confirmed =
-                serverCapabilityStore
-                    .directPathCapabilitiesForFingerprint(fingerprintHash)
-                    .firstOrNull { record ->
-                        record.authority.normalizeOwnedStackHost() == normalizedHost &&
-                            record.hasFreshOwnedStackDnsEvidence(now)
-                    }?.effectiveTransportPolicyEnvelope()
-                    ?.dnsClassification == DirectDnsClassification.ECH_CAPABLE
+                networkFingerprintProvider
+                    .capture()
+                    ?.scopeKey()
+                    .takeIf { dnsPolicy == SecureHttpDnsPolicy.CAPABILITY_SCOPED }
+            val confirmedEchCapable =
+                if (fingerprintHash != null) {
+                    val now = System.currentTimeMillis()
+                    serverCapabilityStore
+                        .directPathCapabilitiesForFingerprint(fingerprintHash)
+                        .firstOrNull { record ->
+                            record.authority.normalizeOwnedStackHost() == normalizedHost &&
+                                record.hasFreshOwnedStackDnsEvidence(now)
+                        }?.effectiveTransportPolicyEnvelope()
+                        ?.dnsClassification == DirectDnsClassification.ECH_CAPABLE
+                } else {
+                    false
+                }
             return OwnedStackAuthorityEvidence(
-                confirmedEchCapable = confirmed,
+                confirmedEchCapable = confirmedEchCapable,
                 echEnforcedDomain = echEnforcedDomain,
             )
         }
@@ -586,9 +638,7 @@ private fun decodeOwnedStackBody(
     body: ByteArray,
     contentType: String?,
 ): String {
-    if (body.isEmpty()) {
-        return ""
-    }
+    if (body.isEmpty()) return ""
     val normalizedContentType = contentType?.lowercase().orEmpty()
     val isTextual =
         normalizedContentType.isBlank() ||
@@ -596,11 +646,8 @@ private fun decodeOwnedStackBody(
             normalizedContentType.contains("json") ||
             normalizedContentType.contains("xml") ||
             normalizedContentType.contains("javascript")
-    if (!isTextual) {
-        return "Binary response (${body.size} bytes)."
-    }
     val charset = contentType.charsetFromContentType()
-    return body.toString(charset)
+    return if (isTextual) body.toString(charset) else "Binary response (${body.size} bytes)."
 }
 
 private fun String?.charsetFromContentType(): Charset {
