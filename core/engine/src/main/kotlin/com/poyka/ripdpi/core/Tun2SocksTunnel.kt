@@ -4,7 +4,9 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.NativeError
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.TunnelStats
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -112,6 +114,13 @@ class Tun2SocksTunnel(
                 }
                 Logger.d { "Tunnel native start completed: tunFd=$tunFd" }
                 handle = createdHandle
+            } catch (e: CancellationException) {
+                withContext(NonCancellable) {
+                    withContext(Dispatchers.IO) {
+                        nativeBindings.destroy(createdHandle)
+                    }
+                }
+                throw e
             } catch (e: Exception) {
                 withContext(Dispatchers.IO) {
                     nativeBindings.destroy(createdHandle)
