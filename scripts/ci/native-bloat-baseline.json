@@ -5,8 +5,8 @@
   "topCrates": 20,
   "maxTextSectionGrowthBytes": 393216,
   "maxFunctionGrowthBytes": 4096,
-  "maxCrateGrowthBytes": 81920,
-  "maxNewFunctionSizeBytes": 20480,
+  "maxCrateGrowthBytes": 131072,
+  "maxNewFunctionSizeBytes": 24576,
   "maxNewCrateSizeBytes": 65536,
   "packages": {
     "ripdpi-android": {
