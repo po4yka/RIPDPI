@@ -50,7 +50,8 @@ mod tests {
 
     impl ProtectCallback for TestCallback {
         fn protect(&self, fd: RawFd) -> io::Result<()> {
-            self.last_fd.store(fd, Ordering::Relaxed);
+            // Release pairs with Acquire in the test assertion below.
+            self.last_fd.store(fd, Ordering::Release);
             Ok(())
         }
     }
@@ -73,7 +74,8 @@ mod tests {
 
         assert!(has_protect_callback());
         assert!(protect_socket_via_callback(99).is_ok());
-        assert_eq!(cb_ref.last_fd.load(Ordering::Relaxed), 99);
+        // Acquire pairs with Release in TestCallback::protect.
+        assert_eq!(cb_ref.last_fd.load(Ordering::Acquire), 99);
 
         unregister_protect_callback();
         assert!(!has_protect_callback());
