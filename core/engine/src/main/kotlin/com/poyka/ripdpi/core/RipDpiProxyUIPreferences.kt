@@ -4,7 +4,11 @@ import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultEntropyPaddingMax
 import com.poyka.ripdpi.data.DefaultEntropyPaddingTargetPermil
+import com.poyka.ripdpi.data.DefaultEvolutionCooldownAfterFailures
+import com.poyka.ripdpi.data.DefaultEvolutionCooldownMs
+import com.poyka.ripdpi.data.DefaultEvolutionDecayHalfLifeMs
 import com.poyka.ripdpi.data.DefaultEvolutionEpsilon
+import com.poyka.ripdpi.data.DefaultEvolutionExperimentTtlMs
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultRelayLocalSocksHost
@@ -248,6 +252,13 @@ class RipDpiProxyUIPreferences(
                 cachePrefixV4 = adaptive.cachePrefixV4,
                 strategyEvolution = settings.strategyEvolution,
                 evolutionEpsilon = settings.evolutionEpsilon.takeIf { it in 0.0..1.0 } ?: DefaultEvolutionEpsilon,
+                evolutionExperimentTtlMs =
+                    settings.evolutionExperimentTtlMs.takeIf { it > 0 } ?: DefaultEvolutionExperimentTtlMs,
+                evolutionDecayHalfLifeMs =
+                    settings.evolutionDecayHalfLifeMs.takeIf { it > 0 } ?: DefaultEvolutionDecayHalfLifeMs,
+                evolutionCooldownAfterFailures =
+                    settings.evolutionCooldownAfterFailures.takeIf { it > 0 } ?: DefaultEvolutionCooldownAfterFailures,
+                evolutionCooldownMs = settings.evolutionCooldownMs.takeIf { it > 0 } ?: DefaultEvolutionCooldownMs,
             )
         }
 
@@ -525,6 +536,10 @@ fun RipDpiProxyUIPreferences.applyToSettings(settings: AppSettings): AppSettings
             setAdaptiveFallbackCachePrefixV4(adaptiveFallback.cachePrefixV4)
             setStrategyEvolution(adaptiveFallback.strategyEvolution)
             setEvolutionEpsilon(adaptiveFallback.evolutionEpsilon.coerceIn(0.0, 1.0))
+            setEvolutionExperimentTtlMs(adaptiveFallback.evolutionExperimentTtlMs.coerceAtLeast(0))
+            setEvolutionDecayHalfLifeMs(adaptiveFallback.evolutionDecayHalfLifeMs.coerceAtLeast(0))
+            setEvolutionCooldownAfterFailures(adaptiveFallback.evolutionCooldownAfterFailures.coerceAtLeast(0))
+            setEvolutionCooldownMs(adaptiveFallback.evolutionCooldownMs.coerceAtLeast(0))
             setQuicInitialMode(quic.initialMode)
             setQuicSupportV1(quic.supportV1)
             setQuicSupportV2(quic.supportV2)

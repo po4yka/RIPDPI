@@ -2194,6 +2194,14 @@ Source: %2$s</string>
     <string name="detection_resistance_strategy_evolution_body">Allow the native runtime to explore alternate entropy combinations and retain better-performing hints on this network.</string>
     <string name="detection_resistance_evolution_epsilon_title">Exploration epsilon</string>
     <string name="detection_resistance_evolution_epsilon_body">Chance from 0.0 to 1.0 that the runtime explores instead of reusing the current best hint.</string>
+    <string name="detection_resistance_evolution_experiment_ttl_title">Experiment window (ms)</string>
+    <string name="detection_resistance_evolution_experiment_ttl_body">How long (milliseconds) a single strategy experiment lives before being evaluated. Default: 30 000.</string>
+    <string name="detection_resistance_evolution_decay_half_life_title">Stat decay half-life (ms)</string>
+    <string name="detection_resistance_evolution_decay_half_life_body">Half-life for exponential decay of per-combo statistics. Longer values make the evolver forget slower. Default: 3 600 000.</string>
+    <string name="detection_resistance_evolution_cooldown_failures_title">Cooldown failure threshold</string>
+    <string name="detection_resistance_evolution_cooldown_failures_body">Number of consecutive failures before a combo is put in cooldown. Default: 3.</string>
+    <string name="detection_resistance_evolution_cooldown_ms_title">Cooldown duration (ms)</string>
+    <string name="detection_resistance_evolution_cooldown_ms_body">How long (milliseconds) a failing combo is skipped while in cooldown. Default: 300 000.</string>
     <string name="detection_resistance_quic_low_port_title">Bind QUIC to low ports</string>
     <string name="detection_resistance_quic_low_port_body">Makes UDP source ports look closer to common system services when QUIC Initial evasion is active.</string>
     <string name="detection_resistance_quic_migrate_title">Rebind QUIC UDP path after handshake</string>

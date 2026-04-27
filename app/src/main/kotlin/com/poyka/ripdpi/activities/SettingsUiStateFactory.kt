@@ -6,7 +6,11 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultEntropyPaddingMax
 import com.poyka.ripdpi.data.DefaultEntropyPaddingTargetPermil
+import com.poyka.ripdpi.data.DefaultEvolutionCooldownAfterFailures
+import com.poyka.ripdpi.data.DefaultEvolutionCooldownMs
+import com.poyka.ripdpi.data.DefaultEvolutionDecayHalfLifeMs
 import com.poyka.ripdpi.data.DefaultEvolutionEpsilon
+import com.poyka.ripdpi.data.DefaultEvolutionExperimentTtlMs
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultShannonEntropyTargetPermil
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
@@ -223,6 +227,11 @@ private fun AppSettings.buildDetectionResistanceUiState(): DetectionResistanceUi
         quicMigrateAfterHandshake = quicMigrateAfterHandshake,
         strategyEvolution = strategyEvolution,
         evolutionEpsilon = evolutionEpsilon.takeIf { it in 0.0..1.0 } ?: DefaultEvolutionEpsilon,
+        evolutionExperimentTtlMs = evolutionExperimentTtlMs.takeIf { it > 0 } ?: DefaultEvolutionExperimentTtlMs,
+        evolutionDecayHalfLifeMs = evolutionDecayHalfLifeMs.takeIf { it > 0 } ?: DefaultEvolutionDecayHalfLifeMs,
+        evolutionCooldownAfterFailures =
+            evolutionCooldownAfterFailures.takeIf { it > 0 } ?: DefaultEvolutionCooldownAfterFailures,
+        evolutionCooldownMs = evolutionCooldownMs.takeIf { it > 0 } ?: DefaultEvolutionCooldownMs,
         tlsFingerprintProfile = normalizeTlsFingerprintProfile(tlsFingerprintProfile),
         entropyMode = entropyModeFromProto(entropyMode),
         entropyPaddingTargetPermil = entropyPaddingTargetPermil.takeIf { it > 0 } ?: DefaultEntropyPaddingTargetPermil,
