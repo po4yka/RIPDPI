@@ -76,8 +76,22 @@ runs:
         echo "ndk=$(grep '^ripdpi.nativeNdkVersion=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
         echo "compile-sdk=$(grep '^ripdpi.compileSdk=' gradle.properties | cut -d= -f2-)" >> "$GITHUB_OUTPUT"
 
-    - name: Install Android SDK baseline via android CLI
+    # Cache the android CLI's SDK+NDK directory (~/.android). The android CLI
+    # writes platform-tools, platforms, and NDK packages here, not to
+    # $ANDROID_HOME (/usr/local/lib/android/sdk). Cache key includes the
+    # compile-sdk and NDK version so bumping either invalidates the cache, plus
+    # a hash of this action file so changes to the install commands also
+    # invalidate it.
+    - name: Cache Android SDK and NDK
       if: inputs.skip-android-sdk-ndk != 'true'
+      id: cache-android-sdk
+      uses: actions/cache@v5
+      with:
+        path: ~/.android
+        key: android-sdk-${{ runner.os }}-${{ steps.native-toolchain.outputs.compile-sdk }}-${{ steps.native-toolchain.outputs.ndk }}-${{ hashFiles('.github/actions/setup-android-rust/action.yml') }}
+
+    - name: Install Android SDK baseline via android CLI
+      if: inputs.skip-android-sdk-ndk != 'true' && steps.cache-android-sdk.outputs.cache-hit != 'true'
       shell: bash
       run: |
         set -euo pipefail
@@ -98,7 +112,7 @@ runs:
       run: rustup target add ${{ inputs.rust-targets }}
 
     - name: Install NDK via android CLI
-      if: inputs.skip-android-sdk-ndk != 'true'
+      if: inputs.skip-android-sdk-ndk != 'true' && steps.cache-android-sdk.outputs.cache-hit != 'true'
       shell: bash
       run: android sdk install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
