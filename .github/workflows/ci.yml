@@ -299,7 +299,7 @@ jobs:
           shared-key: rust-lint
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: mozilla-actions/sccache-action@v0.0.10
         env:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
@@ -342,7 +342,7 @@ jobs:
           shared-key: rust-workspace-tests
           save-if: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: mozilla-actions/sccache-action@v0.0.9
+      - uses: mozilla-actions/sccache-action@v0.0.10
         env:
           FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
