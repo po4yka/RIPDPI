@@ -521,6 +521,7 @@ internal fun AppSettings.toUiState(
                 ?: AppSettingsSerializer.defaultValue.diagnosticsHistoryRetentionDays,
         diagnosticsExportIncludeHistory = diagnosticsExportIncludeHistory,
         strategyPackAllowRollbackOverride = strategyPackAllowRollbackOverride,
+        communityApiUrl = communityApiUrl,
         serviceStatus = serviceStatus,
         isVpn = isVpn,
         selectedMode = if (isVpn) Mode.VPN else Mode.Proxy,

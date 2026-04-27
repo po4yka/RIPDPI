@@ -2200,6 +2200,11 @@ Source: %2$s</string>
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="diagnostics_probe_copy_action">Copy result</string>
 
+    <string name="settings_community_api_url_label">Community API URL</string>
+    <string name="settings_community_api_url_helper">Leave empty to use the default endpoint.</string>
+    <string name="settings_community_api_url_save">Save</string>
+    <string name="settings_community_api_url_reset">Reset to default</string>
+
     <string name="title_detection_check">Detection Check</string>
     <string name="detection_check_subtitle">Check how visible your VPN/proxy setup is</string>
     <string name="detection_check_start">Run Check</string>

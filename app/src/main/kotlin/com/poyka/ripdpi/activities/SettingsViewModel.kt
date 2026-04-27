@@ -150,6 +150,8 @@ class SettingsViewModel
 
         fun setFullTunnelMode(enabled: Boolean) = customizationActions.setFullTunnelMode(enabled)
 
+        fun setCommunityApiUrl(url: String) = customizationActions.setCommunityApiUrl(url)
+
         fun setAppTheme(theme: String) = customizationActions.setAppTheme(theme)
 
         fun setAppIcon(iconKey: String) = customizationActions.setAppIcon(iconKey)

@@ -95,6 +95,7 @@ fun SettingsRoute(
         onBiometricChanged = viewModel::setBiometricEnabled,
         onSaveBackupPin = viewModel::setBackupPin,
         onResetSettings = viewModel::resetSettings,
+        onCommunityApiUrlChanged = viewModel::setCommunityApiUrl,
         modifier = modifier,
     )
 }
@@ -122,6 +123,7 @@ internal fun SettingsScreen(
     onBiometricChanged: (Boolean) -> Unit,
     onSaveBackupPin: (String) -> Unit,
     onResetSettings: () -> Unit = {},
+    onCommunityApiUrlChanged: (String) -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
@@ -140,6 +142,7 @@ internal fun SettingsScreen(
     var showBiometricConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var showPinRequiredDialog by rememberSaveable { mutableStateOf(false) }
     var backupPinDraft by rememberSaveable { mutableStateOf("") }
+    var communityApiUrlDraft by rememberSaveable(uiState.communityApiUrl) { mutableStateOf(uiState.communityApiUrl) }
     val pinErrorText =
         when {
             backupPinDraft.isNotEmpty() && backupPinDraft.length < backupPinLength -> {
@@ -411,6 +414,16 @@ internal fun SettingsScreen(
                     onClick = onOpenDetectionCheck,
                     showDivider = true,
                 )
+                CommunityApiUrlEditor(
+                    value = communityApiUrlDraft,
+                    onValueChange = { communityApiUrlDraft = it },
+                    onSave = { onCommunityApiUrlChanged(communityApiUrlDraft) },
+                    onReset = {
+                        communityApiUrlDraft = ""
+                        onCommunityApiUrlChanged("")
+                    },
+                )
+                HorizontalDivider(color = colors.divider)
                 SettingsRow(
                     title = stringResource(R.string.title_data_transparency),
                     subtitle = stringResource(R.string.settings_data_transparency_body),
@@ -622,6 +635,65 @@ private fun BackupPinEditor(
                     variant = RipDpiButtonVariant.Outline,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun CommunityApiUrlEditor(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onReset: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        Text(
+            text = stringResource(R.string.settings_community_api_url_label),
+            style = type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        RipDpiTextField(
+            value = value,
+            onValueChange = onValueChange,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.settings_community_api_url_label),
+                    placeholder = "https://",
+                    helperText = stringResource(R.string.settings_community_api_url_helper),
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions =
+                        androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = KeyboardType.Uri,
+                            imeAction = ImeAction.Done,
+                        ),
+                    keyboardActions =
+                        androidx.compose.foundation.text.KeyboardActions(
+                            onDone = { onSave() },
+                        ),
+                ),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            RipDpiButton(
+                text = stringResource(R.string.settings_community_api_url_save),
+                onClick = onSave,
+                modifier = Modifier.weight(1f),
+            )
+            RipDpiButton(
+                text = stringResource(R.string.settings_community_api_url_reset),
+                onClick = onReset,
+                enabled = value.isNotBlank(),
+                modifier = Modifier.weight(1f),
+                variant = RipDpiButtonVariant.Outline,
+            )
         }
     }
 }
