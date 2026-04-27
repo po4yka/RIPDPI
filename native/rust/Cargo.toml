@@ -123,7 +123,7 @@ proptest = "1"
 rcgen = "0.14"
 rustls = { version = "0.23.39", default-features = false, features = ["ring", "std", "tls12", "aws-lc-rs"] }
 hickory-proto = { version = "0.26", default-features = false, features = ["std"] }
-hickory-resolver = { version = "0.25", default-features = false, features = ["tls-ring", "https-ring", "tokio", "webpki-roots"] }
+hickory-resolver = { version = "0.26", default-features = false, features = ["tls-ring", "https-ring", "tokio", "webpki-roots"] }
 smoltcp = { version = "0.13", default-features = false, features = ["std", "async", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp", "socket-udp"] }
 thiserror = "2"
 tokio = { version = "1", default-features = false }
