@@ -11,10 +11,10 @@
 | [adr-007](adr-007-relay-session-open-datagram.md) | RelaySession::open_datagram active status | Accepted | 2026-04-27 |
 | [adr-008](adr-008-finalmask-ui-exposure.md) | Finalmask UI exposure | Accepted | 2026-04-27 |
 | [adr-009](adr-009-tls-profiles-edge-safari.md) | Edge/Safari TLS profiles minimalist rationale | Accepted | 2026-04-27 |
-| [adr-010](adr-010-direct-mode-dispatcher.md) | Direct-mode ranked-arm dispatcher | Partial | 2026-04-27 |
-| [adr-011](adr-011-offline-learner-roadmap.md) | Offline learner roadmap (Thompson + future) | Partial | 2026-04-27 |
-| [adr-012](adr-012-ech-config-rotation.md) | ECH config rotation | Partial | 2026-04-27 |
-| [adr-013](adr-013-io-uring-perf-roadmap.md) | io_uring performance roadmap | Deferred | 2026-04-27 |
+| [adr-010](adr-010-direct-mode-dispatcher.md) | Direct-mode ranked-arm dispatcher | Accepted (P4.3.4 ConfigViewModel wire-up open) | 2026-04-28 |
+| [adr-011](adr-011-offline-learner-roadmap.md) | Offline learner roadmap (Thompson + future) | Partial (P4.4.4 transport, P4.4.5 research open) | 2026-04-28 |
+| [adr-012](adr-012-ech-config-rotation.md) | ECH config rotation | Accepted (Phase 3 scheduler/persistence open) | 2026-04-28 |
+| [adr-013](adr-013-io-uring-perf-roadmap.md) | io_uring performance roadmap | Accepted (acceptance benchmarks open) | 2026-04-28 |
 
 Additional architecture documents:
 
