@@ -32,6 +32,10 @@
 //! P4.4.1 (this module): done — standalone scorer, UCB1 remains default.
 //! P4.4.2–5: deferred; see `docs/architecture/adr-011-offline-learner-roadmap.md`.
 
+// Standalone scorer; the evolver still uses UCB1 by default. Production
+// wiring is deferred to P4.4.2; suppress dead_code until then.
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::hash::Hash;
 

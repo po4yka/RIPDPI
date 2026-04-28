@@ -271,20 +271,10 @@ internal fun SettingsScreen(
                             enabled = !uiState.fullTunnelMode,
                             showDivider = !uiState.fullTunnelMode,
                         )
-                        if (uiState.fullTunnelMode) {
-                            Text(
-                                text = stringResource(R.string.settings_full_tunnel_exclusions_disabled),
-                                style = RipDpiThemeTokens.type.caption,
-                                color = RipDpiThemeTokens.colors.mutedForeground,
-                                modifier =
-                                    Modifier.padding(
-                                        start = RipDpiThemeTokens.spacing.md,
-                                        end = RipDpiThemeTokens.spacing.md,
-                                        bottom = RipDpiThemeTokens.spacing.sm,
-                                    ),
-                            )
-                            HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
-                        }
+                        FullTunnelHelperFooter(
+                            visible = uiState.fullTunnelMode,
+                            textRes = R.string.settings_full_tunnel_exclusions_disabled,
+                        )
                     }
                     Column {
                         SettingsRow(
@@ -294,20 +284,10 @@ internal fun SettingsScreen(
                             onCheckedChange = onFullTunnelModeChanged,
                             showDivider = !uiState.fullTunnelMode,
                         )
-                        if (uiState.fullTunnelMode) {
-                            Text(
-                                text = stringResource(R.string.settings_full_tunnel_helper),
-                                style = RipDpiThemeTokens.type.caption,
-                                color = RipDpiThemeTokens.colors.mutedForeground,
-                                modifier =
-                                    Modifier.padding(
-                                        start = RipDpiThemeTokens.spacing.md,
-                                        end = RipDpiThemeTokens.spacing.md,
-                                        bottom = RipDpiThemeTokens.spacing.sm,
-                                    ),
-                            )
-                            HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
-                        }
+                        FullTunnelHelperFooter(
+                            visible = uiState.fullTunnelMode,
+                            textRes = R.string.settings_full_tunnel_helper,
+                        )
                     }
                     SettingsRow(
                         title = stringResource(R.string.settings_biometric_title),
@@ -678,6 +658,26 @@ private fun BackupPinEditor(
             }
         }
     }
+}
+
+@Composable
+private fun FullTunnelHelperFooter(
+    visible: Boolean,
+    @androidx.annotation.StringRes textRes: Int,
+) {
+    if (!visible) return
+    Text(
+        text = stringResource(textRes),
+        style = RipDpiThemeTokens.type.caption,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+        modifier =
+            Modifier.padding(
+                start = RipDpiThemeTokens.spacing.md,
+                end = RipDpiThemeTokens.spacing.md,
+                bottom = RipDpiThemeTokens.spacing.sm,
+            ),
+    )
+    HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
 }
 
 @Composable

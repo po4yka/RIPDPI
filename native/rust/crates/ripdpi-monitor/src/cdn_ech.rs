@@ -25,6 +25,10 @@
 //! stub that always returns [`EchSourceError::NotImplemented`]; it will be
 //! filled in once a DoH HTTPS-RR client is available (see ADR-012).
 
+// Refresh abstraction is scaffolded ahead of the DoH HTTPS-RR client; production
+// wiring lands with ADR-012. Suppress dead_code until then.
+#![allow(dead_code)]
+
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};

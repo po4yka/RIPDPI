@@ -141,7 +141,12 @@ class DetectionCheckViewModel
                         }
                 } catch (e: CancellationException) {
                     throw e
-                } catch (e: Exception) {
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") e: Exception,
+                ) {
+                    // Defensive UI fallback: refresh chains may throw IOException (cache I/O,
+                    // settings flow), JSON parsing errors, or runtime exceptions; surface any
+                    // failure as an error state instead of crashing the VM.
                     if (_uiState.value.communityStats == null) {
                         _uiState.value =
                             _uiState.value.copy(communityStatsError = e.message)

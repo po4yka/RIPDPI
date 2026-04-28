@@ -1,3 +1,8 @@
+// Scaffolded API for the ranked-arm dispatcher (P4.3.1). Items below are
+// reachable only from sibling modules and the in-file test suite; production
+// callers are wired up in P4.3.2 (see docs/architecture/adr-010-direct-mode-dispatcher.md).
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::net::SocketAddr;
 
