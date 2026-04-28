@@ -133,34 +133,77 @@ follow-up if a unified telemetry view is required.
 
 ## P4.4.4 — Shared-priors upload constraints
 
-**Status: Partial 2026-04-28.** The format parser landed; fetch / refresh /
-signed-manifest verification still deferred.
+**Status: Partial 2026-04-28.** The format parser, manifest verifier
+(ed25519 + SHA-256), and the fail-secure `apply_priors` pipeline landed;
+the Kotlin Retrofit transport, the WorkManager scheduler, and the
+embedded production release key still deferred.
 
 ### Implementation (this Phase)
 
-- New `strategy_evolver/shared_priors.rs` module with a
-  newline-delimited JSON parser (`{ combo_hash, alpha, beta }`).
-- Max raw payload enforced at 256 KiB (≈ 4× the ADR's 64 KiB compressed
-  budget, which is generous because the parser sees uncompressed input).
-  Oversized inputs short-circuit with a typed error before any line is
-  parsed.
-- Per-record validation: `alpha`, `beta` must both be finite and strictly
-  positive (Beta-distribution constraint). Comments (`# …`) and blank
-  lines are ignored. Malformed records are recorded in `Loaded::skipped`
-  and dropped without aborting the bundle.
-- Verified by 7 unit tests covering empty input, well-formed bundles,
-  blank/comment skip, oversized rejection, non-positive alpha/beta,
-  non-finite values, mixed valid/invalid, and duplicate-hash semantics.
+- `strategy_evolver/shared_priors/` module split into three sub-modules:
+  - `parser.rs` — NDJSON record parser (`{ combo_hash, alpha, beta }`),
+    256 KiB cap, per-record Beta-distribution validation, comment/blank
+    line skipping. The legacy public API is unchanged.
+  - `manifest.rs` — `SharedPriorsManifest` deserializer + ed25519
+    signature verification (`ring::signature::ED25519`). The signed
+    message is canonical and structurally simple:
+    ```text
+    signed_input = b"ripdpi-shared-priors-v1\0"  (24 bytes)
+                 || priors_sha256                (32 bytes)
+                 || issued_at_unix.to_le_bytes() (8 bytes)
+    ```
+    The domain-separation tag prevents cross-protocol signature reuse.
+    Errors `InvalidJson`, `UnsupportedVersion`, `BadHashFormat`,
+    `BadSignatureFormat`, `HashMismatch`, `BadSignature`,
+    `NoProductionKey` cover every failure path with a typed enum.
+  - `loader.rs` — `apply_priors(manifest_bytes, priors_bytes, public_key)`
+    end-to-end pipeline. Fail-secure: any error returns `Err` without
+    touching evolver state. Also exposes
+    `canonical_combo_hash(combo) -> u64` (FNV-1a over a 14-byte fixed
+    wire form using the same dimension discriminants as the in-memory
+    `Hash` impl), so a future signing tool can compute identical hashes
+    from any language.
+- `StrategyEvolver` gained an opaque `shared_priors` store plus the
+  `apply_shared_priors` / `apply_shared_priors_with_embedded_key` /
+  `shared_prior_for` / `shared_priors_len` API. Successful apply replaces
+  the store atomically; a failed apply leaves it untouched. The UCB1
+  selection path is unchanged — priors are exposed for the Thompson
+  scorer wiring (P4.4.1) and diagnostics, never overriding local field
+  data (the "field data wins" rule).
+- The embedded `SHARED_PRIORS_PUB_KEY` is the all-zero placeholder.
+  `is_production_key_set()` reports `false` and
+  `apply_priors_with_embedded_key` short-circuits with
+  `ManifestError::NoProductionKey` until the project's release-signing
+  key is generated and the public half is committed. This is a deliberate
+  fail-closed default for production builds.
+- Verified by 22 unit tests across the three sub-modules and the
+  evolver integration: roundtrip-with-test-key, tampered-payload
+  detection, signature-from-different-key rejection, unsupported-version
+  rejection, invalid-json rejection, placeholder-key short-circuit,
+  truncated-signature rejection, canonical-hash stability for the
+  default combo, hash-distinguishes-Some-zero-from-None, and the
+  fail-secure store semantics on the evolver.
 
 ### Still deferred
 
-- Network fetch (no backend; GitHub-hosted asset is the intended channel).
-- Refresh schedule (≤ once per 24 h via `Last-Modified` HEAD).
-- Integrity: SHA-256 manifest signed with the project's release key.
+- **Embedded production public key**: still the all-zero placeholder.
+  Generating the keypair, securely storing the private half, and
+  committing the public half is the release-infrastructure follow-up
+  that unblocks production use.
+- **Kotlin Retrofit transport** (`SharedPriorsCatalogNetwork.kt`):
+  HEAD-with-`Last-Modified` + GET manifest + GET priors, modeled on
+  `HostPackCatalogNetwork.kt`. Plus a refresher with the 24h cooldown
+  and `EncryptedSharedPreferences`-backed Last-Modified cache.
+- **JNI bridge**: `applySharedPriors(manifestJson, priorsBytes)` thin
+  wrapper around `StrategyEvolver::apply_shared_priors_with_embedded_key`.
+- **WorkManager periodic-job hookup**, shared with the ADR-012 Phase 3
+  follow-up. First cut is on-demand-only refresh.
+- **Settings UI**: a `shared_priors_enabled` opt-in flag mirroring the
+  existing `strategy_evolution` flag (default off).
 
-The format and validator landing now means the delivery channel can be
-wired up later without redesigning the interchange — the parser is the
-canonical contract that any signed manifest will reference.
+The verification pipeline landing now means the transport layer can be
+designed against a stable, fail-secure contract — the Kotlin side
+becomes a thin "fetch-and-hand-off-bytes" client.
 
 ---
 

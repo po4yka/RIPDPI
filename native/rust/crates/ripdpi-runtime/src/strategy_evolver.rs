@@ -70,6 +70,13 @@ mod types;
 #[allow(unused_imports)]
 pub use thompson_sampling::{sample_beta, BetaParams, ThompsonSampling};
 
+// Re-exported so callers (including the JNI bridge) can verify and apply
+// signed shared-priors bundles without reaching into sub-modules.
+pub use shared_priors::{
+    apply_priors, apply_priors_with_embedded_key, canonical_combo_hash, is_production_key_set, AppliedPriors,
+    ApplyError, ManifestError, SharedPriorsError, SharedPriorsManifest, SHARED_PRIORS_PUB_KEY,
+};
+
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -135,6 +142,14 @@ pub struct StrategyEvolver {
     /// the standard score. Defaults to `false` so existing callers see
     /// unchanged behaviour (P4.4.2, ADR-011).
     pub penalties_enabled: bool,
+    /// Shared Beta posteriors keyed by canonical combo hash. Populated by
+    /// [`Self::apply_shared_priors`] from a verified GitHub-hosted bundle
+    /// (P4.4.4, ADR-011). The UCB1 selection path does not consume these
+    /// today — they are exposed for the Thompson scorer wiring (P4.4.1)
+    /// and for diagnostics. The "field data wins" merge rule lives at the
+    /// consumption site rather than at apply time so the bundle stays a
+    /// pure prior store.
+    shared_priors: HashMap<u64, BetaParams>,
     /// Test-only override for the monotonic clock; production code leaves
     /// this `None` and the evolver uses [`Instant`] deltas.
     #[cfg(test)]
@@ -165,6 +180,7 @@ impl StrategyEvolver {
             cooldown_ms: DEFAULT_COOLDOWN_MS,
             max_arm_attempts: u32::MAX,
             penalties_enabled: false,
+            shared_priors: HashMap::new(),
             #[cfg(test)]
             test_clock_override_ms: None,
         }
@@ -191,6 +207,55 @@ impl StrategyEvolver {
     pub fn attempts_budget_remaining(&self, combo: &StrategyCombo) -> u32 {
         let used = self.combos.get(combo).map_or(0, |stats| stats.attempts);
         self.max_arm_attempts.saturating_sub(used)
+    }
+
+    /// Verify a signed shared-priors bundle and load its posteriors into the
+    /// evolver's prior store (P4.4.4, ADR-011). Fail-secure: any verification
+    /// or parse error returns `Err` without touching existing prior state.
+    /// On success returns the number of records loaded.
+    ///
+    /// The priors live in a parallel store consulted by the future Thompson
+    /// scorer (P4.4.1 wiring); the UCB1 selection path is unaffected, so
+    /// existing field data continues to dominate ranking decisions.
+    pub fn apply_shared_priors(
+        &mut self,
+        manifest_bytes: &[u8],
+        priors_bytes: &[u8],
+        public_key: &[u8; 32],
+    ) -> Result<usize, ApplyError> {
+        let applied = apply_priors(manifest_bytes, priors_bytes, public_key)?;
+        let count = applied.priors.len();
+        // Atomic replace: a successful refresh swaps the store wholesale.
+        // Per the ADR's "field data wins" rule, the local `combos` map is
+        // not touched here — the merge happens at consumption time.
+        self.shared_priors = applied.priors;
+        Ok(count)
+    }
+
+    /// Production entry point for shared-priors application. Uses the
+    /// embedded release public key; on a build with no production key
+    /// (`is_production_key_set() == false`), this always returns
+    /// `Err(ApplyError::Manifest(ManifestError::NoProductionKey))`.
+    pub fn apply_shared_priors_with_embedded_key(
+        &mut self,
+        manifest_bytes: &[u8],
+        priors_bytes: &[u8],
+    ) -> Result<usize, ApplyError> {
+        self.apply_shared_priors(manifest_bytes, priors_bytes, &SHARED_PRIORS_PUB_KEY)
+    }
+
+    /// Returns the shared Beta prior for `combo`, if loaded. Used by
+    /// diagnostics and by the future Thompson scorer; the production UCB1
+    /// path does not consult this map.
+    pub fn shared_prior_for(&self, combo: &StrategyCombo) -> Option<&BetaParams> {
+        let hash = canonical_combo_hash(combo);
+        self.shared_priors.get(&hash)
+    }
+
+    /// Number of priors currently loaded. Zero on a freshly-constructed
+    /// evolver and after a verification failure.
+    pub fn shared_priors_len(&self) -> usize {
+        self.shared_priors.len()
     }
 
     /// Monotonic ms-since-epoch tick used by all evolver-internal
@@ -1749,5 +1814,99 @@ mod tests {
         assert_eq!(evolver.monotonic_now_ms(), 123);
         evolver.set_test_clock_ms(100); // simulate negative jump
         assert_eq!(evolver.monotonic_now_ms(), 100);
+    }
+
+    // -----------------------------------------------------------------
+    // Shared-priors integration (P4.4.4, ADR-011)
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn apply_shared_priors_loads_records_under_test_key() {
+        use shared_priors::manifest::test_support::{generate_test_key, sign_manifest_bytes};
+
+        let priors = b"{\"combo_hash\": 1, \"alpha\": 12.0, \"beta\": 4.0}\n{\"combo_hash\": 2, \"alpha\": 3.0, \"beta\": 1.0}\n";
+        let key = generate_test_key();
+        let manifest = sign_manifest_bytes(&key, priors, 1, "https://example/p.ndjson");
+
+        let mut evolver = StrategyEvolver::new(true, 0.0);
+        let count = evolver
+            .apply_shared_priors(manifest.as_bytes(), priors, &key.public_bytes)
+            .expect("apply must succeed under test key");
+        assert_eq!(count, 2);
+        assert_eq!(evolver.shared_priors_len(), 2);
+    }
+
+    #[test]
+    fn apply_shared_priors_fail_secure_keeps_existing_store() {
+        use shared_priors::manifest::test_support::{generate_test_key, sign_manifest_bytes};
+
+        let priors = b"{\"combo_hash\": 1, \"alpha\": 12.0, \"beta\": 4.0}\n";
+        let key = generate_test_key();
+        let manifest = sign_manifest_bytes(&key, priors, 1, "https://example/p.ndjson");
+        let mut evolver = StrategyEvolver::new(true, 0.0);
+        evolver
+            .apply_shared_priors(manifest.as_bytes(), priors, &key.public_bytes)
+            .expect("first apply must succeed");
+        assert_eq!(evolver.shared_priors_len(), 1);
+
+        // Second call: a tampered payload. Verification must fail and the
+        // previously-loaded prior must remain in place.
+        let tampered = b"{\"combo_hash\": 1, \"alpha\": 99.0, \"beta\": 4.0}\n";
+        let err = evolver
+            .apply_shared_priors(manifest.as_bytes(), tampered, &key.public_bytes)
+            .expect_err("tampered apply must fail");
+        assert!(matches!(err, ApplyError::Manifest(ManifestError::HashMismatch)));
+        assert_eq!(evolver.shared_priors_len(), 1, "fail-secure: existing priors must survive a failed refresh");
+    }
+
+    #[test]
+    fn shared_prior_for_returns_loaded_record_by_canonical_hash() {
+        use shared_priors::manifest::test_support::{generate_test_key, sign_manifest_bytes};
+
+        // Pre-compute the canonical hash of a specific combo so the bundle
+        // can reference it. The combo here is `Some(AutoHost) split offset
+        // + fake_ttl=8`, which yields a stable canonical hash by design.
+        let combo = StrategyCombo {
+            split_offset_base: Some(OffsetBase::AutoHost),
+            tls_record_offset_base: None,
+            tlsrandrec_profile: None,
+            udp_burst_profile: None,
+            quic_fake_profile: None,
+            fake_ttl: Some(8),
+            entropy_mode: None,
+        };
+        let hash = canonical_combo_hash(&combo);
+        let priors_json = format!("{{\"combo_hash\": {hash}, \"alpha\": 7.0, \"beta\": 3.0}}\n");
+        let key = generate_test_key();
+        let manifest = sign_manifest_bytes(&key, priors_json.as_bytes(), 1, "https://example/p.ndjson");
+
+        let mut evolver = StrategyEvolver::new(true, 0.0);
+        evolver
+            .apply_shared_priors(manifest.as_bytes(), priors_json.as_bytes(), &key.public_bytes)
+            .expect("apply must succeed");
+
+        let prior = evolver.shared_prior_for(&combo).expect("prior should be loaded for this combo");
+        assert!((prior.alpha - 7.0).abs() < f64::EPSILON);
+        assert!((prior.beta - 3.0).abs() < f64::EPSILON);
+
+        // A different combo must not match.
+        let other_combo = StrategyCombo::default_combo();
+        assert!(evolver.shared_prior_for(&other_combo).is_none());
+    }
+
+    #[test]
+    fn embedded_key_apply_short_circuits_until_release_key_lands() {
+        use shared_priors::manifest::test_support::{generate_test_key, sign_manifest_bytes};
+
+        let priors = b"{\"combo_hash\": 1, \"alpha\": 12.0, \"beta\": 4.0}\n";
+        let key = generate_test_key();
+        let manifest = sign_manifest_bytes(&key, priors, 1, "https://example/p.ndjson");
+
+        let mut evolver = StrategyEvolver::new(true, 0.0);
+        let err = evolver
+            .apply_shared_priors_with_embedded_key(manifest.as_bytes(), priors)
+            .expect_err("placeholder embedded key must reject");
+        assert!(matches!(err, ApplyError::Manifest(ManifestError::NoProductionKey)));
+        assert_eq!(evolver.shared_priors_len(), 0, "no priors should be stored after a rejected apply");
     }
 }
