@@ -4,6 +4,8 @@ import android.content.Intent
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
+import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
@@ -523,4 +525,16 @@ class FakePinVerifier : PinVerifier {
     }
 
     override fun isKeyAvailable(): Boolean = true
+}
+
+class FakeLatestDirectModeOutcomeStore : LatestDirectModeOutcomeStore {
+    private val state = MutableStateFlow<LatestDirectModeOutcomeSnapshot?>(null)
+    val publishedSnapshots = mutableListOf<LatestDirectModeOutcomeSnapshot?>()
+
+    override val outcome: StateFlow<LatestDirectModeOutcomeSnapshot?> = state.asStateFlow()
+
+    override fun publish(snapshot: LatestDirectModeOutcomeSnapshot?) {
+        publishedSnapshots += snapshot
+        state.value = snapshot
+    }
 }

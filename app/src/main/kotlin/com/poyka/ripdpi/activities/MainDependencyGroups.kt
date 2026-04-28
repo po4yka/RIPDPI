@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
@@ -37,6 +38,7 @@ class MainDiagnosticsDependencies
         val diagnosticsScanController: DiagnosticsScanController,
         val diagnosticsShareService: DiagnosticsShareService,
         val homeDiagnosticsServices: HomeDiagnosticsServices,
+        val latestDirectModeOutcomeStore: LatestDirectModeOutcomeStore,
     )
 
 class MainControlPlaneDependencies
