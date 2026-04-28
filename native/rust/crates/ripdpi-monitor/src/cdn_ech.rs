@@ -38,7 +38,7 @@
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 // ---------------------------------------------------------------------------
 // ECH config source abstraction
@@ -203,7 +203,43 @@ pub(crate) fn validate_ech_config_list_bytes(bytes: &[u8]) -> Result<usize, EchS
 
 struct CachedEch {
     config: Vec<u8>,
+    /// Monotonic-clock anchor used for TTL comparison. Survives `SystemTime`
+    /// jumps; does *not* survive a process restart (an `Instant` from a
+    /// previous process is meaningless to the current one).
     fetched_at: Instant,
+    /// Wall-clock timestamp paired with `fetched_at`, recorded when the
+    /// cache entry was originally fetched. Persisted alongside the bytes so
+    /// `seed_from_persisted` can reconstruct an equivalent `Instant` in a
+    /// fresh process — the TTL window stays correct across restarts
+    /// (Phase 3 of ADR-012).
+    fetched_at_unix_ms: u64,
+}
+
+/// Persistable view of the cache, suitable for round-tripping through
+/// platform storage (e.g. Android `EncryptedSharedPreferences`). Exposed by
+/// [`CdnEchUpdater::snapshot_for_persistence`] and consumed by
+/// [`CdnEchUpdater::seed_from_persisted`]; both pieces are validated
+/// against [`validate_ech_config_list_bytes`] before they touch the cache.
+#[derive(Debug, Clone)]
+pub struct CachedEchSnapshot {
+    pub config: Vec<u8>,
+    pub fetched_at_unix_ms: u64,
+}
+
+fn now_unix_ms() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or(Duration::ZERO).as_millis() as u64
+}
+
+/// Reconstruct the monotonic anchor for a cache entry whose wall-clock
+/// fetch time is `fetched_at_unix_ms`. Saturates at `Instant::now()` for
+/// future timestamps (clock skew) or persisted entries older than the
+/// monotonic clock can express.
+fn synthesize_instant_for_unix_ms(fetched_at_unix_ms: u64, now_instant: Instant, now_unix_ms: u64) -> Instant {
+    if fetched_at_unix_ms >= now_unix_ms {
+        return now_instant;
+    }
+    let age_ms = now_unix_ms - fetched_at_unix_ms;
+    now_instant.checked_sub(Duration::from_millis(age_ms)).unwrap_or(now_instant)
 }
 
 /// TTL-gated cache with primary → fallback semantics.
@@ -272,7 +308,8 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
 
         match fresh {
             Ok(config) => {
-                *guard = Some(CachedEch { config: config.clone(), fetched_at: Instant::now() });
+                *guard =
+                    Some(CachedEch { config: config.clone(), fetched_at: Instant::now(), fetched_at_unix_ms: now_unix_ms() });
                 config
             }
             Err(err) => {
@@ -296,8 +333,41 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
     pub fn refresh(&self) -> Result<(), EchSourceError> {
         let fresh = self.primary.fetch().or_else(|_| self.fallback.fetch())?;
         let mut guard = self.cache.lock().expect("cdn_ech cache mutex poisoned");
-        *guard = Some(CachedEch { config: fresh, fetched_at: Instant::now() });
+        *guard = Some(CachedEch { config: fresh, fetched_at: Instant::now(), fetched_at_unix_ms: now_unix_ms() });
         Ok(())
+    }
+
+    /// Seed the cache from previously-persisted bytes (Phase 3 of ADR-012).
+    ///
+    /// Validates the bytes against [`validate_ech_config_list_bytes`] before
+    /// touching the cache; an invalid persisted entry is rejected and the
+    /// existing cache (if any) is left untouched, preserving the
+    /// fail-secure design described in `current_config`.
+    ///
+    /// `fetched_at_unix_ms` is the wall-clock fetch time the snapshot was
+    /// originally captured at. The method reconstructs an equivalent
+    /// `Instant` in the new process so the TTL window evaluates exactly as
+    /// it would have without a restart — i.e. an entry persisted 6 h ago
+    /// against a 24 h TTL is still considered fresh after the restart.
+    pub fn seed_from_persisted(&self, config: Vec<u8>, fetched_at_unix_ms: u64) -> Result<(), EchSourceError> {
+        validate_ech_config_list_bytes(&config)?;
+        let now_instant = Instant::now();
+        let fetched_at = synthesize_instant_for_unix_ms(fetched_at_unix_ms, now_instant, now_unix_ms());
+        let mut guard = self.cache.lock().expect("cdn_ech cache mutex poisoned");
+        *guard = Some(CachedEch { config, fetched_at, fetched_at_unix_ms });
+        Ok(())
+    }
+
+    /// Snapshot of the current cache for persistence to platform storage.
+    /// Returns `None` when the cache has never been populated; the caller
+    /// should leave the persisted entry untouched in that case so a stale
+    /// but still-useful prior snapshot can survive a transient unloaded
+    /// state. Returned `config` is owned (cloned out of the lock).
+    pub fn snapshot_for_persistence(&self) -> Option<CachedEchSnapshot> {
+        let guard = self.cache.lock().expect("cdn_ech cache mutex poisoned");
+        guard
+            .as_ref()
+            .map(|cached| CachedEchSnapshot { config: cached.config.clone(), fetched_at_unix_ms: cached.fetched_at_unix_ms })
     }
 }
 
@@ -666,5 +736,90 @@ mod tests {
         assert!(cidr.contains(Ipv6Addr::new(0x2606, 0x4700, 0, 0, 0, 0, 0, 1)));
         assert!(cidr.contains(Ipv6Addr::new(0x2606, 0x4700, 0xffff, 0, 0, 0, 0, 0)));
         assert!(!cidr.contains(Ipv6Addr::new(0x2606, 0x4701, 0, 0, 0, 0, 0, 0)));
+    }
+
+    // ---------------------------------------------------------------------
+    // Phase 3: cache persistence (ADR-012)
+    // ---------------------------------------------------------------------
+
+    #[test]
+    fn snapshot_returns_none_for_empty_cache() {
+        let updater =
+            CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::from_secs(86_400));
+        assert!(updater.snapshot_for_persistence().is_none());
+    }
+
+    #[test]
+    fn seed_then_snapshot_round_trips_bytes_and_timestamp() {
+        let updater =
+            CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::from_secs(86_400));
+        let bundled = CLOUDFLARE_ECH_CONFIG_LIST.to_vec();
+        let captured_at = 1_745_798_400_000_u64;
+        updater.seed_from_persisted(bundled.clone(), captured_at).expect("seed must accept valid bytes");
+
+        let snapshot = updater.snapshot_for_persistence().expect("snapshot must reflect seeded state");
+        assert_eq!(snapshot.config, bundled);
+        assert_eq!(snapshot.fetched_at_unix_ms, captured_at);
+    }
+
+    #[test]
+    fn seed_rejects_malformed_bytes_and_leaves_cache_untouched() {
+        let updater =
+            CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::from_secs(86_400));
+        // Pre-populate the cache with a valid entry.
+        updater.seed_from_persisted(CLOUDFLARE_ECH_CONFIG_LIST.to_vec(), 1).expect("initial seed must succeed");
+        let pre_snapshot = updater.snapshot_for_persistence().expect("cache must be populated");
+
+        // Reject: 3 bytes is shorter than the 4-byte minimum required by
+        // validate_ech_config_list_bytes.
+        let err = updater.seed_from_persisted(vec![0u8, 1, 2], 99).expect_err("malformed bytes must be rejected");
+        assert!(matches!(err, EchSourceError::InvalidConfig(_)), "expected InvalidConfig, got {err:?}");
+
+        // The previous valid entry must still be in place — fail-secure.
+        let post_snapshot = updater.snapshot_for_persistence().expect("cache must remain populated");
+        assert_eq!(post_snapshot.config, pre_snapshot.config);
+        assert_eq!(post_snapshot.fetched_at_unix_ms, pre_snapshot.fetched_at_unix_ms);
+    }
+
+    #[test]
+    fn seeded_entry_is_served_via_current_config_within_ttl() {
+        let updater =
+            CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::from_secs(86_400));
+        let bundled = CLOUDFLARE_ECH_CONFIG_LIST.to_vec();
+        // Recent fetch: well within the 24 h TTL.
+        let recent_unix_ms = now_unix_ms().saturating_sub(60 * 60 * 1000);
+        updater.seed_from_persisted(bundled.clone(), recent_unix_ms).expect("seed must succeed");
+
+        let served = updater.current_config();
+        assert_eq!(served, bundled, "current_config must serve the seeded bytes while fresh");
+    }
+
+    #[test]
+    fn synthesized_instant_caps_future_timestamps_at_now() {
+        // Wall-clock skew or persisted entry from the future: the
+        // synthesized Instant should not overshoot Instant::now() — that
+        // would make the cache appear "more fresh than possible" and
+        // potentially under-refresh.
+        let now = Instant::now();
+        let now_ms = 1_000_u64;
+        let future_ms = 5_000_u64;
+        let synthesized = synthesize_instant_for_unix_ms(future_ms, now, now_ms);
+        // The cache entry is treated as "just fetched" (elapsed == 0) when
+        // the persisted timestamp is in the future.
+        assert_eq!(synthesized, now);
+    }
+
+    #[test]
+    fn synthesized_instant_preserves_age_for_past_timestamps() {
+        let now = Instant::now();
+        let now_ms = 10_000_u64;
+        let six_h_ago_ms = now_ms.saturating_sub(6 * 60 * 60 * 1000);
+        let synthesized = synthesize_instant_for_unix_ms(six_h_ago_ms, now, now_ms);
+        // Should land roughly six hours before `now` (within the precision
+        // of Instant's monotonic clock).
+        let elapsed = now.saturating_duration_since(synthesized);
+        let expected = Duration::from_millis(now_ms - six_h_ago_ms);
+        let drift = if elapsed > expected { elapsed - expected } else { expected - elapsed };
+        assert!(drift < Duration::from_millis(10), "synthesized age drifted by {drift:?}");
     }
 }

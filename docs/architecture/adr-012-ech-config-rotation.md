@@ -1,11 +1,14 @@
 # ADR-012: ECH Config Rotation Strategy
 
-**Status:** Phase 1 (abstraction + bundled source) and Phase 2
-(`RemoteEchConfigSource`) landed. Phase 3 (cache persistence to
-`EncryptedSharedPreferences`) and the WorkManager scheduler hookup are still
-deferred.
+**Status:** Phase 1 (abstraction + bundled source), Phase 2
+(`RemoteEchConfigSource`), and Phase 3 cache-persistence API landed. The
+WorkManager scheduler hookup and the Kotlin
+`EncryptedSharedPreferences`-backed cache that consumes the persistence
+API are still deferred — both share infrastructure with the ADR-011
+shared-priors transport (WorkManager is not yet a project dependency)
+and will land together once that infrastructure is introduced.
 
-**Date:** 2026-04-27 (Phase 1), 2026-04-28 (Phase 2)
+**Date:** 2026-04-27 (Phase 1), 2026-04-28 (Phase 2 and Phase 3 cache API)
 
 ---
 
@@ -71,11 +74,47 @@ Constraints (still upheld):
 - **Scheduler integration** — `CdnEchUpdater::refresh()` is the entry point;
   the WorkManager periodic-job hookup is the remaining open item below.
 
-### Phase 3 — Cache persistence (optional, future)
+### Phase 3 — Cache persistence (Rust API landed 2026-04-28)
 
-`CdnEchUpdater` currently holds the cache only in memory (`std::sync::Mutex<Option<CachedEch>>`).
-A future step could persist the refreshed config to `EncryptedSharedPreferences` so it survives
-process restarts, reducing the window where stale bundled config is used after a key rotation.
+The cache now exposes a persistence shape so Kotlin can durably store the
+refreshed bytes between process restarts:
+
+- `CachedEch` carries `fetched_at_unix_ms: u64` alongside the existing
+  monotonic `Instant` anchor. The `Instant` keeps the TTL comparison
+  immune to wall-clock jumps; the wall-clock millis exists purely so the
+  cache can round-trip through `EncryptedSharedPreferences`.
+- `CdnEchUpdater::snapshot_for_persistence() -> Option<CachedEchSnapshot>`
+  returns `(config_bytes, fetched_at_unix_ms)` for the current entry, or
+  `None` when the cache is cold (so a stale-but-useful prior persisted
+  entry isn't accidentally clobbered).
+- `CdnEchUpdater::seed_from_persisted(config, fetched_at_unix_ms)`
+  validates the bytes via `validate_ech_config_list_bytes` (fail-secure
+  — an invalid persisted entry is rejected and the existing in-memory
+  cache is left untouched), then reconstructs an equivalent `Instant`
+  from the wall-clock timestamp so the TTL window evaluates as it would
+  have without a restart. A 6 h-old persisted entry against a 24 h TTL
+  is still considered fresh after the restart.
+
+Verified by 6 new unit tests (empty-cache snapshot, seed→snapshot
+round-trip, malformed-bytes rejection preserves prior cache, seeded
+entry served via `current_config` while fresh, future-timestamp clamp,
+past-timestamp age-preservation drift bound).
+
+### Phase 3 — Kotlin glue (still deferred)
+
+The remaining work is Android-side and shares infrastructure with the
+ADR-011 shared-priors transport:
+
+- `EncryptedSharedPreferences`-backed cache that calls
+  `snapshot_for_persistence` after every successful `refresh()` and
+  feeds `seed_from_persisted` at app startup.
+- `CdnEchRefreshWorker` (`CoroutineWorker`) scheduled as a 24 h
+  `PeriodicWorkRequest` via `WorkManager.enqueueUniquePeriodicWork`.
+- JNI bridge exposing `seed_from_persisted` / `snapshot_for_persistence`
+  / `refresh` against a singleton updater instance.
+- Hilt-WorkManager integration (the project does not yet depend on
+  `androidx.work` — this lands as part of introducing WorkManager
+  project-wide, jointly with the shared-priors refresher in ADR-011).
 
 ---
 
