@@ -107,7 +107,7 @@ impl DnsCache {
         let mut cache_hits = 0u64;
         let mut cache_misses = 0u64;
 
-        for record in message.answers.iter_mut() {
+        for record in &mut message.answers {
             let replacement = match &record.data {
                 RData::A(address) => {
                     let (mapped, hit) = self.find(&host, u32::from(address.0))?;
