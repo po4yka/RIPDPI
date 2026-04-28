@@ -1392,6 +1392,9 @@ fakeddisorder endhost</string>
     <string name="settings_security_section">Конфиденциальность и безопасность</string>
     <string name="settings_webrtc_title">Защита WebRTC</string>
     <string name="settings_webrtc_body">Снизить вероятность утечек обнаружения партнёров, способных обойти локальный туннель.</string>
+    <string name="settings_full_tunnel_helper">Когда включено, весь трафик идёт через туннель. Per-app исключения недоступны в этом режиме.</string>
+    <string name="settings_full_tunnel_exclusions_disabled">Недоступно, так как включён режим полного туннеля</string>
+    <string name="settings_seqovl_unsupported_reason">Sequence overlap требует доступа к raw-сокетам, недоступного на этом устройстве. Включите root-режим в настройках для использования этой функции.</string>
     <string name="settings_biometric_title">Требовать аутентификацию</string>
     <string name="settings_biometric_body_with_pin">Биометрическая разблокировка включена с резервным PIN-кодом.</string>
     <string name="settings_biometric_body_without_pin">Биометрическая разблокировка включена. Добавьте резервный PIN-код для запасного доступа.</string>
@@ -1895,6 +1898,12 @@ fakeddisorder endhost</string>
     <string name="confirm_reset_fake_tls_profile_confirm">Сбросить</string>
     <string name="confirm_reset_fake_tls_profile_dismiss">Отмена</string>
 
+    <string name="settings_community_api_url_label">URL API сообщества</string>
+    <string name="settings_community_api_url_helper">Оставьте пустым для использования встроенного адреса.</string>
+    <string name="settings_community_api_url_save">Сохранить</string>
+    <string name="settings_community_api_url_reset">Сбросить</string>
+    <string name="settings_clear_community_cache">Очистить кеш сообщества</string>
+
     <string name="title_detection_check">Проверка обнаружения</string>
     <string name="detection_check_subtitle">Проверьте, насколько заметна ваша настройка VPN/прокси</string>
     <string name="detection_check_start">Запустить проверку</string>
@@ -1931,6 +1940,9 @@ fakeddisorder endhost</string>
     <string name="detection_community_reports">%d проверок записано</string>
     <string name="detection_community_avg_score">Средняя оценка скрытности: %d/100</string>
     <string name="detection_community_detected_pct">%d%% проверок обнаружены</string>
+    <string name="detection_community_loading">Загружаем статистику сообщества…</string>
+    <string name="detection_community_error">Не удалось загрузить статистику сообщества</string>
+    <string name="detection_community_retry">Повторить</string>
     <string name="detection_verdict_label">Вердикт</string>
     <string name="detection_status_ok">ОК</string>
     <string name="detection_status_review">Проверить</string>

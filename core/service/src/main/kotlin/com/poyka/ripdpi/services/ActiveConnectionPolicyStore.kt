@@ -83,6 +83,9 @@ class DefaultActiveConnectionPolicyStore
                     }
                 }.stateIn(
                     scope = scope,
+                    // Eagerly is intentional: this is a singleton bound to ApplicationScope
+                    // (lives for the full app lifetime). The policy map must be ready before
+                    // any service runtime queries it, so we cannot defer until a subscriber arrives.
                     started = SharingStarted.Eagerly,
                     initialValue = emptyMap(),
                 )

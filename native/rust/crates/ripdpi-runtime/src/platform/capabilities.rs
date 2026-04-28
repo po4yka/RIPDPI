@@ -52,8 +52,6 @@ pub enum CapabilityUnavailable {
     PermissionDenied,
     /// The root-helper binary is missing or unreachable.
     MissingRootHelper,
-    /// The capability is known but not yet implemented on this platform.
-    NotImplemented,
 }
 
 /// Result of probing a single runtime capability.

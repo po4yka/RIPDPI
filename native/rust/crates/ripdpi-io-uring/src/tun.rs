@@ -84,9 +84,8 @@ pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: RawFd, packets: &[Vec<u8>]
 
     // For tx_queue writes, we don't use registered buffers since the packets
     // come from smoltcp's VecDeque<Vec<u8>>. We submit plain writes instead.
-    // TODO(npochaev): Consider a registered-buffer variant for tx_queue
-    // packets by copying into pool buffers first. Worth it only if the
-    // copy overhead is less than the syscall overhead saved.
+    // A registered-buffer variant (copy into pool, then WriteFixed) is tracked
+    // in ADR-013 (P5.2.2); worth pursuing only once TUN write benchmarks exist.
     for pkt in packets.iter().take(TUN_WRITE_BATCH_SIZE) {
         let future = uring.send_zc(tun_fd, 0, pkt.len() as u32);
         let result = crate::ring::block_on_completion(future);

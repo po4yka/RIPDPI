@@ -114,7 +114,7 @@ class DefaultDeveloperAnalyticsSource
             return composite.stageSummaries.map { stage ->
                 DeveloperStageTimingEntry(
                     stageKey = stage.stageKey,
-                    wallClockMs = null,
+                    wallClockMs = stage.wallClockMs,
                     cpuMs = null,
                     notes =
                         buildList {
@@ -430,7 +430,8 @@ class DefaultDeveloperAnalyticsSource
 
         private fun buildNotes(): List<String> {
             val notes = mutableListOf<String>()
-            notes += "Stage timings are coarse placeholders until per-stage timestamps are instrumented."
+            notes +=
+                "Stage wallClockMs reflects the scan session duration (finishedAt - startedAt); cpuMs is not captured."
             notes += "Failure envelopes are heuristically extracted from the stage summary text."
             return notes
         }

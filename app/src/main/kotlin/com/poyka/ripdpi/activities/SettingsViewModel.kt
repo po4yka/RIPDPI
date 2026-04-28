@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.core.detection.community.CommunityComparisonStore
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.security.PinVerifyResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @Suppress("TooManyFunctions")
@@ -149,6 +151,14 @@ class SettingsViewModel
         fun setExcludeRussianAppsEnabled(enabled: Boolean) = customizationActions.setExcludeRussianAppsEnabled(enabled)
 
         fun setFullTunnelMode(enabled: Boolean) = customizationActions.setFullTunnelMode(enabled)
+
+        fun setCommunityApiUrl(url: String) = customizationActions.setCommunityApiUrl(url)
+
+        fun clearCommunityCache() {
+            viewModelScope.launch {
+                CommunityComparisonStore(settingsUiDependencies.application).clear()
+            }
+        }
 
         fun setAppTheme(theme: String) = customizationActions.setAppTheme(theme)
 

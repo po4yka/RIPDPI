@@ -37,6 +37,7 @@ class DetectionCheckScheduler
         private val serviceStateStore: ServiceStateStore,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val detectionCheckRunner: DetectionCheckRunner,
+        private val detectionHistoryStore: DetectionHistoryStore,
     ) : DetectionObservationStarter {
         private var observeJob: Job? = null
         private var handoverJob: Job? = null
@@ -126,8 +127,7 @@ class DetectionCheckScheduler
                     postNotification(context, score, result.verdict)
                 }
 
-                val historyStore = DetectionHistoryStore(context)
-                historyStore.save(
+                detectionHistoryStore.save(
                     DetectionHistoryEntry(
                         networkFingerprint = currentNetworkFingerprint(),
                         networkSummary = currentNetworkSummary(),

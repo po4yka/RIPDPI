@@ -22,7 +22,11 @@ pub mod root_helper_client;
 pub use self::capabilities::{
     detect_default_ttl, try_set_stream_ttl_with_outcome, CapabilityOutcome, CapabilityUnavailable, RuntimeCapability,
 };
-pub use experimental_tier3::{
+// Tier-3 primitives are internal only — not part of the crate's public API.
+// Gated to Linux/Android because root_helper_client (the sole caller) is too.
+// See docs/architecture/adr-006-tier3-desync-platform-primitives.md.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub(crate) use experimental_tier3::{
     recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_syn_hide_tcp, IcmpWrappedUdpRecvFilter, IcmpWrappedUdpRole,
     IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp, SynHideMarkerKind, SynHideTcpSpec,
 };

@@ -1,8 +1,10 @@
+# Local-debug binary only; not shipped in APK and never published.
 [package]
 name = "ripdpi-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
 
 [[bin]]
 name = "ripdpi"

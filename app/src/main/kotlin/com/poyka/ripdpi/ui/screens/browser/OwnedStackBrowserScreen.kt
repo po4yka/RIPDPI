@@ -48,6 +48,23 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+/**
+ * Native owned-stack browser screen.
+ *
+ * **Entry point: remediation flow only.** This screen is not surfaced through the
+ * main navigation by design. It opens when the runtime recommends a browser-based
+ * bypass technique (e.g. fronted TLS over a native HTTP client) for a specific
+ * target host that direct/relay paths cannot reach.
+ *
+ * Scope is intentionally narrow:
+ * - Single-target navigation (no tabs / history / bookmarks)
+ * - Owned native TLS stack (no system WebView, no shared cookies)
+ * - Lifetime tied to the remediation suggestion that opened it
+ *
+ * Do not add this route to BottomNav or main entry points without revisiting scope.
+ *
+ * @see com.poyka.ripdpi.ui.navigation.Route.OwnedStackBrowser
+ */
 @Composable
 fun OwnedStackBrowserRoute(
     initialUrl: String,

@@ -1059,6 +1059,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="ripdpi_seqovl_restart_body">The running RIPDPI session started before this chain change, so seqovl will not take effect until RIPDPI reconnects or restarts.</string>
     <string name="ripdpi_seqovl_unsupported_title">Sequence overlap unavailable</string>
     <string name="ripdpi_seqovl_unsupported_body">This device does not expose the packet-owned upstream TCP backend that seqovl needs. New seqovl controls stay disabled and stored seqovl steps degrade to split.</string>
+    <string name="settings_seqovl_unsupported_reason">Sequence overlap requires raw socket access unavailable on this device. Enable root mode in settings to use this feature.</string>
     <string name="ripdpi_seqovl_cli_title">Controlled by command line</string>
     <string name="ripdpi_seqovl_cli_body">Visual seqovl guidance stays visible here, but the active chain comes from raw RIPDPI arguments while command line settings are enabled.</string>
     <string name="ripdpi_seqovl_summary_label_profile">Chain profile</string>
@@ -1684,6 +1685,8 @@ Source: %2$s</string>
     <string name="settings_exclude_russian_apps_body">Banking, delivery, and government apps bypass the VPN to avoid detection issues</string>
     <string name="settings_full_tunnel_title">Full tunnel mode</string>
     <string name="settings_full_tunnel_body">Route all traffic through VPN with no app exclusions. Prevents spyware modules from sending traffic directly, but Russian apps may detect the VPN</string>
+    <string name="settings_full_tunnel_helper">When enabled, all traffic goes through the tunnel. Per-app exclusions are disabled in this mode.</string>
+    <string name="settings_full_tunnel_exclusions_disabled">Disabled because Full Tunnel mode is enabled</string>
     <string name="settings_vpn_flag_warning_title">VPN flag is visible</string>
     <string name="settings_vpn_flag_warning_body">Apps in all Android profiles (including Work Profile and Knox) can detect that a VPN is active. For full isolation, use a separate device for Russian apps</string>
     <string name="settings_tethering_dns_warning_title">Tethering DNS leak risk</string>
@@ -2191,6 +2194,14 @@ Source: %2$s</string>
     <string name="detection_resistance_strategy_evolution_body">Allow the native runtime to explore alternate entropy combinations and retain better-performing hints on this network.</string>
     <string name="detection_resistance_evolution_epsilon_title">Exploration epsilon</string>
     <string name="detection_resistance_evolution_epsilon_body">Chance from 0.0 to 1.0 that the runtime explores instead of reusing the current best hint.</string>
+    <string name="detection_resistance_evolution_experiment_ttl_title">Experiment window (ms)</string>
+    <string name="detection_resistance_evolution_experiment_ttl_body">How long (milliseconds) a single strategy experiment lives before being evaluated. Default: 30 000.</string>
+    <string name="detection_resistance_evolution_decay_half_life_title">Stat decay half-life (ms)</string>
+    <string name="detection_resistance_evolution_decay_half_life_body">Half-life for exponential decay of per-combo statistics. Longer values make the evolver forget slower. Default: 3 600 000.</string>
+    <string name="detection_resistance_evolution_cooldown_failures_title">Cooldown failure threshold</string>
+    <string name="detection_resistance_evolution_cooldown_failures_body">Number of consecutive failures before a combo is put in cooldown. Default: 3.</string>
+    <string name="detection_resistance_evolution_cooldown_ms_title">Cooldown duration (ms)</string>
+    <string name="detection_resistance_evolution_cooldown_ms_body">How long (milliseconds) a failing combo is skipped while in cooldown. Default: 300 000.</string>
     <string name="detection_resistance_quic_low_port_title">Bind QUIC to low ports</string>
     <string name="detection_resistance_quic_low_port_body">Makes UDP source ports look closer to common system services when QUIC Initial evasion is active.</string>
     <string name="detection_resistance_quic_migrate_title">Rebind QUIC UDP path after handshake</string>
@@ -2199,6 +2210,12 @@ Source: %2$s</string>
 
     <string name="copied_to_clipboard">Copied to clipboard</string>
     <string name="diagnostics_probe_copy_action">Copy result</string>
+
+    <string name="settings_community_api_url_label">Community API URL</string>
+    <string name="settings_community_api_url_helper">Leave empty to use the default endpoint.</string>
+    <string name="settings_community_api_url_save">Save</string>
+    <string name="settings_community_api_url_reset">Reset to default</string>
+    <string name="settings_clear_community_cache">Clear community cache</string>
 
     <string name="title_detection_check">Detection Check</string>
     <string name="detection_check_subtitle">Check how visible your VPN/proxy setup is</string>
@@ -2255,6 +2272,9 @@ Source: %2$s</string>
     <string name="detection_community_reports">%d checks recorded</string>
     <string name="detection_community_avg_score">Average stealth score: %d/100</string>
     <string name="detection_community_detected_pct">%d%% of checks detected</string>
+    <string name="detection_community_loading">Loading community stats…</string>
+    <string name="detection_community_error">Could not load community stats</string>
+    <string name="detection_community_retry">Retry</string>
     <string name="detection_verdict_label">Verdict</string>
     <string name="detection_status_ok">OK</string>
     <string name="detection_status_review">Review</string>

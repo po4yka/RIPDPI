@@ -475,6 +475,7 @@ internal fun RipDpiDetectionCheckPreviewScene() {
             onBack = {},
             onDismissOnboarding = {},
             onApplyFixes = {},
+            onReloadCommunityStats = {},
             onRequestPermissions = {},
         )
     }
@@ -494,6 +495,7 @@ internal fun RipDpiDetectionCheckDarkPreviewScene() {
             onBack = {},
             onDismissOnboarding = {},
             onApplyFixes = {},
+            onReloadCommunityStats = {},
             onRequestPermissions = {},
         )
     }

@@ -18,7 +18,11 @@ import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCachePrefixV4
 import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCacheTtlSeconds
 import com.poyka.ripdpi.data.DefaultEntropyPaddingMax
 import com.poyka.ripdpi.data.DefaultEntropyPaddingTargetPermil
+import com.poyka.ripdpi.data.DefaultEvolutionCooldownAfterFailures
+import com.poyka.ripdpi.data.DefaultEvolutionCooldownMs
+import com.poyka.ripdpi.data.DefaultEvolutionDecayHalfLifeMs
 import com.poyka.ripdpi.data.DefaultEvolutionEpsilon
+import com.poyka.ripdpi.data.DefaultEvolutionExperimentTtlMs
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
 import com.poyka.ripdpi.data.DefaultHostAutolearnPenaltyTtlHours
@@ -145,6 +149,10 @@ data class DetectionResistanceUiState(
     val quicMigrateAfterHandshake: Boolean = false,
     val strategyEvolution: Boolean = false,
     val evolutionEpsilon: Double = DefaultEvolutionEpsilon,
+    val evolutionExperimentTtlMs: Long = DefaultEvolutionExperimentTtlMs,
+    val evolutionDecayHalfLifeMs: Long = DefaultEvolutionDecayHalfLifeMs,
+    val evolutionCooldownAfterFailures: Int = DefaultEvolutionCooldownAfterFailures,
+    val evolutionCooldownMs: Long = DefaultEvolutionCooldownMs,
     val tlsFingerprintProfile: String = TlsFingerprintProfileChromeStable,
     val entropyMode: String = EntropyModeDisabled,
     val entropyPaddingTargetPermil: Int = DefaultEntropyPaddingTargetPermil,
@@ -645,6 +653,7 @@ data class SettingsUiState(
     val diagnosticsHistoryRetentionDays: Int = 14,
     val diagnosticsExportIncludeHistory: Boolean = true,
     val strategyPackAllowRollbackOverride: Boolean = false,
+    val communityApiUrl: String = "",
     val serviceStatus: AppStatus = AppStatus.Halted,
     val isVpn: Boolean = true,
     val selectedMode: Mode = Mode.VPN,

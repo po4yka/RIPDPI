@@ -14,6 +14,18 @@ import javax.inject.Singleton
 
 internal const val RelayKindGoogleAppsScript = "google_apps_script"
 
+/**
+ * Google Apps Script-backed relay runtime.
+ *
+ * **Configuration path:** The Apps Script relay kind is selected via [RelayKindGoogleAppsScript]
+ * in [UpstreamRelaySupervisor]. Per-instance parameters (script URL, auth key) are sourced from
+ * the resolved relay config's credential fields, validated by [UpstreamRelaySupervisorSupport]
+ * before the runtime is started.
+ *
+ * Direct UI fields for these parameters are intentionally not exposed — Apps Script integration
+ * is an advanced/expert feature with a hard dependency on the user's own GCP project setup.
+ * Configuration is managed through the relay profile editor's credential fields.
+ */
 @Singleton
 internal class GoogleAppsScriptRelayRuntime
     @Inject

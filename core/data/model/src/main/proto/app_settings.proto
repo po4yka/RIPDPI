@@ -176,6 +176,10 @@ message AppSettings {
   // Strategy evolution (Geneva-style adaptive exploration)
   bool strategy_evolution = 123;       // Enable automated combo exploration
   double evolution_epsilon = 124;      // Exploration rate 0.0-1.0 (default 0.1)
+  int64 evolution_experiment_ttl_ms = 254;     // Experiment window ms (0 = use built-in default 30 000)
+  int64 evolution_decay_half_life_ms = 255;    // Stat decay half-life ms (0 = use built-in default 3 600 000)
+  int32 evolution_cooldown_after_failures = 256; // Failures before cooldown (0 = use built-in default 3)
+  int64 evolution_cooldown_ms = 257;           // Cooldown duration ms (0 = use built-in default 300 000)
 
   // Entropy-aware padding
   int32 entropy_padding_target_permil = 125;  // 0 = disabled, 3400 = target 3.4 popcount

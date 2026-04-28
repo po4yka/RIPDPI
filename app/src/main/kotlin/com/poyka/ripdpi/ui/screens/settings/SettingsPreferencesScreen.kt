@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -95,6 +96,8 @@ fun SettingsRoute(
         onBiometricChanged = viewModel::setBiometricEnabled,
         onSaveBackupPin = viewModel::setBackupPin,
         onResetSettings = viewModel::resetSettings,
+        onCommunityApiUrlChanged = viewModel::setCommunityApiUrl,
+        onClearCommunityCache = viewModel::clearCommunityCache,
         modifier = modifier,
     )
 }
@@ -122,6 +125,8 @@ internal fun SettingsScreen(
     onBiometricChanged: (Boolean) -> Unit,
     onSaveBackupPin: (String) -> Unit,
     onResetSettings: () -> Unit = {},
+    onCommunityApiUrlChanged: (String) -> Unit = {},
+    onClearCommunityCache: () -> Unit = {},
 ) {
     val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
@@ -140,6 +145,7 @@ internal fun SettingsScreen(
     var showBiometricConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var showPinRequiredDialog by rememberSaveable { mutableStateOf(false) }
     var backupPinDraft by rememberSaveable { mutableStateOf("") }
+    var communityApiUrlDraft by rememberSaveable(uiState.communityApiUrl) { mutableStateOf(uiState.communityApiUrl) }
     val pinErrorText =
         when {
             backupPinDraft.isNotEmpty() && backupPinDraft.length < backupPinLength -> {
@@ -256,21 +262,33 @@ internal fun SettingsScreen(
                         showDivider = true,
                         testTag = RipDpiTestTags.SettingsWebRtcProtection,
                     )
-                    SettingsRow(
-                        title = stringResource(R.string.settings_exclude_russian_apps_title),
-                        subtitle = stringResource(R.string.settings_exclude_russian_apps_body),
-                        checked = uiState.excludeRussianAppsEnabled,
-                        onCheckedChange = onExcludeRussianAppsChanged,
-                        enabled = !uiState.fullTunnelMode,
-                        showDivider = true,
-                    )
-                    SettingsRow(
-                        title = stringResource(R.string.settings_full_tunnel_title),
-                        subtitle = stringResource(R.string.settings_full_tunnel_body),
-                        checked = uiState.fullTunnelMode,
-                        onCheckedChange = onFullTunnelModeChanged,
-                        showDivider = true,
-                    )
+                    Column {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_exclude_russian_apps_title),
+                            subtitle = stringResource(R.string.settings_exclude_russian_apps_body),
+                            checked = uiState.excludeRussianAppsEnabled,
+                            onCheckedChange = onExcludeRussianAppsChanged,
+                            enabled = !uiState.fullTunnelMode,
+                            showDivider = !uiState.fullTunnelMode,
+                        )
+                        FullTunnelHelperFooter(
+                            visible = uiState.fullTunnelMode,
+                            textRes = R.string.settings_full_tunnel_exclusions_disabled,
+                        )
+                    }
+                    Column {
+                        SettingsRow(
+                            title = stringResource(R.string.settings_full_tunnel_title),
+                            subtitle = stringResource(R.string.settings_full_tunnel_body),
+                            checked = uiState.fullTunnelMode,
+                            onCheckedChange = onFullTunnelModeChanged,
+                            showDivider = !uiState.fullTunnelMode,
+                        )
+                        FullTunnelHelperFooter(
+                            visible = uiState.fullTunnelMode,
+                            textRes = R.string.settings_full_tunnel_helper,
+                        )
+                    }
                     SettingsRow(
                         title = stringResource(R.string.settings_biometric_title),
                         subtitle = stringResource(biometricSubtitleRes(uiState)),
@@ -411,6 +429,22 @@ internal fun SettingsScreen(
                     onClick = onOpenDetectionCheck,
                     showDivider = true,
                 )
+                CommunityApiUrlEditor(
+                    value = communityApiUrlDraft,
+                    onValueChange = { communityApiUrlDraft = it },
+                    onSave = { onCommunityApiUrlChanged(communityApiUrlDraft) },
+                    onReset = {
+                        communityApiUrlDraft = ""
+                        onCommunityApiUrlChanged("")
+                    },
+                )
+                RipDpiButton(
+                    text = stringResource(R.string.settings_clear_community_cache),
+                    onClick = onClearCommunityCache,
+                    modifier = Modifier.fillMaxWidth(),
+                    variant = RipDpiButtonVariant.Outline,
+                )
+                HorizontalDivider(color = colors.divider)
                 SettingsRow(
                     title = stringResource(R.string.title_data_transparency),
                     subtitle = stringResource(R.string.settings_data_transparency_body),
@@ -622,6 +656,85 @@ private fun BackupPinEditor(
                     variant = RipDpiButtonVariant.Outline,
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun FullTunnelHelperFooter(
+    visible: Boolean,
+    @androidx.annotation.StringRes textRes: Int,
+) {
+    if (!visible) return
+    Text(
+        text = stringResource(textRes),
+        style = RipDpiThemeTokens.type.caption,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+        modifier =
+            Modifier.padding(
+                start = RipDpiThemeTokens.spacing.md,
+                end = RipDpiThemeTokens.spacing.md,
+                bottom = RipDpiThemeTokens.spacing.sm,
+            ),
+    )
+    HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
+}
+
+@Composable
+private fun CommunityApiUrlEditor(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onReset: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val type = RipDpiThemeTokens.type
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
+        Text(
+            text = stringResource(R.string.settings_community_api_url_label),
+            style = type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        RipDpiTextField(
+            value = value,
+            onValueChange = onValueChange,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.settings_community_api_url_label),
+                    placeholder = "https://",
+                    helperText = stringResource(R.string.settings_community_api_url_helper),
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions =
+                        androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = KeyboardType.Uri,
+                            imeAction = ImeAction.Done,
+                        ),
+                    keyboardActions =
+                        androidx.compose.foundation.text.KeyboardActions(
+                            onDone = { onSave() },
+                        ),
+                ),
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            RipDpiButton(
+                text = stringResource(R.string.settings_community_api_url_save),
+                onClick = onSave,
+                modifier = Modifier.weight(1f),
+            )
+            RipDpiButton(
+                text = stringResource(R.string.settings_community_api_url_reset),
+                onClick = onReset,
+                enabled = value.isNotBlank(),
+                modifier = Modifier.weight(1f),
+                variant = RipDpiButtonVariant.Outline,
+            )
         }
     }
 }

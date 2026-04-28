@@ -54,6 +54,19 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+/**
+ * Relay kind and finalmask configuration fields for the Mode Editor.
+ *
+ * All finalmask parameters from [com.poyka.ripdpi.data.ResolvedRelayFinalmaskConfig]
+ * are intentionally exposed as explicit typed UI fields:
+ * - [RelayFinalmaskTypeHeaderCustom]: header_hex, trailer_hex, rand_range
+ * - [RelayFinalmaskTypeSudoku]: sudoku_seed
+ * - [RelayFinalmaskTypeFragment]: fragment_packets, fragment_min_bytes, fragment_max_bytes
+ * - [RelayFinalmaskTypeNoise]: rand_range
+ *
+ * The `chain_dsl` text-field in the Engine section is a separate DPI strategy chain DSL
+ * and does NOT accept finalmask parameters. See docs/architecture/adr-008-finalmask-ui-exposure.md.
+ */
 @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun RelayKindFields(

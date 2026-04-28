@@ -166,9 +166,8 @@ fn copy_inbound_zc(
 
                 // We need to block the thread until the send completes since
                 // the relay threads are synchronous (std::thread, not tokio).
-                // Use a simple spin-wait with the completion future.
-                // TODO(npochaev): Consider using a condvar or eventfd for
-                // more efficient blocking.
+                // Currently uses a yield_now spin-wait; see ADR-013 (P5.2.1)
+                // for the park/unpark upgrade path once benchmarks are in place.
                 let pending = handle.into_pending();
                 let result = block_on_completion(future);
 

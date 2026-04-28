@@ -1,8 +1,9 @@
 package com.poyka.ripdpi.core.detection.community
 
 import com.poyka.ripdpi.core.detection.DetectionHistoryStore
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
@@ -49,9 +50,8 @@ class CommunityComparisonClient internal constructor(
                             )
                     Result.success(json.decodeFromString<CommunityStats>(body))
                 }
-            } catch (e: CancellationException) {
-                throw e
             } catch (e: Exception) {
+                currentCoroutineContext().ensureActive()
                 Result.failure(e)
             }
         }

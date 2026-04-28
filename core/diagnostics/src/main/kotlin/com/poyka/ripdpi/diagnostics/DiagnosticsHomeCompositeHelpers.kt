@@ -30,6 +30,7 @@ internal suspend fun buildCompletedStageSummary(
             report?.diagnoses?.isNotEmpty() == true -> spec.label
             else -> "${spec.label} complete"
         }
+    val wallClockMs = session.finishedAt?.let { it - session.startedAt }
     return DiagnosticsHomeCompositeStageSummary(
         stageKey = spec.key,
         stageLabel = spec.label,
@@ -40,6 +41,7 @@ internal suspend fun buildCompletedStageSummary(
         headline = headline,
         summary = summary,
         recommendationContributor = false,
+        wallClockMs = wallClockMs,
     )
 }
 

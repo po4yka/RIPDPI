@@ -16,8 +16,183 @@
 //! dig +short type65 cloudflare.com | grep -oP 'ech=\K[^ ]+'
 //! ```
 //! Then base64-decode the value and replace `CLOUDFLARE_ECH_CONFIG_LIST`.
+//!
+//! # Refresh abstraction
+//!
+//! [`EchConfigSource`] / [`CdnEchUpdater`] provide a TTL-gated cache with
+//! primary → fallback semantics.  The bundled source ([`BundledEchConfigSource`])
+//! is the only production implementation today.  [`RemoteEchConfigSource`] is a
+//! stub that always returns [`EchSourceError::NotImplemented`]; it will be
+//! filled in once a DoH HTTPS-RR client is available (see ADR-012).
+
+// Refresh abstraction is scaffolded ahead of the DoH HTTPS-RR client; production
+// wiring lands with ADR-012. Suppress dead_code until then.
+#![allow(dead_code)]
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::sync::Mutex;
+use std::time::{Duration, Instant};
+
+// ---------------------------------------------------------------------------
+// ECH config source abstraction
+// ---------------------------------------------------------------------------
+
+/// Error type returned by [`EchConfigSource::fetch`].
+#[derive(Debug)]
+pub enum EchSourceError {
+    /// The source is not yet implemented (stub placeholder).
+    NotImplemented(&'static str),
+    /// The fetched bytes failed structural validation.
+    InvalidConfig(String),
+}
+
+impl std::fmt::Display for EchSourceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EchSourceError::NotImplemented(msg) => write!(f, "not implemented: {msg}"),
+            EchSourceError::InvalidConfig(msg) => write!(f, "invalid ECH config: {msg}"),
+        }
+    }
+}
+
+/// A source that can produce a raw ECHConfigList (wire-format bytes).
+///
+/// Implementations are expected to be cheap to call when the config is already
+/// in hand (e.g. returning a static slice copy).  Expensive operations belong
+/// in a higher-level scheduler that calls [`CdnEchUpdater::refresh`].
+pub trait EchConfigSource: Send + Sync {
+    /// Return the current ECHConfigList bytes, or an error.
+    fn fetch(&self) -> Result<Vec<u8>, EchSourceError>;
+}
+
+/// Returns the hardcoded [`CLOUDFLARE_ECH_CONFIG_LIST`].
+///
+/// This is the production fallback: always available, never fails.
+pub struct BundledEchConfigSource;
+
+impl EchConfigSource for BundledEchConfigSource {
+    fn fetch(&self) -> Result<Vec<u8>, EchSourceError> {
+        Ok(CLOUDFLARE_ECH_CONFIG_LIST.to_vec())
+    }
+}
+
+/// Stub for a future DoH-based remote source.
+///
+/// Calls to [`fetch`](EchConfigSource::fetch) always return
+/// [`EchSourceError::NotImplemented`].  The implementation will perform an
+/// HTTPS-RR (type 65) DoH query for `cloudflare-dns.com` once a lightweight
+/// DoH client is available in this crate.  See ADR-012 for the full plan.
+pub struct RemoteEchConfigSource;
+
+impl EchConfigSource for RemoteEchConfigSource {
+    fn fetch(&self) -> Result<Vec<u8>, EchSourceError> {
+        Err(EchSourceError::NotImplemented("RemoteEchConfigSource is not yet wired; see ADR-012"))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// TTL cache + updater
+// ---------------------------------------------------------------------------
+
+struct CachedEch {
+    config: Vec<u8>,
+    fetched_at: Instant,
+}
+
+/// TTL-gated cache with primary → fallback semantics.
+///
+/// `current_config` returns cached bytes if they are younger than `ttl`.
+/// On a cache miss it tries `primary`; if that fails it tries `fallback`.
+/// The last successfully fetched config is kept in the cache regardless of
+/// which source produced it, so a transient primary failure does not evict a
+/// still-valid cached value.
+///
+/// # Example
+///
+/// ```rust
+/// use std::time::Duration;
+/// use ripdpi_monitor::cdn_ech::{BundledEchConfigSource, CdnEchUpdater};
+///
+/// let updater = CdnEchUpdater::new(
+///     BundledEchConfigSource,
+///     BundledEchConfigSource,
+///     Duration::from_secs(86_400),
+/// );
+/// let bytes = updater.current_config();
+/// assert!(!bytes.is_empty());
+/// ```
+pub struct CdnEchUpdater<P, F> {
+    primary: P,
+    fallback: F,
+    cache: Mutex<Option<CachedEch>>,
+    ttl: Duration,
+}
+
+impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
+    /// Create a new updater.
+    ///
+    /// `primary` is tried first on every cache miss.  `fallback` is used when
+    /// `primary` returns an error.  `ttl` controls how long a fetched config
+    /// is considered fresh.
+    pub fn new(primary: P, fallback: F, ttl: Duration) -> Self {
+        Self { primary, fallback, cache: Mutex::new(None), ttl }
+    }
+
+    /// Return the current ECHConfigList bytes.
+    ///
+    /// Serves from cache when the cached value is younger than `ttl`.
+    /// On a cache miss, tries primary then fallback.  Panics only if both
+    /// sources fail *and* there is no previously cached value — in practice
+    /// `BundledEchConfigSource` as the fallback makes this impossible.
+    pub fn current_config(&self) -> Vec<u8> {
+        let mut guard = self.cache.lock().expect("cdn_ech cache mutex poisoned");
+
+        // Cache hit: return if still fresh.
+        if let Some(ref cached) = *guard {
+            if cached.fetched_at.elapsed() < self.ttl {
+                return cached.config.clone();
+            }
+        }
+
+        // Cache miss or expired: try primary, then fallback.
+        let fresh = self.primary.fetch().or_else(|primary_err| {
+            tracing::debug!(
+                error = %primary_err,
+                "ECH primary source failed; trying fallback"
+            );
+            self.fallback.fetch()
+        });
+
+        match fresh {
+            Ok(config) => {
+                *guard = Some(CachedEch { config: config.clone(), fetched_at: Instant::now() });
+                config
+            }
+            Err(err) => {
+                // Both sources failed.  Return stale cache if available.
+                tracing::warn!(error = %err, "ECH fallback source also failed");
+                if let Some(ref stale) = *guard {
+                    stale.config.clone()
+                } else {
+                    // No cache at all — return bundled bytes directly as last resort.
+                    CLOUDFLARE_ECH_CONFIG_LIST.to_vec()
+                }
+            }
+        }
+    }
+
+    /// Force a refresh regardless of TTL.
+    ///
+    /// Intended for use by a scheduler (e.g. WorkManager job) that runs every
+    /// 24 h.  The updated config is stored in the cache.  Returns `Ok(())`
+    /// if at least one source succeeded.
+    pub fn refresh(&self) -> Result<(), EchSourceError> {
+        let fresh = self.primary.fetch().or_else(|_| self.fallback.fetch())?;
+        let mut guard = self.cache.lock().expect("cdn_ech cache mutex poisoned");
+        *guard = Some(CachedEch { config: fresh, fetched_at: Instant::now() });
+        Ok(())
+    }
+}
 
 /// A hardcoded ECH configuration for a CDN provider.
 #[derive(Debug)]
@@ -102,8 +277,9 @@ impl CdnEchConfig {
 ///
 /// This config is Cloudflare's public ECH key and is not secret.  It is
 /// published in DNS for anyone to use.
-// TODO(npochaev): add a periodic refresh mechanism (see VpnAppCatalogUpdater)
-// so the hardcoded config stays current after key rotations.
+///
+/// Phase 2 refresh (RemoteEchConfigSource via DoH HTTPS-RR) is tracked in
+/// ADR-012.  Until then, rotate manually using the instructions above.
 static CLOUDFLARE_ECH_CONFIG_LIST: &[u8] = &[
     // ECHConfigList length: 0x0045 (69 bytes)
     0x00, 0x45, // ECHConfig version: 0xfe0d (draft/RFC)
@@ -230,6 +406,80 @@ mod tests {
         assert_eq!(list_len + 2, CLOUDFLARE_ECH_CONFIG_LIST.len(), "ECHConfigList length mismatch");
         // Version should be 0xfe0d
         assert_eq!(&CLOUDFLARE_ECH_CONFIG_LIST[2..4], &[0xfe, 0x0d]);
+    }
+
+    // ------------------------------------------------------------------
+    // EchConfigSource / CdnEchUpdater tests
+    // ------------------------------------------------------------------
+
+    #[test]
+    fn bundled_source_returns_valid_bytes() {
+        let src = BundledEchConfigSource;
+        let bytes = src.fetch().expect("BundledEchConfigSource must not fail");
+        assert_eq!(bytes, CLOUDFLARE_ECH_CONFIG_LIST, "bundled source should return the hardcoded config");
+        assert!(!bytes.is_empty());
+    }
+
+    #[test]
+    fn remote_source_returns_not_implemented() {
+        let src = RemoteEchConfigSource;
+        let err = src.fetch().expect_err("RemoteEchConfigSource must return an error");
+        assert!(matches!(err, EchSourceError::NotImplemented(_)));
+    }
+
+    /// Helper: an EchConfigSource that always fails.
+    struct FailingSource;
+    impl EchConfigSource for FailingSource {
+        fn fetch(&self) -> Result<Vec<u8>, EchSourceError> {
+            Err(EchSourceError::NotImplemented("test: always fails"))
+        }
+    }
+
+    /// Helper: an EchConfigSource that returns a fixed payload.
+    struct FixedSource(Vec<u8>);
+    impl EchConfigSource for FixedSource {
+        fn fetch(&self) -> Result<Vec<u8>, EchSourceError> {
+            Ok(self.0.clone())
+        }
+    }
+
+    #[test]
+    fn updater_cache_hit_avoids_second_fetch() {
+        // Primary returns a distinctive payload; fallback is a different one.
+        // After the first current_config() call the cache is warm.
+        // A second call within TTL must return the same bytes without re-fetching.
+        let primary_payload = vec![0xAA, 0xBB, 0xCC];
+        let fallback_payload = vec![0x11, 0x22, 0x33];
+        let updater = CdnEchUpdater::new(
+            FixedSource(primary_payload.clone()),
+            FixedSource(fallback_payload.clone()),
+            Duration::from_secs(3600),
+        );
+
+        let first = updater.current_config();
+        assert_eq!(first, primary_payload, "first call should return primary payload");
+
+        let second = updater.current_config();
+        assert_eq!(second, primary_payload, "second call (cache hit) should return same payload");
+    }
+
+    #[test]
+    fn updater_falls_back_when_primary_fails() {
+        let fallback_payload = vec![0xDE, 0xAD, 0xBE, 0xEF];
+        let updater =
+            CdnEchUpdater::new(FailingSource, FixedSource(fallback_payload.clone()), Duration::from_secs(3600));
+
+        let result = updater.current_config();
+        assert_eq!(result, fallback_payload, "should fall back to fallback source when primary fails");
+    }
+
+    #[test]
+    fn updater_returns_bundled_when_both_sources_fail_and_no_cache() {
+        let updater = CdnEchUpdater::new(FailingSource, FailingSource, Duration::from_secs(3600));
+
+        // No cache populated; both sources fail → must return bundled constant.
+        let result = updater.current_config();
+        assert_eq!(result, CLOUDFLARE_ECH_CONFIG_LIST, "last-resort path must return bundled config");
     }
 
     #[test]

@@ -299,6 +299,33 @@ internal val textHandlers: Map<AdvancedTextSetting, TextHandler> =
                     updateValue("evolutionEpsilon", normalized.toString()) { setEvolutionEpsilon(normalized) }
                 }
             },
+        AdvancedTextSetting.EvolutionExperimentTtlMs to
+            { value, _ ->
+                value.toLongOrNull()?.let { parsed ->
+                    val v = parsed.coerceAtLeast(1)
+                    updateValue("evolutionExperimentTtlMs", v.toString()) { setEvolutionExperimentTtlMs(v) }
+                }
+            },
+        AdvancedTextSetting.EvolutionDecayHalfLifeMs to
+            { value, _ ->
+                value.toLongOrNull()?.let { parsed ->
+                    val v = parsed.coerceAtLeast(1)
+                    updateValue("evolutionDecayHalfLifeMs", v.toString()) { setEvolutionDecayHalfLifeMs(v) }
+                }
+            },
+        AdvancedTextSetting.EvolutionCooldownAfterFailures to
+            { value, _ ->
+                updateIntValue("evolutionCooldownAfterFailures", value) { n ->
+                    { setEvolutionCooldownAfterFailures(n.coerceAtLeast(1)) }
+                }
+            },
+        AdvancedTextSetting.EvolutionCooldownMs to
+            { value, _ ->
+                value.toLongOrNull()?.let { parsed ->
+                    val v = parsed.coerceAtLeast(1)
+                    updateValue("evolutionCooldownMs", v.toString()) { setEvolutionCooldownMs(v) }
+                }
+            },
         AdvancedTextSetting.EntropyPaddingTargetPermil to
             { value, _ ->
                 updateIntValue("entropyPaddingTargetPermil", value) { parsed ->

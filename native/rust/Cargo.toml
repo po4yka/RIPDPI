@@ -215,5 +215,18 @@ panic = "unwind"
 opt-level = 1
 debug = "line-tables-only"
 
+[workspace.metadata.ripdpi]
+# Crates that are test/bench/debug infrastructure only.
+# They must never appear as non-dev dependencies of production crates.
+test-support-crates = [
+    "golden-test-support",
+    "local-network-fixture",
+    "native-soak-support",
+    "ripdpi-bench",
+]
+local-debug-crates = [
+    "ripdpi-cli",
+]
+
 [patch.crates-io]
 boring-sys = { path = "vendor/boring-sys" }

@@ -147,6 +147,11 @@ private fun AppSettings.toSnapshot(): AppSettingsSnapshot =
             networkStrategyMemoryEnabled = networkStrategyMemoryEnabled,
             strategyEvolution = strategyEvolution,
             evolutionEpsilon = evolutionEpsilon.takeIf { it in 0.0..1.0 } ?: DefaultEvolutionEpsilon,
+            evolutionExperimentTtlMs = evolutionExperimentTtlMs.takeIf { it > 0 } ?: DefaultEvolutionExperimentTtlMs,
+            evolutionDecayHalfLifeMs = evolutionDecayHalfLifeMs.takeIf { it > 0 } ?: DefaultEvolutionDecayHalfLifeMs,
+            evolutionCooldownAfterFailures =
+                evolutionCooldownAfterFailures.takeIf { it > 0 } ?: DefaultEvolutionCooldownAfterFailures,
+            evolutionCooldownMs = evolutionCooldownMs.takeIf { it > 0 } ?: DefaultEvolutionCooldownMs,
             entropyPaddingTargetPermil = entropyPaddingTargetPermil.coerceAtLeast(0),
             entropyPaddingMax = entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax,
             entropyMode = entropyModeFromProto(entropyMode),
@@ -381,6 +386,10 @@ private fun AppSettingsSnapshot.toAppSettings(): AppSettings {
         .setNetworkStrategyMemoryEnabled(networkStrategyMemoryEnabled)
         .setStrategyEvolution(strategyEvolution)
         .setEvolutionEpsilon(evolutionEpsilon.coerceIn(0.0, 1.0))
+        .setEvolutionExperimentTtlMs(evolutionExperimentTtlMs.coerceAtLeast(0))
+        .setEvolutionDecayHalfLifeMs(evolutionDecayHalfLifeMs.coerceAtLeast(0))
+        .setEvolutionCooldownAfterFailures(evolutionCooldownAfterFailures.coerceAtLeast(0))
+        .setEvolutionCooldownMs(evolutionCooldownMs.coerceAtLeast(0))
         .setEntropyPaddingTargetPermil(entropyPaddingTargetPermil.coerceAtLeast(0))
         .setEntropyPaddingMax(entropyPaddingMax.takeIf { it > 0 } ?: DefaultEntropyPaddingMax)
         .setEntropyMode(entropyModeToProto(entropyMode))

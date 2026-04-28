@@ -1,3 +1,19 @@
+//! Microsoft Edge TLS fingerprint profile.
+//!
+//! **Design rationale:** Edge is a Chromium-derived browser, so its TLS
+//! fingerprint shares cipher suites, GREASE strategy (`chromium_single_grease`),
+//! and extension permutation (`chromium_permuted`) with Chrome. This is expected
+//! and correct — it is not an indication of an incomplete implementation.
+//!
+//! What distinguishes Edge from Chrome in the catalog:
+//! - `browser_family: "edge"` and `browser_track: "stable"` (not `"android-stable"`).
+//! - `client_hello_size_hint: 509` matches Chrome desktop, not Chrome Android (512).
+//! - Distinct `ja3_parity_target` / `ja4_parity_target` (`"edge-stable"`), which
+//!   are validated against the phase11 acceptance contract fixture.
+//! - Rotation weight: 5% (Chrome Android 40%, Chrome desktop 15%).
+//!
+//! See ADR-009 for the full analysis confirming this is a complete profile.
+
 use boring::ssl::SslVersion;
 
 use crate::profile::ProfileConfig;
