@@ -47,6 +47,11 @@ pub enum Submission {
     /// operate on `Vec<u8>` buffers (e.g. TUN `tx_queue`) where copying into
     /// a registered buffer pool isn't worth the complexity.
     Write { fd: RawFd, buf: Vec<u8>, token: u64 },
+    /// Write from a previously registered buffer (`IORING_OP_WRITE_FIXED`).
+    /// The caller owns the `RegisteredBufferPool` slot at `buf_index` and
+    /// must keep it valid (i.e. not return it to the pool) until the matching
+    /// completion is reaped.
+    WriteFixed { fd: RawFd, buf_index: u16, len: u32, token: u64 },
     /// Batched read from a TUN fd into multiple registered buffers.
     TunReadBatch { fd: RawFd, buf_indices: Vec<u16>, token_base: u64 },
     /// Batched write of TUN packets from registered buffers.
@@ -176,6 +181,19 @@ impl IoUringDriver {
         CompletionFuture { token, registry: Arc::clone(&self.registry) }
     }
 
+    /// Submit `IORING_OP_WRITE_FIXED` against a buffer already registered in
+    /// the pool, and return a future.
+    ///
+    /// The caller is responsible for keeping the buffer slot valid (i.e. not
+    /// returning it to the pool) until the matching completion arrives. This
+    /// is the high-performance path used by [`crate::tun::batch_tun_write`]
+    /// after the payload is staged into a `RegisteredBufferPool` slot.
+    pub fn write_fixed(&self, fd: RawFd, buf_index: u16, len: u32) -> CompletionFuture {
+        let token = next_token();
+        let _ = self.tx.send(Submission::WriteFixed { fd, buf_index, len, token });
+        CompletionFuture { token, registry: Arc::clone(&self.registry) }
+    }
+
     /// Access the registered buffer pool.
     pub fn pool(&self) -> &Arc<RegisteredBufferPool> {
         &self.pool
@@ -212,20 +230,12 @@ impl std::future::Future for CompletionFuture {
 /// Block the current thread on a [`CompletionFuture`].
 ///
 /// Used in synchronous relay threads (std::thread, not tokio tasks) to wait
-/// for io_uring completions. Spins with `thread::yield_now()` between polls.
+/// for io_uring completions. Implements P5.2.1 of ADR-013 by parking the
+/// current thread between polls and waking it from the driver thread via a
+/// `Thread`-backed `Waker`. The unpark token semantics handle the
+/// register/wake/park race without busy-spinning.
 pub fn block_on_completion(future: CompletionFuture) -> CompletionResult {
-    use std::task::{RawWaker, RawWakerVTable};
-
-    fn noop_raw_waker() -> RawWaker {
-        fn no_op(_: *const ()) {}
-        fn clone(p: *const ()) -> RawWaker {
-            RawWaker::new(p, &VTABLE)
-        }
-        const VTABLE: RawWakerVTable = RawWakerVTable::new(clone, no_op, no_op, no_op);
-        RawWaker::new(std::ptr::null(), &VTABLE)
-    }
-
-    let waker = unsafe { std::task::Waker::from_raw(noop_raw_waker()) };
+    let waker = thread_waker(thread::current());
     let mut cx = Context::from_waker(&waker);
     let mut future = std::pin::pin!(future);
 
@@ -233,10 +243,58 @@ pub fn block_on_completion(future: CompletionFuture) -> CompletionResult {
         match future.as_mut().poll(&mut cx) {
             Poll::Ready(result) => return result,
             Poll::Pending => {
-                std::thread::yield_now();
+                // Park until the matching CQE wakes us. `Thread::unpark` is
+                // safe to call before `park`: it leaves an unpark token, so
+                // a `wake()` racing against the next `park()` simply makes
+                // `park()` return immediately on the next iteration.
+                thread::park();
             }
         }
     }
+}
+
+/// Build a `Waker` whose `wake` calls `Thread::unpark` on the supplied
+/// thread handle. The thread handle is held inside an `Arc`, refcounted via
+/// the `RawWaker` vtable. Used by [`block_on_completion`] to bridge the
+/// `Future` poll loop to `std::thread::park` without depending on tokio.
+fn thread_waker(thread: thread::Thread) -> std::task::Waker {
+    use std::task::{RawWaker, RawWakerVTable};
+
+    unsafe fn clone_arc(data: *const ()) -> RawWaker {
+        let arc = Arc::from_raw(data as *const thread::Thread);
+        let cloned = Arc::clone(&arc);
+        // Don't drop the original; reconstitute it as a raw pointer.
+        let _ = Arc::into_raw(arc);
+        RawWaker::new(Arc::into_raw(cloned) as *const (), &VTABLE)
+    }
+
+    unsafe fn wake_arc(data: *const ()) {
+        // Take ownership of the Arc, unpark, drop refcount.
+        let arc = Arc::from_raw(data as *const thread::Thread);
+        arc.unpark();
+        // arc dropped here, decrementing refcount.
+    }
+
+    unsafe fn wake_arc_by_ref(data: *const ()) {
+        let arc = Arc::from_raw(data as *const thread::Thread);
+        arc.unpark();
+        // Don't drop; reconstitute as raw pointer for the original holder.
+        let _ = Arc::into_raw(arc);
+    }
+
+    unsafe fn drop_arc(data: *const ()) {
+        drop(Arc::from_raw(data as *const thread::Thread));
+    }
+
+    const VTABLE: RawWakerVTable = RawWakerVTable::new(clone_arc, wake_arc, wake_arc_by_ref, drop_arc);
+
+    let arc = Arc::new(thread);
+    let raw = RawWaker::new(Arc::into_raw(arc) as *const (), &VTABLE);
+    // SAFETY: the vtable functions uphold the RawWaker contract — clone
+    // increments the refcount, wake/wake_by_ref consume or borrow, drop
+    // decrements. The data pointer is always a live `Arc<Thread>` raw
+    // pointer.
+    unsafe { std::task::Waker::from_raw(raw) }
 }
 
 fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, registry: Arc<CompletionRegistry>) {
@@ -322,6 +380,21 @@ fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, registry: Arc
                     }
                     submitted += 1;
                 }
+                Submission::WriteFixed { fd, buf_index, len, token } => {
+                    let entry = opcode::WriteFixed::new(Fd(fd), std::ptr::null(), len, buf_index)
+                        .build()
+                        .user_data(token);
+                    // SAFETY: entry references a registered buffer at
+                    // `buf_index`; the caller must keep that slot reserved
+                    // until the CQE is reaped. Same contract as RecvFixed.
+                    unsafe {
+                        if ring.submission().push(&entry).is_err() {
+                            let _ = ring.submit();
+                            let _ = ring.submission().push(&entry);
+                        }
+                    }
+                    submitted += 1;
+                }
                 Submission::TunReadBatch { fd, buf_indices, token_base } => {
                     for (i, &buf_idx) in buf_indices.iter().enumerate() {
                         let token = token_base + i as u64;
@@ -373,5 +446,112 @@ fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, registry: Arc
             pending_write_buffers.remove(&token);
             registry.complete(token, result);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant};
+
+    /// `thread_waker` must build a `Waker` whose `wake_by_ref` unparks the
+    /// originating thread. We exercise the unpark-token semantics directly:
+    /// the wake fires before the park, so park returns immediately.
+    #[test]
+    fn thread_waker_wake_by_ref_unparks_originator() {
+        let waker = thread_waker(thread::current());
+        // Wake before park; the unpark token should make park return now.
+        waker.wake_by_ref();
+        let start = Instant::now();
+        thread::park_timeout(Duration::from_millis(500));
+        assert!(
+            start.elapsed() < Duration::from_millis(250),
+            "park_timeout did not return promptly after pre-wake (took {:?})",
+            start.elapsed()
+        );
+    }
+
+    /// A consuming `wake()` must also unpark the originating thread.
+    #[test]
+    fn thread_waker_wake_consumes_and_unparks() {
+        let waker = thread_waker(thread::current());
+        waker.wake();
+        let start = Instant::now();
+        thread::park_timeout(Duration::from_millis(500));
+        assert!(
+            start.elapsed() < Duration::from_millis(250),
+            "consuming wake did not unpark in time (took {:?})",
+            start.elapsed()
+        );
+    }
+
+    /// Cloning a thread-backed Waker must yield an independent waker that
+    /// also unparks the originator. After dropping the clone the original
+    /// must still work.
+    #[test]
+    fn thread_waker_clone_independently_unparks() {
+        let waker = thread_waker(thread::current());
+        let cloned = waker.clone();
+        drop(waker);
+        cloned.wake();
+        let start = Instant::now();
+        thread::park_timeout(Duration::from_millis(500));
+        assert!(
+            start.elapsed() < Duration::from_millis(250),
+            "cloned waker did not unpark in time (took {:?})",
+            start.elapsed()
+        );
+    }
+
+    /// Drive a full register/complete handshake from two threads using the
+    /// real `CompletionRegistry` and the park-based waker, mirroring the
+    /// path `block_on_completion` would take. The polling thread must wake
+    /// up promptly when the completion arrives from the driver-stand-in.
+    #[test]
+    fn registry_completion_unparks_polling_thread() {
+        let registry = Arc::new(CompletionRegistry::new());
+        let token = 0xDEAD_BEEF_u64;
+
+        let driver_registry = Arc::clone(&registry);
+        let driver_started = Arc::new(AtomicBool::new(false));
+        let driver_started_clone = Arc::clone(&driver_started);
+
+        // Driver-stand-in: fires `complete` after a brief delay so the
+        // poller has time to register and park.
+        let driver = thread::spawn(move || {
+            driver_started_clone.store(true, Ordering::Release);
+            thread::sleep(Duration::from_millis(50));
+            driver_registry.complete(token, CompletionResult { result: 42, flags: 0 });
+        });
+
+        // Poller: register a thread-backed waker, then park until completion.
+        let waker = thread_waker(thread::current());
+        let mut got: Option<CompletionResult> = None;
+        let start = Instant::now();
+        loop {
+            match registry.register(token, &waker) {
+                Some(result) => {
+                    got = Some(result);
+                    break;
+                }
+                None => {
+                    thread::park_timeout(Duration::from_secs(2));
+                }
+            }
+            if start.elapsed() > Duration::from_secs(3) {
+                break;
+            }
+        }
+
+        driver.join().expect("driver thread panicked");
+        assert!(driver_started.load(Ordering::Acquire), "driver never started");
+        let result = got.expect("poller never received completion");
+        assert_eq!(result.result, 42);
+        assert!(
+            start.elapsed() < Duration::from_millis(500),
+            "poller did not return promptly after completion (took {:?})",
+            start.elapsed()
+        );
     }
 }
