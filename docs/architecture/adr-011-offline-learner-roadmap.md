@@ -1,7 +1,9 @@
 # ADR-011: Offline Learner Improvement Roadmap (P4.4)
 
-**Status:** Partial — P4.4.1 implemented; P4.4.2–5 deferred.
-**Date:** 2026-04-27
+**Status:** P4.4.1 / P4.4.2 / P4.4.3 implemented; P4.4.4 partial (format
+parser landed, fetch/refresh/signed-manifest still deferred); P4.4.5
+remains deferred as a research spike.
+**Date:** 2026-04-27 (initial), 2026-04-28 (Phase D)
 **Deciders:** Nikita Pochaev
 
 ---
@@ -67,93 +69,98 @@ Estimated diff for wiring step: ~150 lines across config + runtime + CLI.
 
 ## P4.4.2 — Rarity / retry penalties in scoring formula
 
-**Status: Deferred.**
+**Status: Implemented 2026-04-28 (Phase D).** Off by default; opt-in via
+`StrategyEvolver::with_learning_hardening(.., penalties_enabled = true)`.
 
-### Current state
+### Implementation
 
-`combo_fitness_at` applies an energy-cost penalty (`FITNESS_ENERGY_WEIGHT = 18.0`) for
-high-cost combos (fake TTL, aggressive UDP, realistic QUIC, mixed dimensions). There is
-no explicit penalty for rarely-tried arms (rarity bias) or for arms that have been
-retried many times without new data (retry cost).
+- New free helpers in `strategy_evolver/types.rs`:
+  - `rarity_penalty(attempts: u32) -> f64` — linear penalty per attempt below
+    `RARITY_FLOOR = 3`, weighted by `RARITY_PENALTY = 5.0`.
+  - `retry_cost(attempts: u32) -> f64` — log-damped term that activates above
+    `RETRY_SATURATION = 20` with multiplier `RETRY_COST_FACTOR = 4.0`.
+- `combo_fitness_at_with_penalties(combo, stats, now_ms, half_life_ms, penalties_enabled)`
+  layers both terms when `penalties_enabled` is true. The legacy
+  `combo_fitness_at` delegates with `penalties_enabled = false` so existing
+  callers see no change.
+- `StrategyEvolver::evict_if_needed` reads the evolver's `penalties_enabled`
+  field and passes it through, so eviction rankings respect the new terms
+  when the hardening is opted in.
+- Verified by 3 unit tests: rarity-penalty curve, retry-cost log-damped
+  growth, and an end-to-end fitness comparison showing the rare/saturated
+  arm is demoted relative to a proven arm.
 
-### Why deferred
+### Why opt-in
 
-Adding rarity and retry penalties requires:
-
-1. Defining "rarity" — absolute attempt count vs proportion of total draws vs time since
-   last attempt. The decay weight (`exp(-Δt / half_life)`) partially captures staleness
-   but does not penalise arms that have never been selected.
-2. Avoiding double-counting with the existing UCB1 exploration term, which already
-   inflates scores for under-tried arms (`1.41 * sqrt(ln(N) / n_i)`).
-3. Determining the right weight magnitude without destabilising the fitness range
-   (currently `-100..1000`).
-
-### Proposed approach (future PR)
-
-- Add `rarity_penalty(attempts: u32, total: u32) -> f64`: penalise arms with
-  `attempts < RARITY_FLOOR` (e.g. 3) at a fixed offset (e.g. `-15.0`).
-- Add `retry_cost(attempts: u32) -> f64`: log-damped cost for arms tried >
-  `RETRY_SATURATION` (e.g. 20) times with no improvement, signalling the evolver to
-  explore new regions.
-- Gate both penalties behind `evolution_penalties_enabled: bool` config flag so they can
-  be A/B tested independently of the scorer.
+The penalty weights are tuned conservatively but the production fitness range
+sits in `-100..1000`. Forcing the new terms on for every existing call site
+would change relative ordering of stored combos in ways that could invalidate
+in-flight bandit state. Opt-in via `with_learning_hardening(.., true)` lets
+the runtime listener turn it on for new sessions without rewriting persisted
+priors mid-flight.
 
 ---
 
 ## P4.4.3 — Attempt-budget enforcement
 
-**Status: Deferred.**
+**Status: Implemented 2026-04-28 (Phase D).** Off by default
+(`max_arm_attempts = u32::MAX`); opt-in via
+`StrategyEvolver::with_learning_hardening(max_attempts, ..)`.
 
-### Current state
+### Implementation
 
-`StrategyEvolver::max_combos` caps the number of combos stored (`default: 64`) and
-`evict_if_needed` evicts the lowest-fitness combo on overflow. There is no per-arm or
-per-session attempt budget; a single failing arm can accumulate unbounded attempts.
+- New `pub max_arm_attempts: u32` field on `StrategyEvolver`. When a combo's
+  recorded `attempts` reach the cap it is treated as *frozen*: random
+  exploration (`pick_non_cooled_random_for_bucket`) skips it, but
+  niche-winner pinning and the family-best exploitation paths keep using
+  proven winners regardless of the cap.
+- New `attempts_budget_remaining(combo) -> u32` accessor exposes the
+  current headroom for telemetry consumers.
+- Verified by 3 unit tests: defaults disable the cap, the random path skips
+  frozen combos and falls back to the pilot when every match is frozen, and
+  unfrozen siblings are still picked when only some combos are frozen.
 
-### Why deferred
+### Coordination with ADR-010 P4.3.2
 
-P4.3.2 (direct-mode diagnostic orchestrator) was also scoped as "attempt-budget
-enforcement with metrics" and was deferred to future work in ADR-010. The two systems
-should share a common budget abstraction rather than each inventing one independently.
-
-### Proposed approach (future PR)
-
-- Add `max_arm_attempts: u32` to `StrategyEvolver` (default: 100). Once an arm exceeds
-  this threshold, it is frozen: it can still be exploited if it is the current niche
-  winner, but it is skipped during exploration.
-- Expose `attempts_budget_remaining(combo)` metric for telemetry.
-- Coordinate with P4.3.2 to share a `AttemptBudget` struct.
+ADR-010 tracked the parallel direct-mode budget. Both systems landed in
+parallel (P4.3.2 in Phase C, P4.4.3 in Phase D); they currently keep
+independent counters because the two paths have different lifetimes —
+direct-path attempts reset on positive transport signals, evolver attempts
+reset on combo eviction. Sharing a single `AttemptBudget` struct is a
+follow-up if a unified telemetry view is required.
 
 ---
 
 ## P4.4.4 — Shared-priors upload constraints
 
-**Status: Deferred.**
+**Status: Partial 2026-04-28.** The format parser landed; fetch / refresh /
+signed-manifest verification still deferred.
 
-### Current state
+### Implementation (this Phase)
 
-There is no shared-priors upload mechanism in the codebase. ROADMAP-CLEANUP notes this
-as a future feature to allow aggregated strategy data to inform new installs faster.
+- New `strategy_evolver/shared_priors.rs` module with a
+  newline-delimited JSON parser (`{ combo_hash, alpha, beta }`).
+- Max raw payload enforced at 256 KiB (≈ 4× the ADR's 64 KiB compressed
+  budget, which is generous because the parser sees uncompressed input).
+  Oversized inputs short-circuit with a typed error before any line is
+  parsed.
+- Per-record validation: `alpha`, `beta` must both be finite and strictly
+  positive (Beta-distribution constraint). Comments (`# …`) and blank
+  lines are ignored. Malformed records are recorded in `Loaded::skipped`
+  and dropped without aborting the bundle.
+- Verified by 7 unit tests covering empty input, well-formed bundles,
+  blank/comment skip, oversized rejection, non-positive alpha/beta,
+  non-finite values, mixed valid/invalid, and duplicate-hash semantics.
 
-### Why deferred
+### Still deferred
 
-Per the project's no-backend rule (CLAUDE.md), shared priors must be delivered as static
-files (GitHub-hosted or bundled assets), not through a live API. Designing a safe,
-versioned prior format with:
-
-- Max payload size enforcement (prevent oversized bundles from blocking startup),
-- Rate-limit semantics (how often can priors be refreshed?),
-- Integrity verification (signed manifest),
-
-requires a dedicated design spike. This is Phase 5+ work.
-
-### Proposed approach (future design doc)
-
-- Prior format: newline-delimited JSON records, each `{ combo_hash, alpha, beta }`.
-- Max payload: 64 KB compressed (≈ 1000 arms at ~64 bytes each).
-- Refresh rate: at most once per 24 h, checked at session start via a `Last-Modified`
-  HEAD request before fetching the full payload.
+- Network fetch (no backend; GitHub-hosted asset is the intended channel).
+- Refresh schedule (≤ once per 24 h via `Last-Modified` HEAD).
 - Integrity: SHA-256 manifest signed with the project's release key.
+
+The format and validator landing now means the delivery channel can be
+wired up later without redesigning the interchange — the parser is the
+canonical contract that any signed manifest will reference.
 
 ---
 

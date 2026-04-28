@@ -62,6 +62,7 @@
 //! - Disable (the default) for stable networks where per-flow adaptive tuning
 //!   already performs well, or when you want fine-grained per-host adaptation.
 
+mod shared_priors;
 mod thompson_sampling;
 mod types;
 
@@ -123,6 +124,17 @@ pub struct StrategyEvolver {
     pub cooldown_after_failures: u32,
     /// Length of the cooldown window in milliseconds.
     pub cooldown_ms: u64,
+    /// Hard cap on the number of attempts a single combo can accumulate
+    /// before it is "frozen" — skipped during random exploration. The
+    /// niche-winner / family-best paths still keep using a frozen combo so
+    /// proven winners can be exploited indefinitely. `u32::MAX` (the
+    /// default) disables the cap (P4.4.3, ADR-011).
+    pub max_arm_attempts: u32,
+    /// When true, fitness scoring layers the rarity (`attempts < RARITY_FLOOR`)
+    /// and retry-cost (`attempts > RETRY_SATURATION`) penalties on top of
+    /// the standard score. Defaults to `false` so existing callers see
+    /// unchanged behaviour (P4.4.2, ADR-011).
+    pub penalties_enabled: bool,
     /// Test-only override for the monotonic clock; production code leaves
     /// this `None` and the evolver uses [`Instant`] deltas.
     #[cfg(test)]
@@ -151,9 +163,34 @@ impl StrategyEvolver {
             decay_half_life_ms: DEFAULT_DECAY_HALF_LIFE_MS,
             cooldown_after_failures: DEFAULT_COOLDOWN_AFTER_FAILURES,
             cooldown_ms: DEFAULT_COOLDOWN_MS,
+            max_arm_attempts: u32::MAX,
+            penalties_enabled: false,
             #[cfg(test)]
             test_clock_override_ms: None,
         }
+    }
+
+    /// Builder-style override for the offline-learner hardening knobs added
+    /// in P4.4.2 / P4.4.3 (ADR-011). Both knobs default to OFF in
+    /// [`Self::new`] so existing call sites are unaffected; opt in here.
+    ///
+    /// `max_arm_attempts` is the hard cap before a combo is skipped during
+    /// random exploration (use `u32::MAX` to keep the cap disabled).
+    /// `penalties_enabled` toggles the rarity / retry-cost terms on top of
+    /// the standard fitness function.
+    pub fn with_learning_hardening(mut self, max_arm_attempts: u32, penalties_enabled: bool) -> Self {
+        self.max_arm_attempts = max_arm_attempts;
+        self.penalties_enabled = penalties_enabled;
+        self
+    }
+
+    /// Number of attempts left for `combo` before the attempt-budget cap
+    /// kicks in. Returns `0` when the combo has already been frozen out of
+    /// random exploration. When the cap is disabled (`u32::MAX`), returns
+    /// `u32::MAX - attempts` so callers can treat the value uniformly.
+    pub fn attempts_budget_remaining(&self, combo: &StrategyCombo) -> u32 {
+        let used = self.combos.get(combo).map_or(0, |stats| stats.attempts);
+        self.max_arm_attempts.saturating_sub(used)
     }
 
     /// Monotonic ms-since-epoch tick used by all evolver-internal
@@ -436,13 +473,22 @@ impl StrategyEvolver {
 
     /// Random-from-pool fallback that prefers combos not currently cooling.
     /// Falls back to [`pilot_combo_for_bucket`] when every bucket-matching
-    /// pool entry has stats still in cooldown.
+    /// pool entry has stats still in cooldown or has exceeded the
+    /// per-arm attempt budget.
     fn pick_non_cooled_random_for_bucket(&mut self, bucket: LearningTargetBucket, now_ms: u64) -> StrategyCombo {
+        let max_attempts = self.max_arm_attempts;
         let available: Vec<usize> = (0..COMBO_POOL.len())
             .filter(|idx| combo_matches_bucket(&combo_from_pool(*idx), bucket))
             .filter(|idx| {
                 let combo = combo_from_pool(*idx);
-                !self.combos.get(&combo).is_some_and(|stats| stats.is_cooled(now_ms))
+                let stats = self.combos.get(&combo);
+                let cooled = stats.is_some_and(|s| s.is_cooled(now_ms));
+                // Frozen combos (attempt budget exhausted) are skipped
+                // during random exploration; niche-winner and
+                // family-best paths still keep using them (P4.4.3,
+                // ADR-011).
+                let frozen = stats.is_some_and(|s| s.attempts >= max_attempts);
+                !cooled && !frozen
             })
             .collect();
         if available.is_empty() {
@@ -457,14 +503,15 @@ impl StrategyEvolver {
             return;
         }
         let half_life = self.decay_half_life_ms;
+        let penalties = self.penalties_enabled;
         // Find the combo with the lowest decayed fitness, excluding `keep`.
         let worst = self
             .combos
             .iter()
             .filter(|(k, _)| *k != keep)
             .min_by(|a, b| {
-                combo_fitness_at(a.0, a.1, now_ms, half_life)
-                    .partial_cmp(&combo_fitness_at(b.0, b.1, now_ms, half_life))
+                combo_fitness_at_with_penalties(a.0, a.1, now_ms, half_life, penalties)
+                    .partial_cmp(&combo_fitness_at_with_penalties(b.0, b.1, now_ms, half_life, penalties))
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
             .map(|(k, _)| k.clone());
@@ -758,6 +805,152 @@ mod tests {
         }
 
         assert!(e.combos.len() <= 4, "should respect max_combos limit, got {}", e.combos.len());
+    }
+
+    // ── Offline-learner hardening (P4.4.2 / P4.4.3, ADR-011) ─────────────────
+
+    #[test]
+    fn with_learning_hardening_overrides_defaults() {
+        let e = StrategyEvolver::new(true, 0.0).with_learning_hardening(50, true);
+        assert_eq!(e.max_arm_attempts, 50);
+        assert!(e.penalties_enabled);
+    }
+
+    #[test]
+    fn defaults_disable_attempt_budget_and_penalties() {
+        // The new fields must default to OFF so existing call sites observe
+        // unchanged behaviour.
+        let e = StrategyEvolver::new(true, 0.0);
+        assert_eq!(e.max_arm_attempts, u32::MAX);
+        assert!(!e.penalties_enabled);
+    }
+
+    #[test]
+    fn attempts_budget_remaining_reflects_recorded_attempts() {
+        let mut e = StrategyEvolver::new(true, 0.0).with_learning_hardening(5, false);
+        let combo = combo_from_pool(1);
+        let mut stats = ComboStats::new();
+        stats.attempts = 3;
+        e.combos.insert(combo.clone(), stats);
+        assert_eq!(e.attempts_budget_remaining(&combo), 2);
+
+        // Disabled cap (u32::MAX) returns a very large number rather than
+        // wrapping or panicking.
+        let mut g = StrategyEvolver::new(true, 0.0);
+        g.combos.insert(combo.clone(), ComboStats { attempts: 7, ..ComboStats::new() });
+        assert_eq!(g.attempts_budget_remaining(&combo), u32::MAX - 7);
+    }
+
+    #[test]
+    fn random_exploration_skips_frozen_combos() {
+        // Build an evolver with a tight attempt budget, freeze every pool
+        // entry that matches the Generic bucket, and confirm the random
+        // exploration path falls back to the pilot combo (the only escape
+        // hatch) instead of returning a frozen combo.
+        let mut e = StrategyEvolver::new(true, 0.0).with_learning_hardening(2, false);
+        for idx in 0..COMBO_POOL.len() {
+            let combo = combo_from_pool(idx);
+            if combo_matches_bucket(&combo, LearningTargetBucket::Generic) {
+                e.combos.insert(combo, ComboStats { attempts: 5, ..ComboStats::new() });
+            }
+        }
+        let now_ms = e.monotonic_now_ms();
+        let picked = e.pick_non_cooled_random_for_bucket(LearningTargetBucket::Generic, now_ms);
+        // pilot_combo_for_bucket returns the default (all-None) combo.
+        assert_eq!(picked, StrategyCombo::default_combo());
+    }
+
+    #[test]
+    fn random_exploration_returns_unfrozen_combo_when_some_remain() {
+        // With only one frozen combo and the rest fresh, the random path
+        // must pick from the unfrozen survivors. Repeat enough draws to make
+        // accidental collisions astronomically unlikely.
+        let mut e = StrategyEvolver::new(true, 0.0).with_learning_hardening(2, false);
+        let frozen = combo_from_pool(1); // AutoHost split, matches Generic.
+        e.combos.insert(frozen.clone(), ComboStats { attempts: 5, ..ComboStats::new() });
+        let now_ms = e.monotonic_now_ms();
+        for _ in 0..100 {
+            let picked = e.pick_non_cooled_random_for_bucket(LearningTargetBucket::Generic, now_ms);
+            assert_ne!(picked, frozen, "frozen combo must never be returned by random exploration");
+        }
+    }
+
+    #[test]
+    fn rarity_penalty_drops_to_zero_at_floor() {
+        // Use the helper to assert the curve directly. The internal helper
+        // is `pub(super)` so we re-import via the module path.
+        use crate::strategy_evolver::types::{rarity_penalty, RARITY_FLOOR, RARITY_PENALTY};
+        assert_eq!(rarity_penalty(0), RARITY_PENALTY * f64::from(RARITY_FLOOR));
+        assert_eq!(rarity_penalty(RARITY_FLOOR - 1), RARITY_PENALTY);
+        assert_eq!(rarity_penalty(RARITY_FLOOR), 0.0);
+        assert_eq!(rarity_penalty(RARITY_FLOOR + 100), 0.0);
+    }
+
+    #[test]
+    fn retry_cost_is_zero_below_saturation_and_log_damped_above() {
+        use crate::strategy_evolver::types::{retry_cost, RETRY_COST_FACTOR, RETRY_SATURATION};
+        assert_eq!(retry_cost(0), 0.0);
+        assert_eq!(retry_cost(RETRY_SATURATION), 0.0);
+        let one_over = retry_cost(RETRY_SATURATION + 1);
+        let ten_over = retry_cost(RETRY_SATURATION + 10);
+        assert!(one_over > 0.0);
+        assert!(ten_over > one_over, "retry_cost must monotonically grow above the saturation threshold");
+        // Bounded by the log term, so growth slows.
+        let hundred_over = retry_cost(RETRY_SATURATION + 100);
+        assert!((hundred_over / one_over) < 100.0, "retry_cost growth must be log-damped, not linear");
+        // Use the constant to confirm the multiplier wires through.
+        assert!(one_over > 0.0 && one_over <= RETRY_COST_FACTOR * 5.0);
+    }
+
+    #[test]
+    fn fitness_with_penalties_demotes_rare_arm_below_proven_arm() {
+        // Two arms with the *same* attempt-windowed success rate but one is
+        // rarely tried. With penalties enabled the rare arm must score
+        // strictly lower so eviction prefers it.
+        use crate::strategy_evolver::types::combo_fitness_at_with_penalties;
+        let combo = combo_from_pool(1);
+
+        let rare = ComboStats { attempts: 1, successes: 1, total_latency_ms: 100, ..ComboStats::new() };
+        let proven = ComboStats { attempts: 30, successes: 30, total_latency_ms: 3_000, ..ComboStats::new() };
+        let now_ms = 0u64;
+        let half_life = 0u64;
+
+        // With penalties OFF the standard fitness already prefers the
+        // proven arm but only slightly; with penalties ON the gap widens
+        // because the rarity penalty levies a fixed cost on the rare arm.
+        let proven_off = combo_fitness_at_with_penalties(&combo, &proven, now_ms, half_life, false);
+        let rare_off = combo_fitness_at_with_penalties(&combo, &rare, now_ms, half_life, false);
+        let proven_on = combo_fitness_at_with_penalties(&combo, &proven, now_ms, half_life, true);
+        let rare_on = combo_fitness_at_with_penalties(&combo, &rare, now_ms, half_life, true);
+        let gap_off = proven_off - rare_off;
+        let gap_on = proven_on - rare_on;
+        assert!(gap_on > gap_off, "rarity penalty must widen the proven-vs-rare gap (off={gap_off}, on={gap_on})");
+    }
+
+    #[test]
+    fn fitness_with_penalties_demotes_oversaturated_arm() {
+        // Two arms with identical per-attempt stats; one has tried 5×
+        // saturation many times. Penalties must drop its score.
+        use crate::strategy_evolver::types::{combo_fitness_at_with_penalties, RETRY_SATURATION};
+        let combo = combo_from_pool(1);
+        let n_fresh = 5_u32;
+        let n_saturated = RETRY_SATURATION * 5;
+
+        let fresh =
+            ComboStats { attempts: n_fresh, successes: n_fresh, total_latency_ms: 100 * u64::from(n_fresh), ..ComboStats::new() };
+        let saturated = ComboStats {
+            attempts: n_saturated,
+            successes: n_saturated,
+            total_latency_ms: 100 * u64::from(n_saturated),
+            ..ComboStats::new()
+        };
+
+        let fresh_on = combo_fitness_at_with_penalties(&combo, &fresh, 0, 0, true);
+        let saturated_on = combo_fitness_at_with_penalties(&combo, &saturated, 0, 0, true);
+        assert!(
+            fresh_on > saturated_on,
+            "saturated arm must score below fresh arm with penalties on (fresh={fresh_on}, saturated={saturated_on})"
+        );
     }
 
     #[test]
