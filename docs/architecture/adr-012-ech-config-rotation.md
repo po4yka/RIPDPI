@@ -1,8 +1,11 @@
 # ADR-012: ECH Config Rotation Strategy
 
-**Status:** Partial — Phase 1 (abstraction + bundled source) landed; Phase 2 (RemoteEchConfigSource) pending.
+**Status:** Phase 1 (abstraction + bundled source) and Phase 2
+(`RemoteEchConfigSource`) landed. Phase 3 (cache persistence to
+`EncryptedSharedPreferences`) and the WorkManager scheduler hookup are still
+deferred.
 
-**Date:** 2026-04-27
+**Date:** 2026-04-27 (Phase 1), 2026-04-28 (Phase 2)
 
 ---
 
@@ -42,21 +45,31 @@ The existing call site in `tls.rs` (`cdn_config.ech_config_list.to_vec()`) is **
 the static `CdnEchConfig` struct is still the direct production path.  `CdnEchUpdater` is wired
 only when a scheduler is ready (Phase 2).
 
-### Phase 2 — Remote source (not yet implemented)
+### Phase 2 — Remote source (landed 2026-04-28)
 
-`RemoteEchConfigSource::fetch` will perform a DoH HTTPS-RR (type 65) query:
+`RemoteEchConfigSource::fetch` performs a real DoH HTTPS-RR (type 65) query
+through the existing `crate::dns` plumbing:
 
-- Query name: `cloudflare-dns.com` (or `_dns.resolver.arpa`)
-- DoH endpoint: `https://1.1.1.1/dns-query` (Cloudflare public resolver, no project backend)
-- Response parsing: reuse `extract_ech_config_list_from_https_response` from `dns.rs`
-- Validate: length prefix + version `0xfe0d` before storing
+- Default query name: `cloudflare-dns.com` (overridable via `with_domain`).
+- Default DoH resolver: `cloudflare`, looked up via the shared
+  `encrypted_dns_endpoint_for_resolver_id` helper (overridable via
+  `with_resolver`). No project-operated server is involved.
+- Transport: `TransportConfig::Direct { route_experiment: None }`. The
+  encrypted-DNS resolver does the TLS handshake, certificate validation,
+  and response decoding via `boring` and the existing bootstrap-IP list.
+- Response parsing: reuses `resolve_https_ech_configs_via_encrypted_dns_with_endpoint`
+  → `extract_ech_config_list_from_https_response`.
+- Validation: new `validate_ech_config_list_bytes` enforces the 2-byte length
+  prefix and the `0xfe0d` version before the bytes leave the source.
+- Fail-secure: any failure path — DNS exchange error, missing ECH SvcParam,
+  malformed list — surfaces as `EchSourceError::InvalidConfig`, so
+  `CdnEchUpdater::refresh()` keeps the previously cached or bundled config.
 
-Constraints:
-- **No project backend** — source must be a public DoH endpoint, not a RIPDPI-operated server.
-- **Fail-secure** — if fetch fails or response is invalid, keep the cached/bundled config; do not
-  clear ECH support.
-- **Scheduler integration** — `CdnEchUpdater::refresh()` is the entry point; call it from a
-  WorkManager periodic job (≥ 24 h interval, requires network).
+Constraints (still upheld):
+- **No project backend** — Cloudflare's public DoH resolver is the source.
+- **Fail-secure** — invalid responses do not clear ECH support.
+- **Scheduler integration** — `CdnEchUpdater::refresh()` is the entry point;
+  the WorkManager periodic-job hookup is the remaining open item below.
 
 ### Phase 3 — Cache persistence (optional, future)
 
@@ -68,16 +81,28 @@ process restarts, reducing the window where stale bundled config is used after a
 
 ## Consequences
 
-**Positive:**
-- The abstraction is in place; Phase 2 can land without touching `tls.rs` or `CdnEchConfig`.
-- `BundledEchConfigSource` as fallback guarantees ECH is never disabled due to a refresh failure.
-- `CdnEchUpdater` is unit-tested (cache hit, fallback-on-failure, both-sources-fail last resort).
+**Positive (post Phase 2, 2026-04-28):**
+- `RemoteEchConfigSource` performs a real DoH HTTPS-RR query and validates
+  the response shape before handing it to the cache. The static
+  `CLOUDFLARE_ECH_CONFIG_LIST` no longer drifts silently between binary
+  releases once a scheduler periodically calls `CdnEchUpdater::refresh()`.
+- `BundledEchConfigSource` as fallback still guarantees ECH is never
+  disabled due to a refresh failure; `validate_ech_config_list_bytes`
+  prevents a malformed remote response from poisoning the cache.
+- `CdnEchUpdater` is unit-tested for cache hit, fallback-on-failure,
+  both-sources-fail, and the new "remote bytes round-trip through the
+  cache" path. The validator is unit-tested for accept-bundled, reject-
+  short, reject-length-mismatch, and reject-unknown-version inputs.
 
-**Negative / Risks:**
-- The static config can still go stale between binary releases.  Phase 2 is needed to fully close
-  this gap.
-- `RemoteEchConfigSource` does nothing yet — a stale config is the current production behaviour,
-  unchanged by Phase 1.
+**Risks / not-yet-validated:**
+- The WorkManager periodic-job hookup is still pending; without it, the
+  cache stays cold across process restarts (Phase 3) and only refreshes on
+  in-process demand. Tracked in the open follow-ups list at the bottom of
+  this ADR.
+- A live DoH query depends on network reachability. The fail-secure design
+  means a blocked DoH path falls back to the bundled config rather than
+  losing ECH, but on a long-blocked network the bundled config can still
+  drift; Phase 3 cache persistence is the mitigation.
 
 ---
 

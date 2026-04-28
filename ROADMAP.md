@@ -265,7 +265,7 @@ current release.
 | Direct-Mode | Wire `TransportRemediationKind` from a session source into `ConfigViewModel.resolveRelayPresetSuggestion` | ADR-010 |
 | Offline Learner | Shared-priors fetch / refresh / signed-manifest delivery channel (parser landed, transport deferred) | ADR-011 |
 | Offline Learner | Emulator / sim-to-field calibration beyond archive mining (research spike) | ADR-011 |
-| Monitor | `RemoteEchConfigSource` via DoH HTTPS RR query + scheduler integration | ADR-012 |
+| Monitor | WorkManager scheduler hookup + persisted cache for `CdnEchUpdater::refresh()` (Phase 3 of ADR-012) | ADR-012 |
 | io_uring | Acceptance benchmarks for the park/unpark and registered-buffer TX paths | ADR-013 |
 
 ### 2026-04-28: Phase A Quick Correctness Fixes
@@ -290,6 +290,15 @@ Status: COMPLETE in repo-owned scope (P4.3.1–P4.3.3 fully landed; P4.3.4 lands
 - Per-class attempt-budget enforcement (P4.3.2): `TupleState` now carries a per-arm `arm_attempts` counter; `note_arm_attempt` bumps it; `ranked_arms_for` subtracts attempts from each arm's `attempt_budget`, drops exhausted arms, and falls back to a single `relay_fallback` entry when every preferred arm is exhausted. `clear_negative_state` resets the map alongside the rest of the negative evidence (ADR-010).
 - Deterministic integration coverage (P4.3.3): a single multi-step ladder test drives one tuple through clean → QuicBlocked → exhausted tcp_plain → exhausted tcp_tls_split → relay_fallback escalation → positive TCP signal restoring the clean ranking, asserting the ranked-arm response at every step (ADR-010).
 - Unify Config relay preset suggestions (P4.3.4): `resolveRelayPresetSuggestion` now accepts an optional `transportRemediation: TransportRemediationKind?` and, when supplied, sources the reason from the same `recommendTransportRemediation` mapping Diagnostics and Home use. The wire-up from `ConfigViewModel` to a direct-mode session source remains the only open item (ADR-010).
+
+### 2026-04-28: Phase E ECH Remote Source
+
+Status: COMPLETE in repo-owned scope (Phase 2 of ADR-012). The WorkManager periodic-job hookup and persisted cache (Phase 3) remain the only open ADR-012 follow-up.
+
+- `RemoteEchConfigSource::fetch` now performs a real DoH HTTPS-RR (type 65) query against `cloudflare-dns.com` via the existing `encrypted_dns_endpoint_for_resolver_id("cloudflare")` + `resolve_https_ech_configs_via_encrypted_dns_with_endpoint` plumbing. No project backend; Cloudflare's own public DoH resolver is the source per ADR-012's "no-backend" constraint (ADR-012, P2).
+- New `validate_ech_config_list_bytes` enforces the 2-byte length prefix and the `0xfe0d` ECHConfig version before bytes leave the source. Invalid responses surface as `EchSourceError::InvalidConfig`, so `CdnEchUpdater` falls back to the bundled config rather than dropping ECH support (fail-secure, per ADR).
+- `RemoteEchConfigSource` accepts `with_domain` / `with_resolver` builder overrides for testability and future tuning; defaults pin the production target (`cloudflare-dns.com` via `cloudflare`).
+- Verified by 7 new unit tests (default targets, builder overrides, validator: bundled accept, short reject, length-prefix mismatch, version mismatch, plus a refresh-round-trip test that drives the full updater path with a synthetic remote source). The previous `remote_source_returns_not_implemented` stub-check was removed. cargo test -p ripdpi-monitor --lib cdn_ech: 19 passed (was 13; net +6).
 
 ### 2026-04-28: Phase D Offline Learner Hardening
 

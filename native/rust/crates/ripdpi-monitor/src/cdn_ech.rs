@@ -20,13 +20,20 @@
 //! # Refresh abstraction
 //!
 //! [`EchConfigSource`] / [`CdnEchUpdater`] provide a TTL-gated cache with
-//! primary → fallback semantics.  The bundled source ([`BundledEchConfigSource`])
-//! is the only production implementation today.  [`RemoteEchConfigSource`] is a
-//! stub that always returns [`EchSourceError::NotImplemented`]; it will be
-//! filled in once a DoH HTTPS-RR client is available (see ADR-012).
+//! primary → fallback semantics. [`BundledEchConfigSource`] is the
+//! always-available fallback; [`RemoteEchConfigSource`] (Phase 2 of
+//! ADR-012, landed) performs an HTTPS-RR (type 65) DoH query against
+//! Cloudflare's own resolver and validates the returned bytes via
+//! [`validate_ech_config_list_bytes`] before handing them to the cache.
+//!
+//! `CdnEchUpdater::refresh()` is the entry point a scheduler (e.g. a
+//! WorkManager periodic job) calls to keep the cached bytes fresh — see
+//! ADR-012, "Scheduler integration".
 
-// Refresh abstraction is scaffolded ahead of the DoH HTTPS-RR client; production
-// wiring lands with ADR-012. Suppress dead_code until then.
+// Some helpers are still only exercised by tests (the cache's last-resort
+// branch, `opportunistic_ech_config_for_ip`'s match for the static
+// catalogue) — `allow(dead_code)` keeps the lint quiet without inviting
+// premature pruning.
 #![allow(dead_code)]
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
@@ -76,18 +83,118 @@ impl EchConfigSource for BundledEchConfigSource {
     }
 }
 
-/// Stub for a future DoH-based remote source.
+/// Default domain queried for the Cloudflare ECH config. The HTTPS resource
+/// record on this name is published by Cloudflare and rotated on the same
+/// cadence as the runtime ECH key (ADR-012).
+const REMOTE_ECH_DEFAULT_DOMAIN: &str = "cloudflare-dns.com";
+
+/// Default DoH resolver used by [`RemoteEchConfigSource`]. Cloudflare's own
+/// public resolver — the ECH config we are looking up *belongs to it*, so
+/// using it as the DoH endpoint is the correct authoritative-ish source per
+/// the ADR. No project-operated backend is involved.
+const REMOTE_ECH_DEFAULT_RESOLVER: &str = "cloudflare";
+
+/// Live DoH-based remote source for the Cloudflare ECH config.
 ///
-/// Calls to [`fetch`](EchConfigSource::fetch) always return
-/// [`EchSourceError::NotImplemented`].  The implementation will perform an
-/// HTTPS-RR (type 65) DoH query for `cloudflare-dns.com` once a lightweight
-/// DoH client is available in this crate.  See ADR-012 for the full plan.
-pub struct RemoteEchConfigSource;
+/// `fetch` performs an HTTPS-RR (type 65) query for `domain` against the
+/// resolver named by `resolver_id` (default: `cloudflare`) using the
+/// existing encrypted-DNS plumbing in [`crate::dns`]. The response is
+/// parsed via `extract_ech_config_list_from_https_response`; on success the
+/// returned bytes are run through [`validate_ech_config_list_bytes`] before
+/// being handed back to the caller. Any failure path — DNS exchange error,
+/// missing ECH SvcParam, malformed list — surfaces as
+/// [`EchSourceError::InvalidConfig`] so [`CdnEchUpdater`] can fall back to
+/// the bundled config without dropping ECH support entirely (ADR-012,
+/// "fail-secure").
+pub struct RemoteEchConfigSource {
+    domain: String,
+    resolver_id: String,
+}
+
+impl Default for RemoteEchConfigSource {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl RemoteEchConfigSource {
+    /// Construct a source that queries Cloudflare's published ECH config via
+    /// Cloudflare's own DoH resolver.
+    pub fn new() -> Self {
+        Self { domain: REMOTE_ECH_DEFAULT_DOMAIN.to_string(), resolver_id: REMOTE_ECH_DEFAULT_RESOLVER.to_string() }
+    }
+
+    /// Override the queried HTTPS-RR domain (test-only / future tuning).
+    /// The default (`cloudflare-dns.com`) is the production target.
+    pub fn with_domain(mut self, domain: impl Into<String>) -> Self {
+        self.domain = domain.into();
+        self
+    }
+
+    /// Override the DoH resolver id (`cloudflare`, `quad9`, …) used to
+    /// satisfy the lookup. Resolver discovery still goes through the shared
+    /// [`crate::dns::encrypted_dns_endpoint_for_resolver_id`] helper.
+    pub fn with_resolver(mut self, resolver_id: impl Into<String>) -> Self {
+        self.resolver_id = resolver_id.into();
+        self
+    }
+}
 
 impl EchConfigSource for RemoteEchConfigSource {
     fn fetch(&self) -> Result<Vec<u8>, EchSourceError> {
-        Err(EchSourceError::NotImplemented("RemoteEchConfigSource is not yet wired; see ADR-012"))
+        use crate::dns::{encrypted_dns_endpoint_for_resolver_id, resolve_https_ech_configs_via_encrypted_dns_with_endpoint};
+        use crate::dns::EchResolutionOutcome;
+        use crate::transport::TransportConfig;
+
+        let endpoint = encrypted_dns_endpoint_for_resolver_id(&self.resolver_id);
+        let transport = TransportConfig::Direct { route_experiment: None };
+        let outcome = resolve_https_ech_configs_via_encrypted_dns_with_endpoint(&self.domain, endpoint, &transport);
+        let bytes = match outcome {
+            EchResolutionOutcome::Available(bytes) => bytes,
+            EchResolutionOutcome::NotPublished => {
+                return Err(EchSourceError::InvalidConfig(format!(
+                    "no ECHConfigList published for {} via {} DoH",
+                    self.domain, self.resolver_id
+                )));
+            }
+            EchResolutionOutcome::ResolutionFailed(err) => {
+                return Err(EchSourceError::InvalidConfig(format!(
+                    "DoH HTTPS-RR query for {} via {} failed: {err}",
+                    self.domain, self.resolver_id
+                )));
+            }
+        };
+        validate_ech_config_list_bytes(&bytes)?;
+        Ok(bytes)
     }
+}
+
+/// Sanity-check raw ECHConfigList bytes before they are accepted as a
+/// fresh remote config. Per ADR-012 we require:
+/// - a 2-byte length prefix that matches the rest of the buffer, and
+/// - the first ECHConfig version equal to `0xfe0d`.
+///
+/// Anything shorter than 4 bytes, with a length mismatch, or with an
+/// unexpected version, is rejected as [`EchSourceError::InvalidConfig`].
+/// Returns the validated slice length on success so callers can log it.
+pub(crate) fn validate_ech_config_list_bytes(bytes: &[u8]) -> Result<usize, EchSourceError> {
+    if bytes.len() < 4 {
+        return Err(EchSourceError::InvalidConfig(format!("ECHConfigList too short: {} bytes", bytes.len())));
+    }
+    let declared = u16::from_be_bytes([bytes[0], bytes[1]]) as usize;
+    if declared + 2 != bytes.len() {
+        return Err(EchSourceError::InvalidConfig(format!(
+            "ECHConfigList length prefix {declared} does not match buffer length {}",
+            bytes.len()
+        )));
+    }
+    if bytes[2] != 0xfe || bytes[3] != 0x0d {
+        return Err(EchSourceError::InvalidConfig(format!(
+            "unexpected ECHConfig version 0x{:02x}{:02x}, want 0xfe0d",
+            bytes[2], bytes[3]
+        )));
+    }
+    Ok(bytes.len())
 }
 
 // ---------------------------------------------------------------------------
@@ -421,10 +528,73 @@ mod tests {
     }
 
     #[test]
-    fn remote_source_returns_not_implemented() {
-        let src = RemoteEchConfigSource;
-        let err = src.fetch().expect_err("RemoteEchConfigSource must return an error");
-        assert!(matches!(err, EchSourceError::NotImplemented(_)));
+    fn remote_source_default_targets_cloudflare() {
+        // The constructor must wire the production target out of the box;
+        // any drift here would silently break Phase 2.
+        let src = RemoteEchConfigSource::new();
+        assert_eq!(src.domain, "cloudflare-dns.com");
+        assert_eq!(src.resolver_id, "cloudflare");
+    }
+
+    #[test]
+    fn remote_source_with_overrides_round_trip() {
+        let src = RemoteEchConfigSource::new().with_domain("example.test").with_resolver("quad9");
+        assert_eq!(src.domain, "example.test");
+        assert_eq!(src.resolver_id, "quad9");
+    }
+
+    #[test]
+    fn validate_ech_config_list_bytes_accepts_bundled_constant() {
+        // The bundled bytes are the canonical reference shape; they must
+        // pass validation so the live response can be cross-checked
+        // against the same predicate.
+        let len = validate_ech_config_list_bytes(CLOUDFLARE_ECH_CONFIG_LIST).expect("bundled bytes must validate");
+        assert_eq!(len, CLOUDFLARE_ECH_CONFIG_LIST.len());
+    }
+
+    #[test]
+    fn validate_ech_config_list_bytes_rejects_short_input() {
+        let err = validate_ech_config_list_bytes(&[0x00, 0x02]).expect_err("3 bytes must fail");
+        assert!(matches!(err, EchSourceError::InvalidConfig(msg) if msg.contains("too short")));
+    }
+
+    #[test]
+    fn validate_ech_config_list_bytes_rejects_length_prefix_mismatch() {
+        // Length prefix says 100 bytes but buffer is 4 bytes total.
+        let err = validate_ech_config_list_bytes(&[0x00, 0x64, 0xfe, 0x0d]).expect_err("length mismatch must fail");
+        assert!(matches!(err, EchSourceError::InvalidConfig(msg) if msg.contains("length prefix")));
+    }
+
+    #[test]
+    fn validate_ech_config_list_bytes_rejects_unknown_version() {
+        // Length prefix is correct but version is 0xfe0c (one shy of 0xfe0d).
+        let err = validate_ech_config_list_bytes(&[0x00, 0x02, 0xfe, 0x0c]).expect_err("wrong version must fail");
+        assert!(matches!(err, EchSourceError::InvalidConfig(msg) if msg.contains("version")));
+    }
+
+    /// An EchConfigSource backed by a producer closure. Used to exercise
+    /// `CdnEchUpdater::refresh` without depending on a network resolver.
+    struct ClosureSource(Box<dyn Fn() -> Result<Vec<u8>, EchSourceError> + Send + Sync>);
+    impl EchConfigSource for ClosureSource {
+        fn fetch(&self) -> Result<Vec<u8>, EchSourceError> {
+            (self.0)()
+        }
+    }
+
+    #[test]
+    fn updater_refresh_persists_validated_remote_bytes() {
+        // Simulate a remote source that returns the bundled bytes (i.e.
+        // a successful fetch). After `refresh()`, `current_config()`
+        // must return those bytes from cache.
+        let payload = CLOUDFLARE_ECH_CONFIG_LIST.to_vec();
+        let primary = ClosureSource(Box::new({
+            let payload = payload.clone();
+            move || Ok(payload.clone())
+        }));
+        let updater = CdnEchUpdater::new(primary, BundledEchConfigSource, Duration::from_secs(86_400));
+        updater.refresh().expect("refresh must succeed when primary returns valid bytes");
+        let cached = updater.current_config();
+        assert_eq!(cached, payload);
     }
 
     /// Helper: an EchConfigSource that always fails.
