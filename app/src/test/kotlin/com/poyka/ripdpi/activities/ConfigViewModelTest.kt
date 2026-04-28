@@ -2,11 +2,13 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCustom
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
@@ -575,6 +577,73 @@ class ConfigViewModelTest {
         for (reason in reasons) {
             assertTrue("reason must start with 'Direct-mode': '$reason'", reason.startsWith("Direct-mode"))
         }
+    }
+
+    @Test
+    fun `direct mode snapshot threads through to relay preset reason`() {
+        // P4.3.4 wire-up: when the LatestDirectModeOutcomeStore emits an
+        // OWNED_STACK_ONLY verdict, the snapshot fields feed
+        // recommendTransportRemediation, whose kind feeds resolveRelayPresetSuggestion.
+        // This is the exact chain ConfigViewModel.uiState now executes.
+        val snapshot =
+            LatestDirectModeOutcomeSnapshot(
+                result = DirectModeVerdictResult.OWNED_STACK_ONLY,
+                reasonCode = null,
+                transportClass = null,
+                recordedAt = 0L,
+            )
+        val kind =
+            recommendTransportRemediation(
+                result = snapshot.result,
+                reasonCode = snapshot.reasonCode,
+                transportClass = snapshot.transportClass,
+            )
+        assertEquals(TransportRemediationKind.OWNED_STACK_ACTION, kind)
+
+        val suggestion =
+            resolveRelayPresetSuggestion(
+                heuristicSuggestion =
+                    RelayPresetSuggestion(
+                        preset = RelayPresetDefinition(id = "ru-mobile-relay", title = "Russian mobile relay"),
+                        reason = "heuristic only",
+                    ),
+                serviceTelemetry = ServiceTelemetrySnapshot(),
+                capabilityRecords = emptyList(),
+                transportRemediation = kind,
+            )
+        assertTrue(
+            "owned-stack reason must mention owned-stack",
+            suggestion?.reason?.contains("owned-stack") == true,
+        )
+    }
+
+    @Test
+    fun `null direct mode snapshot leaves resolution to telemetry path`() {
+        // When no diagnostics run has populated the store yet, the snapshot
+        // is null and the existing telemetry / capability evidence path
+        // remains in charge -- the wire-up must not regress that fallback.
+        val kind =
+            recommendTransportRemediation(
+                result = null,
+                reasonCode = null,
+                transportClass = null,
+            )
+        assertEquals(null, kind)
+
+        val suggestion =
+            resolveRelayPresetSuggestion(
+                heuristicSuggestion =
+                    RelayPresetSuggestion(
+                        preset = RelayPresetDefinition(id = "ru-mobile-relay", title = "Russian mobile relay"),
+                        reason = "heuristic only",
+                    ),
+                serviceTelemetry = ServiceTelemetrySnapshot(),
+                capabilityRecords = emptyList(),
+                transportRemediation = kind,
+            )
+        // Without telemetry evidence, capability records, or a remediation
+        // verdict, the resolver returns null -- same as pre-Phase F.3.
+        assertEquals(null, suggestion)
     }
 
     @Test

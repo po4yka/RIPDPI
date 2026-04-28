@@ -3,6 +3,8 @@ package com.poyka.ripdpi.activities
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
+import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticsArchiveReason
@@ -57,6 +59,7 @@ internal class MainHomeDiagnosticsActions(
     private val diagnosticsHomeWorkflowService: DiagnosticsHomeWorkflowService,
     private val diagnosticsHomeCompositeRunService: DiagnosticsHomeCompositeRunService,
     private val serviceStateStore: com.poyka.ripdpi.data.ServiceStateStore,
+    private val latestDirectModeOutcomeStore: LatestDirectModeOutcomeStore,
     private val runtimeState: MutableStateFlow<ConnectionRuntimeState>,
     private val permissionState: MutableStateFlow<PermissionRuntimeState>,
     private val homeDiagnosticsState: MutableStateFlow<HomeDiagnosticsRuntimeState>,
@@ -292,6 +295,7 @@ internal class MainHomeDiagnosticsActions(
                             }
                             progress.outcome?.let { outcome ->
                                 refreshFingerprint(outcome.fingerprintHash)
+                                publishLatestDirectModeOutcome(outcome)
                             }
                         }
                     }
@@ -360,6 +364,7 @@ internal class MainHomeDiagnosticsActions(
                             }
                             progress.outcome?.let { outcome ->
                                 refreshFingerprint(outcome.fingerprintHash)
+                                publishLatestDirectModeOutcome(outcome)
                             }
                         }
                     }
@@ -511,5 +516,27 @@ internal class MainHomeDiagnosticsActions(
     private suspend fun refreshFingerprint(fallback: String? = null) {
         val fingerprint = fallback ?: diagnosticsHomeWorkflowService.currentFingerprintHash()
         homeDiagnosticsState.update { it.copy(currentFingerprintHash = fingerprint) }
+    }
+
+    // Hand off the latest direct-mode verdict to the singleton store so other
+    // ViewModels (notably ConfigViewModel) can ground their relay-preset
+    // suggestion on the same evidence the Diagnostics ladder uses
+    // (ADR-010 P4.3.4). Verdicts without a direct-mode result clear the
+    // store so a stale entry from a previous run never leaks into the
+    // Config surface.
+    private fun publishLatestDirectModeOutcome(outcome: DiagnosticsHomeCompositeOutcome) {
+        val verdict = outcome.directModeVerdict
+        val snapshot =
+            if (verdict == null) {
+                null
+            } else {
+                LatestDirectModeOutcomeSnapshot(
+                    result = verdict.result,
+                    reasonCode = verdict.reasonCode,
+                    transportClass = verdict.transportClass,
+                    recordedAt = System.currentTimeMillis(),
+                )
+            }
+        latestDirectModeOutcomeStore.publish(snapshot)
     }
 }

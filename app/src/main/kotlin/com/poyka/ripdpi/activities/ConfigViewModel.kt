@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.DefaultRelayLocalSocksPort
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.DefaultSnowflakeBrokerUrl
 import com.poyka.ripdpi.data.DefaultSnowflakeFrontDomain
+import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -114,6 +115,7 @@ class ConfigViewModel
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val serverCapabilityStore: ServerCapabilityStore,
         private val serviceStateStore: ServiceStateStore,
+        private val latestDirectModeOutcomeStore: LatestDirectModeOutcomeStore,
     ) : ViewModel() {
         private val editorSession = MutableStateFlow(ConfigEditorSession())
         private val supportsMasquePrivacyPass = masquePrivacyPassAvailability.isAvailable()
@@ -135,7 +137,8 @@ class ConfigViewModel
                 appSettingsRepository.settings,
                 editorSession,
                 serviceStateStore.telemetry,
-            ) { settings, session, serviceTelemetry ->
+                latestDirectModeOutcomeStore.outcome,
+            ) { settings, session, serviceTelemetry, latestDirectModeOutcome ->
                 val relayPresets = relayPresetCatalog.all()
                 val networkSnapshot = runCatching { networkSnapshotProvider.capture() }.getOrNull()
                 val capabilityRecords =
@@ -187,6 +190,12 @@ class ConfigViewModel
                             heuristicSuggestion = relayPresetCatalog.suggestFor(networkSnapshot, capabilityRecords),
                             serviceTelemetry = serviceTelemetry,
                             capabilityRecords = capabilityRecords,
+                            transportRemediation =
+                                recommendTransportRemediation(
+                                    result = latestDirectModeOutcome?.result,
+                                    reasonCode = latestDirectModeOutcome?.reasonCode,
+                                    transportClass = latestDirectModeOutcome?.transportClass,
+                                ),
                         ).toUiState(draft),
                     supportsMasquePrivacyPass = supportsMasquePrivacyPass,
                     masquePrivacyPassBuildStatus = masquePrivacyPassBuildStatus,

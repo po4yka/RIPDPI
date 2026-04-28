@@ -1,9 +1,11 @@
 # ADR-010: Direct-Mode Ranked-Arm Dispatcher
 
-**Status:** P4.3.1 / P4.3.2 / P4.3.3 implemented (Phase C, 2026-04-28).
-P4.3.4 is partial: the shared selector now lives on `resolveRelayPresetSuggestion`;
-the ConfigViewModel call site still needs a direct-mode evidence source to feed
-it. See "Future Work" below.
+**Status:** Accepted. P4.3.1 / P4.3.2 / P4.3.3 implemented (Phase C,
+2026-04-28). P4.3.4 implemented (Phase F.3, 2026-04-28): a singleton
+`LatestDirectModeOutcomeStore` shuttles the most recent
+`DirectModeVerdict` from the diagnostics workflow into ConfigViewModel,
+which now passes the corresponding `TransportRemediationKind` to
+`resolveRelayPresetSuggestion` exactly as Diagnostics and Home do.
 
 ---
 
@@ -125,22 +127,47 @@ ordering, the remaining attempt budget, and the active block class, so any
 future change to the priority table or the budget bookkeeping has to update
 one canonical assertion site.
 
-### P4.3.4 — Unify Config relay preset suggestions (PARTIAL 2026-04-28)
+### P4.3.4 — Unify Config relay preset suggestions (IMPLEMENTED 2026-04-28)
 
-`ConfigRelaySupport.resolveRelayPresetSuggestion` now accepts an optional
-`transportRemediation: TransportRemediationKind?`. When non-null, the reason
-string is sourced from the new `TransportRemediationKind.toRelayPresetReason()`
-mapping; otherwise the existing telemetry-evidence path is used. The Config
-surface and the Diagnostics / Home surfaces now share the same selector
-(`recommendTransportRemediation`), so the two UI flows produce consistent
-recommendations once the same input is fed in.
+The Phase C landing wired `ConfigRelaySupport.resolveRelayPresetSuggestion`
+to optionally accept a `TransportRemediationKind` and, when non-null,
+source the reason string from `TransportRemediationKind.toRelayPresetReason()`
+instead of the telemetry-evidence path. That made the Config surface
+selector-compatible with Diagnostics and Home but left the Config call
+site without a verdict to pass.
 
-The remaining work is plumbing-only: `ConfigViewModel` does not yet observe a
-direct-mode session source, so no caller passes the new parameter today.
-Wiring requires either a diagnostics-session repository injected into
-`ConfigViewModel`, or extending `ServiceTelemetrySnapshot` with the latest
-direct-mode verdict fields. The shared selector landing here means the wire-up
-is a one-line change at the call site.
+Phase F.3 closed the loop:
 
-Verified by 3 new unit tests in `ConfigViewModelTest` (transport-remediation
-reason path, override-over-telemetry precedence, distinct-reason-per-kind).
+- New `LatestDirectModeOutcomeStore` interface
+  (`core/data/runtime-state/.../LatestDirectModeOutcomeStore.kt`) holds
+  the most recent `DirectModeVerdict` fields (`result`, `reasonCode`,
+  `transportClass`, `recordedAt`) as a `StateFlow<…?>`. The richer
+  `DiagnosticsCapabilityEvidence` list is intentionally excluded so the
+  store can live in `core/data/runtime-state` without adding a
+  `core/diagnostics` dependency. Surfaces that need the QUIC-vs-browser
+  evidence nuance (Home) read it directly from the run outcome they
+  already hold.
+- Concrete `DefaultLatestDirectModeOutcomeStore` (singleton) +
+  `LatestDirectModeOutcomeStoreModule` Hilt binding live in
+  `core/service`, mirroring the existing `PolicyHandoverEventStore`
+  pattern.
+- `MainHomeDiagnosticsActions` injects the store and publishes a
+  `LatestDirectModeOutcomeSnapshot` (or null) every time a composite-run
+  outcome arrives in `runFullAnalysis` and `runQuickAnalysis`. Verdicts
+  without a direct-mode result clear the store so a stale entry from a
+  previous run never leaks into the Config surface.
+- `ConfigViewModel` injects the store, adds its `outcome` flow as a
+  fourth source to the existing `combine(...)` that produces
+  `uiState`, and threads the resulting kind into
+  `resolveRelayPresetSuggestion(transportRemediation = ...)`. Pre-existing
+  paths (telemetry evidence, capability records) remain in charge when
+  no verdict is available.
+
+The chain — verdict → snapshot → store → ConfigViewModel.combine →
+recommendTransportRemediation → resolveRelayPresetSuggestion → UI
+suggestion — is exercised end-to-end by the existing unit suite plus a
+new ConfigViewModelTest case (`direct mode snapshot threads through to
+relay preset reason`) that confirms the OWNED_STACK_ACTION reason
+surfaces, and a fall-through test
+(`null direct mode snapshot leaves resolution to telemetry path`)
+guarding the no-regression case.

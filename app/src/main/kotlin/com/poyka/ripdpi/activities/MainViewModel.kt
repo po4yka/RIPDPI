@@ -373,6 +373,7 @@ class MainViewModel
                 diagnosticsHomeCompositeRunService =
                     mainDiagnosticsDependencies.homeDiagnosticsServices.compositeRunService,
                 serviceStateStore = mainServiceDependencies.serviceStateStore,
+                latestDirectModeOutcomeStore = mainDiagnosticsDependencies.latestDirectModeOutcomeStore,
                 runtimeState = runtimeState,
                 permissionState = permissionState,
                 homeDiagnosticsState = homeDiagnosticsState,
