@@ -36,7 +36,7 @@ fn spawn_batched_doh_fixture(
             let (request_line, body) = read_http_request(&mut tls_stream);
             assert_eq!(request_line, "POST /dns-query HTTP/1.1");
             let message = Message::from_vec(&body).expect("query parses");
-            let query = message.query().expect("query section");
+            let query = message.queries.first().expect("query section");
             assert_eq!(query.name().to_ascii(), expected_domain);
             assert_eq!(query.query_type(), expected_type);
             observed_count.fetch_add(1, Ordering::Relaxed);

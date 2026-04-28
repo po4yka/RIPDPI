@@ -8,7 +8,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crypto_box::aead::Aead;
 use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
-use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
+use hickory_proto::op::{Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::TXT;
 use hickory_proto::rr::{Name, RData, Record, RecordType};
 use quinn::crypto::rustls::QuicServerConfig;
@@ -739,21 +739,17 @@ fn build_dnscrypt_server_state(
 fn is_dnscrypt_certificate_query(packet: &[u8]) -> bool {
     Message::from_vec(packet)
         .ok()
-        .and_then(|message| message.query().map(|query| query.query_type() == RecordType::TXT))
+        .and_then(|message| message.queries.first().map(|query| query.query_type() == RecordType::TXT))
         .unwrap_or(false)
 }
 
 fn build_dnscrypt_cert_response(query: &[u8], provider_name: &str, cert_bytes: &[u8]) -> Vec<u8> {
     let request = Message::from_vec(query).expect("fixture dnscrypt cert query parses");
-    let mut response = Message::new();
-    response
-        .set_id(request.id())
-        .set_message_type(MessageType::Response)
-        .set_op_code(OpCode::Query)
-        .set_recursion_desired(request.recursion_desired())
-        .set_recursion_available(true)
-        .set_response_code(ResponseCode::NoError)
-        .add_query(Query::query(Name::from_ascii(provider_name).expect("fixture provider name"), RecordType::TXT));
+    let mut response = Message::response(request.metadata.id, OpCode::Query);
+    response.metadata.recursion_desired = request.metadata.recursion_desired;
+    response.metadata.recursion_available = true;
+    response.metadata.response_code = ResponseCode::NoError;
+    response.add_query(Query::query(Name::from_ascii(provider_name).expect("fixture provider name"), RecordType::TXT));
     response.add_answer(Record::from_rdata(
         Name::from_ascii(provider_name).expect("fixture provider name"),
         600,

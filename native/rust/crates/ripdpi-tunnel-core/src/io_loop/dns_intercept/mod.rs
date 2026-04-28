@@ -313,27 +313,19 @@ mod tests {
     }
 
     fn build_query(name: &str) -> Vec<u8> {
-        let mut message = Message::new();
-        message
-            .set_id(0x1234)
-            .set_message_type(MessageType::Query)
-            .set_op_code(OpCode::Query)
-            .set_recursion_desired(true)
-            .add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
+        let mut message = Message::new(0x1234, MessageType::Query, OpCode::Query);
+        message.metadata.recursion_desired = true;
+        message.add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
         message.to_vec().expect("query encodes")
     }
 
     fn build_response(name: &str, ip: Ipv4Addr) -> Vec<u8> {
-        let mut message = Message::new();
-        message
-            .set_id(0x1234)
-            .set_message_type(MessageType::Response)
-            .set_op_code(OpCode::Query)
-            .set_recursion_desired(true)
-            .set_recursion_available(true)
-            .set_response_code(ResponseCode::NoError)
-            .add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A))
-            .add_answer(Record::from_rdata(Name::from_ascii(name).expect("name"), 60, RData::A(A(ip))));
+        let mut message = Message::response(0x1234, OpCode::Query);
+        message.metadata.recursion_desired = true;
+        message.metadata.recursion_available = true;
+        message.metadata.response_code = ResponseCode::NoError;
+        message.add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
+        message.add_answer(Record::from_rdata(Name::from_ascii(name).expect("name"), 60, RData::A(A(ip))));
         message.to_vec().expect("response encodes")
     }
 
@@ -424,9 +416,9 @@ mod tests {
         let rewritten = cache.rewrite_response(&query, &upstream).expect("rewrite succeeds");
         let message = Message::from_vec(&rewritten.response).expect("rewritten response parses");
         let synthetic_ip = message
-            .answers()
+            .answers
             .iter()
-            .find_map(|record| match record.data() {
+            .find_map(|record| match &record.data {
                 RData::A(address) => Some(address.0),
                 _ => None,
             })

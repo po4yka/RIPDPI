@@ -14,15 +14,11 @@ fn build_service_binding_response(
     svc_params: Vec<(SvcParamKey, SvcParamValue)>,
 ) -> Vec<u8> {
     let request = Message::from_vec(query).expect("query parses");
-    let mut response = Message::new();
-    response
-        .set_id(request.id())
-        .set_message_type(MessageType::Response)
-        .set_op_code(OpCode::Query)
-        .set_recursion_desired(request.recursion_desired())
-        .set_recursion_available(true)
-        .set_response_code(ResponseCode::NoError);
-    for question in request.queries() {
+    let mut response = Message::response(request.metadata.id, OpCode::Query);
+    response.metadata.recursion_desired = request.metadata.recursion_desired;
+    response.metadata.recursion_available = true;
+    response.metadata.response_code = ResponseCode::NoError;
+    for question in &request.queries {
         response.add_query(question.clone());
         let binding = SVCB::new(svc_priority, Name::from_ascii(target_name).expect("target name"), svc_params.clone());
         let rdata = match record_type {

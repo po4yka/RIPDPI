@@ -6,7 +6,7 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use hickory_proto::op::{Message, MessageType, OpCode, ResponseCode};
+use hickory_proto::op::{Message, OpCode, ResponseCode};
 use hickory_proto::rr::{Name, RecordType};
 use hickory_resolver::config::{NameServerConfig, NameServerConfigGroup, ResolverConfig, ResolverOpts};
 use hickory_resolver::name_server::TokioConnectionProvider;
@@ -42,7 +42,7 @@ async fn exchange_via_hickory(
     // 1. Parse the incoming raw DNS query to extract the name and record type.
     let query_msg = Message::from_vec(query_bytes).map_err(|e| EncryptedDnsError::DnsParse(e.to_string()))?;
     let query = query_msg
-        .queries()
+        .queries
         .first()
         .ok_or_else(|| EncryptedDnsError::DnsParse("query contains no questions".to_string()))?;
     let name: Name = query.name().clone();
@@ -78,7 +78,7 @@ async fn exchange_via_hickory(
     opts.attempts = 1; // We handle retries at ResolverPool level.
     opts.cache_size = 0; // Disable cache -- we need raw bytes per query.
     opts.use_hosts_file = Default::default();
-    opts.recursion_desired = query_msg.recursion_desired();
+    opts.recursion_desired = query_msg.metadata.recursion_desired;
 
     let resolver = Resolver::builder_with_config(config, TokioConnectionProvider::default()).with_options(opts).build();
 
@@ -89,17 +89,13 @@ async fn exchange_via_hickory(
     // 5. Reconstruct a DNS wire-format response from the parsed records.
     //    This is the key challenge: hickory-resolver returns parsed Record objects,
     //    not raw bytes. We build a new Message preserving the original query ID.
-    let mut response = Message::new();
-    response
-        .set_id(query_msg.id())
-        .set_message_type(MessageType::Response)
-        .set_op_code(OpCode::Query)
-        .set_recursion_desired(query_msg.recursion_desired())
-        .set_recursion_available(true)
-        .set_response_code(ResponseCode::NoError);
+    let mut response = Message::response(query_msg.metadata.id, OpCode::Query);
+    response.metadata.recursion_desired = query_msg.metadata.recursion_desired;
+    response.metadata.recursion_available = true;
+    response.metadata.response_code = ResponseCode::NoError;
 
     // Copy original questions into response.
-    for q in query_msg.queries() {
+    for q in &query_msg.queries {
         response.add_query(q.clone());
     }
 

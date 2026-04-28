@@ -107,8 +107,8 @@ impl DnsCache {
         let mut cache_hits = 0u64;
         let mut cache_misses = 0u64;
 
-        for record in message.answers_mut().iter_mut() {
-            let replacement = match record.data() {
+        for record in message.answers.iter_mut() {
+            let replacement = match &record.data {
                 RData::A(address) => {
                     let (mapped, hit) = self.find(&host, u32::from(address.0))?;
                     if hit {
@@ -121,16 +121,16 @@ impl DnsCache {
                 _ => None,
             };
             if let Some(data) = replacement {
-                record.set_data(data);
+                record.data = data;
             }
         }
 
         // Strip AAAA records from answers, additionals, and name-servers so
         // Android's Happy Eyeballs algorithm cannot prefer a raw IPv6 address
         // that bypasses the VPN tunnel (causing ENETUNREACH).
-        message.answers_mut().retain(|r| !matches!(r.data(), RData::AAAA(_)));
-        message.additionals_mut().retain(|r| !matches!(r.data(), RData::AAAA(_)));
-        message.name_servers_mut().retain(|r| !matches!(r.data(), RData::AAAA(_)));
+        message.answers.retain(|r| !matches!(&r.data, RData::AAAA(_)));
+        message.additionals.retain(|r| !matches!(&r.data, RData::AAAA(_)));
+        message.authorities.retain(|r| !matches!(&r.data, RData::AAAA(_)));
 
         Ok(DnsRewriteResult {
             response: message.to_vec().map_err(|err| DnsCacheError::DnsEncode(err.to_string()))?,
@@ -216,7 +216,7 @@ impl DnsCache {
 
 fn primary_question_name(packet: &[u8]) -> Result<String, DnsCacheError> {
     let message = Message::from_vec(packet).map_err(|err| DnsCacheError::DnsParse(err.to_string()))?;
-    let query = message.query().ok_or(DnsCacheError::Truncated)?;
+    let query = message.queries.first().ok_or(DnsCacheError::Truncated)?;
     Ok(query.name().to_utf8().trim_end_matches('.').to_string())
 }
 
@@ -268,26 +268,18 @@ mod tests {
     const MASK: u32 = 0xFFFE_0000;
 
     fn build_query(name: &str) -> Vec<u8> {
-        let mut message = Message::new();
-        message
-            .set_id(0x1234)
-            .set_message_type(MessageType::Query)
-            .set_op_code(OpCode::Query)
-            .set_recursion_desired(true)
-            .add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
+        let mut message = Message::new(0x1234, MessageType::Query, OpCode::Query);
+        message.metadata.recursion_desired = true;
+        message.add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
         message.to_vec().expect("query encodes")
     }
 
     fn build_response(name: &str, ips: &[Ipv4Addr], include_aaaa: bool) -> Vec<u8> {
-        let mut message = Message::new();
-        message
-            .set_id(0x1234)
-            .set_message_type(MessageType::Response)
-            .set_op_code(OpCode::Query)
-            .set_recursion_desired(true)
-            .set_recursion_available(true)
-            .set_response_code(ResponseCode::NoError)
-            .add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
+        let mut message = Message::response(0x1234, OpCode::Query);
+        message.metadata.recursion_desired = true;
+        message.metadata.recursion_available = true;
+        message.metadata.response_code = ResponseCode::NoError;
+        message.add_query(Query::query(Name::from_ascii(name).expect("name"), RecordType::A));
 
         for ip in ips {
             message.add_answer(Record::from_rdata(Name::from_ascii(name).expect("name"), 60, RData::A(A(*ip))));
@@ -307,9 +299,9 @@ mod tests {
     fn a_answers(packet: &[u8]) -> Vec<Ipv4Addr> {
         let message = Message::from_vec(packet).expect("dns packet parses");
         message
-            .answers()
+            .answers
             .iter()
-            .filter_map(|record| match record.data() {
+            .filter_map(|record| match &record.data {
                 RData::A(address) => Some(address.0),
                 _ => None,
             })
@@ -319,9 +311,9 @@ mod tests {
     fn aaaa_answers(packet: &[u8]) -> Vec<Ipv6Addr> {
         let message = Message::from_vec(packet).expect("dns packet parses");
         message
-            .answers()
+            .answers
             .iter()
-            .filter_map(|record| match record.data() {
+            .filter_map(|record| match &record.data {
                 RData::AAAA(address) => Some(address.0),
                 _ => None,
             })
@@ -388,7 +380,7 @@ mod tests {
         assert!(a_answers(&rewritten.response).is_empty(), "no A records expected");
         // The response should still be a valid DNS message.
         let msg = Message::from_vec(&rewritten.response).expect("valid DNS message");
-        assert!(msg.answers().is_empty());
+        assert!(msg.answers.is_empty());
     }
 
     #[test]
@@ -398,9 +390,9 @@ mod tests {
 
         let response = cache.servfail_response(&query).expect("servfail builds");
         let message = Message::from_vec(&response).expect("response parses");
-        assert_eq!(message.response_code(), ResponseCode::ServFail);
-        assert_eq!(message.queries().len(), 1);
-        assert!(message.answers().is_empty());
+        assert_eq!(message.metadata.response_code, ResponseCode::ServFail);
+        assert_eq!(message.queries.len(), 1);
+        assert!(message.answers.is_empty());
     }
 
     #[test]
