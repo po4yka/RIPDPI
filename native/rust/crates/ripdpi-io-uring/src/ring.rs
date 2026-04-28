@@ -40,6 +40,13 @@ pub enum Submission {
     SendZc { fd: RawFd, buf_index: u16, len: u32, token: u64 },
     /// Receive into a registered buffer.
     RecvFixed { fd: RawFd, buf_index: u16, token: u64 },
+    /// Plain (non-registered) write from a caller-owned buffer.
+    ///
+    /// The driver thread owns `buf` for the duration of the IO and drops it
+    /// once the matching completion is reaped. Use this for write paths that
+    /// operate on `Vec<u8>` buffers (e.g. TUN `tx_queue`) where copying into
+    /// a registered buffer pool isn't worth the complexity.
+    Write { fd: RawFd, buf: Vec<u8>, token: u64 },
     /// Batched read from a TUN fd into multiple registered buffers.
     TunReadBatch { fd: RawFd, buf_indices: Vec<u16>, token_base: u64 },
     /// Batched write of TUN packets from registered buffers.
@@ -157,6 +164,18 @@ impl IoUringDriver {
         CompletionFuture { token, registry: Arc::clone(&self.registry) }
     }
 
+    /// Submit a plain (non-registered) write and return a future.
+    ///
+    /// Ownership of `buf` is transferred to the driver, which keeps it alive
+    /// until the io_uring completion is reaped. This is the correct opcode
+    /// for caller-owned `Vec<u8>` payloads; `send_zc` requires a registered
+    /// buffer and is wrong for this path.
+    pub fn write(&self, fd: RawFd, buf: Vec<u8>) -> CompletionFuture {
+        let token = next_token();
+        let _ = self.tx.send(Submission::Write { fd, buf, token });
+        CompletionFuture { token, registry: Arc::clone(&self.registry) }
+    }
+
     /// Access the registered buffer pool.
     pub fn pool(&self) -> &Arc<RegisteredBufferPool> {
         &self.pool
@@ -221,6 +240,10 @@ pub fn block_on_completion(future: CompletionFuture) -> CompletionResult {
 }
 
 fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, registry: Arc<CompletionRegistry>) {
+    // Buffers owned by the driver while their plain Write IO is in flight.
+    // Keyed by submission token; the entry is dropped after the matching CQE
+    // is drained, freeing the heap allocation referenced by the kernel's SQE.
+    let mut pending_write_buffers: HashMap<u64, Vec<u8>> = HashMap::new();
     loop {
         // Drain available submissions.
         let mut submitted = 0u32;
@@ -278,6 +301,27 @@ fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, registry: Arc
                     }
                     submitted += 1;
                 }
+                Submission::Write { fd, buf, token } => {
+                    let len = buf.len() as u32;
+                    let ptr = buf.as_ptr();
+                    // Take ownership of the buffer until the kernel finishes
+                    // the IO. Vec's heap allocation does not move when the
+                    // metadata is inserted into the HashMap, so `ptr` remains
+                    // valid for the lifetime of the SQE.
+                    pending_write_buffers.insert(token, buf);
+                    let entry = opcode::Write::new(Fd(fd), ptr, len).build().user_data(token);
+                    // SAFETY: the buffer at `ptr` is owned by `pending_write_buffers`
+                    // until the matching CQE is drained below; the heap allocation
+                    // is stable for that window. `fd` follows the same caller-keeps-
+                    // open contract documented on `Submission`.
+                    unsafe {
+                        if ring.submission().push(&entry).is_err() {
+                            let _ = ring.submit();
+                            let _ = ring.submission().push(&entry);
+                        }
+                    }
+                    submitted += 1;
+                }
                 Submission::TunReadBatch { fd, buf_indices, token_base } => {
                     for (i, &buf_idx) in buf_indices.iter().enumerate() {
                         let token = token_base + i as u64;
@@ -324,6 +368,9 @@ fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, registry: Arc
         for cqe in cq {
             let token = cqe.user_data();
             let result = CompletionResult { result: cqe.result(), flags: cqe.flags() };
+            // If this token belongs to a plain Write, release the buffer now
+            // that the kernel is done with it. No-op for any other opcode.
+            pending_write_buffers.remove(&token);
             registry.complete(token, result);
         }
     }

@@ -33,7 +33,7 @@ annotation class VpnFamilyPackages
  * Clearing the preference store forces re-selection on the next VPN session.
  */
 @Singleton
-class DnsPathPreferenceInvalidator
+open class DnsPathPreferenceInvalidator
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
@@ -65,7 +65,7 @@ class DnsPathPreferenceInvalidator
             }
 
         /** Register the broadcast receiver. Call once during application or service startup. */
-        fun register() {
+        open fun register() {
             val filter =
                 IntentFilter().apply {
                     addAction(Intent.ACTION_PACKAGE_REPLACED)
@@ -77,7 +77,7 @@ class DnsPathPreferenceInvalidator
         }
 
         /** Unregister the broadcast receiver. Call when the registration context is destroyed. */
-        fun unregister() {
+        open fun unregister() {
             runCatching { context.unregisterReceiver(receiver) }
                 .onFailure { log.w(it) { "unregisterReceiver failed (already unregistered?)" } }
         }

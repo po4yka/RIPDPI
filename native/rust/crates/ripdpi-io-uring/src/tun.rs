@@ -76,18 +76,22 @@ pub fn batch_tun_read(
 /// Submit a batch of writes to the TUN fd from the smoltcp tx_queue.
 ///
 /// Takes packets from the provided iterator and writes them using io_uring
-/// fixed-buffer writes. Returns the number of packets successfully submitted.
+/// plain writes (`opcode::Write`). Returns the number of packets successfully
+/// submitted.
 ///
 /// This is a blocking function.
 pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: RawFd, packets: &[Vec<u8>]) -> std::io::Result<usize> {
     let mut written = 0;
 
     // For tx_queue writes, we don't use registered buffers since the packets
-    // come from smoltcp's VecDeque<Vec<u8>>. We submit plain writes instead.
+    // come from smoltcp's VecDeque<Vec<u8>>. We submit plain `opcode::Write`
+    // requests through the driver, which takes ownership of the per-packet
+    // buffer until the kernel completes the IO.
+    //
     // A registered-buffer variant (copy into pool, then WriteFixed) is tracked
     // in ADR-013 (P5.2.2); worth pursuing only once TUN write benchmarks exist.
     for pkt in packets.iter().take(TUN_WRITE_BATCH_SIZE) {
-        let future = uring.send_zc(tun_fd, 0, pkt.len() as u32);
+        let future = uring.write(tun_fd, pkt.clone());
         let result = crate::ring::block_on_completion(future);
 
         if result.result >= 0 {

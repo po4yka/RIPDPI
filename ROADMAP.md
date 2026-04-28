@@ -256,7 +256,7 @@ crate, test counts, and ADR references.
 - Apps Script relay: actively dispatched via `UpstreamRelaySupervisor`;
   configuration path documented in KDoc (not orphan).
 
-**Open follow-ups (as of 2026-04-27).** Each item has an owning ADR or
+**Open follow-ups (as of 2026-04-28).** Each item has an owning ADR or
 section that holds the implementation plan; nothing below is blocking the
 current release.
 
@@ -269,12 +269,17 @@ current release.
 | Offline Learner | Attempt-budget enforcement in the learner | ADR-011 |
 | Offline Learner | Shared-priors upload constraints (max payload, rate limit) | ADR-011 |
 | Offline Learner | Emulator / sim-to-field calibration beyond archive mining | ADR-011 |
-| Offline Learner | Fix `lcg_f64 >> 33` bias (currently yields `[0, 0.5)`) | ADR-011 |
 | Monitor | `RemoteEchConfigSource` via DoH HTTPS RR query + scheduler integration | ADR-012 |
 | io_uring | Switch `stream_copy_uring` busy-wait to `thread::park` / `unpark` | ADR-013 |
 | io_uring | Registered-buffer TX path in `tun.rs::batch_tun_write` | ADR-013 |
-| io_uring | Fix `send_zc(buf_index: 0)` opcode bug in `batch_tun_write` | ADR-013 |
-| DNS | Hook `DnsPathPreferenceInvalidator.register()` into `Application.onCreate()` | DNS Enforcement Slice (above) |
+
+### 2026-04-28: Phase A Quick Correctness Fixes
+
+Status: COMPLETE.
+
+- Wired `DnsPathPreferenceInvalidator.register()` into `AppStartupInitializer` as a new startup subsystem so per-app-family invalidation actually fires; added regression coverage for the registration call, ordering, and failure-tolerance against earlier subsystems.
+- Replaced the `send_zc(buf_index: 0)` opcode in `batch_tun_write` with a new `Submission::Write` / `IoUringDriver::write` path backed by `opcode::Write`. The driver now owns the per-packet `Vec<u8>` until the matching CQE is reaped, removing the latent registered-buffer mismatch (ADR-013).
+- Fixed the `>> 33` shift in `StrategyEvolver::lcg_next` to use `>> 32`, restoring `lcg_f64`'s full `[0, 1)` range (was `[0, 0.5)`); added a regression test that asserts mean ≈ 0.5 and span across both halves of the unit interval (ADR-011).
 
 See `docs/architecture/README.md` for the ADR index.
 

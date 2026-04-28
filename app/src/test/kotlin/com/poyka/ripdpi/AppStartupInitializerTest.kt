@@ -2,9 +2,15 @@ package com.poyka.ripdpi
 
 import android.app.Application
 import com.poyka.ripdpi.core.detection.DetectionObservationStarter
+import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
+import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.strategy.StrategyPackService
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
@@ -45,12 +51,14 @@ class AppStartupInitializerTest {
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.compatibilityReset.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.strategyPackInitialization.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.diagnosticsBootstrap.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.dnsPathInvalidatorRegistration.status)
             assertEquals(1, compatibilityResetter.calls)
             assertEquals(1, strategyPackService.initializeCalls)
             assertEquals(1, diagnosticsBootstrapper.calls)
             assertEquals(
                 "App startup report: compatibility_reset=succeeded, " +
-                    "strategy_pack_initialization=succeeded, diagnostics_bootstrap=succeeded",
+                    "strategy_pack_initialization=succeeded, diagnostics_bootstrap=succeeded, " +
+                    "dns_path_invalidator_registration=succeeded",
                 report.toLogMessage(),
             )
         }
@@ -211,12 +219,69 @@ class AppStartupInitializerTest {
                         RecordingStrategyPackService(onInitialize = { callOrder += "strategy" }),
                     diagnosticsBootstrapper =
                         RecordingDiagnosticsBootstrapper(onInitialize = { callOrder += "diagnostics" }),
+                    dnsPathPreferenceInvalidator =
+                        RecordingDnsPathPreferenceInvalidator(
+                            application = application,
+                            onRegister = { callOrder += "dns_path_invalidator" },
+                        ),
                     scope = backgroundScope,
                 )
 
             initializer.initializeSubsystems()
 
-            assertEquals(listOf("compatibility", "strategy", "diagnostics"), callOrder)
+            assertEquals(listOf("compatibility", "strategy", "diagnostics", "dns_path_invalidator"), callOrder)
+        }
+
+    @Test
+    fun `initializeSubsystems registers DNS path invalidator`() =
+        runTest {
+            val invalidator = RecordingDnsPathPreferenceInvalidator(application = application)
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = RecordingAppCompatibilityResetter(),
+                    strategyPackService = RecordingStrategyPackService(),
+                    diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper(),
+                    dnsPathPreferenceInvalidator = invalidator,
+                    scope = backgroundScope,
+                )
+
+            val report = initializer.initializeSubsystems()
+
+            assertEquals(1, invalidator.registerCalls)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.dnsPathInvalidatorRegistration.status)
+        }
+
+    @Test
+    fun `dns path invalidator failure does not prevent earlier startup steps`() =
+        runTest {
+            val invalidator =
+                RecordingDnsPathPreferenceInvalidator(
+                    application = application,
+                    failure = IllegalStateException("dns-invalidator-boom"),
+                )
+            val compatibilityResetter = RecordingAppCompatibilityResetter()
+            val strategyPackService = RecordingStrategyPackService()
+            val diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper()
+            val initializer =
+                createInitializer(
+                    compatibilityResetter = compatibilityResetter,
+                    strategyPackService = strategyPackService,
+                    diagnosticsBootstrapper = diagnosticsBootstrapper,
+                    dnsPathPreferenceInvalidator = invalidator,
+                    scope = backgroundScope,
+                )
+
+            val report = initializer.initializeSubsystems()
+
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.compatibilityReset.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.strategyPackInitialization.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.diagnosticsBootstrap.status)
+            assertEquals(AppStartupSubsystemStatus.Failed, report.dnsPathInvalidatorRegistration.status)
+            assertEquals("dns-invalidator-boom", report.dnsPathInvalidatorRegistration.errorMessage)
+            assertEquals(1, compatibilityResetter.calls)
+            assertEquals(1, strategyPackService.initializeCalls)
+            assertEquals(1, diagnosticsBootstrapper.calls)
+            assertEquals(1, invalidator.registerCalls)
         }
 
     private fun createInitializer(
@@ -224,6 +289,8 @@ class AppStartupInitializerTest {
         strategyPackService: StrategyPackService,
         diagnosticsBootstrapper: DiagnosticsBootstrapper,
         detectionObservationStarter: RecordingDetectionObservationStarter = RecordingDetectionObservationStarter(),
+        dnsPathPreferenceInvalidator: RecordingDnsPathPreferenceInvalidator =
+            RecordingDnsPathPreferenceInvalidator(application),
         scope: CoroutineScope,
     ): AppStartupInitializer =
         AppStartupInitializer(
@@ -232,6 +299,7 @@ class AppStartupInitializerTest {
             diagnosticsBootstrapperProvider = constantProvider(diagnosticsBootstrapper),
             detectionObservationStarter = detectionObservationStarter,
             strategyPackService = strategyPackService,
+            dnsPathPreferenceInvalidator = dnsPathPreferenceInvalidator,
             applicationScope = scope,
         )
 }
@@ -303,3 +371,41 @@ private fun constantProvider(bootstrapper: DiagnosticsBootstrapper): Provider<Di
     object : Provider<DiagnosticsBootstrapper> {
         override fun get(): DiagnosticsBootstrapper = bootstrapper
     }
+
+private class RecordingDnsPathPreferenceInvalidator(
+    application: Application,
+    private val failure: Throwable? = null,
+    private val onRegister: (() -> Unit)? = null,
+) : DnsPathPreferenceInvalidator(
+        context = application,
+        networkDnsPathPreferenceStore = NoOpNetworkDnsPathPreferenceStore,
+        appScope = CoroutineScope(SupervisorJob()),
+        trackedPackages = emptySet(),
+    ) {
+    var registerCalls: Int = 0
+        private set
+
+    override fun register() {
+        registerCalls += 1
+        onRegister?.invoke()
+        failure?.let { throw it }
+    }
+
+    override fun unregister() {
+        // No-op for tests; the real receiver was never registered.
+    }
+}
+
+private object NoOpNetworkDnsPathPreferenceStore : NetworkDnsPathPreferenceStore {
+    override suspend fun getPreferredPath(fingerprintHash: String): EncryptedDnsPathCandidate? = null
+
+    override suspend fun clearAll() {
+        // no-op
+    }
+
+    override suspend fun rememberPreferredPath(
+        fingerprint: NetworkFingerprint,
+        path: EncryptedDnsPathCandidate,
+        recordedAt: Long?,
+    ): NetworkDnsPathPreferenceEntity = error("not used in startup tests")
+}
