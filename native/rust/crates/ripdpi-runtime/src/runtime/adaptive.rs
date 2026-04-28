@@ -137,6 +137,7 @@ fn tcp_learning_context(
         resolver_health: resolver_health_context(state.runtime_context.as_ref()),
         rooted: state.config.process.root_mode,
         capability_context: capability_context(capability),
+        environment: state.config.process.environment_kind,
     }
 }
 
@@ -172,6 +173,7 @@ fn udp_learning_context(
         resolver_health: resolver_health_context(state.runtime_context.as_ref()),
         rooted: state.config.process.root_mode,
         capability_context: capability_context(capability),
+        environment: state.config.process.environment_kind,
     }
 }
 

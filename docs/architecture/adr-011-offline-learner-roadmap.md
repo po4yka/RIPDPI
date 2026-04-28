@@ -1,9 +1,12 @@
 # ADR-011: Offline Learner Improvement Roadmap (P4.4)
 
-**Status:** P4.4.1 / P4.4.2 / P4.4.3 implemented; P4.4.4 partial (format
-parser landed, fetch/refresh/signed-manifest still deferred); P4.4.5
-remains deferred as a research spike.
-**Date:** 2026-04-27 (initial), 2026-04-28 (Phase D)
+**Status:** P4.4.1 / P4.4.2 / P4.4.3 implemented; P4.4.4 partial
+(parser, manifest verifier, and fail-secure apply pipeline landed;
+Kotlin transport, scheduler, and embedded production release key still
+deferred); P4.4.5 scaffolded (type system, plumbing, and segregation
+landed; detector and calibration math still deferred as a research
+spike).
+**Date:** 2026-04-27 (initial), 2026-04-28 (Phase D), 2026-04-28 (Phase F)
 **Deciders:** Nikita Pochaev
 
 ---
@@ -209,7 +212,76 @@ becomes a thin "fetch-and-hand-off-bytes" client.
 
 ## P4.4.5 — Emulator / sim-to-field calibration
 
-**Status: Deferred.**
+**Status: Scaffolded 2026-04-28.** Type system, plumbing, and automatic
+segregation landed; calibration-factor math and the Android-side
+detector still deferred as a research spike.
+
+### Implementation (this Phase)
+
+- New `EnvironmentKind { Unknown, Field, Emulator }` enum in
+  `ripdpi-config` (alongside `RuntimeProcessSettings::root_mode`), so
+  Rust types describing process-level platform context all live in one
+  place. `Default` is `Unknown` — the conservative choice for builds
+  that have not wired the platform-side detector.
+- `RuntimeProcessSettings::environment_kind` field, plumbed through the
+  same JNI config bridge as `root_mode`.
+- `LearningContext::environment` field. Including `environment` in the
+  bandit's HashMap key means **segregation falls out for free**: a
+  field-mode session and an emulator-mode session that are otherwise
+  identical now occupy distinct `ContextBanditState` entries, so
+  emulator-derived statistics cannot pollute field priors. No structural
+  change to `ContextBanditState` is required, contrary to the original
+  Option-A plan; the type-system guarantee replaces an explicit
+  `field_combos` / `emulator_combos` split.
+- `runtime/adaptive.rs::tcp_learning_context` and `udp_learning_context`
+  populate `environment` from `state.config.process.environment_kind`,
+  mirroring the existing `rooted` plumbing exactly.
+- Verified by 3 unit tests: default environment is `Unknown`,
+  field-vs-emulator contexts hash and compare differently, and the
+  evolver's per-context HashMap actually keeps two distinct entries
+  when the only difference is `environment`.
+
+### Why segregation alone is enough for now
+
+The original ADR proposed three things: (1) segregation, (2) per-family
+calibration factor, (3) emulator detector. Segregation is the one with
+no design tradeoffs — it's a pure type-system extension and falls out of
+making `environment` part of the context key.
+
+Calibration-factor math is genuinely a research question:
+
+> compute a per-family calibration factor `field_success_rate /
+> emulator_success_rate` and apply it as a prior boost for emulator-
+> trained arms when deploying to field
+
+Without empirical data on how emulator and field outcomes diverge for
+*this* DPI-evasion workload, the math is speculative. Landing the
+scaffolding without the math means a future calibration PR has a
+testable boundary to plug into, rather than blocking the segregation
+benefit on an open research task.
+
+### Still deferred
+
+- **Android-side `EnvironmentDetector`** (`Build.FINGERPRINT`,
+  `Build.HARDWARE in {"ranchu", "goldfish"}`, etc.). Until this lands,
+  `environment_kind` stays `Unknown` for every Android session and
+  segregation only triggers when a test or other host explicitly
+  populates the field. The detector is mechanical to add (mirrors
+  `TestSupport.kt:353–360` which already implements the heuristic for
+  the test suite).
+- **Settings opt-in flag** `emulator_calibration_enabled`. Until the
+  calibration math is validated, exposing the toggle would advertise a
+  feature that does nothing.
+- **Calibration-factor recomputation** (per-family multiplier with a
+  safety clamp, applied to `combo_fitness_at_with_penalties` for
+  emulator-derived arms). Research spike with no clear prior art for
+  DPI evasion.
+
+The original ADR design (separate `emulator_combos` HashMap, separate
+`families` map, etc.) remains a fallback if the segregation-via-key
+approach proves insufficient — for example if family-level statistics
+need different per-environment aggregation than per-combo statistics
+require. Today the workload doesn't justify that complexity.
 
 ### Current state
 
