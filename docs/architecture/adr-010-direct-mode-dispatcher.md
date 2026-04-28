@@ -1,6 +1,9 @@
 # ADR-010: Direct-Mode Ranked-Arm Dispatcher
 
-**Status:** Partial — P4.3.1 accepted; P4.3.2 / P4.3.3 / P4.3.4 deferred.
+**Status:** P4.3.1 / P4.3.2 / P4.3.3 implemented (Phase C, 2026-04-28).
+P4.3.4 is partial: the shared selector now lives on `resolveRelayPresetSuggestion`;
+the ConfigViewModel call site still needs a direct-mode evidence source to feed
+it. See "Future Work" below.
 
 ---
 
@@ -91,28 +94,53 @@ P4.3.2; no enforcement logic is wired yet.
 
 ## Future Work
 
-### P4.3.2 — Per-class attempt-budget enforcement
+### P4.3.2 — Per-class attempt-budget enforcement (IMPLEMENTED 2026-04-28)
 
-Wire the `attempt_budget` field to a runtime counter that backs off an arm
-after the budget is exhausted.  Requires a new metric layer in
-`DirectPathLearningState` to track per-(tuple, arm) attempt counts and reset
-them on the next positive signal.  Estimated scope: ~120 lines + tests.
+Implementation (`runtime/direct_path_learning.rs`):
 
-### P4.3.3 — Deterministic integration coverage
+- `TupleState` now carries an `arm_attempts: HashMap<&'static str, u32>` map
+  keyed by the static arm label.
+- New `DirectPathLearningState::note_arm_attempt(host, targets, arm_label)`
+  bumps the counter for the matching tuple/arm.
+- `ranked_arms_for` subtracts the recorded attempts from each arm's
+  `attempt_budget`, drops arms whose budget is exhausted, and falls back to a
+  single `relay_fallback` entry (class = `AllIpsFailed`, budget = 1) when
+  every preferred arm is exhausted.
+- `clear_negative_state` resets the per-arm map alongside the rest of the
+  negative evidence, so a positive signal restores the original budgets for
+  the new block class.
 
-Add a test harness that exercises the full class-to-arm execution ladder:
-for every `DirectPathBlockClass` variant, drive a synthetic connection attempt
-through the real adaptive path and assert that `ranked_arms_for` returns the
-expected ordering.  Requires a fake transport adapter or extension of
-`packet-smoke`.  Estimated scope: ~150 lines of test infrastructure.
+Verified by 4 new unit tests (decrement, drop-on-exhaust, escalate-to-relay,
+positive-signal-resets-budget) plus the multi-step ladder integration test
+under P4.3.3.
 
-### P4.3.4 — Unify Config relay preset suggestions
+### P4.3.3 — Deterministic integration coverage (IMPLEMENTED 2026-04-28)
 
-`ConfigRelaySupport.resolveRelayPresetSuggestion` and
-`TransportSpecificRemediationSupport.recommendTransportRemediation` are two
-parallel selectors that map transport-capability evidence to a relay
-recommendation.  P4.3.4 should route the Config surface through the same
-`recommendTransportRemediation` selector (or a shared successor) so the two UI
-surfaces stay in sync.  Requires a cross-crate refactor touching
-`ripdpi-config`, `app/activities/`, and their unit tests.  Estimated scope:
-~80 lines of Kotlin + tests.
+A single multi-step integration test
+(`class_to_arm_ladder_walks_clean_quic_blocked_exhausted_relay_and_back`)
+drives one tuple through every transition: clean → QuicBlocked → exhausted
+tcp_plain → exhausted tcp_tls_split → relay_fallback escalation → positive
+TCP signal restores the clean ranking. Each step asserts the ranked-arm
+ordering, the remaining attempt budget, and the active block class, so any
+future change to the priority table or the budget bookkeeping has to update
+one canonical assertion site.
+
+### P4.3.4 — Unify Config relay preset suggestions (PARTIAL 2026-04-28)
+
+`ConfigRelaySupport.resolveRelayPresetSuggestion` now accepts an optional
+`transportRemediation: TransportRemediationKind?`. When non-null, the reason
+string is sourced from the new `TransportRemediationKind.toRelayPresetReason()`
+mapping; otherwise the existing telemetry-evidence path is used. The Config
+surface and the Diagnostics / Home surfaces now share the same selector
+(`recommendTransportRemediation`), so the two UI flows produce consistent
+recommendations once the same input is fed in.
+
+The remaining work is plumbing-only: `ConfigViewModel` does not yet observe a
+direct-mode session source, so no caller passes the new parameter today.
+Wiring requires either a diagnostics-session repository injected into
+`ConfigViewModel`, or extending `ServiceTelemetrySnapshot` with the latest
+direct-mode verdict fields. The shared selector landing here means the wire-up
+is a one-line change at the call site.
+
+Verified by 3 new unit tests in `ConfigViewModelTest` (transport-remediation
+reason path, override-over-telemetry precedence, distinct-reason-per-kind).

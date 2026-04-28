@@ -262,9 +262,7 @@ current release.
 
 | Area | Item | Tracked in |
 |---|---|---|
-| Direct-Mode | Per-class attempt-budget enforcement | ADR-010 |
-| Direct-Mode | Deterministic integration coverage for the class-to-arm execution ladder | ADR-010 |
-| Direct-Mode | Unify Config relay preset suggestions onto the transport-remediation selector | ADR-010 |
+| Direct-Mode | Wire `TransportRemediationKind` from a session source into `ConfigViewModel.resolveRelayPresetSuggestion` | ADR-010 |
 | Offline Learner | Bayesian rarity / retry penalties | ADR-011 |
 | Offline Learner | Attempt-budget enforcement in the learner | ADR-011 |
 | Offline Learner | Shared-priors upload constraints (max payload, rate limit) | ADR-011 |
@@ -286,6 +284,14 @@ Status: COMPLETE in repo-owned scope (acceptance benchmarks remain a separate it
 
 - Replaced `block_on_completion`'s `thread::yield_now()` spin with a `Thread`-backed `Waker` that calls `Thread::unpark` on `wake`. The poll loop now calls `thread::park()` on `Poll::Pending`. The unpark-token semantics keep the wake/park ordering race-free without requiring changes to `CompletionRegistry`. Verified with a 4-test suite covering pre-wake, consuming wake, clone-then-wake, and a two-thread register/complete handshake against the real registry (ADR-013, P5.2.1).
 - Added a `Submission::WriteFixed` variant plus `IoUringDriver::write_fixed` and a matching `opcode::WriteFixed` driver-loop arm. `batch_tun_write` now stages each packet through `RegisteredBufferPool::acquire`, copies the payload, submits `WriteFixed`, and explicitly releases the slot via `PendingBuffer::complete` after the CQE is reaped. Falls back to the plain `IoUringDriver::write` path when the pool is exhausted or the packet is larger than `pool.buffer_size()`. Verified with a 3-test suite covering oversized-packet rejection, fitting-packet acquire/release, and pool exhaustion (ADR-013, P5.2.2).
+
+### 2026-04-28: Phase C Direct-Mode Orchestrator Finishing
+
+Status: COMPLETE in repo-owned scope (P4.3.1–P4.3.3 fully landed; P4.3.4 lands the shared selector — ConfigViewModel wire-up to a direct-mode session source remains the only open follow-up).
+
+- Per-class attempt-budget enforcement (P4.3.2): `TupleState` now carries a per-arm `arm_attempts` counter; `note_arm_attempt` bumps it; `ranked_arms_for` subtracts attempts from each arm's `attempt_budget`, drops exhausted arms, and falls back to a single `relay_fallback` entry when every preferred arm is exhausted. `clear_negative_state` resets the map alongside the rest of the negative evidence (ADR-010).
+- Deterministic integration coverage (P4.3.3): a single multi-step ladder test drives one tuple through clean → QuicBlocked → exhausted tcp_plain → exhausted tcp_tls_split → relay_fallback escalation → positive TCP signal restoring the clean ranking, asserting the ranked-arm response at every step (ADR-010).
+- Unify Config relay preset suggestions (P4.3.4): `resolveRelayPresetSuggestion` now accepts an optional `transportRemediation: TransportRemediationKind?` and, when supplied, sources the reason from the same `recommendTransportRemediation` mapping Diagnostics and Home use. The wire-up from `ConfigViewModel` to a direct-mode session source remains the only open item (ADR-010).
 
 See `docs/architecture/README.md` for the ADR index.
 
