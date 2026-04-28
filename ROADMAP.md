@@ -270,8 +270,7 @@ current release.
 | Offline Learner | Shared-priors upload constraints (max payload, rate limit) | ADR-011 |
 | Offline Learner | Emulator / sim-to-field calibration beyond archive mining | ADR-011 |
 | Monitor | `RemoteEchConfigSource` via DoH HTTPS RR query + scheduler integration | ADR-012 |
-| io_uring | Switch `stream_copy_uring` busy-wait to `thread::park` / `unpark` | ADR-013 |
-| io_uring | Registered-buffer TX path in `tun.rs::batch_tun_write` | ADR-013 |
+| io_uring | Acceptance benchmarks for the park/unpark and registered-buffer TX paths | ADR-013 |
 
 ### 2026-04-28: Phase A Quick Correctness Fixes
 
@@ -280,6 +279,13 @@ Status: COMPLETE.
 - Wired `DnsPathPreferenceInvalidator.register()` into `AppStartupInitializer` as a new startup subsystem so per-app-family invalidation actually fires; added regression coverage for the registration call, ordering, and failure-tolerance against earlier subsystems.
 - Replaced the `send_zc(buf_index: 0)` opcode in `batch_tun_write` with a new `Submission::Write` / `IoUringDriver::write` path backed by `opcode::Write`. The driver now owns the per-packet `Vec<u8>` until the matching CQE is reaped, removing the latent registered-buffer mismatch (ADR-013).
 - Fixed the `>> 33` shift in `StrategyEvolver::lcg_next` to use `>> 32`, restoring `lcg_f64`'s full `[0, 1)` range (was `[0, 0.5)`); added a regression test that asserts mean ≈ 0.5 and span across both halves of the unit interval (ADR-011).
+
+### 2026-04-28: Phase B io_uring Follow-Throughs
+
+Status: COMPLETE in repo-owned scope (acceptance benchmarks remain a separate item; see Open follow-ups).
+
+- Replaced `block_on_completion`'s `thread::yield_now()` spin with a `Thread`-backed `Waker` that calls `Thread::unpark` on `wake`. The poll loop now calls `thread::park()` on `Poll::Pending`. The unpark-token semantics keep the wake/park ordering race-free without requiring changes to `CompletionRegistry`. Verified with a 4-test suite covering pre-wake, consuming wake, clone-then-wake, and a two-thread register/complete handshake against the real registry (ADR-013, P5.2.1).
+- Added a `Submission::WriteFixed` variant plus `IoUringDriver::write_fixed` and a matching `opcode::WriteFixed` driver-loop arm. `batch_tun_write` now stages each packet through `RegisteredBufferPool::acquire`, copies the payload, submits `WriteFixed`, and explicitly releases the slot via `PendingBuffer::complete` after the CQE is reaped. Falls back to the plain `IoUringDriver::write` path when the pool is exhausted or the packet is larger than `pool.buffer_size()`. Verified with a 3-test suite covering oversized-packet rejection, fitting-packet acquire/release, and pool exhaustion (ADR-013, P5.2.2).
 
 See `docs/architecture/README.md` for the ADR index.
 

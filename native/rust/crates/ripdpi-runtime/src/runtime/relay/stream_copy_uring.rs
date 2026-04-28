@@ -164,10 +164,10 @@ fn copy_inbound_zc(
                 // Submit ZC send via io_uring.
                 let future = uring.send_zc(writer_fd, handle.buf_index(), n as u32);
 
-                // We need to block the thread until the send completes since
-                // the relay threads are synchronous (std::thread, not tokio).
-                // Currently uses a yield_now spin-wait; see ADR-013 (P5.2.1)
-                // for the park/unpark upgrade path once benchmarks are in place.
+                // Block the thread until the send completes; the relay
+                // threads are synchronous (std::thread, not tokio).
+                // `block_on_completion` parks via `thread::park` and is woken
+                // from the driver via `Thread::unpark` (ADR-013, P5.2.1).
                 let pending = handle.into_pending();
                 let result = block_on_completion(future);
 

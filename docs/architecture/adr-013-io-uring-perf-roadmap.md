@@ -1,8 +1,10 @@
 # ADR-013: io_uring Performance Optimization Roadmap
 
-**Status:** Investigation complete; both optimizations deferred pending benchmark infrastructure.
+**Status:** Both optimizations IMPLEMENTED 2026-04-28. Acceptance benchmarks
+remain future work (tracked at the bottom of this document) but no longer
+block the changes from landing.
 
-**Date:** 2026-04-27
+**Date:** 2026-04-27 (investigation), 2026-04-28 (implementation)
 
 ---
 
@@ -19,7 +21,9 @@ Two performance-oriented TODOs existed in the io_uring integration layer:
    staging them into registered buffers and using `WriteFixed`.
 
 Both were marked `// TODO(npochaev): Consider ...` during initial implementation.  This ADR
-records the investigation findings and the rationale for deferring both.
+records the investigation findings, the rationale for the original deferral, and the
+implementation that landed in Phase A (correctness fix for #2's opcode) and Phase B
+(park/unpark for #1, registered-buffer staging for #2).
 
 ---
 
@@ -71,7 +75,7 @@ that should land alongside evidence it helps.
 
 ---
 
-## Decision
+## Decision (2026-04-27, original)
 
 Defer both optimizations until:
 
@@ -82,53 +86,90 @@ Defer both optimizations until:
 2. Baseline measurements are recorded in `docs/architecture/hotspots.md`.
 3. Before/after comparison is available to confirm the change is net-positive.
 
-The TODO comments are removed from both source files to keep the codebase clean.  The roadmap
-items are tracked here instead.
+## Decision (2026-04-28, revised)
+
+Both implementations landed without acceptance benchmarks because:
+
+- The park/unpark switch is endorsed in the Alternatives Considered section
+  below as "low-risk" and "the implementation is straightforward". The
+  unpark-token semantics handle the register/wake/park race without any new
+  primitives. The cost of the change is bounded; not landing it leaves the
+  busy-spin in a code path that the rest of the relay already pays attention
+  to.
+- The registered-buffer TX path keeps the plain-write fallback for packets
+  larger than `pool.buffer_size()` and for the pool-exhausted case, so the
+  net change for callers is "use registered buffers when available", not a
+  hard cutover. `batch_tun_write` previously had no callers; even with the
+  wiring in place, no production code calls it yet, so the registered-buffer
+  path is exercised only by the unit tests.
+
+Acceptance benchmarks remain Future Work (see below) but are no longer a
+blocker for the implementation itself.
+
+The TODO comments are removed from both source files to keep the codebase clean.
 
 ---
 
 ## Future Work
 
-### P5.2.1 — Event-driven wakeup for `block_on_completion`
+### P5.2.1 — Event-driven wakeup for `block_on_completion` (IMPLEMENTED 2026-04-28)
 
-Replace the noop-waker spin-loop with `thread::park` / `thread::unpark`:
+Implementation (`ripdpi-io-uring/src/ring.rs`):
 
-- Add a `Thread` field to `WakerSlot::Waiting` in `CompletionRegistry`.
-- On registration: store `thread::current()` instead of a `Waker`.
-- On `complete`: call `thread.unpark()`.
-- `block_on_completion`: call `thread::park()` on `Poll::Pending` instead of `yield_now()`.
+- `block_on_completion` now constructs a `Waker` whose `wake` calls
+  `Thread::unpark` on the parking thread (`thread_waker(...)`).
+- The poll loop calls `thread::park()` on `Poll::Pending` instead of
+  `thread::yield_now()`. The `Thread::unpark` token semantics make the
+  ordering between the driver-thread `wake()` and the relay-thread `park()`
+  race-free: an unpark issued before park leaves a token that makes the next
+  park return immediately.
+- `CompletionRegistry` is unchanged — the existing `Waker`-based registration
+  carries the new park-aware Waker through unchanged.
 
-This eliminates busy-spinning entirely.  The `Thread::unpark` call is safe to issue before
-`park` (it sets a token), so the race that affects raw condvar usage does not apply here.
+Acceptance benchmark (still future work): relay CPU usage at idle drops
+measurably; throughput is unchanged.
 
-Acceptance: relay CPU usage at idle drops measurably in the benchmark; throughput is unchanged.
+### P5.2.2 — Registered-buffer TX path for `batch_tun_write` (IMPLEMENTED 2026-04-28)
 
-### P5.2.2 — Registered-buffer TX path for `batch_tun_write`
+Implementation (`ripdpi-io-uring/src/tun.rs`, `ripdpi-io-uring/src/ring.rs`):
 
-Extend `batch_tun_write` to accept a `&RegisteredBufferPool`, acquire a slot per packet, copy
-the payload, and submit `WriteFixed` instead of `send_zc` with index 0.  Release the buffer
-after the CQE is reaped.
+- New `Submission::WriteFixed { fd, buf_index, len, token }` variant in
+  `Submission`, plus `IoUringDriver::write_fixed(fd, buf_index, len)`.
+- Driver loop submits `opcode::WriteFixed` for the new variant, mirroring
+  the existing `RecvFixed` arm.
+- `batch_tun_write` now stages each packet through
+  `RegisteredBufferPool::acquire()`, copies the payload, calls `write_fixed`,
+  and explicitly releases the slot after the completion via
+  `PendingBuffer::complete`. When the pool is exhausted, or when the packet
+  is larger than `pool.buffer_size()`, the path falls back to the plain
+  `IoUringDriver::write` (caller-owned `Vec<u8>`) added in Phase A.
 
-Acceptance: TUN write throughput benchmark shows improvement at packet sizes where copy overhead
-is amortized by the reduced syscall cost (expected threshold: packets > ~4 KB).
+Acceptance benchmark (still future work): TUN write throughput benchmark
+shows improvement at packet sizes where copy overhead is amortized by the
+reduced syscall cost (expected threshold: packets > ~4 KB).
 
 ---
 
 ## Consequences
 
-**Positive:**
-- No speculative performance code is shipped without evidence.
-- The roadmap is explicit and actionable once benchmark infrastructure exists.
-- Source files are clean — no dangling TODOs.
+**Positive (post-implementation, 2026-04-28):**
+- No more `thread::yield_now()` spin in the relay thread; the kernel parks
+  the thread until the CQE arrives.
+- `batch_tun_write` exercises the registered-buffer path when a pool slot is
+  available, and falls back to a caller-owned plain `Write` when it isn't.
+  Either path is a correct write; the previous `send_zc(buf_index: 0)`
+  opcode mismatch is gone.
+- `IoUringDriver` now has explicit `write` and `write_fixed` methods,
+  which makes the API surface for new callers obvious.
 
-**Negative / Risks:**
-- The spin-wait in `block_on_completion` remains.  On a lightly loaded relay thread this is
-  acceptable; on a heavily loaded device it consumes one CPU yield slot per CQE round-trip.
-- `batch_tun_write` continues using `send_zc` with `buf_index: 0`, which is semantically
-  incorrect for the ZC path (no registered buffer is backing it).  This is functionally
-  equivalent to a plain send on the driver side but wastes the ZC opcode.  Fixing the opcode to
-  `Write` (non-fixed, non-ZC) would be a correctness improvement independent of the registered-
-  buffer optimization — tracked separately if it becomes a priority.
+**Risks / not-yet-validated:**
+- The CPU-idle drop from park/unpark and the throughput change from the
+  registered-buffer path are not yet measured. Acceptance benchmarks remain
+  the next step; they are not a blocker for the change itself but should
+  land before any further io_uring optimization assumes the current numbers.
+- `batch_tun_write` still has no production callers. The registered-buffer
+  path is exercised only by unit tests; once a real caller is wired in, the
+  acceptance benchmarks above should be added.
 
 ---
 
