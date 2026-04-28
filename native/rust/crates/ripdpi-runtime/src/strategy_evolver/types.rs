@@ -319,6 +319,50 @@ pub(super) const FITNESS_STABILITY_WEIGHT: f64 = 45.0;
 pub(super) const FITNESS_LATENCY_VARIANCE_WEIGHT: f64 = 20.0;
 pub(super) const FITNESS_ENERGY_WEIGHT: f64 = 18.0;
 
+// ---------------------------------------------------------------------------
+// Rarity / retry penalty knobs (P4.4.2, ADR-011)
+// ---------------------------------------------------------------------------
+
+/// Below this many attempts an arm is treated as "rare" and pays a flat
+/// fitness penalty. Pure UCB1 already up-weights rare arms during exploration;
+/// the rarity penalty applied here is a *fitness-side* counterweight so
+/// eviction and winner selection do not promote arms that are still
+/// statistically untrusted.
+pub(super) const RARITY_FLOOR: u32 = 3;
+
+/// Flat fitness penalty per attempt below [`RARITY_FLOOR`]. Scales linearly:
+/// an arm with 0 attempts pays `RARITY_PENALTY * RARITY_FLOOR`, an arm with
+/// `RARITY_FLOOR` attempts pays nothing.
+pub(super) const RARITY_PENALTY: f64 = 5.0;
+
+/// Above this many attempts an arm starts paying a log-damped retry cost
+/// that nudges the evolver toward exploring fresh combos.
+pub(super) const RETRY_SATURATION: u32 = 20;
+
+/// Multiplier on the log-damped retry term `RETRY_COST_FACTOR * ln(attempts -
+/// RETRY_SATURATION + 1)`. Bounded by ln(remaining-pool-size) in practice.
+pub(super) const RETRY_COST_FACTOR: f64 = 4.0;
+
+/// Linear penalty levied on combos with `attempts < RARITY_FLOOR`. Returns
+/// zero once the floor is reached.
+pub(super) fn rarity_penalty(attempts: u32) -> f64 {
+    if attempts >= RARITY_FLOOR {
+        return 0.0;
+    }
+    f64::from(RARITY_FLOOR - attempts) * RARITY_PENALTY
+}
+
+/// Log-damped cost levied on combos with `attempts > RETRY_SATURATION` so
+/// the evolver starts to lean away from saturated arms. Returns zero below
+/// the saturation threshold.
+pub(super) fn retry_cost(attempts: u32) -> f64 {
+    if attempts <= RETRY_SATURATION {
+        return 0.0;
+    }
+    let over = f64::from(attempts - RETRY_SATURATION);
+    RETRY_COST_FACTOR * (over + 1.0).ln()
+}
+
 /// Per-combo performance statistics.
 ///
 /// `last_attempt_ms`, `cooldown_until_ms`, and `consecutive_failure_count`
@@ -518,9 +562,30 @@ pub(super) fn combo_energy_cost(combo: &StrategyCombo) -> f64 {
 ///
 /// Pass `half_life_ms == 0` to disable decay (legacy behaviour). The
 /// production paths in [`super::StrategyEvolver`] always pass the configured
-/// `decay_half_life_ms`.
+/// `decay_half_life_ms`. Rarity / retry penalties (P4.4.2) are layered on
+/// top via [`combo_fitness_at_with_penalties`] when the evolver has them
+/// enabled; the legacy entry-point preserves the old behaviour for callers
+/// that have not opted in.
 pub(super) fn combo_fitness_at(combo: &StrategyCombo, stats: &ComboStats, now_ms: u64, half_life_ms: u64) -> f64 {
-    stats.fitness_at(now_ms, half_life_ms) - combo_energy_cost(combo) * FITNESS_ENERGY_WEIGHT
+    combo_fitness_at_with_penalties(combo, stats, now_ms, half_life_ms, false)
+}
+
+/// Idle-decayed combo fitness with the rarity / retry penalties layered on
+/// top when `penalties_enabled` is true. See [`rarity_penalty`] and
+/// [`retry_cost`] for the individual terms.
+pub(super) fn combo_fitness_at_with_penalties(
+    combo: &StrategyCombo,
+    stats: &ComboStats,
+    now_ms: u64,
+    half_life_ms: u64,
+    penalties_enabled: bool,
+) -> f64 {
+    let mut score = stats.fitness_at(now_ms, half_life_ms) - combo_energy_cost(combo) * FITNESS_ENERGY_WEIGHT;
+    if penalties_enabled {
+        score -= rarity_penalty(stats.attempts);
+        score -= retry_cost(stats.attempts);
+    }
+    score
 }
 
 // ---------------------------------------------------------------------------

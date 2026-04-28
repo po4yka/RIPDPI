@@ -263,10 +263,8 @@ current release.
 | Area | Item | Tracked in |
 |---|---|---|
 | Direct-Mode | Wire `TransportRemediationKind` from a session source into `ConfigViewModel.resolveRelayPresetSuggestion` | ADR-010 |
-| Offline Learner | Bayesian rarity / retry penalties | ADR-011 |
-| Offline Learner | Attempt-budget enforcement in the learner | ADR-011 |
-| Offline Learner | Shared-priors upload constraints (max payload, rate limit) | ADR-011 |
-| Offline Learner | Emulator / sim-to-field calibration beyond archive mining | ADR-011 |
+| Offline Learner | Shared-priors fetch / refresh / signed-manifest delivery channel (parser landed, transport deferred) | ADR-011 |
+| Offline Learner | Emulator / sim-to-field calibration beyond archive mining (research spike) | ADR-011 |
 | Monitor | `RemoteEchConfigSource` via DoH HTTPS RR query + scheduler integration | ADR-012 |
 | io_uring | Acceptance benchmarks for the park/unpark and registered-buffer TX paths | ADR-013 |
 
@@ -292,6 +290,15 @@ Status: COMPLETE in repo-owned scope (P4.3.1–P4.3.3 fully landed; P4.3.4 lands
 - Per-class attempt-budget enforcement (P4.3.2): `TupleState` now carries a per-arm `arm_attempts` counter; `note_arm_attempt` bumps it; `ranked_arms_for` subtracts attempts from each arm's `attempt_budget`, drops exhausted arms, and falls back to a single `relay_fallback` entry when every preferred arm is exhausted. `clear_negative_state` resets the map alongside the rest of the negative evidence (ADR-010).
 - Deterministic integration coverage (P4.3.3): a single multi-step ladder test drives one tuple through clean → QuicBlocked → exhausted tcp_plain → exhausted tcp_tls_split → relay_fallback escalation → positive TCP signal restoring the clean ranking, asserting the ranked-arm response at every step (ADR-010).
 - Unify Config relay preset suggestions (P4.3.4): `resolveRelayPresetSuggestion` now accepts an optional `transportRemediation: TransportRemediationKind?` and, when supplied, sources the reason from the same `recommendTransportRemediation` mapping Diagnostics and Home use. The wire-up from `ConfigViewModel` to a direct-mode session source remains the only open item (ADR-010).
+
+### 2026-04-28: Phase D Offline Learner Hardening
+
+Status: COMPLETE in repo-owned scope (P4.4.2 / P4.4.3 fully landed; P4.4.4 lands the format parser — fetch/refresh/signed-manifest delivery still deferred; P4.4.5 stays a research spike per ADR-011).
+
+- Rarity / retry penalties (P4.4.2): new `rarity_penalty(attempts)` (linear, below `RARITY_FLOOR = 3`) and `retry_cost(attempts)` (log-damped, above `RETRY_SATURATION = 20`) layered onto `combo_fitness_at_with_penalties`. Off by default; opt-in via `StrategyEvolver::with_learning_hardening(.., penalties_enabled = true)`. Eviction uses the new fitness when the evolver opts in (ADR-011).
+- Attempt-budget enforcement (P4.4.3): new `pub max_arm_attempts: u32` field on `StrategyEvolver`. Random exploration (`pick_non_cooled_random_for_bucket`) skips frozen combos; niche-winner / family-best exploitation paths still keep using proven winners. New `attempts_budget_remaining(combo)` telemetry accessor. Default `u32::MAX` (off); opt-in via the same builder (ADR-011).
+- Shared-priors format parser (P4.4.4 partial): new `strategy_evolver/shared_priors.rs` module that parses NDJSON `{ combo_hash, alpha, beta }` records, enforces a 256 KiB raw-payload cap, validates `alpha` / `beta` are finite and strictly positive, and tolerates blank / comment lines plus per-record corruption (skipped lines reported alongside successful records). Network fetch, refresh schedule, and signed-manifest verification remain deferred — the parser landing pins the interchange format so the delivery channel can be wired in without redesigning it (ADR-011).
+- Test coverage: 17 new strategy_evolver unit tests (4 hardening builder tests, 2 random-exploration filtering tests, 2 rarity / retry curve tests, 2 fitness-comparison tests) plus 7 shared-priors parser tests. cargo test -p ripdpi-runtime --lib strategy_evolver: 81 passed (was 64).
 
 See `docs/architecture/README.md` for the ADR index.
 
