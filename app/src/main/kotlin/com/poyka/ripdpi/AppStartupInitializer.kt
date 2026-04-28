@@ -5,6 +5,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.strategy.StrategyPackService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -22,6 +23,7 @@ class AppStartupInitializer
         private val diagnosticsBootstrapperProvider: Provider<DiagnosticsBootstrapper>,
         private val detectionObservationStarter: DetectionObservationStarter,
         private val strategyPackService: StrategyPackService,
+        private val dnsPathPreferenceInvalidator: DnsPathPreferenceInvalidator,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
@@ -49,10 +51,15 @@ class AppStartupInitializer
                 runSubsystem(AppStartupSubsystem.DiagnosticsBootstrap) {
                     diagnosticsBootstrapperProvider.get().initialize()
                 }
+            val dnsPathInvalidatorRegistration =
+                runSubsystem(AppStartupSubsystem.DnsPathInvalidatorRegistration) {
+                    dnsPathPreferenceInvalidator.register()
+                }
             return AppStartupReport(
                 compatibilityReset = compatibilityReset,
                 strategyPackInitialization = strategyPackInitialization,
                 diagnosticsBootstrap = diagnosticsBootstrap,
+                dnsPathInvalidatorRegistration = dnsPathInvalidatorRegistration,
             )
         }
 
@@ -84,22 +91,27 @@ internal data class AppStartupReport(
     val compatibilityReset: AppStartupSubsystemResult,
     val strategyPackInitialization: AppStartupSubsystemResult,
     val diagnosticsBootstrap: AppStartupSubsystemResult,
+    val dnsPathInvalidatorRegistration: AppStartupSubsystemResult,
 ) {
     fun toLogMessage(): String =
         "App startup report: " +
-            listOf(compatibilityReset, strategyPackInitialization, diagnosticsBootstrap)
-                .joinToString(separator = ", ") { result ->
-                    buildString {
-                        append(result.subsystem.logLabel)
-                        append('=')
-                        append(result.status.name.lowercase())
-                        result.errorMessage?.takeIf(String::isNotBlank)?.let { error ->
-                            append("(error=")
-                            append(error)
-                            append(')')
-                        }
+            listOf(
+                compatibilityReset,
+                strategyPackInitialization,
+                diagnosticsBootstrap,
+                dnsPathInvalidatorRegistration,
+            ).joinToString(separator = ", ") { result ->
+                buildString {
+                    append(result.subsystem.logLabel)
+                    append('=')
+                    append(result.status.name.lowercase())
+                    result.errorMessage?.takeIf(String::isNotBlank)?.let { error ->
+                        append("(error=")
+                        append(error)
+                        append(')')
                     }
                 }
+            }
 }
 
 internal data class AppStartupSubsystemResult(
@@ -114,6 +126,7 @@ internal enum class AppStartupSubsystem(
     CompatibilityReset("compatibility_reset"),
     StrategyPackInitialization("strategy_pack_initialization"),
     DiagnosticsBootstrap("diagnostics_bootstrap"),
+    DnsPathInvalidatorRegistration("dns_path_invalidator_registration"),
 }
 
 internal enum class AppStartupSubsystemStatus {

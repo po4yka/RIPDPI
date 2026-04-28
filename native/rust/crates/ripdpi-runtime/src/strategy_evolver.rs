@@ -391,7 +391,11 @@ impl StrategyEvolver {
 
     fn lcg_next(&mut self) -> u32 {
         self.rng_state = self.rng_state.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1_442_695_040_888_963_407);
-        (self.rng_state >> 33) as u32
+        // Take the upper 32 bits of the 64-bit state; this is the standard
+        // PCG/Lehmer pattern. Shifting by 33 (the previous value) only kept
+        // 31 bits, which made `lcg_f64` produce values in [0, 0.5) — a
+        // distribution-skewing bug for epsilon-greedy and bucket selection.
+        (self.rng_state >> 32) as u32
     }
 
     /// Returns a float in [0.0, 1.0).
@@ -826,6 +830,48 @@ mod tests {
         let seq1: Vec<u32> = (0..10).map(|_| e1.lcg_next()).collect();
         let seq2: Vec<u32> = (0..10).map(|_| e2.lcg_next()).collect();
         assert_eq!(seq1, seq2);
+    }
+
+    #[test]
+    fn lcg_f64_spans_full_unit_interval() {
+        // Regression for ADR-011: the previous `>> 33` shift kept only 31
+        // bits of state and divided by 2^32, which capped `lcg_f64` at 0.5.
+        // After the fix the values should span the full `[0, 1)` range.
+        let mut e = StrategyEvolver::new(true, 0.0);
+        e.rng_state = 0xDEAD_BEEF_1234_5678_u64;
+
+        let n = 5_000;
+        let mut max_seen = f64::NEG_INFINITY;
+        let mut min_seen = f64::INFINITY;
+        let mut above_half = 0;
+        let mut sum = 0.0_f64;
+        for _ in 0..n {
+            let v = e.lcg_f64();
+            assert!(v >= 0.0 && v < 1.0, "lcg_f64 out of [0,1) range: {v}");
+            if v > max_seen {
+                max_seen = v;
+            }
+            if v < min_seen {
+                min_seen = v;
+            }
+            if v >= 0.5 {
+                above_half += 1;
+            }
+            sum += v;
+        }
+        // With a uniform [0,1) distribution we expect ~50% of samples >= 0.5
+        // and a mean near 0.5. The earlier `>> 33` bug pinned all samples
+        // below 0.5, so any non-trivial fraction above 0.5 is sufficient
+        // to lock in the fix.
+        assert!(max_seen >= 0.9, "lcg_f64 never reached the upper half: max={max_seen}");
+        assert!(above_half > n / 4, "fewer than 25% of samples above 0.5: {above_half}/{n}");
+        let mean = sum / n as f64;
+        assert!(
+            (mean - 0.5).abs() < 0.05,
+            "lcg_f64 mean {mean:.4} too far from expected 0.5 — distribution is skewed"
+        );
+        // Sanity: minimum should comfortably reach the lower half too.
+        assert!(min_seen < 0.1, "lcg_f64 never reached small values: min={min_seen}");
     }
 
     // ---- Edge case tests ----
