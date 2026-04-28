@@ -51,11 +51,12 @@ class FastestResolverCache(
     ): EncryptedDnsPathCandidate? {
         val key = CacheKey(host, networkScopeKey)
         val entry = cache[key] ?: return null
-        if (clock() >= entry.expiresAt) {
+        return if (clock() >= entry.expiresAt) {
             cache.remove(key)
-            return null
+            null
+        } else {
+            entry.candidate
         }
-        return entry.candidate
     }
 
     /**

@@ -143,8 +143,8 @@ jobs:
             echo "::error::JNI lib outputs missing for ${{ matrix.abi.name }}"
             exit 1
           fi
-          if [ -d "core/engine/build/generated/assets/bin/${{ matrix.abi.name }}" ]; then
-            cp -r "core/engine/build/generated/assets/bin/${{ matrix.abi.name }}" \
+          if [ -d "core/engine/build/generated/rootHelperAssets/bin/${{ matrix.abi.name }}" ]; then
+            cp -r "core/engine/build/generated/rootHelperAssets/bin/${{ matrix.abi.name }}" \
               "$RUNNER_TEMP/native-shard-release/assetsBin-${{ matrix.abi.name }}"
           else
             echo "::error::Helper-binary outputs missing for ${{ matrix.abi.name }}"
@@ -212,8 +212,8 @@ jobs:
             exit 1
           fi
           # Helper binaries: <generatedAssets>/bin/<abi>/<binname>
-          if [ -d "core/engine/build/generated/assets/bin/${{ matrix.abi.name }}" ]; then
-            cp -r "core/engine/build/generated/assets/bin/${{ matrix.abi.name }}" \
+          if [ -d "core/engine/build/generated/rootHelperAssets/bin/${{ matrix.abi.name }}" ]; then
+            cp -r "core/engine/build/generated/rootHelperAssets/bin/${{ matrix.abi.name }}" \
               "$RUNNER_TEMP/native-shard/assetsBin-${{ matrix.abi.name }}"
           else
             echo "::error::Helper-binary outputs missing for ${{ matrix.abi.name }}"
