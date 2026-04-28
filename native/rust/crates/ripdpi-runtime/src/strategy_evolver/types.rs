@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ripdpi_config::{EntropyMode, OffsetBase, QuicFakeProfile};
+use ripdpi_config::{EntropyMode, EnvironmentKind, OffsetBase, QuicFakeProfile};
 use ripdpi_desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
 use ripdpi_failure_classifier::FailureClass;
 
@@ -187,6 +187,13 @@ pub struct LearningContext {
     pub resolver_health: ResolverHealthClass,
     pub rooted: bool,
     pub capability_context: CapabilityContext,
+    /// Coarse classification of the host device — `Field` for real user
+    /// devices, `Emulator` for AVD / CI test devices, `Unknown` when the
+    /// platform-side detector has not been wired yet (P4.4.5, ADR-011).
+    /// Including this here automatically segregates field-derived bandit
+    /// statistics from emulator-derived ones via the `HashMap`'s
+    /// per-context state.
+    pub environment: EnvironmentKind,
 }
 
 // ---------------------------------------------------------------------------

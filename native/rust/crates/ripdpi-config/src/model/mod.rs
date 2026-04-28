@@ -621,6 +621,24 @@ pub struct RuntimeTimeoutSettings {
     pub freeze_max_stalls: u32,
 }
 
+/// Coarse classification of the device hosting the RIPDPI runtime.
+///
+/// Used by the offline learner (P4.4.5, ADR-011) to distinguish bandit
+/// statistics gathered on real user devices (`Field`) from those gathered
+/// on Android emulators or CI test devices (`Emulator`). Including this in
+/// [`crate::strategy_evolver::LearningContext`] (the bandit's HashMap key)
+/// segregates the two populations automatically — emulator runs cannot
+/// pollute field priors, and field runs are not biased by simulator-only
+/// network characteristics. `Unknown` is the conservative default for
+/// builds that have not wired the platform-side detector.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum EnvironmentKind {
+    #[default]
+    Unknown,
+    Field,
+    Emulator,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RuntimeProcessSettings {
     pub debug: i32,
@@ -629,6 +647,11 @@ pub struct RuntimeProcessSettings {
     pub pid_file: Option<String>,
     pub root_mode: bool,
     pub root_helper_socket_path: Option<String>,
+    /// Coarse environment classification supplied by the platform-side
+    /// detector (Android Build properties, etc). Plumbed through the JNI
+    /// config bridge alongside [`Self::root_mode`]. Defaults to
+    /// [`EnvironmentKind::Unknown`] when unset.
+    pub environment_kind: EnvironmentKind,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1125,6 +1148,7 @@ mod tests {
             pid_file: Some("ripdpi.pid".to_string()),
             root_mode: false,
             root_helper_socket_path: None,
+            environment_kind: EnvironmentKind::Unknown,
         };
         let quic = RuntimeQuicSettings { initial_mode: QuicInitialMode::Route, support_v1: false, support_v2: true };
         let adaptive = RuntimeAdaptiveSettings {

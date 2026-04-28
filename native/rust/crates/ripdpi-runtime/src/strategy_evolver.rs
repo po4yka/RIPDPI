@@ -87,6 +87,7 @@ use ripdpi_failure_classifier::FailureClass;
 
 // Re-export the public API types so external callers continue to find them at
 // `crate::strategy_evolver::{StrategyCombo, ComboStats, LearningContext, …}`.
+pub use ripdpi_config::EnvironmentKind;
 pub use types::{
     CapabilityContext, ComboStats, LearningAlpnClass, LearningContext, LearningHostingFamily, LearningReachabilitySet,
     LearningTargetBucket, LearningTransportKind, ResolverHealthClass, StrategyCombo,
@@ -1892,6 +1893,58 @@ mod tests {
         // A different combo must not match.
         let other_combo = StrategyCombo::default_combo();
         assert!(evolver.shared_prior_for(&other_combo).is_none());
+    }
+
+    // -----------------------------------------------------------------
+    // EnvironmentKind context segregation (P4.4.5, ADR-011)
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn learning_context_default_environment_is_unknown() {
+        // Default must stay `Unknown` so existing call sites that use the
+        // `..LearningContext::default()` spread idiom keep their pre-Phase
+        // F.2 behaviour without an explicit `environment:` field.
+        let ctx = LearningContext::default();
+        assert_eq!(ctx.environment, EnvironmentKind::Unknown);
+    }
+
+    #[test]
+    fn field_and_emulator_contexts_hash_differently() {
+        // Two contexts identical in every dimension except `environment`
+        // must not collide in the bandit's per-context HashMap. This is
+        // the type-system guarantee that emulator runs cannot pollute
+        // field priors.
+        use std::collections::HashMap;
+        let field = LearningContext { environment: EnvironmentKind::Field, ..LearningContext::default() };
+        let emulator = LearningContext { environment: EnvironmentKind::Emulator, ..LearningContext::default() };
+        assert_ne!(field, emulator);
+
+        let mut map: HashMap<LearningContext, u32> = HashMap::new();
+        map.insert(field.clone(), 1);
+        map.insert(emulator.clone(), 2);
+        assert_eq!(map.get(&field).copied(), Some(1));
+        assert_eq!(map.get(&emulator).copied(), Some(2));
+    }
+
+    #[test]
+    fn evolver_per_context_state_segregates_by_environment() {
+        // Concrete check: recording outcomes against a `Field` context
+        // does not affect the `Emulator` context's state for the same
+        // network identity / target bucket / etc.
+        let mut e = StrategyEvolver::new(true, 0.0);
+        let combo = StrategyCombo::default_combo();
+
+        let field_ctx = LearningContext { environment: EnvironmentKind::Field, ..LearningContext::default() };
+        e.set_learning_context(field_ctx.clone());
+        e.contexts.entry(field_ctx.clone()).or_default().combos.insert(combo.clone(), ComboStats::new());
+
+        let emulator_ctx = LearningContext { environment: EnvironmentKind::Emulator, ..LearningContext::default() };
+        e.set_learning_context(emulator_ctx.clone());
+        e.contexts.entry(emulator_ctx.clone()).or_default().combos.insert(combo.clone(), ComboStats::new());
+
+        assert_eq!(e.contexts.len(), 2, "field and emulator must occupy distinct context slots");
+        assert!(e.contexts.contains_key(&field_ctx));
+        assert!(e.contexts.contains_key(&emulator_ctx));
     }
 
     #[test]

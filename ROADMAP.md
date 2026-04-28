@@ -22,7 +22,7 @@ release.
 |---|---|---|
 | Direct-Mode | Wire `TransportRemediationKind` from a session source into `ConfigViewModel.resolveRelayPresetSuggestion` | ADR-010 |
 | Offline Learner | Shared-priors Kotlin transport (Retrofit + JNI bridge) and embedded production release key (parser, manifest verifier, and fail-secure apply pipeline landed) | ADR-011 |
-| Offline Learner | Emulator / sim-to-field calibration beyond archive mining (research spike) | ADR-011 |
+| Offline Learner | Emulator / sim-to-field calibration: Android-side `EnvironmentDetector` + per-family calibration-factor research spike (type-system segregation landed) | ADR-011 |
 | Monitor | WorkManager scheduler hookup + persisted cache for `CdnEchUpdater::refresh()` (Phase 3 of ADR-012) | ADR-012 |
 | io_uring | Acceptance benchmarks for the park/unpark and registered-buffer TX paths | ADR-013 |
 
