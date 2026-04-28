@@ -69,9 +69,9 @@ pub(crate) fn analyze_dns_response(packet: &[u8]) -> DnsResponseAnalysis {
     if let Ok(message) = Message::from_vec(packet) {
         let mut ttls: Vec<u32> = Vec::new();
 
-        for record in message.answers() {
-            ttls.push(record.ttl());
-            if let RData::CNAME(ref name) = record.data() {
+        for record in &message.answers {
+            ttls.push(record.ttl);
+            if let RData::CNAME(ref name) = &record.data {
                 analysis.cname_targets.push(name.to_string());
             }
         }
@@ -84,8 +84,8 @@ pub(crate) fn analyze_dns_response(packet: &[u8]) -> DnsResponseAnalysis {
             analysis.ttl_uniform = min == max;
         }
 
-        // OPT record presence (EDNS0) -- hickory exposes via extensions().
-        analysis.has_edns0 = message.extensions().is_some();
+        // OPT record presence (EDNS0) -- hickory 0.26 exposes via the `edns` field.
+        analysis.has_edns0 = message.edns.is_some();
     }
 
     // Layer 3: compression pointer validation.
@@ -330,18 +330,18 @@ pub(crate) fn parse_record_set(packet: &[u8]) -> DnsRecordSet {
 
     // Hickory structured parsing.
     if let Ok(message) = Message::from_vec(packet) {
-        rs.has_edns0 = message.extensions().is_some();
+        rs.has_edns0 = message.edns.is_some();
 
-        for record in message.answers() {
+        for record in &message.answers {
             let rtype = record.record_type().into();
-            let value = format_rdata(record.data());
-            rs.answers.push(DnsRecord { rtype, rtype_name: rtype_name(rtype), value, ttl: record.ttl() });
+            let value = format_rdata(&record.data);
+            rs.answers.push(DnsRecord { rtype, rtype_name: rtype_name(rtype), value, ttl: record.ttl });
         }
 
-        for record in message.name_servers() {
+        for record in &message.authorities {
             let rtype = record.record_type().into();
-            let value = format_rdata(record.data());
-            rs.authority.push(DnsRecord { rtype, rtype_name: rtype_name(rtype), value, ttl: record.ttl() });
+            let value = format_rdata(&record.data);
+            rs.authority.push(DnsRecord { rtype, rtype_name: rtype_name(rtype), value, ttl: record.ttl });
         }
     }
 

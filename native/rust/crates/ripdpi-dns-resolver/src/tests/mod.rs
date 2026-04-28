@@ -5,7 +5,7 @@ use super::*;
 
 use crypto_box::aead::Aead;
 use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
-use hickory_proto::op::{Message, MessageType, OpCode, Query, ResponseCode};
+use hickory_proto::op::{Message, OpCode, Query, ResponseCode};
 use hickory_proto::rr::rdata::{A, AAAA, CNAME, TXT};
 use hickory_proto::rr::{Name, RData, Record, RecordType};
 use rcgen::generate_simple_self_signed;
@@ -37,15 +37,11 @@ fn build_query_for_type(name: &str, record_type: RecordType) -> Vec<u8> {
 
 fn build_response(query: &[u8], answer_ip: Ipv4Addr) -> Vec<u8> {
     let request = Message::from_vec(query).expect("query parses");
-    let mut response = Message::new();
-    response
-        .set_id(request.id())
-        .set_message_type(MessageType::Response)
-        .set_op_code(OpCode::Query)
-        .set_recursion_desired(request.recursion_desired())
-        .set_recursion_available(true)
-        .set_response_code(ResponseCode::NoError);
-    for query in request.queries() {
+    let mut response = Message::response(request.metadata.id, OpCode::Query);
+    response.metadata.recursion_desired = request.metadata.recursion_desired;
+    response.metadata.recursion_available = true;
+    response.metadata.response_code = ResponseCode::NoError;
+    for query in &request.queries {
         response.add_query(query.clone());
         if query.query_type() == RecordType::A {
             response.add_answer(Record::from_rdata(query.name().clone(), 60, RData::A(A(answer_ip))));
@@ -56,15 +52,11 @@ fn build_response(query: &[u8], answer_ip: Ipv4Addr) -> Vec<u8> {
 
 fn build_empty_response(query: &[u8]) -> Vec<u8> {
     let request = Message::from_vec(query).expect("query parses");
-    let mut response = Message::new();
-    response
-        .set_id(request.id())
-        .set_message_type(MessageType::Response)
-        .set_op_code(OpCode::Query)
-        .set_recursion_desired(request.recursion_desired())
-        .set_recursion_available(true)
-        .set_response_code(ResponseCode::NoError);
-    for query in request.queries() {
+    let mut response = Message::response(request.metadata.id, OpCode::Query);
+    response.metadata.recursion_desired = request.metadata.recursion_desired;
+    response.metadata.recursion_available = true;
+    response.metadata.response_code = ResponseCode::NoError;
+    for query in &request.queries {
         response.add_query(query.clone());
     }
     response.to_vec().expect("response serializes")
@@ -72,15 +64,11 @@ fn build_empty_response(query: &[u8]) -> Vec<u8> {
 
 fn build_response_with_record(query: &[u8], ttl_secs: u32) -> Vec<u8> {
     let request = Message::from_vec(query).expect("query parses");
-    let mut response = Message::new();
-    response
-        .set_id(request.id())
-        .set_message_type(MessageType::Response)
-        .set_op_code(OpCode::Query)
-        .set_recursion_desired(request.recursion_desired())
-        .set_recursion_available(true)
-        .set_response_code(ResponseCode::NoError);
-    for query in request.queries() {
+    let mut response = Message::response(request.metadata.id, OpCode::Query);
+    response.metadata.recursion_desired = request.metadata.recursion_desired;
+    response.metadata.recursion_available = true;
+    response.metadata.response_code = ResponseCode::NoError;
+    for query in &request.queries {
         response.add_query(query.clone());
         match query.query_type() {
             RecordType::A => {
@@ -798,7 +786,8 @@ fn start_dnscrypt_server(server: DnsCryptTestServer, response_packet: Vec<u8>) -
             let (mut stream, _) = listener.accept().expect("dnscrypt accept");
             let packet = read_length_prefixed_frame(&mut stream).expect("dnscrypt tcp read");
             if let Ok(message) = Message::from_vec(&packet) {
-                let is_txt_cert_query = message.query().is_some_and(|query| query.query_type() == RecordType::TXT);
+                let is_txt_cert_query =
+                    message.queries.first().is_some_and(|query| query.query_type() == RecordType::TXT);
                 if is_txt_cert_query {
                     let response =
                         build_dnscrypt_cert_response(&packet, &server.provider_name, &server.certificate_bytes());
@@ -875,15 +864,11 @@ fn serve_dnscrypt_query(
 
 fn build_dnscrypt_cert_response(query: &[u8], provider_name: &str, cert_bytes: &[u8]) -> Vec<u8> {
     let request = Message::from_vec(query).expect("cert query parses");
-    let mut response = Message::new();
-    response
-        .set_id(request.id())
-        .set_message_type(MessageType::Response)
-        .set_op_code(OpCode::Query)
-        .set_recursion_desired(request.recursion_desired())
-        .set_recursion_available(true)
-        .set_response_code(ResponseCode::NoError)
-        .add_query(Query::query(Name::from_ascii(provider_name).expect("provider name"), RecordType::TXT));
+    let mut response = Message::response(request.metadata.id, OpCode::Query);
+    response.metadata.recursion_desired = request.metadata.recursion_desired;
+    response.metadata.recursion_available = true;
+    response.metadata.response_code = ResponseCode::NoError;
+    response.add_query(Query::query(Name::from_ascii(provider_name).expect("provider name"), RecordType::TXT));
     response.add_answer(Record::from_rdata(
         Name::from_ascii(provider_name).expect("provider name"),
         600,

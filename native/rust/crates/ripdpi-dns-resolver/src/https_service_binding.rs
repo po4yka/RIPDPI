@@ -76,21 +76,21 @@ pub fn parse_https_service_bindings(packet: &[u8]) -> Result<Vec<HttpsRr>, Https
     let message = Message::from_vec(packet).map_err(|error| HttpsSvcbParseError::Response(error.to_string()))?;
     let mut bindings = Vec::new();
 
-    for record in message.answers().iter().chain(message.name_servers().iter()).chain(message.additionals().iter()) {
-        match record.data() {
+    for record in message.answers.iter().chain(message.authorities.iter()).chain(message.additionals.iter()) {
+        match &record.data {
             RData::HTTPS(https) => bindings.push(parse_service_binding_record(
                 record,
                 HttpsRrRecordType::Https,
-                https.svc_priority(),
-                https.target_name().to_ascii(),
-                https.svc_params(),
+                https.svc_priority,
+                https.target_name.to_ascii(),
+                &https.svc_params,
             )?),
             RData::SVCB(svcb) => bindings.push(parse_service_binding_record(
                 record,
                 HttpsRrRecordType::Svcb,
-                svcb.svc_priority(),
-                svcb.target_name().to_ascii(),
-                svcb.svc_params(),
+                svcb.svc_priority,
+                svcb.target_name.to_ascii(),
+                &svcb.svc_params,
             )?),
             _ => {}
         }
@@ -126,11 +126,11 @@ fn parse_service_binding_record(
     }
 
     Ok(HttpsRr {
-        owner_name: record.name().to_ascii(),
+        owner_name: record.name.to_ascii(),
         record_type,
         service_priority,
         target_name,
-        ttl_secs: record.ttl(),
+        ttl_secs: record.ttl,
         alpn,
         no_default_alpn,
         port,

@@ -330,11 +330,5 @@ fn ensure_doh_endpoint(endpoint: &EncryptedDnsEndpoint) -> Result<(), EncryptedD
 
 fn min_ttl_secs(response_bytes: &[u8]) -> Option<u32> {
     let message = Message::from_vec(response_bytes).ok()?;
-    message
-        .answers()
-        .iter()
-        .chain(message.name_servers().iter())
-        .chain(message.additionals().iter())
-        .map(hickory_proto::rr::Record::ttl)
-        .min()
+    message.answers.iter().chain(message.authorities.iter()).chain(message.additionals.iter()).map(|r| r.ttl).min()
 }

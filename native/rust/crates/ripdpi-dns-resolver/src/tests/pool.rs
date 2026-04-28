@@ -399,8 +399,8 @@ mod hickory_backend_tests {
     #[tokio::test]
     async fn hickory_rejects_query_with_no_questions() {
         use crate::hickory_backend;
-        let mut msg = Message::new();
-        msg.set_id(0x1234).set_message_type(MessageType::Query).set_op_code(OpCode::Query).set_recursion_desired(true);
+        let mut msg = Message::new(0x1234, MessageType::Query, OpCode::Query);
+        msg.metadata.recursion_desired = true;
         let wire = msg.to_vec().expect("header-only message serializes");
         let endpoint = EncryptedDnsEndpoint {
             protocol: EncryptedDnsProtocol::Dot,

@@ -676,12 +676,12 @@ impl EncryptedDnsResolver {
         let now = unix_time_secs();
         let mut best: Option<DnsCryptCachedCertificate> = None;
 
-        for answer in message.answers() {
-            let RData::TXT(txt) = answer.data() else {
+        for answer in &message.answers {
+            let RData::TXT(txt) = &answer.data else {
                 continue;
             };
             let mut bytes = Vec::new();
-            for chunk in txt.txt_data() {
+            for chunk in &txt.txt_data {
                 bytes.extend_from_slice(chunk);
             }
             let certificate = parse_dnscrypt_certificate(&bytes, &verifying_key, &provider_name)?;
