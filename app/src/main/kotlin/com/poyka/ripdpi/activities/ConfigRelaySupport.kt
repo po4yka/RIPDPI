@@ -165,15 +165,44 @@ internal fun resolveRelayPresetSuggestion(
     heuristicSuggestion: RelayPresetSuggestion?,
     serviceTelemetry: ServiceTelemetrySnapshot,
     capabilityRecords: List<ServerCapabilityRecord> = emptyList(),
+    transportRemediation: TransportRemediationKind? = null,
 ): RelayPresetSuggestion? {
     val suggestion = heuristicSuggestion ?: return null
+    val transportReason = transportRemediation?.toRelayPresetReason()
     val evidence = relayPresetEvidenceReason(serviceTelemetry)
     return when {
+        // Direct-mode evidence wins over telemetry heuristics — it's the
+        // same selector Diagnostics and Home use, so the two surfaces stay
+        // in sync (ADR-010, P4.3.4).
+        transportReason != null -> suggestion.copy(reason = transportReason)
         evidence != null -> suggestion.copy(reason = evidence)
         capabilityRecords.isNotEmpty() -> suggestion
         else -> null
     }
 }
+
+// Map a TransportRemediationKind to the reason string the Config relay
+// preset suggestion surface should display. Phrasing follows the same
+// shape as relayPresetEvidenceReason so swapping the reason path for
+// direct-mode evidence does not change the UI layout.
+internal fun TransportRemediationKind.toRelayPresetReason(): String =
+    when (this) {
+        TransportRemediationKind.OWNED_STACK_ACTION ->
+            "Direct-mode diagnostics report owned-stack only is viable on this network. " +
+                "The suggested preset is a remediation hint pending an owned-stack switch."
+
+        TransportRemediationKind.BROWSER_FALLBACK ->
+            "Direct-mode diagnostics flagged transparent-TLS interference on this network. " +
+                "Use the suggested preset to favour a browser-camouflage relay path."
+
+        TransportRemediationKind.QUIC_FALLBACK ->
+            "Direct-mode diagnostics report TCP-only direct paths on this network. " +
+                "Use the suggested preset to favour a QUIC-capable relay path."
+
+        TransportRemediationKind.NO_RELIABLE_RELAY_HINT ->
+            "Direct-mode diagnostics report no reliable transparent direct path yet. " +
+                "Use the suggested preset until further evidence narrows the relay choice."
+    }
 
 private fun relayPresetEvidenceReason(serviceTelemetry: ServiceTelemetrySnapshot): String? =
     when {

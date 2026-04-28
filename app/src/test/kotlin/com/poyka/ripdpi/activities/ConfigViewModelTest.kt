@@ -503,6 +503,81 @@ class ConfigViewModelTest {
     }
 
     @Test
+    fun `relay preset suggestion uses transport remediation reason when provided`() {
+        // P4.3.4: when Direct-Mode evidence is fed in, the reason path
+        // matches the same selector Diagnostics and Home use.
+        val suggestion =
+            resolveRelayPresetSuggestion(
+                heuristicSuggestion =
+                    RelayPresetSuggestion(
+                        preset = RelayPresetDefinition(id = "ru-mobile-relay", title = "Russian mobile relay"),
+                        reason = "heuristic only",
+                    ),
+                serviceTelemetry = ServiceTelemetrySnapshot(),
+                capabilityRecords = emptyList(),
+                transportRemediation = TransportRemediationKind.BROWSER_FALLBACK,
+            )
+
+        assertTrue(
+            "browser-fallback reason should mention transparent-TLS interference",
+            suggestion?.reason?.contains("transparent-TLS interference") == true,
+        )
+    }
+
+    @Test
+    fun `relay preset suggestion transport remediation overrides telemetry reason`() {
+        // Direct-Mode evidence wins over telemetry heuristics so both
+        // surfaces present a consistent recommendation.
+        val suggestion =
+            resolveRelayPresetSuggestion(
+                heuristicSuggestion =
+                    RelayPresetSuggestion(
+                        preset = RelayPresetDefinition(id = "ru-mobile-relay", title = "Russian mobile relay"),
+                        reason = "heuristic only",
+                    ),
+                serviceTelemetry =
+                    ServiceTelemetrySnapshot(
+                        status = AppStatus.Running,
+                        runtimeFieldTelemetry =
+                            RuntimeFieldTelemetry(
+                                failureClass = RuntimeFailureClass.FingerprintPolicy,
+                            ),
+                        proxyTelemetry =
+                            NativeRuntimeSnapshot(
+                                source = "proxy",
+                                lastError = "whitelist_sni_failed",
+                            ),
+                    ),
+                capabilityRecords = emptyList(),
+                transportRemediation = TransportRemediationKind.QUIC_FALLBACK,
+            )
+
+        assertTrue(
+            "QUIC-fallback reason should win over the whitelist-pressure heuristic",
+            suggestion?.reason?.contains("TCP-only direct paths") == true,
+        )
+        assertFalse(
+            "whitelist-pressure heuristic should not appear when direct-mode evidence is present",
+            suggestion?.reason?.contains("whitelist-style routing pressure") == true,
+        )
+    }
+
+    @Test
+    fun `transport remediation kinds map to distinct preset reasons`() {
+        // The four kinds must produce four distinct reason strings so the
+        // Config surface mirrors the Diagnostics/Home recommendation exactly.
+        val reasons =
+            TransportRemediationKind
+                .values()
+                .map { it.toRelayPresetReason() }
+                .toSet()
+        assertEquals(TransportRemediationKind.values().size, reasons.size)
+        for (reason in reasons) {
+            assertTrue("reason must start with 'Direct-mode': '$reason'", reason.startsWith("Direct-mode"))
+        }
+    }
+
+    @Test
     fun `apply relay preset definition materializes chain profile references`() {
         val updated =
             defaultDraft.applyRelayPresetDefinition(

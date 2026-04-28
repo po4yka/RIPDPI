@@ -83,6 +83,12 @@ struct TupleState {
     tls_post_client_hello_failed: bool,
     pending_udp_suppressed_at_ms: Option<u64>,
     terminal_state: Option<TerminalState>,
+    /// Per-arm attempt counters. Keys are static arm labels matching
+    /// [`RankedArm::label`]; values are the number of attempts recorded for
+    /// the current block-class window. Cleared by [`clear_negative_state`]
+    /// alongside the rest of the negative evidence so a positive signal
+    /// resets the budget.
+    arm_attempts: HashMap<&'static str, u32>,
 }
 
 #[derive(Default)]
@@ -222,12 +228,58 @@ impl DirectPathLearningState {
 
     /// Return a ranked list of transport arms for the given (host, targets) tuple.
     ///
-    /// Arms are ordered from highest priority (index 0) to lowest.  The list
-    /// always contains at least one entry.  Callers may iterate and attempt each
-    /// arm in order, stopping on the first success.
+    /// Arms are ordered from highest priority (index 0) to lowest. The list
+    /// always contains at least one entry. Callers may iterate and attempt
+    /// each arm in order, stopping on the first success. Each arm's
+    /// `attempt_budget` reflects the *remaining* budget after subtracting
+    /// previously recorded attempts via [`Self::note_arm_attempt`]; arms
+    /// whose budget is fully exhausted are dropped from the list. When all
+    /// arms for the current class are exhausted the list collapses to a
+    /// single `relay_fallback` entry so callers always have an escalation
+    /// path.
     pub(super) fn ranked_arms_for(&self, host: Option<&str>, targets: &[SocketAddr]) -> Vec<RankedArm> {
         let class = self.block_class_for(host, targets);
-        ranked_arms_for_class(class)
+        let mut arms = ranked_arms_for_class(class);
+
+        let attempts: Option<&HashMap<&'static str, u32>> = tuple_key_for_targets(host, targets)
+            .as_ref()
+            .and_then(|key| self.tuples.get(key))
+            .map(|entry| &entry.arm_attempts);
+
+        if let Some(attempts) = attempts {
+            arms.retain_mut(|arm| {
+                let used = attempts.get(arm.label).copied().unwrap_or(0);
+                if used >= arm.attempt_budget {
+                    return false;
+                }
+                arm.attempt_budget -= used;
+                true
+            });
+
+            if arms.is_empty() {
+                arms.push(RankedArm {
+                    label: "relay_fallback",
+                    score: 0.5,
+                    class: DirectPathBlockClass::AllIpsFailed,
+                    attempt_budget: 1,
+                });
+            }
+        }
+
+        arms
+    }
+
+    /// Record an attempt against the arm `arm_label` for the (host, targets)
+    /// tuple. Subsequent calls to [`Self::ranked_arms_for`] subtract the
+    /// recorded attempts from the arm's `attempt_budget`; once the budget is
+    /// exhausted the arm is dropped from the ranked list. Counters are reset
+    /// when a positive signal clears the negative state for the tuple.
+    pub(super) fn note_arm_attempt(&mut self, host: Option<&str>, targets: &[SocketAddr], arm_label: &'static str) {
+        let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
+            return;
+        };
+        let entry = self.tuples.entry(tuple_key).or_default();
+        *entry.arm_attempts.entry(arm_label).or_insert(0) += 1;
     }
 }
 
@@ -295,6 +347,9 @@ fn clear_negative_state(entry: &mut TupleState) {
     entry.udp_failed = false;
     entry.tls_post_client_hello_failed = false;
     entry.pending_udp_suppressed_at_ms = None;
+    // Reset the per-arm attempt counters: a positive signal restarts the
+    // budget window for the new block class.
+    entry.arm_attempts.clear();
 }
 
 fn emit_learning_signal(
@@ -624,5 +679,152 @@ mod tests {
                 );
             }
         }
+    }
+
+    // ── Per-class attempt-budget enforcement (P4.3.2) ───────────────────────
+
+    #[test]
+    fn note_arm_attempt_decrements_remaining_budget() {
+        let targets = vec!["203.0.113.10:443".parse().expect("target")];
+        let mut learner = DirectPathLearningState::default();
+
+        // Fresh tuple — full default budget.
+        let initial = learner.ranked_arms_for(Some("example.org"), &targets);
+        assert_eq!(initial[0].attempt_budget, DEFAULT_ATTEMPT_BUDGET);
+
+        learner.note_arm_attempt(Some("example.org"), &targets, "quic");
+        let after_one = learner.ranked_arms_for(Some("example.org"), &targets);
+        assert_eq!(after_one[0].label, "quic");
+        assert_eq!(
+            after_one[0].attempt_budget,
+            DEFAULT_ATTEMPT_BUDGET - 1,
+            "remaining budget must reflect recorded attempts",
+        );
+        // Sibling arm is unaffected.
+        assert_eq!(after_one[1].label, "tcp_plain");
+        assert_eq!(after_one[1].attempt_budget, DEFAULT_ATTEMPT_BUDGET);
+    }
+
+    #[test]
+    fn ranked_arms_drops_exhausted_arm_and_keeps_remaining() {
+        let targets = vec!["203.0.113.10:443".parse().expect("target")];
+        let mut learner = DirectPathLearningState::default();
+
+        for _ in 0..DEFAULT_ATTEMPT_BUDGET {
+            learner.note_arm_attempt(Some("example.org"), &targets, "quic");
+        }
+
+        let arms = learner.ranked_arms_for(Some("example.org"), &targets);
+        assert_eq!(arms.len(), 1, "exhausted quic should drop, leaving tcp_plain");
+        assert_eq!(arms[0].label, "tcp_plain");
+        assert_eq!(arms[0].attempt_budget, DEFAULT_ATTEMPT_BUDGET);
+    }
+
+    #[test]
+    fn ranked_arms_collapses_to_relay_fallback_when_all_arms_exhausted() {
+        let targets = vec!["203.0.113.10:443".parse().expect("target")];
+        let mut learner = DirectPathLearningState::default();
+
+        for _ in 0..DEFAULT_ATTEMPT_BUDGET {
+            learner.note_arm_attempt(Some("example.org"), &targets, "quic");
+        }
+        for _ in 0..DEFAULT_ATTEMPT_BUDGET {
+            learner.note_arm_attempt(Some("example.org"), &targets, "tcp_plain");
+        }
+
+        let arms = learner.ranked_arms_for(Some("example.org"), &targets);
+        assert_eq!(arms.len(), 1, "must escalate to relay fallback");
+        assert_eq!(arms[0].label, "relay_fallback");
+        assert_eq!(arms[0].class, DirectPathBlockClass::AllIpsFailed);
+        assert_eq!(arms[0].attempt_budget, 1);
+    }
+
+    #[test]
+    fn positive_signal_resets_arm_attempts() {
+        let telemetry = StdArc::new(RecordingTelemetry::default());
+        let state = runtime_state(telemetry.clone());
+        let targets = vec!["203.0.113.10:443".parse().expect("target")];
+        let mut learner = DirectPathLearningState::default();
+
+        // Burn the quic budget…
+        for _ in 0..DEFAULT_ATTEMPT_BUDGET {
+            learner.note_arm_attempt(Some("example.org"), &targets, "quic");
+        }
+        // …then a successful QUIC observation should clear counters.
+        learner.note_quic_success(&state, Some("example.org"), &targets);
+
+        let arms = learner.ranked_arms_for(Some("example.org"), &targets);
+        assert_eq!(arms[0].class, DirectPathBlockClass::QuicConfirmed);
+        assert_eq!(arms[0].attempt_budget, DEFAULT_ATTEMPT_BUDGET, "budget must reset on positive signal");
+    }
+
+    // ── Deterministic class-to-arm execution ladder (P4.3.3) ────────────────
+
+    #[test]
+    fn class_to_arm_ladder_walks_clean_quic_blocked_exhausted_relay_and_back() {
+        // Drive a single tuple through the full life cycle and assert the
+        // ranked-arm response at every step. This is the integration coverage
+        // referenced in ADR-010 (P4.3.3) — it pins the contract that
+        // negative signals advance the class, attempt budgets shrink, the
+        // exhausted arm drops, and a positive signal restores the original
+        // ranking.
+        let telemetry = StdArc::new(RecordingTelemetry::default());
+        let state = runtime_state(telemetry.clone());
+        let targets = vec!["203.0.113.10:443".parse().expect("target")];
+        let mut learner = DirectPathLearningState::default();
+        let host = Some("example.org");
+
+        // Step 1: clean tuple → quic ranks first.
+        let step1 = learner.ranked_arms_for(host, &targets);
+        assert_eq!(step1[0].label, "quic");
+        assert_eq!(step1[0].class, DirectPathBlockClass::Clean);
+        assert_eq!(step1[1].label, "tcp_plain");
+
+        // Step 2: UDP failure flips us to QuicBlocked → tcp_plain ranks first.
+        learner.note_udp_failure(host, &targets);
+        let step2 = learner.ranked_arms_for(host, &targets);
+        assert_eq!(step2[0].label, "tcp_plain");
+        assert_eq!(step2[0].class, DirectPathBlockClass::QuicBlocked);
+        assert_eq!(step2[1].label, "tcp_tls_split");
+        assert_eq!(step2[0].attempt_budget, DEFAULT_ATTEMPT_BUDGET);
+
+        // Step 3: record three tcp_plain attempts → arm drops, tcp_tls_split is left.
+        for _ in 0..DEFAULT_ATTEMPT_BUDGET {
+            learner.note_arm_attempt(host, &targets, "tcp_plain");
+        }
+        let step3 = learner.ranked_arms_for(host, &targets);
+        assert_eq!(step3.len(), 1);
+        assert_eq!(step3[0].label, "tcp_tls_split");
+        assert_eq!(step3[0].class, DirectPathBlockClass::QuicBlocked);
+
+        // Step 4: exhaust tcp_tls_split too → escalate to relay_fallback.
+        for _ in 0..DEFAULT_ATTEMPT_BUDGET {
+            learner.note_arm_attempt(host, &targets, "tcp_tls_split");
+        }
+        let step4 = learner.ranked_arms_for(host, &targets);
+        assert_eq!(step4.len(), 1);
+        assert_eq!(step4[0].label, "relay_fallback");
+        assert_eq!(step4[0].class, DirectPathBlockClass::AllIpsFailed);
+        assert_eq!(step4[0].attempt_budget, 1);
+
+        // Step 5: a successful TCP observation while UDP-failed clears the
+        // negative state → fresh ranking, fresh budgets.
+        learner.note_tcp_success(&state, host, &targets, Some("split"));
+        let step5 = learner.ranked_arms_for(host, &targets);
+        assert_eq!(step5[0].label, "quic", "after positive TCP, class is back to Clean");
+        assert_eq!(step5[0].class, DirectPathBlockClass::Clean);
+        assert_eq!(step5[0].attempt_budget, DEFAULT_ATTEMPT_BUDGET);
+        assert_eq!(step5[1].label, "tcp_plain");
+        assert_eq!(step5[1].attempt_budget, DEFAULT_ATTEMPT_BUDGET);
+
+        // Confirm telemetry observed the QUIC-blocked / TCP-OK transition,
+        // matching the existing `quic_success_clears_negative_state` test
+        // expectations for the same state machine path.
+        let signals = telemetry.signals.lock().expect("signals");
+        assert!(
+            signals.iter().any(|s| s.2 == "QUIC_BLOCKED_TCP_OK"),
+            "expected QUIC_BLOCKED_TCP_OK in: {:?}",
+            *signals,
+        );
     }
 }
