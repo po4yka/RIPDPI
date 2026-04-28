@@ -1,9 +1,12 @@
 package com.poyka.ripdpi.core.detection
 
 import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import javax.inject.Inject
+import javax.inject.Singleton
 
 @Serializable
 data class DetectionHistoryEntry(
@@ -20,44 +23,47 @@ data class DetectionHistory(
     val entries: List<DetectionHistoryEntry> = emptyList(),
 )
 
-class DetectionHistoryStore(
-    context: Context,
-) {
-    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    private val json = Json { ignoreUnknownKeys = true }
+@Singleton
+class DetectionHistoryStore
+    @Inject
+    constructor(
+        @ApplicationContext context: Context,
+    ) {
+        private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        private val json = Json { ignoreUnknownKeys = true }
 
-    fun save(entry: DetectionHistoryEntry) {
-        val history = load()
-        val updated =
-            history.copy(
-                entries =
-                    (listOf(entry) + history.entries)
-                        .distinctBy { it.networkFingerprint }
-                        .take(MAX_ENTRIES),
-            )
-        prefs.edit().putString(KEY_HISTORY, json.encodeToString(updated)).apply()
-    }
-
-    fun load(): DetectionHistory =
-        try {
-            val raw = prefs.getString(KEY_HISTORY, null)
-            if (raw != null) json.decodeFromString(raw) else DetectionHistory()
-        } catch (_: Exception) {
-            DetectionHistory()
+        fun save(entry: DetectionHistoryEntry) {
+            val history = load()
+            val updated =
+                history.copy(
+                    entries =
+                        (listOf(entry) + history.entries)
+                            .distinctBy { it.networkFingerprint }
+                            .take(MAX_ENTRIES),
+                )
+            prefs.edit().putString(KEY_HISTORY, json.encodeToString(updated)).apply()
         }
 
-    fun findByFingerprint(fingerprint: String): DetectionHistoryEntry? =
-        load().entries.firstOrNull { it.networkFingerprint == fingerprint }
+        fun load(): DetectionHistory =
+            try {
+                val raw = prefs.getString(KEY_HISTORY, null)
+                if (raw != null) json.decodeFromString(raw) else DetectionHistory()
+            } catch (_: Exception) {
+                DetectionHistory()
+            }
 
-    fun latestEntries(count: Int = 10): List<DetectionHistoryEntry> = load().entries.take(count)
+        fun findByFingerprint(fingerprint: String): DetectionHistoryEntry? =
+            load().entries.firstOrNull { it.networkFingerprint == fingerprint }
 
-    fun clear() {
-        prefs.edit().remove(KEY_HISTORY).apply()
+        fun latestEntries(count: Int = 10): List<DetectionHistoryEntry> = load().entries.take(count)
+
+        fun clear() {
+            prefs.edit().remove(KEY_HISTORY).apply()
+        }
+
+        companion object {
+            private const val PREFS_NAME = "detection_history"
+            private const val KEY_HISTORY = "history_json"
+            private const val MAX_ENTRIES = 50
+        }
     }
-
-    companion object {
-        private const val PREFS_NAME = "detection_history"
-        private const val KEY_HISTORY = "history_json"
-        private const val MAX_ENTRIES = 50
-    }
-}

@@ -62,7 +62,12 @@
 //! - Disable (the default) for stable networks where per-flow adaptive tuning
 //!   already performs well, or when you want fine-grained per-host adaptation.
 
+mod thompson_sampling;
 mod types;
+
+// Re-exported for future integration (P4.4.1 wiring); not yet used internally.
+#[allow(unused_imports)]
+pub use thompson_sampling::{sample_beta, BetaParams, ThompsonSampling};
 
 use std::collections::HashMap;
 use std::time::Instant;

@@ -11,7 +11,11 @@ import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCacheTtlSeconds
 import com.poyka.ripdpi.data.DefaultAppRoutingRussianPresetId
 import com.poyka.ripdpi.data.DefaultEntropyPaddingMax
 import com.poyka.ripdpi.data.DefaultEntropyPaddingTargetPermil
+import com.poyka.ripdpi.data.DefaultEvolutionCooldownAfterFailures
+import com.poyka.ripdpi.data.DefaultEvolutionCooldownMs
+import com.poyka.ripdpi.data.DefaultEvolutionDecayHalfLifeMs
 import com.poyka.ripdpi.data.DefaultEvolutionEpsilon
+import com.poyka.ripdpi.data.DefaultEvolutionExperimentTtlMs
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultHostAutolearnMaxHosts
@@ -143,6 +147,10 @@ data class RipDpiAdaptiveFallbackConfig(
     val cachePrefixV4: Int = DefaultAdaptiveFallbackCachePrefixV4,
     val strategyEvolution: Boolean = false,
     val evolutionEpsilon: Double = DefaultEvolutionEpsilon,
+    val evolutionExperimentTtlMs: Long = DefaultEvolutionExperimentTtlMs,
+    val evolutionDecayHalfLifeMs: Long = DefaultEvolutionDecayHalfLifeMs,
+    val evolutionCooldownAfterFailures: Int = DefaultEvolutionCooldownAfterFailures,
+    val evolutionCooldownMs: Long = DefaultEvolutionCooldownMs,
 )
 
 data class RipDpiQuicConfig(

@@ -161,6 +161,10 @@ internal fun normalizeAdaptiveFallbackConfig(config: RipDpiAdaptiveFallbackConfi
                 .takeIf { !it.isNaN() }
                 ?.coerceIn(0.0, 1.0)
                 ?: DefaultEvolutionEpsilon,
+        evolutionExperimentTtlMs = config.evolutionExperimentTtlMs.coerceAtLeast(1),
+        evolutionDecayHalfLifeMs = config.evolutionDecayHalfLifeMs.coerceAtLeast(1),
+        evolutionCooldownAfterFailures = config.evolutionCooldownAfterFailures.coerceAtLeast(1),
+        evolutionCooldownMs = config.evolutionCooldownMs.coerceAtLeast(1),
     )
 
 internal fun normalizeHostsConfig(config: RipDpiHostsConfig): RipDpiHostsConfig {

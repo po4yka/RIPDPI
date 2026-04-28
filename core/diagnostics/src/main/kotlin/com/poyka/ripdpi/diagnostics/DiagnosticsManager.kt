@@ -187,6 +187,8 @@ data class DiagnosticsHomeCompositeStageSummary(
     val headline: String,
     val summary: String,
     val recommendationContributor: Boolean = false,
+    /** Wall-clock duration of the underlying scan session in milliseconds, or null if not yet completed. */
+    val wallClockMs: Long? = null,
 )
 
 enum class DiagnosticsHomeDetectionVerdict {

@@ -108,6 +108,13 @@ internal fun SeqOverlapProfileCard(
             style = type.caption,
             color = colors.mutedForeground,
         )
+        if (!uiState.seqovlSupported) {
+            Text(
+                text = stringResource(R.string.settings_seqovl_unsupported_reason),
+                style = type.caption,
+                color = colors.mutedForeground,
+            )
+        }
     }
 }
 

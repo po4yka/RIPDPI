@@ -70,6 +70,9 @@ class DefaultDiagnosticsTimelineSource
                 }.distinctUntilChanged()
                 .stateIn(
                     scope = scope,
+                    // Eagerly is intentional: this singleton is scoped to ApplicationIoScope and
+                    // must track the active session continuously so that diagnostics consumers
+                    // always receive the current value without an initial cold start delay.
                     started = SharingStarted.Eagerly,
                     initialValue = null,
                 )

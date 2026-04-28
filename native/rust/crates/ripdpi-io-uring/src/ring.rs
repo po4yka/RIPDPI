@@ -26,6 +26,15 @@ fn next_token() -> u64 {
 }
 
 /// A submission request sent to the io_uring driver thread.
+///
+/// # fd ownership
+///
+/// All `fd: RawFd` fields are **non-owning borrows**.  The caller retains
+/// ownership of the file descriptor and MUST keep it open until the matching
+/// CQE has been reaped (i.e. the [`CompletionFuture`] has resolved).
+/// `RawFd` is used instead of `BorrowedFd<'_>` because the submissions are
+/// sent through a channel and a lifetime cannot be expressed across that
+/// boundary.
 pub enum Submission {
     /// Zero-copy send from a registered buffer.
     SendZc { fd: RawFd, buf_index: u16, len: u32, token: u64 },

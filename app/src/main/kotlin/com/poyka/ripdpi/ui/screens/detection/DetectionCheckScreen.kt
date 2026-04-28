@@ -105,6 +105,7 @@ internal fun DetectionCheckRoute(
         onBack = onBack,
         onDismissOnboarding = viewModel::dismissOnboarding,
         onApplyFixes = viewModel::applyAllFixes,
+        onReloadCommunityStats = viewModel::reloadCommunityStats,
         onRequestPermissions = {
             when (uiState.permissionAction) {
                 DetectionPermissionPlanner.Action.REQUEST,
@@ -137,6 +138,7 @@ internal fun DetectionCheckScreen(
     onBack: () -> Unit,
     onDismissOnboarding: () -> Unit,
     onApplyFixes: () -> Unit,
+    onReloadCommunityStats: () -> Unit,
     onRequestPermissions: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -375,8 +377,21 @@ internal fun DetectionCheckScreen(
                     }
                 }
 
-                uiState.communityStats?.let { stats ->
-                    if (stats.totalReports > 0) CommunityStatsCard(stats)
+                when {
+                    uiState.communityStatsLoading -> {
+                        CommunityStatsLoadingCard()
+                    }
+
+                    uiState.communityStatsError != null -> {
+                        CommunityStatsErrorCard(
+                            message = uiState.communityStatsError,
+                            onRetry = onReloadCommunityStats,
+                        )
+                    }
+
+                    uiState.communityStats?.let { it.totalReports > 0 } == true -> {
+                        CommunityStatsCard(uiState.communityStats!!)
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(spacing.lg))
@@ -840,6 +855,56 @@ private fun CommunityStatsCard(stats: CommunityStats) {
                 color = if (pct > detectedPercentageAlertThreshold) colors.destructive else colors.success,
             )
         }
+    }
+}
+
+@Composable
+private fun CommunityStatsLoadingCard() {
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(spacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp,
+                color = colors.accent,
+            )
+            Text(
+                text = stringResource(R.string.detection_community_loading),
+                style = type.body,
+                color = colors.mutedForeground,
+            )
+        }
+    }
+}
+
+@Composable
+private fun CommunityStatsErrorCard(
+    message: String,
+    onRetry: () -> Unit,
+) {
+    val type = RipDpiThemeTokens.type
+    val colors = RipDpiThemeTokens.colors
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        Text(
+            text = stringResource(R.string.detection_community_error),
+            style = type.bodyEmphasis,
+            color = colors.destructive,
+        )
+        Text(
+            text = message,
+            style = type.caption,
+            color = colors.mutedForeground,
+        )
+        RipDpiButton(
+            text = stringResource(R.string.detection_community_retry),
+            onClick = onRetry,
+            variant = RipDpiButtonVariant.Outline,
+        )
     }
 }
 

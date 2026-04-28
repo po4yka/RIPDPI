@@ -856,6 +856,10 @@ class NativeConfigContractSnapshotTest {
         cachePrefixV4: Int = 24,
         strategyEvolution: Boolean = false,
         evolutionEpsilon: Double = 0.1,
+        evolutionExperimentTtlMs: Long = 30_000L,
+        evolutionDecayHalfLifeMs: Long = 3_600_000L,
+        evolutionCooldownAfterFailures: Int = 3,
+        evolutionCooldownMs: Long = 300_000L,
     ): JsonObject =
         buildJsonObject {
             put("enabled", JsonPrimitive(enabled))
@@ -868,6 +872,10 @@ class NativeConfigContractSnapshotTest {
             put("cachePrefixV4", JsonPrimitive(cachePrefixV4))
             put("strategyEvolution", JsonPrimitive(strategyEvolution))
             put("evolutionEpsilon", JsonPrimitive(evolutionEpsilon))
+            put("evolutionExperimentTtlMs", JsonPrimitive(evolutionExperimentTtlMs))
+            put("evolutionDecayHalfLifeMs", JsonPrimitive(evolutionDecayHalfLifeMs))
+            put("evolutionCooldownAfterFailures", JsonPrimitive(evolutionCooldownAfterFailures))
+            put("evolutionCooldownMs", JsonPrimitive(evolutionCooldownMs))
         }
 
     private fun quicExpected(

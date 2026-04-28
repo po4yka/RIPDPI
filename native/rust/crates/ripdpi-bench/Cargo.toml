@@ -1,3 +1,4 @@
+# Internal benchmark crate; not shipped in APK and never published.
 [package]
 name = "ripdpi-bench"
 version.workspace = true

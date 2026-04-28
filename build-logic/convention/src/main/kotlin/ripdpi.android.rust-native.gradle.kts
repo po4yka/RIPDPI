@@ -14,6 +14,7 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.LocalState
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
@@ -85,6 +86,13 @@ abstract class BuildRustNativeLibsTask
         @get:Input
         abstract val artifactSpecs: ListProperty<String>
 
+        // When set (e.g. by CI's build-android-debug job after a per-ABI matrix
+        // prebuild), the task copies expected artifacts from
+        // `<prebuiltSourceDir>/<abi>/<outputName>` instead of running cargo.
+        @get:Input
+        @get:Optional
+        abstract val prebuiltSourceDir: Property<String>
+
         @get:OutputDirectory
         abstract val outputDir: DirectoryProperty
 
@@ -93,6 +101,11 @@ abstract class BuildRustNativeLibsTask
 
         @TaskAction
         fun build() {
+            val prebuiltPath = prebuiltSourceDir.orNull?.takeIf(String::isNotBlank)
+            if (prebuiltPath != null) {
+                copyFromPrebuilt(File(prebuiltPath))
+                return
+            }
             val installedTargets = installedRustTargets(rustupExecutable.get())
             val hostBinDir = resolveNdkToolchainBinDir()
             val manifest = workspaceManifest.get().asFile
@@ -452,6 +465,33 @@ abstract class BuildRustNativeLibsTask
             }
 
             source.copyTo(target, overwrite = true)
+        }
+
+        private fun copyFromPrebuilt(prebuiltDir: File) {
+            if (!prebuiltDir.isDirectory) {
+                throw GradleException(
+                    "Prebuilt source directory does not exist: ${prebuiltDir.absolutePath}",
+                )
+            }
+            val outputRoot = outputDir.get().asFile
+            val artifacts = artifactSpecs.get().map(::parseArtifactSpec)
+            val expectedNames = artifacts.map(RustNativeArtifact::outputName).toSet()
+
+            pruneStaleAbiOutputs(outputRoot)
+
+            for (abi in abis.get()) {
+                val abiOutputDir = outputRoot.resolve(abi).also { it.mkdirs() }
+                pruneStaleArtifactOutputs(abiOutputDir, expectedNames)
+                for (artifact in artifacts) {
+                    val source = prebuiltDir.resolve(abi).resolve(artifact.outputName)
+                    if (!source.isFile) {
+                        throw GradleException(
+                            "Prebuilt artifact missing: ${source.absolutePath}",
+                        )
+                    }
+                    copyIfChanged(source, abiOutputDir.resolve(artifact.outputName))
+                }
+            }
         }
 
         private fun parseArtifactSpec(value: String): RustNativeArtifact {
@@ -1059,6 +1099,11 @@ val buildRustNativeLibs =
         artifactSpecs.set(rustNativeArtifactSpecs)
         cargoTargetDir.set(rustNativeLibsBuildDir)
         outputDir.set(generatedJniLibsDir)
+        providers
+            .gradleProperty("ripdpi.prebuiltJniLibsDir")
+            .orNull
+            ?.takeIf(String::isNotBlank)
+            ?.let(prebuiltSourceDir::set)
     }
 
 val buildRustRootHelper =
@@ -1107,6 +1152,11 @@ val buildRustRootHelper =
         cargoTargetDir.set(rustRootHelperBuildDir)
         // Output to assets/bin/<abi>/ so Kotlin can extract at runtime.
         outputDir.set(generatedAssetsDir.map { it.dir("bin") })
+        providers
+            .gradleProperty("ripdpi.prebuiltRootHelperDir")
+            .orNull
+            ?.takeIf(String::isNotBlank)
+            ?.let(prebuiltSourceDir::set)
     }
 
 val buildRustNaiveProxy =
@@ -1148,6 +1198,11 @@ val buildRustNaiveProxy =
         artifactSpecs.set(rustNaiveProxyArtifactSpecs)
         cargoTargetDir.set(layout.buildDirectory.dir("intermediates/rust-naiveproxy"))
         outputDir.set(generatedAssetsDir.map { it.dir("bin") })
+        providers
+            .gradleProperty("ripdpi.prebuiltNaiveProxyDir")
+            .orNull
+            ?.takeIf(String::isNotBlank)
+            ?.let(prebuiltSourceDir::set)
     }
 
 val buildRustCloudflareOrigin =
@@ -1189,6 +1244,11 @@ val buildRustCloudflareOrigin =
         artifactSpecs.set(rustCloudflareOriginArtifactSpecs)
         cargoTargetDir.set(layout.buildDirectory.dir("intermediates/rust-cloudflare-origin"))
         outputDir.set(generatedAssetsDir.map { it.dir("bin") })
+        providers
+            .gradleProperty("ripdpi.prebuiltCloudflareOriginDir")
+            .orNull
+            ?.takeIf(String::isNotBlank)
+            ?.let(prebuiltSourceDir::set)
     }
 
 val buildPluggableTransportAssets =
@@ -1211,26 +1271,38 @@ val buildPluggableTransportAssets =
 
 // Wire the Rust build into the actual JNI packaging tasks so Rust-only source
 // changes cannot be skipped when the Android variants are otherwise up to date.
-tasks.configureEach {
-    if (
-        name.matches(Regex("^merge.+JniLibFolders$")) ||
-        name.matches(Regex("^copy.+JniLibsProjectOnly$")) ||
-        name.matches(Regex("^merge.+NativeLibs$"))
-    ) {
-        dependsOn(buildRustNativeLibs)
+//
+// When `-Pripdpi.skipNativeBuild=true` is passed (e.g. by CI's unit-test or
+// Roborazzi jobs that don't need native libraries), the wiring is omitted so
+// downstream Android tasks don't transitively pull in the long Rust build.
+val skipNativeBuildWiring = shouldSkipNativeBuild()
+if (!skipNativeBuildWiring) {
+    tasks.configureEach {
+        if (
+            name.matches(Regex("^merge.+JniLibFolders$")) ||
+            name.matches(Regex("^copy.+JniLibsProjectOnly$")) ||
+            name.matches(Regex("^merge.+NativeLibs$"))
+        ) {
+            dependsOn(buildRustNativeLibs)
+        }
+        if (name.matches(Regex("^merge.+Assets$"))) {
+            dependsOn(buildRustRootHelper)
+            dependsOn(buildRustNaiveProxy)
+            dependsOn(buildRustCloudflareOrigin)
+            dependsOn(buildPluggableTransportAssets)
+        }
     }
-    if (name.matches(Regex("^merge.+Assets$"))) {
+
+    tasks.named("preBuild") {
+        dependsOn(buildRustNativeLibs)
         dependsOn(buildRustRootHelper)
         dependsOn(buildRustNaiveProxy)
         dependsOn(buildRustCloudflareOrigin)
         dependsOn(buildPluggableTransportAssets)
     }
-}
-
-tasks.named("preBuild") {
-    dependsOn(buildRustNativeLibs)
-    dependsOn(buildRustRootHelper)
-    dependsOn(buildRustNaiveProxy)
-    dependsOn(buildRustCloudflareOrigin)
-    dependsOn(buildPluggableTransportAssets)
+} else {
+    logger.lifecycle(
+        "ripdpi.skipNativeBuild=true: Rust native build dependencies are NOT wired into Android tasks. " +
+            "Do not assemble an APK with this flag — JNI libs and helper assets will be missing.",
+    )
 }

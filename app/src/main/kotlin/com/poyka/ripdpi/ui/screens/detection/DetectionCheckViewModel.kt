@@ -52,6 +52,8 @@ data class DetectionCheckUiState(
     val missingPermissions: List<String> = emptyList(),
     val history: List<DetectionHistoryEntry> = emptyList(),
     val communityStats: CommunityStats? = null,
+    val communityStatsLoading: Boolean = false,
+    val communityStatsError: String? = null,
 )
 
 private const val entropyModeBalanced = 3
@@ -68,6 +70,7 @@ class DetectionCheckViewModel
         private val networkFingerprintProvider: com.poyka.ripdpi.data.NetworkFingerprintProvider,
         private val routingProtectionCatalogService: RoutingProtectionCatalogService,
         private val detectionCheckRunner: DetectionCheckRunner,
+        private val historyStore: DetectionHistoryStore,
     ) : AndroidViewModel(application) {
         private val _uiState = MutableStateFlow(DetectionCheckUiState())
         val uiState: StateFlow<DetectionCheckUiState> = _uiState.asStateFlow()
@@ -76,7 +79,6 @@ class DetectionCheckViewModel
         private val prefs by lazy {
             application.getSharedPreferences("detection_check_prefs", android.content.Context.MODE_PRIVATE)
         }
-        private val historyStore by lazy { DetectionHistoryStore(application) }
         private val communityStore by lazy { CommunityComparisonStore(application) }
 
         init {
@@ -114,20 +116,49 @@ class DetectionCheckViewModel
 
         private fun refreshCommunityStats() {
             viewModelScope.launch {
-                val localStats = CommunityComparisonClient.computeLocalStats(historyStore)
-                _uiState.value = _uiState.value.copy(communityStats = localStats)
+                _uiState.value =
+                    _uiState.value.copy(communityStatsLoading = true, communityStatsError = null)
+                try {
+                    val localStats = CommunityComparisonClient.computeLocalStats(historyStore)
+                    _uiState.value = _uiState.value.copy(communityStats = localStats)
 
-                val settings = appSettingsRepository.settings.first()
-                val statsUrl =
-                    settings.communityApiUrl.ifBlank {
-                        CommunityComparisonClient.DEFAULT_STATS_URL
+                    val settings = appSettingsRepository.settings.first()
+                    val statsUrl =
+                        settings.communityApiUrl.ifBlank {
+                            CommunityComparisonClient.DEFAULT_STATS_URL
+                        }
+                    val client = CommunityComparisonClient()
+                    client
+                        .fetchStats(statsUrl)
+                        .onSuccess { remoteStats ->
+                            communityStore.cacheStats(remoteStats)
+                            _uiState.value = _uiState.value.copy(communityStats = remoteStats)
+                        }.onFailure { error ->
+                            if (_uiState.value.communityStats == null) {
+                                _uiState.value =
+                                    _uiState.value.copy(communityStatsError = error.message)
+                            }
+                        }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") e: Exception,
+                ) {
+                    // Defensive UI fallback: refresh chains may throw IOException (cache I/O,
+                    // settings flow), JSON parsing errors, or runtime exceptions; surface any
+                    // failure as an error state instead of crashing the VM.
+                    if (_uiState.value.communityStats == null) {
+                        _uiState.value =
+                            _uiState.value.copy(communityStatsError = e.message)
                     }
-                val client = CommunityComparisonClient()
-                client.fetchStats(statsUrl).onSuccess { remoteStats ->
-                    communityStore.cacheStats(remoteStats)
-                    _uiState.value = _uiState.value.copy(communityStats = remoteStats)
+                } finally {
+                    _uiState.value = _uiState.value.copy(communityStatsLoading = false)
                 }
             }
+        }
+
+        fun reloadCommunityStats() {
+            refreshCommunityStats()
         }
 
         fun dismissOnboarding() {

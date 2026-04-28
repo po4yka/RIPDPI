@@ -106,7 +106,9 @@ fn send_dns_servfail(
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 pub struct IoUringTunContext {
     pub driver: std::sync::Arc<ripdpi_io_uring::IoUringDriver>,
-    pub tun_fd: std::os::fd::RawFd,
+    /// Owned TUN file descriptor kept alive for the duration of the io_uring context.
+    /// Closed automatically when `IoUringTunContext` is dropped.
+    pub tun_fd: std::os::fd::OwnedFd,
 }
 
 #[allow(clippy::too_many_arguments)]

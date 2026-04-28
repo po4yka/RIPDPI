@@ -96,6 +96,42 @@ internal fun LazyListScope.detectionResistanceSection(
                     enabled = visualEditorEnabled && uiState.detectionResistance.strategyEvolution,
                     keyboardOptions = DecimalKeyboard,
                 )
+                AdvancedTextSetting(
+                    title = stringResource(R.string.detection_resistance_evolution_experiment_ttl_title),
+                    value = uiState.detectionResistance.evolutionExperimentTtlMs.toString(),
+                    setting = AdvancedTextSetting.EvolutionExperimentTtlMs,
+                    onConfirm = onTextConfirmed,
+                    description = stringResource(R.string.detection_resistance_evolution_experiment_ttl_body),
+                    enabled = visualEditorEnabled && uiState.detectionResistance.strategyEvolution,
+                    keyboardOptions = NumericKeyboard,
+                )
+                AdvancedTextSetting(
+                    title = stringResource(R.string.detection_resistance_evolution_decay_half_life_title),
+                    value = uiState.detectionResistance.evolutionDecayHalfLifeMs.toString(),
+                    setting = AdvancedTextSetting.EvolutionDecayHalfLifeMs,
+                    onConfirm = onTextConfirmed,
+                    description = stringResource(R.string.detection_resistance_evolution_decay_half_life_body),
+                    enabled = visualEditorEnabled && uiState.detectionResistance.strategyEvolution,
+                    keyboardOptions = NumericKeyboard,
+                )
+                AdvancedTextSetting(
+                    title = stringResource(R.string.detection_resistance_evolution_cooldown_failures_title),
+                    value = uiState.detectionResistance.evolutionCooldownAfterFailures.toString(),
+                    setting = AdvancedTextSetting.EvolutionCooldownAfterFailures,
+                    onConfirm = onTextConfirmed,
+                    description = stringResource(R.string.detection_resistance_evolution_cooldown_failures_body),
+                    enabled = visualEditorEnabled && uiState.detectionResistance.strategyEvolution,
+                    keyboardOptions = NumericKeyboard,
+                )
+                AdvancedTextSetting(
+                    title = stringResource(R.string.detection_resistance_evolution_cooldown_ms_title),
+                    value = uiState.detectionResistance.evolutionCooldownMs.toString(),
+                    setting = AdvancedTextSetting.EvolutionCooldownMs,
+                    onConfirm = onTextConfirmed,
+                    description = stringResource(R.string.detection_resistance_evolution_cooldown_ms_body),
+                    enabled = visualEditorEnabled && uiState.detectionResistance.strategyEvolution,
+                    keyboardOptions = NumericKeyboard,
+                )
                 HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
                 SettingsRow(
                     title = stringResource(R.string.detection_resistance_quic_low_port_title),

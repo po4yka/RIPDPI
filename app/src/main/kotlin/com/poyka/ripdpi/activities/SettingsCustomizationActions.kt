@@ -52,6 +52,15 @@ internal class SettingsCustomizationActions(
         }
     }
 
+    fun setCommunityApiUrl(url: String) {
+        mutations.updateSetting(
+            key = "communityApiUrl",
+            value = url,
+        ) {
+            setCommunityApiUrl(url)
+        }
+    }
+
     fun setAppTheme(theme: String) {
         mutations.updateSetting(
             key = "appTheme",
