@@ -86,42 +86,13 @@ When referencing Compose internals, point to the exact source file:
 
 ## Source Code Receipts
 
-Beyond the guidance docs, this skill bundles the **actual source code** from
-`androidx/androidx` (branch: `androidx-main`) and `JetBrains/compose-multiplatform-core`
-(branch: `jb-main`). When you need to verify how something works internally, or the
-user asks "show me the actual implementation", read the raw source from
-`references/source-code/`:
-
-| Module | Source Reference | Key Files Inside |
-|--------|-----------------|------------------|
-| Runtime | `references/source-code/runtime-source.md` | Composer.kt, Recomposer.kt, State.kt, Effects.kt, CompositionLocal.kt, Remember.kt, SlotTable.kt, Snapshot.kt |
-| UI | `references/source-code/ui-source.md` | AndroidCompositionLocals.android.kt, Modifier.kt, Layout.kt, LayoutNode.kt, ModifierNodeElement.kt, DrawModifier.kt |
-| Foundation | `references/source-code/foundation-source.md` | LazyList.kt, LazyGrid.kt, BasicTextField.kt, Clickable.kt, Scrollable.kt, Pager.kt |
-| Material3 | `references/source-code/material3-source.md` | MaterialTheme.kt, ColorScheme.kt, Button.kt, Scaffold.kt, TextField.kt, NavigationBar.kt |
-| Navigation | `references/source-code/navigation-source.md` | NavHost.kt, ComposeNavigator.kt, NavGraphBuilder.kt, DialogNavigator.kt |
-| CMP | `references/source-code/cmp-source.md` | Window.kt, ComposeUIViewController.kt, UIKitView.kt, ComposeViewport.kt, ResourceReader.kt |
+When you need to verify how something works internally — or the user asks
+"show me the actual implementation" — read `references/source-code/index.md`.
+It maps each Compose runtime/UI/Foundation/Material3/Navigation/CMP source
+file to its upstream URL on `androidx/androidx@androidx-main` or
+`JetBrains/compose-multiplatform-core@jb-main`. Fetch the file directly with
+WebFetch or `gh api`.
 
 ### Two-layer approach
 1. **Start with guidance** — read the topic-specific reference (e.g., `references/state-management.md`)
-2. **Go deeper with source** — if the user wants receipts or you need to verify, read from `references/source-code/`
-
-### Source tree map
-```
-androidx/androidx (branch: androidx-main)
-├── compose/runtime/runtime/src/commonMain/kotlin/androidx/compose/runtime/
-├── compose/ui/ui/src/androidMain/kotlin/androidx/compose/ui/platform/
-├── compose/ui/ui/src/commonMain/kotlin/androidx/compose/ui/
-├── compose/foundation/foundation/src/commonMain/kotlin/androidx/compose/foundation/
-├── compose/material3/material3/src/commonMain/kotlin/androidx/compose/material3/
-└── compose/navigation/navigation-compose/src/commonMain/kotlin/androidx/navigation/compose/
-
-compose-multiplatform-core (branch: jb-main)
-├── compose/ui/ui/src/desktopMain/kotlin/androidx/compose/ui/window/
-├── compose/ui/ui/src/iosMain/kotlin/androidx/compose/ui/window/
-├── compose/ui/ui/src/webMain/kotlin/androidx/compose/ui/window/
-├── compose/ui/ui/src/skikoMain/kotlin/androidx/compose/ui/
-└── compose/foundation/foundation/src/skikoMain/kotlin/androidx/compose/foundation/
-
-compose-multiplatform (resources library)
-└── components/resources/library/src/commonMain/
-```
+2. **Go deeper with source** — if the user wants receipts or you need to verify, follow `references/source-code/index.md` to the upstream file
