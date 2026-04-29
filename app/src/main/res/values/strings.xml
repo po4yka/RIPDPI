@@ -2240,7 +2240,8 @@ Source: %2$s</string>
     <string name="title_owned_stack_browser">RIPDPI Browser</string>
     <string name="owned_stack_browser_banner_title">Owned-stack path</string>
     <string name="owned_stack_browser_banner_android17">This device can use Android 17 platform ECH preferences through Network Security Config when the platform stack supplies ECH data.</string>
-    <string name="owned_stack_browser_banner_fallback">Android 17 platform ECH is unavailable here. RIPDPI falls back to its native owned TLS fetcher so the browser shell still works.</string>
+    <string name="owned_stack_browser_banner_platform">Android platform HttpEngine is available here, but Android 17 platform ECH is not. RIPDPI can still use HttpEngine opportunistically and falls back to native owned TLS when needed.</string>
+    <string name="owned_stack_browser_banner_fallback">Android platform HttpEngine is unavailable here. RIPDPI uses its native owned TLS fetcher so the browser shell still works.</string>
     <string name="owned_stack_browser_url_label">HTTPS URL</string>
     <string name="owned_stack_browser_url_placeholder">example.org</string>
     <string name="owned_stack_browser_open_action">Open in RIPDPI browser</string>

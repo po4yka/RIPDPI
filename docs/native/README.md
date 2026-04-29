@@ -88,7 +88,7 @@ flowchart LR
 App-originated traffic that RIPDPI controls itself no longer always traverses the local SOCKS5 proxy.
 
 - `OwnedStackBrowserService` is the shared Kotlin service path used by the RIPDPI Browser and the repo-local `SecureHttpClient`.
-- On Android 17 / API 37, it prefers platform `HttpEngine` only when authority-scoped DNS evidence says the host is `ECH_CAPABLE` or when the app ships an explicit `xml-v37` override.
+- On Android 14+ / API 34+, it can use platform `HttpEngine` opportunistically. Android 17 / API 37 adds confirmed-ECH gating when the request requires confirmed ECH evidence.
 - The platform path retries with QUIC disabled before falling back to RIPDPI's native owned TLS path.
 - The local proxy runtime described in the rest of this document still handles proxy mode, VPN mode, diagnostics probes, relay orchestration, and localhost policy replay.
 

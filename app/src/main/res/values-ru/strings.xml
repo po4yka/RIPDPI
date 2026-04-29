@@ -346,7 +346,8 @@
     <string name="title_owned_stack_browser">RIPDPI Browser</string>
     <string name="owned_stack_browser_banner_title">Owned-stack путь</string>
     <string name="owned_stack_browser_banner_android17">Это устройство может использовать платформенный ECH Android 17 через Network Security Config, когда системный стек получает ECH-данные.</string>
-    <string name="owned_stack_browser_banner_fallback">Платформенный ECH Android 17 здесь недоступен. RIPDPI использует свой native owned TLS fetcher, чтобы встроенный браузер всё равно работал.</string>
+    <string name="owned_stack_browser_banner_platform">Android platform HttpEngine здесь доступен, но platform ECH Android 17 — нет. RIPDPI может использовать HttpEngine opportunistically и откатывается к native owned TLS при необходимости.</string>
+    <string name="owned_stack_browser_banner_fallback">Android platform HttpEngine здесь недоступен. RIPDPI использует native owned TLS fetcher, чтобы встроенный браузер всё равно работал.</string>
     <string name="owned_stack_browser_url_label">HTTPS URL</string>
     <string name="owned_stack_browser_url_placeholder">example.org</string>
     <string name="owned_stack_browser_open_action">Открыть в RIPDPI Browser</string>

@@ -25,7 +25,7 @@ That means `libripdpi.so` is no longer only the proxy engine. It is also the dia
 Not every RIPDPI-managed request now goes through the local SOCKS5 proxy.
 
 - App-originated traffic from the RIPDPI Browser and the repo-local `SecureHttpClient` uses `OwnedStackBrowserService` in `:core:service`.
-- On Android 17 / API 37, that path prefers platform `HttpEngine` only for authorities with fresh `ECH_CAPABLE` DNS evidence or explicit `xml-v37` overrides, then retries H2-only before falling back to the native owned TLS path.
+- On Android 14+ / API 34+, that path can use platform `HttpEngine` opportunistically. Android 17 / API 37 adds confirmed-ECH gating for authorities with fresh `ECH_CAPABLE` DNS evidence or explicit `xml-v37` overrides. Platform attempts retry H2-only before falling back to the native owned TLS path.
 - This document covers the local proxy runtime used for proxy mode, VPN mode, diagnostics probes, relay transports, and localhost policy replay. The owned-stack path is adjacent to it, not a replacement for it.
 
 ## Call Chains
@@ -56,7 +56,7 @@ Relevant sources:
 
 ### App-owned request path (owned-stack)
 
-`OwnedStackBrowserViewModel` / `SecureHttpClient` -> `OwnedStackBrowserService.execute(...)` -> platform `HttpEngine` (Android 17 with confirmed ECH evidence) -> H2-only retry -> native owned TLS fallback
+`OwnedStackBrowserViewModel` / `SecureHttpClient` -> `OwnedStackBrowserService.execute(...)` -> platform `HttpEngine` when available (confirmed-ECH gated on Android 17 when required) -> H2-only retry -> native owned TLS fallback
 
 ### VPN localhost hardening
 
