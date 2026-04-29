@@ -338,6 +338,24 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/diagnostics_archive_paths" />
         </provider>
+
+        <!--
+            WorkManager auto-initialization is disabled here so the Hilt-aware
+            Configuration.Provider on RipDpiApp wires up the HiltWorkerFactory
+            before any worker is instantiated. Without this override, the
+            default factory would race the Hilt graph and fail to construct
+            @HiltWorker classes.
+        -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
     </application>
 
 </manifest>
