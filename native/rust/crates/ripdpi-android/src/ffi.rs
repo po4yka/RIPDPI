@@ -110,6 +110,110 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiPlatformCapabilities_jni
     ripdpi_runtime::platform::seqovl_supported()
 }
 
+// JNI bridge for the process-wide CdnEchUpdater (Phase 3 of ADR-012).
+//
+// The Kotlin `CdnEchRefreshWorker` calls `jniRefreshCdnEch` on its 24h
+// schedule and `jniSnapshotCdnEch` afterwards to capture the new bytes
+// for `EncryptedSharedPreferences`. At app startup,
+// `jniSeedCdnEch` re-hydrates the in-memory cache from the persisted
+// snapshot so the TTL window survives process restarts.
+//
+// All three return / accept JSON status documents so each error class
+// surfaces a precise reason in Kotlin logs without needing a custom
+// error code table.
+
+/// Refresh the singleton's cache from primary (DoH HTTPS-RR) or
+/// fallback (bundled) source. Returns `{"ok": true}` on success or
+/// `{"ok": false, "error": "..."}` if both sources fail.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jniRefreshCdnEch(
+    mut env: EnvUnowned<'_>,
+    _thiz: JObject<'_>,
+) -> jstring {
+    match env
+        .with_env(move |env| -> jni::errors::Result<jstring> {
+            let payload = match ripdpi_monitor::cdn_ech::production_updater().refresh() {
+                Ok(()) => "{\"ok\":true}".to_string(),
+                Err(err) => serde_json::json!({"ok": false, "error": err.to_string()}).to_string(),
+            };
+            Ok(env.new_string(payload)?.into_raw())
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(value) => value,
+        _ => std::ptr::null_mut(),
+    }
+}
+
+/// Snapshot the current cache for persistence to platform storage.
+/// Returns `{"ok": true, "fetchedAtUnixMs": N, "configBase64": "..."}`
+/// when the cache has been populated, `{"ok": true, "empty": true}` for
+/// a cold cache (the worker writes nothing to EncryptedSharedPreferences
+/// in that case), or `{"ok": false, "error": "..."}` on failure.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jniSnapshotCdnEch(
+    mut env: EnvUnowned<'_>,
+    _thiz: JObject<'_>,
+) -> jstring {
+    use base64::Engine;
+    match env
+        .with_env(move |env| -> jni::errors::Result<jstring> {
+            let payload = match ripdpi_monitor::cdn_ech::production_updater().snapshot_for_persistence() {
+                Some(snapshot) => {
+                    let b64 = base64::engine::general_purpose::STANDARD.encode(&snapshot.config);
+                    serde_json::json!({
+                        "ok": true,
+                        "fetchedAtUnixMs": snapshot.fetched_at_unix_ms,
+                        "configBase64": b64,
+                    })
+                    .to_string()
+                }
+                None => "{\"ok\":true,\"empty\":true}".to_string(),
+            };
+            Ok(env.new_string(payload)?.into_raw())
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(value) => value,
+        _ => std::ptr::null_mut(),
+    }
+}
+
+/// Seed the singleton's cache from a previously-persisted snapshot
+/// (`fetchedAtUnixMs` paired with the original config bytes,
+/// base64-encoded). Validates the bytes against the same length-prefix
+/// + version checks `RemoteEchConfigSource` would, so a corrupted
+/// EncryptedSharedPreferences entry can't poison the cache. Returns
+/// `{"ok": true}` or `{"ok": false, "error": "..."}`.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jniSeedCdnEch(
+    mut env: EnvUnowned<'_>,
+    _thiz: JObject<'_>,
+    config_base64: JString,
+    fetched_at_unix_ms: jlong,
+) -> jstring {
+    use base64::Engine;
+    match env
+        .with_env(move |env| -> jni::errors::Result<jstring> {
+            let b64: String = config_base64.mutf8_chars(env)?.to_str().into_owned();
+            let payload = match base64::engine::general_purpose::STANDARD.decode(b64.trim()) {
+                Ok(bytes) => match ripdpi_monitor::cdn_ech::production_updater()
+                    .seed_from_persisted(bytes, fetched_at_unix_ms.max(0) as u64)
+                {
+                    Ok(()) => "{\"ok\":true}".to_string(),
+                    Err(err) => serde_json::json!({"ok": false, "error": err.to_string()}).to_string(),
+                },
+                Err(err) => serde_json::json!({"ok": false, "error": format!("invalid base64: {err}")}).to_string(),
+            };
+            Ok(env.new_string(payload)?.into_raw())
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(value) => value,
+        _ => std::ptr::null_mut(),
+    }
+}
+
 // Verify a signed shared-priors bundle and write the resulting prior
 // store into the process-wide registry (P4.4.4, ADR-011).
 //

@@ -1,14 +1,12 @@
 # ADR-012: ECH Config Rotation Strategy
 
-**Status:** Phase 1 (abstraction + bundled source), Phase 2
-(`RemoteEchConfigSource`), and Phase 3 cache-persistence API landed. The
-WorkManager scheduler hookup and the Kotlin
-`EncryptedSharedPreferences`-backed cache that consumes the persistence
-API are still deferred — both share infrastructure with the ADR-011
-shared-priors transport (WorkManager is not yet a project dependency)
-and will land together once that infrastructure is introduced.
+**Status:** Accepted. Phase 1 (abstraction + bundled source), Phase 2
+(`RemoteEchConfigSource`), Phase 3 cache-persistence API, **and**
+Phase 3 Kotlin scheduler + EncryptedSharedPreferences cache wiring all
+landed.
 
-**Date:** 2026-04-27 (Phase 1), 2026-04-28 (Phase 2 and Phase 3 cache API)
+**Date:** 2026-04-27 (Phase 1), 2026-04-28 (Phase 2 and Phase 3 cache
+API), 2026-04-29 (Phase 3 Kotlin scheduler + cache hookup)
 
 ---
 
@@ -100,21 +98,62 @@ round-trip, malformed-bytes rejection preserves prior cache, seeded
 entry served via `current_config` while fresh, future-timestamp clamp,
 past-timestamp age-preservation drift bound).
 
-### Phase 3 — Kotlin glue (still deferred)
+### Phase 3 — Kotlin scheduler + cache hookup (LANDED 2026-04-29)
 
-The remaining work is Android-side and shares infrastructure with the
-ADR-011 shared-priors transport:
+- **Process-wide singleton**: `ripdpi_monitor::cdn_ech::production_updater()`
+  lazy-initializes a `CdnEchUpdater<RemoteEchConfigSource, BundledEchConfigSource>`
+  with a 24 h TTL on first call. JNI exports operate on this single
+  instance; in-process callers (e.g. the future TLS path wire-up)
+  share the same cache.
+- **JNI bridge** in `ripdpi-android/src/ffi.rs`:
+  - `Java_..._RipDpiCdnEchNativeBindings_jniRefreshCdnEch()` calls
+    `production_updater().refresh()` and returns
+    `{"ok": true}` or `{"ok": false, "error": "..."}`.
+  - `jniSnapshotCdnEch()` returns
+    `{"ok": true, "fetchedAtUnixMs": N, "configBase64": "..."}` for a
+    populated cache or `{"ok": true, "empty": true}` for a cold
+    cache; the Kotlin worker writes nothing to
+    `EncryptedSharedPreferences` in the latter case so a stale
+    persisted entry is preserved.
+  - `jniSeedCdnEch(configBase64, fetchedAtUnixMs)` validates the bytes
+    against `validate_ech_config_list_bytes` before accepting (a
+    corrupted EncryptedSharedPreferences entry can't poison the cache)
+    and returns `{"ok": true}` on success.
+- **Kotlin `RipDpiCdnEchNativeBindings`** (`core/engine`) wraps the
+  three JNI exports with a base64 round-trip and a small hand-rolled
+  JSON parser (no serialization-library dep needed for these
+  one-shot status documents).
+- **`CdnEchPersistedCache`** interface + `EncryptedSharedPreferences`-
+  backed implementation already landed in commit `4695b852` as part of
+  the WorkManager scaffolding.
+- **`CdnEchRefreshWorker`** (`@HiltWorker`, `CoroutineWorker`,
+  `core/service`): 24 h periodic, `NetworkType.CONNECTED` constraint.
+  Per cycle: `RipDpiCdnEchNativeBindings.refresh()` → snapshot the
+  resulting cache → if non-empty, persist via `CdnEchPersistedCache`.
+  A snapshot of `null` (both sources failed and the prior cache was
+  cold) leaves the persisted entry untouched.
+- **`CdnEchSeedFromCache`** is a one-shot helper invoked from
+  `AppStartupInitializer` that loads the persisted entry and calls
+  `RipDpiCdnEchNativeBindings.seed(...)` so the in-memory TTL window
+  picks up where the previous process left off. The refresh worker
+  is enqueued from the same startup chain via
+  `enqueueUniquePeriodicWork(KEEP)` — re-enqueuing on subsequent
+  startups is a no-op.
 
-- `EncryptedSharedPreferences`-backed cache that calls
-  `snapshot_for_persistence` after every successful `refresh()` and
-  feeds `seed_from_persisted` at app startup.
-- `CdnEchRefreshWorker` (`CoroutineWorker`) scheduled as a 24 h
-  `PeriodicWorkRequest` via `WorkManager.enqueueUniquePeriodicWork`.
-- JNI bridge exposing `seed_from_persisted` / `snapshot_for_persistence`
-  / `refresh` against a singleton updater instance.
-- Hilt-WorkManager integration (the project does not yet depend on
-  `androidx.work` — this lands as part of introducing WorkManager
-  project-wide, jointly with the shared-priors refresher in ADR-011).
+`ripdpi-monitor` cdn_ech suite: 25/25 tests pass.
+
+### Phase 3 follow-up: TLS path wire-up
+
+The singleton's refreshed bytes are persisted and reseeded across
+restarts but are not yet consumed by the production TLS handshake.
+`tls.rs::build_ech_client_config` still falls back to
+`cdn_config.ech_config_list.to_vec()` (a `&'static [u8]`) when the
+DoH HTTPS-RR query fails, missing the chance to use the freshly
+refreshed bytes the worker has accumulated. Wiring
+`production_updater().current_config()` into that fallback path is a
+follow-up that changes production handshake behaviour and warrants
+its own focused commit + test pass; it is intentionally not part of
+this Phase 3 closure.
 
 ---
 
