@@ -1,6 +1,10 @@
 ---
 name: rust-build-times
-description: Rust build time optimization skill for reducing slow compilation. Use when using cargo-timings to profile builds, configuring sccache for Rust, splitting workspaces for parallelism, choosing between thin LTO and fat LTO, or optimizing Android NDK cross-compilation builds. Activates on queries about slow Rust compilation, cargo-timings, sccache Rust, Rust workspace splitting, LTO tradeoffs, Android NDK build times, or cross-compilation caching.
+description: >
+  Reduce Rust compilation time: cargo-timings build profiling, sccache,
+  workspace splitting, thin-vs-fat LTO, Android NDK cross-compilation.
+  Triggers: slow Rust compile, cargo-timings, sccache, LTO,
+  NDK build times.
 ---
 
 # Rust Build Times

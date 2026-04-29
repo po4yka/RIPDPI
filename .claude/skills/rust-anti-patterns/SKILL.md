@@ -1,6 +1,10 @@
 ---
 name: rust-anti-patterns
-description: Rust anti-patterns and discipline rules for the RIPDPI native workspace. Use when reviewing or writing Rust that touches panic policy, error propagation, Drop/RAII, match exhaustiveness, allocation in hot paths, concurrency primitive selection, atomic memory ordering, spawn_blocking vs dedicated threads, unsafe boundary encapsulation, or clippy/deny lint regressions. Activates on queries about unwrap, expect, panic, thiserror, anyhow, Box<dyn Error>, OwnedFd, scopeguard, non_exhaustive, SmallVec, format!, Arc, Mutex, RwLock, parking_lot, AtomicBool, Ordering, Relaxed, SeqCst, spawn_blocking, std::thread, unsafe fn, missing_safety_doc, clippy allow, deny.toml.
+description: >
+  Rust anti-patterns and discipline rules for the RIPDPI native workspace:
+  panic policy, error propagation, Drop/RAII, hot-path allocation,
+  concurrency primitives, atomic ordering, unsafe boundaries,
+  clippy/deny regressions.
 ---
 
 # Rust anti-patterns -- RIPDPI

@@ -1,18 +1,10 @@
 ---
 name: diagnostics-system
 description: >
-  Diagnostics engine and scan pipeline skill. Covers ScanRequest, ScanReport,
-  ProbeTask, ProbeResult, ProbeObservation, ripdpi-monitor crate, ripdpi-telemetry,
-  diagnostics catalog, DiagnosticsCatalogAssembler, target packs, profiles,
-  strategy probe, StrategyProbeReport, StrategyProbeCandidateSummary,
-  StrategyProbeRecommendation, wire protocol, EngineScanRequestWire,
-  EngineScanReportWire, EngineProgressWire, EngineObservationWire,
-  DIAGNOSTICS_ENGINE_SCHEMA_VERSION, DiagnosticsScanWorkflow,
-  DiagnosticsScanController, RuntimeSessionCoordinator, ExecutionStageRunner,
-  ExecutionCoordinator, BridgeExecutionService, BridgePollingService,
-  ScanFinalizationService, golden contract tests, connectivity scan,
-  automatic probing, automatic audit, DNS baseline, candidate evaluation,
-  tournament bracket, partial results recovery, logcat capture, dpi_strategy stage.
+  Diagnostics engine and scan pipeline (ripdpi-monitor + core/diagnostics):
+  ScanRequest/Report, ProbeTask, DiagnosticsScanWorkflow, strategy probe,
+  wire schema, golden contract tests. Use for scan flow, probes, catalog,
+  or telemetry work.
 ---
 
 # Diagnostics System

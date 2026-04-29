@@ -1,6 +1,10 @@
 ---
 name: rust-profiling
-description: Rust profiling skill for RIPDPI performance analysis. Use when profiling Android .so binaries with simpleperf/perfetto, measuring monomorphization bloat with cargo-llvm-lines, analysing binary size with cargo-bloat against android-jni profile, microbenchmarking with Criterion (ripdpi-bench), reading flamegraphs, or optimising APK .so size. Activates on queries about cargo-bloat, cargo-llvm-lines, Criterion benchmarks, Rust performance profiling, simpleperf, perfetto, binary size, or APK size.
+description: >
+  Rust profiling for RIPDPI: Android .so with simpleperf/perfetto,
+  monomorphization bloat (cargo-llvm-lines), binary size (cargo-bloat
+  android-jni), Criterion benchmarks (ripdpi-bench), flamegraphs,
+  APK .so size.
 ---
 
 # Rust Profiling (RIPDPI)

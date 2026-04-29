@@ -1,6 +1,10 @@
 ---
 name: rust-unsafe
-description: Rust unsafe code skill for systems programming. Use when writing or reviewing unsafe Rust, understanding what operations require unsafe, implementing safe abstractions over unsafe code, auditing unsafe blocks, or understanding raw pointers, transmute, and extern. Activates on queries about unsafe Rust, raw pointers, transmute, unsafe blocks, writing safe wrappers, UnsafeCell, unsafe trait impl, or auditing unsafe code.
+description: >
+  Rust unsafe code for systems programming: writing/auditing unsafe blocks,
+  raw pointers, transmute, extern "C", safe wrappers, UnsafeCell, unsafe
+  trait impl. Use for JNI FFI, ioctl/tun, signal handling in RIPDPI native
+  crates.
 ---
 
 # Rust unsafe -- RIPDPI
