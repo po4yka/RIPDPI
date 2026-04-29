@@ -189,7 +189,7 @@ pub struct LearningContext {
     pub capability_context: CapabilityContext,
     /// Coarse classification of the host device — `Field` for real user
     /// devices, `Emulator` for AVD / CI test devices, `Unknown` when the
-    /// platform-side detector has not been wired yet (P4.4.5, offline-learner architecture note).
+    /// platform-side detector has not provided a value.
     /// Including this here automatically segregates field-derived bandit
     /// statistics from emulator-derived ones via the `HashMap`'s
     /// per-context state.
@@ -327,7 +327,7 @@ pub(super) const FITNESS_LATENCY_VARIANCE_WEIGHT: f64 = 20.0;
 pub(super) const FITNESS_ENERGY_WEIGHT: f64 = 18.0;
 
 // ---------------------------------------------------------------------------
-// Rarity / retry penalty knobs (P4.4.2, offline-learner architecture note)
+// Rarity / retry penalty knobs
 // ---------------------------------------------------------------------------
 
 /// Below this many attempts an arm is treated as "rare" and pays a flat
@@ -569,8 +569,8 @@ pub(super) fn combo_energy_cost(combo: &StrategyCombo) -> f64 {
 ///
 /// Pass `half_life_ms == 0` to disable decay (legacy behaviour). The
 /// production paths in [`super::StrategyEvolver`] always pass the configured
-/// `decay_half_life_ms`. Rarity / retry penalties (P4.4.2) are layered on
-/// top via [`combo_fitness_at_with_penalties`] when the evolver has them
+/// `decay_half_life_ms`. Rarity / retry penalties are layered on top via
+/// [`combo_fitness_at_with_penalties`] when the evolver has them
 /// enabled; the legacy entry-point preserves the old behaviour for callers
 /// that have not opted in.
 pub(super) fn combo_fitness_at(combo: &StrategyCombo, stats: &ComboStats, now_ms: u64, half_life_ms: u64) -> f64 {

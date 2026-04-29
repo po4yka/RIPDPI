@@ -1,4 +1,4 @@
-//! Shared-priors loader for the offline learner (P4.4.4, offline-learner architecture note).
+//! Shared-priors loader for the offline learner.
 //!
 //! Sub-modules:
 //!
@@ -30,7 +30,7 @@ pub use parser::{parse, Loaded, SharedPriorsError, MAX_RAW_PAYLOAD};
 use super::thompson_sampling::BetaParams;
 
 // Process-wide registry that holds the most-recently verified shared
-// priors (P4.4.4 transport, offline-learner architecture note). The JNI bridge calls
+// priors. The JNI bridge calls
 // `apply_global_shared_priors` after fetching the manifest + payload from
 // GitHub; new `StrategyEvolver` instances consult `latest_shared_priors`
 // at session start to seed their prior store.

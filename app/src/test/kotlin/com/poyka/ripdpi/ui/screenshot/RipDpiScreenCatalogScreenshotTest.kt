@@ -79,21 +79,6 @@ class RipDpiScreenCatalogScreenshotTest {
         }
     }
 
-    // TODO(po4yka) Re-enable when Roborazzi adds layoutDirection API
-    // @Test
-    // fun homeRtlScreen() {
-    //     captureRipDpiScreenshotRtl(widthDp = 720, heightDp = 920) {
-    //         RipDpiHomeExpandedPreviewScene()
-    //     }
-    // }
-
-    // @Test
-    // fun settingsRtlScreen() {
-    //     captureRipDpiScreenshotRtl(widthDp = 720, heightDp = 1100) {
-    //         RipDpiSettingsMediumPreviewScene()
-    //     }
-    // }
-
     @Test
     fun diagnosticsScanScreen() {
         captureRipDpiScreenshot(widthDp = 420, heightDp = 900) {
@@ -213,7 +198,7 @@ class RipDpiScreenCatalogScreenshotTest {
         }
     }
 
-    // -- Phase 6: New screen coverage ------------------------------------------
+    // -- New screen coverage ----------------------------------------------------
 
     @Test
     fun detectionCheckScreen() {
@@ -236,7 +221,7 @@ class RipDpiScreenCatalogScreenshotTest {
         }
     }
 
-    // -- Phase 6: Multi-configuration variants ---------------------------------
+    // -- Multi-configuration variants ------------------------------------------
 
     @Test
     fun homeHighContrastScreen() {

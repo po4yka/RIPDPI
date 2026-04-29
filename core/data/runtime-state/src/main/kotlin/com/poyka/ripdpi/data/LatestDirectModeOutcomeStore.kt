@@ -25,7 +25,7 @@ data class LatestDirectModeOutcomeSnapshot(
 // Today the consumers are MainViewModel (via MainHomeDiagnosticsActions)
 // and ConfigViewModel; the latter feeds the verdict into
 // resolveRelayPresetSuggestion so the Config relay-preset hint stays in
-// sync with the Diagnostics / Home remediation ladder (direct-mode architecture note P4.3.4).
+// sync with the Diagnostics / Home remediation ladder.
 interface LatestDirectModeOutcomeStore {
     val outcome: StateFlow<LatestDirectModeOutcomeSnapshot?>
 

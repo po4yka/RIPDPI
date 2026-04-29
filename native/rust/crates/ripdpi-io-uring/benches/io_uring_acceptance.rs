@@ -1,7 +1,6 @@
 //! Acceptance benchmarks for the io_uring driver (io_uring architecture note).
 //!
-//! Measures end-to-end latency for the two production paths landed in
-//! Phase B:
+//! Measures end-to-end latency for two production paths:
 //!
 //! - **Park/unpark wakeup**: time to drive a single submission through
 //!   `IoUringDriver` + `block_on_completion`. Captures the cost of the

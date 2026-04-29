@@ -241,8 +241,7 @@ pub(crate) fn finalize_ui_config(
 
 /// Map the JSON wire-form string to [`EnvironmentKind`]. An absent or
 /// unrecognised value falls back to [`EnvironmentKind::Unknown`] so a
-/// stale Kotlin client speaking the pre-Phase-F.4 wire form does not
-/// inject a wild value into the bandit's HashMap key (P4.4.5, offline-learner architecture note).
+/// stale Kotlin client cannot inject a wild value into the bandit's HashMap key.
 fn parse_environment_kind(value: Option<&str>) -> ripdpi_config::EnvironmentKind {
     match value {
         Some("Field") => ripdpi_config::EnvironmentKind::Field,

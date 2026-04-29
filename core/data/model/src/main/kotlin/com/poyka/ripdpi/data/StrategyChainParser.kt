@@ -1,4 +1,4 @@
-// ROADMAP-architecture-refactor W1 -- carry-over until Phase 1 slice 1.5
+// ROADMAP-architecture-refactor W1
 @file:Suppress("TooManyFunctions")
 
 package com.poyka.ripdpi.data

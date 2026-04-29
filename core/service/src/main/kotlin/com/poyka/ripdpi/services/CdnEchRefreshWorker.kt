@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 
 // 24-hour periodic worker that refreshes the singleton CdnEchUpdater
 // from its DoH primary (or the bundled fallback) and persists the
-// resulting cache to EncryptedSharedPreferences (Phase 3 of ECH rotation architecture note).
+// resulting cache to EncryptedSharedPreferences.
 //
 // Without this worker, CdnEchUpdater::refresh is never called in
 // production: the cache stays cold across boot and the in-process

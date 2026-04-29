@@ -36,24 +36,3 @@ internal fun captureRipDpiScreenshot(
         content()
     }
 }
-
-// TODO(po4yka) Re-enable when Roborazzi adds layoutDirection API
-// @OptIn(ExperimentalRoborazziApi::class)
-// internal fun captureRipDpiScreenshotRtl(
-//     widthDp: Int,
-//     heightDp: Int,
-//     fontScale: Float = 1f,
-//     content: @Composable () -> Unit,
-// ) {
-//     captureRoboImage(
-//         roborazziComposeOptions =
-//             RoborazziComposeOptions {
-//                 size(widthDp = widthDp, heightDp = heightDp)
-//                 fontScale(fontScale)
-//                 inspectionMode(true)
-//                 layoutDirection(androidx.compose.ui.unit.LayoutDirection.Rtl)
-//             },
-//     ) {
-//         content()
-//     }
-// }

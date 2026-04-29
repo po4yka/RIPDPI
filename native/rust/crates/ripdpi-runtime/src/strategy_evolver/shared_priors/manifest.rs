@@ -1,4 +1,4 @@
-//! Manifest verification for shared-priors bundles (P4.4.4, offline-learner architecture note).
+//! Manifest verification for shared-priors bundles.
 //!
 //! The runtime never trusts a priors payload it didn't verify. Verification
 //! has two parts:
@@ -21,7 +21,7 @@
 //! Until a real release key is published, [`SHARED_PRIORS_PUB_KEY`] is the
 //! all-zero placeholder; [`is_production_key_set`] returns `false` and
 //! [`verify_manifest`] short-circuits with [`ManifestError::NoProductionKey`].
-//! Embedding the real key is a release-infrastructure follow-up.
+//! Production builds must replace the placeholder with the release public key.
 
 use base64::Engine;
 use ring::signature;
@@ -89,7 +89,7 @@ struct ManifestWire {
 
 /// Returns `true` when a non-placeholder ed25519 public key is embedded in
 /// this build. Production code should treat `false` as "the shared-priors
-/// channel is not yet enabled in this release".
+/// channel is disabled in this release".
 pub const fn is_production_key_set() -> bool {
     let mut i = 0;
     while i < 32 {

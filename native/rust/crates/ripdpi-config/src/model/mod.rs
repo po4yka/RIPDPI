@@ -623,7 +623,7 @@ pub struct RuntimeTimeoutSettings {
 
 /// Coarse classification of the device hosting the RIPDPI runtime.
 ///
-/// Used by the offline learner (P4.4.5, offline-learner architecture note) to distinguish bandit
+/// Used by the offline learner to distinguish bandit
 /// statistics gathered on real user devices (`Field`) from those gathered
 /// on Android emulators or CI test devices (`Emulator`). Including this in
 /// [`crate::strategy_evolver::LearningContext`] (the bandit's HashMap key)

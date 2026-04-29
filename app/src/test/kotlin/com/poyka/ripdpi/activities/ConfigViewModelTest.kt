@@ -506,7 +506,7 @@ class ConfigViewModelTest {
 
     @Test
     fun `relay preset suggestion uses transport remediation reason when provided`() {
-        // P4.3.4: when Direct-Mode evidence is fed in, the reason path
+        // When Direct-Mode evidence is fed in, the reason path
         // matches the same selector Diagnostics and Home use.
         val suggestion =
             resolveRelayPresetSuggestion(
@@ -581,7 +581,7 @@ class ConfigViewModelTest {
 
     @Test
     fun `direct mode snapshot threads through to relay preset reason`() {
-        // P4.3.4 wire-up: when the LatestDirectModeOutcomeStore emits an
+        // When the LatestDirectModeOutcomeStore emits an
         // OWNED_STACK_ONLY verdict, the snapshot fields feed
         // recommendTransportRemediation, whose kind feeds resolveRelayPresetSuggestion.
         // This is the exact chain ConfigViewModel.uiState now executes.
@@ -642,7 +642,7 @@ class ConfigViewModelTest {
                 transportRemediation = kind,
             )
         // Without telemetry evidence, capability records, or a remediation
-        // verdict, the resolver returns null -- same as pre-Phase F.3.
+        // verdict, the resolver returns null.
         assertEquals(null, suggestion)
     }
 

@@ -287,7 +287,7 @@ fn command_params<T: serde::Serialize>(params: T) -> io::Result<serde_json::Valu
 }
 
 // ---------------------------------------------------------------------------
-// Typed capability conversion (Phase 2 slice 2.1)
+// Typed capability conversion
 // ---------------------------------------------------------------------------
 
 /// Parse the JSON `data` blob returned by `CMD_PROBE_CAPABILITIES` into a

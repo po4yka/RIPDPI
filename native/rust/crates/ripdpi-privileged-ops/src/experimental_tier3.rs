@@ -3,7 +3,7 @@
 //! **Status:** Internal platform primitives. NOT wired through `DesyncMode`
 //! and NOT exposed via UI. See
 //! `docs/architecture/README.md#desync-and-relay-rules` for the
-//! rationale and the conditions required for future activation.
+//! rationale and activation requirements.
 //!
 //! These functions are `pub` within this crate because the root-helper binary
 //! (`main.rs`, `handlers.rs`) calls them via `pub use` from `lib.rs`. They

@@ -7,8 +7,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 // One-shot helper used at app startup to seed the in-memory ECH cache
-// from the EncryptedSharedPreferences-backed persistence layer
-// (Phase 3 of ECH rotation architecture note). Without this hook, every process restart would
+// from the EncryptedSharedPreferences-backed persistence layer. Without this
+// hook, every process restart would
 // start with a cold cache and serve the static bundled bytes until the
 // next refresh cycle, defeating the purpose of persisting the
 // refreshed config in the first place.

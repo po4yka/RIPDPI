@@ -21,8 +21,8 @@ private const val KEY_CONFIG_B64 = "config_bytes_b64"
 private const val KEY_FETCHED_AT = "fetched_at_unix_ms"
 
 // EncryptedSharedPreferences-backed cache for the most-recent ECH config
-// bytes (Phase 3 of ECH rotation architecture note). The bytes themselves are public CDN data, so
-// the encryption is primarily about tampering protection, not
+// bytes. The bytes themselves are public CDN data, so the encryption is
+// primarily about tampering protection, not
 // confidentiality — a malicious app on the same device cannot rewrite the
 // cache to point at a stale or attacker-supplied config.
 //

@@ -110,7 +110,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiPlatformCapabilities_jni
     ripdpi_runtime::platform::seqovl_supported()
 }
 
-// JNI bridge for the process-wide CdnEchUpdater (Phase 3 of ECH rotation architecture note).
+// JNI bridge for the process-wide CdnEchUpdater.
 //
 // The Kotlin `CdnEchRefreshWorker` calls `jniRefreshCdnEch` on its 24h
 // schedule and `jniSnapshotCdnEch` afterwards to capture the new bytes
@@ -215,7 +215,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jni
 }
 
 // Verify a signed shared-priors bundle and write the resulting prior
-// store into the process-wide registry (P4.4.4, offline-learner architecture note).
+// store into the process-wide registry.
 //
 // The Kotlin worker fetches the manifest + priors from the GitHub-hosted
 // release asset, base64-encodes the priors payload (which is opaque
