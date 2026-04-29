@@ -104,6 +104,7 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         native_log_level: _,
         root_mode,
         root_helper_socket_path,
+        environment_kind,
     } = payload;
 
     let mut config = RuntimeConfig::default();
@@ -143,5 +144,6 @@ pub fn runtime_config_from_ui(payload: ProxyUiConfig) -> Result<RuntimeConfig, P
         &host_autolearn,
         root_mode,
         root_helper_socket_path,
+        environment_kind.as_deref(),
     )
 }

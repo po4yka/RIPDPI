@@ -105,6 +105,7 @@ class RipDpiProxyUIPreferences(
     logContext: RipDpiLogContext? = null,
     val rootMode: Boolean = false,
     val rootHelperSocketPath: String? = null,
+    val environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
 ) : RipDpiProxyPreferences {
     val listen: RipDpiListenConfig = normalizeListenConfig(listen)
     val chains: RipDpiChainConfig = normalizeChainConfig(chains)
@@ -125,6 +126,7 @@ class RipDpiProxyUIPreferences(
             this,
             rootMode = rootMode,
             rootHelperSocketPath = rootHelperSocketPath,
+            environmentKind = environmentKind,
         )
 
     fun withSessionOverrides(
@@ -155,6 +157,7 @@ class RipDpiProxyUIPreferences(
             logContext = logContext ?: this.logContext,
             rootMode = rootMode,
             rootHelperSocketPath = rootHelperSocketPath,
+            environmentKind = environmentKind,
         )
 
     companion object {
@@ -166,6 +169,7 @@ class RipDpiProxyUIPreferences(
             logContext: RipDpiLogContext? = null,
             rootMode: Boolean = false,
             rootHelperSocketPath: String? = null,
+            environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
         ): RipDpiProxyUIPreferences =
             RipDpiProxyUIPreferences(
                 listen = buildListenConfig(settings),
@@ -184,6 +188,7 @@ class RipDpiProxyUIPreferences(
                 logContext = logContext,
                 rootMode = rootMode,
                 rootHelperSocketPath = rootHelperSocketPath,
+                environmentKind = environmentKind,
             )
 
         private fun buildChainConfig(settings: AppSettings): RipDpiChainConfig =

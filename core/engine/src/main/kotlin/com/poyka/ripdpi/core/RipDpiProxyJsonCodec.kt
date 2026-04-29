@@ -157,6 +157,7 @@ internal object RipDpiProxyJsonCodec {
         listenAuthToken: String? = null,
         localListenPortOverride: Int? = null,
         localAuthToken: String? = null,
+        environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
     ): String =
         encode(
             NativeProxyConfig.Ui(
@@ -176,6 +177,7 @@ internal object RipDpiProxyJsonCodec {
                 nativeLogLevel = preferences.nativeLogLevel,
                 rootMode = rootMode,
                 rootHelperSocketPath = rootHelperSocketPath,
+                environmentKind = environmentKind.name,
                 runtimeContext = ProxyRuntimeContextCodec.toNative(preferences.runtimeContext),
                 logContext = ProxyLogContextCodec.toNative(preferences.logContext),
                 sessionOverrides = SessionOverrideCodec.toNative(localListenPortOverride, localAuthToken),
@@ -221,6 +223,7 @@ internal object RipDpiProxyJsonCodec {
         rootHelperSocketPath: String? = null,
         localListenPortOverride: Int? = null,
         localAuthToken: String? = null,
+        environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
     ): String =
         when (val payload = decode(configJson)) {
             is NativeProxyConfig.CommandLine -> {
@@ -256,6 +259,7 @@ internal object RipDpiProxyJsonCodec {
                     listenAuthToken = payload.listen.authToken,
                     localListenPortOverride = localListenPortOverride ?: payload.sessionOverrides?.listenPortOverride,
                     localAuthToken = localAuthToken ?: payload.sessionOverrides?.authToken,
+                    environmentKind = environmentKind,
                 )
             }
         }
@@ -337,6 +341,11 @@ internal object RipDpiProxyJsonCodec {
             val rootMode: Boolean = false,
             @EncodeDefault(EncodeDefault.Mode.NEVER)
             val rootHelperSocketPath: String? = null,
+            // Environment classification supplied by the platform-side
+            // EnvironmentDetector (P4.4.5, ADR-011). Wire form is the
+            // EnvironmentKind variant name ("Field" / "Emulator" /
+            // "Unknown"); Rust parses it back into ripdpi_config::EnvironmentKind.
+            val environmentKind: String = "Unknown",
             val runtimeContext: NativeRuntimeContext? = null,
             val logContext: NativeLogContext? = null,
             val sessionOverrides: NativeSessionLocalProxyOverrides? = null,

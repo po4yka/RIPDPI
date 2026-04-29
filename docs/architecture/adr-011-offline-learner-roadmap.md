@@ -3,10 +3,11 @@
 **Status:** P4.4.1 / P4.4.2 / P4.4.3 implemented; P4.4.4 partial
 (parser, manifest verifier, and fail-secure apply pipeline landed;
 Kotlin transport, scheduler, and embedded production release key still
-deferred); P4.4.5 scaffolded (type system, plumbing, and segregation
-landed; detector and calibration math still deferred as a research
-spike).
-**Date:** 2026-04-27 (initial), 2026-04-28 (Phase D), 2026-04-28 (Phase F)
+deferred); P4.4.5 detector landed (Android `EnvironmentDetector` plus
+the full type-system + plumbing + segregation chain; per-family
+calibration math still deferred as a research spike).
+**Date:** 2026-04-27 (initial), 2026-04-28 (Phase D), 2026-04-28 (Phase F),
+2026-04-29 (EnvironmentDetector wire-up)
 **Deciders:** Nikita Pochaev
 
 ---
@@ -212,9 +213,54 @@ becomes a thin "fetch-and-hand-off-bytes" client.
 
 ## P4.4.5 — Emulator / sim-to-field calibration
 
-**Status: Scaffolded 2026-04-28.** Type system, plumbing, and automatic
-segregation landed; calibration-factor math and the Android-side
-detector still deferred as a research spike.
+**Status: Detector landed 2026-04-29.** Type system, plumbing, automatic
+segregation, *and* the Android-side `EnvironmentDetector` are now
+all in production. Per-family calibration-factor math is still deferred
+as a research spike (no empirical sim-vs-field divergence data yet).
+
+### Detector wire-up (this Phase)
+
+- New `core/data/model/.../EnvironmentKind.kt` enum with variant names
+  matching the Rust side ("Unknown" / "Field" / "Emulator"). The wire
+  form is the enum's `name` directly — Kotlin emits a string and Rust
+  parses it, no serde derives needed on the existing
+  `ripdpi_config::EnvironmentKind`.
+- New `core/service/.../EnvironmentDetector.kt`, a Hilt `@Singleton`
+  that classifies the host once at first read and caches the result for
+  the process lifetime. The heuristic mirrors the existing
+  `app/src/androidTest/.../TestSupport.kt:isLikelyEmulator()` predicate
+  exactly, plus a reflective `SystemProperties.get("ro.kernel.qemu")`
+  probe that lights up Emulator on AVDs even when the `Build.*`
+  fingerprint has been faked.
+- `RipDpiProxyJsonCodec.encodeUiPreferences` / `rewriteJson` and
+  `NativeProxyConfig.Ui` now carry an `environmentKind: String` field
+  with default `"Unknown"`. The Kotlin `RipDpiProxyJsonPreferences` and
+  `RipDpiProxyUIPreferences` constructors gained matching default
+  parameters so existing call sites compile unchanged.
+- `ConnectionPolicyResolver` injects `EnvironmentDetector` and threads
+  `environmentDetector.kind` through both the JSON-preferences and
+  UI-preferences paths.
+- `ProxyUiConfig` (in `ripdpi-proxy-config`) gained
+  `environment_kind: Option<String>`. `convert::finalize_ui_config`
+  parses the string into `ripdpi_config::EnvironmentKind` and assigns
+  to `RuntimeProcessSettings::environment_kind`. Unrecognised or absent
+  values fall back to `Unknown` so a stale Kotlin client speaking the
+  pre-Phase-F.4 wire form does not inject a wild value into the
+  bandit's HashMap key.
+- All 95 existing `ripdpi-proxy-config` lib tests still pass; all 500
+  ripdpi-runtime lib tests still pass (the 3 platform-environment
+  failures pre-date this change).
+
+### Still deferred
+
+- **Calibration-factor math**: per-family multiplier for emulator-
+  derived arms when surfaced into a field-mode session, with safety
+  clamp. Research spike — no clear prior art for DPI evasion
+  specifically. Without empirical data on how emulator and field
+  outcomes diverge for *this* workload, the math would be speculative.
+- **Settings opt-in flag** `emulator_calibration_enabled`: until the
+  calibration math is validated, exposing the toggle would advertise
+  a feature that does nothing.
 
 ### Implementation (this Phase)
 

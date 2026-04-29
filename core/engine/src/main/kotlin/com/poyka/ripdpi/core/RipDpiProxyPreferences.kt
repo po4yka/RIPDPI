@@ -83,6 +83,7 @@ class RipDpiProxyJsonPreferences(
     private val rootHelperSocketPath: String? = null,
     private val localListenPortOverride: Int? = null,
     override val localAuthToken: String? = null,
+    private val environmentKind: com.poyka.ripdpi.data.EnvironmentKind = com.poyka.ripdpi.data.EnvironmentKind.Unknown,
 ) : RipDpiProxyPreferences {
     override fun toNativeConfigJson(): String =
         RipDpiProxyJsonCodec.rewriteJson(
@@ -95,6 +96,7 @@ class RipDpiProxyJsonPreferences(
             rootHelperSocketPath = rootHelperSocketPath,
             localListenPortOverride = localListenPortOverride,
             localAuthToken = localAuthToken,
+            environmentKind = environmentKind,
         )
 }
 
