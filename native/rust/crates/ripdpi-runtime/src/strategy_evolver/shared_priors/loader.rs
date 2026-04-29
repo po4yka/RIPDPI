@@ -1,9 +1,8 @@
-//! Verify-and-apply entry point for shared-priors bundles (P4.4.4, offline-learner architecture note).
+//! Verify-and-apply entry point for shared-priors bundles.
 //!
 //! `apply_priors` is fail-secure: if any step rejects (signature, hash,
 //! version, parser), it returns `Err` and the caller's evolver state is
-//! left untouched. Mirrors `CdnEchUpdater::refresh()` semantics from
-//! ECH rotation architecture note.
+//! left untouched.
 
 use std::collections::HashMap;
 

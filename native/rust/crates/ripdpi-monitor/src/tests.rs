@@ -558,8 +558,8 @@ fn tcp_candidate_catalog_keeps_current_strategy_first() {
     assert!(candidates.len() >= 25, "expected at least 25 candidates, got {}", candidates.len());
     assert_eq!(candidates.get(1).map(|candidate| candidate.id), Some("tlsrec_split_host"));
     assert_eq!(candidates.get(2).map(|candidate| candidate.id), Some("tlsrec_hostfake_split"));
-    // tlsrec_hostfake_random is now index 3 (primary pool); tlsrec_fake_rich moved to
-    // opportunistic pool (requires TtlWrite) per Phase 2 slice 2.7 capability-hygiene policy.
+    // tlsrec_hostfake_random is in the primary pool; tlsrec_fake_rich is in
+    // the opportunistic pool because it requires TtlWrite.
     assert_eq!(candidates.get(3).map(|candidate| candidate.id), Some("tlsrec_hostfake_random"));
     // tlsrec_fake_rich is still present in the full set (opportunistic pool).
     assert!(candidates.iter().any(|c| c.id == "tlsrec_fake_rich"));

@@ -1,4 +1,4 @@
-//! NDJSON parser for shared-priors bundles (P4.4.4, offline-learner architecture note).
+//! NDJSON parser for shared-priors bundles.
 //!
 //! Each line is one record:
 //!
@@ -6,7 +6,7 @@
 //! { "combo_hash": 12345678901234567890, "alpha": 12.0, "beta": 4.0 }
 //! ```
 //!
-//! Per offline-learner architecture note, the format is intentionally narrow:
+//! The format is intentionally narrow:
 //! - Combo identity is a u64 hash (see [`super::loader::canonical_combo_hash`])
 //!   so the priors can travel without leaking the combo definition itself.
 //! - Posteriors are floats so the file can carry partial-attempt averages.

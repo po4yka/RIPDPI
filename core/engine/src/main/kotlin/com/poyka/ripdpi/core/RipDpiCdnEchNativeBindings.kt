@@ -2,7 +2,7 @@ package com.poyka.ripdpi.core
 
 import android.util.Base64
 
-// JNI bindings for the process-wide CdnEchUpdater (Phase 3 of ECH rotation architecture note).
+// JNI bindings for the process-wide CdnEchUpdater.
 //
 // Three entry points:
 //   - refresh(): pull a fresh ECH config from the DoH primary or the

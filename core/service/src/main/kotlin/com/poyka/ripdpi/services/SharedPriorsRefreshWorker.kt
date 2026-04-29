@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 
 // 24-hour periodic worker that fetches the signed shared-priors bundle
 // from the GitHub release channel, hands it to the native verifier, and
-// records the apply outcome (P4.4.4, offline-learner architecture note).
+// records the apply outcome.
 //
 // The worker is fail-secure end-to-end:
 //   1. HEAD probe on the manifest URL; skip the body fetch when

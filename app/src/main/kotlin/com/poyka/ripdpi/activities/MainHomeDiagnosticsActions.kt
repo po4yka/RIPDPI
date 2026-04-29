@@ -520,8 +520,7 @@ internal class MainHomeDiagnosticsActions(
 
     // Hand off the latest direct-mode verdict to the singleton store so other
     // ViewModels (notably ConfigViewModel) can ground their relay-preset
-    // suggestion on the same evidence the Diagnostics ladder uses
-    // (direct-mode architecture note P4.3.4). Verdicts without a direct-mode result clear the
+    // suggestion on the same evidence the Diagnostics ladder uses. Verdicts without a direct-mode result clear the
     // store so a stale entry from a previous run never leaks into the
     // Config surface.
     private fun publishLatestDirectModeOutcome(outcome: DiagnosticsHomeCompositeOutcome) {

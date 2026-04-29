@@ -2,7 +2,7 @@ package com.poyka.ripdpi.core
 
 import android.util.Base64
 
-// JNI bindings for the shared-priors transport (P4.4.4, offline-learner architecture note).
+// JNI bindings for the shared-priors transport.
 //
 // The Kotlin worker fetches a manifest + priors payload from the
 // release channel and calls `applySharedPriors`; the native side

@@ -1,6 +1,4 @@
-// Scaffolded API for the ranked-arm dispatcher (P4.3.1). Items below are
-// reachable only from sibling modules and the in-file test suite; production
-// callers are wired up in P4.3.2 (see docs/architecture/README.md#adaptive-runtime).
+// Ranked-arm dispatcher for adaptive direct-path learning.
 #![allow(dead_code)]
 
 use std::collections::HashMap;
@@ -13,7 +11,7 @@ use crate::runtime_policy::TransportProtocol;
 const NO_TCP_FALLBACK_WINDOW_MS: u64 = 3_000;
 
 // ---------------------------------------------------------------------------
-// Ranked-arm dispatcher types (P4.3.1)
+// Ranked-arm dispatcher types
 // ---------------------------------------------------------------------------
 
 /// The observed block class for a direct-path (host, ip-set) tuple.
@@ -44,8 +42,8 @@ pub(super) enum DirectPathBlockClass {
 ///
 /// Arms are ordered so that index 0 is the highest-priority choice.  The
 /// `score` field is a normalised `f32` in `[0, 1]` where higher means "try
-/// this arm first".  `attempt_budget` is a placeholder for future per-class
-/// budget enforcement (P4.3.2); it is currently set to a fixed default.
+/// this arm first". `attempt_budget` is currently a conservative per-arm
+/// default.
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct RankedArm {
     /// Short label identifying the transport / strategy arm.
@@ -55,8 +53,6 @@ pub(super) struct RankedArm {
     /// Block class that caused this arm to be ranked at this position.
     pub(super) class: DirectPathBlockClass,
     /// Remaining attempt budget before the arm should be backed off.
-    /// Currently a conservative fixed value; per-class enforcement is deferred
-    /// to P4.3.2.
     pub(super) attempt_budget: u32,
 }
 
@@ -284,7 +280,7 @@ impl DirectPathLearningState {
 }
 
 // ---------------------------------------------------------------------------
-// Ranked-arm dispatcher implementation (P4.3.1)
+// Ranked-arm dispatcher implementation
 // ---------------------------------------------------------------------------
 
 /// Derive the block class from a recorded `TupleState`.
@@ -302,8 +298,7 @@ fn block_class_from_state(entry: &TupleState) -> DirectPathBlockClass {
     }
 }
 
-/// Default attempt budget used for all arms until P4.3.2 adds per-class
-/// enforcement backed by runtime metrics.
+/// Default attempt budget used for all arms.
 const DEFAULT_ATTEMPT_BUDGET: u32 = 3;
 
 /// Return the ranked arm list for a given block class.
@@ -567,7 +562,7 @@ mod tests {
         assert_eq!(signals[1].2, "QUIC_BLOCKED_TCP_OK");
     }
 
-    // ── Ranked-arm dispatcher (P4.3.1) ──────────────────────────────────────
+    // Ranked-arm dispatcher
 
     #[test]
     fn ranked_arms_clean_tuple_prefers_quic() {
@@ -681,7 +676,7 @@ mod tests {
         }
     }
 
-    // ── Per-class attempt-budget enforcement (P4.3.2) ───────────────────────
+    // Per-class attempt-budget enforcement
 
     #[test]
     fn note_arm_attempt_decrements_remaining_budget() {
@@ -758,13 +753,12 @@ mod tests {
         assert_eq!(arms[0].attempt_budget, DEFAULT_ATTEMPT_BUDGET, "budget must reset on positive signal");
     }
 
-    // ── Deterministic class-to-arm execution ladder (P4.3.3) ────────────────
+    // Deterministic class-to-arm execution ladder
 
     #[test]
     fn class_to_arm_ladder_walks_clean_quic_blocked_exhausted_relay_and_back() {
         // Drive a single tuple through the full life cycle and assert the
-        // ranked-arm response at every step. This is the integration coverage
-        // referenced in direct-mode architecture note (P4.3.3) — it pins the contract that
+        // ranked-arm response at every step. This pins the contract that
         // negative signals advance the class, attempt budgets shrink, the
         // exhausted arm drops, and a positive signal restores the original
         // ranking.

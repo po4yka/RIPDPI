@@ -3,7 +3,7 @@
 //! **Status:** Internal platform primitives. NOT wired through `DesyncMode`
 //! and NOT exposed via UI. See
 //! `docs/architecture/README.md#desync-and-relay-rules` for the
-//! rationale and the conditions required for future activation.
+//! rationale and activation requirements.
 //!
 //! API stability: these functions are re-exported from `platform/mod.rs` with
 //! `pub(crate)` visibility only. External callers MUST NOT depend on these

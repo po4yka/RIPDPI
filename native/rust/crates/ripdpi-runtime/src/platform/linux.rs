@@ -6,7 +6,6 @@
 //! SO_ORIGINAL_DST, IP_RECVTTL, and `recvmsg` with CMSG ancillary data.
 //!
 //! Standard socket options use `socket2::SockRef` (see [`set_stream_ttl`]).
-//! Last audited: 2026-03-24 against socket2 0.5.10.
 //!
 //! # TTL write capability
 //!
@@ -370,8 +369,8 @@ pub fn detach_drop_sack(stream: &TcpStream) -> io::Result<()> {
 ///
 /// **Note:** `SO_ATTACH_FILTER` replaces any prior filter. If both `drop_sack`
 /// and `strip_timestamps` are needed, call `attach_drop_sack` first — this
-/// filter will replace it. For combined filtering, a future refactor can merge
-/// both checks into a single BPF program.
+/// filter will replace it. Combined filtering requires one BPF program that
+/// handles both checks.
 pub fn attach_strip_timestamps(stream: &TcpStream) -> io::Result<()> {
     let fd = stream.as_raw_fd();
     // BPF program: check TCP data offset (byte 12, upper nibble) >= 11 words

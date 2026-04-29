@@ -535,7 +535,7 @@ fn build_ipv6_fragment_pair(
 
     let first_fragment = Ipv6FragmentHeader::new(frag_hdr_next, IpFragOffset::ZERO, true, identification);
 
-    // Phase 3: next-header forgery on second fragment
+    // Next-header forgery on second fragment.
     let second_frag_next = ext.second_frag_next_override.map_or(frag_hdr_next, IpNumber);
     let second_fragment = Ipv6FragmentHeader::new(
         second_frag_next,

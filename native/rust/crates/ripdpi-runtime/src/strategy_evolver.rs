@@ -66,7 +66,7 @@ mod shared_priors;
 mod thompson_sampling;
 mod types;
 
-// Re-exported for future integration (P4.4.1 wiring); not yet used internally.
+// Re-exported for the Thompson scorer surface; UCB1 remains production default.
 #[allow(unused_imports)]
 pub use thompson_sampling::{sample_beta, BetaParams, ThompsonSampling};
 
@@ -138,18 +138,17 @@ pub struct StrategyEvolver {
     /// before it is "frozen" — skipped during random exploration. The
     /// niche-winner / family-best paths still keep using a frozen combo so
     /// proven winners can be exploited indefinitely. `u32::MAX` (the
-    /// default) disables the cap (P4.4.3, offline-learner architecture note).
+    /// default) disables the cap.
     pub max_arm_attempts: u32,
     /// When true, fitness scoring layers the rarity (`attempts < RARITY_FLOOR`)
     /// and retry-cost (`attempts > RETRY_SATURATION`) penalties on top of
     /// the standard score. Defaults to `false` so existing callers see
-    /// unchanged behaviour (P4.4.2, offline-learner architecture note).
+    /// unchanged behaviour.
     pub penalties_enabled: bool,
     /// Shared Beta posteriors keyed by canonical combo hash. Populated by
-    /// [`Self::apply_shared_priors`] from a verified GitHub-hosted bundle
-    /// (P4.4.4, offline-learner architecture note). The UCB1 selection path does not consume these
-    /// today — they are exposed for the Thompson scorer wiring (P4.4.1)
-    /// and for diagnostics. The "field data wins" merge rule lives at the
+    /// [`Self::apply_shared_priors`] from a verified GitHub-hosted bundle.
+    /// The UCB1 selection path does not consume these today; they are exposed
+    /// for Thompson-style scoring and diagnostics. The "field data wins" merge rule lives at the
     /// consumption site rather than at apply time so the bundle stays a
     /// pure prior store.
     shared_priors: HashMap<u64, BetaParams>,
@@ -189,9 +188,9 @@ impl StrategyEvolver {
         }
     }
 
-    /// Builder-style override for the offline-learner hardening knobs added
-    /// in P4.4.2 / P4.4.3 (offline-learner architecture note). Both knobs default to OFF in
-    /// [`Self::new`] so existing call sites are unaffected; opt in here.
+    /// Builder-style override for offline-learner hardening knobs. Both knobs
+    /// default to OFF in [`Self::new`] so existing call sites are unaffected;
+    /// opt in here.
     ///
     /// `max_arm_attempts` is the hard cap before a combo is skipped during
     /// random exploration (use `u32::MAX` to keep the cap disabled).
@@ -213,12 +212,12 @@ impl StrategyEvolver {
     }
 
     /// Verify a signed shared-priors bundle and load its posteriors into the
-    /// evolver's prior store (P4.4.4, offline-learner architecture note). Fail-secure: any verification
-    /// or parse error returns `Err` without touching existing prior state.
+    /// evolver's prior store. Fail-secure: any verification or parse error
+    /// returns `Err` without touching existing prior state.
     /// On success returns the number of records loaded.
     ///
-    /// The priors live in a parallel store consulted by the future Thompson
-    /// scorer (P4.4.1 wiring); the UCB1 selection path is unaffected, so
+    /// The priors live in a parallel store consulted by Thompson-style
+    /// scoring; the UCB1 selection path is unaffected, so
     /// existing field data continues to dominate ranking decisions.
     pub fn apply_shared_priors(
         &mut self,
@@ -248,8 +247,8 @@ impl StrategyEvolver {
     }
 
     /// Returns the shared Beta prior for `combo`, if loaded. Used by
-    /// diagnostics and by the future Thompson scorer; the production UCB1
-    /// path does not consult this map.
+    /// diagnostics and Thompson-style scoring; the production UCB1 path does
+    /// not consult this map.
     pub fn shared_prior_for(&self, combo: &StrategyCombo) -> Option<&BetaParams> {
         let hash = canonical_combo_hash(combo);
         self.shared_priors.get(&hash)
@@ -553,8 +552,7 @@ impl StrategyEvolver {
                 let cooled = stats.is_some_and(|s| s.is_cooled(now_ms));
                 // Frozen combos (attempt budget exhausted) are skipped
                 // during random exploration; niche-winner and
-                // family-best paths still keep using them (P4.4.3,
-                // offline-learner architecture note).
+                // family-best paths still keep using them.
                 let frozen = stats.is_some_and(|s| s.attempts >= max_attempts);
                 !cooled && !frozen
             })
@@ -875,7 +873,7 @@ mod tests {
         assert!(e.combos.len() <= 4, "should respect max_combos limit, got {}", e.combos.len());
     }
 
-    // Offline-learner hardening (P4.4.2 / P4.4.3).
+    // Offline-learner hardening.
 
     #[test]
     fn with_learning_hardening_overrides_defaults() {
@@ -1099,7 +1097,7 @@ mod tests {
 
     #[test]
     fn lcg_f64_spans_full_unit_interval() {
-        // Regression for offline-learner architecture note: the previous `>> 33` shift kept only 31
+        // Regression guard: the previous `>> 33` shift kept only 31
         // bits of state and divided by 2^32, which capped `lcg_f64` at 0.5.
         // After the fix the values should span the full `[0, 1)` range.
         let mut e = StrategyEvolver::new(true, 0.0);
@@ -1821,7 +1819,7 @@ mod tests {
     }
 
     // -----------------------------------------------------------------
-    // Shared-priors integration (P4.4.4, offline-learner architecture note)
+    // Shared-priors integration
     // -----------------------------------------------------------------
 
     #[test]
@@ -1897,14 +1895,14 @@ mod tests {
     }
 
     // -----------------------------------------------------------------
-    // EnvironmentKind context segregation (P4.4.5, offline-learner architecture note)
+    // EnvironmentKind context segregation
     // -----------------------------------------------------------------
 
     #[test]
     fn learning_context_default_environment_is_unknown() {
         // Default must stay `Unknown` so existing call sites that use the
-        // `..LearningContext::default()` spread idiom keep their pre-Phase
-        // F.2 behaviour without an explicit `environment:` field.
+        // `..LearningContext::default()` spread idiom keep their existing
+        // behavior without an explicit `environment:` field.
         let ctx = LearningContext::default();
         assert_eq!(ctx.environment, EnvironmentKind::Unknown);
     }

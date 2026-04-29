@@ -173,7 +173,7 @@ internal fun resolveRelayPresetSuggestion(
     return when {
         // Direct-mode evidence wins over telemetry heuristics — it's the
         // same selector Diagnostics and Home use, so the two surfaces stay
-        // in sync (direct-mode architecture note, P4.3.4).
+        // in sync.
         transportReason != null -> suggestion.copy(reason = transportReason)
 
         evidence != null -> suggestion.copy(reason = evidence)

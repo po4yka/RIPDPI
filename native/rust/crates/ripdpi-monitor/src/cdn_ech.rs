@@ -21,14 +21,12 @@
 //!
 //! [`EchConfigSource`] / [`CdnEchUpdater`] provide a TTL-gated cache with
 //! primary → fallback semantics. [`BundledEchConfigSource`] is the
-//! always-available fallback; [`RemoteEchConfigSource`] (Phase 2 of
-//! ECH rotation architecture note, landed) performs an HTTPS-RR (type 65) DoH query against
-//! Cloudflare's own resolver and validates the returned bytes via
+//! always-available fallback; [`RemoteEchConfigSource`] performs an HTTPS-RR
+//! (type 65) DoH query against Cloudflare's own resolver and validates the returned bytes via
 //! [`validate_ech_config_list_bytes`] before handing them to the cache.
 //!
 //! `CdnEchUpdater::refresh()` is the entry point a scheduler (e.g. a
-//! WorkManager periodic job) calls to keep the cached bytes fresh — see
-//! ECH rotation architecture note, "Scheduler integration".
+//! WorkManager periodic job) calls to keep the cached bytes fresh.
 
 // Some helpers are still only exercised by tests (the cache's last-resort
 // branch, `opportunistic_ech_config_for_ip`'s match for the static
@@ -47,7 +45,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 /// Error type returned by [`EchConfigSource::fetch`].
 #[derive(Debug)]
 pub enum EchSourceError {
-    /// The source is not yet implemented (stub placeholder).
+    /// The source is unavailable in this build.
     NotImplemented(&'static str),
     /// The fetched bytes failed structural validation.
     InvalidConfig(String),
@@ -85,7 +83,7 @@ impl EchConfigSource for BundledEchConfigSource {
 
 /// Default domain queried for the Cloudflare ECH config. The HTTPS resource
 /// record on this name is published by Cloudflare and rotated on the same
-/// cadence as the runtime ECH key (ECH rotation architecture note).
+/// cadence as the runtime ECH key.
 const REMOTE_ECH_DEFAULT_DOMAIN: &str = "cloudflare-dns.com";
 
 /// Default DoH resolver used by [`RemoteEchConfigSource`]. Cloudflare's own
@@ -104,8 +102,7 @@ const REMOTE_ECH_DEFAULT_RESOLVER: &str = "cloudflare";
 /// being handed back to the caller. Any failure path — DNS exchange error,
 /// missing ECH SvcParam, malformed list — surfaces as
 /// [`EchSourceError::InvalidConfig`] so [`CdnEchUpdater`] can fall back to
-/// the bundled config without dropping ECH support entirely (ECH rotation architecture note,
-/// "fail-secure").
+/// the bundled config without dropping ECH support entirely.
 pub struct RemoteEchConfigSource {
     domain: String,
     resolver_id: String,
@@ -172,7 +169,7 @@ impl EchConfigSource for RemoteEchConfigSource {
 }
 
 /// Sanity-check raw ECHConfigList bytes before they are accepted as a
-/// fresh remote config. Per ECH rotation architecture note we require:
+/// fresh remote config. We require:
 /// - a 2-byte length prefix that matches the rest of the buffer, and
 /// - the first ECHConfig version equal to `0xfe0d`.
 ///
@@ -212,8 +209,7 @@ struct CachedEch {
     /// Wall-clock timestamp paired with `fetched_at`, recorded when the
     /// cache entry was originally fetched. Persisted alongside the bytes so
     /// `seed_from_persisted` can reconstruct an equivalent `Instant` in a
-    /// fresh process — the TTL window stays correct across restarts
-    /// (Phase 3 of ECH rotation architecture note).
+    /// fresh process and keep the TTL window correct across restarts.
     fetched_at_unix_ms: u64,
 }
 
@@ -342,7 +338,7 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
         Ok(())
     }
 
-    /// Seed the cache from previously-persisted bytes (Phase 3 of ECH rotation architecture note).
+    /// Seed the cache from previously-persisted bytes.
     ///
     /// Validates the bytes against [`validate_ech_config_list_bytes`] before
     /// touching the cache; an invalid persisted entry is rejected and the
@@ -378,7 +374,7 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
 }
 
 // ---------------------------------------------------------------------------
-// Process-wide updater (Phase 3 of ECH rotation architecture note, JNI entry point)
+// Process-wide updater used by the JNI entry point.
 // ---------------------------------------------------------------------------
 
 /// Default TTL for the singleton updater: 24 hours, matching Cloudflare's
@@ -483,8 +479,8 @@ impl CdnEchConfig {
 /// This config is Cloudflare's public ECH key and is not secret.  It is
 /// published in DNS for anyone to use.
 ///
-/// Phase 2 refresh (RemoteEchConfigSource via DoH HTTPS-RR) is tracked in
-/// ECH rotation architecture note.  Until then, rotate manually using the instructions above.
+/// Runtime refresh uses [`RemoteEchConfigSource`] via DoH HTTPS-RR; rotate the bundled
+/// fallback manually using the instructions above.
 static CLOUDFLARE_ECH_CONFIG_LIST: &[u8] = &[
     // ECHConfigList length: 0x0045 (69 bytes)
     0x00, 0x45, // ECHConfig version: 0xfe0d (draft/RFC)
@@ -628,7 +624,7 @@ mod tests {
     #[test]
     fn remote_source_default_targets_cloudflare() {
         // The constructor must wire the production target out of the box;
-        // any drift here would silently break Phase 2.
+        // any drift here would silently break remote refresh.
         let src = RemoteEchConfigSource::new();
         assert_eq!(src.domain, "cloudflare-dns.com");
         assert_eq!(src.resolver_id, "cloudflare");
@@ -767,7 +763,7 @@ mod tests {
     }
 
     // ---------------------------------------------------------------------
-    // Phase 3: cache persistence (ECH rotation architecture note)
+    // Cache persistence
     // ---------------------------------------------------------------------
 
     #[test]

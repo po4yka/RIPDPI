@@ -24,7 +24,7 @@ pub use self::capabilities::{
 };
 // Tier-3 primitives are exported pub from the runtime lib so external crates
 // (e.g. integration tests, the privileged-ops staging crate) can pin against
-// the staging API surface; treat as `pub(crate)` semantically — not yet wired
+// the staging API surface; treat as `pub(crate)` semantically until wired
 // through `DesyncMode` or UI. See
 // docs/architecture/README.md#desync-and-relay-rules.
 pub use experimental_tier3::{

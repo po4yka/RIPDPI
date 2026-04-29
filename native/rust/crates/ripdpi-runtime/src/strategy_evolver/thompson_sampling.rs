@@ -27,13 +27,8 @@
 //! algorithm would be faster, but the evolver caps arms at 64 so Johnk is
 //! appropriate.
 //!
-//! # P4.4 roadmap status
-//!
-//! P4.4.1 (this module): done — standalone scorer, UCB1 remains default.
-//! P4.4.2–5: deferred; see `docs/architecture/README.md#adaptive-runtime`.
-
 // Standalone scorer; the evolver still uses UCB1 by default. Production
-// wiring is deferred to P4.4.2; suppress dead_code until then.
+// integration is selected outside this module; suppress dead_code until then.
 #![allow(dead_code)]
 
 use std::collections::HashMap;
@@ -134,8 +129,7 @@ fn lcg_f64(state: &mut u64) -> f64 {
 /// arm with the highest draw.
 ///
 /// This type is **not** integrated into [`super::StrategyEvolver`]'s
-/// selection path yet — UCB1 remains the default. Future work (P4.4.1 wiring)
-/// will add a `ScorerKind` config enum and route through this when selected.
+/// selection path yet; UCB1 remains the default.
 pub struct ThompsonSampling<K> {
     arms: HashMap<K, BetaParams>,
 }

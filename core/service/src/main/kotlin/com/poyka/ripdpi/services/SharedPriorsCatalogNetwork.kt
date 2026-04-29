@@ -17,13 +17,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 // Retrofit-based downloader for the shared-priors release channel
-// (P4.4.4, offline-learner architecture note). Mirrors the existing host-pack catalog network in
-// shape and TLS posture: same OwnedTlsClientFactory, same timeouts,
+// Mirrors the existing host-pack catalog network in shape and TLS
+// posture: same OwnedTlsClientFactory, same timeouts,
 // same User-Agent convention.
 //
 // The manifest and priors payload live as static assets in a public
-// GitHub repository; no project-operated backend is involved (per the
-// project's no-backend rule).
+// GitHub repository; no project-operated backend is involved.
 
 private interface SharedPriorsCatalogDownloadApi {
     // HEAD probe on the manifest -- the worker uses Last-Modified to
