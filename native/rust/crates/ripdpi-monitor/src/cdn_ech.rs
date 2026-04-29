@@ -22,13 +22,13 @@
 //! [`EchConfigSource`] / [`CdnEchUpdater`] provide a TTL-gated cache with
 //! primary → fallback semantics. [`BundledEchConfigSource`] is the
 //! always-available fallback; [`RemoteEchConfigSource`] (Phase 2 of
-//! ADR-012, landed) performs an HTTPS-RR (type 65) DoH query against
+//! ECH rotation architecture note, landed) performs an HTTPS-RR (type 65) DoH query against
 //! Cloudflare's own resolver and validates the returned bytes via
 //! [`validate_ech_config_list_bytes`] before handing them to the cache.
 //!
 //! `CdnEchUpdater::refresh()` is the entry point a scheduler (e.g. a
 //! WorkManager periodic job) calls to keep the cached bytes fresh — see
-//! ADR-012, "Scheduler integration".
+//! ECH rotation architecture note, "Scheduler integration".
 
 // Some helpers are still only exercised by tests (the cache's last-resort
 // branch, `opportunistic_ech_config_for_ip`'s match for the static
@@ -85,13 +85,13 @@ impl EchConfigSource for BundledEchConfigSource {
 
 /// Default domain queried for the Cloudflare ECH config. The HTTPS resource
 /// record on this name is published by Cloudflare and rotated on the same
-/// cadence as the runtime ECH key (ADR-012).
+/// cadence as the runtime ECH key (ECH rotation architecture note).
 const REMOTE_ECH_DEFAULT_DOMAIN: &str = "cloudflare-dns.com";
 
 /// Default DoH resolver used by [`RemoteEchConfigSource`]. Cloudflare's own
 /// public resolver — the ECH config we are looking up *belongs to it*, so
-/// using it as the DoH endpoint is the correct authoritative-ish source per
-/// the ADR. No project-operated backend is involved.
+/// using it as the DoH endpoint is the correct authoritative-ish source. No
+/// project-operated backend is involved.
 const REMOTE_ECH_DEFAULT_RESOLVER: &str = "cloudflare";
 
 /// Live DoH-based remote source for the Cloudflare ECH config.
@@ -104,7 +104,7 @@ const REMOTE_ECH_DEFAULT_RESOLVER: &str = "cloudflare";
 /// being handed back to the caller. Any failure path — DNS exchange error,
 /// missing ECH SvcParam, malformed list — surfaces as
 /// [`EchSourceError::InvalidConfig`] so [`CdnEchUpdater`] can fall back to
-/// the bundled config without dropping ECH support entirely (ADR-012,
+/// the bundled config without dropping ECH support entirely (ECH rotation architecture note,
 /// "fail-secure").
 pub struct RemoteEchConfigSource {
     domain: String,
@@ -142,8 +142,10 @@ impl RemoteEchConfigSource {
 
 impl EchConfigSource for RemoteEchConfigSource {
     fn fetch(&self) -> Result<Vec<u8>, EchSourceError> {
-        use crate::dns::{encrypted_dns_endpoint_for_resolver_id, resolve_https_ech_configs_via_encrypted_dns_with_endpoint};
         use crate::dns::EchResolutionOutcome;
+        use crate::dns::{
+            encrypted_dns_endpoint_for_resolver_id, resolve_https_ech_configs_via_encrypted_dns_with_endpoint,
+        };
         use crate::transport::TransportConfig;
 
         let endpoint = encrypted_dns_endpoint_for_resolver_id(&self.resolver_id);
@@ -170,7 +172,7 @@ impl EchConfigSource for RemoteEchConfigSource {
 }
 
 /// Sanity-check raw ECHConfigList bytes before they are accepted as a
-/// fresh remote config. Per ADR-012 we require:
+/// fresh remote config. Per ECH rotation architecture note we require:
 /// - a 2-byte length prefix that matches the rest of the buffer, and
 /// - the first ECHConfig version equal to `0xfe0d`.
 ///
@@ -211,7 +213,7 @@ struct CachedEch {
     /// cache entry was originally fetched. Persisted alongside the bytes so
     /// `seed_from_persisted` can reconstruct an equivalent `Instant` in a
     /// fresh process — the TTL window stays correct across restarts
-    /// (Phase 3 of ADR-012).
+    /// (Phase 3 of ECH rotation architecture note).
     fetched_at_unix_ms: u64,
 }
 
@@ -308,8 +310,11 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
 
         match fresh {
             Ok(config) => {
-                *guard =
-                    Some(CachedEch { config: config.clone(), fetched_at: Instant::now(), fetched_at_unix_ms: now_unix_ms() });
+                *guard = Some(CachedEch {
+                    config: config.clone(),
+                    fetched_at: Instant::now(),
+                    fetched_at_unix_ms: now_unix_ms(),
+                });
                 config
             }
             Err(err) => {
@@ -337,7 +342,7 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
         Ok(())
     }
 
-    /// Seed the cache from previously-persisted bytes (Phase 3 of ADR-012).
+    /// Seed the cache from previously-persisted bytes (Phase 3 of ECH rotation architecture note).
     ///
     /// Validates the bytes against [`validate_ech_config_list_bytes`] before
     /// touching the cache; an invalid persisted entry is rejected and the
@@ -365,14 +370,15 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
     /// state. Returned `config` is owned (cloned out of the lock).
     pub fn snapshot_for_persistence(&self) -> Option<CachedEchSnapshot> {
         let guard = self.cache.lock().expect("cdn_ech cache mutex poisoned");
-        guard
-            .as_ref()
-            .map(|cached| CachedEchSnapshot { config: cached.config.clone(), fetched_at_unix_ms: cached.fetched_at_unix_ms })
+        guard.as_ref().map(|cached| CachedEchSnapshot {
+            config: cached.config.clone(),
+            fetched_at_unix_ms: cached.fetched_at_unix_ms,
+        })
     }
 }
 
 // ---------------------------------------------------------------------------
-// Process-wide updater (Phase 3 of ADR-012, JNI entry point)
+// Process-wide updater (Phase 3 of ECH rotation architecture note, JNI entry point)
 // ---------------------------------------------------------------------------
 
 /// Default TTL for the singleton updater: 24 hours, matching Cloudflare's
@@ -389,7 +395,8 @@ static PRODUCTION_UPDATER: std::sync::OnceLock<CdnEchUpdater<RemoteEchConfigSour
 
 /// Borrow the process-wide updater, constructing it on first call.
 pub fn production_updater() -> &'static CdnEchUpdater<RemoteEchConfigSource, BundledEchConfigSource> {
-    PRODUCTION_UPDATER.get_or_init(|| CdnEchUpdater::new(RemoteEchConfigSource::new(), BundledEchConfigSource, PRODUCTION_TTL))
+    PRODUCTION_UPDATER
+        .get_or_init(|| CdnEchUpdater::new(RemoteEchConfigSource::new(), BundledEchConfigSource, PRODUCTION_TTL))
 }
 
 /// A hardcoded ECH configuration for a CDN provider.
@@ -477,7 +484,7 @@ impl CdnEchConfig {
 /// published in DNS for anyone to use.
 ///
 /// Phase 2 refresh (RemoteEchConfigSource via DoH HTTPS-RR) is tracked in
-/// ADR-012.  Until then, rotate manually using the instructions above.
+/// ECH rotation architecture note.  Until then, rotate manually using the instructions above.
 static CLOUDFLARE_ECH_CONFIG_LIST: &[u8] = &[
     // ECHConfigList length: 0x0045 (69 bytes)
     0x00, 0x45, // ECHConfig version: 0xfe0d (draft/RFC)
@@ -760,20 +767,18 @@ mod tests {
     }
 
     // ---------------------------------------------------------------------
-    // Phase 3: cache persistence (ADR-012)
+    // Phase 3: cache persistence (ECH rotation architecture note)
     // ---------------------------------------------------------------------
 
     #[test]
     fn snapshot_returns_none_for_empty_cache() {
-        let updater =
-            CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::from_secs(86_400));
+        let updater = CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::from_secs(86_400));
         assert!(updater.snapshot_for_persistence().is_none());
     }
 
     #[test]
     fn seed_then_snapshot_round_trips_bytes_and_timestamp() {
-        let updater =
-            CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::from_secs(86_400));
+        let updater = CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::from_secs(86_400));
         let bundled = CLOUDFLARE_ECH_CONFIG_LIST.to_vec();
         let captured_at = 1_745_798_400_000_u64;
         updater.seed_from_persisted(bundled.clone(), captured_at).expect("seed must accept valid bytes");
@@ -785,8 +790,7 @@ mod tests {
 
     #[test]
     fn seed_rejects_malformed_bytes_and_leaves_cache_untouched() {
-        let updater =
-            CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::from_secs(86_400));
+        let updater = CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::from_secs(86_400));
         // Pre-populate the cache with a valid entry.
         updater.seed_from_persisted(CLOUDFLARE_ECH_CONFIG_LIST.to_vec(), 1).expect("initial seed must succeed");
         let pre_snapshot = updater.snapshot_for_persistence().expect("cache must be populated");
@@ -804,8 +808,7 @@ mod tests {
 
     #[test]
     fn seeded_entry_is_served_via_current_config_within_ttl() {
-        let updater =
-            CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::from_secs(86_400));
+        let updater = CdnEchUpdater::new(BundledEchConfigSource, BundledEchConfigSource, Duration::from_secs(86_400));
         let bundled = CLOUDFLARE_ECH_CONFIG_LIST.to_vec();
         // Recent fetch: well within the 24 h TTL.
         let recent_unix_ms = now_unix_ms().saturating_sub(60 * 60 * 1000);

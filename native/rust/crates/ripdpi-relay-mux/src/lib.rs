@@ -13,7 +13,7 @@
 //! interface to receive datagrams from the Android client). The outbound half
 //! — towards the relay server — goes through `RelayMux::open_datagram` →
 //! `RelaySession::open_datagram`. The two sockets are complementary, not
-//! redundant. See ADR-007 for the full rationale.
+//! redundant. See architecture notes for the full rationale.
 
 #![forbid(unsafe_code)]
 

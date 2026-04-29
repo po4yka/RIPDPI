@@ -1,4 +1,4 @@
-//! Acceptance benchmarks for the io_uring driver (ADR-013).
+//! Acceptance benchmarks for the io_uring driver (io_uring architecture note).
 //!
 //! Measures end-to-end latency for the two production paths landed in
 //! Phase B:

@@ -17,7 +17,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 // Retrofit-based downloader for the shared-priors release channel
-// (P4.4.4, ADR-011). Mirrors the existing host-pack catalog network in
+// (P4.4.4, offline-learner architecture note). Mirrors the existing host-pack catalog network in
 // shape and TLS posture: same OwnedTlsClientFactory, same timeouts,
 // same User-Agent convention.
 //

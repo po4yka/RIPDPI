@@ -1,6 +1,6 @@
 // Scaffolded API for the ranked-arm dispatcher (P4.3.1). Items below are
 // reachable only from sibling modules and the in-file test suite; production
-// callers are wired up in P4.3.2 (see docs/architecture/adr-010-direct-mode-dispatcher.md).
+// callers are wired up in P4.3.2 (see docs/architecture/README.md#adaptive-runtime).
 #![allow(dead_code)]
 
 use std::collections::HashMap;
@@ -764,7 +764,7 @@ mod tests {
     fn class_to_arm_ladder_walks_clean_quic_blocked_exhausted_relay_and_back() {
         // Drive a single tuple through the full life cycle and assert the
         // ranked-arm response at every step. This is the integration coverage
-        // referenced in ADR-010 (P4.3.3) — it pins the contract that
+        // referenced in direct-mode architecture note (P4.3.3) — it pins the contract that
         // negative signals advance the class, attempt budgets shrink, the
         // exhausted arm drops, and a positive signal restores the original
         // ranking.

@@ -65,7 +65,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
  * - [RelayFinalmaskTypeNoise]: rand_range
  *
  * The `chain_dsl` text-field in the Engine section is a separate DPI strategy chain DSL
- * and does NOT accept finalmask parameters. See docs/architecture/adr-008-finalmask-ui-exposure.md.
+ * and does NOT accept finalmask parameters. See docs/architecture/README.md#desync-and-relay-rules.
  */
 @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
 @Composable

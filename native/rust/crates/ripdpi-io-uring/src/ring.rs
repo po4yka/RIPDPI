@@ -230,7 +230,7 @@ impl std::future::Future for CompletionFuture {
 /// Block the current thread on a [`CompletionFuture`].
 ///
 /// Used in synchronous relay threads (std::thread, not tokio tasks) to wait
-/// for io_uring completions. Implements P5.2.1 of ADR-013 by parking the
+/// for io_uring completions. Implements P5.2.1 of io_uring architecture note by parking the
 /// current thread between polls and waking it from the driver thread via a
 /// `Thread`-backed `Waker`. The unpark token semantics handle the
 /// register/wake/park race without busy-spinning.
@@ -381,9 +381,8 @@ fn driver_loop(mut ring: IoUring, rx: flume::Receiver<Submission>, registry: Arc
                     submitted += 1;
                 }
                 Submission::WriteFixed { fd, buf_index, len, token } => {
-                    let entry = opcode::WriteFixed::new(Fd(fd), std::ptr::null(), len, buf_index)
-                        .build()
-                        .user_data(token);
+                    let entry =
+                        opcode::WriteFixed::new(Fd(fd), std::ptr::null(), len, buf_index).build().user_data(token);
                     // SAFETY: entry references a registered buffer at
                     // `buf_index`; the caller must keep that slot reserved
                     // until the CQE is reaped. Same contract as RecvFixed.

@@ -19,7 +19,7 @@ import java.util.concurrent.TimeUnit
 
 // 24-hour periodic worker that fetches the signed shared-priors bundle
 // from the GitHub release channel, hands it to the native verifier, and
-// records the apply outcome (P4.4.4, ADR-011).
+// records the apply outcome (P4.4.4, offline-learner architecture note).
 //
 // The worker is fail-secure end-to-end:
 //   1. HEAD probe on the manifest URL; skip the body fetch when
@@ -61,19 +61,23 @@ class SharedPriorsRefreshWorker
 
         @Suppress("ReturnCount")
         private suspend fun refresh(): Result {
-            val manifestUrl = manifestUrlOrNull() ?: run {
-                log.d { "shared-priors release URLs not configured; skipping refresh" }
-                return Result.success()
-            }
-            val priorsUrlBaseline = priorsUrlOrNull() ?: run {
-                log.d { "shared-priors priors URL not configured; skipping refresh" }
-                return Result.success()
-            }
+            val manifestUrl =
+                manifestUrlOrNull() ?: run {
+                    log.d { "shared-priors release URLs not configured; skipping refresh" }
+                    return Result.success()
+                }
+            val priorsUrlBaseline =
+                priorsUrlOrNull() ?: run {
+                    log.d { "shared-priors priors URL not configured; skipping refresh" }
+                    return Result.success()
+                }
 
             val previous = refreshCache.load()
             val now = System.currentTimeMillis()
             if (previous != null && now - previous.lastRefreshUnixMs < MIN_REFRESH_INTERVAL_MS) {
-                log.d { "shared-priors cooldown active; ${(now - previous.lastRefreshUnixMs) / 1_000} s since last refresh" }
+                log.d {
+                    "shared-priors cooldown active; ${(now - previous.lastRefreshUnixMs) / 1_000} s since last refresh"
+                }
                 return Result.success()
             }
 

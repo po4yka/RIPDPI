@@ -167,7 +167,7 @@ fn copy_inbound_zc(
                 // Block the thread until the send completes; the relay
                 // threads are synchronous (std::thread, not tokio).
                 // `block_on_completion` parks via `thread::park` and is woken
-                // from the driver via `Thread::unpark` (ADR-013, P5.2.1).
+                // from the driver via `Thread::unpark` (io_uring architecture note, P5.2.1).
                 let pending = handle.into_pending();
                 let result = block_on_completion(future);
 

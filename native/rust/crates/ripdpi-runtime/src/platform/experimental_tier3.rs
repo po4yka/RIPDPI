@@ -2,7 +2,7 @@
 //!
 //! **Status:** Internal platform primitives. NOT wired through `DesyncMode`
 //! and NOT exposed via UI. See
-//! `docs/architecture/adr-006-tier3-desync-platform-primitives.md` for the
+//! `docs/architecture/README.md#desync-and-relay-rules` for the
 //! rationale and the conditions required for future activation.
 //!
 //! API stability: these functions are re-exported from `platform/mod.rs` with

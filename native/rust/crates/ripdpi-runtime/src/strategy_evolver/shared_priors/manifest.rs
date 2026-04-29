@@ -1,4 +1,4 @@
-//! Manifest verification for shared-priors bundles (P4.4.4, ADR-011).
+//! Manifest verification for shared-priors bundles (P4.4.4, offline-learner architecture note).
 //!
 //! The runtime never trusts a priors payload it didn't verify. Verification
 //! has two parts:
@@ -132,9 +132,7 @@ pub fn verify_manifest(
 
     let signed_message = build_signing_input(&manifest_hash, parsed.issued_at_unix);
     let unparsed = signature::UnparsedPublicKey::new(&signature::ED25519, public_key.as_slice());
-    unparsed
-        .verify(&signed_message, &signature_bytes)
-        .map_err(|_| ManifestError::BadSignature)?;
+    unparsed.verify(&signed_message, &signature_bytes).map_err(|_| ManifestError::BadSignature)?;
 
     Ok(SharedPriorsManifest {
         version: parsed.version,

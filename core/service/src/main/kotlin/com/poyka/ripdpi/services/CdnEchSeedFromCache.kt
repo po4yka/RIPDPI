@@ -8,7 +8,7 @@ import javax.inject.Singleton
 
 // One-shot helper used at app startup to seed the in-memory ECH cache
 // from the EncryptedSharedPreferences-backed persistence layer
-// (Phase 3 of ADR-012). Without this hook, every process restart would
+// (Phase 3 of ECH rotation architecture note). Without this hook, every process restart would
 // start with a cold cache and serve the static bundled bytes until the
 // next refresh cycle, defeating the purpose of persisting the
 // refreshed config in the first place.
@@ -21,10 +21,11 @@ class CdnEchSeedFromCache
         private val log = Logger.withTag("cdn-ech")
 
         suspend fun seedIfPresent() {
-            val entry = persistedCache.load() ?: run {
-                log.d { "cdn-ech persisted cache is empty; nothing to seed" }
-                return
-            }
+            val entry =
+                persistedCache.load() ?: run {
+                    log.d { "cdn-ech persisted cache is empty; nothing to seed" }
+                    return
+                }
             val seedStatus =
                 RipDpiCdnEchNativeBindings.seed(
                     RipDpiCdnEchNativeBindings.Snapshot(

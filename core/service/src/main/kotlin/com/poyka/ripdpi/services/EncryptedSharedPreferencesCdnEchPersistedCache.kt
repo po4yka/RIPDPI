@@ -21,7 +21,7 @@ private const val KEY_CONFIG_B64 = "config_bytes_b64"
 private const val KEY_FETCHED_AT = "fetched_at_unix_ms"
 
 // EncryptedSharedPreferences-backed cache for the most-recent ECH config
-// bytes (Phase 3 of ADR-012). The bytes themselves are public CDN data, so
+// bytes (Phase 3 of ECH rotation architecture note). The bytes themselves are public CDN data, so
 // the encryption is primarily about tampering protection, not
 // confidentiality — a malicious app on the same device cannot rewrite the
 // cache to point at a stale or attacker-supplied config.
@@ -54,20 +54,34 @@ class EncryptedSharedPreferencesCdnEchPersistedCache
                 val configB64 = prefs.getString(KEY_CONFIG_B64, null) ?: return@withContext null
                 val fetchedAt = prefs.getLong(KEY_FETCHED_AT, -1L)
                 if (fetchedAt < 0L) return@withContext null
-                val bytes = runCatching { android.util.Base64.decode(configB64, android.util.Base64.NO_WRAP) }.getOrNull()
+                val bytes =
+                    runCatching {
+                        android.util.Base64.decode(
+                            configB64,
+                            android.util.Base64.NO_WRAP,
+                        )
+                    }.getOrNull()
                 bytes?.let { PersistedEchEntry(configBytes = it, fetchedAtUnixMs = fetchedAt) }
             }
 
         override suspend fun save(entry: PersistedEchEntry) {
             withContext(Dispatchers.IO) {
                 val configB64 = android.util.Base64.encodeToString(entry.configBytes, android.util.Base64.NO_WRAP)
-                prefs.edit().putString(KEY_CONFIG_B64, configB64).putLong(KEY_FETCHED_AT, entry.fetchedAtUnixMs).apply()
+                prefs
+                    .edit()
+                    .putString(KEY_CONFIG_B64, configB64)
+                    .putLong(KEY_FETCHED_AT, entry.fetchedAtUnixMs)
+                    .apply()
             }
         }
 
         override suspend fun clear() {
             withContext(Dispatchers.IO) {
-                prefs.edit().remove(KEY_CONFIG_B64).remove(KEY_FETCHED_AT).apply()
+                prefs
+                    .edit()
+                    .remove(KEY_CONFIG_B64)
+                    .remove(KEY_FETCHED_AT)
+                    .apply()
             }
         }
     }

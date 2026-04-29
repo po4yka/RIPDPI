@@ -19,7 +19,7 @@
 //! in the catalog that sends no GREASE values and uses a fixed extension order,
 //! making it valuable for servers that apply GREASE-based detection heuristics.
 //!
-//! Rotation weight: 10%. See ADR-009 for the full analysis.
+//! Rotation weight: 10%. See TLS profile architecture note for the full analysis.
 
 use boring::ssl::SslVersion;
 
