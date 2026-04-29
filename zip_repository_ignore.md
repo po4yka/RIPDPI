@@ -27,7 +27,6 @@ native/rust/.omc/
 play-store-screenshots/.omc/
 play-store-screenshots/public/screenshots/.omc/
 .DS_Store
-docs/.DS_Store
 *.swp
 *.swo
 

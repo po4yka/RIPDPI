@@ -9,9 +9,8 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 - [TUN-to-SOCKS bridge](native/tunnel.md)
 - [Debug a runtime issue](native/debug-runtime-issue.md)
 - [Cloudflare Tunnel operations](native/cloudflare-tunnel-operations.md)
-- [MASQUE current state](native/relay-masque-status.md)
-- [MASQUE field validation report](native/relay-masque-field-validation.md)
-- [NaiveProxy runtime](native/relay-naiveproxy-decision.md)
+- [MASQUE runtime](native/relay-masque-status.md)
+- [NaiveProxy runtime](native/relay-naiveproxy-runtime.md)
 - [Finalmask compatibility and example configs](native/finalmask-compatibility.md)
 
 ## Operations
@@ -31,7 +30,8 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 
 ## Architecture Hardening
 
-- [Completed audit roadmap](../ROADMAP.md)
+- [Architecture notes](architecture/README.md)
+- [Current roadmap](../ROADMAP.md)
 - [Unsafe audit guide](native/unsafe-audit.md)
 - [Service session scope](service-session-scope.md)
 - [TCP relay concurrency](native/tcp-concurrency.md)
@@ -48,11 +48,6 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 - [External UI automation](automation/README.md)
 - [Selector contract](automation/selector-contract.md)
 - [Appium readiness](automation/appium-readiness.md)
-
-## Roadmap
-
-- [Current roadmap](../ROADMAP.md)
-- [Main README architecture overview](../README.md#architecture)
 
 ## User Manuals
 

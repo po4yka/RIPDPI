@@ -267,9 +267,8 @@ Options: `--device <serial>` to target a specific device, `--skip-capture` to re
 - [TUN-to-SOCKS bridge](docs/native/tunnel.md)
 - [Debug a runtime issue](docs/native/debug-runtime-issue.md)
 - [Cloudflare Tunnel operations](docs/native/cloudflare-tunnel-operations.md)
-- [MASQUE current state](docs/native/relay-masque-status.md)
-- [MASQUE field validation report](docs/native/relay-masque-field-validation.md)
-- [NaiveProxy runtime](docs/native/relay-naiveproxy-decision.md)
+- [MASQUE runtime](docs/native/relay-masque-status.md)
+- [NaiveProxy runtime](docs/native/relay-naiveproxy-runtime.md)
 - [Finalmask compatibility and example configs](docs/native/finalmask-compatibility.md)
 
 **Operations**
@@ -284,7 +283,8 @@ Options: `--device <serial>` to target a specific device, `--skip-capture` to re
 - [Testing, E2E, golden contracts, and soak coverage](docs/testing.md)
 
 **Architecture Hardening**
-- [Completed audit roadmap](ROADMAP.md)
+- [Architecture notes](docs/architecture/README.md)
+- [Current roadmap](ROADMAP.md)
 - [Unsafe audit guide](docs/native/unsafe-audit.md)
 - [Service session scope](docs/service-session-scope.md)
 - [TCP relay concurrency](docs/native/tcp-concurrency.md)

@@ -22,6 +22,10 @@ composed through injected policies rather than subclass override logic.
 `publish_local_origin`. Rust relay-core remains transport-only and intentionally
 does not branch on tunnel mode.
 
+**Owned-stack browser route:** `OwnedStackBrowserScreen` is a remediation-only
+route opened from diagnostics actions. It is registered for navigation but
+intentionally excluded from bottom navigation and top-level settings.
+
 ## Desync And Relay Rules
 
 **Emitter tiers:** Tactics are classified as `non_root_production`,
@@ -94,11 +98,7 @@ paths across representative payload sizes.
 
 ## Additional Documents
 
-- [browser-route-scope.md](browser-route-scope.md) — Owned-stack browser scope
-  decision.
 - [first-flight-ir.md](first-flight-ir.md) — First-flight IR design.
 - [hotspots.md](hotspots.md) — Performance hotspots reference.
-- [phase17-boundary-review.md](phase17-boundary-review.md) — Phase 17 boundary
-  review.
 - [quic-initial-packetizer.md](quic-initial-packetizer.md) — QUIC initial
   packetizer design.
