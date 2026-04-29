@@ -20,7 +20,7 @@ pub mod process;
 pub(crate) mod retry_stealth;
 pub mod runtime;
 pub mod runtime_policy;
-pub(crate) mod strategy_evolver;
+pub mod strategy_evolver;
 pub mod ws_bootstrap;
 
 #[doc(hidden)]

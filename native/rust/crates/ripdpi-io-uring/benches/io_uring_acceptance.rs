@@ -33,6 +33,7 @@ use std::time::Duration;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use std::hint::black_box;
 
+#[cfg(any(target_os = "linux", target_os = "android"))]
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use io_uring::IoUring;

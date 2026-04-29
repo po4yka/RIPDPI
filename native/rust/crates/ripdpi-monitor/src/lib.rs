@@ -2,7 +2,7 @@ pub mod pcap;
 
 mod blockpage_fingerprints;
 mod candidates;
-mod cdn_ech;
+pub mod cdn_ech;
 mod classification;
 mod connectivity;
 mod dns;

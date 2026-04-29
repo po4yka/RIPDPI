@@ -21,11 +21,8 @@ use std::collections::HashMap;
 use std::sync::{OnceLock, RwLock};
 
 pub use loader::{apply_priors, apply_priors_with_embedded_key, canonical_combo_hash, AppliedPriors, ApplyError};
-pub use manifest::{
-    is_production_key_set, verify_manifest, ManifestError, SharedPriorsManifest, SHARED_PRIORS_MANIFEST_VERSION,
-    SHARED_PRIORS_PUB_KEY,
-};
-pub use parser::{parse, Loaded, SharedPriorsError, MAX_RAW_PAYLOAD};
+pub use manifest::{is_production_key_set, ManifestError, SharedPriorsManifest, SHARED_PRIORS_PUB_KEY};
+pub use parser::SharedPriorsError;
 
 use super::thompson_sampling::BetaParams;
 
