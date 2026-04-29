@@ -12,7 +12,6 @@ import kotlinx.coroutines.withContext
 import java.net.InetAddress
 
 object DnsLeakChecker {
-    private const val TEST_DOMAIN = "dns-leak-test.ripdpi.local"
     private val KNOWN_SAFE_RESOLVERS =
         setOf(
             "94.140.14.14",

@@ -132,12 +132,7 @@ mod tests {
 
     #[test]
     fn skips_blank_and_comment_lines() {
-        let input = "\
-
-# header comment
-{\"combo_hash\": 7, \"alpha\": 2.0, \"beta\": 5.0}
-
-";
+        let input = "\n# header comment\n{\"combo_hash\": 7, \"alpha\": 2.0, \"beta\": 5.0}\n\n";
         let loaded = parse(input).expect("parse must succeed");
         assert_eq!(loaded.priors.len(), 1);
         assert!(loaded.skipped.is_empty(), "comments and blanks should not be reported as skipped");
