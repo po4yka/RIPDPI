@@ -140,20 +140,24 @@ private fun OwnedStackBrowserContent(
                 .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
+        val bannerMessageRes =
+            if (uiState.support.android17EchEligible) {
+                R.string.owned_stack_browser_banner_android17
+            } else if (uiState.support.platformHttpEngineAvailable) {
+                R.string.owned_stack_browser_banner_platform
+            } else {
+                R.string.owned_stack_browser_banner_fallback
+            }
+        val bannerTone =
+            if (uiState.support.platformHttpEngineAvailable) {
+                WarningBannerTone.Info
+            } else {
+                WarningBannerTone.Restricted
+            }
         WarningBanner(
             title = stringResource(R.string.owned_stack_browser_banner_title),
-            message =
-                if (uiState.support.android17EchEligible) {
-                    stringResource(R.string.owned_stack_browser_banner_android17)
-                } else {
-                    stringResource(R.string.owned_stack_browser_banner_fallback)
-                },
-            tone =
-                if (uiState.support.android17EchEligible) {
-                    WarningBannerTone.Info
-                } else {
-                    WarningBannerTone.Restricted
-                },
+            message = stringResource(bannerMessageRes),
+            tone = bannerTone,
         )
         RipDpiCard(variant = RipDpiCardVariant.Outlined) {
             Text(

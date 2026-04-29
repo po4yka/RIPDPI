@@ -209,17 +209,13 @@ Strategy stack в RIPDPI композируется по уровням TCP, TLS
 В RIPDPI есть отдельный owned-stack path для трафика, который инициирует само приложение.
 
 - RIPDPI Browser и repo-local `SecureHttpClient` используют общий сервисный owned-stack request path в `:core:service`.
-- На Android 17 / API 37 platform `HttpEngine` считается confirmed ECH-capable только для authority с свежим `ECH_CAPABLE` DNS evidence или явным `xml-v37` override.
-- Платформенный path сначала пробует QUIC-capable `HttpEngine`, затем автоматически повторяет запрос с отключённым QUIC (H2-only) и только потом откатывается к native owned TLS path.
-- На более старых Android, либо без подтверждённого ECH evidence, owned-stack mode деградирует до non-platform owned TLS. Это полезно для `OWNED_STACK_ONLY` hosts, но не означает универсальный ECH.
+- На Android 14+ / API 34+ owned-stack path может использовать platform `HttpEngine` opportunistically, затем повторять запрос с отключённым QUIC (H2-only) и только потом откатываться к native owned TLS path.
+- На Android 17 / API 37 RIPDPI считает platform path confirmed ECH-capable только для authority со свежим `ECH_CAPABLE` DNS evidence или явным `xml-v37` override.
+- На более старых Android, либо без подтверждённого ECH evidence, owned-stack mode всё равно работает через opportunistic `HttpEngine`, когда он доступен, и через native owned TLS в остальных случаях. Это не означает универсальный ECH и не скрывает IP сервера.
 
 ### Готовность платформы
 
-Manifest, NSC и runtime-permission scaffolding занесены до bump'а `targetSdk` до 37, чтобы сам bump был просто property edit и smoke test, а не рефакторингом.
-
-- `ACCESS_LOCAL_NETWORK` объявлен в манифесте (NEARBY_DEVICES группа, обязателен под API 37 для non-loopback LAN-bind); runtime-permission helper закрывает любой будущий LAN-bind site без перерисовки activity host.
-- `network_security_config.xml` (base + `xml-v37`) содержит явный `<domain-config cleartextTrafficPermitted="true">` для `127.0.0.1`, `localhost` и `::1` — чтобы loopback SOCKS / HTTP inbound пережил deprecation `usesCleartextTraffic` в API 37.
-- Шаблон `<trust-anchors>` плюс per-domain `<certificate-transparency enforced="false">` задокументирован для pinned-cert flows, идущих через platform stack; native rustls flows (relay, Reality, MASQUE, Hysteria2) не задействуют platform CT и не требуют изменений NSC.
+Текущие сборки используют target SDK 35. Проверенный в репозиторий `xml-v37` Network Security Config сейчас задаёт только platform ECH preferences для app-owned HTTPS authorities. API 37 local-network permission work ещё не включён в runtime manifest; его нужно добавить вместе с будущим bump'ом `targetSdk`, если RIPDPI начнёт bind'ить non-loopback LAN listeners.
 
 ## FAQ
 
