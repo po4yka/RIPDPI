@@ -72,6 +72,10 @@ dependencies {
     implementation(libs.kermit)
     implementation(libs.okhttp)
     implementation(libs.retrofit)
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    implementation(libs.androidx.security.crypto)
+    ksp(libs.androidx.hilt.compiler)
 
     testImplementation(libs.bundles.unit.test)
     testImplementation(libs.kotlinx.serialization.json)

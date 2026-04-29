@@ -39,6 +39,9 @@ roborazzi = "1.59.0"
 retrofit = "3.0.0"
 okhttp = "5.3.2"
 profileinstaller = "1.4.1"
+work = "2.10.0"
+androidx-hilt = "1.2.0"
+security-crypto = "1.1.0-alpha07"
 
 [libraries]
 androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
@@ -100,6 +103,10 @@ roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = 
 roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose", version.ref = "roborazzi" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+androidx-hilt-work = { module = "androidx.hilt:hilt-work", version.ref = "androidx-hilt" }
+androidx-hilt-compiler = { module = "androidx.hilt:hilt-compiler", version.ref = "androidx-hilt" }
+androidx-security-crypto = { module = "androidx.security:security-crypto-ktx", version.ref = "security-crypto" }
 
 [bundles]
 lifecycle-app = [
