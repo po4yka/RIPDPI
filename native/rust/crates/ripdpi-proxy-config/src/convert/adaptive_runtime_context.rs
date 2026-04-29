@@ -214,6 +214,7 @@ pub(crate) fn finalize_ui_config(
     host_autolearn: &ProxyUiHostAutolearnConfig,
     root_mode: bool,
     root_helper_socket_path: Option<String>,
+    environment_kind: Option<&str>,
 ) -> Result<RuntimeConfig, ProxyConfigError> {
     config.groups = groups;
     config.timeouts.connect_timeout_ms = 10_000;
@@ -232,9 +233,22 @@ pub(crate) fn finalize_ui_config(
 
     config.process.root_mode = root_mode;
     config.process.root_helper_socket_path = root_helper_socket_path;
+    config.process.environment_kind = parse_environment_kind(environment_kind);
 
     let _ = host_autolearn;
     Ok(config)
+}
+
+/// Map the JSON wire-form string to [`EnvironmentKind`]. An absent or
+/// unrecognised value falls back to [`EnvironmentKind::Unknown`] so a
+/// stale Kotlin client speaking the pre-Phase-F.4 wire form does not
+/// inject a wild value into the bandit's HashMap key (P4.4.5, ADR-011).
+fn parse_environment_kind(value: Option<&str>) -> ripdpi_config::EnvironmentKind {
+    match value {
+        Some("Field") => ripdpi_config::EnvironmentKind::Field,
+        Some("Emulator") => ripdpi_config::EnvironmentKind::Emulator,
+        _ => ripdpi_config::EnvironmentKind::Unknown,
+    }
 }
 
 fn sanitize_session_overrides(session_overrides: Option<ProxySessionOverrides>) -> Option<ProxySessionOverrides> {
