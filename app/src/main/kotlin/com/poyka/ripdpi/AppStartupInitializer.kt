@@ -5,6 +5,8 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.services.CdnEchRefreshWorker
+import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.services.SharedPriorsRefreshWorker
 import com.poyka.ripdpi.strategy.StrategyPackService
@@ -25,6 +27,7 @@ class AppStartupInitializer
         private val detectionObservationStarter: DetectionObservationStarter,
         private val strategyPackService: StrategyPackService,
         private val dnsPathPreferenceInvalidator: DnsPathPreferenceInvalidator,
+        private val cdnEchSeedFromCache: CdnEchSeedFromCache,
         @param:ApplicationScope private val applicationScope: CoroutineScope,
     ) {
         fun initialize() {
@@ -60,12 +63,22 @@ class AppStartupInitializer
                 runSubsystem(AppStartupSubsystem.SharedPriorsRefreshWorkerEnqueue) {
                     SharedPriorsRefreshWorker.enqueuePeriodic(context)
                 }
+            val cdnEchSeed =
+                runSubsystem(AppStartupSubsystem.CdnEchSeedFromCache) {
+                    cdnEchSeedFromCache.seedIfPresent()
+                }
+            val cdnEchWorkerEnqueue =
+                runSubsystem(AppStartupSubsystem.CdnEchRefreshWorkerEnqueue) {
+                    CdnEchRefreshWorker.enqueuePeriodic(context)
+                }
             return AppStartupReport(
                 compatibilityReset = compatibilityReset,
                 strategyPackInitialization = strategyPackInitialization,
                 diagnosticsBootstrap = diagnosticsBootstrap,
                 dnsPathInvalidatorRegistration = dnsPathInvalidatorRegistration,
                 sharedPriorsWorkerEnqueue = sharedPriorsWorkerEnqueue,
+                cdnEchSeed = cdnEchSeed,
+                cdnEchWorkerEnqueue = cdnEchWorkerEnqueue,
             )
         }
 
@@ -99,6 +112,8 @@ internal data class AppStartupReport(
     val diagnosticsBootstrap: AppStartupSubsystemResult,
     val dnsPathInvalidatorRegistration: AppStartupSubsystemResult,
     val sharedPriorsWorkerEnqueue: AppStartupSubsystemResult,
+    val cdnEchSeed: AppStartupSubsystemResult,
+    val cdnEchWorkerEnqueue: AppStartupSubsystemResult,
 ) {
     fun toLogMessage(): String =
         "App startup report: " +
@@ -108,6 +123,8 @@ internal data class AppStartupReport(
                 diagnosticsBootstrap,
                 dnsPathInvalidatorRegistration,
                 sharedPriorsWorkerEnqueue,
+                cdnEchSeed,
+                cdnEchWorkerEnqueue,
             ).joinToString(separator = ", ") { result ->
                 buildString {
                     append(result.subsystem.logLabel)
@@ -136,6 +153,8 @@ internal enum class AppStartupSubsystem(
     DiagnosticsBootstrap("diagnostics_bootstrap"),
     DnsPathInvalidatorRegistration("dns_path_invalidator_registration"),
     SharedPriorsRefreshWorkerEnqueue("shared_priors_refresh_worker_enqueue"),
+    CdnEchSeedFromCache("cdn_ech_seed_from_cache"),
+    CdnEchRefreshWorkerEnqueue("cdn_ech_refresh_worker_enqueue"),
 }
 
 internal enum class AppStartupSubsystemStatus {

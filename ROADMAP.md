@@ -22,7 +22,6 @@ release.
 |---|---|---|
 | Offline Learner | Shared-priors release infrastructure: ed25519 keypair generation, embedded public key, and manifest/priors GitHub URLs (full Rust verifier + Kotlin Retrofit + JNI + 24h `SharedPriorsRefreshWorker` landed; pipeline rejects with `NoProductionKey` until the key is embedded) | ADR-011 |
 | Offline Learner | Emulator / sim-to-field calibration: per-family calibration-factor research spike (type-system segregation + Android `EnvironmentDetector` landed) | ADR-011 |
-| Monitor | WorkManager scheduler hookup + Kotlin `EncryptedSharedPreferences` cache that consumes the new `CdnEchUpdater` persistence API (Rust persistence API landed) | ADR-012 |
 
 ## Roadmap Hygiene
 

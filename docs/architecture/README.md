@@ -13,7 +13,7 @@
 | [adr-009](adr-009-tls-profiles-edge-safari.md) | Edge/Safari TLS profiles minimalist rationale | Accepted | 2026-04-27 |
 | [adr-010](adr-010-direct-mode-dispatcher.md) | Direct-mode ranked-arm dispatcher | Accepted | 2026-04-28 |
 | [adr-011](adr-011-offline-learner-roadmap.md) | Offline learner roadmap (Thompson + future) | Partial (P4.4.4 transport, P4.4.5 research open) | 2026-04-28 |
-| [adr-012](adr-012-ech-config-rotation.md) | ECH config rotation | Accepted (Phase 3 Rust persistence API landed; Kotlin scheduler/cache open) | 2026-04-28 |
+| [adr-012](adr-012-ech-config-rotation.md) | ECH config rotation | Accepted | 2026-04-29 |
 | [adr-013](adr-013-io-uring-perf-roadmap.md) | io_uring performance roadmap | Accepted | 2026-04-29 |
 
 Additional architecture documents:

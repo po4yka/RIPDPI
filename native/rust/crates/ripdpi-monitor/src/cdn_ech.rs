@@ -371,6 +371,27 @@ impl<P: EchConfigSource, F: EchConfigSource> CdnEchUpdater<P, F> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Process-wide updater (Phase 3 of ADR-012, JNI entry point)
+// ---------------------------------------------------------------------------
+
+/// Default TTL for the singleton updater: 24 hours, matching Cloudflare's
+/// observed key-rotation cadence.
+const PRODUCTION_TTL: Duration = Duration::from_secs(24 * 60 * 60);
+
+/// Process-wide singleton: `RemoteEchConfigSource` (DoH HTTPS-RR) as
+/// primary, `BundledEchConfigSource` as fallback. Lazy-initialized on
+/// first read; the JNI bridge calls into this from a 24-hour
+/// `CdnEchRefreshWorker` and from the app-startup seed-from-persisted
+/// hook.
+static PRODUCTION_UPDATER: std::sync::OnceLock<CdnEchUpdater<RemoteEchConfigSource, BundledEchConfigSource>> =
+    std::sync::OnceLock::new();
+
+/// Borrow the process-wide updater, constructing it on first call.
+pub fn production_updater() -> &'static CdnEchUpdater<RemoteEchConfigSource, BundledEchConfigSource> {
+    PRODUCTION_UPDATER.get_or_init(|| CdnEchUpdater::new(RemoteEchConfigSource::new(), BundledEchConfigSource, PRODUCTION_TTL))
+}
+
 /// A hardcoded ECH configuration for a CDN provider.
 #[derive(Debug)]
 pub(crate) struct CdnEchConfig {
