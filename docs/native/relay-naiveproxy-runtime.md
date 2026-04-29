@@ -38,7 +38,7 @@ The in-repo helper remains much smaller and easier to reason about than a Chromi
 
 ## Current Behavior
 
-The current implementation goes beyond the original go or no-go decision:
+The current implementation includes:
 
 - helper version probing before launch
 - readiness handshake through explicit `RIPDPI-READY` signaling
@@ -56,7 +56,8 @@ These constraints remain intentional:
 
 - NaiveProxy stays a subprocess backend, not a JNI-embedded transport.
 - The helper should remain small and protocol-focused.
-- Future work should improve observability and compatibility, not expand the helper toward browser-engine behavior.
+- New work should improve observability and compatibility, not expand the
+  helper toward browser-engine behavior.
 
 ## Remaining Work
 

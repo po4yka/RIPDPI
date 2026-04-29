@@ -32,7 +32,7 @@
       "acceptanceCorpusRef": "phase11_tls_template_acceptance",
       "acceptanceReportRef": "tls_template_acceptance_report",
       "reviewedAt": "2026-04-18",
-      "notes": "Phase 11 browser-family rotation set with explicit desktop and ECH-capable variants."
+      "notes": "Browser-family rotation set with explicit desktop and ECH-capable variants."
     },
     {
       "id": "ech_canary_v1",

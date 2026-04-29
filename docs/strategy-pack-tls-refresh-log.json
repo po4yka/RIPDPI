@@ -7,7 +7,7 @@
       "channel": "stable",
       "catalogGeneratedAt": "2026-04-18T13:00:00Z",
       "reviewer": "codex",
-      "notes": "Track S baseline review after Phase 11 browser-family template landing and catalog v3 rollout wiring.",
+      "notes": "Baseline review after browser-family template landing and catalog v3 rollout wiring.",
       "profileSets": [
         {
           "id": "browser_family_v2",

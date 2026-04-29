@@ -1,9 +1,8 @@
 # RIPDPI Roadmap
 
-This file tracks the **forward-looking** roadmap. All previously planned
-streams (audit, architecture refactor, bypass techniques and modernization,
-integrations, the cleanup epic, and Phases A–E of incremental hardening) are
-complete in repo-owned scope.
+This file tracks the **forward-looking** roadmap. Completed audit, architecture,
+bypass, modernization, integration, and hardening work lives in git history and
+the compact architecture notes.
 
 For completed work see:
 
@@ -30,6 +29,6 @@ the current release.
 - Update this file in the same change as every roadmap-scoped implementation.
 - The "Open Follow-ups" table is the contract; if you close an item, remove
   the row in the same commit. If you discover a new item, add the row.
-- Do not accumulate dated "completed in Phase X" sections here. Git history and
-  compact architecture notes are the canonical record of completed work; this
-  file is the next-step list.
+- Do not accumulate dated completed-work sections here. Git history and compact
+  architecture notes are the canonical record of completed work; this file is
+  the next-step list.

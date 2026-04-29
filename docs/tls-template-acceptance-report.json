@@ -106,5 +106,5 @@
       "acceptedEchStacks": 0
     }
   ],
-  "notes": "Committed Phase 11.8 acceptance matrix covering major CDN and self-hosted server stacks for every shipped TLS template family."
+  "notes": "Committed acceptance matrix covering major CDN and self-hosted server stacks for every shipped TLS template family."
 }
