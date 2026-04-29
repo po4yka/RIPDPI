@@ -16,3 +16,11 @@ log = { workspace = true }
 flume = { workspace = true }
 
 [dev-dependencies]
+criterion = { workspace = true }
+
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dev-dependencies]
+io-uring = { workspace = true }
+
+[[bench]]
+name = "io_uring_acceptance"
+harness = false
