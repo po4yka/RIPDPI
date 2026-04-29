@@ -1,20 +1,10 @@
 ---
 name: compose-expert
 description: >
-  Compose and Compose Multiplatform expert skill for UI development across Android, Desktop,
-  iOS, and Web. Guides state management, view composition, animations, navigation, performance,
-  design-to-code workflows, and production crash patterns. Backed by actual source code analysis
-  from both androidx/androidx and JetBrains/compose-multiplatform-core.
-  Use this skill whenever the user mentions Compose, @Composable, remember, LaunchedEffect,
-  Scaffold, NavHost, MaterialTheme, LazyColumn, Modifier, recomposition, Style, styleable,
-  MutableStyleState, Compose Multiplatform, CMP, KMP, commonMain, expect, actual,
-  ComposeUIViewController, Window composable, UIKitView, ComposeViewport, Res.drawable,
-  Res.string, or any Compose API. Also trigger when the user says "Android UI", "Kotlin UI",
-  "compose layout", "compose navigation", "compose animation", "material3", "compose styles",
-  "compose multiplatform", "desktop compose", "iOS compose", "compose web", "design to compose",
-  "build this UI", "implement this design", or asks about modern Kotlin UI development patterns.
-  Even casual mentions like "my compose screen is slow" or "how do I pass data between screens"
-  should trigger this skill.
+  Compose and Compose Multiplatform expert: state management, recomposition,
+  modifiers, side effects, navigation, animations, theming, performance,
+  design-to-code. Use for any @Composable, CMP/expect-actual, LazyColumn,
+  Modifier, MaterialTheme, NavHost, or "compose screen is slow" question.
 ---
 
 # Compose Expert Skill

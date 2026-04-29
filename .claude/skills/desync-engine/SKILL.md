@@ -1,15 +1,10 @@
 ---
 name: desync-engine
 description: >
-  DPI desync evasion pipeline: planning and executing packet-level manipulation
-  to bypass middlebox/DPI censorship. Use this skill when working with DesyncMode,
-  DesyncGroup, DesyncAction, DesyncPlan, TcpChainStep, TcpChainStepKind,
-  UdpChainStep, UdpChainStepKind, OffsetBase, OffsetExpr, ActivationFilter,
-  ActivationContext, EntropyMode, QuicFakeProfile, SeqOverlapFakeMode,
-  FakePacketPlan, PlannedStep, or any code in ripdpi-desync, ripdpi-config
-  model layer, or ripdpi-runtime desync execution. Also use when adding new
-  evasion techniques, debugging why a desync strategy fails, tuning fake TTL
-  or offset parameters, or understanding the config-to-plan-to-execution flow.
+  DPI desync evasion pipeline: planning and executing packet-level
+  manipulation to bypass middlebox/DPI. Use for DesyncMode, DesyncPlan,
+  TcpChainStep, FakePacketPlan, ripdpi-desync code, evasion technique
+  work, or fake-TTL/offset tuning.
 ---
 
 ## Conceptual model

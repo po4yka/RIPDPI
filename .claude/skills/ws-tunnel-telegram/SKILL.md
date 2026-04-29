@@ -1,17 +1,10 @@
 ---
 name: ws-tunnel-telegram
 description: >
-  WebSocket tunnel for Telegram MTProto traffic through DPI-censored networks.
-  Covers ripdpi-ws-tunnel crate: WsTunnelConfig, WsTunnelDecision, classify_target,
-  relay_ws_tunnel, Telegram DC IP database (dc_from_ip, TelegramDc, TelegramDcClass),
-  MTProto obfuscated2 seed classification (classify_mtproto_seed, decrypt_init_packet,
-  extract_dc_from_init, MtprotoSeedClassification), VPN socket protection (protect.rs),
-  bidirectional WS<->TCP relay (ws_relay), WsTunnelMode (Off/Always/Fallback),
-  TLS backend selection (rustls vs BoringSSL chrome-fingerprint), WS tunnel probes
-  for diagnostics, and encrypted DNS bootstrap via ripdpi-runtime ws_bootstrap.
-  Use when: modifying Telegram tunnel logic, updating DC IP ranges, debugging WS
-  tunnel failures, changing MTProto detection, TLS fingerprint evasion, VPN socket
-  protection, relay performance, or diagnostics/monitoring integration.
+  WebSocket tunnel for Telegram MTProto via ripdpi-ws-tunnel: WsTunnelConfig,
+  WsTunnelMode, classify_target, MTProto seed classification, DC IP database,
+  VPN socket protect, TLS fingerprint backends. Use for tunnel logic, WS relay,
+  DC routing, or MTProto detection work.
 ---
 
 # WebSocket Tunnel for Telegram (ripdpi-ws-tunnel)

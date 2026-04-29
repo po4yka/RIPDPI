@@ -1,13 +1,10 @@
 ---
 name: compose-audit
 description: >
-  Jetpack Compose codebase audit for RIPDPI. Produces scored COMPOSE-AUDIT-REPORT.md
-  across Performance (35%), State Management (25%), Side Effects (20%), API Quality (20%).
-  Use for periodic quality reviews, pre-release baselines, or evaluating refactor impact.
-  For fixing issues: use jetpack-compose-expert-skill. For design scoring: use material-3.
-  For screen-specific debugging: use compose-performance.
-  Trigger phrases: "audit compose", "score compose quality", "compose audit report",
-  "pre-release compose check", "compose codebase review", "rate compose quality".
+  Jetpack Compose codebase audit producing scored COMPOSE-AUDIT-REPORT.md
+  across Performance, State, Side Effects, API Quality. Use for periodic
+  reviews or pre-release baselines. Triggers: "audit compose",
+  "score compose quality", "compose audit report".
 user-invokable: true
 argument-hint: "[scope: full|performance|state|side-effects|api] [module: :app|all]"
 ---
