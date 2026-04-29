@@ -75,7 +75,7 @@ pub fn batch_tun_read(
 
 /// Submit a batch of writes to the TUN fd from the smoltcp tx_queue.
 ///
-/// Returns the number of packets successfully submitted. Per ADR-013 (P5.2.2)
+/// Returns the number of packets successfully submitted. Per io_uring architecture note (P5.2.2)
 /// each packet is staged through the registered buffer pool and submitted via
 /// `IORING_OP_WRITE_FIXED` when a slot is available. When the pool is
 /// exhausted, or the packet does not fit in `pool.buffer_size()`, the path

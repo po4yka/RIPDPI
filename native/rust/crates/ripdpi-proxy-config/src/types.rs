@@ -970,7 +970,7 @@ pub struct ProxyUiConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub root_helper_socket_path: Option<String>,
     /// Coarse environment classification supplied by the platform-side
-    /// `EnvironmentDetector` (P4.4.5, ADR-011). Wire form is one of
+    /// `EnvironmentDetector` (P4.4.5, offline-learner architecture note). Wire form is one of
     /// `"Unknown"` / `"Field"` / `"Emulator"`; an absent or unrecognised
     /// value falls back to `EnvironmentKind::Unknown` so the bandit's
     /// per-context HashMap keys stay stable.

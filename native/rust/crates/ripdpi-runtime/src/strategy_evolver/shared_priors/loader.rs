@@ -1,9 +1,9 @@
-//! Verify-and-apply entry point for shared-priors bundles (P4.4.4, ADR-011).
+//! Verify-and-apply entry point for shared-priors bundles (P4.4.4, offline-learner architecture note).
 //!
 //! `apply_priors` is fail-secure: if any step rejects (signature, hash,
 //! version, parser), it returns `Err` and the caller's evolver state is
 //! left untouched. Mirrors `CdnEchUpdater::refresh()` semantics from
-//! ADR-012.
+//! ECH rotation architecture note.
 
 use std::collections::HashMap;
 
@@ -59,10 +59,7 @@ pub fn apply_priors(
 }
 
 /// Production entry point: verify with the embedded release public key.
-pub fn apply_priors_with_embedded_key(
-    manifest_bytes: &[u8],
-    priors_bytes: &[u8],
-) -> Result<AppliedPriors, ApplyError> {
+pub fn apply_priors_with_embedded_key(manifest_bytes: &[u8], priors_bytes: &[u8]) -> Result<AppliedPriors, ApplyError> {
     apply_priors(manifest_bytes, priors_bytes, &SHARED_PRIORS_PUB_KEY)
 }
 
@@ -117,7 +114,8 @@ mod tests {
     use super::super::manifest::test_support::{generate_test_key, sign_manifest_bytes};
     use super::*;
 
-    const SAMPLE_PRIORS: &[u8] = b"{\"combo_hash\": 1, \"alpha\": 12.0, \"beta\": 4.0}\n{\"combo_hash\": 2, \"alpha\": 3.5, \"beta\": 1.5}\n";
+    const SAMPLE_PRIORS: &[u8] =
+        b"{\"combo_hash\": 1, \"alpha\": 12.0, \"beta\": 4.0}\n{\"combo_hash\": 2, \"alpha\": 3.5, \"beta\": 1.5}\n";
 
     #[test]
     fn apply_priors_roundtrip_returns_parsed_records() {
@@ -223,5 +221,4 @@ mod tests {
         };
         assert_ne!(canonical_combo_hash(&combo_some), canonical_combo_hash(&combo_none));
     }
-
 }

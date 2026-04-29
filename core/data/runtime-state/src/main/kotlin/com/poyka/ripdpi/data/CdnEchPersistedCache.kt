@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.data
 
 // Single ECH cache entry persisted across process restarts (Phase 3 of
-// ADR-012). The native CdnEchUpdater holds the in-memory monotonic anchor;
+// ECH rotation architecture note). The native CdnEchUpdater holds the in-memory monotonic anchor;
 // this carries the wall-clock timestamp so the entry can round-trip
 // through platform storage without losing TTL fidelity.
 data class PersistedEchEntry(

@@ -12,7 +12,7 @@
 //!   are validated against the phase11 acceptance contract fixture.
 //! - Rotation weight: 5% (Chrome Android 40%, Chrome desktop 15%).
 //!
-//! See ADR-009 for the full analysis confirming this is a complete profile.
+//! See TLS profile architecture note for the full analysis confirming this is a complete profile.
 
 use boring::ssl::SslVersion;
 

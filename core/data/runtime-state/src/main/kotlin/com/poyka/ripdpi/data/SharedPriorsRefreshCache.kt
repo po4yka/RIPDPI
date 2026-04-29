@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.data
 
-// Bookkeeping for the shared-priors refresh worker (P4.4.4, ADR-011).
+// Bookkeeping for the shared-priors refresh worker (P4.4.4, offline-learner architecture note).
 // Stored in EncryptedSharedPreferences so the 24h cooldown survives
 // process restarts; without it, every reboot would trigger a fresh
 // network round-trip even when the manifest has not changed since the

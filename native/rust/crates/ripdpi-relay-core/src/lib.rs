@@ -98,18 +98,18 @@ pub struct ResolvedRelayRuntimeConfig {
     /// Kotlin launches the `ripdpi-cloudflare-origin` and `cloudflared` subprocesses via
     /// `CloudflarePublishRuntime`; relay-core then receives a plain xHTTP config pointing at
     /// the loopback listener, identical in shape to a `consume_existing` config. Adding a
-    /// match here would produce dead branches. See ADR-005 for the full rationale.
+    /// match here would produce dead branches. See architecture notes for the full rationale.
     #[serde(default)]
     pub cloudflare_tunnel_mode: String,
     /// Local loopback origin URL used only in `publish_local_origin` mode
     /// (e.g. `"http://127.0.0.1:8080"`). Validated and consumed by `CloudflarePublishRuntime`
     /// on the Kotlin side before relay-core is started; relay-core carries this field for
-    /// wire-format completeness but does not read it. See ADR-005.
+    /// wire-format completeness but does not read it. See architecture notes.
     #[serde(default)]
     pub cloudflare_publish_local_origin_url: String,
     /// Opaque credentials reference for named-tunnel publish mode. Resolved by Kotlin before
     /// relay-core starts; relay-core carries this field for wire-format completeness only.
-    /// See ADR-005.
+    /// See architecture notes.
     #[serde(default)]
     pub cloudflare_credentials_ref: String,
     pub chain_entry_server: String,

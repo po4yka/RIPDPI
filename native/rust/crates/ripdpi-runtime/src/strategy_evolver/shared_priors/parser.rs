@@ -1,4 +1,4 @@
-//! NDJSON parser for shared-priors bundles (P4.4.4, ADR-011).
+//! NDJSON parser for shared-priors bundles (P4.4.4, offline-learner architecture note).
 //!
 //! Each line is one record:
 //!
@@ -6,7 +6,7 @@
 //! { "combo_hash": 12345678901234567890, "alpha": 12.0, "beta": 4.0 }
 //! ```
 //!
-//! Per ADR-011, the format is intentionally narrow:
+//! Per offline-learner architecture note, the format is intentionally narrow:
 //! - Combo identity is a u64 hash (see [`super::loader::canonical_combo_hash`])
 //!   so the priors can travel without leaking the combo definition itself.
 //! - Posteriors are floats so the file can carry partial-attempt averages.
@@ -17,10 +17,10 @@ use std::collections::HashMap;
 
 use crate::strategy_evolver::thompson_sampling::BetaParams;
 
-/// Hard cap on accepted payload size (uncompressed). 256 KiB ≈ 4× the 64 KiB
-/// compressed budget the ADR proposes for ~1000 arms; oversized inputs are
-/// rejected with [`SharedPriorsError::PayloadTooLarge`] before any parsing
-/// is attempted, so a malicious or corrupted bundle cannot stall startup.
+/// Hard cap on accepted payload size (uncompressed). 256 KiB is about 4x the
+/// 64 KiB compressed target for roughly 1000 arms; oversized inputs are
+/// rejected with [`SharedPriorsError::PayloadTooLarge`] before any parsing is
+/// attempted, so a malicious or corrupted bundle cannot stall startup.
 pub const MAX_RAW_PAYLOAD: usize = 256 * 1024;
 
 /// Errors surfaced when loading shared priors. Per-record errors are

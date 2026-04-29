@@ -138,16 +138,16 @@ pub struct StrategyEvolver {
     /// before it is "frozen" — skipped during random exploration. The
     /// niche-winner / family-best paths still keep using a frozen combo so
     /// proven winners can be exploited indefinitely. `u32::MAX` (the
-    /// default) disables the cap (P4.4.3, ADR-011).
+    /// default) disables the cap (P4.4.3, offline-learner architecture note).
     pub max_arm_attempts: u32,
     /// When true, fitness scoring layers the rarity (`attempts < RARITY_FLOOR`)
     /// and retry-cost (`attempts > RETRY_SATURATION`) penalties on top of
     /// the standard score. Defaults to `false` so existing callers see
-    /// unchanged behaviour (P4.4.2, ADR-011).
+    /// unchanged behaviour (P4.4.2, offline-learner architecture note).
     pub penalties_enabled: bool,
     /// Shared Beta posteriors keyed by canonical combo hash. Populated by
     /// [`Self::apply_shared_priors`] from a verified GitHub-hosted bundle
-    /// (P4.4.4, ADR-011). The UCB1 selection path does not consume these
+    /// (P4.4.4, offline-learner architecture note). The UCB1 selection path does not consume these
     /// today — they are exposed for the Thompson scorer wiring (P4.4.1)
     /// and for diagnostics. The "field data wins" merge rule lives at the
     /// consumption site rather than at apply time so the bundle stays a
@@ -190,7 +190,7 @@ impl StrategyEvolver {
     }
 
     /// Builder-style override for the offline-learner hardening knobs added
-    /// in P4.4.2 / P4.4.3 (ADR-011). Both knobs default to OFF in
+    /// in P4.4.2 / P4.4.3 (offline-learner architecture note). Both knobs default to OFF in
     /// [`Self::new`] so existing call sites are unaffected; opt in here.
     ///
     /// `max_arm_attempts` is the hard cap before a combo is skipped during
@@ -213,7 +213,7 @@ impl StrategyEvolver {
     }
 
     /// Verify a signed shared-priors bundle and load its posteriors into the
-    /// evolver's prior store (P4.4.4, ADR-011). Fail-secure: any verification
+    /// evolver's prior store (P4.4.4, offline-learner architecture note). Fail-secure: any verification
     /// or parse error returns `Err` without touching existing prior state.
     /// On success returns the number of records loaded.
     ///
@@ -229,8 +229,8 @@ impl StrategyEvolver {
         let applied = apply_priors(manifest_bytes, priors_bytes, public_key)?;
         let count = applied.priors.len();
         // Atomic replace: a successful refresh swaps the store wholesale.
-        // Per the ADR's "field data wins" rule, the local `combos` map is
-        // not touched here — the merge happens at consumption time.
+        // Field data wins: the local `combos` map is not touched here, and
+        // the merge happens at consumption time.
         self.shared_priors = applied.priors;
         Ok(count)
     }
@@ -554,7 +554,7 @@ impl StrategyEvolver {
                 // Frozen combos (attempt budget exhausted) are skipped
                 // during random exploration; niche-winner and
                 // family-best paths still keep using them (P4.4.3,
-                // ADR-011).
+                // offline-learner architecture note).
                 let frozen = stats.is_some_and(|s| s.attempts >= max_attempts);
                 !cooled && !frozen
             })
@@ -875,7 +875,7 @@ mod tests {
         assert!(e.combos.len() <= 4, "should respect max_combos limit, got {}", e.combos.len());
     }
 
-    // ── Offline-learner hardening (P4.4.2 / P4.4.3, ADR-011) ─────────────────
+    // Offline-learner hardening (P4.4.2 / P4.4.3).
 
     #[test]
     fn with_learning_hardening_overrides_defaults() {
@@ -1004,8 +1004,12 @@ mod tests {
         let n_fresh = 5_u32;
         let n_saturated = RETRY_SATURATION * 5;
 
-        let fresh =
-            ComboStats { attempts: n_fresh, successes: n_fresh, total_latency_ms: 100 * u64::from(n_fresh), ..ComboStats::new() };
+        let fresh = ComboStats {
+            attempts: n_fresh,
+            successes: n_fresh,
+            total_latency_ms: 100 * u64::from(n_fresh),
+            ..ComboStats::new()
+        };
         let saturated = ComboStats {
             attempts: n_saturated,
             successes: n_saturated,
@@ -1095,7 +1099,7 @@ mod tests {
 
     #[test]
     fn lcg_f64_spans_full_unit_interval() {
-        // Regression for ADR-011: the previous `>> 33` shift kept only 31
+        // Regression for offline-learner architecture note: the previous `>> 33` shift kept only 31
         // bits of state and divided by 2^32, which capped `lcg_f64` at 0.5.
         // After the fix the values should span the full `[0, 1)` range.
         let mut e = StrategyEvolver::new(true, 0.0);
@@ -1127,10 +1131,7 @@ mod tests {
         assert!(max_seen >= 0.9, "lcg_f64 never reached the upper half: max={max_seen}");
         assert!(above_half > n / 4, "fewer than 25% of samples above 0.5: {above_half}/{n}");
         let mean = sum / n as f64;
-        assert!(
-            (mean - 0.5).abs() < 0.05,
-            "lcg_f64 mean {mean:.4} too far from expected 0.5 — distribution is skewed"
-        );
+        assert!((mean - 0.5).abs() < 0.05, "lcg_f64 mean {mean:.4} too far from expected 0.5 — distribution is skewed");
         // Sanity: minimum should comfortably reach the lower half too.
         assert!(min_seen < 0.1, "lcg_f64 never reached small values: min={min_seen}");
     }
@@ -1820,7 +1821,7 @@ mod tests {
     }
 
     // -----------------------------------------------------------------
-    // Shared-priors integration (P4.4.4, ADR-011)
+    // Shared-priors integration (P4.4.4, offline-learner architecture note)
     // -----------------------------------------------------------------
 
     #[test]
@@ -1847,9 +1848,7 @@ mod tests {
         let key = generate_test_key();
         let manifest = sign_manifest_bytes(&key, priors, 1, "https://example/p.ndjson");
         let mut evolver = StrategyEvolver::new(true, 0.0);
-        evolver
-            .apply_shared_priors(manifest.as_bytes(), priors, &key.public_bytes)
-            .expect("first apply must succeed");
+        evolver.apply_shared_priors(manifest.as_bytes(), priors, &key.public_bytes).expect("first apply must succeed");
         assert_eq!(evolver.shared_priors_len(), 1);
 
         // Second call: a tampered payload. Verification must fail and the
@@ -1898,7 +1897,7 @@ mod tests {
     }
 
     // -----------------------------------------------------------------
-    // EnvironmentKind context segregation (P4.4.5, ADR-011)
+    // EnvironmentKind context segregation (P4.4.5, offline-learner architecture note)
     // -----------------------------------------------------------------
 
     #[test]

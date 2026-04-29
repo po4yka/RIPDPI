@@ -342,7 +342,7 @@ internal object RipDpiProxyJsonCodec {
             @EncodeDefault(EncodeDefault.Mode.NEVER)
             val rootHelperSocketPath: String? = null,
             // Environment classification supplied by the platform-side
-            // EnvironmentDetector (P4.4.5, ADR-011). Wire form is the
+            // EnvironmentDetector (P4.4.5, offline-learner architecture note). Wire form is the
             // EnvironmentKind variant name ("Field" / "Emulator" /
             // "Unknown"); Rust parses it back into ripdpi_config::EnvironmentKind.
             val environmentKind: String = "Unknown",

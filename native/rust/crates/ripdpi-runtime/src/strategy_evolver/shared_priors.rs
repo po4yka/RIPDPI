@@ -1,4 +1,4 @@
-//! Shared-priors loader for the offline learner (P4.4.4, ADR-011).
+//! Shared-priors loader for the offline learner (P4.4.4, offline-learner architecture note).
 //!
 //! Sub-modules:
 //!
@@ -30,7 +30,7 @@ pub use parser::{parse, Loaded, SharedPriorsError, MAX_RAW_PAYLOAD};
 use super::thompson_sampling::BetaParams;
 
 // Process-wide registry that holds the most-recently verified shared
-// priors (P4.4.4 transport, ADR-011). The JNI bridge calls
+// priors (P4.4.4 transport, offline-learner architecture note). The JNI bridge calls
 // `apply_global_shared_priors` after fetching the manifest + payload from
 // GitHub; new `StrategyEvolver` instances consult `latest_shared_priors`
 // at session start to seed their prior store.
@@ -116,11 +116,7 @@ mod registry_tests {
         let err = apply_global_shared_priors(manifest.as_bytes(), tampered, &key.public_bytes)
             .expect_err("tampered apply must fail");
         assert!(matches!(err, ApplyError::Manifest(ManifestError::HashMismatch)));
-        assert_eq!(
-            global_shared_priors_len(),
-            1,
-            "fail-secure: registry must keep the previously-applied entry"
-        );
+        assert_eq!(global_shared_priors_len(), 1, "fail-secure: registry must keep the previously-applied entry");
 
         // Embedded-key entry point short-circuits while the placeholder is in place.
         let err = apply_global_shared_priors_with_embedded_key(manifest.as_bytes(), priors)

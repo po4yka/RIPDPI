@@ -6,7 +6,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 // Hilt-injectable singleton that classifies the host device once at
-// first read (P4.4.5, ADR-011). The result is cached for the process
+// first read (P4.4.5, offline-learner architecture note). The result is cached for the process
 // lifetime because the detection inputs (Build.* properties,
 // ro.kernel.qemu) cannot change without a reboot.
 //

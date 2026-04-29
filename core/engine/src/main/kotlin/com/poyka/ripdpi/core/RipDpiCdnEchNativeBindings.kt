@@ -2,7 +2,7 @@ package com.poyka.ripdpi.core
 
 import android.util.Base64
 
-// JNI bindings for the process-wide CdnEchUpdater (Phase 3 of ADR-012).
+// JNI bindings for the process-wide CdnEchUpdater (Phase 3 of ECH rotation architecture note).
 //
 // Three entry points:
 //   - refresh(): pull a fresh ECH config from the DoH primary or the
@@ -43,7 +43,11 @@ internal object RipDpiCdnEchNativeBindings {
         if (!raw.contains("\"ok\":true")) return null
         if (raw.contains("\"empty\":true")) return null
         val fetchedAt =
-            FETCHED_AT_PATTERN.find(raw)?.groupValues?.getOrNull(1)?.toLongOrNull()
+            FETCHED_AT_PATTERN
+                .find(raw)
+                ?.groupValues
+                ?.getOrNull(1)
+                ?.toLongOrNull()
                 ?: return null
         val configBase64 = CONFIG_BASE64_PATTERN.find(raw)?.groupValues?.getOrNull(1) ?: return null
         val bytes = runCatching { Base64.decode(configBase64, Base64.NO_WRAP) }.getOrNull() ?: return null

@@ -189,7 +189,7 @@ pub struct LearningContext {
     pub capability_context: CapabilityContext,
     /// Coarse classification of the host device — `Field` for real user
     /// devices, `Emulator` for AVD / CI test devices, `Unknown` when the
-    /// platform-side detector has not been wired yet (P4.4.5, ADR-011).
+    /// platform-side detector has not been wired yet (P4.4.5, offline-learner architecture note).
     /// Including this here automatically segregates field-derived bandit
     /// statistics from emulator-derived ones via the `HashMap`'s
     /// per-context state.
@@ -327,7 +327,7 @@ pub(super) const FITNESS_LATENCY_VARIANCE_WEIGHT: f64 = 20.0;
 pub(super) const FITNESS_ENERGY_WEIGHT: f64 = 18.0;
 
 // ---------------------------------------------------------------------------
-// Rarity / retry penalty knobs (P4.4.2, ADR-011)
+// Rarity / retry penalty knobs (P4.4.2, offline-learner architecture note)
 // ---------------------------------------------------------------------------
 
 /// Below this many attempts an arm is treated as "rare" and pays a flat

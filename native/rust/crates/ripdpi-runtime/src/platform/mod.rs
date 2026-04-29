@@ -26,7 +26,7 @@ pub use self::capabilities::{
 // (e.g. integration tests, the privileged-ops staging crate) can pin against
 // the staging API surface; treat as `pub(crate)` semantically — not yet wired
 // through `DesyncMode` or UI. See
-// docs/architecture/adr-006-tier3-desync-platform-primitives.md.
+// docs/architecture/README.md#desync-and-relay-rules.
 pub use experimental_tier3::{
     recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_syn_hide_tcp, IcmpWrappedUdpRecvFilter, IcmpWrappedUdpRole,
     IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp, SynHideMarkerKind, SynHideTcpSpec,
