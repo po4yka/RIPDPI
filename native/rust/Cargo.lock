@@ -3229,6 +3229,7 @@ dependencies = [
 name = "ripdpi-io-uring"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "flume",
  "io-uring",
  "libc",
