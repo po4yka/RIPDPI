@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
+import com.poyka.ripdpi.services.SharedPriorsRefreshWorker
 import com.poyka.ripdpi.strategy.StrategyPackService
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
@@ -55,11 +56,16 @@ class AppStartupInitializer
                 runSubsystem(AppStartupSubsystem.DnsPathInvalidatorRegistration) {
                     dnsPathPreferenceInvalidator.register()
                 }
+            val sharedPriorsWorkerEnqueue =
+                runSubsystem(AppStartupSubsystem.SharedPriorsRefreshWorkerEnqueue) {
+                    SharedPriorsRefreshWorker.enqueuePeriodic(context)
+                }
             return AppStartupReport(
                 compatibilityReset = compatibilityReset,
                 strategyPackInitialization = strategyPackInitialization,
                 diagnosticsBootstrap = diagnosticsBootstrap,
                 dnsPathInvalidatorRegistration = dnsPathInvalidatorRegistration,
+                sharedPriorsWorkerEnqueue = sharedPriorsWorkerEnqueue,
             )
         }
 
@@ -92,6 +98,7 @@ internal data class AppStartupReport(
     val strategyPackInitialization: AppStartupSubsystemResult,
     val diagnosticsBootstrap: AppStartupSubsystemResult,
     val dnsPathInvalidatorRegistration: AppStartupSubsystemResult,
+    val sharedPriorsWorkerEnqueue: AppStartupSubsystemResult,
 ) {
     fun toLogMessage(): String =
         "App startup report: " +
@@ -100,6 +107,7 @@ internal data class AppStartupReport(
                 strategyPackInitialization,
                 diagnosticsBootstrap,
                 dnsPathInvalidatorRegistration,
+                sharedPriorsWorkerEnqueue,
             ).joinToString(separator = ", ") { result ->
                 buildString {
                     append(result.subsystem.logLabel)
@@ -127,6 +135,7 @@ internal enum class AppStartupSubsystem(
     StrategyPackInitialization("strategy_pack_initialization"),
     DiagnosticsBootstrap("diagnostics_bootstrap"),
     DnsPathInvalidatorRegistration("dns_path_invalidator_registration"),
+    SharedPriorsRefreshWorkerEnqueue("shared_priors_refresh_worker_enqueue"),
 }
 
 internal enum class AppStartupSubsystemStatus {

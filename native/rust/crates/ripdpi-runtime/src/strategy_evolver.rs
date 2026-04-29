@@ -73,8 +73,10 @@ pub use thompson_sampling::{sample_beta, BetaParams, ThompsonSampling};
 // Re-exported so callers (including the JNI bridge) can verify and apply
 // signed shared-priors bundles without reaching into sub-modules.
 pub use shared_priors::{
-    apply_priors, apply_priors_with_embedded_key, canonical_combo_hash, is_production_key_set, AppliedPriors,
-    ApplyError, ManifestError, SharedPriorsError, SharedPriorsManifest, SHARED_PRIORS_PUB_KEY,
+    apply_global_shared_priors, apply_global_shared_priors_with_embedded_key, apply_priors,
+    apply_priors_with_embedded_key, canonical_combo_hash, global_shared_priors_len, is_production_key_set,
+    latest_shared_priors, AppliedPriors, ApplyError, ManifestError, SharedPriorsError, SharedPriorsManifest,
+    SHARED_PRIORS_PUB_KEY,
 };
 
 use std::collections::HashMap;

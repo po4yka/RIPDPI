@@ -1,13 +1,15 @@
 # ADR-011: Offline Learner Improvement Roadmap (P4.4)
 
-**Status:** P4.4.1 / P4.4.2 / P4.4.3 implemented; P4.4.4 partial
-(parser, manifest verifier, and fail-secure apply pipeline landed;
-Kotlin transport, scheduler, and embedded production release key still
-deferred); P4.4.5 detector landed (Android `EnvironmentDetector` plus
-the full type-system + plumbing + segregation chain; per-family
-calibration math still deferred as a research spike).
+**Status:** P4.4.1 / P4.4.2 / P4.4.3 implemented; P4.4.4 transport
+landed (parser, manifest verifier, fail-secure apply pipeline,
+process-wide registry, JNI bridge, Kotlin Retrofit transport, and
+WorkManager-scheduled `SharedPriorsRefreshWorker` all live; the only
+remaining piece is embedding the ed25519 release public key and
+populating the manifest/priors URLs); P4.4.5 detector landed (Android
+`EnvironmentDetector` plus the full type-system + plumbing + segregation
+chain; per-family calibration math still deferred as a research spike).
 **Date:** 2026-04-27 (initial), 2026-04-28 (Phase D), 2026-04-28 (Phase F),
-2026-04-29 (EnvironmentDetector wire-up)
+2026-04-29 (EnvironmentDetector wire-up + shared-priors transport)
 **Deciders:** Nikita Pochaev
 
 ---
@@ -188,26 +190,68 @@ embedded production release key still deferred.
   default combo, hash-distinguishes-Some-zero-from-None, and the
   fail-secure store semantics on the evolver.
 
+### Transport layer landed 2026-04-29
+
+- **Process-wide registry** in `ripdpi-runtime/src/strategy_evolver/shared_priors.rs`:
+  `apply_global_shared_priors` validates the bundle against the
+  caller-supplied public key and writes the resulting prior store into
+  a `OnceLock<RwLock<HashMap>>`; `latest_shared_priors` /
+  `global_shared_priors_len` expose the registry for diagnostics and
+  for future StrategyEvolver session-start consumption. Replacement is
+  wholesale and atomic; a failed apply leaves the previous registry
+  untouched. The single `registry_replaces_on_success_and_preserves_on_failure`
+  test exercises both branches in sequence to avoid the cross-test
+  race a process-global static would otherwise create.
+- **JNI bridge** (`Java_..._RipDpiSharedPriorsNativeBindings_jniApplySharedPriors`):
+  takes `(manifestJson: String, priorsBase64: String)`, base64-decodes
+  the priors, calls `apply_global_shared_priors_with_embedded_key`,
+  and returns a small JSON status (`{"ok": true, "count": N}` or
+  `{"ok": false, "error": "..."}`) so the Kotlin worker can log a
+  precise reason for any rejection.
+- **Kotlin Retrofit transport** (`SharedPriorsCatalogNetwork.kt`):
+  same shape as `HostPackCatalogNetwork` — `OwnedTlsClientFactory`,
+  20s connect / 90s read / 120s call timeouts, User-Agent
+  `"RIPDPI shared-priors"`. Three Retrofit methods: HEAD probe to read
+  `Last-Modified`, GET manifest, GET priors.
+- **`SharedPriorsRefreshWorker`** (`@HiltWorker`, `CoroutineWorker`):
+  24h periodic, `NetworkType.CONNECTED` constraint. Flow per cycle:
+  1. Read previous refresh state from `EncryptedSharedPreferences`-
+     backed `SharedPriorsRefreshCache`. Skip if last refresh was
+     < 24h ago.
+  2. HEAD probe; if `Last-Modified` matches the previously-applied
+     value, persist the new refresh timestamp and return
+     `Result.success()` without fetching the body.
+  3. GET manifest + GET priors. Either failure short-circuits with
+     `Result.retry()`.
+  4. Hand both blobs to `RipDpiSharedPriorsNativeBindings.applySharedPriors`.
+     Log the native JSON status; persist the new refresh state.
+- **Scheduling hook**: `AppStartupInitializer` enqueues the worker as
+  a unique periodic job (`SharedPriorsRefreshWorker.enqueuePeriodic`)
+  during the same startup chain that bootstraps the diagnostics
+  workflow. The `KEEP` policy means re-enqueueing on subsequent
+  startups is a no-op.
+
 ### Still deferred
 
 - **Embedded production public key**: still the all-zero placeholder.
-  Generating the keypair, securely storing the private half, and
-  committing the public half is the release-infrastructure follow-up
-  that unblocks production use.
-- **Kotlin Retrofit transport** (`SharedPriorsCatalogNetwork.kt`):
-  HEAD-with-`Last-Modified` + GET manifest + GET priors, modeled on
-  `HostPackCatalogNetwork.kt`. Plus a refresher with the 24h cooldown
-  and `EncryptedSharedPreferences`-backed Last-Modified cache.
-- **JNI bridge**: `applySharedPriors(manifestJson, priorsBytes)` thin
-  wrapper around `StrategyEvolver::apply_shared_priors_with_embedded_key`.
-- **WorkManager periodic-job hookup**, shared with the ADR-012 Phase 3
-  follow-up. First cut is on-demand-only refresh.
+  The transport pipeline is fully wired and exercised on every install
+  but `apply_global_shared_priors_with_embedded_key` always rejects
+  with `NoProductionKey`, by design. Generating the ed25519 keypair,
+  deciding where the private half lives (this Pi, separate machine,
+  HSM, CI secret), committing the public half, and signing the first
+  release manifest are the remaining release-engineering decisions.
+  Until those land, the worker churns no body fetches because the
+  manifest URL constants in `SharedPriorsRefreshWorker` are also
+  empty placeholders — the worker logs "release URLs not configured;
+  skipping refresh" and returns `Result.success()`.
+- **Manifest + priors URLs** in `SharedPriorsRefreshWorker`. These
+  should land alongside the production public key — knowing the URL
+  before the signing key would mean a window where the worker fetches
+  bytes only to reject them.
 - **Settings UI**: a `shared_priors_enabled` opt-in flag mirroring the
-  existing `strategy_evolution` flag (default off).
-
-The verification pipeline landing now means the transport layer can be
-designed against a stable, fail-secure contract — the Kotlin side
-becomes a thin "fetch-and-hand-off-bytes" client.
+  existing `strategy_evolution` flag. Lower priority; the worker is
+  effectively opt-out via the empty-URL placeholder until the
+  release infrastructure lands.
 
 ---
 
