@@ -32,7 +32,7 @@ internal class MainConnectionActions(
     private val serviceStateStore: ServiceStateStore,
     private val trafficStatsReader: TrafficStatsReader,
     private val stringResolver: StringResolver,
-    val runtimeState: MutableStateFlow<ConnectionRuntimeState>,
+    private val runtimeState: ConnectionRuntimeStateReducer,
     private val refreshPermissionSnapshot: () -> Unit,
 ) {
     private companion object {
@@ -300,4 +300,15 @@ internal class MainConnectionActions(
     }
 
     private fun currentTransferredBytes(): Long = trafficStatsReader.currentTransferredBytes()
+}
+
+internal class ConnectionRuntimeStateReducer(
+    private val state: MutableStateFlow<ConnectionRuntimeState>,
+) {
+    val value: ConnectionRuntimeState
+        get() = state.value
+
+    fun update(reducer: (ConnectionRuntimeState) -> ConnectionRuntimeState) {
+        state.update(reducer)
+    }
 }
