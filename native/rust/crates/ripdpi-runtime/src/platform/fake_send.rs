@@ -14,9 +14,7 @@ use super::{FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides, TcpStageWait};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn swap_replacement_fd(target_fd: std::os::fd::RawFd, replacement_fd: std::os::fd::RawFd) -> io::Result<()> {
-    ripdpi_privileged_ops::linux::dup2_fd(replacement_fd, target_fd)?;
-    ripdpi_privileged_ops::linux::close_fd(replacement_fd)?;
-    Ok(())
+    ripdpi_privileged_ops::swap_replacement_fd(target_fd, replacement_fd)
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]

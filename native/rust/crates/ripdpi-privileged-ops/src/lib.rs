@@ -1,16 +1,17 @@
 use std::io;
-use std::net::{SocketAddr, TcpStream, UdpSocket};
+use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
 use std::time::Duration;
 
 pub mod experimental_tier3;
 #[cfg(any(target_os = "linux", target_os = "android"))]
-pub mod linux;
+mod linux;
 
 pub use experimental_tier3::{
     recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_syn_hide_tcp, IcmpWrappedUdpRecvFilter, IcmpWrappedUdpRole,
     IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp, SynHideMarkerKind, SynHideTcpSpec,
 };
+use ripdpi_desync::TcpSegmentHint;
 
 pub type TcpStageWait = (bool, Duration);
 
@@ -155,6 +156,179 @@ pub fn protect_socket<T: AsRawFd>(socket: &T, path: Option<&str>) -> io::Result<
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 pub fn protect_socket<T: AsRawFd>(_socket: &T, _path: Option<&str>) -> io::Result<()> {
     Ok(())
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn swap_replacement_fd(target_fd: libc::c_int, replacement_fd: libc::c_int) -> io::Result<()> {
+    linux::dup2_fd(replacement_fd, target_fd)?;
+    linux::close_fd(replacement_fd)?;
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn swap_replacement_fd(_target_fd: libc::c_int, _replacement_fd: libc::c_int) -> io::Result<()> {
+    unsupported()
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn enable_tcp_fastopen_connect<T: AsRawFd>(socket: &T) -> io::Result<()> {
+    linux::enable_tcp_fastopen_connect(socket)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn enable_tcp_fastopen_connect<T>(_socket: &T) -> io::Result<()> {
+    unsupported()
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn set_tcp_md5sig(stream: &TcpStream, key_len: u16) -> io::Result<()> {
+    linux::set_tcp_md5sig(stream, key_len)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn set_tcp_md5sig(_stream: &TcpStream, _key_len: u16) -> io::Result<()> {
+    unsupported()
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn original_dst(stream: &TcpStream) -> io::Result<SocketAddr> {
+    linux::original_dst(stream)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn original_dst(_stream: &TcpStream) -> io::Result<SocketAddr> {
+    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn attach_drop_sack(stream: &TcpStream) -> io::Result<()> {
+    linux::attach_drop_sack(stream)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn attach_drop_sack(_stream: &TcpStream) -> io::Result<()> {
+    unsupported()
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn detach_drop_sack(stream: &TcpStream) -> io::Result<()> {
+    linux::detach_drop_sack(stream)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn detach_drop_sack(_stream: &TcpStream) -> io::Result<()> {
+    unsupported()
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn set_tcp_window_clamp(stream: &TcpStream, size: u32) -> io::Result<()> {
+    linux::set_tcp_window_clamp(stream, size)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn set_tcp_window_clamp(_stream: &TcpStream, _size: u32) -> io::Result<()> {
+    unsupported()
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn set_rcvbuf(fd: &impl AsRawFd, size: u32) -> io::Result<()> {
+    linux::set_rcvbuf(fd, size)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn set_rcvbuf(_fd: &impl AsRawFd, _size: u32) -> io::Result<()> {
+    unsupported()
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn attach_strip_timestamps(stream: &TcpStream) -> io::Result<()> {
+    linux::attach_strip_timestamps(stream)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn attach_strip_timestamps(_stream: &TcpStream) -> io::Result<()> {
+    unsupported()
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn bind_udp_low_port(socket: &UdpSocket, local_ip: IpAddr, max_port: u16) -> io::Result<u16> {
+    linux::bind_udp_low_port(socket, local_ip, max_port)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn bind_udp_low_port(_socket: &UdpSocket, _local_ip: IpAddr, _max_port: u16) -> io::Result<u16> {
+    Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn wait_tcp_stage(stream: &TcpStream, wait_send: bool, await_interval: Duration) -> io::Result<()> {
+    linux::wait_tcp_stage(stream, wait_send, await_interval)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn wait_tcp_stage(_stream: &TcpStream, _wait_send: bool, _await_interval: Duration) -> io::Result<()> {
+    unsupported()
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn tcp_segment_hint(stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>> {
+    linux::tcp_segment_hint(stream)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn tcp_segment_hint(_stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>> {
+    Ok(None)
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn tcp_activation_state(stream: &TcpStream) -> io::Result<Option<TcpActivationState>> {
+    linux::tcp_activation_state(stream)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn tcp_activation_state(_stream: &TcpStream) -> io::Result<Option<TcpActivationState>> {
+    Ok(None)
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn tcp_round_trip_time_ms(stream: &TcpStream) -> io::Result<Option<u64>> {
+    linux::tcp_round_trip_time_ms(stream)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn tcp_round_trip_time_ms(_stream: &TcpStream) -> io::Result<Option<u64>> {
+    Ok(None)
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn tcp_total_retransmissions<T: AsRawFd>(socket: &T) -> io::Result<Option<u32>> {
+    linux::tcp_total_retransmissions(socket)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn tcp_total_retransmissions<T: AsRawFd>(_socket: &T) -> io::Result<Option<u32>> {
+    Ok(None)
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
+    linux::enable_recv_ttl(stream)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn enable_recv_ttl(_stream: &TcpStream) -> io::Result<()> {
+    Ok(())
+}
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(usize, Option<u8>)> {
+    linux::read_chunk_with_ttl(stream, buf)
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(usize, Option<u8>)> {
+    use std::io::Read;
+    Ok(((&*stream).read(buf)?, None))
 }
 
 #[cfg(any(target_os = "linux", target_os = "android"))]

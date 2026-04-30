@@ -133,7 +133,7 @@ pub fn io_uring_capabilities() -> ripdpi_io_uring::IoUringCapabilities {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn enable_tcp_fastopen_connect<T: std::os::fd::AsRawFd>(socket: &T) -> io::Result<()> {
-    ripdpi_privileged_ops::linux::enable_tcp_fastopen_connect(socket)
+    ripdpi_privileged_ops::enable_tcp_fastopen_connect(socket)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -143,7 +143,7 @@ pub fn enable_tcp_fastopen_connect<T>(_socket: &T) -> io::Result<()> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn set_tcp_md5sig(stream: &TcpStream, key_len: u16) -> io::Result<()> {
-    ripdpi_privileged_ops::linux::set_tcp_md5sig(stream, key_len)
+    ripdpi_privileged_ops::set_tcp_md5sig(stream, key_len)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -172,7 +172,7 @@ pub fn protect_socket<T: std::os::fd::AsRawFd>(socket: &T, _path: Option<&str>) 
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn original_dst(stream: &TcpStream) -> io::Result<SocketAddr> {
-    ripdpi_privileged_ops::linux::original_dst(stream)
+    ripdpi_privileged_ops::original_dst(stream)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -182,7 +182,7 @@ pub fn original_dst(_stream: &TcpStream) -> io::Result<SocketAddr> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn attach_drop_sack(stream: &TcpStream) -> io::Result<()> {
-    ripdpi_privileged_ops::linux::attach_drop_sack(stream)
+    ripdpi_privileged_ops::attach_drop_sack(stream)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -192,7 +192,7 @@ pub fn attach_drop_sack(_stream: &TcpStream) -> io::Result<()> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn detach_drop_sack(stream: &TcpStream) -> io::Result<()> {
-    ripdpi_privileged_ops::linux::detach_drop_sack(stream)
+    ripdpi_privileged_ops::detach_drop_sack(stream)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -202,7 +202,7 @@ pub fn detach_drop_sack(_stream: &TcpStream) -> io::Result<()> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn set_tcp_window_clamp(stream: &TcpStream, size: u32) -> io::Result<()> {
-    ripdpi_privileged_ops::linux::set_tcp_window_clamp(stream, size)
+    ripdpi_privileged_ops::set_tcp_window_clamp(stream, size)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -212,7 +212,7 @@ pub fn set_tcp_window_clamp(_stream: &TcpStream, _size: u32) -> io::Result<()> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn set_rcvbuf(fd: &impl AsRawFd, size: u32) -> io::Result<()> {
-    ripdpi_privileged_ops::linux::set_rcvbuf(fd, size)
+    ripdpi_privileged_ops::set_rcvbuf(fd, size)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -222,7 +222,7 @@ pub fn set_rcvbuf(_fd: &impl AsRawFd, _size: u32) -> io::Result<()> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn attach_strip_timestamps(stream: &TcpStream) -> io::Result<()> {
-    ripdpi_privileged_ops::linux::attach_strip_timestamps(stream)
+    ripdpi_privileged_ops::attach_strip_timestamps(stream)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -232,7 +232,7 @@ pub fn attach_strip_timestamps(_stream: &TcpStream) -> io::Result<()> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn bind_udp_low_port(socket: &UdpSocket, local_ip: IpAddr, max_port: u16) -> io::Result<u16> {
-    ripdpi_privileged_ops::linux::bind_udp_low_port(socket, local_ip, max_port)
+    ripdpi_privileged_ops::bind_udp_low_port(socket, local_ip, max_port)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -242,7 +242,7 @@ pub fn bind_udp_low_port(_socket: &UdpSocket, _local_ip: IpAddr, _max_port: u16)
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn wait_tcp_stage(stream: &TcpStream, wait_send: bool, await_interval: Duration) -> io::Result<()> {
-    ripdpi_privileged_ops::linux::wait_tcp_stage(stream, wait_send, await_interval)
+    ripdpi_privileged_ops::wait_tcp_stage(stream, wait_send, await_interval)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -252,7 +252,7 @@ pub fn wait_tcp_stage(_stream: &TcpStream, _wait_send: bool, _await_interval: Du
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn tcp_segment_hint(stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>> {
-    ripdpi_privileged_ops::linux::tcp_segment_hint(stream)
+    ripdpi_privileged_ops::tcp_segment_hint(stream)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -262,7 +262,7 @@ pub fn tcp_segment_hint(_stream: &TcpStream) -> io::Result<Option<TcpSegmentHint
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn tcp_activation_state(stream: &TcpStream) -> io::Result<Option<TcpActivationState>> {
-    ripdpi_privileged_ops::linux::tcp_activation_state(stream)
+    ripdpi_privileged_ops::tcp_activation_state(stream)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -272,7 +272,7 @@ pub fn tcp_activation_state(_stream: &TcpStream) -> io::Result<Option<TcpActivat
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn tcp_round_trip_time_ms(stream: &TcpStream) -> io::Result<Option<u64>> {
-    ripdpi_privileged_ops::linux::tcp_round_trip_time_ms(stream)
+    ripdpi_privileged_ops::tcp_round_trip_time_ms(stream)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -282,7 +282,7 @@ pub fn tcp_round_trip_time_ms(_stream: &TcpStream) -> io::Result<Option<u64>> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn tcp_total_retransmissions<T: AsRawFd>(socket: &T) -> io::Result<Option<u32>> {
-    ripdpi_privileged_ops::linux::tcp_total_retransmissions(socket)
+    ripdpi_privileged_ops::tcp_total_retransmissions(socket)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -292,7 +292,7 @@ pub fn tcp_total_retransmissions<T: AsRawFd>(_socket: &T) -> io::Result<Option<u
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
-    ripdpi_privileged_ops::linux::enable_recv_ttl(stream)
+    ripdpi_privileged_ops::enable_recv_ttl(stream)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -302,7 +302,7 @@ pub fn enable_recv_ttl(_stream: &TcpStream) -> io::Result<()> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(usize, Option<u8>)> {
-    ripdpi_privileged_ops::linux::read_chunk_with_ttl(stream, buf)
+    ripdpi_privileged_ops::read_chunk_with_ttl(stream, buf)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]

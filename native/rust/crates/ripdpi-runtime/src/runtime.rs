@@ -518,29 +518,4 @@ mod tests {
         assert!(result.is_err(), "connect to TEST-NET should fail");
         assert!(elapsed < Duration::from_secs(5), "connect should respect the 1s timeout, but took {elapsed:?}");
     }
-
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    #[test]
-    fn window_clamp_applied_on_connected_socket() {
-        use ripdpi_privileged_ops::linux::{get_tcp_window_clamp, set_tcp_window_clamp};
-
-        let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
-        let addr = listener.local_addr().expect("local_addr");
-        let client = TcpStream::connect(addr).expect("connect");
-
-        let baseline = get_tcp_window_clamp(&client).expect("get baseline clamp");
-        set_tcp_window_clamp(&client, 2).expect("set clamp");
-        let clamp = get_tcp_window_clamp(&client).expect("get clamp");
-        // Kernel enforces max(value, SOCK_MIN_RCVBUF / 2) so the effective
-        // clamp is bounded below by ~1152 on modern Linux; just verify the
-        // applied clamp is meaningfully tighter than the baseline.
-        assert!(clamp < baseline, "expected clamp < baseline {baseline}, got {clamp}");
-
-        // Modern Linux rejects TCP_WINDOW_CLAMP=0 on connected sockets, so
-        // "removing" the clamp on an established socket is done by setting
-        // a value larger than any reasonable advertised window.
-        set_tcp_window_clamp(&client, 1_000_000).expect("restore clamp to large value");
-        let restored = get_tcp_window_clamp(&client).expect("get restored");
-        assert!(restored > 128, "expected clamp removed, got {restored}");
-    }
 }
