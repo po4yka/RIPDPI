@@ -5,7 +5,7 @@ import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
-import kotlinx.coroutines.Dispatchers
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
@@ -31,14 +31,14 @@ object TimingAnalysisChecker {
         val rttMs: List<Long>,
     )
 
-    suspend fun check(): CategoryResult =
+    suspend fun check(dispatchers: AppCoroutineDispatchers): CategoryResult =
         coroutineScope {
             val findings = mutableListOf<Finding>()
             val evidence = mutableListOf<EvidenceItem>()
             var detected = false
             var needsReview = false
 
-            val snapshots = collectTimingSamples()
+            val snapshots = collectTimingSamples(dispatchers)
 
             if (snapshots.isEmpty()) {
                 findings.add(Finding("Timing analysis: no targets reachable"))
@@ -150,14 +150,14 @@ object TimingAnalysisChecker {
             )
         }
 
-    private suspend fun collectTimingSamples(): List<TimingSnapshot> =
+    private suspend fun collectTimingSamples(dispatchers: AppCoroutineDispatchers): List<TimingSnapshot> =
         coroutineScope {
             PROBE_TARGETS
                 .map { (host, port) ->
                     async {
                         val rtts = mutableListOf<Long>()
                         repeat(SAMPLES_PER_TARGET) {
-                            measureConnectRtt(host, port)?.let { rtts.add(it) }
+                            measureConnectRtt(dispatchers, host, port)?.let { rtts.add(it) }
                         }
                         if (rtts.isNotEmpty()) TimingSnapshot(host, rtts) else null
                     }
@@ -166,10 +166,11 @@ object TimingAnalysisChecker {
 
     @Suppress("TooGenericExceptionCaught")
     private suspend fun measureConnectRtt(
+        dispatchers: AppCoroutineDispatchers,
         host: String,
         port: Int,
     ): Long? =
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             try {
                 val start = System.nanoTime()
                 Socket().use { socket ->

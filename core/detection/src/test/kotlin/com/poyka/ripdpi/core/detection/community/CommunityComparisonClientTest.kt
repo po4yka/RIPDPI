@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.core.detection.community
 
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -12,6 +14,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class CommunityComparisonClientTest {
     @Test
     fun `fetchStats closes response body and decodes payload`() =
@@ -41,6 +44,7 @@ class CommunityComparisonClientTest {
                             .body(responseBody)
                             .build()
                     },
+                    testDispatchers(),
                 )
 
             val result = client.fetchStats("https://example.test/stats.json")
@@ -65,6 +69,7 @@ class CommunityComparisonClientTest {
                             .body("   ".toResponseBody("application/json".toMediaType()))
                             .build()
                     },
+                    testDispatchers(),
                 )
 
             val result = client.fetchStats("https://example.test/stats.json")
@@ -81,6 +86,15 @@ class CommunityComparisonClientTest {
             .Builder()
             .addInterceptor { chain -> responseBuilder(chain.request()) }
             .build()
+
+    private fun testDispatchers(): AppCoroutineDispatchers {
+        val dispatcher = UnconfinedTestDispatcher()
+        return AppCoroutineDispatchers(
+            default = dispatcher,
+            io = dispatcher,
+            main = dispatcher,
+        )
+    }
 
     private class TrackingResponseBody(
         private val delegate: ResponseBody,

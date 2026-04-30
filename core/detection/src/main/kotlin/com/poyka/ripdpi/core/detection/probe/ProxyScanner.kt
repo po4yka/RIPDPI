@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.core.detection.probe
 
 import com.poyka.ripdpi.core.detection.vpn.VpnAppCatalog
-import kotlinx.coroutines.Dispatchers
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.joinAll
@@ -14,6 +14,7 @@ import kotlin.math.max
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ProxyScanner(
+    private val dispatchers: AppCoroutineDispatchers,
     private val loopbackHosts: List<String> = listOf("127.0.0.1", "::1"),
     private val popularPorts: List<Int> =
         (
@@ -72,7 +73,7 @@ class ProxyScanner(
 
     @Suppress("NestedBlockDepth")
     private suspend fun scanFullRange(onProgress: suspend (ScanProgress) -> Unit): ProxyEndpoint? =
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             coroutineScope {
                 val popularSet = popularPorts.toHashSet()
                 val skipSet = popularSet + excludePorts
@@ -80,7 +81,7 @@ class ProxyScanner(
                 val scanned = AtomicInteger(0)
                 val found = AtomicReference<ProxyEndpoint?>(null)
 
-                val dispatcher = Dispatchers.IO.limitedParallelism(max(1, maxConcurrency))
+                val dispatcher = dispatchers.io.limitedParallelism(max(1, maxConcurrency))
 
                 onProgress(
                     ScanProgress(
@@ -128,7 +129,7 @@ class ProxyScanner(
         }
 
     private suspend fun tryPort(port: Int): ProxyEndpoint? =
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             for (host in loopbackHosts) {
                 val type =
                     ProxyProber.probeNoAuthProxyType(

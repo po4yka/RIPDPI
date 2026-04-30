@@ -7,7 +7,7 @@ import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
-import kotlinx.coroutines.Dispatchers
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.withContext
 import java.net.InetAddress
 
@@ -25,10 +25,11 @@ object DnsLeakChecker {
         )
 
     suspend fun check(
+        dispatchers: AppCoroutineDispatchers,
         context: Context,
         encryptedDnsEnabled: Boolean = false,
     ): CategoryResult =
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             val findings = mutableListOf<Finding>()
             val evidence = mutableListOf<EvidenceItem>()
             var detected = false

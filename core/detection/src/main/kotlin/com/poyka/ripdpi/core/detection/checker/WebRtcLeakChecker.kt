@@ -5,7 +5,7 @@ import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
-import kotlinx.coroutines.Dispatchers
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.withContext
 import java.net.DatagramPacket
 import java.net.DatagramSocket
@@ -19,8 +19,11 @@ object WebRtcLeakChecker {
             "stun1.l.google.com" to 19302,
         )
 
-    suspend fun check(webRtcProtectionEnabled: Boolean = false): CategoryResult =
-        withContext(Dispatchers.IO) {
+    suspend fun check(
+        dispatchers: AppCoroutineDispatchers,
+        webRtcProtectionEnabled: Boolean = false,
+    ): CategoryResult =
+        withContext(dispatchers.io) {
             val findings = mutableListOf<Finding>()
             val evidence = mutableListOf<EvidenceItem>()
             var detected = false

@@ -5,9 +5,9 @@ import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.security.MessageDigest
 import javax.net.ssl.SSLContext
@@ -27,8 +27,11 @@ object TlsFingerprintChecker {
             "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
         )
 
-    suspend fun check(tlsFingerprintProfile: String = "chrome_stable"): CategoryResult =
-        withContext(Dispatchers.IO) {
+    suspend fun check(
+        dispatchers: AppCoroutineDispatchers,
+        tlsFingerprintProfile: String = "chrome_stable",
+    ): CategoryResult =
+        withContext(dispatchers.io) {
             val findings = mutableListOf<Finding>()
             val evidence = mutableListOf<EvidenceItem>()
             var detected = false
