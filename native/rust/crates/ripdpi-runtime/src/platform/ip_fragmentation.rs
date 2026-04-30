@@ -8,14 +8,14 @@ use ripdpi_config::IpIdMode;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use super::ipv4_ids::{reserve_stream_ipv4_identifications, reserve_udp_ipv4_identifications};
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use super::{linux, root_helper, IpFragmentationCapabilities, TcpFlagOverrides, TcpPayloadSegment};
+use super::{root_helper, IpFragmentationCapabilities, TcpFlagOverrides, TcpPayloadSegment};
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 use super::{IpFragmentationCapabilities, TcpFlagOverrides, TcpPayloadSegment};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn swap_replacement_fd(target_fd: std::os::fd::RawFd, replacement_fd: std::os::fd::RawFd) -> io::Result<()> {
-    linux::dup2_fd(replacement_fd, target_fd)?;
-    linux::close_fd(replacement_fd)?;
+    ripdpi_privileged_ops::linux::dup2_fd(replacement_fd, target_fd)?;
+    ripdpi_privileged_ops::linux::close_fd(replacement_fd)?;
     Ok(())
 }
 
@@ -25,7 +25,7 @@ pub fn probe_ip_fragmentation_capabilities(protect_path: Option<&str>) -> io::Re
     {
         return result;
     }
-    linux::probe_ip_fragmentation_capabilities(protect_path)
+    ripdpi_privileged_ops::probe_ip_fragmentation_capabilities(protect_path)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -59,7 +59,7 @@ pub fn send_ip_fragmented_udp_reserved(
     }) {
         return result;
     }
-    linux::send_ip_fragmented_udp(
+    ripdpi_privileged_ops::send_ip_fragmented_udp(
         upstream,
         target,
         payload,
@@ -161,7 +161,7 @@ pub fn send_ip_fragmented_tcp_reserved(
     }) {
         return result;
     }
-    linux::send_ip_fragmented_tcp(
+    ripdpi_privileged_ops::send_ip_fragmented_tcp(
         stream,
         payload,
         split_offset,
@@ -264,7 +264,7 @@ pub fn send_multi_disorder_tcp_reserved(
     }) {
         return result;
     }
-    linux::send_multi_disorder_tcp(
+    ripdpi_privileged_ops::send_multi_disorder_tcp(
         stream,
         payload,
         segments,
