@@ -1,8 +1,8 @@
 use std::net::{IpAddr, Ipv4Addr};
 
 use ripdpi_dns_resolver::{
-    extract_ip_answers, parse_https_service_bindings, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver,
-    EncryptedDnsTransport, HttpsRr,
+    extract_ip_answers, parse_https_service_bindings, EncryptedDnsConnectHooks, EncryptedDnsEndpoint,
+    EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport, HttpsRr,
 };
 
 use crate::transport::{relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr, TransportConfig};
@@ -215,10 +215,17 @@ pub(crate) fn exchange_encrypted_dns_query(
         TransportConfig::Direct { .. } => EncryptedDnsTransport::Direct,
         TransportConfig::Socks5 { host, port } => EncryptedDnsTransport::Socks5 { host: host.clone(), port: *port },
     };
-    let resolver = EncryptedDnsResolver::new(endpoint, transport).map_err(|err| err.to_string())?;
+    let resolver = EncryptedDnsResolver::with_connect_hooks(endpoint, transport, encrypted_dns_connect_hooks())
+        .map_err(|err| err.to_string())?;
     let query_id = ((now_ms() & 0xffff) as u16).max(1);
     let packet = build_dns_query_with_type(domain, query_id, record_type)?;
     resolver.exchange_blocking(&packet).map_err(|err| err.to_string())
+}
+
+fn encrypted_dns_connect_hooks() -> EncryptedDnsConnectHooks {
+    EncryptedDnsConnectHooks::new().with_dot_tls_connector_builder(|| {
+        ripdpi_tls_profiles::configure_builder("chrome_stable").map_err(|error| error.to_string())
+    })
 }
 
 pub(crate) fn parse_bootstrap_ips(values: &[String]) -> Result<Vec<IpAddr>, String> {
@@ -522,6 +529,13 @@ mod tests {
         assert_eq!(encrypted_dns_protocol(Some("dot")), EncryptedDnsProtocol::Dot);
         assert_eq!(encrypted_dns_protocol(Some("DOT")), EncryptedDnsProtocol::Dot);
         assert_eq!(encrypted_dns_protocol(Some("dnscrypt")), EncryptedDnsProtocol::DnsCrypt);
+    }
+
+    #[test]
+    fn encrypted_dns_connect_hooks_install_dot_tls_builder() {
+        let hooks = encrypted_dns_connect_hooks();
+
+        assert!(hooks.dot_tls_connector_builder.is_some());
     }
 
     #[test]

@@ -4,6 +4,8 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
+use boring::ssl::{SslConnector, SslConnectorBuilder, SslMethod, SslVerifyMode};
+use boring::x509::X509;
 use crypto_box::aead::Aead;
 use crypto_box::{ChaChaBox, PublicKey as CryptoPublicKey, SecretKey as CryptoSecretKey};
 use hickory_proto::op::Message;
@@ -380,12 +382,16 @@ impl EncryptedDnsResolver {
     }
 
     /// Returns `true` when the hickory-resolver backend can handle this resolver's
-    /// configuration. Falls back to the manual path when custom TLS roots or a custom
-    /// certificate verifier are configured, because hickory-resolver manages its own
-    /// TLS stack using system/webpki roots and cannot honor those overrides.
+    /// configuration. Falls back to the manual path when custom TLS roots, a custom
+    /// certificate verifier, or a custom DoT TLS builder are configured, because
+    /// hickory-resolver manages its own TLS stack and cannot honor those overrides.
     #[cfg(feature = "hickory-backend")]
     fn can_use_hickory(&self) -> bool {
-        self.inner.tls_roots.is_empty() && self.inner.tls_verifier.is_none() && !self.uses_direct_tcp_connector()
+        self.inner.tls_roots.is_empty()
+            && self.inner.tls_verifier.is_none()
+            && !self.uses_direct_tcp_connector()
+            && !(matches!(self.inner.endpoint.protocol, EncryptedDnsProtocol::Dot)
+                && self.inner.connect_hooks.has_dot_tls_connector_builder())
     }
 
     fn uses_direct_tcp_connector(&self) -> bool {
@@ -534,13 +540,12 @@ impl EncryptedDnsResolver {
         let tcp_stream = self.connect_plain_tcp().await?;
         let tls_name = self.inner.endpoint.tls_server_name.clone().unwrap_or_else(|| self.inner.endpoint.host.clone());
         let verify = !self.inner.dot_skip_verify;
-        let mut builder = ripdpi_tls_profiles::configure_builder("chrome_stable")
-            .map_err(|e| EncryptedDnsError::Tls(format!("DoT TLS profile: {e}")))?;
+        let mut builder = build_dot_connector_builder(&self.inner.connect_hooks)?;
         if !verify {
-            builder.set_verify(boring::ssl::SslVerifyMode::NONE);
+            builder.set_verify(SslVerifyMode::NONE);
         }
         for root_der in &self.inner.dot_extra_roots {
-            let x509 = boring::x509::X509::from_der(root_der.as_ref())
+            let x509 = X509::from_der(root_der.as_ref())
                 .map_err(|e| EncryptedDnsError::Tls(format!("DoT extra root cert: {e}")))?;
             builder
                 .cert_store_mut()
@@ -1205,6 +1210,16 @@ fn find_crlf(bytes: &[u8]) -> Option<usize> {
 
 fn find_http_header_terminator(bytes: &[u8]) -> Option<usize> {
     bytes.windows(4).position(|window| window == b"\r\n\r\n")
+}
+
+fn build_dot_connector_builder(hooks: &EncryptedDnsConnectHooks) -> Result<SslConnectorBuilder, EncryptedDnsError> {
+    if let Some(factory) = &hooks.dot_tls_connector_builder {
+        return factory().map_err(|error| EncryptedDnsError::Tls(format!("DoT TLS builder: {error}")));
+    }
+
+    let builder = SslConnector::builder(SslMethod::tls())
+        .map_err(|error| EncryptedDnsError::Tls(format!("DoT TLS builder: {error}")))?;
+    Ok(builder)
 }
 
 fn should_ignore_tls_eof(error: &io::Error) -> bool {

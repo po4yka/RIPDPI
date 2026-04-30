@@ -404,6 +404,38 @@ fn direct_dot_connect_hooks_are_used() {
 }
 
 #[test]
+fn dot_tls_connector_builder_is_used_for_direct_dot() {
+    let query = build_query("fixture.test");
+    let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("listener");
+    let port = listener.local_addr().expect("local addr").port();
+    let server = thread::spawn(move || {
+        let _ = listener.accept().expect("accept");
+    });
+
+    let resolver = EncryptedDnsResolver::with_timeout_and_connect_hooks(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Dot,
+            resolver_id: Some("fixture".to_string()),
+            host: "fixture.test".to_string(),
+            port,
+            tls_server_name: Some("fixture.test".to_string()),
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: None,
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+        },
+        EncryptedDnsTransport::Direct,
+        Duration::from_millis(500),
+        EncryptedDnsConnectHooks::new().with_dot_tls_connector_builder(|| Err("sentinel-dot-builder".to_string())),
+    )
+    .expect("resolver builds");
+
+    let error = resolver.exchange_blocking(&query).expect_err("DoT builder error should surface");
+    assert!(error.to_string().contains("sentinel-dot-builder"), "expected custom DoT builder error, got {error}");
+    server.join().expect("server thread completes");
+}
+
+#[test]
 fn dot_exchange_supports_socks_transport() {
     let query = build_query("fixture.test");
     let answer_ip = Ipv4Addr::new(198, 18, 0, 12);

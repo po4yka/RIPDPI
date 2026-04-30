@@ -278,17 +278,24 @@ fn resolve_first_ip(
 }
 
 fn build_direct_connect_hooks(protect_path: Option<&str>) -> EncryptedDnsConnectHooks {
+    let hooks = encrypted_dns_connect_hooks();
     let Some(protect_path) = protect_path else {
-        return EncryptedDnsConnectHooks::default();
+        return hooks;
     };
     let tcp_protect_path = protect_path.to_string();
     let udp_protect_path = tcp_protect_path.clone();
 
-    EncryptedDnsConnectHooks::new()
+    hooks
         .with_direct_tcp_connector(move |target, timeout| {
             connect_protected_tcp_socket(target, &tcp_protect_path, timeout)
         })
         .with_direct_udp_binder(move |bind_addr| bind_protected_udp_socket(bind_addr, &udp_protect_path))
+}
+
+fn encrypted_dns_connect_hooks() -> EncryptedDnsConnectHooks {
+    EncryptedDnsConnectHooks::new().with_dot_tls_connector_builder(|| {
+        ripdpi_tls_profiles::configure_builder("chrome_stable").map_err(|error| error.to_string())
+    })
 }
 
 fn connect_protected_tcp_socket(
@@ -389,10 +396,12 @@ mod tests {
         let empty = build_direct_connect_hooks(None);
         assert!(empty.direct_tcp_connector.is_none());
         assert!(empty.direct_udp_binder.is_none());
+        assert!(empty.dot_tls_connector_builder.is_some());
 
         let protected = build_direct_connect_hooks(Some("/tmp/ripdpi-protect.sock"));
         assert!(protected.direct_tcp_connector.is_some());
         assert!(protected.direct_udp_binder.is_some());
+        assert!(protected.dot_tls_connector_builder.is_some());
     }
 
     #[test]
