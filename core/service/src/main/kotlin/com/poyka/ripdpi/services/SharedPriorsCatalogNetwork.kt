@@ -78,18 +78,18 @@ class DefaultSharedPriorsCatalogDownloadService
         private fun api(authority: String?): SharedPriorsCatalogDownloadApi =
             Retrofit
                 .Builder()
-                .baseUrl(SHARED_PRIORS_CATALOG_BASE_URL)
+                .baseUrl(sharedPriorsCatalogBaseUrl)
                 .client(
                     tlsClientFactory.createForAuthority(authority = authority) {
-                        connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                        readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                        callTimeout(CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                        connectTimeout(connectTimeoutSeconds, TimeUnit.SECONDS)
+                        readTimeout(readTimeoutSeconds, TimeUnit.SECONDS)
+                        callTimeout(callTimeoutSeconds, TimeUnit.SECONDS)
                         addInterceptor { chain ->
                             chain.proceed(
                                 chain
                                     .request()
                                     .newBuilder()
-                                    .header("User-Agent", SHARED_PRIORS_CATALOG_USER_AGENT)
+                                    .header("User-Agent", sharedPriorsCatalogUserAgent)
                                     .build(),
                             )
                         }
@@ -108,12 +108,12 @@ abstract class SharedPriorsCatalogNetworkModule {
     ): SharedPriorsCatalogDownloadService
 }
 
-private const val CONNECT_TIMEOUT_SECONDS = 20L
-private const val READ_TIMEOUT_SECONDS = 90L
-private const val CALL_TIMEOUT_SECONDS = 120L
+private const val connectTimeoutSeconds = 20L
+private const val readTimeoutSeconds = 90L
+private const val callTimeoutSeconds = 120L
 
-const val SHARED_PRIORS_CATALOG_BASE_URL = "https://raw.githubusercontent.com/"
-const val SHARED_PRIORS_CATALOG_USER_AGENT = "RIPDPI shared-priors"
+const val sharedPriorsCatalogBaseUrl = "https://raw.githubusercontent.com/"
+const val sharedPriorsCatalogUserAgent = "RIPDPI shared-priors"
 
 private fun String.authorityFromUrl(): String? = runCatching { URI(this).host }.getOrNull()
 

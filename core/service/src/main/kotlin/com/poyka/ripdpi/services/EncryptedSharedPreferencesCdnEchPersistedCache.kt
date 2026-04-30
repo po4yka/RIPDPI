@@ -16,9 +16,9 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val PREFS_NAME = "ripdpi_cdn_ech_cache"
-private const val KEY_CONFIG_B64 = "config_bytes_b64"
-private const val KEY_FETCHED_AT = "fetched_at_unix_ms"
+private const val prefsName = "ripdpi_cdn_ech_cache"
+private const val keyConfigB64 = "config_bytes_b64"
+private const val keyFetchedAt = "fetched_at_unix_ms"
 
 // EncryptedSharedPreferences-backed cache for the most-recent ECH config
 // bytes. The bytes themselves are public CDN data, so the encryption is
@@ -42,7 +42,7 @@ class EncryptedSharedPreferencesCdnEchPersistedCache
                     .build()
             EncryptedSharedPreferences.create(
                 context,
-                PREFS_NAME,
+                prefsName,
                 masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
@@ -51,8 +51,8 @@ class EncryptedSharedPreferencesCdnEchPersistedCache
 
         override suspend fun load(): PersistedEchEntry? =
             withContext(Dispatchers.IO) {
-                val configB64 = prefs.getString(KEY_CONFIG_B64, null) ?: return@withContext null
-                val fetchedAt = prefs.getLong(KEY_FETCHED_AT, -1L)
+                val configB64 = prefs.getString(keyConfigB64, null) ?: return@withContext null
+                val fetchedAt = prefs.getLong(keyFetchedAt, -1L)
                 if (fetchedAt < 0L) return@withContext null
                 val bytes =
                     runCatching {
@@ -69,8 +69,8 @@ class EncryptedSharedPreferencesCdnEchPersistedCache
                 val configB64 = android.util.Base64.encodeToString(entry.configBytes, android.util.Base64.NO_WRAP)
                 prefs
                     .edit()
-                    .putString(KEY_CONFIG_B64, configB64)
-                    .putLong(KEY_FETCHED_AT, entry.fetchedAtUnixMs)
+                    .putString(keyConfigB64, configB64)
+                    .putLong(keyFetchedAt, entry.fetchedAtUnixMs)
                     .apply()
             }
         }
@@ -79,8 +79,8 @@ class EncryptedSharedPreferencesCdnEchPersistedCache
             withContext(Dispatchers.IO) {
                 prefs
                     .edit()
-                    .remove(KEY_CONFIG_B64)
-                    .remove(KEY_FETCHED_AT)
+                    .remove(keyConfigB64)
+                    .remove(keyFetchedAt)
                     .apply()
             }
         }

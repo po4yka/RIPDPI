@@ -16,9 +16,9 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val PREFS_NAME = "ripdpi_shared_priors_refresh"
-private const val KEY_LAST_REFRESH = "last_refresh_unix_ms"
-private const val KEY_LAST_MODIFIED = "last_modified_header"
+private const val prefsName = "ripdpi_shared_priors_refresh"
+private const val keyLastRefresh = "last_refresh_unix_ms"
+private const val keyLastModified = "last_modified_header"
 
 @Singleton
 class EncryptedSharedPreferencesSharedPriorsRefreshCache
@@ -34,7 +34,7 @@ class EncryptedSharedPreferencesSharedPriorsRefreshCache
                     .build()
             EncryptedSharedPreferences.create(
                 context,
-                PREFS_NAME,
+                prefsName,
                 masterKey,
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
@@ -43,19 +43,19 @@ class EncryptedSharedPreferencesSharedPriorsRefreshCache
 
         override suspend fun load(): SharedPriorsRefreshState? =
             withContext(Dispatchers.IO) {
-                val lastRefresh = prefs.getLong(KEY_LAST_REFRESH, -1L)
+                val lastRefresh = prefs.getLong(keyLastRefresh, -1L)
                 if (lastRefresh < 0L) return@withContext null
-                val lastModified = prefs.getString(KEY_LAST_MODIFIED, null)
+                val lastModified = prefs.getString(keyLastModified, null)
                 SharedPriorsRefreshState(lastRefreshUnixMs = lastRefresh, lastModifiedHeader = lastModified)
             }
 
         override suspend fun save(state: SharedPriorsRefreshState) {
             withContext(Dispatchers.IO) {
-                val editor = prefs.edit().putLong(KEY_LAST_REFRESH, state.lastRefreshUnixMs)
+                val editor = prefs.edit().putLong(keyLastRefresh, state.lastRefreshUnixMs)
                 if (state.lastModifiedHeader != null) {
-                    editor.putString(KEY_LAST_MODIFIED, state.lastModifiedHeader)
+                    editor.putString(keyLastModified, state.lastModifiedHeader)
                 } else {
-                    editor.remove(KEY_LAST_MODIFIED)
+                    editor.remove(keyLastModified)
                 }
                 editor.apply()
             }
