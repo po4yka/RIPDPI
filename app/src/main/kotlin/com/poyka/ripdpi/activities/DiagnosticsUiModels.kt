@@ -447,6 +447,20 @@ data class DiagnosticsStrategyProbeRecommendationUiModel(
     val signature: List<DiagnosticsFieldUiModel>,
 )
 
+@Immutable
+data class DiagnosticsStrategyProbeReportPresentationUiModel(
+    val statusLabel: String,
+    val statusTone: DiagnosticsTone,
+    val matrixTitle: String,
+    val manualApplyBadge: String,
+    val supportsWinningPath: Boolean,
+    val isIncomplete: Boolean,
+    val showFullMatrixInitially: Boolean,
+    val auditConfidenceLabel: String? = null,
+    val auditConfidenceTone: DiagnosticsTone? = null,
+    val auditAssessmentMetrics: ImmutableList<DiagnosticsMetricUiModel> = persistentListOf(),
+)
+
 @Stable
 data class DiagnosticsStrategyProbeReportUiModel(
     val suiteId: String,
@@ -458,6 +472,7 @@ data class DiagnosticsStrategyProbeReportUiModel(
     val winningPath: DiagnosticsStrategyProbeWinningPathUiModel? = null,
     val families: ImmutableList<DiagnosticsStrategyProbeFamilyUiModel>,
     val candidateDetails: ImmutableMap<String, DiagnosticsStrategyProbeCandidateDetailUiModel> = persistentMapOf(),
+    val presentation: DiagnosticsStrategyProbeReportPresentationUiModel? = null,
 )
 
 @Stable
@@ -467,6 +482,22 @@ data class DiagnosticsResolverRecommendationUiModel(
     val fields: List<DiagnosticsFieldUiModel>,
     val appliedTemporarily: Boolean,
     val persistable: Boolean,
+)
+
+@Immutable
+data class DiagnosticsScanWorkflowBadgeUiModel(
+    val text: String,
+    val tone: DiagnosticsTone,
+)
+
+@Immutable
+data class DiagnosticsScanWorkflowPresentationUiModel(
+    val title: String,
+    val body: String,
+    val tone: DiagnosticsTone,
+    val badges: ImmutableList<DiagnosticsScanWorkflowBadgeUiModel> = persistentListOf(),
+    val rawActionLabel: String,
+    val inPathActionLabel: String,
 )
 
 @Stable
@@ -518,6 +549,7 @@ data class DiagnosticsScanUiModel(
     val policyNoticeMessage: String? = null,
     val workflowRestriction: DiagnosticsWorkflowRestrictionUiModel? = null,
     val remediationLadder: DiagnosticsRemediationLadderUiModel? = null,
+    val workflowPresentation: DiagnosticsScanWorkflowPresentationUiModel? = null,
     val resolverRecommendation: DiagnosticsResolverRecommendationUiModel? = null,
     val strategyProbeReport: DiagnosticsStrategyProbeReportUiModel? = null,
     val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
