@@ -122,3 +122,50 @@ impl UdpAssociationPool {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn virtual_port_pool_returns_released_ports_to_available_set() {
+        let pool = VirtualPortPool::new(PortProtocol::Tcp);
+        let first = pool.acquire().await.expect("first port");
+        let second = pool.acquire().await.expect("second port");
+
+        assert_eq!(first.num(), MIN_VIRTUAL_PORT);
+        assert_eq!(second.num(), MIN_VIRTUAL_PORT + 1);
+        assert_eq!(pool.free_ports.read().await.len(), usize::from(MAX_VIRTUAL_PORT - MIN_VIRTUAL_PORT) - 2);
+
+        pool.release(first).await;
+
+        assert_eq!(pool.free_ports.read().await.len(), usize::from(MAX_VIRTUAL_PORT - MIN_VIRTUAL_PORT) - 1);
+    }
+
+    #[tokio::test]
+    async fn udp_association_pool_keeps_stable_peer_mapping() {
+        let pool = UdpAssociationPool::new();
+        let bind_port = 49000;
+        let peer = "127.0.0.1:53000".parse().expect("peer addr");
+
+        let first = pool.acquire(bind_port, peer).await.expect("first udp port");
+        let second = pool.acquire(bind_port, peer).await.expect("same udp port");
+
+        assert_eq!(first, second);
+        assert_eq!(pool.peer_addr(first).await, Some(peer));
+    }
+
+    #[tokio::test]
+    async fn udp_association_release_frees_only_matching_bind_port() {
+        let pool = UdpAssociationPool::new();
+        let first_peer = "127.0.0.1:53000".parse().expect("first peer addr");
+        let second_peer = "127.0.0.1:53001".parse().expect("second peer addr");
+        let first = pool.acquire(49000, first_peer).await.expect("first udp port");
+        let second = pool.acquire(49001, second_peer).await.expect("second udp port");
+
+        pool.release_association(49000).await;
+
+        assert_eq!(pool.peer_addr(first).await, None);
+        assert_eq!(pool.peer_addr(second).await, Some(second_peer));
+    }
+}

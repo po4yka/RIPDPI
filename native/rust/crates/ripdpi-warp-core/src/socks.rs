@@ -74,6 +74,7 @@ async fn handle_tcp_connect(
                 }
             }
             event = endpoint.recv() => match event {
+                Event::Shutdown => break,
                 Event::ClientConnectionDropped(event_port) if event_port == virtual_port => break,
                 Event::RemoteData(event_port, data) if event_port == virtual_port => {
                     client.write_all(&data).await?;
@@ -124,6 +125,7 @@ async fn handle_udp_associate(mut control: TcpStream, bus: Bus, udp_pool: Arc<Ud
                 endpoint.send(Event::LocalData(port_forward, virtual_port, payload));
             }
             event = endpoint.recv() => match event {
+                Event::Shutdown => break,
                 Event::RemoteData(virtual_port, data) if known_ports.contains(&virtual_port) => {
                     if let Some(peer_addr) = udp_pool.peer_addr(virtual_port).await {
                         let target = targets.get(&virtual_port).copied().unwrap_or_else(|| SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)));
@@ -217,5 +219,38 @@ async fn write_reply(client: &mut TcpStream, code: u8, bind_addr: SocketAddr) ->
             client.write_all(&reply).await
         }
         SocketAddr::V6(_) => Err(io::Error::new(io::ErrorKind::Unsupported, "ipv6 bind replies are unsupported")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_socks_udp_request_extracts_ipv4_target_and_payload() {
+        let packet = [0x00, 0x00, 0x00, 0x01, 192, 0, 2, 10, 0x1F, 0x90, b'p', b'i', b'n', b'g'];
+
+        let (target, payload) = parse_socks_udp_request(&packet).expect("socks udp request");
+
+        assert_eq!(target, SocketAddr::from(([192, 0, 2, 10], 8080)));
+        assert_eq!(&payload[..], b"ping");
+    }
+
+    #[test]
+    fn parse_socks_udp_request_rejects_fragmented_datagrams() {
+        let packet = [0x00, 0x00, 0x01, 0x01, 192, 0, 2, 10, 0x1F, 0x90];
+
+        let error = parse_socks_udp_request(&packet).expect_err("fragmented datagram should fail");
+
+        assert!(error.to_string().contains("fragmented"));
+    }
+
+    #[test]
+    fn encode_socks_udp_response_wraps_ipv4_payload() {
+        let target = SocketAddr::from(([203, 0, 113, 7], 5353));
+
+        let packet = encode_socks_udp_response(target, b"dns");
+
+        assert_eq!(&packet, &[0, 0, 0, 1, 203, 0, 113, 7, 0x14, 0xE9, b'd', b'n', b's']);
     }
 }

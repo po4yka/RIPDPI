@@ -3,6 +3,7 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tokio::net::TcpListener;
+use tokio::task::JoinHandle;
 use tokio::time::{timeout, Duration};
 
 use crate::config::{now_ms, parse_ipv4_cidr, resolve_endpoint, ResolvedWarpRuntimeConfig, WarpTelemetry};
@@ -94,34 +95,43 @@ impl WarpRuntime {
             tunnel.send_amnezia_junk(&self.config.amnezia).await;
         }
         let bus = Bus::new();
+        let mut tasks = Vec::<JoinHandle<()>>::new();
         let tcp_pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp));
         let udp_pool = Arc::new(UdpAssociationPool::new());
+        let bind_addr = format!("{}:{}", self.config.local_socks_host, self.config.local_socks_port);
+        let listener = TcpListener::bind(&bind_addr).await?;
 
         {
             let tunnel = Arc::clone(&tunnel);
             let bus = bus.clone();
-            tokio::spawn(async move { tunnel.consume_task(bus).await });
+            tasks.push(tokio::spawn(async move { tunnel.consume_task(bus).await }));
         }
         {
             let tunnel = Arc::clone(&tunnel);
             let bus = bus.clone();
-            tokio::spawn(async move { tunnel.produce_task(bus).await });
+            tasks.push(tokio::spawn(async move { tunnel.produce_task(bus).await }));
         }
         {
             let tunnel = Arc::clone(&tunnel);
-            tokio::spawn(async move { tunnel.routine_task().await });
+            tasks.push(tokio::spawn(async move { tunnel.routine_task().await }));
         }
         {
             let interface = DynamicTcpInterface::new(bus.clone(), source_peer_ip, self.config.mtu.max(1280) as usize);
-            tokio::spawn(async move { interface.run().await });
+            tasks.push(tokio::spawn(async move {
+                if let Err(error) = interface.run().await {
+                    tracing::warn!("WARP TCP virtual interface stopped: {error}");
+                }
+            }));
         }
         {
             let interface = DynamicUdpInterface::new(bus.clone(), source_peer_ip, self.config.mtu.max(1280) as usize);
-            tokio::spawn(async move { interface.run().await });
+            tasks.push(tokio::spawn(async move {
+                if let Err(error) = interface.run().await {
+                    tracing::warn!("WARP UDP virtual interface stopped: {error}");
+                }
+            }));
         }
 
-        let bind_addr = format!("{}:{}", self.config.local_socks_host, self.config.local_socks_port);
-        let listener = TcpListener::bind(&bind_addr).await?;
         *self.listener_address.lock().expect("listener address") = Some(bind_addr);
         self.running.store(true, Ordering::SeqCst);
         emit_runtime_ready(self.listener_address.lock().expect("listener address").as_deref().unwrap_or_default());
@@ -150,6 +160,11 @@ impl WarpRuntime {
         }
 
         self.running.store(false, Ordering::SeqCst);
+        bus.shutdown();
+        for task in tasks {
+            task.abort();
+            let _ = task.await;
+        }
         emit_runtime_stopped();
         Ok(())
     }

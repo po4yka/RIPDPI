@@ -158,3 +158,43 @@ pub(crate) fn parse_ipv4_cidr(value: Option<&str>) -> Option<IpAddr> {
 pub(crate) fn now_ms() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_millis() as u64
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn endpoint(host: &str, ipv4: Option<&str>, ipv6: Option<&str>, port: i32) -> ResolvedWarpRuntimeEndpoint {
+        ResolvedWarpRuntimeEndpoint {
+            host: host.to_string(),
+            ipv4: ipv4.map(ToOwned::to_owned),
+            ipv6: ipv6.map(ToOwned::to_owned),
+            port,
+            source: "test".to_string(),
+        }
+    }
+
+    #[tokio::test]
+    async fn resolve_endpoint_prefers_explicit_ipv4() {
+        let endpoint = endpoint("203.0.113.99", Some("192.0.2.44"), Some("2001:db8::44"), 2408);
+
+        let resolved = resolve_endpoint(&endpoint).await.expect("endpoint");
+
+        assert_eq!(resolved, SocketAddr::from(([192, 0, 2, 44], 2408)));
+    }
+
+    #[tokio::test]
+    async fn resolve_endpoint_uses_ipv6_when_ipv4_is_absent() {
+        let endpoint = endpoint("203.0.113.99", None, Some("2001:db8::44"), 2408);
+
+        let resolved = resolve_endpoint(&endpoint).await.expect("endpoint");
+
+        assert_eq!(resolved, "[2001:db8::44]:2408".parse::<SocketAddr>().expect("ipv6 socket addr"));
+    }
+
+    #[test]
+    fn parse_ipv4_cidr_extracts_address_only() {
+        assert_eq!(parse_ipv4_cidr(Some("172.16.0.2/32")), Some(IpAddr::V4(Ipv4Addr::new(172, 16, 0, 2))));
+        assert_eq!(parse_ipv4_cidr(Some("not-an-ip/32")), None);
+        assert_eq!(parse_ipv4_cidr(None), None);
+    }
+}
