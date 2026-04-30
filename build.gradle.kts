@@ -103,6 +103,57 @@ abstract class CheckNoTrackedJavaSourcesTask : DefaultTask() {
     }
 }
 
+abstract class VerifyAppEngineBoundaryTask : DefaultTask() {
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val appBuildFile: RegularFileProperty
+
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sourceFiles: ConfigurableFileCollection
+
+    @TaskAction
+    fun verify() {
+        val directEngineDependencyPattern = Regex("""project\(":core:engine"\)|projects\.core\.engine""")
+        val appBuildText = appBuildFile.get().asFile.readText()
+        if (directEngineDependencyPattern.containsMatchIn(appBuildText)) {
+            throw GradleException(":app must not declare a direct dependency on :core:engine.")
+        }
+
+        val importViolations =
+            sourceFiles.files
+                .asSequence()
+                .filter { it.isFile }
+                .flatMap { sourceFile ->
+                    sourceFile
+                        .readLines()
+                        .asSequence()
+                        .mapIndexedNotNull { index, line ->
+                            val trimmed = line.trim()
+                            val isForbiddenImport =
+                                trimmed.startsWith("import com.poyka.ripdpi.core.") &&
+                                    !trimmed.startsWith("import com.poyka.ripdpi.core.detection.")
+                            val isForbiddenQualifiedReference =
+                                "com.poyka.ripdpi.core." in trimmed &&
+                                    "com.poyka.ripdpi.core.detection." !in trimmed
+
+                            if (isForbiddenImport || isForbiddenQualifiedReference) {
+                                "${sourceFile.relativeTo(project.rootDir).path}:${index + 1}: $trimmed"
+                            } else {
+                                null
+                            }
+                        }
+                }.toList()
+
+        if (importViolations.isNotEmpty()) {
+            throw GradleException(
+                ":app production and unit-test sources must use service/diagnostics facades instead of " +
+                    ":core:engine internals:\n${importViolations.joinToString(separator = "\n")}",
+            )
+        }
+    }
+}
+
 val coverageModulePaths =
     listOf(
         ":app",
@@ -220,6 +271,22 @@ tasks.register<CheckNoTrackedJavaSourcesTask>("checkNoTrackedJavaSources") {
     sourceFiles.from(handwrittenJavaSources())
 }
 
+tasks.register<VerifyAppEngineBoundaryTask>("verifyAppEngineBoundary") {
+    group = "verification"
+    description = "Ensures :app does not depend on :core:engine internals."
+    appBuildFile.set(layout.projectDirectory.file("app/build.gradle.kts"))
+    sourceFiles.from(
+        fileTree(layout.projectDirectory.dir("app/src/main")) {
+            include("**/*.kt")
+            include("**/*.java")
+        },
+        fileTree(layout.projectDirectory.dir("app/src/test")) {
+            include("**/*.kt")
+            include("**/*.java")
+        },
+    )
+}
+
 tasks.register("staticAnalysis") {
     group = "verification"
     description = "Runs detekt, ktlint, Android Lint, and file LoC checks across all modules"
@@ -227,6 +294,8 @@ tasks.register("staticAnalysis") {
         ":quality:detekt-rules:test",
         tasks.named("checkFileLocLimits"),
         tasks.named("checkNoTrackedJavaSources"),
+        tasks.named("verifyAppEngineBoundary"),
+        ":app:verifyEngineBoundaryClasspath",
         qualityModulePaths.map { "$it:detekt" },
         lintModulePaths.map { "$it:lintDebug" },
         qualityModulePaths.map { "$it:ktlintCheck" },
