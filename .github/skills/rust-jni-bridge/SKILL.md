@@ -1,6 +1,6 @@
 ---
 name: rust-jni-bridge
-description: Use when implementing JNI functions in Rust with the jni crate, exposing Rust functions to Kotlin, or choosing between raw JNI and UniFFI for Android bindings
+description: Rust JNI functions, Kotlin bindings, jni crate usage, and raw JNI versus UniFFI choices.
 ---
 
 # Rust JNI Bridge

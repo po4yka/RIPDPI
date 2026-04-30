@@ -1,6 +1,6 @@
 ---
 name: rust-android-ndk
-description: Use when building Rust code for Android, configuring cross-compilation targets, or integrating Rust `.so` output into Gradle jniLibs
+description: Android Rust builds, cross-compilation targets, and Gradle jniLibs integration.
 ---
 
 # Rust Android NDK

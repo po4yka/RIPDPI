@@ -1,6 +1,6 @@
 ---
 name: local-ci-act
-description: Use when running GitHub Actions workflows locally with act, checking which RIPDPI CI jobs are practical on macOS, or debugging workflow wiring before pushing
+description: Local GitHub Actions checks with act and workflow wiring triage on macOS.
 ---
 
 # Local CI with act

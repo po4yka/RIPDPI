@@ -1,13 +1,6 @@
 ---
 name: release-changelog
-description: >
-  Release preparation, changelog generation, version bumping, and Play Store
-  release notes for RIPDPI. Use when: preparing a release, bumping version
-  code/name, generating a changelog from conventional commits, writing Play
-  Store whatsnew text, creating a git tag, running the release workflow,
-  reviewing what changed since last release, drafting GitHub release notes.
-  Triggers on: release, changelog, version bump, whatsnew, play store notes,
-  release notes, tag, ship, publish.
+description: Release prep, changelog generation, version bumps, Play Store notes, tags, and release notes.
 ---
 
 # Release Changelog (RIPDPI)

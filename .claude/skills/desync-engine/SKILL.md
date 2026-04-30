@@ -1,10 +1,6 @@
 ---
 name: desync-engine
-description: >
-  DPI desync evasion pipeline: planning and executing packet-level
-  manipulation to bypass middlebox/DPI. Use for DesyncMode, DesyncPlan,
-  TcpChainStep, FakePacketPlan, ripdpi-desync code, evasion technique
-  work, or fake-TTL/offset tuning.
+description: DPI desync planning and packet-manipulation logic for modes, plans, fake packets, TTL, and offsets.
 ---
 
 ## Conceptual model

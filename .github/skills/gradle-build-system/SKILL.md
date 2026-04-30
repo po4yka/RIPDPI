@@ -1,6 +1,6 @@
 ---
 name: gradle-build-system
-description: Use when adding dependencies, creating modules, modifying convention plugins, or troubleshooting Gradle build failures in this multi-module Android project
+description: Gradle dependencies, modules, convention plugins, and Android build failure triage.
 ---
 
 # Gradle Build System

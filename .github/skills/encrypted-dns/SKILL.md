@@ -1,15 +1,6 @@
 ---
 name: encrypted-dns
-description: >
-  Encrypted DNS resolver stack: DoH (RFC 8484), DoT (RFC 7858), DNSCrypt,
-  DoQ (RFC 9250). Covers ripdpi-dns-resolver crate architecture,
-  EncryptedDnsResolver, ResolverPool, HealthRegistry, health-weighted
-  endpoint rotation, DNS bootstrap problem, SOCKS5 proxy transport,
-  connection pooling, DNSCrypt certificate lifecycle, and DNS tamper
-  detection in ripdpi-monitor. Use when adding or modifying encrypted DNS
-  protocols, debugging resolver failures, tuning health scoring, working
-  with bootstrap IPs, investigating DNS tampering diagnostics, or
-  understanding why a DoH/DoT/DNSCrypt/DoQ exchange fails.
+description: Encrypted DNS protocols, resolver health, bootstrap, SOCKS transport, and tamper diagnostics.
 ---
 
 ## Supported protocols

@@ -1,6 +1,6 @@
 ---
 name: play-store-screenshots
-description: "Generate Google Play Store screenshots and feature graphic for the RIPDPI app. Use when: creating Play Store listing assets, marketing screenshots, feature graphic, or store listing images. Triggers on: play store, google play, screenshots, marketing, store listing, feature graphic."
+description: "Generate Google Play screenshots, marketing images, and feature graphics for RIPDPI."
 ---
 
 # Google Play Screenshots Generator (RIPDPI)

@@ -1,6 +1,6 @@
 ---
 name: network-traffic-debug
-description: Use when inspecting SOCKS5 proxy traffic, debugging VPN tunnel packets, capturing network traffic on device, or setting up mitmproxy for HTTPS interception
+description: SOCKS5, VPN tunnel, on-device packet capture, and mitmproxy traffic debugging.
 ---
 
 # Network Traffic Debug

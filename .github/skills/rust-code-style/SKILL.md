@@ -1,9 +1,6 @@
 ---
 name: rust-code-style
-description: >
-  Use when writing, reviewing, or refactoring Rust code in the native/rust/ workspace.
-  Covers module layout, visibility, file structure, imports, function organization, and error handling.
-  Based on epage Rust Style Guide adapted to project conventions.
+description: Rust style for native workspace modules, visibility, imports, structure, and error handling.
 ---
 
 # Rust Code Style

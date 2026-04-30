@@ -1,10 +1,6 @@
 ---
 name: compose-audit
-description: >
-  Jetpack Compose codebase audit producing scored COMPOSE-AUDIT-REPORT.md
-  across Performance, State, Side Effects, API Quality. Use for periodic
-  reviews or pre-release baselines. Triggers: "audit compose",
-  "score compose quality", "compose audit report".
+description: Compose audit workflow for scored performance, state, side-effect, and API-quality reports.
 user-invokable: true
 argument-hint: "[scope: full|performance|state|side-effects|api] [module: :app|all]"
 ---

@@ -1,13 +1,6 @@
 ---
 name: protobuf-schema-evolution
-description: >
-  Protobuf schema migration and backward compatibility for RIPDPI.
-  Use when adding, removing, or renaming proto fields in AppSettings;
-  managing reserved field numbers; evolving the diagnostics wire contract
-  between Kotlin and Rust; bumping DIAGNOSTICS_ENGINE_SCHEMA_VERSION;
-  writing or updating golden contract tests; ensuring DataStore round-trip
-  safety after schema changes; or reviewing any PR that touches .proto
-  files, EngineContract.kt, or wire.rs.
+description: Protobuf compatibility, reserved fields, diagnostics wire contracts, schema versions, and goldens.
 ---
 
 # Protobuf Schema Evolution

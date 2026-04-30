@@ -1,6 +1,6 @@
 ---
 name: dependency-update
-description: Use when updating Gradle or Rust dependencies, bumping AGP/Kotlin/NDK versions, working with the version catalog, or managing Renovate configuration. Triggers on: update dependency, upgrade, bump version, libs.versions.toml, Cargo.toml update, renovate, CVE, security advisory.
+description: Gradle and Rust dependency updates, version catalogs, AGP/Kotlin/NDK bumps, and Renovate.
 ---
 
 # Dependency Update

@@ -1,10 +1,6 @@
 ---
 name: rust-anti-patterns
-description: >
-  Rust anti-patterns and discipline rules for the RIPDPI native workspace:
-  panic policy, error propagation, Drop/RAII, hot-path allocation,
-  concurrency primitives, atomic ordering, unsafe boundaries,
-  clippy/deny regressions.
+description: Rust code discipline for panic policy, errors, RAII, allocation, concurrency, unsafe, and lints.
 ---
 
 # Rust anti-patterns -- RIPDPI

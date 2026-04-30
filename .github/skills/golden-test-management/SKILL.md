@@ -1,6 +1,6 @@
 ---
 name: golden-test-management
-description: Use when working with golden test fixtures, blessing goldens, adding new snapshot tests, debugging golden mismatches, or scrubbing volatile fields. Triggers on: golden test, bless golden, golden diff, test vector, snapshot test, RIPDPI_BLESS_GOLDENS, golden contract, golden mismatch.
+description: Golden fixtures, snapshot tests, blessing workflows, mismatch triage, and volatile-field scrubbing.
 ---
 
 # Golden Test Management

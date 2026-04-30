@@ -1,6 +1,6 @@
 ---
 name: release-signing
-description: Use when building release APKs/AABs, configuring signing, managing ProGuard/R8 rules, bumping versions, or preparing Play Store uploads. Triggers on: release build, sign APK, keystore, ProGuard, R8, shrink, minify, version bump, release candidate.
+description: Release APK/AAB signing, keystores, R8/ProGuard, version bumps, and Play Store uploads.
 ---
 
 # Release Signing

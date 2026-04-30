@@ -1,6 +1,6 @@
 ---
 name: service-lifecycle
-description: Use when modifying VPN or proxy service start/stop orchestration, runtime coordinators, ServiceStateStore status or telemetry, handover restarts, or remembered-policy application
+description: VPN/proxy service lifecycle, coordinators, status, telemetry, handovers, and remembered policy.
 ---
 
 # Service Lifecycle

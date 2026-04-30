@@ -1,6 +1,6 @@
 ---
 name: appium-automation-contract
-description: Use when configuring test launch parameters, choosing start_route values, selecting presets for permission/service/data state, or debugging why a test lands on the wrong screen. Triggers on: automation marker, start_route, data_preset, service_preset, permission_preset, launch_contract, AutomationLaunchContract.
+description: Appium launch contract, start routes, state presets, and wrong-screen test debugging.
 ---
 
 # Appium Automation Contract

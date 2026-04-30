@@ -1,6 +1,6 @@
 ---
 name: protobuf-datastore
-description: Use when modifying app settings schema, adding new preferences, working with DataStore persistence, or converting between proto messages and Kotlin types
+description: App settings protobuf schema, new preferences, DataStore persistence, and Kotlin mapping.
 ---
 
 # Protobuf DataStore

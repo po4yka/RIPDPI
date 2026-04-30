@@ -1,6 +1,6 @@
 ---
 name: rust-debugging
-description: Rust debugging skill for Android NDK targets. Use when debugging Rust native libraries on Android (JNI panics, logcat tracing, tombstones, addr2line), using GDB/LLDB with Rust pretty-printers, interpreting panics and backtraces, or debugging async tokio code. Activates on queries about native crashes, JNI debugging, rust-gdb, rust-lldb, RUST_BACKTRACE, Rust panics on Android, tracing-to-logcat, or tokio-console.
+description: Android Rust debugging for JNI panics, logcat, tombstones, addr2line, GDB/LLDB, and backtraces.
 ---
 
 # Rust Debugging (Android NDK Focus)

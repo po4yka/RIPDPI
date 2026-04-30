@@ -1,10 +1,6 @@
 ---
 name: material-3
-description: >
-  Implement Google's Material Design 3 (Material You): design tokens,
-  components, dynamic color, responsive layout, accessibility. Supports
-  @material/web, Flutter, Jetpack Compose. Triggers: MD3, material theme,
-  md3 button, material navigation.
+description: Material Design 3 guidance for tokens, components, dynamic color, layout, and accessibility.
 user-invokable: true
 argument-hint: "[component|theme|layout|scaffold|audit] [description or URL]"
 ---

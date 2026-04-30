@@ -1,10 +1,6 @@
 ---
 name: compose-expert
-description: >
-  Compose and Compose Multiplatform expert: state management, recomposition,
-  modifiers, side effects, navigation, animations, theming, performance,
-  design-to-code. Use for any @Composable, CMP/expect-actual, LazyColumn,
-  Modifier, MaterialTheme, NavHost, or "compose screen is slow" question.
+description: Compose and CMP guidance for state, recomposition, modifiers, navigation, theming, and performance.
 ---
 
 # Compose Expert Skill
