@@ -1,12 +1,10 @@
-pub mod adaptive_fake_ttl;
-pub mod adaptive_tuning;
-pub mod dns_hostname_cache;
-pub mod retry_stealth;
-pub mod runtime_policy;
-pub mod strategy_evolver;
+pub use ripdpi_runtime_adaptive::{adaptive_fake_ttl, adaptive_tuning, retry_stealth};
+pub use ripdpi_runtime_dns_cache::dns_hostname_cache;
+pub use ripdpi_runtime_policy::runtime_policy;
+pub use ripdpi_runtime_strategy::strategy_evolver;
 
 #[doc(hidden)]
 pub mod bench_support {
-    pub use crate::retry_stealth::{RetryLane, RetryPacer, RetrySignature};
-    pub use crate::strategy_evolver::StrategyEvolver;
+    pub use ripdpi_runtime_adaptive::retry_stealth::{RetryLane, RetryPacer, RetrySignature};
+    pub use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
 }

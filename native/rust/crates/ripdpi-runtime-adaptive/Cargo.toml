@@ -1,0 +1,22 @@
+[package]
+name = "ripdpi-runtime-adaptive"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-config = { workspace = true }
+ripdpi-desync = { workspace = true }
+ripdpi-packets = { workspace = true }
+ripdpi-runtime-policy = { workspace = true }
+ring = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+metrics = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tempfile = "3.27"

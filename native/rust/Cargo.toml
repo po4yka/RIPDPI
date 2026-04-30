@@ -21,8 +21,12 @@ members = [
     "crates/ripdpi-monitor-engine",
     "crates/ripdpi-proxy-runtime",
     "crates/ripdpi-runtime-api",
+    "crates/ripdpi-runtime-adaptive",
+    "crates/ripdpi-runtime-dns-cache",
     "crates/ripdpi-runtime-learning",
+    "crates/ripdpi-runtime-policy",
     "crates/ripdpi-runtime-platform",
+    "crates/ripdpi-runtime-strategy",
     "crates/ripdpi-ws-bootstrap",
     "crates/ripdpi-telemetry",
     "crates/ripdpi-native-protect",
@@ -87,8 +91,12 @@ ripdpi-diagnostics-runner = { path = "crates/ripdpi-diagnostics-runner" }
 ripdpi-monitor-engine = { path = "crates/ripdpi-monitor-engine" }
 ripdpi-proxy-runtime = { path = "crates/ripdpi-proxy-runtime" }
 ripdpi-runtime-api = { path = "crates/ripdpi-runtime-api" }
+ripdpi-runtime-adaptive = { path = "crates/ripdpi-runtime-adaptive" }
+ripdpi-runtime-dns-cache = { path = "crates/ripdpi-runtime-dns-cache" }
 ripdpi-runtime-learning = { path = "crates/ripdpi-runtime-learning" }
+ripdpi-runtime-policy = { path = "crates/ripdpi-runtime-policy" }
 ripdpi-runtime-platform = { path = "crates/ripdpi-runtime-platform" }
+ripdpi-runtime-strategy = { path = "crates/ripdpi-runtime-strategy" }
 ripdpi-ws-bootstrap = { path = "crates/ripdpi-ws-bootstrap" }
 ripdpi-telemetry = { path = "crates/ripdpi-telemetry" }
 ripdpi-native-protect = { path = "crates/ripdpi-native-protect" }

@@ -8,18 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-base64 = { workspace = true }
-ripdpi-config = { workspace = true }
-ripdpi-desync = { workspace = true }
-ripdpi-failure-classifier = { workspace = true }
-ripdpi-packets = { workspace = true }
-ring = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-lru = { workspace = true }
-metrics = { workspace = true }
-tracing = { workspace = true }
-
-[dev-dependencies]
-aes = { workspace = true }
-tempfile = "3.27"
+ripdpi-runtime-adaptive = { workspace = true }
+ripdpi-runtime-dns-cache = { workspace = true }
+ripdpi-runtime-policy = { workspace = true }
+ripdpi-runtime-strategy = { workspace = true }

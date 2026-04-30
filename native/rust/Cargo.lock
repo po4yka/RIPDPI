@@ -3603,6 +3603,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-runtime-adaptive"
+version = "0.1.0"
+dependencies = [
+ "metrics",
+ "ring",
+ "ripdpi-config",
+ "ripdpi-desync",
+ "ripdpi-packets",
+ "ripdpi-runtime-policy",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
 name = "ripdpi-runtime-api"
 version = "0.1.0"
 dependencies = [
@@ -3613,22 +3629,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-runtime-dns-cache"
+version = "0.1.0"
+dependencies = [
+ "lru",
+]
+
+[[package]]
 name = "ripdpi-runtime-learning"
 version = "0.1.0"
 dependencies = [
- "aes",
- "base64 0.22.1",
- "lru",
- "metrics",
- "ring",
- "ripdpi-config",
- "ripdpi-desync",
- "ripdpi-failure-classifier",
- "ripdpi-packets",
- "serde",
- "serde_json",
- "tempfile",
- "tracing",
+ "ripdpi-runtime-adaptive",
+ "ripdpi-runtime-dns-cache",
+ "ripdpi-runtime-policy",
+ "ripdpi-runtime-strategy",
 ]
 
 [[package]]
@@ -3646,6 +3660,36 @@ dependencies = [
  "ripdpi-privileged-ops",
  "ripdpi-root-helper-protocol",
  "serde_json",
+]
+
+[[package]]
+name = "ripdpi-runtime-policy"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "ring",
+ "ripdpi-config",
+ "ripdpi-desync",
+ "ripdpi-failure-classifier",
+ "ripdpi-packets",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
+name = "ripdpi-runtime-strategy"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "ring",
+ "ripdpi-config",
+ "ripdpi-desync",
+ "ripdpi-failure-classifier",
+ "serde",
+ "serde_json",
+ "tracing",
 ]
 
 [[package]]
