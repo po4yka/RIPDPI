@@ -1,3 +1,8 @@
+//! Linux TCP_REPAIR helpers for socket state capture and replacement.
+//!
+//! Privileged boundaries include TCP_REPAIR socket options, queue sequence reads,
+//! and fd replacement via duplicated sockets.
+
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::os::fd::AsRawFd;

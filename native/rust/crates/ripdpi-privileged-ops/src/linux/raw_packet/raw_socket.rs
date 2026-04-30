@@ -1,3 +1,8 @@
+//! Linux raw-socket probing and packet send helpers.
+//!
+//! Unsafe boundaries are limited to socket options such as `IP_HDRINCL` before
+//! sending caller-built packet bytes.
+
 use std::io;
 use std::net::SocketAddr;
 use std::os::fd::AsRawFd;

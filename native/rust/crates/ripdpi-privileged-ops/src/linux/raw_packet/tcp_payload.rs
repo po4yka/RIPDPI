@@ -1,3 +1,8 @@
+//! Crafted TCP payload and control-packet send paths for Linux.
+//!
+//! Operations snapshot TCP_REPAIR state before emitting raw packets for sequence
+//! overlap, flagged payload, or reset behavior.
+
 use std::io;
 use std::net::TcpStream;
 use std::os::fd::AsRawFd;

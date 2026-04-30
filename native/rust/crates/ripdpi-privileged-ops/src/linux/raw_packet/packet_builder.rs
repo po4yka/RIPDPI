@@ -1,3 +1,7 @@
+//! Packet-construction helpers for Linux raw TCP sends.
+//!
+//! This module keeps byte-level header mutation separate from raw-socket syscalls.
+
 use std::io;
 use std::net::SocketAddr;
 

@@ -1,3 +1,8 @@
+//! Linux raw-packet sending facade for crafted TCP and IP-fragment packets.
+//!
+//! Submodules isolate packet construction from raw-socket syscalls and TCP_REPAIR
+//! state capture.
+
 mod fake_tcp;
 mod packet_builder;
 mod raw_socket;

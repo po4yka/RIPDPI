@@ -1,3 +1,8 @@
+//! Fake TCP injection paths using raw sockets or stream writes.
+//!
+//! Raw paths capture TCP_REPAIR state, craft packets, and restore socket state
+//! around privileged packet sends.
+
 use std::io;
 use std::net::TcpStream;
 use std::os::fd::AsRawFd;

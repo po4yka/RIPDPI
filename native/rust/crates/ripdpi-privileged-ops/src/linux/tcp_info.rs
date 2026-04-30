@@ -1,3 +1,8 @@
+//! Linux `TCP_INFO` accessors and TCP-stage wait helpers.
+//!
+//! The syscall boundary is typed `getsockopt(TCP_INFO)` reads of kernel tcp_info
+//! layouts used to decide when packet injection is safe.
+
 use std::io;
 use std::mem::size_of;
 use std::net::{SocketAddr, TcpStream};

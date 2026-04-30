@@ -1,3 +1,8 @@
+//! Linux socket-option wrappers for privileged network operations.
+//!
+//! Unsafe boundaries are centralized around typed `getsockopt` and `setsockopt`
+//! calls with kernel ABI layouts supplied by callers.
+
 use std::io;
 use std::mem::{size_of, zeroed};
 use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};

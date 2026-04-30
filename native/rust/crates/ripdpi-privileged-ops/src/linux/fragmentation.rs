@@ -1,3 +1,8 @@
+//! Linux IP-fragmentation operations backed by raw sockets and TCP repair.
+//!
+//! Safety-sensitive work is delegated to raw-packet senders and TCP_REPAIR state
+//! capture before crafting fragmented packets.
+
 use std::io;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;

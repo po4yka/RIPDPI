@@ -1,3 +1,8 @@
+//! Linux classic BPF socket-filter helpers for TCP option suppression.
+//!
+//! Unsafe boundaries are limited to passing in-process filter programs to
+//! `setsockopt(SO_ATTACH_FILTER)`.
+
 use std::io;
 use std::net::TcpStream;
 use std::os::fd::AsRawFd;

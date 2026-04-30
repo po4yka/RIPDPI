@@ -1,3 +1,8 @@
+//! Linux file-descriptor helpers for socket protection and original-destination lookup.
+//!
+//! Syscall boundaries include descriptor duplication/close, SCM_RIGHTS fd passing,
+//! and `getsockopt(SO_ORIGINAL_DST)`.
+
 use std::io::{self, Read};
 use std::mem::{size_of, zeroed};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
