@@ -3275,7 +3275,10 @@ version = "0.1.0"
 dependencies = [
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-dns",
- "ripdpi-diagnostics-protocols",
+ "ripdpi-diagnostics-fat-header",
+ "ripdpi-diagnostics-http",
+ "ripdpi-diagnostics-telegram",
+ "ripdpi-diagnostics-tls",
  "ripdpi-diagnostics-transport",
 ]
 
@@ -3300,8 +3303,11 @@ dependencies = [
  "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-dns",
- "ripdpi-diagnostics-protocols",
+ "ripdpi-diagnostics-fat-header",
+ "ripdpi-diagnostics-http",
  "ripdpi-diagnostics-runner",
+ "ripdpi-diagnostics-telegram",
+ "ripdpi-diagnostics-tls",
  "ripdpi-diagnostics-transport",
 ]
 
@@ -3326,7 +3332,10 @@ dependencies = [
  "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-dns",
- "ripdpi-diagnostics-protocols",
+ "ripdpi-diagnostics-fat-header",
+ "ripdpi-diagnostics-http",
+ "ripdpi-diagnostics-telegram",
+ "ripdpi-diagnostics-tls",
  "ripdpi-diagnostics-transport",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",

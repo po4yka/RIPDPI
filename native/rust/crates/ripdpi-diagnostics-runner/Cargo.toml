@@ -14,7 +14,10 @@ ripdpi-diagnostics-candidates = { workspace = true }
 ripdpi-diagnostics-classification = { workspace = true }
 ripdpi-diagnostics-contracts = { workspace = true }
 ripdpi-diagnostics-dns = { workspace = true }
-ripdpi-diagnostics-protocols = { workspace = true }
+ripdpi-diagnostics-fat-header = { workspace = true }
+ripdpi-diagnostics-http = { workspace = true }
+ripdpi-diagnostics-telegram = { workspace = true }
+ripdpi-diagnostics-tls = { workspace = true }
 ripdpi-diagnostics-transport = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
@@ -29,12 +32,18 @@ rcgen = { workspace = true }
 [features]
 hickory = [
     "ripdpi-diagnostics-dns/hickory",
-    "ripdpi-diagnostics-protocols/hickory",
+    "ripdpi-diagnostics-fat-header/hickory",
+    "ripdpi-diagnostics-http/hickory",
+    "ripdpi-diagnostics-telegram/hickory",
+    "ripdpi-diagnostics-tls/hickory",
     "ripdpi-diagnostics-candidates/hickory",
 ]
 quic-native = [
     "ripdpi-diagnostics-dns/quic-native",
-    "ripdpi-diagnostics-protocols/quic-native",
+    "ripdpi-diagnostics-fat-header/quic-native",
+    "ripdpi-diagnostics-http/quic-native",
+    "ripdpi-diagnostics-telegram/quic-native",
+    "ripdpi-diagnostics-tls/quic-native",
     "ripdpi-diagnostics-transport/quic-native",
     "ripdpi-diagnostics-candidates/quic-native",
 ]

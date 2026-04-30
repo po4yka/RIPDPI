@@ -5,7 +5,7 @@ pub mod strategy;
 pub use ripdpi_diagnostics_contracts::*;
 
 pub mod blockpage_fingerprints {
-    pub use ripdpi_diagnostics_protocols::blockpage_fingerprints::*;
+    pub use ripdpi_diagnostics_http::blockpage_fingerprints::*;
 }
 pub mod cdn_ech {
     pub use ripdpi_diagnostics_dns::cdn_ech::*;
@@ -20,22 +20,22 @@ pub mod dns_oracle {
     pub use ripdpi_diagnostics_dns::dns_oracle::*;
 }
 pub mod fat_header {
-    pub use ripdpi_diagnostics_protocols::fat_header::*;
+    pub use ripdpi_diagnostics_fat_header::fat_header::*;
 }
 pub mod http {
-    pub use ripdpi_diagnostics_protocols::http::*;
+    pub use ripdpi_diagnostics_http::http::*;
 }
 pub mod ja3 {
-    pub use ripdpi_diagnostics_protocols::ja3::*;
+    pub use ripdpi_diagnostics_tls::ja3::*;
 }
 pub mod platform_ttl {
     pub use ripdpi_diagnostics_transport::platform_ttl::*;
 }
 pub mod telegram {
-    pub use ripdpi_diagnostics_protocols::telegram::*;
+    pub use ripdpi_diagnostics_telegram::telegram::*;
 }
 pub mod tls {
-    pub use ripdpi_diagnostics_protocols::tls::*;
+    pub use ripdpi_diagnostics_tls::tls::*;
 }
 pub mod transport {
     pub use ripdpi_diagnostics_transport::transport::*;
