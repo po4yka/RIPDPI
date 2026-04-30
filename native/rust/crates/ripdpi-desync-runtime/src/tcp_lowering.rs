@@ -5,22 +5,22 @@ use std::net::TcpStream;
 use crate::platform;
 use crate::sync::{AtomicBool, Ordering};
 
-use super::desync::OutboundSendError;
+use super::OutboundSendError;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum TcpTtlCapabilityState {
+pub(crate) enum TcpTtlCapabilityState {
     Unknown,
     Unavailable,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) struct TcpLoweringCapabilities {
-    pub(super) restore_ttl: u8,
+pub(crate) struct TcpLoweringCapabilities {
+    pub(crate) restore_ttl: u8,
     ttl_write: TcpTtlCapabilityState,
 }
 
 impl TcpLoweringCapabilities {
-    pub(super) fn snapshot(default_ttl: u8, session_ttl_unavailable: &AtomicBool) -> Self {
+    pub(crate) fn snapshot(default_ttl: u8, session_ttl_unavailable: &AtomicBool) -> Self {
         let restore_ttl = if default_ttl != 0 { default_ttl } else { platform::detect_default_ttl().unwrap_or(64) };
         let ttl_write = if session_ttl_unavailable.load(Ordering::Relaxed) {
             TcpTtlCapabilityState::Unavailable
@@ -30,17 +30,17 @@ impl TcpLoweringCapabilities {
         Self { restore_ttl, ttl_write }
     }
 
-    pub(super) fn persist(self, session_ttl_unavailable: &AtomicBool) {
+    pub(crate) fn persist(self, session_ttl_unavailable: &AtomicBool) {
         if self.ttl_actions_unavailable() {
             session_ttl_unavailable.store(true, Ordering::Relaxed);
         }
     }
 
-    pub(super) fn ttl_actions_unavailable(self) -> bool {
+    pub(crate) fn ttl_actions_unavailable(self) -> bool {
         self.ttl_write == TcpTtlCapabilityState::Unavailable
     }
 
-    pub(super) fn set_ttl_named(
+    pub(crate) fn set_ttl_named(
         &mut self,
         stream: &TcpStream,
         ttl: u8,
@@ -64,7 +64,7 @@ impl TcpLoweringCapabilities {
         }
     }
 
-    pub(super) fn restore_default_ttl_named(
+    pub(crate) fn restore_default_ttl_named(
         &mut self,
         stream: &TcpStream,
         ttl: u8,
@@ -90,7 +90,7 @@ impl TcpLoweringCapabilities {
 }
 
 #[cfg(any(test, target_os = "android"))]
-pub(super) fn should_ignore_android_ttl_error(err: &io::Error) -> bool {
+pub(crate) fn should_ignore_android_ttl_error(err: &io::Error) -> bool {
     matches!(
         err.raw_os_error(),
         Some(libc::EROFS | libc::EINVAL | libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EPERM | libc::EACCES)
@@ -98,12 +98,12 @@ pub(super) fn should_ignore_android_ttl_error(err: &io::Error) -> bool {
 }
 
 #[cfg(not(any(test, target_os = "android")))]
-pub(super) fn should_ignore_android_ttl_error(_err: &io::Error) -> bool {
+pub(crate) fn should_ignore_android_ttl_error(_err: &io::Error) -> bool {
     false
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn write_payload_with_android_ttl_fallback(
+pub(crate) fn write_payload_with_android_ttl_fallback(
     lowering: &mut TcpLoweringCapabilities,
     writer: &mut TcpStream,
     bytes: &[u8],
@@ -143,7 +143,7 @@ pub(super) fn write_payload_with_android_ttl_fallback(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(super) fn send_oob_with_android_ttl_fallback(
+pub(crate) fn send_oob_with_android_ttl_fallback(
     lowering: &mut TcpLoweringCapabilities,
     writer: &TcpStream,
     prefix: &[u8],
