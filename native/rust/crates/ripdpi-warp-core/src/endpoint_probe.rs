@@ -10,8 +10,8 @@ use tokio::time::{timeout, Instant};
 use crate::amnezia::AmneziaCodec;
 use crate::config::{resolve_endpoint, ResolvedWarpRuntimeEndpoint, WarpEndpointProbeRequest, WarpEndpointProbeResult};
 use crate::platform::{protect_socket_if_configured, WarpPlatform};
+use crate::support::MAX_PACKET;
 use crate::wireguard::{apply_reserved_bytes, decode_key, reserved_bytes_from_client_id};
-use crate::MAX_PACKET;
 
 pub async fn probe_endpoint(request: WarpEndpointProbeRequest) -> anyhow::Result<WarpEndpointProbeResult> {
     probe_endpoint_with_platform(request, &WarpPlatform::default()).await

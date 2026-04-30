@@ -8,8 +8,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{lookup_host, TcpStream, UdpSocket};
 
 use crate::ports::{PortForwardConfig, PortProtocol, UdpAssociationPool, VirtualPortPool};
+use crate::support::{to_io_error, MAX_PACKET};
 use crate::virtual_iface::{Bus, Event};
-use crate::{to_io_error, MAX_PACKET};
 
 pub(crate) async fn handle_socks_client(
     mut client: TcpStream,

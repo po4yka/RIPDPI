@@ -13,8 +13,8 @@ use crate::amnezia::{fill_random, rand_u32, AmneziaCodec};
 use crate::config::WarpAmneziaConfig;
 use crate::platform::{protect_socket_if_configured, WarpPlatform};
 use crate::ports::PortProtocol;
+use crate::support::MAX_PACKET;
 use crate::virtual_iface::{Bus, Event};
-use crate::MAX_PACKET;
 
 pub(crate) struct WireGuardTunnel {
     peer: tokio::sync::Mutex<Box<Tunn>>,

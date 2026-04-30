@@ -14,7 +14,7 @@ use tokio::sync::broadcast;
 use tokio::time::Duration;
 
 use crate::ports::{PortForwardConfig, PortProtocol, VirtualPort};
-use crate::MAX_PACKET;
+use crate::support::MAX_PACKET;
 
 #[derive(Debug, Clone)]
 pub(crate) enum Event {
