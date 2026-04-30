@@ -16,7 +16,6 @@ use mio::Token;
 pub(super) const LISTENER: Token = Token(0);
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
-pub(super) const DESYNC_SEED_BASE: u32 = 7;
 
 // Lock order: cache -> adaptive_fake_ttl -> adaptive_tuning
 // No function should acquire more than one of these locks simultaneously, but

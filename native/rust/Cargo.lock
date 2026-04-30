@@ -3168,6 +3168,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-desync-runtime"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "libc",
+ "ring",
+ "ripdpi-config",
+ "ripdpi-desync",
+ "ripdpi-ipfrag",
+ "ripdpi-packets",
+ "ripdpi-proxy-config",
+ "ripdpi-session",
+ "socket2 0.6.3",
+ "tracing",
+]
+
+[[package]]
 name = "ripdpi-dns-resolver"
 version = "0.1.0"
 dependencies = [
@@ -3453,6 +3470,7 @@ dependencies = [
  "ring",
  "ripdpi-config",
  "ripdpi-desync",
+ "ripdpi-desync-runtime",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-io-uring",

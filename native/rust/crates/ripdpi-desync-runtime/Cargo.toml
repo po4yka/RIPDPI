@@ -1,0 +1,26 @@
+[package]
+name = "ripdpi-desync-runtime"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+libc = { workspace = true }
+ripdpi-config = { workspace = true }
+ripdpi-desync = { workspace = true }
+ripdpi-ipfrag = { workspace = true }
+ripdpi-packets = { workspace = true }
+ripdpi-proxy-config = { workspace = true }
+ripdpi-session = { workspace = true }
+socket2 = { workspace = true }
+tracing = { workspace = true }
+
+[features]
+loom = []
+
+[dev-dependencies]
+aes = { workspace = true }
+ring = { workspace = true }

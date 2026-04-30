@@ -9,7 +9,6 @@ mod reprobe;
 mod retry;
 mod routing;
 mod state;
-mod tcp_lowering;
 mod udp;
 mod warmup;
 

@@ -25,6 +25,7 @@ members = [
     "crates/ripdpi-ws-tunnel",
     "crates/ripdpi-config",
     "crates/ripdpi-desync",
+    "crates/ripdpi-desync-runtime",
     "crates/ripdpi-tunnel-config",
     "crates/ripdpi-tun-driver",
     "crates/ripdpi-tunnel-core",
@@ -75,6 +76,7 @@ ripdpi-session = { path = "crates/ripdpi-session" }
 ripdpi-ws-tunnel = { path = "crates/ripdpi-ws-tunnel" }
 ripdpi-config = { path = "crates/ripdpi-config" }
 ripdpi-desync = { path = "crates/ripdpi-desync" }
+ripdpi-desync-runtime = { path = "crates/ripdpi-desync-runtime" }
 ripdpi-cli = { path = "crates/ripdpi-cli" }
 ripdpi-io-uring = { path = "crates/ripdpi-io-uring" }
 ripdpi-privileged-ops = { path = "crates/ripdpi-privileged-ops" }
