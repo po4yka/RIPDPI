@@ -2,10 +2,22 @@ use std::io;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
 
+use ripdpi_ipfrag::{
+    build_tcp_fragment_pair, build_udp_fragment_pair, TcpFragmentSpec, TcpTimestampOption, UdpFragmentSpec,
+};
+use socket2::Domain;
+
+use crate::linux::raw_packet::{
+    build_error_to_io, build_tcp_segment_packet, fragment_identification, probe_raw_socket, resolve_raw_ttl,
+    send_raw_fragments, send_raw_packets_with_delay,
+};
+use crate::linux::socket_options::get_stream_ttl;
+use crate::linux::tcp_repair::{
+    build_replacement_tcp_socket, capture_stream_socket_settings, disable_tcp_repair, probe_tcp_repair,
+    sequence_after_payload, set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state,
+    swap_stream_to_replacement, TcpRepairSnapshot, TCP_NO_QUEUE, TCP_REPAIR_ON,
+};
 use crate::{IpFragmentationCapabilities, TcpFlagOverrides, TcpPayloadSegment};
-
-use super::*;
-
 pub fn probe_ip_fragmentation_capabilities(protect_path: Option<&str>) -> io::Result<IpFragmentationCapabilities> {
     let raw_ipv4 =
         probe_raw_socket(Domain::IPV4, libc::IPPROTO_RAW, protect_path, libc::IPPROTO_IP, libc::IP_HDRINCL).is_ok();

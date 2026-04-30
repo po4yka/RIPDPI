@@ -12,7 +12,7 @@ use crate::experimental_tier3::{
     IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp, SynHideMarkerKind, SynHideTcpSpec,
 };
 
-use super::setsockopt_raw;
+use crate::linux::socket_options::setsockopt_raw;
 
 pub fn send_syn_hide_tcp(spec: &SynHideTcpSpec, protect_path: Option<&str>) -> io::Result<()> {
     let packet = build_syn_hide_tcp_packet(spec)?;
