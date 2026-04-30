@@ -3,17 +3,24 @@
 //!
 //! DNSCrypt always stays on the manual path because hickory-resolver does not support it.
 
-use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use hickory_proto::op::{Message, OpCode, ResponseCode};
 use hickory_proto::rr::{Name, RecordType};
-use hickory_resolver::config::{NameServerConfig, NameServerConfigGroup, ResolverConfig, ResolverOpts};
-use hickory_resolver::name_server::TokioConnectionProvider;
-use hickory_resolver::proto::xfer::Protocol;
+use hickory_resolver::config::{ConnectionConfig, NameServerConfig, ResolveHosts, ResolverConfig, ResolverOpts};
+use hickory_resolver::lookup::Lookup;
+use hickory_resolver::net::runtime::TokioRuntimeProvider;
 use hickory_resolver::Resolver;
+use url::Url;
 
 use crate::types::{EncryptedDnsEndpoint, EncryptedDnsError};
+
+#[derive(Clone, Copy)]
+enum HickoryProtocol {
+    Doh,
+    Dot,
+}
 
 /// Perform a DoH exchange via hickory-resolver.
 pub(crate) async fn exchange_doh(
@@ -21,7 +28,7 @@ pub(crate) async fn exchange_doh(
     query_bytes: &[u8],
     timeout: Duration,
 ) -> Result<Vec<u8>, EncryptedDnsError> {
-    exchange_via_hickory(endpoint, query_bytes, timeout, Protocol::Https).await
+    exchange_via_hickory(endpoint, query_bytes, timeout, HickoryProtocol::Doh).await
 }
 
 /// Perform a DoT exchange via hickory-resolver.
@@ -30,14 +37,14 @@ pub(crate) async fn exchange_dot(
     query_bytes: &[u8],
     timeout: Duration,
 ) -> Result<Vec<u8>, EncryptedDnsError> {
-    exchange_via_hickory(endpoint, query_bytes, timeout, Protocol::Tls).await
+    exchange_via_hickory(endpoint, query_bytes, timeout, HickoryProtocol::Dot).await
 }
 
 async fn exchange_via_hickory(
     endpoint: &EncryptedDnsEndpoint,
     query_bytes: &[u8],
     timeout: Duration,
-    protocol: Protocol,
+    protocol: HickoryProtocol,
 ) -> Result<Vec<u8>, EncryptedDnsError> {
     // 1. Parse the incoming raw DNS query to extract the name and record type.
     let query_msg = Message::from_vec(query_bytes).map_err(|e| EncryptedDnsError::DnsParse(e.to_string()))?;
@@ -49,41 +56,44 @@ async fn exchange_via_hickory(
     let record_type: RecordType = query.query_type();
 
     // 2. Build NameServerConfig from endpoint bootstrap IPs.
+    if endpoint.bootstrap_ips.is_empty() {
+        return Err(EncryptedDnsError::InvalidEndpoint("hickory backend requires bootstrap IPs".to_string()));
+    }
     let tls_name = endpoint.tls_server_name.clone().unwrap_or_else(|| endpoint.host.clone());
 
     let servers: Vec<NameServerConfig> = endpoint
         .bootstrap_ips
         .iter()
         .map(|ip| {
-            let mut ns = NameServerConfig::new(SocketAddr::new(*ip, endpoint.port), protocol);
-            ns.tls_dns_name = Some(tls_name.clone());
-            if matches!(protocol, Protocol::Https) {
-                // Extract the path component from the DoH URL, or default to /dns-query.
-                ns.http_endpoint = endpoint
-                    .doh_url
-                    .as_deref()
-                    .and_then(|u| u.find("/dns-query").map(|idx| u[idx..].to_string()))
-                    .or_else(|| Some("/dns-query".to_string()));
-            }
-            ns
+            let mut connection = match protocol {
+                HickoryProtocol::Doh => ConnectionConfig::https(
+                    Arc::from(tls_name.as_str()),
+                    Some(Arc::from(doh_path(endpoint.doh_url.as_deref()).as_str())),
+                ),
+                HickoryProtocol::Dot => ConnectionConfig::tls(Arc::from(tls_name.as_str())),
+            };
+            connection.port = endpoint.port;
+            NameServerConfig::new(*ip, true, vec![connection])
         })
         .collect();
 
-    let group = NameServerConfigGroup::from(servers);
-    let config = ResolverConfig::from_parts(None, vec![], group);
+    let config = ResolverConfig::from_parts(None, vec![], servers);
 
     // 3. Build resolver with cache disabled and custom timeout.
     let mut opts = ResolverOpts::default();
     opts.timeout = timeout;
     opts.attempts = 1; // We handle retries at ResolverPool level.
     opts.cache_size = 0; // Disable cache -- we need raw bytes per query.
-    opts.use_hosts_file = Default::default();
+    opts.use_hosts_file = ResolveHosts::default();
     opts.recursion_desired = query_msg.metadata.recursion_desired;
 
-    let resolver = Resolver::builder_with_config(config, TokioConnectionProvider::default()).with_options(opts).build();
+    let resolver = Resolver::builder_with_config(config, TokioRuntimeProvider::default())
+        .with_options(opts)
+        .build()
+        .map_err(|e| EncryptedDnsError::Request(e.to_string()))?;
 
     // 4. Perform the lookup via hickory-resolver.
-    let lookup =
+    let lookup: Lookup =
         resolver.lookup(name.clone(), record_type).await.map_err(|e| EncryptedDnsError::Request(e.to_string()))?;
 
     // 5. Reconstruct a DNS wire-format response from the parsed records.
@@ -100,9 +110,21 @@ async fn exchange_via_hickory(
     }
 
     // Copy answer records from the lookup result.
-    for record in lookup.records() {
-        response.add_answer(record.clone());
-    }
+    response.add_answers(lookup.answers().iter().cloned());
+    response.add_authorities(lookup.authorities().iter().cloned());
+    response.add_additionals(lookup.additionals().iter().cloned());
 
     response.to_vec().map_err(|e| EncryptedDnsError::DnsParse(e.to_string()))
+}
+
+fn doh_path(doh_url: Option<&str>) -> String {
+    let Some(url) = doh_url.and_then(|value| Url::parse(value).ok()) else {
+        return "/dns-query".to_string();
+    };
+    let path = url.path();
+    if path.is_empty() || path == "/" {
+        "/dns-query".to_string()
+    } else {
+        path.to_string()
+    }
 }

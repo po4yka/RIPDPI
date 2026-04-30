@@ -219,6 +219,7 @@ fn pool_records_success_in_shared_health_registry() {
 #[cfg(feature = "hickory-backend")]
 mod hickory_backend_tests {
     use super::*;
+    use hickory_proto::op::MessageType;
 
     /// When the resolver has custom TLS roots (as all test fixtures do), the
     /// hickory backend is bypassed and the manual DoT path is used. This test
@@ -355,7 +356,7 @@ mod hickory_backend_tests {
             Ok(response_bytes) => {
                 // Must be parseable DNS wire format.
                 let msg = Message::from_vec(&response_bytes).expect("response parses as DNS");
-                assert!(msg.answer_count() > 0, "expected at least one answer record");
+                assert!(!msg.answers.is_empty(), "expected at least one answer record");
                 // Verify we can also extract IPs from the response.
                 let ips = extract_ip_answers(&response_bytes).expect("IP extraction works");
                 assert!(!ips.is_empty(), "expected at least one IP answer");
