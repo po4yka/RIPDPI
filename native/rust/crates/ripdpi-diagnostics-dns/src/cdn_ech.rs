@@ -252,7 +252,7 @@ fn synthesize_instant_for_unix_ms(fetched_at_unix_ms: u64, now_instant: Instant,
 ///
 /// ```rust
 /// use std::time::Duration;
-/// use ripdpi_diagnostics_net::cdn_ech::{BundledEchConfigSource, CdnEchUpdater};
+/// use ripdpi_diagnostics_dns::cdn_ech::{BundledEchConfigSource, CdnEchUpdater};
 ///
 /// let updater = CdnEchUpdater::new(
 ///     BundledEchConfigSource,

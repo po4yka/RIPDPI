@@ -3236,28 +3236,27 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-diagnostics-net"
+name = "ripdpi-diagnostics-dns"
 version = "0.1.0"
 dependencies = [
  "hickory-proto",
  "hickory-resolver",
- "libc",
- "md5",
- "quinn",
  "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-transport",
  "ripdpi-dns-resolver",
- "ripdpi-failure-classifier",
- "ripdpi-packets",
  "ripdpi-tls-profiles",
- "ripdpi-ws-bootstrap",
- "ripdpi-ws-tunnel",
- "rustls",
- "serde",
- "serde_json",
- "socket2 0.6.3",
  "tokio",
  "tracing",
- "webpki-roots",
+]
+
+[[package]]
+name = "ripdpi-diagnostics-net"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-dns",
+ "ripdpi-diagnostics-protocols",
+ "ripdpi-diagnostics-transport",
 ]
 
 [[package]]
@@ -3285,6 +3284,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-diagnostics-protocols"
+version = "0.1.0"
+dependencies = [
+ "md5",
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-dns",
+ "ripdpi-diagnostics-transport",
+ "ripdpi-failure-classifier",
+ "ripdpi-tls-profiles",
+ "ripdpi-ws-bootstrap",
+ "ripdpi-ws-tunnel",
+ "rustls",
+ "tracing",
+ "webpki-roots",
+]
+
+[[package]]
 name = "ripdpi-diagnostics-runner"
 version = "0.1.0"
 dependencies = [
@@ -3301,6 +3317,16 @@ dependencies = [
  "ripdpi-proxy-config",
  "rustls",
  "tracing",
+]
+
+[[package]]
+name = "ripdpi-diagnostics-transport"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "ripdpi-diagnostics-contracts",
+ "rustls",
+ "socket2 0.6.3",
 ]
 
 [[package]]

@@ -93,9 +93,9 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
         ("native/rust/crates/ripdpi-monitor-engine/src/execution/lanes.rs", "pub fn run_http_strategy_probe"),
         ("native/rust/crates/ripdpi-monitor-engine/src/execution/lanes.rs", "pub fn run_https_strategy_probe"),
         ("native/rust/crates/ripdpi-monitor-engine/src/execution/lanes.rs", "pub fn run_quic_strategy_probe"),
-        ("native/rust/crates/ripdpi-diagnostics-net/src/telegram.rs", "fn classify_telegram_verdict"),
-        ("native/rust/crates/ripdpi-diagnostics-net/src/telegram.rs", "pub fn run_telegram_probe"),
-        ("native/rust/crates/ripdpi-diagnostics-net/src/fat_header.rs", "pub fn classify_fat_header_outcome"),
+        ("native/rust/crates/ripdpi-diagnostics-protocols/src/telegram.rs", "fn classify_telegram_verdict"),
+        ("native/rust/crates/ripdpi-diagnostics-protocols/src/telegram.rs", "pub fn run_telegram_probe"),
+        ("native/rust/crates/ripdpi-diagnostics-protocols/src/fat_header.rs", "pub fn classify_fat_header_outcome"),
     ] {
         tokens.extend(quoted_outcome_tokens(&function_body(&repo.join(path), signature)));
     }

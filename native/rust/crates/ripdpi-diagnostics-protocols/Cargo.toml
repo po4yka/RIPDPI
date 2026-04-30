@@ -1,0 +1,25 @@
+[package]
+name = "ripdpi-diagnostics-protocols"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-diagnostics-contracts = { workspace = true }
+ripdpi-diagnostics-dns = { workspace = true }
+ripdpi-diagnostics-transport = { workspace = true }
+ripdpi-failure-classifier = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
+ripdpi-ws-bootstrap = { workspace = true }
+ripdpi-ws-tunnel = { workspace = true }
+md5 = { workspace = true }
+rustls = { workspace = true }
+webpki-roots = { workspace = true }
+tracing = { workspace = true }
+
+[features]
+hickory = ["ripdpi-diagnostics-dns/hickory"]
+quic-native = ["ripdpi-diagnostics-dns/quic-native", "ripdpi-diagnostics-transport/quic-native"]
