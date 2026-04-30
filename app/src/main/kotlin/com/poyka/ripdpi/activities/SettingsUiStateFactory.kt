@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.core.RipDpiPlatformCapabilities
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
@@ -477,6 +476,7 @@ internal fun AppSettings.toUiState(
     routingProtectionSnapshot: RoutingProtectionCatalogSnapshot = RoutingProtectionCatalogSnapshot(),
     suggestedWarpAmneziaPresetId: String = "",
     suggestedWarpAmneziaPresetLabel: String = "",
+    seqovlSupported: Boolean = false,
 ): SettingsUiState {
     val normalizedMode = ripdpiMode.ifEmpty { "vpn" }
     val activeDns = activeDnsSettings()
@@ -538,7 +538,7 @@ internal fun AppSettings.toUiState(
         desyncEnabled = chain.desyncEnabled,
         isFake = chain.isFake,
         usesFakeTransport = chain.usesFakeTransport,
-        seqovlSupported = RipDpiPlatformCapabilities.seqovlSupported(),
+        seqovlSupported = seqovlSupported,
         usesSeqOverlapFakeProfile = chain.usesSeqOverlapFakeProfile,
         hasHostFake = chain.hasHostFake,
         hasDisoob = chain.hasDisoob,

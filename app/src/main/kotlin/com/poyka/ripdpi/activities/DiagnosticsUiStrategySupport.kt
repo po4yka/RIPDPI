@@ -3,7 +3,6 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.formatOffsetExpressionLabel
 import com.poyka.ripdpi.data.strategyLaneFamilyLabel
@@ -566,10 +565,9 @@ private fun DiagnosticsUiFactorySupport.deriveSignature(
 ): BypassStrategySignature? =
     summary.proxyConfigJson
         ?.takeIf { it.isNotBlank() }
-        ?.let(::decodeRipDpiProxyUiPreferences)
-        ?.let { preferences ->
+        ?.let { configJson ->
             deriveBypassStrategySignature(
-                preferences = preferences,
+                configJson = configJson,
                 routeGroup = null,
                 modeOverride = parseServiceModeOrDefault(serviceMode),
             )

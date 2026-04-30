@@ -10,7 +10,7 @@ import android.util.Base64
 // payload, and writes the resulting prior store into the process-wide
 // registry. The native side returns a JSON status string for the
 // worker to log.
-internal object RipDpiSharedPriorsNativeBindings {
+object RipDpiSharedPriorsNativeBindings {
     init {
         RipDpiNativeLoader.ensureLoaded()
     }

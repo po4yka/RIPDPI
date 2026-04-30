@@ -19,8 +19,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.hosts.HostPackCatalogRefreshResult
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateCoordinator
 import com.poyka.ripdpi.hosts.HostPackCatalogUiStateStore
-import com.poyka.ripdpi.platform.HostAutolearnStoreController
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.services.TelemetryInstallSaltStore
 import com.poyka.ripdpi.strategy.StrategyPackService
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -23,6 +23,7 @@ internal data class SettingsUiStateAssemblySnapshot(
     val biometricAvailability: Int,
     val routingProtectionSnapshot: RoutingProtectionCatalogSnapshot,
     val warpSuggestion: WarpPayloadGenSuggestion?,
+    val seqovlSupported: Boolean,
 )
 
 internal class SettingsUiStateAssembler
@@ -76,6 +77,7 @@ internal class SettingsUiStateAssembler
                             settingsUiDependencies.networkSnapshotProvider.capture(),
                         )
                     }.getOrNull(),
+                seqovlSupported = settingsUiDependencies.enginePlatformCapabilities.seqovlSupported(),
             )
 
         internal fun buildUiState(snapshot: SettingsUiStateAssemblySnapshot): SettingsUiState =
@@ -98,6 +100,7 @@ internal class SettingsUiStateAssembler
                         ?.preset
                         ?.label
                         .orEmpty(),
+                seqovlSupported = snapshot.seqovlSupported,
             )
 
         private fun initialSnapshot(settingsUiDependencies: SettingsUiDependencies): SettingsUiStateAssemblySnapshot =

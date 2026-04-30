@@ -226,6 +226,7 @@ class MainActivityContentTest {
                             workflowService = StubDiagnosticsHomeWorkflowService(),
                             compositeRunService = StubDiagnosticsHomeCompositeRunService(),
                         ),
+                    latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
                 ),
             mainControlPlaneDependencies =
                 MainControlPlaneDependencies(

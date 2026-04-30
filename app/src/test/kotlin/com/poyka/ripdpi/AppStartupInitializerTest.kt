@@ -2,11 +2,14 @@ package com.poyka.ripdpi
 
 import android.app.Application
 import com.poyka.ripdpi.core.detection.DetectionObservationStarter
+import com.poyka.ripdpi.data.CdnEchPersistedCache
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.PersistedEchEntry
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
+import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.strategy.StrategyPackService
 import kotlinx.coroutines.CoroutineScope
@@ -300,8 +303,17 @@ class AppStartupInitializerTest {
             detectionObservationStarter = detectionObservationStarter,
             strategyPackService = strategyPackService,
             dnsPathPreferenceInvalidator = dnsPathPreferenceInvalidator,
+            cdnEchSeedFromCache = CdnEchSeedFromCache(EmptyCdnEchPersistedCache),
             applicationScope = scope,
         )
+}
+
+private object EmptyCdnEchPersistedCache : CdnEchPersistedCache {
+    override suspend fun load(): PersistedEchEntry? = null
+
+    override suspend fun save(entry: PersistedEchEntry) = Unit
+
+    override suspend fun clear() = Unit
 }
 
 private class RecordingAppCompatibilityResetter(

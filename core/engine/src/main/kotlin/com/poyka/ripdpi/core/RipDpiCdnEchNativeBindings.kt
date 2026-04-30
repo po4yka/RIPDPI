@@ -13,7 +13,7 @@ import android.util.Base64
 //   - seed(...): hydrate the cache from a previously-persisted
 //     snapshot. Used at app startup so the TTL window survives
 //     process restarts.
-internal object RipDpiCdnEchNativeBindings {
+object RipDpiCdnEchNativeBindings {
     init {
         RipDpiNativeLoader.ensureLoaded()
     }

@@ -6,8 +6,6 @@ import android.net.VpnService
 import androidx.annotation.StringRes
 import com.poyka.ripdpi.activities.LauncherIconManager
 import com.poyka.ripdpi.automation.AutomationController
-import com.poyka.ripdpi.core.clearHostAutolearnStore
-import com.poyka.ripdpi.core.hasHostAutolearnStore
 import com.poyka.ripdpi.permissions.BatteryOptimizationIntents
 import dagger.Binds
 import dagger.Module
@@ -107,23 +105,6 @@ class AndroidPermissionPlatformBridge
                 }
     }
 
-interface HostAutolearnStoreController {
-    fun hasStore(): Boolean
-
-    fun clearStore(): Boolean
-}
-
-@Singleton
-class AndroidHostAutolearnStoreController
-    @Inject
-    constructor(
-        @param:ApplicationContext private val context: Context,
-    ) : HostAutolearnStoreController {
-        override fun hasStore(): Boolean = hasHostAutolearnStore(context)
-
-        override fun clearStore(): Boolean = clearHostAutolearnStore(context)
-    }
-
 @Module
 @InstallIn(SingletonComponent::class)
 abstract class AppPlatformBindingsModule {
@@ -138,10 +119,4 @@ abstract class AppPlatformBindingsModule {
     @Binds
     @Singleton
     abstract fun bindPermissionPlatformBridge(bridge: AndroidPermissionPlatformBridge): PermissionPlatformBridge
-
-    @Binds
-    @Singleton
-    abstract fun bindHostAutolearnStoreController(
-        controller: AndroidHostAutolearnStoreController,
-    ): HostAutolearnStoreController
 }

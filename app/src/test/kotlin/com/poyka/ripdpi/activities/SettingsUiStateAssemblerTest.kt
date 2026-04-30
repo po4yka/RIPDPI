@@ -8,6 +8,8 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.WarpPayloadGenCatalog
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
+import com.poyka.ripdpi.services.EnginePlatformCapabilities
+import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -61,6 +63,7 @@ class SettingsUiStateAssemblerTest {
                                     ),
                             ),
                         ),
+                    enginePlatformCapabilities = FakeEnginePlatformCapabilities(),
                     application = ApplicationProvider.getApplicationContext(),
                 )
             val assembler = SettingsUiStateAssembler()
@@ -92,10 +95,14 @@ private class FlowRememberedPolicySource(
 
 private class FakeHostAutolearnStoreController(
     private val hasStore: Boolean,
-) : com.poyka.ripdpi.platform.HostAutolearnStoreController {
+) : HostAutolearnStoreController {
     override fun hasStore(): Boolean = hasStore
 
     override fun clearStore(): Boolean = true
+}
+
+private class FakeEnginePlatformCapabilities : EnginePlatformCapabilities {
+    override fun seqovlSupported(): Boolean = true
 }
 
 private class SnapshotRoutingProtectionCatalogService : RoutingProtectionCatalogService {

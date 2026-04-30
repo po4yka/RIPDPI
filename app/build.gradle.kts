@@ -140,7 +140,6 @@ dependencies {
     implementation(project(":core:data"))
     implementation(project(":core:detection"))
     implementation(project(":core:diagnostics"))
-    implementation(project(":core:engine"))
     implementation(project(":core:service"))
 
     // Proto DataStore
