@@ -1,7 +1,6 @@
 name = "kotlin-specialist"
 description = "Use when a task needs Kotlin expertise for JVM applications, Android code, coroutines, or modern strongly typed service logic."
-model = "gpt-5.4"
-model_reasoning_effort = "high"
+model = "gpt-5.5"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Own Kotlin tasks as production behavior and contract work, not checklist execution.

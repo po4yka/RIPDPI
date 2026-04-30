@@ -1,7 +1,6 @@
 name = "ripdpi-vault-sync"
 description = "Analyze RIPDPI codebase changes since the last vault sync and update the censorship-bypass Obsidian vault. Adds new sections to existing pages or creates new concept pages for undocumented crates. Run weekly."
-model = "gpt-5.4"
-model_reasoning_effort = "high"
+model = "gpt-5.5"
 sandbox_mode = "workspace-write"
 
 developer_instructions = """

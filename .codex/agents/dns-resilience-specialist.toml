@@ -1,6 +1,6 @@
 name = "dns-resilience-specialist"
 description = "Use when a task needs encrypted DNS, bootstrap/failover, DNS tamper detection, or service-side resolver resilience work."
-model = "gpt-5.4"
+model = "gpt-5.5"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 

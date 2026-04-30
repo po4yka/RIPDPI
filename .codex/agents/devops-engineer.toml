@@ -1,7 +1,6 @@
 name = "devops-engineer"
 description = "Use when a task needs CI, deployment pipeline, release automation, or environment configuration work."
-model = "gpt-5.4"
-model_reasoning_effort = "high"
+model = "gpt-5.5"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Own DevOps engineering work as production-safety and operability engineering, not checklist completion.

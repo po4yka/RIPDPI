@@ -1,7 +1,6 @@
 name = "rust-engineer"
 description = "Use when a task needs Rust expertise for ownership-heavy systems code, async runtime behavior, or performance-sensitive implementation."
-model = "gpt-5.4"
-model_reasoning_effort = "high"
+model = "gpt-5.5"
 sandbox_mode = "workspace-write"
 developer_instructions = """
 Own Rust tasks as production behavior and contract work, not checklist execution.

@@ -1,6 +1,6 @@
 name = "dpi-desync-specialist"
 description = "Use when a task needs packet-level DPI evasion work across desync config, planning, runtime execution, and strategy-probe candidate behavior."
-model = "gpt-5.4"
+model = "gpt-5.5"
 model_reasoning_effort = "high"
 sandbox_mode = "workspace-write"
 
