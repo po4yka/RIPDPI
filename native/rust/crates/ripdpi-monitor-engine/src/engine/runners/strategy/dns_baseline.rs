@@ -1,0 +1,88 @@
+use std::sync::Arc;
+
+use rustls::client::danger::ServerCertVerifier;
+
+use crate::classification::classified_failure_probe_result;
+use crate::strategy::detect_strategy_probe_dns_tampering;
+
+use super::super::super::runtime::{
+    ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
+};
+
+pub(in crate::engine::runners) struct StrategyDnsBaselineRunner;
+
+impl ExecutionStageRunner for StrategyDnsBaselineRunner {
+    fn id(&self) -> ExecutionStageId {
+        ExecutionStageId::StrategyDnsBaseline
+    }
+
+    fn phase(&self) -> &'static str {
+        "dns_baseline"
+    }
+
+    fn total_steps(&self, plan: &ExecutionPlan) -> usize {
+        usize::from(!plan.request.domain_targets.is_empty())
+    }
+
+    fn run(
+        &self,
+        plan: &ExecutionPlan,
+        runtime: &mut ExecutionRuntime,
+        _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    ) -> RunnerOutcome {
+        let Some(strategy_plan) = plan.strategy.as_ref() else {
+            return RunnerOutcome::Completed;
+        };
+        let Some(baseline) =
+            detect_strategy_probe_dns_tampering(&plan.request.domain_targets, strategy_plan.runtime_context.as_ref())
+        else {
+            return RunnerOutcome::Completed;
+        };
+        let artifacts = RunnerArtifacts::from_results(
+            baseline.results.clone(),
+            "strategy_probe",
+            "warn",
+            format!(
+                "Baseline classified as {} with {}",
+                baseline.failure.class.as_str(),
+                baseline.failure.action.as_str(),
+            ),
+        );
+        runtime.record_step(
+            plan,
+            self.phase(),
+            "Strategy baseline DNS classification".to_string(),
+            Some("dns_baseline".to_string()),
+            Some(baseline.failure.class.as_str().to_string()),
+            None,
+            artifacts,
+        );
+        runtime.results.push(classified_failure_probe_result("Current strategy", &baseline.failure));
+        tracing::info!(failure_class = ?baseline.failure.class, action = ?baseline.failure.action, "strategy probe: baseline classified");
+        runtime.strategy.baseline_failure = Some(baseline.failure);
+
+        // If we have encrypted IP overrides, build override targets so TCP/QUIC
+        // runners can probe using trusted IPs instead of poisoned system DNS.
+        if !baseline.encrypted_ip_overrides.is_empty() {
+            let overrides = &baseline.encrypted_ip_overrides;
+            let mut domain_ov = plan.request.domain_targets.clone();
+            for t in &mut domain_ov {
+                if t.connect_ip.is_none() {
+                    t.connect_ip = overrides.iter().find(|(h, _)| h == &t.host).map(|(_, ip)| ip.to_string());
+                }
+            }
+            let mut quic_ov = plan.request.quic_targets.clone();
+            for t in &mut quic_ov {
+                if t.connect_ip.is_none() {
+                    t.connect_ip = overrides.iter().find(|(h, _)| h == &t.host).map(|(_, ip)| ip.to_string());
+                }
+            }
+            runtime.strategy.dns_override_domain_targets = Some(domain_ov);
+            runtime.strategy.dns_override_quic_targets = Some(quic_ov);
+        }
+
+        // Continue to TCP/QUIC runners instead of short-circuiting, so we get
+        // actual strategy effectiveness data even on DNS-tampered networks.
+        RunnerOutcome::Completed
+    }
+}
