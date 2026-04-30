@@ -1,9 +1,12 @@
 use std::io;
-use std::io::Write;
 use std::net::TcpStream;
 
 use crate::platform;
 use crate::sync::{AtomicBool, Ordering};
+use crate::transport_io::{
+    log_android_desync_fallback, send_oob_action_named, set_stream_ttl, strategy_execution_error,
+    write_payload_progress, write_strategy_payload_named,
+};
 
 use super::OutboundSendError;
 
@@ -180,103 +183,6 @@ pub(crate) fn send_oob_with_android_ttl_fallback(
         }
         Err(err) => Err(err),
     }
-}
-
-fn set_stream_ttl(stream: &TcpStream, ttl: u8) -> io::Result<()> {
-    let socket = socket2::SockRef::from(stream);
-    let ipv4 = socket.set_ttl_v4(ttl as u32);
-    let ipv6 = socket.set_unicast_hops_v6(ttl as u32);
-    match (ipv4, ipv6) {
-        (Ok(()), _) | (_, Ok(())) => Ok(()),
-        (Err(err), _) => Err(err),
-    }
-}
-
-fn strategy_execution_error(
-    action: &'static str,
-    strategy_family: &'static str,
-    fallback: Option<&'static str>,
-    bytes_committed: usize,
-    source: io::Error,
-) -> OutboundSendError {
-    OutboundSendError::StrategyExecution {
-        action,
-        strategy_family,
-        fallback,
-        bytes_committed,
-        source_errno: source.raw_os_error(),
-        source,
-    }
-}
-
-fn log_android_desync_fallback(action: &'static str, fallback: &'static str, error: &OutboundSendError) {
-    tracing::warn!("Android desync fallback applied: action={action} fallback={fallback}: {error}");
-}
-
-fn write_payload_progress(stream: &mut TcpStream, bytes: &[u8]) -> Result<(), WriteProgressError> {
-    let mut written = 0usize;
-    while written < bytes.len() {
-        match stream.write(&bytes[written..]) {
-            Ok(0) => {
-                return Err(WriteProgressError {
-                    written,
-                    source: io::Error::new(io::ErrorKind::WriteZero, "partial tcp payload write"),
-                });
-            }
-            Ok(chunk) => {
-                written += chunk;
-            }
-            Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
-            Err(err) => {
-                return Err(WriteProgressError { written, source: err });
-            }
-        }
-    }
-    Ok(())
-}
-
-fn write_strategy_payload_named(
-    stream: &mut TcpStream,
-    bytes: &[u8],
-    action: &'static str,
-    strategy_family: &'static str,
-    fallback: Option<&'static str>,
-    bytes_committed: usize,
-) -> Result<usize, OutboundSendError> {
-    write_payload_progress(stream, bytes).map(|()| bytes_committed + bytes.len()).map_err(|progress| {
-        strategy_execution_error(action, strategy_family, fallback, bytes_committed + progress.written, progress.source)
-    })
-}
-
-fn send_out_of_band(writer: &TcpStream, prefix: &[u8], urgent_byte: u8) -> io::Result<()> {
-    let mut packet = Vec::with_capacity(prefix.len() + 1);
-    packet.extend_from_slice(prefix);
-    packet.push(urgent_byte);
-    let sent = socket2::SockRef::from(writer).send_out_of_band(&packet)?;
-    if sent != packet.len() {
-        return Err(io::Error::new(io::ErrorKind::WriteZero, "partial MSG_OOB send"));
-    }
-    Ok(())
-}
-
-fn send_oob_action_named(
-    writer: &TcpStream,
-    prefix: &[u8],
-    urgent_byte: u8,
-    action: &'static str,
-    strategy_family: &'static str,
-    fallback: Option<&'static str>,
-    bytes_committed: usize,
-) -> Result<usize, OutboundSendError> {
-    send_out_of_band(writer, prefix, urgent_byte)
-        .map_err(|source| strategy_execution_error(action, strategy_family, fallback, bytes_committed, source))
-        .map(|()| bytes_committed + prefix.len() + 1)
-}
-
-#[derive(Debug)]
-struct WriteProgressError {
-    written: usize,
-    source: io::Error,
 }
 
 #[cfg(test)]
