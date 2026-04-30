@@ -33,6 +33,8 @@ impl RelayRuntime {
     }
 
     pub async fn run(self: &Arc<Self>) -> io::Result<()> {
+        // Ordering: this flag only carries the stop bit; no data is published
+        // through it, and the accept loop observes it after an async timeout.
         self.stop_requested.store(false, Ordering::Relaxed);
         self.telemetry.mark_starting();
         let server = ProxyServer::new(self.config.clone(), self.telemetry.clone())?;
@@ -46,6 +48,8 @@ impl RelayRuntime {
 
     pub fn stop(&self) {
         self.telemetry.mark_stopping();
+        // Ordering: stop_requested is a standalone cancellation bit. The
+        // listener does not acquire any memory through it, so Relaxed is enough.
         self.stop_requested.store(true, Ordering::Relaxed);
     }
 

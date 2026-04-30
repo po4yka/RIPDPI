@@ -22,6 +22,9 @@ pub(crate) struct TcpLoweringCapabilities {
 impl TcpLoweringCapabilities {
     pub(crate) fn snapshot(default_ttl: u8, session_ttl_unavailable: &AtomicBool) -> Self {
         let restore_ttl = if default_ttl != 0 { default_ttl } else { platform::detect_default_ttl().unwrap_or(64) };
+        // Ordering: the flag is only a sticky capability cache. Missing a
+        // concurrent write can at worst retry a TTL operation once; no memory is
+        // published through the flag.
         let ttl_write = if session_ttl_unavailable.load(Ordering::Relaxed) {
             TcpTtlCapabilityState::Unavailable
         } else {
@@ -32,6 +35,9 @@ impl TcpLoweringCapabilities {
 
     pub(crate) fn persist(self, session_ttl_unavailable: &AtomicBool) {
         if self.ttl_actions_unavailable() {
+            // Ordering: this is a monotonic "unavailable" marker. Readers do not
+            // acquire any associated data, so Relaxed preserves the required
+            // eventual visibility without synchronization overhead.
             session_ttl_unavailable.store(true, Ordering::Relaxed);
         }
     }
