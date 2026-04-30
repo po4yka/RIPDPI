@@ -99,9 +99,18 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
             "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/report.rs",
             "pub fn build_network_environment_probe",
         ),
-        ("native/rust/crates/ripdpi-monitor-engine/src/execution/lanes.rs", "pub fn run_http_strategy_probe"),
-        ("native/rust/crates/ripdpi-monitor-engine/src/execution/lanes.rs", "pub fn run_https_strategy_probe"),
-        ("native/rust/crates/ripdpi-monitor-engine/src/execution/lanes.rs", "pub fn run_quic_strategy_probe"),
+        (
+            "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/http.rs",
+            "pub(super) fn run_http_strategy_probe",
+        ),
+        (
+            "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/https.rs",
+            "pub(super) fn run_https_strategy_probe",
+        ),
+        (
+            "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/quic.rs",
+            "pub(super) fn run_quic_strategy_probe",
+        ),
         ("native/rust/crates/ripdpi-diagnostics-telegram/src/telegram.rs", "fn classify_telegram_verdict"),
         ("native/rust/crates/ripdpi-diagnostics-telegram/src/telegram.rs", "pub fn run_telegram_probe"),
         ("native/rust/crates/ripdpi-diagnostics-fat-header/src/fat_header.rs", "pub fn classify_fat_header_outcome"),
