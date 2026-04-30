@@ -22,7 +22,7 @@ use crate::types::StrategyProbeProgressLane;
 use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
 };
-use super::strategy_support::{
+use super::support::{
     annotate_emitter_execution, baseline_supports_ech_candidates, capability_available, capability_suffix,
     compute_rst_adaptive_timeout, missing_capability_rationale, ordered_follow_up_tcp_candidates,
     record_not_applicable_tcp_candidate, strategy_probe_live_progress_with_targets, stratified_pilot_targets,

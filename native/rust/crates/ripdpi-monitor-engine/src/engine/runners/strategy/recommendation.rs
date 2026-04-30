@@ -13,7 +13,7 @@ use crate::types::{
 use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerOutcome,
 };
-use super::strategy_support::{
+use super::support::{
     pilot_bucket_label, resolve_recommended_proxy_config_json, resolve_strategy_probe_audit_assessment,
     stratified_pilot_targets,
 };

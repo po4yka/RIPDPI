@@ -17,7 +17,7 @@ use crate::util::stable_probe_hash;
 use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerArtifacts, RunnerOutcome,
 };
-use super::strategy_support::{
+use super::support::{
     annotate_emitter_execution, capability_available, capability_suffix, missing_capability_rationale,
     strategy_probe_live_progress_with_targets, FamilyFailureTracker,
 };
