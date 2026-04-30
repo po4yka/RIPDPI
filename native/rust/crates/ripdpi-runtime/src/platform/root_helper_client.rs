@@ -1,8 +1,8 @@
 //! IPC client for the privileged root helper process.
 //!
 //! Communicates over a Unix domain socket using JSON-line framing with
-//! SCM_RIGHTS for file descriptor passing. Mirrors the protocol defined
-//! in `ripdpi-root-helper/src/protocol.rs`.
+//! SCM_RIGHTS for file descriptor passing. Framing is owned by
+//! `ripdpi-root-helper-protocol`.
 
 use std::io;
 use std::net::SocketAddr;
