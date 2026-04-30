@@ -1,4 +1,6 @@
 import com.android.build.api.dsl.ApplicationExtension
+import org.gradle.api.GradleException
+import org.gradle.api.artifacts.component.ProjectComponentIdentifier
 import java.util.Properties
 
 plugins {
@@ -167,4 +169,31 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(project(":core:diagnostics-data"))
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+tasks.register("verifyEngineBoundaryClasspath") {
+    group = "verification"
+    description = "Fails if :core:engine leaks onto :app compile classpaths."
+
+    doLast {
+        val leakingConfigurations =
+            listOf(
+                "debugCompileClasspath",
+                "releaseCompileClasspath",
+                "benchmarkCompileClasspath",
+            ).filter { configurationName ->
+                val configuration = configurations.findByName(configurationName) ?: return@filter false
+                configuration.incoming.resolutionResult.allComponents.any { component ->
+                    val projectId = component.id as? ProjectComponentIdentifier
+                    projectId?.projectPath == ":core:engine"
+                }
+            }
+
+        if (leakingConfigurations.isNotEmpty()) {
+            throw GradleException(
+                ":core:engine must not appear on :app compile classpaths: " +
+                    leakingConfigurations.joinToString(),
+            )
+        }
+    }
 }

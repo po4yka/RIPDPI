@@ -60,7 +60,7 @@ extensions.configure<LibraryExtension> {
 }
 
 dependencies {
-    api(project(":core:engine"))
+    implementation(project(":core:engine"))
     implementation(project(":core:data"))
     implementation(project(":core:diagnostics-data"))
     implementation(libs.androidx.core.ktx)
