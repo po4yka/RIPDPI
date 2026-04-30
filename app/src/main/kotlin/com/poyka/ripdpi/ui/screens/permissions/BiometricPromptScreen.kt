@@ -94,9 +94,10 @@ fun BiometricPromptRoute(
         uiState = uiState,
         stage = stage,
         lockoutRemainingMs = lockoutRemainingMs,
-        viewModel = viewModel,
         context = context,
         biometricAuthManager = biometricAuthManager,
+        isPinLockedOut = viewModel::isPinLockedOut,
+        pinLockoutRemainingMs = viewModel::pinLockoutRemainingMs,
         onAuthenticated = onAuthenticated,
         launchBiometric = launchBiometric,
         onStageChange = { stage = it },
@@ -187,9 +188,10 @@ private fun BiometricPromptEffects(
     uiState: SettingsUiState,
     stage: BiometricPromptStage,
     lockoutRemainingMs: Long,
-    viewModel: SettingsViewModel,
     context: android.content.Context,
     biometricAuthManager: BiometricAuthManager,
+    isPinLockedOut: () -> Boolean,
+    pinLockoutRemainingMs: () -> Long,
     onAuthenticated: () -> Unit,
     launchBiometric: () -> Unit,
     onStageChange: (BiometricPromptStage) -> Unit,
@@ -209,15 +211,15 @@ private fun BiometricPromptEffects(
     }
 
     LaunchedEffect(stage) {
-        if (stage == BiometricPromptStage.Pin && viewModel.isPinLockedOut()) {
-            onLockoutChange(viewModel.pinLockoutRemainingMs())
+        if (stage == BiometricPromptStage.Pin && isPinLockedOut()) {
+            onLockoutChange(pinLockoutRemainingMs())
         }
     }
 
     LaunchedEffect(lockoutRemainingMs) {
         if (lockoutRemainingMs <= 0L) return@LaunchedEffect
         delay(timeMillis = 1_000L)
-        onLockoutChange(viewModel.pinLockoutRemainingMs())
+        onLockoutChange(pinLockoutRemainingMs())
     }
 }
 
