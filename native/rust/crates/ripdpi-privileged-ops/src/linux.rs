@@ -123,7 +123,7 @@ fn get_u32_sockopt(fd: libc::c_int, level: libc::c_int, name: libc::c_int) -> io
 }
 
 /// Safe wrapper around `libc::dup2` for fd handoff and replacement.
-pub(crate) fn dup2_fd(source_fd: libc::c_int, target_fd: libc::c_int) -> io::Result<()> {
+pub fn dup2_fd(source_fd: libc::c_int, target_fd: libc::c_int) -> io::Result<()> {
     // SAFETY: callers guarantee both fds are live descriptors and accept the
     // kernel-level replacement semantics of `dup2`.
     let rc = unsafe { libc::dup2(source_fd, target_fd) };
@@ -135,8 +135,7 @@ pub(crate) fn dup2_fd(source_fd: libc::c_int, target_fd: libc::c_int) -> io::Res
 }
 
 /// Safe wrapper around `libc::close` for owned transient descriptors.
-#[cfg(test)]
-pub(crate) fn close_fd(fd: libc::c_int) -> io::Result<()> {
+pub fn close_fd(fd: libc::c_int) -> io::Result<()> {
     // SAFETY: callers guarantee `fd` is an owned live descriptor that should
     // be closed exactly once by this helper.
     let rc = unsafe { libc::close(fd) };

@@ -522,7 +522,7 @@ mod tests {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     #[test]
     fn window_clamp_applied_on_connected_socket() {
-        use crate::platform::linux::{get_tcp_window_clamp, set_tcp_window_clamp};
+        use ripdpi_privileged_ops::linux::{get_tcp_window_clamp, set_tcp_window_clamp};
 
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind");
         let addr = listener.local_addr().expect("local_addr");

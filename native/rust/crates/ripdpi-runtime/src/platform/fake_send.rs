@@ -8,14 +8,14 @@ use ripdpi_config::IpIdMode;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use super::ipv4_ids::{reserve_ipv4_identifications, reserve_stream_ipv4_identifications};
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use super::{linux, root_helper, FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides, TcpStageWait};
+use super::{root_helper, FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides, TcpStageWait};
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
 use super::{FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides, TcpStageWait};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn swap_replacement_fd(target_fd: std::os::fd::RawFd, replacement_fd: std::os::fd::RawFd) -> io::Result<()> {
-    linux::dup2_fd(replacement_fd, target_fd)?;
-    linux::close_fd(replacement_fd)?;
+    ripdpi_privileged_ops::linux::dup2_fd(replacement_fd, target_fd)?;
+    ripdpi_privileged_ops::linux::close_fd(replacement_fd)?;
     Ok(())
 }
 
@@ -32,7 +32,7 @@ pub fn send_fake_rst_reserved(
     {
         return result;
     }
-    linux::send_fake_rst(stream, default_ttl, protect_path, flags, ipv4_identification)
+    ripdpi_privileged_ops::send_fake_rst(stream, default_ttl, protect_path, flags, ipv4_identification)
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -100,7 +100,7 @@ pub fn send_fake_tcp(
     options.require_raw_path = require_raw_path;
     options.force_raw_original = force_raw_original;
     options.ipv4_identifications = ids;
-    linux::send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, options, wait)
+    ripdpi_privileged_ops::send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, options, wait)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -132,7 +132,7 @@ pub fn send_ordered_tcp_segments_reserved(
     ipv4_identifications: &[u16],
     wait: TcpStageWait,
 ) -> io::Result<()> {
-    linux::send_ordered_tcp_segments(
+    ripdpi_privileged_ops::send_ordered_tcp_segments(
         stream,
         segments,
         original_payload_len,
@@ -244,7 +244,15 @@ pub fn send_flagged_tcp_payload_reserved(
     }) {
         return result;
     }
-    linux::send_flagged_tcp_payload(stream, payload, default_ttl, protect_path, md5sig, flags, ipv4_identification)
+    ripdpi_privileged_ops::send_flagged_tcp_payload(
+        stream,
+        payload,
+        default_ttl,
+        protect_path,
+        md5sig,
+        flags,
+        ipv4_identification,
+    )
 }
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]
@@ -315,7 +323,7 @@ pub fn send_seqovl_tcp_reserved(
     }) {
         return result;
     }
-    linux::send_seqovl_tcp(
+    ripdpi_privileged_ops::send_seqovl_tcp(
         stream,
         real_chunk,
         fake_prefix,

@@ -3477,6 +3477,7 @@ dependencies = [
  "ripdpi-ipfrag",
  "ripdpi-native-protect",
  "ripdpi-packets",
+ "ripdpi-privileged-ops",
  "ripdpi-proxy-config",
  "ripdpi-root-helper-protocol",
  "ripdpi-session",

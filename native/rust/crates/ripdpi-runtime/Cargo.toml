@@ -22,6 +22,7 @@ mio = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
 ripdpi-proxy-config = { workspace = true }
+ripdpi-privileged-ops = { workspace = true }
 ripdpi-ws-tunnel = { workspace = true }
 ripdpi-native-protect = { workspace = true }
 ripdpi-root-helper-protocol = { workspace = true }
