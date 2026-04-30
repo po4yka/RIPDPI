@@ -1,6 +1,6 @@
 use std::net::TcpStream;
 
-pub use ripdpi_privileged_ops::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
+pub use ripdpi_capabilities::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
 
 pub use ripdpi_privileged_ops::detect_default_ttl;
 

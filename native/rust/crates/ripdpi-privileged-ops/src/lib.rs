@@ -11,69 +11,10 @@ pub use experimental_tier3::{
     recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_syn_hide_tcp, IcmpWrappedUdpRecvFilter, IcmpWrappedUdpRole,
     IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp, SynHideMarkerKind, SynHideTcpSpec,
 };
+use ripdpi_capabilities::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
 use ripdpi_desync::TcpSegmentHint;
 
 pub type TcpStageWait = (bool, Duration);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum RuntimeCapability {
-    TtlWrite,
-    RawTcpFakeSend,
-    RawUdpFragmentation,
-    ReplacementSocket,
-    RootHelperAvailable,
-    VpnProtectCallback,
-    NetworkBinding,
-}
-
-impl RuntimeCapability {
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::TtlWrite => "ttl_write",
-            Self::RawTcpFakeSend => "raw_tcp_fake_send",
-            Self::RawUdpFragmentation => "raw_udp_fragmentation",
-            Self::ReplacementSocket => "replacement_socket",
-            Self::RootHelperAvailable => "root_helper_available",
-            Self::VpnProtectCallback => "vpn_protect_callback",
-            Self::NetworkBinding => "network_binding",
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CapabilityUnavailable {
-    NotProbed,
-    Unsupported,
-    PermissionDenied,
-    MissingRootHelper,
-}
-
-#[derive(Debug, Clone)]
-pub enum CapabilityOutcome<T> {
-    Available(T),
-    Unavailable { capability: RuntimeCapability, reason: CapabilityUnavailable },
-    ProbeFailed { capability: RuntimeCapability, error: String },
-}
-
-impl<T> CapabilityOutcome<T> {
-    pub fn is_available(&self) -> bool {
-        matches!(self, Self::Available(_))
-    }
-
-    pub fn capability(&self) -> Option<RuntimeCapability> {
-        match self {
-            Self::Available(_) => None,
-            Self::Unavailable { capability, .. } | Self::ProbeFailed { capability, .. } => Some(*capability),
-        }
-    }
-
-    pub fn take(self) -> Option<T> {
-        match self {
-            Self::Available(value) => Some(value),
-            Self::Unavailable { .. } | Self::ProbeFailed { .. } => None,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct TcpFlagOverrides {
