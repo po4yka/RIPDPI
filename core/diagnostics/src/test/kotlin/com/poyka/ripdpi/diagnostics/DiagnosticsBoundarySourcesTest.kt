@@ -2,22 +2,36 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
+import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
+import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsBoundarySourcesTest {
     private val mapper = DiagnosticsBoundaryMapper(Json { ignoreUnknownKeys = true })
 
@@ -69,6 +83,54 @@ class DiagnosticsBoundarySourcesTest {
             val policy = source.observePolicies(limit = 1).first().single()
 
             assertEquals(RememberedNetworkPolicySource.UNKNOWN, policy.source)
+        }
+
+    @Test
+    fun `active connection policy source retains policy store without external subscribers`() =
+        runTest {
+            val activePolicyStore = CountingActiveConnectionPolicyStore()
+            val source =
+                DefaultDiagnosticsActiveConnectionPolicySource(
+                    activeConnectionPolicyStore = activePolicyStore,
+                    mapper = mapper,
+                    scope = backgroundScope,
+                )
+
+            runCurrent()
+
+            assertEquals(1, activePolicyStore.subscriptionCount)
+
+            activePolicyStore.policies.value =
+                mapOf(Mode.VPN to activeConnectionPolicy(mode = Mode.VPN, fingerprintHash = "vpn-fp"))
+            runCurrent()
+
+            val activePolicy =
+                source
+                    .activePolicies
+                    .value
+                    .getValue(Mode.VPN)
+
+            assertEquals("vpn-fp", activePolicy.policy.fingerprintHash)
+        }
+
+    @Test
+    fun `active connection policy source releases policy store when owning scope is cancelled`() =
+        runTest {
+            val activePolicyStore = CountingActiveConnectionPolicyStore()
+            val sourceScope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
+            DefaultDiagnosticsActiveConnectionPolicySource(
+                activeConnectionPolicyStore = activePolicyStore,
+                mapper = mapper,
+                scope = sourceScope,
+            )
+            runCurrent()
+
+            assertEquals(1, activePolicyStore.subscriptionCount)
+
+            sourceScope.cancel()
+            runCurrent()
+
+            assertEquals(0, activePolicyStore.subscriptionCount)
         }
 
     @Test
@@ -169,6 +231,38 @@ class DiagnosticsBoundarySourcesTest {
     }
 }
 
+private class CountingActiveConnectionPolicyStore : ActiveConnectionPolicyStore {
+    val policies = MutableStateFlow<Map<Mode, ActiveConnectionPolicy>>(emptyMap())
+    private val countedPolicies = CountingStateFlow(policies)
+    val subscriptionCount: Int
+        get() = countedPolicies.collectorCount
+
+    override val activePolicies: StateFlow<Map<Mode, ActiveConnectionPolicy>> = countedPolicies
+}
+
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalForInheritanceCoroutinesApi::class, InternalCoroutinesApi::class)
+private class CountingStateFlow<T>(
+    private val delegate: StateFlow<T>,
+) : StateFlow<T> {
+    var collectorCount: Int = 0
+        private set
+
+    override val replayCache: List<T>
+        get() = delegate.replayCache
+
+    override val value: T
+        get() = delegate.value
+
+    override suspend fun collect(collector: FlowCollector<T>): Nothing {
+        collectorCount += 1
+        try {
+            delegate.collect(collector)
+        } finally {
+            collectorCount -= 1
+        }
+    }
+}
+
 private class CountingRememberedNetworkPolicyStore : RememberedNetworkPolicyStore {
     var clearCalls = 0
     val policies = MutableStateFlow<List<RememberedNetworkPolicyEntity>>(emptyList())
@@ -230,3 +324,27 @@ private class CountingNetworkDnsPathPreferenceStore : NetworkDnsPathPreferenceSt
         recordedAt: Long?,
     ): NetworkDnsPathPreferenceEntity = error("unused in test")
 }
+
+private fun activeConnectionPolicy(
+    mode: Mode,
+    fingerprintHash: String,
+): ActiveConnectionPolicy =
+    ActiveConnectionPolicy(
+        mode = mode,
+        policy =
+            RememberedNetworkPolicyJson(
+                fingerprintHash = fingerprintHash,
+                mode = mode.preferenceValue,
+                summary =
+                    NetworkFingerprintSummary(
+                        transport = "wifi",
+                        networkState = "validated",
+                        identityKind = "wifi",
+                        privateDnsMode = "system",
+                        dnsServerCount = 2,
+                    ),
+                proxyConfigJson = "{}",
+            ),
+        policySignature = "${mode.preferenceValue}::$fingerprintHash",
+        appliedAt = 123L,
+    )

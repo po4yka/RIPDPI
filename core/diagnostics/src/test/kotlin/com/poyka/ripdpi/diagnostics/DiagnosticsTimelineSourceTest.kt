@@ -3,15 +3,19 @@ package com.poyka.ripdpi.diagnostics
 import com.poyka.ripdpi.data.diagnostics.BypassUsageSessionEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class DiagnosticsTimelineSourceTest {
     private val json = diagnosticsTestJson()
 
@@ -135,6 +139,41 @@ class DiagnosticsTimelineSourceTest {
             } finally {
                 timelineScope.cancel()
             }
+        }
+
+    @Test
+    fun `active connection session keeps usage history retained without external subscribers`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineSource = timelineSource(stores, backgroundScope)
+
+            runCurrent()
+
+            assertEquals(1, stores.usageSessionsCollectorCount.get())
+
+            stores.usageSessionsState.value =
+                listOf(
+                    usageSession(id = "connection-active", startedAt = 10L, updatedAt = 20L, finishedAt = null),
+                )
+            runCurrent()
+
+            assertEquals("connection-active", timelineSource.activeConnectionSession.value?.id)
+        }
+
+    @Test
+    fun `active connection session releases usage history when owning scope is cancelled`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val timelineScope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
+            timelineSource(stores, timelineScope)
+            runCurrent()
+
+            assertEquals(1, stores.usageSessionsCollectorCount.get())
+
+            timelineScope.cancel()
+            runCurrent()
+
+            assertEquals(0, stores.usageSessionsCollectorCount.get())
         }
 
     @Test

@@ -4,7 +4,16 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintSummary
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
+import kotlinx.coroutines.InternalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.FlowCollector
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -76,6 +85,51 @@ class ServiceRuntimeRegistryTest {
             assertEquals("vpn-fp", store.current(Mode.VPN)?.policy?.fingerprintHash)
         }
 
+    @Test
+    fun `active connection projection retains runtime registry without external subscribers`() =
+        runTest {
+            val registry = CountingServiceRuntimeRegistry()
+            val store =
+                DefaultActiveConnectionPolicyStore.createForTests(
+                    serviceRuntimeRegistry = registry,
+                    scope = backgroundScope,
+                )
+            val vpnSession = CountingRuntimeHandle(mode = Mode.VPN, runtimeId = "vpn-runtime")
+
+            runCurrent()
+
+            assertEquals(1, registry.subscriptionCount)
+
+            registry.register(vpnSession)
+            runCurrent()
+
+            assertEquals(1, vpnSession.policySubscriptionCount)
+
+            vpnSession.updateActiveConnectionPolicy(testActivePolicy(mode = Mode.VPN, fingerprintHash = "vpn-fp"))
+            runCurrent()
+
+            assertEquals("vpn-fp", store.current(Mode.VPN)?.policy?.fingerprintHash)
+        }
+
+    @Test
+    fun `active connection projection releases runtime registry when owning scope is cancelled`() =
+        runTest {
+            val registry = CountingServiceRuntimeRegistry()
+            val sourceScope = CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler))
+            DefaultActiveConnectionPolicyStore.createForTests(
+                serviceRuntimeRegistry = registry,
+                scope = sourceScope,
+            )
+            runCurrent()
+
+            assertEquals(1, registry.subscriptionCount)
+
+            sourceScope.cancel()
+            runCurrent()
+
+            assertEquals(0, registry.subscriptionCount)
+        }
+
     private fun testActivePolicy(
         mode: Mode,
         fingerprintHash: String,
@@ -99,4 +153,65 @@ class ServiceRuntimeRegistryTest {
             policySignature = "${mode.preferenceValue}::$fingerprintHash",
             appliedAt = 123L,
         )
+}
+
+private class CountingServiceRuntimeRegistry : ServiceRuntimeRegistry {
+    private val state = MutableStateFlow<Map<Mode, ServiceRuntimeHandle>>(emptyMap())
+    private val countedState = CountingStateFlow(state)
+    val subscriptionCount: Int
+        get() = countedState.collectorCount
+
+    override val runtimes: StateFlow<Map<Mode, ServiceRuntimeHandle>> = countedState
+
+    override fun register(handle: ServiceRuntimeHandle) {
+        state.value = state.value + (handle.mode to handle)
+    }
+
+    override fun unregister(
+        mode: Mode,
+        runtimeId: String,
+    ) {
+        if (state.value[mode]?.runtimeId == runtimeId) {
+            state.value = state.value - mode
+        }
+    }
+}
+
+private class CountingRuntimeHandle(
+    override val mode: Mode,
+    override val runtimeId: String,
+) : ServiceRuntimeHandle {
+    private val activeConnectionPolicyState = MutableStateFlow<ActiveConnectionPolicy?>(null)
+    private val countedActiveConnectionPolicy = CountingStateFlow(activeConnectionPolicyState)
+    val policySubscriptionCount: Int
+        get() = countedActiveConnectionPolicy.collectorCount
+
+    override val activeConnectionPolicy: StateFlow<ActiveConnectionPolicy?> = countedActiveConnectionPolicy
+
+    fun updateActiveConnectionPolicy(policy: ActiveConnectionPolicy) {
+        activeConnectionPolicyState.value = policy
+    }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class, ExperimentalForInheritanceCoroutinesApi::class, InternalCoroutinesApi::class)
+private class CountingStateFlow<T>(
+    private val delegate: StateFlow<T>,
+) : StateFlow<T> {
+    var collectorCount: Int = 0
+        private set
+
+    override val replayCache: List<T>
+        get() = delegate.replayCache
+
+    override val value: T
+        get() = delegate.value
+
+    override suspend fun collect(collector: FlowCollector<T>): Nothing {
+        collectorCount += 1
+        try {
+            delegate.collect(collector)
+        } finally {
+            collectorCount -= 1
+        }
+    }
 }
