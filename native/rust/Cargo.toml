@@ -15,6 +15,7 @@ members = [
     "crates/ripdpi-telemetry",
     "crates/ripdpi-native-protect",
     "crates/ripdpi-android",
+    "crates/ripdpi-relay-core",
     "crates/ripdpi-relay-android",
     "crates/ripdpi-apps-script-core",
     "crates/ripdpi-warp-core",
