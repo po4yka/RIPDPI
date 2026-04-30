@@ -153,6 +153,8 @@ impl AppsScriptDomainFronter {
     }
 
     fn next_script_id(&self) -> String {
+        // Ordering: the counter only distributes requests across script IDs.
+        // No state is published through the selected index.
         let index = self.next_script_index.fetch_add(1, Ordering::Relaxed);
         self.script_ids[index % self.script_ids.len()].clone()
     }

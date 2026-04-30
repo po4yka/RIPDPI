@@ -75,6 +75,8 @@ impl RelayTelemetryState {
 
     pub fn mark_stopped(&self) {
         self.set_state("stopped", "idle");
+        // Ordering: telemetry counters are sampled independently for reporting;
+        // mutex-protected state carries lifecycle text, not this atomic value.
         self.active_sessions.store(0, Ordering::Relaxed);
     }
 
@@ -85,15 +87,21 @@ impl RelayTelemetryState {
     }
 
     pub fn session_opened(&self) {
+        // Ordering: these are independent telemetry counters. Snapshots tolerate
+        // racing updates and do not rely on cross-field synchronization.
         self.total_sessions.fetch_add(1, Ordering::Relaxed);
         self.active_sessions.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn session_closed(&self) {
+        // Ordering: active_sessions is an approximate gauge for telemetry only;
+        // saturating the decrement does not publish or consume other data.
         self.active_sessions.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| value.checked_sub(1)).ok();
     }
 
     pub fn record_success(&self, byte_count: usize) {
+        // Ordering: byte/error counters are diagnostics-only and may be sampled
+        // independently, so Relaxed preserves atomicity without synchronization.
         self.total_bytes.fetch_add(u64::try_from(byte_count).unwrap_or(u64::MAX), Ordering::Relaxed);
         if self.total_errors.load(Ordering::Relaxed) == 0 {
             self.set_state("running", "healthy");
@@ -102,11 +110,16 @@ impl RelayTelemetryState {
 
     pub fn record_error(&self, message: String) {
         *self.last_error.lock().expect("error telemetry mutex") = Some(message);
+        // Ordering: the error message is published through the mutex above; this
+        // counter is only an independently sampled telemetry total.
         self.total_errors.fetch_add(1, Ordering::Relaxed);
         self.set_state("running", "degraded");
     }
 
     pub fn snapshot(&self, config: &AppsScriptRuntimeConfig) -> RelayTelemetry {
+        // Ordering: telemetry snapshots are best-effort observations. Related
+        // string fields are protected by mutexes; counters do not synchronize
+        // with them and may represent slightly different instants.
         RelayTelemetry {
             source: "relay",
             state: self.state.lock().expect("state telemetry mutex").clone(),

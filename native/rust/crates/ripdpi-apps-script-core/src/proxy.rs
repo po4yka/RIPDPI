@@ -52,6 +52,9 @@ impl ProxyServer {
         );
 
         let mut tasks = JoinSet::new();
+        // Ordering: stop_requested is polled as a standalone cancellation bit;
+        // task shutdown is driven by abort_all(), not by memory published
+        // through the atomic.
         while !stop_requested.load(Ordering::Relaxed) {
             match timeout(ACCEPT_POLL_INTERVAL, listener.accept()).await {
                 Ok(Ok((stream, _peer))) => {
