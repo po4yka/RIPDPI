@@ -10,7 +10,7 @@ use jni::refs::Global;
 use jni::sys::{jint, jlong};
 use jni::{EnvUnowned, JavaVM, Outcome};
 use once_cell::sync::Lazy;
-use ripdpi_warp_core::{ResolvedWarpRuntimeConfig, WarpEndpointProbeRequest, WarpRuntime, WarpTelemetry};
+use ripdpi_warp_core::{ResolvedWarpRuntimeConfig, WarpEndpointProbeRequest, WarpPlatform, WarpRuntime, WarpTelemetry};
 use serde::Serialize;
 
 static NEXT_HANDLE: Lazy<Mutex<u64>> = Lazy::new(|| Mutex::new(1));
@@ -73,6 +73,10 @@ fn serialize_telemetry(session: &WarpRuntime) -> Option<String> {
     serde_json::to_string(&snapshot_from_telemetry(session.telemetry())).ok()
 }
 
+fn warp_platform() -> WarpPlatform {
+    WarpPlatform::new().with_socket_protector(ripdpi_native_protect::protect_socket_via_callback)
+}
+
 /// # Safety
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
@@ -107,7 +111,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniCr
                 value
             };
             clear_warp_events();
-            SESSIONS.lock().expect("session mutex").insert(handle, WarpRuntime::new(config));
+            SESSIONS.lock().expect("session mutex").insert(handle, WarpRuntime::with_platform(config, warp_platform()));
             Ok(jlong::try_from(handle).unwrap_or(0))
         })
         .into_outcome()
@@ -219,7 +223,10 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiWarpNativeBindings_jniPr
                 .enable_all()
                 .build()
                 .ok()
-                .and_then(|runtime| runtime.block_on(ripdpi_warp_core::probe_endpoint(request)).ok())
+                .and_then(|runtime| {
+                    let platform = warp_platform();
+                    runtime.block_on(ripdpi_warp_core::probe_endpoint_with_platform(request, &platform)).ok()
+                })
                 .and_then(|result| serde_json::to_string(&result).ok());
             match payload {
                 Some(value) => Ok(env.new_string(value)?.into_raw()),

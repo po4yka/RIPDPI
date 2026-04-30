@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, ToSocketAddrs};
-use std::os::fd::AsRawFd;
+use std::os::fd::{AsRawFd, RawFd};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -10,7 +10,6 @@ use anyhow::{anyhow, Context};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use boringtun::noise::{Tunn, TunnResult};
 use bytes::{Bytes, BytesMut};
-use ripdpi_native_protect::protect_socket_via_callback;
 use serde::{Deserialize, Serialize};
 use smoltcp::iface::{Config as IfaceConfig, Interface, SocketHandle, SocketSet};
 use smoltcp::phy::DeviceCapabilities;
@@ -312,8 +311,45 @@ pub struct WarpTelemetry {
     pub captured_at: u64,
 }
 
+pub trait WarpSocketProtector: Send + Sync {
+    fn protect_socket(&self, fd: RawFd) -> io::Result<()>;
+}
+
+impl<F> WarpSocketProtector for F
+where
+    F: Fn(RawFd) -> io::Result<()> + Send + Sync,
+{
+    fn protect_socket(&self, fd: RawFd) -> io::Result<()> {
+        self(fd)
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct WarpPlatform {
+    socket_protector: Option<Arc<dyn WarpSocketProtector>>,
+}
+
+impl WarpPlatform {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_socket_protector<P>(mut self, protector: P) -> Self
+    where
+        P: WarpSocketProtector + 'static,
+    {
+        self.socket_protector = Some(Arc::new(protector));
+        self
+    }
+
+    fn socket_protector(&self) -> Option<&dyn WarpSocketProtector> {
+        self.socket_protector.as_deref()
+    }
+}
+
 pub struct WarpRuntime {
     config: ResolvedWarpRuntimeConfig,
+    platform: WarpPlatform,
     stop_requested: AtomicBool,
     running: AtomicBool,
     active_sessions: AtomicU64,
@@ -324,8 +360,13 @@ pub struct WarpRuntime {
 
 impl WarpRuntime {
     pub fn new(config: ResolvedWarpRuntimeConfig) -> Arc<Self> {
+        Self::with_platform(config, WarpPlatform::default())
+    }
+
+    pub fn with_platform(config: ResolvedWarpRuntimeConfig, platform: WarpPlatform) -> Arc<Self> {
         Arc::new(Self {
             config,
+            platform,
             stop_requested: AtomicBool::new(false),
             running: AtomicBool::new(false),
             active_sessions: AtomicU64::new(0),
@@ -372,6 +413,7 @@ impl WarpRuntime {
                 reserved,
                 source_peer_ip,
                 &self.config.amnezia,
+                &self.platform,
             )
             .await
             .map_err(to_io_error)?,
@@ -454,6 +496,13 @@ impl WarpRuntime {
 }
 
 pub async fn probe_endpoint(request: WarpEndpointProbeRequest) -> anyhow::Result<WarpEndpointProbeResult> {
+    probe_endpoint_with_platform(request, &WarpPlatform::default()).await
+}
+
+pub async fn probe_endpoint_with_platform(
+    request: WarpEndpointProbeRequest,
+    platform: &WarpPlatform,
+) -> anyhow::Result<WarpEndpointProbeResult> {
     let endpoint = resolve_endpoint(&request.endpoint).await?;
     let private_key = decode_key(&request.private_key).context("invalid WARP private key")?;
     let peer_public_key = decode_key(&request.peer_public_key).context("invalid WARP peer public key")?;
@@ -467,7 +516,7 @@ pub async fn probe_endpoint(request: WarpEndpointProbeRequest) -> anyhow::Result
         0,
         None,
     ));
-    let udp = bind_probe_socket(endpoint).context("bind WARP probe socket")?;
+    let udp = bind_probe_socket(endpoint, platform).context("bind WARP probe socket")?;
     let mut outbound = [0u8; MAX_PACKET];
     let handshake = match peer.format_handshake_initiation(&mut outbound, true) {
         TunnResult::WriteToNetwork(packet) => encode_probe_packet(packet, reserved, amnezia.as_ref()),
@@ -750,7 +799,7 @@ struct WireGuardTunnel {
     amnezia: Option<AmneziaCodec>,
 }
 
-fn bind_probe_socket(endpoint: SocketAddr) -> anyhow::Result<UdpSocket> {
+fn bind_probe_socket(endpoint: SocketAddr, platform: &WarpPlatform) -> anyhow::Result<UdpSocket> {
     let bind_addr = if endpoint.is_ipv4() {
         SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))
     } else {
@@ -758,7 +807,7 @@ fn bind_probe_socket(endpoint: SocketAddr) -> anyhow::Result<UdpSocket> {
     };
     let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
     socket.bind(&bind_addr.into())?;
-    let _ = protect_socket_via_callback(socket.as_raw_fd());
+    protect_socket_if_configured(&socket, platform);
     socket.set_nonblocking(true)?;
     Ok(UdpSocket::from_std(socket.into())?)
 }
@@ -771,6 +820,7 @@ impl WireGuardTunnel {
         reserved: [u8; 3],
         source_peer_ip: IpAddr,
         amnezia_cfg: &WarpAmneziaConfig,
+        platform: &WarpPlatform,
     ) -> anyhow::Result<Self> {
         let private_key = decode_key(private_key).context("invalid WARP private key")?;
         let peer_public_key = decode_key(peer_public_key).context("invalid WARP peer public key")?;
@@ -789,7 +839,7 @@ impl WireGuardTunnel {
         };
         let socket = Socket::new(Domain::for_address(bind_addr), Type::DGRAM, Some(Protocol::UDP))?;
         socket.bind(&bind_addr.into())?;
-        let _ = protect_socket_via_callback(socket.as_raw_fd());
+        protect_socket_if_configured(&socket, platform);
         socket.set_nonblocking(true)?;
         let udp = UdpSocket::from_std(socket.into())?;
         let amnezia = amnezia_cfg.enabled.then(|| AmneziaCodec::new(amnezia_cfg));
@@ -903,6 +953,12 @@ impl WireGuardTunnel {
                 TunnResult::Err(error) => tracing::warn!("WARP tunnel decapsulation failed: {error:?}"),
             }
         }
+    }
+}
+
+fn protect_socket_if_configured<T: AsRawFd>(socket: &T, platform: &WarpPlatform) {
+    if let Some(protector) = platform.socket_protector() {
+        let _ = protector.protect_socket(socket.as_raw_fd());
     }
 }
 
@@ -1413,6 +1469,15 @@ fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::AtomicI32;
+
+    struct FakeFd(RawFd);
+
+    impl AsRawFd for FakeFd {
+        fn as_raw_fd(&self) -> RawFd {
+            self.0
+        }
+    }
 
     #[test]
     fn client_id_reserved_bytes_are_padded() {
@@ -1426,6 +1491,39 @@ mod tests {
         let mut packet = vec![1, 0, 0, 0, 9];
         apply_reserved_bytes(&mut packet, [7, 8, 9]);
         assert_eq!(&packet[..4], &[1, 7, 8, 9]);
+    }
+
+    #[test]
+    fn warp_platform_socket_protector_is_invoked_for_socket_fd() {
+        let observed_fd = Arc::new(AtomicI32::new(-1));
+        let observed = Arc::clone(&observed_fd);
+        let platform = WarpPlatform::new().with_socket_protector(move |fd| {
+            observed.store(fd, Ordering::SeqCst);
+            Ok(())
+        });
+
+        protect_socket_if_configured(&FakeFd(42), &platform);
+
+        assert_eq!(observed_fd.load(Ordering::SeqCst), 42);
+    }
+
+    #[test]
+    fn default_warp_platform_skips_socket_protection() {
+        protect_socket_if_configured(&FakeFd(42), &WarpPlatform::default());
+    }
+
+    #[test]
+    fn warp_platform_socket_protector_errors_are_best_effort() {
+        let observed_fd = Arc::new(AtomicI32::new(-1));
+        let observed = Arc::clone(&observed_fd);
+        let platform = WarpPlatform::new().with_socket_protector(move |fd| {
+            observed.store(fd, Ordering::SeqCst);
+            Err(io::Error::new(io::ErrorKind::PermissionDenied, "protect rejected"))
+        });
+
+        protect_socket_if_configured(&FakeFd(7), &platform);
+
+        assert_eq!(observed_fd.load(Ordering::SeqCst), 7);
     }
 
     fn test_amnezia_codec() -> AmneziaCodec {

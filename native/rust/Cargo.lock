@@ -3676,7 +3676,6 @@ dependencies = [
  "boringtun",
  "bytes",
  "getrandom 0.4.2",
- "ripdpi-native-protect",
  "serde",
  "serde_json",
  "smoltcp",
