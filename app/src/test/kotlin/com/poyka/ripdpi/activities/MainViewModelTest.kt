@@ -1030,6 +1030,7 @@ class MainViewModelTest {
                     diagnosticsScanController = diagnosticsScanController,
                     diagnosticsShareService = diagnosticsShareService,
                     homeDiagnosticsServices = homeDiagnosticsServices,
+                    latestDirectModeOutcomeStore = FakeLatestDirectModeOutcomeStore(),
                 ),
             mainControlPlaneDependencies =
                 MainControlPlaneDependencies(

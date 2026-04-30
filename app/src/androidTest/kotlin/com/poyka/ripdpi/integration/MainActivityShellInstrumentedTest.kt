@@ -36,11 +36,11 @@ import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.permissions.PermissionStatusProviderModule
 import com.poyka.ripdpi.platform.AppPlatformBindingsModule
-import com.poyka.ripdpi.platform.HostAutolearnStoreController
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceControllerModule
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider

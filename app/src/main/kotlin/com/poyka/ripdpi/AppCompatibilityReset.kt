@@ -2,8 +2,8 @@ package com.poyka.ripdpi
 
 import android.content.Context
 import androidx.core.content.edit
-import com.poyka.ripdpi.core.clearHostAutolearnStore
 import com.poyka.ripdpi.data.resolveAppSettingsStoreFile
+import com.poyka.ripdpi.services.HostAutolearnStoreController
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -28,6 +28,7 @@ class AppCompatibilityReset
     @Inject
     constructor(
         @param:ApplicationContext private val context: Context,
+        private val hostAutolearnStoreController: HostAutolearnStoreController,
     ) : AppCompatibilityResetter {
         override fun resetIfNeeded() {
             val preferences = context.getSharedPreferences(CompatibilityResetPreferencesName, Context.MODE_PRIVATE)
@@ -41,7 +42,7 @@ class AppCompatibilityReset
                 }
             }
             context.deleteDatabase(DiagnosticsDatabaseName)
-            clearHostAutolearnStore(context)
+            hostAutolearnStoreController.clearStore()
             resolveLegacyHostAutolearnStoreFile(context).let { file ->
                 if (file.exists()) {
                     file.delete()

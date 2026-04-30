@@ -1,15 +1,10 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.core.RipDpiChainConfig
-import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
-import com.poyka.ripdpi.core.RipDpiQuicConfig
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
-import com.poyka.ripdpi.data.TcpChainStepKind
-import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.TlsFakeProfileGoogleChrome
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.UdpFakeProfileDnsQuery
@@ -89,6 +84,39 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfile as DiagnosticProfileEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession as ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample as TelemetrySampleEntity
 import com.poyka.ripdpi.diagnostics.ProbeResult as ProbeResultEntity
+
+private const val DefaultProxyConfigJson = """{"kind":"ui","listen":{}}"""
+private const val HostfakeProxyConfigJson =
+    """
+    {
+      "kind": "ui",
+      "chains": {
+        "tcpSteps": [
+          {
+            "kind": "tlsrec",
+            "marker": "extlen",
+            "midhostMarker": "",
+            "fakeHostTemplate": "",
+            "fragmentCount": 0,
+            "minFragmentSize": 0,
+            "maxFragmentSize": 0
+          },
+          {
+            "kind": "hostfake",
+            "marker": "endhost+8",
+            "midhostMarker": "",
+            "fakeHostTemplate": "googlevideo.com",
+            "fragmentCount": 0,
+            "minFragmentSize": 0,
+            "maxFragmentSize": 0
+          }
+        ]
+      },
+      "quic": {
+        "fakeProfile": "realistic_initial"
+      }
+    }
+    """
 
 @Suppress("LongMethod", "MagicNumber", "LargeClass")
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -1118,9 +1146,7 @@ class DiagnosticsViewModelTest {
                                                     quicCandidateId = "quic_realistic_burst",
                                                     quicCandidateLabel = "QUIC realistic burst",
                                                     rationale = "Won by weighted success",
-                                                    recommendedProxyConfigJson =
-                                                        RipDpiProxyUIPreferences()
-                                                            .toNativeConfigJson(),
+                                                    recommendedProxyConfigJson = DefaultProxyConfigJson,
                                                     strategySignature = null,
                                                 ),
                                         ),
@@ -1175,25 +1201,7 @@ class DiagnosticsViewModelTest {
     fun `automatic audit report exposes full matrix summary and candidate detail`() =
         runTest {
             val profileId = "automatic-audit"
-            val hostfakeConfigJson =
-                RipDpiProxyUIPreferences(
-                    chains =
-                        RipDpiChainConfig(
-                            tcpSteps =
-                                listOf(
-                                    TcpChainStepModel(kind = TcpChainStepKind.TlsRec, marker = "extlen"),
-                                    TcpChainStepModel(
-                                        kind = TcpChainStepKind.HostFake,
-                                        marker = "endhost+8",
-                                        fakeHostTemplate = "googlevideo.com",
-                                    ),
-                                ),
-                        ),
-                    quic =
-                        RipDpiQuicConfig(
-                            fakeProfile = "realistic_initial",
-                        ),
-                ).toNativeConfigJson()
+            val hostfakeConfigJson = HostfakeProxyConfigJson
             val manager =
                 FakeDiagnosticsManager().apply {
                     profilesState.value =
@@ -3080,7 +3088,7 @@ class DiagnosticsViewModelTest {
                 quicCandidateId = "quic_realistic_burst",
                 quicCandidateLabel = "QUIC realistic burst",
                 rationale = "Won by full HTTPS and QUIC success",
-                recommendedProxyConfigJson = RipDpiProxyUIPreferences().toNativeConfigJson(),
+                recommendedProxyConfigJson = DefaultProxyConfigJson,
                 strategySignature =
                     BypassStrategySignature(
                         mode = "VPN",

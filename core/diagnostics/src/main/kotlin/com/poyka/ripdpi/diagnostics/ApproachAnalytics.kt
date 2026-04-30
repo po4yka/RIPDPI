@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
@@ -314,6 +315,20 @@ private fun resolveSettingsFakeTlsMods(settings: AppSettings): List<String> =
         if (settings.fakeTlsDupSessionId) add("dupsid")
         if (settings.fakeTlsPadEncap) add("padencap")
     }
+
+fun deriveBypassStrategySignature(
+    configJson: String,
+    routeGroup: String?,
+    modeOverride: Mode,
+): BypassStrategySignature? =
+    decodeRipDpiProxyUiPreferences(configJson)
+        ?.let { preferences ->
+            deriveBypassStrategySignature(
+                preferences = preferences,
+                routeGroup = routeGroup,
+                modeOverride = modeOverride,
+            )
+        }
 
 fun deriveBypassStrategySignature(
     preferences: RipDpiProxyUIPreferences,
