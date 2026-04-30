@@ -1,0 +1,82 @@
+use std::net::{Ipv4Addr, SocketAddr, UdpSocket};
+
+use crate::util::IO_TIMEOUT;
+
+use super::address::resolve_addresses;
+use super::route_experiment::{relay_udp_direct_with_route_experiment, route_identity};
+use super::socks5::relay_udp_via_socks5;
+use super::tcp::resolve_candidate_addresses;
+use super::types::{TargetAddress, TransportConfig, UdpRelayResult};
+
+pub fn relay_udp_payload_observed(
+    targets: &[TargetAddress],
+    port: u16,
+    transport: &TransportConfig,
+    payload: &[u8],
+) -> Result<UdpRelayResult, String> {
+    match transport {
+        TransportConfig::Direct { route_experiment } => {
+            let destinations = resolve_candidate_addresses(targets, port)?;
+            if let Some(config) = route_experiment.as_ref() {
+                let route_identity = route_identity(&destinations);
+                return relay_udp_direct_with_route_experiment(&destinations, payload, config, &route_identity);
+            }
+            let mut last_error = None;
+            for destination in destinations {
+                match relay_udp_direct(destination, payload) {
+                    Ok((bytes, local_addr)) => {
+                        return Ok(UdpRelayResult {
+                            payload: bytes,
+                            connected_addr: Some(destination),
+                            local_addr: Some(local_addr),
+                            route_report: None,
+                        });
+                    }
+                    Err(err) => last_error = Some(err),
+                }
+            }
+            Err(last_error.unwrap_or_else(|| "no_socket_addrs".to_string()))
+        }
+        TransportConfig::Socks5 { host, port: proxy_port } => {
+            let mut last_error = None;
+            for target in targets {
+                let destination = match target {
+                    TargetAddress::Ip(ip) => SocketAddr::new(*ip, port),
+                    TargetAddress::Host(host_name) => {
+                        let Some(address) =
+                            resolve_addresses(&TargetAddress::Host(host_name.clone()), port)?.into_iter().next()
+                        else {
+                            continue;
+                        };
+                        address
+                    }
+                };
+                match relay_udp_via_socks5(host, *proxy_port, destination, payload) {
+                    Ok((bytes, local_addr)) => {
+                        return Ok(UdpRelayResult {
+                            payload: bytes,
+                            connected_addr: Some(destination),
+                            local_addr: Some(local_addr),
+                            route_report: None,
+                        });
+                    }
+                    Err(err) => last_error = Some(err),
+                }
+            }
+            Err(last_error.unwrap_or_else(|| "no_target_candidates".to_string()))
+        }
+    }
+}
+
+pub fn relay_udp_direct(server: SocketAddr, payload: &[u8]) -> Result<(Vec<u8>, SocketAddr), String> {
+    let bind_addr: SocketAddr =
+        if server.is_ipv4() { (Ipv4Addr::UNSPECIFIED, 0).into() } else { (std::net::Ipv6Addr::UNSPECIFIED, 0).into() };
+    let socket = UdpSocket::bind(bind_addr).map_err(|err| err.to_string())?;
+    socket.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    socket.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
+    socket.send_to(payload, server).map_err(|err| err.to_string())?;
+    let mut buf = [0u8; 2048];
+    let (size, _) = socket.recv_from(&mut buf).map_err(|err| err.to_string())?;
+    let local_addr = socket.local_addr().map_err(|err| err.to_string())?;
+    Ok((buf[..size].to_vec(), local_addr))
+}
