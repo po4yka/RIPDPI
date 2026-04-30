@@ -1,6 +1,6 @@
 ---
 name: android-device-debug
-description: Use when debugging the app on a device or emulator, capturing logs, running instrumented tests, managing emulators, or investigating crashes and network issues
+description: Android device or emulator debugging, logs, instrumented tests, crashes, and network issues.
 ---
 
 # Android Device Debug

@@ -1,13 +1,6 @@
 ---
 name: convention-plugin-development
-description: >
-  Convention plugin authoring in build-logic/convention/. Covers the included build
-  pattern, all ripdpi.android.* and ripdpi.diagnostics.* precompiled script plugins,
-  the DiagnosticsCatalog code generator, the rust-native Cargo cross-compilation plugin,
-  protobuf code generation, and NativeBuildPolicy helpers. Use this skill when: adding
-  a new convention plugin, modifying an existing plugin, changing shared SDK/ABI/profile
-  properties in gradle.properties, debugging Gradle configuration cache issues in
-  build-logic, wiring new AGP variant APIs, or updating the diagnostics catalog pipeline.
+description: Gradle convention plugins, shared build policy, diagnostics catalog generation, and AGP APIs.
 ---
 
 ## 1. Plugin Architecture

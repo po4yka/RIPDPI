@@ -1,6 +1,6 @@
 ---
 name: appium-test-debug
-description: Use when Appium tests fail, are flaky, or produce unexpected results. Covers locator failures, wait/timeout issues, session problems, and test stability. Triggers on: flaky, NoSuchElement, TimeoutException, StaleElement, appium fail, appium debug, appium error.
+description: Appium failure triage for flaky tests, locators, waits, sessions, and stability.
 ---
 
 # Appium Test Debug

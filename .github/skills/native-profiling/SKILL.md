@@ -1,6 +1,6 @@
 ---
 name: native-profiling
-description: Use when profiling native Rust code on Android -- CPU flamegraphs with simpleperf, memory debugging with HWASan, and desktop profiling with cargo-flamegraph
+description: Native Rust profiling on Android and desktop with simpleperf, HWASan, and flamegraphs.
 ---
 
 # Native Profiling

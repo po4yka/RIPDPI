@@ -1,18 +1,6 @@
 ---
 name: compose-performance
-description: >
-  Compose recomposition profiling, stability analysis, compiler metrics,
-  LazyColumn optimization, and derivedStateOf usage for the RIPDPI project.
-  Use when diagnosing unnecessary recompositions, analyzing Compose compiler
-  stability reports, optimizing LazyColumn/LazyRow scroll performance,
-  deciding between @Stable and @Immutable annotations, reviewing UI model
-  class stability, interpreting compose-metrics and compose-reports output,
-  debugging infinite transition animations on HomeScreen, reducing
-  AdvancedSettingsScreen recomposition scope, or applying derivedStateOf
-  to filter-heavy screens like LogsScreen, DiagnosticsScreen, and
-  HistoryScreen. Also use when adding new UI model classes that will be
-  passed to Composable functions, or when modifying the stability config
-  at app/compose-stability.conf.
+description: Compose performance, recomposition, stability reports, Lazy lists, annotations, and metrics.
 ---
 
 # Compose Performance -- RIPDPI

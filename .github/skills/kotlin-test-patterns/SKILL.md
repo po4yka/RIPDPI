@@ -1,15 +1,6 @@
 ---
 name: kotlin-test-patterns
-description: >
-  Kotlin test patterns for the RIPDPI project. Covers ViewModel unit testing
-  with MainDispatcherRule and runTest, flow collection with Turbine, Compose
-  UI testing with ComposeTestRule and Roborazzi screenshot tests, Hilt
-  instrumented test setup with @HiltAndroidTest and @BindValue, golden
-  contract tests with GoldenContractSupport, diagnostics fixture builders,
-  hand-rolled fake/test-double conventions, and coroutine test dispatcher
-  configuration. Use when writing any new test, reviewing test code, or
-  debugging test failures in app/src/test, app/src/androidTest, or
-  core/*/src/test.
+description: Kotlin unit, Compose, Hilt, coroutine, fake, fixture, and golden-test patterns.
 ---
 
 # Kotlin Test Patterns -- RIPDPI

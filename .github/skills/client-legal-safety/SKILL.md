@@ -1,6 +1,6 @@
 ---
 name: client-legal-safety
-description: Use when reviewing domains, diagnostics targets, built-in probes, or product workflows for client-side legal/compliance safety, especially jurisdiction-specific risk such as current Russian Federation restrictions. Triggers on: legal safety, compliance review, unsafe domains, Russian law, undesirable organization, extremist materials, VPN promotion, circumvention risk.
+description: Client legal-safety review for domains, diagnostics targets, probes, workflows, and jurisdiction risk.
 ---
 
 # Client Legal Safety

@@ -1,6 +1,6 @@
 ---
 name: ci-workflow-authoring
-description: Use when writing or modifying GitHub Actions workflows, adding CI jobs, configuring caches or artifacts, fixing CI failures, or understanding the current RIPDPI workflow graph. Triggers on: CI workflow, GitHub Actions, workflow file, CI pipeline, nightly build, workflow dispatch, CodeQL, macrobenchmark, soak job, CI failing.
+description: GitHub Actions authoring for workflows, CI jobs, caches, artifacts, and failure triage.
 ---
 
 # CI Workflow Authoring

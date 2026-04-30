@@ -1,13 +1,6 @@
 ---
 name: rust-panic-safety
-description: >
-  RIPDPI Rust panic-safety and error-handling discipline. Use when adding a new JNI entry
-  point, writing a new library crate, converting an internal error into a Java exception,
-  choosing between `anyhow` and `thiserror`, auditing `.unwrap()` / `.expect()` usage, or
-  reviewing any `extern "C"` / `extern "system"` boundary. Covers the uniform `catch_unwind`
-  pattern across the 4 JNI adapter crates, the `Outcome::Panic` handling via
-  `EnvUnowned::with_env`, and the policy for when `.unwrap()` is acceptable vs when it must
-  be replaced with a typed error.
+description: Rust panic safety, JNI boundaries, Java exceptions, typed errors, unwrap audits, and catch_unwind.
 ---
 
 # Rust Panic Safety — RIPDPI

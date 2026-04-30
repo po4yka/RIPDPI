@@ -1,6 +1,6 @@
 ---
 name: memory-model
-description: Rust memory model skill for concurrent programming on ARM64 Android. Use when understanding memory ordering, writing lock-free code, using Rust atomics, diagnosing data races, or selecting the correct memory order for atomic operations. Activates on queries about memory ordering, acquire-release, seq_cst, relaxed atomics, happens-before, memory barriers, or Rust atomic ordering.
+description: Rust memory ordering, atomics, happens-before reasoning, and ARM64 concurrency diagnostics.
 ---
 
 # Memory Model

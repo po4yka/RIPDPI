@@ -1,6 +1,6 @@
 ---
 name: appium-test-authoring
-description: Use when creating new Appium test files, writing page objects, updating existing tests for UI changes, or adding test coverage for new screens. Covers page object patterns, locator conventions, assertion style, and test structure. Triggers on: appium, page object, test_*.py, BasePage, AppiumBy, appium test.
+description: Appium test authoring, page objects, locators, assertions, and new-screen coverage.
 ---
 
 # Appium Test Authoring

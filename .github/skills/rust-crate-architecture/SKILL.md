@@ -1,8 +1,6 @@
 ---
 name: rust-crate-architecture
-description: >
-  Use when creating new Rust crates, adding cross-crate dependencies, or restructuring
-  the native/rust/ workspace. Enforces layering rules and dependency direction.
+description: Rust crate creation, workspace restructuring, dependency layering, and direction rules.
 ---
 
 # Rust Crate Architecture

@@ -1,14 +1,6 @@
 ---
 name: rust-io-loop
-description: >
-  RIPDPI io_loop and manual async-poll guidance. Use when adding a new channel or
-  socket type to the smoltcp/tokio bridge in `ripdpi-tunnel-core`, reviewing a change
-  that touches `try_read_duplex` / `try_write_duplex`, extending session/udp.rs or
-  session/tcp.rs, modifying the `ripdpi-io-uring` ring buffer pool, or diagnosing why
-  a tunnel future appears to stall. Covers the NoopWaker-based manual polling pattern
-  that bridges smoltcp's userspace TCP stack to tokio's async runtime, the
-  cancellation-safety caveats that follow from it, and the io_uring registered-buffer
-  conventions.
+description: io_loop, smoltcp/Tokio bridge, manual polling, tunnel sessions, io_uring buffers, and stalls.
 ---
 
 # RIPDPI io_loop — Manual Poll Bridge

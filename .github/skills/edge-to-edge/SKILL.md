@@ -1,13 +1,6 @@
 ---
 name: edge-to-edge
-description: >
-  RIPDPI edge-to-edge window-inset authoring guide. Use when adding a new top-level screen,
-  adjusting a Scaffold or bottom sheet that clips behind system bars, working on splash-screen
-  to main-surface handoff, or debugging content clipped by navigation / status bars on API
-  30+ devices. Scoped to compileSdk 36 + targetSdk 35 enforcement, Compose `WindowInsets`
-  variants, `Modifier.windowInsetsPadding` vs `Modifier.safeDrawingPadding` trade-offs, the
-  `androidx.core.splashscreen:1.2.0` interaction with `enableEdgeToEdge()`, and the existing
-  anchor call site at `MainActivity.kt:74-76`.
+description: Edge-to-edge and window-inset handling for Compose screens, scaffolds, sheets, and system bars.
 ---
 
 # Edge-to-Edge on RIPDPI

@@ -1,6 +1,6 @@
 ---
 name: rust-sanitizers-miri
-description: Rust sanitizers and Miri skill for memory safety validation. Use when running AddressSanitizer or ThreadSanitizer on Rust code, interpreting sanitizer reports, using Miri to detect undefined behaviour in unsafe Rust, or validating unsafe code correctness. Activates on queries about Rust ASan, Rust TSan, Miri, RUSTFLAGS sanitize, cargo miri, unsafe Rust UB, Android HWASan, or interpreting Rust sanitizer output.
+description: Rust memory-safety validation with ASan, TSan, Miri, HWASan, and sanitizer report triage.
 ---
 
 # Rust Sanitizers and Miri

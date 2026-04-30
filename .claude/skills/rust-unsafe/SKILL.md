@@ -1,10 +1,6 @@
 ---
 name: rust-unsafe
-description: >
-  Rust unsafe code for systems programming: writing/auditing unsafe blocks,
-  raw pointers, transmute, extern "C", safe wrappers, UnsafeCell, unsafe
-  trait impl. Use for JNI FFI, ioctl/tun, signal handling in RIPDPI native
-  crates.
+description: Rust unsafe guidance for FFI, raw pointers, transmute, UnsafeCell, ioctl/tun, and safe wrappers.
 ---
 
 # Rust unsafe -- RIPDPI

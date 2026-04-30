@@ -1,10 +1,6 @@
 ---
 name: diagnostics-system
-description: >
-  Diagnostics engine and scan pipeline (ripdpi-monitor + core/diagnostics):
-  ScanRequest/Report, ProbeTask, DiagnosticsScanWorkflow, strategy probe,
-  wire schema, golden contract tests. Use for scan flow, probes, catalog,
-  or telemetry work.
+description: Diagnostics scan pipeline, strategy probes, telemetry, wire schemas, catalogs, and goldens.
 ---
 
 # Diagnostics System

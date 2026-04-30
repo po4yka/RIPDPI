@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: Use when implementing features, fixing bugs, refactoring code, or adding tests. Enforces test-first red-green-refactor discipline with project-specific patterns.
+description: Test-first workflow for features, bug fixes, refactors, and project-specific test patterns.
 ---
 
 # Test-Driven Development

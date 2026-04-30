@@ -1,10 +1,6 @@
 ---
 name: rust-build-times
-description: >
-  Reduce Rust compilation time: cargo-timings build profiling, sccache,
-  workspace splitting, thin-vs-fat LTO, Android NDK cross-compilation.
-  Triggers: slow Rust compile, cargo-timings, sccache, LTO,
-  NDK build times.
+description: Rust build-time profiling and optimization with cargo-timings, sccache, LTO, and NDK builds.
 ---
 
 # Rust Build Times

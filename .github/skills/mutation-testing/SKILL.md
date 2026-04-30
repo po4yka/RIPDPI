@@ -1,13 +1,6 @@
 ---
 name: mutation-testing
-description: >
-  Use when running cargo-mutants on the native/rust workspace, interpreting
-  mutation testing results, triaging survived mutants, improving test adequacy,
-  configuring mutants.toml, reviewing mutants-output artifacts, or writing
-  mutation-resistant tests. Activates on queries about: cargo-mutants,
-  mutant survival, mutation score, missed mutants, timeout mutants, unviable
-  mutants, test adequacy gaps, mutants.toml, --in-diff, mutation-testing.yml,
-  run-rust-mutants.sh, boundary value testing, assertion specificity.
+description: Rust mutation testing with cargo-mutants, survived-mutant triage, and test adequacy fixes.
 ---
 
 # Mutation Testing

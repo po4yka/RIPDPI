@@ -1,6 +1,6 @@
 ---
 name: android-compose-patterns
-description: Use when building or modifying Compose UI screens, ViewModels, navigation routes, state management, or theming in the app module
+description: Compose UI, ViewModels, navigation, state, and app-module theming.
 ---
 
 # Android Compose Patterns

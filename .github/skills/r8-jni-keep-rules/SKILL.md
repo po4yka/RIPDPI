@@ -1,13 +1,6 @@
 ---
 name: r8-jni-keep-rules
-description: >
-  RIPDPI R8 / ProGuard keep-rule authoring guide. Use when adding a new `@Serializable`
-  navigation route, a new JNI binding class, a new protobuf schema used by DataStore or
-  the native config contract, or when a release build fails with a minification error and
-  `missing_rules.txt` suggestions appear. Covers the three authoritative sources of truth
-  (`core/engine/consumer-rules.pro`, `core/data/consumer-rules.pro`, `app/proguard-rules.pro`)
-  and the policy for handling `missing_rules.txt` output symbolically rather than by verbatim
-  copy-paste.
+description: R8 and ProGuard keep rules for serializable routes, JNI bindings, protobufs, and minification.
 ---
 
 # R8 / JNI Keep-Rule Authoring

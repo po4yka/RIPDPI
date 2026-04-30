@@ -1,6 +1,6 @@
 ---
 name: rust-async-internals
-description: Rust async internals skill for debugging async Rust in the RIPDPI project. Use when diagnosing select!/join! pitfalls, blocking-in-async issues, JNI-to-async bridging, tokio runtime configuration for Android NDK, CancellationToken patterns, or the io_loop event-driven architecture. Activates on queries about async internals, select!, blocking in async, JNI async bridging, CancellationToken, or io_loop design.
+description: Rust async internals for select/join, blocking, JNI bridges, Tokio setup, cancellation, and io_loop.
 ---
 
 # Rust Async Internals -- RIPDPI

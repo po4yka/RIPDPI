@@ -1,17 +1,6 @@
 ---
 name: jetpack-compose-api
-description: >
-  Jetpack Compose API reference and internals. Use when the question is about how a Compose
-  API works — remember, mutableStateOf, derivedStateOf, snapshotFlow, LaunchedEffect,
-  DisposableEffect, SideEffect, rememberCoroutineScope, Modifier.Node, Modifier ordering,
-  LazyColumn/LazyRow keys and content types, NavHost type-safe routes (Navigation 2.8+),
-  AnimatedVisibility, Crossfade, animate*AsState, updateTransition, MaterialTheme internals,
-  ColorScheme, CompositionLocal, recomposition skipping, @Stable/@Immutable, baseline profiles,
-  accessibility semantics, deprecated Compose APIs, or the experimental Styles API
-  (Style {}, MutableStyleState, Modifier.styleable()). Backed by actual androidx source code.
-  For RIPDPI-specific Compose conventions (ViewModel pattern, sealed Route navigation,
-  DataStore -> StateFlow -> collectAsStateWithLifecycle, RipDpiThemeTokens), use the
-  android-compose-patterns skill instead.
+description: Jetpack Compose API internals, state, effects, modifiers, navigation, animation, and semantics.
 ---
 
 # Jetpack Compose Expert Skill

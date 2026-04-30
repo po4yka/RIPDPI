@@ -1,6 +1,6 @@
 ---
 name: cargo-workflows
-description: Cargo workflow skill for the RIPDPI Rust workspace (23 crates, Android NDK cross-compilation). Use when managing the workspace, feature flags, build scripts, Gradle-Cargo integration, cargo-deny, cargo-audit, nextest, CI caching, or cross-compilation. Activates on queries about Cargo.toml, native builds, JNI libraries, cdylib crates, or dependency auditing.
+description: Cargo workspace, feature flags, native builds, dependency audits, and Android cross-compilation.
 ---
 
 # Cargo Workflows -- RIPDPI

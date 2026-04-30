@@ -1,8 +1,6 @@
 ---
 name: rust-lint-config
-description: >
-  Use when modifying clippy, rustfmt, or cargo-deny configuration, adding new lints,
-  or debugging lint failures in the native/rust/ workspace.
+description: Rust clippy, rustfmt, cargo-deny configuration, new lints, and lint failure triage.
 ---
 
 # Rust Lint Configuration

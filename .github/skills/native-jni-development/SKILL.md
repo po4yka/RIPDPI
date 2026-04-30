@@ -1,6 +1,6 @@
 ---
 name: native-jni-development
-description: Use when modifying Rust native crates, changing JNI exports, or debugging native crashes and JNI linkage errors
+description: Rust native crate changes, JNI exports, native crashes, and JNI linkage errors.
 ---
 
 # Native JNI Development

@@ -1,6 +1,6 @@
 ---
 name: detekt-custom-rules
-description: Use when writing custom detekt rules, modifying the DI guardrails rule set, configuring detekt.yml, or debugging false positives from static analysis. Triggers on: detekt rule, custom lint, static analysis rule, DI guardrail, Hilt check, code smell detection, detekt.yml, RuleSetProvider.
+description: Custom detekt rules, DI guardrails, detekt.yml configuration, and false-positive triage.
 ---
 
 # Custom Detekt Rules

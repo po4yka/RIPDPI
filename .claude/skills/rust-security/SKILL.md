@@ -1,6 +1,6 @@
 ---
 name: rust-security
-description: Rust supply chain security skill. Use when auditing dependencies with cargo-audit, enforcing policies with cargo-deny, reviewing RUSTSEC advisories, or hardening the dependency supply chain. Activates on queries about cargo-audit, cargo-deny, RUSTSEC advisories, supply chain security, Rust CVEs, or dependency policy enforcement.
+description: Rust supply-chain security with cargo-audit, cargo-deny, RUSTSEC advisories, and CVE triage.
 ---
 
 # Rust Supply Chain Security
