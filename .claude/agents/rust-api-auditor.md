@@ -2,7 +2,7 @@
 name: rust-api-auditor
 description: Audits Rust crate API surfaces for visibility bloat, trait design, error handling, hot-path contention, and SOLID violations across the 40-crate workspace. Use for periodic crate design quality checks.
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: opus
 maxTurns: 30
 skills:
   - cargo-workflows

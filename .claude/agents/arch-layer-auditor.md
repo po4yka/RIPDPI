@@ -2,7 +2,7 @@
 name: arch-layer-auditor
 description: Audits Kotlin module boundaries and Rust crate layering for dependency direction violations, circular dependencies, and coupling metrics. Use for periodic architecture health checks.
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: opus
 maxTurns: 30
 skills:
   - cargo-workflows

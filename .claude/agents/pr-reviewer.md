@@ -2,7 +2,7 @@
 name: pr-reviewer
 description: Review code changes for correctness, safety, and project policy. Use after code changes to catch issues before commit.
 tools: Read, Grep, Glob, Bash
-model: inherit
+model: opus
 maxTurns: 30
 skills:
   - desync-engine
@@ -89,15 +89,17 @@ If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back t
 
 ## Output Format
 
+Report every issue you find, including ones you are uncertain about or consider low-severity. Do not filter for importance or confidence at this stage — your job here is coverage, and a downstream verification or triage pass will rank and filter. It is better to surface a finding that later gets dropped than to silently drop a real bug.
+
 Group findings into three categories:
 
-**CRITICAL** -- Must fix before merge (security, UB, baseline violations, data loss)
+**CRITICAL** — must fix before merge (security, UB, baseline violations, data loss)
 
-**WARNING** -- Should fix (missing tests, error handling gaps, code smells)
+**WARNING** — should fix (missing tests, error handling gaps, code smells)
 
-**SUGGESTION** -- Nice to have (style, naming, minor refactors)
+**SUGGESTION** — nice to have (style, naming, minor refactors)
 
-For each finding, include: file path, line range, description, and suggested fix.
+For each finding, include: file path, line range, description, your confidence (high/medium/low), and suggested fix. Apply this checklist to every changed file in the diff, not only the first one.
 
 If no issues found, state "No issues found" with a brief summary of what was reviewed.
 

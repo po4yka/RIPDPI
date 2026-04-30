@@ -5,7 +5,7 @@ description: >
   CLI packet smoke scenarios that verify desync strategies produce the
   expected on-wire packet mutations (splits, reorders, fake TTLs, OOB bytes).
 tools: Bash, Read, Grep, Glob
-model: inherit
+model: sonnet
 maxTurns: 30
 skills:
   - desync-engine
