@@ -17,6 +17,8 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import java.util.concurrent.TimeUnit
 
+private const val CdnEchRefreshIntervalHours = 24L
+
 // 24-hour periodic worker that refreshes the singleton CdnEchUpdater
 // from its DoH primary (or the bundled fallback) and persists the
 // resulting cache to EncryptedSharedPreferences.
@@ -75,7 +77,7 @@ class CdnEchRefreshWorker
                         .setRequiredNetworkType(NetworkType.CONNECTED)
                         .build()
                 val request =
-                    PeriodicWorkRequestBuilder<CdnEchRefreshWorker>(24L, TimeUnit.HOURS)
+                    PeriodicWorkRequestBuilder<CdnEchRefreshWorker>(CdnEchRefreshIntervalHours, TimeUnit.HOURS)
                         .setConstraints(constraints)
                         .build()
                 WorkManager

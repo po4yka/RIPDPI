@@ -140,55 +140,8 @@ private fun OwnedStackBrowserContent(
                 .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        val bannerMessageRes =
-            if (uiState.support.android17EchEligible) {
-                R.string.owned_stack_browser_banner_android17
-            } else if (uiState.support.platformHttpEngineAvailable) {
-                R.string.owned_stack_browser_banner_platform
-            } else {
-                R.string.owned_stack_browser_banner_fallback
-            }
-        val bannerTone =
-            if (uiState.support.platformHttpEngineAvailable) {
-                WarningBannerTone.Info
-            } else {
-                WarningBannerTone.Restricted
-            }
-        WarningBanner(
-            title = stringResource(R.string.owned_stack_browser_banner_title),
-            message = stringResource(bannerMessageRes),
-            tone = bannerTone,
-        )
-        RipDpiCard(variant = RipDpiCardVariant.Outlined) {
-            Text(
-                text = stringResource(R.string.owned_stack_browser_url_label),
-                style = type.bodyEmphasis,
-                color = colors.foreground,
-            )
-            RipDpiTextField(
-                value = uiState.inputUrl,
-                onValueChange = onUrlChanged,
-                decoration =
-                    RipDpiTextFieldDecoration(
-                        placeholder = stringResource(R.string.owned_stack_browser_url_placeholder),
-                    ),
-                behavior =
-                    RipDpiTextFieldBehavior(
-                        keyboardOptions =
-                            KeyboardOptions(
-                                keyboardType = KeyboardType.Uri,
-                                imeAction = ImeAction.Go,
-                            ),
-                        singleLine = true,
-                    ),
-            )
-            RipDpiButton(
-                text = stringResource(R.string.owned_stack_browser_open_action),
-                onClick = onOpen,
-                enabled = uiState.inputUrl.isNotBlank() && !uiState.isLoading,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        OwnedStackBrowserSupportBanner(uiState = uiState)
+        OwnedStackBrowserUrlCard(uiState = uiState, onUrlChanged = onUrlChanged, onOpen = onOpen)
         uiState.errorMessage?.let { message ->
             WarningBanner(
                 title = stringResource(R.string.owned_stack_browser_error_title),
@@ -208,6 +161,69 @@ private fun OwnedStackBrowserContent(
         uiState.page?.let { page ->
             OwnedStackPageResult(page = page)
         }
+    }
+}
+
+@Composable
+private fun OwnedStackBrowserSupportBanner(uiState: OwnedStackBrowserUiState) {
+    val bannerMessageRes =
+        if (uiState.support.android17EchEligible) {
+            R.string.owned_stack_browser_banner_android17
+        } else if (uiState.support.platformHttpEngineAvailable) {
+            R.string.owned_stack_browser_banner_platform
+        } else {
+            R.string.owned_stack_browser_banner_fallback
+        }
+    val bannerTone =
+        if (uiState.support.platformHttpEngineAvailable) {
+            WarningBannerTone.Info
+        } else {
+            WarningBannerTone.Restricted
+        }
+    WarningBanner(
+        title = stringResource(R.string.owned_stack_browser_banner_title),
+        message = stringResource(bannerMessageRes),
+        tone = bannerTone,
+    )
+}
+
+@Composable
+private fun OwnedStackBrowserUrlCard(
+    uiState: OwnedStackBrowserUiState,
+    onUrlChanged: (String) -> Unit,
+    onOpen: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        Text(
+            text = stringResource(R.string.owned_stack_browser_url_label),
+            style = type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        RipDpiTextField(
+            value = uiState.inputUrl,
+            onValueChange = onUrlChanged,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    placeholder = stringResource(R.string.owned_stack_browser_url_placeholder),
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType = KeyboardType.Uri,
+                            imeAction = ImeAction.Go,
+                        ),
+                    singleLine = true,
+                ),
+        )
+        RipDpiButton(
+            text = stringResource(R.string.owned_stack_browser_open_action),
+            onClick = onOpen,
+            enabled = uiState.inputUrl.isNotBlank() && !uiState.isLoading,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
