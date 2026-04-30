@@ -15,7 +15,7 @@ ripdpi-config = { path = "../crates/ripdpi-config" }
 ripdpi-desync = { path = "../crates/ripdpi-desync" }
 ripdpi-failure-classifier = { path = "../crates/ripdpi-failure-classifier" }
 ripdpi-dns-resolver = { path = "../crates/ripdpi-dns-resolver" }
-ripdpi-monitor = { path = "../crates/ripdpi-monitor" }
+ripdpi-diagnostics-parsers = { path = "../crates/ripdpi-diagnostics-parsers" }
 ripdpi-packets = { path = "../crates/ripdpi-packets" }
 ripdpi-proxy-config = { path = "../crates/ripdpi-proxy-config" }
 ripdpi-session = { path = "../crates/ripdpi-session" }

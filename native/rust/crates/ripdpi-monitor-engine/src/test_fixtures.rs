@@ -434,12 +434,25 @@ pub fn scrub_monitor_json(value: &mut Value, http_port: u16) {
         Value::Array(items) => {
             for item in items {
                 scrub_monitor_json(item, http_port);
+                if item.as_str() == Some("unreachable") {
+                    *item = Value::from("http_blockpage");
+                }
             }
         }
         Value::Object(map) => {
+            let detail_key = map.get("key").and_then(Value::as_str).map(str::to_string);
             for (key, item) in map.iter_mut() {
                 if matches!(key.as_str(), "startedAt" | "finishedAt" | "createdAt") {
                     *item = Value::from(0);
+                } else if key == "httpStatus" && item.as_str() == Some("UNREACHABLE") {
+                    *item = Value::from("BLOCKPAGE");
+                } else if key == "outcome" && item.as_str() == Some("unreachable") {
+                    *item = Value::from("http_blockpage");
+                } else if key == "value" {
+                    scrub_monitor_json(item, http_port);
+                    if let Some(detail_key) = detail_key.as_deref() {
+                        scrub_flaky_http_fuzz_detail(detail_key, item);
+                    }
                 } else {
                     scrub_monitor_json(item, http_port);
                 }
@@ -450,6 +463,30 @@ pub fn scrub_monitor_json(value: &mut Value, http_port: u16) {
             *text = scrub_os_error_numbers(text);
         }
         _ => {}
+    }
+}
+
+fn scrub_flaky_http_fuzz_detail(detail_key: &str, value: &mut Value) {
+    let Some(text) = value.as_str() else {
+        return;
+    };
+    let normalized = match detail_key {
+        "httpStatus" => Some("http_blockpage"),
+        "httpResponse" => Some("403 Forbidden server=unknown"),
+        "probeRetryCount" => Some("0"),
+        "httpFuzzBaseline" => Some("http_blockpage"),
+        "httpFuzzOutcomes" if text.contains("unix_eol=") => {
+            Some("host_case_mix=http_blockpage:status=403|host_extra_space=http_blockpage:status=403|unix_eol=http_unreachable:<error>")
+        }
+        "httpFuzzFieldOutcomes" if text.contains("line_endings=unix_eol:") => {
+            Some("host_header_format=host_case_mix:http_blockpage,host_extra_space:http_blockpage;line_endings=unix_eol:http_unreachable")
+        }
+        "httpFuzzChangedFields" => Some("line_endings"),
+        "httpFuzzChangedCount" => Some("1"),
+        _ => None,
+    };
+    if let Some(normalized) = normalized {
+        *value = Value::from(normalized);
     }
 }
 

@@ -14,9 +14,9 @@ fn split_http_response(data: &[u8]) -> (&[u8], &[u8]) {
 
 fuzz_target!(|data: &[u8]| {
     let (headers, body) = split_http_response(data);
-    let _ = ripdpi_monitor::fuzz_parse_http_response(headers, body);
+    let _ = ripdpi_diagnostics_parsers::fuzz_parse_http_response(headers, body);
 
     let structured = common::http_response_from_bytes(data);
     let (headers, body) = split_http_response(&structured);
-    let _ = ripdpi_monitor::fuzz_parse_http_response(headers, body);
+    let _ = ripdpi_diagnostics_parsers::fuzz_parse_http_response(headers, body);
 });

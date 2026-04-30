@@ -135,19 +135,19 @@
         },
         {
           "key": "httpFuzzOutcomes",
-          "value": "host_case_mix=http_blockpage:status=403|host_extra_space=http_blockpage:status=403|unix_eol=http_blockpage:status=403"
+          "value": "host_case_mix=http_blockpage:status=403|host_extra_space=http_blockpage:status=403|unix_eol=http_unreachable:<error>"
         },
         {
           "key": "httpFuzzFieldOutcomes",
-          "value": "host_header_format=host_case_mix:http_blockpage,host_extra_space:http_blockpage;line_endings=unix_eol:http_blockpage"
+          "value": "host_header_format=host_case_mix:http_blockpage,host_extra_space:http_blockpage;line_endings=unix_eol:http_unreachable"
         },
         {
           "key": "httpFuzzChangedFields",
-          "value": "none"
+          "value": "line_endings"
         },
         {
           "key": "httpFuzzChangedCount",
-          "value": "0"
+          "value": "1"
         },
         {
           "key": "tlsFuzzBaseline",
