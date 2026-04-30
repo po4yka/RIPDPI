@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.core.detection.probe
 
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.net.InetSocketAddress
@@ -13,13 +13,18 @@ object IfconfigClient {
     private const val ENDPOINT = "https://ifconfig.me/ip"
     private const val USER_AGENT = "RIPDPI/1.0 (Android)"
 
-    suspend fun fetchDirectIp(timeoutMs: Int = 7000): Result<String> = fetchIp(timeoutMs = timeoutMs)
+    suspend fun fetchDirectIp(
+        dispatchers: AppCoroutineDispatchers,
+        timeoutMs: Int = 7000,
+    ): Result<String> = fetchIp(dispatchers = dispatchers, timeoutMs = timeoutMs)
 
     suspend fun fetchIpViaProxy(
+        dispatchers: AppCoroutineDispatchers,
         endpoint: ProxyEndpoint,
         timeoutMs: Int = 7000,
     ): Result<String> =
         fetchIp(
+            dispatchers = dispatchers,
             timeoutMs = timeoutMs,
             proxy =
                 Proxy(
@@ -33,10 +38,11 @@ object IfconfigClient {
 
     @Suppress("TooGenericExceptionCaught")
     private suspend fun fetchIp(
+        dispatchers: AppCoroutineDispatchers,
         timeoutMs: Int,
         proxy: Proxy? = null,
     ): Result<String> =
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             val url = URL(ENDPOINT)
             val connection = if (proxy == null) url.openConnection() else url.openConnection(proxy)
             val https =

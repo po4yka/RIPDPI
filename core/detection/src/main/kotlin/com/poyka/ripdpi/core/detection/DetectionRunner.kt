@@ -11,6 +11,7 @@ import com.poyka.ripdpi.core.detection.checker.TimingAnalysisChecker
 import com.poyka.ripdpi.core.detection.checker.TlsFingerprintChecker
 import com.poyka.ripdpi.core.detection.checker.VerdictEngine
 import com.poyka.ripdpi.core.detection.checker.WebRtcLeakChecker
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -118,8 +119,10 @@ interface DetectionCheckRunner {
 
 class DefaultGeoIpCheckerPort
     @Inject
-    constructor() : GeoIpCheckerPort {
-        override suspend fun check(): CategoryResult = GeoIpChecker.check()
+    constructor(
+        private val dispatchers: AppCoroutineDispatchers,
+    ) : GeoIpCheckerPort {
+        override suspend fun check(): CategoryResult = GeoIpChecker.check(dispatchers)
     }
 
 class DefaultDirectSignsCheckerPort
@@ -145,40 +148,60 @@ class DefaultLocationSignalsCheckerPort
 
 class DefaultBypassCheckerPort
     @Inject
-    constructor() : BypassCheckerPort {
+    constructor(
+        private val dispatchers: AppCoroutineDispatchers,
+    ) : BypassCheckerPort {
         override suspend fun check(
             excludePorts: Set<Int>,
             onProgress: (suspend (BypassChecker.Progress) -> Unit)?,
-        ): BypassResult = BypassChecker.check(excludePorts, onProgress)
+        ): BypassResult =
+            BypassChecker.check(
+                dispatchers = dispatchers,
+                excludePorts = excludePorts,
+                onProgress = onProgress,
+            )
     }
 
 class DefaultDnsLeakCheckerPort
     @Inject
-    constructor() : DnsLeakCheckerPort {
+    constructor(
+        private val dispatchers: AppCoroutineDispatchers,
+    ) : DnsLeakCheckerPort {
         override suspend fun check(
             context: Context,
             encryptedDnsEnabled: Boolean,
-        ): CategoryResult = DnsLeakChecker.check(context, encryptedDnsEnabled)
+        ): CategoryResult =
+            DnsLeakChecker.check(
+                dispatchers = dispatchers,
+                context = context,
+                encryptedDnsEnabled = encryptedDnsEnabled,
+            )
     }
 
 class DefaultWebRtcLeakCheckerPort
     @Inject
-    constructor() : WebRtcLeakCheckerPort {
+    constructor(
+        private val dispatchers: AppCoroutineDispatchers,
+    ) : WebRtcLeakCheckerPort {
         override suspend fun check(webRtcProtectionEnabled: Boolean): CategoryResult =
-            WebRtcLeakChecker.check(webRtcProtectionEnabled)
+            WebRtcLeakChecker.check(dispatchers = dispatchers, webRtcProtectionEnabled = webRtcProtectionEnabled)
     }
 
 class DefaultTlsFingerprintCheckerPort
     @Inject
-    constructor() : TlsFingerprintCheckerPort {
+    constructor(
+        private val dispatchers: AppCoroutineDispatchers,
+    ) : TlsFingerprintCheckerPort {
         override suspend fun check(tlsFingerprintProfile: String): CategoryResult =
-            TlsFingerprintChecker.check(tlsFingerprintProfile)
+            TlsFingerprintChecker.check(dispatchers = dispatchers, tlsFingerprintProfile = tlsFingerprintProfile)
     }
 
 class DefaultTimingAnalysisCheckerPort
     @Inject
-    constructor() : TimingAnalysisCheckerPort {
-        override suspend fun check(): CategoryResult = TimingAnalysisChecker.check()
+    constructor(
+        private val dispatchers: AppCoroutineDispatchers,
+    ) : TimingAnalysisCheckerPort {
+        override suspend fun check(): CategoryResult = TimingAnalysisChecker.check(dispatchers)
     }
 
 class DefaultDetectionVerdictEvaluator
@@ -471,26 +494,27 @@ class DefaultDetectionCheckRunner
     }
 
 object DetectionRunner {
-    private val defaultRunner: DetectionCheckRunner =
+    private fun defaultRunner(dispatchers: AppCoroutineDispatchers): DetectionCheckRunner =
         DefaultDetectionCheckRunner(
-            geoIpChecker = DefaultGeoIpCheckerPort(),
+            geoIpChecker = DefaultGeoIpCheckerPort(dispatchers),
             directSignsChecker = DefaultDirectSignsCheckerPort(),
             indirectSignsChecker = DefaultIndirectSignsCheckerPort(),
             locationSignalsChecker = DefaultLocationSignalsCheckerPort(),
-            bypassChecker = DefaultBypassCheckerPort(),
-            dnsLeakChecker = DefaultDnsLeakCheckerPort(),
-            webRtcLeakChecker = DefaultWebRtcLeakCheckerPort(),
-            tlsFingerprintChecker = DefaultTlsFingerprintCheckerPort(),
-            timingAnalysisChecker = DefaultTimingAnalysisCheckerPort(),
+            bypassChecker = DefaultBypassCheckerPort(dispatchers),
+            dnsLeakChecker = DefaultDnsLeakCheckerPort(dispatchers),
+            webRtcLeakChecker = DefaultWebRtcLeakCheckerPort(dispatchers),
+            tlsFingerprintChecker = DefaultTlsFingerprintCheckerPort(dispatchers),
+            timingAnalysisChecker = DefaultTimingAnalysisCheckerPort(dispatchers),
             verdictEvaluator = DefaultDetectionVerdictEvaluator(),
         )
 
     suspend fun run(
+        dispatchers: AppCoroutineDispatchers,
         context: Context,
         config: DetectionRunnerConfig = DetectionRunnerConfig(),
         onProgress: (suspend (DetectionProgress) -> Unit)? = null,
     ): DetectionCheckResult =
-        defaultRunner.run(
+        defaultRunner(dispatchers).run(
             context = context,
             config = config,
             onProgress = onProgress,

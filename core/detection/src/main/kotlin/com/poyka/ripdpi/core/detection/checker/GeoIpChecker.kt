@@ -5,7 +5,7 @@ import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
-import kotlinx.coroutines.Dispatchers
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
@@ -26,8 +26,8 @@ object GeoIpChecker {
         val isHosting: Boolean,
     )
 
-    suspend fun check(): CategoryResult =
-        withContext(Dispatchers.IO) {
+    suspend fun check(dispatchers: AppCoroutineDispatchers): CategoryResult =
+        withContext(dispatchers.io) {
             try {
                 val json = fetchJson()
                 if (!jsonResponseSuccessful(json)) {

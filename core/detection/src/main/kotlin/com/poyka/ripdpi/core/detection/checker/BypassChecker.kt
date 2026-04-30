@@ -14,6 +14,7 @@ import com.poyka.ripdpi.core.detection.probe.ScanPhase
 import com.poyka.ripdpi.core.detection.probe.XrayApiScanResult
 import com.poyka.ripdpi.core.detection.probe.XrayApiScanner
 import com.poyka.ripdpi.core.detection.vpn.VpnAppCatalog
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 
@@ -25,6 +26,7 @@ object BypassChecker {
 
     @Suppress("LongMethod")
     suspend fun check(
+        dispatchers: AppCoroutineDispatchers,
         excludePorts: Set<Int> = emptySet(),
         onProgress: (suspend (Progress) -> Unit)? = null,
     ): BypassResult =
@@ -32,8 +34,12 @@ object BypassChecker {
             val findings = mutableListOf<Finding>()
             val evidence = mutableListOf<EvidenceItem>()
 
-            val scanner = ProxyScanner(excludePorts = KnownLocalServices.excludedPorts + excludePorts)
-            val xrayScanner = XrayApiScanner()
+            val scanner =
+                ProxyScanner(
+                    dispatchers = dispatchers,
+                    excludePorts = KnownLocalServices.excludedPorts + excludePorts,
+                )
+            val xrayScanner = XrayApiScanner(dispatchers = dispatchers)
 
             val proxyDeferred =
                 async {
@@ -77,8 +83,9 @@ object BypassChecker {
             if (proxyEndpoint != null) {
                 onProgress?.invoke(Progress("IP check", "Fetching direct IP and IP via proxy..."))
 
-                val directDeferred = async { IfconfigClient.fetchDirectIp() }
-                val proxyIpDeferred = async { IfconfigClient.fetchIpViaProxy(proxyEndpoint) }
+                val directDeferred = async { IfconfigClient.fetchDirectIp(dispatchers = dispatchers) }
+                val proxyIpDeferred =
+                    async { IfconfigClient.fetchIpViaProxy(dispatchers = dispatchers, endpoint = proxyEndpoint) }
 
                 directIp = directDeferred.await().getOrNull()
                 proxyIp = proxyIpDeferred.await().getOrNull()

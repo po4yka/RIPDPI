@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.core.detection.probe
 
 import android.util.Base64
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.xray.app.proxyman.command.HandlerServiceGrpc
 import com.xray.app.proxyman.command.ListOutboundsRequest
 import com.xray.common.net.IPOrDomain
 import io.grpc.okhttp.OkHttpChannelBuilder
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.InetAddress
 import java.util.concurrent.TimeUnit
@@ -17,12 +17,13 @@ import com.xray.transport.internet.reality.Config as RealityConfig
 
 class XrayApiClient(
     private val host: String = "127.0.0.1",
+    private val dispatchers: AppCoroutineDispatchers,
 ) {
     suspend fun listOutbounds(
         port: Int,
         deadlineMs: Long = 600,
     ): Result<XrayApiScanResult> =
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             val channel =
                 OkHttpChannelBuilder
                     .forAddress(host, port)

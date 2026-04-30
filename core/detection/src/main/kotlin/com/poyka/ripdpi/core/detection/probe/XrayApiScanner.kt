@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.core.detection.probe
 
-import kotlinx.coroutines.Dispatchers
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.joinAll
@@ -15,6 +15,7 @@ import kotlin.math.max
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class XrayApiScanner(
+    private val dispatchers: AppCoroutineDispatchers,
     private val loopbackHosts: List<String> = listOf("127.0.0.1", "::1"),
     private val scanRange: IntRange = 1024..65535,
     private val connectTimeoutMs: Int = 200,
@@ -22,10 +23,10 @@ class XrayApiScanner(
     private val maxConcurrency: Int = 100,
     private val progressUpdateEvery: Int = 512,
 ) {
-    private val clients = loopbackHosts.associateWith { XrayApiClient(it) }
+    private val clients = loopbackHosts.associateWith { XrayApiClient(host = it, dispatchers = dispatchers) }
 
     suspend fun findXrayApi(onProgress: suspend (XrayScanProgress) -> Unit): XrayApiScanResult? =
-        withContext(Dispatchers.IO) {
+        withContext(dispatchers.io) {
             val portsTotal = (scanRange.last - scanRange.first + 1).coerceAtLeast(0)
             val total = portsTotal * loopbackHosts.size
 
@@ -59,7 +60,7 @@ class XrayApiScanner(
             val scanned = AtomicInteger(0)
             val found = AtomicReference<XrayApiScanResult?>(null)
 
-            val dispatcher = Dispatchers.IO.limitedParallelism(max(1, maxConcurrency))
+            val dispatcher = dispatchers.io.limitedParallelism(max(1, maxConcurrency))
 
             onProgress(
                 XrayScanProgress(

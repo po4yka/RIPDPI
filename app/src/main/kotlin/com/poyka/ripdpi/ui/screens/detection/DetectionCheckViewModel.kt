@@ -24,6 +24,7 @@ import com.poyka.ripdpi.core.detection.StealthScore
 import com.poyka.ripdpi.core.detection.community.CommunityComparisonClient
 import com.poyka.ripdpi.core.detection.community.CommunityComparisonStore
 import com.poyka.ripdpi.core.detection.community.CommunityStats
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
@@ -71,6 +72,7 @@ class DetectionCheckViewModel
         private val routingProtectionCatalogService: RoutingProtectionCatalogService,
         private val detectionCheckRunner: DetectionCheckRunner,
         private val historyStore: DetectionHistoryStore,
+        private val dispatchers: AppCoroutineDispatchers,
     ) : AndroidViewModel(application) {
         private val _uiState = MutableStateFlow(DetectionCheckUiState())
         val uiState: StateFlow<DetectionCheckUiState> = _uiState.asStateFlow()
@@ -127,7 +129,7 @@ class DetectionCheckViewModel
                         settings.communityApiUrl.ifBlank {
                             CommunityComparisonClient.DEFAULT_STATS_URL
                         }
-                    val client = CommunityComparisonClient()
+                    val client = CommunityComparisonClient(dispatchers)
                     client
                         .fetchStats(statsUrl)
                         .onSuccess { remoteStats ->
