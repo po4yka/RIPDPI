@@ -142,7 +142,7 @@ mod tests {
     use android_support::describe_exception;
     use jni::objects::JObject;
     use jni::Env;
-    use ripdpi_monitor::{NativeSessionEvent, ScanProgress, ScanReport};
+    use ripdpi_diagnostics_contracts::{NativeSessionEvent, ScanProgress, ScanReport};
 
     use crate::support::{
         assert_no_exception, decode_jstring, env_to_unowned, lock_jni_tests, take_exception, with_env,

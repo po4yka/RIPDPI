@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 use ripdpi_failure_classifier::ClassifiedFailure;
-use ripdpi_runtime::RuntimeTelemetrySink;
+use ripdpi_runtime_api::RuntimeTelemetrySink;
 
 pub struct TracingTelemetrySink {
     total_sessions: AtomicU64,

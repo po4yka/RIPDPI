@@ -4,6 +4,9 @@ mod emissions;
 pub mod platform;
 mod strategy_family;
 mod sync {
+    #[cfg(feature = "loom")]
+    pub(crate) use loom::sync::atomic::{AtomicBool, Ordering};
+    #[cfg(not(feature = "loom"))]
     pub(crate) use std::sync::atomic::{AtomicBool, Ordering};
 }
 mod tcp;

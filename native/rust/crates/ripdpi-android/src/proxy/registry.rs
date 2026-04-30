@@ -4,7 +4,7 @@ use android_support::{clear_android_log_scope_level, HandleRegistry};
 use jni::sys::jlong;
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::ProxyRuntimeContext;
-use ripdpi_runtime::EmbeddedProxyControl;
+use ripdpi_runtime_api::EmbeddedProxyControl;
 
 use crate::errors::JniProxyError;
 use crate::telemetry::ProxyTelemetryState;

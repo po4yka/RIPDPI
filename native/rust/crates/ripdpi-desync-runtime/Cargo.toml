@@ -17,9 +17,10 @@ ripdpi-proxy-config = { workspace = true }
 ripdpi-session = { workspace = true }
 socket2 = { workspace = true }
 tracing = { workspace = true }
+loom = { workspace = true, optional = true }
 
 [features]
-loom = []
+loom = ["dep:loom"]
 
 [dev-dependencies]
 aes = { workspace = true }

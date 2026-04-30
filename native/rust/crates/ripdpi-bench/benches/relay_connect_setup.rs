@@ -46,7 +46,7 @@ struct BenchInfra {
     _fixture: FixtureStack,
     proxy_port: u16,
     echo_port: u16,
-    control: Arc<ripdpi_runtime::EmbeddedProxyControl>,
+    control: Arc<ripdpi_runtime_api::EmbeddedProxyControl>,
     proxy_thread: Option<JoinHandle<std::io::Result<()>>>,
 }
 
@@ -55,18 +55,18 @@ impl BenchInfra {
         let fixture = FixtureStack::start(FixtureConfig::default()).expect("start fixture stack");
         let echo_port = fixture.manifest().tcp_echo_port;
 
-        ripdpi_runtime::process::prepare_embedded();
+        ripdpi_proxy_runtime::process::prepare_embedded();
 
         let mut config = RuntimeConfig::default();
         config.network.listen.listen_port = 0;
 
-        let listener = ripdpi_runtime::runtime::create_listener(&config).expect("create proxy listener");
+        let listener = ripdpi_proxy_runtime::create_listener(&config).expect("create proxy listener");
         let proxy_port = listener.local_addr().expect("proxy local addr").port();
 
-        let control = Arc::new(ripdpi_runtime::EmbeddedProxyControl::new(None));
+        let control = Arc::new(ripdpi_runtime_api::EmbeddedProxyControl::new(None));
         let control_clone = control.clone();
         let proxy_thread = thread::spawn(move || {
-            ripdpi_runtime::runtime::run_proxy_with_embedded_control(config, listener, control_clone)
+            ripdpi_proxy_runtime::run_proxy_with_embedded_control(config, listener, control_clone)
         });
 
         let deadline = std::time::Instant::now() + Duration::from_secs(2);
@@ -94,7 +94,7 @@ impl Drop for BenchInfra {
         if let Some(handle) = self.proxy_thread.take() {
             let _ = handle.join();
         }
-        ripdpi_runtime::clear_runtime_telemetry();
+        ripdpi_runtime_api::clear_runtime_telemetry();
     }
 }
 

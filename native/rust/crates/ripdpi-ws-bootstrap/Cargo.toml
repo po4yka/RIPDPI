@@ -1,0 +1,19 @@
+[package]
+name = "ripdpi-ws-bootstrap"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-dns-resolver = { workspace = true }
+ripdpi-proxy-config = { workspace = true }
+ripdpi-runtime-platform = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
+ripdpi-ws-tunnel = { workspace = true }
+socket2 = { workspace = true }
+
+[dev-dependencies]
+local-network-fixture = { workspace = true }

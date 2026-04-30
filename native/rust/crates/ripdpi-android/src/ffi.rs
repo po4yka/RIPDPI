@@ -107,7 +107,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiPlatformCapabilities_jni
     _env: EnvUnowned<'_>,
     _thiz: JObject<'_>,
 ) -> jboolean {
-    ripdpi_runtime::platform::seqovl_supported()
+    ripdpi_runtime_platform::seqovl_supported()
 }
 
 // JNI bridge for the process-wide CdnEchUpdater.
@@ -132,7 +132,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jni
 ) -> jstring {
     match env
         .with_env(move |env| -> jni::errors::Result<jstring> {
-            let payload = match ripdpi_monitor::cdn_ech::production_updater().refresh() {
+            let payload = match ripdpi_diagnostics_probes::cdn_ech::production_updater().refresh() {
                 Ok(()) => "{\"ok\":true}".to_string(),
                 Err(err) => serde_json::json!({"ok": false, "error": err.to_string()}).to_string(),
             };
@@ -158,7 +158,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jni
     use base64::Engine;
     match env
         .with_env(move |env| -> jni::errors::Result<jstring> {
-            let payload = match ripdpi_monitor::cdn_ech::production_updater().snapshot_for_persistence() {
+            let payload = match ripdpi_diagnostics_probes::cdn_ech::production_updater().snapshot_for_persistence() {
                 Some(snapshot) => {
                     let b64 = base64::engine::general_purpose::STANDARD.encode(&snapshot.config);
                     serde_json::json!({
@@ -197,7 +197,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jni
         .with_env(move |env| -> jni::errors::Result<jstring> {
             let b64: String = config_base64.mutf8_chars(env)?.to_str().into_owned();
             let payload = match base64::engine::general_purpose::STANDARD.decode(b64.trim()) {
-                Ok(bytes) => match ripdpi_monitor::cdn_ech::production_updater()
+                Ok(bytes) => match ripdpi_diagnostics_probes::cdn_ech::production_updater()
                     .seed_from_persisted(bytes, fetched_at_unix_ms.max(0) as u64)
                 {
                     Ok(()) => "{\"ok\":true}".to_string(),
@@ -243,7 +243,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiSharedPriorsNativeBindin
             let priors_b64: String = priors_base64.mutf8_chars(env)?.to_str().into_owned();
             let payload = match base64::engine::general_purpose::STANDARD.decode(priors_b64.trim()) {
                 Ok(bytes) => {
-                    match ripdpi_runtime::strategy_evolver::apply_global_shared_priors_with_embedded_key(
+                    match ripdpi_runtime_learning::strategy_evolver::apply_global_shared_priors_with_embedded_key(
                         &manifest_bytes,
                         &bytes,
                     ) {

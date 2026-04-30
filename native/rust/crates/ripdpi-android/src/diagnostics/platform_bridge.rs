@@ -3,7 +3,8 @@ use android_support::{
     NativeEventRecord,
 };
 use log::LevelFilter;
-use ripdpi_monitor::{MonitorPlatformBridge, NativeSessionEvent, ScopedMonitorLogLevel};
+use ripdpi_diagnostics_contracts::NativeSessionEvent;
+use ripdpi_monitor_engine::{MonitorPlatformBridge, ScopedMonitorLogLevel};
 
 pub(crate) struct AndroidMonitorPlatformBridge;
 

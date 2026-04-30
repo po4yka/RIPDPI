@@ -1,5 +1,5 @@
 use loom::sync::{Arc, Mutex};
-use ripdpi_runtime::EmbeddedProxyControl;
+use ripdpi_runtime_api::EmbeddedProxyControl;
 
 use super::registry::{control_for_proxy_stop, ensure_proxy_destroyable, try_mark_proxy_running, ProxySessionState};
 

@@ -9,7 +9,7 @@ use jni::sys::{jint, jlong};
 use jni::Env;
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::NetworkSnapshot;
-use ripdpi_runtime::{runtime, EmbeddedProxyControl};
+use ripdpi_runtime_api::EmbeddedProxyControl;
 
 use crate::config::{parse_proxy_config_json, runtime_config_envelope_from_payload};
 use crate::errors::JniProxyError;
@@ -53,7 +53,7 @@ pub(crate) fn create_session(env: &mut Env<'_>, config_json: JString) -> jlong {
     };
     let config = envelope.config;
 
-    if let Err(err) = runtime::create_listener(&config) {
+    if let Err(err) = ripdpi_proxy_runtime::create_listener(&config) {
         JniProxyError::Io(err).throw(env);
         return 0;
     }
@@ -123,7 +123,7 @@ pub(crate) fn start_session(env: &mut Env<'_>, handle: jlong) -> jint {
     // Guard ensures state resets to Idle if the runtime call panics.
     let guard = IdleGuard { state: &session.state };
 
-    let result = runtime::run_proxy_with_embedded_control(config, listener, control);
+    let result = ripdpi_proxy_runtime::run_proxy_with_embedded_control(config, listener, control);
 
     // Normal exit: reset state ourselves and disarm the guard.
     let mut state = session.state.lock().unwrap_or_else(PoisonError::into_inner);
@@ -219,7 +219,7 @@ pub(crate) fn open_proxy_listener(
     config: &RuntimeConfig,
     telemetry: &ProxyTelemetryState,
 ) -> Result<std::net::TcpListener, std::io::Error> {
-    runtime::create_listener(config).map_err(|err| {
+    ripdpi_proxy_runtime::create_listener(config).map_err(|err| {
         telemetry.on_client_error(format!("listener open failed: {err}"));
         err
     })

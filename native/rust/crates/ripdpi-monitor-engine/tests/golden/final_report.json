@@ -1,0 +1,188 @@
+{
+  "classifierVersion": null,
+  "diagnoses": [],
+  "engineAnalysisVersion": "observations_v1",
+  "finishedAt": 0,
+  "observations": [
+    {
+      "circumvention": null,
+      "dns": null,
+      "domain": {
+        "certificateAnomaly": false,
+        "h3Advertised": false,
+        "host": "127.0.0.1",
+        "httpStatus": "BLOCKPAGE",
+        "isControl": false,
+        "tls12Status": "HANDSHAKE_FAILED",
+        "tls13Status": "HANDSHAKE_FAILED",
+        "tlsEchError": "Connection refused (os error _)",
+        "tlsEchStatus": "HANDSHAKE_FAILED",
+        "tlsEchVersion": null,
+        "tlsError": "Connection refused (os error _)",
+        "transportFailure": "OTHER"
+      },
+      "evidence": [
+        "http_blockpage"
+      ],
+      "kind": "DOMAIN",
+      "quic": null,
+      "service": null,
+      "strategy": null,
+      "target": "127.0.0.1",
+      "tcp": null,
+      "telegram": null,
+      "throughput": null
+    }
+  ],
+  "packVersions": {},
+  "pathMode": "RAW_PATH",
+  "profileId": "default",
+  "resolverRecommendation": null,
+  "results": [
+    {
+      "details": [
+        {
+          "key": "resolved",
+          "value": "127.0.0.1:9"
+        },
+        {
+          "key": "tlsStatus",
+          "value": "tls_handshake_failed"
+        },
+        {
+          "key": "tlsVersion",
+          "value": "unknown"
+        },
+        {
+          "key": "tlsError",
+          "value": "Connection refused (os error _)"
+        },
+        {
+          "key": "tlsSignal",
+          "value": "tls_unavailable"
+        },
+        {
+          "key": "tls13Status",
+          "value": "tls_handshake_failed"
+        },
+        {
+          "key": "tls13Version",
+          "value": "unknown"
+        },
+        {
+          "key": "tls13Error",
+          "value": "Connection refused (os error _)"
+        },
+        {
+          "key": "tls12Status",
+          "value": "tls_handshake_failed"
+        },
+        {
+          "key": "tls12Version",
+          "value": "unknown"
+        },
+        {
+          "key": "tls12Error",
+          "value": "Connection refused (os error _)"
+        },
+        {
+          "key": "tlsEchStatus",
+          "value": "tls_handshake_failed"
+        },
+        {
+          "key": "tlsEchVersion",
+          "value": "unknown"
+        },
+        {
+          "key": "tlsEchError",
+          "value": "Connection refused (os error _)"
+        },
+        {
+          "key": "tlsEchResolutionDetail",
+          "value": "none"
+        },
+        {
+          "key": "httpStatus",
+          "value": "http_blockpage"
+        },
+        {
+          "key": "httpResponse",
+          "value": "403 Forbidden server=unknown"
+        },
+        {
+          "key": "h3Advertised",
+          "value": "false"
+        },
+        {
+          "key": "altSvc",
+          "value": "none"
+        },
+        {
+          "key": "isControl",
+          "value": "false"
+        },
+        {
+          "key": "probeRetryCount",
+          "value": "0"
+        },
+        {
+          "key": "httpFuzzBaseline",
+          "value": "http_blockpage"
+        },
+        {
+          "key": "httpFuzzVariantCount",
+          "value": "3"
+        },
+        {
+          "key": "httpFuzzOutcomes",
+          "value": "host_case_mix=http_blockpage:status=403|host_extra_space=http_blockpage:status=403|unix_eol=http_blockpage:status=403"
+        },
+        {
+          "key": "httpFuzzFieldOutcomes",
+          "value": "host_header_format=host_case_mix:http_blockpage,host_extra_space:http_blockpage;line_endings=unix_eol:http_blockpage"
+        },
+        {
+          "key": "httpFuzzChangedFields",
+          "value": "none"
+        },
+        {
+          "key": "httpFuzzChangedCount",
+          "value": "0"
+        },
+        {
+          "key": "tlsFuzzBaseline",
+          "value": "tls_handshake_failed"
+        },
+        {
+          "key": "tlsFuzzVariantCount",
+          "value": "1"
+        },
+        {
+          "key": "tlsFuzzOutcomes",
+          "value": "expand_padding=tcp_connect_failed:Connection refused (os error _)"
+        },
+        {
+          "key": "tlsFuzzFieldOutcomes",
+          "value": "padding_extension=expand_padding:tcp_connect_failed"
+        },
+        {
+          "key": "tlsFuzzChangedFields",
+          "value": "padding_extension"
+        },
+        {
+          "key": "tlsFuzzChangedCount",
+          "value": "1"
+        }
+      ],
+      "outcome": "http_blockpage",
+      "probeRetryCount": null,
+      "probeType": "domain_reachability",
+      "target": "127.0.0.1"
+    }
+  ],
+  "schemaVersion": 1,
+  "sessionId": "session-golden",
+  "startedAt": 0,
+  "strategyProbeReport": null,
+  "summary": "1 completed · 0 healthy · 1 failed"
+}

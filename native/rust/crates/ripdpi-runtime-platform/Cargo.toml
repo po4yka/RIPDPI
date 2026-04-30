@@ -1,0 +1,24 @@
+[package]
+name = "ripdpi-runtime-platform"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-capabilities = { workspace = true }
+ripdpi-config = { workspace = true }
+ripdpi-desync = { workspace = true }
+ripdpi-ipfrag = { workspace = true }
+ripdpi-native-protect = { workspace = true }
+ripdpi-privileged-ops = { workspace = true }
+ripdpi-root-helper-protocol = { workspace = true }
+serde_json = { workspace = true }
+libc = { workspace = true }
+nix = { workspace = true }
+ripdpi-io-uring = { workspace = true, optional = true }
+
+[features]
+io-uring = ["dep:ripdpi-io-uring"]

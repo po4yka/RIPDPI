@@ -30,7 +30,7 @@ fn sample_wifi_snapshot(ssid: &str, dns_servers: &[&str], captured_at_ms: u64) -
 }
 
 fn bench_runtime_control_snapshot(c: &mut Criterion) {
-    let control = ripdpi_runtime::EmbeddedProxyControl::default();
+    let control = ripdpi_runtime_api::EmbeddedProxyControl::default();
     control.update_network_snapshot(sample_wifi_snapshot("ripdpi-bench", &["1.1.1.1", "8.8.8.8"], 1));
 
     let mut group = c.benchmark_group("runtime-control/network-snapshot");

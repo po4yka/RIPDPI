@@ -9,7 +9,7 @@ use proptest::collection::vec;
 use proptest::prelude::*;
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::{NetworkSnapshot, ProxyConfigPayload, ProxyUiConfig};
-use ripdpi_runtime::EmbeddedProxyControl;
+use ripdpi_runtime_api::EmbeddedProxyControl;
 
 use crate::support::{assert_no_exception, decode_jstring, env_to_unowned, lock_jni_tests, take_exception, with_env};
 use crate::telemetry::ProxyTelemetryState;

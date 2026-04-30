@@ -4,7 +4,8 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use ripdpi_config::{ParseResult, StartupEnv};
-use ripdpi_runtime::{install_runtime_telemetry, process::ProcessGuard, runtime};
+use ripdpi_proxy_runtime::process::ProcessGuard;
+use ripdpi_runtime_api::install_runtime_telemetry;
 
 use crate::telemetry::TracingTelemetrySink;
 
@@ -55,7 +56,7 @@ fn run_proxy(config: ripdpi_config::RuntimeConfig) -> ExitCode {
         "starting proxy"
     );
 
-    if let Err(err) = runtime::run_proxy(config) {
+    if let Err(err) = ripdpi_proxy_runtime::run_proxy(config) {
         tracing::error!(%err, "proxy error");
         return ExitCode::FAILURE;
     }

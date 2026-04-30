@@ -3050,13 +3050,19 @@ dependencies = [
  "proptest",
  "ripdpi-config",
  "ripdpi-desync",
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-pcap",
+ "ripdpi-diagnostics-probes",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
- "ripdpi-monitor",
+ "ripdpi-monitor-engine",
  "ripdpi-native-protect",
  "ripdpi-packets",
  "ripdpi-proxy-config",
- "ripdpi-runtime",
+ "ripdpi-proxy-runtime",
+ "ripdpi-runtime-api",
+ "ripdpi-runtime-learning",
+ "ripdpi-runtime-platform",
  "ripdpi-session",
  "ripdpi-telemetry",
  "ripdpi-tls-profiles",
@@ -3097,7 +3103,9 @@ dependencies = [
  "local-network-fixture",
  "ripdpi-config",
  "ripdpi-proxy-config",
- "ripdpi-runtime",
+ "ripdpi-proxy-runtime",
+ "ripdpi-runtime-api",
+ "ripdpi-runtime-learning",
  "serde_json",
 ]
 
@@ -3118,7 +3126,8 @@ dependencies = [
  "ripdpi-config",
  "ripdpi-failure-classifier",
  "ripdpi-packets",
- "ripdpi-runtime",
+ "ripdpi-proxy-runtime",
+ "ripdpi-runtime-api",
  "ripdpi-telemetry",
  "rustls",
  "serde",
@@ -3177,6 +3186,7 @@ version = "0.1.0"
 dependencies = [
  "aes",
  "libc",
+ "loom",
  "ring",
  "ripdpi-config",
  "ripdpi-desync",
@@ -3186,6 +3196,67 @@ dependencies = [
  "ripdpi-session",
  "socket2 0.6.3",
  "tracing",
+]
+
+[[package]]
+name = "ripdpi-diagnostics-contracts"
+version = "0.1.0"
+dependencies = [
+ "golden-test-support",
+ "ripdpi-proxy-config",
+ "ripdpi-telemetry",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ripdpi-diagnostics-parsers"
+version = "0.1.0"
+dependencies = [
+ "hickory-proto",
+ "ripdpi-failure-classifier",
+ "serde",
+]
+
+[[package]]
+name = "ripdpi-diagnostics-pcap"
+version = "0.1.0"
+
+[[package]]
+name = "ripdpi-diagnostics-probes"
+version = "0.1.0"
+dependencies = [
+ "boring",
+ "golden-test-support",
+ "hickory-proto",
+ "hickory-resolver",
+ "libc",
+ "local-network-fixture",
+ "log",
+ "md5",
+ "metrics",
+ "quinn",
+ "rcgen",
+ "ripdpi-config",
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-parsers",
+ "ripdpi-dns-resolver",
+ "ripdpi-failure-classifier",
+ "ripdpi-packets",
+ "ripdpi-proxy-config",
+ "ripdpi-runtime-platform",
+ "ripdpi-telemetry",
+ "ripdpi-tls-profiles",
+ "ripdpi-ws-bootstrap",
+ "ripdpi-ws-tunnel",
+ "rustls",
+ "serde",
+ "serde_json",
+ "socket2 0.6.3",
+ "tokio",
+ "tokio-boring",
+ "tracing",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -3295,13 +3366,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-monitor"
+name = "ripdpi-monitor-engine"
 version = "0.1.0"
 dependencies = [
- "boring",
  "golden-test-support",
- "hickory-proto",
- "hickory-resolver",
  "libc",
  "local-network-fixture",
  "log",
@@ -3309,25 +3377,24 @@ dependencies = [
  "md5",
  "metrics",
  "native-soak-support",
- "quinn",
  "rcgen",
  "ripdpi-config",
- "ripdpi-dns-resolver",
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-pcap",
+ "ripdpi-diagnostics-probes",
  "ripdpi-failure-classifier",
  "ripdpi-packets",
  "ripdpi-proxy-config",
- "ripdpi-runtime",
+ "ripdpi-proxy-runtime",
+ "ripdpi-runtime-api",
+ "ripdpi-runtime-platform",
  "ripdpi-telemetry",
- "ripdpi-tls-profiles",
- "ripdpi-ws-tunnel",
  "rustls",
  "serde",
  "serde_json",
  "socket2 0.6.3",
  "tokio",
- "tokio-boring",
  "tracing",
- "webpki-roots",
 ]
 
 [[package]]
@@ -3386,6 +3453,43 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "ripdpi-proxy-runtime"
+version = "0.1.0"
+dependencies = [
+ "aes",
+ "base64 0.22.1",
+ "ctr",
+ "libc",
+ "local-network-fixture",
+ "loom",
+ "metrics",
+ "mio",
+ "native-soak-support",
+ "nix 0.31.2",
+ "ring",
+ "ripdpi-config",
+ "ripdpi-desync",
+ "ripdpi-desync-runtime",
+ "ripdpi-dns-resolver",
+ "ripdpi-failure-classifier",
+ "ripdpi-io-uring",
+ "ripdpi-ipfrag",
+ "ripdpi-packets",
+ "ripdpi-proxy-config",
+ "ripdpi-runtime-api",
+ "ripdpi-runtime-learning",
+ "ripdpi-runtime-platform",
+ "ripdpi-session",
+ "ripdpi-ws-bootstrap",
+ "ripdpi-ws-tunnel",
+ "rustls",
+ "serde_json",
+ "socket2 0.6.3",
+ "tempfile",
+ "tracing",
 ]
 
 [[package]]
@@ -3455,45 +3559,49 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-runtime"
+name = "ripdpi-runtime-api"
+version = "0.1.0"
+dependencies = [
+ "arc-swap",
+ "loom",
+ "ripdpi-failure-classifier",
+ "ripdpi-proxy-config",
+]
+
+[[package]]
+name = "ripdpi-runtime-learning"
 version = "0.1.0"
 dependencies = [
  "aes",
- "arc-swap",
  "base64 0.22.1",
- "ctr",
- "etherparse",
- "libc",
- "local-network-fixture",
- "loom",
  "lru",
  "metrics",
- "mio",
- "native-soak-support",
- "nix 0.31.2",
  "ring",
+ "ripdpi-config",
+ "ripdpi-desync",
+ "ripdpi-failure-classifier",
+ "ripdpi-packets",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tracing",
+]
+
+[[package]]
+name = "ripdpi-runtime-platform"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "nix 0.31.2",
  "ripdpi-capabilities",
  "ripdpi-config",
  "ripdpi-desync",
- "ripdpi-desync-runtime",
- "ripdpi-dns-resolver",
- "ripdpi-failure-classifier",
  "ripdpi-io-uring",
  "ripdpi-ipfrag",
  "ripdpi-native-protect",
- "ripdpi-packets",
  "ripdpi-privileged-ops",
- "ripdpi-proxy-config",
  "ripdpi-root-helper-protocol",
- "ripdpi-session",
- "ripdpi-tls-profiles",
- "ripdpi-ws-tunnel",
- "rustls",
- "serde",
  "serde_json",
- "socket2 0.6.3",
- "tempfile",
- "tracing",
 ]
 
 [[package]]
@@ -3688,6 +3796,19 @@ dependencies = [
  "socket2 0.6.3",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "ripdpi-ws-bootstrap"
+version = "0.1.0"
+dependencies = [
+ "local-network-fixture",
+ "ripdpi-dns-resolver",
+ "ripdpi-proxy-config",
+ "ripdpi-runtime-platform",
+ "ripdpi-tls-profiles",
+ "ripdpi-ws-tunnel",
+ "socket2 0.6.3",
 ]
 
 [[package]]

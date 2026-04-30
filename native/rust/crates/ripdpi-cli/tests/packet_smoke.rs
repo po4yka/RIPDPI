@@ -1,4 +1,4 @@
-#[path = "../../ripdpi-runtime/tests/support/mod.rs"]
+#[path = "../../ripdpi-proxy-runtime/tests/support/mod.rs"]
 mod support;
 
 #[allow(dead_code)]

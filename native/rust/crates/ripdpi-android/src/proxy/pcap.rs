@@ -8,7 +8,7 @@ use jni::objects::JString;
 use jni::sys::{jboolean, jlong, jstring};
 use jni::{Env, EnvUnowned, Outcome};
 use once_cell::sync::Lazy;
-use ripdpi_monitor::pcap::PcapRecordingSession;
+use ripdpi_diagnostics_pcap::PcapRecordingSession;
 
 use crate::errors::extract_panic_message;
 

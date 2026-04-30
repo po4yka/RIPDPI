@@ -1,0 +1,41 @@
+[package]
+name = "ripdpi-monitor-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+log = { workspace = true }
+tracing = { workspace = true }
+ripdpi-config = { workspace = true }
+ripdpi-diagnostics-contracts = { workspace = true }
+ripdpi-diagnostics-probes = { workspace = true }
+ripdpi-diagnostics-pcap = { workspace = true }
+ripdpi-packets = { workspace = true }
+ripdpi-failure-classifier = { workspace = true }
+ripdpi-proxy-config = { workspace = true }
+ripdpi-proxy-runtime = { workspace = true }
+ripdpi-runtime-api = { workspace = true }
+ripdpi-runtime-platform = { workspace = true }
+ripdpi-telemetry = { workspace = true }
+libc = { workspace = true }
+md5 = { workspace = true }
+metrics = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+rustls = { workspace = true }
+socket2 = { workspace = true }
+tokio = { workspace = true, optional = true, features = ["net", "rt", "time"] }
+loom = { workspace = true, optional = true }
+
+[dev-dependencies]
+golden-test-support = { workspace = true }
+local-network-fixture = { workspace = true }
+native-soak-support = { workspace = true }
+rcgen = { workspace = true }
+
+[features]
+loom = ["dep:loom"]

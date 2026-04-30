@@ -1,0 +1,47 @@
+[package]
+name = "ripdpi-diagnostics-probes"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+log = { workspace = true }
+tracing = { workspace = true }
+ripdpi-config = { workspace = true }
+ripdpi-diagnostics-contracts = { workspace = true }
+ripdpi-diagnostics-parsers = { workspace = true }
+ripdpi-packets = { workspace = true }
+ripdpi-dns-resolver = { workspace = true }
+ripdpi-failure-classifier = { workspace = true }
+ripdpi-proxy-config = { workspace = true }
+ripdpi-runtime-platform = { workspace = true }
+ripdpi-ws-bootstrap = { workspace = true }
+ripdpi-telemetry = { workspace = true }
+ripdpi-ws-tunnel = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
+boring = { workspace = true }
+tokio-boring = { workspace = true }
+libc = { workspace = true }
+md5 = { workspace = true }
+metrics = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+socket2 = { workspace = true }
+rustls = { workspace = true }
+webpki-roots = { workspace = true }
+hickory-proto = { workspace = true }
+hickory-resolver = { workspace = true, optional = true }
+quinn = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true, features = ["net", "rt", "time"] }
+
+[dev-dependencies]
+golden-test-support = { workspace = true }
+local-network-fixture = { workspace = true }
+rcgen = { workspace = true }
+
+[features]
+hickory = ["dep:hickory-resolver", "dep:tokio"]
+quic-native = ["dep:quinn", "dep:tokio"]

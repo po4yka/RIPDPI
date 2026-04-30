@@ -5,7 +5,7 @@ use arc_swap::ArcSwap;
 
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_proxy_config::ProxyLogContext;
-use ripdpi_runtime::RuntimeTelemetrySink;
+use ripdpi_runtime_api::RuntimeTelemetrySink;
 use ripdpi_telemetry::{LatencyDistributions, LatencyHistogram};
 use serde::Serialize;
 
@@ -988,7 +988,7 @@ mod tests {
     use android_support::{EventRingBuffers, EventRingLayer, RingConfig};
     use golden_test_support::{assert_text_golden, canonicalize_json_with};
     use ripdpi_failure_classifier::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
-    use ripdpi_runtime::RuntimeTelemetrySink;
+    use ripdpi_runtime_api::RuntimeTelemetrySink;
     use serde_json::Value;
     use tracing_subscriber::prelude::*;
 

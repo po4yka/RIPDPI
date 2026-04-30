@@ -3,7 +3,7 @@ use std::sync::Arc;
 use android_support::{throw_illegal_argument_env, HandleRegistry};
 use jni::sys::jlong;
 use jni::Env;
-use ripdpi_monitor::MonitorSession;
+use ripdpi_monitor_engine::MonitorSession;
 
 use super::platform_bridge::AndroidMonitorPlatformBridge;
 use crate::to_handle;
