@@ -36,6 +36,43 @@ impl Default for ResolvedRelayFinalmaskConfig {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RelayKind<'a> {
+    Hysteria2,
+    TuicV5,
+    VlessReality { xhttp: bool },
+    CloudflareTunnel,
+    ChainRelay,
+    Masque,
+    ShadowTlsV3,
+    NaiveProxy,
+    Unsupported(&'a str),
+}
+
+impl<'a> RelayKind<'a> {
+    pub(crate) fn from_config(config: &'a ResolvedRelayRuntimeConfig) -> Self {
+        match config.kind.as_str() {
+            "hysteria2" => Self::Hysteria2,
+            "tuic_v5" => Self::TuicV5,
+            "vless_reality" => Self::VlessReality { xhttp: config.vless_transport == "xhttp" },
+            "cloudflare_tunnel" => Self::CloudflareTunnel,
+            "chain_relay" => Self::ChainRelay,
+            "masque" => Self::Masque,
+            "shadowtls_v3" => Self::ShadowTlsV3,
+            "naiveproxy" => Self::NaiveProxy,
+            other => Self::Unsupported(other),
+        }
+    }
+
+    pub(crate) fn supports_finalmask(self) -> bool {
+        matches!(self, Self::CloudflareTunnel | Self::VlessReality { xhttp: true })
+    }
+
+    pub(crate) fn supports_outbound_bind_ip(self) -> bool {
+        !matches!(self, Self::Hysteria2 | Self::Masque)
+    }
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ResolvedRelayRuntimeConfig {

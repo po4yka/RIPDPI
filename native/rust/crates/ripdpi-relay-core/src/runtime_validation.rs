@@ -5,54 +5,59 @@ use std::time::Duration;
 use ripdpi_relay_mux::{RelayCapabilities, RelayPoolConfig};
 
 use crate::backend::RelayBackend;
-use crate::config::ResolvedRelayRuntimeConfig;
+use crate::config::{RelayKind, ResolvedRelayRuntimeConfig};
 
 pub(crate) fn planned_backend_capabilities(config: &ResolvedRelayRuntimeConfig) -> RelayCapabilities {
-    match config.kind.as_str() {
-        "hysteria2" | "masque" | "tuic_v5" => RelayCapabilities { tcp: true, udp: true, reusable: true },
-        "cloudflare_tunnel" => RelayCapabilities { tcp: true, udp: false, reusable: true },
-        "shadowtls_v3" | "naiveproxy" | "vless_reality" | "chain_relay" => {
+    match RelayKind::from_config(config) {
+        RelayKind::Hysteria2 | RelayKind::Masque | RelayKind::TuicV5 => {
+            RelayCapabilities { tcp: true, udp: true, reusable: true }
+        }
+        RelayKind::CloudflareTunnel => RelayCapabilities { tcp: true, udp: false, reusable: true },
+        RelayKind::ShadowTlsV3 | RelayKind::NaiveProxy | RelayKind::VlessReality { .. } | RelayKind::ChainRelay => {
             RelayCapabilities { tcp: true, udp: false, reusable: false }
         }
-        _ => RelayCapabilities::default(),
+        RelayKind::Unsupported(_) => RelayCapabilities::default(),
     }
 }
 
 pub(crate) fn planned_backend_fallback_mode(config: &ResolvedRelayRuntimeConfig) -> Option<String> {
-    match config.kind.as_str() {
-        "naiveproxy" => Some("subprocess".to_string()),
+    match RelayKind::from_config(config) {
+        RelayKind::NaiveProxy => Some("subprocess".to_string()),
         _ if planned_backend_capabilities(config).tcp || planned_backend_capabilities(config).udp => None,
-        other => Some(format!("unsupported:{other}")),
+        RelayKind::Unsupported(kind) => Some(format!("unsupported:{kind}")),
+        _ => None,
     }
 }
 
 pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> RelayPoolConfig {
-    match config.kind.as_str() {
-        "hysteria2" | "tuic_v5" | "masque" => {
+    match RelayKind::from_config(config) {
+        RelayKind::Hysteria2 | RelayKind::TuicV5 | RelayKind::Masque => {
             RelayPoolConfig { max_active_leases: 64, idle_timeout: Duration::from_secs(45) }
         }
-        "cloudflare_tunnel" => RelayPoolConfig { max_active_leases: 48, idle_timeout: Duration::from_secs(20) },
-        "vless_reality" if config.vless_transport == "xhttp" => {
+        RelayKind::CloudflareTunnel | RelayKind::VlessReality { xhttp: true } => {
             RelayPoolConfig { max_active_leases: 48, idle_timeout: Duration::from_secs(20) }
         }
-        "vless_reality" | "chain_relay" | "shadowtls_v3" | "naiveproxy" => {
-            RelayPoolConfig { max_active_leases: 16, idle_timeout: Duration::from_secs(5) }
-        }
-        _ => RelayPoolConfig::default(),
+        RelayKind::VlessReality { xhttp: false }
+        | RelayKind::ChainRelay
+        | RelayKind::ShadowTlsV3
+        | RelayKind::NaiveProxy => RelayPoolConfig { max_active_leases: 16, idle_timeout: Duration::from_secs(5) },
+        RelayKind::Unsupported(_) => RelayPoolConfig::default(),
     }
 }
 
 pub(crate) fn describe_upstream(config: &ResolvedRelayRuntimeConfig) -> String {
-    match config.kind.as_str() {
-        "chain_relay" => format!(
+    match RelayKind::from_config(config) {
+        RelayKind::ChainRelay => format!(
             "{}:{} -> {}:{}",
             config.chain_entry_server, config.chain_entry_port, config.chain_exit_server, config.chain_exit_port,
         ),
-        "vless_reality" if config.vless_transport == "xhttp" => {
+        RelayKind::VlessReality { xhttp: true } => {
             format!("{}:{}{}", config.server, config.server_port, normalized_xhttp_path(config))
         }
-        "cloudflare_tunnel" => format!("{}:{}{}", config.server, config.server_port, normalized_xhttp_path(config)),
-        "masque" => config.masque_url.clone(),
+        RelayKind::CloudflareTunnel => {
+            format!("{}:{}{}", config.server, config.server_port, normalized_xhttp_path(config))
+        }
+        RelayKind::Masque => config.masque_url.clone(),
         _ => format!("{}:{}", config.server, config.server_port),
     }
 }
@@ -77,6 +82,7 @@ pub(crate) fn normalized_xhttp_path(config: &ResolvedRelayRuntimeConfig) -> Stri
 }
 
 pub(crate) fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backend: &RelayBackend) -> io::Result<()> {
+    let kind = RelayKind::from_config(config);
     let outbound_bind_ip = parse_outbound_bind_ip(&config.outbound_bind_ip)?;
     if config.udp_enabled && !backend.udp_capable() {
         return Err(io::Error::new(
@@ -85,7 +91,7 @@ pub(crate) fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backe
         ));
     }
 
-    if outbound_bind_ip.is_some() && matches!(config.kind.as_str(), "hysteria2" | "masque") {
+    if outbound_bind_ip.is_some() && !kind.supports_outbound_bind_ip() {
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
             format!("relay backend {} does not support outbound bind IP", config.kind),
@@ -103,9 +109,7 @@ pub(crate) fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> 
         return Ok(());
     }
 
-    let supported_kind =
-        config.kind == "cloudflare_tunnel" || (config.kind == "vless_reality" && config.vless_transport == "xhttp");
-    if !supported_kind {
+    if !RelayKind::from_config(config).supports_finalmask() {
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
             format!("finalmask is unsupported for relay kind {} on its active transport", config.kind),
