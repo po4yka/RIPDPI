@@ -78,14 +78,23 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
     let repo = repo_root();
     let mut tokens = BTreeSet::new();
     for (path, signature) in [
-        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes.rs", "pub fn run_dns_probe"),
-        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes.rs", "fn classify_dns_probe_outcome"),
-        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes.rs", "pub fn run_domain_probe"),
-        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes.rs", "pub fn run_tcp_probe"),
-        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes.rs", "pub fn run_quic_probe"),
-        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes.rs", "pub fn run_service_probe"),
-        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes.rs", "pub fn run_circumvention_probe"),
-        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes.rs", "pub fn run_throughput_probe"),
+        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/dns.rs", "pub fn run_dns_probe"),
+        (
+            "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/dns.rs",
+            "fn classify_dns_probe_outcome",
+        ),
+        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/domain.rs", "pub fn run_domain_probe"),
+        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/tcp.rs", "pub fn run_tcp_probe"),
+        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/quic.rs", "pub fn run_quic_probe"),
+        ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/service.rs", "pub fn run_service_probe"),
+        (
+            "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/service.rs",
+            "pub fn run_circumvention_probe",
+        ),
+        (
+            "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/throughput.rs",
+            "pub fn run_throughput_probe",
+        ),
         (
             "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/report.rs",
             "pub fn build_network_environment_probe",
