@@ -340,7 +340,7 @@ class MainViewModel
                 serviceStateStore = mainServiceDependencies.serviceStateStore,
                 trafficStatsReader = mainServiceDependencies.trafficStatsReader,
                 stringResolver = stringResolver,
-                runtimeState = runtimeState,
+                runtimeState = ConnectionRuntimeStateReducer(runtimeState),
                 refreshPermissionSnapshot = { permissionActions.refreshPermissionSnapshot() },
             )
         }
