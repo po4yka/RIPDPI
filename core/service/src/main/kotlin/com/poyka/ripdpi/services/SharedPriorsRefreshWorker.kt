@@ -11,6 +11,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.RipDpiSharedPriorsNativeBindings
+import com.poyka.ripdpi.core.service.BuildConfig
 import com.poyka.ripdpi.data.SharedPriorsRefreshCache
 import com.poyka.ripdpi.data.SharedPriorsRefreshState
 import dagger.assisted.Assisted
@@ -33,12 +34,23 @@ import java.util.concurrent.TimeUnit
 //      `{"ok": false, "error": "no production..."}` and the worker
 //      logs the reason without retrying.
 //
-// The manifest + priors URLs are still TBD pending the release channel
-// being stood up. Until both URLs are set in BuildConfig (or similar)
-// the worker is a no-op so it can be safely scheduled on every install.
-private const val MANIFEST_URL_PLACEHOLDER = ""
-private const val PRIORS_URL_PLACEHOLDER = ""
-private const val MIN_REFRESH_INTERVAL_MS = 24L * 60L * 60L * 1000L
+private const val SharedPriorsRefreshIntervalHours = 24L
+private const val MillisPerSecond = 1_000L
+private const val minRefreshIntervalMs = SharedPriorsRefreshIntervalHours * 60L * 60L * MillisPerSecond
+
+internal data class SharedPriorsReleaseConfig(
+    val manifestUrl: String,
+    val priorsUrl: String,
+) {
+    val isConfigured: Boolean
+        get() = manifestUrl.isNotBlank() && priorsUrl.isNotBlank()
+}
+
+private fun sharedPriorsReleaseConfigFromBuildConfig(): SharedPriorsReleaseConfig =
+    SharedPriorsReleaseConfig(
+        manifestUrl = BuildConfig.SHARED_PRIORS_MANIFEST_URL.trim(),
+        priorsUrl = BuildConfig.SHARED_PRIORS_PRIORS_URL.trim(),
+    )
 
 @HiltWorker
 class SharedPriorsRefreshWorker
@@ -61,22 +73,20 @@ class SharedPriorsRefreshWorker
 
         @Suppress("ReturnCount")
         private suspend fun refresh(): Result {
-            val manifestUrl =
-                manifestUrlOrNull() ?: run {
-                    log.d { "shared-priors release URLs not configured; skipping refresh" }
-                    return Result.success()
-                }
-            val priorsUrlBaseline =
-                priorsUrlOrNull() ?: run {
-                    log.d { "shared-priors priors URL not configured; skipping refresh" }
-                    return Result.success()
-                }
+            val releaseConfig = sharedPriorsReleaseConfigFromBuildConfig()
+            if (!releaseConfig.isConfigured) {
+                log.w { "shared-priors refresh ran without configured release URLs" }
+                return Result.failure()
+            }
+            val manifestUrl = releaseConfig.manifestUrl
+            val priorsUrl = releaseConfig.priorsUrl
 
             val previous = refreshCache.load()
             val now = System.currentTimeMillis()
-            if (previous != null && now - previous.lastRefreshUnixMs < MIN_REFRESH_INTERVAL_MS) {
+            if (previous != null && now - previous.lastRefreshUnixMs < minRefreshIntervalMs) {
                 log.d {
-                    "shared-priors cooldown active; ${(now - previous.lastRefreshUnixMs) / 1_000} s since last refresh"
+                    "shared-priors cooldown active; " +
+                        "${(now - previous.lastRefreshUnixMs) / MillisPerSecond} s since last refresh"
                 }
                 return Result.success()
             }
@@ -95,7 +105,7 @@ class SharedPriorsRefreshWorker
                     return Result.retry()
                 }
             val priorsBytes =
-                runCatching { downloadService.downloadPriors(priorsUrlBaseline) }.getOrElse { error ->
+                runCatching { downloadService.downloadPriors(priorsUrl) }.getOrElse { error ->
                     log.w(error) { "shared-priors payload fetch failed" }
                     return Result.retry()
                 }
@@ -107,26 +117,31 @@ class SharedPriorsRefreshWorker
             return Result.success()
         }
 
-        private fun manifestUrlOrNull(): String? = MANIFEST_URL_PLACEHOLDER.takeIf { it.isNotEmpty() }
-
-        private fun priorsUrlOrNull(): String? = PRIORS_URL_PLACEHOLDER.takeIf { it.isNotEmpty() }
-
         companion object {
             const val UNIQUE_WORK_NAME = "ripdpi.shared-priors.refresh"
 
-            fun enqueuePeriodic(context: Context) {
+            fun enqueuePeriodic(context: Context): Boolean {
+                val releaseConfig = sharedPriorsReleaseConfigFromBuildConfig()
+                val workManager = WorkManager.getInstance(context)
+                if (!releaseConfig.isConfigured) {
+                    Logger.withTag("shared-priors").i {
+                        "shared-priors release URLs not configured; cancelling periodic refresh"
+                    }
+                    workManager.cancelUniqueWork(UNIQUE_WORK_NAME)
+                    return false
+                }
                 val constraints =
                     Constraints
                         .Builder()
                         .setRequiredNetworkType(NetworkType.CONNECTED)
                         .build()
                 val request =
-                    PeriodicWorkRequestBuilder<SharedPriorsRefreshWorker>(24L, TimeUnit.HOURS)
-                        .setConstraints(constraints)
-                        .build()
-                WorkManager
-                    .getInstance(context)
-                    .enqueueUniquePeriodicWork(UNIQUE_WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+                    PeriodicWorkRequestBuilder<SharedPriorsRefreshWorker>(
+                        SharedPriorsRefreshIntervalHours,
+                        TimeUnit.HOURS,
+                    ).setConstraints(constraints).build()
+                workManager.enqueueUniquePeriodicWork(UNIQUE_WORK_NAME, ExistingPeriodicWorkPolicy.KEEP, request)
+                return true
             }
         }
     }

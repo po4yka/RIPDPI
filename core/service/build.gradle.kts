@@ -23,6 +23,14 @@ fun localOrEnv(
     envKey: String,
 ): String? = localProps.getProperty(propKey) ?: providers.environmentVariable(envKey).orNull
 
+fun buildConfigString(value: String?): String =
+    "\"" +
+        value
+            .orEmpty()
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"") +
+        "\""
+
 val masquePrivacyPassProviderUrl =
     localOrEnv(
         "masque.privacyPassProviderUrl",
@@ -32,6 +40,16 @@ val masquePrivacyPassProviderAuthToken =
     localOrEnv(
         "masque.privacyPassProviderAuthToken",
         "RIPDPI_MASQUE_PRIVACY_PASS_PROVIDER_AUTH_TOKEN",
+    )
+val sharedPriorsManifestUrl =
+    localOrEnv(
+        "sharedPriors.manifestUrl",
+        "RIPDPI_SHARED_PRIORS_MANIFEST_URL",
+    )
+val sharedPriorsPriorsUrl =
+    localOrEnv(
+        "sharedPriors.priorsUrl",
+        "RIPDPI_SHARED_PRIORS_PRIORS_URL",
     )
 
 extensions.configure<LibraryExtension> {
@@ -45,12 +63,22 @@ extensions.configure<LibraryExtension> {
         buildConfigField(
             "String",
             "MASQUE_PRIVACY_PASS_PROVIDER_URL",
-            "\"${masquePrivacyPassProviderUrl.orEmpty()}\"",
+            buildConfigString(masquePrivacyPassProviderUrl),
         )
         buildConfigField(
             "String",
             "MASQUE_PRIVACY_PASS_PROVIDER_AUTH_TOKEN",
-            "\"${masquePrivacyPassProviderAuthToken.orEmpty()}\"",
+            buildConfigString(masquePrivacyPassProviderAuthToken),
+        )
+        buildConfigField(
+            "String",
+            "SHARED_PRIORS_MANIFEST_URL",
+            buildConfigString(sharedPriorsManifestUrl),
+        )
+        buildConfigField(
+            "String",
+            "SHARED_PRIORS_PRIORS_URL",
+            buildConfigString(sharedPriorsPriorsUrl),
         )
     }
 

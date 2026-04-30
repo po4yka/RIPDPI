@@ -67,6 +67,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
@@ -141,6 +143,7 @@ internal class FakeDiagnosticsHistoryStores :
     val rememberedPoliciesState = MutableStateFlow<List<RememberedNetworkPolicyEntity>>(emptyList())
     val networkDnsPathPreferencesState = MutableStateFlow<List<NetworkDnsPathPreferenceEntity>>(emptyList())
     val networkEdgePreferencesState = MutableStateFlow<List<NetworkEdgePreferenceEntity>>(emptyList())
+    val usageSessionsCollectorCount = AtomicInteger(0)
     var currentTime: Long = Long.MAX_VALUE
     private val packVersions = mutableMapOf<String, TargetPackVersionEntity>()
     private val probeResults = mutableMapOf<String, List<ProbeResultEntity>>()
@@ -219,7 +222,15 @@ internal class FakeDiagnosticsHistoryStores :
 
     override fun observeExportRecords(limit: Int): Flow<List<ExportRecordEntity>> = exportsState
 
-    override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> = usageSessionsState
+    override fun observeBypassUsageSessions(limit: Int): Flow<List<BypassUsageSessionEntity>> =
+        flow {
+            usageSessionsCollectorCount.incrementAndGet()
+            try {
+                emitAll(usageSessionsState)
+            } finally {
+                usageSessionsCollectorCount.decrementAndGet()
+            }
+        }
 
     override fun observeRememberedNetworkPolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> =
         rememberedPoliciesState
