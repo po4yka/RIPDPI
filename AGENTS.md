@@ -218,7 +218,7 @@ All dependency versions are in `gradle/libs.versions.toml`.
 - detekt config: `config/detekt/detekt.yml`
 - Max line length: 120 characters
 - SDK targets: compileSdk 36, minSdk 27, targetSdk 35
-- **Never extend baselines** (detekt baselines, LoC baselines, lint baselines) to suppress new violations. Always fix the underlying issue -- refactor long files, resolve detekt findings, etc. Baselines exist only for legacy debt; new code must not add to them.
+- Baseline policy lives in CLAUDE.md and is hook-enforced; do not extend baselines.
 
 ### Kotlin Anti-Patterns
 
@@ -357,6 +357,23 @@ there is any conflict.
 ## Repo-local Codex subagents
 
 Project-local Codex subagents live in `.codex/agents/` and should be delegated explicitly.
+
+### Model selection policy
+
+- **Codex agents** inherit the global default `gpt-5.5` from `~/.codex/config.toml` unless the agent file explicitly pins a model. Pin only when the work warrants it; agents that pin keep `model_reasoning_effort = "high"` only for security-critical or packet-level work (`dpi-desync-specialist`, `dns-resilience-specialist`, `security-auditor`).
+- **Claude agents** in `.claude/agents/` use the short aliases `opus`, `sonnet`, or `haiku` — never versioned IDs like `claude-opus-4-7`. Complex multi-file synthesis (PR review, unsafe audit, architecture, JNI, API surface, Kotlin design) maps to `opus`; pattern-matching test runners and profilers map to `sonnet`; parse-and-report tasks (coverage, golden, native size, regression) map to `haiku`.
+
+### Prompt-engineering policy for new agents
+
+Adapted from the [GPT-5.5 prompt-guidance](https://developers.openai.com/api/docs/guides/prompt-guidance) and [Claude prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices). Apply to every new or revised agent prompt.
+
+- **Outcome-first, not procedural.** State the role, the goal, success criteria, constraints, output shape, and stop rules. Trust the model on intermediate steps unless a specific procedure is load-bearing.
+- **Be literal about scope.** Opus 4.7 follows instructions literally and will not generalize across items. If a checklist applies to every file in a diff, every public API in a crate, or every variant of an enum, say so explicitly ("Apply this checklist to every changed file, not only the first one").
+- **Reserve absolutes for true invariants.** Use `MUST`, `NEVER`, `CRITICAL` only for safety, baseline policy, regulatory framing, or wire-contract guarantees. Padding ordinary preferences with absolutes causes over-triggering on Opus 4.7 / Sonnet 4.6 and Codex GPT-5.5; prefer normal phrasing for judgment calls.
+- **Define stopping rules.** For research/retrieval agents: state how many searches are enough. For audits: state the verdict format and what counts as "done." Without a stopping rule the model may keep working past the point of useful return.
+- **Bias to action where the request is clear.** Suggest-vs-implement defaults are different across model families; if you want the agent to make changes, say "make these edits" not "can you suggest changes."
+- **For code-review harnesses, prefer coverage over filtering.** Tell the agent to report every finding with confidence and severity tags; let a downstream pass do the filtering. Saying "be conservative" or "don't nitpick" makes Opus 4.7 silently drop real bugs.
+- **Skip legacy scaffolding.** Status-message instructions, "double-check your work" reminders, and forced interim summaries should be removed unless they materially shape user-visible output.
 
 | Agent | Prefer when |
 |-------|-------------|
