@@ -6,7 +6,7 @@ use ripdpi_config::DETECT_CONNECT;
 use ripdpi_packets::{IS_HTTP, IS_HTTPS};
 use ripdpi_session::{encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply};
 
-use ripdpi_runtime_learning::runtime_policy::{
+use ripdpi_runtime_policy::runtime_policy::{
     extract_host, group_requires_payload, route_matches_payload, TransportProtocol,
 };
 
@@ -18,7 +18,7 @@ use super::ws_tunnel::{
 
 enum DelayConnect {
     Immediate,
-    Delayed { route: ripdpi_runtime_learning::runtime_policy::ConnectionRoute, payload: Vec<u8> },
+    Delayed { route: ripdpi_runtime_policy::runtime_policy::ConnectionRoute, payload: Vec<u8> },
     Closed,
 }
 
@@ -174,7 +174,7 @@ where
         SocketAddr,
         &RuntimeState,
         Option<String>,
-        ripdpi_runtime_learning::runtime_policy::ConnectionRoute,
+        ripdpi_runtime_policy::runtime_policy::ConnectionRoute,
         Vec<u8>,
     ) -> Result<(), ConnectRelayError>,
     ConnectAfterWsAttempt:
@@ -359,7 +359,7 @@ fn delayed_connect_relay(
     target: SocketAddr,
     state: &RuntimeState,
     host_hint: Option<String>,
-    route: ripdpi_runtime_learning::runtime_policy::ConnectionRoute,
+    route: ripdpi_runtime_policy::runtime_policy::ConnectionRoute,
     payload: Vec<u8>,
 ) -> Result<(), ConnectRelayError> {
     let host = extract_host(&state.config, &payload).or(host_hint);
@@ -519,12 +519,12 @@ mod tests {
     use crate::runtime::state::RuntimeState;
     use ripdpi_config::{RuntimeConfig, WsTunnelMode};
     use ripdpi_failure_classifier::ClassifiedFailure;
+    use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
+    use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
+    use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
     use ripdpi_runtime_api::RuntimeTelemetrySink;
-    use ripdpi_runtime_learning::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-    use ripdpi_runtime_learning::adaptive_tuning::AdaptivePlannerResolver;
-    use ripdpi_runtime_learning::retry_stealth::RetryPacer;
-    use ripdpi_runtime_learning::runtime_policy::RuntimePolicy;
-    use ripdpi_runtime_learning::strategy_evolver::StrategyEvolver;
+    use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
+    use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
     use ripdpi_ws_tunnel::TelegramDc;
     use std::sync::atomic::{AtomicUsize, Ordering as StdOrdering};
     use std::sync::{Arc as StdArc, Mutex as StdMutex};
@@ -555,7 +555,7 @@ mod tests {
             ttl_unavailable: crate::sync::Arc::new(crate::sync::AtomicBool::new(false)),
             reprobe_tracker: std::sync::Arc::new(crate::runtime::reprobe::ReprobeTracker::new()),
             dns_hostname_cache: std::sync::Arc::new(
-                ripdpi_runtime_learning::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
+                ripdpi_runtime_dns_cache::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
             ),
             pcap_hook: None,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]

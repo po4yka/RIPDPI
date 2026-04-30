@@ -1,7 +1,7 @@
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 
-use ripdpi_runtime_learning::runtime_policy::{ConnectionRoute, TransportProtocol};
+use ripdpi_runtime_policy::runtime_policy::{ConnectionRoute, TransportProtocol};
 
 use super::super::adaptive::{
     capability_blocks_transport, direct_path_capability_for_targets, note_direct_path_udp_suppressed, now_millis,

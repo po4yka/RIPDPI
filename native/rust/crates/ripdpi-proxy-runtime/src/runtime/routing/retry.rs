@@ -2,7 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_failure_classifier::{classify_transport_error, ClassifiedFailure, FailureClass, FailureStage};
-use ripdpi_runtime_learning::runtime_policy::{ConnectionRoute, TransportProtocol};
+use ripdpi_runtime_policy::runtime_policy::{ConnectionRoute, TransportProtocol};
 
 use super::super::adaptive::{note_direct_path_all_ips_failed, note_direct_path_transport_attempt};
 use super::super::state::RuntimeState;

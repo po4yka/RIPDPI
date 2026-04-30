@@ -22,7 +22,7 @@ use ripdpi_proxy_config::NetworkSnapshot;
 use super::routing::connect_socket;
 use super::state::flush_autolearn_updates;
 use super::state::RuntimeState;
-use ripdpi_runtime_learning::strategy_evolver::StrategyEvolver;
+use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
 
 /// Domains to probe. These are commonly DPI-blocked targets that exercise TLS
 /// handshake classification. Using 3 domains keeps the total probe budget small.
@@ -165,7 +165,7 @@ fn run_reprobe(
     config: &ripdpi_config::RuntimeConfig,
     evolver: &crate::sync::Arc<crate::sync::RwLock<StrategyEvolver>>,
     adaptive_tuning: &crate::sync::Arc<
-        crate::sync::RwLock<ripdpi_runtime_learning::adaptive_tuning::AdaptivePlannerResolver>,
+        crate::sync::RwLock<ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver>,
     >,
 ) {
     let deadline = std::time::Instant::now() + TOTAL_DEADLINE;

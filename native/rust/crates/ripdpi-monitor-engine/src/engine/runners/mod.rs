@@ -1,15 +1,20 @@
 mod connectivity;
 mod strategy;
 
+use std::sync::Arc;
+
 use connectivity::{
     CircumventionRunner, DnsRunner, EnvironmentRunner, QuicRunner, ServiceRunner, TcpRunner, TelegramRunner,
     ThroughputRunner, WebRunner,
 };
 use strategy::{StrategyDnsBaselineRunner, StrategyQuicRunner, StrategyRecommendationRunner, StrategyTcpRunner};
 
+use crate::execution::ProductionCandidateRuntimeLauncher;
+
 use super::runtime::ExecutionCoordinator;
 
 pub(super) fn execution_coordinator() -> ExecutionCoordinator {
+    let candidate_runtime_launcher = Arc::new(ProductionCandidateRuntimeLauncher);
     ExecutionCoordinator::new(vec![
         Box::new(EnvironmentRunner),
         Box::new(DnsRunner),
@@ -21,8 +26,8 @@ pub(super) fn execution_coordinator() -> ExecutionCoordinator {
         Box::new(TelegramRunner),
         Box::new(ThroughputRunner),
         Box::new(StrategyDnsBaselineRunner),
-        Box::new(StrategyTcpRunner),
-        Box::new(StrategyQuicRunner),
+        Box::new(StrategyTcpRunner::new(candidate_runtime_launcher.clone())),
+        Box::new(StrategyQuicRunner::new(candidate_runtime_launcher)),
         Box::new(StrategyRecommendationRunner),
     ])
 }

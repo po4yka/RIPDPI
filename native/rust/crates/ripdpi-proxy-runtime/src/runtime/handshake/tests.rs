@@ -4,10 +4,10 @@ use crate::sync::{Arc, AtomicBool, AtomicUsize, RwLock};
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
 use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
-use ripdpi_runtime_learning::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-use ripdpi_runtime_learning::adaptive_tuning::AdaptivePlannerResolver;
-use ripdpi_runtime_learning::retry_stealth::RetryPacer;
-use ripdpi_runtime_learning::runtime_policy::RuntimePolicy;
+use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
+use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
+use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
+use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
 use ripdpi_session::{
     encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, parse_http_connect_request,
     parse_socks4_request, parse_socks5_request, SessionConfig, SocketType, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_ER_GEN,
@@ -36,7 +36,7 @@ fn runtime_state_with_context(config: RuntimeConfig, runtime_context: Option<Pro
         adaptive_fake_ttl: Arc::new(RwLock::new(AdaptiveFakeTtlResolver::default())),
         adaptive_tuning: Arc::new(RwLock::new(AdaptivePlannerResolver::default())),
         retry_stealth: Arc::new(RwLock::new(RetryPacer::default())),
-        strategy_evolver: Arc::new(RwLock::new(ripdpi_runtime_learning::strategy_evolver::StrategyEvolver::new(
+        strategy_evolver: Arc::new(RwLock::new(ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver::new(
             false, 0.0,
         ))),
         direct_path_learning: Arc::new(RwLock::new(
@@ -49,7 +49,7 @@ fn runtime_state_with_context(config: RuntimeConfig, runtime_context: Option<Pro
         ttl_unavailable: Arc::new(AtomicBool::new(false)),
         reprobe_tracker: std::sync::Arc::new(crate::runtime::reprobe::ReprobeTracker::new()),
         dns_hostname_cache: std::sync::Arc::new(
-            ripdpi_runtime_learning::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
+            ripdpi_runtime_dns_cache::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
         ),
         pcap_hook: None,
         #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]

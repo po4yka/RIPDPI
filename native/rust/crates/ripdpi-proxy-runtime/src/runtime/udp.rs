@@ -10,7 +10,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use ripdpi_runtime_learning::runtime_policy::{extract_host_info, route_matches_payload, TransportProtocol};
+use ripdpi_runtime_policy::runtime_policy::{extract_host_info, route_matches_payload, TransportProtocol};
 use ripdpi_session::SessionState;
 
 pub(crate) use self::codec::{encode_socks5_udp_packet, parse_socks5_udp_packet};
@@ -257,12 +257,12 @@ mod tests {
     use local_network_fixture::{FixtureConfig, FixtureStack};
     use ripdpi_config::{QuicInitialMode, RuntimeConfig};
     use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
-    use ripdpi_runtime_learning::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-    use ripdpi_runtime_learning::adaptive_tuning::AdaptivePlannerResolver;
-    use ripdpi_runtime_learning::retry_stealth::RetryPacer;
-    use ripdpi_runtime_learning::runtime_policy::HostSource;
-    use ripdpi_runtime_learning::runtime_policy::RuntimePolicy;
-    use ripdpi_runtime_learning::strategy_evolver::StrategyEvolver;
+    use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
+    use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
+    use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
+    use ripdpi_runtime_policy::runtime_policy::HostSource;
+    use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
+    use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
     use ripdpi_session::S_ATP_I4;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
@@ -291,7 +291,7 @@ mod tests {
             ttl_unavailable: Arc::new(AtomicBool::new(false)),
             reprobe_tracker: std::sync::Arc::new(crate::runtime::reprobe::ReprobeTracker::new()),
             dns_hostname_cache: std::sync::Arc::new(
-                ripdpi_runtime_learning::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
+                ripdpi_runtime_dns_cache::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
             ),
             pcap_hook: None,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
@@ -352,11 +352,11 @@ mod tests {
     #[test]
     fn should_cache_udp_host_only_caches_quic_in_cache_mode() {
         let mut config = RuntimeConfig::default();
-        let quic = ripdpi_runtime_learning::runtime_policy::ExtractedHost {
+        let quic = ripdpi_runtime_policy::runtime_policy::ExtractedHost {
             host: "docs.example.test".to_string(),
             source: HostSource::Quic,
         };
-        let tls = ripdpi_runtime_learning::runtime_policy::ExtractedHost {
+        let tls = ripdpi_runtime_policy::runtime_policy::ExtractedHost {
             host: "docs.example.test".to_string(),
             source: HostSource::Tls,
         };

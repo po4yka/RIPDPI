@@ -10,12 +10,12 @@ use crate::process;
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll};
 use ripdpi_config::RuntimeConfig;
+use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
+use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
+use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
 use ripdpi_runtime_api::{current_runtime_telemetry, EmbeddedProxyControl};
-use ripdpi_runtime_learning::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-use ripdpi_runtime_learning::adaptive_tuning::AdaptivePlannerResolver;
-use ripdpi_runtime_learning::retry_stealth::RetryPacer;
-use ripdpi_runtime_learning::runtime_policy::RuntimePolicy;
 use ripdpi_runtime_platform as platform;
+use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
 use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
 use crate::sync::{Arc, AtomicBool, AtomicUsize, RwLock};
@@ -311,7 +311,7 @@ pub(super) fn run_proxy_with_listener_internal(
         adaptive_tuning: Arc::new(RwLock::new(adaptive_tuning)),
         retry_stealth: Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
         strategy_evolver: Arc::new(crate::sync::RwLock::new(
-            ripdpi_runtime_learning::strategy_evolver::StrategyEvolver::new(evolver_enabled, evolver_epsilon)
+            ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver::new(evolver_enabled, evolver_epsilon)
                 .with_time_knobs(
                     evolver_experiment_ttl_ms,
                     evolver_decay_half_life_ms,
@@ -327,7 +327,7 @@ pub(super) fn run_proxy_with_listener_internal(
         ttl_unavailable: Arc::new(AtomicBool::new(false)),
         reprobe_tracker: std::sync::Arc::new(super::reprobe::ReprobeTracker::new()),
         dns_hostname_cache: std::sync::Arc::new(
-            ripdpi_runtime_learning::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
+            ripdpi_runtime_dns_cache::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
         ),
         pcap_hook: None,
         #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]

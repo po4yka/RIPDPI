@@ -111,10 +111,10 @@ mod tests {
         DETECT_CONNECT, DETECT_HTTP_LOCAT,
     };
     use ripdpi_packets::{DEFAULT_FAKE_TLS, IS_HTTPS};
-    use ripdpi_runtime_learning::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-    use ripdpi_runtime_learning::adaptive_tuning::AdaptivePlannerResolver;
-    use ripdpi_runtime_learning::retry_stealth::RetryPacer;
-    use ripdpi_runtime_learning::runtime_policy::RuntimePolicy;
+    use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
+    use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
+    use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
+    use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
     use ripdpi_session::{
         encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, OutboundProgress, S_ATP_I4, S_ATP_I6,
         S_CMD_CONN, S_ER_CONN, S_VER5,
@@ -449,7 +449,7 @@ mod tests {
             adaptive_tuning: Arc::new(crate::sync::RwLock::new(AdaptivePlannerResolver::default())),
             retry_stealth: Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
             strategy_evolver: Arc::new(crate::sync::RwLock::new(
-                ripdpi_runtime_learning::strategy_evolver::StrategyEvolver::new(false, 0.0),
+                ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver::new(false, 0.0),
             )),
             direct_path_learning: Arc::new(crate::sync::RwLock::new(
                 crate::runtime::direct_path_learning::DirectPathLearningState::default(),
@@ -461,7 +461,7 @@ mod tests {
             ttl_unavailable: Arc::new(AtomicBool::new(false)),
             reprobe_tracker: std::sync::Arc::new(crate::runtime::reprobe::ReprobeTracker::new()),
             dns_hostname_cache: std::sync::Arc::new(
-                ripdpi_runtime_learning::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
+                ripdpi_runtime_dns_cache::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
             ),
             pcap_hook: None,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]

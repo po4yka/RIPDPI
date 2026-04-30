@@ -19,7 +19,7 @@ use crate::classification::{
 use crate::connectivity::set_progress;
 use crate::execution::{
     eliminated_candidate_summary, execute_quic_candidate, execute_tcp_candidate, skipped_candidate_summary,
-    winning_candidate_index, CandidateExecution,
+    winning_candidate_index, CandidateExecution, CandidateRuntimeLauncher,
 };
 use crate::observations::observations_for_results;
 use crate::strategy::detect_strategy_probe_dns_tampering;
@@ -44,9 +44,25 @@ use super::super::runtime::{
 };
 
 pub(super) struct StrategyDnsBaselineRunner;
-pub(super) struct StrategyTcpRunner;
-pub(super) struct StrategyQuicRunner;
+pub(super) struct StrategyTcpRunner {
+    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
+}
+pub(super) struct StrategyQuicRunner {
+    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
+}
 pub(super) struct StrategyRecommendationRunner;
+
+impl StrategyTcpRunner {
+    pub(super) fn new(candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>) -> Self {
+        Self { candidate_runtime_launcher }
+    }
+}
+
+impl StrategyQuicRunner {
+    pub(super) fn new(candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>) -> Self {
+        Self { candidate_runtime_launcher }
+    }
+}
 
 impl ExecutionStageRunner for StrategyDnsBaselineRunner {
     fn id(&self) -> ExecutionStageId {
@@ -167,6 +183,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
             format!("Testing TCP candidate {}", baseline_spec.label),
         );
         let baseline_execution = execute_tcp_candidate(
+            self.candidate_runtime_launcher.as_ref(),
             baseline_spec,
             &domain_targets,
             strategy_plan.runtime_context.as_ref(),
@@ -310,6 +327,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                                     return (spec_clone, None);
                                 }
                                 let execution = execute_tcp_candidate(
+                                    self.candidate_runtime_launcher.as_ref(),
                                     &spec_clone,
                                     qualifier_targets,
                                     strategy_plan.runtime_context.as_ref(),
@@ -476,6 +494,7 @@ impl ExecutionStageRunner for StrategyTcpRunner {
                     .map(|(candidate_index, spec)| {
                         s.spawn(move || {
                             let execution = execute_tcp_candidate(
+                                self.candidate_runtime_launcher.as_ref(),
                                 &spec,
                                 domain_targets_ref,
                                 strategy_plan.runtime_context.as_ref(),
@@ -686,6 +705,7 @@ impl ExecutionStageRunner for StrategyQuicRunner {
             }
 
             let execution = execute_quic_candidate(
+                self.candidate_runtime_launcher.as_ref(),
                 &spec,
                 &quic_targets,
                 strategy_plan.runtime_context.as_ref(),

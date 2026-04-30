@@ -11,7 +11,7 @@ use ripdpi_failure_classifier::{
     block_signal_from_failure, classify_http_response_block, classify_tls_alert, classify_tls_handshake_failure,
     confirm_dns_tampering, ClassifiedFailure, FailureAction, FailureClass,
 };
-use ripdpi_runtime_learning::runtime_policy::{
+use ripdpi_runtime_policy::runtime_policy::{
     is_tls_client_hello_payload, ConnectionRoute, RouteAdvance, TransportProtocol,
 };
 use ripdpi_session::{detect_response_trigger, TriggerEvent};

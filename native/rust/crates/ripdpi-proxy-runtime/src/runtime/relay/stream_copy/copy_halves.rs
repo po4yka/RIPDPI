@@ -1,5 +1,5 @@
 use crate::sync::{Arc, Mutex};
-use ripdpi_runtime_learning::runtime_policy::extract_host;
+use ripdpi_runtime_policy::runtime_policy::extract_host;
 use ripdpi_session::SessionState;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream};

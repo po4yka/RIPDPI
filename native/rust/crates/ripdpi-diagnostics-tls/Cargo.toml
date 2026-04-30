@@ -1,0 +1,22 @@
+[package]
+name = "ripdpi-diagnostics-tls"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-diagnostics-contracts = { workspace = true }
+ripdpi-diagnostics-dns = { workspace = true }
+ripdpi-diagnostics-transport = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
+md5 = { workspace = true }
+rustls = { workspace = true }
+tracing = { workspace = true }
+webpki-roots = { workspace = true }
+
+[features]
+hickory = ["ripdpi-diagnostics-dns/hickory"]
+quic-native = ["ripdpi-diagnostics-dns/quic-native", "ripdpi-diagnostics-transport/quic-native"]

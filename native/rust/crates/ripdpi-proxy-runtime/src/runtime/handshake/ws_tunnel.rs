@@ -210,11 +210,11 @@ mod tests {
     use crate::sync::{Arc, AtomicUsize, RwLock};
     use aes::cipher::{KeyIvInit, StreamCipher};
     use aes::Aes256;
-    use ripdpi_runtime_learning::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-    use ripdpi_runtime_learning::adaptive_tuning::AdaptivePlannerResolver;
-    use ripdpi_runtime_learning::retry_stealth::RetryPacer;
-    use ripdpi_runtime_learning::runtime_policy::RuntimePolicy;
-    use ripdpi_runtime_learning::strategy_evolver::StrategyEvolver;
+    use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
+    use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
+    use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
+    use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
+    use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
     use std::net::{Ipv4Addr, TcpListener};
     use std::thread;
 
@@ -247,7 +247,7 @@ mod tests {
             ttl_unavailable: Arc::new(crate::sync::AtomicBool::new(false)),
             reprobe_tracker: std::sync::Arc::new(crate::runtime::reprobe::ReprobeTracker::new()),
             dns_hostname_cache: std::sync::Arc::new(
-                ripdpi_runtime_learning::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
+                ripdpi_runtime_dns_cache::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
             ),
             pcap_hook: None,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]

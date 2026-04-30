@@ -21,7 +21,7 @@ use crate::runtime::routing::{
     note_block_signal_for_failure, preferred_targets_for_transport, select_route_for_transport,
 };
 use crate::runtime::state::{flush_autolearn_updates, RuntimeState, UDP_FLOW_IDLE_TIMEOUT};
-use ripdpi_runtime_learning::runtime_policy::{
+use ripdpi_runtime_policy::runtime_policy::{
     ConnectionRoute, ExtractedHost, HostSource, RouteAdvance, TransportProtocol,
 };
 

@@ -22,8 +22,8 @@ use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
 
 use super::morph::{apply_tcp_morph_policy_to_hints, apply_udp_morph_policy_to_hints, emit_morph_rollback};
 use super::state::RuntimeState;
-use ripdpi_runtime_learning::runtime_policy::{is_tls_client_hello_payload, TransportProtocol};
-use ripdpi_runtime_learning::strategy_evolver::{
+use ripdpi_runtime_policy::runtime_policy::{is_tls_client_hello_payload, TransportProtocol};
+use ripdpi_runtime_strategy::strategy_evolver::{
     CapabilityContext, LearningAlpnClass, LearningContext, LearningHostingFamily, LearningReachabilitySet,
     LearningTargetBucket, LearningTransportKind, ResolverHealthClass,
 };
@@ -641,7 +641,7 @@ pub(super) fn emit_due_direct_path_learning_timeouts(state: &RuntimeState) -> io
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ripdpi_runtime_learning::strategy_evolver::{LearningHostingFamily, LearningReachabilitySet};
+    use ripdpi_runtime_strategy::strategy_evolver::{LearningHostingFamily, LearningReachabilitySet};
 
     fn capability(authority: &str) -> ProxyDirectPathCapability {
         ProxyDirectPathCapability {

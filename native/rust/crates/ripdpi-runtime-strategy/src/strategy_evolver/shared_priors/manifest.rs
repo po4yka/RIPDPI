@@ -223,13 +223,12 @@ pub mod test_support {
             acc.push_str(&format!("{byte:02x}"));
             acc
         });
+        let version = SHARED_PRIORS_MANIFEST_VERSION;
+        let hash = priors_sha256_hex;
+        let ts = issued_at_unix;
+        let sig = signature_b64;
         format!(
-            "{{\"version\":{version},\"priors_url\":\"{url}\",\"priors_sha256\":\"{hash}\",\"issued_at_unix\":{ts},\"signature_ed25519\":\"{sig}\"}}",
-            version = SHARED_PRIORS_MANIFEST_VERSION,
-            url = priors_url,
-            hash = priors_sha256_hex,
-            ts = issued_at_unix,
-            sig = signature_b64,
+            "{{\"version\":{version},\"priors_url\":\"{priors_url}\",\"priors_sha256\":\"{hash}\",\"issued_at_unix\":{ts},\"signature_ed25519\":\"{sig}\"}}"
         )
     }
 }

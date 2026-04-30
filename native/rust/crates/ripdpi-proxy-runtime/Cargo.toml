@@ -18,7 +18,10 @@ ripdpi-ipfrag = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
-ripdpi-runtime-learning = { workspace = true }
+ripdpi-runtime-adaptive = { workspace = true }
+ripdpi-runtime-dns-cache = { workspace = true }
+ripdpi-runtime-policy = { workspace = true }
+ripdpi-runtime-strategy = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 ripdpi-session = { workspace = true }
 ripdpi-ws-bootstrap = { workspace = true }

@@ -3249,6 +3249,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-diagnostics-fat-header"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-http",
+ "ripdpi-diagnostics-tls",
+ "ripdpi-diagnostics-transport",
+ "rustls",
+]
+
+[[package]]
+name = "ripdpi-diagnostics-http"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-tls",
+ "ripdpi-diagnostics-transport",
+ "ripdpi-failure-classifier",
+]
+
+[[package]]
 name = "ripdpi-diagnostics-net"
 version = "0.1.0"
 dependencies = [
@@ -3288,17 +3309,10 @@ dependencies = [
 name = "ripdpi-diagnostics-protocols"
 version = "0.1.0"
 dependencies = [
- "md5",
- "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-dns",
- "ripdpi-diagnostics-transport",
- "ripdpi-failure-classifier",
- "ripdpi-tls-profiles",
- "ripdpi-ws-bootstrap",
- "ripdpi-ws-tunnel",
- "rustls",
- "tracing",
- "webpki-roots",
+ "ripdpi-diagnostics-fat-header",
+ "ripdpi-diagnostics-http",
+ "ripdpi-diagnostics-telegram",
+ "ripdpi-diagnostics-tls",
 ]
 
 [[package]]
@@ -3320,6 +3334,34 @@ dependencies = [
  "ripdpi-proxy-config",
  "rustls",
  "tracing",
+]
+
+[[package]]
+name = "ripdpi-diagnostics-telegram"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-http",
+ "ripdpi-diagnostics-tls",
+ "ripdpi-diagnostics-transport",
+ "ripdpi-ws-bootstrap",
+ "ripdpi-ws-tunnel",
+ "rustls",
+ "tracing",
+]
+
+[[package]]
+name = "ripdpi-diagnostics-tls"
+version = "0.1.0"
+dependencies = [
+ "md5",
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-dns",
+ "ripdpi-diagnostics-transport",
+ "ripdpi-tls-profiles",
+ "rustls",
+ "tracing",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -3552,9 +3594,12 @@ dependencies = [
  "ripdpi-ipfrag",
  "ripdpi-packets",
  "ripdpi-proxy-config",
+ "ripdpi-runtime-adaptive",
  "ripdpi-runtime-api",
- "ripdpi-runtime-learning",
+ "ripdpi-runtime-dns-cache",
  "ripdpi-runtime-platform",
+ "ripdpi-runtime-policy",
+ "ripdpi-runtime-strategy",
  "ripdpi-session",
  "ripdpi-ws-bootstrap",
  "ripdpi-ws-tunnel",

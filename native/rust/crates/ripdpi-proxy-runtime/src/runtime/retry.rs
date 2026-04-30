@@ -7,10 +7,10 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use ripdpi_desync::AdaptivePlannerHints;
 use ripdpi_packets::classify::{default_registry, ProtocolId};
 
-use ripdpi_runtime_learning::retry_stealth::{
+use ripdpi_runtime_adaptive::retry_stealth::{
     adaptive_signature_hash, target_key, RetryDecision, RetryLane, RetrySignature,
 };
-use ripdpi_runtime_learning::runtime_policy::{RetrySelectionPenalty, TransportProtocol};
+use ripdpi_runtime_policy::runtime_policy::{RetrySelectionPenalty, TransportProtocol};
 
 use super::adaptive::{
     network_scope_key, resolve_adaptive_fake_ttl, resolve_adaptive_tcp_hints, resolve_adaptive_udp_hints,
@@ -124,7 +124,7 @@ pub(super) fn build_retry_selection_penalties(
 pub(super) fn maybe_emit_candidate_diversification(
     state: &RuntimeState,
     target: SocketAddr,
-    route: &ripdpi_runtime_learning::runtime_policy::ConnectionRoute,
+    route: &ripdpi_runtime_policy::runtime_policy::ConnectionRoute,
     penalties: &BTreeMap<usize, RetrySelectionPenalty>,
 ) {
     let Some(selected_penalty) = penalties.get(&route.group_index).copied() else {
@@ -146,7 +146,7 @@ pub(super) fn maybe_emit_candidate_diversification(
 pub(super) fn apply_retry_pacing_before_connect(
     state: &RuntimeState,
     target: SocketAddr,
-    route: &ripdpi_runtime_learning::runtime_policy::ConnectionRoute,
+    route: &ripdpi_runtime_policy::runtime_policy::ConnectionRoute,
     host: Option<&str>,
     payload: Option<&[u8]>,
 ) -> io::Result<()> {

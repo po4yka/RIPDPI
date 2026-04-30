@@ -21,7 +21,7 @@ use crate::transport::{
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult, QuicTarget};
 use crate::util::{now_ms, stable_probe_hash};
 
-use super::runtime::{probe_runtime_transport, run_candidate_warmup};
+use super::runtime::{probe_runtime_transport, run_candidate_warmup, CandidateRuntimeLauncher};
 use super::scoring::{
     build_candidate_execution, cancelled_candidate_execution, failed_candidate_execution,
     not_applicable_candidate_execution, CandidateExecution, CandidateScore, ProbeSample,
@@ -30,6 +30,7 @@ use super::scoring::{
 static BLOCKPAGE_FINGERPRINTS: LazyLock<Vec<BlockpageFingerprint>> = LazyLock::new(load_fingerprints);
 
 pub fn execute_tcp_candidate(
+    runtime_launcher: &dyn CandidateRuntimeLauncher,
     spec: &StrategyCandidateSpec,
     targets: &[DomainTarget],
     runtime_context: Option<&ProxyRuntimeContext>,
@@ -41,7 +42,7 @@ pub fn execute_tcp_candidate(
         return not_applicable_candidate_execution(spec, 0, 3, "No HTTP or HTTPS targets configured");
     }
     let probe_started = std::time::Instant::now();
-    match probe_runtime_transport(spec, runtime_context) {
+    match probe_runtime_transport(runtime_launcher, spec, runtime_context) {
         Ok(runtime) => {
             let transport = runtime.transport();
             run_candidate_warmup(spec, &transport, targets, tls_verifier);
@@ -112,6 +113,7 @@ pub fn execute_tcp_candidate(
 }
 
 pub fn execute_quic_candidate(
+    runtime_launcher: &dyn CandidateRuntimeLauncher,
     spec: &StrategyCandidateSpec,
     targets: &[QuicTarget],
     runtime_context: Option<&ProxyRuntimeContext>,
@@ -122,7 +124,7 @@ pub fn execute_quic_candidate(
         return not_applicable_candidate_execution(spec, 0, 2, "No QUIC targets configured");
     }
     let probe_started = std::time::Instant::now();
-    match probe_runtime_transport(spec, runtime_context) {
+    match probe_runtime_transport(runtime_launcher, spec, runtime_context) {
         Ok(runtime) => {
             let transport = runtime.transport();
             let mut score = CandidateScore::default();
@@ -557,7 +559,71 @@ pub fn run_quic_strategy_probe(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::AtomicUsize;
+
     use super::*;
+
+    struct FailingRuntimeLauncher {
+        starts: AtomicUsize,
+    }
+
+    impl FailingRuntimeLauncher {
+        fn new() -> Self {
+            Self { starts: AtomicUsize::new(0) }
+        }
+
+        fn starts(&self) -> usize {
+            self.starts.load(Ordering::Relaxed)
+        }
+    }
+
+    impl CandidateRuntimeLauncher for FailingRuntimeLauncher {
+        fn start_candidate_runtime(
+            &self,
+            _prepared: crate::execution::runtime::PreparedCandidateRuntime,
+        ) -> Result<Box<dyn crate::execution::runtime::CandidateProbeRuntime>, String> {
+            self.starts.fetch_add(1, Ordering::Relaxed);
+            Err("runtime unavailable".to_string())
+        }
+    }
+
+    #[test]
+    fn execute_tcp_candidate_returns_failed_when_launcher_fails() {
+        let launcher = FailingRuntimeLauncher::new();
+        let spec =
+            crate::candidates::candidate_spec("test", "Test", "test", ripdpi_proxy_config::ProxyUiConfig::default());
+        let targets = vec![DomainTarget {
+            host: "example.test".to_string(),
+            connect_ip: None,
+            connect_ips: Vec::new(),
+            https_port: None,
+            http_port: None,
+            http_path: "/".to_string(),
+            is_control: false,
+        }];
+        let cancel = AtomicBool::new(false);
+
+        let execution = execute_tcp_candidate(&launcher, &spec, &targets, None, 0, None, &cancel);
+
+        assert_eq!(launcher.starts(), 1);
+        assert_eq!(execution.summary.outcome, "failed");
+        assert_eq!(execution.summary.rationale, "runtime unavailable");
+        assert_eq!(execution.summary.total_targets, 2);
+    }
+
+    #[test]
+    fn execute_quic_candidate_without_targets_does_not_start_launcher() {
+        let launcher = FailingRuntimeLauncher::new();
+        let spec =
+            crate::candidates::candidate_spec("test", "Test", "test", ripdpi_proxy_config::ProxyUiConfig::default());
+        let cancel = AtomicBool::new(false);
+
+        let execution = execute_quic_candidate(&launcher, &spec, &[], None, 0, &cancel);
+
+        assert_eq!(launcher.starts(), 0);
+        assert_eq!(execution.summary.outcome, "not_applicable");
+        assert_eq!(execution.summary.rationale, "No QUIC targets configured");
+    }
 
     #[test]
     fn https_tls_error_detail_excludes_ech_resolution_failures_for_successful_https_outcomes() {

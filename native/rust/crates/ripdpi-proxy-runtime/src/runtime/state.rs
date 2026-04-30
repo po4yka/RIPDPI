@@ -4,12 +4,12 @@ use std::time::Duration;
 use crate::runtime::direct_path_learning::DirectPathLearningState;
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::ProxyRuntimeContext;
+use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
+use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
+use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
 use ripdpi_runtime_api::{EmbeddedProxyControl, RuntimeTelemetrySink};
-use ripdpi_runtime_learning::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-use ripdpi_runtime_learning::adaptive_tuning::AdaptivePlannerResolver;
-use ripdpi_runtime_learning::retry_stealth::RetryPacer;
-use ripdpi_runtime_learning::runtime_policy::RuntimePolicy;
-use ripdpi_runtime_learning::strategy_evolver::StrategyEvolver;
+use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
+use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
 
 use mio::Token;
 
@@ -41,7 +41,7 @@ pub(super) struct RuntimeState {
     /// Tracks network scope key changes for lightweight re-probing.
     pub(super) reprobe_tracker: std::sync::Arc<super::reprobe::ReprobeTracker>,
     #[allow(dead_code)]
-    pub(super) dns_hostname_cache: std::sync::Arc<ripdpi_runtime_learning::dns_hostname_cache::DnsHostnameCache>,
+    pub(super) dns_hostname_cache: std::sync::Arc<ripdpi_runtime_dns_cache::dns_hostname_cache::DnsHostnameCache>,
     pub(super) pcap_hook: Option<super::desync::PcapHook>,
     /// io_uring driver for zero-copy relay (Linux 6.0+, optional).
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]

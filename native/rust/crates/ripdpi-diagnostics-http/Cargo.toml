@@ -1,0 +1,18 @@
+[package]
+name = "ripdpi-diagnostics-http"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-diagnostics-contracts = { workspace = true }
+ripdpi-diagnostics-tls = { workspace = true }
+ripdpi-diagnostics-transport = { workspace = true }
+ripdpi-failure-classifier = { workspace = true }
+
+[features]
+hickory = ["ripdpi-diagnostics-tls/hickory"]
+quic-native = ["ripdpi-diagnostics-tls/quic-native", "ripdpi-diagnostics-transport/quic-native"]
