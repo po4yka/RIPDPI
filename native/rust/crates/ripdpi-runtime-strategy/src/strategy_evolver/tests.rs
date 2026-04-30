@@ -2,7 +2,9 @@ use std::hash::{Hash, Hasher};
 
 use ripdpi_config::{EntropyMode, OffsetBase, QuicFakeProfile};
 use ripdpi_desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
+use ripdpi_failure_classifier::FailureClass;
 
+use super::selection::{combo_matches_bucket, pilot_combo_for_bucket};
 use super::*;
 
 #[test]
