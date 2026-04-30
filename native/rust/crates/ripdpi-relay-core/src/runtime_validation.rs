@@ -4,7 +4,8 @@ use std::time::Duration;
 
 use ripdpi_relay_mux::{RelayCapabilities, RelayPoolConfig};
 
-use crate::{RelayBackend, ResolvedRelayRuntimeConfig};
+use crate::backend::RelayBackend;
+use crate::config::ResolvedRelayRuntimeConfig;
 
 pub(crate) fn planned_backend_capabilities(config: &ResolvedRelayRuntimeConfig) -> RelayCapabilities {
     match config.kind.as_str() {
