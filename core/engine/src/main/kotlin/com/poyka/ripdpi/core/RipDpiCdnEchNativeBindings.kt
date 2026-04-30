@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.core
 
 import android.util.Base64
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
 
 // JNI bindings for the process-wide CdnEchUpdater.
 //
@@ -33,26 +37,32 @@ object RipDpiCdnEchNativeBindings {
         override fun hashCode(): Int = 31 * configBytes.contentHashCode() + fetchedAtUnixMs.hashCode()
     }
 
-    // Returns null when the cache is cold; otherwise a Snapshot. JSON
-    // parsing is intentionally hand-rolled so this module has no
-    // serialization-library dep -- Retrofit/Moshi already covers what
-    // the wider codebase needs but the parse here is one-shot and
-    // tightly bounded.
+    // Returns null when the cache is cold; otherwise a Snapshot.
     fun snapshot(): Snapshot? {
-        val raw = jniSnapshotCdnEch() ?: return null
-        if (!raw.contains("\"ok\":true")) return null
-        if (raw.contains("\"empty\":true")) return null
-        val fetchedAt =
-            FETCHED_AT_PATTERN
-                .find(raw)
-                ?.groupValues
-                ?.getOrNull(1)
-                ?.toLongOrNull()
-                ?: return null
-        val configBase64 = CONFIG_BASE64_PATTERN.find(raw)?.groupValues?.getOrNull(1) ?: return null
-        val bytes = runCatching { Base64.decode(configBase64, Base64.NO_WRAP) }.getOrNull() ?: return null
-        return Snapshot(configBytes = bytes, fetchedAtUnixMs = fetchedAt)
+        val payload = jniSnapshotCdnEch()?.toCdnEchSnapshotPayloadOrNull()
+        val bytes = payload?.configBase64?.decodeBase64OrNull()
+        return if (payload?.hasPersistedSnapshot == true && bytes != null) {
+            Snapshot(configBytes = bytes, fetchedAtUnixMs = payload.fetchedAtUnixMs)
+        } else {
+            null
+        }
     }
+
+    private fun String.toCdnEchSnapshotPayloadOrNull(): CdnEchSnapshotPayload? =
+        try {
+            nativeBridgeJson.decodeFromString(CdnEchSnapshotPayload.serializer(), this)
+        } catch (_: SerializationException) {
+            null
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+
+    private fun String.decodeBase64OrNull(): ByteArray? =
+        try {
+            Base64.decode(this, Base64.NO_WRAP)
+        } catch (_: IllegalArgumentException) {
+            null
+        }
 
     fun seed(snapshot: Snapshot): String {
         val configBase64 = Base64.encodeToString(snapshot.configBytes, Base64.NO_WRAP)
@@ -71,7 +81,19 @@ object RipDpiCdnEchNativeBindings {
         configBase64: String,
         fetchedAtUnixMs: Long,
     ): String?
-
-    private val FETCHED_AT_PATTERN = "\"fetchedAtUnixMs\"\\s*:\\s*(\\d+)".toRegex()
-    private val CONFIG_BASE64_PATTERN = "\"configBase64\"\\s*:\\s*\"([^\"]+)\"".toRegex()
 }
+
+@Serializable
+private data class CdnEchSnapshotPayload(
+    val ok: Boolean = false,
+    val empty: Boolean = false,
+    @SerialName("fetchedAtUnixMs")
+    val fetchedAtUnixMs: Long = 0L,
+    @SerialName("configBase64")
+    val configBase64: String? = null,
+) {
+    val hasPersistedSnapshot: Boolean
+        get() = ok && !empty && fetchedAtUnixMs > 0L && !configBase64.isNullOrBlank()
+}
+
+private val nativeBridgeJson = Json { ignoreUnknownKeys = true }
