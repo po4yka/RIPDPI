@@ -10,10 +10,14 @@ members = [
     "crates/native-soak-support",
     "crates/ripdpi-collections",
     "crates/ripdpi-proxy-config",
+    "crates/ripdpi-diagnostics-candidates",
+    "crates/ripdpi-diagnostics-classification",
     "crates/ripdpi-diagnostics-contracts",
+    "crates/ripdpi-diagnostics-net",
     "crates/ripdpi-diagnostics-parsers",
     "crates/ripdpi-diagnostics-pcap",
     "crates/ripdpi-diagnostics-probes",
+    "crates/ripdpi-diagnostics-runner",
     "crates/ripdpi-monitor-engine",
     "crates/ripdpi-proxy-runtime",
     "crates/ripdpi-runtime-api",
@@ -72,10 +76,14 @@ ripdpi-dns-resolver = { path = "crates/ripdpi-dns-resolver" }
 ripdpi-failure-classifier = { path = "crates/ripdpi-failure-classifier" }
 ripdpi-hysteria2 = { path = "crates/ripdpi-hysteria2" }
 ripdpi-proxy-config = { path = "crates/ripdpi-proxy-config" }
+ripdpi-diagnostics-candidates = { path = "crates/ripdpi-diagnostics-candidates" }
+ripdpi-diagnostics-classification = { path = "crates/ripdpi-diagnostics-classification" }
 ripdpi-diagnostics-contracts = { path = "crates/ripdpi-diagnostics-contracts" }
+ripdpi-diagnostics-net = { path = "crates/ripdpi-diagnostics-net" }
 ripdpi-diagnostics-parsers = { path = "crates/ripdpi-diagnostics-parsers" }
 ripdpi-diagnostics-pcap = { path = "crates/ripdpi-diagnostics-pcap" }
 ripdpi-diagnostics-probes = { path = "crates/ripdpi-diagnostics-probes" }
+ripdpi-diagnostics-runner = { path = "crates/ripdpi-diagnostics-runner" }
 ripdpi-monitor-engine = { path = "crates/ripdpi-monitor-engine" }
 ripdpi-proxy-runtime = { path = "crates/ripdpi-proxy-runtime" }
 ripdpi-runtime-api = { path = "crates/ripdpi-runtime-api" }

@@ -682,6 +682,7 @@ mod hickory_probe {
     }
 
     impl ResolverEndpointConfig {
+        #[allow(dead_code)]
         fn name_servers(&self) -> &[ResolverNameServer] {
             &self.servers
         }

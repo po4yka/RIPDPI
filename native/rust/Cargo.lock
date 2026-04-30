@@ -3199,6 +3199,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-diagnostics-candidates"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-config",
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-net",
+ "ripdpi-dns-resolver",
+ "ripdpi-failure-classifier",
+ "ripdpi-proxy-config",
+ "ripdpi-runtime-platform",
+ "serde_json",
+ "socket2 0.6.3",
+ "tracing",
+]
+
+[[package]]
+name = "ripdpi-diagnostics-classification"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-diagnostics-candidates",
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-net",
+ "ripdpi-failure-classifier",
+]
+
+[[package]]
 name = "ripdpi-diagnostics-contracts"
 version = "0.1.0"
 dependencies = [
@@ -3207,6 +3233,31 @@ dependencies = [
  "ripdpi-telemetry",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "ripdpi-diagnostics-net"
+version = "0.1.0"
+dependencies = [
+ "hickory-proto",
+ "hickory-resolver",
+ "libc",
+ "md5",
+ "quinn",
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-dns-resolver",
+ "ripdpi-failure-classifier",
+ "ripdpi-packets",
+ "ripdpi-tls-profiles",
+ "ripdpi-ws-bootstrap",
+ "ripdpi-ws-tunnel",
+ "rustls",
+ "serde",
+ "serde_json",
+ "socket2 0.6.3",
+ "tokio",
+ "tracing",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -3226,37 +3277,30 @@ version = "0.1.0"
 name = "ripdpi-diagnostics-probes"
 version = "0.1.0"
 dependencies = [
- "boring",
- "golden-test-support",
- "hickory-proto",
- "hickory-resolver",
- "libc",
+ "ripdpi-diagnostics-candidates",
+ "ripdpi-diagnostics-classification",
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-net",
+ "ripdpi-diagnostics-runner",
+]
+
+[[package]]
+name = "ripdpi-diagnostics-runner"
+version = "0.1.0"
+dependencies = [
  "local-network-fixture",
  "log",
- "md5",
- "metrics",
- "quinn",
  "rcgen",
- "ripdpi-config",
+ "ripdpi-diagnostics-candidates",
+ "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-parsers",
+ "ripdpi-diagnostics-net",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-packets",
  "ripdpi-proxy-config",
- "ripdpi-runtime-platform",
- "ripdpi-telemetry",
- "ripdpi-tls-profiles",
- "ripdpi-ws-bootstrap",
- "ripdpi-ws-tunnel",
  "rustls",
- "serde",
- "serde_json",
- "socket2 0.6.3",
- "tokio",
- "tokio-boring",
  "tracing",
- "webpki-roots",
 ]
 
 [[package]]

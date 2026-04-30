@@ -1,0 +1,24 @@
+[package]
+name = "ripdpi-diagnostics-candidates"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tracing = { workspace = true }
+ripdpi-config = { workspace = true }
+ripdpi-diagnostics-contracts = { workspace = true }
+ripdpi-diagnostics-net = { workspace = true }
+ripdpi-dns-resolver = { workspace = true }
+ripdpi-failure-classifier = { workspace = true }
+ripdpi-proxy-config = { workspace = true }
+ripdpi-runtime-platform = { workspace = true }
+serde_json = { workspace = true }
+socket2 = { workspace = true }
+
+[features]
+hickory = ["ripdpi-diagnostics-net/hickory"]
+quic-native = ["ripdpi-diagnostics-net/quic-native"]
