@@ -56,9 +56,8 @@ mod tests {
         /// across the `join()` call. This is safe because the worker thread never
         /// acquires the worker lock itself (it only touches `shared` and `cancel`).
         fn try_join_worker(&self) {
-            let mut guard = match self.worker.lock() {
-                Ok(g) => g,
-                Err(_) => return,
+            let Ok(mut guard) = self.worker.lock() else {
+                return;
             };
             if let Some(handle) = guard.take() {
                 let _ = handle.join();

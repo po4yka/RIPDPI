@@ -1,6 +1,7 @@
 mod engine;
 mod execution;
 mod platform;
+mod probes;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -16,65 +17,12 @@ use engine::*;
 use platform::NoopMonitorPlatformBridge;
 use types::SharedState;
 
-pub mod blockpage_fingerprints {
-    pub use ripdpi_diagnostics_probes::blockpage_fingerprints::*;
-}
-pub mod candidates {
-    pub use ripdpi_diagnostics_probes::candidates::*;
-}
-pub mod cdn_ech {
-    pub use ripdpi_diagnostics_probes::cdn_ech::*;
-}
-pub mod classification {
-    pub use ripdpi_diagnostics_probes::classification::*;
-}
-pub mod connectivity {
-    pub use ripdpi_diagnostics_probes::connectivity::*;
-}
-pub mod dns {
-    pub use ripdpi_diagnostics_probes::dns::*;
-}
-pub mod dns_analysis {
-    pub use ripdpi_diagnostics_probes::dns_analysis::*;
-}
-pub mod dns_oracle {
-    pub use ripdpi_diagnostics_probes::dns_oracle::*;
-}
-pub mod domain {
-    pub use ripdpi_diagnostics_probes::domain::*;
-}
-pub mod fat_header {
-    pub use ripdpi_diagnostics_probes::fat_header::*;
-}
-pub mod http {
-    pub use ripdpi_diagnostics_probes::http::*;
-}
-pub mod ja3 {
-    pub use ripdpi_diagnostics_probes::ja3::*;
-}
-pub mod observations {
-    pub use ripdpi_diagnostics_probes::observations::*;
-}
-pub mod platform_ttl {
-    pub use ripdpi_diagnostics_probes::platform_ttl::*;
-}
-pub mod strategy {
-    pub use ripdpi_diagnostics_probes::strategy::*;
-}
-pub mod telegram {
-    pub use ripdpi_diagnostics_probes::telegram::*;
-}
-pub mod tls {
-    pub use ripdpi_diagnostics_probes::tls::*;
-}
-pub mod transport {
-    pub use ripdpi_diagnostics_probes::transport::*;
-}
+pub(crate) use probes::{
+    blockpage_fingerprints, candidates, cdn_ech, classification, connectivity, http, observations, strategy, telegram,
+    tls, transport, util,
+};
 pub mod types {
     pub use ripdpi_diagnostics_contracts::*;
-}
-pub mod util {
-    pub use ripdpi_diagnostics_probes::util::*;
 }
 pub mod wire {
     pub use ripdpi_diagnostics_contracts::wire::*;
