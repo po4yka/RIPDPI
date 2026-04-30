@@ -14,6 +14,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
+import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.diagnostics.retryCount
@@ -105,6 +106,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
             strategyProbeReport = params.latestStrategyProbeReport,
             latestSession = params.latestProfileSession?.let(::toSessionRowUiModel),
         )
+    val activeProgress = buildActiveScanProgress(params, selectedProfile)
 
     return DiagnosticsScanUiModel(
         profiles = params.profiles.map(::toProfileOptionUiModel),
@@ -114,20 +116,7 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
             params.activeScanPathMode
                 ?: params.latestProfileSession?.pathMode?.let(::parsePathMode)
                 ?: ScanPathMode.RAW_PATH,
-        activeProgress =
-            params.progress?.let { p ->
-                toProgressUiModel(
-                    progress = p,
-                    scanKind = selectedProfile?.kind ?: ScanKind.CONNECTIVITY,
-                    isFullAudit = selectedProfile?.isFullAudit == true,
-                    scanStartedAt = params.scanStartedAt ?: System.currentTimeMillis(),
-                    completedProbes = params.completedProbes,
-                    candidateTimeline = params.candidateTimeline,
-                    dnsBaselineStatus = params.dnsBaselineStatus,
-                    dpiFailureClass = params.dpiFailureClass,
-                    networkContext = params.networkContext,
-                )
-            },
+        activeProgress = activeProgress,
         latestSession = params.latestProfileSession?.let(::toSessionRowUiModel),
         diagnoses =
             params.latestProfileSession
@@ -149,6 +138,17 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
             },
         workflowRestriction = workflowRestriction,
         remediationLadder = remediationLadder,
+        workflowPresentation =
+            selectedProfile?.let { profile ->
+                buildWorkflowPresentation(
+                    profile = profile,
+                    scanIsBusy = params.progress != null,
+                    runRawEnabled = runRawEnabled,
+                    strategyProbeSelected = strategyProbeSelected,
+                    strategyProbeReport = params.latestStrategyProbeReport,
+                    workflowRestriction = workflowRestriction,
+                )
+            },
         resolverRecommendation = params.latestResolverRecommendation,
         strategyProbeReport = params.latestStrategyProbeReport,
         hiddenProbeConflictDialog = params.hiddenProbeConflictDialog,
@@ -157,6 +157,283 @@ internal fun DiagnosticsUiFactorySupport.buildScanUiModel(params: BuildScanUiMod
         isBusy = params.progress != null,
     )
 }
+
+private fun DiagnosticsUiFactorySupport.buildActiveScanProgress(
+    params: BuildScanUiModelParams,
+    selectedProfile: DiagnosticsProfileOptionUiModel?,
+): DiagnosticsProgressUiModel? =
+    params.progress?.let { progress ->
+        toProgressUiModel(
+            progress = progress,
+            scanKind = selectedProfile?.kind ?: ScanKind.CONNECTIVITY,
+            isFullAudit = selectedProfile?.isFullAudit == true,
+            scanStartedAt = params.scanStartedAt ?: System.currentTimeMillis(),
+            completedProbes = params.completedProbes,
+            candidateTimeline = params.candidateTimeline,
+            dnsBaselineStatus = params.dnsBaselineStatus,
+            dpiFailureClass = params.dpiFailureClass,
+            networkContext = params.networkContext,
+        )
+    }
+
+@Suppress("LongMethod", "CyclomaticComplexMethod")
+private fun DiagnosticsUiFactorySupport.buildWorkflowPresentation(
+    profile: DiagnosticsProfileOptionUiModel,
+    scanIsBusy: Boolean,
+    runRawEnabled: Boolean,
+    strategyProbeSelected: Boolean,
+    strategyProbeReport: DiagnosticsStrategyProbeReportUiModel?,
+    workflowRestriction: DiagnosticsWorkflowRestrictionUiModel?,
+): DiagnosticsScanWorkflowPresentationUiModel {
+    val isFullAudit = profile.isFullAudit
+    val status =
+        when {
+            scanIsBusy && isFullAudit -> {
+                WorkflowStatus(
+                    title = context.getString(R.string.diagnostics_audit_progress_title),
+                    body = context.getString(R.string.diagnostics_profile_audit_running_body),
+                    tone = DiagnosticsTone.Warning,
+                )
+            }
+
+            scanIsBusy && strategyProbeSelected -> {
+                WorkflowStatus(
+                    title = context.getString(R.string.diagnostics_probe_progress_title),
+                    body = context.getString(R.string.diagnostics_profile_probe_running_body),
+                    tone = DiagnosticsTone.Warning,
+                )
+            }
+
+            scanIsBusy -> {
+                WorkflowStatus(
+                    title = context.getString(R.string.diagnostics_status_running),
+                    body = context.getString(R.string.diagnostics_profile_connectivity_running_body),
+                    tone = DiagnosticsTone.Warning,
+                )
+            }
+
+            isFullAudit && !runRawEnabled -> {
+                WorkflowStatus(
+                    title =
+                        workflowRestriction?.title
+                            ?: context.getString(R.string.diagnostics_audit_unavailable_title),
+                    body =
+                        workflowRestriction?.body
+                            ?: context.getString(R.string.diagnostics_profile_audit_unavailable_body),
+                    tone = DiagnosticsTone.Negative,
+                )
+            }
+
+            strategyProbeSelected && !runRawEnabled -> {
+                WorkflowStatus(
+                    title =
+                        workflowRestriction?.title
+                            ?: context.getString(R.string.diagnostics_probe_unavailable_title),
+                    body =
+                        workflowRestriction?.body
+                            ?: context.getString(R.string.diagnostics_profile_probe_unavailable_body),
+                    tone = DiagnosticsTone.Negative,
+                )
+            }
+
+            isFullAudit && strategyProbeReport?.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED -> {
+                WorkflowStatus(
+                    title = context.getString(R.string.diagnostics_audit_short_circuit_title),
+                    body = context.getString(R.string.diagnostics_profile_audit_short_circuit_body),
+                    tone = DiagnosticsTone.Warning,
+                )
+            }
+
+            isFullAudit && strategyProbeReport?.completionKind == StrategyProbeCompletionKind.PARTIAL_RESULTS -> {
+                val (executed, planned) = strategyProbeReport.executedAndPlannedCounts
+                WorkflowStatus(
+                    title = context.getString(R.string.diagnostics_audit_partial_results_title),
+                    body =
+                        context.getString(
+                            R.string.diagnostics_profile_audit_partial_results_body,
+                            executed,
+                            planned,
+                        ),
+                    tone = DiagnosticsTone.Warning,
+                )
+            }
+
+            isFullAudit && strategyProbeReport != null -> {
+                WorkflowStatus(
+                    title = context.getString(R.string.diagnostics_audit_ready_title),
+                    body = context.getString(R.string.diagnostics_profile_audit_ready_body),
+                    tone = DiagnosticsTone.Positive,
+                )
+            }
+
+            strategyProbeSelected &&
+                strategyProbeReport?.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED -> {
+                WorkflowStatus(
+                    title = context.getString(R.string.diagnostics_probe_short_circuit_title),
+                    body = context.getString(R.string.diagnostics_profile_probe_short_circuit_body),
+                    tone = DiagnosticsTone.Warning,
+                )
+            }
+
+            strategyProbeSelected &&
+                strategyProbeReport?.completionKind == StrategyProbeCompletionKind.PARTIAL_RESULTS -> {
+                val (executed, planned) = strategyProbeReport.executedAndPlannedCounts
+                WorkflowStatus(
+                    title = context.getString(R.string.diagnostics_probe_partial_results_title),
+                    body =
+                        context.getString(
+                            R.string.diagnostics_profile_probe_partial_results_body,
+                            executed,
+                            planned,
+                        ),
+                    tone = DiagnosticsTone.Warning,
+                )
+            }
+
+            strategyProbeSelected && strategyProbeReport != null -> {
+                WorkflowStatus(
+                    title = context.getString(R.string.diagnostics_probe_ready_title),
+                    body = context.getString(R.string.diagnostics_profile_probe_ready_body),
+                    tone = DiagnosticsTone.Positive,
+                )
+            }
+
+            isFullAudit -> {
+                WorkflowStatus(
+                    title = context.getString(R.string.diagnostics_audit_profile_title),
+                    body = context.getString(R.string.diagnostics_profile_audit_body),
+                    tone = DiagnosticsTone.Neutral,
+                )
+            }
+
+            strategyProbeSelected -> {
+                WorkflowStatus(
+                    title = context.getString(R.string.diagnostics_probe_profile_title),
+                    body = context.getString(R.string.diagnostics_profile_probe_body),
+                    tone = DiagnosticsTone.Neutral,
+                )
+            }
+
+            else -> {
+                WorkflowStatus(
+                    title = context.getString(R.string.diagnostics_profile_connectivity_title),
+                    body = context.getString(R.string.diagnostics_profile_connectivity_body),
+                    tone = DiagnosticsTone.Neutral,
+                )
+            }
+        }
+    return DiagnosticsScanWorkflowPresentationUiModel(
+        title = status.title,
+        body = status.body,
+        tone = status.tone,
+        badges = buildWorkflowBadges(profile, strategyProbeSelected, isFullAudit).toImmutableList(),
+        rawActionLabel =
+            when {
+                !runRawEnabled && isFullAudit -> context.getString(R.string.diagnostics_action_audit_unavailable)
+                !runRawEnabled -> context.getString(R.string.diagnostics_action_probe_unavailable)
+                isFullAudit -> context.getString(R.string.diagnostics_action_start_audit)
+                strategyProbeSelected -> context.getString(R.string.diagnostics_action_start_probe)
+                else -> context.getString(R.string.diagnostics_action_raw)
+            },
+        inPathActionLabel = context.getString(R.string.diagnostics_action_in_path),
+    )
+}
+
+private data class WorkflowStatus(
+    val title: String,
+    val body: String,
+    val tone: DiagnosticsTone,
+)
+
+private val DiagnosticsStrategyProbeReportUiModel.executedAndPlannedCounts: Pair<Int, Int>
+    get() {
+        val coverage = auditAssessment?.coverage
+        val executed = (coverage?.tcpCandidatesExecuted ?: 0) + (coverage?.quicCandidatesExecuted ?: 0)
+        val planned = (coverage?.tcpCandidatesPlanned ?: 0) + (coverage?.quicCandidatesPlanned ?: 0)
+        return executed to planned
+    }
+
+private fun DiagnosticsUiFactorySupport.buildWorkflowBadges(
+    profile: DiagnosticsProfileOptionUiModel,
+    strategyProbeSelected: Boolean,
+    isFullAudit: Boolean,
+): List<DiagnosticsScanWorkflowBadgeUiModel> =
+    buildList {
+        if (isFullAudit) {
+            add(
+                DiagnosticsScanWorkflowBadgeUiModel(
+                    context.getString(R.string.diagnostics_profile_badge_http_https_quic),
+                    DiagnosticsTone.Info,
+                ),
+            )
+            add(
+                DiagnosticsScanWorkflowBadgeUiModel(
+                    context.getString(R.string.diagnostics_profile_badge_all_builtin),
+                    DiagnosticsTone.Warning,
+                ),
+            )
+            add(
+                DiagnosticsScanWorkflowBadgeUiModel(
+                    context.getString(R.string.diagnostics_profile_badge_raw_only),
+                    DiagnosticsTone.Warning,
+                ),
+            )
+            add(
+                DiagnosticsScanWorkflowBadgeUiModel(
+                    context.getString(R.string.diagnostics_profile_badge_manual_apply),
+                    DiagnosticsTone.Positive,
+                ),
+            )
+        } else if (strategyProbeSelected) {
+            add(
+                DiagnosticsScanWorkflowBadgeUiModel(
+                    context.getString(R.string.diagnostics_profile_badge_http_https_quic),
+                    DiagnosticsTone.Info,
+                ),
+            )
+            add(
+                DiagnosticsScanWorkflowBadgeUiModel(
+                    context.getString(R.string.diagnostics_profile_badge_raw_only),
+                    DiagnosticsTone.Warning,
+                ),
+            )
+            add(
+                DiagnosticsScanWorkflowBadgeUiModel(
+                    context.getString(R.string.diagnostics_profile_badge_manual_apply),
+                    DiagnosticsTone.Positive,
+                ),
+            )
+        } else {
+            add(
+                DiagnosticsScanWorkflowBadgeUiModel(
+                    context.getString(R.string.diagnostics_profile_badge_dns_http_https_tcp),
+                    DiagnosticsTone.Info,
+                ),
+            )
+            add(
+                DiagnosticsScanWorkflowBadgeUiModel(
+                    context.getString(R.string.diagnostics_profile_badge_raw_and_in_path),
+                    DiagnosticsTone.Positive,
+                ),
+            )
+        }
+        if (profile.manualOnly) {
+            add(
+                DiagnosticsScanWorkflowBadgeUiModel(
+                    context.getString(R.string.diagnostics_profile_badge_manual_only),
+                    DiagnosticsTone.Warning,
+                ),
+            )
+        }
+        if (profile.regionTag?.equals("ru", ignoreCase = true) == true) {
+            add(
+                DiagnosticsScanWorkflowBadgeUiModel(
+                    context.getString(R.string.diagnostics_profile_badge_region_net),
+                    DiagnosticsTone.Warning,
+                ),
+            )
+        }
+    }
 
 private fun DiagnosticsUiFactorySupport.buildWorkflowLabel(selectedProfile: DiagnosticsProfileOptionUiModel?): String =
     if (selectedProfile?.isFullAudit == true) {

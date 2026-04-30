@@ -15,6 +15,8 @@ import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.StrategyEmitterTier
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
+import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
@@ -247,6 +249,93 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
                 ),
             ),
         candidateDetails = candidateDetails.toImmutableMap(),
+        presentation =
+            buildStrategyProbeReportPresentation(
+                report = report,
+                winningPath = winningPath,
+            ),
+    )
+}
+
+@Suppress("LongMethod", "CyclomaticComplexMethod")
+private fun DiagnosticsUiFactorySupport.buildStrategyProbeReportPresentation(
+    report: StrategyProbeReport,
+    winningPath: DiagnosticsStrategyProbeWinningPathUiModel?,
+): DiagnosticsStrategyProbeReportPresentationUiModel {
+    val isFullAudit = report.suiteId == StrategyProbeSuiteFullMatrixV1
+    val isDnsShortCircuited = report.completionKind == StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED
+    val isPartialResults = report.completionKind == StrategyProbeCompletionKind.PARTIAL_RESULTS
+    val isIncomplete = isDnsShortCircuited || isPartialResults
+    val supportsWinningPath = isFullAudit && !isIncomplete && winningPath != null
+    val executedAndPlanned =
+        if (isPartialResults) {
+            val coverage = report.auditAssessment?.coverage
+            val executed = (coverage?.tcpCandidatesExecuted ?: 0) + (coverage?.quicCandidatesExecuted ?: 0)
+            val planned = (coverage?.tcpCandidatesPlanned ?: 0) + (coverage?.quicCandidatesPlanned ?: 0)
+            executed to planned
+        } else {
+            0 to 0
+        }
+    val statusLabel =
+        when {
+            isDnsShortCircuited && isFullAudit -> context.getString(R.string.diagnostics_audit_short_circuit_title)
+            isDnsShortCircuited -> context.getString(R.string.diagnostics_probe_short_circuit_title)
+            isPartialResults && isFullAudit -> context.getString(R.string.diagnostics_audit_partial_results_title)
+            isPartialResults -> context.getString(R.string.diagnostics_probe_partial_results_title)
+            isFullAudit -> context.getString(R.string.diagnostics_audit_ready_title)
+            else -> context.getString(R.string.diagnostics_probe_ready_title)
+        }
+    val matrixTitle =
+        when {
+            isDnsShortCircuited && isFullAudit -> {
+                context.getString(R.string.diagnostics_audit_short_circuit_matrix_title)
+            }
+
+            isDnsShortCircuited -> {
+                context.getString(R.string.diagnostics_probe_short_circuit_recommendation_title)
+            }
+
+            isPartialResults -> {
+                context.getString(
+                    R.string.diagnostics_partial_results_matrix_title,
+                    executedAndPlanned.first,
+                    executedAndPlanned.second,
+                )
+            }
+
+            isFullAudit -> {
+                context.getString(R.string.diagnostics_audit_matrix_title)
+            }
+
+            else -> {
+                context.getString(R.string.diagnostics_probe_recommendation_title)
+            }
+        }
+    val confidenceLabel =
+        report.auditAssessment
+            ?.confidence
+            ?.level
+            ?.let(::auditConfidenceLabel)
+    val confidenceTone =
+        report.auditAssessment
+            ?.confidence
+            ?.level
+            ?.let(::auditConfidenceTone)
+    return DiagnosticsStrategyProbeReportPresentationUiModel(
+        statusLabel = statusLabel,
+        statusTone = if (isIncomplete) DiagnosticsTone.Warning else DiagnosticsTone.Positive,
+        matrixTitle = matrixTitle,
+        manualApplyBadge = context.getString(R.string.diagnostics_profile_badge_manual_apply),
+        supportsWinningPath = supportsWinningPath,
+        isIncomplete = isIncomplete,
+        showFullMatrixInitially = !supportsWinningPath,
+        auditConfidenceLabel = confidenceLabel,
+        auditConfidenceTone = confidenceTone,
+        auditAssessmentMetrics =
+            report.auditAssessment
+                ?.let(::auditAssessmentMetrics)
+                .orEmpty()
+                .toImmutableList(),
     )
 }
 
@@ -733,6 +822,49 @@ private fun buildStrategyProbeSummaryMetrics(report: StrategyProbeReport): List<
         }
     }
 }
+
+private fun auditConfidenceLabel(level: StrategyProbeAuditConfidenceLevel): String =
+    when (level) {
+        StrategyProbeAuditConfidenceLevel.HIGH -> "High"
+        StrategyProbeAuditConfidenceLevel.MEDIUM -> "Medium"
+        StrategyProbeAuditConfidenceLevel.LOW -> "Low"
+    }
+
+private fun auditConfidenceTone(level: StrategyProbeAuditConfidenceLevel): DiagnosticsTone =
+    when (level) {
+        StrategyProbeAuditConfidenceLevel.HIGH -> DiagnosticsTone.Positive
+        StrategyProbeAuditConfidenceLevel.MEDIUM -> DiagnosticsTone.Warning
+        StrategyProbeAuditConfidenceLevel.LOW -> DiagnosticsTone.Negative
+    }
+
+private fun auditAssessmentMetrics(assessment: StrategyProbeAuditAssessment): List<DiagnosticsMetricUiModel> =
+    listOf(
+        DiagnosticsMetricUiModel(
+            label = "Confidence",
+            value = "${auditConfidenceLabel(assessment.confidence.level)} (${assessment.confidence.score}/100)",
+            tone = auditConfidenceTone(assessment.confidence.level),
+        ),
+        DiagnosticsMetricUiModel(
+            label = "Matrix coverage",
+            value = "${assessment.coverage.matrixCoveragePercent}%",
+            tone =
+                if (assessment.coverage.matrixCoveragePercent >= 75) {
+                    DiagnosticsTone.Positive
+                } else {
+                    DiagnosticsTone.Warning
+                },
+        ),
+        DiagnosticsMetricUiModel(
+            label = "Winner coverage",
+            value = "${assessment.coverage.winnerCoveragePercent}%",
+            tone =
+                if (assessment.coverage.winnerCoveragePercent >= 50) {
+                    DiagnosticsTone.Positive
+                } else {
+                    DiagnosticsTone.Warning
+                },
+        ),
+    )
 
 private fun formatFakeTlsBaseMode(value: String): String =
     when (value.lowercase(Locale.US)) {
