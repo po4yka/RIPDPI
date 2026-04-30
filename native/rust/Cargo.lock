@@ -3204,7 +3204,7 @@ version = "0.1.0"
 dependencies = [
  "ripdpi-config",
  "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-net",
+ "ripdpi-diagnostics-dns",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-proxy-config",
@@ -3220,7 +3220,6 @@ version = "0.1.0"
 dependencies = [
  "ripdpi-diagnostics-candidates",
  "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-net",
  "ripdpi-failure-classifier",
 ]
 
@@ -3279,8 +3278,10 @@ dependencies = [
  "ripdpi-diagnostics-candidates",
  "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-net",
+ "ripdpi-diagnostics-dns",
+ "ripdpi-diagnostics-protocols",
  "ripdpi-diagnostics-runner",
+ "ripdpi-diagnostics-transport",
 ]
 
 [[package]]
@@ -3310,7 +3311,9 @@ dependencies = [
  "ripdpi-diagnostics-candidates",
  "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-net",
+ "ripdpi-diagnostics-dns",
+ "ripdpi-diagnostics-protocols",
+ "ripdpi-diagnostics-transport",
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-packets",

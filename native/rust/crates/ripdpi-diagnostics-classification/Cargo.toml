@@ -10,5 +10,4 @@ workspace = true
 [dependencies]
 ripdpi-diagnostics-candidates = { workspace = true }
 ripdpi-diagnostics-contracts = { workspace = true }
-ripdpi-diagnostics-net = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }

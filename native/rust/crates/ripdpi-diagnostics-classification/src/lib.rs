@@ -2,7 +2,10 @@ pub mod classification;
 pub mod observations;
 
 pub use ripdpi_diagnostics_contracts::*;
-pub use ripdpi_diagnostics_net::util;
+
+pub mod util {
+    pub use ripdpi_diagnostics_contracts::util::*;
+}
 
 pub mod candidates {
     pub use ripdpi_diagnostics_candidates::candidates::*;
