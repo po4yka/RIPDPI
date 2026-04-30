@@ -384,7 +384,7 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
         if should_desync_tcp(group, context) {
             let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
             match plan_tcp(group, &effective_payload, seed, config.network.default_ttl, context) {
-                Ok(plan) if requires_special_tcp_execution(group, &plan) => {
+                Ok(plan) if requires_special_tcp_execution(group, &plan, platform_ops.supports_fake_retransmit()) => {
                     let bytes_committed = execute_tcp_plan(
                         writer,
                         config,
@@ -927,8 +927,11 @@ fn fake_approximation_step_requires_terminal_lowering(step: &PlannedStep, payloa
     step.end == payload_len as i64
 }
 
-pub fn requires_special_tcp_execution(group: &DesyncGroup, plan: &DesyncPlan) -> bool {
-    let supports_fake_retransmit = platform::supports_fake_retransmit();
+pub(crate) fn requires_special_tcp_execution(
+    group: &DesyncGroup,
+    plan: &DesyncPlan,
+    supports_fake_retransmit: bool,
+) -> bool {
     group.effective_tcp_chain().iter().any(|step| {
         matches!(step.kind, TcpChainStepKind::MultiDisorder | TcpChainStepKind::Fake | TcpChainStepKind::IpFrag2)
             || tcp_step_has_flag_overrides(step)
@@ -3300,11 +3303,9 @@ mod tests {
         };
 
         group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeSplit, test_offset()));
-        assert_eq!(
-            requires_special_tcp_execution(&group, &non_terminal_fake_step_plan),
-            platform::supports_fake_retransmit()
-        );
-        assert!(requires_special_tcp_execution(&group, &terminal_fake_step_plan));
+        assert!(!requires_special_tcp_execution(&group, &non_terminal_fake_step_plan, false));
+        assert!(requires_special_tcp_execution(&group, &non_terminal_fake_step_plan, true));
+        assert!(requires_special_tcp_execution(&group, &terminal_fake_step_plan, false));
 
         group.actions.tcp_chain.clear();
         group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::FakeDisorder, test_offset()));
@@ -3320,20 +3321,18 @@ mod tests {
             proto: ProtoInfo::default(),
             actions: Vec::new(),
         };
-        assert_eq!(
-            requires_special_tcp_execution(&group, &non_terminal_fake_disorder_plan),
-            platform::supports_fake_retransmit()
-        );
-        assert!(requires_special_tcp_execution(&group, &terminal_fake_disorder_plan));
+        assert!(!requires_special_tcp_execution(&group, &non_terminal_fake_disorder_plan, false));
+        assert!(requires_special_tcp_execution(&group, &non_terminal_fake_disorder_plan, true));
+        assert!(requires_special_tcp_execution(&group, &terminal_fake_disorder_plan, false));
 
         group.actions.tcp_chain.clear();
         group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::Fake, test_offset()));
-        assert!(requires_special_tcp_execution(&group, &non_terminal_fake_step_plan));
+        assert!(requires_special_tcp_execution(&group, &non_terminal_fake_step_plan, false));
 
         group.actions.tcp_chain.clear();
         group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::MultiDisorder, test_offset()));
         group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::MultiDisorder, OffsetExpr::absolute(4)));
-        assert!(requires_special_tcp_execution(&group, &non_terminal_fake_step_plan));
+        assert!(requires_special_tcp_execution(&group, &non_terminal_fake_step_plan, false));
     }
 
     #[test]
