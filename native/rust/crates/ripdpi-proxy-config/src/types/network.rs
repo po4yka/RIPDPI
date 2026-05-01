@@ -113,3 +113,53 @@ pub struct WifiSnapshot {
     #[serde(default)]
     pub wifi_standard: String,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{CellularSnapshot, NetworkSnapshot, WifiSnapshot};
+
+    #[test]
+    fn network_snapshot_field_manifest_matches_contract_fixture() {
+        use golden_test_support::{assert_contract_fixture, extract_field_paths};
+
+        let snapshot = NetworkSnapshot {
+            transport: "cellular".to_string(),
+            validated: true,
+            captive_portal: false,
+            metered: true,
+            private_dns_mode: "system".to_string(),
+            dns_servers: vec!["8.8.8.8".to_string(), "8.8.4.4".to_string()],
+            cellular: Some(CellularSnapshot {
+                generation: "4g".to_string(),
+                roaming: false,
+                operator_code: "310260".to_string(),
+                data_network_type: "LTE".to_string(),
+                service_state: "in_service".to_string(),
+                carrier_id: Some(1),
+                signal_level: Some(3),
+                signal_dbm: Some(-85),
+            }),
+            wifi: Some(WifiSnapshot {
+                frequency_band: "5ghz".to_string(),
+                ssid_hash: "abc123def456".to_string(),
+                frequency_mhz: Some(5180),
+                rssi_dbm: Some(-55),
+                link_speed_mbps: Some(866),
+                rx_link_speed_mbps: Some(780),
+                tx_link_speed_mbps: Some(866),
+                channel_width: "80 MHz".to_string(),
+                wifi_standard: "802.11ax".to_string(),
+            }),
+            mtu: Some(1500),
+            traffic_tx_bytes: 123456,
+            traffic_rx_bytes: 654321,
+            captured_at_ms: 1700000000000,
+            vpn_service_was_active: false,
+        };
+
+        let json = serde_json::to_value(&snapshot).expect("serialize network snapshot");
+        let paths = extract_field_paths(&json);
+        let manifest = serde_json::to_string_pretty(&paths).expect("serialize field paths");
+        assert_contract_fixture("network_snapshot_fields.json", &manifest);
+    }
+}
