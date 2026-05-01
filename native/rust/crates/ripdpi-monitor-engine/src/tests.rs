@@ -43,6 +43,29 @@ fn minimal_ui_config() -> ProxyUiConfig {
     config
 }
 
+struct DirectCandidateRuntime;
+
+impl CandidateProbeRuntime for DirectCandidateRuntime {
+    fn transport(&self) -> TransportConfig {
+        TransportConfig::Direct { route_experiment: None }
+    }
+}
+
+struct DirectCandidateRuntimeLauncher;
+
+impl CandidateRuntimeLauncher for DirectCandidateRuntimeLauncher {
+    fn start_candidate_runtime(
+        &self,
+        _prepared: PreparedCandidateRuntime,
+    ) -> Result<Box<dyn CandidateProbeRuntime>, String> {
+        Ok(Box::new(DirectCandidateRuntime))
+    }
+}
+
+fn monitor_session_with_direct_candidate_runtime() -> MonitorSession {
+    MonitorSession::with_candidate_runtime_launcher(Arc::new(DirectCandidateRuntimeLauncher))
+}
+
 fn strategy_probe_request(base_ui: ProxyUiConfig) -> ScanRequest {
     strategy_probe_request_with_suite(base_ui, "quick_v1", "automatic-probing", "Automatic probing")
 }
@@ -100,7 +123,7 @@ fn strategy_probe_request_with_runtime_context(
                 .expect("serialize probe ui config"),
             ),
             target_selection: None,
-            max_candidates: None,
+            max_candidates: Some(2),
         }),
         network_snapshot: None,
         route_probe: None,
@@ -854,7 +877,7 @@ fn monitor_session_strategy_probe_returns_structured_recommendation() {
     let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
     let mut request = strategy_probe_request(minimal_ui_config());
     request.domain_targets[0].http_port = Some(server.port());
-    let session = MonitorSession::new();
+    let session = monitor_session_with_direct_candidate_runtime();
 
     session.start_scan("session-strategy".to_string(), request.into()).expect("start strategy probe");
     let report = wait_for_report(&session);
@@ -903,7 +926,7 @@ fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
         http_path: "/".to_string(),
         is_control: false,
     }];
-    let session = MonitorSession::new();
+    let session = monitor_session_with_direct_candidate_runtime();
 
     session.start_scan("session-strategy-dns-short".to_string(), request.into()).expect("start strategy probe");
     let report = wait_for_report(&session);
@@ -969,7 +992,7 @@ fn monitor_session_full_matrix_strategy_probe_reports_audit_assessment() {
     });
     let expected_domain_hosts = request.domain_targets.iter().map(|target| target.host.clone()).collect::<Vec<_>>();
     let expected_quic_hosts = request.quic_targets.iter().map(|target| target.host.clone()).collect::<Vec<_>>();
-    let session = MonitorSession::new();
+    let session = monitor_session_with_direct_candidate_runtime();
 
     session.start_scan("session-audit".to_string(), request.into()).expect("start automatic audit");
     let report = wait_for_report(&session);
@@ -1043,7 +1066,7 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
         connect_ips: vec![],
         port: 9,
     }];
-    let session = MonitorSession::new();
+    let session = monitor_session_with_direct_candidate_runtime();
 
     session.start_scan("session-audit-dns-short".to_string(), request.into()).expect("start automatic audit");
     let report = wait_for_report(&session);
@@ -1061,7 +1084,7 @@ fn monitor_session_strategy_probe_progress_reports_live_candidate_metadata() {
     let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
     let mut request = strategy_probe_request(minimal_ui_config());
     request.domain_targets[0].http_port = Some(server.port());
-    let session = MonitorSession::new();
+    let session = monitor_session_with_direct_candidate_runtime();
 
     session.start_scan("session-progress".to_string(), request.into()).expect("start strategy probe");
 

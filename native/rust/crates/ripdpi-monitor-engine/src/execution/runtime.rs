@@ -15,20 +15,31 @@ use crate::transport::{domain_connect_target, TransportConfig};
 use crate::types::DomainTarget;
 use crate::util::CONNECT_TIMEOUT;
 
-pub(crate) struct PreparedCandidateRuntime {
-    pub(crate) config: RuntimeConfig,
-    pub(crate) runtime_context: Option<ProxyRuntimeContext>,
+pub struct PreparedCandidateRuntime {
+    pub config: RuntimeConfig,
+    pub runtime_context: Option<ProxyRuntimeContext>,
 }
 
-pub(crate) trait CandidateProbeRuntime: Send {
+pub trait CandidateProbeRuntime: Send {
     fn transport(&self) -> TransportConfig;
 }
 
-pub(crate) trait CandidateRuntimeLauncher: Send + Sync {
+pub trait CandidateRuntimeLauncher: Send + Sync {
     fn start_candidate_runtime(
         &self,
         prepared: PreparedCandidateRuntime,
     ) -> Result<Box<dyn CandidateProbeRuntime>, String>;
+}
+
+pub struct UnavailableCandidateRuntimeLauncher;
+
+impl CandidateRuntimeLauncher for UnavailableCandidateRuntimeLauncher {
+    fn start_candidate_runtime(
+        &self,
+        _prepared: PreparedCandidateRuntime,
+    ) -> Result<Box<dyn CandidateProbeRuntime>, String> {
+        Err("candidate runtime launcher is not configured".to_string())
+    }
 }
 
 /// Compute adaptive connect timeout based on observed control RTT.
@@ -232,27 +243,68 @@ mod tests {
     }
 
     #[test]
-    fn probe_runtime_transport_binds_ephemeral_port() {
-        let launcher = crate::execution::proxy_runtime_adapter::ProductionCandidateRuntimeLauncher;
+    fn probe_runtime_transport_accepts_injected_direct_launcher() {
+        let launcher = DirectRuntimeLauncher;
         let spec = crate::candidates::candidate_spec("test", "Test", "test", test_ui_config());
         let runtime =
-            probe_runtime_transport(&launcher, &spec, None).expect("probe runtime should start with ephemeral port");
-        let TransportConfig::Socks5 { port, .. } = runtime.transport() else {
-            panic!("probe runtime should expose SOCKS5 transport");
+            probe_runtime_transport(&launcher, &spec, None).expect("probe runtime should start with direct transport");
+        let TransportConfig::Direct { .. } = runtime.transport() else {
+            panic!("probe runtime should expose direct transport");
         };
-        assert_ne!(port, 0, "OS should assign a non-zero ephemeral port");
     }
 
     #[test]
     fn probe_runtime_transport_overrides_listen_ip_to_localhost() {
-        let launcher = crate::execution::proxy_runtime_adapter::ProductionCandidateRuntimeLauncher;
+        let launcher = AssertingPreparedRuntimeLauncher;
         let mut config = test_ui_config();
         config.listen.ip = "0.0.0.0".to_string();
         let spec = crate::candidates::candidate_spec("test", "Test", "test", config);
-        let runtime = probe_runtime_transport(&launcher, &spec, None).expect("probe runtime should start");
+        let _runtime = probe_runtime_transport(&launcher, &spec, None).expect("probe runtime should start");
+    }
+
+    struct DirectRuntimeLauncher;
+
+    impl CandidateRuntimeLauncher for DirectRuntimeLauncher {
+        fn start_candidate_runtime(
+            &self,
+            _prepared: PreparedCandidateRuntime,
+        ) -> Result<Box<dyn CandidateProbeRuntime>, String> {
+            Ok(Box::new(FakeProbeRuntime { transport: TransportConfig::Direct { route_experiment: None } }))
+        }
+    }
+
+    struct AssertingPreparedRuntimeLauncher;
+
+    impl CandidateRuntimeLauncher for AssertingPreparedRuntimeLauncher {
+        fn start_candidate_runtime(
+            &self,
+            prepared: PreparedCandidateRuntime,
+        ) -> Result<Box<dyn CandidateProbeRuntime>, String> {
+            assert_eq!(prepared.config.network.listen.listen_ip.to_string(), "127.0.0.1");
+            assert_eq!(prepared.config.network.listen.listen_port, 0);
+            Ok(Box::new(FakeProbeRuntime { transport: TransportConfig::Direct { route_experiment: None } }))
+        }
+    }
+
+    #[test]
+    fn unavailable_candidate_runtime_launcher_returns_actionable_error() {
+        let launcher = UnavailableCandidateRuntimeLauncher;
+        let spec = crate::candidates::candidate_spec("test", "Test", "test", test_ui_config());
+        let err = match probe_runtime_transport(&launcher, &spec, None) {
+            Ok(_) => panic!("launcher should be unavailable"),
+            Err(err) => err,
+        };
+        assert_eq!(err, "candidate runtime launcher is not configured");
+    }
+
+    #[test]
+    fn fake_runtime_launcher_can_return_socks5_transport() {
+        let launcher = FakeRuntimeLauncher;
+        let spec = crate::candidates::candidate_spec("test", "Test", "test", test_ui_config());
+        let runtime = probe_runtime_transport(&launcher, &spec, None).expect("fake launcher should start");
         let TransportConfig::Socks5 { host, .. } = runtime.transport() else {
             panic!("probe runtime should expose SOCKS5 transport");
         };
-        assert_eq!(host, "127.0.0.1", "probe runtime must bind to localhost");
+        assert_eq!(host, "127.0.0.1");
     }
 }

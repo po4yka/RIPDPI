@@ -14,6 +14,7 @@ use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
 
 use connectivity::set_progress;
 use engine::*;
+use execution::UnavailableCandidateRuntimeLauncher;
 use platform::NoopMonitorPlatformBridge;
 use types::SharedState;
 
@@ -33,6 +34,7 @@ mod test_fixtures;
 #[cfg(test)]
 mod tests;
 
+pub use execution::{CandidateProbeRuntime, CandidateRuntimeLauncher, PreparedCandidateRuntime};
 pub use platform::{MonitorPlatformBridge, ScopedMonitorLogLevel};
 pub use ripdpi_diagnostics_contracts::{
     CircumventionTarget, Diagnosis, DiagnosticProfileFamily, DnsObservationFact, DnsObservationStatus, DnsTarget,
@@ -49,6 +51,7 @@ pub use ripdpi_diagnostics_contracts::{
     TelegramVerdict, ThroughputObservationFact, ThroughputProbeStatus, ThroughputTarget, TlsProbeStatus,
     TransportFailureKind, DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
 };
+pub use ripdpi_diagnostics_transport::transport::TransportConfig;
 
 pub struct MonitorSession {
     shared: Arc<Mutex<SharedState>>,
@@ -56,6 +59,7 @@ pub struct MonitorSession {
     worker: Mutex<Option<JoinHandle<()>>>,
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     platform_bridge: Arc<dyn MonitorPlatformBridge>,
+    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
 }
 
 impl Default for MonitorSession {
@@ -66,20 +70,36 @@ impl Default for MonitorSession {
 
 impl MonitorSession {
     pub fn new() -> Self {
-        Self::with_parts(None, Arc::new(NoopMonitorPlatformBridge))
+        Self::with_parts(None, Arc::new(NoopMonitorPlatformBridge), Arc::new(UnavailableCandidateRuntimeLauncher))
     }
 
     pub fn with_platform_bridge(platform_bridge: Arc<dyn MonitorPlatformBridge>) -> Self {
-        Self::with_parts(None, platform_bridge)
+        Self::with_parts(None, platform_bridge, Arc::new(UnavailableCandidateRuntimeLauncher))
     }
 
     pub fn with_tls_verifier(tls_verifier: Option<Arc<dyn ServerCertVerifier>>) -> Self {
-        Self::with_parts(tls_verifier, Arc::new(NoopMonitorPlatformBridge))
+        Self::with_parts(
+            tls_verifier,
+            Arc::new(NoopMonitorPlatformBridge),
+            Arc::new(UnavailableCandidateRuntimeLauncher),
+        )
+    }
+
+    pub fn with_candidate_runtime_launcher(candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>) -> Self {
+        Self::with_parts(None, Arc::new(NoopMonitorPlatformBridge), candidate_runtime_launcher)
+    }
+
+    pub fn with_platform_bridge_and_candidate_runtime_launcher(
+        platform_bridge: Arc<dyn MonitorPlatformBridge>,
+        candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
+    ) -> Self {
+        Self::with_parts(None, platform_bridge, candidate_runtime_launcher)
     }
 
     fn with_parts(
         tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
         platform_bridge: Arc<dyn MonitorPlatformBridge>,
+        candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
     ) -> Self {
         Self {
             shared: Arc::new(Mutex::new(SharedState::default())),
@@ -87,6 +107,7 @@ impl MonitorSession {
             worker: Mutex::new(None),
             tls_verifier,
             platform_bridge,
+            candidate_runtime_launcher,
         }
     }
 
@@ -117,12 +138,22 @@ impl MonitorSession {
         let cancel = self.cancel.clone();
         let tls_verifier = self.tls_verifier.clone();
         let platform_bridge = self.platform_bridge.clone();
+        let candidate_runtime_launcher = self.candidate_runtime_launcher.clone();
         let domain_request: ScanRequest = request.into();
         let shared_panic = shared.clone();
         let session_id_panic = session_id.clone();
         let handle = thread::spawn(move || {
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                run_scan(shared, cancel, session_id, domain_request, tls_verifier, platform_bridge, native_log_level);
+                run_scan(
+                    shared,
+                    cancel,
+                    session_id,
+                    domain_request,
+                    tls_verifier,
+                    platform_bridge,
+                    candidate_runtime_launcher,
+                    native_log_level,
+                );
             }));
             if let Err(panic_payload) = result {
                 let msg = panic_payload
@@ -211,11 +242,12 @@ fn run_scan(
     request: ScanRequest,
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     platform_bridge: Arc<dyn MonitorPlatformBridge>,
+    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
     native_log_level: Option<LevelFilter>,
 ) {
     let _log_scope =
         native_log_level.map(|level| platform_bridge.scoped_log_level("diagnostics_native".to_string(), level));
-    run_engine_scan(shared, cancel, session_id, request, tls_verifier);
+    run_engine_scan(shared, cancel, session_id, request, tls_verifier, candidate_runtime_launcher);
 }
 
 fn validate_scan_request(request: &EngineScanRequestWire) -> Result<(), String> {

@@ -40,6 +40,7 @@ ripdpi-diagnostics-contracts = { workspace = true }
 ripdpi-diagnostics-pcap = { workspace = true }
 ripdpi-diagnostics-dns = { workspace = true }
 ripdpi-monitor-engine = { workspace = true }
+ripdpi-monitor-proxy-runtime = { workspace = true }
 ripdpi-proxy-runtime = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
 ripdpi-runtime-learning = { workspace = true }

@@ -2,15 +2,15 @@ use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
+use ripdpi_diagnostics_transport::transport::wait_for_listener;
+use ripdpi_monitor_engine::{
+    CandidateProbeRuntime, CandidateRuntimeLauncher, PreparedCandidateRuntime, TransportConfig,
+};
 use ripdpi_runtime_api::EmbeddedProxyControl;
 
-use crate::transport::{wait_for_listener, TransportConfig};
+pub struct ProductionCandidateRuntimeLauncher;
 
-use super::runtime::{CandidateProbeRuntime, CandidateRuntimeLauncher, PreparedCandidateRuntime};
-
-pub(crate) struct ProductionCandidateRuntimeLauncher;
-
-pub(super) struct TemporaryProxyRuntime {
+struct TemporaryProxyRuntime {
     addr: SocketAddr,
     control: Arc<EmbeddedProxyControl>,
     handle: Option<JoinHandle<Result<(), String>>>,

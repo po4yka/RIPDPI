@@ -26,6 +26,7 @@ members = [
     "crates/ripdpi-diagnostics-tls",
     "crates/ripdpi-diagnostics-transport",
     "crates/ripdpi-monitor-engine",
+    "crates/ripdpi-monitor-proxy-runtime",
     "crates/ripdpi-proxy-runtime",
     "crates/ripdpi-runtime-api",
     "crates/ripdpi-runtime-adaptive",
@@ -103,6 +104,7 @@ ripdpi-diagnostics-telegram = { path = "crates/ripdpi-diagnostics-telegram" }
 ripdpi-diagnostics-tls = { path = "crates/ripdpi-diagnostics-tls" }
 ripdpi-diagnostics-transport = { path = "crates/ripdpi-diagnostics-transport" }
 ripdpi-monitor-engine = { path = "crates/ripdpi-monitor-engine" }
+ripdpi-monitor-proxy-runtime = { path = "crates/ripdpi-monitor-proxy-runtime" }
 ripdpi-proxy-runtime = { path = "crates/ripdpi-proxy-runtime" }
 ripdpi-runtime-api = { path = "crates/ripdpi-runtime-api" }
 ripdpi-runtime-adaptive = { path = "crates/ripdpi-runtime-adaptive" }

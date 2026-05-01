@@ -3056,6 +3056,7 @@ dependencies = [
  "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-monitor-engine",
+ "ripdpi-monitor-proxy-runtime",
  "ripdpi-native-protect",
  "ripdpi-packets",
  "ripdpi-proxy-config",
@@ -3516,7 +3517,6 @@ dependencies = [
  "ripdpi-failure-classifier",
  "ripdpi-packets",
  "ripdpi-proxy-config",
- "ripdpi-proxy-runtime",
  "ripdpi-runtime-api",
  "ripdpi-runtime-platform",
  "ripdpi-telemetry",
@@ -3526,6 +3526,16 @@ dependencies = [
  "socket2 0.6.3",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "ripdpi-monitor-proxy-runtime"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-diagnostics-transport",
+ "ripdpi-monitor-engine",
+ "ripdpi-proxy-runtime",
+ "ripdpi-runtime-api",
 ]
 
 [[package]]

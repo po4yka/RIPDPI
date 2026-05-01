@@ -9,12 +9,13 @@ use connectivity::{
 };
 use strategy::{StrategyDnsBaselineRunner, StrategyQuicRunner, StrategyRecommendationRunner, StrategyTcpRunner};
 
-use crate::execution::ProductionCandidateRuntimeLauncher;
+use crate::CandidateRuntimeLauncher;
 
 use super::runtime::ExecutionCoordinator;
 
-pub(super) fn execution_coordinator() -> ExecutionCoordinator {
-    let candidate_runtime_launcher = Arc::new(ProductionCandidateRuntimeLauncher);
+pub(super) fn execution_coordinator(
+    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
+) -> ExecutionCoordinator {
     ExecutionCoordinator::new(vec![
         Box::new(EnvironmentRunner),
         Box::new(DnsRunner),

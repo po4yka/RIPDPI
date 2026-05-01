@@ -13,6 +13,7 @@ use crate::transport::transport_for_request_with_session;
 #[cfg(test)]
 use crate::types::{ProbeResult, ProbeTaskFamily};
 use crate::types::{ScanKind, ScanProgress, ScanRequest, SharedState};
+use crate::CandidateRuntimeLauncher;
 
 use plan::build_execution_plan;
 #[cfg(test)]
@@ -31,6 +32,7 @@ pub fn run_engine_scan(
     session_id: String,
     request: ScanRequest,
     tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
+    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
 ) {
     let started_at = crate::util::now_ms();
     let transport = transport_for_request_with_session(&request, &session_id);
@@ -57,7 +59,7 @@ pub fn run_engine_scan(
             return;
         }
     };
-    let coordinator = execution_coordinator();
+    let coordinator = execution_coordinator(candidate_runtime_launcher);
     plan.total_steps = coordinator.total_steps(&plan);
 
     set_progress(
@@ -239,7 +241,14 @@ mod tests {
             }),
         );
 
-        run_engine_scan(shared.clone(), cancel, "session-1".to_string(), request, None);
+        run_engine_scan(
+            shared.clone(),
+            cancel,
+            "session-1".to_string(),
+            request,
+            None,
+            Arc::new(crate::execution::UnavailableCandidateRuntimeLauncher),
+        );
 
         let state = shared.lock().expect("shared state lock");
         let report = state.report.clone().expect("report");
