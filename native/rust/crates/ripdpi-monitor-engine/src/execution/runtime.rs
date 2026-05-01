@@ -290,9 +290,8 @@ mod tests {
     fn unavailable_candidate_runtime_launcher_returns_actionable_error() {
         let launcher = UnavailableCandidateRuntimeLauncher;
         let spec = crate::candidates::candidate_spec("test", "Test", "test", test_ui_config());
-        let err = match probe_runtime_transport(&launcher, &spec, None) {
-            Ok(_) => panic!("launcher should be unavailable"),
-            Err(err) => err,
+        let Err(err) = probe_runtime_transport(&launcher, &spec, None) else {
+            panic!("launcher should be unavailable");
         };
         assert_eq!(err, "candidate runtime launcher is not configured");
     }
