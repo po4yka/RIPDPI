@@ -43,8 +43,8 @@ ripdpi-monitor-engine = { workspace = true }
 ripdpi-monitor-proxy-runtime = { workspace = true }
 ripdpi-proxy-runtime = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
-ripdpi-runtime-learning = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
+ripdpi-runtime-strategy = { workspace = true }
 ripdpi-telemetry = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

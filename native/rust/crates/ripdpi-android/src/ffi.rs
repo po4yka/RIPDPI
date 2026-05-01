@@ -182,9 +182,10 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jni
 /// Seed the singleton's cache from a previously-persisted snapshot
 /// (`fetchedAtUnixMs` paired with the original config bytes,
 /// base64-encoded). Validates the bytes against the same length-prefix
-/// + version checks `RemoteEchConfigSource` would, so a corrupted
-/// EncryptedSharedPreferences entry can't poison the cache. Returns
-/// `{"ok": true}` or `{"ok": false, "error": "..."}`.
+/// and version checks `RemoteEchConfigSource` would, so a corrupted
+/// EncryptedSharedPreferences entry can't poison the cache.
+///
+/// Returns `{"ok": true}` or `{"ok": false, "error": "..."}`.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jniSeedCdnEch(
     mut env: EnvUnowned<'_>,
@@ -243,7 +244,7 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiSharedPriorsNativeBindin
             let priors_b64: String = priors_base64.mutf8_chars(env)?.to_str().into_owned();
             let payload = match base64::engine::general_purpose::STANDARD.decode(priors_b64.trim()) {
                 Ok(bytes) => {
-                    match ripdpi_runtime_learning::strategy_evolver::apply_global_shared_priors_with_embedded_key(
+                    match ripdpi_runtime_strategy::strategy_evolver::apply_global_shared_priors_with_embedded_key(
                         &manifest_bytes,
                         &bytes,
                     ) {

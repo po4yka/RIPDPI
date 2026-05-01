@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use std::net::{SocketAddr, TcpStream};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};

@@ -1,0 +1,114 @@
+use std::collections::HashMap;
+use std::io;
+use std::sync::atomic::AtomicU16;
+use std::sync::Arc;
+
+use quinn::Endpoint;
+use rustls::ClientConfig as RustlsClientConfig;
+use tokio::sync::Mutex;
+
+use crate::config::Config;
+use crate::endpoint::{
+    build_endpoint, build_tls_config, establish_connection, resolve_server_addr, validate_config, ClientSocketSpec,
+};
+use crate::migration::QuicMigrationState;
+use crate::protocol::{authenticate_connection, TuicAddress};
+use crate::tcp::{encode_connect_header, DuplexStream};
+use crate::udp::{dispatch_incoming_datagrams, UdpPacket, UdpSession};
+
+#[derive(Clone)]
+pub struct TuicClient {
+    inner: Arc<ClientInner>,
+}
+
+impl TuicClient {
+    pub async fn connect(config: Config) -> io::Result<Self> {
+        let tls_config = build_tls_config(config.zero_rtt, None)?;
+        Self::connect_with_tls(config, tls_config).await
+    }
+
+    pub(crate) async fn connect_with_tls(config: Config, tls_config: RustlsClientConfig) -> io::Result<Self> {
+        validate_config(&config)?;
+        let server_addr = resolve_server_addr(&config.server, config.server_port)?;
+        let socket_spec = ClientSocketSpec { ipv6: server_addr.is_ipv6(), bind_low_port: config.quic_bind_low_port };
+        let (endpoint, current_socket) = build_endpoint(&config, tls_config, socket_spec)?;
+        let connection = establish_connection(&endpoint, &config, server_addr).await?;
+        authenticate_connection(&connection, &config).await?;
+        let max_datagram_size = connection.max_datagram_size();
+
+        let inner = Arc::new(ClientInner {
+            endpoint,
+            connection,
+            next_assoc_id: AtomicU16::new(1),
+            registrations: Mutex::new(HashMap::new()),
+            max_datagram_size,
+            socket_spec,
+            migrate_after_handshake: config.quic_migrate_after_handshake,
+            current_socket: Mutex::new(current_socket),
+            migration: Mutex::new(QuicMigrationState {
+                status: Some("not_attempted".to_string()),
+                reason: None,
+                validated: false,
+                cooldown_until: None,
+                previous_socket: None,
+            }),
+        });
+
+        if config.udp_enabled && max_datagram_size.is_some() {
+            tokio::spawn(dispatch_incoming_datagrams(Arc::clone(&inner)));
+        }
+
+        Ok(Self { inner })
+    }
+
+    pub async fn tcp_connect(&self, authority: &str) -> io::Result<DuplexStream> {
+        let target = TuicAddress::from_authority(authority)?;
+        let migrated = self.inner.begin_quic_migration().await?;
+        match self.open_tcp_stream(&target).await {
+            Ok(stream) => {
+                if migrated {
+                    self.inner.complete_quic_migration("path_validated_after_stream_open").await;
+                }
+                Ok(stream)
+            }
+            Err(_error) if migrated => {
+                let _ = self.inner.rollback_quic_migration("stream_open_failed_after_rebind").await;
+                self.open_tcp_stream(&target).await
+            }
+            Err(error) => Err(error),
+        }
+    }
+
+    pub async fn udp_session(&self) -> io::Result<UdpSession> {
+        if self.inner.max_datagram_size.is_none() {
+            return Err(io::Error::new(
+                io::ErrorKind::Unsupported,
+                "TUIC datagram relay is not available on this connection",
+            ));
+        }
+
+        Ok(UdpSession::new(Arc::clone(&self.inner)))
+    }
+
+    pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
+        self.inner.quic_migration_snapshot()
+    }
+
+    async fn open_tcp_stream(&self, target: &TuicAddress) -> io::Result<DuplexStream> {
+        let (mut send, recv) = self.inner.connection.open_bi().await?;
+        encode_connect_header(&mut send, target).await?;
+        Ok(DuplexStream { send, recv })
+    }
+}
+
+pub(crate) struct ClientInner {
+    pub(crate) endpoint: Endpoint,
+    pub(crate) connection: quinn::Connection,
+    pub(crate) next_assoc_id: AtomicU16,
+    pub(crate) registrations: Mutex<HashMap<u16, tokio::sync::mpsc::Sender<UdpPacket>>>,
+    pub(crate) max_datagram_size: Option<usize>,
+    pub(crate) socket_spec: ClientSocketSpec,
+    pub(crate) migrate_after_handshake: bool,
+    pub(crate) current_socket: Mutex<std::net::UdpSocket>,
+    pub(crate) migration: Mutex<QuicMigrationState>,
+}

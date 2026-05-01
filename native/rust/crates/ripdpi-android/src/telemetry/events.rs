@@ -81,7 +81,6 @@ impl ProxyTelemetryState {
 
     /// Atomically update string fields using compare-and-swap.
     /// Retries on concurrent modification (rare at observed write frequencies).
-
     pub(crate) fn clear_last_error(&self) {
         self.update_strings(|s| s.last_error = None);
     }
