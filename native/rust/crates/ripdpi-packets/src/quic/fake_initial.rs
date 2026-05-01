@@ -3,10 +3,9 @@ use crate::types::{QuicInitialBrowserProfile, QuicInitialPacketLayout, QuicIniti
 use crate::util::read_u16;
 use crate::{tls_fake_profile_bytes, TlsFakeProfile};
 
+use super::build::build_quic_initial_raw;
 use super::frames::{append_segmented_quic_crypto_frames, defrag_quic_crypto_frames};
-use super::initial::{
-    build_quic_initial_raw, decrypt_quic_initial_payload, parse_quic_initial_header, supported_quic_version,
-};
+use super::parse::{decrypt_quic_initial_payload, parse_quic_initial_header, supported_quic_version};
 use super::{QUIC_FAKE_DCID, QUIC_FAKE_INITIAL_TARGET_LEN, QUIC_FAKE_SCID, QUIC_INITIAL_MIN_LEN};
 
 fn padded_tls_client_hello(template: &[u8]) -> Vec<u8> {

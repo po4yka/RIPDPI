@@ -1,5 +1,6 @@
+use super::build::build_quic_initial_raw;
 use super::frames::{append_quic_crypto_frame, defrag_quic_crypto_frames};
-use super::initial::{build_quic_initial_raw, decrypt_quic_initial_payload, parse_quic_initial_header};
+use super::parse::{decrypt_quic_initial_payload, parse_quic_initial_header};
 use super::QUIC_FAKE_INITIAL_TARGET_LEN;
 
 /// Re-encrypt a QUIC Initial packet with the TLS ClientHello split across

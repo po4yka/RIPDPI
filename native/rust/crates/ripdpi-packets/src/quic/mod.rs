@@ -1,17 +1,16 @@
+mod build;
 mod crypto;
 mod fake_initial;
 mod frames;
-mod initial;
+mod parse;
 mod tamper;
 
+pub use build::{build_quic_initial_from_tls, default_fake_quic_compat};
 pub use fake_initial::{
     build_browser_like_quic_initial, build_browser_like_quic_initial_seed, build_realistic_quic_initial,
     packetize_quic_initial, parse_quic_initial_seed,
 };
-pub use initial::{
-    build_quic_initial_from_tls, default_fake_quic_compat, is_quic_initial, parse_quic_initial,
-    parse_quic_initial_layout,
-};
+pub use parse::{is_quic_initial, parse_quic_initial, parse_quic_initial_layout};
 pub use tamper::{tamper_quic_initial_split_crypto, tamper_quic_initial_split_sni, tamper_quic_version};
 
 const QUIC_INITIAL_MIN_LEN: usize = 128;
@@ -34,7 +33,7 @@ use crypto::{quic_derive_client_initial_secret, quic_expand_label, quic_hkdf_lab
 #[cfg(test)]
 use frames::{append_quic_crypto_frame, defrag_quic_crypto_frames, encode_quic_varint, read_quic_varint};
 #[cfg(test)]
-use initial::parse_quic_initial_header;
+use parse::parse_quic_initial_header;
 
 #[cfg(test)]
 mod tests;
