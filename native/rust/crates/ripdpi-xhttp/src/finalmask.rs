@@ -6,8 +6,7 @@ use rand::RngExt;
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use crate::AsyncIo;
-use crate::FinalmaskConfig;
+use crate::config::{AsyncIo, FinalmaskConfig};
 
 const TCP_BRIDGE_BUFFER_SIZE: usize = 64 * 1024;
 const TCP_COPY_BUFFER_SIZE: usize = 16 * 1024;
