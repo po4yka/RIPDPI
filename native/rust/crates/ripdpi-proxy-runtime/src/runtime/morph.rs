@@ -213,45 +213,23 @@ mod tests {
     use super::*;
 
     use crate::runtime::state::RuntimeState;
-    use crate::sync::{Arc, AtomicBool, AtomicUsize, RwLock};
     use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStep, TcpChainStepKind};
     use ripdpi_packets::DEFAULT_FAKE_TLS;
     use ripdpi_proxy_config::ProxyRuntimeContext;
-    use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-    use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
-    use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
-    use ripdpi_runtime_policy::direct_path_learning::DirectPathLearningState;
     use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
-    use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
 
     fn state_with_policy(policy: ProxyMorphPolicy) -> RuntimeState {
-        RuntimeState {
-            config: Arc::new(RuntimeConfig::default()),
-            cache: Arc::new(RwLock::new(RuntimePolicy::default())),
-            adaptive_fake_ttl: Arc::new(RwLock::new(AdaptiveFakeTtlResolver::default())),
-            adaptive_tuning: Arc::new(RwLock::new(AdaptivePlannerResolver::default())),
-            retry_stealth: Arc::new(RwLock::new(RetryPacer::default())),
-            strategy_evolver: Arc::new(RwLock::new(StrategyEvolver::new(false, 0.0))),
-            direct_path_learning: Arc::new(RwLock::new(DirectPathLearningState::default())),
-            active_clients: Arc::new(AtomicUsize::new(0)),
-            telemetry: None,
-            runtime_context: Some(ProxyRuntimeContext {
+        RuntimeState::test_with_runtime_policy(
+            RuntimeConfig::default(),
+            Some(ProxyRuntimeContext {
                 encrypted_dns: None,
                 protect_path: None,
                 preferred_edges: std::collections::BTreeMap::default(),
                 direct_path_capabilities: Vec::new(),
                 morph_policy: Some(policy),
             }),
-            control: None,
-            ttl_unavailable: Arc::new(AtomicBool::new(false)),
-            reprobe_tracker: std::sync::Arc::new(crate::runtime::reprobe::ReprobeTracker::new()),
-            dns_hostname_cache: std::sync::Arc::new(
-                ripdpi_runtime_dns_cache::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
-            ),
-            pcap_hook: None,
-            #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-            io_uring: None,
-        }
+            RuntimePolicy::default(),
+        )
     }
 
     #[test]

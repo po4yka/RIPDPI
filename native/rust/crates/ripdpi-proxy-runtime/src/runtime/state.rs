@@ -6,7 +6,7 @@ use ripdpi_proxy_config::ProxyRuntimeContext;
 use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
 use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
 use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
-use ripdpi_runtime_api::{EmbeddedProxyControl, RuntimeTelemetrySink};
+use ripdpi_runtime_api::{current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
 use ripdpi_runtime_policy::direct_path_learning::DirectPathLearningState;
 use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
 use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
@@ -48,10 +48,132 @@ pub(super) struct RuntimeState {
     pub(super) io_uring: Option<std::sync::Arc<ripdpi_io_uring::IoUringDriver>>,
 }
 
+impl RuntimeState {
+    pub(super) fn new(config: RuntimeConfig, control: Option<std::sync::Arc<EmbeddedProxyControl>>) -> Self {
+        let cache = RuntimePolicy::load(&config);
+        let adaptive_tuning = AdaptivePlannerResolver::load(&config);
+        let telemetry = control.as_ref().and_then(|value| value.telemetry_sink()).or_else(current_runtime_telemetry);
+        let runtime_context = control.as_ref().and_then(|value| value.runtime_context());
+        Self::from_parts(config, RuntimeStateParts { cache, adaptive_tuning, telemetry, runtime_context, control })
+    }
+
+    fn from_parts(config: RuntimeConfig, parts: RuntimeStateParts) -> Self {
+        let evolver_enabled = config.adaptive.strategy_evolution;
+        let evolver_epsilon = config.adaptive.evolution_epsilon_permil as f64 / 1000.0;
+        let evolver_experiment_ttl_ms = config.adaptive.evolution_experiment_ttl_ms;
+        let evolver_decay_half_life_ms = config.adaptive.evolution_decay_half_life_ms;
+        let evolver_cooldown_after_failures = config.adaptive.evolution_cooldown_after_failures;
+        let evolver_cooldown_ms = config.adaptive.evolution_cooldown_ms;
+        Self {
+            config: Arc::new(config),
+            cache: Arc::new(RwLock::new(parts.cache)),
+            adaptive_fake_ttl: Arc::new(RwLock::new(AdaptiveFakeTtlResolver::default())),
+            adaptive_tuning: Arc::new(RwLock::new(parts.adaptive_tuning)),
+            retry_stealth: Arc::new(RwLock::new(RetryPacer::default())),
+            strategy_evolver: Arc::new(RwLock::new(
+                StrategyEvolver::new(evolver_enabled, evolver_epsilon).with_time_knobs(
+                    evolver_experiment_ttl_ms,
+                    evolver_decay_half_life_ms,
+                    evolver_cooldown_after_failures,
+                    evolver_cooldown_ms,
+                ),
+            )),
+            direct_path_learning: Arc::new(RwLock::new(DirectPathLearningState::default())),
+            active_clients: Arc::new(AtomicUsize::new(0)),
+            telemetry: parts.telemetry,
+            runtime_context: parts.runtime_context,
+            control: parts.control,
+            ttl_unavailable: Arc::new(AtomicBool::new(false)),
+            reprobe_tracker: std::sync::Arc::new(super::reprobe::ReprobeTracker::new()),
+            dns_hostname_cache: std::sync::Arc::new(
+                ripdpi_runtime_dns_cache::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
+            ),
+            pcap_hook: None,
+            #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+            io_uring: None,
+        }
+    }
+
+    #[cfg(test)]
+    pub(super) fn test(config: RuntimeConfig) -> Self {
+        Self::test_with_context(config, None)
+    }
+
+    #[cfg(test)]
+    pub(super) fn test_with_context(config: RuntimeConfig, runtime_context: Option<ProxyRuntimeContext>) -> Self {
+        Self::test_with_overrides(config, runtime_context, None, RuntimePolicy::load)
+    }
+
+    #[cfg(test)]
+    pub(super) fn test_with_telemetry(
+        config: RuntimeConfig,
+        telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
+    ) -> Self {
+        Self::test_with_overrides(config, None, telemetry, RuntimePolicy::load)
+    }
+
+    #[cfg(test)]
+    pub(super) fn test_with_runtime_policy(
+        config: RuntimeConfig,
+        runtime_context: Option<ProxyRuntimeContext>,
+        policy: RuntimePolicy,
+    ) -> Self {
+        Self::test_with_parts(config, runtime_context, None, policy)
+    }
+
+    #[cfg(test)]
+    fn test_with_overrides(
+        config: RuntimeConfig,
+        runtime_context: Option<ProxyRuntimeContext>,
+        telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
+        policy_loader: impl FnOnce(&RuntimeConfig) -> RuntimePolicy,
+    ) -> Self {
+        let policy = policy_loader(&config);
+        Self::test_with_parts(config, runtime_context, telemetry, policy)
+    }
+
+    #[cfg(test)]
+    fn test_with_parts(
+        config: RuntimeConfig,
+        runtime_context: Option<ProxyRuntimeContext>,
+        telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
+        policy: RuntimePolicy,
+    ) -> Self {
+        Self::from_parts(
+            config,
+            RuntimeStateParts {
+                cache: policy,
+                adaptive_tuning: AdaptivePlannerResolver::default(),
+                telemetry,
+                runtime_context,
+                control: None,
+            },
+        )
+    }
+}
+
+struct RuntimeStateParts {
+    cache: RuntimePolicy,
+    adaptive_tuning: AdaptivePlannerResolver,
+    telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
+    runtime_context: Option<ProxyRuntimeContext>,
+    control: Option<std::sync::Arc<EmbeddedProxyControl>>,
+}
+
 pub(super) struct RuntimeCleanup {
     pub(super) config: Arc<RuntimeConfig>,
     pub(super) cache: Arc<RwLock<RuntimePolicy>>,
     pub(super) adaptive_tuning: Arc<RwLock<AdaptivePlannerResolver>>,
+}
+
+impl RuntimeCleanup {
+    pub(super) fn from_state(state: &RuntimeState) -> Self {
+        Self {
+            config: state.config.clone(),
+            cache: state.cache.clone(),
+            adaptive_tuning: state.adaptive_tuning.clone(),
+        }
+    }
 }
 
 impl Drop for RuntimeCleanup {

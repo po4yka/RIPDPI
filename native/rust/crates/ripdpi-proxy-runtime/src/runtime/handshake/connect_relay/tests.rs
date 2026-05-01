@@ -3,12 +3,7 @@ use super::*;
 use crate::runtime::state::RuntimeState;
 use ripdpi_config::{RuntimeConfig, WsTunnelMode};
 use ripdpi_failure_classifier::ClassifiedFailure;
-use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
-use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
 use ripdpi_runtime_api::RuntimeTelemetrySink;
-use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
-use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
 use ripdpi_ws_tunnel::TelegramDc;
 use std::net::Ipv4Addr;
 use std::sync::atomic::{AtomicUsize, Ordering as StdOrdering};
@@ -23,29 +18,7 @@ fn connected_pair() -> (TcpStream, TcpStream) {
 }
 
 fn runtime_state(config: RuntimeConfig, telemetry: Option<StdArc<dyn RuntimeTelemetrySink>>) -> RuntimeState {
-    RuntimeState {
-        config: crate::sync::Arc::new(config.clone()),
-        cache: crate::sync::Arc::new(crate::sync::RwLock::new(RuntimePolicy::load(&config))),
-        adaptive_fake_ttl: crate::sync::Arc::new(crate::sync::RwLock::new(AdaptiveFakeTtlResolver::default())),
-        adaptive_tuning: crate::sync::Arc::new(crate::sync::RwLock::new(AdaptivePlannerResolver::default())),
-        retry_stealth: crate::sync::Arc::new(crate::sync::RwLock::new(RetryPacer::default())),
-        strategy_evolver: crate::sync::Arc::new(crate::sync::RwLock::new(StrategyEvolver::new(false, 0.0))),
-        direct_path_learning: crate::sync::Arc::new(crate::sync::RwLock::new(
-            ripdpi_runtime_policy::direct_path_learning::DirectPathLearningState::default(),
-        )),
-        active_clients: crate::sync::Arc::new(crate::sync::AtomicUsize::new(0)),
-        telemetry,
-        runtime_context: None,
-        control: None,
-        ttl_unavailable: crate::sync::Arc::new(crate::sync::AtomicBool::new(false)),
-        reprobe_tracker: std::sync::Arc::new(crate::runtime::reprobe::ReprobeTracker::new()),
-        dns_hostname_cache: std::sync::Arc::new(
-            ripdpi_runtime_dns_cache::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
-        ),
-        pcap_hook: None,
-        #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-        io_uring: None,
-    }
+    RuntimeState::test_with_telemetry(config, telemetry)
 }
 
 #[derive(Default)]
