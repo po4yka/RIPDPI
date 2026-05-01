@@ -89,3 +89,37 @@ async fn u26_pump_upstream_closed_closes_tcp() {
         }
     }
 }
+
+#[tokio::test]
+async fn u28_pump_removal_cancels_session_task_token() {
+    let mut device = TunDevice::new(1500);
+    let (_iface, mut socket_set, handle, _server_seq) = establish_tcp_connection(&mut device);
+
+    let cancel = CancellationToken::new();
+    let child_cancel = cancel.child_token();
+    let (smoltcp_side, _session_side) = tokio::io::duplex(crate::io_loop::DUPLEX_BUF);
+    let session_cancel = child_cancel.clone();
+    let join_handle: JoinHandle<io::Result<()>> = tokio::spawn(async move {
+        session_cancel.cancelled().await;
+        Ok(())
+    });
+    let entry = SessionEntry {
+        smoltcp_side,
+        cancel: child_cancel.clone(),
+        handle: join_handle,
+        pending_to_session: Vec::new(),
+        pending_to_smoltcp: Vec::new(),
+        upstream_closed: false,
+        pinned_synthetic_ip: None,
+    };
+    let mut sessions = ActiveSessions::new(8);
+    sessions.insert(handle, entry);
+
+    socket_set.get_mut::<TcpSocket>(handle).abort();
+
+    let mut dns_cache = None;
+    pump_active_sessions(&mut socket_set, &mut sessions, &mut dns_cache).await;
+
+    assert!(sessions.is_empty(), "inactive TCP sockets should remove their session");
+    assert!(child_cancel.is_cancelled(), "session removal must cancel the session task token");
+}

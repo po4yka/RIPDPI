@@ -1,4 +1,5 @@
 mod duplex;
+mod session_cleanup;
 mod session_pump;
 mod shutdown;
 #[cfg(test)]

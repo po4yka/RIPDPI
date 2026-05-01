@@ -1,12 +1,12 @@
 use smoltcp::iface::SocketSet;
 use smoltcp::socket::tcp::Socket as TcpSocket;
-use tokio::io::AsyncWriteExt;
 use tracing::debug;
 
 use crate::dns_cache::DnsCache;
 use crate::ActiveSessions;
 
 use super::duplex::{flush_pending_to_session, flush_pending_to_smoltcp, try_read_duplex, try_write_duplex};
+use super::session_cleanup::{remove_session, TaskDrain};
 use crate::io_loop::PUMP_CHUNK;
 
 pub(in crate::io_loop) async fn pump_active_sessions(
@@ -110,17 +110,6 @@ pub(in crate::io_loop) async fn pump_active_sessions(
     }
 
     for handle in to_remove.drain(..) {
-        if let Some(mut entry) = sessions.remove(handle) {
-            // Release the DNS cache pin so this synthetic IP can be evicted.
-            if let (Some(cache), Some(ip)) = (dns_cache.as_mut(), entry.pinned_synthetic_ip) {
-                cache.unpin(ip);
-            }
-            entry.smoltcp_side.shutdown().await.ok();
-        }
-        let tcp = socket_set.get_mut::<TcpSocket>(handle);
-        if tcp.is_active() {
-            tcp.close();
-        }
-        socket_set.remove(handle);
+        remove_session(handle, sessions, socket_set, dns_cache, TaskDrain::Abort).await;
     }
 }
