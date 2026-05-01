@@ -839,7 +839,7 @@ mod tests {
         // of Instant's monotonic clock).
         let elapsed = now.saturating_duration_since(synthesized);
         let expected = Duration::from_millis(now_ms - six_h_ago_ms);
-        let drift = if elapsed > expected { elapsed - expected } else { expected - elapsed };
+        let drift = elapsed.abs_diff(expected);
         assert!(drift < Duration::from_millis(10), "synthesized age drifted by {drift:?}");
     }
 }
