@@ -140,3 +140,36 @@ fn tcp_ipv6_fragment_pair_serializes_timestamp_option_when_requested() {
     assert_eq!(pair.effective_transport_split % IP_FRAGMENT_ALIGNMENT_BYTES, 0);
     assert_eq!(tcp_payload, payload);
 }
+
+#[test]
+fn tcp_fragment_pair_applies_public_flag_masks() {
+    let spec = TcpFragmentSpec {
+        src: SocketAddr::from(([203, 0, 113, 10], 50000)),
+        dst: SocketAddr::from(([198, 51, 100, 20], 443)),
+        ttl: 64,
+        identification: 0x7788,
+        sequence_number: 0x1111_2222,
+        acknowledgment_number: 0x3333_4444,
+        window_size: 4096,
+        timestamp: None,
+        tcp_flags_set: crate::TCP_FLAG_RST | crate::TCP_FLAG_SYN,
+        tcp_flags_unset: crate::TCP_FLAG_PSH,
+        ipv6_ext: Ipv6ExtHeaders::default(),
+    };
+    let payload = b"flag override payload";
+
+    let pair = build_tcp_fragment_pair(spec, payload, 5).expect("build tcp ipv4 fragments with flag overrides");
+    let transport = reassemble_ipv4_transport(&pair.first, &pair.second);
+    let (tcp, tcp_payload) = TcpHeader::from_slice(&transport).expect("parse tcp transport");
+
+    assert!(tcp.rst);
+    assert!(tcp.syn);
+    assert!(!tcp.psh);
+    assert!(tcp.ack);
+    assert_eq!(tcp_payload, payload);
+    assert_eq!(
+        tcp.checksum,
+        tcp.calc_checksum_ipv4_raw([203, 0, 113, 10], [198, 51, 100, 20], tcp_payload)
+            .expect("recalculate tcp checksum")
+    );
+}

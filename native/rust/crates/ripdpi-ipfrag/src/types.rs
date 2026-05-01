@@ -2,6 +2,19 @@ use std::net::SocketAddr;
 
 use thiserror::Error;
 
+pub const TCP_FLAG_FIN: u16 = 0x001;
+pub const TCP_FLAG_SYN: u16 = 0x002;
+pub const TCP_FLAG_RST: u16 = 0x004;
+pub const TCP_FLAG_PSH: u16 = 0x008;
+pub const TCP_FLAG_ACK: u16 = 0x010;
+pub const TCP_FLAG_URG: u16 = 0x020;
+pub const TCP_FLAG_ECE: u16 = 0x040;
+pub const TCP_FLAG_CWR: u16 = 0x080;
+pub const TCP_FLAG_AE: u16 = 0x100;
+pub const TCP_FLAG_R1: u16 = 0x200;
+pub const TCP_FLAG_R2: u16 = 0x400;
+pub const TCP_FLAG_R3: u16 = 0x800;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IpFragmentPair {
     pub first: Vec<u8>,

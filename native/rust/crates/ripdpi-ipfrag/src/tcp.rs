@@ -5,20 +5,11 @@ use etherparse::{ip_number, TcpHeader, TcpHeaderSlice, TcpOptionElement};
 use crate::ipv4::build_ipv4_fragment_pair;
 use crate::ipv6::build_ipv6_fragment_pair;
 use crate::split::resolve_effective_split;
+use crate::types::{
+    TCP_FLAG_ACK, TCP_FLAG_AE, TCP_FLAG_CWR, TCP_FLAG_ECE, TCP_FLAG_FIN, TCP_FLAG_PSH, TCP_FLAG_R1, TCP_FLAG_R2,
+    TCP_FLAG_R3, TCP_FLAG_RST, TCP_FLAG_SYN, TCP_FLAG_URG,
+};
 use crate::{BuildError, IpFragmentPair, TcpFragmentSpec};
-
-const TCP_FLAG_FIN: u16 = 0x001;
-const TCP_FLAG_SYN: u16 = 0x002;
-const TCP_FLAG_RST: u16 = 0x004;
-const TCP_FLAG_PSH: u16 = 0x008;
-const TCP_FLAG_ACK: u16 = 0x010;
-const TCP_FLAG_URG: u16 = 0x020;
-const TCP_FLAG_ECE: u16 = 0x040;
-const TCP_FLAG_CWR: u16 = 0x080;
-const TCP_FLAG_AE: u16 = 0x100;
-const TCP_FLAG_R1: u16 = 0x200;
-const TCP_FLAG_R2: u16 = 0x400;
-const TCP_FLAG_R3: u16 = 0x800;
 
 pub fn build_tcp_fragment_pair(
     spec: TcpFragmentSpec,
