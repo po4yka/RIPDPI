@@ -38,7 +38,7 @@ ripdpi-proxy-config = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 ripdpi-diagnostics-contracts = { workspace = true }
 ripdpi-diagnostics-pcap = { workspace = true }
-ripdpi-diagnostics-probes = { workspace = true }
+ripdpi-diagnostics-dns = { workspace = true }
 ripdpi-monitor-engine = { workspace = true }
 ripdpi-proxy-runtime = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
