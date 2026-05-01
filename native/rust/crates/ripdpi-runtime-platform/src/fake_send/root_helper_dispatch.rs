@@ -1,0 +1,92 @@
+use std::io;
+use std::net::TcpStream;
+use std::os::fd::{AsRawFd, RawFd};
+
+use crate::{root_helper, OrderedTcpSegment, TcpFlagOverrides, TcpStageWait};
+
+pub(crate) fn send_fake_rst(
+    stream: &TcpStream,
+    default_ttl: u8,
+    flags: TcpFlagOverrides,
+    ipv4_identification: Option<u16>,
+) -> Option<io::Result<()>> {
+    root_helper::with_root_helper(|h| h.send_fake_rst(stream.as_raw_fd(), default_ttl, flags, ipv4_identification))
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn send_ordered_tcp_segments(
+    stream: &TcpStream,
+    segments: &[OrderedTcpSegment<'_>],
+    original_payload_len: usize,
+    default_ttl: u8,
+    md5sig: bool,
+    timestamp_delta_ticks: Option<i32>,
+    ipv4_identifications: &[u16],
+    wait: TcpStageWait,
+) -> Option<io::Result<()>> {
+    root_helper::with_root_helper(|h| {
+        let res = h.send_ordered_tcp_segments(
+            stream.as_raw_fd(),
+            segments,
+            original_payload_len,
+            default_ttl,
+            md5sig,
+            timestamp_delta_ticks,
+            ipv4_identifications,
+            wait,
+        )?;
+        swap_stream_replacement_fd(stream, res)?;
+        Ok(())
+    })
+}
+
+pub(crate) fn send_flagged_tcp_payload(
+    stream: &TcpStream,
+    payload: &[u8],
+    default_ttl: u8,
+    md5sig: bool,
+    flags: TcpFlagOverrides,
+    ipv4_identification: Option<u16>,
+) -> Option<io::Result<()>> {
+    root_helper::with_root_helper(|h| {
+        let res =
+            h.send_flagged_tcp_payload(stream.as_raw_fd(), payload, default_ttl, md5sig, flags, ipv4_identification)?;
+        swap_stream_replacement_fd(stream, res)?;
+        Ok(())
+    })
+}
+
+pub(crate) fn send_seqovl_tcp(
+    stream: &TcpStream,
+    real_chunk: &[u8],
+    fake_prefix: &[u8],
+    default_ttl: u8,
+    md5sig: bool,
+    flags: TcpFlagOverrides,
+    ipv4_identification: Option<u16>,
+) -> Option<io::Result<()>> {
+    root_helper::with_root_helper(|h| {
+        let res = h.send_seqovl_tcp(
+            stream.as_raw_fd(),
+            real_chunk,
+            fake_prefix,
+            default_ttl,
+            md5sig,
+            flags,
+            ipv4_identification,
+        )?;
+        swap_stream_replacement_fd(stream, res)?;
+        Ok(())
+    })
+}
+
+fn swap_stream_replacement_fd(stream: &TcpStream, replacement_fd: Option<RawFd>) -> io::Result<()> {
+    if let Some(replacement_fd) = replacement_fd {
+        swap_replacement_fd(stream.as_raw_fd(), replacement_fd)?;
+    }
+    Ok(())
+}
+
+fn swap_replacement_fd(target_fd: RawFd, replacement_fd: RawFd) -> io::Result<()> {
+    ripdpi_privileged_ops::swap_replacement_fd(target_fd, replacement_fd)
+}
