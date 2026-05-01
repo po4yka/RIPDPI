@@ -5,9 +5,11 @@ mod delay;
 mod error;
 mod relay;
 mod reply;
+mod routes;
 #[cfg(test)]
 mod tests;
 mod ws_fallback;
+mod ws_first;
 
 use super::super::state::RuntimeState;
 use super::protocol_io::HandshakeKind;
@@ -15,7 +17,8 @@ use super::ws_tunnel::{run_ws_tunnel, run_ws_tunnel_with_seed, WsTunnelResult};
 use delay::{maybe_delay_connect, DelayConnect};
 use relay::{connect_after_ws_attempt, delayed_connect_relay, immediate_connect_relay};
 use reply::write_success_reply;
-use ws_fallback::{run_ws_always_first, run_ws_fallback_after_desync, AlwaysWsOutcome};
+use ws_fallback::run_ws_fallback_after_desync;
+use ws_first::{run_ws_always_first, AlwaysWsOutcome};
 
 pub(super) use error::ConnectRelayError;
 pub(super) use reply::SuccessReply;
