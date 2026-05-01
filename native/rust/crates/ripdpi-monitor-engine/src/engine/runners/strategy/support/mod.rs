@@ -1,4 +1,7 @@
 mod audit_assessment;
+mod audit_confidence;
+mod audit_counts;
+mod audit_scoring;
 mod candidate_ordering;
 mod capabilities;
 mod pilot_targets;
