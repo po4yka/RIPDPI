@@ -238,7 +238,7 @@ mod tests {
             retry_stealth: Arc::new(RwLock::new(RetryPacer::default())),
             strategy_evolver: Arc::new(RwLock::new(StrategyEvolver::new(false, 0.0))),
             direct_path_learning: Arc::new(RwLock::new(
-                crate::runtime::direct_path_learning::DirectPathLearningState::default(),
+                ripdpi_runtime_policy::direct_path_learning::DirectPathLearningState::default(),
             )),
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry: None,

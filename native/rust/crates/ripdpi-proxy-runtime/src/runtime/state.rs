@@ -1,13 +1,13 @@
 use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering, RwLock};
 use std::time::Duration;
 
-use crate::runtime::direct_path_learning::DirectPathLearningState;
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::ProxyRuntimeContext;
 use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
 use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
 use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
 use ripdpi_runtime_api::{EmbeddedProxyControl, RuntimeTelemetrySink};
+use ripdpi_runtime_policy::direct_path_learning::DirectPathLearningState;
 use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
 use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
 

@@ -212,7 +212,6 @@ fn map_quic_fake_profile(value: &str) -> Option<QuicFakeProfile> {
 mod tests {
     use super::*;
 
-    use crate::runtime::direct_path_learning::DirectPathLearningState;
     use crate::runtime::state::RuntimeState;
     use crate::sync::{Arc, AtomicBool, AtomicUsize, RwLock};
     use ripdpi_config::{DesyncGroup, RuntimeConfig, TcpChainStep, TcpChainStepKind};
@@ -221,6 +220,7 @@ mod tests {
     use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
     use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
     use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
+    use ripdpi_runtime_policy::direct_path_learning::DirectPathLearningState;
     use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
     use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
 

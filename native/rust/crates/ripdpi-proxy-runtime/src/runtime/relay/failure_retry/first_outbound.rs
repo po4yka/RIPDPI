@@ -326,9 +326,9 @@ mod tests {
         let expected = payload.clone();
 
         let writer = thread::spawn(move || {
-            for chunk in expected.chunks(17) {
+            for chunk in expected.chunks(128) {
                 app.write_all(chunk).expect("write client hello fragment");
-                thread::sleep(Duration::from_millis(2));
+                thread::sleep(Duration::from_millis(1));
             }
         });
 

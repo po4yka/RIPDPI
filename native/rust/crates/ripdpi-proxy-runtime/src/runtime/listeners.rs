@@ -319,7 +319,9 @@ pub(super) fn run_proxy_with_listener_internal(
                     evolver_cooldown_ms,
                 ),
         )),
-        direct_path_learning: Arc::new(RwLock::new(super::direct_path_learning::DirectPathLearningState::default())),
+        direct_path_learning: Arc::new(RwLock::new(
+            ripdpi_runtime_policy::direct_path_learning::DirectPathLearningState::default(),
+        )),
         active_clients: Arc::new(AtomicUsize::new(0)),
         telemetry: control.as_ref().and_then(|value| value.telemetry_sink()).or_else(current_runtime_telemetry),
         runtime_context: control.as_ref().and_then(|value| value.runtime_context()),

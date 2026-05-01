@@ -4,9 +4,9 @@
 use std::collections::HashMap;
 use std::net::SocketAddr;
 
-use super::adaptive::direct_path_ip_set_digest;
-use super::state::RuntimeState;
-use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
+use ring::digest;
+
+use crate::runtime_policy::TransportProtocol;
 
 const NO_TCP_FALLBACK_WINDOW_MS: u64 = 3_000;
 
@@ -20,7 +20,7 @@ const NO_TCP_FALLBACK_WINDOW_MS: u64 = 3_000;
 /// variant maps to a distinct ranked arm list via
 /// [`DirectPathLearningState::ranked_arms_for`].
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub(super) enum DirectPathBlockClass {
+pub enum DirectPathBlockClass {
     /// No negative evidence — plain TCP or QUIC is worth trying first.
     Clean,
     /// UDP/QUIC datagrams are being dropped; TCP-based arms rank higher.
@@ -45,15 +45,15 @@ pub(super) enum DirectPathBlockClass {
 /// this arm first". `attempt_budget` is currently a conservative per-arm
 /// default.
 #[derive(Clone, Debug, PartialEq)]
-pub(super) struct RankedArm {
+pub struct RankedArm {
     /// Short label identifying the transport / strategy arm.
-    pub(super) label: &'static str,
+    pub label: &'static str,
     /// Normalised priority score.  Higher = preferred.
-    pub(super) score: f32,
+    pub score: f32,
     /// Block class that caused this arm to be ranked at this position.
-    pub(super) class: DirectPathBlockClass,
+    pub class: DirectPathBlockClass,
     /// Remaining attempt budget before the arm should be backed off.
-    pub(super) attempt_budget: u32,
+    pub attempt_budget: u32,
 }
 
 // ---------------------------------------------------------------------------
@@ -88,18 +88,22 @@ struct TupleState {
 }
 
 #[derive(Default)]
-pub(super) struct DirectPathLearningState {
+pub struct DirectPathLearningState {
     tuples: HashMap<TupleKey, TupleState>,
 }
 
+pub trait DirectPathLearningObserver {
+    fn on_direct_path_learning_signal(
+        &self,
+        authority: &str,
+        ip_set_digest: &str,
+        event: &'static str,
+        strategy_family: Option<&str>,
+    );
+}
+
 impl DirectPathLearningState {
-    pub(super) fn note_transport_attempt(
-        &mut self,
-        state: &RuntimeState,
-        host: Option<&str>,
-        targets: &[SocketAddr],
-        transport: TransportProtocol,
-    ) {
+    pub fn note_transport_attempt(&mut self, host: Option<&str>, targets: &[SocketAddr], transport: TransportProtocol) {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
@@ -108,10 +112,9 @@ impl DirectPathLearningState {
             entry.pending_udp_suppressed_at_ms = None;
             entry.terminal_state = None;
         }
-        let _ = state;
     }
 
-    pub(super) fn note_udp_suppressed(&mut self, host: Option<&str>, targets: &[SocketAddr], now_ms: u64) {
+    pub fn note_udp_suppressed(&mut self, host: Option<&str>, targets: &[SocketAddr], now_ms: u64) {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
@@ -120,7 +123,7 @@ impl DirectPathLearningState {
         entry.terminal_state = None;
     }
 
-    pub(super) fn note_udp_failure(&mut self, host: Option<&str>, targets: &[SocketAddr]) {
+    pub fn note_udp_failure(&mut self, host: Option<&str>, targets: &[SocketAddr]) {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
@@ -129,7 +132,7 @@ impl DirectPathLearningState {
         entry.terminal_state = None;
     }
 
-    pub(super) fn note_tls_post_client_hello_failure(&mut self, host: Option<&str>, targets: &[SocketAddr]) {
+    pub fn note_tls_post_client_hello_failure(&mut self, host: Option<&str>, targets: &[SocketAddr]) {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
@@ -138,7 +141,12 @@ impl DirectPathLearningState {
         entry.terminal_state = None;
     }
 
-    pub(super) fn note_quic_success(&mut self, state: &RuntimeState, host: Option<&str>, targets: &[SocketAddr]) {
+    pub fn note_quic_success(
+        &mut self,
+        observer: Option<&dyn DirectPathLearningObserver>,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+    ) {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
@@ -147,13 +155,13 @@ impl DirectPathLearningState {
         clear_negative_state(entry);
         entry.terminal_state = Some(TerminalState::QuicSuccess);
         if should_emit {
-            emit_learning_signal(state, &tuple_key, "QUIC_SUCCESS", None);
+            emit_learning_signal(observer, &tuple_key, "QUIC_SUCCESS", None);
         }
     }
 
-    pub(super) fn note_tcp_success(
+    pub fn note_tcp_success(
         &mut self,
-        state: &RuntimeState,
+        observer: Option<&dyn DirectPathLearningObserver>,
         host: Option<&str>,
         targets: &[SocketAddr],
         strategy_family: Option<&str>,
@@ -164,16 +172,21 @@ impl DirectPathLearningState {
         let entry = self.tuples.entry(tuple_key.clone()).or_default();
         if entry.tls_post_client_hello_failed {
             clear_negative_state(entry);
-            emit_learning_signal(state, &tuple_key, "TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK", strategy_family);
+            emit_learning_signal(observer, &tuple_key, "TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK", strategy_family);
             return;
         }
         if entry.udp_failed {
             clear_negative_state(entry);
-            emit_learning_signal(state, &tuple_key, "QUIC_BLOCKED_TCP_OK", None);
+            emit_learning_signal(observer, &tuple_key, "QUIC_BLOCKED_TCP_OK", None);
         }
     }
 
-    pub(super) fn note_all_ips_failed(&mut self, state: &RuntimeState, host: Option<&str>, targets: &[SocketAddr]) {
+    pub fn note_all_ips_failed(
+        &mut self,
+        observer: Option<&dyn DirectPathLearningObserver>,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+    ) {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
@@ -183,10 +196,10 @@ impl DirectPathLearningState {
         }
         clear_negative_state(entry);
         entry.terminal_state = Some(TerminalState::AllIpsFailed);
-        emit_learning_signal(state, &tuple_key, "ALL_IPS_FAILED", None);
+        emit_learning_signal(observer, &tuple_key, "ALL_IPS_FAILED", None);
     }
 
-    pub(super) fn emit_due_timeouts(&mut self, state: &RuntimeState, now_ms: u64) {
+    pub fn emit_due_timeouts(&mut self, observer: Option<&dyn DirectPathLearningObserver>, now_ms: u64) {
         let due = self
             .tuples
             .iter()
@@ -202,7 +215,7 @@ impl DirectPathLearningState {
             if let Some(entry) = self.tuples.get_mut(&tuple_key) {
                 clear_negative_state(entry);
                 entry.terminal_state = Some(TerminalState::NoTcpFallbackDetected);
-                emit_learning_signal(state, &tuple_key, "NO_TCP_FALLBACK_DETECTED", None);
+                emit_learning_signal(observer, &tuple_key, "NO_TCP_FALLBACK_DETECTED", None);
             }
         }
     }
@@ -212,7 +225,7 @@ impl DirectPathLearningState {
     /// Returns `DirectPathBlockClass::Clean` when no negative evidence has been
     /// recorded yet, so callers can always obtain a valid class without special-
     /// casing the absent-tuple case.
-    pub(super) fn block_class_for(&self, host: Option<&str>, targets: &[SocketAddr]) -> DirectPathBlockClass {
+    pub fn block_class_for(&self, host: Option<&str>, targets: &[SocketAddr]) -> DirectPathBlockClass {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return DirectPathBlockClass::Clean;
         };
@@ -233,7 +246,7 @@ impl DirectPathLearningState {
     /// arms for the current class are exhausted the list collapses to a
     /// single `relay_fallback` entry so callers always have an escalation
     /// path.
-    pub(super) fn ranked_arms_for(&self, host: Option<&str>, targets: &[SocketAddr]) -> Vec<RankedArm> {
+    pub fn ranked_arms_for(&self, host: Option<&str>, targets: &[SocketAddr]) -> Vec<RankedArm> {
         let class = self.block_class_for(host, targets);
         let mut arms = ranked_arms_for_class(class);
 
@@ -270,7 +283,7 @@ impl DirectPathLearningState {
     /// recorded attempts from the arm's `attempt_budget`; once the budget is
     /// exhausted the arm is dropped from the ranked list. Counters are reset
     /// when a positive signal clears the negative state for the tuple.
-    pub(super) fn note_arm_attempt(&mut self, host: Option<&str>, targets: &[SocketAddr], arm_label: &'static str) {
+    pub fn note_arm_attempt(&mut self, host: Option<&str>, targets: &[SocketAddr], arm_label: &'static str) {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
@@ -348,13 +361,13 @@ fn clear_negative_state(entry: &mut TupleState) {
 }
 
 fn emit_learning_signal(
-    state: &RuntimeState,
+    observer: Option<&dyn DirectPathLearningObserver>,
     tuple_key: &TupleKey,
     event: &'static str,
     strategy_family: Option<&str>,
 ) {
-    if let Some(telemetry) = &state.telemetry {
-        telemetry.on_direct_path_learning_signal(
+    if let Some(observer) = observer {
+        observer.on_direct_path_learning_signal(
             tuple_key.authority.as_str(),
             tuple_key.ip_set_digest.as_str(),
             event,
@@ -375,28 +388,30 @@ fn normalize_authority(host: Option<&str>, target: SocketAddr) -> String {
     )
 }
 
+pub fn direct_path_ip_set_digest(targets: &[SocketAddr]) -> String {
+    if targets.is_empty() {
+        return String::new();
+    }
+    let mut members = targets.iter().map(|target| target.ip().to_string()).collect::<Vec<_>>();
+    members.sort();
+    members.dedup();
+    let joined = members.join(",");
+    let digest = digest::digest(&digest::SHA256, joined.as_bytes());
+    digest.as_ref()[..8].iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    use std::sync::{Arc as StdArc, Mutex};
-
-    use crate::runtime::state::RuntimeState;
-    use crate::sync::{Arc, AtomicBool, AtomicUsize, RwLock};
-    use ripdpi_config::RuntimeConfig;
-    use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-    use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
-    use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
-    use ripdpi_runtime_api::RuntimeTelemetrySink;
-    use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
-    use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
+    use std::sync::Mutex;
 
     #[derive(Default)]
     struct RecordingTelemetry {
         signals: Mutex<Vec<(String, String, &'static str, Option<String>)>>,
     }
 
-    impl RuntimeTelemetrySink for RecordingTelemetry {
+    impl DirectPathLearningObserver for RecordingTelemetry {
         fn on_direct_path_learning_signal(
             &self,
             authority: &str,
@@ -411,82 +426,16 @@ mod tests {
                 strategy_family.map(ToOwned::to_owned),
             ));
         }
-        fn on_listener_started(&self, _bind_addr: SocketAddr, _max_clients: usize, _group_count: usize) {}
-        fn on_listener_stopped(&self) {}
-        fn on_client_accepted(&self) {}
-        fn on_client_finished(&self) {}
-        fn on_client_error(&self, _error: &std::io::Error) {}
-        fn on_route_selected(
-            &self,
-            _target: SocketAddr,
-            _group_index: usize,
-            _host: Option<&str>,
-            _phase: &'static str,
-        ) {
-        }
-        fn on_failure_classified(
-            &self,
-            _target: SocketAddr,
-            _failure: &ripdpi_failure_classifier::ClassifiedFailure,
-            _host: Option<&str>,
-        ) {
-        }
-        fn on_route_advanced(
-            &self,
-            _target: SocketAddr,
-            _from_group: usize,
-            _to_group: usize,
-            _trigger: u32,
-            _host: Option<&str>,
-        ) {
-        }
-        fn on_host_autolearn_state(
-            &self,
-            _enabled: bool,
-            _learned_host_count: usize,
-            _penalized_host_count: usize,
-            _blocked_host_count: usize,
-            _last_block_signal: Option<&str>,
-            _last_block_provider: Option<&str>,
-        ) {
-        }
-        fn on_host_autolearn_event(&self, _action: &'static str, _host: Option<&str>, _group_index: Option<usize>) {}
-    }
-
-    fn runtime_state(telemetry: StdArc<dyn RuntimeTelemetrySink>) -> RuntimeState {
-        let config = RuntimeConfig::default();
-        RuntimeState {
-            config: Arc::new(config.clone()),
-            cache: Arc::new(RwLock::new(RuntimePolicy::load(&config))),
-            adaptive_fake_ttl: Arc::new(RwLock::new(AdaptiveFakeTtlResolver::default())),
-            adaptive_tuning: Arc::new(RwLock::new(AdaptivePlannerResolver::default())),
-            retry_stealth: Arc::new(RwLock::new(RetryPacer::default())),
-            strategy_evolver: Arc::new(RwLock::new(StrategyEvolver::new(false, 0.0))),
-            direct_path_learning: Arc::new(RwLock::new(DirectPathLearningState::default())),
-            active_clients: Arc::new(AtomicUsize::new(0)),
-            telemetry: Some(telemetry),
-            runtime_context: None,
-            control: None,
-            ttl_unavailable: Arc::new(AtomicBool::new(false)),
-            reprobe_tracker: std::sync::Arc::new(crate::runtime::reprobe::ReprobeTracker::new()),
-            dns_hostname_cache: std::sync::Arc::new(
-                ripdpi_runtime_dns_cache::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
-            ),
-            pcap_hook: None,
-            #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-            io_uring: None,
-        }
     }
 
     #[test]
     fn udp_failure_then_tcp_success_emits_quic_blocked_signal() {
-        let telemetry = StdArc::new(RecordingTelemetry::default());
-        let state = runtime_state(telemetry.clone());
+        let telemetry = RecordingTelemetry::default();
         let targets = vec!["203.0.113.10:443".parse().expect("target"), "203.0.113.11:443".parse().expect("target")];
         let mut learner = DirectPathLearningState::default();
 
         learner.note_udp_failure(Some("example.org"), &targets);
-        learner.note_tcp_success(&state, Some("example.org"), &targets, Some("tlsrec_split"));
+        learner.note_tcp_success(Some(&telemetry), Some("example.org"), &targets, Some("tlsrec_split"));
 
         let signals = telemetry.signals.lock().expect("signals");
         assert_eq!(signals.len(), 1);
@@ -495,13 +444,12 @@ mod tests {
 
     #[test]
     fn tls_failure_then_tcp_success_emits_post_client_hello_signal_with_family() {
-        let telemetry = StdArc::new(RecordingTelemetry::default());
-        let state = runtime_state(telemetry.clone());
+        let telemetry = RecordingTelemetry::default();
         let targets = vec!["203.0.113.10:443".parse().expect("target")];
         let mut learner = DirectPathLearningState::default();
 
         learner.note_tls_post_client_hello_failure(Some("example.org"), &targets);
-        learner.note_tcp_success(&state, Some("example.org"), &targets, Some("tlsrec_split"));
+        learner.note_tcp_success(Some(&telemetry), Some("example.org"), &targets, Some("tlsrec_split"));
 
         let signals = telemetry.signals.lock().expect("signals");
         assert_eq!(signals.len(), 1);
@@ -511,13 +459,12 @@ mod tests {
 
     #[test]
     fn learner_emits_all_ips_failed_once_per_transition() {
-        let telemetry = StdArc::new(RecordingTelemetry::default());
-        let state = runtime_state(telemetry.clone());
+        let telemetry = RecordingTelemetry::default();
         let targets = vec!["203.0.113.10:443".parse().expect("target")];
         let mut learner = DirectPathLearningState::default();
 
-        learner.note_all_ips_failed(&state, Some("example.org"), &targets);
-        learner.note_all_ips_failed(&state, Some("example.org"), &targets);
+        learner.note_all_ips_failed(Some(&telemetry), Some("example.org"), &targets);
+        learner.note_all_ips_failed(Some(&telemetry), Some("example.org"), &targets);
 
         let signals = telemetry.signals.lock().expect("signals");
         assert_eq!(signals.len(), 1);
@@ -526,18 +473,17 @@ mod tests {
 
     #[test]
     fn no_tcp_fallback_timeout_emits_signal_and_tcp_attempt_clears_pending_state() {
-        let telemetry = StdArc::new(RecordingTelemetry::default());
-        let state = runtime_state(telemetry.clone());
+        let telemetry = RecordingTelemetry::default();
         let targets = vec!["203.0.113.10:443".parse().expect("target")];
         let mut learner = DirectPathLearningState::default();
 
         learner.note_udp_suppressed(Some("example.org"), &targets, 10);
-        learner.note_transport_attempt(&state, Some("example.org"), &targets, TransportProtocol::Tcp);
-        learner.emit_due_timeouts(&state, 3_100);
+        learner.note_transport_attempt(Some("example.org"), &targets, TransportProtocol::Tcp);
+        learner.emit_due_timeouts(Some(&telemetry), 3_100);
         assert!(telemetry.signals.lock().expect("signals").is_empty());
 
         learner.note_udp_suppressed(Some("example.org"), &targets, 10);
-        learner.emit_due_timeouts(&state, 3_100);
+        learner.emit_due_timeouts(Some(&telemetry), 3_100);
 
         let signals = telemetry.signals.lock().expect("signals");
         assert_eq!(signals.len(), 1);
@@ -546,15 +492,14 @@ mod tests {
 
     #[test]
     fn quic_success_clears_negative_state_and_allows_future_relearning() {
-        let telemetry = StdArc::new(RecordingTelemetry::default());
-        let state = runtime_state(telemetry.clone());
+        let telemetry = RecordingTelemetry::default();
         let targets = vec!["203.0.113.10:443".parse().expect("target")];
         let mut learner = DirectPathLearningState::default();
 
         learner.note_udp_failure(Some("example.org"), &targets);
-        learner.note_quic_success(&state, Some("example.org"), &targets);
+        learner.note_quic_success(Some(&telemetry), Some("example.org"), &targets);
         learner.note_udp_failure(Some("example.org"), &targets);
-        learner.note_tcp_success(&state, Some("example.org"), &targets, Some("split"));
+        learner.note_tcp_success(Some(&telemetry), Some("example.org"), &targets, Some("split"));
 
         let signals = telemetry.signals.lock().expect("signals");
         assert_eq!(signals.len(), 2);
@@ -599,11 +544,10 @@ mod tests {
 
     #[test]
     fn ranked_arms_all_ips_failed_returns_relay_fallback_only() {
-        let telemetry = StdArc::new(RecordingTelemetry::default());
-        let state = runtime_state(telemetry.clone());
+        let telemetry = RecordingTelemetry::default();
         let targets = vec!["203.0.113.10:443".parse().expect("target")];
         let mut learner = DirectPathLearningState::default();
-        learner.note_all_ips_failed(&state, Some("example.org"), &targets);
+        learner.note_all_ips_failed(Some(&telemetry), Some("example.org"), &targets);
 
         let arms = learner.ranked_arms_for(Some("example.org"), &targets);
         assert_eq!(arms.len(), 1, "all_ips_failed: exactly one relay arm");
@@ -614,11 +558,10 @@ mod tests {
 
     #[test]
     fn ranked_arms_quic_confirmed_ranks_quic_with_score_one() {
-        let telemetry = StdArc::new(RecordingTelemetry::default());
-        let state = runtime_state(telemetry.clone());
+        let telemetry = RecordingTelemetry::default();
         let targets = vec!["203.0.113.10:443".parse().expect("target")];
         let mut learner = DirectPathLearningState::default();
-        learner.note_quic_success(&state, Some("example.org"), &targets);
+        learner.note_quic_success(Some(&telemetry), Some("example.org"), &targets);
 
         let arms = learner.ranked_arms_for(Some("example.org"), &targets);
         assert_eq!(arms[0].label, "quic");
@@ -736,8 +679,7 @@ mod tests {
 
     #[test]
     fn positive_signal_resets_arm_attempts() {
-        let telemetry = StdArc::new(RecordingTelemetry::default());
-        let state = runtime_state(telemetry.clone());
+        let telemetry = RecordingTelemetry::default();
         let targets = vec!["203.0.113.10:443".parse().expect("target")];
         let mut learner = DirectPathLearningState::default();
 
@@ -746,7 +688,7 @@ mod tests {
             learner.note_arm_attempt(Some("example.org"), &targets, "quic");
         }
         // …then a successful QUIC observation should clear counters.
-        learner.note_quic_success(&state, Some("example.org"), &targets);
+        learner.note_quic_success(Some(&telemetry), Some("example.org"), &targets);
 
         let arms = learner.ranked_arms_for(Some("example.org"), &targets);
         assert_eq!(arms[0].class, DirectPathBlockClass::QuicConfirmed);
@@ -762,8 +704,7 @@ mod tests {
         // negative signals advance the class, attempt budgets shrink, the
         // exhausted arm drops, and a positive signal restores the original
         // ranking.
-        let telemetry = StdArc::new(RecordingTelemetry::default());
-        let state = runtime_state(telemetry.clone());
+        let telemetry = RecordingTelemetry::default();
         let targets = vec!["203.0.113.10:443".parse().expect("target")];
         let mut learner = DirectPathLearningState::default();
         let host = Some("example.org");
@@ -803,7 +744,7 @@ mod tests {
 
         // Step 5: a successful TCP observation while UDP-failed clears the
         // negative state → fresh ranking, fresh budgets.
-        learner.note_tcp_success(&state, host, &targets, Some("split"));
+        learner.note_tcp_success(Some(&telemetry), host, &targets, Some("split"));
         let step5 = learner.ranked_arms_for(host, &targets);
         assert_eq!(step5[0].label, "quic", "after positive TCP, class is back to Clean");
         assert_eq!(step5[0].class, DirectPathBlockClass::Clean);
