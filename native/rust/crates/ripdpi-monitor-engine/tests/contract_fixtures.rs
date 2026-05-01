@@ -80,7 +80,7 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
     for (path, signature) in [
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/dns.rs", "pub fn run_dns_probe"),
         (
-            "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/dns/classification.rs",
+            "native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/dns/classification/outcome.rs",
             "pub(super) fn classify_dns_probe_outcome",
         ),
         ("native/rust/crates/ripdpi-diagnostics-runner/src/connectivity/probes/domain.rs", "pub fn run_domain_probe"),
