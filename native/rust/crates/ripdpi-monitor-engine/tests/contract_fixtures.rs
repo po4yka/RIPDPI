@@ -111,14 +111,17 @@ fn emitted_native_outcome_tokens() -> BTreeSet<String> {
             "native/rust/crates/ripdpi-monitor-engine/src/execution/lanes/quic.rs",
             "pub(super) fn run_quic_strategy_probe",
         ),
-        ("native/rust/crates/ripdpi-diagnostics-telegram/src/telegram.rs", "fn classify_telegram_verdict"),
-        ("native/rust/crates/ripdpi-diagnostics-telegram/src/telegram.rs", "pub fn run_telegram_probe"),
+        (
+            "native/rust/crates/ripdpi-diagnostics-telegram/src/telegram/scoring.rs",
+            "pub(crate) fn classify_telegram_verdict",
+        ),
+        ("native/rust/crates/ripdpi-diagnostics-telegram/src/telegram/report.rs", "pub fn run_telegram_probe"),
         ("native/rust/crates/ripdpi-diagnostics-fat-header/src/fat_header.rs", "pub fn classify_fat_header_outcome"),
     ] {
         tokens.extend(quoted_outcome_tokens(&function_body(&repo.join(path), signature)));
     }
     tokens.extend(quoted_outcome_tokens(&section(
-        &repo.join("native/rust/crates/ripdpi-failure-classifier/src/lib.rs"),
+        &repo.join("native/rust/crates/ripdpi-failure-classifier/src/types.rs"),
         "impl FailureClass",
         "impl FailureStage",
     )));

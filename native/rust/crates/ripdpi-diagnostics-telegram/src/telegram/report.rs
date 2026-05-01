@@ -1,0 +1,56 @@
+use crate::transport::TransportConfig;
+use crate::types::{ProbeDetail, ProbeResult, TelegramTarget};
+
+use super::dc::{telegram_dc_probe, TelegramDcResult};
+use super::scoring::{classify_telegram_verdict, compute_telegram_quality_score};
+use super::transfer::{telegram_download_probe, telegram_upload_probe, TelegramTransferResult};
+use super::ws_tunnel::{telegram_ws_tunnel_probe, TelegramWsProbeResult};
+
+pub fn run_telegram_probe(target: &TelegramTarget, transport: &TransportConfig) -> ProbeResult {
+    let dl = telegram_download_probe(target, transport);
+    let ul = telegram_upload_probe(target, transport);
+    let dc = telegram_dc_probe(target);
+    let ws = telegram_ws_tunnel_probe();
+
+    let verdict = classify_telegram_verdict(&dl.status, &ul.status, dc.reachable, dc.total);
+    let quality_score = compute_telegram_quality_score(&dl, &ul, &dc, &ws);
+
+    ProbeResult {
+        probe_type: "telegram_availability".to_string(),
+        target: "telegram.org".to_string(),
+        outcome: verdict.to_string(),
+        details: build_telegram_details(verdict, quality_score, dl, ul, dc, ws),
+    }
+}
+
+fn build_telegram_details(
+    verdict: &str,
+    quality_score: u64,
+    dl: TelegramTransferResult,
+    ul: TelegramTransferResult,
+    dc: TelegramDcResult,
+    ws: TelegramWsProbeResult,
+) -> Vec<ProbeDetail> {
+    vec![
+        ProbeDetail { key: "verdict".to_string(), value: verdict.to_string() },
+        ProbeDetail { key: "qualityScore".to_string(), value: quality_score.to_string() },
+        ProbeDetail { key: "downloadStatus".to_string(), value: dl.status },
+        ProbeDetail { key: "downloadAvgBps".to_string(), value: dl.avg_bps.to_string() },
+        ProbeDetail { key: "downloadPeakBps".to_string(), value: dl.peak_bps.to_string() },
+        ProbeDetail { key: "downloadBytes".to_string(), value: dl.bytes_total.to_string() },
+        ProbeDetail { key: "downloadDurationMs".to_string(), value: dl.duration_ms.to_string() },
+        ProbeDetail { key: "downloadError".to_string(), value: dl.error.unwrap_or_else(|| "none".to_string()) },
+        ProbeDetail { key: "uploadStatus".to_string(), value: ul.status },
+        ProbeDetail { key: "uploadAvgBps".to_string(), value: ul.avg_bps.to_string() },
+        ProbeDetail { key: "uploadPeakBps".to_string(), value: ul.peak_bps.to_string() },
+        ProbeDetail { key: "uploadBytes".to_string(), value: ul.bytes_total.to_string() },
+        ProbeDetail { key: "uploadDurationMs".to_string(), value: ul.duration_ms.to_string() },
+        ProbeDetail { key: "uploadError".to_string(), value: ul.error.unwrap_or_else(|| "none".to_string()) },
+        ProbeDetail { key: "dcReachable".to_string(), value: dc.reachable.to_string() },
+        ProbeDetail { key: "dcTotal".to_string(), value: dc.total.to_string() },
+        ProbeDetail { key: "dcResults".to_string(), value: dc.results.join("|") },
+        ProbeDetail { key: "wsTunnelStatus".to_string(), value: ws.status },
+        ProbeDetail { key: "wsTunnelRttMs".to_string(), value: ws.rtt_ms.to_string() },
+        ProbeDetail { key: "wsTunnelError".to_string(), value: ws.error.unwrap_or_else(|| "none".to_string()) },
+    ]
+}
