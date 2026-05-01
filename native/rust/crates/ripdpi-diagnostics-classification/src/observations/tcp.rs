@@ -2,6 +2,12 @@ use crate::types::{ObservationKind, ProbeObservation, ProbeResult, TcpObservatio
 
 use super::common::{base_observation, detail_value, tcp_status};
 
+const PROBE_TYPE: &str = "tcp_fat_header";
+
+pub(crate) fn build_observation(result: &ProbeResult) -> Option<ProbeObservation> {
+    (result.probe_type == PROBE_TYPE).then(|| build_tcp_observation(result))
+}
+
 pub(crate) fn build_tcp_observation(result: &ProbeResult) -> ProbeObservation {
     let mut observation = base_observation(result, ObservationKind::Tcp);
     observation.tcp = Some(TcpObservationFact {

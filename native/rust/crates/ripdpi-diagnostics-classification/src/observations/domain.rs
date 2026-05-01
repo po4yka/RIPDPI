@@ -2,6 +2,12 @@ use crate::types::{DomainObservationFact, ObservationKind, ProbeObservation, Pro
 
 use super::common::{base_observation, detail_value, http_status, tls_status, transport_failure};
 
+const PROBE_TYPE: &str = "domain_reachability";
+
+pub(crate) fn build_observation(result: &ProbeResult) -> Option<ProbeObservation> {
+    (result.probe_type == PROBE_TYPE).then(|| build_domain_observation(result))
+}
+
 pub(crate) fn build_domain_observation(result: &ProbeResult) -> ProbeObservation {
     let mut observation = base_observation(result, ObservationKind::Domain);
     observation.domain = Some(DomainObservationFact {

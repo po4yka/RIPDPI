@@ -2,6 +2,12 @@ use crate::types::{ObservationKind, ProbeObservation, ProbeResult, ServiceObserv
 
 use super::common::{base_observation, detail_value, endpoint_status, http_status, quic_status, transport_failure};
 
+const PROBE_TYPE: &str = "service_reachability";
+
+pub(crate) fn build_observation(result: &ProbeResult) -> Option<ProbeObservation> {
+    (result.probe_type == PROBE_TYPE).then(|| build_service_observation(result))
+}
+
 pub(crate) fn build_service_observation(result: &ProbeResult) -> ProbeObservation {
     let mut observation = base_observation(result, ObservationKind::Service);
     observation.service = Some(ServiceObservationFact {

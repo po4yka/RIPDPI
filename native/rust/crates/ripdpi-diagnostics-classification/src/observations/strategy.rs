@@ -2,6 +2,12 @@ use crate::types::{ObservationKind, ProbeObservation, ProbeResult, StrategyObser
 
 use super::common::{base_observation, detail_value, strategy_status, tls_status, transport_failure};
 
+const PROBE_TYPES: &[&str] = &["strategy_http", "strategy_https", "strategy_quic"];
+
+pub(crate) fn build_observation(result: &ProbeResult) -> Option<ProbeObservation> {
+    PROBE_TYPES.contains(&result.probe_type.as_str()).then(|| build_strategy_observation(result))
+}
+
 pub(crate) fn build_strategy_observation(result: &ProbeResult) -> ProbeObservation {
     let mut observation = base_observation(result, ObservationKind::Strategy);
     observation.strategy = Some(StrategyObservationFact {

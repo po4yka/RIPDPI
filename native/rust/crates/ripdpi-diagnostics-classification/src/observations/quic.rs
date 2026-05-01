@@ -2,6 +2,12 @@ use crate::types::{ObservationKind, ProbeObservation, ProbeResult, QuicObservati
 
 use super::common::{base_observation, detail_value, quic_status, transport_failure};
 
+const PROBE_TYPE: &str = "quic_reachability";
+
+pub(crate) fn build_observation(result: &ProbeResult) -> Option<ProbeObservation> {
+    (result.probe_type == PROBE_TYPE).then(|| build_quic_observation(result))
+}
+
 pub(crate) fn build_quic_observation(result: &ProbeResult) -> ProbeObservation {
     let mut observation = base_observation(result, ObservationKind::Quic);
     observation.quic = Some(QuicObservationFact {

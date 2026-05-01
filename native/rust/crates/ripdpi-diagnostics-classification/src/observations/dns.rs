@@ -2,6 +2,12 @@ use crate::types::{DnsObservationFact, ObservationKind, ProbeObservation, ProbeR
 
 use super::common::{base_observation, detail_list, detail_value, dns_status};
 
+const PROBE_TYPE: &str = "dns_integrity";
+
+pub(crate) fn build_observation(result: &ProbeResult) -> Option<ProbeObservation> {
+    (result.probe_type == PROBE_TYPE).then(|| build_dns_observation(result))
+}
+
 pub(crate) fn build_dns_observation(result: &ProbeResult) -> ProbeObservation {
     let mut observation = base_observation(result, ObservationKind::Dns);
     observation.dns = Some(DnsObservationFact {

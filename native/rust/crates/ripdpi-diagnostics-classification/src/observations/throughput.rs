@@ -2,6 +2,12 @@ use crate::types::{ObservationKind, ProbeObservation, ProbeResult, ThroughputObs
 
 use super::common::{base_observation, detail_list, detail_value, throughput_status};
 
+const PROBE_TYPE: &str = "throughput_window";
+
+pub(crate) fn build_observation(result: &ProbeResult) -> Option<ProbeObservation> {
+    (result.probe_type == PROBE_TYPE).then(|| build_throughput_observation(result))
+}
+
 pub(crate) fn build_throughput_observation(result: &ProbeResult) -> ProbeObservation {
     let mut observation = base_observation(result, ObservationKind::Throughput);
     observation.throughput = Some(ThroughputObservationFact {
