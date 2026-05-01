@@ -1,3 +1,4 @@
+use super::helpers::{parse_numeric_addr, seconds_to_millis};
 use super::*;
 use crate::{
     AutoTtlConfig, Cidr, EntropyMode, NumericRange, OffsetBase, OffsetExpr, ParseResult, QuicFakeProfile,
