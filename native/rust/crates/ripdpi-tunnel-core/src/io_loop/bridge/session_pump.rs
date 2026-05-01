@@ -1,0 +1,126 @@
+use smoltcp::iface::SocketSet;
+use smoltcp::socket::tcp::Socket as TcpSocket;
+use tokio::io::AsyncWriteExt;
+use tracing::debug;
+
+use crate::dns_cache::DnsCache;
+use crate::ActiveSessions;
+
+use super::duplex::{flush_pending_to_session, flush_pending_to_smoltcp, try_read_duplex, try_write_duplex};
+use crate::io_loop::PUMP_CHUNK;
+
+pub(in crate::io_loop) async fn pump_active_sessions(
+    socket_set: &mut SocketSet<'static>,
+    sessions: &mut ActiveSessions,
+    dns_cache: &mut Option<DnsCache>,
+) {
+    let mut to_remove: Vec<_> = Vec::new();
+
+    for (handle, session) in sessions.iter_mut() {
+        let tcp = socket_set.get_mut::<TcpSocket>(handle);
+
+        if let Some(Err(err)) = flush_pending_to_session(&mut session.smoltcp_side, &mut session.pending_to_session) {
+            debug!("session pending flush error: {} — closing session {:?}", err, handle);
+            to_remove.push(handle);
+            continue;
+        }
+
+        if session.pending_to_session.is_empty() {
+            let mut tmp = [0u8; PUMP_CHUNK];
+            if let Ok(read) = tcp.recv_slice(&mut tmp) {
+                if read > 0 {
+                    debug!("read {read} bytes from smoltcp socket {:?}", handle);
+                    match try_write_duplex(&mut session.smoltcp_side, &tmp[..read]) {
+                        Some(Ok(0)) => {
+                            debug!("session duplex stream accepted zero bytes — closing session {:?}", handle);
+                            to_remove.push(handle);
+                            continue;
+                        }
+                        Some(Ok(sent)) => {
+                            debug!("wrote {sent} bytes into session duplex {:?}", handle);
+                            if sent < read {
+                                session.pending_to_session.extend_from_slice(&tmp[sent..read]);
+                            }
+                        }
+                        Some(Err(err)) => {
+                            debug!("smoltcp_side write error: {} — closing session {:?}", err, handle);
+                            to_remove.push(handle);
+                            continue;
+                        }
+                        None => {
+                            session.pending_to_session.extend_from_slice(&tmp[..read]);
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Err(err) = flush_pending_to_smoltcp(tcp, &mut session.pending_to_smoltcp) {
+            debug!("smoltcp pending flush error: {} — closing session {:?}", err, handle);
+            to_remove.push(handle);
+            continue;
+        }
+
+        if session.upstream_closed && session.pending_to_smoltcp.is_empty() && tcp.is_open() {
+            tcp.close();
+        }
+
+        if session.pending_to_smoltcp.is_empty() && !session.upstream_closed {
+            let mut tmp = [0u8; PUMP_CHUNK];
+            match try_read_duplex(&mut session.smoltcp_side, &mut tmp) {
+                Some(Ok(0)) => {
+                    debug!("session duplex reached EOF {:?}", handle);
+                    session.upstream_closed = true;
+                    if tcp.is_open() {
+                        tcp.close();
+                    }
+                }
+                Some(Ok(read)) => match tcp.send_slice(&tmp[..read]) {
+                    Ok(sent) => {
+                        debug!(
+                            "read {read} bytes from session duplex and enqueued {sent} bytes to smoltcp {:?}",
+                            handle
+                        );
+                        if sent < read {
+                            session.pending_to_smoltcp.extend_from_slice(&tmp[sent..read]);
+                        }
+                    }
+                    Err(err) => {
+                        debug!("smoltcp send error: {} — closing session {:?}", err, handle);
+                        to_remove.push(handle);
+                        continue;
+                    }
+                },
+                Some(Err(err)) => {
+                    debug!("smoltcp_side read error: {} — closing session {:?}", err, handle);
+                    to_remove.push(handle);
+                    continue;
+                }
+                None => {}
+            }
+        }
+
+        if !tcp.is_active()
+            && session.pending_to_session.is_empty()
+            && session.pending_to_smoltcp.is_empty()
+            && !to_remove.contains(&handle)
+        {
+            to_remove.push(handle);
+        }
+    }
+
+    for handle in to_remove.drain(..) {
+        if let Some(mut entry) = sessions.remove(handle) {
+            // Release the DNS cache pin so this synthetic IP can be evicted.
+            if let (Some(cache), Some(ip)) = (dns_cache.as_mut(), entry.pinned_synthetic_ip) {
+                cache.unpin(ip);
+            }
+            entry.smoltcp_side.shutdown().await.ok();
+        }
+        let tcp = socket_set.get_mut::<TcpSocket>(handle);
+        if tcp.is_active() {
+            tcp.close();
+        }
+        socket_set.remove(handle);
+    }
+}
