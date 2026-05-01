@@ -1,4 +1,10 @@
+mod adaptive;
+mod autolearn;
+mod direct_path;
+mod events;
+mod lifecycle;
 mod observer;
+mod routing;
 mod snapshot;
 mod state;
 #[cfg(test)]
