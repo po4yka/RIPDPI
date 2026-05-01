@@ -1,0 +1,69 @@
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+use ripdpi_dns_resolver::EncryptedDnsProtocol;
+
+use super::super::{build_encrypted_dns_resolver, parse_dns_cache, parse_mapdns_runtime};
+use super::support::{mapdns_config, tunnel_config_with_mapdns};
+
+#[test]
+fn parse_mapdns_runtime_uses_address_defaults_for_network_and_mask() {
+    let mut mapdns = mapdns_config(8);
+    mapdns.port = 5300;
+    let config = tunnel_config_with_mapdns(Some(mapdns));
+
+    let runtime = parse_mapdns_runtime(&config).expect("runtime").expect("mapdns runtime");
+
+    assert_eq!(runtime.intercept_addr, SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)), 5300));
+    assert_eq!(runtime.synthetic_net, u32::from(Ipv4Addr::new(198, 18, 0, 0)));
+    assert_eq!(runtime.synthetic_mask, u32::from(Ipv4Addr::new(255, 254, 0, 0)));
+    assert_eq!(runtime.intercept_port, 5300);
+}
+
+#[test]
+fn parse_mapdns_runtime_normalizes_explicit_network_with_host_bits() {
+    let mut mapdns = mapdns_config(8);
+    mapdns.port = 5300;
+    mapdns.network = Some("100.64.0.123".to_string());
+    mapdns.netmask = Some("255.192.0.0".to_string());
+    let config = tunnel_config_with_mapdns(Some(mapdns));
+
+    let runtime = parse_mapdns_runtime(&config).expect("runtime").expect("mapdns runtime");
+
+    assert_eq!(runtime.synthetic_net, u32::from(Ipv4Addr::new(100, 64, 0, 0)));
+    assert_eq!(runtime.synthetic_mask, u32::from(Ipv4Addr::new(255, 192, 0, 0)));
+}
+
+#[test]
+fn parse_dns_cache_rejects_zero_cache_size() {
+    let config = tunnel_config_with_mapdns(Some(mapdns_config(0)));
+
+    let Err(err) = parse_dns_cache(&config, None) else {
+        panic!("zero cache size should fail");
+    };
+
+    assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput);
+    assert_eq!(err.to_string(), "mapdns.cache_size must be greater than zero");
+}
+
+#[test]
+fn build_encrypted_dns_resolver_uses_doh_url_defaults() {
+    let mut mapdns = mapdns_config(16);
+    mapdns.resolver_id = Some("fixture".to_string());
+    mapdns.encrypted_dns_bootstrap_ips = vec!["1.1.1.1".to_string(), "1.0.0.1".to_string()];
+    mapdns.encrypted_dns_doh_url = Some("https://dns.example.test/dns-query".to_string());
+    mapdns.dns_query_timeout_ms = 2500;
+    let config = tunnel_config_with_mapdns(Some(mapdns));
+
+    let resolver = build_encrypted_dns_resolver(&config).expect("resolver build").expect("resolver");
+    let endpoint = resolver.endpoint();
+
+    assert_eq!(endpoint.protocol, EncryptedDnsProtocol::Doh);
+    assert_eq!(endpoint.host, "dns.example.test");
+    assert_eq!(endpoint.port, 443);
+    assert_eq!(endpoint.tls_server_name.as_deref(), Some("dns.example.test"));
+    assert_eq!(
+        endpoint.bootstrap_ips,
+        vec![IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1))],
+    );
+    assert_eq!(endpoint.doh_url.as_deref(), Some("https://dns.example.test/dns-query"));
+}
