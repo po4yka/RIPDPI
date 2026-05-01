@@ -1,0 +1,21 @@
+use std::time::Duration;
+
+pub const DEFAULT_DNS_SERVER: &str = "94.140.14.14:53";
+pub const DEFAULT_DOH_URL: &str = "https://dns.adguard-dns.com/dns-query";
+pub const DEFAULT_DOH_BOOTSTRAP_IPS: &[&str] = &["94.140.14.14", "94.140.15.15"];
+pub const DEFAULT_DOH_HOST: &str = "dns.adguard-dns.com";
+pub const DEFAULT_DOH_PORT: u16 = 443;
+pub const CONNECT_TIMEOUT: Duration = Duration::from_millis(2500);
+pub const IO_TIMEOUT: Duration = Duration::from_millis(1200);
+pub const MAX_HTTP_BYTES: usize = 64 * 1024;
+pub const FAT_HEADER_REQUESTS: usize = 16;
+pub const FAT_HEADER_THRESHOLD_BYTES: usize = 16 * 1024;
+pub const STRATEGY_PROBE_SUITE_QUICK_V1: &str = "quick_v1";
+pub const STRATEGY_PROBE_SUITE_FULL_MATRIX_V1: &str = "full_matrix_v1";
+pub const HTTP_FAKE_PROFILE_CLOUDFLARE_GET: &str = "cloudflare_get";
+pub const TLS_FAKE_PROFILE_GOOGLE_CHROME: &str = "google_chrome";
+pub const TLS_FAKE_PROFILE_GOOGLE_CHROME_HRR: &str = "google_chrome_hrr";
+pub const UDP_FAKE_PROFILE_DNS_QUERY: &str = "dns_query";
+pub const TELEGRAM_DOWNLOAD_EXPECTED_BYTES: usize = 32_482_836;
+pub const TELEGRAM_CHUNK_SIZE: usize = 16 * 1024;
+pub const TELEGRAM_SPEED_SAMPLE_INTERVAL: Duration = Duration::from_millis(500);
