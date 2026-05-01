@@ -1,6 +1,7 @@
 mod actions;
 mod codec;
 mod flow;
+mod migration;
 mod sockets;
 
 use crate::sync::{Arc, AtomicBool, Ordering};
@@ -16,9 +17,10 @@ use ripdpi_session::SessionState;
 pub(crate) use self::codec::{encode_socks5_udp_packet, parse_socks5_udp_packet};
 use self::flow::{
     expire_udp_flows, reselect_udp_flow_target, select_udp_flow_target, send_udp_flow_payload, should_cache_udp_host,
-    should_migrate_quic_flow, store_udp_route_hint, udp_flow_at_capacity, udp_flow_limit, UdpFlowActivationState,
+    store_udp_route_hint, udp_flow_at_capacity, udp_flow_limit, UdpFlowActivationState,
 };
-pub(crate) use self::sockets::{build_udp_relay_sockets, build_udp_upstream_socket};
+use self::migration::maybe_rebind_udp_source_port;
+pub(crate) use self::sockets::build_udp_relay_sockets;
 use super::adaptive::{
     emit_due_direct_path_learning_timeouts, note_adaptive_udp_success, note_direct_path_quic_success,
     note_evolver_success,
@@ -180,57 +182,7 @@ pub(super) fn udp_associate_loop(
                         note_evolver_success(&state, 0);
                         entry.awaiting_response = false;
                     }
-                    // UDP source-port rebind on post-handshake detection.
-                    //
-                    // NOTE: True RFC 9000 connection migration (§9) requires sending a
-                    // PATH_CHALLENGE frame (type 0x1a) inside an encrypted short-header
-                    // packet on the new path, then validating the server's PATH_RESPONSE
-                    // (type 0x1b) containing the same 8-byte echo data before migrating
-                    // traffic.  Short-header packets are encrypted with 1-RTT keys
-                    // derived during the handshake; this proxy has no access to those
-                    // keys and operates on opaque UDP datagrams.  Injecting or parsing
-                    // QUIC frames is therefore not feasible at this layer without a full
-                    // QUIC stack implementation.
-                    //
-                    // What the rebind below actually achieves: changing the UDP
-                    // source port/address forces ISP-level DPI to lose the 5-tuple
-                    // flow record, which is the intended desync effect.  It is NOT a
-                    // QUIC-layer migration: the server continues to associate traffic
-                    // with the original connection ID and will not acknowledge the new
-                    // path until it receives a valid PATH_CHALLENGE from the client
-                    // application.  Packets already in flight on the old socket are
-                    // not replayed on the new socket; the QUIC stack in the client
-                    // application is responsible for retransmission.
-                    if !entry.quic_migrated
-                        && n > 0
-                        && (upstream_buffer[0] & 0x80) == 0
-                        && entry.session.round_count >= 2
-                        && should_migrate_quic_flow(&state.config, &entry.route)
-                    {
-                        let bind_low_port = state
-                            .config
-                            .groups
-                            .get(entry.route.group_index)
-                            .is_some_and(|group| group.actions.quic_bind_low_port);
-                        if let Ok(new_socket) =
-                            build_udp_upstream_socket(entry.current_target, protect_path.as_deref(), bind_low_port)
-                        {
-                            entry.upstream = new_socket;
-                            entry.quic_migrated = true;
-                            if let Some(telemetry) = &state.telemetry {
-                                telemetry.on_quic_migration_status(
-                                    entry.current_target,
-                                    "rebind_only",
-                                    "udp_source_port_rebind_after_handshake",
-                                );
-                            }
-                            tracing::debug!(
-                                target = %entry.current_target,
-                                round = entry.session.round_count,
-                                "QUIC UDP source-port rebind (RFC 9000 migration requires QUIC-layer implementation)"
-                            );
-                        }
-                    }
+                    maybe_rebind_udp_source_port(&state, entry, &upstream_buffer[..n], protect_path.as_deref())?;
                     let packet = encode_socks5_udp_packet(entry.current_target, &upstream_buffer[..n]);
                     client_relay.send_to(&packet, client_addr)?;
                 }
@@ -443,9 +395,12 @@ mod tests {
 
     #[test]
     fn build_udp_upstream_socket_connects_ipv4_targets() {
-        let upstream =
-            build_udp_upstream_socket(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)), 443), None, false)
-                .expect("udp upstream socket");
+        let upstream = sockets::build_udp_upstream_socket(
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 10)), 443),
+            None,
+            false,
+        )
+        .expect("udp upstream socket");
         assert!(upstream.local_addr().expect("upstream relay addr").is_ipv4());
     }
 

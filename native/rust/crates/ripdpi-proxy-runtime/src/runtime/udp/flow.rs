@@ -158,10 +158,6 @@ pub(super) fn expire_udp_flows(
     Ok(())
 }
 
-pub(super) fn should_migrate_quic_flow(config: &RuntimeConfig, route: &ConnectionRoute) -> bool {
-    config.groups.get(route.group_index).is_some_and(|group| group.actions.quic_migrate_after_handshake)
-}
-
 pub(super) fn should_cache_udp_host(config: &RuntimeConfig, host: Option<&ExtractedHost>) -> bool {
     match host.map(|value| value.source) {
         Some(HostSource::Quic) => matches!(config.quic.initial_mode, QuicInitialMode::RouteAndCache),
