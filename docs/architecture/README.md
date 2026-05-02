@@ -102,3 +102,6 @@ paths across representative payload sizes.
 - [hotspots.md](hotspots.md) — Performance hotspots reference.
 - [quic-initial-packetizer.md](quic-initial-packetizer.md) — QUIC initial
   packetizer design.
+- [native-runner-and-platform-decomposition.md](native-runner-and-platform-decomposition.md)
+  — Connectivity runner split, diagnostics-probes compat facade, and
+  `TcpDesyncPlatform` capability decomposition (POY-7).
