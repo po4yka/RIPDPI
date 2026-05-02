@@ -296,15 +296,7 @@ scripts/guide/.venv/bin/python scripts/guide/generate_guide.py \
 
 ## Сборка
 
-Требования:
-
-- JDK 17
-- Android SDK
-- Android NDK `29.0.14206865`
-- Rust toolchain `1.94.0`
-- Android Rust targets для нужных ABI
-
-Базовая локальная сборка:
+Требования: JDK 17, Android SDK, Android NDK `29.0.14206865`, Rust toolchain `1.94.0`, Android Rust targets для нужных ABI.
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
@@ -312,24 +304,13 @@ cd RIPDPI
 ./gradlew assembleDebug
 ```
 
-Для локальных non-release сборок по умолчанию используется `ripdpi.localNativeAbisDefault=arm64-v8a`.
+Локальные сборки используют `arm64-v8a` по умолчанию (`ripdpi.localNativeAbisDefault`). Для эмулятора: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
-Быстрая локальная native-сборка для ABI эмулятора:
-
-```bash
-./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64
-```
-
-APK:
-
-- debug: `app/build/outputs/apk/debug/`
-- release: `app/build/outputs/apk/release/`
+APK: `app/build/outputs/apk/debug/` и `app/build/outputs/apk/release/`.
 
 ## Тестирование
 
-В проекте есть многоуровневое покрытие для Kotlin, Rust, JNI, services, diagnostics, local-network E2E, Linux TUN E2E, golden contracts и native soak-запусков. Отдельно покрыты per-network policy memory, handover-aware restart logic, encrypted DNS path planning, retry-stealth pacing и telemetry contract goldens.
-
-Основные команды:
+Многоуровневое покрытие: Kotlin, Rust, JNI, services, diagnostics, local-network E2E, Linux TUN E2E, golden contracts и native soak. Также покрыты per-network policy memory, handover-aware restart, encrypted DNS path planning и telemetry contract goldens.
 
 ```bash
 ./gradlew testDebugUnitTest
@@ -338,50 +319,19 @@ bash scripts/ci/run-rust-network-e2e.sh
 python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 ```
 
-Подробности и точечные команды: [docs/testing.md](docs/testing.md)
+Подробности: [docs/testing.md](docs/testing.md)
 
 ## CI/CD
 
 Проект использует GitHub Actions для непрерывной интеграции и автоматизации релизов.
 
-**CI для push / PR** (`.github/workflows/ci.yml`) сейчас запускает:
+**CI для push / PR** (`.github/workflows/ci.yml`): `build`, `release-verification`, `native-bloat`, `cargo-deny`, `rust-lint`, `rust-cross-check`, `rust-workspace-tests`, `gradle-static-analysis`, `rust-network-e2e`, `cli-packet-smoke`, `rust-turmoil`, `coverage`, `rust-loom`, offline analytics unit tests.
 
-- `build`: сборку debug APK, ELF verification, native size verification, JVM unit tests
-- `release-verification`: проверка release APK сборки
-- `native-bloat`: cargo-bloat проверки размера нативного кода
-- `cargo-deny`: сканирование зависимостей на уязвимости
-- `rust-lint`: Rust formatting и Clippy проверки
-- `rust-cross-check`: кросс-компиляция для Android ABI
-- `rust-workspace-tests`: Rust workspace тесты через cargo-nextest
-- `gradle-static-analysis`: detekt, ktlint, Android lint
-- `rust-network-e2e`: local-network proxy E2E и vendored parity smoke
-- `cli-packet-smoke`: поведенческая проверка CLI proxy с pcap capture
-- `rust-turmoil`: детерминированные fault-injection сетевые тесты
-- `coverage`: JaCoCo и Rust LLVM coverage
-- `rust-loom`: исчерпывающая верификация конкурентности
-- offline analytics unit tests в `build` job
+**Nightly / manual CI**: `rust-criterion-bench`, `android-macrobenchmark`, `rust-native-soak`, `rust-native-load`, `nightly-rust-coverage`, `android-network-e2e`, `linux-tun-e2e`, `linux-tun-soak`.
 
-**Nightly / manual CI** дополнительно запускает:
+**`offline-analytics.yml`**: sample-corpus clustering/signature-mining pipeline с optional private-corpus run при manual dispatch.
 
-- `rust-criterion-bench`: Criterion микро-бенчмарки
-- `android-macrobenchmark`: Android макро-бенчмарки
-- `rust-native-soak`: host-side native endurance тесты
-- `rust-native-load`: high-concurrency ramp-up, burst и saturation тесты
-- `nightly-rust-coverage`: coverage включая ignored тесты
-- `android-network-e2e`: emulator-based instrumentation E2E
-- `linux-tun-e2e`: privileged Linux TUN E2E
-- `linux-tun-soak`: privileged Linux TUN endurance тесты
-
-Workflow может сохранять golden diffs, Android reports, fixture logs и soak metrics.
-
-**Дополнительный analytics workflow**:
-
-- `offline-analytics.yml`: sample-corpus clustering/signature-mining pipeline и optional private-corpus run при manual dispatch
-
-**Release** (`.github/workflows/release.yml`) запускается при push тегов `v*` или вручную:
-
-- Сборка подписанного release APK
-- Создание GitHub Release с прикреплённым APK
+**Release** (`.github/workflows/release.yml`) запускается при push тегов `v*`: сборка подписанного APK и создание GitHub Release.
 
 ### Необходимые GitHub Secrets
 

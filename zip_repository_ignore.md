@@ -41,27 +41,8 @@ native/rust/fuzz/Cargo.lock
 native/rust/vendor/boring-sys/Cargo.lock
 
 # Found in this project: build, cache, and generated directories
-.claude/worktrees/agent-a443c637/.gradle/
-.claude/worktrees/agent-a443c637/build-logic/.gradle/
-.claude/worktrees/agent-a5f5bb86/.gradle/
-.claude/worktrees/agent-a5f5bb86/build-logic/.gradle/
-.claude/worktrees/agent-a659e602/.gradle/
-.claude/worktrees/agent-a659e602/build-logic/.gradle/
-.claude/worktrees/agent-a806aff9/.gradle/
-.claude/worktrees/agent-a806aff9/build-logic/.gradle/
-.claude/worktrees/agent-a9f21465/.gradle/
-.claude/worktrees/agent-a9f21465/build-logic/.gradle/
-.claude/worktrees/agent-aee89a7d/.gradle/
-.claude/worktrees/agent-aee89a7d/build-logic/.gradle/
 .gradle/
-app/.cxx/Debug/5y4rd6n1/arm64-v8a/CMakeFiles/3.22.1-g37088a8/CompilerIdC/tmp/
-app/.cxx/Debug/5y4rd6n1/arm64-v8a/CMakeFiles/3.22.1-g37088a8/CompilerIdCXX/tmp/
-app/.cxx/Debug/5y4rd6n1/armeabi-v7a/CMakeFiles/3.22.1-g37088a8/CompilerIdC/tmp/
-app/.cxx/Debug/5y4rd6n1/armeabi-v7a/CMakeFiles/3.22.1-g37088a8/CompilerIdCXX/tmp/
-app/.cxx/Debug/5y4rd6n1/x86/CMakeFiles/3.22.1-g37088a8/CompilerIdC/tmp/
-app/.cxx/Debug/5y4rd6n1/x86/CMakeFiles/3.22.1-g37088a8/CompilerIdCXX/tmp/
-app/.cxx/Debug/5y4rd6n1/x86_64/CMakeFiles/3.22.1-g37088a8/CompilerIdC/tmp/
-app/.cxx/Debug/5y4rd6n1/x86_64/CMakeFiles/3.22.1-g37088a8/CompilerIdCXX/tmp/
+app/.cxx/
 app/build/
 baselineprofile/build/
 build/

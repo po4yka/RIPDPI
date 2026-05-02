@@ -1,34 +1,6 @@
----
-title: "RIPDPI -- Инструкция по диагностике"
-subtitle: "Как проверить сеть и отправить отчет"
-date: "Март 2026"
-author: "RIPDPI Project"
-geometry: "margin=2cm"
-fontsize: 12pt
-mainfont: "PT Sans"
-monofont: "PT Mono"
-documentclass: article
-numbersections: true
-lang: ru
-header-includes:
-  - |
-    ```{=latex}
-    \usepackage{fancyhdr}
-    \pagestyle{fancy}
-    \fancyhead[L]{RIPDPI -- Инструкция по диагностике}
-    \fancyhead[R]{\thepage}
-    \fancyfoot[C]{}
-    \usepackage{float}
-    \usepackage{caption}
-    \captionsetup{font=small,labelfont=bf}
-    \usepackage{tcolorbox}
-    \newtcolorbox{infobox}[1][]{colback=blue!5!white,colframe=blue!50!black,title=#1}
-    \newtcolorbox{warnbox}[1][]{colback=orange!5!white,colframe=orange!50!black,title=#1}
-    \usepackage{enumitem}
-    \setlist[enumerate]{itemsep=4pt}
-    \setlist[itemize]{itemsep=2pt}
-    ```
----
+# RIPDPI — Инструкция по диагностике
+
+Как проверить сеть и отправить отчет.
 
 # Что вам понадобится
 
@@ -36,47 +8,31 @@ header-includes:
 - Установленное приложение RIPDPI
 - Подключение к интернету (Wi-Fi или мобильные данные)
 
-При первом запуске приложение запросит разрешение на создание VPN-соединения -- нажмите **Continue** и подтвердите.
+При первом запуске приложение запросит разрешение на создание VPN-соединения — нажмите **Continue** и подтвердите.
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.3\textwidth]{manual-assets/intro-vpn-permission.png}
-\caption{Разрешение на VPN -- нажмите Continue}
-\end{figure}
+![Разрешение на VPN — нажмите Continue](manual-assets/intro-vpn-permission.png)
 
 # Запуск диагностики
 
-\begin{warnbox}[Важно]
-Перед сканированием убедитесь, что прокси/VPN в RIPDPI \textbf{выключен} (кнопка Disconnect на главном экране). Нам нужно увидеть вашу сеть без обхода.
-\end{warnbox}
+> **Важно:** Перед сканированием убедитесь, что прокси/VPN в RIPDPI **выключен** (кнопка Disconnect на главном экране). Нам нужно увидеть вашу сеть без обхода.
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.35\textwidth]{manual-assets/home-screen.png}
-\caption{Главный экран -- если подключение активно, нажмите Disconnect}
-\end{figure}
+![Главный экран — если подключение активно, нажмите Disconnect](manual-assets/home-screen.png)
 
-\begin{enumerate}
-\item Откройте приложение RIPDPI.
-\item Перейдите на экран \textbf{Diagnostics} (нижняя панель навигации).
-\item Выберите вкладку \textbf{Scan}.
-\item Прокрутите список профилей до группы \textbf{Network Full}.
-\item Выберите профиль \textbf{Russia DPI Full}.
-\item Нажмите \textbf{Validate} (Raw Path).
-\item Дождитесь завершения -- это займет 2--5 минут.
-\end{enumerate}
+1. Откройте приложение RIPDPI.
+2. Перейдите на экран **Diagnostics** (нижняя панель навигации).
+3. Выберите вкладку **Scan**.
+4. Прокрутите список профилей до группы **Network Full**.
+5. Выберите профиль **Russia DPI Full**.
+6. Нажмите **Validate** (Raw Path).
+7. Дождитесь завершения — это займет 2–5 минут.
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.3\textwidth]{manual-assets/diag-scan-tab.png}
-\caption{Вкладка Scan: выберите Russia DPI Full и нажмите Validate}
-\end{figure}
+![Вкладка Scan: выберите Russia DPI Full и нажмите Validate](manual-assets/diag-scan-tab.png)
 
 Во время сканирования вы увидите результаты зондов в реальном времени:
 
-- \textbf{Зеленый} -- всё в порядке, помех нет
-- \textbf{Желтый} -- частичная проблема
-- \textbf{Красный} -- заблокировано или подменено
+- **Зеленый** — всё в порядке, помех нет
+- **Желтый** — частичная проблема
+- **Красный** — заблокировано или подменено
 
 Не закрывайте приложение до завершения сканирования.
 
@@ -84,55 +40,39 @@ header-includes:
 
 После завершения сканирования:
 
-\begin{enumerate}
-\item Перейдите на вкладку \textbf{Share} (в экране Diagnostics).
-\item Нажмите \textbf{Share archive}.
-\item В открывшемся меню выберите способ отправки (Telegram, почта, или другой мессенджер).
-\item Отправьте архив мне.
-\end{enumerate}
+1. Перейдите на вкладку **Share** (в экране Diagnostics).
+2. Нажмите **Share archive**.
+3. В открывшемся меню выберите способ отправки (Telegram, почта, или другой мессенджер).
+4. Отправьте архив мне.
 
-\begin{figure}[H]
-\centering
-\includegraphics[width=0.3\textwidth]{manual-assets/diag-share.png}
-\caption{Вкладка Share: нажмите Share archive и отправьте файл}
-\end{figure}
+![Вкладка Share: нажмите Share archive и отправьте файл](manual-assets/diag-share.png)
 
-\begin{infobox}[Что содержит архив]
-Архив включает результаты всех зондов, информацию о вашей сети (тип подключения, DNS-серверы) и версию приложения. Личные данные и история посещений \textbf{не} включаются.
-\end{infobox}
+> **Что содержит архив:** Архив включает результаты всех зондов, информацию о вашей сети (тип подключения, DNS-серверы) и версию приложения. Личные данные и история посещений **не** включаются.
 
 # Если нужна дополнительная проверка
 
 Если я попрошу запустить пробу стратегий обхода:
 
-\begin{enumerate}
-\item Откройте Diagnostics > вкладка \textbf{Scan}.
-\item Прокрутите список до группы \textbf{Automatic Probing}.
-\item Выберите профиль \textbf{Automatic probing}.
-\item Нажмите \textbf{Recommend} (Raw Path).
-\item Дождитесь завершения (1--2 минуты).
-\item Перейдите на вкладку \textbf{Share} > \textbf{Share archive} и отправьте архив мне.
-\end{enumerate}
+1. Откройте Diagnostics > вкладка **Scan**.
+2. Прокрутите список до группы **Automatic Probing**.
+3. Выберите профиль **Automatic probing**.
+4. Нажмите **Recommend** (Raw Path).
+5. Дождитесь завершения (1–2 минуты).
+6. Перейдите на вкладку **Share** > **Share archive** и отправьте архив мне.
 
-\begin{infobox}[Во время Automatic Probing]
-Во время такого прогона строка состояния может показывать текущую дорожку \textbf{TCP} или \textbf{QUIC} и номер кандидата, например \texttt{TCP 3/14}. Это нормально: приложение по очереди проверяет разные варианты.
-\end{infobox}
+> **Во время Automatic Probing:** Во время такого прогона строка состояния может показывать текущую дорожку **TCP** или **QUIC** и номер кандидата, например `TCP 3/14`. Это нормально: приложение по очереди проверяет разные варианты.
 
-Для более полной проверки я могу попросить запустить \textbf{Automatic audit} (группа \textbf{Automatic Audit}) -- это займет 5--10 минут. Каждый запуск проверяет одну curated cohort целей, а в отчете сначала показывает \textbf{Winning path} с лучшими TCP и QUIC вариантами, confidence/coverage-оценку и кнопку раскрытия полной matrix при необходимости.
+Для более полной проверки я могу попросить запустить **Automatic audit** (группа **Automatic Audit**) — это займет 5–10 минут. Каждый запуск проверяет одну curated cohort целей, а в отчете сначала показывает **Winning path** с лучшими TCP и QUIC вариантами, confidence/coverage-оценку и кнопку раскрытия полной matrix при необходимости.
 
-\begin{warnbox}[Если Automatic Probing или Automatic Audit недоступен]
-Если вместо запуска видите сообщение про настройку \textbf{Use command line settings}, нажмите \textbf{Open Advanced Settings}, отключите эту опцию и вернитесь на вкладку \textbf{Scan}. Автоматические прогоны работают только с visual RIPDPI settings, потому что приложение запускает временные isolated strategy trials.
-\end{warnbox}
+> **Если Automatic Probing или Automatic Audit недоступен:** Если вместо запуска видите сообщение про настройку **Use command line settings**, нажмите **Open Advanced Settings**, отключите эту опцию и вернитесь на вкладку **Scan**. Автоматические прогоны работают только с visual RIPDPI settings, потому что приложение запускает временные isolated strategy trials.
 
 # Если приложение упало
 
 Если приложение вылетело (краш), после перезапуска:
 
-\begin{enumerate}
-\item Откройте Diagnostics > вкладка \textbf{Share}.
-\item Нажмите \textbf{Save logs} -- сохраните файл.
-\item Отправьте сохраненный файл \texttt{ripdpi.log} мне.
-\end{enumerate}
+1. Откройте Diagnostics > вкладка **Share**.
+2. Нажмите **Save logs** — сохраните файл.
+3. Отправьте сохраненный файл `ripdpi.log` мне.
 
 # Если что-то пошло не так
 
@@ -140,7 +80,7 @@ header-includes:
 |----------|-----------|
 | Сканирование зависло | Отмените (кнопка отмены) и запустите заново |
 | Приложение просит VPN-разрешение | Подтвердите разрешение |
-| Все результаты красные | Это нормально -- именно это мы и хотим увидеть. Отправьте отчет |
+| Все результаты красные | Это нормально — именно это мы и хотим увидеть. Отправьте отчет |
 | Нет интернета | Проверьте подключение, попробуйте переключиться между Wi-Fi и мобильными данными |
 | Automatic Probing / Audit недоступен | Нажмите Open Advanced Settings, отключите Use command line settings и вернитесь на вкладку Scan |
-| Не вижу нужный профиль | Прокрутите список профилей вниз -- они сгруппированы по категориям |
+| Не вижу нужный профиль | Прокрутите список профилей вниз — они сгруппированы по категориям |

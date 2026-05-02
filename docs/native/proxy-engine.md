@@ -9,17 +9,6 @@ The local SOCKS5 proxy is implemented by the in-repo Rust native module.
 
 The built shared library is `libripdpi.so`.
 
-## Diagnostics and Telemetry Role
-
-The same shared library now also carries two additional responsibilities:
-
-- Active diagnostics scans through the linked `ripdpi-monitor` crate
-- Passive proxy runtime telemetry for the long-running SOCKS5 listener
-
-The diagnostics path also links the shared `ripdpi-dns-resolver` crate, so encrypted DNS probing and resolver recommendation logic stay in native code rather than Kotlin.
-
-That means `libripdpi.so` is no longer only the proxy engine. It is also the diagnostics entry point used by the Diagnostics screen.
-
 ## Owned-Stack Boundary
 
 Not every RIPDPI-managed request now goes through the local SOCKS5 proxy.
@@ -927,12 +916,6 @@ The drained event ring records:
 - initial route selection
 - route advances caused by reconnect triggers such as connect failure or first-response triggers
 - retry pacing decisions and candidate-order diversification events
-
-## Command-line Mode
-
-`RipDpiProxyCmdPreferences` now serializes a single JSON payload with `kind = "command_line"`.
-
-This path still goes through `ripdpi_config::parse_cli`, so CLI flags are interpreted by the in-repo Rust module.
 
 ## Current Test Coverage
 

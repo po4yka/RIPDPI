@@ -18,6 +18,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 - [Strategy-pack and TLS catalog operations](strategy-pack-operations.md)
 - [Offline analytics pipeline](offline-analytics-pipeline.md)
 - [TLS catalog refresh log](strategy-pack-tls-refresh-log.json)
+- [TLS template acceptance report](tls-template-acceptance-report.json)
 - [Server hardening for self-hosted relays](server-hardening.md)
 
 ## Configuration
@@ -27,6 +28,7 @@ RIPDPI documentation index. For a quick start, see the main [README](../README.m
 ## Testing & CI
 
 - [Testing, E2E, golden contracts, and soak coverage](testing.md)
+- [Android logcat filtering](android-logcat-filtering.md)
 
 ## Architecture Hardening
 
