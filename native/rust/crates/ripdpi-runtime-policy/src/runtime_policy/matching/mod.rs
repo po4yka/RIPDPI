@@ -1,44 +1,30 @@
 use std::net::SocketAddr;
 
-use ripdpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig};
-use ripdpi_desync::{init_proto_info, ProtoInfo};
-use ripdpi_packets::classify::{default_registry, ProtocolId};
-use ripdpi_packets::{is_http, is_tls_client_hello, parse_quic_initial, IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP};
+use ripdpi_config::{DesyncGroup, RuntimeConfig};
 
-use super::{ExtractedHost, HostSource, TransportProtocol};
+use super::{ExtractedHost, TransportProtocol};
+use facts::{extract_host as extract_host_from_payload, extract_host_info as extract_host_info_from_payload};
+use predicates::{
+    group_matches as group_matches_predicate, group_requires_payload as group_requires_payload_predicate,
+};
+
+mod facts;
+mod predicates;
 
 pub fn extract_host_info(config: &RuntimeConfig, payload: &[u8]) -> Option<ExtractedHost> {
-    if let Some(result) = default_registry().classify(payload) {
-        let source = match result.protocol {
-            ProtocolId::Http => HostSource::Http,
-            _ => HostSource::Tls,
-        };
-        if let Some(host) = result.host {
-            return Some(ExtractedHost { host, source });
-        }
-    }
-    if let Some(host) = extract_tls_host(payload) {
-        return Some(ExtractedHost { host, source: HostSource::Tls });
-    }
-    extract_quic_host(config, payload)
+    extract_host_info_from_payload(config, payload)
 }
 
 pub fn extract_host(config: &RuntimeConfig, payload: &[u8]) -> Option<String> {
-    extract_host_info(config, payload).map(|host| host.host)
+    extract_host_from_payload(config, payload)
 }
 
 pub fn is_tls_client_hello_payload(payload: &[u8]) -> bool {
-    if is_tls_client_hello(payload) {
-        return true;
-    }
-    let mut info = ProtoInfo::default();
-    init_proto_info(payload, &mut info);
-    info.is_tls_client_hello()
+    facts::is_tls_client_hello_payload(payload)
 }
 
 pub fn group_requires_payload(group: &DesyncGroup) -> bool {
-    let active_proto = group.matches.proto & !group.matches.payload_disable;
-    !group.matches.filters.hosts.is_empty() || (active_proto & (IS_HTTP | IS_HTTPS)) != 0
+    group_requires_payload_predicate(group)
 }
 
 pub fn route_matches_payload(
@@ -62,84 +48,7 @@ pub(super) fn group_matches(
     allow_unknown_payload: bool,
     transport: TransportProtocol,
 ) -> bool {
-    if !matches_l34(group, dest, transport) {
-        return false;
-    }
-    match payload {
-        Some(payload) => matches_payload(config, group, payload),
-        None if allow_unknown_payload => true,
-        None => group.matches.filters.hosts.is_empty() && payload_proto_known(group),
-    }
-}
-
-fn payload_proto_known(group: &DesyncGroup) -> bool {
-    group.matches.any_protocol || group.matches.proto == 0 || (group.matches.proto & (IS_HTTP | IS_HTTPS)) == 0
-}
-
-fn matches_l34(group: &DesyncGroup, dest: SocketAddr, transport: TransportProtocol) -> bool {
-    if (group.matches.proto & IS_UDP) != 0 && transport != TransportProtocol::Udp {
-        return false;
-    }
-    if (group.matches.proto & IS_TCP) != 0 && transport != TransportProtocol::Tcp {
-        return false;
-    }
-    if (group.matches.proto & IS_IPV4) != 0 && !dest.is_ipv4() {
-        return false;
-    }
-    if let Some((start, end)) = group.matches.port_filter {
-        let port = dest.port();
-        if port < start || port > end {
-            return false;
-        }
-    }
-    if !group.matches.filters.ipset.is_empty() && !group.matches.filters.ipset_match(dest.ip()) {
-        return false;
-    }
-    true
-}
-
-fn matches_payload(config: &RuntimeConfig, group: &DesyncGroup, payload: &[u8]) -> bool {
-    if group.matches.any_protocol {
-        if group.matches.filters.hosts.is_empty() {
-            return true;
-        }
-        return extract_host(config, payload).as_deref().is_some_and(|host| group.matches.filters.hosts_match(host));
-    }
-    if group.matches.proto != 0 {
-        let l7 = group.matches.proto & !(IS_TCP | IS_UDP | IS_IPV4);
-        if l7 != 0 {
-            let disable = group.matches.payload_disable;
-            let http = (disable & IS_HTTP) == 0 && is_http(payload);
-            let tls = (disable & IS_HTTPS) == 0 && is_tls_client_hello_payload(payload);
-            if ((l7 & IS_HTTP) != 0 && http) || ((l7 & IS_HTTPS) != 0 && tls) {
-            } else {
-                return false;
-            }
-        }
-    }
-    if group.matches.filters.hosts.is_empty() {
-        return true;
-    }
-    extract_host(config, payload).as_deref().is_some_and(|host| group.matches.filters.hosts_match(host))
-}
-
-fn extract_quic_host(config: &RuntimeConfig, payload: &[u8]) -> Option<ExtractedHost> {
-    if matches!(config.quic.initial_mode, QuicInitialMode::Disabled)
-        || (!config.quic.support_v1 && !config.quic.support_v2)
-    {
-        return None;
-    }
-    let info = parse_quic_initial(payload)?;
-    let allowed = (info.version == 0x0000_0001 && config.quic.support_v1)
-        || (info.version == 0x6b33_43cf && config.quic.support_v2);
-    allowed.then(|| ExtractedHost { host: String::from_utf8_lossy(info.host()).into_owned(), source: HostSource::Quic })
-}
-
-fn extract_tls_host(payload: &[u8]) -> Option<String> {
-    let mut info = ProtoInfo::default();
-    init_proto_info(payload, &mut info);
-    let host = info.tls_host_bytes()?;
-    Some(String::from_utf8_lossy(host).into_owned())
+    group_matches_predicate(config, group, dest, payload, allow_unknown_payload, transport)
 }
 
 #[cfg(test)]
@@ -148,6 +57,10 @@ mod tests {
 
     use super::*;
     use crate::runtime_policy::test_support::{config_with_groups, rust_packet_seeds, sample_dest};
+    use facts::MatchFacts;
+    use predicates::{matches_facts, matches_l34, payload_proto_known};
+    use ripdpi_config::QuicInitialMode;
+    use ripdpi_packets::{IS_HTTP, IS_HTTPS, IS_IPV4, IS_TCP, IS_UDP};
 
     #[test]
     fn matches_l34_rejects_udp_proto() {
@@ -204,8 +117,8 @@ mod tests {
         let config = RuntimeConfig::default();
         let http_payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
         let tls_payload = ripdpi_packets::DEFAULT_FAKE_TLS;
-        assert!(matches_payload(&config, &group, http_payload));
-        assert!(!matches_payload(&config, &group, tls_payload));
+        assert!(matches_facts(&group, &MatchFacts::from_payload(&config, http_payload)));
+        assert!(!matches_facts(&group, &MatchFacts::from_payload(&config, tls_payload)));
     }
 
     #[test]
@@ -215,7 +128,7 @@ mod tests {
         group.matches.proto = IS_TCP | IS_HTTP;
         let config = RuntimeConfig::default();
 
-        assert!(matches_payload(&config, &group, b"opaque payload"));
+        assert!(matches_facts(&group, &MatchFacts::from_payload(&config, b"opaque payload")));
     }
 
     #[test]
