@@ -1,122 +1,28 @@
-use std::collections::BTreeMap;
-
-use ripdpi_config::{OffsetBase, QuicFakeProfile};
-use ripdpi_desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
-use serde::{Deserialize, Serialize};
+mod offset_base;
+mod quic_fake_profile;
+mod stored;
+mod tlsrandrec_profile;
+mod udp_burst_profile;
 
 use crate::adaptive_tuning::key::shuffled_dimensions;
 use crate::adaptive_tuning::state::{AdaptivePlannerState, ChoiceState};
-use crate::adaptive_tuning::types::{AdaptiveFlowKind, AdaptivePlannerTarget};
 
-pub(super) const ADAPTIVE_TUNING_STORE_VERSION: u32 = 1;
+use quic_fake_profile::restore_quic_fake_profile;
+use stored::{
+    StoredAdaptiveTlsRandRecProfile, StoredAdaptiveUdpBurstProfile, StoredChoiceState, StoredQuicFakeProfile,
+};
+use tlsrandrec_profile::restore_tlsrandrec_profile;
+use udp_burst_profile::restore_udp_burst_profile;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub(in crate::adaptive_tuning) enum StoredOffsetBase {
-    Abs,
-    PayloadEnd,
-    PayloadMid,
-    PayloadRand,
-    Host,
-    EndHost,
-    HostMid,
-    HostRand,
-    Sld,
-    MidSld,
-    EndSld,
-    Method,
-    ExtLen,
-    EchExt,
-    SniExt,
-    AutoBalanced,
-    AutoHost,
-    AutoMidSld,
-    AutoEndHost,
-    AutoMethod,
-    AutoSniExt,
-    AutoExtLen,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-enum StoredAdaptiveTlsRandRecProfile {
-    Balanced,
-    Tight,
-    Wide,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-enum StoredAdaptiveUdpBurstProfile {
-    Balanced,
-    Conservative,
-    Aggressive,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-enum StoredQuicFakeProfile {
-    Disabled,
-    CompatDefault,
-    RealisticInitial,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-struct StoredChoiceState<T> {
-    candidates: Vec<T>,
-    candidate_index: usize,
-    pinned: Option<T>,
-    #[serde(default)]
-    cooldown_until_ms: Vec<u64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct StoredAdaptivePlannerState {
-    #[serde(default)]
-    split_offset_base: Option<StoredChoiceState<StoredOffsetBase>>,
-    #[serde(default)]
-    tls_record_offset_base: Option<StoredChoiceState<StoredOffsetBase>>,
-    #[serde(default)]
-    tlsrandrec_profile: Option<StoredChoiceState<StoredAdaptiveTlsRandRecProfile>>,
-    #[serde(default)]
-    udp_burst_profile: Option<StoredChoiceState<StoredAdaptiveUdpBurstProfile>>,
-    #[serde(default)]
-    quic_fake_profile: Option<StoredChoiceState<StoredQuicFakeProfile>>,
-    #[serde(default)]
-    dimension_order: Vec<usize>,
-    #[serde(default)]
-    dimension_cursor: usize,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct StoredAdaptivePlannerEntry {
-    pub(super) group_index: usize,
-    pub(super) flow_kind: AdaptiveFlowKind,
-    pub(super) target: AdaptivePlannerTarget,
-    pub(super) state: StoredAdaptivePlannerState,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct StoredAdaptiveNetworkScope {
-    #[serde(default)]
-    pub(super) entries: Vec<StoredAdaptivePlannerEntry>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct StoredAdaptivePlannerStore {
-    pub(super) version: u32,
-    pub(super) fingerprint: String,
-    #[serde(default)]
-    pub(super) scopes: BTreeMap<String, StoredAdaptiveNetworkScope>,
-}
+pub(in crate::adaptive_tuning) use offset_base::restore_offset_base;
+pub(in crate::adaptive_tuning) use stored::StoredOffsetBase;
+pub(super) use stored::{
+    StoredAdaptiveNetworkScope, StoredAdaptivePlannerEntry, StoredAdaptivePlannerStore, ADAPTIVE_TUNING_STORE_VERSION,
+};
 
 impl AdaptivePlannerState {
-    pub(super) fn to_persisted(&self) -> StoredAdaptivePlannerState {
-        StoredAdaptivePlannerState {
+    pub(super) fn to_persisted(&self) -> stored::StoredAdaptivePlannerState {
+        stored::StoredAdaptivePlannerState {
             split_offset_base: self
                 .split_offset_base
                 .as_ref()
@@ -142,7 +48,7 @@ impl AdaptivePlannerState {
         }
     }
 
-    pub(super) fn from_persisted(state: StoredAdaptivePlannerState, seed: u64) -> Self {
+    pub(super) fn from_persisted(state: stored::StoredAdaptivePlannerState, seed: u64) -> Self {
         let dimension_order = if valid_dimension_order(&state.dimension_order) {
             state.dimension_order
         } else {
@@ -210,115 +116,4 @@ fn valid_dimension_order(order: &[usize]) -> bool {
     let mut sorted = order.to_vec();
     sorted.sort_unstable();
     sorted == [0, 1, 2, 3, 4]
-}
-
-pub(in crate::adaptive_tuning) fn restore_offset_base(base: StoredOffsetBase) -> Option<OffsetBase> {
-    Some(match base {
-        StoredOffsetBase::Abs => OffsetBase::Abs,
-        StoredOffsetBase::PayloadEnd => OffsetBase::PayloadEnd,
-        StoredOffsetBase::PayloadMid => OffsetBase::PayloadMid,
-        StoredOffsetBase::PayloadRand => OffsetBase::PayloadRand,
-        StoredOffsetBase::Host => OffsetBase::Host,
-        StoredOffsetBase::EndHost => OffsetBase::EndHost,
-        StoredOffsetBase::HostMid => OffsetBase::HostMid,
-        StoredOffsetBase::HostRand => OffsetBase::HostRand,
-        StoredOffsetBase::Sld => OffsetBase::Sld,
-        StoredOffsetBase::MidSld => OffsetBase::MidSld,
-        StoredOffsetBase::EndSld => OffsetBase::EndSld,
-        StoredOffsetBase::Method => OffsetBase::Method,
-        StoredOffsetBase::ExtLen => OffsetBase::ExtLen,
-        StoredOffsetBase::EchExt => OffsetBase::EchExt,
-        StoredOffsetBase::SniExt => OffsetBase::SniExt,
-        StoredOffsetBase::AutoBalanced => OffsetBase::AutoBalanced,
-        StoredOffsetBase::AutoHost => OffsetBase::AutoHost,
-        StoredOffsetBase::AutoMidSld => OffsetBase::AutoMidSld,
-        StoredOffsetBase::AutoEndHost => OffsetBase::AutoEndHost,
-        StoredOffsetBase::AutoMethod => OffsetBase::AutoMethod,
-        StoredOffsetBase::AutoSniExt => OffsetBase::AutoSniExt,
-        StoredOffsetBase::AutoExtLen => OffsetBase::AutoExtLen,
-    })
-}
-
-fn restore_tlsrandrec_profile(profile: StoredAdaptiveTlsRandRecProfile) -> Option<AdaptiveTlsRandRecProfile> {
-    Some(match profile {
-        StoredAdaptiveTlsRandRecProfile::Balanced => AdaptiveTlsRandRecProfile::Balanced,
-        StoredAdaptiveTlsRandRecProfile::Tight => AdaptiveTlsRandRecProfile::Tight,
-        StoredAdaptiveTlsRandRecProfile::Wide => AdaptiveTlsRandRecProfile::Wide,
-    })
-}
-
-fn restore_udp_burst_profile(profile: StoredAdaptiveUdpBurstProfile) -> Option<AdaptiveUdpBurstProfile> {
-    Some(match profile {
-        StoredAdaptiveUdpBurstProfile::Balanced => AdaptiveUdpBurstProfile::Balanced,
-        StoredAdaptiveUdpBurstProfile::Conservative => AdaptiveUdpBurstProfile::Conservative,
-        StoredAdaptiveUdpBurstProfile::Aggressive => AdaptiveUdpBurstProfile::Aggressive,
-    })
-}
-
-fn restore_quic_fake_profile(profile: StoredQuicFakeProfile) -> Option<QuicFakeProfile> {
-    Some(match profile {
-        StoredQuicFakeProfile::Disabled => QuicFakeProfile::Disabled,
-        StoredQuicFakeProfile::CompatDefault => QuicFakeProfile::CompatDefault,
-        StoredQuicFakeProfile::RealisticInitial => QuicFakeProfile::RealisticInitial,
-    })
-}
-
-impl From<OffsetBase> for StoredOffsetBase {
-    fn from(base: OffsetBase) -> Self {
-        match base {
-            OffsetBase::Abs => Self::Abs,
-            OffsetBase::PayloadEnd => Self::PayloadEnd,
-            OffsetBase::PayloadMid => Self::PayloadMid,
-            OffsetBase::PayloadRand => Self::PayloadRand,
-            OffsetBase::Host => Self::Host,
-            OffsetBase::EndHost => Self::EndHost,
-            OffsetBase::HostMid => Self::HostMid,
-            OffsetBase::HostRand => Self::HostRand,
-            OffsetBase::Sld => Self::Sld,
-            OffsetBase::MidSld => Self::MidSld,
-            OffsetBase::EndSld => Self::EndSld,
-            OffsetBase::Method => Self::Method,
-            OffsetBase::ExtLen => Self::ExtLen,
-            OffsetBase::EchExt => Self::EchExt,
-            OffsetBase::SniExt => Self::SniExt,
-            OffsetBase::AutoBalanced => Self::AutoBalanced,
-            OffsetBase::AutoHost => Self::AutoHost,
-            OffsetBase::AutoMidSld => Self::AutoMidSld,
-            OffsetBase::AutoEndHost => Self::AutoEndHost,
-            OffsetBase::AutoMethod => Self::AutoMethod,
-            OffsetBase::AutoSniExt => Self::AutoSniExt,
-            OffsetBase::AutoExtLen => Self::AutoExtLen,
-        }
-    }
-}
-
-impl From<AdaptiveTlsRandRecProfile> for StoredAdaptiveTlsRandRecProfile {
-    fn from(profile: AdaptiveTlsRandRecProfile) -> Self {
-        match profile {
-            AdaptiveTlsRandRecProfile::Balanced => Self::Balanced,
-            AdaptiveTlsRandRecProfile::Tight => Self::Tight,
-            AdaptiveTlsRandRecProfile::Wide => Self::Wide,
-        }
-    }
-}
-
-impl From<AdaptiveUdpBurstProfile> for StoredAdaptiveUdpBurstProfile {
-    fn from(profile: AdaptiveUdpBurstProfile) -> Self {
-        match profile {
-            AdaptiveUdpBurstProfile::Balanced => Self::Balanced,
-            AdaptiveUdpBurstProfile::Conservative => Self::Conservative,
-            AdaptiveUdpBurstProfile::Aggressive => Self::Aggressive,
-        }
-    }
-}
-
-impl From<QuicFakeProfile> for StoredQuicFakeProfile {
-    fn from(profile: QuicFakeProfile) -> Self {
-        match profile {
-            QuicFakeProfile::Disabled => Self::Disabled,
-            QuicFakeProfile::CompatDefault => Self::CompatDefault,
-            QuicFakeProfile::RealisticInitial => Self::RealisticInitial,
-            _ => Self::Disabled,
-        }
-    }
 }
