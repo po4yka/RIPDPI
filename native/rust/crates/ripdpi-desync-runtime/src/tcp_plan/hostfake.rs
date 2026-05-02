@@ -68,9 +68,10 @@ pub(crate) fn execute_tcp_hostfake_step(
     let original_flags = step_original_tcp_flags(configured_step);
 
     if needs_custom_ordering(configured_step, span.midhost) {
+        let ordering = configured_step.fake_ordering();
         let ordered_segments = build_custom_ordered_segments(
-            configured_step.fake_order,
-            configured_step.fake_seq_mode,
+            ordering.order,
+            ordering.seq_mode,
             real_host,
             host_payload.fake_host(),
             span.midhost.map(|midhost| midhost - span.host_start),

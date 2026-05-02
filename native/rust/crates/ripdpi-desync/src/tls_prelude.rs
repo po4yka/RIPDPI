@@ -5,7 +5,7 @@ use crate::types::{
     activation_filter_matches, ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints,
     AdaptiveTlsRandRecProfile, DesyncError, ProtoInfo, TamperResult, TcpSegmentHint,
 };
-use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind};
+use ripdpi_config::{DesyncGroup, TcpChainStep, TcpChainStepKind, TcpTlsRandRecPayload};
 use ripdpi_packets::{mod_http_inplace, OracleRng, IS_HTTP};
 use ripdpi_tls_profiles::{apply_record_choreography, plan_first_flight, TlsTemplateFirstFlightPlan};
 
@@ -74,15 +74,16 @@ fn apply_tlsrec_prelude_step(
     let Some(record) = state.synthetic_record() else {
         return Ok(false);
     };
+    let offset = step.offset();
     let mut info = ProtoInfo::default();
     let mut lp = 0i64;
-    let total = step.offset.repeats.max(1);
+    let total = offset.repeats.max(1);
     let mut remaining = total;
     let mut changed = false;
     while remaining > 0 {
-        let resolved = if step.offset.base.is_adaptive() {
+        let resolved = if offset.base.is_adaptive() {
             resolve_adaptive_offset(
-                step.offset,
+                offset,
                 &record,
                 state.payload.len(),
                 lp.max(0) as usize,
@@ -92,15 +93,15 @@ fn apply_tlsrec_prelude_step(
                 5,
             )
         } else {
-            gen_offset(step.offset, &record, record.len(), lp, &mut info, rng)
+            gen_offset(offset, &record, record.len(), lp, &mut info, rng)
         };
         let Some(mut pos) = resolved else {
             break;
         };
-        if step.offset.needs_tls_record_adjustment() {
+        if offset.needs_tls_record_adjustment() {
             pos -= 5;
         }
-        pos += (step.offset.skip as i64) * ((total - remaining) as i64);
+        pos += (offset.skip as i64) * ((total - remaining) as i64);
         if pos < lp {
             break;
         }
@@ -124,10 +125,11 @@ fn apply_tlsrandrec_prelude_step(
     let Some(record) = state.synthetic_record() else {
         return Ok(false);
     };
+    let offset = step.offset();
     let mut info = ProtoInfo::default();
-    let resolved = if step.offset.base.is_adaptive() {
+    let resolved = if offset.base.is_adaptive() {
         resolve_adaptive_offset(
-            step.offset,
+            offset,
             &record,
             state.payload.len(),
             0,
@@ -137,12 +139,12 @@ fn apply_tlsrandrec_prelude_step(
             5,
         )
     } else {
-        gen_offset(step.offset, &record, record.len(), 0, &mut info, rng)
+        gen_offset(offset, &record, record.len(), 0, &mut info, rng)
     };
     let Some(mut marker) = resolved else {
         return Ok(false);
     };
-    if step.offset.needs_tls_record_adjustment() {
+    if offset.needs_tls_record_adjustment() {
         marker -= 5;
     }
     if marker < 0 || marker > state.payload.len() as i64 {
@@ -150,7 +152,8 @@ fn apply_tlsrandrec_prelude_step(
     }
 
     let marker = marker as usize;
-    let fragment_count = step.fragment_count.max(1) as usize;
+    let payload = step.tls_randrec_payload().ok_or(DesyncError)?;
+    let fragment_count = payload.fragment_count.max(1) as usize;
     let (min_fragment_size, max_fragment_size) = resolve_tlsrandrec_fragment_sizes(step, context, fragment_count);
     let tail_len = state.payload.len().saturating_sub(marker);
     let Some(lengths) =
@@ -181,8 +184,13 @@ fn resolve_tlsrandrec_fragment_sizes(
     context: ActivationContext,
     fragment_count: usize,
 ) -> (usize, usize) {
-    let min_fragment_size = step.min_fragment_size.max(1) as usize;
-    let max_fragment_size = step.max_fragment_size.max(min_fragment_size as i32) as usize;
+    let payload = step.tls_randrec_payload().unwrap_or(TcpTlsRandRecPayload {
+        fragment_count: fragment_count as i32,
+        min_fragment_size: 1,
+        max_fragment_size: 1,
+    });
+    let min_fragment_size = payload.min_fragment_size.max(1) as usize;
+    let max_fragment_size = payload.max_fragment_size.max(min_fragment_size as i32) as usize;
     let budget = context
         .tcp_segment_hint
         .map_or((max_fragment_size * fragment_count.max(1)) as i64, TcpSegmentHint::adaptive_budget)
@@ -230,10 +238,10 @@ pub(crate) fn apply_tls_prelude_steps(
         if let Some(mut state) = TlsPreludeState::from_record(&output) {
             let mut changed = false;
             for step in prelude_steps {
-                if !activation_filter_matches(step.activation_filter, context) {
+                if !activation_filter_matches(step.activation_filter(), context) {
                     continue;
                 }
-                match step.kind {
+                match step.kind() {
                     TcpChainStepKind::TlsRec => {
                         changed |= apply_tlsrec_prelude_step(step, &mut state, &mut rng, context)?;
                     }
@@ -256,7 +264,7 @@ pub(crate) fn apply_tls_prelude_steps(
 
 pub fn apply_tamper(group: &DesyncGroup, input: &[u8], seed: u32) -> Result<TamperResult, DesyncError> {
     let prelude_steps =
-        group.effective_tcp_chain().into_iter().take_while(|step| step.kind.is_tls_prelude()).collect::<Vec<_>>();
+        group.effective_tcp_chain().into_iter().take_while(|step| step.kind().is_tls_prelude()).collect::<Vec<_>>();
     apply_tls_prelude_steps(
         group,
         &prelude_steps,

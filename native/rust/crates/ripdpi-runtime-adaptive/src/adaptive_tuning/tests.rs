@@ -6,8 +6,8 @@ use super::AdaptivePlannerResolver;
 use std::{fs, net::SocketAddr};
 
 use ripdpi_config::{
-    DesyncGroup, OffsetBase, OffsetExpr, QuicFakeProfile, TcpChainStep, TcpChainStepKind, UdpChainStep,
-    UdpChainStepKind,
+    DesyncGroup, OffsetBase, OffsetExpr, QuicFakeProfile, TcpChainStep, TcpChainStepKind, TcpTlsRandRecPayload,
+    UdpChainStep, UdpChainStepKind,
 };
 use ripdpi_desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
 use ripdpi_packets::{build_realistic_quic_initial, QUIC_V2_VERSION};
@@ -29,32 +29,12 @@ fn tcp_failure_rotates_one_adaptive_dimension_at_a_time() {
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain = vec![
         TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost)),
-        TcpChainStep {
-            kind: TcpChainStepKind::TlsRandRec,
-            offset: OffsetExpr::adaptive(OffsetBase::AutoSniExt),
-            activation_filter: None,
-            midhost_offset: None,
-            fake_host_template: None,
-            fake_order: ripdpi_config::FakeOrder::BeforeEach,
-            fake_seq_mode: ripdpi_config::FakeSeqMode::Duplicate,
-            tcp_flags_set: None,
-            tcp_flags_unset: None,
-            tcp_flags_orig_set: None,
-            tcp_flags_orig_unset: None,
-            overlap_size: 0,
-            seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
-            fragment_count: 3,
-            min_fragment_size: 12,
-            max_fragment_size: 64,
-            inter_segment_delay_ms: 0,
-            ip_frag_disorder: false,
-            ipv6_hop_by_hop: false,
-            ipv6_dest_opt: false,
-            ipv6_dest_opt2: false,
-            ipv6_routing: false,
-            ipv6_frag_next_override: None,
-            random_fake_host: false,
-        },
+        TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))
+            .with_tls_randrec_payload(TcpTlsRandRecPayload {
+                fragment_count: 3,
+                min_fragment_size: 12,
+                max_fragment_size: 64,
+            }),
     ];
 
     let mut resolver = AdaptivePlannerResolver::default();
@@ -169,32 +149,12 @@ fn adaptive_dimension_order_is_stable_within_same_scope() {
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain = vec![
         TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::adaptive(OffsetBase::AutoHost)),
-        TcpChainStep {
-            kind: TcpChainStepKind::TlsRandRec,
-            offset: OffsetExpr::adaptive(OffsetBase::AutoSniExt),
-            activation_filter: None,
-            midhost_offset: None,
-            fake_host_template: None,
-            fake_order: ripdpi_config::FakeOrder::BeforeEach,
-            fake_seq_mode: ripdpi_config::FakeSeqMode::Duplicate,
-            tcp_flags_set: None,
-            tcp_flags_unset: None,
-            tcp_flags_orig_set: None,
-            tcp_flags_orig_unset: None,
-            overlap_size: 0,
-            seqovl_fake_mode: ripdpi_config::SeqOverlapFakeMode::Profile,
-            fragment_count: 3,
-            min_fragment_size: 12,
-            max_fragment_size: 64,
-            inter_segment_delay_ms: 0,
-            ip_frag_disorder: false,
-            ipv6_hop_by_hop: false,
-            ipv6_dest_opt: false,
-            ipv6_dest_opt2: false,
-            ipv6_routing: false,
-            ipv6_frag_next_override: None,
-            random_fake_host: false,
-        },
+        TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))
+            .with_tls_randrec_payload(TcpTlsRandRecPayload {
+                fragment_count: 3,
+                min_fragment_size: 12,
+                max_fragment_size: 64,
+            }),
     ];
     let target = addr(443);
 

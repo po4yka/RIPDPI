@@ -5,7 +5,8 @@ fn tcp_context_with_hint(payload: &[u8], tcp_segment_hint: TcpSegmentHint) -> Ac
 }
 
 fn seqovl_step(pos: i64) -> TcpChainStep {
-    TcpChainStep { overlap_size: 12, ..TcpChainStep::new(TcpChainStepKind::SeqOverlap, split_expr(pos)) }
+    TcpChainStep::new(TcpChainStepKind::SeqOverlap, split_expr(pos))
+        .with_seq_overlap_payload(TcpSeqOverlapPayload::profile(12))
 }
 
 #[test]
@@ -131,19 +132,21 @@ fn plan_tcp_tlsrec_supports_adaptive_marker_resolution() {
 fn plan_tcp_tlsrandrec_supports_adaptive_marker_resolution() {
     let markers = tls_marker_info(DEFAULT_FAKE_TLS).expect("tls markers");
     let mut auto_group = DesyncGroup::new(0);
-    auto_group.actions.tcp_chain = vec![TcpChainStep {
-        fragment_count: 4,
-        min_fragment_size: 16,
-        max_fragment_size: 32,
-        ..TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))
-    }];
+    auto_group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::adaptive(OffsetBase::AutoSniExt))
+            .with_tls_randrec_payload(TcpTlsRandRecPayload {
+                fragment_count: 4,
+                min_fragment_size: 16,
+                max_fragment_size: 32,
+            })];
     let mut explicit_group = DesyncGroup::new(0);
-    explicit_group.actions.tcp_chain = vec![TcpChainStep {
-        fragment_count: 4,
-        min_fragment_size: 16,
-        max_fragment_size: 32,
-        ..TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::marker(OffsetBase::SniExt, 0))
-    }];
+    explicit_group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::marker(OffsetBase::SniExt, 0))
+            .with_tls_randrec_payload(TcpTlsRandRecPayload {
+                fragment_count: 4,
+                min_fragment_size: 16,
+                max_fragment_size: 32,
+            })];
 
     let auto_plan = plan_tcp(
         &auto_group,
@@ -780,15 +783,14 @@ fn plan_tcp_ignores_http_parser_evasions_for_non_http_payloads() {
 fn plan_tcp_step_activation_filter_skips_tls_prelude_only() {
     let mut group = DesyncGroup::new(0);
     group.actions.tcp_chain = vec![
-        TcpChainStep {
-            activation_filter: Some(ActivationFilter {
+        TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0)).with_activation_filter(
+            Some(ActivationFilter {
                 round: Some(NumericRange::new(2, 3)),
                 payload_size: None,
                 stream_bytes: None,
                 ..Default::default()
             }),
-            ..TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::ExtLen, 0))
-        },
+        ),
         TcpChainStep::new(TcpChainStepKind::Split, split_expr(4)),
     ];
 
@@ -802,10 +804,8 @@ fn plan_tcp_step_activation_filter_skips_tls_prelude_only() {
 fn plan_tcp_step_activation_filter_matches_negotiated_tcp_timestamp_state() {
     let payload = b"hello world";
     let mut group = DesyncGroup::new(0);
-    group.actions.tcp_chain = vec![TcpChainStep {
-        activation_filter: Some(ActivationFilter { tcp_has_timestamp: Some(true), ..Default::default() }),
-        ..TcpChainStep::new(TcpChainStepKind::Split, split_expr(4))
-    }];
+    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(4))
+        .with_activation_filter(Some(ActivationFilter { tcp_has_timestamp: Some(true), ..Default::default() }))];
     let mut context = tcp_context(payload);
 
     context.tcp_state.has_timestamp = Some(true);
@@ -821,10 +821,8 @@ fn plan_tcp_step_activation_filter_matches_negotiated_tcp_timestamp_state() {
 fn plan_tcp_step_activation_filter_matches_ech_payload_state() {
     let payload = rust_packet_seeds::tls_client_hello_ech();
     let mut group = DesyncGroup::new(0);
-    group.actions.tcp_chain = vec![TcpChainStep {
-        activation_filter: Some(ActivationFilter { tcp_has_ech: Some(true), ..Default::default() }),
-        ..TcpChainStep::new(TcpChainStepKind::Split, split_expr(8))
-    }];
+    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(8))
+        .with_activation_filter(Some(ActivationFilter { tcp_has_ech: Some(true), ..Default::default() }))];
     let mut context = tcp_context(&payload);
 
     context.tcp_state.has_ech = Some(true);
@@ -840,14 +838,9 @@ fn plan_tcp_step_activation_filter_matches_ech_payload_state() {
 fn plan_tcp_step_activation_filter_uses_window_and_mss_thresholds() {
     let payload = b"hello world";
     let mut group = DesyncGroup::new(0);
-    group.actions.tcp_chain = vec![TcpChainStep {
-        activation_filter: Some(ActivationFilter {
-            tcp_window_below: Some(4096),
-            tcp_mss_below: Some(1400),
-            ..Default::default()
-        }),
-        ..TcpChainStep::new(TcpChainStepKind::Split, split_expr(5))
-    }];
+    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, split_expr(5)).with_activation_filter(
+        Some(ActivationFilter { tcp_window_below: Some(4096), tcp_mss_below: Some(1400), ..Default::default() }),
+    )];
     let mut context = tcp_context(payload);
 
     context.tcp_state.window_size = Some(2048);
@@ -911,11 +904,10 @@ fn plan_tcp_hostfake_emits_fake_real_fake_sequence_for_http_host() {
     let markers = http_marker_info(payload).expect("http markers");
     let mut group = DesyncGroup::new(0);
     group.actions.ttl = Some(9);
-    group.actions.tcp_chain = vec![TcpChainStep {
-        midhost_offset: Some(OffsetExpr::marker(OffsetBase::MidSld, 0)),
-        fake_host_template: Some("googlevideo.com".to_string()),
-        ..TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0))
-    }];
+    group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0))
+            .with_midhost_offset(Some(OffsetExpr::marker(OffsetBase::MidSld, 0)))
+            .with_fake_host_template(Some("googlevideo.com".to_string()))];
 
     let plan = plan_tcp(&group, payload, 23, 32, tcp_context(payload)).expect("plan hostfake");
 
@@ -961,11 +953,9 @@ fn plan_tcp_hostfake_resolves_fragmented_tls_host_after_tlsrec_prelude() {
     group.actions.ttl = Some(9);
     group.actions.tcp_chain = vec![
         TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::marker(OffsetBase::MidSld, 0)),
-        TcpChainStep {
-            midhost_offset: Some(OffsetExpr::marker(OffsetBase::MidSld, 0)),
-            fake_host_template: Some("googlevideo.com".to_string()),
-            ..TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0))
-        },
+        TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::PayloadEnd, 0))
+            .with_midhost_offset(Some(OffsetExpr::marker(OffsetBase::MidSld, 0)))
+            .with_fake_host_template(Some("googlevideo.com".to_string())),
     ];
 
     let tampered = apply_tls_prelude_steps(
@@ -1051,10 +1041,8 @@ fn unresolved_markers_fail_planning_safely() {
 fn plan_tcp_emits_delay_action_when_inter_segment_delay_set() {
     let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
     let mut group = DesyncGroup::new(0);
-    group.actions.tcp_chain = vec![TcpChainStep {
-        inter_segment_delay_ms: 50,
-        ..TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0))
-    }];
+    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0))
+        .with_inter_segment_delay_ms(50)];
 
     let plan = plan_tcp(&group, payload, 7, 0, tcp_context(payload)).expect("plan with delay");
     assert!(plan.actions.iter().any(|a| matches!(a, DesyncAction::Delay(50))), "expected Delay(50) action in plan");
@@ -1077,10 +1065,8 @@ fn plan_tcp_no_delay_when_inter_segment_delay_zero() {
 fn plan_tcp_delay_capped_at_500ms() {
     let payload = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
     let mut group = DesyncGroup::new(0);
-    group.actions.tcp_chain = vec![TcpChainStep {
-        inter_segment_delay_ms: 1000,
-        ..TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0))
-    }];
+    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::marker(OffsetBase::Host, 0))
+        .with_inter_segment_delay_ms(1000)];
 
     let plan = plan_tcp(&group, payload, 7, 0, tcp_context(payload)).expect("plan capped delay");
     assert!(

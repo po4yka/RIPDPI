@@ -9,9 +9,9 @@ impl HostFakePayload {
     pub(super) fn new(configured_step: &TcpChainStep, real_host: &[u8], seed: u32) -> Self {
         let fake_host = build_hostfake_bytes(
             real_host,
-            configured_step.fake_host_template.as_deref(),
+            configured_step.fake_host_template(),
             seed,
-            configured_step.random_fake_host,
+            configured_step.random_fake_host(),
         );
         Self { fake_host }
     }

@@ -29,17 +29,18 @@ pub(crate) fn execute(
     let opts = FakeStepOptions::new(ctx, configured_step);
 
     let bytes_committed = if opts.custom_order {
+        let ordering = configured_step.fake_ordering();
         let fake_refs: Vec<&[u8]> =
             std::iter::once(fake_chunk.as_slice()).chain(secondary_fake_chunk.iter().map(Vec::as_slice)).collect();
         let emissions = build_plain_fake_emissions(
-            configured_step.fake_order,
+            ordering.order,
             chunk,
             &fake_refs,
             opts.fake_ttl,
             opts.fake_flags,
             opts.original_flags,
         );
-        let ordered_segments = ordered_segments_from_emissions(&emissions, configured_step.fake_seq_mode);
+        let ordered_segments = ordered_segments_from_emissions(&emissions, ordering.seq_mode);
         send_ordered_fake_segments_action_named(
             ctx.writer,
             &ordered_segments,

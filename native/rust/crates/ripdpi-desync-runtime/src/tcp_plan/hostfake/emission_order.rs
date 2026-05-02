@@ -4,8 +4,8 @@ use crate::emissions::{build_ordered_fake_split_emissions, FakeEmission, FakeEmi
 use crate::platform;
 
 pub(super) fn needs_custom_ordering(configured_step: &TcpChainStep, midhost: Option<usize>) -> bool {
-    configured_step.fake_seq_mode != FakeSeqMode::Duplicate
-        || (midhost.is_some() && configured_step.fake_order != FakeOrder::BeforeEach)
+    let ordering = configured_step.fake_ordering();
+    ordering.seq_mode != FakeSeqMode::Duplicate || (midhost.is_some() && ordering.order != FakeOrder::BeforeEach)
 }
 
 pub(super) fn build_custom_ordered_segments<'a>(

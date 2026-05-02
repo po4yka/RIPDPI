@@ -58,8 +58,9 @@ pub(crate) fn execute(
         ctx.fake_packets.secondary.as_ref().map(|secondary| build_fake_region_bytes(secondary, end, second.len()));
 
     let bytes_committed = if opts.custom_order {
+        let ordering = configured_step.fake_ordering();
         let emissions = build_ordered_fake_split_emissions(
-            configured_step.fake_order,
+            ordering.order,
             chunk,
             &first_fake,
             second,
@@ -69,7 +70,7 @@ pub(crate) fn execute(
             opts.fake_flags,
             opts.original_flags,
         );
-        let ordered_segments = ordered_segments_from_emissions(&emissions, configured_step.fake_seq_mode);
+        let ordered_segments = ordered_segments_from_emissions(&emissions, ordering.seq_mode);
         send_ordered_fake_segments_action_named(
             ctx.writer,
             &ordered_segments,

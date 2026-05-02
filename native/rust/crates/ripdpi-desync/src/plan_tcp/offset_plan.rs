@@ -4,7 +4,7 @@ use ripdpi_config::TcpChainStep;
 use ripdpi_packets::OracleRng;
 
 fn allows_missing_marker_offset(step: &TcpChainStep) -> bool {
-    matches!(step.offset.base, ripdpi_config::OffsetBase::EchExt)
+    matches!(step.offset().base, ripdpi_config::OffsetBase::EchExt)
 }
 
 pub(super) fn resolve_send_step_offset(
@@ -16,7 +16,7 @@ pub(super) fn resolve_send_step_offset(
     context: ActivationContext,
 ) -> Result<Option<i64>, DesyncError> {
     let Some(mut pos) = resolve_offset(
-        step.offset,
+        step.offset(),
         tampered,
         tampered.len(),
         lp,
@@ -25,7 +25,7 @@ pub(super) fn resolve_send_step_offset(
         context,
         context.adaptive.split_offset_base,
     ) else {
-        if step.offset.base.is_adaptive() || allows_missing_marker_offset(step) {
+        if step.offset().base.is_adaptive() || allows_missing_marker_offset(step) {
             return Ok(None);
         }
         return Err(DesyncError);

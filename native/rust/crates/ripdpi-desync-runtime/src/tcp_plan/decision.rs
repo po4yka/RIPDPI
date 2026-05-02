@@ -16,7 +16,7 @@ pub(crate) fn requires_special_tcp_execution(
     supports_fake_retransmit: bool,
 ) -> bool {
     group.effective_tcp_chain().iter().any(|step| {
-        matches!(step.kind, TcpChainStepKind::MultiDisorder | TcpChainStepKind::Fake | TcpChainStepKind::IpFrag2)
+        matches!(step.kind(), TcpChainStepKind::MultiDisorder | TcpChainStepKind::Fake | TcpChainStepKind::IpFrag2)
             || tcp_step_has_flag_overrides(step)
     }) || plan.steps.iter().any(|step| {
         matches!(step.kind, TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
@@ -67,10 +67,10 @@ pub(crate) fn handle_tcp_plan_step_control(
             ) =>
         {
             *cursor = next_cursor;
-            if configured_step.inter_segment_delay_ms > 0 && index + 1 < total_steps {
+            if configured_step.inter_segment_delay_ms() > 0 && index + 1 < total_steps {
                 // std-thread-safe: each connection runs on its own dedicated OS thread
                 // (mio + std::thread, no tokio worker pool). Blocking here is correct.
-                std::thread::sleep(Duration::from_millis(u64::from(configured_step.inter_segment_delay_ms.min(500))));
+                std::thread::sleep(Duration::from_millis(u64::from(configured_step.inter_segment_delay_ms().min(500))));
             }
             TcpPlanLoopControl::Continue
         }

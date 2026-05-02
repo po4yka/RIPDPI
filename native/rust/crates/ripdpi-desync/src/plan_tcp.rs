@@ -44,22 +44,22 @@ pub fn plan_tcp(
     let mut lp = 0i64;
     let fake_ttl = context.resolved_fake_ttl.or(group.actions.ttl).unwrap_or(8);
 
-    if send_steps.iter().any(|step| step.kind == TcpChainStepKind::MultiDisorder) {
+    if send_steps.iter().any(|step| step.kind() == TcpChainStepKind::MultiDisorder) {
         let steps = plan_multi_disorder_steps(&send_steps, &tampered.bytes, &mut info, &mut rng, context)?;
         return Ok(DesyncPlan { tampered: tampered.bytes, steps, proto: info, actions });
     }
 
     for step in send_steps {
-        if !activation_filter_matches(step.activation_filter, context) {
+        if !activation_filter_matches(step.activation_filter(), context) {
             continue;
         }
         let Some(pos) = resolve_send_step_offset(&step, &tampered.bytes, lp, &mut info, &mut rng, context)? else {
             continue;
         };
         let chunk = tampered.bytes[lp as usize..pos as usize].to_vec();
-        let mut planned_kind = step.kind;
+        let mut planned_kind = step.kind();
 
-        match step.kind {
+        match step.kind() {
             TcpChainStepKind::IpFrag2 => {
                 push_ipfrag2_or_fallback(&mut actions, &step, &tampered.bytes, lp, pos, context.round);
                 steps.push(PlannedStep { kind: planned_kind, start: lp, end: pos });
@@ -74,9 +74,10 @@ pub fn plan_tcp(
                     planned_kind = TcpChainStepKind::Split;
                     push_split_actions(&mut actions, chunk);
                 } else {
-                    let overlap = step.overlap_size.max(1) as usize;
+                    let payload = step.seq_overlap_payload().ok_or(DesyncError)?;
+                    let overlap = payload.overlap_size.max(1) as usize;
                     let fake_prefix =
-                        build_seqovl_fake_prefix(group, &tampered.bytes, seed, overlap, step.seqovl_fake_mode)?;
+                        build_seqovl_fake_prefix(group, &tampered.bytes, seed, overlap, payload.fake_mode)?;
                     let split = (pos - lp) as usize;
                     let real_chunk = chunk[..split].to_vec();
                     let remainder = tampered.bytes[pos as usize..].to_vec();
@@ -142,8 +143,8 @@ pub fn plan_tcp(
         if matches!(planned_kind, TcpChainStepKind::Oob) {
             actions.push(DesyncAction::AwaitWritable);
         }
-        if step.inter_segment_delay_ms > 0 && !matches!(planned_kind, TcpChainStepKind::MultiDisorder) {
-            actions.push(DesyncAction::Delay(step.inter_segment_delay_ms.min(500) as u16));
+        if step.inter_segment_delay_ms() > 0 && !matches!(planned_kind, TcpChainStepKind::MultiDisorder) {
+            actions.push(DesyncAction::Delay(step.inter_segment_delay_ms().min(500) as u16));
         }
         lp = pos;
     }

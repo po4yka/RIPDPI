@@ -35,7 +35,7 @@ fn validate_ip_fragmentation_support(config: &RuntimeConfig) -> io::Result<()> {
         .groups
         .iter()
         .flat_map(ripdpi_config::DesyncGroup::effective_tcp_chain)
-        .any(|step| matches!(step.kind, TcpChainStepKind::IpFrag2 | TcpChainStepKind::MultiDisorder))
+        .any(|step| matches!(step.kind(), TcpChainStepKind::IpFrag2 | TcpChainStepKind::MultiDisorder))
         || config
             .groups
             .iter()
@@ -58,7 +58,7 @@ fn validate_ip_fragmentation_capabilities(
         .groups
         .iter()
         .flat_map(ripdpi_config::DesyncGroup::effective_tcp_chain)
-        .any(|step| matches!(step.kind, TcpChainStepKind::IpFrag2 | TcpChainStepKind::MultiDisorder));
+        .any(|step| matches!(step.kind(), TcpChainStepKind::IpFrag2 | TcpChainStepKind::MultiDisorder));
     let requires_udp_ipfrag = config
         .groups
         .iter()

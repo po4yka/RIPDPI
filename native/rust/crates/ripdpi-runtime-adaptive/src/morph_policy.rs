@@ -111,9 +111,9 @@ impl TcpMorphMutations {
         }
         if !self.cadence.is_empty() {
             for (index, step) in
-                morphed.actions.tcp_chain.iter_mut().filter(|step| step_supports_cadence(step.kind)).enumerate()
+                morphed.actions.tcp_chain.iter_mut().filter(|step| step_supports_cadence(step.kind())).enumerate()
             {
-                step.inter_segment_delay_ms = self.cadence[index % self.cadence.len()];
+                step.set_inter_segment_delay_ms(self.cadence[index % self.cadence.len()]);
             }
         }
         morphed

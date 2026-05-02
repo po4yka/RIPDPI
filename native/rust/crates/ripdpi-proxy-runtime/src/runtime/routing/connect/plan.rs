@@ -90,7 +90,7 @@ fn connect_target_via_group_with_tfo(
 }
 
 fn group_has_syn_data(group: &DesyncGroup) -> bool {
-    group.actions.tcp_chain.iter().any(|step| step.kind == TcpChainStepKind::SynData)
+    group.actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SynData)
 }
 
 pub(in crate::runtime::routing) fn group_requests_direct_syn_data_tfo(

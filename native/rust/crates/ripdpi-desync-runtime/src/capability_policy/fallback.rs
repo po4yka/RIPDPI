@@ -29,9 +29,9 @@ pub(crate) fn apply_tcp_capability_fallback<'a>(
     let mut adjusted = group.clone();
     let mut changed = false;
     if let Some(fallback_kind) = tcp_fallback_kind_for_strategy(strategy_family) {
-        if let Some(step) = adjusted.actions.tcp_chain.iter_mut().find(|step| !step.kind.is_tls_prelude()) {
-            if step.kind != fallback_kind {
-                step.kind = fallback_kind;
+        if let Some(step) = adjusted.actions.tcp_chain.iter_mut().find(|step| !step.kind().is_tls_prelude()) {
+            if step.kind() != fallback_kind {
+                step.set_kind(fallback_kind);
                 changed = true;
             }
         }

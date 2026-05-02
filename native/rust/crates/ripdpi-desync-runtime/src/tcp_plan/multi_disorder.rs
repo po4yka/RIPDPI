@@ -53,7 +53,7 @@ pub(crate) fn prepare_multi_disorder_tcp_plan(
     plan: &DesyncPlan,
     strategy_family: Option<&'static str>,
 ) -> Result<PreparedMultiDisorderTcpPlan, OutboundSendError> {
-    if send_steps.len() < 2 || send_steps.iter().any(|step| step.kind != TcpChainStepKind::MultiDisorder) {
+    if send_steps.len() < 2 || send_steps.iter().any(|step| step.kind() != TcpChainStepKind::MultiDisorder) {
         return Err(OutboundSendError::Transport(io::Error::new(
             io::ErrorKind::InvalidData,
             "invalid multidisorder tcp chain configuration",
@@ -93,7 +93,7 @@ pub(crate) fn prepare_multi_disorder_tcp_plan(
 
     let strategy_family = strategy_family.unwrap_or("multidisorder");
     let fallback = strategy_fallback_family(strategy_family);
-    let inter_segment_delay_ms = send_steps.first().map_or(0, |s| s.inter_segment_delay_ms);
+    let inter_segment_delay_ms = send_steps.first().map_or(0, TcpChainStep::inter_segment_delay_ms);
     let original_flags = step_original_tcp_flags(send_steps.first().expect("multidisorder send step missing"));
     Ok(PreparedMultiDisorderTcpPlan { strategy_family, fallback, inter_segment_delay_ms, original_flags, segments })
 }

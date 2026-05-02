@@ -81,7 +81,7 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
 fn group_has_fake_steps(group: &DesyncGroup) -> bool {
     group.effective_tcp_chain().iter().any(|step| {
         matches!(
-            step.kind,
+            step.kind(),
             TcpChainStepKind::Fake
                 | TcpChainStepKind::FakeSplit
                 | TcpChainStepKind::FakeDisorder

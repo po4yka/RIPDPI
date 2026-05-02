@@ -187,9 +187,10 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
 
 fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u8) -> io::Result<()> {
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
-    let (target, first_request) = read_shadowsocks_request(&mut client, first_byte, &state.config, resolver)?;
+    let (target, first_request): (SocketAddr, Vec<u8>) =
+        read_shadowsocks_request(&mut client, first_byte, &state.config, resolver)?;
     let host = extract_host(&state.config, &first_request);
-    let payload = if first_request.is_empty() { None } else { Some(first_request.as_slice()) };
+    let payload = if first_request.is_empty() { None } else { Some(first_request.as_ref()) };
     let (upstream, route) = super::routing::connect_target(target, state, payload, false, host)?;
     super::relay::relay(
         client,

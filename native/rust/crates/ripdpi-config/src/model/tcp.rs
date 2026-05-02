@@ -184,40 +184,40 @@ pub enum IpIdMode {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TcpChainStep {
-    pub kind: TcpChainStepKind,
-    pub offset: OffsetExpr,
-    pub activation_filter: Option<ActivationFilter>,
-    pub midhost_offset: Option<OffsetExpr>,
-    pub fake_host_template: Option<String>,
-    pub fake_order: FakeOrder,
-    pub fake_seq_mode: FakeSeqMode,
-    pub tcp_flags_set: Option<u16>,
-    pub tcp_flags_unset: Option<u16>,
-    pub tcp_flags_orig_set: Option<u16>,
-    pub tcp_flags_orig_unset: Option<u16>,
-    pub overlap_size: i32,
-    pub seqovl_fake_mode: SeqOverlapFakeMode,
-    pub fragment_count: i32,
-    pub min_fragment_size: i32,
-    pub max_fragment_size: i32,
-    pub inter_segment_delay_ms: u32,
+    kind: TcpChainStepKind,
+    offset: OffsetExpr,
+    activation_filter: Option<ActivationFilter>,
+    midhost_offset: Option<OffsetExpr>,
+    fake_host_template: Option<String>,
+    fake_order: FakeOrder,
+    fake_seq_mode: FakeSeqMode,
+    tcp_flags_set: Option<u16>,
+    tcp_flags_unset: Option<u16>,
+    tcp_flags_orig_set: Option<u16>,
+    tcp_flags_orig_unset: Option<u16>,
+    overlap_size: i32,
+    seqovl_fake_mode: SeqOverlapFakeMode,
+    fragment_count: i32,
+    min_fragment_size: i32,
+    max_fragment_size: i32,
+    inter_segment_delay_ms: u32,
     /// Send IP fragments in reverse order (second before first) to evade
     /// DPI systems that expect sequential fragment delivery.
-    pub ip_frag_disorder: bool,
+    ip_frag_disorder: bool,
     /// Insert IPv6 Hop-by-Hop Options extension header (no-op for IPv4).
-    pub ipv6_hop_by_hop: bool,
+    ipv6_hop_by_hop: bool,
     /// Insert IPv6 Destination Options header in unfragmentable part.
-    pub ipv6_dest_opt: bool,
+    ipv6_dest_opt: bool,
     /// Insert IPv6 Destination Options header in fragmentable part.
-    pub ipv6_dest_opt2: bool,
+    ipv6_dest_opt2: bool,
     /// Insert IPv6 Routing extension header (type 0, segments_left=0).
-    pub ipv6_routing: bool,
+    ipv6_routing: bool,
     /// Override second fragment's next_header (IPv6 only, RFC 8200 forgery).
-    pub ipv6_frag_next_override: Option<u8>,
+    ipv6_frag_next_override: Option<u8>,
     /// When true, seed fake hostname generation from OS entropy instead of the
     /// deterministic connection seed, producing a different domain per connection
     /// that cannot be predicted or cached by DPI.
-    pub random_fake_host: bool,
+    random_fake_host: bool,
 }
 
 impl TcpChainStep {
@@ -248,6 +248,102 @@ impl TcpChainStep {
             ipv6_frag_next_override: None,
             random_fake_host: false,
         }
+    }
+
+    pub const fn kind(&self) -> TcpChainStepKind {
+        self.kind
+    }
+
+    pub fn set_kind(&mut self, kind: TcpChainStepKind) {
+        self.kind = kind;
+    }
+
+    pub const fn offset(&self) -> OffsetExpr {
+        self.offset
+    }
+
+    pub fn set_offset(&mut self, offset: OffsetExpr) {
+        self.offset = offset;
+    }
+
+    pub const fn activation_filter(&self) -> Option<ActivationFilter> {
+        self.activation_filter
+    }
+
+    pub fn with_activation_filter(mut self, activation_filter: Option<ActivationFilter>) -> Self {
+        self.activation_filter = activation_filter;
+        self
+    }
+
+    pub fn set_activation_filter(&mut self, activation_filter: Option<ActivationFilter>) {
+        self.activation_filter = activation_filter;
+    }
+
+    pub const fn midhost_offset(&self) -> Option<OffsetExpr> {
+        self.midhost_offset
+    }
+
+    pub fn with_midhost_offset(mut self, midhost_offset: Option<OffsetExpr>) -> Self {
+        self.midhost_offset = midhost_offset;
+        self
+    }
+
+    pub fn set_midhost_offset(&mut self, midhost_offset: Option<OffsetExpr>) {
+        self.midhost_offset = midhost_offset;
+    }
+
+    pub fn fake_host_template(&self) -> Option<&str> {
+        self.fake_host_template.as_deref()
+    }
+
+    pub fn with_fake_host_template(mut self, fake_host_template: Option<String>) -> Self {
+        self.fake_host_template = fake_host_template;
+        self
+    }
+
+    pub fn set_fake_host_template(&mut self, fake_host_template: Option<String>) {
+        self.fake_host_template = fake_host_template;
+    }
+
+    pub const fn random_fake_host(&self) -> bool {
+        self.random_fake_host
+    }
+
+    pub fn with_random_fake_host(mut self, random_fake_host: bool) -> Self {
+        self.random_fake_host = random_fake_host;
+        self
+    }
+
+    pub fn set_random_fake_host(&mut self, random_fake_host: bool) {
+        self.random_fake_host = random_fake_host;
+    }
+
+    pub fn set_fake_ordering(&mut self, ordering: TcpFakeOrdering) {
+        self.fake_order = ordering.order;
+        self.fake_seq_mode = ordering.seq_mode;
+    }
+
+    pub fn set_fake_flag_overrides(&mut self, flags: TcpFlagOverrides) {
+        self.tcp_flags_set = flags.set;
+        self.tcp_flags_unset = flags.unset;
+    }
+
+    pub fn set_original_flag_overrides(&mut self, flags: TcpFlagOverrides) {
+        self.tcp_flags_orig_set = flags.set;
+        self.tcp_flags_orig_unset = flags.unset;
+    }
+
+    pub const fn inter_segment_delay_ms(&self) -> u32 {
+        self.inter_segment_delay_ms
+    }
+
+    pub fn with_inter_segment_delay_ms(mut self, delay_ms: u32) -> Self {
+        self.inter_segment_delay_ms = delay_ms;
+        self
+    }
+
+    pub fn set_inter_segment_delay_ms(&mut self, delay_ms: u32) {
+        self.inter_segment_delay_ms = delay_ms;
     }
 }
 

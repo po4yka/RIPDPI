@@ -136,10 +136,10 @@ fn ui_payload_parses_hostfake_and_quic_profile() {
     assert_eq!(config.groups[0].actions.quic_fake_profile, QuicFakeProfile::RealisticInitial);
     assert_eq!(config.groups[0].actions.quic_fake_host.as_deref(), Some("example.com"));
     assert_eq!(config.groups[0].actions.tcp_chain.len(), 2);
-    assert_eq!(config.groups[0].actions.tcp_chain[0].kind, TcpChainStepKind::TlsRec);
-    assert_eq!(config.groups[0].actions.tcp_chain[0].offset.base, OffsetBase::ExtLen);
-    assert_eq!(config.groups[0].actions.tcp_chain[0].offset.proto, OffsetProto::TlsOnly);
-    assert_eq!(config.groups[0].actions.tcp_chain[1].kind, TcpChainStepKind::HostFake);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].offset().base, OffsetBase::ExtLen);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].offset().proto, OffsetProto::TlsOnly);
+    assert_eq!(config.groups[0].actions.tcp_chain[1].kind(), TcpChainStepKind::HostFake);
     assert_eq!(config.groups[0].actions.udp_chain[0].count, 3);
 }
 
@@ -190,8 +190,8 @@ fn ui_payload_preserves_explicit_tlsrec_before_hostfake() {
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
 
     assert_eq!(config.groups[0].actions.tcp_chain.len(), 2);
-    assert_eq!(config.groups[0].actions.tcp_chain[0].kind, TcpChainStepKind::TlsRec);
-    assert_eq!(config.groups[0].actions.tcp_chain[1].kind, TcpChainStepKind::HostFake);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(config.groups[0].actions.tcp_chain[1].kind(), TcpChainStepKind::HostFake);
 }
 
 #[test]
@@ -203,11 +203,12 @@ fn ui_payload_parses_seqovl_step_and_fields() {
     let tcp_chain = &config.groups[0].actions.tcp_chain;
 
     assert_eq!(tcp_chain.len(), 2);
-    assert_eq!(tcp_chain[0].kind, TcpChainStepKind::TlsRec);
-    assert_eq!(tcp_chain[1].kind, TcpChainStepKind::SeqOverlap);
-    assert_eq!(tcp_chain[1].offset, OffsetExpr::adaptive(OffsetBase::AutoMidSld));
-    assert_eq!(tcp_chain[1].overlap_size, 14);
-    assert_eq!(tcp_chain[1].seqovl_fake_mode, ripdpi_config::SeqOverlapFakeMode::Rand);
+    assert_eq!(tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(tcp_chain[1].kind(), TcpChainStepKind::SeqOverlap);
+    assert_eq!(tcp_chain[1].offset(), OffsetExpr::adaptive(OffsetBase::AutoMidSld));
+    let payload = tcp_chain[1].seq_overlap_payload().expect("seqovl payload");
+    assert_eq!(payload.overlap_size, 14);
+    assert_eq!(payload.fake_mode, ripdpi_config::SeqOverlapFakeMode::Rand);
 }
 
 #[test]
@@ -263,9 +264,9 @@ fn ui_payload_parses_multidisorder_terminal_run() {
     let tcp_chain = &config.groups[0].actions.tcp_chain;
 
     assert_eq!(tcp_chain.len(), 3);
-    assert_eq!(tcp_chain[0].kind, TcpChainStepKind::TlsRec);
-    assert_eq!(tcp_chain[1].kind, TcpChainStepKind::MultiDisorder);
-    assert_eq!(tcp_chain[2].kind, TcpChainStepKind::MultiDisorder);
+    assert_eq!(tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(tcp_chain[1].kind(), TcpChainStepKind::MultiDisorder);
+    assert_eq!(tcp_chain[2].kind(), TcpChainStepKind::MultiDisorder);
 }
 
 #[test]
@@ -304,10 +305,10 @@ fn ui_payload_parses_ipfrag_steps_and_udp_split_bytes() {
     let group = &config.groups[0];
 
     assert_eq!(group.actions.tcp_chain.len(), 2);
-    assert_eq!(group.actions.tcp_chain[0].kind, TcpChainStepKind::TlsRec);
-    assert_eq!(group.actions.tcp_chain[1].kind, TcpChainStepKind::IpFrag2);
-    assert_eq!(group.actions.tcp_chain[1].offset.base, OffsetBase::Host);
-    assert_eq!(group.actions.tcp_chain[1].offset.delta, 2);
+    assert_eq!(group.actions.tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(group.actions.tcp_chain[1].kind(), TcpChainStepKind::IpFrag2);
+    assert_eq!(group.actions.tcp_chain[1].offset().base, OffsetBase::Host);
+    assert_eq!(group.actions.tcp_chain[1].offset().delta, 2);
     assert_eq!(group.actions.udp_chain.len(), 1);
     assert_eq!(group.actions.udp_chain[0].kind, UdpChainStepKind::IpFrag2Udp);
     assert_eq!(group.actions.udp_chain[0].count, 0);
@@ -361,10 +362,10 @@ fn ui_payload_parses_tcp_rotation_policy_defaults() {
     assert_eq!(rotation.rst, 1);
     assert_eq!(rotation.time_secs, 60);
     assert_eq!(rotation.candidates.len(), 2);
-    assert_eq!(rotation.candidates[0].tcp_chain[0].kind, TcpChainStepKind::TlsRec);
-    assert_eq!(rotation.candidates[0].tcp_chain[1].kind, TcpChainStepKind::HostFake);
-    assert_eq!(rotation.candidates[0].tcp_chain[2].kind, TcpChainStepKind::Split);
-    assert_eq!(rotation.candidates[1].tcp_chain[0].kind, TcpChainStepKind::Split);
+    assert_eq!(rotation.candidates[0].tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(rotation.candidates[0].tcp_chain[1].kind(), TcpChainStepKind::HostFake);
+    assert_eq!(rotation.candidates[0].tcp_chain[2].kind(), TcpChainStepKind::Split);
+    assert_eq!(rotation.candidates[1].tcp_chain[0].kind(), TcpChainStepKind::Split);
 }
 
 #[test]
@@ -407,7 +408,7 @@ fn ui_payload_treats_fake_approx_steps_as_fake_payload_consumers() {
 
         let expected_mode = if kind == "fakedsplit" { DesyncMode::Fake } else { DesyncMode::Disorder };
 
-        assert_eq!(group.actions.tcp_chain[0].kind.as_mode(), Some(expected_mode));
+        assert_eq!(group.actions.tcp_chain[0].kind().as_mode(), Some(expected_mode));
         assert_eq!(group.actions.fake_offset.map(|offset| offset.delta), Some(1));
         assert_ne!(group.actions.fake_mod & FM_ORIG, 0);
         assert_ne!(group.actions.fake_mod & FM_DUPSID, 0);
@@ -494,9 +495,9 @@ fn ui_payload_parses_fake_order_and_seq_mode() {
     let config = runtime_config_from_payload(ui_payload(ui)).expect("runtime config");
     let parsed = &config.groups[0].actions.tcp_chain[1];
 
-    assert_eq!(parsed.kind, TcpChainStepKind::FakeSplit);
-    assert_eq!(parsed.fake_order, FakeOrder::RealFakeRealFake);
-    assert_eq!(parsed.fake_seq_mode, FakeSeqMode::Sequential);
+    assert_eq!(parsed.kind(), TcpChainStepKind::FakeSplit);
+    assert_eq!(parsed.fake_ordering().order, FakeOrder::RealFakeRealFake);
+    assert_eq!(parsed.fake_ordering().seq_mode, FakeSeqMode::Sequential);
 }
 
 #[test]

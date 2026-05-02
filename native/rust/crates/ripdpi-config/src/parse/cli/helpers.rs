@@ -166,7 +166,7 @@ pub(super) fn add_group(groups: &mut Vec<DesyncGroup>) -> Result<&mut DesyncGrou
 }
 
 pub(super) fn seqovl_step_mut(group: &mut DesyncGroup) -> Option<&mut TcpChainStep> {
-    group.actions.tcp_chain.iter_mut().rev().find(|step| step.kind == TcpChainStepKind::SeqOverlap)
+    group.actions.tcp_chain.iter_mut().rev().find(|step| step.kind() == TcpChainStepKind::SeqOverlap)
 }
 
 pub(super) fn parse_ttl_byte(arg: &str, value: &str) -> Result<u8, ConfigError> {

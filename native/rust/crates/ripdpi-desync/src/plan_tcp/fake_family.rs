@@ -52,7 +52,7 @@ pub(super) fn push_hostfake_actions(actions: &mut Vec<DesyncAction>, plan: Hostf
 
     let real_host = &plan.tampered[span.host_start..span.host_end];
     let fake_host =
-        build_hostfake_bytes(real_host, plan.step.fake_host_template.as_deref(), plan.seed, plan.step.random_fake_host);
+        build_hostfake_bytes(real_host, plan.step.fake_host_template(), plan.seed, plan.step.random_fake_host());
     push_fake_actions(actions, real_host, fake_host.clone(), plan.group, plan.default_ttl, plan.fake_ttl);
 
     if let Some(midhost) = span.midhost {
@@ -68,5 +68,5 @@ pub(super) fn push_hostfake_actions(actions: &mut Vec<DesyncAction>, plan: Hostf
         push_split_actions(actions, plan.tampered[span.host_end..plan.step_end as usize].to_vec());
     }
 
-    plan.step.kind
+    plan.step.kind()
 }

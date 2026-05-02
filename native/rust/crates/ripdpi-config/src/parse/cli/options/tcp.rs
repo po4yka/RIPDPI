@@ -1,6 +1,9 @@
 use ripdpi_packets::{MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL};
 
-use crate::{ConfigError, DesyncMode, EntropyMode, SeqOverlapFakeMode, TcpChainStep, TcpChainStepKind};
+use crate::{
+    ConfigError, DesyncMode, EntropyMode, SeqOverlapFakeMode, TcpChainStep, TcpChainStepKind, TcpFlagOverrides,
+    TcpSeqOverlapPayload,
+};
 
 use super::super::helpers::{next_value, parse_ttl_byte, parse_wsize, seqovl_step_mut};
 use super::super::state::CliState;
@@ -55,15 +58,14 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
             let value = next_value(args, idx, arg)?;
             let offset = parse_offset_expr(value)?;
             if arg == "--seqovl" {
-                if state.group().actions.tcp_chain.iter().any(|step| step.kind == TcpChainStepKind::SeqOverlap) {
+                if state.group().actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SeqOverlap) {
                     return Err(ConfigError::invalid(arg, Some("seqovl already declared for this group")));
                 }
-                if state.group().actions.tcp_chain.iter().any(|step| !step.kind.is_tls_prelude()) {
+                if state.group().actions.tcp_chain.iter().any(|step| !step.kind().is_tls_prelude()) {
                     return Err(ConfigError::invalid(arg, Some("seqovl must be the first tcp send step")));
                 }
-                let mut step = TcpChainStep::new(TcpChainStepKind::SeqOverlap, offset);
-                step.overlap_size = 12;
-                step.seqovl_fake_mode = SeqOverlapFakeMode::Profile;
+                let step = TcpChainStep::new(TcpChainStepKind::SeqOverlap, offset)
+                    .with_seq_overlap_payload(TcpSeqOverlapPayload::profile(12));
                 state.group().actions.tcp_chain.push(step);
             } else {
                 let mode = match arg {
@@ -84,19 +86,30 @@ pub(super) fn handle(arg: &str, args: &[String], idx: &mut usize, state: &mut Cl
             if !(1..=32).contains(&overlap) {
                 return Err(ConfigError::invalid(arg, Some(value)));
             }
-            seqovl_step_mut(state.group())
-                .ok_or_else(|| ConfigError::invalid(arg, Some("missing --seqovl")))?
-                .overlap_size = overlap;
+            let step =
+                seqovl_step_mut(state.group()).ok_or_else(|| ConfigError::invalid(arg, Some("missing --seqovl")))?;
+            let fake_mode = step.seq_overlap_payload().map_or(SeqOverlapFakeMode::Profile, |payload| payload.fake_mode);
+            step.apply_seq_overlap_payload(TcpSeqOverlapPayload {
+                overlap_size: overlap,
+                fake_mode,
+                fake_flags: TcpFlagOverrides::disabled(),
+            });
         }
         "--seqovl-fake-mode" => {
             let value = next_value(args, idx, arg)?;
-            seqovl_step_mut(state.group())
-                .ok_or_else(|| ConfigError::invalid(arg, Some("missing --seqovl")))?
-                .seqovl_fake_mode = match value.trim().to_ascii_lowercase().as_str() {
+            let fake_mode = match value.trim().to_ascii_lowercase().as_str() {
                 "profile" => SeqOverlapFakeMode::Profile,
                 "rand" => SeqOverlapFakeMode::Rand,
                 _ => return Err(ConfigError::invalid(arg, Some(value))),
             };
+            let step =
+                seqovl_step_mut(state.group()).ok_or_else(|| ConfigError::invalid(arg, Some("missing --seqovl")))?;
+            let overlap_size = step.seq_overlap_payload().map_or(12, |payload| payload.overlap_size);
+            step.apply_seq_overlap_payload(TcpSeqOverlapPayload {
+                overlap_size,
+                fake_mode,
+                fake_flags: TcpFlagOverrides::disabled(),
+            });
         }
         "-t" | "--ttl" => {
             state.group().actions.ttl = Some(parse_ttl_byte(arg, next_value(args, idx, arg)?)?);

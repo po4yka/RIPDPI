@@ -8,6 +8,8 @@ use http::{Method, Request};
 use http_body_util::{BodyExt, Full};
 use hyper::client::conn::http1;
 use hyper_util::rt::TokioIo;
+use jni::objects::JString;
+use jni::{EnvUnowned, Outcome};
 use ripdpi_tls_profiles::configure_builder;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -43,7 +45,26 @@ pub struct NativeWarpProvisioningHttpResponse {
     pub error: Option<String>,
 }
 
-pub fn execute(request_json: &str) -> io::Result<String> {
+pub(crate) fn execute_from_jni(mut env: EnvUnowned<'_>, request_json: JString<'_>) -> jni::sys::jstring {
+    match env
+        .with_env(move |env| -> jni::errors::Result<jni::sys::jstring> {
+            let request_json: String = request_json.mutf8_chars(env)?.to_str().into_owned();
+            let payload = execute(&request_json).unwrap_or_else(|error| {
+                serde_json::json!({
+                    "error": error.to_string(),
+                })
+                .to_string()
+            });
+            Ok(env.new_string(payload)?.into_raw())
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(value) => value,
+        _ => std::ptr::null_mut(),
+    }
+}
+
+fn execute(request_json: &str) -> io::Result<String> {
     let request: NativeWarpProvisioningHttpRequest =
         serde_json::from_str(request_json).map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(io::Error::other)?;

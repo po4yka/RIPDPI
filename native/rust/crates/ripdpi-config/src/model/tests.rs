@@ -468,14 +468,13 @@ fn tcp_chain_step_kind_is_tls_prelude() {
 #[test]
 fn tcp_chain_step_new_defaults() {
     let step = TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(5));
-    assert_eq!(step.kind, TcpChainStepKind::Fake);
-    assert_eq!(step.offset, OffsetExpr::absolute(5));
-    assert_eq!(step.activation_filter, None);
-    assert_eq!(step.midhost_offset, None);
-    assert_eq!(step.fake_host_template, None);
-    assert_eq!(step.fragment_count, 0);
-    assert_eq!(step.min_fragment_size, 0);
-    assert_eq!(step.max_fragment_size, 0);
+    assert_eq!(step.kind(), TcpChainStepKind::Fake);
+    assert_eq!(step.offset(), OffsetExpr::absolute(5));
+    assert_eq!(step.activation_filter(), None);
+    assert_eq!(step.midhost_offset(), None);
+    assert_eq!(step.fake_host_template(), None);
+    assert_eq!(step.tls_randrec_payload(), None);
+    assert_eq!(step.ip_frag_payload(), None);
 }
 
 // --- OffsetExpr ---

@@ -112,8 +112,8 @@ mod tests {
         assert_eq!(morphed.actions.entropy_mode, EntropyMode::Popcount);
         assert_eq!(morphed.actions.entropy_padding_target_permil, Some(3400));
         assert_eq!(morphed.actions.entropy_padding_max, 64);
-        assert_eq!(morphed.actions.tcp_chain[0].inter_segment_delay_ms, 0);
-        assert_eq!(morphed.actions.tcp_chain[1].inter_segment_delay_ms, 8);
+        assert_eq!(morphed.actions.tcp_chain[0].inter_segment_delay_ms(), 0);
+        assert_eq!(morphed.actions.tcp_chain[1].inter_segment_delay_ms(), 8);
     }
 
     #[test]

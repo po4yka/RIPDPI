@@ -32,8 +32,8 @@ impl FakeStepOptions {
                 ctx.config.timeouts.wait_send,
                 Duration::from_millis(ctx.config.timeouts.await_interval.max(1) as u64),
             ),
-            custom_order: configured_step.fake_order != FakeOrder::BeforeEach
-                || configured_step.fake_seq_mode != FakeSeqMode::Duplicate,
+            custom_order: configured_step.fake_ordering().order != FakeOrder::BeforeEach
+                || configured_step.fake_ordering().seq_mode != FakeSeqMode::Duplicate,
         }
     }
 

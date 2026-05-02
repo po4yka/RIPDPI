@@ -2,7 +2,9 @@ use super::*;
 use std::borrow::Cow;
 use std::io;
 
-use ripdpi_config::{EntropyMode, FakeOrder, FakeSeqMode, NumericRange, OffsetBase, OffsetExpr, TcpChainStep};
+use ripdpi_config::{
+    EntropyMode, FakeOrder, FakeSeqMode, NumericRange, OffsetBase, OffsetExpr, TcpChainStep, TcpFlagOverrides,
+};
 use ripdpi_desync::{
     ActivationTcpState, ActivationTransport, AdaptivePlannerHints, DesyncAction, DesyncPlan, PlannedStep, ProtoInfo,
 };
@@ -253,7 +255,7 @@ fn tcp_capability_fallback_rewrites_seqovl_to_tlsrec_split_and_disables_fake_tim
         strategy_fallback_family(primary_tcp_strategy_family(&group).expect("strategy family")),
         Some("tlsrec_split")
     );
-    assert_eq!(adjusted.actions.tcp_chain[1].kind, TcpChainStepKind::Split);
+    assert_eq!(adjusted.actions.tcp_chain[1].kind(), TcpChainStepKind::Split);
     assert!(!adjusted.actions.fake_tcp_timestamp_enabled);
 }
 
@@ -309,8 +311,8 @@ fn tcp_capability_policy_injects_seg_mid_sni_family_for_first_client_hello() {
 
     assert_eq!(strategy_family, Some("seg_mid_sni"));
     assert_eq!(adjusted.actions.tcp_chain.len(), 1);
-    assert_eq!(adjusted.actions.tcp_chain[0].kind, TcpChainStepKind::Split);
-    assert_eq!(adjusted.actions.tcp_chain[0].offset.base, OffsetBase::MidSld);
+    assert_eq!(adjusted.actions.tcp_chain[0].kind(), TcpChainStepKind::Split);
+    assert_eq!(adjusted.actions.tcp_chain[0].offset().base, OffsetBase::MidSld);
     assert_eq!(adjusted.actions.mod_http, 0);
     assert!(!adjusted.actions.fake_tcp_timestamp_enabled);
 }
@@ -336,8 +338,8 @@ fn tcp_capability_policy_injects_seg_post_sni_family_for_first_client_hello() {
 
     assert_eq!(strategy_family, Some("seg_post_sni"));
     assert_eq!(adjusted.actions.tcp_chain.len(), 1);
-    assert_eq!(adjusted.actions.tcp_chain[0].kind, TcpChainStepKind::Split);
-    assert_eq!(adjusted.actions.tcp_chain[0].offset.base, OffsetBase::EndHost);
+    assert_eq!(adjusted.actions.tcp_chain[0].kind(), TcpChainStepKind::Split);
+    assert_eq!(adjusted.actions.tcp_chain[0].offset().base, OffsetBase::EndHost);
 }
 
 #[test]
@@ -361,8 +363,8 @@ fn tcp_capability_policy_injects_rec_pre_sni_family_for_first_client_hello() {
 
     assert_eq!(strategy_family, Some("rec_pre_sni"));
     assert_eq!(adjusted.actions.tcp_chain.len(), 1);
-    assert_eq!(adjusted.actions.tcp_chain[0].kind, TcpChainStepKind::TlsRec);
-    assert_eq!(adjusted.actions.tcp_chain[0].offset.base, OffsetBase::SniExt);
+    assert_eq!(adjusted.actions.tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(adjusted.actions.tcp_chain[0].offset().base, OffsetBase::SniExt);
 }
 
 #[test]
@@ -386,11 +388,13 @@ fn tcp_capability_policy_injects_two_phase_send_family_for_first_client_hello() 
     let step = &adjusted.actions.tcp_chain[0];
 
     assert_eq!(strategy_family, Some("two_phase_send"));
-    assert_eq!(step.kind, TcpChainStepKind::Split);
-    assert_eq!(step.offset.base, OffsetBase::Abs);
-    assert!(step.offset.delta >= TWO_PHASE_FIRST_WRITE_MIN as i64);
-    assert!(step.offset.delta < payload.len() as i64);
-    assert!((u32::from(TWO_PHASE_GAP_MS_MIN)..=u32::from(TWO_PHASE_GAP_MS_MAX)).contains(&step.inter_segment_delay_ms));
+    assert_eq!(step.kind(), TcpChainStepKind::Split);
+    assert_eq!(step.offset().base, OffsetBase::Abs);
+    assert!(step.offset().delta >= TWO_PHASE_FIRST_WRITE_MIN as i64);
+    assert!(step.offset().delta < payload.len() as i64);
+    assert!(
+        (u32::from(TWO_PHASE_GAP_MS_MIN)..=u32::from(TWO_PHASE_GAP_MS_MAX)).contains(&step.inter_segment_delay_ms())
+    );
 }
 
 #[test]
@@ -482,7 +486,7 @@ fn tcp_capability_policy_skips_non_first_or_non_transparent_tls_arm_requests() {
         },
     );
     let explicit_group = explicit_group.into_owned();
-    assert_eq!(explicit_group.actions.tcp_chain[0].kind, TcpChainStepKind::Split);
+    assert_eq!(explicit_group.actions.tcp_chain[0].kind(), TcpChainStepKind::Split);
     assert_eq!(strategy_family, None);
 }
 
@@ -543,8 +547,8 @@ fn execute_multidisorder_tcp_plan_rejects_partial_payload_coverage() {
 #[test]
 fn prepare_multidisorder_tcp_plan_accepts_contiguous_full_payload() {
     let mut chain = multidisorder_chain();
-    chain[0].inter_segment_delay_ms = 17;
-    chain[0].tcp_flags_orig_set = Some(0x12);
+    chain[0].set_inter_segment_delay_ms(17);
+    chain[0].set_original_flag_overrides(TcpFlagOverrides { set: Some(0x12), unset: None });
 
     let prepared = prepare_multi_disorder_tcp_plan(
         &chain,
@@ -1620,7 +1624,7 @@ fn plan_ipfrag2_fallback_with_original_flags_fails_closed() {
     let (mut client, mut server) = connected_pair();
     let unavailable = default_ttl_unavailable();
     let mut step = TcpChainStep::new(TcpChainStepKind::IpFrag2, test_offset());
-    step.tcp_flags_orig_set = Some(0x12);
+    step.set_original_flag_overrides(TcpFlagOverrides { set: Some(0x12), unset: None });
     let mut group = test_group();
     group.actions.tcp_chain.push(step);
 
@@ -1722,7 +1726,7 @@ fn plan_hostfake_without_resolved_span_with_original_flags_fails_closed() {
     let payload = b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
     let markers = http_marker_info(payload).expect("http markers");
     let mut step = TcpChainStep::new(TcpChainStepKind::HostFake, test_offset());
-    step.tcp_flags_orig_set = Some(0x12);
+    step.set_original_flag_overrides(TcpFlagOverrides { set: Some(0x12), unset: None });
     let mut group = test_group();
     group.actions.tcp_chain.push(step);
 
@@ -1756,7 +1760,7 @@ fn plan_fakesplit_terminal_step_with_original_flags_fails_closed() {
     let (mut client, mut server) = connected_pair();
     let unavailable = default_ttl_unavailable();
     let mut step = TcpChainStep::new(TcpChainStepKind::FakeSplit, test_offset());
-    step.tcp_flags_orig_set = Some(0x12);
+    step.set_original_flag_overrides(TcpFlagOverrides { set: Some(0x12), unset: None });
     let mut group = test_group();
     group.actions.tcp_chain.push(step);
 
@@ -1790,7 +1794,7 @@ fn plan_fakeddisorder_terminal_step_with_original_flags_fails_closed() {
     let (mut client, mut server) = connected_pair();
     let unavailable = default_ttl_unavailable();
     let mut step = TcpChainStep::new(TcpChainStepKind::FakeDisorder, test_offset());
-    step.tcp_flags_orig_set = Some(0x12);
+    step.set_original_flag_overrides(TcpFlagOverrides { set: Some(0x12), unset: None });
     let mut group = test_group();
     group.actions.tcp_chain.push(step);
 

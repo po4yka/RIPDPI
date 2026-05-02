@@ -119,8 +119,8 @@ fn parse_cli_accepts_ech_split_marker() {
     };
 
     assert_eq!(config.groups[0].actions.tcp_chain.len(), 1);
-    assert_eq!(config.groups[0].actions.tcp_chain[0].kind, TcpChainStepKind::Split);
-    assert_eq!(config.groups[0].actions.tcp_chain[0].offset, OffsetExpr::marker(OffsetBase::EchExt, 0));
+    assert_eq!(config.groups[0].actions.tcp_chain[0].kind(), TcpChainStepKind::Split);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].offset(), OffsetExpr::marker(OffsetBase::EchExt, 0));
 }
 
 #[test]
@@ -142,11 +142,12 @@ fn parse_cli_parses_seqovl_step_and_fields() {
     let tcp_chain = &config.groups[0].actions.tcp_chain;
 
     assert_eq!(tcp_chain.len(), 2);
-    assert_eq!(tcp_chain[0].kind, TcpChainStepKind::TlsRec);
-    assert_eq!(tcp_chain[1].kind, TcpChainStepKind::SeqOverlap);
-    assert_eq!(tcp_chain[1].offset, OffsetExpr::adaptive(OffsetBase::AutoMidSld));
-    assert_eq!(tcp_chain[1].overlap_size, 14);
-    assert_eq!(tcp_chain[1].seqovl_fake_mode, SeqOverlapFakeMode::Rand);
+    assert_eq!(tcp_chain[0].kind(), TcpChainStepKind::TlsRec);
+    assert_eq!(tcp_chain[1].kind(), TcpChainStepKind::SeqOverlap);
+    assert_eq!(tcp_chain[1].offset(), OffsetExpr::adaptive(OffsetBase::AutoMidSld));
+    let payload = tcp_chain[1].seq_overlap_payload().expect("seqovl payload");
+    assert_eq!(payload.overlap_size, 14);
+    assert_eq!(payload.fake_mode, SeqOverlapFakeMode::Rand);
 }
 
 #[test]
@@ -647,8 +648,8 @@ fn parse_cli_multiple_desync_modes() {
         panic!("expected runnable config");
     };
     assert_eq!(config.groups[0].actions.tcp_chain.len(), 2);
-    assert_eq!(config.groups[0].actions.tcp_chain[0].kind, TcpChainStepKind::Split);
-    assert_eq!(config.groups[0].actions.tcp_chain[1].kind, TcpChainStepKind::Fake);
+    assert_eq!(config.groups[0].actions.tcp_chain[0].kind(), TcpChainStepKind::Split);
+    assert_eq!(config.groups[0].actions.tcp_chain[1].kind(), TcpChainStepKind::Fake);
 }
 
 #[test]

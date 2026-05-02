@@ -2,12 +2,42 @@ use std::io;
 use std::net::TcpStream;
 
 use ripdpi_desync_runtime::platform::{
-    FakeTcpOptions as DesyncFakeTcpOptions, TcpFlagOverrides as DesyncTcpFlagOverrides, TcpStageWait,
+    FakeTcpOptions as DesyncFakeTcpOptions, TcpFakeSender, TcpFlagOverrides as DesyncTcpFlagOverrides, TcpStageWait,
 };
 
 use ripdpi_runtime_platform as runtime_platform;
 
 use super::conversion::to_runtime_flags;
+use super::RuntimeTcpDesyncPlatform;
+
+impl TcpFakeSender for RuntimeTcpDesyncPlatform {
+    fn send_fake_rst(
+        &self,
+        stream: &TcpStream,
+        default_ttl: u8,
+        protect_path: Option<&str>,
+        flags: DesyncTcpFlagOverrides,
+        ip_id_mode: Option<ripdpi_config::IpIdMode>,
+    ) -> io::Result<()> {
+        send_fake_rst(stream, default_ttl, protect_path, flags, ip_id_mode)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn send_fake_tcp(
+        &self,
+        stream: &TcpStream,
+        original_prefix: &[u8],
+        fake_prefix: &[u8],
+        ttl: u8,
+        md5sig: bool,
+        default_ttl: u8,
+        options: DesyncFakeTcpOptions<'_>,
+        ip_id_mode: Option<ripdpi_config::IpIdMode>,
+        wait: TcpStageWait,
+    ) -> io::Result<()> {
+        send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, options, ip_id_mode, wait)
+    }
+}
 
 pub(crate) fn send_fake_rst(
     stream: &TcpStream,

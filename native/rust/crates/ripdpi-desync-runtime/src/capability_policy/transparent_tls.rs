@@ -147,12 +147,13 @@ fn transparent_tls_family_chain(
             Ok(vec![tls_marker_step(strategy_family, variant.offset_delta)])
         }
         "two_phase_send" => {
-            let mut step = TcpChainStep::new(
+            let step = TcpChainStep::new(
                 TcpChainStepKind::Split,
                 OffsetExpr::absolute(variant.first_write_len.ok_or(TransparentTlsFamilyError::InvalidBoundary)? as i64),
-            );
-            step.inter_segment_delay_ms =
-                u32::from(variant.phase_gap_ms.ok_or(TransparentTlsFamilyError::InvalidBoundary)?);
+            )
+            .with_inter_segment_delay_ms(u32::from(
+                variant.phase_gap_ms.ok_or(TransparentTlsFamilyError::InvalidBoundary)?,
+            ));
             Ok(vec![step])
         }
         _ => Err(TransparentTlsFamilyError::UnsupportedPayload),

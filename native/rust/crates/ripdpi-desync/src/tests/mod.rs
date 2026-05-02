@@ -19,7 +19,8 @@ use crate::tls_prelude::apply_tls_prelude_steps;
 use crate::*;
 use ripdpi_config::{
     ActivationFilter, DesyncGroup, NumericRange, OffsetBase, OffsetExpr, QuicFakeProfile, TcpChainStep,
-    TcpChainStepKind, UdpChainStep, UdpChainStepKind, FM_DUPSID, FM_ORIG, FM_PADENCAP, FM_RAND, FM_RNDSNI,
+    TcpChainStepKind, TcpSeqOverlapPayload, TcpTlsRandRecPayload, UdpChainStep, UdpChainStepKind, FM_DUPSID, FM_ORIG,
+    FM_PADENCAP, FM_RAND, FM_RNDSNI,
 };
 use ripdpi_packets::{
     build_realistic_quic_initial, default_fake_quic_compat, http_marker_info, parse_http, parse_quic_initial,
@@ -48,10 +49,7 @@ pub(super) fn tcp_context(payload: &[u8]) -> ActivationContext {
 }
 
 pub(super) fn tlsrandrec_step(marker: i64, count: i32, min_size: i32, max_size: i32) -> TcpChainStep {
-    TcpChainStep {
-        fragment_count: count,
-        min_fragment_size: min_size,
-        max_fragment_size: max_size,
-        ..TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::absolute(marker))
-    }
+    TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::absolute(marker)).with_tls_randrec_payload(
+        TcpTlsRandRecPayload { fragment_count: count, min_fragment_size: min_size, max_fragment_size: max_size },
+    )
 }

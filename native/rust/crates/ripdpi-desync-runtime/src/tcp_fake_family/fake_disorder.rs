@@ -37,9 +37,9 @@ pub(crate) fn execute(
         ctx.fake_packets.secondary.as_ref().map(|secondary| build_fake_region_bytes(secondary, end, second.len()));
 
     let bytes_committed = if opts.custom_order {
-        let emissions =
-            ordered_disorder_emissions(configured_step.fake_order, chunk, &first_fake, second, &second_fake, opts);
-        let ordered_segments = ordered_segments_from_emissions(&emissions, configured_step.fake_seq_mode);
+        let ordering = configured_step.fake_ordering();
+        let emissions = ordered_disorder_emissions(ordering.order, chunk, &first_fake, second, &second_fake, opts);
+        let ordered_segments = ordered_segments_from_emissions(&emissions, ordering.seq_mode);
         send_ordered_fake_segments_action_named(
             ctx.writer,
             &ordered_segments,

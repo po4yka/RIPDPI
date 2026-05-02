@@ -1,9 +1,33 @@
 use std::io;
 use std::net::TcpStream;
 
-use ripdpi_desync_runtime::platform::TcpActivationState as DesyncTcpActivationState;
+use ripdpi_desync_runtime::platform::{TcpActivationState as DesyncTcpActivationState, TcpPlatformCapabilities};
 
 use ripdpi_runtime_platform as runtime_platform;
+
+use super::RuntimeTcpDesyncPlatform;
+
+impl TcpPlatformCapabilities for RuntimeTcpDesyncPlatform {
+    fn detect_default_ttl(&self) -> Option<u8> {
+        detect_default_ttl()
+    }
+
+    fn seqovl_supported(&self) -> bool {
+        seqovl_supported()
+    }
+
+    fn supports_fake_retransmit(&self) -> bool {
+        supports_fake_retransmit()
+    }
+
+    fn tcp_segment_hint(&self, stream: &TcpStream) -> io::Result<Option<ripdpi_desync::TcpSegmentHint>> {
+        tcp_segment_hint_result(stream)
+    }
+
+    fn tcp_activation_state(&self, stream: &TcpStream) -> io::Result<Option<DesyncTcpActivationState>> {
+        tcp_activation_state_result(stream)
+    }
+}
 
 pub(crate) fn detect_default_ttl() -> Option<u8> {
     runtime_platform::detect_default_ttl().ok()

@@ -20,7 +20,7 @@ ripdpi-diagnostics-tls = { workspace = true }
 ripdpi-diagnostics-transport = { workspace = true }
 
 [features]
-default = ["compat-facade"]
+default = []
 compat-facade = []
 hickory = [
     "ripdpi-diagnostics-candidates/hickory",

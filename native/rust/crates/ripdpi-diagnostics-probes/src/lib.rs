@@ -1,14 +1,14 @@
 //! Compatibility facade for external diagnostics-probe consumers.
 //!
 //! New in-workspace code should depend on the narrower `ripdpi-diagnostics-*` crates directly.
-//! This crate remains as an external compatibility surface and keeps the historic root exports
-//! available through the default `compat-facade` feature.
+//! This crate remains as an external compatibility surface, but the historic aggregate facade is
+//! now explicitly opt-in via the `compat-facade` feature.
 
 /// External-only compatibility namespace for callers that still need the aggregate probes API.
 ///
 /// Internal crates should import protocol-specific crates directly instead of routing through this
-/// namespace. The root-level re-exports below mirror this module for source compatibility while the
-/// default `compat-facade` feature is enabled.
+/// namespace. Enable the `compat-facade` feature to restore the old root-level aggregate exports.
+#[deprecated(note = "enable compat-facade only for legacy callers; use ripdpi-diagnostics-* crates directly")]
 pub mod compat {
     pub use ripdpi_diagnostics_runner::{connectivity, domain, strategy};
 
@@ -76,5 +76,7 @@ pub mod compat {
 }
 
 #[cfg(feature = "compat-facade")]
+#[allow(deprecated)]
+#[deprecated(note = "compat-facade restores legacy root aggregation; use explicit diagnostics crates instead")]
 #[doc(inline)]
 pub use compat::*;

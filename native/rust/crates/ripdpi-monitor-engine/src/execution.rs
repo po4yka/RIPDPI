@@ -3,7 +3,8 @@ mod runner_contract;
 mod runtime;
 mod scoring;
 
-pub(crate) use runner_contract::{DefaultStrategyLaneExecutor, StrategyLaneExecutor};
+pub(crate) use lanes::DefaultStrategyLaneExecutor;
+pub(crate) use runner_contract::StrategyLaneExecutor;
 pub use runtime::{
     CandidateProbeRuntime, CandidateRuntimeLauncher, PreparedCandidateRuntime, UnavailableCandidateRuntimeLauncher,
 };

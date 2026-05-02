@@ -90,7 +90,7 @@ pub(crate) fn execute_tcp_plan(
     let mut lowering_caps = TcpLoweringCapabilities::snapshot(config.network.default_ttl, session_ttl_unavailable);
     let md5sig = group.actions.md5sig;
     let send_steps =
-        group.effective_tcp_chain().into_iter().filter(|step| !step.kind.is_tls_prelude()).collect::<Vec<_>>();
+        group.effective_tcp_chain().into_iter().filter(|step| !step.kind().is_tls_prelude()).collect::<Vec<_>>();
     if has_multi_disorder {
         return execute_multi_disorder_tcp_plan(
             writer,
@@ -164,10 +164,10 @@ pub(crate) fn execute_tcp_plan(
             TcpPlanLoopControl::Break => break,
             TcpPlanLoopControl::AdvanceToStepEnd => {}
         }
-        if configured_step.inter_segment_delay_ms > 0 && index + 1 < plan.steps.len() {
+        if configured_step.inter_segment_delay_ms() > 0 && index + 1 < plan.steps.len() {
             // std-thread-safe: each connection runs on its own dedicated OS thread
             // (mio + std::thread, no tokio worker pool). Blocking here is correct.
-            std::thread::sleep(Duration::from_millis(u64::from(configured_step.inter_segment_delay_ms.min(500))));
+            std::thread::sleep(Duration::from_millis(u64::from(configured_step.inter_segment_delay_ms().min(500))));
         }
         cursor = end;
     }

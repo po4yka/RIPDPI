@@ -5,10 +5,10 @@ use ripdpi_packets::is_quic_initial;
 pub(super) fn split_offset_candidates(group: &DesyncGroup, tls_payload: bool) -> Vec<OffsetBase> {
     let mut candidates = Vec::new();
     for step in group.effective_tcp_chain() {
-        if step.kind.is_tls_prelude() || !step.offset.base.is_adaptive() {
+        if step.kind().is_tls_prelude() || !step.offset().base.is_adaptive() {
             continue;
         }
-        extend_unique(&mut candidates, adaptive_candidates(step.offset.base, tls_payload));
+        extend_unique(&mut candidates, adaptive_candidates(step.offset().base, tls_payload));
     }
     candidates
 }
@@ -16,18 +16,18 @@ pub(super) fn split_offset_candidates(group: &DesyncGroup, tls_payload: bool) ->
 pub(super) fn tls_record_offset_candidates(group: &DesyncGroup) -> Vec<OffsetBase> {
     let mut candidates = Vec::new();
     for step in group.effective_tcp_chain() {
-        if !matches!(step.kind, TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec)
-            || !step.offset.base.is_adaptive()
+        if !matches!(step.kind(), TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec)
+            || !step.offset().base.is_adaptive()
         {
             continue;
         }
-        extend_unique(&mut candidates, adaptive_candidates(step.offset.base, true));
+        extend_unique(&mut candidates, adaptive_candidates(step.offset().base, true));
     }
     candidates
 }
 
 pub(super) fn tlsrandrec_profile_candidates(group: &DesyncGroup) -> Vec<AdaptiveTlsRandRecProfile> {
-    if group.effective_tcp_chain().into_iter().any(|step| matches!(step.kind, TcpChainStepKind::TlsRandRec)) {
+    if group.effective_tcp_chain().into_iter().any(|step| matches!(step.kind(), TcpChainStepKind::TlsRandRec)) {
         vec![AdaptiveTlsRandRecProfile::Balanced, AdaptiveTlsRandRecProfile::Tight, AdaptiveTlsRandRecProfile::Wide]
     } else {
         Vec::new()

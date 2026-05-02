@@ -14,10 +14,10 @@ pub(super) fn plan_multi_disorder_steps(
     let mut resolved_markers = Vec::with_capacity(send_steps.len());
 
     for step in send_steps {
-        if step.kind != TcpChainStepKind::MultiDisorder {
+        if step.kind() != TcpChainStepKind::MultiDisorder {
             return Err(DesyncError);
         }
-        if !activation_filter_matches(step.activation_filter, context) {
+        if !activation_filter_matches(step.activation_filter(), context) {
             continue;
         }
         let Some(pos) = resolve_send_step_offset(step, tampered, 0, info, rng, context)? else {

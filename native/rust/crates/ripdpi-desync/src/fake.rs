@@ -27,7 +27,7 @@ pub fn resolve_hostfake_span(
         return None;
     }
 
-    let midhost = step.midhost_offset.and_then(|expr| {
+    let midhost = step.midhost_offset().and_then(|expr| {
         let mut rng = OracleRng::seeded(seed);
         let value = gen_offset(expr, buffer, buffer.len(), 0, &mut info, &mut rng)?;
         let mid = usize::try_from(value).ok()?;

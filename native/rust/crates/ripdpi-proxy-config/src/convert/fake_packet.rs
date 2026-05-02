@@ -72,12 +72,12 @@ pub(crate) fn apply_fake_packet_section(
     }
 
     let has_fake_step = group.effective_tcp_chain().iter().any(|step| {
-        matches!(step.kind, TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
+        matches!(step.kind(), TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder)
     });
     let has_oob_step = group
         .effective_tcp_chain()
         .iter()
-        .any(|step| matches!(step.kind, TcpChainStepKind::Oob | TcpChainStepKind::Disoob));
+        .any(|step| matches!(step.kind(), TcpChainStepKind::Oob | TcpChainStepKind::Disoob));
 
     if has_fake_step {
         let fake_tls_sni_mode = normalize_fake_tls_sni_mode(&fake_packets.fake_tls_sni_mode);

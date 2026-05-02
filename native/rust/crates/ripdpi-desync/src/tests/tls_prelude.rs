@@ -53,12 +53,13 @@ fn apply_tamper_tlsrandrec_is_noop_for_non_tls_payloads() {
 #[test]
 fn apply_tamper_tlsrandrec_is_noop_when_marker_cannot_be_resolved() {
     let mut group = DesyncGroup::new(0);
-    group.actions.tcp_chain = vec![TcpChainStep {
-        fragment_count: 4,
-        min_fragment_size: 16,
-        max_fragment_size: 32,
-        ..TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::marker(OffsetBase::Method, 0))
-    }];
+    group.actions.tcp_chain =
+        vec![TcpChainStep::new(TcpChainStepKind::TlsRandRec, OffsetExpr::marker(OffsetBase::Method, 0))
+            .with_tls_randrec_payload(TcpTlsRandRecPayload {
+                fragment_count: 4,
+                min_fragment_size: 16,
+                max_fragment_size: 32,
+            })];
 
     let tampered = apply_tamper(&group, DEFAULT_FAKE_TLS, 7).expect("tamper tls");
 
