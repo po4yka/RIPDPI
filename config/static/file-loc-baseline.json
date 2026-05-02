@@ -3,85 +3,25 @@
     {
       "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiContextSupport.kt",
       "kind": "kotlin",
-      "measuredLoc": 733,
-      "limit": 700
-    },
-    {
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiSectionBuilders.kt",
-      "kind": "kotlin",
-      "measuredLoc": 821,
+      "measuredLoc": 740,
       "limit": 700
     },
     {
       "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStrategySupport.kt",
       "kind": "kotlin",
-      "measuredLoc": 713,
+      "measuredLoc": 922,
       "limit": 700
-    },
-    {
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/home/HomeScreen.kt",
-      "kind": "compose",
-      "measuredLoc": 1314,
-      "limit": 1000
-    },
-    {
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsCards.kt",
-      "kind": "compose",
-      "measuredLoc": 1153,
-      "limit": 1000
-    },
-    {
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScanSection.kt",
-      "kind": "compose",
-      "measuredLoc": 1609,
-      "limit": 1000
-    },
-    {
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScreen.kt",
-      "kind": "compose",
-      "measuredLoc": 1254,
-      "limit": 1000
-    },
-    {
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/dns/DnsSettingsScreen.kt",
-      "kind": "compose",
-      "measuredLoc": 1437,
-      "limit": 1000
     },
     {
       "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsBinder.kt",
       "kind": "kotlin",
-      "measuredLoc": 775,
+      "measuredLoc": 711,
       "limit": 700
     },
     {
-      "path": "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DiagnosticsArchiveRenderer.kt",
-      "kind": "kotlin",
-      "measuredLoc": 1188,
-      "limit": 700
-    },
-    {
-      "path": "core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/Models.kt",
-      "kind": "kotlin",
-      "measuredLoc": 769,
-      "limit": 700
-    },
-    {
-      "path": "core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxyJsonCodec.kt",
-      "kind": "kotlin",
-      "measuredLoc": 708,
-      "limit": 700
-    },
-    {
-      "path": "native/rust/crates/ripdpi-runtime/src/runtime/desync.rs",
+      "path": "native/rust/crates/ripdpi-desync-runtime/src/tcp/tests.rs",
       "kind": "rust",
-      "measuredLoc": 1538,
-      "limit": 1500
-    },
-    {
-      "path": "native/rust/crates/ripdpi-runtime/src/platform/linux.rs",
-      "kind": "rust",
-      "measuredLoc": 1557,
+      "measuredLoc": 1872,
       "limit": 1500
     }
   ]

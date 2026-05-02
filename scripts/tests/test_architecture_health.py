@@ -1,0 +1,164 @@
+from __future__ import annotations
+
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "ci"))
+
+import check_architecture_health as sut
+
+
+class ArchitectureHealthTest(unittest.TestCase):
+    def test_dependency_hub_and_discouraged_edges_are_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            manifest = repo / "native/rust/crates/ripdpi-proxy-runtime/Cargo.toml"
+            self._write(
+                manifest,
+                """
+[package]
+name = "ripdpi-proxy-runtime"
+version = "0.1.0"
+
+[dependencies]
+ripdpi-runtime-adaptive = { path = "../ripdpi-runtime-adaptive" }
+ripdpi-runtime-policy = { path = "../ripdpi-runtime-policy" }
+ripdpi-runtime-strategy = { path = "../ripdpi-runtime-strategy" }
+ripdpi-dns-resolver = { path = "../ripdpi-dns-resolver" }
+ripdpi-failure-classifier = { path = "../ripdpi-failure-classifier" }
+ripdpi-ws-bootstrap = { path = "../ripdpi-ws-bootstrap" }
+ripdpi-ws-tunnel = { path = "../ripdpi-ws-tunnel" }
+ripdpi-a = { path = "../ripdpi-a" }
+ripdpi-b = { path = "../ripdpi-b" }
+ripdpi-c = { path = "../ripdpi-c" }
+ripdpi-d = { path = "../ripdpi-d" }
+ripdpi-e = { path = "../ripdpi-e" }
+ripdpi-f = { path = "../ripdpi-f" }
+ripdpi-g = { path = "../ripdpi-g" }
+ripdpi-h = { path = "../ripdpi-h" }
+ripdpi-i = { path = "../ripdpi-i" }
+ripdpi-j = { path = "../ripdpi-j" }
+""",
+            )
+
+            indicators = sut.collect_dependency_indicators(repo, None)
+
+        rules = {indicator.rule for indicator in indicators}
+        self.assertIn("dependency-hub", rules)
+        self.assertIn("discouraged-dependency-edge", rules)
+        self.assertTrue(any("ripdpi-runtime-adaptive" in indicator.id for indicator in indicators))
+
+    def test_kotlin_feature_spread_and_suppression_are_reported(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            repo = Path(temp_dir)
+            source = repo / "core/service/src/main/kotlin/com/poyka/ripdpi/services/VpnCoordinator.kt"
+            self._write(
+                source,
+                """
+@file:Suppress("LongMethod")
+
+package com.poyka.ripdpi.services
+
+class VpnCoordinator {
+    fun start() {
+        val text = "dns resolver tunnel socks warp telemetry relay diagnostics adaptive routing"
+        println(text)
+    }
+}
+"""
+                + "\n".join(f"fun filler{i}() = Unit" for i in range(310)),
+            )
+
+            indicators = sut.collect_source_indicators(
+                repo,
+                ["core/service/src/main/kotlin/com/poyka/ripdpi/services/VpnCoordinator.kt"],
+            )
+
+        rules = {indicator.rule for indicator in indicators}
+        self.assertIn("kotlin-feature-spread", rules)
+        self.assertIn("complexity-suppression", rules)
+
+    def test_baseline_exempts_current_entries_and_flags_worsening(self) -> None:
+        indicator = sut.Indicator(
+            id="example",
+            rule="oversized-source-file",
+            priority=3,
+            path="src/lib.rs",
+            message="large",
+            metric_name="codeLines",
+            metric_value=120,
+            limit=100,
+            suggestion="split",
+        )
+        baseline = {
+            "example": sut.BaselineEntry(
+                id="example",
+                rule="oversized-source-file",
+                priority=3,
+                path="src/lib.rs",
+                message="large",
+                metric_name="codeLines",
+                baseline_value=100,
+                limit=100,
+                suggestion="split",
+            )
+        }
+
+        results = sut.evaluate_indicators([indicator], baseline, enforce_stale=True)
+
+        self.assertEqual(0, results["counts"]["newIndicators"])
+        self.assertEqual(1, results["counts"]["worsenedBaselineEntries"])
+
+    def test_stale_baseline_entries_are_reported_only_for_full_scan(self) -> None:
+        baseline = {
+            "resolved": sut.BaselineEntry(
+                id="resolved",
+                rule="broad-root-facade",
+                priority=3,
+                path="src/lib.rs",
+                message="resolved",
+                metric_name="rootExports",
+                baseline_value=20,
+                limit=10,
+                suggestion="split",
+            )
+        }
+
+        full = sut.evaluate_indicators([], baseline, enforce_stale=True)
+        staged = sut.evaluate_indicators([], baseline, enforce_stale=False)
+
+        self.assertEqual(1, full["counts"]["staleBaselineEntries"])
+        self.assertEqual(0, staged["counts"]["staleBaselineEntries"])
+
+    def test_report_payload_and_markdown_include_regression_sections(self) -> None:
+        indicator = sut.Indicator(
+            id="new",
+            rule="dependency-hub",
+            priority=2,
+            path="Cargo.toml",
+            message="hub",
+            metric_name="internalDependencyCount",
+            metric_value=20,
+            limit=10,
+            suggestion="split",
+        )
+        results = sut.evaluate_indicators([indicator], {}, enforce_stale=True)
+        markdown = sut.render_markdown(results)
+        payload = sut.baseline_payload([indicator])
+
+        self.assertIn("New Indicators", markdown)
+        self.assertIn("dependency-hub", json.dumps(payload))
+        self.assertTrue(sut.should_fail(results))
+
+    @staticmethod
+    def _write(path: Path, text: str) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+
+if __name__ == "__main__":
+    unittest.main()

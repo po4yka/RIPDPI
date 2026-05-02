@@ -49,6 +49,10 @@ pre-commit:
           exit 1
         fi
 
+    architecture-delta:
+      glob: "*.{kt,rs,toml}"
+      run: python3 scripts/ci/check_architecture_health.py --staged
+
 commit-msg:
   commands:
     conventional-commit:

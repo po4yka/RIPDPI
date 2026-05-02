@@ -87,11 +87,11 @@ class RepoCollectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             repo_root = Path(temp_dir)
             self._write(
-                repo_root / "native/rust/crates/ripdpi-android/src/proxy.rs",
+                repo_root / "native/rust/crates/ripdpi-android-proxy-adapter/src/lib.rs",
                 "pub(crate) fn proxy_start_entry() {}\n",
             )
             self._write(
-                repo_root / "native/rust/crates/ripdpi-android/src/diagnostics.rs",
+                repo_root / "native/rust/crates/ripdpi-android-diagnostics-adapter/src/lib.rs",
                 "pub(crate) fn diagnostics_create_entry() {}\n",
             )
             self._write(

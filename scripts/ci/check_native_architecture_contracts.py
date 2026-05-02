@@ -12,8 +12,8 @@ from check_native_hotspot_budgets import production_source
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ADAPTER_FILES = (
-    Path("native/rust/crates/ripdpi-android/src/proxy.rs"),
-    Path("native/rust/crates/ripdpi-android/src/diagnostics.rs"),
+    Path("native/rust/crates/ripdpi-android-proxy-adapter/src/lib.rs"),
+    Path("native/rust/crates/ripdpi-android-diagnostics-adapter/src/lib.rs"),
     Path("native/rust/crates/ripdpi-tunnel-android/src/session.rs"),
 )
 CONFIG_ROOT = Path("native/rust/crates/ripdpi-config/src")

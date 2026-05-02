@@ -96,6 +96,40 @@ jobs:
       - name: Run DESIGN.md verifier unit tests
         run: python3 -m unittest scripts.tests.test_verify_design_md
 
+  architecture-health:
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run architecture health unit tests
+        run: python3 -m unittest scripts.tests.test_architecture_health
+
+      - name: Run architecture health gate
+        run: python3 scripts/ci/check_architecture_health.py --check
+
+      - name: Run file LoC gate
+        run: python3 scripts/ci/check_file_loc_limits.py
+
+      - name: Run native architecture contract tests
+        run: python3 scripts/ci/test_native_architecture_contracts.py
+
+      - name: Run native architecture contracts
+        run: python3 scripts/ci/check_native_architecture_contracts.py
+
+      - name: Run native hotspot budgets
+        run: python3 scripts/ci/check_native_hotspot_budgets.py
+
+      - name: Upload architecture health reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: architecture-health-reports
+          path: |
+            build/reports/architecture/
+            build/reports/file-loc-limits/
+          retention-days: 7
+
   # Builds Rust native libraries + helper binaries (release profile) for one ABI
   # per matrix shard. Outputs are uploaded for release-verification and native-bloat.
   rust-native-release:
