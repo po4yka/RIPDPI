@@ -1,0 +1,24 @@
+[package]
+name = "ripdpi-android-telemetry-adapter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+android-support = { workspace = true }
+arc-swap = { workspace = true }
+libc = { workspace = true }
+ripdpi-failure-classifier = { workspace = true }
+ripdpi-proxy-config = { workspace = true }
+ripdpi-runtime-api = { workspace = true }
+ripdpi-telemetry = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+golden-test-support = { workspace = true }
+tracing-subscriber = { workspace = true }

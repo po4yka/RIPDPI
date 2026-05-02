@@ -4,7 +4,7 @@ use http::header::LOCATION;
 use http::StatusCode;
 use url::Url;
 
-use crate::owned_tls_http::dto::RawHttpResponse;
+use crate::dto::RawHttpResponse;
 
 pub(crate) fn redirect_target(current_url: &Url, response: &RawHttpResponse) -> io::Result<Option<Url>> {
     match response.status_code {

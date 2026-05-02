@@ -1,7 +1,7 @@
 use jni::objects::JString;
 use jni::sys::{jboolean, jint, jlong, jstring};
 
-use crate::proxy::{
+use ripdpi_android_proxy_adapter::{
     pcap_is_recording_entry, pcap_start_entry, pcap_stop_entry, proxy_create_entry, proxy_destroy_entry,
     proxy_poll_telemetry_entry, proxy_start_entry, proxy_stop_entry, proxy_update_network_snapshot_entry,
 };

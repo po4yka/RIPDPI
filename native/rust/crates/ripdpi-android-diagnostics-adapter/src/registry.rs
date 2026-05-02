@@ -7,7 +7,7 @@ use ripdpi_monitor_engine::MonitorSession;
 use ripdpi_monitor_proxy_runtime::ProductionCandidateRuntimeLauncher;
 
 use super::platform_bridge::AndroidMonitorPlatformBridge;
-use crate::to_handle;
+use ripdpi_android_bridge_support::to_handle;
 
 pub(crate) static DIAGNOSTIC_SESSIONS: once_cell::sync::Lazy<HandleRegistry<MonitorSession>> =
     once_cell::sync::Lazy::new(HandleRegistry::new);

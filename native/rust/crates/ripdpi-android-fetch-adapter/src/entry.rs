@@ -2,9 +2,9 @@ use jni::objects::JString;
 use jni::sys::jstring;
 use jni::{EnvUnowned, Outcome};
 
-use crate::owned_tls_http::execute;
+use crate::execute;
 
-pub(super) fn execute_entry(mut env: EnvUnowned<'_>, request_json: JString<'_>) -> jstring {
+pub fn execute_entry(mut env: EnvUnowned<'_>, request_json: JString<'_>) -> jstring {
     match env
         .with_env(move |env| -> jni::errors::Result<jstring> {
             let request_json: String = request_json.mutf8_chars(env)?.to_str().into_owned();

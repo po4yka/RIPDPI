@@ -5,7 +5,7 @@ use ripdpi_tls_profiles::{configure_builder, profile_catalog_version, ProfileMet
 use tokio::net::TcpStream;
 use tokio::time::timeout;
 
-use crate::owned_tls_http::dto::NativeOwnedTlsHttpResponse;
+use crate::dto::NativeOwnedTlsHttpResponse;
 
 const HTTP11_ALPN: &[u8] = b"\x08http/1.1";
 

@@ -12,8 +12,8 @@ use ripdpi_proxy_config::NetworkSnapshot;
 use ripdpi_runtime_api::EmbeddedProxyControl;
 
 use crate::config::{parse_proxy_config_json, runtime_config_envelope_from_payload};
-use crate::errors::JniProxyError;
-use crate::telemetry::{ProxyTelemetryObserver, ProxyTelemetryState};
+use ripdpi_android_bridge_support::JniProxyError;
+use ripdpi_android_telemetry_adapter::{ProxyTelemetryObserver, ProxyTelemetryState};
 
 use super::registry::{
     control_for_proxy_stop, ensure_proxy_destroyable, lookup_proxy_session, remove_proxy_session,

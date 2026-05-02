@@ -5,7 +5,7 @@ use ripdpi_dns_resolver::{
     extract_ip_answers, EncryptedDnsEndpoint, EncryptedDnsProtocol, EncryptedDnsResolver, EncryptedDnsTransport,
 };
 
-use crate::owned_tls_http::socket_protection::owned_fetch_dns_connect_hooks;
+use crate::socket_protection::owned_fetch_dns_connect_hooks;
 
 const DNS_RECORD_TYPE_A: u16 = 1;
 const DNS_RECORD_TYPE_AAAA: u16 = 28;

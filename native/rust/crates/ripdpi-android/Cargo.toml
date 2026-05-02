@@ -11,54 +11,23 @@ workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
-# This crate is the Android cdylib/JNI facade. Feature-specific glue lives under
-# src/ffi, src/proxy, src/diagnostics, src/owned_tls_http, and src/telemetry; keep
-# direct dependencies here only when those in-crate adapters call the crate.
+# This crate is the Android cdylib/JNI facade. Feature-specific glue lives in
+# sibling adapter crates; keep direct dependencies here only for exported JNI
+# symbols and process-level library initialization.
 android-support = { workspace = true }
-arc-swap = { workspace = true }
-base64 = { workspace = true }
-bytes = { workspace = true }
-http = { workspace = true }
-http-body-util = { workspace = true }
-hyper = { workspace = true }
-hyper-util = { workspace = true }
-ripdpi-config = { workspace = true }
-ripdpi-dns-resolver = { workspace = true }
 jni = { workspace = true }
-tokio = { workspace = true, features = ["rt", "rt-multi-thread", "net", "time"] }
-tokio-boring = { workspace = true }
-libc = { workspace = true }
-loom = { workspace = true, optional = true }
-nix = { workspace = true }
-log = { workspace = true }
 once_cell = { workspace = true }
-ripdpi-failure-classifier = { workspace = true }
-ripdpi-native-protect = { workspace = true }
-ripdpi-proxy-config = { workspace = true }
-ripdpi-tls-profiles = { workspace = true }
-ripdpi-diagnostics-contracts = { workspace = true }
-ripdpi-diagnostics-pcap = { workspace = true }
-ripdpi-diagnostics-dns = { workspace = true }
-ripdpi-monitor-engine = { workspace = true }
-ripdpi-monitor-proxy-runtime = { workspace = true }
-ripdpi-proxy-runtime = { workspace = true }
-ripdpi-runtime-api = { workspace = true }
-ripdpi-runtime-platform = { workspace = true }
-ripdpi-runtime-strategy = { workspace = true }
-ripdpi-telemetry = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-socket2 = { workspace = true }
-thiserror = { workspace = true }
-tracing = { workspace = true }
-url = { workspace = true }
+ripdpi-android-bridge-support = { workspace = true }
+ripdpi-android-diagnostics-adapter = { workspace = true }
+ripdpi-android-fetch-adapter = { workspace = true }
+ripdpi-android-platform-adapter = { workspace = true }
+ripdpi-android-proxy-adapter = { workspace = true }
+ripdpi-android-telemetry-adapter = { workspace = true }
+ripdpi-android-vpn-protect-adapter = { workspace = true }
 
 [dev-dependencies]
-golden-test-support = { workspace = true }
 jni = { workspace = true, features = ["invocation"] }
-proptest = { workspace = true }
-tracing-subscriber = { workspace = true }
 
 [features]
-loom = ["dep:loom"]
-io-uring = ["ripdpi-proxy-runtime/io-uring", "ripdpi-runtime-platform/io-uring"]
+loom = ["ripdpi-android-proxy-adapter/loom"]
+io-uring = ["ripdpi-android-proxy-adapter/io-uring"]

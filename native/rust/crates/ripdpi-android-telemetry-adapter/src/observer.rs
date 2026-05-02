@@ -6,8 +6,8 @@ use ripdpi_runtime_api::RuntimeTelemetrySink;
 
 use super::state::ProxyTelemetryState;
 
-pub(crate) struct ProxyTelemetryObserver {
-    pub(crate) state: Arc<ProxyTelemetryState>,
+pub struct ProxyTelemetryObserver {
+    pub state: Arc<ProxyTelemetryState>,
 }
 
 impl RuntimeTelemetrySink for ProxyTelemetryObserver {

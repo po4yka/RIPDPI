@@ -12,9 +12,9 @@ use tokio::net::TcpStream;
 use tokio::time::timeout;
 use url::Url;
 
-use crate::owned_tls_http::dto::{NativeOwnedTlsHttpRequest, RawHttpResponse};
-use crate::owned_tls_http::socket_protection::connect_transport;
-use crate::owned_tls_http::tls_profile::connect_tls;
+use crate::dto::{NativeOwnedTlsHttpRequest, RawHttpResponse};
+use crate::socket_protection::connect_transport;
+use crate::tls_profile::connect_tls;
 
 pub(crate) struct UrlEndpoint {
     pub(crate) host: String,

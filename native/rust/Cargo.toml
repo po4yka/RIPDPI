@@ -38,6 +38,13 @@ members = [
     "crates/ripdpi-ws-bootstrap",
     "crates/ripdpi-telemetry",
     "crates/ripdpi-native-protect",
+    "crates/ripdpi-android-bridge-support",
+    "crates/ripdpi-android-telemetry-adapter",
+    "crates/ripdpi-android-proxy-adapter",
+    "crates/ripdpi-android-diagnostics-adapter",
+    "crates/ripdpi-android-fetch-adapter",
+    "crates/ripdpi-android-platform-adapter",
+    "crates/ripdpi-android-vpn-protect-adapter",
     "crates/ripdpi-android",
     "crates/ripdpi-relay-core",
     "crates/ripdpi-relay-android",
@@ -116,6 +123,13 @@ ripdpi-runtime-strategy = { path = "crates/ripdpi-runtime-strategy" }
 ripdpi-ws-bootstrap = { path = "crates/ripdpi-ws-bootstrap" }
 ripdpi-telemetry = { path = "crates/ripdpi-telemetry" }
 ripdpi-native-protect = { path = "crates/ripdpi-native-protect" }
+ripdpi-android-bridge-support = { path = "crates/ripdpi-android-bridge-support" }
+ripdpi-android-telemetry-adapter = { path = "crates/ripdpi-android-telemetry-adapter" }
+ripdpi-android-proxy-adapter = { path = "crates/ripdpi-android-proxy-adapter" }
+ripdpi-android-diagnostics-adapter = { path = "crates/ripdpi-android-diagnostics-adapter" }
+ripdpi-android-fetch-adapter = { path = "crates/ripdpi-android-fetch-adapter" }
+ripdpi-android-platform-adapter = { path = "crates/ripdpi-android-platform-adapter" }
+ripdpi-android-vpn-protect-adapter = { path = "crates/ripdpi-android-vpn-protect-adapter" }
 ripdpi-relay-core = { path = "crates/ripdpi-relay-core" }
 ripdpi-relay-mux = { path = "crates/ripdpi-relay-mux" }
 ripdpi-apps-script-core = { path = "crates/ripdpi-apps-script-core" }

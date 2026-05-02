@@ -5,7 +5,7 @@ use ripdpi_failure_classifier::ClassifiedFailure;
 use super::state::ProxyTelemetryState;
 
 impl ProxyTelemetryState {
-    pub(crate) fn on_route_selected(&self, target: String, group_index: usize, host: Option<String>, phase: &str) {
+    pub fn on_route_selected(&self, target: String, group_index: usize, host: Option<String>, phase: &str) {
         // Ordering: Relaxed -- display-only field; readers tolerate stale group index.
         self.last_route_group.store(group_index.try_into().unwrap_or(i64::MAX), Ordering::Relaxed);
         let message = format!(
@@ -22,7 +22,7 @@ impl ProxyTelemetryState {
         });
     }
 
-    pub(crate) fn on_route_advanced(
+    pub fn on_route_advanced(
         &self,
         target: String,
         from_group: usize,
@@ -49,7 +49,7 @@ impl ProxyTelemetryState {
         });
     }
 
-    pub(crate) fn on_failure_classified(&self, target: String, failure: &ClassifiedFailure, host: Option<String>) {
+    pub fn on_failure_classified(&self, target: String, failure: &ClassifiedFailure, host: Option<String>) {
         let level = if failure.action.as_str() == "retry_with_matching_group" { "warn" } else { "info" };
         let message = format!(
             "failure classified target={} class={} stage={} action={} host={} evidence={}",
@@ -75,7 +75,7 @@ impl ProxyTelemetryState {
         }
     }
 
-    pub(crate) fn on_retry_paced(&self, target: String, group_index: usize, reason: &'static str, backoff_ms: u64) {
+    pub fn on_retry_paced(&self, target: String, group_index: usize, reason: &'static str, backoff_ms: u64) {
         if backoff_ms > 0 {
             // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             self.retry_paced_count.fetch_add(1, Ordering::Relaxed);

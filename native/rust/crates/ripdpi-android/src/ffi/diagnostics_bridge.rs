@@ -1,7 +1,7 @@
 use jni::objects::JString;
 use jni::sys::{jlong, jstring};
 
-use crate::diagnostics::{
+use ripdpi_android_diagnostics_adapter::{
     diagnostics_cancel_scan_entry, diagnostics_create_entry, diagnostics_destroy_entry,
     diagnostics_poll_passive_events_entry, diagnostics_poll_progress_entry, diagnostics_start_scan_entry,
     diagnostics_take_report_entry,

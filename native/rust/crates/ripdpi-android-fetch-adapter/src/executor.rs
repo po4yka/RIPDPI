@@ -7,10 +7,10 @@ use ripdpi_tls_profiles::selected_profile_metadata;
 use tokio::time::timeout;
 use url::Url;
 
-use crate::owned_tls_http::dto::{NativeOwnedTlsHttpRequest, NativeOwnedTlsHttpResponse};
-use crate::owned_tls_http::redirect::redirect_target;
-use crate::owned_tls_http::request::execute_once;
-use crate::owned_tls_http::tls_profile::{apply_profile_metadata, profile_catalog_version_string};
+use crate::dto::{NativeOwnedTlsHttpRequest, NativeOwnedTlsHttpResponse};
+use crate::redirect::redirect_target;
+use crate::request::execute_once;
+use crate::tls_profile::{apply_profile_metadata, profile_catalog_version_string};
 
 pub(crate) fn execute(request_json: &str) -> io::Result<String> {
     let request: NativeOwnedTlsHttpRequest =

@@ -10,7 +10,7 @@ use jni::{Env, EnvUnowned, Outcome};
 use once_cell::sync::Lazy;
 use ripdpi_diagnostics_pcap::PcapRecordingSession;
 
-use crate::errors::extract_panic_message;
+use ripdpi_android_bridge_support::extract_panic_message;
 
 const DEFAULT_MAX_BYTES: u64 = 10 * 1024 * 1024; // 10 MB
 const DEFAULT_MAX_CONNECTIONS: u32 = 50;
@@ -88,12 +88,7 @@ fn pcap_is_recording() -> jboolean {
     }
 }
 
-pub(crate) fn pcap_start_entry(
-    mut env: EnvUnowned<'_>,
-    _handle: jlong,
-    dir_path: JString,
-    max_bytes: jlong,
-) -> jboolean {
+pub fn pcap_start_entry(mut env: EnvUnowned<'_>, _handle: jlong, dir_path: JString, max_bytes: jlong) -> jboolean {
     init_android_logging("ripdpi-native");
     match env
         .with_env(move |env| -> jni::errors::Result<jboolean> { Ok(pcap_start(env, dir_path, max_bytes)) })
@@ -114,7 +109,7 @@ pub(crate) fn pcap_start_entry(
     }
 }
 
-pub(crate) fn pcap_stop_entry(mut env: EnvUnowned<'_>, _handle: jlong) -> jstring {
+pub fn pcap_stop_entry(mut env: EnvUnowned<'_>, _handle: jlong) -> jstring {
     init_android_logging("ripdpi-native");
     match env.with_env(move |env| -> jni::errors::Result<jstring> { Ok(pcap_stop(env)) }).into_outcome() {
         Outcome::Ok(value) => value,
@@ -132,7 +127,7 @@ pub(crate) fn pcap_stop_entry(mut env: EnvUnowned<'_>, _handle: jlong) -> jstrin
     }
 }
 
-pub(crate) fn pcap_is_recording_entry(mut env: EnvUnowned<'_>, _handle: jlong) -> jboolean {
+pub fn pcap_is_recording_entry(mut env: EnvUnowned<'_>, _handle: jlong) -> jboolean {
     init_android_logging("ripdpi-native");
     match env.with_env(move |_env| -> jni::errors::Result<jboolean> { Ok(pcap_is_recording()) }).into_outcome() {
         Outcome::Ok(value) => value,

@@ -2,7 +2,7 @@ use android_support::throw_runtime_exception_env;
 use jni::sys::{jlong, jstring};
 use jni::Env;
 
-use crate::errors::JniProxyError;
+use ripdpi_android_bridge_support::JniProxyError;
 
 use super::registry::lookup_proxy_session;
 

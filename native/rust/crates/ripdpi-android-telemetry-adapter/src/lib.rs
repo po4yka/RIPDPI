@@ -12,5 +12,9 @@ mod tests;
 mod types;
 mod util;
 
-pub(crate) use observer::ProxyTelemetryObserver;
-pub(crate) use state::ProxyTelemetryState;
+pub use observer::ProxyTelemetryObserver;
+pub use state::ProxyTelemetryState;
+
+pub fn install_recorder() {
+    ripdpi_telemetry::recorder::install();
+}

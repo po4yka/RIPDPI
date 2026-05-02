@@ -7,5 +7,5 @@ pub extern "system" fn Java_com_poyka_ripdpi_core_RipDpiPlatformCapabilities_jni
     _env: EnvUnowned<'_>,
     _thiz: JObject<'_>,
 ) -> jboolean {
-    ripdpi_runtime_platform::seqovl_supported()
+    ripdpi_android_platform_adapter::seqovl_supported()
 }

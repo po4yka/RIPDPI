@@ -50,9 +50,9 @@ pub(crate) struct TunnelStatsSnapshot {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct NativeRuntimeSnapshot {
+pub struct NativeRuntimeSnapshot {
     pub(crate) source: String,
-    pub(crate) state: String,
+    pub state: String,
     pub(crate) health: String,
     pub(crate) active_sessions: u64,
     pub(crate) total_sessions: u64,

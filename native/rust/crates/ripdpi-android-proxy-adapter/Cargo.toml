@@ -1,0 +1,35 @@
+[package]
+name = "ripdpi-android-proxy-adapter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+android-support = { workspace = true }
+jni = { workspace = true }
+libc = { workspace = true }
+log = { workspace = true }
+once_cell = { workspace = true }
+ripdpi-android-bridge-support = { workspace = true }
+ripdpi-android-telemetry-adapter = { workspace = true }
+ripdpi-config = { workspace = true }
+ripdpi-diagnostics-pcap = { workspace = true }
+ripdpi-proxy-config = { workspace = true }
+ripdpi-proxy-runtime = { workspace = true }
+ripdpi-runtime-api = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+ripdpi-android-bridge-support = { workspace = true, features = ["test-support"] }
+
+[features]
+loom = ["dep:loom"]
+io-uring = ["ripdpi-proxy-runtime/io-uring"]
+
+[dependencies.loom]
+workspace = true
+optional = true

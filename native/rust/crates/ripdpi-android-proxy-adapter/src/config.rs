@@ -12,7 +12,7 @@ use ripdpi_proxy_config::{
     runtime_config_from_ui as shared_runtime_config_from_ui, ProxyUiConfig,
 };
 
-use crate::errors::JniProxyError;
+use ripdpi_android_bridge_support::JniProxyError;
 
 #[cfg(test)]
 pub(crate) const HOSTS_DISABLE: &str = "disable";

@@ -1,0 +1,26 @@
+[package]
+name = "ripdpi-android-fetch-adapter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+base64 = { workspace = true }
+bytes = { workspace = true }
+http = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+jni = { workspace = true }
+ripdpi-dns-resolver = { workspace = true }
+ripdpi-native-protect = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+socket2 = { workspace = true }
+tokio = { workspace = true, features = ["rt", "rt-multi-thread", "net", "time"] }
+tokio-boring = { workspace = true }
+url = { workspace = true }

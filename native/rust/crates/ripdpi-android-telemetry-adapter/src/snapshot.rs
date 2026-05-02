@@ -8,7 +8,7 @@ use super::types::{NativeRuntimeEvent, NativeRuntimeSnapshot, TunnelStatsSnapsho
 use super::util::now_ms;
 
 impl ProxyTelemetryState {
-    pub(crate) fn snapshot(&self) -> NativeRuntimeSnapshot {
+    pub fn snapshot(&self) -> NativeRuntimeSnapshot {
         let strings = self.strings.load();
         let listener_address = strings.listener_address.clone();
         let upstream_address = strings.upstream_address.clone();

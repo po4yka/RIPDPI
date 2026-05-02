@@ -3033,46 +3033,125 @@ name = "ripdpi-android"
 version = "0.1.0"
 dependencies = [
  "android-support",
- "arc-swap",
+ "jni 0.22.4",
+ "once_cell",
+ "ripdpi-android-bridge-support",
+ "ripdpi-android-diagnostics-adapter",
+ "ripdpi-android-fetch-adapter",
+ "ripdpi-android-platform-adapter",
+ "ripdpi-android-proxy-adapter",
+ "ripdpi-android-telemetry-adapter",
+ "ripdpi-android-vpn-protect-adapter",
+]
+
+[[package]]
+name = "ripdpi-android-bridge-support"
+version = "0.1.0"
+dependencies = [
+ "android-support",
+ "golden-test-support",
+ "jni 0.22.4",
+ "log",
+ "once_cell",
+ "serde_json",
+ "thiserror 2.0.18",
+]
+
+[[package]]
+name = "ripdpi-android-diagnostics-adapter"
+version = "0.1.0"
+dependencies = [
+ "android-support",
+ "jni 0.22.4",
+ "log",
+ "once_cell",
+ "ripdpi-android-bridge-support",
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-monitor-engine",
+ "ripdpi-monitor-proxy-runtime",
+ "serde_json",
+]
+
+[[package]]
+name = "ripdpi-android-fetch-adapter"
+version = "0.1.0"
+dependencies = [
  "base64 0.22.1",
  "bytes",
- "golden-test-support",
  "http",
  "http-body-util",
  "hyper",
  "hyper-util",
  "jni 0.22.4",
- "libc",
- "log",
- "loom",
- "nix 0.31.2",
- "once_cell",
- "proptest",
- "ripdpi-config",
- "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-dns",
- "ripdpi-diagnostics-pcap",
  "ripdpi-dns-resolver",
- "ripdpi-failure-classifier",
- "ripdpi-monitor-engine",
- "ripdpi-monitor-proxy-runtime",
  "ripdpi-native-protect",
- "ripdpi-proxy-config",
- "ripdpi-proxy-runtime",
- "ripdpi-runtime-api",
- "ripdpi-runtime-platform",
- "ripdpi-runtime-strategy",
- "ripdpi-telemetry",
  "ripdpi-tls-profiles",
  "serde",
  "serde_json",
  "socket2 0.6.3",
- "thiserror 2.0.18",
  "tokio",
  "tokio-boring",
+ "url",
+]
+
+[[package]]
+name = "ripdpi-android-platform-adapter"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "jni 0.22.4",
+ "ripdpi-diagnostics-dns",
+ "ripdpi-runtime-platform",
+ "ripdpi-runtime-strategy",
+ "serde_json",
+]
+
+[[package]]
+name = "ripdpi-android-proxy-adapter"
+version = "0.1.0"
+dependencies = [
+ "android-support",
+ "jni 0.22.4",
+ "libc",
+ "log",
+ "loom",
+ "once_cell",
+ "proptest",
+ "ripdpi-android-bridge-support",
+ "ripdpi-android-telemetry-adapter",
+ "ripdpi-config",
+ "ripdpi-diagnostics-pcap",
+ "ripdpi-proxy-config",
+ "ripdpi-proxy-runtime",
+ "ripdpi-runtime-api",
+ "serde_json",
+]
+
+[[package]]
+name = "ripdpi-android-telemetry-adapter"
+version = "0.1.0"
+dependencies = [
+ "android-support",
+ "arc-swap",
+ "golden-test-support",
+ "libc",
+ "ripdpi-failure-classifier",
+ "ripdpi-proxy-config",
+ "ripdpi-runtime-api",
+ "ripdpi-telemetry",
+ "serde",
+ "serde_json",
  "tracing",
  "tracing-subscriber",
- "url",
+]
+
+[[package]]
+name = "ripdpi-android-vpn-protect-adapter"
+version = "0.1.0"
+dependencies = [
+ "jni 0.22.4",
+ "ripdpi-native-protect",
+ "tracing",
 ]
 
 [[package]]
@@ -3609,7 +3688,6 @@ dependencies = [
  "ripdpi-config",
  "ripdpi-desync",
  "ripdpi-desync-runtime",
- "ripdpi-dns-resolver",
  "ripdpi-failure-classifier",
  "ripdpi-io-uring",
  "ripdpi-ipfrag",
@@ -3620,7 +3698,6 @@ dependencies = [
  "ripdpi-runtime-dns-cache",
  "ripdpi-runtime-platform",
  "ripdpi-runtime-policy",
- "ripdpi-runtime-strategy",
  "ripdpi-session",
  "ripdpi-ws-bootstrap",
  "ripdpi-ws-tunnel",
@@ -3705,6 +3782,7 @@ dependencies = [
  "ring",
  "ripdpi-config",
  "ripdpi-desync",
+ "ripdpi-failure-classifier",
  "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-runtime-policy",
@@ -3769,6 +3847,7 @@ dependencies = [
  "ripdpi-desync",
  "ripdpi-failure-classifier",
  "ripdpi-packets",
+ "ripdpi-session",
  "serde",
  "serde_json",
  "tempfile",

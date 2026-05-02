@@ -34,7 +34,7 @@ pub(super) struct TelemetryStrings {
     pub(super) last_block_provider: Option<String>,
 }
 
-pub(crate) struct ProxyTelemetryState {
+pub struct ProxyTelemetryState {
     pub(super) session_id: String,
     pub(super) log_scope: String,
     pub(super) log_context: Option<ProxyLogContext>,
@@ -62,7 +62,7 @@ pub(crate) struct ProxyTelemetryState {
 }
 
 impl ProxyTelemetryState {
-    pub(crate) fn new(log_context: Option<ProxyLogContext>) -> Self {
+    pub fn new(log_context: Option<ProxyLogContext>) -> Self {
         // Ordering: Relaxed -- session ID is a monotonic counter used only for logging; no
         // synchronisation with other threads is needed beyond uniqueness.
         let ordinal = NEXT_PROXY_SESSION_ID.fetch_add(1, Ordering::Relaxed);
@@ -117,7 +117,7 @@ impl ProxyTelemetryState {
         }
     }
 
-    pub(crate) fn log_scope(&self) -> &str {
+    pub fn log_scope(&self) -> &str {
         &self.log_scope
     }
 

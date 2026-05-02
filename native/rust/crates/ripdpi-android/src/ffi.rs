@@ -4,11 +4,6 @@
 //! in the sibling bridge modules below. That keeps the Android cdylib as a
 //! loader/export boundary instead of a single feature dependency hub.
 
-mod cdn_ech;
-mod owned_tls_http;
-mod shared_priors;
-mod vpn_protect;
-
 macro_rules! export_jni {
     ($name:ident, ($($arg:ident: $arg_ty:ty),* $(,)?), $ret:ty, $entry:ident) => {
         #[unsafe(no_mangle)]

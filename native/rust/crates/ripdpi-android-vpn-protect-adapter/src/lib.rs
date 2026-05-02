@@ -4,6 +4,8 @@
 //! global ref and calling `VpnService.protect(int)` via JNI. Registered
 //! at VPN startup, cleared at VPN shutdown.
 
+mod entry;
+
 use std::io;
 use std::os::fd::RawFd;
 use std::sync::Arc;
@@ -13,6 +15,8 @@ use jni::refs::Global;
 use jni::JavaVM;
 
 use ripdpi_native_protect::{register_protect_callback, unregister_protect_callback, ProtectCallback};
+
+pub use entry::{register_entry, unregister_entry};
 
 /// JNI-based socket protection callback.
 ///

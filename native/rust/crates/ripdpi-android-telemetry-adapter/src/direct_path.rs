@@ -4,7 +4,7 @@ use super::util::now_ms;
 use super::state::ProxyTelemetryState;
 
 impl ProxyTelemetryState {
-    pub(crate) fn on_direct_path_learning_signal(
+    pub fn on_direct_path_learning_signal(
         &self,
         authority: &str,
         ip_set_digest: &str,

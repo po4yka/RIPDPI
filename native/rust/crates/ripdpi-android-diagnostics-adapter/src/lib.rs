@@ -8,12 +8,12 @@ use jni::objects::JString;
 use jni::sys::{jlong, jstring};
 use jni::{EnvUnowned, Outcome};
 
-use crate::errors::throw_panic;
 use polling::{poll_passive_events, poll_progress, take_report};
 use registry::{create_diagnostics_session, destroy_diagnostics_session};
+use ripdpi_android_bridge_support::throw_panic;
 use scan::{cancel_diagnostics_scan, start_diagnostics_scan};
 
-pub(crate) fn diagnostics_create_entry(mut env: EnvUnowned<'_>) -> jlong {
+pub fn diagnostics_create_entry(mut env: EnvUnowned<'_>) -> jlong {
     init_android_logging("ripdpi-native");
     match env.with_env(|_| -> jni::errors::Result<jlong> { Ok(create_diagnostics_session()) }).into_outcome() {
         Outcome::Ok(handle) => handle,
@@ -28,7 +28,7 @@ pub(crate) fn diagnostics_create_entry(mut env: EnvUnowned<'_>) -> jlong {
     }
 }
 
-pub(crate) fn diagnostics_start_scan_entry(
+pub fn diagnostics_start_scan_entry(
     mut env: EnvUnowned<'_>,
     handle: jlong,
     request_json: JString,
@@ -50,7 +50,7 @@ pub(crate) fn diagnostics_start_scan_entry(
     }
 }
 
-pub(crate) fn diagnostics_cancel_scan_entry(mut env: EnvUnowned<'_>, handle: jlong) {
+pub fn diagnostics_cancel_scan_entry(mut env: EnvUnowned<'_>, handle: jlong) {
     init_android_logging("ripdpi-native");
     match env
         .with_env(move |env| -> jni::errors::Result<()> {
@@ -67,7 +67,7 @@ pub(crate) fn diagnostics_cancel_scan_entry(mut env: EnvUnowned<'_>, handle: jlo
     }
 }
 
-pub(crate) fn diagnostics_poll_progress_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jstring {
+pub fn diagnostics_poll_progress_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jstring {
     init_android_logging("ripdpi-native");
     match env.with_env(move |env| -> jni::errors::Result<jstring> { Ok(poll_progress(env, handle)) }).into_outcome() {
         Outcome::Ok(value) => value,
@@ -82,7 +82,7 @@ pub(crate) fn diagnostics_poll_progress_entry(mut env: EnvUnowned<'_>, handle: j
     }
 }
 
-pub(crate) fn diagnostics_take_report_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jstring {
+pub fn diagnostics_take_report_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jstring {
     init_android_logging("ripdpi-native");
     match env.with_env(move |env| -> jni::errors::Result<jstring> { Ok(take_report(env, handle)) }).into_outcome() {
         Outcome::Ok(value) => value,
@@ -97,7 +97,7 @@ pub(crate) fn diagnostics_take_report_entry(mut env: EnvUnowned<'_>, handle: jlo
     }
 }
 
-pub(crate) fn diagnostics_poll_passive_events_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jstring {
+pub fn diagnostics_poll_passive_events_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jstring {
     init_android_logging("ripdpi-native");
     match env
         .with_env(move |env| -> jni::errors::Result<jstring> { Ok(poll_passive_events(env, handle)) })
@@ -115,7 +115,7 @@ pub(crate) fn diagnostics_poll_passive_events_entry(mut env: EnvUnowned<'_>, han
     }
 }
 
-pub(crate) fn diagnostics_destroy_entry(mut env: EnvUnowned<'_>, handle: jlong) {
+pub fn diagnostics_destroy_entry(mut env: EnvUnowned<'_>, handle: jlong) {
     init_android_logging("ripdpi-native");
     match env
         .with_env(move |env| -> jni::errors::Result<()> {
@@ -140,11 +140,10 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use android_support::describe_exception;
-    use jni::objects::JObject;
     use jni::Env;
     use ripdpi_diagnostics_contracts::{NativeSessionEvent, ScanProgress, ScanReport};
 
-    use crate::support::{
+    use ripdpi_android_bridge_support::test_support::{
         assert_no_exception, decode_jstring, env_to_unowned, lock_jni_tests, take_exception, with_env,
     };
 
@@ -337,62 +336,33 @@ mod tests {
     }
 
     fn jni_create(env: &mut Env<'_>) -> jlong {
-        crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCreate(
-            env_to_unowned(env),
-            JObject::null(),
-        )
+        diagnostics_create_entry(env_to_unowned(env))
     }
 
     fn jni_start_scan(env: &mut Env<'_>, handle: jlong, request_json: &str, session_id: &str) {
         let request_json = env.new_string(request_json).expect("create request json string");
         let session_id = env.new_string(session_id).expect("create session id string");
-        crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniStartScan(
-            env_to_unowned(env),
-            JObject::null(),
-            handle,
-            request_json,
-            session_id,
-        );
+        diagnostics_start_scan_entry(env_to_unowned(env), handle, request_json, session_id);
     }
 
     fn jni_cancel_scan(env: &mut Env<'_>, handle: jlong) {
-        crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCancelScan(
-            env_to_unowned(env),
-            JObject::null(),
-            handle,
-        );
+        diagnostics_cancel_scan_entry(env_to_unowned(env), handle);
     }
 
     fn jni_poll_progress(env: &mut Env<'_>, handle: jlong) -> jstring {
-        crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniPollProgress(
-            env_to_unowned(env),
-            JObject::null(),
-            handle,
-        )
+        diagnostics_poll_progress_entry(env_to_unowned(env), handle)
     }
 
     fn jni_take_report(env: &mut Env<'_>, handle: jlong) -> jstring {
-        crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniTakeReport(
-            env_to_unowned(env),
-            JObject::null(),
-            handle,
-        )
+        diagnostics_take_report_entry(env_to_unowned(env), handle)
     }
 
     fn jni_poll_passive_events(env: &mut Env<'_>, handle: jlong) -> jstring {
-        crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniPollPassiveEvents(
-            env_to_unowned(env),
-            JObject::null(),
-            handle,
-        )
+        diagnostics_poll_passive_events_entry(env_to_unowned(env), handle)
     }
 
     fn jni_destroy(env: &mut Env<'_>, handle: jlong) {
-        crate::Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniDestroy(
-            env_to_unowned(env),
-            JObject::null(),
-            handle,
-        );
+        diagnostics_destroy_entry(env_to_unowned(env), handle);
     }
 
     fn wait_for_json(handle: jlong, op: fn(&mut Env<'_>, jlong) -> jstring) -> String {

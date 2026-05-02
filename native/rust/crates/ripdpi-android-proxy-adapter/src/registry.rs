@@ -6,9 +6,9 @@ use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::ProxyRuntimeContext;
 use ripdpi_runtime_api::EmbeddedProxyControl;
 
-use crate::errors::JniProxyError;
-use crate::telemetry::ProxyTelemetryState;
-use crate::to_handle;
+use ripdpi_android_bridge_support::to_handle;
+use ripdpi_android_bridge_support::JniProxyError;
+use ripdpi_android_telemetry_adapter::ProxyTelemetryState;
 
 pub(crate) static SESSIONS: once_cell::sync::Lazy<HandleRegistry<ProxySession>> =
     once_cell::sync::Lazy::new(HandleRegistry::new);

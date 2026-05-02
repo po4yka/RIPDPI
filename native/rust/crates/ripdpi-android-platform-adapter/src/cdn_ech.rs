@@ -3,7 +3,7 @@ use jni::objects::JString;
 use jni::sys::{jlong, jstring};
 use jni::{EnvUnowned, Outcome};
 
-pub(super) fn refresh_entry(mut env: EnvUnowned<'_>) -> jstring {
+pub fn refresh_entry(mut env: EnvUnowned<'_>) -> jstring {
     match env
         .with_env(move |env| -> jni::errors::Result<jstring> {
             let payload = match ripdpi_diagnostics_dns::cdn_ech::production_updater().refresh() {
@@ -19,7 +19,7 @@ pub(super) fn refresh_entry(mut env: EnvUnowned<'_>) -> jstring {
     }
 }
 
-pub(super) fn snapshot_entry(mut env: EnvUnowned<'_>) -> jstring {
+pub fn snapshot_entry(mut env: EnvUnowned<'_>) -> jstring {
     match env
         .with_env(move |env| -> jni::errors::Result<jstring> {
             let payload = match ripdpi_diagnostics_dns::cdn_ech::production_updater().snapshot_for_persistence() {
@@ -43,7 +43,7 @@ pub(super) fn snapshot_entry(mut env: EnvUnowned<'_>) -> jstring {
     }
 }
 
-pub(super) fn seed_entry(mut env: EnvUnowned<'_>, config_base64: JString<'_>, fetched_at_unix_ms: jlong) -> jstring {
+pub fn seed_entry(mut env: EnvUnowned<'_>, config_base64: JString<'_>, fetched_at_unix_ms: jlong) -> jstring {
     match env
         .with_env(move |env| -> jni::errors::Result<jstring> {
             let b64: String = config_base64.mutf8_chars(env)?.to_str().into_owned();

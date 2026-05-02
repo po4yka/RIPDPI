@@ -2,7 +2,6 @@ use std::net::{IpAddr, Ipv4Addr, TcpListener};
 use std::sync::{Arc, Mutex};
 
 use android_support::describe_exception;
-use jni::objects::JObject;
 use jni::sys::jlong;
 use jni::{sys::jstring, Env};
 use proptest::collection::vec;
@@ -11,9 +10,11 @@ use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::{NetworkSnapshot, ProxyConfigPayload, ProxyUiConfig};
 use ripdpi_runtime_api::EmbeddedProxyControl;
 
-use crate::support::{assert_no_exception, decode_jstring, env_to_unowned, lock_jni_tests, take_exception, with_env};
-use crate::telemetry::ProxyTelemetryState;
-use crate::to_handle;
+use ripdpi_android_bridge_support::test_support::{
+    assert_no_exception, decode_jstring, env_to_unowned, lock_jni_tests, take_exception, with_env,
+};
+use ripdpi_android_bridge_support::to_handle;
+use ripdpi_android_telemetry_adapter::ProxyTelemetryState;
 
 use super::lifecycle::open_proxy_listener;
 use super::registry::{
@@ -33,9 +34,10 @@ fn open_proxy_listener_records_telemetry_when_bind_fails() {
     let snapshot = telemetry.snapshot();
 
     assert!(err.kind() == std::io::ErrorKind::AddrInUse || err.raw_os_error().is_some());
-    assert_eq!(snapshot.total_errors, 1);
-    assert!(snapshot.last_error.expect("listener error").contains("listener open failed"));
-    assert_eq!(snapshot.health, "idle");
+    let snapshot = serde_json::to_value(snapshot).expect("serialize snapshot");
+    assert_eq!(snapshot["totalErrors"], 1);
+    assert!(snapshot["lastError"].as_str().expect("listener error").contains("listener open failed"));
+    assert_eq!(snapshot["health"], "idle");
 }
 
 #[test]
@@ -351,45 +353,28 @@ fn test_listen_port() -> u16 {
 
 fn jni_create(env: &mut Env<'_>, config_json: &str) -> jlong {
     let config_json = env.new_string(config_json).expect("create config json");
-    crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniCreate(
-        env_to_unowned(env),
-        JObject::null(),
-        config_json,
-    )
+    crate::proxy_create_entry(env_to_unowned(env), config_json)
 }
 
 fn jni_start(env: &mut Env<'_>, handle: jlong) -> i32 {
-    crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStart(env_to_unowned(env), JObject::null(), handle)
+    crate::proxy_start_entry(env_to_unowned(env), handle)
 }
 
 fn jni_stop(env: &mut Env<'_>, handle: jlong) {
-    crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStop(env_to_unowned(env), JObject::null(), handle);
+    crate::proxy_stop_entry(env_to_unowned(env), handle);
 }
 
 fn jni_poll_telemetry(env: &mut Env<'_>, handle: jlong) -> jstring {
-    crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniPollTelemetry(
-        env_to_unowned(env),
-        JObject::null(),
-        handle,
-    )
+    crate::proxy_poll_telemetry_entry(env_to_unowned(env), handle)
 }
 
 fn jni_destroy(env: &mut Env<'_>, handle: jlong) {
-    crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniDestroy(
-        env_to_unowned(env),
-        JObject::null(),
-        handle,
-    );
+    crate::proxy_destroy_entry(env_to_unowned(env), handle);
 }
 
 fn jni_update_network_snapshot(env: &mut Env<'_>, handle: jlong, snapshot_json: &str) {
     let snapshot_json = env.new_string(snapshot_json).expect("create snapshot json");
-    crate::Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUpdateNetworkSnapshot(
-        env_to_unowned(env),
-        JObject::null(),
-        handle,
-        snapshot_json,
-    );
+    crate::proxy_update_network_snapshot_entry(env_to_unowned(env), handle, snapshot_json);
 }
 
 proptest! {

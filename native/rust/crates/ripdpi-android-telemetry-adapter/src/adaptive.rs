@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 use super::state::ProxyTelemetryState;
 
 impl ProxyTelemetryState {
-    pub(crate) fn on_adaptive_override(
+    pub fn on_adaptive_override(
         &self,
         target: String,
         group_index: usize,
@@ -36,13 +36,13 @@ impl ProxyTelemetryState {
         });
     }
 
-    pub(crate) fn on_telegram_dc_detected(&self, target: String, dc: u8) {
+    pub fn on_telegram_dc_detected(&self, target: String, dc: u8) {
         let message = format!("telegram dc detected target={target} dc={dc}");
         self.emit_event("proxy", "info", &message, None);
         self.update_strings(|s| s.last_target = Some(target.clone()));
     }
 
-    pub(crate) fn on_ws_tunnel_escalation(&self, target: String, dc: u8, success: bool) {
+    pub fn on_ws_tunnel_escalation(&self, target: String, dc: u8, success: bool) {
         let level = if success { "info" } else { "warn" };
         let result = if success { "success" } else { "failed" };
         let message = format!("ws tunnel escalation target={target} dc={dc} result={result}");
@@ -50,7 +50,7 @@ impl ProxyTelemetryState {
         self.update_strings(|s| s.last_target = Some(target.clone()));
     }
 
-    pub(crate) fn on_quic_migration_status(&self, target: String, status: &'static str, reason: &'static str) {
+    pub fn on_quic_migration_status(&self, target: String, status: &'static str, reason: &'static str) {
         let message = format!("quic migration target={target} status={status} reason={reason}");
         self.emit_event("proxy", "info", &message, None);
         self.update_strings(|s| {
@@ -60,7 +60,7 @@ impl ProxyTelemetryState {
         });
     }
 
-    pub(crate) fn on_morph_hint_applied(&self, target: String, policy_id: &str, family: &str) {
+    pub fn on_morph_hint_applied(&self, target: String, policy_id: &str, family: &str) {
         let message = format!("morph hint applied target={target} policyId={policy_id} family={family}");
         self.emit_event("proxy", "info", &message, None);
         self.update_strings(|s| {
@@ -69,7 +69,7 @@ impl ProxyTelemetryState {
         });
     }
 
-    pub(crate) fn on_morph_rollback(&self, target: String, policy_id: &str, reason: &str) {
+    pub fn on_morph_rollback(&self, target: String, policy_id: &str, reason: &str) {
         let message = format!("morph rollback target={target} policyId={policy_id} reason={reason}");
         self.emit_event("proxy", "warn", &message, None);
         self.update_strings(|s| {

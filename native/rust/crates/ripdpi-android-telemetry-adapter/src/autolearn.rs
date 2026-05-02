@@ -3,7 +3,7 @@ use std::sync::atomic::Ordering;
 use super::state::ProxyTelemetryState;
 
 impl ProxyTelemetryState {
-    pub(crate) fn set_autolearn_state(
+    pub fn set_autolearn_state(
         &self,
         enabled: bool,
         learned_host_count: usize,
@@ -27,7 +27,7 @@ impl ProxyTelemetryState {
         });
     }
 
-    pub(crate) fn on_autolearn_event(&self, action: &'static str, host: Option<String>, group_index: Option<usize>) {
+    pub fn on_autolearn_event(&self, action: &'static str, host: Option<String>, group_index: Option<usize>) {
         // Ordering: Relaxed -- display-only field; readers tolerate stale group index.
         self.last_autolearn_group
             .store(group_index.and_then(|value| i64::try_from(value).ok()).unwrap_or(-1), Ordering::Relaxed);

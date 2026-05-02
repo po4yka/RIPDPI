@@ -3,7 +3,7 @@ use jni::objects::JString;
 use jni::sys::jstring;
 use jni::{EnvUnowned, Outcome};
 
-pub(super) fn apply_entry(mut env: EnvUnowned<'_>, manifest_json: JString<'_>, priors_base64: JString<'_>) -> jstring {
+pub fn apply_entry(mut env: EnvUnowned<'_>, manifest_json: JString<'_>, priors_base64: JString<'_>) -> jstring {
     match env
         .with_env(move |env| -> jni::errors::Result<jstring> {
             let manifest_bytes: Vec<u8> = manifest_json.mutf8_chars(env)?.to_str().into_owned().into_bytes();

@@ -9,7 +9,7 @@ use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tokio::net::{TcpSocket, TcpStream};
 use tokio::time::timeout;
 
-use crate::owned_tls_http::dns_bootstrap::resolve_connect_targets;
+use crate::dns_bootstrap::resolve_connect_targets;
 
 pub(crate) async fn connect_transport(host: &str, port: u16, connect_timeout_ms: u64) -> io::Result<TcpStream> {
     timeout(Duration::from_millis(connect_timeout_ms), connect_transport_inner(host, port))

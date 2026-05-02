@@ -1,16 +1,7 @@
-mod config;
-mod diagnostics;
-mod errors;
 mod ffi;
-mod owned_tls_http;
-mod proxy;
-#[cfg(test)]
-mod support;
-mod telemetry;
-mod vpn_protect;
 
 use android_support::{init_android_logging, JNI_VERSION};
-use jni::sys::{jint, jlong};
+use jni::sys::jint;
 use jni::JavaVM;
 use once_cell::sync::OnceCell;
 
@@ -22,7 +13,7 @@ fn jni_on_load_impl() -> jint {
     android_support::ignore_sigpipe();
     init_android_logging("ripdpi-native");
     android_support::install_panic_hook();
-    ripdpi_telemetry::recorder::install();
+    ripdpi_android_telemetry_adapter::install_recorder();
     JNI_VERSION
 }
 
@@ -39,31 +30,9 @@ pub extern "system" fn JNI_OnLoad(vm: JavaVM, _reserved: *mut std::ffi::c_void) 
     }
 }
 
-pub(crate) fn to_handle(value: jlong) -> Option<u64> {
-    u64::try_from(value).ok().filter(|handle| *handle != 0)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    pub(crate) fn shared_test_jvm() -> &'static JavaVM {
-        static TEST_JVM: OnceCell<JavaVM> = OnceCell::new();
-        TEST_JVM.get_or_init(|| {
-            let args = jni::InitArgsBuilder::new()
-                .version(jni::JNIVersion::V9)
-                .option("-Xcheck:jni")
-                .build()
-                .expect("build test JVM init args");
-            JavaVM::new(args).expect("create in-process test JVM")
-        })
-    }
-
-    pub(crate) fn shared_jni_test_mutex() -> &'static std::sync::Mutex<()> {
-        static JNI_TEST_MUTEX: once_cell::sync::Lazy<std::sync::Mutex<()>> =
-            once_cell::sync::Lazy::new(|| std::sync::Mutex::new(()));
-        &JNI_TEST_MUTEX
-    }
 
     #[test]
     fn jni_on_load_impl_returns_supported_jni_version() {
@@ -71,9 +40,61 @@ mod tests {
     }
 
     #[test]
-    fn to_handle_accepts_positive_values_only() {
-        assert_eq!(to_handle(0), None);
-        assert_eq!(to_handle(-1), None);
-        assert_eq!(to_handle(7), Some(7));
+    fn jni_facade_keeps_handle_contract_in_shared_support() {
+        assert_eq!(ripdpi_android_bridge_support::to_handle(0), None);
+        assert_eq!(ripdpi_android_bridge_support::to_handle(-1), None);
+        assert_eq!(ripdpi_android_bridge_support::to_handle(7), Some(7));
+    }
+
+    #[test]
+    fn jni_facade_exports_stable_native_entrypoints() {
+        use jni::objects::{JObject, JString};
+        use jni::sys::{jboolean, jint, jlong, jstring};
+        use jni::EnvUnowned;
+
+        type Void = extern "system" fn(EnvUnowned<'_>, JObject<'_>);
+        type VoidHandle = extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong);
+        type Long = extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jlong;
+        type Bool = extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jboolean;
+        type StringHandle = extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong) -> jstring;
+
+        let _symbols = (
+            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniCreate
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>) -> jlong,
+            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStart
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong) -> jint,
+            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStop as VoidHandle,
+            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniPollTelemetry as StringHandle,
+            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniDestroy as VoidHandle,
+            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUpdateNetworkSnapshot
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong, JString<'_>),
+            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStartPcapRecording
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong, JString<'_>, jlong) -> jboolean,
+            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniStopPcapRecording as StringHandle,
+            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniIsPcapRecording
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong) -> jboolean,
+            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniRegisterVpnProtect
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JObject<'_>),
+            Java_com_poyka_ripdpi_core_RipDpiProxyNativeBindings_jniUnregisterVpnProtect as Void,
+            Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCreate as Long,
+            Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniStartScan
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, jlong, JString<'_>, JString<'_>),
+            Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniCancelScan as VoidHandle,
+            Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniPollProgress as StringHandle,
+            Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniTakeReport as StringHandle,
+            Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniPollPassiveEvents as StringHandle,
+            Java_com_poyka_ripdpi_core_NetworkDiagnosticsNativeBindings_jniDestroy as VoidHandle,
+            Java_com_poyka_ripdpi_core_NativeOwnedTlsHttpFetcherNativeBindings_jniExecute
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>) -> jstring,
+            Java_com_poyka_ripdpi_core_RipDpiPlatformCapabilities_jniSeqovlSupported as Bool,
+            Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jniRefreshCdnEch
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jstring,
+            Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jniSnapshotCdnEch
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>) -> jstring,
+            Java_com_poyka_ripdpi_core_RipDpiCdnEchNativeBindings_jniSeedCdnEch
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>, jlong) -> jstring,
+            Java_com_poyka_ripdpi_core_RipDpiSharedPriorsNativeBindings_jniApplySharedPriors
+                as extern "system" fn(EnvUnowned<'_>, JObject<'_>, JString<'_>, JString<'_>) -> jstring,
+        );
     }
 }

@@ -1,3 +1,4 @@
+mod config;
 mod entry_error;
 mod lifecycle;
 mod pcap;
@@ -14,14 +15,14 @@ use jni::objects::JString;
 use jni::sys::{jint, jlong, jstring};
 use jni::{EnvUnowned, Outcome};
 
-use crate::errors::extract_panic_message;
+use ripdpi_android_bridge_support::extract_panic_message;
 
 use entry_error::log_and_throw;
 use lifecycle::{create_session, destroy_session, start_session, stop_session, update_network_snapshot};
-pub(crate) use pcap::{pcap_is_recording_entry, pcap_start_entry, pcap_stop_entry};
+pub use pcap::{pcap_is_recording_entry, pcap_start_entry, pcap_stop_entry};
 use telemetry::poll_proxy_telemetry;
 
-pub(crate) fn proxy_create_entry(mut env: EnvUnowned<'_>, config_json: JString) -> jlong {
+pub fn proxy_create_entry(mut env: EnvUnowned<'_>, config_json: JString) -> jlong {
     init_android_logging("ripdpi-native");
     match env.with_env(move |env| -> jni::errors::Result<jlong> { Ok(create_session(env, config_json)) }).into_outcome()
     {
@@ -37,7 +38,7 @@ pub(crate) fn proxy_create_entry(mut env: EnvUnowned<'_>, config_json: JString) 
     }
 }
 
-pub(crate) fn proxy_start_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jint {
+pub fn proxy_start_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jint {
     init_android_logging("ripdpi-native");
     match env.with_env(move |env| -> jni::errors::Result<jint> { Ok(start_session(env, handle)) }).into_outcome() {
         Outcome::Ok(result) => result,
@@ -52,7 +53,7 @@ pub(crate) fn proxy_start_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jint 
     }
 }
 
-pub(crate) fn proxy_stop_entry(mut env: EnvUnowned<'_>, handle: jlong) {
+pub fn proxy_stop_entry(mut env: EnvUnowned<'_>, handle: jlong) {
     init_android_logging("ripdpi-native");
     match env
         .with_env(move |env| -> jni::errors::Result<()> {
@@ -69,7 +70,7 @@ pub(crate) fn proxy_stop_entry(mut env: EnvUnowned<'_>, handle: jlong) {
     }
 }
 
-pub(crate) fn proxy_poll_telemetry_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jstring {
+pub fn proxy_poll_telemetry_entry(mut env: EnvUnowned<'_>, handle: jlong) -> jstring {
     init_android_logging("ripdpi-native");
     match env
         .with_env(move |env| -> jni::errors::Result<jstring> { Ok(poll_proxy_telemetry(env, handle)) })
@@ -87,7 +88,7 @@ pub(crate) fn proxy_poll_telemetry_entry(mut env: EnvUnowned<'_>, handle: jlong)
     }
 }
 
-pub(crate) fn proxy_destroy_entry(mut env: EnvUnowned<'_>, handle: jlong) {
+pub fn proxy_destroy_entry(mut env: EnvUnowned<'_>, handle: jlong) {
     init_android_logging("ripdpi-native");
     match env
         .with_env(move |env| -> jni::errors::Result<()> {
@@ -104,7 +105,7 @@ pub(crate) fn proxy_destroy_entry(mut env: EnvUnowned<'_>, handle: jlong) {
     }
 }
 
-pub(crate) fn proxy_update_network_snapshot_entry(mut env: EnvUnowned<'_>, handle: jlong, snapshot_json: JString) {
+pub fn proxy_update_network_snapshot_entry(mut env: EnvUnowned<'_>, handle: jlong, snapshot_json: JString) {
     init_android_logging("ripdpi-native");
     match env
         .with_env(move |env| -> jni::errors::Result<()> {

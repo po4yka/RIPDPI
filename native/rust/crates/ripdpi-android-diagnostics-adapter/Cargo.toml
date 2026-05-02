@@ -1,0 +1,22 @@
+[package]
+name = "ripdpi-android-diagnostics-adapter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+android-support = { workspace = true }
+jni = { workspace = true }
+log = { workspace = true }
+once_cell = { workspace = true }
+ripdpi-android-bridge-support = { workspace = true }
+ripdpi-diagnostics-contracts = { workspace = true }
+ripdpi-monitor-engine = { workspace = true }
+ripdpi-monitor-proxy-runtime = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+ripdpi-android-bridge-support = { workspace = true, features = ["test-support"] }
