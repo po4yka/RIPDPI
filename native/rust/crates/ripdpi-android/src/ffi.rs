@@ -1,3 +1,9 @@
+//! JNI export facade.
+//!
+//! Keep JNI symbols in this root module, while feature-specific body code lives
+//! in the sibling bridge modules below. That keeps the Android cdylib as a
+//! loader/export boundary instead of a single feature dependency hub.
+
 mod cdn_ech;
 mod owned_tls_http;
 mod shared_priors;

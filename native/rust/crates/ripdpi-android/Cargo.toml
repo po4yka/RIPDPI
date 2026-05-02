@@ -11,6 +11,9 @@ workspace = true
 crate-type = ["cdylib"]
 
 [dependencies]
+# This crate is the Android cdylib/JNI facade. Feature-specific glue lives under
+# src/ffi, src/proxy, src/diagnostics, src/owned_tls_http, and src/telemetry; keep
+# direct dependencies here only when those in-crate adapters call the crate.
 android-support = { workspace = true }
 arc-swap = { workspace = true }
 base64 = { workspace = true }
@@ -20,10 +23,7 @@ http-body-util = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 ripdpi-config = { workspace = true }
-ripdpi-desync = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
-ripdpi-packets = { workspace = true }
-ripdpi-session = { workspace = true }
 jni = { workspace = true }
 tokio = { workspace = true, features = ["rt", "rt-multi-thread", "net", "time"] }
 tokio-boring = { workspace = true }

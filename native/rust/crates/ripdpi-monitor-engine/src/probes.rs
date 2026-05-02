@@ -1,3 +1,9 @@
+//! Private probe-adapter namespaces for the monitor engine.
+//!
+//! The engine still links concrete diagnostics lane crates because it is the
+//! orchestration crate, but those imports stay behind this private module
+//! instead of being re-exported as a public aggregate facade.
+
 pub(crate) mod blockpage_fingerprints {
     pub(crate) use ripdpi_diagnostics_http::blockpage_fingerprints::*;
 }

@@ -14,8 +14,9 @@ use std::net::TcpStream;
 use ripdpi_desync_runtime::{
     platform::{
         FakeTcpOptions as DesyncFakeTcpOptions, OrderedTcpSegment as DesyncOrderedTcpSegment,
-        TcpActivationState as DesyncTcpActivationState, TcpDesyncPlatform, TcpFlagOverrides as DesyncTcpFlagOverrides,
-        TcpPayloadSegment as DesyncTcpPayloadSegment, TcpStageWait,
+        TcpActivationState as DesyncTcpActivationState, TcpFakeSender, TcpFlagOverrides as DesyncTcpFlagOverrides,
+        TcpFragmentSender, TcpPayloadSegment as DesyncTcpPayloadSegment, TcpPayloadSender, TcpPlatformCapabilities,
+        TcpSocketOptions, TcpStageWait,
     },
     OutboundSendError, OutboundSendOutcome, PcapHook,
 };
@@ -23,7 +24,7 @@ use ripdpi_session::OutboundProgress;
 
 pub(super) struct RuntimeTcpDesyncPlatform;
 
-impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
+impl TcpPlatformCapabilities for RuntimeTcpDesyncPlatform {
     fn detect_default_ttl(&self) -> Option<u8> {
         capability::detect_default_ttl()
     }
@@ -43,7 +44,9 @@ impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
     fn tcp_activation_state(&self, stream: &TcpStream) -> io::Result<Option<DesyncTcpActivationState>> {
         capability::tcp_activation_state_result(stream)
     }
+}
 
+impl TcpSocketOptions for RuntimeTcpDesyncPlatform {
     fn set_tcp_md5sig(&self, stream: &TcpStream, key_len: u16) -> io::Result<()> {
         socket_options::set_tcp_md5sig(stream, key_len)
     }
@@ -60,7 +63,9 @@ impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
     ) -> io::Result<()> {
         socket_options::wait_tcp_stage(stream, wait_send, await_interval)
     }
+}
 
+impl TcpFakeSender for RuntimeTcpDesyncPlatform {
     fn send_fake_rst(
         &self,
         stream: &TcpStream,
@@ -96,7 +101,9 @@ impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
             wait,
         )
     }
+}
 
+impl TcpPayloadSender for RuntimeTcpDesyncPlatform {
     fn send_ordered_tcp_segments(
         &self,
         stream: &TcpStream,
@@ -157,7 +164,9 @@ impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
             ip_id_mode,
         )
     }
+}
 
+impl TcpFragmentSender for RuntimeTcpDesyncPlatform {
     fn send_ip_fragmented_tcp(
         &self,
         stream: &TcpStream,

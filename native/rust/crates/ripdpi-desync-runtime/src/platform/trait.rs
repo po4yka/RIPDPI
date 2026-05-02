@@ -8,16 +8,22 @@ use super::types::{
     FakeTcpOptions, OrderedTcpSegment, TcpActivationState, TcpFlagOverrides, TcpPayloadSegment, TcpStageWait,
 };
 
-#[allow(clippy::too_many_arguments)]
-pub trait TcpDesyncPlatform {
+pub trait TcpPlatformCapabilities {
     fn detect_default_ttl(&self) -> Option<u8>;
     fn seqovl_supported(&self) -> bool;
     fn supports_fake_retransmit(&self) -> bool;
     fn tcp_segment_hint(&self, stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>>;
     fn tcp_activation_state(&self, stream: &TcpStream) -> io::Result<Option<TcpActivationState>>;
+}
+
+pub trait TcpSocketOptions {
     fn set_tcp_md5sig(&self, stream: &TcpStream, key_len: u16) -> io::Result<()>;
     fn set_tcp_window_clamp(&self, stream: &TcpStream, size: u32) -> io::Result<()>;
     fn wait_tcp_stage(&self, stream: &TcpStream, wait_send: bool, await_interval: Duration) -> io::Result<()>;
+}
+
+#[allow(clippy::too_many_arguments)]
+pub trait TcpFakeSender {
     fn send_fake_rst(
         &self,
         stream: &TcpStream,
@@ -38,6 +44,10 @@ pub trait TcpDesyncPlatform {
         ip_id_mode: Option<ripdpi_config::IpIdMode>,
         wait: TcpStageWait,
     ) -> io::Result<()>;
+}
+
+#[allow(clippy::too_many_arguments)]
+pub trait TcpPayloadSender {
     fn send_ordered_tcp_segments(
         &self,
         stream: &TcpStream,
@@ -71,6 +81,10 @@ pub trait TcpDesyncPlatform {
         flags: TcpFlagOverrides,
         ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()>;
+}
+
+#[allow(clippy::too_many_arguments)]
+pub trait TcpFragmentSender {
     fn send_ip_fragmented_tcp(
         &self,
         stream: &TcpStream,
@@ -95,4 +109,14 @@ pub trait TcpDesyncPlatform {
         original_flags: TcpFlagOverrides,
         ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()>;
+}
+
+pub trait TcpDesyncPlatform:
+    TcpPlatformCapabilities + TcpSocketOptions + TcpFakeSender + TcpPayloadSender + TcpFragmentSender
+{
+}
+
+impl<T> TcpDesyncPlatform for T where
+    T: TcpPlatformCapabilities + TcpSocketOptions + TcpFakeSender + TcpPayloadSender + TcpFragmentSender
+{
 }

@@ -5,14 +5,14 @@ use std::time::Duration;
 
 use ripdpi_desync::TcpSegmentHint;
 
-use super::r#trait::TcpDesyncPlatform;
+use super::r#trait::{TcpFakeSender, TcpFragmentSender, TcpPayloadSender, TcpPlatformCapabilities, TcpSocketOptions};
 use super::types::{
     FakeTcpOptions, OrderedTcpSegment, TcpActivationState, TcpFlagOverrides, TcpPayloadSegment, TcpStageWait,
 };
 
 pub(super) struct TestTcpDesyncPlatform;
 
-impl TcpDesyncPlatform for TestTcpDesyncPlatform {
+impl TcpPlatformCapabilities for TestTcpDesyncPlatform {
     fn detect_default_ttl(&self) -> Option<u8> {
         Some(64)
     }
@@ -32,7 +32,9 @@ impl TcpDesyncPlatform for TestTcpDesyncPlatform {
     fn tcp_activation_state(&self, _stream: &TcpStream) -> io::Result<Option<TcpActivationState>> {
         Ok(None)
     }
+}
 
+impl TcpSocketOptions for TestTcpDesyncPlatform {
     fn set_tcp_md5sig(&self, _stream: &TcpStream, _key_len: u16) -> io::Result<()> {
         Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
     }
@@ -44,7 +46,9 @@ impl TcpDesyncPlatform for TestTcpDesyncPlatform {
     fn wait_tcp_stage(&self, _stream: &TcpStream, _wait_send: bool, _await_interval: Duration) -> io::Result<()> {
         Err(io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"))
     }
+}
 
+impl TcpFakeSender for TestTcpDesyncPlatform {
     fn send_fake_rst(
         &self,
         _stream: &TcpStream,
@@ -74,7 +78,9 @@ impl TcpDesyncPlatform for TestTcpDesyncPlatform {
         let mut stream = stream;
         stream.write_all(original_prefix)
     }
+}
 
+impl TcpPayloadSender for TestTcpDesyncPlatform {
     fn send_ordered_tcp_segments(
         &self,
         stream: &TcpStream,
@@ -120,7 +126,9 @@ impl TcpDesyncPlatform for TestTcpDesyncPlatform {
     ) -> io::Result<()> {
         Err(io::Error::new(io::ErrorKind::Unsupported, "packet-owned TCP desync requires TCP_INFO support"))
     }
+}
 
+impl TcpFragmentSender for TestTcpDesyncPlatform {
     fn send_ip_fragmented_tcp(
         &self,
         _stream: &TcpStream,
