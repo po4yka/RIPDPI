@@ -1,88 +1,25 @@
-use super::{FakeOrder, FakeSeqMode, OffsetExpr, SeqOverlapFakeMode, TcpChainStep, TcpChainStepKind};
+mod fake;
+mod flags;
+mod fragments;
+mod seq_overlap;
+mod tls_prelude;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TcpFlagOverrides {
-    pub set: Option<u16>,
-    pub unset: Option<u16>,
-}
+use super::{TcpChainStep, TcpChainStepKind};
 
-impl TcpFlagOverrides {
-    pub const fn disabled() -> Self {
-        Self { set: None, unset: None }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TcpFakeOrdering {
-    pub order: FakeOrder,
-    pub seq_mode: FakeSeqMode,
-}
-
-impl TcpFakeOrdering {
-    pub const fn before_each_duplicate() -> Self {
-        Self { order: FakeOrder::BeforeEach, seq_mode: FakeSeqMode::Duplicate }
-    }
-}
-
-impl Default for TcpFakeOrdering {
-    fn default() -> Self {
-        Self::before_each_duplicate()
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TcpSeqOverlapPayload {
-    pub overlap_size: i32,
-    pub fake_mode: SeqOverlapFakeMode,
-    pub fake_flags: TcpFlagOverrides,
-}
-
-impl TcpSeqOverlapPayload {
-    pub const fn profile(overlap_size: i32) -> Self {
-        Self { overlap_size, fake_mode: SeqOverlapFakeMode::Profile, fake_flags: TcpFlagOverrides::disabled() }
-    }
-}
+pub use fake::{TcpFakeOrdering, TcpFakePayload, TcpHostFakePayload};
+pub use flags::TcpFlagOverrides;
+pub use fragments::{TcpIpFragPayload, TcpIpv6ExtensionPayload};
+pub use seq_overlap::TcpSeqOverlapPayload;
+pub use tls_prelude::TcpTlsRandRecPayload;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TcpHostFakePayload<'a> {
-    pub midhost_offset: Option<OffsetExpr>,
-    pub fake_host_template: Option<&'a str>,
-    pub random_fake_host: bool,
-    pub ordering: TcpFakeOrdering,
-    pub fake_flags: TcpFlagOverrides,
-    pub original_flags: TcpFlagOverrides,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TcpFakePayload {
-    pub ordering: TcpFakeOrdering,
-    pub fake_flags: TcpFlagOverrides,
-    pub original_flags: TcpFlagOverrides,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TcpTlsRandRecPayload {
-    pub fragment_count: i32,
-    pub min_fragment_size: i32,
-    pub max_fragment_size: i32,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TcpIpFragPayload {
-    pub fragment_count: i32,
-    pub min_fragment_size: i32,
-    pub max_fragment_size: i32,
-    pub disorder: bool,
-    pub ipv6_extensions: TcpIpv6ExtensionPayload,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub struct TcpIpv6ExtensionPayload {
-    pub hop_by_hop: bool,
-    pub dest_opt: bool,
-    pub dest_opt2: bool,
-    pub routing: bool,
-    pub second_frag_next_override: Option<u8>,
+pub enum TcpStepPayload<'a> {
+    Plain,
+    SeqOverlap(TcpSeqOverlapPayload),
+    Fake(TcpFakePayload),
+    HostFake(TcpHostFakePayload<'a>),
+    TlsRandRec(TcpTlsRandRecPayload),
+    IpFrag(TcpIpFragPayload),
 }
 
 impl TcpChainStep {
@@ -205,6 +142,30 @@ impl TcpChainStep {
         }
     }
 
+    pub fn typed_payload(&self) -> TcpStepPayload<'_> {
+        match self.kind {
+            TcpChainStepKind::SeqOverlap => {
+                TcpStepPayload::SeqOverlap(self.seq_overlap_payload().expect("seq overlap payload"))
+            }
+            TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder => {
+                TcpStepPayload::Fake(self.fake_payload().expect("fake payload"))
+            }
+            TcpChainStepKind::HostFake => TcpStepPayload::HostFake(self.host_fake_payload().expect("hostfake payload")),
+            TcpChainStepKind::TlsRandRec => {
+                TcpStepPayload::TlsRandRec(self.tls_randrec_payload().expect("tls randrec payload"))
+            }
+            TcpChainStepKind::IpFrag2 => TcpStepPayload::IpFrag(self.ip_frag_payload().expect("ip frag payload")),
+            TcpChainStepKind::Split
+            | TcpChainStepKind::SynData
+            | TcpChainStepKind::Disorder
+            | TcpChainStepKind::MultiDisorder
+            | TcpChainStepKind::Oob
+            | TcpChainStepKind::Disoob
+            | TcpChainStepKind::TlsRec
+            | TcpChainStepKind::FakeRst => TcpStepPayload::Plain,
+        }
+    }
+
     pub const fn fake_ordering(&self) -> TcpFakeOrdering {
         TcpFakeOrdering { order: self.fake_order, seq_mode: self.fake_seq_mode }
     }
@@ -232,7 +193,7 @@ impl TcpChainStep {
 mod tests {
     use super::*;
 
-    use crate::{OffsetBase, OffsetExpr};
+    use crate::{FakeOrder, FakeSeqMode, OffsetBase, OffsetExpr, SeqOverlapFakeMode};
 
     #[test]
     fn seq_overlap_payload_round_trips_through_compatible_fields() {
@@ -304,5 +265,14 @@ mod tests {
         assert!(step.ipv6_dest_opt);
         assert!(step.ipv6_routing);
         assert_eq!(step.ipv6_frag_next_override, Some(6));
+    }
+
+    #[test]
+    fn typed_payload_separates_step_families() {
+        let seq = TcpChainStep::new(TcpChainStepKind::SeqOverlap, OffsetExpr::absolute(3));
+        assert!(matches!(seq.typed_payload(), TcpStepPayload::SeqOverlap(_)));
+
+        let split = TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(3));
+        assert_eq!(split.typed_payload(), TcpStepPayload::Plain);
     }
 }
