@@ -73,3 +73,7 @@ native/rust/crates/ripdpi-bench/adaptive-tuning-v1.json
 
 # Detekt baselines are forbidden — violations must be fixed in code
 detekt-baseline.xml
+
+# Obsidian volatile state
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json

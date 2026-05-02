@@ -14,3 +14,24 @@ See AGENTS.md for project architecture, build commands, modules, native code, CI
 - Surface ambiguity early: a `DesyncMode` without documented activation, an undocumented JNI contract, a missing schema migration, an unclear protobuf field number -- name it, do not guess.
 - Reproduce before fixing: a packet-smoke scenario, a `cargo nextest` test, or a Roborazzi baseline is the artifact you change; the source edit follows.
 - Removing custom detekt rules, lint baselines, or other quality gates is out of scope unless the user explicitly asks for it.
+---
+
+## Task Board
+
+This repository uses Obsidian Tasks-compatible Markdown task lines as the canonical task system.
+Use the `repo-task-board` skill for all task-related operations.
+
+Canonical files:
+
+- `docs/tasks/backlog.md` — backlog items by area
+- `docs/tasks/active.md` — in-progress and review tasks
+- `docs/tasks/blocked.md` — blocked tasks with reasons
+- `docs/tasks/dashboard.md` — Obsidian Tasks query hub
+
+Canonical task syntax:
+
+```md
+- [ ] #task <imperative title> #repo/RIPDPI #area/<area> #status/<status> <priority>
+```
+
+Invoke the `repo-task-board` skill when the user mentions: roadmap, TODO, backlog, Kanban, task board, sprint, blocked work, or agent-ready work.

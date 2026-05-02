@@ -390,3 +390,23 @@ Pair these agents with companion specialists instead of stretching one agent acr
 Explicit delegation examples:
 - Delegate to `dpi-desync-specialist`: "Trace why `tlsrec_disorder` regressed on Android VPN path, update the smallest safe runtime/planner logic, and identify which packet-smoke scenario should confirm the fix."
 - Delegate to `dns-resilience-specialist`: "Trace why strategy probes short-circuit into `dns_tampering`, fix the smallest safe resolver/failover path across Rust and service logic, and list the exact tests needed to validate bootstrap and failover behavior."
+
+---
+
+## Task Board
+
+This repository uses Obsidian Tasks-compatible Markdown checkboxes as the canonical task system.
+
+Before changing task-related files, use the `repo-task-board` skill if available.
+
+Canonical files: `docs/tasks/backlog.md` · `docs/tasks/active.md` · `docs/tasks/blocked.md` · `docs/tasks/dashboard.md`
+
+Canonical syntax:
+
+```md
+- [ ] #task <imperative title> #repo/RIPDPI #area/<area> #status/<status> <priority>
+```
+
+Allowed statuses: `#status/backlog` · `#status/todo` · `#status/doing` · `#status/review` · `#status/blocked` · `#status/done` · `#status/dropped`
+
+Rules: preserve Obsidian Tasks syntax · edit existing tasks instead of duplicating · exactly one `#status/*` per task · add `✅ YYYY-MM-DD` when completing · add `#blocked` and indented reason when blocking.

@@ -1,0 +1,17 @@
+{
+  "taskStatuses": [
+    {"symbol": " ", "name": "Todo", "nextStatusSymbol": "x", "availableAsCommand": true},
+    {"symbol": "x", "name": "Done", "nextStatusSymbol": " ", "availableAsCommand": true},
+    {"symbol": "/", "name": "In Progress", "nextStatusSymbol": "x", "availableAsCommand": true},
+    {"symbol": "-", "name": "Dropped", "nextStatusSymbol": " ", "availableAsCommand": false}
+  ],
+  "globalFilter": "#task",
+  "removeGlobalFilter": false,
+  "setDoneDate": true,
+  "autoSuggestInEditor": true,
+  "autoSuggestMinMatch": 2,
+  "autoSuggestMaxItems": 6,
+  "provideAccessKeys": true,
+  "useFilenameAsScheduledDate": false,
+  "maxTasksInOnePage": 1000
+}
