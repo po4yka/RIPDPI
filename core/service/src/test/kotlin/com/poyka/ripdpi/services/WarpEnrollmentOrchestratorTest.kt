@@ -50,19 +50,12 @@ class WarpEnrollmentOrchestratorTest {
                         ),
                 )
             val orchestrator =
-                DefaultWarpEnrollmentOrchestrator(
+                createWarpEnrollmentOrchestrator(
                     appSettingsRepository = appSettingsRepository,
                     profileStore = profileStore,
                     credentialStore = credentialStore,
                     endpointStore = endpointStore,
                     provisioningClient = provisioningClient,
-                    bootstrapProxyRunner = PassthroughWarpBootstrapProxyRunner(),
-                    endpointScanner =
-                        DefaultWarpEndpointScanner(
-                            appSettingsRepository,
-                            endpointStore,
-                            FakeWarpEndpointProbe(),
-                        ),
                 )
 
             val snapshot =
@@ -109,19 +102,11 @@ class WarpEnrollmentOrchestratorTest {
                 ),
             )
             val orchestrator =
-                DefaultWarpEnrollmentOrchestrator(
+                createWarpEnrollmentOrchestrator(
                     appSettingsRepository = appSettingsRepository,
                     profileStore = profileStore,
                     credentialStore = credentialStore,
                     endpointStore = endpointStore,
-                    provisioningClient = FakeWarpProvisioningClient(registerResult = sampleProvisioningResult()),
-                    bootstrapProxyRunner = PassthroughWarpBootstrapProxyRunner(),
-                    endpointScanner =
-                        DefaultWarpEndpointScanner(
-                            appSettingsRepository,
-                            endpointStore,
-                            FakeWarpEndpointProbe(),
-                        ),
                 )
 
             orchestrator.attachWarpPlusLicense(DefaultWarpProfileId, "license-123")
@@ -142,19 +127,11 @@ class WarpEnrollmentOrchestratorTest {
             val credentialStore = FakeWarpCredentialStore()
             val endpointStore = FakeWarpEndpointStore()
             val orchestrator =
-                DefaultWarpEnrollmentOrchestrator(
+                createWarpEnrollmentOrchestrator(
                     appSettingsRepository = appSettingsRepository,
                     profileStore = profileStore,
                     credentialStore = credentialStore,
                     endpointStore = endpointStore,
-                    provisioningClient = FakeWarpProvisioningClient(registerResult = sampleProvisioningResult()),
-                    bootstrapProxyRunner = PassthroughWarpBootstrapProxyRunner(),
-                    endpointScanner =
-                        DefaultWarpEndpointScanner(
-                            appSettingsRepository,
-                            endpointStore,
-                            FakeWarpEndpointProbe(),
-                        ),
                 )
 
             val snapshot =
@@ -221,19 +198,11 @@ class WarpEnrollmentOrchestratorTest {
                 ),
             )
             val orchestrator =
-                DefaultWarpEnrollmentOrchestrator(
+                createWarpEnrollmentOrchestrator(
                     appSettingsRepository = appSettingsRepository,
                     profileStore = profileStore,
                     credentialStore = credentialStore,
                     endpointStore = endpointStore,
-                    provisioningClient = FakeWarpProvisioningClient(registerResult = sampleProvisioningResult()),
-                    bootstrapProxyRunner = PassthroughWarpBootstrapProxyRunner(),
-                    endpointScanner =
-                        DefaultWarpEndpointScanner(
-                            appSettingsRepository,
-                            endpointStore,
-                            FakeWarpEndpointProbe(),
-                        ),
                 )
 
             orchestrator.resetProfile("corp")
@@ -327,7 +296,7 @@ class WarpEnrollmentOrchestratorTest {
                 ),
             )
             val orchestrator =
-                DefaultWarpEnrollmentOrchestrator(
+                createWarpEnrollmentOrchestrator(
                     appSettingsRepository = appSettingsRepository,
                     profileStore = profileStore,
                     credentialStore = credentialStore,
@@ -336,13 +305,6 @@ class WarpEnrollmentOrchestratorTest {
                         FakeWarpProvisioningClient(
                             registerResult = sampleProvisioningResult(),
                             refreshError = IOException("HTTP 403"),
-                        ),
-                    bootstrapProxyRunner = PassthroughWarpBootstrapProxyRunner(),
-                    endpointScanner =
-                        DefaultWarpEndpointScanner(
-                            appSettingsRepository,
-                            endpointStore,
-                            FakeWarpEndpointProbe(),
                         ),
                 )
 
@@ -634,6 +596,78 @@ private class FakeWarpProvisioningClient(
         return registerResult
     }
 }
+
+private fun createWarpEnrollmentOrchestrator(
+    appSettingsRepository: TestAppSettingsRepository,
+    profileStore: WarpProfileStore,
+    credentialStore: WarpCredentialStore,
+    endpointStore: WarpEndpointStore,
+    provisioningClient: WarpProvisioningClient =
+        FakeWarpProvisioningClient(registerResult = sampleWarpProvisioningResult()),
+    bootstrapProxyRunner: WarpBootstrapProxyRunner = PassthroughWarpBootstrapProxyRunner(),
+    endpointScanner: WarpEndpointScanner =
+        DefaultWarpEndpointScanner(
+            appSettingsRepository,
+            endpointStore,
+            FakeWarpEndpointProbe(),
+        ),
+): DefaultWarpEnrollmentOrchestrator {
+    val activationService =
+        DefaultWarpProfileActivationService(
+            appSettingsRepository = appSettingsRepository,
+            profileStore = profileStore,
+        )
+    return DefaultWarpEnrollmentOrchestrator(
+        enrollmentFlowService =
+            DefaultWarpEnrollmentFlowService(
+                appSettingsRepository = appSettingsRepository,
+                profileStore = profileStore,
+                credentialStore = credentialStore,
+                endpointStore = endpointStore,
+                provisioningClient = provisioningClient,
+                bootstrapProxyRunner = bootstrapProxyRunner,
+                endpointScanner = endpointScanner,
+                profileActivationService = activationService,
+            ),
+        credentialProfileMutationService =
+            DefaultWarpCredentialProfileMutationService(
+                profileStore = profileStore,
+                credentialStore = credentialStore,
+                endpointStore = endpointStore,
+                profileActivationService = activationService,
+            ),
+    )
+}
+
+private fun sampleWarpProvisioningResult(): WarpProvisioningResult =
+    WarpProvisioningResult(
+        credentials =
+            WarpCredentials(
+                profileId = DefaultWarpProfileId,
+                deviceId = "device-123",
+                accessToken = listOf("access", "value", "provisioning").joinToString("-"),
+                privateKey = "private-key",
+                publicKey = "public-key",
+            ),
+        accountId = "account-123",
+        accountType = "free",
+        warpPlus = false,
+        premiumData = 0L,
+        quota = 0L,
+        license = null,
+        interfaceAddressV4 = "172.16.0.2/32",
+        interfaceAddressV6 = "2606:4700:110:8a36::2/128",
+        peerPublicKey = "peer-public-key",
+        endpoint =
+            WarpEndpointCacheEntry(
+                networkScopeKey = "",
+                host = "engage.cloudflareclient.com",
+                ipv4 = "162.159.192.1",
+                port = 2408,
+                source = "registration",
+            ),
+        reservedBytes = byteArrayOf(1, 2, 3),
+    )
 
 private class FakeWarpProfileStore : WarpProfileStore {
     private val profiles = linkedMapOf<String, WarpProfile>()

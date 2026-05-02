@@ -92,7 +92,7 @@ class DefaultConnectionPolicyResolver
         private val rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
         private val startupDnsProbe: VpnStartupDnsProbe,
         private val rootHelperManager: RootHelperManager,
-        private val environmentDetector: EnvironmentDetector,
+        private val environmentDetector: EnvironmentDetector = EnvironmentDetector(),
     ) : ConnectionPolicyResolver {
         @Suppress("LongMethod", "ReturnCount")
         override suspend fun resolve(
