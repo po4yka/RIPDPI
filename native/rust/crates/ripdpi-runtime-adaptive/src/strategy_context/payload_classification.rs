@@ -1,5 +1,9 @@
+use ripdpi_packets::classify::{default_registry, ProtocolId};
 use ripdpi_packets::{is_quic_initial, parse_quic_initial, tls_marker_info};
 use ripdpi_runtime_policy::runtime_policy::is_tls_client_hello_payload;
+use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
+
+use crate::retry_stealth::RetryLane;
 
 pub(crate) struct TcpPayloadClassification {
     pub(crate) is_tls: bool,
@@ -22,4 +26,14 @@ pub(crate) fn classify_udp_payload(payload: &[u8]) -> UdpPayloadClassification {
     let has_ech = parsed_quic.as_ref().and_then(|info| info.tls_info.ech_ext_start).is_some();
     let is_quic = is_quic_initial(payload);
     UdpPayloadClassification { is_quic, has_ech }
+}
+
+pub fn retry_lane_for_payload(transport: TransportProtocol, payload: Option<&[u8]>) -> RetryLane {
+    let proto = payload.and_then(|bytes| default_registry().classify_id(bytes));
+    match (transport, proto) {
+        (TransportProtocol::Tcp, Some(ProtocolId::Tls)) => RetryLane::TcpTls,
+        (TransportProtocol::Tcp, _) => RetryLane::TcpOther,
+        (TransportProtocol::Udp, Some(ProtocolId::Quic)) => RetryLane::UdpQuic,
+        (TransportProtocol::Udp, _) => RetryLane::UdpOther,
+    }
 }

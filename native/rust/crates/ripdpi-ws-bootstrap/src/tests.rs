@@ -8,7 +8,8 @@ use crate::catalog::default_encrypted_dns_context;
 use crate::policy::runtime_encrypted_dns_context_for_host;
 use crate::protect_hooks::build_direct_connect_hooks;
 use crate::resolver::{
-    resolve_host_via_encrypted_dns_with_default, resolve_ws_tunnel_addr_with_default, ws_tunnel_host,
+    encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns_with_default,
+    resolve_ws_tunnel_addr_with_default, ws_tunnel_host,
 };
 use crate::{resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr};
 
@@ -79,6 +80,18 @@ fn resolve_host_via_encrypted_dns_uses_supplied_default_context_for_fixture_reso
     .expect("resolve host");
 
     assert_eq!(addr.ip(), stack.manifest().dns_answer_ipv4.parse::<IpAddr>().expect("fixture ip"));
+}
+
+#[test]
+fn encrypted_dns_ip_answers_return_policy_label_and_parsed_addresses() {
+    let stack = FixtureStack::start(dynamic_fixture_config()).expect("start fixture");
+    let runtime_context = fixture_runtime_context(stack.manifest().dns_http_port);
+
+    let answer_set =
+        encrypted_dns_ip_answers_for_host("fixture.test", Some(&runtime_context), None).expect("resolve answers");
+
+    assert_eq!(answer_set.label, format!("http://127.0.0.1:{}/dns-query", stack.manifest().dns_http_port));
+    assert_eq!(answer_set.answers, vec![stack.manifest().dns_answer_ipv4.parse::<IpAddr>().expect("fixture ip")]);
 }
 
 #[test]

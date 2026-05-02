@@ -2,10 +2,13 @@ use std::collections::BTreeMap;
 
 use ripdpi_config::QuicFakeProfile;
 use ripdpi_desync::{AdaptivePlannerHints, AdaptiveUdpBurstProfile};
-use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
+use ripdpi_packets::DEFAULT_FAKE_TLS;
+use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyPreferredEdge, ProxyRuntimeContext};
 use ripdpi_runtime_policy::direct_path_learning::direct_path_ip_set_digest;
 use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
 use ripdpi_runtime_strategy::strategy_evolver::{LearningHostingFamily, LearningReachabilitySet};
+
+use crate::retry_stealth::RetryLane;
 
 use super::*;
 
@@ -152,6 +155,77 @@ fn direct_path_capability_matches_targets_with_ip_set_digest() {
         direct_path_capability_for_targets(Some(&runtime_context), Some("example.org"), &targets).expect("capability");
 
     assert_eq!(matched.authority, "example.org:443");
+}
+
+#[test]
+fn preferred_targets_selects_matching_edges_and_appends_original_target() {
+    let runtime_context = ProxyRuntimeContext {
+        encrypted_dns: None,
+        protect_path: None,
+        preferred_edges: BTreeMap::from([(
+            "example.org".to_string(),
+            vec![
+                ProxyPreferredEdge { ip: "203.0.113.10".to_string(), transport_kind: "tcp".to_string() },
+                ProxyPreferredEdge { ip: "203.0.113.11".to_string(), transport_kind: "throughput".to_string() },
+                ProxyPreferredEdge { ip: "203.0.113.12".to_string(), transport_kind: "tcp".to_string() },
+                ProxyPreferredEdge { ip: "203.0.113.13".to_string(), transport_kind: "quic".to_string() },
+            ],
+        )]),
+        direct_path_capabilities: Vec::new(),
+        morph_policy: None,
+    };
+
+    let decision = preferred_targets_for_transport(
+        Some(&runtime_context),
+        "198.51.100.9:443".parse().expect("target"),
+        Some("example.org"),
+        TransportProtocol::Tcp,
+        0,
+    );
+
+    let expected = vec![
+        "203.0.113.10:443".parse().expect("first preferred target"),
+        "203.0.113.11:443".parse().expect("second preferred target"),
+        "198.51.100.9:443".parse().expect("original target"),
+    ];
+    assert_eq!(decision.targets, expected);
+    assert_eq!(decision.suppressed_targets, Vec::new());
+    assert!(!decision.suppressed_udp);
+}
+
+#[test]
+fn preferred_targets_suppresses_udp_when_direct_path_capability_blocks_quic() {
+    let original = "198.51.100.9:443".parse().expect("target");
+    let runtime_context = ProxyRuntimeContext {
+        encrypted_dns: None,
+        protect_path: None,
+        preferred_edges: BTreeMap::new(),
+        direct_path_capabilities: vec![ProxyDirectPathCapability {
+            authority: "example.org:443".to_string(),
+            quic_mode: "SOFT_DISABLE".to_string(),
+            ..capability("example.org:443")
+        }],
+        morph_policy: None,
+    };
+
+    let decision = preferred_targets_for_transport(
+        Some(&runtime_context),
+        original,
+        Some("example.org"),
+        TransportProtocol::Udp,
+        0,
+    );
+
+    assert!(decision.targets.is_empty());
+    assert_eq!(decision.suppressed_targets, vec![original]);
+    assert!(decision.suppressed_udp);
+}
+
+#[test]
+fn retry_lane_classification_uses_policy_transport_and_payload_protocol() {
+    assert_eq!(retry_lane_for_payload(TransportProtocol::Tcp, Some(DEFAULT_FAKE_TLS)), RetryLane::TcpTls);
+    assert_eq!(retry_lane_for_payload(TransportProtocol::Tcp, Some(b"GET / HTTP/1.1\r\n\r\n")), RetryLane::TcpOther);
+    assert_eq!(retry_lane_for_payload(TransportProtocol::Udp, None), RetryLane::UdpOther);
 }
 
 #[test]

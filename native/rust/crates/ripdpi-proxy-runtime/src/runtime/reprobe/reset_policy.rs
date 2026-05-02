@@ -1,5 +1,5 @@
 use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
-use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
+use ripdpi_runtime_adaptive::strategy_evolution::StrategyEvolutionResolver;
 
 const FAILURE_THRESHOLD: usize = 2;
 
@@ -7,7 +7,7 @@ pub(crate) fn reset_if_strategy_mismatch(
     failures: usize,
     successes: usize,
     target_count: usize,
-    evolver: &crate::sync::Arc<crate::sync::RwLock<StrategyEvolver>>,
+    evolver: &crate::sync::Arc<crate::sync::RwLock<StrategyEvolutionResolver>>,
     adaptive_tuning: &crate::sync::Arc<crate::sync::RwLock<AdaptivePlannerResolver>>,
 ) {
     if failures >= FAILURE_THRESHOLD {
@@ -21,9 +21,9 @@ pub(crate) fn reset_if_strategy_mismatch(
     }
 }
 
-fn reset_evolver(evolver: &crate::sync::Arc<crate::sync::RwLock<StrategyEvolver>>) {
+fn reset_evolver(evolver: &crate::sync::Arc<crate::sync::RwLock<StrategyEvolutionResolver>>) {
     if let Ok(mut ev) = evolver.write() {
-        *ev = StrategyEvolver::new(ev.is_enabled(), ev.epsilon());
+        ev.reset();
     }
 }
 

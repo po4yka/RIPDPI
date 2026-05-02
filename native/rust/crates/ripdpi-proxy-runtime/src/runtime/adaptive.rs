@@ -26,7 +26,4 @@ pub(super) use hints::{
     note_adaptive_tcp_failure, note_adaptive_tcp_success, note_adaptive_udp_failure, note_adaptive_udp_success,
     resolve_adaptive_tcp_hints, resolve_adaptive_udp_hints,
 };
-pub(super) use ripdpi_runtime_adaptive::strategy_context::{
-    capability_blocks_transport, direct_path_capability_for_route, direct_path_capability_for_targets,
-    network_scope_key,
-};
+pub(super) use ripdpi_runtime_adaptive::strategy_context::{direct_path_capability_for_route, network_scope_key};

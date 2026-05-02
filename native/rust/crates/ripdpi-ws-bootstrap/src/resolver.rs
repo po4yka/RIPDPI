@@ -11,6 +11,12 @@ use crate::policy::{runtime_encrypted_dns_context_for_host, runtime_encrypted_dn
 use crate::protect_hooks::build_direct_connect_hooks;
 use crate::query::{build_dns_query, current_query_id, DNS_RECORD_TYPE_A, DNS_RECORD_TYPE_AAAA};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EncryptedDnsIpAnswers {
+    pub label: String,
+    pub answers: Vec<IpAddr>,
+}
+
 /// Resolve `kws{dc}.web.telegram.org` through the configured encrypted DNS
 /// endpoint and return the first socket address suitable for WS bootstrap.
 pub fn resolve_ws_tunnel_addr(
@@ -49,6 +55,17 @@ pub fn resolve_host_via_encrypted_dns(
         ipv6_enabled,
         default_encrypted_dns_context,
     )
+}
+
+pub fn encrypted_dns_ip_answers_for_host(
+    host: &str,
+    runtime_context: Option<&ProxyRuntimeContext>,
+    protect_path: Option<&str>,
+) -> io::Result<EncryptedDnsIpAnswers> {
+    let resolver_context = runtime_encrypted_dns_context_for_host(host, runtime_context);
+    let resolver = build_encrypted_dns_resolver_for_host(host, runtime_context, protect_path)?;
+    let answers = query_ip_answers(&resolver, host, DNS_RECORD_TYPE_A)?;
+    Ok(EncryptedDnsIpAnswers { label: crate::encrypted_dns_label(&resolver_context), answers })
 }
 
 pub(crate) fn resolve_ws_tunnel_addr_with_default(
@@ -100,9 +117,14 @@ fn resolve_first_ip(
     record_type: u16,
     predicate: impl Fn(IpAddr) -> bool,
 ) -> io::Result<Option<IpAddr>> {
+    let answers = query_ip_answers(resolver, host, record_type)?;
+    Ok(answers.into_iter().find(|ip| predicate(*ip)))
+}
+
+fn query_ip_answers(resolver: &EncryptedDnsResolver, host: &str, record_type: u16) -> io::Result<Vec<IpAddr>> {
     let query = build_dns_query(host, record_type, current_query_id())?;
     let response = resolver.exchange_blocking(&query).map_err(|err| io::Error::other(err.to_string()))?;
     let answers =
         extract_ip_answers(&response).map_err(|err| io::Error::new(io::ErrorKind::InvalidData, err.to_string()))?;
-    Ok(answers.into_iter().filter_map(|answer| answer.parse::<IpAddr>().ok()).find(|ip| predicate(*ip)))
+    Ok(answers.into_iter().filter_map(|answer| answer.parse::<IpAddr>().ok()).collect())
 }

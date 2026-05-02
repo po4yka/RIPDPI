@@ -4,6 +4,7 @@ mod hint_merge;
 mod host_taxonomy;
 mod learning_context;
 mod payload_classification;
+mod preferred_targets;
 mod reachability;
 mod resolver_health;
 
@@ -14,6 +15,8 @@ pub use direct_path_capability::{
 pub use hint_merge::merge_udp_hints_with_capability;
 pub use host_taxonomy::hosting_family_context;
 pub use learning_context::{network_scope_key, tcp_learning_context, udp_learning_context};
+pub use payload_classification::retry_lane_for_payload;
+pub use preferred_targets::{preferred_targets_for_transport, PreferredTargetsDecision};
 pub use reachability::reachability_set_context;
 
 #[cfg(test)]

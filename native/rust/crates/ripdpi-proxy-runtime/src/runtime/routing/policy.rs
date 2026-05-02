@@ -1,14 +1,11 @@
 use std::io;
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 
+use ripdpi_runtime_adaptive::strategy_context;
 use ripdpi_runtime_policy::runtime_policy::{ConnectionRoute, TransportProtocol};
 
-use super::super::adaptive::{
-    capability_blocks_transport, direct_path_capability_for_targets, note_direct_path_udp_suppressed, now_millis,
-};
+use super::super::adaptive::{note_direct_path_udp_suppressed, now_millis};
 use super::super::state::{flush_autolearn_updates, RuntimeState};
-
-const MAX_PREFERRED_EDGE_TARGETS: usize = 2;
 
 pub(in crate::runtime) fn select_route(
     state: &RuntimeState,
@@ -40,51 +37,17 @@ pub(in crate::runtime) fn preferred_targets_for_transport(
     host: Option<&str>,
     transport: TransportProtocol,
 ) -> Vec<SocketAddr> {
-    let mut targets = Vec::new();
-    if let Some(host) = host.map(str::trim).filter(|host| !host.is_empty()) {
-        if let Some(runtime_context) = state.runtime_context.as_ref() {
-            let normalized = host.to_ascii_lowercase();
-            if let Some(edges) =
-                runtime_context.preferred_edges.get(host).or_else(|| runtime_context.preferred_edges.get(&normalized))
-            {
-                for edge in
-                    edges.iter().filter(|edge| preferred_edge_matches_transport(edge.transport_kind.trim(), transport))
-                {
-                    let Ok(ip) = edge.ip.trim().parse::<IpAddr>() else {
-                        continue;
-                    };
-                    let candidate = SocketAddr::new(ip, original_target.port());
-                    if !targets.contains(&candidate) {
-                        targets.push(candidate);
-                    }
-                    if targets.len() >= MAX_PREFERRED_EDGE_TARGETS {
-                        break;
-                    }
-                }
-            }
-        }
+    let decision = strategy_context::preferred_targets_for_transport(
+        state.runtime_context.as_ref(),
+        original_target,
+        host,
+        transport,
+        now_millis(),
+    );
+    if decision.suppressed_udp {
+        let _ = note_direct_path_udp_suppressed(state, host, &decision.suppressed_targets);
     }
-    if !targets.contains(&original_target) {
-        targets.push(original_target);
-    }
-    if let Some(capability) = direct_path_capability_for_targets(state.runtime_context.as_ref(), host, &targets) {
-        if capability_blocks_transport(capability, transport, now_millis()) {
-            if transport == TransportProtocol::Udp && capability.reason_code.as_deref() != Some("NO_TCP_FALLBACK") {
-                let _ = note_direct_path_udp_suppressed(state, host, &targets);
-            }
-            return Vec::new();
-        }
-    }
-    targets
-}
-
-fn preferred_edge_matches_transport(transport_kind: &str, transport: TransportProtocol) -> bool {
-    match transport {
-        TransportProtocol::Tcp => {
-            transport_kind.eq_ignore_ascii_case("tcp") || transport_kind.eq_ignore_ascii_case("throughput")
-        }
-        TransportProtocol::Udp => transport_kind.eq_ignore_ascii_case("quic"),
-    }
+    decision.targets
 }
 
 pub(in crate::runtime) fn note_route_success(

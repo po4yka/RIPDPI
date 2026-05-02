@@ -1,6 +1,7 @@
 mod autolearn;
 mod cache;
 mod matching;
+mod response_failure;
 mod selection;
 mod types;
 
@@ -14,6 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use types::{CacheRecord, GroupPolicy, LearnedHostRecord, PendingBlockedHost};
 
+pub use response_failure::{classify_response_failure, response_requires_dns_tampering_evidence, DnsTamperingEvidence};
 pub use types::{
     ConnectionRoute, ExtractedHost, HostAutolearnEvent, HostAutolearnState, HostSource, RetrySelectionPenalty,
     RouteAdvance, TransportProtocol,

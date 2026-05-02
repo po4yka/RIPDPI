@@ -1,17 +1,11 @@
-use std::io;
 use std::net::{IpAddr, SocketAddr};
-use std::time::{SystemTime, UNIX_EPOCH};
 
-use ripdpi_dns_resolver::extract_ip_answers;
-use ripdpi_failure_classifier::{
-    block_signal_from_failure, classify_http_response_block, classify_tls_alert, classify_tls_handshake_failure,
-    confirm_dns_tampering, ClassifiedFailure,
+use ripdpi_failure_classifier::{block_signal_from_failure, ClassifiedFailure};
+use ripdpi_runtime_policy::runtime_policy::{
+    classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
+    DnsTamperingEvidence,
 };
-use ripdpi_runtime_policy::runtime_policy::is_tls_client_hello_payload;
-use ripdpi_session::{detect_response_trigger, TriggerEvent};
-use ripdpi_ws_bootstrap::{
-    build_encrypted_dns_resolver_for_host, encrypted_dns_label, runtime_encrypted_dns_context_for_host,
-};
+use ripdpi_ws_bootstrap::encrypted_dns_ip_answers_for_host;
 
 use super::super::state::{flush_autolearn_updates, RuntimeState};
 
@@ -73,64 +67,25 @@ pub(in crate::runtime) fn classify_response_failure(
     response: &[u8],
     host: Option<&str>,
 ) -> Option<ClassifiedFailure> {
-    if response.starts_with(b"HTTP/1.") && is_tls_client_hello_payload(request) {
-        if let Some(host) = host {
-            if let Some(dns_tampering) = confirm_dns_tampering_for_host(state, host, target.ip()) {
-                return Some(dns_tampering);
-            }
-        }
-    }
-
-    if let Some(alert) = classify_tls_alert(response) {
-        return Some(alert);
-    }
-    if let Some(http_block) = classify_http_response_block(response) {
-        return Some(http_block);
-    }
-    if matches!(detect_response_trigger(request, response), Some(TriggerEvent::SslErr)) {
-        return Some(classify_tls_handshake_failure("TLS handshake failed before ServerHello"));
-    }
-    None
-}
-
-fn confirm_dns_tampering_for_host(state: &RuntimeState, host: &str, target_ip: IpAddr) -> Option<ClassifiedFailure> {
-    let resolver_context = runtime_encrypted_dns_context_for_host(host, state.runtime_context.as_ref());
-    let resolver = build_encrypted_dns_resolver_for_host(
-        host,
-        state.runtime_context.as_ref(),
-        state.config.process.protect_path.as_deref(),
-    )
-    .ok()?;
-    let query_id = ((SystemTime::now().duration_since(UNIX_EPOCH).ok()?.as_nanos() as u64) & 0xffff) as u16;
-    let query = build_dns_query(host, query_id.max(1)).ok()?;
-    let response = resolver.exchange_blocking(&query).ok()?;
-    let answers = extract_ip_answers(&response)
-        .ok()?
-        .into_iter()
-        .filter_map(|answer| answer.parse::<IpAddr>().ok())
-        .collect::<Vec<_>>();
-    confirm_dns_tampering(host, target_ip, &answers, &encrypted_dns_label(&resolver_context))
-}
-
-fn build_dns_query(domain: &str, query_id: u16) -> Result<Vec<u8>, io::Error> {
-    let mut packet = Vec::with_capacity(512);
-    packet.extend(query_id.to_be_bytes());
-    packet.extend(0x0100u16.to_be_bytes());
-    packet.extend(1u16.to_be_bytes());
-    packet.extend(0u16.to_be_bytes());
-    packet.extend(0u16.to_be_bytes());
-    packet.extend(0u16.to_be_bytes());
-    for label in domain.split('.') {
-        if label.is_empty() || label.len() > 63 {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid dns name"));
-        }
-        packet.push(label.len() as u8);
-        packet.extend(label.as_bytes());
-    }
-    packet.push(0);
-    packet.extend(1u16.to_be_bytes());
-    packet.extend(1u16.to_be_bytes());
-    Ok(packet)
+    let answer_set = if response_requires_dns_tampering_evidence(request, response) {
+        host.and_then(|value| {
+            encrypted_dns_ip_answers_for_host(
+                value,
+                state.runtime_context.as_ref(),
+                state.config.process.protect_path.as_deref(),
+            )
+            .ok()
+        })
+    } else {
+        None
+    };
+    let dns_evidence = host.zip(answer_set.as_ref()).map(|(value, answers)| DnsTamperingEvidence {
+        host: value,
+        target_ip: target.ip(),
+        answers: &answers.answers,
+        resolver_label: &answers.label,
+    });
+    classify_policy_response_failure(request, response, dns_evidence)
 }
 
 #[cfg(test)]
@@ -148,11 +103,11 @@ mod tests {
 
 #[cfg(test)]
 #[allow(clippy::items_after_test_module)]
-pub(in crate::runtime) fn trigger_flag(trigger: TriggerEvent) -> u32 {
+pub(in crate::runtime) fn trigger_flag(trigger: ripdpi_session::TriggerEvent) -> u32 {
     match trigger {
-        TriggerEvent::Redirect => ripdpi_config::DETECT_HTTP_LOCAT,
-        TriggerEvent::SslErr => ripdpi_config::DETECT_TLS_HANDSHAKE_FAILURE,
-        TriggerEvent::Connect => ripdpi_config::DETECT_CONNECT,
-        TriggerEvent::Torst => ripdpi_config::DETECT_TORST,
+        ripdpi_session::TriggerEvent::Redirect => ripdpi_config::DETECT_HTTP_LOCAT,
+        ripdpi_session::TriggerEvent::SslErr => ripdpi_config::DETECT_TLS_HANDSHAKE_FAILURE,
+        ripdpi_session::TriggerEvent::Connect => ripdpi_config::DETECT_CONNECT,
+        ripdpi_session::TriggerEvent::Torst => ripdpi_config::DETECT_TORST,
     }
 }

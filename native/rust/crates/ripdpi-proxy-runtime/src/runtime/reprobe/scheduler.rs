@@ -2,7 +2,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::thread;
 
 use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
-use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
+use ripdpi_runtime_adaptive::strategy_evolution::StrategyEvolutionResolver;
 
 use super::super::state::RuntimeState;
 use super::cache_flush::flush_runtime_cache_after_handover;
@@ -63,7 +63,7 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
 /// ServerHello completes.
 fn run_reprobe(
     config: &ripdpi_config::RuntimeConfig,
-    evolver: &crate::sync::Arc<crate::sync::RwLock<StrategyEvolver>>,
+    evolver: &crate::sync::Arc<crate::sync::RwLock<StrategyEvolutionResolver>>,
     adaptive_tuning: &crate::sync::Arc<crate::sync::RwLock<AdaptivePlannerResolver>>,
 ) {
     let deadline = std::time::Instant::now() + TOTAL_DEADLINE;

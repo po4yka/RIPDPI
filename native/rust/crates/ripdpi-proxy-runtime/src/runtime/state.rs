@@ -6,10 +6,10 @@ use ripdpi_proxy_config::ProxyRuntimeContext;
 use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
 use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
 use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
+use ripdpi_runtime_adaptive::strategy_evolution::StrategyEvolutionResolver;
 use ripdpi_runtime_api::{current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
 use ripdpi_runtime_policy::direct_path_learning::DirectPathLearningState;
 use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
-use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
 
 use mio::Token;
 
@@ -28,7 +28,7 @@ pub(super) struct RuntimeState {
     pub(super) adaptive_fake_ttl: Arc<RwLock<AdaptiveFakeTtlResolver>>,
     pub(super) adaptive_tuning: Arc<RwLock<AdaptivePlannerResolver>>,
     pub(super) retry_stealth: Arc<RwLock<RetryPacer>>,
-    pub(super) strategy_evolver: Arc<RwLock<StrategyEvolver>>,
+    pub(super) strategy_evolver: Arc<RwLock<StrategyEvolutionResolver>>,
     pub(super) direct_path_learning: Arc<RwLock<DirectPathLearningState>>,
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
@@ -58,26 +58,14 @@ impl RuntimeState {
     }
 
     fn from_parts(config: RuntimeConfig, parts: RuntimeStateParts) -> Self {
-        let evolver_enabled = config.adaptive.strategy_evolution;
-        let evolver_epsilon = config.adaptive.evolution_epsilon_permil as f64 / 1000.0;
-        let evolver_experiment_ttl_ms = config.adaptive.evolution_experiment_ttl_ms;
-        let evolver_decay_half_life_ms = config.adaptive.evolution_decay_half_life_ms;
-        let evolver_cooldown_after_failures = config.adaptive.evolution_cooldown_after_failures;
-        let evolver_cooldown_ms = config.adaptive.evolution_cooldown_ms;
+        let strategy_evolver = StrategyEvolutionResolver::from_config(&config);
         Self {
             config: Arc::new(config),
             cache: Arc::new(RwLock::new(parts.cache)),
             adaptive_fake_ttl: Arc::new(RwLock::new(AdaptiveFakeTtlResolver::default())),
             adaptive_tuning: Arc::new(RwLock::new(parts.adaptive_tuning)),
             retry_stealth: Arc::new(RwLock::new(RetryPacer::default())),
-            strategy_evolver: Arc::new(RwLock::new(
-                StrategyEvolver::new(evolver_enabled, evolver_epsilon).with_time_knobs(
-                    evolver_experiment_ttl_ms,
-                    evolver_decay_half_life_ms,
-                    evolver_cooldown_after_failures,
-                    evolver_cooldown_ms,
-                ),
-            )),
+            strategy_evolver: Arc::new(RwLock::new(strategy_evolver)),
             direct_path_learning: Arc::new(RwLock::new(DirectPathLearningState::default())),
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry: parts.telemetry,
