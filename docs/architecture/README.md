@@ -109,3 +109,6 @@ paths across representative payload sizes.
   — Android adapter crate decomposition, runtime-adaptive policy sink, and
   Kotlin sub-service splits (`9884feef..d6f5f59f`); pins JNI-export-in-cdylib
   rule and dependency direction.
+- [jni-handle-lifetime-telemetry-lock.md](jni-handle-lifetime-telemetry-lock.md)
+  — Two-region lock model for `RipDpiProxy` / `RipDpiRelay` JNI wrappers
+  (POY-175); design-only, implementation queued behind POY-249.
