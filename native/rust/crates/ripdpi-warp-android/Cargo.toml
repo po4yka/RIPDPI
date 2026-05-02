@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 android-support = { workspace = true }
+log = { workspace = true }
 boring = { workspace = true }
 bytes = { workspace = true }
 http = { workspace = true }

@@ -4032,6 +4032,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "jni 0.22.4",
+ "log",
  "once_cell",
  "ripdpi-native-protect",
  "ripdpi-tls-profiles",

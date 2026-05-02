@@ -10,6 +10,8 @@ use jni::sys::{jint, jlong};
 use jni::{EnvUnowned, JavaVM};
 
 /// # Safety
+/// Called once by the JVM at library load. `vm` is a valid `*mut JavaVM` that outlives this call.
+/// Must not unwind across the FFI boundary; panics are caught by `catch_unwind` inside the impl.
 #[unsafe(no_mangle)]
 #[allow(improper_ctypes_definitions)]
 pub extern "system" fn JNI_OnLoad(_vm: JavaVM, _reserved: *mut std::ffi::c_void) -> jint {

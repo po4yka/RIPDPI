@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use jni::objects::{JObject, JValue};
 use jni::refs::Global;
-use jni::{EnvUnowned, JavaVM};
+use jni::{EnvUnowned, JavaVM, Outcome};
 use ripdpi_native_protect::{register_protect_callback, unregister_protect_callback, ProtectCallback};
 use ripdpi_warp_core::WarpPlatform;
 
@@ -13,6 +13,9 @@ struct JniProtectCallback {
     vpn_service: Global<JObject<'static>>,
 }
 
+// SAFETY: JavaVM is Send+Sync (just a *mut sys::JavaVM wrapper).
+// Global<JObject<'static>> prevents the JVM from GC-collecting the Java
+// object and is safe to use from any thread via attach_current_thread.
 unsafe impl Send for JniProtectCallback {}
 unsafe impl Sync for JniProtectCallback {}
 
@@ -42,16 +45,33 @@ pub(crate) fn warp_platform() -> WarpPlatform {
 }
 
 pub(crate) fn register_from_jni(mut env: EnvUnowned<'_>, vpn_service: JObject<'_>) {
-    let _ = env.with_env(|env| -> jni::errors::Result<()> {
-        let vm = env.get_java_vm()?;
-        let global_ref: Global<JObject<'static>> = env.new_global_ref(vpn_service)?;
-        register_vpn_protect(&vm, global_ref);
-        Ok(())
-    });
+    match env
+        .with_env(|env| -> jni::errors::Result<()> {
+            let vm = env.get_java_vm()?;
+            let global_ref: Global<JObject<'static>> = env.new_global_ref(vpn_service)?;
+            register_vpn_protect(&vm, global_ref);
+            Ok(())
+        })
+        .into_outcome()
+    {
+        Outcome::Ok(()) => {}
+        Outcome::Err(err) => {
+            log::error!("warp VPN protect registration failed: {err}");
+        }
+        Outcome::Panic(payload) => {
+            let msg = payload
+                .downcast_ref::<String>()
+                .map(String::as_str)
+                .or_else(|| payload.downcast_ref::<&str>().copied())
+                .unwrap_or("unknown panic");
+            log::error!("warp VPN protect registration panicked: {msg}");
+        }
+    }
 }
 
 fn register_vpn_protect(vm: &JavaVM, vpn_service: Global<JObject<'static>>) {
     // SAFETY: JavaVM pointer is held live by JNI_OnLoad registration for the duration of the process.
+    // Re-creating a JavaVM from the raw pointer copies only the thin pointer wrapper; no double-free risk.
     let vm_clone = unsafe { JavaVM::from_raw(vm.get_raw()) };
     register_protect_callback(Arc::new(JniProtectCallback { vm: vm_clone, vpn_service }));
 }
