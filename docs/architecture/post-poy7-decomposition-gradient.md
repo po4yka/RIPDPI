@@ -1,19 +1,17 @@
-# Post-POY-7 Decomposition Gradient: Android Adapter Crates, Runtime-Adaptive Policy Sink, and Kotlin Sub-Service Splits
+# Android Adapter Crate Decomposition, Runtime-Adaptive Policy Sink, and Kotlin Sub-Service Splits
 
 Status: Approved.
 Decision date: 2026-05-02.
-Decision owner: Principal Android/Rust Architect.
-Related Paperclip issues: POY-4 (regression gate, baseline `e530ed0a`), POY-7 (prior decomposition ADR).
 
 ## Decision
 
-Approve the four cross-domain refactor commits that landed after POY-7 (`9884feef..d6f5f59f`, inclusive) as a single architecturally coherent decomposition pass. The commits are mechanical extractions; no behavior change is intended and JNI export surface is byte-identical to the POY-4 baseline. No implementation gating; follow-ups recorded below.
+Approve the four cross-domain refactor commits that landed after the prior decomposition ADR (`9884feef..d6f5f59f`, inclusive) as a single architecturally coherent decomposition pass. The commits are mechanical extractions; no behavior change is intended and JNI export surface is byte-identical to the prior baseline. No implementation gating; follow-ups recorded below.
 
 This ADR also pins the dependency-direction policy that makes the new shape load-bearing, so future changes do not silently regress it.
 
 ## Context
 
-The POY-7 ADR (`native-runner-and-platform-decomposition.md`) covered the connectivity-runner split, the diagnostics-probes compat facade, and the `TcpDesyncPlatform` capability decomposition through commit `af66236c`. Since then four further refactor commits have landed on `main`:
+The prior ADR (`native-runner-and-platform-decomposition.md`) covered the connectivity-runner split, the diagnostics-probes compat facade, and the `TcpDesyncPlatform` capability decomposition through commit `af66236c`. Since then four further refactor commits have landed on `main`:
 
 | Commit | Subject | Domain |
 |---|---|---|
@@ -22,7 +20,7 @@ The POY-7 ADR (`native-runner-and-platform-decomposition.md`) covered the connec
 | `423bd90b` | refactor(proxy-runtime): extract policy decisions | Rust workspace |
 | `d6f5f59f` | refactor(android): split native bridge adapters | Rust workspace + JNI cdylib |
 
-Each commit is a same-shape change applied in a different layer: a god-module (single Kotlin file or single Rust crate) is broken into small per-responsibility units, with the call surface preserved. Together they extend the POY-7 direction across the application stack and make a workspace-level pattern explicit that previously existed only inside `ripdpi-android` and `ripdpi-monitor-engine`. Recording it here keeps the dependency-direction expectation visible, since the POY-4 regression gate's child issues (e.g. `JNI symbol diff guard for libripdpi.so`) were scoped to baseline `e530ed0a` and the diff has expanded since.
+Each commit is a same-shape change applied in a different layer: a god-module (single Kotlin file or single Rust crate) is broken into small per-responsibility units, with the call surface preserved. Together they extend the prior decomposition direction across the application stack and make a workspace-level pattern explicit. Recording it here keeps the dependency-direction expectation visible, since the regression gate's scope has expanded since the initial baseline.
 
 ## Options Considered
 
@@ -68,7 +66,7 @@ Policy decisions previously embedded in `ripdpi-proxy-runtime/src/runtime/{adapt
 
 3. **Each split preserves call-surface contract.** WARP enrollment public APIs in `WarpEnrollmentOrchestrator` are unchanged; the orchestrator becomes a coordinator over the new services rather than the implementer. Diagnostics UI builders split along section boundaries with no `Composable` signature change. Runtime policy extraction keeps the `&self` and `&mut self` signatures used by callers in proxy-runtime; the destination crate publishes the policy types under its existing namespace.
 
-4. **Decomposition gradient is intentional, not coincidental.** The POY-7 ADR introduced the same shape inside three crates (`ripdpi-monitor-engine`, `ripdpi-diagnostics-probes`, `ripdpi-desync-runtime`). Extending it to (a) the JNI host crate and (b) two Kotlin god-modules is the correct continuation. The pattern is: "extract responsibility-bounded units, keep the prior call surface as a thin coordinator." Recording it here makes that the project default rather than ad-hoc engineering choice.
+4. **Decomposition gradient is intentional, not coincidental.** The prior ADR introduced the same shape inside three crates (`ripdpi-monitor-engine`, `ripdpi-diagnostics-probes`, `ripdpi-desync-runtime`). Extending it to (a) the JNI host crate and (b) two Kotlin god-modules is the correct continuation. The pattern is: "extract responsibility-bounded units, keep the prior call surface as a thin coordinator." Recording it here makes that the project default rather than ad-hoc engineering choice.
 
 ## Impacted Subsystems
 
@@ -82,17 +80,17 @@ Policy decisions previously embedded in `ripdpi-proxy-runtime/src/runtime/{adapt
 
 - **JNI-export drift in future adapter splits (medium).** The current pattern keeps every `extern "system" fn Java_…` inside `ripdpi-android/src/ffi/*` modules, but the adapter-crate split makes it tempting to move a JNI export down into an adapter crate. This is a one-way door: a cdylib export must be defined in the cdylib crate (or re-exported via `pub use` from there) for the linker to keep it. **Policy: every `pub extern "system" fn Java_…` MUST live in a module compiled directly by `ripdpi-android`. Adapter crates expose Rust functions only.** The pending JNI symbol-diff guard issue (`162d0f3a-406a-4ffd-bb8b-5dd60d575573`) is the enforcement mechanism — it is now in scope for the broader `e530ed0a..HEAD` range, not just `e530ed0a..af66236c`.
 - **Adapter-crate proliferation (low).** Seven adapter crates is a lot of `Cargo.toml` plumbing. Future feature additions should land in the closest existing adapter unless they introduce a genuinely new responsibility class. Adding an eighth adapter crate requires a one-paragraph justification in the change description.
-- **Compat-facade decay (carried from POY-7, unchanged).** `ripdpi-diagnostics-probes` is still default-on for compat. No new in-tree consumer was added by this diff. POY-7 FU-1 still applies.
+- **Compat-facade decay (unchanged).** `ripdpi-diagnostics-probes` is still default-on for compat. No new in-tree consumer was added by this diff. The compat-facade follow-up still applies.
 - **Kotlin Hilt scope rebinding (low).** The WARP orchestrator split adds `WarpEnrollmentBindingsModule.kt`. Hilt scope changes are a well-known regression class (singleton vs view-model vs activity). The orchestrator service themselves remain singleton-scoped (no scope flip in the diff), so this is a clean extraction; flagged for awareness, not action.
 - **Diagnostics builders fan-out (low).** Sixteen builders in the same package raises the chance of two builders disagreeing on shared formatting helpers. The split pulled shared logic into `DiagnosticsLiveLabels.kt` and `DiagnosticsTelemetryMetrics.kt`; new builders MUST consume those rather than re-implement.
 
 ## Required Reviews
 
-- **Senior Rust Native Engineer (informational, not blocking).** Confirm `cargo check -p ripdpi-android`, `-p ripdpi-android-proxy-adapter`, `-p ripdpi-runtime-adaptive`, `-p ripdpi-proxy-runtime` clean before any feature work resumes on these crates. Smallest sufficient check; this ADR does not run the commands.
-- **Senior Build/Gradle Engineer (informational).** Confirm Gradle configuration cache is unaffected (no `build-logic/` touch in this diff range, so risk is nil) and that release `cargo build --release -p ripdpi-android` still emits a single `libripdpi.so` with the expected ABI set.
-- **Senior Android Engineer (informational).** Confirm WARP orchestrator and Diagnostics UI tests still pass (`./gradlew :app:testDebugUnitTest`). Existing `WarpEnrollmentOrchestratorTest` was updated in 9884feef and is the regression net.
-- **QA Lead.** No signoff required for this ADR; existing unit and connectivity fixture tests are the regression net.
-- **Security/AppSec.** Not required. No telemetry, payload-capture, permission, or unsafe-surface change in this diff range. The JNI surface is byte-identical (verified above).
+- Confirm (informational, not blocking) `cargo check -p ripdpi-android`, `-p ripdpi-android-proxy-adapter`, `-p ripdpi-runtime-adaptive`, `-p ripdpi-proxy-runtime` clean before any feature work resumes on these crates. Smallest sufficient check; this ADR does not run the commands.
+- Confirm (informational) Gradle configuration cache is unaffected (no `build-logic/` touch in this diff range, so risk is nil) and that release `cargo build --release -p ripdpi-android` still emits a single `libripdpi.so` with the expected ABI set.
+- Confirm (informational) WARP orchestrator and Diagnostics UI tests still pass (`./gradlew :app:testDebugUnitTest`). Existing `WarpEnrollmentOrchestratorTest` was updated in 9884feef and is the regression net.
+- No signoff required for this ADR; existing unit and connectivity fixture tests are the regression net.
+- Not required. No telemetry, payload-capture, permission, or unsafe-surface change in this diff range. The JNI surface is byte-identical (verified above).
 
 ## Verification Requirements
 
@@ -102,13 +100,12 @@ Smallest checks required before downstream implementation work resumes on the af
 2. `cargo check -p ripdpi-runtime-adaptive` and `cargo check -p ripdpi-proxy-runtime` — confirms the policy-extraction edge.
 3. `cargo nextest run -p ripdpi-proxy-runtime` and `-p ripdpi-runtime-adaptive` — exercises preserved policy contract.
 4. `./gradlew :app:testDebugUnitTest --tests "*WarpEnrollmentOrchestratorTest*"` — confirms the orchestrator split keeps existing assertions passing.
-5. (Pending issue `162d0f3a`.) JNI symbol-diff guard CI step against `libripdpi.so`. The guard's expected-symbol list MUST be regenerated from the post-`d6f5f59f` build, not the `e530ed0a` build, when the issue is finally implemented.
+5. JNI symbol-diff guard CI step against `libripdpi.so`. The guard's expected-symbol list MUST be regenerated from the current build when implemented.
 
 This ADR does not run those commands; they are required of the Senior engineer who picks up the next change in either subsystem.
 
 ## Follow-Up Tasks
 
-- **FU-1 (Senior Rust Native Engineer + Senior Android Engineer review).** Land the JNI symbol-diff guard from existing issue `162d0f3a-406a-4ffd-bb8b-5dd60d575573`. The guard's baseline list MUST be captured from the `d6f5f59f` (or later) build so it covers the adapter-split surface, not the pre-split surface. Issue is currently `in_progress` with `assigneeId=null`; needs reassignment once the board ratification (`1eb7ccb3`) unblocks specialist staffing.
-- **FU-2 (Principal Architect, on next adapter-crate proposal).** Enforce the "no JNI exports in adapter crates" policy at review time. Any PR that adds a `pub extern "system" fn Java_…` outside `ripdpi-android/` MUST be blocked.
-- **FU-3 (track only).** When the next non-trivial change lands in `ripdpi-runtime-adaptive`, consider whether `ripdpi-proxy-runtime`'s policy-consuming surface can be narrowed to the new module paths (`morph_policy`, `strategy_context::*`) rather than the full crate. This would let other consumers depend on policy without pulling proxy-runtime's runtime types.
-- **FU-4 (no owner; track only).** Re-scope POY-4's regression-gate child issues (`a6a9dc71`, `b73d2284`, `0399a721`, `162d0f3a`, `f1339dff`) to baseline `HEAD` rather than `e530ed0a`. The board-ratification block (`1eb7ccb3`) currently prevents reassigning to specialist owners, but the scope expansion should be reflected in each child issue's description so the work is correctly framed when ratification clears.
+- **FU-1.** Land the JNI symbol-diff guard from existing issue `162d0f3a-406a-4ffd-bb8b-5dd60d575573`. The guard's baseline list MUST be captured from the `d6f5f59f` (or later) build so it covers the adapter-split surface, not the pre-split surface.
+- **FU-2.** Enforce the "no JNI exports in adapter crates" policy at review time. Any PR that adds a `pub extern "system" fn Java_…` outside `ripdpi-android/` MUST be blocked.
+- **FU-3.** When the next non-trivial change lands in `ripdpi-runtime-adaptive`, consider whether `ripdpi-proxy-runtime`'s policy-consuming surface can be narrowed to the new module paths (`morph_policy`, `strategy_context::*`) rather than the full crate. This would let other consumers depend on policy without pulling proxy-runtime's runtime types.

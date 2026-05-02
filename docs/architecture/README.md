@@ -104,11 +104,11 @@ paths across representative payload sizes.
   packetizer design.
 - [native-runner-and-platform-decomposition.md](native-runner-and-platform-decomposition.md)
   — Connectivity runner split, diagnostics-probes compat facade, and
-  `TcpDesyncPlatform` capability decomposition (POY-7).
+  `TcpDesyncPlatform` capability decomposition.
 - [post-poy7-decomposition-gradient.md](post-poy7-decomposition-gradient.md)
   — Android adapter crate decomposition, runtime-adaptive policy sink, and
   Kotlin sub-service splits (`9884feef..d6f5f59f`); pins JNI-export-in-cdylib
   rule and dependency direction.
 - [jni-handle-lifetime-telemetry-lock.md](jni-handle-lifetime-telemetry-lock.md)
   — Two-region lock model for `RipDpiProxy` / `RipDpiRelay` JNI wrappers
-  (POY-175); design-only, implementation queued behind POY-249.
+  (design-only, implementation queued).

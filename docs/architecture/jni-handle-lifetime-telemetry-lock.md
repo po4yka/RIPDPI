@@ -1,10 +1,8 @@
 # Decouple JNI Handle-Lifetime and Telemetry Locking
 
-Status: Approved (design only; implementation gated behind POY-249 release-readiness queue).
+Status: Approved (design only; implementation gated behind the release-readiness queue).
 Decision date: 2026-05-02.
 Last revised: 2026-05-02 (post-audit scope widening).
-Decision owner: Principal Android/Rust Architect.
-Related Paperclip issues: POY-175 (Proxy + Relay slice), POY-249 (queue blocker), POY-56 (epic), POY-251 (typed telemetry). Sibling wrappers covered by follow-up issues filed against this ADR (`RipDpiWarp`, `Tun2SocksTunnel`, `NetworkDiagnostics`).
 
 ## Decision
 
@@ -48,7 +46,7 @@ job is making sure `destroy` does not retire a handle while another JNI call
 is still using it. That is a classic readers-writer problem; collapsing it
 into a single `Mutex` is what causes the head-of-line block.
 
-POY-251 has already moved telemetry to typed results, so the JNI surface is
+A prior change has already moved telemetry to typed results, so the JNI surface is
 stable for the duration of this change.
 
 ## Options Considered
@@ -67,15 +65,14 @@ stable for the duration of this change.
 
 3. **Move all lifecycle into the native side and expose only async events.**
    Out of scope for this slice; would invalidate the JNI wrapper contract
-   that POY-251 stabilized and crosses subsystem boundaries beyond what
-   POY-175 covers.
+   that was previously stabilized and crosses subsystem boundaries beyond what this issue covers.
 
 4. **Per-method mutexes.**
    Would split lifecycle from telemetry but reintroduce the same
    serialization between concurrent telemetry / snapshot updates without
    solving the head-of-line block.
 
-Chose option 1: smallest behavior delta against POY-251 contracts, retains a
+Chose option 1: smallest behavior delta against existing contracts, retains a
 single lifecycle mutex (so existing `readinessSignal` accounting needs no
 restructure), and the reservation primitive can be unit-tested in isolation
 through the existing `RipDpiProxyBindings` / `RipDpiRelayBindings` fakes.
@@ -152,7 +149,7 @@ Existing tests that must continue to pass unchanged:
 - `RipDpiVpnServiceConfigTest` (VPN service config).
 
 JNI surface is unchanged; no native or `ripdpi-android*` adapter crate
-edits are required, and the JNI symbol diff guard from POY-7 must remain
+edits are required, and the JNI symbol diff guard must remain
 green.
 
 ## Rationale
@@ -173,7 +170,7 @@ green.
 3. **Cancellation safety.** Coroutine cancellation on the in-flight JNI
    call still releases the reservation, so a cancelled scope cannot wedge
    `withExclusive`.
-4. **Maintains POY-251 contract.** `pollTelemetry` returns the same
+4. **Maintains existing telemetry contract.** `pollTelemetry` returns the same
    `NativeRuntimeSnapshot`; the lock change is internal.
 5. **Non-rooted baseline preserved.** No root-only path is touched; the
    change is purely about Kotlin coroutine concurrency, not protocol or
@@ -194,18 +191,18 @@ green.
 ## Sibling Wrapper Audit
 
 Audited 2026-05-02. Three additional wrappers exhibit the same single-mutex
-head-of-line pattern. Each is filed as a follow-up under the same epic
-(POY-56) so the reservation primitive lands once and is reused.
+head-of-line pattern. Each is filed as a follow-up
+so the reservation primitive lands once and is reused.
 
 | Wrapper | File | Head-of-line block | Severity | Follow-up |
 |---|---|---|---|---|
-| `RipDpiWarp` | `core/engine/.../RipDpiWarp.kt:200-377` | `pollTelemetry` (line 360) holds the mutex across the JNI call; `stop()` (line 344) waits for it. Same shape as `RipDpiRelay`. | Medium — VPN tunnel teardown latency. | POY-285 |
-| `Tun2SocksTunnel` | `core/engine/.../Tun2SocksTunnel.kt:80-180` | `stats()` and `telemetry()` (lines 155, 168) hold the mutex across JNI calls; `stop()` (line 133) waits for them. Both `stats` and `telemetry` are on the supervisor hot poll path. | Medium — supervisor hot path. | POY-286 |
-| `NetworkDiagnostics` | `core/engine/.../NetworkDiagnostics.kt:99-165` | `pollProgressJson` / `takeReportJson` / `pollPassiveEventsJson` (lines 136-152) hold the mutex across JNI calls; `cancelScan()` (line 128) waits for them. | High — `cancelScan` is the operator-visible "abort scan" path; latency directly affects perceived responsiveness. | POY-287 |
+| `RipDpiWarp` | `core/engine/.../RipDpiWarp.kt:200-377` | `pollTelemetry` (line 360) holds the mutex across the JNI call; `stop()` (line 344) waits for it. Same shape as `RipDpiRelay`. | Medium — VPN tunnel teardown latency. | tracked in task board |
+| `Tun2SocksTunnel` | `core/engine/.../Tun2SocksTunnel.kt:80-180` | `stats()` and `telemetry()` (lines 155, 168) hold the mutex across JNI calls; `stop()` (line 133) waits for them. Both `stats` and `telemetry` are on the supervisor hot poll path. | Medium — supervisor hot path. | tracked in task board |
+| `NetworkDiagnostics` | `core/engine/.../NetworkDiagnostics.kt:99-165` | `pollProgressJson` / `takeReportJson` / `pollPassiveEventsJson` (lines 136-152) hold the mutex across JNI calls; `cancelScan()` (line 128) waits for them. | High — `cancelScan` is the operator-visible "abort scan" path; latency directly affects perceived responsiveness. | tracked in task board |
 
 Migration approach for siblings:
 
-- Implementer of POY-175 lands `HandleReservation` in
+- The implementer lands `HandleReservation` in
   `core/engine/.../lifetime/` with no public API beyond the primitive
   and its tests.
 - Each follow-up issue (one per sibling wrapper) replaces the local
@@ -222,24 +219,23 @@ telemetry JSON contract, root-only paths, live-network behavior.
 | Risk | Mitigation |
 |---|---|
 | Reservation primitive bug deadlocks `withExclusive`. | `HandleReservationTest` covers drain semantics, including cancellation. Fake bindings in wrapper tests simulate slow JNI calls. |
-| Concurrent telemetry triggers a native data race on the handle. | The handle itself stays single-writer (only `withExclusive` mutates it). Active reservations only call JNI methods that take the handle as input; the native side is already expected to be reentrant under POY-251. |
+| Concurrent telemetry triggers a native data race on the handle. | The handle itself stays single-writer (only `withExclusive` mutates it). Active reservations only call JNI methods that take the handle as input; the native side is already expected to be reentrant. |
 | Behavior change in `awaitReady` (still grabs lifetime mutex). | Test suite asserts `awaitReady` continues to terminate on `runtime_ready` events without altered timeout semantics. |
 | Future JNI calls that mutate global native state slip in under `withReservation` and break the assumption that only the handle is in play. | Add a code-review gate: any new `RipDpi*Bindings` method that does not take `handle` must use `withExclusive`. Captured in this ADR's `Required reviews`. |
 
 ## Required Reviews
 
-- Senior Android Engineer (lock primitive design, coroutine cancellation).
-- Senior Rust Native Engineer (confirm native side already supports
-  reentrant telemetry/config calls under POY-251).
-- QA Lead (lifecycle parity test plan in `core/service`).
-- Security/AppSec (confirm no privacy or telemetry surface change; pure
-  internal lock refactor).
+- Lock primitive design, coroutine cancellation.
+- Confirm native side already supports
+  reentrant telemetry/config calls.
+- Lifecycle parity test plan in `core/service`.
+- Confirm no privacy or telemetry surface change; pure internal lock refactor.
 
 ## Verification Requirements
 
 - All targeted tests above land and pass on CI.
 - `./gradlew :core:engine:test :core:service:test` green.
-- JNI symbol diff guard from POY-7 unchanged.
+- JNI symbol diff guard unchanged.
 - No detekt/lint baseline extension. Any violation must be fixed at
   source per project policy.
 - `./gradlew --configuration-cache help` continues to hit cache.
@@ -254,13 +250,10 @@ telemetry JSON contract, root-only paths, live-network behavior.
 
 ## Implementation Sequencing
 
-This ADR is design-only on 2026-05-02. Implementation is queued behind
-POY-249 (control-plane release-readiness). When POY-249 closes:
+This ADR is design-only. When the release-readiness queue clears:
 
-1. Senior Android Engineer takes POY-175 with this ADR as the contract.
-2. Lands `HandleReservation` primitive plus tests first (single PR).
-3. Lands wrapper integration plus integration tests second (single PR).
-4. Confirms supervisor lifecycle parity test green; closes POY-175.
+1. Implement `HandleReservation` primitive plus tests first (single PR).
+2. Implement wrapper integration plus integration tests second (single PR).
+3. Confirm supervisor lifecycle parity test green.
 
-Until then, no source edits to `RipDpiProxy.kt` or `RipDpiRelay.kt`
-under the POY-175 banner.
+Until then, no source edits to `RipDpiProxy.kt` or `RipDpiRelay.kt`.

@@ -1,9 +1,7 @@
 # Native Connectivity Runner Split, Diagnostics Facade, and TCP Desync Platform Decomposition
 
-Status: Approved (POY-7).
+Status: Approved.
 Decision date: 2026-05-02.
-Decision owner: Principal Android/Rust Architect.
-Related Paperclip issues: POY-7 (this review), POY-3 (parent).
 
 ## Decision
 
@@ -11,7 +9,7 @@ Approve the cross-domain refactor landed in commits `c795e066`..`af66236c` as ar
 
 ## Context
 
-POY-3 triaged a working tree that touched four boundary-sensitive crates simultaneously:
+An earlier review triaged a working tree that touched four boundary-sensitive crates simultaneously:
 
 - `ripdpi-monitor-engine`: `engine/runners/connectivity.rs` (269 lines) collapsing into a `connectivity/` module with eight per-stage runners and a shared `support.rs`.
 - `ripdpi-diagnostics-probes`: aggregate `pub use` root facade narrowed to a `compat-facade`-gated `compat::*` namespace; in-workspace consumers migrated to depend on the narrower lane crates directly.
@@ -63,10 +61,10 @@ Chose option 1 because (2) is satisfied by inspection (see Rationale §3) and (3
 
 ## Required Reviews
 
-- Senior Rust Native Engineer: confirms `cargo check -p ripdpi-desync-runtime`, `-p ripdpi-proxy-runtime`, `-p ripdpi-monitor-engine`, `-p ripdpi-android` clean before any follow-up implementation lands. (Smallest sufficient check; not run by this review.)
-- Senior Build/Gradle Engineer: confirms workspace-wide `cargo check --workspace --all-features` plus `cargo check --workspace --no-default-features` to exercise the `compat-facade`-off path, and that Gradle configuration cache is not affected (no build-logic touch in this diff, so risk is nil).
-- QA Lead: no signoff required for this review; existing `ripdpi-monitor-engine` integration tests are the regression net for stage-runner behaviour.
-- Security/AppSec: not required for this diff; no telemetry, payload capture, permission, or unsafe surface change.
+- Confirm `cargo check -p ripdpi-desync-runtime`, `-p ripdpi-proxy-runtime`, `-p ripdpi-monitor-engine`, `-p ripdpi-android` clean before any follow-up implementation lands. (Smallest sufficient check; not run by this review.)
+- Confirm workspace-wide `cargo check --workspace --all-features` plus `cargo check --workspace --no-default-features` to exercise the `compat-facade`-off path, and that Gradle configuration cache is not affected (no build-logic touch in this diff, so risk is nil).
+- No additional signoff required for this review; existing `ripdpi-monitor-engine` integration tests are the regression net for stage-runner behaviour.
+- No security review required for this diff; no telemetry, payload capture, permission, or unsafe surface change.
 
 ## Verification Requirements
 
@@ -83,7 +81,7 @@ This review does not run those commands; they are required of the Senior enginee
 
 ## Follow-Up Tasks
 
-- **FU-1 (assign to PM/CTO triage).** Audit external consumers of `ripdpi-diagnostics-probes`. If none exist, schedule deprecation: keep `compat-facade` default for one release window, then remove the crate. If consumers exist, document them in `docs/architecture/README.md` so the facade's audience is not implicit.
-- **FU-2 (assign to Senior Rust Native Engineer).** Add a `#[deny(unused_imports)]`/`cargo doc --no-deps` smoke for `ripdpi-diagnostics-probes` with `--no-default-features` in CI to prevent silent rot of the compat-facade-off path.
-- **FU-3 (assign to Senior Rust Native Engineer).** Consider replacing the `r#trait` raw-identifier module name (`ripdpi-desync-runtime/src/platform/trait.rs`) with `traits.rs` or `contract.rs` when the next non-trivial change lands here. Style nit; not blocking.
-- **FU-4 (no owner; track only).** When the next call site for a new TCP emitter family is added, prefer depending on the narrowest sub-trait (e.g., `TcpFragmentSender` alone) rather than `TcpDesyncPlatform` so the decomposition pays back its design cost.
+- **FU-1.** Audit external consumers of `ripdpi-diagnostics-probes`. If none exist, schedule deprecation: keep `compat-facade` default for one release window, then remove the crate. If consumers exist, document them in `docs/architecture/README.md` so the facade's audience is not implicit.
+- **FU-2.** Add a `#[deny(unused_imports)]`/`cargo doc --no-deps` smoke for `ripdpi-diagnostics-probes` with `--no-default-features` in CI to prevent silent rot of the compat-facade-off path.
+- **FU-3.** Consider replacing the `r#trait` raw-identifier module name (`ripdpi-desync-runtime/src/platform/trait.rs`) with `traits.rs` or `contract.rs` when the next non-trivial change lands here. Style nit; not blocking.
+- **FU-4.** When the next call site for a new TCP emitter family is added, prefer depending on the narrowest sub-trait (e.g., `TcpFragmentSender` alone) rather than `TcpDesyncPlatform` so the decomposition pays back its design cost.
