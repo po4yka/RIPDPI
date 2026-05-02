@@ -4,21 +4,21 @@ use std::time::Duration;
 
 use ripdpi_desync::DesyncAction;
 
+mod accounting;
+mod privileged;
+mod raw_write;
+mod ttl_oob;
+
+use accounting::{ActionContext, FallbackAccounting};
+use privileged::PrivilegedActionExecutor;
+use raw_write::RawWriteActionExecutor;
+use ttl_oob::TtlOobActionExecutor;
+
 use crate::platform;
-use crate::strategy_family::{
-    await_writable_action_name, log_ipfrag2_flow_fallback, restore_ttl_action_name, set_ttl_action_name,
-    should_fallback_ipfrag2_tcp_error_kind, should_fallback_seqovl_error_kind, strategy_fallback_family,
-    write_action_name,
-};
+use crate::strategy_family::{await_writable_action_name, strategy_fallback_family};
 use crate::sync::AtomicBool;
-use crate::tcp_lowering::{
-    send_oob_with_android_ttl_fallback, write_payload_with_android_ttl_fallback, TcpLoweringCapabilities,
-};
-use crate::transport_io::{
-    await_transport_writable_action, await_writable_action_named, send_ip_fragmented_tcp_action_named,
-    send_oob_action_named, send_transport_oob_payload, set_md5sig_action_named, set_md5sig_transport_action,
-    set_stream_ttl, write_strategy_payload_named, write_transport_payload,
-};
+use crate::tcp_lowering::TcpLoweringCapabilities;
+use crate::transport_io::{await_transport_writable_action, await_writable_action_named, set_stream_ttl};
 use crate::types::{OutboundSendError, PcapHook};
 
 #[allow(clippy::too_many_arguments)]
@@ -39,210 +39,84 @@ pub(crate) fn execute_tcp_actions(
     let mut lowering_caps = TcpLoweringCapabilities::snapshot(default_ttl, session_ttl_unavailable);
     let cached_restore_ttl: Option<u8> = Some(lowering_caps.restore_ttl);
     let mut ttl_modified = false;
-    let mut bytes_committed = 0usize;
-    let fallback = strategy_family.and_then(strategy_fallback_family);
+    let mut accounting = FallbackAccounting::new(strategy_family.and_then(strategy_fallback_family));
+    let context = ActionContext { strategy_family, default_ttl, md5sig, ip_id_mode };
 
     let result = (|| -> Result<usize, OutboundSendError> {
         for action in actions {
             match action {
                 DesyncAction::Write(bytes) => {
-                    if let Some(strategy_family) = strategy_family {
-                        if fallback.is_some() && ttl_modified {
-                            let (should_restore_ttl, committed) = write_payload_with_android_ttl_fallback(
-                                &mut lowering_caps,
-                                writer,
-                                bytes,
-                                ttl_modified,
-                                write_action_name(strategy_family),
-                                restore_ttl_action_name(strategy_family),
-                                strategy_family,
-                                fallback,
-                                bytes_committed,
-                            )?;
-                            ttl_modified = should_restore_ttl;
-                            bytes_committed = committed;
-                        } else {
-                            bytes_committed = write_strategy_payload_named(
-                                writer,
-                                bytes,
-                                write_action_name(strategy_family),
-                                strategy_family,
-                                fallback,
-                                bytes_committed,
-                            )?;
-                        }
-                    } else {
-                        bytes_committed = write_transport_payload(writer, bytes)?;
+                    let handled_by_ttl_fallback = TtlOobActionExecutor::write_payload_with_ttl_fallback(
+                        writer,
+                        bytes,
+                        &mut lowering_caps,
+                        &mut ttl_modified,
+                        &context,
+                        &mut accounting,
+                    )?;
+                    if !handled_by_ttl_fallback {
+                        RawWriteActionExecutor::write_payload(writer, bytes, &context, &mut accounting)?;
                     }
                     if let Some(hook) = pcap_hook {
                         hook(bytes, true);
                     }
                 }
                 DesyncAction::WriteUrgent { prefix, urgent_byte } => {
-                    if let Some(strategy_family) = strategy_family {
-                        if fallback.is_some() && ttl_modified {
-                            let (should_restore_ttl, committed) = send_oob_with_android_ttl_fallback(
-                                &mut lowering_caps,
-                                writer,
-                                prefix,
-                                *urgent_byte,
-                                ttl_modified,
-                                match strategy_family {
-                                    "disoob" => "send_oob_disoob",
-                                    _ => "send_oob",
-                                },
-                                restore_ttl_action_name(strategy_family),
-                                strategy_family,
-                                fallback,
-                                bytes_committed,
-                            )?;
-                            ttl_modified = should_restore_ttl;
-                            bytes_committed = committed;
-                        } else {
-                            bytes_committed = send_oob_action_named(
-                                writer,
-                                prefix,
-                                *urgent_byte,
-                                match strategy_family {
-                                    "disoob" => "send_oob_disoob",
-                                    _ => "send_oob",
-                                },
-                                strategy_family,
-                                fallback,
-                                bytes_committed,
-                            )?;
-                        }
-                    } else {
-                        bytes_committed = send_transport_oob_payload(writer, prefix, *urgent_byte)?;
-                    }
+                    TtlOobActionExecutor::write_urgent(
+                        writer,
+                        prefix,
+                        *urgent_byte,
+                        &mut lowering_caps,
+                        &mut ttl_modified,
+                        &context,
+                        &mut accounting,
+                    )?;
                 }
                 DesyncAction::SetTtl(ttl) => {
-                    if lowering_caps.set_ttl_named(
+                    TtlOobActionExecutor::set_ttl(
                         writer,
                         *ttl,
-                        strategy_family.map_or("set_ttl", set_ttl_action_name),
-                        strategy_family.unwrap_or("split"),
-                        fallback,
-                        bytes_committed,
-                    )? {
-                        ttl_modified = true;
-                    }
+                        &mut lowering_caps,
+                        &mut ttl_modified,
+                        &context,
+                        &accounting,
+                    )?;
                 }
                 DesyncAction::RestoreDefaultTtl => {
-                    if let Some(restore) = cached_restore_ttl {
-                        if lowering_caps.restore_default_ttl_named(
-                            writer,
-                            restore,
-                            strategy_family.map_or("restore_default_ttl", restore_ttl_action_name),
-                            strategy_family.unwrap_or("split"),
-                            fallback,
-                            bytes_committed,
-                        )? {
-                            ttl_modified = false;
-                        }
-                    }
+                    TtlOobActionExecutor::restore_default_ttl(
+                        writer,
+                        cached_restore_ttl,
+                        &mut lowering_caps,
+                        &mut ttl_modified,
+                        &context,
+                        &accounting,
+                    )?;
                 }
                 DesyncAction::SetMd5Sig { key_len } => {
-                    if let Some(strategy_family) = strategy_family {
-                        set_md5sig_action_named(
-                            writer,
-                            *key_len,
-                            "set_md5sig",
-                            strategy_family,
-                            fallback,
-                            bytes_committed,
-                        )?;
-                    } else {
-                        set_md5sig_transport_action(writer, *key_len)?;
-                    }
+                    PrivilegedActionExecutor::set_md5sig(writer, *key_len, &context, &accounting)?;
                 }
                 DesyncAction::AttachDropSack => {}
                 DesyncAction::DetachDropSack => {}
                 DesyncAction::WriteIpFragmentedTcp { bytes, split_offset, disorder, ipv6_ext } => {
-                    if let Some(strategy_family) = strategy_family {
-                        match send_ip_fragmented_tcp_action_named(
-                            writer,
-                            bytes,
-                            *split_offset,
-                            default_ttl,
-                            None,
-                            *disorder,
-                            *ipv6_ext,
-                            platform::TcpFlagOverrides::default(),
-                            ip_id_mode,
-                            "write_ipfrag2",
-                            strategy_family,
-                            fallback,
-                            bytes_committed,
-                        ) {
-                            Ok(committed) => {
-                                bytes_committed = committed;
-                            }
-                            Err(err)
-                                if strategy_family == "ipfrag2"
-                                    && should_fallback_ipfrag2_tcp_error_kind(err.kind()) =>
-                            {
-                                log_ipfrag2_flow_fallback(&err);
-                                bytes_committed = write_strategy_payload_named(
-                                    writer,
-                                    bytes,
-                                    "write_ipfrag2",
-                                    strategy_family,
-                                    fallback,
-                                    bytes_committed,
-                                )?;
-                            }
-                            Err(err) => return Err(err),
-                        }
-                    } else {
-                        match platform::send_ip_fragmented_tcp(
-                            writer,
-                            bytes,
-                            *split_offset,
-                            default_ttl,
-                            None,
-                            *disorder,
-                            *ipv6_ext,
-                            platform::TcpFlagOverrides::default(),
-                            ip_id_mode,
-                        ) {
-                            Ok(()) => {
-                                bytes_committed += bytes.len();
-                            }
-                            Err(err) if should_fallback_ipfrag2_tcp_error_kind(err.kind()) => {
-                                log_ipfrag2_flow_fallback(&err);
-                                bytes_committed = write_transport_payload(writer, bytes)?;
-                            }
-                            Err(err) => return Err(OutboundSendError::Transport(err)),
-                        }
-                    }
+                    PrivilegedActionExecutor::write_ip_fragmented_tcp(
+                        writer,
+                        bytes,
+                        *split_offset,
+                        *disorder,
+                        *ipv6_ext,
+                        &context,
+                        &mut accounting,
+                    )?;
                 }
                 DesyncAction::WriteSeqOverlap { real_chunk, fake_prefix, remainder } => {
-                    match platform::send_seqovl_tcp(
+                    PrivilegedActionExecutor::write_seq_overlap(
                         writer,
                         real_chunk,
                         fake_prefix,
-                        default_ttl,
-                        None,
-                        md5sig,
-                        platform::TcpFlagOverrides::default(),
-                        ip_id_mode,
-                    ) {
-                        Ok(()) => {
-                            bytes_committed += real_chunk.len();
-                            if !remainder.is_empty() {
-                                bytes_committed += write_transport_payload(writer, remainder)?;
-                            }
-                        }
-                        Err(err) if should_fallback_seqovl_error_kind(err.kind()) => {
-                            tracing::warn!("seqovl fallback to split: {err}");
-                            bytes_committed += write_transport_payload(writer, real_chunk)?;
-                            if !remainder.is_empty() {
-                                bytes_committed += write_transport_payload(writer, remainder)?;
-                            }
-                        }
-                        Err(err) => return Err(OutboundSendError::Transport(err)),
-                    }
+                        remainder,
+                        &context,
+                        &mut accounting,
+                    )?;
                 }
                 DesyncAction::WriteIpFragmentedUdp { .. } => {
                     return Err(OutboundSendError::Transport(io::Error::new(
@@ -251,15 +125,15 @@ pub(crate) fn execute_tcp_actions(
                     )));
                 }
                 DesyncAction::AwaitWritable => {
-                    if let Some(strategy_family) = strategy_family {
+                    if let Some(strategy_family) = context.strategy_family {
                         await_writable_action_named(
                             writer,
                             wait_send,
                             await_interval,
                             await_writable_action_name(strategy_family),
                             strategy_family,
-                            fallback,
-                            bytes_committed,
+                            accounting.fallback(),
+                            accounting.bytes_committed(),
                         )?;
                     } else {
                         await_transport_writable_action(writer, wait_send, await_interval)?;
@@ -278,13 +152,7 @@ pub(crate) fn execute_tcp_actions(
                     let _ = platform::set_tcp_window_clamp(writer, 0);
                 }
                 DesyncAction::SendFakeRst => {
-                    let _ = platform::send_fake_rst(
-                        writer,
-                        default_ttl,
-                        None,
-                        platform::TcpFlagOverrides::default(),
-                        ip_id_mode,
-                    );
+                    PrivilegedActionExecutor::send_fake_rst(writer, &context);
                 }
                 DesyncAction::Delay(ms) => {
                     // std-thread-safe: each connection runs on its own dedicated OS thread
@@ -293,7 +161,7 @@ pub(crate) fn execute_tcp_actions(
                 }
             }
         }
-        Ok(bytes_committed)
+        Ok(accounting.bytes_committed())
     })();
 
     // Safety net: restore TTL even on early error return.

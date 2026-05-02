@@ -1,3 +1,12 @@
+mod basic_stream;
+mod dispatcher;
+mod fake_family;
+mod fake_rst;
+mod hostfake;
+mod invalid;
+mod ip_fragmentation;
+mod ttl_sensitive;
+
 use std::io;
 use std::net::TcpStream;
 use std::time::Duration;
@@ -7,24 +16,18 @@ use ripdpi_desync::DesyncPlan;
 
 use super::decision::{handle_tcp_plan_step_control, tcp_step_strategy_family, TcpPlanLoopControl};
 use super::fake_packets::{build_tcp_fake_packets, BuiltFakePackets};
-use super::flags::{step_fake_tcp_flags, step_original_tcp_flags};
-use super::hostfake::{execute_tcp_hostfake_step, TcpHostFakeExecContext};
 use super::multi_disorder::execute_multi_disorder_tcp_plan;
-use super::stream_steps::{
-    execute_basic_tcp_stream_step, execute_ttl_sensitive_tcp_step, TcpBasicStreamExecContext,
-    TcpTtlSensitiveExecContext,
-};
-use crate::platform;
-use crate::strategy_family::{
-    log_ipfrag2_flow_fallback, should_fallback_ipfrag2_tcp_error_kind, strategy_fallback_family, write_action_name,
-};
+use crate::strategy_family::{strategy_fallback_family, write_action_name};
 use crate::sync::AtomicBool;
-use crate::tcp_fake_family::{execute_tcp_fake_family_step, TcpFakeFamilyExecContext, TcpStepControl};
+use crate::tcp_fake_family::TcpStepControl;
 use crate::tcp_lowering::TcpLoweringCapabilities;
-use crate::transport_io::{
-    send_ip_fragmented_tcp_action_named, write_strategy_payload_named, write_strategy_payload_with_optional_flags_named,
-};
+use crate::transport_io::write_strategy_payload_named;
 use crate::types::OutboundSendError;
+
+#[cfg(test)]
+pub(crate) use fake_rst::execute_tcp_fakerst_step;
+#[cfg(test)]
+pub(crate) use ip_fragmentation::execute_tcp_ipfrag2_step;
 
 pub(crate) struct TcpPlanStepExecContext<'a> {
     pub(crate) writer: &'a mut TcpStream,
@@ -38,81 +41,15 @@ pub(crate) struct TcpPlanStepExecContext<'a> {
     pub(crate) fake_packets: Option<&'a BuiltFakePackets>,
 }
 
-pub(crate) fn execute_tcp_ipfrag2_step(
-    ctx: &mut TcpPlanStepExecContext<'_>,
-    end: usize,
-    configured_step: &TcpChainStep,
-    step_family: &'static str,
-    step_fallback: Option<&'static str>,
-    bytes_committed: usize,
-) -> Result<(usize, TcpStepControl), OutboundSendError> {
-    let bytes_committed = match send_ip_fragmented_tcp_action_named(
-        ctx.writer,
-        &ctx.plan.tampered,
-        end,
-        ctx.config.network.default_ttl,
-        ctx.config.process.protect_path.as_deref(),
-        false, // disorder not available in legacy plan path
-        ripdpi_ipfrag::Ipv6ExtHeaders::default(),
-        step_original_tcp_flags(configured_step),
-        ctx.group.actions.ip_id_mode,
-        "write_ipfrag2",
-        step_family,
-        step_fallback,
-        bytes_committed,
-    ) {
-        Ok(committed) => committed,
-        Err(err) if should_fallback_ipfrag2_tcp_error_kind(err.kind()) => {
-            log_ipfrag2_flow_fallback(&err);
-            write_strategy_payload_with_optional_flags_named(
-                ctx.writer,
-                &ctx.plan.tampered,
-                ctx.config.network.default_ttl,
-                ctx.config.process.protect_path.as_deref(),
-                false,
-                step_original_tcp_flags(configured_step),
-                ctx.group.actions.ip_id_mode,
-                "write_ipfrag2",
-                step_family,
-                step_fallback,
-                bytes_committed,
-            )?
-        }
-        Err(err) => return Err(err),
-    };
-    Ok((bytes_committed, TcpStepControl::BreakPlan))
-}
-
-pub(crate) fn execute_tcp_fakerst_step(
-    ctx: &mut TcpPlanStepExecContext<'_>,
-    configured_step: &TcpChainStep,
-    chunk: &[u8],
-    end: usize,
-    step_family: &'static str,
-    step_fallback: Option<&'static str>,
-    bytes_committed: usize,
-) -> Result<(usize, TcpStepControl), OutboundSendError> {
-    let _ = platform::send_fake_rst(
-        ctx.writer,
-        ctx.config.network.default_ttl,
-        ctx.config.process.protect_path.as_deref(),
-        step_fake_tcp_flags(configured_step),
-        ctx.group.actions.ip_id_mode,
-    );
-    let bytes_committed = write_strategy_payload_with_optional_flags_named(
-        ctx.writer,
-        chunk,
-        ctx.config.network.default_ttl,
-        ctx.config.process.protect_path.as_deref(),
-        ctx.md5sig,
-        step_original_tcp_flags(configured_step),
-        ctx.group.actions.ip_id_mode,
-        "write_fakerst",
-        step_family,
-        step_fallback,
-        bytes_committed,
-    )?;
-    Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
+pub(crate) struct TcpPlanStepInput<'a> {
+    pub(crate) kind: TcpChainStepKind,
+    pub(crate) configured_step: &'a TcpChainStep,
+    pub(crate) chunk: &'a [u8],
+    pub(crate) start: usize,
+    pub(crate) end: usize,
+    pub(crate) step_family: &'static str,
+    pub(crate) step_fallback: Option<&'static str>,
+    pub(crate) bytes_committed: usize,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -127,109 +64,9 @@ pub(crate) fn execute_tcp_plan_step(
     step_fallback: Option<&'static str>,
     bytes_committed: usize,
 ) -> Result<(usize, TcpStepControl), OutboundSendError> {
-    match kind {
-        TcpChainStepKind::Split | TcpChainStepKind::SynData | TcpChainStepKind::SeqOverlap | TcpChainStepKind::Oob => {
-            let mut basic_stream_ctx = TcpBasicStreamExecContext {
-                writer: ctx.writer,
-                config: ctx.config,
-                group: ctx.group,
-                md5sig: ctx.md5sig,
-            };
-            let bytes_committed = execute_basic_tcp_stream_step(
-                &mut basic_stream_ctx,
-                kind,
-                configured_step,
-                chunk,
-                step_family,
-                step_fallback,
-                bytes_committed,
-            )?;
-            Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
-        }
-        TcpChainStepKind::Disorder | TcpChainStepKind::Disoob => {
-            let mut ttl_sensitive_ctx = TcpTtlSensitiveExecContext {
-                writer: ctx.writer,
-                config: ctx.config,
-                group: ctx.group,
-                lowering: ctx.lowering,
-                md5sig: ctx.md5sig,
-            };
-            let bytes_committed = execute_ttl_sensitive_tcp_step(
-                &mut ttl_sensitive_ctx,
-                kind,
-                configured_step,
-                chunk,
-                step_family,
-                step_fallback,
-                bytes_committed,
-            )?;
-            Ok((bytes_committed, TcpStepControl::ContinueAt(end)))
-        }
-        TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder => {
-            let fake_packets =
-                ctx.fake_packets.ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "missing fake packet"))?;
-            let mut fake_family_ctx = TcpFakeFamilyExecContext {
-                writer: ctx.writer,
-                config: ctx.config,
-                group: ctx.group,
-                plan: ctx.plan,
-                fake_packets,
-                resolved_fake_ttl: ctx.resolved_fake_ttl,
-                lowering: ctx.lowering,
-                md5sig: ctx.md5sig,
-            };
-            execute_tcp_fake_family_step(
-                &mut fake_family_ctx,
-                kind,
-                configured_step,
-                chunk,
-                start,
-                end,
-                step_family,
-                step_fallback,
-                bytes_committed,
-            )
-        }
-        TcpChainStepKind::IpFrag2 => {
-            execute_tcp_ipfrag2_step(ctx, end, configured_step, step_family, step_fallback, bytes_committed)
-        }
-        TcpChainStepKind::HostFake => {
-            let mut hostfake_ctx = TcpHostFakeExecContext {
-                writer: ctx.writer,
-                config: ctx.config,
-                group: ctx.group,
-                plan: ctx.plan,
-                seed: ctx.seed,
-                resolved_fake_ttl: ctx.resolved_fake_ttl,
-                md5sig: ctx.md5sig,
-            };
-            execute_tcp_hostfake_step(
-                &mut hostfake_ctx,
-                configured_step,
-                chunk,
-                start,
-                end,
-                step_family,
-                step_fallback,
-                bytes_committed,
-            )
-        }
-        TcpChainStepKind::FakeRst => {
-            execute_tcp_fakerst_step(ctx, configured_step, chunk, end, step_family, step_fallback, bytes_committed)
-        }
-        TcpChainStepKind::MultiDisorder => Err(OutboundSendError::Transport(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "multidisorder must be executed as a grouped tcp plan",
-        ))),
-        TcpChainStepKind::TlsRec | TcpChainStepKind::TlsRandRec => Err(OutboundSendError::Transport(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "tls prelude step must not appear in tcp send plan",
-        ))),
-        _ => Err(OutboundSendError::Transport(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "unknown tcp step kind in tcp send plan",
-        ))),
-    }
+    let input =
+        TcpPlanStepInput { kind, configured_step, chunk, start, end, step_family, step_fallback, bytes_committed };
+    dispatcher::execute(ctx, &input)
 }
 
 pub(crate) fn execute_tcp_plan(
