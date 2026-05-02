@@ -1,0 +1,67 @@
+use std::collections::HashMap;
+use std::time::Instant;
+
+use super::super::{
+    StrategyEvolver, DEFAULT_COOLDOWN_AFTER_FAILURES, DEFAULT_COOLDOWN_MS, DEFAULT_DECAY_HALF_LIFE_MS,
+    DEFAULT_EXPERIMENT_TTL_MS,
+};
+use crate::strategy_evolver::types::{now_millis, LearningContext};
+
+impl StrategyEvolver {
+    pub fn new(enabled: bool, epsilon: f64) -> Self {
+        Self {
+            combos: HashMap::new(),
+            contexts: HashMap::new(),
+            current_experiment: None,
+            current_experiment_context: None,
+            current_experiment_family: None,
+            current_experiment_started_ms: None,
+            current_learning_context: LearningContext::default(),
+            explore_epsilon: epsilon,
+            max_combos: 64,
+            enabled,
+            rng_state: initial_rng_state(),
+            epoch: Instant::now(),
+            experiment_ttl_ms: DEFAULT_EXPERIMENT_TTL_MS,
+            decay_half_life_ms: DEFAULT_DECAY_HALF_LIFE_MS,
+            cooldown_after_failures: DEFAULT_COOLDOWN_AFTER_FAILURES,
+            cooldown_ms: DEFAULT_COOLDOWN_MS,
+            max_arm_attempts: u32::MAX,
+            penalties_enabled: false,
+            shared_priors: HashMap::new(),
+            #[cfg(test)]
+            test_clock_override_ms: None,
+        }
+    }
+
+    pub fn is_enabled(&self) -> bool {
+        self.enabled
+    }
+
+    pub fn epsilon(&self) -> f64 {
+        self.explore_epsilon
+    }
+
+    pub fn set_learning_context(&mut self, context: LearningContext) {
+        if self.current_learning_context == context {
+            return;
+        }
+        self.current_learning_context = context;
+        clear_pending_experiment(self);
+    }
+
+    pub fn current_learning_context(&self) -> &LearningContext {
+        &self.current_learning_context
+    }
+}
+
+pub(in crate::strategy_evolver) fn clear_pending_experiment(evolver: &mut StrategyEvolver) {
+    evolver.current_experiment = None;
+    evolver.current_experiment_context = None;
+    evolver.current_experiment_family = None;
+    evolver.current_experiment_started_ms = None;
+}
+
+fn initial_rng_state() -> u64 {
+    now_millis().wrapping_add(1).wrapping_mul(6_364_136_223_846_793_005).wrapping_add(std::process::id() as u64)
+}

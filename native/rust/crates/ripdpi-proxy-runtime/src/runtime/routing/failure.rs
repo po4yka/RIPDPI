@@ -2,63 +2,29 @@ use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ripdpi_config::{
-    DETECT_CONNECT, DETECT_CONNECTION_FREEZE, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT,
-    DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE,
-};
 use ripdpi_dns_resolver::extract_ip_answers;
 use ripdpi_failure_classifier::{
     block_signal_from_failure, classify_http_response_block, classify_tls_alert, classify_tls_handshake_failure,
-    confirm_dns_tampering, ClassifiedFailure, FailureAction, FailureClass,
+    confirm_dns_tampering, ClassifiedFailure,
 };
-use ripdpi_runtime_policy::runtime_policy::{
-    is_tls_client_hello_payload, ConnectionRoute, RouteAdvance, TransportProtocol,
-};
+use ripdpi_runtime_policy::runtime_policy::is_tls_client_hello_payload;
 use ripdpi_session::{detect_response_trigger, TriggerEvent};
 use ripdpi_ws_bootstrap::{
     build_encrypted_dns_resolver_for_host, encrypted_dns_label, runtime_encrypted_dns_context_for_host,
 };
 
-use super::super::adaptive::{
-    note_adaptive_fake_ttl_failure, note_adaptive_tcp_failure, note_direct_path_tls_post_client_hello_failure,
-    note_evolver_failure,
-};
-use super::super::retry::{build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure};
 use super::super::state::{flush_autolearn_updates, RuntimeState};
-use super::policy::{preferred_targets_for_transport, runtime_supports_trigger};
 
-pub(in crate::runtime) fn failure_trigger_mask(failure: &ClassifiedFailure) -> u32 {
-    match failure.class {
-        FailureClass::DnsTampering => DETECT_DNS_TAMPER,
-        FailureClass::TcpReset => DETECT_TCP_RESET,
-        FailureClass::SilentDrop => DETECT_SILENT_DROP,
-        FailureClass::TlsAlert => DETECT_TLS_ALERT,
-        FailureClass::HttpBlockpage => DETECT_HTTP_BLOCKPAGE,
-        FailureClass::QuicBreakage => 0,
-        FailureClass::Redirect => DETECT_HTTP_LOCAT,
-        FailureClass::TlsHandshakeFailure => DETECT_TLS_HANDSHAKE_FAILURE,
-        FailureClass::ConnectFailure => DETECT_CONNECT,
-        FailureClass::StrategyExecutionFailure => DETECT_CONNECT,
-        FailureClass::ConnectionFreeze => DETECT_CONNECTION_FREEZE,
-        FailureClass::Unknown => 0,
-        // Capability-skipped runs were never actually emitted; they emit no
-        // wire-visible block signals and must not trigger block detection.
-        FailureClass::CapabilitySkipped => 0,
-    }
-}
+mod advance;
+mod cache;
+mod feedback;
+mod telemetry;
+mod trigger;
 
-pub(in crate::runtime) fn failure_penalizes_strategy(failure: &ClassifiedFailure) -> bool {
-    matches!(
-        failure.class,
-        FailureClass::TcpReset
-            | FailureClass::SilentDrop
-            | FailureClass::TlsAlert
-            | FailureClass::HttpBlockpage
-            | FailureClass::Redirect
-            | FailureClass::TlsHandshakeFailure
-            | FailureClass::ConnectionFreeze
-    )
-}
+pub(in crate::runtime) use advance::advance_route_for_failure;
+pub(in crate::runtime) use telemetry::emit_failure_classified;
+#[allow(unused_imports)]
+pub(in crate::runtime) use trigger::{failure_penalizes_strategy, failure_trigger_mask};
 
 fn is_tunnel_infrastructure_dns_target(target: SocketAddr) -> bool {
     if target.port() != 853 {
@@ -75,89 +41,6 @@ fn is_tunnel_infrastructure_dns_target(target: SocketAddr) -> bool {
 
 pub(in crate::runtime) fn should_track_strategy_target(target: SocketAddr) -> bool {
     !is_tunnel_infrastructure_dns_target(target)
-}
-
-pub(in crate::runtime) fn emit_failure_classified(
-    state: &RuntimeState,
-    target: SocketAddr,
-    failure: &ClassifiedFailure,
-    host: Option<&str>,
-) {
-    if !should_track_strategy_target(target) {
-        return;
-    }
-    if let Some(telemetry) = &state.telemetry {
-        telemetry.on_failure_classified(target, failure, host);
-    }
-}
-
-pub(in crate::runtime) fn advance_route_for_failure(
-    state: &RuntimeState,
-    target: SocketAddr,
-    route: &ConnectionRoute,
-    host: Option<String>,
-    payload: Option<&[u8]>,
-    failure: &ClassifiedFailure,
-) -> io::Result<Option<ConnectionRoute>> {
-    if !should_track_strategy_target(target) {
-        return Ok(None);
-    }
-    let trigger = failure_trigger_mask(failure);
-    if failure.action != FailureAction::RetryWithMatchingGroup
-        || trigger == 0
-        || !runtime_supports_trigger(state, trigger)?
-    {
-        return Ok(None);
-    }
-
-    let _ = note_retry_failure(state, target, route.group_index, host.as_deref(), payload, TransportProtocol::Tcp)?;
-    let penalize = failure_penalizes_strategy(failure);
-    if penalize {
-        if matches!(failure.class, FailureClass::TlsAlert | FailureClass::TlsHandshakeFailure) {
-            let targets = preferred_targets_for_transport(state, target, host.as_deref(), TransportProtocol::Tcp);
-            let _ = note_direct_path_tls_post_client_hello_failure(state, host.as_deref(), &targets);
-        }
-        if let Some(payload) = payload {
-            note_adaptive_tcp_failure(state, target, route.group_index, host.as_deref(), payload)?;
-        }
-        note_adaptive_fake_ttl_failure(state, target, route.group_index, host.as_deref())?;
-        note_evolver_failure(state, failure.class);
-    }
-
-    let retry_penalties =
-        build_retry_selection_penalties(state, target, host.as_deref(), payload, TransportProtocol::Tcp)?;
-    let mut cache = state.cache.write().map_err(|_| io::Error::other("cache lock poisoned"))?;
-    let next = cache.advance_route(
-        &state.config,
-        route,
-        RouteAdvance {
-            dest: target,
-            payload,
-            transport: TransportProtocol::Tcp,
-            trigger,
-            can_reconnect: true,
-            host: host.clone(),
-            penalize_strategy_failure: penalize,
-            retry_penalties: Some(&retry_penalties),
-        },
-    )?;
-    flush_autolearn_updates(state, &mut cache);
-    drop(cache);
-    if let Some(next_route) = next.as_ref() {
-        maybe_emit_candidate_diversification(state, target, next_route, &retry_penalties);
-    }
-    if let (Some(telemetry), Some(next_route)) = (&state.telemetry, next.as_ref()) {
-        telemetry.on_route_advanced(target, route.group_index, next_route.group_index, trigger, host.as_deref());
-        telemetry.on_adaptive_override(
-            target,
-            next_route.group_index,
-            trigger,
-            failure.class.as_str(),
-            host.as_deref(),
-            "route_advance",
-        );
-    }
-    Ok(next)
 }
 
 pub(in crate::runtime) fn note_block_signal_for_failure(
@@ -267,9 +150,9 @@ mod tests {
 #[allow(clippy::items_after_test_module)]
 pub(in crate::runtime) fn trigger_flag(trigger: TriggerEvent) -> u32 {
     match trigger {
-        TriggerEvent::Redirect => DETECT_HTTP_LOCAT,
-        TriggerEvent::SslErr => DETECT_TLS_HANDSHAKE_FAILURE,
-        TriggerEvent::Connect => DETECT_CONNECT,
+        TriggerEvent::Redirect => ripdpi_config::DETECT_HTTP_LOCAT,
+        TriggerEvent::SslErr => ripdpi_config::DETECT_TLS_HANDSHAKE_FAILURE,
+        TriggerEvent::Connect => ripdpi_config::DETECT_CONNECT,
         TriggerEvent::Torst => ripdpi_config::DETECT_TORST,
     }
 }
