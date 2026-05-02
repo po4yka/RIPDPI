@@ -105,3 +105,7 @@ paths across representative payload sizes.
 - [native-runner-and-platform-decomposition.md](native-runner-and-platform-decomposition.md)
   — Connectivity runner split, diagnostics-probes compat facade, and
   `TcpDesyncPlatform` capability decomposition (POY-7).
+- [post-poy7-decomposition-gradient.md](post-poy7-decomposition-gradient.md)
+  — Android adapter crate decomposition, runtime-adaptive policy sink, and
+  Kotlin sub-service splits (`9884feef..d6f5f59f`); pins JNI-export-in-cdylib
+  rule and dependency direction.
