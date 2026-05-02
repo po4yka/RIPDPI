@@ -1,0 +1,48 @@
+{
+  "adapterConfig": {
+    "bypassSandbox": false,
+    "command": "codex",
+    "cwd": "/Users/po4yka/GitRep/RIPDPI",
+    "dangerouslyBypassApprovalsAndSandbox": false,
+    "enableSearch": false,
+    "env": {
+      "AGENT_SCOPE": {
+        "type": "plain",
+        "value": "product_management"
+      },
+      "GITHUB_REPOSITORY": {
+        "type": "plain",
+        "value": "po4yka/RIPDPI"
+      },
+      "PROJECT_NAME": {
+        "type": "plain",
+        "value": "RIPDPI"
+      },
+      "RIPDPI_REPO": {
+        "type": "plain",
+        "value": "/Users/po4yka/GitRep/RIPDPI"
+      }
+    },
+    "fastMode": false,
+    "graceSec": 30,
+    "instructionsBundleMode": "managed",
+    "instructionsEntryFile": "AGENTS.md",
+    "model": "gpt-5.5",
+    "thinkingEffort": "high",
+    "timeoutSec": 1200
+  },
+  "adapterType": "codex_local",
+  "budgetMonthlyCents": 10000,
+  "capabilities": "Owns RIPDPI product requirements, user stories, settings flow design, diagnostics narrative, acceptance criteria, user-visible privacy disclosures, and roadmap translation. Coordinates with CTO on technical feasibility. Does not implement code, change Android/Rust modules, or approve releases.",
+  "name": "Product Manager",
+  "reportsTo": "CEO",
+  "role": "pm",
+  "runtimeConfig": {
+    "heartbeat": {
+      "enabled": true,
+      "intervalSec": 1800,
+      "maxConcurrentRuns": 1
+    }
+  },
+  "title": "Product Manager / RIPDPI Product Owner"
+}

@@ -1,0 +1,28 @@
+{
+  "adapterConfig": {
+    "cwd": "/Users/po4yka/GitRep/RIPDPI",
+    "dangerouslySkipPermissions": false,
+    "fastMode": false,
+    "graceSec": 30,
+    "instructionsBundleMode": "managed",
+    "instructionsEntryFile": "AGENTS.md",
+    "model": "claude-opus-4-7",
+    "permissionMode": "default",
+    "thinkingMode": "high",
+    "timeoutSec": 1500
+  },
+  "adapterType": "claude_local",
+  "budgetMonthlyCents": 15000,
+  "capabilities": "Owns RIPDPI privacy review, threat modeling, Android permission review, telemetry/diagnostics export review, native networking risk review, dependency/supply-chain review, unsafe Rust and JNI/FFI boundary review, release-security signoff. May escalate directly to CEO/board for unresolved privacy or security risk.",
+  "name": "Security AppSec",
+  "reportsTo": "CTO",
+  "role": "security",
+  "runtimeConfig": {
+    "heartbeat": {
+      "enabled": true,
+      "intervalSec": 1800,
+      "maxConcurrentRuns": 1
+    }
+  },
+  "title": "Security / AppSec Engineer (RIPDPI)"
+}

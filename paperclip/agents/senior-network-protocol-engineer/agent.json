@@ -1,0 +1,28 @@
+{
+  "adapterConfig": {
+    "cwd": "/Users/po4yka/GitRep/RIPDPI",
+    "dangerouslySkipPermissions": false,
+    "fastMode": false,
+    "graceSec": 30,
+    "instructionsBundleMode": "managed",
+    "instructionsEntryFile": "AGENTS.md",
+    "model": "claude-sonnet-4-6",
+    "permissionMode": "default",
+    "thinkingMode": "high",
+    "timeoutSec": 1500
+  },
+  "adapterType": "claude_local",
+  "budgetMonthlyCents": 30000,
+  "capabilities": "Owns RIPDPI VPN/proxy/DNS/TCP/TLS/QUIC/desync protocol behavior, resolver logic (UDP/DoH/DoT/DNSCrypt) and bootstrap/fallback, network handover, network diagnostics probes, MASQUE/HTTP/3 paths, and on-wire correctness of desync/strategy mutations. Implementation-capable across the relevant crates and Android networking layer; coordinates with Senior Rust Native Engineer for crate-internal changes and Senior Android Engineer for Android networking integration.",
+  "name": "Senior Network Protocol Engineer",
+  "reportsTo": "CTO",
+  "role": "engineer",
+  "runtimeConfig": {
+    "heartbeat": {
+      "enabled": true,
+      "intervalSec": 1800,
+      "maxConcurrentRuns": 1
+    }
+  },
+  "title": "Senior Network Protocol Engineer (RIPDPI)"
+}

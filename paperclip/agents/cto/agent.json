@@ -1,0 +1,48 @@
+{
+  "adapterConfig": {
+    "bypassSandbox": false,
+    "command": "codex",
+    "cwd": "/Users/po4yka/GitRep/RIPDPI",
+    "dangerouslyBypassApprovalsAndSandbox": false,
+    "enableSearch": false,
+    "env": {
+      "AGENT_SCOPE": {
+        "type": "plain",
+        "value": "technical_governance"
+      },
+      "GITHUB_REPOSITORY": {
+        "type": "plain",
+        "value": "po4yka/RIPDPI"
+      },
+      "PROJECT_NAME": {
+        "type": "plain",
+        "value": "RIPDPI"
+      },
+      "RIPDPI_REPO": {
+        "type": "plain",
+        "value": "/Users/po4yka/GitRep/RIPDPI"
+      }
+    },
+    "fastMode": false,
+    "graceSec": 30,
+    "instructionsBundleMode": "managed",
+    "instructionsEntryFile": "AGENTS.md",
+    "model": "gpt-5.5",
+    "thinkingEffort": "high",
+    "timeoutSec": 1200
+  },
+  "adapterType": "codex_local",
+  "budgetMonthlyCents": 15000,
+  "capabilities": "Owns RIPDPI technical strategy, architecture governance, engineering decomposition, technical review policy, cross-domain coordination across Android, Rust native modules, VPN/proxy/DNS networking, diagnostics, build systems, security/privacy gates, and release-readiness criteria. Delegates implementation to specialist engineering agents. Does not directly implement code, merge PRs, publish releases, handle secrets, or run live network experiments.",
+  "name": "CTO",
+  "reportsTo": "CEO",
+  "role": "cto",
+  "runtimeConfig": {
+    "heartbeat": {
+      "enabled": true,
+      "intervalSec": 1800,
+      "maxConcurrentRuns": 1
+    }
+  },
+  "title": "CTO / RIPDPI Technical Lead"
+}

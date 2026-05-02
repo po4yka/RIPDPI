@@ -1,0 +1,98 @@
+[
+  {
+    "name": "CEO",
+    "urlKey": "ceo",
+    "role": "ceo",
+    "reportsTo": null,
+    "adapter": "codex_local",
+    "model": "gpt-5.5"
+  },
+  {
+    "name": "CTO",
+    "urlKey": "cto",
+    "role": "cto",
+    "reportsTo": "CEO",
+    "adapter": "codex_local",
+    "model": "gpt-5.5"
+  },
+  {
+    "name": "Documentation UX Engineer",
+    "urlKey": "documentation-ux-engineer",
+    "role": "designer",
+    "reportsTo": "Product Manager",
+    "adapter": "claude_local",
+    "model": "claude-sonnet-4-6"
+  },
+  {
+    "name": "Principal Android Rust Architect",
+    "urlKey": "principal-android-rust-architect",
+    "role": "engineer",
+    "reportsTo": "CTO",
+    "adapter": "claude_local",
+    "model": "claude-opus-4-7"
+  },
+  {
+    "name": "Product Manager",
+    "urlKey": "product-manager",
+    "role": "pm",
+    "reportsTo": "CEO",
+    "adapter": "codex_local",
+    "model": "gpt-5.5"
+  },
+  {
+    "name": "QA Lead",
+    "urlKey": "qa-lead",
+    "role": "qa",
+    "reportsTo": "CEO",
+    "adapter": "claude_local",
+    "model": "claude-opus-4-7"
+  },
+  {
+    "name": "Security AppSec",
+    "urlKey": "security-appsec",
+    "role": "security",
+    "reportsTo": "CTO",
+    "adapter": "claude_local",
+    "model": "claude-opus-4-7"
+  },
+  {
+    "name": "Senior Android Engineer",
+    "urlKey": "senior-android-engineer",
+    "role": "engineer",
+    "reportsTo": "CTO",
+    "adapter": "claude_local",
+    "model": "claude-sonnet-4-6"
+  },
+  {
+    "name": "Senior Build Gradle CI Engineer",
+    "urlKey": "senior-build-gradle-ci-engineer",
+    "role": "devops",
+    "reportsTo": "CTO",
+    "adapter": "claude_local",
+    "model": "claude-sonnet-4-6"
+  },
+  {
+    "name": "Senior Network Protocol Engineer",
+    "urlKey": "senior-network-protocol-engineer",
+    "role": "engineer",
+    "reportsTo": "CTO",
+    "adapter": "claude_local",
+    "model": "claude-sonnet-4-6"
+  },
+  {
+    "name": "Senior Rust Native Engineer",
+    "urlKey": "senior-rust-native-engineer",
+    "role": "engineer",
+    "reportsTo": "CTO",
+    "adapter": "claude_local",
+    "model": "claude-sonnet-4-6"
+  },
+  {
+    "name": "Test Automation Engineer",
+    "urlKey": "test-automation-engineer",
+    "role": "qa",
+    "reportsTo": "QA Lead",
+    "adapter": "claude_local",
+    "model": "claude-sonnet-4-6"
+  }
+]

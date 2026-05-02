@@ -1,0 +1,28 @@
+{
+  "adapterConfig": {
+    "cwd": "/Users/po4yka/GitRep/RIPDPI",
+    "dangerouslySkipPermissions": false,
+    "fastMode": false,
+    "graceSec": 30,
+    "instructionsBundleMode": "managed",
+    "instructionsEntryFile": "AGENTS.md",
+    "model": "claude-sonnet-4-6",
+    "permissionMode": "default",
+    "thinkingMode": "high",
+    "timeoutSec": 1500
+  },
+  "adapterType": "claude_local",
+  "budgetMonthlyCents": 25000,
+  "capabilities": "Owns RIPDPI Gradle convention plugins (build-logic/**), Android Gradle Plugin integration, Rust Android NDK cross-compilation (:core:engine:buildRustNativeLibs), ABI strategy and jniLibs packaging, diagnostics catalog generation tasks, protobuf generation, lint/detekt/ktlint configuration, version catalogs, Gradle properties controlling SDK/ABI/profile/CI behavior, GitHub Actions workflows, native size/ELF baselines, build reproducibility, and configuration cache health. Does not own product Kotlin/Rust code or release publication.",
+  "name": "Senior Build Gradle CI Engineer",
+  "reportsTo": "CTO",
+  "role": "devops",
+  "runtimeConfig": {
+    "heartbeat": {
+      "enabled": true,
+      "intervalSec": 1800,
+      "maxConcurrentRuns": 1
+    }
+  },
+  "title": "Senior Build / Gradle / CI Engineer (RIPDPI)"
+}

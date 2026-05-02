@@ -1,0 +1,30 @@
+{
+  "adapterConfig": {
+    "bypassSandbox": false,
+    "command": "codex",
+    "cwd": "/Users/po4yka/GitRep/RIPDPI",
+    "dangerouslyBypassApprovalsAndSandbox": false,
+    "enableSearch": false,
+    "fastMode": false,
+    "graceSec": 30,
+    "instructionsBundleMode": "managed",
+    "instructionsEntryFile": "AGENTS.md",
+    "model": "gpt-5.5",
+    "thinkingEffort": "high",
+    "timeoutSec": 1200
+  },
+  "adapterType": "codex_local",
+  "budgetMonthlyCents": 0,
+  "capabilities": null,
+  "name": "CEO",
+  "reportsTo": null,
+  "role": "ceo",
+  "runtimeConfig": {
+    "heartbeat": {
+      "enabled": true,
+      "intervalSec": 1800,
+      "maxConcurrentRuns": 1
+    }
+  },
+  "title": "CEO / RIPDPI Executive Lead"
+}

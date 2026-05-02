@@ -1,0 +1,28 @@
+{
+  "adapterConfig": {
+    "cwd": "/Users/po4yka/GitRep/RIPDPI",
+    "dangerouslySkipPermissions": false,
+    "fastMode": false,
+    "graceSec": 30,
+    "instructionsBundleMode": "managed",
+    "instructionsEntryFile": "AGENTS.md",
+    "model": "claude-sonnet-4-6",
+    "permissionMode": "default",
+    "thinkingMode": "high",
+    "timeoutSec": 1500
+  },
+  "adapterType": "claude_local",
+  "budgetMonthlyCents": 30000,
+  "capabilities": "Implements RIPDPI Kotlin/Android app: Compose UI, Hilt DI, services, settings, diagnostics screens, VpnService integration, local proxy hookup, permissions and lifecycle, platform compatibility through current Android. Owns Android-side JNI consumption of native crates. Does not own native Rust, Gradle convention plugins, release signing, or final QA signoff.",
+  "name": "Senior Android Engineer",
+  "reportsTo": "CTO",
+  "role": "engineer",
+  "runtimeConfig": {
+    "heartbeat": {
+      "enabled": true,
+      "intervalSec": 1800,
+      "maxConcurrentRuns": 1
+    }
+  },
+  "title": "Senior Android Engineer (RIPDPI)"
+}

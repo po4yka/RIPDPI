@@ -1,0 +1,28 @@
+{
+  "adapterConfig": {
+    "cwd": "/Users/po4yka/GitRep/RIPDPI",
+    "dangerouslySkipPermissions": false,
+    "fastMode": false,
+    "graceSec": 30,
+    "instructionsBundleMode": "managed",
+    "instructionsEntryFile": "AGENTS.md",
+    "model": "claude-opus-4-7",
+    "permissionMode": "default",
+    "thinkingMode": "high",
+    "timeoutSec": 1500
+  },
+  "adapterType": "claude_local",
+  "budgetMonthlyCents": 20000,
+  "capabilities": "Owns RIPDPI cross-cutting architecture: Android (Kotlin/Compose/Hilt) \u2194 native Rust workspace integration, JNI/FFI contracts, module-boundary discipline, dependency direction, VPN service \u2194 native runtime execution model, diagnostics catalog evolution, configuration cache impact, ABI/packaging strategy, and in-process API stability. Produces ADR-style decisions in `docs/architecture/`. Reports to CTO. Does not implement product code by default; delegates to Senior engineers.",
+  "name": "Principal Android Rust Architect",
+  "reportsTo": "CTO",
+  "role": "engineer",
+  "runtimeConfig": {
+    "heartbeat": {
+      "enabled": true,
+      "intervalSec": 1800,
+      "maxConcurrentRuns": 1
+    }
+  },
+  "title": "Principal Android/Rust Architect (RIPDPI)"
+}
