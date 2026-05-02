@@ -1,0 +1,43 @@
+use ripdpi_config::{RuntimeConfig, AUTO_RECONN, AUTO_SORT};
+
+use crate::types::{ProxyUiAdaptiveFallbackConfig, ProxyUiHostAutolearnConfig, ProxyUiWsTunnelConfig};
+
+pub(crate) fn apply_runtime_section(
+    config: &mut RuntimeConfig,
+    adaptive_fallback: &ProxyUiAdaptiveFallbackConfig,
+    host_autolearn: &ProxyUiHostAutolearnConfig,
+    ws_tunnel: &ProxyUiWsTunnelConfig,
+) {
+    config.host_autolearn.enabled = host_autolearn.enabled;
+    config.host_autolearn.penalty_ttl_secs = host_autolearn.penalty_ttl_hours.max(1).saturating_mul(3600);
+    config.host_autolearn.max_hosts = host_autolearn.max_hosts.max(1);
+    config.host_autolearn.store_path =
+        host_autolearn.store_path.as_deref().map(str::trim).filter(|value| !value.is_empty()).map(ToOwned::to_owned);
+    config.host_autolearn.warmup_probe_enabled = host_autolearn.warmup_probe_enabled;
+    config.host_autolearn.network_reprobe_enabled = host_autolearn.network_reprobe_enabled;
+    config.adaptive.network_scope_key = host_autolearn
+        .network_scope_key
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned);
+    config.adaptive.ws_tunnel_mode = match ws_tunnel.mode.as_deref() {
+        Some("fallback") => ripdpi_config::WsTunnelMode::Fallback,
+        Some("always") => ripdpi_config::WsTunnelMode::Always,
+        Some("off" | _) => ripdpi_config::WsTunnelMode::Off,
+        None => {
+            if ws_tunnel.enabled {
+                ripdpi_config::WsTunnelMode::Always
+            } else {
+                ripdpi_config::WsTunnelMode::Off
+            }
+        }
+    };
+    config.adaptive.ws_tunnel_fake_sni = ws_tunnel.fake_sni.clone().filter(|value| !value.is_empty());
+    config.adaptive.auto_level = if adaptive_fallback.enabled { AUTO_RECONN } else { 0 };
+    if adaptive_fallback.enabled && adaptive_fallback.auto_sort {
+        config.adaptive.auto_level |= AUTO_SORT;
+    }
+    config.adaptive.cache_ttl = adaptive_fallback.cache_ttl_seconds.max(0);
+    config.adaptive.cache_prefix = (32 - adaptive_fallback.cache_prefix_v4.clamp(1, 32)).max(1);
+}
