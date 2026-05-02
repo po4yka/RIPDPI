@@ -2,8 +2,9 @@
 
 Status: Approved (design only; implementation gated behind POY-249 release-readiness queue).
 Decision date: 2026-05-02.
+Last revised: 2026-05-02 (post-audit scope widening).
 Decision owner: Principal Android/Rust Architect.
-Related Paperclip issues: POY-175 (this slice), POY-249 (queue blocker), POY-56 (epic), POY-251 (typed telemetry).
+Related Paperclip issues: POY-175 (Proxy + Relay slice), POY-249 (queue blocker), POY-56 (epic), POY-251 (typed telemetry). Sibling wrappers covered by follow-up issues filed against this ADR (`RipDpiWarp`, `Tun2SocksTunnel`, `NetworkDiagnostics`).
 
 ## Decision
 
@@ -181,12 +182,40 @@ green.
 ## Impacted Subsystems
 
 - `core/engine` (Kotlin): adds `lifetime/HandleReservation.kt`, edits
-  `RipDpiProxy.kt`, `RipDpiRelay.kt`.
+  `RipDpiProxy.kt`, `RipDpiRelay.kt`. Sibling wrappers (`RipDpiWarp.kt`,
+  `Tun2SocksTunnel.kt`, `NetworkDiagnostics.kt`) adopt the same primitive
+  in follow-up issues — see "Sibling Wrapper Audit" below.
 - `core/service` (Kotlin): new lifecycle parity test only; runtime
   coordinator behavior is unchanged.
 - Rust workspace: untouched.
 - JNI surface: untouched.
 - Diagnostics catalog: untouched.
+
+## Sibling Wrapper Audit
+
+Audited 2026-05-02. Three additional wrappers exhibit the same single-mutex
+head-of-line pattern. Each is filed as a follow-up under the same epic
+(POY-56) so the reservation primitive lands once and is reused.
+
+| Wrapper | File | Head-of-line block | Severity | Follow-up |
+|---|---|---|---|---|
+| `RipDpiWarp` | `core/engine/.../RipDpiWarp.kt:200-377` | `pollTelemetry` (line 360) holds the mutex across the JNI call; `stop()` (line 344) waits for it. Same shape as `RipDpiRelay`. | Medium — VPN tunnel teardown latency. | POY-285 |
+| `Tun2SocksTunnel` | `core/engine/.../Tun2SocksTunnel.kt:80-180` | `stats()` and `telemetry()` (lines 155, 168) hold the mutex across JNI calls; `stop()` (line 133) waits for them. Both `stats` and `telemetry` are on the supervisor hot poll path. | Medium — supervisor hot path. | POY-286 |
+| `NetworkDiagnostics` | `core/engine/.../NetworkDiagnostics.kt:99-165` | `pollProgressJson` / `takeReportJson` / `pollPassiveEventsJson` (lines 136-152) hold the mutex across JNI calls; `cancelScan()` (line 128) waits for them. | High — `cancelScan` is the operator-visible "abort scan" path; latency directly affects perceived responsiveness. | POY-287 |
+
+Migration approach for siblings:
+
+- Implementer of POY-175 lands `HandleReservation` in
+  `core/engine/.../lifetime/` with no public API beyond the primitive
+  and its tests.
+- Each follow-up issue (one per sibling wrapper) replaces the local
+  `mutex` with the primitive and adds wrapper-specific locking tests
+  named in the same `*_LockingTest` style.
+- All sibling migrations are non-rooted-baseline-preserving and
+  JNI-ABI-preserving by construction.
+
+Out of scope for this ADR and any follow-up: protocol behavior,
+telemetry JSON contract, root-only paths, live-network behavior.
 
 ## Risks
 
