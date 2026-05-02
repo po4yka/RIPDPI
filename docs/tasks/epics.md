@@ -257,7 +257,7 @@
   - Reference Android client: https://github.com/amnezia-vpn/amneziawg-android (local: `/Users/po4yka/GitRep/amneziawg-android/`)
   - Child issues: 6
 
-- [ ] #task Epic - Boot autostart and session persistence #repo/RIPDPI #area/auth #status/backlog 🔼 [paperclip:POY-38]
+- [ ] #task Epic - Boot autostart and session persistence #repo/RIPDPI #area/boot-autostart-and-session #status/backlog 🔼 [paperclip:POY-38]
   - Paperclip: POY-38 · assigned to: unassigned
   
   <!-- migrated from obsidian -->
@@ -346,7 +346,7 @@
   - [[ripdpi-android]]
   - Child issues: 4
 
-- [ ] #task Epic - Cloudflare publish hardening #repo/RIPDPI #area/cloudflare #status/backlog ⏫ [paperclip:POY-39]
+- [ ] #task Epic - Cloudflare publish hardening #repo/RIPDPI #area/cloudflare-publish-hardening #status/backlog ⏫ [paperclip:POY-39]
   - Paperclip: POY-39 · assigned to: unassigned
   
   <!-- migrated from obsidian -->
@@ -929,7 +929,7 @@
     Phase 2 + arm A3
   - Child issues: 8
 
-- [ ] #task Epic - Encrypted DNS and HTTPS SVCB classifier #repo/RIPDPI #area/dns #status/todo 🔺 [paperclip:POY-44]
+- [ ] #task Epic - Encrypted DNS and HTTPS SVCB classifier #repo/RIPDPI #area/encrypted-dns-and-https #status/todo 🔺 [paperclip:POY-44]
   - Paperclip: POY-44 · assigned to: unassigned
   
   <!-- migrated from obsidian -->
@@ -1166,7 +1166,7 @@
   - [[Epic - NekoBox subscription and profile import]]
   - Child issues: 9
 
-- [ ] #task Epic - Fail-closed Android VPN policy engine #repo/RIPDPI #area/android #status/backlog 🔺 [paperclip:POY-46]
+- [ ] #task Epic - Fail-closed Android VPN policy engine #repo/RIPDPI #area/fail-closed-android-vpn #status/backlog 🔺 [paperclip:POY-46]
   - Paperclip: POY-46 · assigned to: unassigned
   
   <!-- migrated from obsidian -->
@@ -1418,7 +1418,7 @@
   - [[ripdpi-android-audit-2026-04-20]] §10, Highest-ROI #3
   - Child issues: 4
 
-- [ ] #task Epic - NekoBox subscription and profile import #repo/RIPDPI #area/subscription #status/backlog 🔺 [paperclip:POY-49]
+- [ ] #task Epic - NekoBox subscription and profile import #repo/RIPDPI #area/nekobox-subscription-and-profile #status/backlog 🔺 [paperclip:POY-49]
   - Paperclip: POY-49 · assigned to: unassigned
   
   <!-- migrated from obsidian -->
@@ -1764,7 +1764,7 @@
   - [[ripdpi-android-direct-mode-plan-2026-04-20]] §5
   - Child issues: 7
 
-- [ ] #task Epic - QR code and clipboard profile import #repo/RIPDPI #area/subscription #status/backlog ⏫ [paperclip:POY-54]
+- [ ] #task Epic - QR code and clipboard profile import #repo/RIPDPI #area/qr-code-and-clipboard #status/backlog ⏫ [paperclip:POY-54]
   - Paperclip: POY-54 · assigned to: unassigned
   
   <!-- migrated from obsidian -->
@@ -1849,7 +1849,7 @@
   - [[Epic - NekoBox subscription and profile import]]
   - Child issues: 4
 
-- [ ] #task Epic - Remove Cloudflare from critical path #repo/RIPDPI #area/cloudflare #status/backlog 🔺 [paperclip:POY-55]
+- [ ] #task Epic - Remove Cloudflare from critical path #repo/RIPDPI #area/remove-cloudflare-from-critical #status/backlog 🔺 [paperclip:POY-55]
   - Paperclip: POY-55 · assigned to: unassigned
   
   <!-- migrated from obsidian -->
@@ -2188,7 +2188,7 @@
   - [[ripdpi-android]]
   - Child issues: 4
 
-- [ ] #task Epic - VPN fleet testing matrix and release gates #repo/RIPDPI #area/android #status/backlog ⏫ [paperclip:POY-60]
+- [ ] #task Epic - VPN fleet testing matrix and release gates #repo/RIPDPI #area/vpn-fleet-testing-matrix #status/backlog ⏫ [paperclip:POY-60]
   - Paperclip: POY-60 · assigned to: unassigned
   
   <!-- migrated from obsidian -->
@@ -2267,7 +2267,7 @@
   - [[Epic - Fail-closed Android VPN policy engine]]
   - Child issues: 4
 
-- [ ] #task Epic - Xray VPN client mode #repo/RIPDPI #area/android #status/backlog ⏫ [paperclip:POY-61]
+- [ ] #task Epic - Xray VPN client mode #repo/RIPDPI #area/xray-vpn-client-mode #status/backlog ⏫ [paperclip:POY-61]
   - Paperclip: POY-61 · assigned to: unassigned
   
   <!-- migrated from obsidian -->

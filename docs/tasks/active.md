@@ -885,7 +885,7 @@
   Definition of done:
   Implementation verification evidence is posted, any corrective patch is scoped, and all required review gates are linked.
 
-- [ ] #task Network protocol review: diagnostics connectivity behavior after runner refactor #repo/RIPDPI #area/general #status/doing ⏫ [paperclip:POY-9]
+- [ ] #task Network protocol review: diagnostics connectivity behavior after runner refactor #repo/RIPDPI #area/rust-native #status/doing ⏫ [paperclip:POY-9]
   - Paperclip: POY-9 · assigned to: Senior Network Protocol Engineer
   
   Objective:
@@ -969,7 +969,7 @@
   Definition of done:
   Build/packaging verification requirements and result are posted, with any required CI follow-up made explicit.
 
-- [ ] #task Align diagnostics privacy and export copy #repo/RIPDPI #area/general #status/doing 🔼 [paperclip:POY-15]
+- [ ] #task Align diagnostics privacy and export copy #repo/RIPDPI #area/android #status/doing 🔼 [paperclip:POY-15]
   - Paperclip: POY-15 · assigned to: Documentation Engineer
   - Blocked by: POY-13, POY-14
   
@@ -1016,7 +1016,7 @@
   Definition of done:
   Approved copy is committed to repo files, screenshots/tests are updated or confirmed unchanged, and AppSec/QA review comments are present.
 
-- [ ] #task Add desync trait-split parity tests for TcpDesyncPlatform sub-traits #repo/RIPDPI #area/dpi #status/doing ⏫ [paperclip:POY-17]
+- [ ] #task Add desync trait-split parity tests for TcpDesyncPlatform sub-traits #repo/RIPDPI #area/rust-native #status/doing ⏫ [paperclip:POY-17]
   - Paperclip: POY-17 · assigned to: Senior Network Protocol Engineer
   
   Owner: Senior Network Protocol Engineer (with QA Lead review).
@@ -1085,7 +1085,7 @@
   Definition of done
   PR merged; symbol-diff job green; Senior Android Engineer signs off that all Kotlin-loaded symbols are present.
 
-- [ ] #task Audit and migrate in-workspace ripdpi-diagnostics-probes consumers off the compat facade #repo/RIPDPI #area/general #status/doing 🔼 [paperclip:POY-21]
+- [ ] #task Audit and migrate in-workspace ripdpi-diagnostics-probes consumers off the compat facade #repo/RIPDPI #area/rust-native #status/doing 🔼 [paperclip:POY-21]
   - Paperclip: POY-21 · assigned to: Senior Rust Native Engineer
   
   Owner: Senior Rust Native Engineer.

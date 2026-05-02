@@ -3549,7 +3549,7 @@
 
 ## general
 
-- [ ] #task Remove PCAP from normal diagnostics archives and harden developer-analytics.json #repo/RIPDPI #area/general #status/backlog ⏫ [paperclip:POY-27]
+- [ ] #task Remove PCAP from normal diagnostics archives and harden developer-analytics.json #repo/RIPDPI #area/android #status/backlog ⏫ [paperclip:POY-27]
   - Paperclip: POY-27 · assigned to: Senior Android Engineer
   
   Objective:
@@ -3604,7 +3604,7 @@
   Definition of done:
   The four normal archive reasons produce archives with no `.pcap` entries and a sanitised `developer-analytics.json`; tests above are green; AppSec re-approves on re-review of POY-14.
 
-- [ ] #task Gate Diagnostics packet-capture surface on rootModeEnabled and add raw-packet disclosure #repo/RIPDPI #area/general #status/backlog ⏫ [paperclip:POY-28]
+- [ ] #task Gate Diagnostics packet-capture surface on rootModeEnabled and add raw-packet disclosure #repo/RIPDPI #area/android #status/backlog ⏫ [paperclip:POY-28]
   - Paperclip: POY-28 · assigned to: Senior Android Engineer
   
   Objective:
@@ -3658,7 +3658,7 @@
   Definition of done:
   The Diagnostics packet-capture card and `togglePcapRecording` are correctly gated by `rootModeEnabled`, all copy is localised, a pre-recording confirmation is in place, a delete-PCAP action exists in Settings, and AppSec re-approves on re-review of POY-14.
 
-- [ ] #task Add Telegram MTProto diagnostic with DC reachability and throughput #repo/RIPDPI #area/general #status/backlog 🔼 [paperclip:POY-92]
+- [ ] #task Add Telegram MTProto diagnostic with DC reachability and throughput #repo/RIPDPI #area/rust-native #status/backlog 🔼 [paperclip:POY-92]
   - Paperclip: POY-92 · assigned to: unassigned
   
   <!-- migrated from obsidian -->
@@ -3743,7 +3743,7 @@
 
   - [[ripdpi-android]]
 
-- [ ] #task Add upstream HTTP and SOCKS5 proxy override for diagnostic probes #repo/RIPDPI #area/general #status/backlog 🔽 [paperclip:POY-151]
+- [ ] #task Add upstream HTTP and SOCKS5 proxy override for diagnostic probes #repo/RIPDPI #area/rust-native #status/backlog 🔽 [paperclip:POY-151]
   - Paperclip: POY-151 · assigned to: unassigned
   
   <!-- migrated from obsidian -->
@@ -3825,7 +3825,7 @@
 
   - [[ripdpi-android]]
 
-- [ ] #task Spike relay-assisted QUICstep rescue mode after NO_DIRECT_SOLUTION #repo/RIPDPI #area/general #status/backlog 🔽 [paperclip:POY-242]
+- [ ] #task Spike relay-assisted QUICstep rescue mode after NO_DIRECT_SOLUTION #repo/RIPDPI #area/direct-mode-transport-policy #status/backlog 🔽 [paperclip:POY-242]
   - Paperclip: POY-242 · assigned to: unassigned
   
   <!-- migrated from obsidian -->
