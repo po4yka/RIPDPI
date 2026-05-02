@@ -5,7 +5,7 @@ use std::thread;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::StrategyCandidateSpec;
-use crate::execution::{eliminated_candidate_summary, execute_tcp_candidate, CandidateExecution};
+use crate::execution::{eliminated_candidate_summary, CandidateExecution, StrategyLaneExecutor};
 use crate::types::DomainTarget;
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime};
@@ -70,8 +70,7 @@ pub(super) fn qualify_pilot_candidates(
                         if cancel_token.load(Ordering::Acquire) {
                             return (spec_clone, None);
                         }
-                        let execution = execute_tcp_candidate(
-                            runner.candidate_runtime_launcher.as_ref(),
+                        let execution = runner.lane_executor.execute_tcp_candidate(
                             &spec_clone,
                             qualifier_targets,
                             strategy_plan.runtime_context.as_ref(),

@@ -1,3 +1,4 @@
+mod dispatch;
 mod handlers;
 
 use std::fs;
@@ -10,11 +11,7 @@ use std::sync::Arc;
 use tracing::{error, info, warn};
 
 use ripdpi_root_helper_protocol as protocol;
-use ripdpi_root_helper_protocol::{
-    HelperRequest, CMD_PROBE_CAPABILITIES, CMD_RECV_ICMP_WRAPPED_UDP, CMD_SEND_FAKE_RST, CMD_SEND_FLAGGED_TCP_PAYLOAD,
-    CMD_SEND_ICMP_WRAPPED_UDP, CMD_SEND_IP_FRAGMENTED_TCP, CMD_SEND_IP_FRAGMENTED_UDP, CMD_SEND_MULTI_DISORDER_TCP,
-    CMD_SEND_ORDERED_TCP_SEGMENTS, CMD_SEND_SEQOVL_TCP, CMD_SEND_SYN_HIDE_TCP, CMD_SHUTDOWN,
-};
+use ripdpi_root_helper_protocol::HelperRequest;
 
 fn main() {
     tracing_subscriber::fmt()
@@ -95,7 +92,12 @@ fn handle_connection(stream: &std::os::unix::net::UnixStream) -> io::Result<()> 
 
     info!(command = %request.command, "received command");
 
-    let (response, reply_fd) = dispatch_command(&request, received_fd);
+    let dispatch = dispatch::dispatch_command(&request, received_fd);
+    if dispatch.shutdown_requested {
+        RUNNING.store(false, Ordering::SeqCst);
+    }
+    let response = dispatch.response;
+    let reply_fd = dispatch.reply_fd;
 
     // Close received fd if we didn't consume it and it wasn't returned.
     if let Some(fd) = received_fd {
@@ -111,108 +113,6 @@ fn handle_connection(stream: &std::os::unix::net::UnixStream) -> io::Result<()> 
     protocol::send_message(stream, &json, reply_fd)?;
 
     Ok(())
-}
-
-fn dispatch_command(
-    request: &HelperRequest,
-    received_fd: Option<std::os::fd::RawFd>,
-) -> (protocol::HelperResponse, Option<std::os::fd::RawFd>) {
-    match request.command.as_str() {
-        CMD_PROBE_CAPABILITIES => handlers::handle_probe_capabilities(),
-
-        CMD_SEND_FAKE_RST => {
-            let Some(fd) = received_fd else {
-                return (protocol::HelperResponse::error("send_fake_rst requires a stream fd"), None);
-            };
-            match serde_json::from_value(request.params.clone()) {
-                Ok(params) => handlers::handle_send_fake_rst(fd, params),
-                Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
-            }
-        }
-
-        CMD_SEND_FLAGGED_TCP_PAYLOAD => {
-            let Some(fd) = received_fd else {
-                return (protocol::HelperResponse::error("send_flagged_tcp_payload requires a stream fd"), None);
-            };
-            match serde_json::from_value(request.params.clone()) {
-                Ok(params) => handlers::handle_send_flagged_tcp_payload(fd, params),
-                Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
-            }
-        }
-
-        CMD_SEND_SEQOVL_TCP => {
-            let Some(fd) = received_fd else {
-                return (protocol::HelperResponse::error("send_seqovl_tcp requires a stream fd"), None);
-            };
-            match serde_json::from_value(request.params.clone()) {
-                Ok(params) => handlers::handle_send_seqovl_tcp(fd, params),
-                Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
-            }
-        }
-
-        CMD_SEND_MULTI_DISORDER_TCP => {
-            let Some(fd) = received_fd else {
-                return (protocol::HelperResponse::error("send_multi_disorder_tcp requires a stream fd"), None);
-            };
-            match serde_json::from_value(request.params.clone()) {
-                Ok(params) => handlers::handle_send_multi_disorder_tcp(fd, params),
-                Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
-            }
-        }
-
-        CMD_SEND_ORDERED_TCP_SEGMENTS => {
-            let Some(fd) = received_fd else {
-                return (protocol::HelperResponse::error("send_ordered_tcp_segments requires a stream fd"), None);
-            };
-            match serde_json::from_value(request.params.clone()) {
-                Ok(params) => handlers::handle_send_ordered_tcp_segments(fd, params),
-                Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
-            }
-        }
-
-        CMD_SEND_IP_FRAGMENTED_TCP => {
-            let Some(fd) = received_fd else {
-                return (protocol::HelperResponse::error("send_ip_fragmented_tcp requires a stream fd"), None);
-            };
-            match serde_json::from_value(request.params.clone()) {
-                Ok(params) => handlers::handle_send_ip_fragmented_tcp(fd, params),
-                Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
-            }
-        }
-
-        CMD_SEND_IP_FRAGMENTED_UDP => {
-            let Some(fd) = received_fd else {
-                return (protocol::HelperResponse::error("send_ip_fragmented_udp requires a socket fd"), None);
-            };
-            match serde_json::from_value(request.params.clone()) {
-                Ok(params) => handlers::handle_send_ip_fragmented_udp(fd, params),
-                Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
-            }
-        }
-
-        CMD_SEND_SYN_HIDE_TCP => match serde_json::from_value(request.params.clone()) {
-            Ok(params) => handlers::handle_send_syn_hide_tcp(params),
-            Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
-        },
-
-        CMD_SEND_ICMP_WRAPPED_UDP => match serde_json::from_value(request.params.clone()) {
-            Ok(params) => handlers::handle_send_icmp_wrapped_udp(params),
-            Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
-        },
-
-        CMD_RECV_ICMP_WRAPPED_UDP => match serde_json::from_value(request.params.clone()) {
-            Ok(params) => handlers::handle_recv_icmp_wrapped_udp(params),
-            Err(e) => (protocol::HelperResponse::error(format!("invalid params: {e}")), None),
-        },
-
-        CMD_SHUTDOWN => {
-            info!("shutdown command received");
-            RUNNING.store(false, Ordering::SeqCst);
-            (protocol::HelperResponse::success(serde_json::Value::Null), None)
-        }
-
-        other => (protocol::HelperResponse::error(format!("unknown command: {other}")), None),
-    }
 }
 
 // ---------------------------------------------------------------------------

@@ -1,8 +1,9 @@
 mod lanes;
+mod runner_contract;
 mod runtime;
 mod scoring;
 
-pub(super) use lanes::{execute_quic_candidate, execute_tcp_candidate};
+pub(crate) use runner_contract::{DefaultStrategyLaneExecutor, StrategyLaneExecutor};
 pub use runtime::{
     CandidateProbeRuntime, CandidateRuntimeLauncher, PreparedCandidateRuntime, UnavailableCandidateRuntimeLauncher,
 };

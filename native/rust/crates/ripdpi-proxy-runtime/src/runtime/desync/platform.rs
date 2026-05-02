@@ -1,3 +1,13 @@
+mod capability;
+mod conversion;
+mod fake_tcp;
+mod flagged_payload;
+mod fragmentation;
+mod multi_disorder;
+mod ordered_segments;
+mod seq_overlap;
+mod socket_options;
+
 use std::io;
 use std::net::TcpStream;
 
@@ -11,60 +21,35 @@ use ripdpi_desync_runtime::{
 };
 use ripdpi_session::OutboundProgress;
 
-use ripdpi_runtime_platform as runtime_platform;
-
 pub(super) struct RuntimeTcpDesyncPlatform;
-
-fn to_runtime_flags(flags: DesyncTcpFlagOverrides) -> runtime_platform::TcpFlagOverrides {
-    runtime_platform::TcpFlagOverrides { set: flags.set, unset: flags.unset }
-}
-
-fn to_runtime_fake_options<'a>(options: DesyncFakeTcpOptions<'a>) -> runtime_platform::FakeTcpOptions<'a> {
-    runtime_platform::FakeTcpOptions {
-        secondary_fake_prefix: options.secondary_fake_prefix,
-        timestamp_delta_ticks: options.timestamp_delta_ticks,
-        protect_path: options.protect_path,
-        fake_flags: to_runtime_flags(options.fake_flags),
-        orig_flags: to_runtime_flags(options.orig_flags),
-        require_raw_path: options.require_raw_path,
-        force_raw_original: options.force_raw_original,
-        ipv4_identifications: options.ipv4_identifications,
-    }
-}
 
 impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
     fn detect_default_ttl(&self) -> Option<u8> {
-        runtime_platform::detect_default_ttl().ok()
+        capability::detect_default_ttl()
     }
 
     fn seqovl_supported(&self) -> bool {
-        runtime_platform::seqovl_supported()
+        capability::seqovl_supported()
     }
 
     fn supports_fake_retransmit(&self) -> bool {
-        runtime_platform::supports_fake_retransmit()
+        capability::supports_fake_retransmit()
     }
 
     fn tcp_segment_hint(&self, stream: &TcpStream) -> io::Result<Option<ripdpi_desync::TcpSegmentHint>> {
-        runtime_platform::tcp_segment_hint(stream)
+        capability::tcp_segment_hint_result(stream)
     }
 
     fn tcp_activation_state(&self, stream: &TcpStream) -> io::Result<Option<DesyncTcpActivationState>> {
-        runtime_platform::tcp_activation_state(stream).map(|state| {
-            state.map(|state| DesyncTcpActivationState {
-                has_timestamp: state.has_timestamp,
-                window_size: state.window_size,
-                mss: state.mss,
-            })
-        })
+        capability::tcp_activation_state_result(stream)
     }
 
     fn set_tcp_md5sig(&self, stream: &TcpStream, key_len: u16) -> io::Result<()> {
-        runtime_platform::set_tcp_md5sig(stream, key_len)
+        socket_options::set_tcp_md5sig(stream, key_len)
     }
 
     fn set_tcp_window_clamp(&self, stream: &TcpStream, size: u32) -> io::Result<()> {
-        runtime_platform::set_tcp_window_clamp(stream, size)
+        socket_options::set_tcp_window_clamp(stream, size)
     }
 
     fn wait_tcp_stage(
@@ -73,7 +58,7 @@ impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
         wait_send: bool,
         await_interval: std::time::Duration,
     ) -> io::Result<()> {
-        runtime_platform::wait_tcp_stage(stream, wait_send, await_interval)
+        socket_options::wait_tcp_stage(stream, wait_send, await_interval)
     }
 
     fn send_fake_rst(
@@ -84,7 +69,7 @@ impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
         flags: DesyncTcpFlagOverrides,
         ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
-        runtime_platform::send_fake_rst(stream, default_ttl, protect_path, to_runtime_flags(flags), ip_id_mode)
+        fake_tcp::send_fake_rst(stream, default_ttl, protect_path, flags, ip_id_mode)
     }
 
     fn send_fake_tcp(
@@ -99,14 +84,14 @@ impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
         ip_id_mode: Option<ripdpi_config::IpIdMode>,
         wait: TcpStageWait,
     ) -> io::Result<()> {
-        runtime_platform::send_fake_tcp(
+        fake_tcp::send_fake_tcp(
             stream,
             original_prefix,
             fake_prefix,
             ttl,
             md5sig,
             default_ttl,
-            to_runtime_fake_options(options),
+            options,
             ip_id_mode,
             wait,
         )
@@ -124,19 +109,9 @@ impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
         ip_id_mode: Option<ripdpi_config::IpIdMode>,
         wait: TcpStageWait,
     ) -> io::Result<()> {
-        let runtime_segments = segments
-            .iter()
-            .map(|segment| runtime_platform::OrderedTcpSegment {
-                payload: segment.payload,
-                ttl: segment.ttl,
-                flags: to_runtime_flags(segment.flags),
-                sequence_offset: segment.sequence_offset,
-                use_fake_timestamp: segment.use_fake_timestamp,
-            })
-            .collect::<Vec<_>>();
-        runtime_platform::send_ordered_tcp_segments(
+        ordered_segments::send_ordered_tcp_segments(
             stream,
-            &runtime_segments,
+            segments,
             original_payload_len,
             default_ttl,
             protect_path,
@@ -157,15 +132,7 @@ impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
         flags: DesyncTcpFlagOverrides,
         ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
-        runtime_platform::send_flagged_tcp_payload(
-            stream,
-            payload,
-            default_ttl,
-            protect_path,
-            md5sig,
-            to_runtime_flags(flags),
-            ip_id_mode,
-        )
+        flagged_payload::send_flagged_tcp_payload(stream, payload, default_ttl, protect_path, md5sig, flags, ip_id_mode)
     }
 
     fn send_seqovl_tcp(
@@ -179,14 +146,14 @@ impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
         flags: DesyncTcpFlagOverrides,
         ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
-        runtime_platform::send_seqovl_tcp(
+        seq_overlap::send_seqovl_tcp(
             stream,
             real_chunk,
             fake_prefix,
             default_ttl,
             protect_path,
             md5sig,
-            to_runtime_flags(flags),
+            flags,
             ip_id_mode,
         )
     }
@@ -203,7 +170,7 @@ impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
         flags: DesyncTcpFlagOverrides,
         ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
-        runtime_platform::send_ip_fragmented_tcp(
+        fragmentation::send_ip_fragmented_tcp(
             stream,
             payload,
             split_offset,
@@ -211,7 +178,7 @@ impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
             protect_path,
             disorder,
             ipv6_ext,
-            to_runtime_flags(flags),
+            flags,
             ip_id_mode,
         )
     }
@@ -228,34 +195,30 @@ impl TcpDesyncPlatform for RuntimeTcpDesyncPlatform {
         original_flags: DesyncTcpFlagOverrides,
         ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
-        let runtime_segments = segments
-            .iter()
-            .map(|segment| runtime_platform::TcpPayloadSegment { start: segment.start, end: segment.end })
-            .collect::<Vec<_>>();
-        runtime_platform::send_multi_disorder_tcp(
+        multi_disorder::send_multi_disorder_tcp(
             stream,
             payload,
-            &runtime_segments,
+            segments,
             default_ttl,
             protect_path,
             inter_segment_delay_ms,
             md5sig,
-            to_runtime_flags(original_flags),
+            original_flags,
             ip_id_mode,
         )
     }
 }
 
 pub(super) fn tcp_segment_hint(stream: &TcpStream) -> Option<ripdpi_desync::TcpSegmentHint> {
-    runtime_platform::tcp_segment_hint(stream).ok().flatten()
+    capability::tcp_segment_hint(stream)
 }
 
-pub(super) fn tcp_activation_state(stream: &TcpStream) -> Option<runtime_platform::TcpActivationState> {
-    runtime_platform::tcp_activation_state(stream).ok().flatten()
+pub(super) fn tcp_activation_state(stream: &TcpStream) -> Option<ripdpi_runtime_platform::TcpActivationState> {
+    capability::tcp_activation_state(stream)
 }
 
 pub(super) fn seqovl_supported() -> bool {
-    runtime_platform::seqovl_supported()
+    capability::seqovl_supported()
 }
 
 #[allow(clippy::too_many_arguments)]

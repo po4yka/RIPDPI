@@ -1,4 +1,8 @@
+mod payload;
+
 use super::{ActivationFilter, OffsetExpr};
+
+pub use payload::*;
 
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

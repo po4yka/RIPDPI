@@ -9,7 +9,8 @@ use crate::candidates::{
 };
 use crate::classification::{filter_quic_candidates_for_failure, interleave_candidate_families, next_candidate_index};
 use crate::execution::{
-    execute_quic_candidate, skipped_candidate_summary, winning_candidate_index, CandidateRuntimeLauncher,
+    skipped_candidate_summary, winning_candidate_index, CandidateRuntimeLauncher, DefaultStrategyLaneExecutor,
+    StrategyLaneExecutor,
 };
 use crate::types::StrategyProbeProgressLane;
 use crate::util::stable_probe_hash;
@@ -23,12 +24,12 @@ use super::support::{
 };
 
 pub(in crate::engine::runners) struct StrategyQuicRunner {
-    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
+    lane_executor: DefaultStrategyLaneExecutor,
 }
 
 impl StrategyQuicRunner {
     pub(in crate::engine::runners) fn new(candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>) -> Self {
-        Self { candidate_runtime_launcher }
+        Self { lane_executor: DefaultStrategyLaneExecutor::new(candidate_runtime_launcher) }
     }
 }
 
@@ -148,8 +149,7 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 continue;
             }
 
-            let execution = execute_quic_candidate(
-                self.candidate_runtime_launcher.as_ref(),
+            let execution = self.lane_executor.execute_quic_candidate(
                 &spec,
                 &quic_targets,
                 strategy_plan.runtime_context.as_ref(),

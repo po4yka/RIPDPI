@@ -12,7 +12,7 @@ use std::time::Duration;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::candidate_pause_ms;
-use crate::execution::CandidateRuntimeLauncher;
+use crate::execution::{CandidateRuntimeLauncher, DefaultStrategyLaneExecutor};
 use crate::types::StrategyProbeProgressLane;
 
 use super::super::super::runtime::{
@@ -30,12 +30,12 @@ use self::result_recording::{
 };
 
 pub(in crate::engine::runners) struct StrategyTcpRunner {
-    candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>,
+    lane_executor: DefaultStrategyLaneExecutor,
 }
 
 impl StrategyTcpRunner {
     pub(in crate::engine::runners) fn new(candidate_runtime_launcher: Arc<dyn CandidateRuntimeLauncher>) -> Self {
-        Self { candidate_runtime_launcher }
+        Self { lane_executor: DefaultStrategyLaneExecutor::new(candidate_runtime_launcher) }
     }
 }
 

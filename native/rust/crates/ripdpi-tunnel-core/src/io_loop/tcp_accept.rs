@@ -1,36 +1,29 @@
-use std::collections::HashMap;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
-use std::sync::Arc;
-use std::time::{Duration, Instant as StdInstant};
 
-use smoltcp::iface::{SocketHandle, SocketSet};
-use smoltcp::socket::tcp::{self, Socket as TcpSocket};
-use smoltcp::socket::Socket;
+use smoltcp::socket::tcp::Socket as TcpSocket;
 use smoltcp::wire::{IpAddress, IpListenEndpoint};
-use tokio_util::sync::CancellationToken;
-use tracing::{debug, info, warn};
 
 use ripdpi_tunnel_config::Config;
 
-use crate::dns_cache::DnsCache;
-use crate::session::{Auth, TargetAddr, TcpSession};
-use crate::{ActiveSessions, Stats};
+use crate::session::Auth;
 
-use super::dns_intercept::resolve_mapped_target;
-use super::packet::{endpoint_to_socketaddr, tcp_syn_flow_key, TcpFlowKey};
-use super::{DUPLEX_BUF, TCP_SOCKET_BUF};
+use super::packet::endpoint_to_socketaddr;
+
+mod admission;
+mod duplex;
+mod eviction;
+mod listener;
+mod target;
+mod unresolved;
+
+pub(crate) use admission::spawn_new_tcp_sessions;
+pub(crate) use listener::{ensure_pending_listen_for_syn, gc_stale_pending_listens};
+#[cfg(test)]
+pub(crate) use target::tcp_session_target_addr;
 
 fn tcp_target_endpoint(tcp: &TcpSocket) -> Option<SocketAddr> {
     tcp.local_endpoint().map(endpoint_to_socketaddr)
-}
-
-pub(super) fn tcp_session_target_addr(
-    stats: &Arc<Stats>,
-    dns_cache: &mut Option<DnsCache>,
-    tcp: &TcpSocket,
-) -> Option<SocketAddr> {
-    tcp_target_endpoint(tcp).and_then(|target| resolve_mapped_target(stats, dns_cache, target))
 }
 
 pub(super) fn socketaddr_to_listen_endpoint(addr: SocketAddr) -> IpListenEndpoint {
@@ -55,119 +48,6 @@ pub(super) fn proxy_addr(config: &Config) -> io::Result<SocketAddr> {
         .parse()
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "invalid socks5.address"))?;
     Ok(SocketAddr::new(ip, config.socks5.port))
-}
-
-pub(super) fn ensure_pending_listen_for_syn(
-    pkt: &[u8],
-    pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
-    socket_set: &mut SocketSet<'static>,
-) {
-    let Some(flow_key) = tcp_syn_flow_key(pkt) else {
-        return;
-    };
-    if let std::collections::hash_map::Entry::Vacant(entry) = pending_listens.entry(flow_key) {
-        let buf = || tcp::SocketBuffer::new(vec![0u8; TCP_SOCKET_BUF]);
-        let mut sock = TcpSocket::new(buf(), buf());
-        if sock.listen(socketaddr_to_listen_endpoint(flow_key.dst)).is_ok() {
-            let handle = socket_set.add(sock);
-            entry.insert((handle, StdInstant::now()));
-            debug!("Added LISTEN socket for flow {} -> {}", flow_key.src, flow_key.dst);
-        } else {
-            warn!("listen({}) failed for flow {} -> {}", flow_key.dst.port(), flow_key.src, flow_key.dst);
-        }
-    }
-}
-
-pub(super) fn gc_stale_pending_listens(
-    pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
-    socket_set: &mut SocketSet<'static>,
-    timeout: Duration,
-) {
-    let now = StdInstant::now();
-    pending_listens.retain(|flow_key, (handle, created_at)| {
-        let age = now.duration_since(*created_at);
-        if age <= timeout {
-            return true;
-        }
-        debug!("GC stale LISTEN socket for flow {} -> {} (age {age:?})", flow_key.src, flow_key.dst);
-        socket_set.remove(*handle);
-        false
-    });
-}
-
-pub(super) fn spawn_new_tcp_sessions(
-    socket_set: &mut SocketSet<'static>,
-    sessions: &mut ActiveSessions,
-    pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>,
-    proxy_sockaddr: SocketAddr,
-    auth: &Auth,
-    cancel: &CancellationToken,
-    stats: &Arc<Stats>,
-    dns_cache: &mut Option<DnsCache>,
-) {
-    let mut new_sessions: Vec<(SocketHandle, SocketAddr, Option<u32>)> = Vec::new();
-    let mut unresolvable: Vec<SocketHandle> = Vec::new();
-
-    for (handle, socket) in socket_set.iter_mut() {
-        let Socket::Tcp(tcp) = socket else { continue };
-        if !tcp.may_send() || sessions.contains(handle) {
-            continue;
-        }
-
-        let synthetic_ip = tcp_target_endpoint(tcp).and_then(|sa| match sa.ip() {
-            IpAddr::V4(v4) => {
-                let ip = u32::from(v4);
-                dns_cache.as_ref()?.contains_mapped_ip(ip).then_some(ip)
-            }
-            IpAddr::V6(_) => None,
-        });
-
-        match tcp_session_target_addr(stats, dns_cache, tcp) {
-            Some(target) => new_sessions.push((handle, target, synthetic_ip)),
-            None => {
-                debug!("TCP socket {:?} has no resolvable target — aborting", handle);
-                tcp.abort();
-                unresolvable.push(handle);
-            }
-        }
-    }
-
-    let remove_pending = |pending_listens: &mut HashMap<TcpFlowKey, (SocketHandle, StdInstant)>, handle| {
-        if let Some(key) = pending_listens.iter().find_map(|(k, (h, _))| (*h == handle).then_some(*k)) {
-            pending_listens.remove(&key);
-        }
-    };
-
-    for handle in unresolvable {
-        remove_pending(pending_listens, handle);
-        socket_set.remove(handle);
-    }
-
-    for (handle, target_addr, synthetic_ip) in new_sessions {
-        remove_pending(pending_listens, handle);
-        if let (Some(cache), Some(ip)) = (dns_cache.as_mut(), synthetic_ip) {
-            cache.pin(ip);
-        }
-        let (smoltcp_side, mut session_side) = tokio::io::duplex(DUPLEX_BUF);
-        let child_cancel = cancel.child_token();
-        let session_inst = TcpSession::new(proxy_sockaddr, auth.clone(), TargetAddr::Ip(target_addr));
-        let cc = child_cancel.clone();
-        let join_handle = tokio::spawn(async move { session_inst.run(&mut session_side, cc).await });
-        let entry = crate::SessionEntry {
-            smoltcp_side,
-            cancel: child_cancel,
-            handle: join_handle,
-            pending_to_session: Vec::new(),
-            pending_to_smoltcp: Vec::new(),
-            upstream_closed: false,
-            pinned_synthetic_ip: synthetic_ip,
-        };
-        if let Some(evicted_handle) = sessions.insert(handle, entry) {
-            socket_set.remove(evicted_handle);
-            debug!("Evicted session socket {:?} removed from socket_set", evicted_handle);
-        }
-        info!("TCP session spawned: remote={}", target_addr);
-    }
 }
 
 #[cfg(test)]

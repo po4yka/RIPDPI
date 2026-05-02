@@ -5,7 +5,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::StrategyCandidateSpec;
 use crate::classification::next_candidate_index;
-use crate::execution::{execute_tcp_candidate, CandidateExecution};
+use crate::execution::{CandidateExecution, StrategyLaneExecutor};
 use crate::types::DomainTarget;
 
 use super::super::super::super::runtime::{ExecutionPlan, ExecutionRuntime};
@@ -45,8 +45,7 @@ pub(super) fn execute_candidate_batch(
             .into_iter()
             .map(|(candidate_index, spec)| {
                 s.spawn(move || {
-                    let execution = execute_tcp_candidate(
-                        runner.candidate_runtime_launcher.as_ref(),
+                    let execution = runner.lane_executor.execute_tcp_candidate(
                         &spec,
                         domain_targets,
                         strategy_plan.runtime_context.as_ref(),

@@ -4,7 +4,7 @@ use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::StrategyCandidateSpec;
 use crate::classification::{classified_failure_probe_result, classify_strategy_probe_baseline_observations};
-use crate::execution::{execute_tcp_candidate, CandidateExecution};
+use crate::execution::{CandidateExecution, StrategyLaneExecutor};
 use crate::observations::observations_for_results;
 use crate::types::{DomainTarget, StrategyProbeProgressLane};
 
@@ -39,8 +39,7 @@ pub(super) fn run_baseline_candidate<'a>(
         baseline_spec.label,
         format!("Testing TCP candidate {}", baseline_spec.label),
     );
-    let baseline_execution = execute_tcp_candidate(
-        runner.candidate_runtime_launcher.as_ref(),
+    let baseline_execution = runner.lane_executor.execute_tcp_candidate(
         baseline_spec,
         domain_targets,
         strategy_plan.runtime_context.as_ref(),
