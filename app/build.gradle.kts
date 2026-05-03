@@ -58,6 +58,17 @@ val releaseStorePassword = localOrEnv("signing.storePassword", "RIPDPI_SIGNING_S
 val releaseKeyAlias = localOrEnv("signing.keyAlias", "RIPDPI_SIGNING_KEY_ALIAS")
 val releaseKeyPassword = localOrEnv("signing.keyPassword", "RIPDPI_SIGNING_KEY_PASSWORD")
 
+val forwardedInstrumentationArguments =
+    listOf(
+        "class",
+        "notClass",
+        "package",
+        "notPackage",
+        "ripdpi.fixtureControlHost",
+        "ripdpi.fixtureControlPort",
+        "ripdpi.packetSmokeDeviceProfile",
+    )
+
 extensions.configure<ApplicationExtension> {
     namespace = "com.poyka.ripdpi"
 
@@ -69,6 +80,14 @@ extensions.configure<ApplicationExtension> {
         testInstrumentationRunner = "com.poyka.ripdpi.HiltTestRunner"
         testInstrumentationRunnerArguments["clearPackageData"] =
             providers.gradleProperty("ripdpi.androidTestClearPackageData").orElse("true").get()
+        forwardedInstrumentationArguments.forEach { argumentName ->
+            providers
+                .gradleProperty("android.testInstrumentationRunnerArguments.$argumentName")
+                .orNull
+                ?.let { argumentValue ->
+                    testInstrumentationRunnerArguments[argumentName] = argumentValue
+                }
+        }
     }
 
     signingConfigs {
