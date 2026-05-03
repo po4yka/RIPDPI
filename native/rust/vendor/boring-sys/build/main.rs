@@ -697,19 +697,16 @@ fn emit_link_directives(config: &Config) {
         println!("cargo:rustc-link-search=native={}", dir.display());
     }
 
+    println!("cargo:rustc-link-lib=static=crypto");
+    println!("cargo:rustc-link-lib=static=ssl");
     if let Some(cpp_lib) = get_cpp_runtime_lib(config) {
+        // Keep the C++ runtime after the BoringSSL static archives. Static link
+        // order matters for Android NDK libc++/libc++abi symbols.
         println!("cargo:rustc-link-lib={cpp_lib}");
-        // On Android, libc++_static.a uses __gxx_personality_v0 but does not
-        // define it — that symbol lives in libc++abi.a.  Emit a non-static
-        // link directive (cargo:rustc-link-lib=c++abi, not static=c++abi) so
-        // that rustc skips its own path pre-validation and passes -lc++abi
-        // directly to the NDK linker, which finds libc++abi.a in the sysroot.
         if cpp_lib == "c++_static" && config.target_os == "android" {
             println!("cargo:rustc-link-lib=c++abi");
         }
     }
-    println!("cargo:rustc-link-lib=static=crypto");
-    println!("cargo:rustc-link-lib=static=ssl");
 
     if config.target_os == "windows" {
         // Rust 1.87.0 compat - https://github.com/rust-lang/rust/pull/138233
