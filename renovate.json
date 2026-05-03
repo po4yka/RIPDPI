@@ -3,6 +3,7 @@
   "extends": [
     "config:recommended"
   ],
+  "pinDigests": true,
   "labels": ["dependencies"],
   "packageRules": [
     {
@@ -23,6 +24,13 @@
         "org.jlleitschuh.gradle.ktlint"
       ],
       "groupName": "static-analysis"
+    },
+    {
+      "description": "Batch GitHub Actions digest updates into one weekly PR",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions-digests",
+      "schedule": ["before 9am on Monday"],
+      "automerge": false
     }
   ],
   "git-submodules": {

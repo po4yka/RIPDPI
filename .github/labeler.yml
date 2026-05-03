@@ -1,0 +1,19 @@
+run-android-e2e:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'app/**'
+      - 'appium/**'
+      - 'maestro/**'
+      - 'core/network/**'
+
+run-tun-e2e:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'native/rust/crates/ripdpi-tunnel-*/**'
+      - 'native/rust/crates/ripdpi-tun-*/**'
+      - 'native/rust/crates/ripdpi-packets/**'
+
+run-bench:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'native/rust/crates/ripdpi-bench/**'

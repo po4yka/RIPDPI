@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/suzuki-shunsuke/pinact/refs/heads/main/json-schema/pinact.json
+# pinact - https://github.com/suzuki-shunsuke/pinact
+version: 3
+# files:
+#   - pattern: action.yaml
+#   - pattern: */action.yaml
+
+# separator: "  # "
+
+ignore_actions:
+  # dtolnay/rust-toolchain intentionally uses @master to resolve the current
+  # stable/beta/nightly toolchain — pinning to a commit SHA would freeze the
+  # resolved toolchain version and defeat the purpose of the action.
+  - name: dtolnay/rust-toolchain
+    ref: master

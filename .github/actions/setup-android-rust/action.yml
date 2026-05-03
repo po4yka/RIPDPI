@@ -38,7 +38,7 @@ inputs:
 runs:
   using: composite
   steps:
-    - uses: actions/setup-java@v5
+    - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
       with:
         distribution: temurin
         java-version: ${{ inputs.java-version }}
@@ -86,7 +86,7 @@ runs:
     - name: Cache Android SDK and NDK
       if: inputs.skip-android-sdk-ndk != 'true'
       id: cache-android-sdk
-      uses: actions/cache@v5
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: ~/.android
         key: android-sdk-${{ runner.os }}-${{ steps.native-toolchain.outputs.compile-sdk }}-${{ steps.native-toolchain.outputs.ndk }}-${{ hashFiles('.github/actions/setup-android-rust/action.yml') }}
@@ -100,7 +100,7 @@ runs:
           "platform-tools" \
           "platforms;android-${{ steps.native-toolchain.outputs.compile-sdk }}"
 
-    - uses: Swatinem/rust-cache@v2
+    - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       with:
         workspaces: native/rust -> target
         cache-on-failure: true
@@ -117,7 +117,7 @@ runs:
       shell: bash
       run: android sdk install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
-    - uses: mozilla-actions/sccache-action@v0.0.10
+    - uses: mozilla-actions/sccache-action@9e7fa8a12102821edf02ca5dbea1acd0f89a2696 # v0.0.10
       env:
         FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
@@ -138,7 +138,7 @@ runs:
 
     - name: Restore shared Gradle build cache (read-only)
       if: inputs.setup-gradle == 'true' && inputs.gradle-cache-read-only == 'true'
-      uses: actions/cache/restore@v5
+      uses: actions/cache/restore@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: ${{ runner.temp }}/gradle-build-cache
         key: gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}
@@ -148,7 +148,7 @@ runs:
 
     - name: Shared Gradle build cache
       if: inputs.setup-gradle == 'true' && inputs.gradle-cache-read-only != 'true'
-      uses: actions/cache@v5
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: ${{ runner.temp }}/gradle-build-cache
         key: gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}
@@ -156,7 +156,7 @@ runs:
           gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-
           gradle-build-cache-
 
-    - uses: gradle/actions/setup-gradle@v6
+    - uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
       if: inputs.setup-gradle == 'true'
       with:
         cache-read-only: ${{ inputs.gradle-cache-read-only }}
