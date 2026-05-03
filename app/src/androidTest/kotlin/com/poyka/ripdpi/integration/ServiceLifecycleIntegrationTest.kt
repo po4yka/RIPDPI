@@ -340,6 +340,7 @@ class ServiceLifecycleIntegrationTest {
             awaitFailure(Sender.VPN)
             awaitStatus(AppStatus.Halted, Mode.VPN)
 
+            awaitProxyStopCount(1)
             assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
             assertTrue(IntegrationTestOverrides.vpnTunnelSessionProvider.session.isClosed)
             assertContainsSubsequence(
