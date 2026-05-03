@@ -234,8 +234,10 @@ class StubInstrumentedDiagnosticsScanController : DiagnosticsScanController {
         pathMode: com.poyka.ripdpi.diagnostics.ScanPathMode,
         selectedProfileId: String?,
         skipActiveScanCheck: Boolean,
+        allowSensitiveProfileStart: Boolean,
         scanDeadlineMs: Long?,
         maxCandidates: Int?,
+        targetOverrides: com.poyka.ripdpi.diagnostics.DiagnosticsScanTargetOverrides?,
     ): com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult =
         com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
             .Started("session")
@@ -380,7 +382,7 @@ class StubInstrumentedVpnTunnelSession : VpnTunnelSession {
 }
 
 class StubInstrumentedVpnTunnelSessionProvider : VpnTunnelSessionProvider {
-    override fun establish(
+    override suspend fun establish(
         host: VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,

@@ -28,7 +28,7 @@ class AutomationLaunchInstrumentedTest {
     val composeRule =
         createAutomationComposeRule(
             automationLaunchIntent(
-                startRoute = Route.AdvancedSettings.route,
+                startRoute = Route.AdvancedSettings.stableRoute,
                 dataPreset = com.poyka.ripdpi.automation.AutomationDataPreset.SettingsReady,
             ),
         )

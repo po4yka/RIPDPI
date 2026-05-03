@@ -307,7 +307,7 @@ class RecordingVpnTunnelSessionProvider(
     var session: RecordingVpnTunnelSession = RecordingVpnTunnelSession.open(events)
         private set
 
-    override fun establish(
+    override suspend fun establish(
         host: com.poyka.ripdpi.services.VpnTunnelBuilderHost,
         dns: String,
         ipv6: Boolean,

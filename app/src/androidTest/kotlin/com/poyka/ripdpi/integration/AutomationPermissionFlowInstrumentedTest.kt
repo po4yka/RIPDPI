@@ -25,7 +25,7 @@ class AutomationPermissionFlowInstrumentedTest {
     val composeRule =
         createAutomationComposeRule(
             automationLaunchIntent(
-                startRoute = Route.Home.route,
+                startRoute = Route.Home.stableRoute,
                 permissionPreset = AutomationPermissionPreset.NotificationsMissing,
             ),
         )
