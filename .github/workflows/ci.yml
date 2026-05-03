@@ -633,6 +633,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
+      - name: Install rustdoc JSON toolchain for cargo-public-api
+        run: rustup toolchain install nightly --profile minimal --no-self-update
       - name: Install cargo-public-api
         run: cargo install cargo-public-api --quiet
       - name: Check ripdpi-runtime-api public API snapshot
