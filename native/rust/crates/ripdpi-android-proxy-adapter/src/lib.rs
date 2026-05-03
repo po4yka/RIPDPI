@@ -5,7 +5,7 @@ mod pcap;
 mod registry;
 mod telemetry;
 
-#[cfg(feature = "loom")]
+#[cfg(all(test, feature = "loom"))]
 mod loom_tests;
 #[cfg(test)]
 mod tests;

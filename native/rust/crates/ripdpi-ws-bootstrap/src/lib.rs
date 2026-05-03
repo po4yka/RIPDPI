@@ -11,6 +11,10 @@ pub use resolver::{
     build_encrypted_dns_resolver_for_host, encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns,
     resolve_ws_tunnel_addr, EncryptedDnsIpAnswers,
 };
+pub use ripdpi_ws_tunnel::{
+    classify_mtproto_seed, classify_target, dc_from_ip, relay_ws_tunnel, MtprotoSeedClassification, TelegramDc,
+    WsTunnelConfig, WsTunnelDecision,
+};
 
 #[cfg(test)]
 mod tests;

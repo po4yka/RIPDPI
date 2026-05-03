@@ -104,6 +104,7 @@ mod tests {
     use crate::runtime::desync::send_with_group;
     use crate::runtime::routing::{advance_route_for_failure, select_route};
     use crate::runtime::state::RuntimeState;
+    #[cfg(not(feature = "loom"))]
     use crate::sync::{Arc, AtomicUsize};
     use ripdpi_config::{
         DesyncGroup, OffsetExpr, RuntimeConfig, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,

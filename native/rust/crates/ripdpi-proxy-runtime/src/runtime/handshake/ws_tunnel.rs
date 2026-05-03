@@ -3,16 +3,16 @@ use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
 
 use ripdpi_proxy_config::ProxyRuntimeContext;
-use ripdpi_ws_tunnel::{MtprotoSeedClassification, TelegramDc, WsTunnelConfig};
-
-use ripdpi_ws_bootstrap as ws_bootstrap;
+use ripdpi_ws_bootstrap::{
+    self as ws_bootstrap, MtprotoSeedClassification, TelegramDc, WsTunnelConfig, WsTunnelDecision,
+};
 
 use super::super::state::RuntimeState;
 
 /// Detect Telegram DC number from target IP, independent of WS tunnel config.
 pub(super) fn detect_telegram_dc(target: SocketAddr) -> Option<u8> {
     match target.ip() {
-        IpAddr::V4(v4) => ripdpi_ws_tunnel::dc_from_ip(v4).map(TelegramDc::number),
+        IpAddr::V4(v4) => ws_bootstrap::dc_from_ip(v4).map(TelegramDc::number),
         IpAddr::V6(_) => None,
     }
 }
@@ -23,9 +23,9 @@ pub(super) fn telegram_dc_host(dc: u8) -> String {
 }
 
 fn classify_telegram_target(target: SocketAddr) -> Option<TelegramDc> {
-    match ripdpi_ws_tunnel::classify_target(target.ip()) {
-        ripdpi_ws_tunnel::WsTunnelDecision::Tunnel(dc) => Some(dc),
-        ripdpi_ws_tunnel::WsTunnelDecision::Passthrough => None,
+    match ws_bootstrap::classify_target(target.ip()) {
+        WsTunnelDecision::Tunnel(dc) => Some(dc),
+        WsTunnelDecision::Passthrough => None,
     }
 }
 
@@ -65,7 +65,7 @@ pub(super) fn run_ws_tunnel(client: TcpStream, state: &RuntimeState) -> WsTunnel
         state,
         read_mtproto_seed,
         ws_bootstrap::resolve_ws_tunnel_addr,
-        ripdpi_ws_tunnel::relay_ws_tunnel,
+        ws_bootstrap::relay_ws_tunnel,
     )
 }
 
@@ -81,7 +81,7 @@ pub(super) fn run_ws_tunnel_with_seed(
         seed_request,
         state,
         ws_bootstrap::resolve_ws_tunnel_addr,
-        ripdpi_ws_tunnel::relay_ws_tunnel,
+        ws_bootstrap::relay_ws_tunnel,
     )
 }
 
@@ -125,7 +125,7 @@ where
         };
     }
 
-    match ripdpi_ws_tunnel::classify_mtproto_seed(&seed_request[..64]) {
+    match ws_bootstrap::classify_mtproto_seed(&seed_request[..64]) {
         MtprotoSeedClassification::NotMtproto => {
             tracing::debug!("WS tunnel skipped: first request is not valid MTProto obfuscated2");
             WsTunnelResult::NotMtproto { seed_request }

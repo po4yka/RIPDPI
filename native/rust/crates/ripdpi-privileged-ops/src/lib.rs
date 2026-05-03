@@ -20,7 +20,8 @@ pub use experimental_tier3::{
 pub use fd::protect_socket;
 pub use fragmentation::{send_ip_fragmented_tcp, send_ip_fragmented_udp};
 pub use raw_packet::{
-    send_fake_rst, send_flagged_tcp_payload, send_multi_disorder_tcp, send_ordered_tcp_segments, send_seqovl_tcp,
+    send_fake_rst, send_fake_tcp, send_flagged_tcp_payload, send_multi_disorder_tcp, send_ordered_tcp_segments,
+    send_seqovl_tcp,
 };
 pub use socket_options::{
     attach_drop_sack, attach_strip_timestamps, bind_udp_low_port, detach_drop_sack, enable_tcp_fastopen_connect,

@@ -15,9 +15,11 @@ ripdpi-ipfrag = { workspace = true }
 ripdpi-native-protect = { workspace = true }
 ripdpi-privileged-ops = { workspace = true }
 ripdpi-root-helper-protocol = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
 libc = { workspace = true }
 nix = { workspace = true }
+tracing = { workspace = true }
 ripdpi-io-uring = { workspace = true, optional = true }
 
 [features]

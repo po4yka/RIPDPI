@@ -1,7 +1,7 @@
 use std::io;
 use std::net::TcpStream;
 
-use crate::types::{OrderedTcpSegment, TcpFlagOverrides, TcpPayloadSegment, TcpStageWait};
+use crate::types::{FakeTcpOptions, OrderedTcpSegment, TcpFlagOverrides, TcpPayloadSegment, TcpStageWait};
 
 #[allow(clippy::too_many_arguments)]
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -23,6 +23,36 @@ pub fn send_fake_rst(
     _protect_path: Option<&str>,
     _flags: TcpFlagOverrides,
     _ipv4_identification: Option<u16>,
+) -> io::Result<()> {
+    crate::unsupported()
+}
+
+#[allow(clippy::too_many_arguments)]
+#[cfg(any(target_os = "linux", target_os = "android"))]
+pub fn send_fake_tcp(
+    stream: &TcpStream,
+    original_prefix: &[u8],
+    fake_prefix: &[u8],
+    ttl: u8,
+    md5sig: bool,
+    default_ttl: u8,
+    options: FakeTcpOptions<'_>,
+    wait: TcpStageWait,
+) -> io::Result<()> {
+    crate::linux::send_fake_tcp(stream, original_prefix, fake_prefix, ttl, md5sig, default_ttl, options, wait)
+}
+
+#[allow(clippy::too_many_arguments)]
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+pub fn send_fake_tcp(
+    _stream: &TcpStream,
+    _original_prefix: &[u8],
+    _fake_prefix: &[u8],
+    _ttl: u8,
+    _md5sig: bool,
+    _default_ttl: u8,
+    _options: FakeTcpOptions<'_>,
+    _wait: TcpStageWait,
 ) -> io::Result<()> {
     crate::unsupported()
 }
