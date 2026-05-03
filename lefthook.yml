@@ -53,6 +53,23 @@ pre-commit:
       glob: "*.{kt,rs,toml}"
       run: python3 scripts/ci/check_architecture_health.py --staged
 
+    kotlin-detekt:
+      glob: "*.{kt,kts}"
+      run: ./gradlew detekt --auto-correct=false
+
+    rust-clippy:
+      glob: "*.rs"
+      root: "native/rust/"
+      run: cargo clippy --workspace --no-deps --all-targets -- -D warnings
+
+    design-md:
+      glob: "DESIGN.md"
+      run: python3 scripts/ci/verify_design_md.py
+
+    native-contracts:
+      glob: "native/rust/**"
+      run: python3 scripts/ci/check_native_architecture_contracts.py
+
 commit-msg:
   commands:
     conventional-commit:
