@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -49,6 +50,39 @@ jobs:
           RIPDPI_SIGNING_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           RIPDPI_SIGNING_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: ./gradlew assembleRelease
+
+      - name: Generate Rust SBOM
+        run: |
+          cargo install cargo-cyclonedx --quiet
+          cd native/rust
+          cargo cyclonedx --format json --output-pattern bom
+          cp target/bom.json $GITHUB_WORKSPACE/rust-bom.json
+
+      - name: Generate Android SBOM
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          syft packages dir:. --output cyclonedx-json=$GITHUB_WORKSPACE/android-bom.json
+
+      - name: Generate SHA-256 checksums
+        run: |
+          cd $GITHUB_WORKSPACE
+          sha256sum \
+            app/build/outputs/bundle/release/*.aab \
+            app/build/outputs/apk/release/*.apk \
+            rust-bom.json \
+            android-bom.json \
+            > checksums.txt
+          cat checksums.txt
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            app/build/outputs/bundle/release/*.aab
+            app/build/outputs/apk/release/*.apk
+            rust-bom.json
+            android-bom.json
+            checksums.txt
 
       - name: Upload release AAB
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -88,4 +122,17 @@ jobs:
           files: |
             app/build/outputs/bundle/release/*.aab
             app/build/outputs/apk/release/*.apk
+            rust-bom.json
+            android-bom.json
+            checksums.txt
           generate_release_notes: true
+
+      - name: Upload SBOMs and checksums
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-sbom-checksums
+          path: |
+            rust-bom.json
+            android-bom.json
+            checksums.txt
+          retention-days: 90

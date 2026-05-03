@@ -622,6 +622,32 @@ jobs:
       - name: Run fuzz smoke check
         run: bash scripts/ci/run-rust-fuzz-smoke.sh
 
+  runtime-api-snapshot:
+    name: JNI API snapshot check
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - name: Install cargo-public-api
+        run: cargo install cargo-public-api --quiet
+      - name: Check ripdpi-runtime-api public API snapshot
+        working-directory: native/rust
+        run: |
+          cargo public-api --manifest-path crates/ripdpi-runtime-api/Cargo.toml > /tmp/current-api.txt
+          if ! diff -u crates/ripdpi-runtime-api/api-snapshot.txt /tmp/current-api.txt; then
+            echo ""
+            echo "error: ripdpi-runtime-api public API has changed."
+            echo "If this is intentional, update native/rust/crates/ripdpi-runtime-api/api-snapshot.txt"
+            echo "by running: cargo public-api --manifest-path crates/ripdpi-runtime-api/Cargo.toml > crates/ripdpi-runtime-api/api-snapshot.txt"
+            exit 1
+          fi
+          echo "API snapshot matches — no drift detected."
+
   gradle-static-analysis:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
