@@ -11,7 +11,7 @@ echo "==> bless Rust telemetry/logging goldens"
 cargo test --manifest-path "$workspace_manifest" -p android-support
 cargo test --manifest-path "$workspace_manifest" -p ripdpi-android
 cargo test --manifest-path "$workspace_manifest" -p ripdpi-tunnel-android
-cargo test --manifest-path "$workspace_manifest" -p ripdpi-monitor
+cargo test --manifest-path "$workspace_manifest" -p ripdpi-monitor-engine
 
 echo "==> bless JVM telemetry/logging goldens"
 (cd "$repo_root" && ./gradlew \

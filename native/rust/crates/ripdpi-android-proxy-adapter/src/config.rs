@@ -416,17 +416,17 @@ mod tests {
         let group = &config.groups[0];
 
         assert_eq!(group.actions.tcp_chain.len(), 2);
-        assert!(matches!(group.actions.tcp_chain[0].kind, TcpChainStepKind::TlsRec));
+        assert!(matches!(group.actions.tcp_chain[0].kind(), TcpChainStepKind::TlsRec));
         assert_eq!(
-            group.actions.tcp_chain[0].offset,
+            group.actions.tcp_chain[0].offset(),
             ripdpi_config::OffsetExpr::tls_marker(ripdpi_config::OffsetBase::ExtLen, 0)
         );
-        assert!(matches!(group.actions.tcp_chain[1].kind, TcpChainStepKind::HostFake));
+        assert!(matches!(group.actions.tcp_chain[1].kind(), TcpChainStepKind::HostFake));
         assert_eq!(
-            group.actions.tcp_chain[1].midhost_offset,
+            group.actions.tcp_chain[1].midhost_offset(),
             Some(ripdpi_config::OffsetExpr::marker(ripdpi_config::OffsetBase::MidSld, 0))
         );
-        assert_eq!(group.actions.tcp_chain[1].fake_host_template.as_deref(), Some("googlevideo.com"));
+        assert_eq!(group.actions.tcp_chain[1].fake_host_template(), Some("googlevideo.com"));
     }
 
     #[test]
@@ -448,10 +448,11 @@ mod tests {
         let config = runtime_config_from_payload(payload).expect("tlsrandrec ui config");
         let step = &config.groups[0].actions.tcp_chain[0];
 
-        assert!(matches!(step.kind, TcpChainStepKind::TlsRandRec));
-        assert_eq!(step.fragment_count, 5);
-        assert_eq!(step.min_fragment_size, 24);
-        assert_eq!(step.max_fragment_size, 48);
+        assert!(matches!(step.kind(), TcpChainStepKind::TlsRandRec));
+        let payload = step.tls_randrec_payload().expect("tlsrandrec payload");
+        assert_eq!(payload.fragment_count, 5);
+        assert_eq!(payload.min_fragment_size, 24);
+        assert_eq!(payload.max_fragment_size, 48);
     }
 
     #[test]

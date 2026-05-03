@@ -14,6 +14,26 @@ critical_file_list="${RIPDPI_RUST_COVERAGE_CRITICAL_FILES:-$repo_root/scripts/ci
 min_line="${RIPDPI_RUST_COVERAGE_MIN_LINE:-78}"
 enforce="${RIPDPI_ENFORCE_COVERAGE_THRESHOLDS:-0}"
 include_ignored="${RIPDPI_RUST_COVERAGE_INCLUDE_IGNORED:-0}"
+default_report_package_specs=(
+    ripdpi-ws-tunnel
+    ripdpi-proxy-runtime
+    ripdpi-tunnel-core
+    ripdpi-monitor-engine
+    ripdpi-diagnostics-classification
+    ripdpi-android
+)
+if [[ -n "${RIPDPI_RUST_COVERAGE_REPORT_PACKAGES+x}" ]]; then
+    report_package_specs="$RIPDPI_RUST_COVERAGE_REPORT_PACKAGES"
+else
+    report_package_specs="${default_report_package_specs[*]}"
+fi
+
+report_scope_args=()
+if [[ -n "${report_package_specs//[[:space:]]/}" ]]; then
+    for package in $report_package_specs; do
+        report_scope_args+=(--package "$package")
+    done
+fi
 
 mkdir -p "$target_dir"
 
@@ -59,23 +79,27 @@ run_coverage
 echo "==> rust coverage reports"
 cargo llvm-cov report \
     --manifest-path "$workspace_manifest" \
+    "${report_scope_args[@]}" \
     --ignore-filename-regex "$ignore_regex" \
     --html \
     --output-dir "$html_dir"
 
 cargo llvm-cov report \
     --manifest-path "$workspace_manifest" \
+    "${report_scope_args[@]}" \
     --ignore-filename-regex "$ignore_regex" \
     --lcov \
     --output-path "$lcov_path"
 
 cargo llvm-cov report \
     --manifest-path "$workspace_manifest" \
+    "${report_scope_args[@]}" \
     --ignore-filename-regex "$ignore_regex" \
     --summary-only >"$summary_txt"
 
 cargo llvm-cov report \
     --manifest-path "$workspace_manifest" \
+    "${report_scope_args[@]}" \
     --ignore-filename-regex "$ignore_regex" \
     --json \
     --summary-only \

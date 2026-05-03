@@ -32,7 +32,7 @@ if cargo nextest --version >/dev/null 2>&1; then
 
   run_runtime_relay_e2e() {
     RIPDPI_RUN_NESTED_PROXY_E2E=1 \
-      cargo nextest run --manifest-path "$workspace_manifest" -p ripdpi-runtime --test network_e2e --no-capture "${NEXTEST_ARGS[@]}"
+      cargo nextest run --manifest-path "$workspace_manifest" -p ripdpi-proxy-runtime --test network_e2e --no-capture "${NEXTEST_ARGS[@]}"
   }
 else
   run_fixture_tests() {
@@ -59,7 +59,7 @@ else
 
   run_runtime_relay_e2e() {
     RIPDPI_RUN_NESTED_PROXY_E2E=1 \
-      cargo test --manifest-path "$workspace_manifest" -p ripdpi-runtime --test network_e2e -- --nocapture
+      cargo test --manifest-path "$workspace_manifest" -p ripdpi-proxy-runtime --test network_e2e -- --nocapture
   }
 fi
 

@@ -7,6 +7,8 @@ use std::io;
 use std::net::TcpStream;
 use std::os::fd::AsRawFd;
 
+use ripdpi_capabilities::{CapabilityOutcome, CapabilityUnavailable};
+
 use crate::linux::mmap_region::{alloc_region, free_region, write_region};
 use crate::linux::raw_packet::packet_builder::{build_tcp_segment_packet, fragment_identification};
 use crate::linux::raw_packet::raw_socket::send_raw_packets;
@@ -17,7 +19,7 @@ use crate::linux::tcp_repair::{
     set_tcp_repair_queue, snapshot_tcp_repair_state, swap_stream_to_replacement, TcpTimestampSnapshot, TCP_NO_QUEUE,
     TCP_REPAIR_ON,
 };
-use crate::{CapabilityOutcome, CapabilityUnavailable, FakeTcpOptions, TcpStageWait};
+use crate::{FakeTcpOptions, TcpStageWait};
 
 pub fn send_fake_tcp(
     stream: &TcpStream,

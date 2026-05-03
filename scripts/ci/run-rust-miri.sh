@@ -10,4 +10,4 @@ rustup component add --toolchain nightly miri rust-src >/dev/null
 
 cd "$native_root"
 cargo +nightly miri setup >/dev/null
-cargo +nightly miri test -p ripdpi-runtime read_unaligned_raw_fd
+cargo +nightly miri test -p ripdpi-root-helper-protocol read_unaligned_raw_fd

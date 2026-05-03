@@ -4,7 +4,7 @@
 //! replicate the same synchronisation pattern with `loom::sync` to exhaustively
 //! verify that all interleavings of start/cancel/destroy are safe.
 //!
-//! Run with: cargo test -p ripdpi-monitor --features loom -- loom
+//! Run with: cargo test -p ripdpi-monitor-engine --features loom -- loom
 
 #[cfg(feature = "loom")]
 mod tests {

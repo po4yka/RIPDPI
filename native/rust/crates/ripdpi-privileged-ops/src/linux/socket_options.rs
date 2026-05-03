@@ -11,8 +11,9 @@ use std::ptr;
 
 use socket2::SockRef;
 
+use ripdpi_capabilities::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
+
 use crate::linux::fd::peer_addr;
-use crate::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
 
 /// Thin wrapper around `libc::setsockopt` that handles the return-code check
 /// and `io::Error` conversion.

@@ -364,11 +364,11 @@ run_host_mode() {
     run_step "cargo test --workspace --all-targets --no-run" cargo test --manifest-path "$workspace_manifest" --workspace --all-targets --no-run
     run_step "cargo test -p ripdpi-proxy-config" cargo test --manifest-path "$workspace_manifest" -p ripdpi-proxy-config
     run_step "cargo test -p ripdpi-dns-resolver" cargo test --manifest-path "$workspace_manifest" -p ripdpi-dns-resolver
-    run_step "cargo test -p ripdpi-monitor -- --test-threads=1" cargo test --manifest-path "$workspace_manifest" -p ripdpi-monitor -- --test-threads=1
+    run_step "cargo test -p ripdpi-monitor-engine -- --test-threads=1" cargo test --manifest-path "$workspace_manifest" -p ripdpi-monitor-engine -- --test-threads=1
     run_step "cargo test -p ripdpi-android" cargo test --manifest-path "$workspace_manifest" -p ripdpi-android
     run_step "cargo test -p ripdpi-tunnel-android" cargo test --manifest-path "$workspace_manifest" -p ripdpi-tunnel-android
-    run_step "cargo test -p ripdpi-runtime --test network_e2e -- --test-threads=1" \
-        cargo test --manifest-path "$workspace_manifest" -p ripdpi-runtime --test network_e2e -- --test-threads=1
+    run_step "cargo test -p ripdpi-proxy-runtime --test network_e2e -- --test-threads=1" \
+        cargo test --manifest-path "$workspace_manifest" -p ripdpi-proxy-runtime --test network_e2e -- --test-threads=1
     run_step "cargo test -p ripdpi-tunnel-core --test tun_e2e -- --test-threads=1" \
         cargo test --manifest-path "$workspace_manifest" -p ripdpi-tunnel-core --test tun_e2e -- --test-threads=1
 }
@@ -398,11 +398,11 @@ run_android_mode() {
 
 run_soak_mode() {
     run_step_with_metrics \
-        "cargo test -p ripdpi-runtime --test network_soak -- --ignored --test-threads=1" \
-        cargo test --manifest-path "$workspace_manifest" -p ripdpi-runtime --test network_soak -- --ignored --test-threads=1
+        "cargo test -p ripdpi-proxy-runtime --test network_soak -- --ignored --test-threads=1" \
+        cargo test --manifest-path "$workspace_manifest" -p ripdpi-proxy-runtime --test network_soak -- --ignored --test-threads=1
     run_step_with_metrics \
-        "cargo test -p ripdpi-monitor --test soak -- --ignored --test-threads=1" \
-        cargo test --manifest-path "$workspace_manifest" -p ripdpi-monitor --test soak -- --ignored --test-threads=1
+        "cargo test -p ripdpi-monitor-engine --test soak -- --ignored --test-threads=1" \
+        cargo test --manifest-path "$workspace_manifest" -p ripdpi-monitor-engine --test soak -- --ignored --test-threads=1
 }
 
 run_live_network_smokes() {
