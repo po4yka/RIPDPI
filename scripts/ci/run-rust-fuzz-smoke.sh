@@ -32,13 +32,18 @@ run_fuzz() {
   )
 }
 
-echo "==> fuzz smoke: run packets_parse once"
-run_fuzz run packets_parse -- -runs=1
-
-echo "==> fuzz smoke: build packets_tls_quic"
-run_fuzz build packets_tls_quic
-
-for target in failure_http_response failure_field_cache; do
-  echo "==> fuzz smoke: build $target"
-  run_fuzz build "$target"
-done
+if [[ -n "${RIPDPI_FUZZ_SECONDS:-}" ]]; then
+  for target in packets_parse packets_tls_quic failure_http_response failure_field_cache; do
+    echo "==> fuzz nightly: run $target for ${RIPDPI_FUZZ_SECONDS}s"
+    run_fuzz run "$target" -- -max_total_time="$RIPDPI_FUZZ_SECONDS"
+  done
+else
+  echo "==> fuzz smoke: run packets_parse once"
+  run_fuzz run packets_parse -- -runs=1
+  echo "==> fuzz smoke: build packets_tls_quic"
+  run_fuzz build packets_tls_quic
+  for target in failure_http_response failure_field_cache; do
+    echo "==> fuzz smoke: build $target"
+    run_fuzz build "$target"
+  done
+fi
