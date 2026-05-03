@@ -117,7 +117,7 @@ runs:
       shell: bash
       run: android sdk install "ndk;${{ steps.native-toolchain.outputs.ndk }}"
 
-    - uses: mozilla-actions/sccache-action@v0.0.9
+    - uses: mozilla-actions/sccache-action@v0.0.10
       env:
         FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
@@ -141,7 +141,7 @@ runs:
       uses: actions/cache/restore@v5
       with:
         path: ${{ runner.temp }}/gradle-build-cache
-        key: gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-${{ github.sha }}
+        key: gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}
         restore-keys: |
           gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-
           gradle-build-cache-
@@ -151,7 +151,7 @@ runs:
       uses: actions/cache@v5
       with:
         path: ${{ runner.temp }}/gradle-build-cache
-        key: gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-${{ github.sha }}
+        key: gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}
         restore-keys: |
           gradle-build-cache-${{ hashFiles('**/*.gradle*', 'gradle.properties', 'gradle/libs.versions.toml') }}-
           gradle-build-cache-
