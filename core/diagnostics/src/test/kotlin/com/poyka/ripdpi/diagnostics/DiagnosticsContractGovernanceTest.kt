@@ -67,7 +67,7 @@ class DiagnosticsContractGovernanceTest {
 
     @Test
     fun `engine schema version matches rust contract constant`() {
-        val rustWire = repoFixture("native/rust/crates/ripdpi-monitor/src/wire.rs").readText()
+        val rustWire = repoFixture("native/rust/crates/ripdpi-diagnostics-contracts/src/wire.rs").readText()
         val match =
             Regex("""DIAGNOSTICS_ENGINE_SCHEMA_VERSION:\s*u32\s*=\s*(\d+)""")
                 .find(rustWire)
