@@ -11,6 +11,10 @@ import kotlin.concurrent.thread
 
 private const val CloudflareOriginReadyPrefix = "RIPDPI-READY|cloudflare-origin|"
 private const val CloudflareOriginErrorPrefix = "RIPDPI-ERROR|cloudflare-origin|"
+private const val CloudflareOriginSignalPartsLimit = 4
+private const val CloudflareOriginFailureClassIndex = 2
+private const val CloudflareOriginMessageIndex = 3
+private const val CloudflareProcessStopTimeoutMs = 1_500L
 
 internal data class ManagedCloudflareProcess(
     val process: Process,
@@ -66,13 +70,16 @@ internal class CloudflarePublishProcessSupervisor
                 outputReader.start(process, redacted) { line ->
                     when {
                         line.startsWith(CloudflareOriginReadyPrefix) -> {
-                            val parts = line.split('|', limit = 4)
-                            readySignal.complete(parts.getOrNull(3).orEmpty())
+                            val parts = line.split('|', limit = CloudflareOriginSignalPartsLimit)
+                            readySignal.complete(parts.getOrNull(CloudflareOriginMessageIndex).orEmpty())
                         }
 
                         line.startsWith(CloudflareOriginErrorPrefix) -> {
-                            val parts = line.split('|', limit = 4)
-                            onError(parts.getOrNull(3).orEmpty(), parts.getOrNull(2).orEmpty())
+                            val parts = line.split('|', limit = CloudflareOriginSignalPartsLimit)
+                            onError(
+                                parts.getOrNull(CloudflareOriginMessageIndex).orEmpty(),
+                                parts.getOrNull(CloudflareOriginFailureClassIndex).orEmpty(),
+                            )
                         }
 
                         line.contains("error", ignoreCase = true) -> {
@@ -136,9 +143,9 @@ internal class CloudflarePublishProcessSupervisor
         fun stop(process: ManagedCloudflareProcess) {
             process.outputThread.interrupt()
             process.process.destroy()
-            if (!process.process.waitFor(1_500, TimeUnit.MILLISECONDS)) {
+            if (!process.process.waitFor(CloudflareProcessStopTimeoutMs, TimeUnit.MILLISECONDS)) {
                 process.process.destroyForcibly()
-                process.process.waitFor(1_500, TimeUnit.MILLISECONDS)
+                process.process.waitFor(CloudflareProcessStopTimeoutMs, TimeUnit.MILLISECONDS)
             }
         }
     }

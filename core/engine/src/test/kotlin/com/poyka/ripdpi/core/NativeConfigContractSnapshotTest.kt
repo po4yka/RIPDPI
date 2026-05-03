@@ -620,6 +620,7 @@ class NativeConfigContractSnapshotTest {
             put("listen", listen)
             put("protocols", protocols)
             put("chains", chains)
+            put("environmentKind", JsonPrimitive("Unknown"))
             put("fakePackets", fakePackets)
             put("parserEvasions", parserEvasions)
             put("adaptiveFallback", adaptiveFallback)

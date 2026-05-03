@@ -1,7 +1,33 @@
 import com.android.build.api.dsl.ApplicationExtension
+import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.artifacts.component.ProjectComponentIdentifier
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.provider.Property
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
 import java.util.Properties
+
+abstract class VerifyEngineBoundaryClasspathTask : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val forbiddenArtifacts: ConfigurableFileCollection
+
+    @get:Input
+    abstract val forbiddenProjectPath: Property<String>
+
+    @TaskAction
+    fun verify() {
+        if (!forbiddenArtifacts.isEmpty) {
+            throw GradleException(
+                "${forbiddenProjectPath.get()} must not appear on :app compile classpaths.",
+            )
+        }
+    }
+}
 
 plugins {
     id("ripdpi.android.application")
@@ -171,28 +197,25 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
 
-tasks.register("verifyEngineBoundaryClasspath") {
+tasks.register<VerifyEngineBoundaryClasspathTask>("verifyEngineBoundaryClasspath") {
     group = "verification"
     description = "Fails if :core:engine leaks onto :app compile classpaths."
+    forbiddenProjectPath.set(":core:engine")
 
-    doLast {
-        val leakingConfigurations =
-            listOf(
-                "debugCompileClasspath",
-                "releaseCompileClasspath",
-                "benchmarkCompileClasspath",
-            ).filter { configurationName ->
-                val configuration = configurations.findByName(configurationName) ?: return@filter false
-                configuration.incoming.resolutionResult.allComponents.any { component ->
-                    val projectId = component.id as? ProjectComponentIdentifier
-                    projectId?.projectPath == ":core:engine"
-                }
-            }
-
-        if (leakingConfigurations.isNotEmpty()) {
-            throw GradleException(
-                ":core:engine must not appear on :app compile classpaths: " +
-                    leakingConfigurations.joinToString(),
+    listOf(
+        "debugCompileClasspath",
+        "releaseCompileClasspath",
+        "benchmarkCompileClasspath",
+    ).forEach { configurationName ->
+        configurations.findByName(configurationName)?.let { configuration ->
+            forbiddenArtifacts.from(
+                configuration.incoming
+                    .artifactView {
+                        componentFilter { componentId ->
+                            val projectId = componentId as? ProjectComponentIdentifier
+                            projectId?.projectPath == ":core:engine"
+                        }
+                    }.files,
             )
         }
     }

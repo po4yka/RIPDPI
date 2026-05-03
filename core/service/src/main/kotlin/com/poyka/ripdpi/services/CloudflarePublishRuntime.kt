@@ -92,14 +92,17 @@ class CloudflarePublishManager
             pendingLastError?.let { state.lastError = it }
             pendingFailureClass?.let { state.lastFailureClass = it }
             running = state
+            var ready = false
             try {
                 readinessPoller.waitForOriginReady(state)
                 state.originReady = true
                 readinessPoller.waitForCloudflaredReady(state)
                 state.cloudflaredReady = true
-            } catch (error: Exception) {
-                runCatching { stop() }
-                throw error
+                ready = true
+            } finally {
+                if (!ready) {
+                    runCatching { stop() }
+                }
             }
         }
 

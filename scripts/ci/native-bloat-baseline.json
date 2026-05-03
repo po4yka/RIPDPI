@@ -10,8 +10,8 @@
   "maxNewCrateSizeBytes": 65536,
   "packages": {
     "ripdpi-android": {
-      "fileSize": 26962184,
-      "textSectionSize": 8200362,
+      "fileSize": 28285912,
+      "textSectionSize": 8182442,
       "functions": [
         {
           "crate": "aws_lc_sys",
@@ -24,11 +24,6 @@
           "size": 339921
         },
         {
-          "crate": "ripdpi_android",
-          "name": "ripdpi_android::diagnostics::scan::decode_scan_request",
-          "size": 31401
-        },
-        {
           "crate": "aws_lc_sys",
           "name": "aws_lc_0_39_1_edwards25519_scalarmuldouble_alt",
           "size": 28621
@@ -39,22 +34,25 @@
           "size": 28133
         },
         {
-          "crate": "ripdpi_dns_resolver",
-          "name": "ripdpi_dns_resolver::resolver::EncryptedDnsResolver::exchange_with_metadata::{{closure}}",
-          "size": 26131
-        },
-        {
           "crate": "ripdpi_config",
-          "name": "ripdpi_config::parse::cli::parse_cli",
-          "size": 23974
+          "name": "ripdpi_config::parse::cli::options::handle_option",
+          "size": 26667
         },
         {
-          "crate": "[Unknown]",
           "name": "Lp384_montjscalarmul_alt_p384_montjadd",
           "size": 22837
         },
         {
-          "crate": "[Unknown]",
+          "crate": "ripdpi_dns_resolver",
+          "name": "ripdpi_dns_resolver::resolver::dispatch::<impl ripdpi_dns_resolver::resolver::EncryptedDnsResolver>::exchange_protocol::{{closure}}",
+          "size": 22808
+        },
+        {
+          "crate": "ripdpi_dns_resolver",
+          "name": "ripdpi_dns_resolver::resolver::dispatch::<impl ripdpi_dns_resolver::resolver::EncryptedDnsResolver>::exchange_protocol::{{closure}}",
+          "size": 22086
+        },
+        {
           "name": "Lp384_montjscalarmul_p384_montjadd",
           "size": 22027
         },
@@ -89,19 +87,9 @@
           "size": 17525
         },
         {
-          "crate": "ripdpi_monitor",
-          "name": "ripdpi_monitor::connectivity::probes::run_dns_probe",
-          "size": 17291
-        },
-        {
           "crate": "aws_lc_sys",
           "name": "aws_lc_0_39_1_p521_jdouble_alt",
           "size": 17044
-        },
-        {
-          "crate": "ripdpi_runtime",
-          "name": "ripdpi_runtime::runtime::desync::send_with_group",
-          "size": 17014
         },
         {
           "crate": "aws_lc_sys",
@@ -109,14 +97,19 @@
           "size": 15857
         },
         {
-          "crate": "ripdpi_proxy_config",
-          "name": "ripdpi_proxy_config::convert::runtime_config_from_ui",
-          "size": 15661
+          "crate": "ripdpi_desync_runtime",
+          "name": "ripdpi_desync_runtime::tcp_plan::execution::dispatcher::execute",
+          "size": 15025
         },
         {
-          "crate": "serde_json",
+          "crate": "ripdpi_android_diagnostics_adapter",
           "name": "<&mut serde_json::de::Deserializer<R> as serde_core::de::Deserializer>::deserialize_struct",
-          "size": 15180
+          "size": 13997
+        },
+        {
+          "crate": "ripdpi_proxy_config",
+          "name": "ripdpi_proxy_config::convert::runtime_config_from_ui",
+          "size": 13854
         }
       ],
       "crates": [
@@ -125,86 +118,86 @@
           "size": 1265387
         },
         {
-          "name": "std",
-          "size": 672637
-        },
-        {
           "name": "[Unknown]",
-          "size": 682555
+          "size": 926217
         },
         {
           "name": "boring_sys",
-          "size": 699471
+          "size": 765876
         },
         {
-          "name": "ripdpi_monitor",
-          "size": 424790
-        },
-        {
-          "name": "ripdpi_runtime",
-          "size": 380836
+          "name": "std",
+          "size": 710781
         },
         {
           "name": "rustls",
-          "size": 353095
+          "size": 351927
         },
         {
           "name": "reqwest",
-          "size": 267274
-        },
-        {
-          "name": "quinn_proto",
-          "size": 225364
-        },
-        {
-          "name": "ring",
-          "size": 195426
+          "size": 277115
         },
         {
           "name": "ripdpi_proxy_config",
-          "size": 186567
+          "size": 267859
         },
         {
-          "name": "jni",
-          "size": 116016
+          "name": "quinn_proto",
+          "size": 225375
         },
         {
-          "name": "h2",
-          "size": 115976
+          "name": "ring",
+          "size": 197598
+        },
+        {
+          "name": "ripdpi_monitor_engine",
+          "size": 178116
         },
         {
           "name": "ripdpi_dns_resolver",
-          "size": 119416
+          "size": 165185
+        },
+        {
+          "name": "ripdpi_runtime_policy",
+          "size": 142057
+        },
+        {
+          "name": "ripdpi_proxy_runtime",
+          "size": 134411
+        },
+        {
+          "name": "h2",
+          "size": 116886
+        },
+        {
+          "name": "jni",
+          "size": 115025
+        },
+        {
+          "name": "ripdpi_android_diagnostics_adapter",
+          "size": 113924
+        },
+        {
+          "name": "ripdpi_diagnostics_runner",
+          "size": 105121
+        },
+        {
+          "name": "ripdpi_android_fetch_adapter",
+          "size": 102351
+        },
+        {
+          "name": "ripdpi_runtime_adaptive",
+          "size": 96258
         },
         {
           "name": "hickory_proto",
-          "size": 76564
-        },
-        {
-          "name": "webpki",
-          "size": 65502
-        },
-        {
-          "name": "hyper_util",
-          "size": 52949
-        },
-        {
-          "name": "tokio",
-          "size": 47252
-        },
-        {
-          "name": "hyper",
-          "size": 44264
-        },
-        {
-          "name": "ripdpi_android",
-          "size": 41016
+          "size": 82703
         }
       ]
     },
     "ripdpi-tunnel-android": {
-      "fileSize": 14000000,
-      "textSectionSize": 5721818,
+      "fileSize": 23012592,
+      "textSectionSize": 6103002,
       "functions": [
         {
           "crate": "aws_lc_sys",
@@ -227,17 +220,15 @@
           "size": 28133
         },
         {
-          "crate": "ripdpi_dns_resolver",
-          "name": "ripdpi_dns_resolver::resolver::EncryptedDnsResolver::exchange_with_metadata::{{closure}}",
-          "size": 25795
-        },
-        {
-          "crate": "[Unknown]",
           "name": "Lp384_montjscalarmul_alt_p384_montjadd",
           "size": 22837
         },
         {
-          "crate": "[Unknown]",
+          "crate": "ripdpi_dns_resolver",
+          "name": "ripdpi_dns_resolver::resolver::dispatch::<impl ripdpi_dns_resolver::resolver::EncryptedDnsResolver>::exchange_protocol::{{closure}}",
+          "size": 22350
+        },
+        {
           "name": "Lp384_montjscalarmul_p384_montjadd",
           "size": 22027
         },
@@ -262,22 +253,12 @@
           "size": 19320
         },
         {
-          "crate": "ripdpi_tunnel_core",
-          "name": "ripdpi_tunnel_core::io_loop::dns_intercept::spawn_dns_worker::{{closure}}",
-          "size": 19046
-        },
-        {
-          "crate": "ripdpi_tunnel_core",
-          "name": "ripdpi_tunnel_core::io_loop::io_loop_task::{{closure}}",
-          "size": 18058
-        },
-        {
           "crate": "quinn_proto",
           "name": "quinn_proto::connection::Connection::process_payload",
           "size": 17833
         },
         {
-          "crate": "serde_json",
+          "crate": "serde_json?",
           "name": "<&mut serde_json::de::Deserializer<R> as serde_core::de::Deserializer>::deserialize_struct",
           "size": 17614
         },
@@ -292,24 +273,28 @@
           "size": 17044
         },
         {
+          "crate": "ripdpi_tunnel_core",
+          "name": "ripdpi_tunnel_core::io_loop::io_loop_task::{{closure}}",
+          "size": 16201
+        },
+        {
           "crate": "aws_lc_sys",
           "name": "aws_lc_0_39_1_p521_jdouble",
           "size": 15857
         },
         {
           "crate": "boring_sys",
-          "name": "_ZN4bssl20ssl_server_handshakeEPNS_13SSL_HANDSHAKEE",
-          "size": 13149
+          "name": "_ZN4bssl20ssl_client_handshakeEPNS_13SSL_HANDSHAKEE",
+          "size": 13453
+        },
+        {
+          "name": "_ZN4bssl7entropy12_GLOBAL__N_123sha512_block_data_orderEPmPKhm",
+          "size": 13086
         },
         {
           "crate": "aws_lc_sys",
           "name": "aws_lc_0_39_1_edwards25519_scalarmulbase_alt",
           "size": 12667
-        },
-        {
-          "crate": "aws_lc_sys",
-          "name": "aws_lc_0_39_1_edwards25519_scalarmulbase",
-          "size": 12413
         }
       ],
       "crates": [
@@ -319,79 +304,79 @@
         },
         {
           "name": "[Unknown]",
-          "size": 680238
-        },
-        {
-          "name": "std",
-          "size": 522915
+          "size": 944716
         },
         {
           "name": "boring_sys",
-          "size": 699471
+          "size": 763884
+        },
+        {
+          "name": "std",
+          "size": 522284
         },
         {
           "name": "rustls",
-          "size": 316472
+          "size": 316541
         },
         {
           "name": "reqwest",
-          "size": 268954
+          "size": 276212
         },
         {
           "name": "quinn_proto",
-          "size": 225378
+          "size": 225420
         },
         {
           "name": "ring",
-          "size": 196001
+          "size": 197326
         },
         {
           "name": "ripdpi_tunnel_core",
-          "size": 127185
+          "size": 127312
         },
         {
           "name": "h2",
-          "size": 115925
+          "size": 116886
         },
         {
           "name": "jni",
-          "size": 115475
+          "size": 115540
         },
         {
           "name": "ripdpi_dns_resolver",
-          "size": 108501
+          "size": 110606
         },
         {
           "name": "hickory_proto",
-          "size": 76494
+          "size": 82478
         },
         {
           "name": "tokio",
-          "size": 72669
+          "size": 77330
         },
         {
           "name": "webpki",
-          "size": 65356
+          "size": 66011
         },
         {
           "name": "hyper_util",
-          "size": 53251
+          "size": 54211
         },
         {
           "name": "hyper",
-          "size": 44264
+          "size": 43057
+        },
+        {
+          "name": "quinn",
+          "size": 42618
         },
         {
           "name": "curve25519_dalek",
-          "size": 40646
+          "size": 41017
         },
         {
           "name": "smoltcp",
-          "size": 38649
-        },
-        {
-          "name": "http",
-          "size": 33575
+          "size": 39784
         }
       ]
     }

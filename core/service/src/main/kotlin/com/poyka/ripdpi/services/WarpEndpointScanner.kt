@@ -43,57 +43,59 @@ class DefaultWarpEndpointScanner
                     .takeIf { it > 0 }
                     ?: DefaultWarpScannerMaxRttMs
 
-            endpointStore.load(profileId, normalizedScope)?.let { cached ->
-                if (cached.isFreshWarpEndpoint(now)) {
-                    return cached.copy(profileId = profileId, networkScopeKey = normalizedScope)
+            val scopedCandidate =
+                endpointStore.load(profileId, normalizedScope)?.let { cached ->
+                    if (cached.isFreshWarpEndpoint(now)) {
+                        cached.copy(profileId = profileId, networkScopeKey = normalizedScope)
+                    } else {
+                        probeCachedWarpEntry(
+                            endpointProbe = endpointProbe,
+                            endpointStore = endpointStore,
+                            profileId = profileId,
+                            networkScopeKey = normalizedScope,
+                            entry = cached,
+                            timeoutMillis = timeoutMillis,
+                        )
+                    }
                 }
-                probeCachedWarpEntry(
-                    endpointProbe = endpointProbe,
-                    endpointStore = endpointStore,
-                    profileId = profileId,
-                    networkScopeKey = normalizedScope,
-                    entry = cached,
-                    timeoutMillis = timeoutMillis,
-                )?.let { return it }
-            }
-
-            endpointStore.load(profileId, GlobalWarpEndpointScopeKey)?.let { cached ->
-                probeCachedWarpEntry(
-                    endpointProbe = endpointProbe,
-                    endpointStore = endpointStore,
-                    profileId = profileId,
-                    networkScopeKey = GlobalWarpEndpointScopeKey,
-                    entry = cached,
-                    timeoutMillis = timeoutMillis,
-                )?.let { global ->
-                    return persistWarpBestCandidate(
+            val globalCandidate =
+                scopedCandidate ?: endpointStore.load(profileId, GlobalWarpEndpointScopeKey)?.let { cached ->
+                    probeCachedWarpEntry(
+                        endpointProbe = endpointProbe,
                         endpointStore = endpointStore,
                         profileId = profileId,
-                        networkScopeKey = normalizedScope,
-                        candidate = global,
-                    )
+                        networkScopeKey = GlobalWarpEndpointScopeKey,
+                        entry = cached,
+                        timeoutMillis = timeoutMillis,
+                    )?.let { global ->
+                        persistWarpBestCandidate(
+                            endpointStore = endpointStore,
+                            profileId = profileId,
+                            networkScopeKey = normalizedScope,
+                            candidate = global,
+                        )
+                    }
                 }
-            }
-
-            if (scannerEnabled) {
-                val bestCandidate =
+            val scannedCandidate =
+                globalCandidate ?: if (scannerEnabled) {
                     scanWarpCandidatePool(
                         endpointProbe = endpointProbe,
                         candidates = buildWarpCandidatePool(endpointStore, profileId, provisioned),
                         timeoutMillis = timeoutMillis,
                         parallelism = parallelism,
-                    )
-                if (bestCandidate != null) {
-                    return persistWarpBestCandidate(
-                        endpointStore = endpointStore,
-                        profileId = profileId,
-                        networkScopeKey = normalizedScope,
-                        candidate = bestCandidate,
-                    )
+                    )?.let { bestCandidate ->
+                        persistWarpBestCandidate(
+                            endpointStore = endpointStore,
+                            profileId = profileId,
+                            networkScopeKey = normalizedScope,
+                            candidate = bestCandidate,
+                        )
+                    }
+                } else {
+                    null
                 }
-            }
 
-            return provisioned?.let { fallback ->
+            return scannedCandidate ?: provisioned?.let { fallback ->
                 persistWarpBestCandidate(
                     endpointStore = endpointStore,
                     profileId = profileId,

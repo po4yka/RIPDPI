@@ -61,48 +61,53 @@ class DefaultWarpEndpointProbe
             candidate: WarpEndpointCacheEntry,
             timeoutMillis: Int,
         ): WarpEndpointCacheEntry? {
-            val credentials = credentialStore.load(candidate.profileId) ?: return null
-            val privateKey = credentials.privateKey?.takeIf(String::isNotBlank) ?: return null
-            val peerPublicKey = credentials.peerPublicKey?.takeIf(String::isNotBlank) ?: return null
-            val settings = appSettingsRepository.snapshot()
-            val request =
-                WarpEndpointProbeNativeRequest(
-                    endpoint = candidate.toResolvedEndpoint(),
-                    privateKey = privateKey,
-                    peerPublicKey = peerPublicKey,
-                    clientId = credentials.clientId,
-                    amnezia =
-                        RipDpiWarpAmneziaConfig(
-                            enabled = settings.warpAmneziaEnabled,
-                            jc = settings.warpAmneziaJc,
-                            jmin = settings.warpAmneziaJmin,
-                            jmax = settings.warpAmneziaJmax,
-                            h1 = settings.warpAmneziaH1,
-                            h2 = settings.warpAmneziaH2,
-                            h3 = settings.warpAmneziaH3,
-                            h4 = settings.warpAmneziaH4,
-                            s1 = settings.warpAmneziaS1,
-                            s2 = settings.warpAmneziaS2,
-                            s3 = settings.warpAmneziaS3,
-                            s4 = settings.warpAmneziaS4,
-                        ),
-                    timeoutMs = timeoutMillis.toLong(),
-                )
-            val resultJson = nativeBindings.probeEndpoint(WarpProbeJson.encodeToString(request)) ?: return null
-            val result = WarpProbeJson.decodeFromString<WarpEndpointProbeNativeResult>(resultJson)
-            return candidate.copy(
-                host =
-                    result.host
-                        .ifBlank {
-                            candidate.host ?: ""
-                        }.ifBlank { candidate.ipv4 ?: candidate.ipv6.orEmpty() },
-                ipv4 = result.ipv4 ?: candidate.ipv4,
-                ipv6 = result.ipv6 ?: candidate.ipv6,
-                port = result.port,
-                source = "scanner_native",
-                rttMs = result.rttMs,
-                updatedAtEpochMillis = System.currentTimeMillis(),
-            )
+            val credentials = credentialStore.load(candidate.profileId)
+            val privateKey = credentials?.privateKey?.takeIf(String::isNotBlank)
+            val peerPublicKey = credentials?.peerPublicKey?.takeIf(String::isNotBlank)
+            return if (credentials == null || privateKey == null || peerPublicKey == null) {
+                null
+            } else {
+                val settings = appSettingsRepository.snapshot()
+                val request =
+                    WarpEndpointProbeNativeRequest(
+                        endpoint = candidate.toResolvedEndpoint(),
+                        privateKey = privateKey,
+                        peerPublicKey = peerPublicKey,
+                        clientId = credentials.clientId,
+                        amnezia =
+                            RipDpiWarpAmneziaConfig(
+                                enabled = settings.warpAmneziaEnabled,
+                                jc = settings.warpAmneziaJc,
+                                jmin = settings.warpAmneziaJmin,
+                                jmax = settings.warpAmneziaJmax,
+                                h1 = settings.warpAmneziaH1,
+                                h2 = settings.warpAmneziaH2,
+                                h3 = settings.warpAmneziaH3,
+                                h4 = settings.warpAmneziaH4,
+                                s1 = settings.warpAmneziaS1,
+                                s2 = settings.warpAmneziaS2,
+                                s3 = settings.warpAmneziaS3,
+                                s4 = settings.warpAmneziaS4,
+                            ),
+                        timeoutMs = timeoutMillis.toLong(),
+                    )
+                nativeBindings.probeEndpoint(WarpProbeJson.encodeToString(request))?.let { resultJson ->
+                    val result = WarpProbeJson.decodeFromString<WarpEndpointProbeNativeResult>(resultJson)
+                    candidate.copy(
+                        host =
+                            result.host
+                                .ifBlank {
+                                    candidate.host ?: ""
+                                }.ifBlank { candidate.ipv4 ?: candidate.ipv6.orEmpty() },
+                        ipv4 = result.ipv4 ?: candidate.ipv4,
+                        ipv6 = result.ipv6 ?: candidate.ipv6,
+                        port = result.port,
+                        source = "scanner_native",
+                        rttMs = result.rttMs,
+                        updatedAtEpochMillis = System.currentTimeMillis(),
+                    )
+                }
+            }
         }
 
         private fun probeFallbackUdp(
@@ -145,18 +150,18 @@ class DefaultWarpEndpointProbe
             )
 
         private fun resolveSocketAddress(candidate: WarpEndpointCacheEntry): InetSocketAddress? {
-            val port = candidate.port.takeIf { it > 0 } ?: return null
-            candidate.ipv4?.takeIf(String::isNotBlank)?.let { value ->
-                return InetSocketAddress(value, port)
+            val port = candidate.port.takeIf { it > 0 }
+            return port?.let { resolvedPort ->
+                val literalAddress =
+                    candidate.ipv4?.takeIf(String::isNotBlank)
+                        ?: candidate.ipv6?.takeIf(String::isNotBlank)
+                literalAddress?.let { InetSocketAddress(it, resolvedPort) }
+                    ?: candidate.host?.takeIf(String::isNotBlank)?.let { host ->
+                        runCatching { InetAddress.getAllByName(host).firstOrNull() }
+                            .getOrNull()
+                            ?.let { resolved -> InetSocketAddress(resolved, resolvedPort) }
+                    }
             }
-            candidate.ipv6?.takeIf(String::isNotBlank)?.let { value ->
-                return InetSocketAddress(value, port)
-            }
-            val host = candidate.host?.takeIf(String::isNotBlank) ?: return null
-            val resolved =
-                runCatching { InetAddress.getAllByName(host).firstOrNull() }.getOrNull()
-                    ?: return null
-            return InetSocketAddress(resolved, port)
         }
 
         private companion object {
