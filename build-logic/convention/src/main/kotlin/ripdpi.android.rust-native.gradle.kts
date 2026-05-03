@@ -86,6 +86,9 @@ abstract class BuildRustNativeLibsTask
         @get:Input
         abstract val artifactSpecs: ListProperty<String>
 
+        @get:Input
+        abstract val pruneUnknownArtifacts: Property<Boolean>
+
         // When set (e.g. by CI's build-android-debug job after a per-ABI matrix
         // prebuild), the task copies expected artifacts from
         // `<prebuiltSourceDir>/<abi>/<outputName>` instead of running cargo.
@@ -98,6 +101,10 @@ abstract class BuildRustNativeLibsTask
 
         @get:LocalState
         abstract val cargoTargetDir: DirectoryProperty
+
+        init {
+            pruneUnknownArtifacts.convention(true)
+        }
 
         @TaskAction
         fun build() {
@@ -112,6 +119,7 @@ abstract class BuildRustNativeLibsTask
             val artifacts = artifactSpecs.get().map(::parseArtifactSpec)
             val packageNames = artifacts.map(RustNativeArtifact::packageName).distinct()
             val expectedOutputNames = artifacts.map(RustNativeArtifact::outputName).toSet()
+            val shouldPruneUnknownArtifacts = pruneUnknownArtifacts.get()
             val outputRoot = outputDir.get().asFile
             val cargoTargetRoot = cargoTargetDir.get().asFile
             val cargoExecutablePath = cargoExecutable.get()
@@ -187,6 +195,7 @@ abstract class BuildRustNativeLibsTask
                                 cargoTargetRoot,
                                 outputRoot,
                                 expectedOutputNames,
+                                shouldPruneUnknownArtifacts,
                                 artifacts,
                                 cargoJobs,
                                 androidSdkCmake,
@@ -225,6 +234,7 @@ abstract class BuildRustNativeLibsTask
             cargoTargetRoot: File,
             outputRoot: File,
             expectedOutputNames: Set<String>,
+            shouldPruneUnknownArtifacts: Boolean,
             artifacts: List<RustNativeArtifact>,
             cargoJobs: Int,
             androidCmakePath: String?,
@@ -236,7 +246,9 @@ abstract class BuildRustNativeLibsTask
             val abiCargoTargetDir = cargoTargetRoot.resolve(config.abi)
             val abiOutputDir = outputRoot.resolve(config.abi)
             abiOutputDir.mkdirs()
-            pruneStaleArtifactOutputs(abiOutputDir, expectedOutputNames)
+            if (shouldPruneUnknownArtifacts) {
+                pruneStaleArtifactOutputs(abiOutputDir, expectedOutputNames)
+            }
 
             // Delete stale BoringSSL cmake build directories whose cached cmake binary,
             // C compiler, or CXX compiler no longer matches the current toolchain.  When
@@ -481,7 +493,9 @@ abstract class BuildRustNativeLibsTask
 
             for (abi in abis.get()) {
                 val abiOutputDir = outputRoot.resolve(abi).also { it.mkdirs() }
-                pruneStaleArtifactOutputs(abiOutputDir, expectedNames)
+                if (pruneUnknownArtifacts.get()) {
+                    pruneStaleArtifactOutputs(abiOutputDir, expectedNames)
+                }
                 for (artifact in artifacts) {
                     val source = prebuiltDir.resolve(abi).resolve(artifact.outputName)
                     if (!source.isFile) {
@@ -1149,6 +1163,7 @@ val buildRustRootHelper =
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         artifactSpecs.set(rustRootHelperArtifactSpecs)
+        pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(rustRootHelperBuildDir)
         // Output to assets/bin/<abi>/ so Kotlin can extract at runtime.
         outputDir.set(generatedAssetsDir.map { it.dir("bin") })
@@ -1196,6 +1211,7 @@ val buildRustNaiveProxy =
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         artifactSpecs.set(rustNaiveProxyArtifactSpecs)
+        pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(layout.buildDirectory.dir("intermediates/rust-naiveproxy"))
         outputDir.set(generatedAssetsDir.map { it.dir("bin") })
         providers
@@ -1242,6 +1258,7 @@ val buildRustCloudflareOrigin =
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         artifactSpecs.set(rustCloudflareOriginArtifactSpecs)
+        pruneUnknownArtifacts.set(false)
         cargoTargetDir.set(layout.buildDirectory.dir("intermediates/rust-cloudflare-origin"))
         outputDir.set(generatedAssetsDir.map { it.dir("bin") })
         providers
