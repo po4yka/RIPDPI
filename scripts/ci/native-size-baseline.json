@@ -4,21 +4,21 @@
   "maxTotalGrowthBytes": 262144,
   "libraries": {
     "arm64-v8a": {
-      "libripdpi.so": 9420800,
-      "libripdpi-tunnel.so": 7714816
+      "libripdpi-tunnel.so": 8501368,
+      "libripdpi.so": 11613992
     },
     "armeabi-v7a": {
-      "libripdpi.so": 5910528,
-      "libripdpi-tunnel.so": 4723712
+      "libripdpi-tunnel.so": 5524592,
+      "libripdpi.so": 7689088
     },
     "x86": {
-      "libripdpi.so": 8503296,
-      "libripdpi-tunnel.so": 6684672
+      "libripdpi-tunnel.so": 7605540,
+      "libripdpi.so": 10852444
     },
     "x86_64": {
-      "libripdpi.so": 11149312,
-      "libripdpi-tunnel.so": 9216000
+      "libripdpi-tunnel.so": 9926304,
+      "libripdpi.so": 13385320
     }
   },
-  "_comment": "Updated 2026-04-09 after diagnostics-driven improvements: cdn_ech, reprobe, warmup, tls_profiles rotation, DoH randomization, DNS injection profiling, TCP block differentiation, TLS alert codes."
+  "_comment": "Updated 2026-05-03 after native crate split/package attribution and helper-shard CI fixes; thresholds unchanged."
 }
