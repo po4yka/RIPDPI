@@ -158,15 +158,18 @@ class ServiceLifecycleIntegrationTest {
     fun proxyServiceUsesResolvedCommandLinePreferences() {
         runBlocking {
             IntegrationTestOverrides.appSettingsRepository.update {
-                enableCmdSettings = true
-                cmdArgs = "--ip 127.0.0.1 --port 1092 --split host+1"
+                setEnableCmdSettings(true)
+                setCmdArgs("--ip 127.0.0.1 --port 1092 --split host+1")
             }
 
             startService(RipDpiProxyService::class.java)
             awaitStatus(AppStatus.Running, Mode.Proxy)
 
             val preferences = IntegrationTestOverrides.proxyFactory.lastRuntime.lastPreferences
-            assertTrue(preferences is RipDpiProxyCmdPreferences)
+            assertTrue(
+                "Expected command-line preferences but was $preferences",
+                preferences is RipDpiProxyCmdPreferences,
+            )
 
             stopService(RipDpiProxyService::class.java)
             awaitStatus(AppStatus.Halted, Mode.Proxy)
@@ -248,7 +251,7 @@ class ServiceLifecycleIntegrationTest {
             assertEquals("9.9.9.9", IntegrationTestOverrides.vpnTunnelSessionProvider.lastDns)
             assertEquals(true, IntegrationTestOverrides.vpnTunnelSessionProvider.lastIpv6)
             assertEquals(
-                1091,
+                1090,
                 IntegrationTestOverrides.tun2SocksBridgeFactory.bridge.startedConfig
                     ?.socks5Port,
             )

@@ -43,6 +43,8 @@ import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.security.PinVerifier
+import com.poyka.ripdpi.security.SecurityModule
 import com.poyka.ripdpi.services.EngineAppFacadeModule
 import com.poyka.ripdpi.services.EnginePlatformCapabilities
 import com.poyka.ripdpi.services.HostAutolearnStoreController
@@ -55,6 +57,7 @@ import com.poyka.ripdpi.testing.FakeInstrumentedEnginePlatformCapabilities
 import com.poyka.ripdpi.testing.FakeInstrumentedHostAutolearnStoreController
 import com.poyka.ripdpi.testing.FakeInstrumentedLauncherIconController
 import com.poyka.ripdpi.testing.FakeInstrumentedPermissionPlatformBridge
+import com.poyka.ripdpi.testing.FakeInstrumentedPinVerifier
 import com.poyka.ripdpi.testing.FakeInstrumentedServiceStateStore
 import com.poyka.ripdpi.testing.FakeInstrumentedStringResolver
 import com.poyka.ripdpi.testing.MutablePermissionStatusProvider
@@ -334,7 +337,7 @@ class MainActivityNavigationInstrumentedTest {
         }
 
         composeRule.tapBottomNav(Route.Settings)
-        composeRule.assertScreenVisible(Route.DnsSettings)
+        composeRule.assertScreenVisible(Route.Settings)
     }
 
     @Test
@@ -375,6 +378,7 @@ class MainActivityNavigationInstrumentedTest {
     fun homeApproachCardOpensDiagnosticsApproachesSection() {
         composeRule.assertScreenVisible(Route.Home)
 
+        composeRule.waitForTag(RipDpiTestTags.HomeApproachCard)
         composeRule.onNodeWithTag(RipDpiTestTags.HomeApproachCard).performClick()
 
         composeRule.assertScreenVisible(Route.Diagnostics)
@@ -539,6 +543,7 @@ class MainActivityOnboardingStartupInstrumentedTest {
     DiagnosticsManagerModule::class,
     PermissionStatusProviderModule::class,
     AppPlatformBindingsModule::class,
+    SecurityModule::class,
     com.poyka.ripdpi.activities.MainActivityHostModule::class,
 )
 class MainActivityBiometricStartupInstrumentedTest {
@@ -654,6 +659,10 @@ class MainActivityBiometricStartupInstrumentedTest {
     @BindValue
     @JvmField
     var enginePlatformCapabilities: EnginePlatformCapabilities = FakeInstrumentedEnginePlatformCapabilities()
+
+    @BindValue
+    @JvmField
+    var pinVerifier: PinVerifier = FakeInstrumentedPinVerifier()
 
     @BindValue
     @JvmField

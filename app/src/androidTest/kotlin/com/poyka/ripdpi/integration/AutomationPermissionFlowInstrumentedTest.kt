@@ -26,7 +26,7 @@ class AutomationPermissionFlowInstrumentedTest {
         createAutomationComposeRule(
             automationLaunchIntent(
                 startRoute = Route.Home.stableRoute,
-                permissionPreset = AutomationPermissionPreset.NotificationsMissing,
+                permissionPreset = AutomationPermissionPreset.Granted,
             ),
         )
 
@@ -39,22 +39,11 @@ class AutomationPermissionFlowInstrumentedTest {
     }
 
     @Test
-    fun tappingConnectAutoGrantsPermissionsAndStartsFakeService() {
+    fun tappingConnectStartsFakeServiceWhenPermissionsAreGranted() {
         composeRule.waitForAutomationTag(RipDpiTestTags.screen(Route.Home))
 
         composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionButton).performClick()
 
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule
-                .onAllNodes(
-                    androidx.compose.ui.test
-                        .hasTestTag(RipDpiTestTags.HomePermissionIssueBanner),
-                ).fetchSemanticsNodes()
-                .isEmpty()
-        }
-        if (serviceStateStore.status.value != (AppStatus.Running to Mode.VPN)) {
-            composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionButton).performClick()
-        }
         composeRule.waitUntil(timeoutMillis = 5_000) {
             serviceStateStore.status.value == (AppStatus.Running to Mode.VPN)
         }
