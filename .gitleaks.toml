@@ -1,0 +1,18 @@
+[allowlist]
+description = "Allow paths and strings that are known false positives"
+
+paths = [
+    # BoringSSL vendored source contains binary-looking hex strings
+    "native/rust/vendor/boring-sys/deps/.*",
+    # GeoIP binary databases
+    ".*GeoIP.*\\.mmdb",
+    # Test golden fixtures
+    ".*\\.golden",
+    # Test fixture directories
+    ".*fixtures.*",
+]
+
+regexes = [
+    # AWS documentation example key used in tests
+    "AKIAIOSFODNN7EXAMPLE",
+]

@@ -1,0 +1,70 @@
+name: CodeQL Kotlin Support Tracker
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Monday 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-kotlin-codeql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Check latest CodeQL release for Kotlin support
+        id: check-release
+        run: |
+          RELEASE_BODY=$(gh api repos/github/codeql-action/releases/latest --jq '.body')
+          echo "Release notes fetched."
+          if echo "$RELEASE_BODY" | grep -qi "kotlin"; then
+            echo "kotlin_supported=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "kotlin_supported=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check for existing tracking issue
+        id: check-issue
+        if: steps.check-release.outputs.kotlin_supported == 'true'
+        run: |
+          OPEN_COUNT=$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --label codeql-kotlin-tracker \
+            --state open \
+            --json number \
+            --jq 'length')
+          echo "open_count=$OPEN_COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Open tracking issue
+        if: |
+          steps.check-release.outputs.kotlin_supported == 'true' &&
+          steps.check-issue.outputs.open_count == '0'
+        run: |
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "CodeQL Kotlin support available — re-enable in codeql.yml" \
+            --body "$(cat <<'EOF'
+          The latest [github/codeql-action](https://github.com/github/codeql-action) release
+          mentions Kotlin support.
+
+          **Action required:** re-enable the `java-kotlin` matrix entry in `.github/workflows/codeql.yml`:
+
+          1. Uncomment the `java-kotlin` / `build-mode: manual` matrix entry.
+          2. Restore the JDK + Android SDK setup steps and the `compileDebugKotlin` build step
+             (see the comments in `codeql.yml` for guidance).
+          3. Verify the workflow passes on a branch before merging.
+
+          This issue was opened automatically by the `codeql-tracker.yml` workflow.
+          EOF
+          )" \
+            --label codeql-kotlin-tracker
+
+      - name: Kotlin CodeQL support not yet available
+        if: steps.check-release.outputs.kotlin_supported == 'false'
+        run: echo "Kotlin CodeQL support not yet available"

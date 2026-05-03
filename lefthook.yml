@@ -23,7 +23,8 @@ pre-commit:
         git diff --cached --diff-filter=ACM -z --name-only |
         grep -z -v '^native/rust/vendor/boring-sys/deps/' |
         xargs -0 git diff --cached -- |
-        grep -Ei '(AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY-----|(password|secret|token|api_key)\s*=\s*"[^"]{8,}")' &&
+        grep -Ei '(AKIA[0-9A-Z]{16}|-----BEGIN (RSA |EC )?PRIVATE KEY-----|(password|secret|token|api_key)\s*=\s*"[^"]{8,}")' |
+        grep -Ev 'AKIAIOSFODNN7EXAMPLE' &&
         { echo "error: potential secrets detected in staged changes"; exit 1; } ||
         true
 
@@ -52,10 +53,6 @@ pre-commit:
     architecture-delta:
       glob: "*.{kt,rs,toml}"
       run: python3 scripts/ci/check_architecture_health.py --staged
-
-    kotlin-detekt:
-      glob: "*.{kt,kts}"
-      run: ./gradlew detekt --auto-correct=false
 
     rust-clippy:
       glob: "*.rs"

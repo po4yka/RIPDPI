@@ -628,6 +628,16 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Fail if baseline files modified
+        if: github.event_name == 'pull_request'
+        run: |
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E 'baseline' | grep -v '^#'; then
+            echo "error: baseline files must not be modified in PRs — fix violations in code"
+            exit 1
+          fi
 
       - uses: ./.github/actions/setup-android-rust
         with:
