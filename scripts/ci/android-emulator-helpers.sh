@@ -146,6 +146,19 @@ adb_cmd() {
   fi
 }
 
+adb_cmd_timeout() {
+  local timeout_seconds="$1"
+  shift
+
+  local adb_bin
+  adb_bin="$(resolve_adb_bin)" || return 127
+  if [[ -n "${ANDROID_SERIAL:-}" ]]; then
+    timeout "$timeout_seconds" "$adb_bin" -s "${ANDROID_SERIAL}" "$@"
+  else
+    timeout "$timeout_seconds" "$adb_bin" "$@"
+  fi
+}
+
 has_adb_device() {
   local state
   state="$(adb_cmd get-state 2>/dev/null | tr -d '\r' || true)"
@@ -158,17 +171,17 @@ wait_for_android_boot() {
   local max_attempts=$(((timeout_seconds + sleep_seconds - 1) / sleep_seconds))
   local attempt
 
-  adb_cmd wait-for-device >/dev/null 2>&1 || true
+  adb_cmd_timeout 30 wait-for-device >/dev/null 2>&1 || true
 
   for attempt in $(seq 1 "$max_attempts"); do
     local sys_boot_completed
     local dev_bootcomplete
 
-    sys_boot_completed="$(adb_cmd shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
-    dev_bootcomplete="$(adb_cmd shell getprop dev.bootcomplete 2>/dev/null | tr -d '\r' || true)"
+    sys_boot_completed="$(adb_cmd_timeout 10 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+    dev_bootcomplete="$(adb_cmd_timeout 10 shell getprop dev.bootcomplete 2>/dev/null | tr -d '\r' || true)"
 
     if [[ "$sys_boot_completed" == "1" && "$dev_bootcomplete" == "1" ]] &&
-      adb_cmd shell pm list packages >/dev/null 2>&1; then
+      adb_cmd_timeout 10 shell pm list packages >/dev/null 2>&1; then
       return 0
     fi
 
