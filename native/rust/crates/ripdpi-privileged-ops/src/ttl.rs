@@ -1,7 +1,9 @@
 use std::io;
 use std::net::TcpStream;
 
-use ripdpi_capabilities::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
+use ripdpi_capabilities::CapabilityOutcome;
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+use ripdpi_capabilities::{CapabilityUnavailable, RuntimeCapability};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
