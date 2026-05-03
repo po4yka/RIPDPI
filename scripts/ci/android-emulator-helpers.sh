@@ -228,9 +228,16 @@ capture_android_emulator_diagnostics() {
     else
       : > "$output_dir/avd-config.ini"
     fi
+
+    if [[ -f "$HOME/.android/${avd_name}/avdmanager-create.log" ]]; then
+      cp "$HOME/.android/${avd_name}/avdmanager-create.log" "$output_dir/avdmanager-create.log"
+    else
+      : > "$output_dir/avdmanager-create.log"
+    fi
   else
     : > "$output_dir/emulator.log"
     : > "$output_dir/avd-config.ini"
+    : > "$output_dir/avdmanager-create.log"
   fi
 }
 

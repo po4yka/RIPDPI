@@ -149,6 +149,15 @@ update_ini_property "$config_ini" "hw.ramSize" "$ram_mb"
 update_ini_property "$config_ini" "vm.heapSize" "$heap_mb"
 update_ini_property "$config_ini" "disk.dataPartition.size" "$disk"
 update_ini_property "$config_ini" "fastboot.forceColdBoot" "yes"
+update_ini_property "$config_ini" "avd.id" "$avd_name"
+update_ini_property "$config_ini" "avd.name" "$avd_name"
+
+cat >"$avd_ini" <<EOF
+avd.ini.encoding=UTF-8
+path=$avd_dir
+path.rel=avd/${avd_name}.avd
+target=android-${api_level}
+EOF
 
 rm -f "$emulator_log_file"
 nohup "$emulator_bin" \
