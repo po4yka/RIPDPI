@@ -112,6 +112,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
                 )
 
@@ -180,6 +181,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
                 )
 
@@ -239,6 +241,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
                 )
 
@@ -293,6 +296,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
                 )
 
@@ -344,6 +348,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
                 )
 
@@ -429,6 +434,7 @@ class ConnectionPolicyResolverDirectPathTest {
             rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
             startupDnsProbe = VpnStartupDnsProbe(),
             rootHelperManager = RootHelperManager(),
+            environmentDetector = EnvironmentDetector(),
             serverCapabilityStore = capabilityStore,
         )
 

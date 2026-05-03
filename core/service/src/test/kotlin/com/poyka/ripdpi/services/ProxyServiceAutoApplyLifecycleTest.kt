@@ -185,6 +185,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                 rememberedNetworkPolicyStore = rememberedPolicies,
                 startupDnsProbe = VpnStartupDnsProbe(),
                 rootHelperManager = RootHelperManager(),
+                environmentDetector = EnvironmentDetector(),
                 serverCapabilityStore = TestServerCapabilityStore(),
             )
         val coordinator =

@@ -160,6 +160,7 @@ class ConnectionPolicyResolverTest {
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = TestServerCapabilityStore(),
                 )
 
@@ -219,6 +220,7 @@ class ConnectionPolicyResolverTest {
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
                 )
 
@@ -259,6 +261,7 @@ class ConnectionPolicyResolverTest {
                     rememberedNetworkPolicyStore = TestRememberedNetworkPolicyStore(),
                     startupDnsProbe = VpnStartupDnsProbe(),
                     rootHelperManager = RootHelperManager(),
+                    environmentDetector = EnvironmentDetector(),
                     serverCapabilityStore = capabilityStore,
                 )
 
