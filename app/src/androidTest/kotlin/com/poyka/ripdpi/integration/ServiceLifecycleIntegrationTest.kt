@@ -8,7 +8,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
 import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.ProxyPreferencesResolverModule
-import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyFactoryModule
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
@@ -167,8 +166,10 @@ class ServiceLifecycleIntegrationTest {
 
             val preferences = IntegrationTestOverrides.proxyFactory.lastRuntime.lastPreferences
             assertTrue(
-                "Expected command-line preferences but was $preferences",
-                preferences is RipDpiProxyCmdPreferences,
+                "Expected command-line native payload but was $preferences",
+                preferences
+                    ?.toNativeConfigJson()
+                    ?.contains("\"kind\":\"command_line\"") == true,
             )
 
             stopService(RipDpiProxyService::class.java)

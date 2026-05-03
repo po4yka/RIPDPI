@@ -57,7 +57,6 @@ import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.services.EnginePlatformCapabilities
 import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.services.ServiceController
@@ -156,17 +155,6 @@ class FakeInstrumentedHostAutolearnStoreController : HostAutolearnStoreControlle
 
 class FakeInstrumentedEnginePlatformCapabilities : EnginePlatformCapabilities {
     override fun seqovlSupported(): Boolean = false
-}
-
-class FakeInstrumentedPinVerifier : PinVerifier {
-    override fun hashPin(pin: String): String = pin
-
-    override fun verify(
-        candidatePin: String,
-        storedHash: String,
-    ): Boolean = storedHash.isNotBlank() && candidatePin == storedHash
-
-    override fun isKeyAvailable(): Boolean = true
 }
 
 internal class RecordingMainActivityHost : MainActivityHost {
