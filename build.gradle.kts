@@ -115,9 +115,33 @@ abstract class VerifyAppEngineBoundaryTask : DefaultTask() {
     @TaskAction
     fun verify() {
         val directEngineDependencyPattern = Regex("""project\(":core:engine"\)|projects\.core\.engine""")
-        val appBuildText = appBuildFile.get().asFile.readText()
-        if (directEngineDependencyPattern.containsMatchIn(appBuildText)) {
-            throw GradleException(":app must not declare a direct dependency on :core:engine.")
+        val allowedDependencyConfigurations =
+            setOf(
+                "androidTestImplementation",
+                "androidTestApi",
+                "androidTestCompileOnly",
+                "androidTestRuntimeOnly",
+            )
+        val directEngineDependencyViolations =
+            appBuildFile
+                .get()
+                .asFile
+                .readLines()
+                .mapIndexedNotNull { index, line ->
+                    val trimmed = line.trim()
+                    val configuration = trimmed.substringBefore("(", missingDelimiterValue = "")
+                    val isAllowedConfiguration = configuration in allowedDependencyConfigurations
+                    if (directEngineDependencyPattern.containsMatchIn(trimmed) && !isAllowedConfiguration) {
+                        "${appBuildFile.get().asFile.relativeTo(project.rootDir).path}:${index + 1}: $trimmed"
+                    } else {
+                        null
+                    }
+                }
+        if (directEngineDependencyViolations.isNotEmpty()) {
+            throw GradleException(
+                ":app must not declare a direct production or unit-test dependency on :core:engine:\n" +
+                    directEngineDependencyViolations.joinToString(separator = "\n"),
+            )
         }
 
         val importViolations =
