@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.integration
 
+import android.content.Intent
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
@@ -19,6 +20,10 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsRepositoryModule
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStateStoreModule
+import com.poyka.ripdpi.diagnostics.BypassApproachId
+import com.poyka.ripdpi.diagnostics.BypassApproachKind
+import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticsActiveConnectionPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
@@ -82,6 +87,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
+private const val NavigationProfileId = "default"
+
 private fun navigationSettings(
     onboardingComplete: Boolean = true,
     biometricEnabled: Boolean = false,
@@ -91,7 +98,29 @@ private fun navigationSettings(
         .setOnboardingComplete(onboardingComplete)
         .setBiometricEnabled(biometricEnabled)
         .setRipdpiMode("vpn")
+        .setDiagnosticsActiveProfileId(NavigationProfileId)
         .build()
+
+private fun navigationApproachSummary(): BypassApproachSummary =
+    BypassApproachSummary(
+        approachId = BypassApproachId(BypassApproachKind.Profile, NavigationProfileId),
+        displayName = "Default profile",
+        secondaryLabel = "Profile",
+        verificationState = "validated",
+        validatedScanCount = 1,
+        validatedSuccessCount = 1,
+        validatedSuccessRate = 1.0f,
+        lastValidatedResult = "ok",
+        usageCount = 1,
+        totalRuntimeDurationMs = 100L,
+        recentRuntimeHealth = BypassRuntimeHealthSummary(),
+        lastUsedAt = 100L,
+    )
+
+private fun navigationDiagnosticsTimelineSource(): StubInstrumentedDiagnosticsTimelineSource =
+    StubInstrumentedDiagnosticsTimelineSource().apply {
+        approachStats.value = listOf(navigationApproachSummary())
+    }
 
 private fun AndroidComposeTestRule<*, MainActivity>.waitForTag(
     tag: String,
@@ -114,7 +143,8 @@ private fun AndroidComposeTestRule<*, MainActivity>.tapBottomNav(route: Route) {
     onNodeWithTag(tag).performClick()
 }
 
-private fun AndroidComposeTestRule<*, MainActivity>.sendLaunchHomeIntent() {
+private fun AndroidComposeTestRule<*, MainActivity>.sendLaunchHomeIntent(): Intent {
+    val originalIntent = Intent(activity.intent)
     runOnUiThread {
         activity.startActivity(
             MainActivity.createLaunchIntent(
@@ -122,6 +152,13 @@ private fun AndroidComposeTestRule<*, MainActivity>.sendLaunchHomeIntent() {
                 openHome = true,
             ),
         )
+    }
+    return originalIntent
+}
+
+private fun AndroidComposeTestRule<*, MainActivity>.restoreScenarioIntent(originalIntent: Intent) {
+    runOnUiThread {
+        activity.setIntent(originalIntent)
     }
 }
 
@@ -188,7 +225,7 @@ class MainActivityNavigationInstrumentedTest {
 
     @BindValue
     @JvmField
-    var diagnosticsTimelineSource: DiagnosticsTimelineSource = StubInstrumentedDiagnosticsTimelineSource()
+    var diagnosticsTimelineSource: DiagnosticsTimelineSource = navigationDiagnosticsTimelineSource()
 
     @BindValue
     @JvmField
@@ -302,8 +339,12 @@ class MainActivityNavigationInstrumentedTest {
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsDnsSettings).performClick()
         composeRule.assertScreenVisible(Route.DnsSettings)
 
-        composeRule.sendLaunchHomeIntent()
-        composeRule.assertScreenVisible(Route.Home)
+        val originalIntent = composeRule.sendLaunchHomeIntent()
+        try {
+            composeRule.assertScreenVisible(Route.Home)
+        } finally {
+            composeRule.restoreScenarioIntent(originalIntent)
+        }
 
         composeRule.tapBottomNav(Route.Settings)
         composeRule.assertScreenVisible(Route.DnsSettings)
@@ -335,8 +376,12 @@ class MainActivityNavigationInstrumentedTest {
         composeRule.tapBottomNav(Route.Settings)
         composeRule.assertScreenVisible(Route.Settings)
 
-        composeRule.sendLaunchHomeIntent()
-        composeRule.assertScreenVisible(Route.Home)
+        val originalIntent = composeRule.sendLaunchHomeIntent()
+        try {
+            composeRule.assertScreenVisible(Route.Home)
+        } finally {
+            composeRule.restoreScenarioIntent(originalIntent)
+        }
     }
 
     @Test
@@ -530,7 +575,7 @@ class MainActivityBiometricStartupInstrumentedTest {
     @JvmField
     var appSettingsRepository: AppSettingsRepository =
         FakeInstrumentedAppSettingsRepository(
-            navigationSettings(biometricEnabled = true),
+            navigationSettings(biometricEnabled = true).toBuilder().setBackupPin("1234").build(),
         )
 
     @BindValue

@@ -96,10 +96,17 @@ class RecordingServiceStateStore(
 class RecordingRipDpiProxyRuntime(
     private val events: MutableList<String>,
 ) : RipDpiProxyRuntime {
+    private companion object {
+        private const val TestListenerAddress = "127.0.0.1:1090"
+
+        fun defaultTelemetry(): NativeRuntimeSnapshot =
+            NativeRuntimeSnapshot.idle(source = "proxy").copy(listenerAddress = TestListenerAddress)
+    }
+
     private var exitCode = CompletableDeferred<Int>()
     private var ready = CompletableDeferred<Unit>()
     var startFailure: Throwable? = null
-    var telemetryValue: NativeRuntimeSnapshot = NativeRuntimeSnapshot.idle(source = "proxy")
+    var telemetryValue: NativeRuntimeSnapshot = defaultTelemetry()
     val faults = FaultQueue<ProxyRuntimeFaultTarget>()
 
     var lastPreferences: com.poyka.ripdpi.core.RipDpiProxyPreferences? = null
@@ -154,6 +161,7 @@ class RecordingRipDpiProxyRuntime(
         lastPreferences = null
         stopCount = 0
         startFailure = null
+        telemetryValue = defaultTelemetry()
         faults.clear()
     }
 }

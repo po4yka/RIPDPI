@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.integration
 
+import android.content.Intent
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
@@ -240,14 +241,18 @@ class MainActivityShellInstrumentedTest {
 
     @Test
     fun launchIntentRequestStartsConfiguredModeOnce() {
-        sendConfiguredStartIntent()
+        val originalIntent = sendConfiguredStartIntent()
 
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            recordingServiceController.startedModes.size == 1
+        try {
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                recordingServiceController.startedModes.size == 1
+            }
+
+            assertEquals(1, recordingServiceController.startedModes.size)
+            assertEquals(com.poyka.ripdpi.data.Mode.VPN, recordingServiceController.startedModes.single())
+        } finally {
+            restoreScenarioIntent(originalIntent)
         }
-
-        assertEquals(1, recordingServiceController.startedModes.size)
-        assertEquals(com.poyka.ripdpi.data.Mode.VPN, recordingServiceController.startedModes.single())
     }
 
     @Test
@@ -259,13 +264,17 @@ class MainActivityShellInstrumentedTest {
                 batteryOptimization = PermissionStatus.Granted,
             )
 
-        sendConfiguredStartIntent()
+        val originalIntent = sendConfiguredStartIntent()
 
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            recordingMainActivityHost.commands.contains(MainActivityHostCommand.RequestNotificationsPermission)
+        try {
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                recordingMainActivityHost.commands.contains(MainActivityHostCommand.RequestNotificationsPermission)
+            }
+
+            assertTrue(recordingServiceController.startedModes.isEmpty())
+        } finally {
+            restoreScenarioIntent(originalIntent)
         }
-
-        assertTrue(recordingServiceController.startedModes.isEmpty())
     }
 
     @Test
@@ -276,16 +285,24 @@ class MainActivityShellInstrumentedTest {
                 notifications = PermissionStatus.Granted,
                 batteryOptimization = PermissionStatus.Granted,
             )
-        sendConfiguredStartIntent()
+        val originalIntent = sendConfiguredStartIntent()
 
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule.onAllNodes(hasTestTag(RipDpiTestTags.VpnPermissionDialog)).fetchSemanticsNodes().isNotEmpty()
-        }
-        composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialogContinue).performClick()
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            recordingMainActivityHost.commands.any { command ->
-                command is MainActivityHostCommand.RequestVpnConsent
+        try {
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                composeRule
+                    .onAllNodes(
+                        hasTestTag(RipDpiTestTags.VpnPermissionDialog),
+                    ).fetchSemanticsNodes()
+                    .isNotEmpty()
             }
+            composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialogContinue).performClick()
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                recordingMainActivityHost.commands.any { command ->
+                    command is MainActivityHostCommand.RequestVpnConsent
+                }
+            }
+        } finally {
+            restoreScenarioIntent(originalIntent)
         }
     }
 
@@ -302,7 +319,8 @@ class MainActivityShellInstrumentedTest {
         }
     }
 
-    private fun sendConfiguredStartIntent() {
+    private fun sendConfiguredStartIntent(): Intent {
+        val originalIntent = Intent(composeRule.activity.intent)
         composeRule.runOnUiThread {
             composeRule.activity.startActivity(
                 MainActivity.createLaunchIntent(
@@ -310,6 +328,13 @@ class MainActivityShellInstrumentedTest {
                     requestStartConfiguredMode = true,
                 ),
             )
+        }
+        return originalIntent
+    }
+
+    private fun restoreScenarioIntent(originalIntent: Intent) {
+        composeRule.runOnUiThread {
+            composeRule.activity.setIntent(originalIntent)
         }
     }
 }

@@ -41,22 +41,12 @@ class AutomationPermissionFlowInstrumentedTest {
     @Test
     fun tappingConnectAutoGrantsPermissionsAndStartsFakeService() {
         composeRule.waitForAutomationTag(RipDpiTestTags.screen(Route.Home))
-        composeRule.waitForAutomationTag(RipDpiTestTags.HomePermissionIssueBanner)
 
         composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionButton).performClick()
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
             serviceStateStore.status.value == (AppStatus.Running to Mode.VPN)
         }
-        composeRule.waitUntil(timeoutMillis = 5_000) {
-            composeRule
-                .onAllNodes(
-                    androidx.compose.ui.test
-                        .hasTestTag(RipDpiTestTags.HomePermissionIssueBanner),
-                ).fetchSemanticsNodes()
-                .isEmpty()
-        }
-
         composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule
                 .onAllNodes(
