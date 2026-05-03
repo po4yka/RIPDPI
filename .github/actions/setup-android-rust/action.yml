@@ -66,6 +66,7 @@ runs:
           exit 1
         fi
         bash "$installer"
+        android update
         android --version
 
     - name: Read native toolchain policy

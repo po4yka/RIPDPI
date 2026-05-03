@@ -106,7 +106,8 @@ if [[ -z "$avd_name" || -z "$api_level" || -z "$arch" || -z "$target" ]]; then
   exit 1
 fi
 
-android sdk install \
+echo "Installing emulator SDK packages for android-${api_level}/${target}/${arch}"
+timeout 1200 android sdk install \
   "cmdline-tools;latest" \
   "emulator" \
   "system-images;android-${api_level};${target};${arch}"
