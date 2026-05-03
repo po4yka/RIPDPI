@@ -57,6 +57,7 @@ import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.EnginePlatformCapabilities
 import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.VpnTunnelBuilderHost
@@ -150,6 +151,10 @@ class FakeInstrumentedHostAutolearnStoreController : HostAutolearnStoreControlle
     override fun hasStore(): Boolean = false
 
     override fun clearStore(): Boolean = false
+}
+
+class FakeInstrumentedEnginePlatformCapabilities : EnginePlatformCapabilities {
+    override fun seqovlSupported(): Boolean = false
 }
 
 internal class RecordingMainActivityHost : MainActivityHost {

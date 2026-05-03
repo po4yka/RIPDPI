@@ -40,12 +40,15 @@ import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.services.EngineAppFacadeModule
+import com.poyka.ripdpi.services.EnginePlatformCapabilities
 import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceControllerModule
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
 import com.poyka.ripdpi.testing.FakeInstrumentedAppSettingsRepository
+import com.poyka.ripdpi.testing.FakeInstrumentedEnginePlatformCapabilities
 import com.poyka.ripdpi.testing.FakeInstrumentedHostAutolearnStoreController
 import com.poyka.ripdpi.testing.FakeInstrumentedLauncherIconController
 import com.poyka.ripdpi.testing.FakeInstrumentedPermissionPlatformBridge
@@ -135,6 +138,7 @@ private fun AndroidComposeTestRule<*, MainActivity>.pressBack() {
     RipDpiProxyFactoryModule::class,
     Tun2SocksBridgeFactoryModule::class,
     ServiceStateStoreModule::class,
+    EngineAppFacadeModule::class,
     VpnTunnelSessionProviderModule::class,
     ServiceControllerModule::class,
     DiagnosticsManagerModule::class,
@@ -248,6 +252,10 @@ class MainActivityNavigationInstrumentedTest {
 
     @BindValue
     @JvmField
+    var enginePlatformCapabilities: EnginePlatformCapabilities = FakeInstrumentedEnginePlatformCapabilities()
+
+    @BindValue
+    @JvmField
     internal var mainActivityHost: MainActivityHost = RecordingMainActivityHost()
 
     private val mutablePermissionStatusProvider: MutablePermissionStatusProvider
@@ -354,6 +362,7 @@ class MainActivityNavigationInstrumentedTest {
     RipDpiProxyFactoryModule::class,
     Tun2SocksBridgeFactoryModule::class,
     ServiceStateStoreModule::class,
+    EngineAppFacadeModule::class,
     VpnTunnelSessionProviderModule::class,
     ServiceControllerModule::class,
     DiagnosticsManagerModule::class,
@@ -469,6 +478,10 @@ class MainActivityOnboardingStartupInstrumentedTest {
 
     @BindValue
     @JvmField
+    var enginePlatformCapabilities: EnginePlatformCapabilities = FakeInstrumentedEnginePlatformCapabilities()
+
+    @BindValue
+    @JvmField
     internal var mainActivityHost: MainActivityHost = RecordingMainActivityHost()
 
     private val mutablePermissionStatusProvider: MutablePermissionStatusProvider
@@ -498,6 +511,7 @@ class MainActivityOnboardingStartupInstrumentedTest {
     RipDpiProxyFactoryModule::class,
     Tun2SocksBridgeFactoryModule::class,
     ServiceStateStoreModule::class,
+    EngineAppFacadeModule::class,
     VpnTunnelSessionProviderModule::class,
     ServiceControllerModule::class,
     DiagnosticsManagerModule::class,
@@ -610,6 +624,10 @@ class MainActivityBiometricStartupInstrumentedTest {
     @BindValue
     @JvmField
     var hostAutolearnStoreController: HostAutolearnStoreController = FakeInstrumentedHostAutolearnStoreController()
+
+    @BindValue
+    @JvmField
+    var enginePlatformCapabilities: EnginePlatformCapabilities = FakeInstrumentedEnginePlatformCapabilities()
 
     @BindValue
     @JvmField
