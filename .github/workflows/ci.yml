@@ -293,6 +293,9 @@ jobs:
           assets_root="$RUNNER_TEMP/prebuilt/assetsBin"
           mkdir -p "$jni_root" "$assets_root"
           for shard in "$RUNNER_TEMP/native-shards"/native-shard-*; do
+            case "$(basename "$shard")" in
+              native-shard-release-*) continue ;;
+            esac
             for d in "$shard"/jniLibs-*; do
               [ -d "$d" ] || continue
               abi="${d##*/jniLibs-}"
