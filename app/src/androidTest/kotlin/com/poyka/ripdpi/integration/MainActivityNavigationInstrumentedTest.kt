@@ -8,6 +8,7 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
+import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.activities.MainActivityHost
 import com.poyka.ripdpi.core.ProxyPreferencesResolver
@@ -379,6 +380,10 @@ class MainActivityNavigationInstrumentedTest {
         composeRule.tapBottomNav(Route.Diagnostics)
 
         composeRule.assertScreenVisible(Route.Diagnostics)
+        composeRule.waitForTag(RipDpiTestTags.diagnosticsSection(DiagnosticsSection.Tools))
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.diagnosticsSection(DiagnosticsSection.Tools))
+            .performClick()
         composeRule.waitForTag(
             RipDpiTestTags.diagnosticsApproachMode(DiagnosticsApproachMode.Profiles),
         )

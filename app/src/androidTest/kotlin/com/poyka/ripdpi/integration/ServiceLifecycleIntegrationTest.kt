@@ -361,6 +361,7 @@ class ServiceLifecycleIntegrationTest {
             awaitFailure(Sender.VPN)
             awaitStatus(AppStatus.Halted, Mode.VPN)
 
+            awaitProxyStopCount(1)
             assertEquals(1, IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount)
             assertEquals(
                 listOf("proxy:start", "vpn:establish", "proxy:stop"),
@@ -606,6 +607,14 @@ class ServiceLifecycleIntegrationTest {
                     it is ServiceEvent.Failed && it.sender == sender
                 }
             ) {
+                delay(50)
+            }
+        }
+    }
+
+    private suspend fun awaitProxyStopCount(expected: Int) {
+        withTimeout(10.seconds) {
+            while (IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount != expected) {
                 delay(50)
             }
         }
