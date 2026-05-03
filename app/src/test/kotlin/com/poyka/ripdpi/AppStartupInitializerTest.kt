@@ -55,13 +55,18 @@ class AppStartupInitializerTest {
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.strategyPackInitialization.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.diagnosticsBootstrap.status)
             assertEquals(AppStartupSubsystemStatus.Succeeded, report.dnsPathInvalidatorRegistration.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.sharedPriorsWorkerEnqueue.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchSeed.status)
+            assertEquals(AppStartupSubsystemStatus.Succeeded, report.cdnEchWorkerEnqueue.status)
             assertEquals(1, compatibilityResetter.calls)
             assertEquals(1, strategyPackService.initializeCalls)
             assertEquals(1, diagnosticsBootstrapper.calls)
             assertEquals(
                 "App startup report: compatibility_reset=succeeded, " +
                     "strategy_pack_initialization=succeeded, diagnostics_bootstrap=succeeded, " +
-                    "dns_path_invalidator_registration=succeeded",
+                    "dns_path_invalidator_registration=succeeded, " +
+                    "shared_priors_refresh_worker_enqueue=succeeded, " +
+                    "cdn_ech_seed_from_cache=succeeded, cdn_ech_refresh_worker_enqueue=succeeded",
                 report.toLogMessage(),
             )
         }

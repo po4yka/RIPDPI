@@ -7,7 +7,6 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -114,16 +113,17 @@ class MainStartupSideEffectsCoordinatorTest {
                 )
             val reader = CrashReportReader(tempFolder.root)
             val coordinator = MainStartupSideEffectsCoordinator(repository, reader)
-            val statuses = MutableSharedFlow<PermissionStatus>(extraBufferCapacity = 4)
 
             coordinator.start(
-                scope = backgroundScope,
-                batteryOptimizationStatus = statuses,
+                scope = this,
+                batteryOptimizationStatus =
+                    flowOf(
+                        PermissionStatus.RequiresSettings,
+                        PermissionStatus.RequiresSettings,
+                    ),
                 isBatteryBannerDismissed = { true },
             ) {}
 
-            statuses.emit(PermissionStatus.RequiresSettings)
-            statuses.emit(PermissionStatus.RequiresSettings)
             advanceUntilIdle()
 
             assertFalse(repository.snapshot().batteryBannerDismissed)
