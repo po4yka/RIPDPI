@@ -60,12 +60,9 @@ fn try_driver() -> Option<IoUringDriver> {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn bench_park_unpark_roundtrip(c: &mut Criterion) {
-    let driver = match try_driver() {
-        Some(d) => d,
-        None => {
-            eprintln!("io_uring unavailable; skipping park/unpark benchmark");
-            return;
-        }
+    let Some(driver) = try_driver() else {
+        eprintln!("io_uring unavailable; skipping park/unpark benchmark");
+        return;
     };
     let dev_null = match OpenOptions::new().write(true).open("/dev/null") {
         Ok(f) => f,
@@ -95,12 +92,9 @@ fn bench_park_unpark_roundtrip(c: &mut Criterion) {
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 fn bench_registered_buffer_tx(c: &mut Criterion) {
-    let driver = match try_driver() {
-        Some(d) => d,
-        None => {
-            eprintln!("io_uring unavailable; skipping registered-buffer TX benchmark");
-            return;
-        }
+    let Some(driver) = try_driver() else {
+        eprintln!("io_uring unavailable; skipping registered-buffer TX benchmark");
+        return;
     };
     let dev_null = match OpenOptions::new().write(true).open("/dev/null") {
         Ok(f) => f,
