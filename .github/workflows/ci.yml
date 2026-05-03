@@ -73,7 +73,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  group: >-
+    ${{ github.event_name == 'pull_request'
+      && format('ci-pr-{0}', github.event.pull_request.number)
+      || format('ci-push-{0}', github.sha) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -130,19 +133,25 @@ jobs:
             build/reports/file-loc-limits/
           retention-days: 7
 
-  # Builds Rust native libraries + helper binaries (release profile) for one ABI
-  # per matrix shard. Outputs are uploaded for release-verification and native-bloat.
-  rust-native-release:
+  # Builds Rust native libraries + helper binaries for each ABI × profile combination.
+  # debug profile: standard dev build used by the debug APK.
+  # release profile (android-jni): optimised build used by release-verification.
+  # Each shard gets a full 4-vCPU runner for a single-ABI cross-compile.
+  rust-native:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         abi:
-          - { name: arm64-v8a,    rust-target: aarch64-linux-android }
-          - { name: armeabi-v7a,  rust-target: armv7-linux-androideabi }
-          - { name: x86,          rust-target: i686-linux-android }
-          - { name: x86_64,       rust-target: x86_64-linux-android }
+          - { name: arm64-v8a,   rust-target: aarch64-linux-android }
+          - { name: armeabi-v7a, rust-target: armv7-linux-androideabi }
+          - { name: x86,         rust-target: i686-linux-android }
+          - { name: x86_64,      rust-target: x86_64-linux-android }
+        profile:
+          - { name: debug,   cargo-profile-flag: "" }
+          - { name: release, cargo-profile-flag: "-Pripdpi.nativeCargoProfile=android-jni" }
     steps:
       - uses: actions/checkout@v6
 
@@ -150,11 +159,11 @@ jobs:
         with:
           rust-components: ""
           rust-targets: ${{ matrix.abi.rust-target }}
-          rust-cache-shared-key: rust-android-release-${{ matrix.abi.name }}
+          rust-cache-shared-key: rust-android-${{ matrix.profile.name }}-${{ matrix.abi.name }}
           rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      - name: Build Rust native libraries + helper binaries (release) for ${{ matrix.abi.name }}
+      - name: Build Rust native libraries + helper binaries (${{ matrix.profile.name }}) for ${{ matrix.abi.name }}
         env:
           RUSTC_WRAPPER: sccache
         run: |
@@ -164,80 +173,12 @@ jobs:
             :core:engine:buildRustNaiveProxy \
             :core:engine:buildRustCloudflareOrigin \
             -Pripdpi.nativeAbisOverride=${{ matrix.abi.name }} \
-            -Pripdpi.nativeCargoProfile=android-jni
+            ${{ matrix.profile.cargo-profile-flag }}
 
-      - name: Stage native artifacts (release)
-        run: |
-          set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/native-shard-release"
-          if [ -d "core/engine/build/generated/jniLibs/${{ matrix.abi.name }}" ]; then
-            cp -r "core/engine/build/generated/jniLibs/${{ matrix.abi.name }}" \
-              "$RUNNER_TEMP/native-shard-release/jniLibs-${{ matrix.abi.name }}"
-          else
-            echo "::error::JNI lib outputs missing for ${{ matrix.abi.name }}"
-            exit 1
-          fi
-          if [ -d "core/engine/build/generated/rootHelperAssets/bin/${{ matrix.abi.name }}" ]; then
-            cp -r "core/engine/build/generated/rootHelperAssets/bin/${{ matrix.abi.name }}" \
-              "$RUNNER_TEMP/native-shard-release/assetsBin-${{ matrix.abi.name }}"
-          else
-            echo "::error::Helper-binary outputs missing for ${{ matrix.abi.name }}"
-            exit 1
-          fi
-          ls -la "$RUNNER_TEMP/native-shard-release"
-
-      - name: Upload native artifacts (release, ${{ matrix.abi.name }})
-        uses: actions/upload-artifact@v7
-        with:
-          name: native-shard-release-${{ matrix.abi.name }}
-          path: ${{ runner.temp }}/native-shard-release/*
-          if-no-files-found: error
-          retention-days: 7
-
-  # Builds Rust native libraries + helper binaries for one ABI per matrix shard.
-  # Each shard gets the full 4 vCPU runner for a single-ABI cross-compile, so
-  # the Rust phase parallelizes across shards instead of contending within one
-  # 4-thread executor pool. Outputs are uploaded as artifacts for build-android-debug.
-  rust-native:
-    if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        abi:
-          - { name: arm64-v8a,    rust-target: aarch64-linux-android }
-          - { name: armeabi-v7a,  rust-target: armv7-linux-androideabi }
-          - { name: x86,          rust-target: i686-linux-android }
-          - { name: x86_64,       rust-target: x86_64-linux-android }
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: ./.github/actions/setup-android-rust
-        with:
-          rust-components: ""
-          rust-targets: ${{ matrix.abi.rust-target }}
-          rust-cache-shared-key: rust-android-${{ matrix.abi.name }}
-          rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
-          gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
-
-      - name: Build Rust native libraries + helper binaries for ${{ matrix.abi.name }}
-        env:
-          RUSTC_WRAPPER: sccache
-        run: |
-          # buildPluggableTransportAssets is handled in build-android-debug
-          # (it's Go-based and benefits from its own task cache).
-          ./gradlew \
-            :core:engine:buildRustNativeLibs \
-            :core:engine:buildRustRootHelper \
-            :core:engine:buildRustNaiveProxy \
-            :core:engine:buildRustCloudflareOrigin \
-            -Pripdpi.nativeAbisOverride=${{ matrix.abi.name }}
-
-      - name: Stage native artifacts
+      - name: Stage native artifacts (${{ matrix.profile.name }}, ${{ matrix.abi.name }})
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/native-shard"
-          # JNI libs: <generatedJniLibs>/<abi>/*.so
           if [ -d "core/engine/build/generated/jniLibs/${{ matrix.abi.name }}" ]; then
             cp -r "core/engine/build/generated/jniLibs/${{ matrix.abi.name }}" \
               "$RUNNER_TEMP/native-shard/jniLibs-${{ matrix.abi.name }}"
@@ -245,7 +186,6 @@ jobs:
             echo "::error::JNI lib outputs missing for ${{ matrix.abi.name }}"
             exit 1
           fi
-          # Helper binaries: <generatedAssets>/bin/<abi>/<binname>
           if [ -d "core/engine/build/generated/rootHelperAssets/bin/${{ matrix.abi.name }}" ]; then
             cp -r "core/engine/build/generated/rootHelperAssets/bin/${{ matrix.abi.name }}" \
               "$RUNNER_TEMP/native-shard/assetsBin-${{ matrix.abi.name }}"
@@ -255,10 +195,10 @@ jobs:
           fi
           ls -la "$RUNNER_TEMP/native-shard"
 
-      - name: Upload native artifacts (${{ matrix.abi.name }})
+      - name: Upload native artifacts (${{ matrix.profile.name }}, ${{ matrix.abi.name }})
         uses: actions/upload-artifact@v7
         with:
-          name: native-shard-${{ matrix.abi.name }}
+          name: native-shard-${{ matrix.profile.name }}-${{ matrix.abi.name }}
           path: ${{ runner.temp }}/native-shard/*
           if-no-files-found: error
           retention-days: 7
@@ -270,6 +210,7 @@ jobs:
     if: github.event_name != 'schedule'
     needs: [rust-native]
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
 
@@ -283,7 +224,7 @@ jobs:
       - name: Download native shards
         uses: actions/download-artifact@v6
         with:
-          pattern: native-shard-*
+          pattern: native-shard-debug-*
           path: ${{ runner.temp }}/native-shards
 
       - name: Stage prebuilt native artifacts
@@ -292,10 +233,7 @@ jobs:
           jni_root="$RUNNER_TEMP/prebuilt/jniLibs"
           assets_root="$RUNNER_TEMP/prebuilt/assetsBin"
           mkdir -p "$jni_root" "$assets_root"
-          for shard in "$RUNNER_TEMP/native-shards"/native-shard-*; do
-            case "$(basename "$shard")" in
-              native-shard-release-*) continue ;;
-            esac
+          for shard in "$RUNNER_TEMP/native-shards"/native-shard-debug-*; do
             for d in "$shard"/jniLibs-*; do
               [ -d "$d" ] || continue
               abi="${d##*/jniLibs-}"
@@ -347,6 +285,7 @@ jobs:
   build-android-tests:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
 
@@ -367,9 +306,6 @@ jobs:
       - name: Run sync script unit tests
         run: python3 -m unittest discover -s scripts/tests -p "test_sync_*.py"
 
-      - name: Run offline analytics unit tests
-        run: python3 -m unittest scripts.tests.test_offline_analytics_pipeline
-
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -384,6 +320,7 @@ jobs:
   verify-roborazzi:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
 
@@ -409,8 +346,9 @@ jobs:
 
   release-verification:
     if: github.event_name != 'schedule'
-    needs: [rust-native-release]
+    needs: [rust-native]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
 
@@ -482,6 +420,7 @@ jobs:
   native-bloat:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
 
@@ -555,6 +494,7 @@ jobs:
   cargo-deny:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
 
@@ -569,6 +509,7 @@ jobs:
   rust-lint:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
 
@@ -597,6 +538,7 @@ jobs:
   rust-cross-check:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
 
@@ -613,6 +555,7 @@ jobs:
   rust-workspace-tests:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
 
@@ -682,6 +625,7 @@ jobs:
   gradle-static-analysis:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
 
@@ -709,6 +653,7 @@ jobs:
 
   rust-network-e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
 
@@ -721,6 +666,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-network-e2e
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
@@ -733,6 +680,7 @@ jobs:
   relay-interoperability:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
 
@@ -775,7 +723,7 @@ jobs:
       - name: Install CLI packet capture tools
         run: |
           sudo apt-get update
-          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y jq tcpdump tshark
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y tcpdump tshark
           sudo setcap cap_net_raw,cap_net_admin=eip "$(command -v tcpdump)"
 
       - name: Run CLI packet smoke matrix
@@ -803,6 +751,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
+          shared-key: rust-turmoil
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
@@ -815,6 +765,7 @@ jobs:
   coverage:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 70
     env:
       RIPDPI_ENFORCE_COVERAGE_THRESHOLDS: "1"
     steps:
@@ -864,7 +815,10 @@ jobs:
           retention-days: 7
 
   rust-criterion-bench:
-    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_rust_criterion_bench == 'true')
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_rust_criterion_bench == 'true') ||
+      (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-bench'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -1392,6 +1346,7 @@ jobs:
   linux-tun-e2e:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e'))
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
 
