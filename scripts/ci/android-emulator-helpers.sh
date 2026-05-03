@@ -168,25 +168,29 @@ has_adb_device() {
 wait_for_android_boot() {
   local timeout_seconds="${1:-600}"
   local sleep_seconds=2
-  local max_attempts=$(((timeout_seconds + sleep_seconds - 1) / sleep_seconds))
+  local deadline
   local attempt
+  local max_attempts=$(((timeout_seconds + sleep_seconds - 1) / sleep_seconds))
 
+  deadline="$(($(date +%s) + timeout_seconds))"
   adb_cmd_timeout 30 wait-for-device >/dev/null 2>&1 || true
 
-  for attempt in $(seq 1 "$max_attempts"); do
+  attempt=1
+  while (( $(date +%s) < deadline )); do
     local sys_boot_completed
     local dev_bootcomplete
 
-    sys_boot_completed="$(adb_cmd_timeout 10 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
-    dev_bootcomplete="$(adb_cmd_timeout 10 shell getprop dev.bootcomplete 2>/dev/null | tr -d '\r' || true)"
+    sys_boot_completed="$(adb_cmd_timeout 2 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r' || true)"
+    dev_bootcomplete="$(adb_cmd_timeout 2 shell getprop dev.bootcomplete 2>/dev/null | tr -d '\r' || true)"
 
     if [[ "$sys_boot_completed" == "1" && "$dev_bootcomplete" == "1" ]] &&
-      adb_cmd_timeout 10 shell pm list packages >/dev/null 2>&1; then
+      adb_cmd_timeout 5 shell pm list packages >/dev/null 2>&1; then
       return 0
     fi
 
     echo "Waiting for package manager... ($attempt/$max_attempts)"
     sleep "$sleep_seconds"
+    attempt="$((attempt + 1))"
   done
 
   echo "::error::Package manager unresponsive after ${timeout_seconds}s"
