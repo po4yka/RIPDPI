@@ -235,6 +235,12 @@ internal class ProxyServiceRuntimeCoordinator(
         if (cause is SupervisorExitCause.ExpectedStop) {
             return
         }
+        if (cause is SupervisorExitCause.Crash && cause.code == 0) {
+            Logger.i { "Proxy exited cleanly" }
+            proxyRuntimeSupervisor.detach()
+            host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
+            return
+        }
 
         val failureReason =
             when (cause) {

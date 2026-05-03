@@ -161,8 +161,26 @@ internal class VpnServiceRuntimeCoordinator(
     }
 
     override suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
-        vpnTunnelRuntime.stop()
-        proxyRuntimeStack.stop(skipRuntimeShutdown)
+        var stopFailure: Throwable? = null
+        runCatching {
+            vpnTunnelRuntime.stop()
+        }.onFailure { failure ->
+            stopFailure = failure
+        }
+        runCatching {
+            proxyRuntimeStack.stop(skipRuntimeShutdown)
+        }.onFailure { failure ->
+            val previousFailure = stopFailure
+            if (previousFailure == null) {
+                stopFailure = failure
+            } else {
+                previousFailure.addSuppressed(failure)
+            }
+        }
+        stopFailure?.let { failure ->
+            val error = failure as? Exception ?: IllegalStateException("Failed to stop VPN runtime", failure)
+            throw error
+        }
     }
 
     override fun startModeTelemetryUpdates() {
@@ -448,6 +466,12 @@ internal class VpnServiceRuntimeCoordinator(
 
     private suspend fun handleProxyExit(cause: SupervisorExitCause) {
         if (cause is SupervisorExitCause.ExpectedStop) {
+            return
+        }
+        if (cause is SupervisorExitCause.Crash && cause.code == 0) {
+            Logger.i { "VPN local proxy exited cleanly" }
+            proxyRuntimeStack.detachAll()
+            host.serviceScope.launch(ioDispatcher) { stop(skipRuntimeShutdown = true) }
             return
         }
 

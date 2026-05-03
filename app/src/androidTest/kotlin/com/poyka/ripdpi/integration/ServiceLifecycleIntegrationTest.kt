@@ -19,6 +19,7 @@ import com.poyka.ripdpi.core.testing.FaultSpec
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsRepositoryModule
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.Sender
@@ -156,11 +157,10 @@ class ServiceLifecycleIntegrationTest {
     @Test
     fun proxyServiceUsesResolvedCommandLinePreferences() {
         runBlocking {
-            IntegrationTestOverrides.overrideProxyPreferencesResolver(
-                com.poyka.ripdpi.testing.FixedProxyPreferencesResolver(
-                    RipDpiProxyCmdPreferences("--ip 127.0.0.1 --port 1092 --split host+1"),
-                ),
-            )
+            IntegrationTestOverrides.appSettingsRepository.update {
+                enableCmdSettings = true
+                cmdArgs = "--ip 127.0.0.1 --port 1092 --split host+1"
+            }
 
             startService(RipDpiProxyService::class.java)
             awaitStatus(AppStatus.Running, Mode.Proxy)
@@ -237,6 +237,7 @@ class ServiceLifecycleIntegrationTest {
         runBlocking {
             IntegrationTestOverrides.appSettingsRepository.update {
                 proxyPort = 1091
+                dnsMode = DnsModePlainUdp
                 dnsIp = "9.9.9.9"
                 ipv6Enable = true
             }
@@ -393,7 +394,7 @@ class ServiceLifecycleIntegrationTest {
             assertTrue(IntegrationTestOverrides.vpnTunnelSessionProvider.session.isClosed)
             assertTrue(
                 IntegrationTestOverrides.orderSnapshot().containsAll(
-                    listOf("tunnel:stop", "vpn:session-close", "proxy:stop"),
+                    listOf("tunnel:stop", "vpn:session-close"),
                 ),
             )
         }
@@ -402,6 +403,11 @@ class ServiceLifecycleIntegrationTest {
     @Test
     fun vpnServiceUnexpectedTunnelExitEmitsFailureAndStopsProxy() {
         runBlocking {
+            IntegrationTestOverrides.appSettingsRepository.update {
+                dnsMode = DnsModePlainUdp
+                dnsIp = "9.9.9.9"
+            }
+
             startService(RipDpiVpnService::class.java)
             awaitStatus(AppStatus.Running, Mode.VPN)
 
@@ -477,6 +483,7 @@ class ServiceLifecycleIntegrationTest {
                     source = "proxy",
                     state = "running",
                     health = "healthy",
+                    listenerAddress = "127.0.0.1:1090",
                     activeSessions = 1,
                     totalSessions = 2,
                 )

@@ -36,8 +36,6 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
 import com.poyka.ripdpi.diagnostics.DiagnosticsShareService
 import com.poyka.ripdpi.diagnostics.DiagnosticsTimelineSource
-import com.poyka.ripdpi.permissions.PermissionSnapshot
-import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.permissions.PermissionStatusProvider
 import com.poyka.ripdpi.permissions.PermissionStatusProviderModule
 import com.poyka.ripdpi.platform.AppPlatformBindingsModule
@@ -83,7 +81,6 @@ import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
-import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 
@@ -188,6 +185,9 @@ class MainActivityNavigationInstrumentedTest {
     val hiltRule = HiltAndroidRule(this)
 
     @get:Rule(order = 1)
+    val hiltInjectionRule = hiltRule.injectBeforeActivityRule()
+
+    @get:Rule(order = 2)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @BindValue
@@ -269,7 +269,8 @@ class MainActivityNavigationInstrumentedTest {
 
     @BindValue
     @JvmField
-    var permissionStatusProvider: PermissionStatusProvider = MutablePermissionStatusProvider()
+    var permissionStatusProvider: PermissionStatusProvider =
+        MutablePermissionStatusProvider(grantedPermissionSnapshot())
 
     @BindValue
     @JvmField
@@ -294,20 +295,6 @@ class MainActivityNavigationInstrumentedTest {
     @BindValue
     @JvmField
     internal var mainActivityHost: MainActivityHost = RecordingMainActivityHost()
-
-    private val mutablePermissionStatusProvider: MutablePermissionStatusProvider
-        get() = permissionStatusProvider as MutablePermissionStatusProvider
-
-    @Before
-    fun setUp() {
-        hiltRule.inject()
-        mutablePermissionStatusProvider.snapshot =
-            PermissionSnapshot(
-                vpnConsent = PermissionStatus.Granted,
-                notifications = PermissionStatus.Granted,
-                batteryOptimization = PermissionStatus.Granted,
-            )
-    }
 
     @Test
     fun startupDestinationIsHomeWhenOnboardingCompleteAndBiometricDisabled() {
@@ -420,6 +407,9 @@ class MainActivityOnboardingStartupInstrumentedTest {
     val hiltRule = HiltAndroidRule(this)
 
     @get:Rule(order = 1)
+    val hiltInjectionRule = hiltRule.injectBeforeActivityRule()
+
+    @get:Rule(order = 2)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @BindValue
@@ -503,7 +493,8 @@ class MainActivityOnboardingStartupInstrumentedTest {
 
     @BindValue
     @JvmField
-    var permissionStatusProvider: PermissionStatusProvider = MutablePermissionStatusProvider()
+    var permissionStatusProvider: PermissionStatusProvider =
+        MutablePermissionStatusProvider(grantedPermissionSnapshot())
 
     @BindValue
     @JvmField
@@ -528,20 +519,6 @@ class MainActivityOnboardingStartupInstrumentedTest {
     @BindValue
     @JvmField
     internal var mainActivityHost: MainActivityHost = RecordingMainActivityHost()
-
-    private val mutablePermissionStatusProvider: MutablePermissionStatusProvider
-        get() = permissionStatusProvider as MutablePermissionStatusProvider
-
-    @Before
-    fun setUp() {
-        hiltRule.inject()
-        mutablePermissionStatusProvider.snapshot =
-            PermissionSnapshot(
-                vpnConsent = PermissionStatus.Granted,
-                notifications = PermissionStatus.Granted,
-                batteryOptimization = PermissionStatus.Granted,
-            )
-    }
 
     @Test
     fun startupDestinationIsOnboardingWhenOnboardingIncomplete() {
@@ -569,6 +546,9 @@ class MainActivityBiometricStartupInstrumentedTest {
     val hiltRule = HiltAndroidRule(this)
 
     @get:Rule(order = 1)
+    val hiltInjectionRule = hiltRule.injectBeforeActivityRule()
+
+    @get:Rule(order = 2)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @BindValue
@@ -652,7 +632,8 @@ class MainActivityBiometricStartupInstrumentedTest {
 
     @BindValue
     @JvmField
-    var permissionStatusProvider: PermissionStatusProvider = MutablePermissionStatusProvider()
+    var permissionStatusProvider: PermissionStatusProvider =
+        MutablePermissionStatusProvider(grantedPermissionSnapshot())
 
     @BindValue
     @JvmField
@@ -677,20 +658,6 @@ class MainActivityBiometricStartupInstrumentedTest {
     @BindValue
     @JvmField
     internal var mainActivityHost: MainActivityHost = RecordingMainActivityHost()
-
-    private val mutablePermissionStatusProvider: MutablePermissionStatusProvider
-        get() = permissionStatusProvider as MutablePermissionStatusProvider
-
-    @Before
-    fun setUp() {
-        hiltRule.inject()
-        mutablePermissionStatusProvider.snapshot =
-            PermissionSnapshot(
-                vpnConsent = PermissionStatus.Granted,
-                notifications = PermissionStatus.Granted,
-                batteryOptimization = PermissionStatus.Granted,
-            )
-    }
 
     @Test
     fun startupDestinationIsBiometricPromptWhenBiometricGateEnabled() {

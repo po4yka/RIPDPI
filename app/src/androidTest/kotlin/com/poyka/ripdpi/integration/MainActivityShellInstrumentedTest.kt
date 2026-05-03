@@ -105,6 +105,9 @@ class MainActivityShellInstrumentedTest {
     val hiltRule = HiltAndroidRule(this)
 
     @get:Rule(order = 1)
+    val hiltInjectionRule = hiltRule.injectBeforeActivityRule()
+
+    @get:Rule(order = 2)
     val composeRule = createAndroidComposeRule<MainActivity>()
 
     @BindValue
@@ -192,7 +195,8 @@ class MainActivityShellInstrumentedTest {
 
     @BindValue
     @JvmField
-    var permissionStatusProvider: PermissionStatusProvider = MutablePermissionStatusProvider()
+    var permissionStatusProvider: PermissionStatusProvider =
+        MutablePermissionStatusProvider(grantedPermissionSnapshot())
 
     @BindValue
     @JvmField
@@ -229,14 +233,8 @@ class MainActivityShellInstrumentedTest {
 
     @Before
     fun setUp() {
-        hiltRule.inject()
         recordingMainActivityHost.clear()
-        mutablePermissionStatusProvider.snapshot =
-            PermissionSnapshot(
-                vpnConsent = PermissionStatus.Granted,
-                notifications = PermissionStatus.Granted,
-                batteryOptimization = PermissionStatus.Granted,
-            )
+        mutablePermissionStatusProvider.snapshot = grantedPermissionSnapshot()
     }
 
     @Test

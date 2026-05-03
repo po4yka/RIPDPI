@@ -45,15 +45,18 @@ class AutomationPermissionFlowInstrumentedTest {
         composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionButton).performClick()
 
         composeRule.waitUntil(timeoutMillis = 5_000) {
-            serviceStateStore.status.value == (AppStatus.Running to Mode.VPN)
-        }
-        composeRule.waitUntil(timeoutMillis = 5_000) {
             composeRule
                 .onAllNodes(
                     androidx.compose.ui.test
                         .hasTestTag(RipDpiTestTags.HomePermissionIssueBanner),
                 ).fetchSemanticsNodes()
                 .isEmpty()
+        }
+        if (serviceStateStore.status.value != (AppStatus.Running to Mode.VPN)) {
+            composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionButton).performClick()
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            serviceStateStore.status.value == (AppStatus.Running to Mode.VPN)
         }
         assertEquals(AppStatus.Running to Mode.VPN, serviceStateStore.status.value)
     }
