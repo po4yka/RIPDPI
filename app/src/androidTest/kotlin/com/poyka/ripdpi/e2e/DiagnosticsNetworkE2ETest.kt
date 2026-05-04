@@ -91,12 +91,15 @@ class DiagnosticsNetworkE2ETest {
         get() = ApplicationProvider.getApplicationContext()
 
     private val json = Json { ignoreUnknownKeys = true }
+    private var hiltInjected = false
     private lateinit var fixtureClient: LocalFixtureClient
     private lateinit var fixture: FixtureManifestDto
 
     @Before
     fun setUp() {
+        assumeE2eFixtureConfigured()
         hiltRule.inject()
+        hiltInjected = true
         val environment = prepareE2eEnvironment(appContext)
         fixtureClient = environment.fixtureClient
         fixture = environment.fixture
@@ -110,9 +113,11 @@ class DiagnosticsNetworkE2ETest {
 
     @After
     fun tearDown() {
-        runBlocking {
-            stopService(RipDpiProxyService::class.java)
-            stopService(RipDpiVpnService::class.java)
+        if (hiltInjected) {
+            runBlocking {
+                stopService(RipDpiProxyService::class.java)
+                stopService(RipDpiVpnService::class.java)
+            }
         }
         if (this::fixtureClient.isInitialized) {
             fixtureClient.resetEvents()

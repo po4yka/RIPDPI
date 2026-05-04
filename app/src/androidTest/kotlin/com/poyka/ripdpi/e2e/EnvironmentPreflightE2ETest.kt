@@ -29,9 +29,13 @@ class EnvironmentPreflightE2ETest {
     private val appContext: Context
         get() = ApplicationProvider.getApplicationContext()
 
+    private var hiltInjected = false
+
     @Before
     fun setUp() {
+        assumeE2eFixtureConfigured()
         hiltRule.inject()
+        hiltInjected = true
         runBlocking {
             stopService(RipDpiProxyService::class.java)
             stopService(RipDpiVpnService::class.java)
@@ -40,9 +44,11 @@ class EnvironmentPreflightE2ETest {
 
     @After
     fun tearDown() {
-        runBlocking {
-            stopService(RipDpiProxyService::class.java)
-            stopService(RipDpiVpnService::class.java)
+        if (hiltInjected) {
+            runBlocking {
+                stopService(RipDpiProxyService::class.java)
+                stopService(RipDpiVpnService::class.java)
+            }
         }
     }
 

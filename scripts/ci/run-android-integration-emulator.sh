@@ -7,28 +7,19 @@ source "$script_dir/android-emulator-helpers.sh"
 
 GRADLE_ABI="-Pripdpi.localNativeAbis=x86_64"
 TARGET_FILE="${RUNNER_TEMP:-/tmp}/android-instrumented-target.txt"
-TARGET_CLASSES=(
-  com.poyka.ripdpi.integration.AutomationLaunchInstrumentedTest
-  com.poyka.ripdpi.integration.AutomationPermissionFlowInstrumentedTest
-  com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest
-  com.poyka.ripdpi.integration.MainActivityOnboardingStartupInstrumentedTest
-  com.poyka.ripdpi.integration.MainActivityBiometricStartupInstrumentedTest
-  com.poyka.ripdpi.integration.MainActivityShellInstrumentedTest
-  com.poyka.ripdpi.integration.NativeBridgeInstrumentedTest
-  com.poyka.ripdpi.integration.ServiceLifecycleIntegrationTest
-)
+TARGET_PACKAGE="com.poyka.ripdpi.integration"
 
 bash scripts/ci/wait-for-android-package-manager.sh
 
 run_target() {
   local target
-  target="$(IFS=,; echo "${TARGET_CLASSES[*]}")"
+  target="$TARGET_PACKAGE"
   echo "$target" | tee "$TARGET_FILE"
-  echo "Running Android instrumentation target: $target"
+  echo "Running Android instrumentation package target: $target"
 
   ./gradlew :app:connectedDebugAndroidTest \
     "$GRADLE_ABI" \
-    "-Pandroid.testInstrumentationRunnerArguments.class=$target"
+    "-Pandroid.testInstrumentationRunnerArguments.package=$target"
 }
 
 if ! run_target; then

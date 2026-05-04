@@ -45,12 +45,15 @@ class NetworkPathE2ETest {
     private val appContext: Context
         get() = ApplicationProvider.getApplicationContext()
 
+    private var hiltInjected = false
     private lateinit var fixtureClient: LocalFixtureClient
     private lateinit var fixture: FixtureManifestDto
 
     @Before
     fun setUp() {
+        assumeE2eFixtureConfigured()
         hiltRule.inject()
+        hiltInjected = true
         val environment = prepareE2eEnvironment(appContext)
         fixtureClient = environment.fixtureClient
         fixture = environment.fixture
@@ -73,9 +76,11 @@ class NetworkPathE2ETest {
 
     @After
     fun tearDown() {
-        runBlocking {
-            stopService(RipDpiProxyService::class.java)
-            stopService(RipDpiVpnService::class.java)
+        if (hiltInjected) {
+            runBlocking {
+                stopService(RipDpiProxyService::class.java)
+                stopService(RipDpiVpnService::class.java)
+            }
         }
         if (this::fixtureClient.isInitialized) {
             fixtureClient.resetEvents()

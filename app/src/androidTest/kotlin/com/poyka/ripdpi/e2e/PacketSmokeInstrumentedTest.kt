@@ -61,12 +61,17 @@ class PacketSmokeInstrumentedTest {
     private val appContext: Context
         get() = ApplicationProvider.getApplicationContext()
 
+    private var hiltInjected = false
     private lateinit var fixtureClient: LocalFixtureClient
     private lateinit var fixture: FixtureManifestDto
 
     @Before
     fun setUp() {
+        if (!packetSmokeUsesPhasedPhysicalRunner() || packetSmokePhase() != PacketSmokePhase.ASSERT) {
+            assumeE2eFixtureConfigured()
+        }
         hiltRule.inject()
+        hiltInjected = true
         if (packetSmokeUsesPhasedPhysicalRunner() && packetSmokePhase() == PacketSmokePhase.ASSERT) {
             return
         }
@@ -98,9 +103,11 @@ class PacketSmokeInstrumentedTest {
         if (packetSmokeUsesPhasedPhysicalRunner() && packetSmokePhase() == PacketSmokePhase.PREPARE) {
             return
         }
-        runBlocking {
-            stopService(RipDpiProxyService::class.java)
-            stopService(RipDpiVpnService::class.java)
+        if (hiltInjected) {
+            runBlocking {
+                stopService(RipDpiProxyService::class.java)
+                stopService(RipDpiVpnService::class.java)
+            }
         }
         if (this::fixtureClient.isInitialized) {
             fixtureClient.resetEvents()
