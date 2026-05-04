@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.poyka.ripdpi.services
 
 import android.content.Context
@@ -32,7 +34,7 @@ private const val keyFetchedAt = "fetched_at_unix_ms"
 class EncryptedSharedPreferencesCdnEchPersistedCache
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : CdnEchPersistedCache {
         private val prefs: SharedPreferences by lazy {
             val masterKey =

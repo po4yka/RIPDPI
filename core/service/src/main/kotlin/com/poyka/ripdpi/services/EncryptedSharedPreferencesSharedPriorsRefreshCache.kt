@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.poyka.ripdpi.services
 
 import android.content.Context
@@ -24,7 +26,7 @@ private const val keyLastModified = "last_modified_header"
 class EncryptedSharedPreferencesSharedPriorsRefreshCache
     @Inject
     constructor(
-        @ApplicationContext private val context: Context,
+        @param:ApplicationContext private val context: Context,
     ) : SharedPriorsRefreshCache {
         private val prefs: SharedPreferences by lazy {
             val masterKey =
