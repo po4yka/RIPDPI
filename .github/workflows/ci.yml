@@ -839,7 +839,7 @@ jobs:
           tool: cargo-llvm-cov
 
       - name: Generate Kotlin coverage reports
-        run: ./gradlew coverageReport
+        run: ./gradlew coverageReport -Pripdpi.skipNativeBuild=true
 
       - name: Generate Rust coverage reports
         run: bash scripts/ci/run-rust-coverage.sh
