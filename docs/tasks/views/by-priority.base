@@ -1,0 +1,10 @@
+filters:
+  and:
+    - file.folder == "docs/tasks/issues"
+    - status != "done"
+views:
+  - type: cards
+    name: Priority matrix
+    group_by: priority
+    sort:
+      - column: area

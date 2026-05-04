@@ -1,0 +1,56 @@
+---
+title: Add ProxyService foreground service as alternative to TUN VPN
+type: task
+status: backlog
+area: proxy
+priority: medium
+owner: unassigned
+parent: epic-system-http-proxy-service-mode
+blocks: []
+blocked_by: []
+created: 2026-04-24
+updated: 2026-04-24
+---
+
+- [ ] #task Add ProxyService foreground service as alternative to TUN VPN #repo/RIPDPI #area/proxy #status/backlog 🔼
+
+## Summary
+
+Introduce `RipDpiProxyService` as a foreground-service alternative to
+`RipDpiVpnService`: runs the mixed inbound and outbound dispatch, but
+opens no TUN and creates no `vpn_protect` socket server.
+
+## Context
+
+The existing VPN service holds the TUN-centric invariants. A parallel
+service class keeps those separate; session picker decides which one
+starts. One-session-at-a-time guard prevents both from racing.
+
+## Acceptance criteria
+
+- [ ] `RipDpiProxyService` extends a `LifecycleService`, not `VpnService`.
+- [ ] Foreground-service type is `systemExempted` + `specialUse`;
+    notification channel reused from VPN path or dedicated.
+- [ ] Start/stop transitions share the supervisor lifecycle with
+    `RipDpiVpnService`; a mutual-exclusion guard ensures only one of
+    the two runs per session.
+- [ ] Switching VPN → Proxy (or vice versa) closes cleanly before the
+    other starts; no socket or route leaks.
+- [ ] Diagnostics, logs, and crash reports clearly tag the active mode.
+- [ ] Strategy probe and detection checker both work in Proxy mode
+    without a TUN.
+
+## Source references
+
+**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+
+- `app/src/main/java/io/nekohasekai/sagernet/bg/ProxyService.kt` — the full class. Extends `Service` (not `VpnService`), implements `BaseService.Interface`. Declared as `foregroundServiceType="systemExempted"` in manifest.
+- `app/src/main/java/io/nekohasekai/sagernet/bg/BaseService.kt` — the shared state machine (`Idle → Connecting → Connected → Stopping → Stopped`) both services implement. **Reference the interface** to understand the contract; RIPDPI's `LifecycleService`-based pattern will fit cleanly.
+- `app/src/main/AndroidManifest.xml` — the full `<service>` declaration including `process=":bg"` (separate process for the service) and notification-channel wiring.
+
+**Adapt:** The state machine contract, the one-session-at-a-time guard pattern (mutually exclusive with VPN), the `:bg` separate-process pattern (if RIPDPI doesn't already split). **Skip:** NekoBox-specific state constants; RIPDPI has its own supervisor state enum.
+
+## Links
+
+- [[Epic - System HTTP proxy service mode]]
+- [[Add mixed SOCKS5 and HTTP CONNECT inbound listener]]

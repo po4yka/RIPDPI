@@ -1,0 +1,10 @@
+filters:
+  and:
+    - file.folder == "docs/tasks/issues"
+    - status != "done"
+views:
+  - type: cards
+    name: By area
+    group_by: area
+    sort:
+      - column: priority

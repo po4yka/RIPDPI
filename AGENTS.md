@@ -23,6 +23,51 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 ./gradlew staticAnalysis              # Run detekt + ktlint + Android lint
 ```
 
+## Task Board
+
+This repository uses Obsidian Tasks-compatible Markdown task lines as the canonical task system.
+Use the `repo-task-board` skill for all task-related operations.
+
+Canonical files:
+
+- `docs/tasks/issues/<slug>.md` — **source of truth** — one note per task/epic (YAML frontmatter + canonical `- [ ]` line + spec)
+- `docs/tasks/active.md` — Obsidian Tasks query view (`#status/doing`, `#status/review`)
+- `docs/tasks/backlog.md` — Obsidian Tasks query view (`#status/backlog`)
+- `docs/tasks/blocked.md` — Obsidian Tasks query view (`#status/blocked`)
+- `docs/tasks/epics.md` — Obsidian Tasks query view (`#area/epic`)
+- `docs/tasks/dashboard.md` — Obsidian Tasks query hub + Bases view links
+- `docs/tasks/board.md` — Kanban board (visual layer; source of truth is `issues/`)
+
+Canonical task syntax (lives inside `docs/tasks/issues/<slug>.md`):
+
+```md
+- [ ] #task <imperative title> #repo/RIPDPI #area/<area> #status/<status> <priority>
+```
+
+Per-task note YAML frontmatter:
+
+```yaml
+---
+title: Imperative task title
+type: task            # task | epic
+status: doing         # backlog | todo | doing | review | blocked | done | dropped
+area: diagnostics     # engine | rust-native | diagnostics | transport | outbound | dns |
+                      # routing | vpn | proxy | relay | android | ui | data | service |
+                      # testing | ci | epic
+priority: high        # critical | high | medium | low
+owner: Role name
+parent: epic-slug     # slug of parent epic, or null
+blocks: []
+blocked_by: []
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+```
+
+Lifecycle: create via Templater template → transitions update `status:` + `#status/*` tag → delete file on close (git history is the audit trail). Do NOT add task lines to `active.md`, `backlog.md`, `blocked.md`, or `epics.md` — those are query-only views.
+
+Invoke the `repo-task-board` skill when the user mentions: roadmap, TODO, backlog, Kanban, task board, sprint, blocked work, or agent-ready work.
+
 ## Architecture
 
 ```

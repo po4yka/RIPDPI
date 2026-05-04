@@ -1,0 +1,48 @@
+---
+title: Classify IP_BLOCK_SUSPECT when all IPs fail
+type: task
+status: todo
+area: diagnostics
+priority: medium
+owner: unassigned
+parent: epic-direct-mode-transport-policy-and-verdicts
+blocks: []
+blocked_by: []
+created: 2026-04-20
+updated: 2026-04-23
+---
+
+- [ ] #task Classify IP_BLOCK_SUSPECT when all IPs fail #repo/RIPDPI #area/diagnostics #status/todo 🔼
+
+## Summary
+
+When encrypted-DNS IPs and alternate address families all fail at connect
+time, classify the host as `IP_BLOCK_SUSPECT`. Do **not** brute-force
+transport tricks in this state.
+
+## Plan reference
+
+[[ripdpi-android-direct-mode-plan-2026-04-20]] §3 policy rule 3 and Phase
+2 classification.
+
+## Acceptance criteria
+
+- [ ] Classification fires only when: DoH-provided IPs fail at SYN,
+    alternate IP family fails at SYN, and no CDN variant succeeds within
+    the attempt budget.
+- [ ] On `IP_BLOCK_SUSPECT`, the engine jumps straight to owned-stack arms
+    (A10/A9) — no TLS family arms.
+- [x] False-positive guard: re-verify on the next flow before persisting,
+    to avoid pinning on a transient network blip.
+
+## Implementation note
+
+The false-positive guard landed on 2026-04-23: runtime `ALL_IPS_FAILED`
+learning now requires a second flow before it persists
+`NO_DIRECT_SOLUTION` / `IP_BLOCK_SUSPECT`. Full owned-stack arm gating and
+the stricter SYN-only classification budget are still open.
+
+## Links
+
+- [[Epic - Direct-mode transport policy and verdicts]]
+- [[ripdpi-android-direct-mode-plan-2026-04-20]]

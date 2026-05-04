@@ -1,0 +1,16 @@
+{
+  "kanban-plugin": "basic",
+  "new-note-folder": "docs/tasks/issues",
+  "new-note-template": "docs/tasks/templates/new-task.md",
+  "lane-width": 272,
+  "show-checkboxes": false,
+  "hide-tags-in-title": true,
+  "hide-tags-display": false,
+  "link-date-to-daily-note": false,
+  "archive-with-date": false,
+  "time-trigger": "@@",
+  "date-trigger": "@@",
+  "date-format": "YYYY-MM-DD",
+  "tag-sort": [],
+  "tag-colors": []
+}

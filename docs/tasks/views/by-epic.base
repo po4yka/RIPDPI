@@ -1,0 +1,11 @@
+filters:
+  and:
+    - file.folder == "docs/tasks/issues"
+    - type == "task"
+    - status != "done"
+views:
+  - type: cards
+    name: By epic
+    group_by: parent
+    sort:
+      - column: priority

@@ -1,0 +1,58 @@
+---
+title: Add RuleEntity Room table and repository
+type: task
+status: backlog
+area: routing
+priority: high
+owner: unassigned
+parent: epic-advanced-routing-rules-and-geoip-enforcement
+blocks: []
+blocked_by: []
+created: 2026-04-24
+updated: 2026-04-24
+---
+
+- [ ] #task Add RuleEntity Room table and repository #repo/RIPDPI #area/routing #status/backlog ⏫
+
+## Summary
+
+Add a `RuleEntity` Room table and repository that models user-editable
+routing rules: domain / CIDR / port / process / package matchers and
+proxy / bypass / block / specific-profile outbound actions.
+
+## Context
+
+Schema should mirror NekoBox's RuleEntity for subscription portability
+hopes, but without sing-box-only fields (e.g. `network`/`protocol` that
+sing-box uses internally). Store matcher lists as newline-delimited
+strings (Kotlin), parsed on load; matcher semantics live in the Rust
+engine task.
+
+## Acceptance criteria
+
+- [ ] Entity fields: id, name, userOrder, enabled, domains, ipCidrs,
+    ports, sourcePorts, network (tcp|udp|both), processName,
+    packages (Set<String>), outboundTag (enum: PROXY | BYPASS |
+    BLOCK | PROFILE(profileId) | GROUP(groupId)).
+- [ ] Repository exposes CRUD and a reorder operation; returns rules
+    as a `Flow<List<RuleEntity>>`.
+- [ ] Constraint: deletion of a profile/group referenced by any rule
+    either cascades (bypassing the reference) or prompts the user —
+    decide once and document; never silent-corrupt.
+- [ ] Seeded default rules: one "bypass LAN" rule, one "bypass
+    loopback" rule; user can delete them.
+- [ ] Schema is exported from Room and covered by a migration test.
+
+## Source references
+
+**NekoBoxForAndroid** ([repo](https://github.com/MatsuriDayo/NekoBoxForAndroid), local: `/Users/po4yka/GitRep/NekoBoxForAndroid/`):
+
+- `app/src/main/java/io/nekohasekai/sagernet/database/RuleEntity.kt` — the full `@Entity`. Field-for-field port target: `id`, `name`, `userOrder`, `enabled`, `config` (raw JSON override), `domains`, `ip` (CIDR), `port`, `sourcePort`, `network`, `source`, `protocol`, `outbound` (Long with sentinel values: `0` proxy, `-1` bypass, `-2` block, `>0` specific profile), `packages: Set<String>`.
+- `app/src/main/java/io/nekohasekai/sagernet/database/SagerDatabase.kt` — the DAO: `allRules()`, `enabledRules()`, `checkVpnNeeded()`, CRUD methods. Port the method set.
+- `app/src/main/java/io/nekohasekai/sagernet/database/StringCollectionConverter.java` — Room type converter for `Set<String>` (packages list). Port.
+
+**Adapt:** Entity fields, DAO method set, Set<String> converter. **Skip:** NekoBox's raw-JSON `config` override field (RIPDPI should prefer a stricter typed model; if passthrough is needed, add as a late follow-up).
+
+## Links
+
+- [[Epic - Advanced routing rules and geoip enforcement]]

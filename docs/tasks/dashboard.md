@@ -68,3 +68,20 @@ sort by status
 sort by priority
 group by path
 ```
+
+## Epics
+
+```tasks
+not done
+tag includes #task
+tag includes #repo/RIPDPI
+tag includes #area/epic
+sort by priority
+```
+
+## Structured views
+
+- [[views/all-tasks]] — full table (all issues, sortable)
+- [[views/by-epic]] — tasks grouped by parent epic
+- [[views/by-area]] — tasks grouped by area
+- [[views/by-priority]] — tasks grouped by priority

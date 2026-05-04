@@ -1,0 +1,51 @@
+---
+title: Enforce fail-closed VpnService lifecycle
+type: task
+status: backlog
+area: vpn
+priority: high
+owner: unassigned
+parent: epic-fail-closed-android-vpn-policy-engine
+blocks: []
+blocked_by: []
+created: 2026-05-01
+updated: 2026-05-01
+---
+
+- [ ] #task Enforce fail-closed VpnService lifecycle #repo/RIPDPI #area/vpn #status/backlog ⏫
+
+## Summary
+
+Make VpnService startup, core failure, and `onRevoke()` paths fail closed by closing TUN, protected sockets, and provider runtimes before any direct traffic can continue silently.
+
+## Motivation
+
+Existing clients often look connected while the core, DNS resolver, or protected socket path has failed. RIPDPI should enter `Blocked / reconnecting` or `Revoked` states rather than leaving traffic behavior ambiguous.
+
+## Scope
+
+- In scope: `prepare()` handling, foreground startup sequencing, `protect()` failure behavior, TUN establishment failure, core crash handling, and `onRevoke()` cleanup.
+- Out of scope: Android system lockdown implementation and provider-specific protocol retries.
+
+## Acceptance criteria
+
+- [ ] VPN start aborts before TUN establishment if required transport sockets cannot be protected.
+- [ ] Core crash transitions connection state to blocked/reconnecting rather than connected.
+- [ ] `onRevoke()` closes TUN fd, tunnel sockets, provider runtimes, and local inbounds without main-thread assumptions.
+- [ ] Secure profiles never call `Builder.allowBypass()` unless the user explicitly enables an unsafe bypass setting.
+- [ ] Regression tests cover startup failure, core crash, and revoke cleanup.
+
+## Design notes
+
+Coordinate state names with Xray provider state so direct-mode and Xray-backed mode report the same lifecycle semantics.
+
+## Risks / open questions
+
+- Some OEMs reorder service shutdown and revoke callbacks; cleanup must be idempotent.
+
+## Links
+
+- [[Epic - Fail-closed Android VPN policy engine]]
+- [[Epic - Runtime lifecycle and supervisors]]
+- [[Run Xray as managed VPN relay runtime]]
+- https://developer.android.com/reference/android/net/VpnService.Builder

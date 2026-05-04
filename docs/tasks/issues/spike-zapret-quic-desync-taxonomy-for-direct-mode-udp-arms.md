@@ -1,0 +1,49 @@
+---
+title: Spike zapret QUIC desync taxonomy for direct-mode UDP arms
+type: task
+status: backlog
+area: diagnostics
+priority: high
+owner: unassigned
+parent: epic-direct-mode-transport-policy-and-verdicts
+blocks: []
+blocked_by: []
+created: 2026-04-20
+updated: 2026-04-20
+---
+
+- [ ] #task Spike zapret QUIC desync taxonomy for direct-mode UDP arms #repo/RIPDPI #area/diagnostics #status/backlog ⏫
+
+## Summary
+
+Catalogue zapret's QUIC and UDP desync strategies by primitive, map each
+to a candidate direct-mode UDP arm, and recommend which arms the
+transport policy engine should add first.
+
+## Research citation
+
+[[ripdpi-android-research-2026-04-20]] §Strategy-pack projects — zapret
+maintains the closest neighbor to our transparent-mode arm taxonomy, and
+its QUIC/UDP desync is load-bearing for HTTP/3 targets (YouTube).
+Cross-checking before inventing our own UDP arm taxonomy avoids
+duplicate work and gives a shared vocabulary with the peer community.
+
+## Acceptance criteria
+
+- [ ] zapret QUIC/UDP desync strategies catalogued by primitive (fake
+    packet, TTL game, header split, payload split, etc.).
+- [ ] Each primitive mapped to a candidate UDP arm or marked unmappable
+    with a short reason.
+- [ ] Recommendation on which one or two arms to add first to the
+    transport policy engine, with expected coverage gain.
+- [ ] Pointer to zapret source files or docs for each cited primitive.
+
+## Links
+
+- [[Epic - Direct-mode transport policy and verdicts]]
+- [[Gate DoQ on UDP-clean classification]]
+- [[Implement QUIC soft-disable per tuple]]
+- [[ripdpi-android-research-2026-04-20]]
+
+
+## dns
