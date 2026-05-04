@@ -114,8 +114,10 @@ class DiagnosticsNetworkE2ETest {
             stopService(RipDpiProxyService::class.java)
             stopService(RipDpiVpnService::class.java)
         }
-        fixtureClient.resetEvents()
-        fixtureClient.resetFaults()
+        if (this::fixtureClient.isInitialized) {
+            fixtureClient.resetEvents()
+            fixtureClient.resetFaults()
+        }
     }
 
     @Test
