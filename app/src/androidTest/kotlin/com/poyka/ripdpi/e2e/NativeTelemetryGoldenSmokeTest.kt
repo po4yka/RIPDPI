@@ -18,6 +18,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 
 class NativeTelemetryGoldenSmokeTest {
@@ -26,6 +27,11 @@ class NativeTelemetryGoldenSmokeTest {
             explicitNulls = true
             encodeDefaults = true
         }
+
+    @Before
+    fun requireE2eFixtureConfiguration() {
+        assumeE2eFixtureConfigured()
+    }
 
     @Test
     fun proxyRuntimeTelemetryMatchesGoldenAndStopsCleanly() {

@@ -38,6 +38,7 @@ import com.poyka.ripdpi.debug.PacketSmokePrepareState
 import com.poyka.ripdpi.debug.PacketSmokePrepareStateFileName
 import com.poyka.ripdpi.debug.PacketSmokeProbeResultFileName
 import com.poyka.ripdpi.debug.PacketSmokeRunnerProbeResult
+import org.junit.Assume.assumeTrue
 import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
@@ -73,6 +74,8 @@ private const val VpnConsentShellGrantTimeoutMs = 2_000L
 private const val LocalNetworkPermissionGrantTimeoutMs = 2_000L
 private const val VpnConsentTimeoutArg = "ripdpi.vpnConsentTimeoutMs"
 private const val VpnConsentPackageHintsArg = "ripdpi.vpnConsentPackageHints"
+private const val FixtureControlHostArg = "ripdpi.fixtureControlHost"
+private const val FixtureControlPortArg = "ripdpi.fixtureControlPort"
 private const val PacketSmokeDeviceProfileArg = "ripdpi.packetSmokeDeviceProfile"
 private const val PacketSmokePhaseArg = "ripdpi.packetSmokePhase"
 private const val PacketSmokeScenarioIdArg = "ripdpi.packetSmokeScenarioId"
@@ -313,8 +316,8 @@ class LocalFixtureClient(
     companion object {
         fun fromInstrumentationArgs(): LocalFixtureClient {
             val args = InstrumentationRegistry.getArguments()
-            val host = args.getString("ripdpi.fixtureControlHost") ?: defaultFixtureControlHost()
-            val port = args.getString("ripdpi.fixtureControlPort")?.toIntOrNull() ?: DefaultFixtureControlPort
+            val host = args.getString(FixtureControlHostArg) ?: defaultFixtureControlHost()
+            val port = args.getString(FixtureControlPortArg)?.toIntOrNull() ?: DefaultFixtureControlPort
             return LocalFixtureClient(host, port)
         }
     }
@@ -533,6 +536,7 @@ fun prepareE2eEnvironment(
     context: Context,
     requireVpnConsent: Boolean = false,
 ): E2eEnvironmentContext {
+    assumeE2eFixtureConfigured()
     ensureLocalNetworkAccessGranted(context)
     val fixtureClient = LocalFixtureClient.fromInstrumentationArgs()
     val fixture = selectReachableFixtureManifest(context, fixtureClient.manifest())
@@ -548,6 +552,14 @@ fun prepareE2eEnvironment(
     return E2eEnvironmentContext(
         fixtureClient = fixtureClient,
         fixture = fixture,
+    )
+}
+
+fun assumeE2eFixtureConfigured() {
+    val args = InstrumentationRegistry.getArguments()
+    assumeTrue(
+        "E2E fixture control arguments are required for com.poyka.ripdpi.e2e tests.",
+        args.containsKey(FixtureControlHostArg) || args.containsKey(FixtureControlPortArg),
     )
 }
 

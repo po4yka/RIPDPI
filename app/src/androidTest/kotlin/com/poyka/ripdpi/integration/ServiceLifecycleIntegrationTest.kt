@@ -427,6 +427,8 @@ class ServiceLifecycleIntegrationTest {
 
             awaitFailure(Sender.VPN)
             awaitStatus(AppStatus.Halted, Mode.VPN)
+            awaitProxyStopCount(1)
+            awaitVpnSessionClosed()
 
             assertTrue(IntegrationTestOverrides.vpnTunnelSessionProvider.session.isClosed)
             assertTrue(
@@ -616,6 +618,14 @@ class ServiceLifecycleIntegrationTest {
     private suspend fun awaitProxyStopCount(expected: Int) {
         withTimeout(10.seconds) {
             while (IntegrationTestOverrides.proxyFactory.lastRuntime.stopCount != expected) {
+                delay(50)
+            }
+        }
+    }
+
+    private suspend fun awaitVpnSessionClosed() {
+        withTimeout(10.seconds) {
+            while (!IntegrationTestOverrides.vpnTunnelSessionProvider.session.isClosed) {
                 delay(50)
             }
         }
