@@ -19,12 +19,11 @@ run_target() {
 
   ./gradlew :app:connectedDebugAndroidTest \
     "$GRADLE_ABI" \
-    "-Pandroid.testInstrumentationRunnerArguments.package=$target"
+    "-Pandroid.testInstrumentationRunnerArguments.package=$target" \
+    -Pandroid.testInstrumentationRunnerArguments.coverage=false
 }
 
 if ! run_target; then
   adb_cmd logcat -d > android-logcat.txt || true
   exit 1
 fi
-
-./gradlew :app:createDebugAndroidTestCoverageReport "$GRADLE_ABI"

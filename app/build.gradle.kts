@@ -64,6 +64,7 @@ val forwardedInstrumentationArguments =
         "notClass",
         "package",
         "notPackage",
+        "coverage",
         "ripdpi.fixtureControlHost",
         "ripdpi.fixtureControlPort",
         "ripdpi.packetSmokeDeviceProfile",
