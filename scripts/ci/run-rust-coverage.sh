@@ -50,6 +50,13 @@ SKIP_PATTERNS=(
     --skip 'runtime::tests::window_clamp'
 )
 
+# Nightly coverage includes ignored tests for additional low-cost coverage, but
+# real TUN E2E requires CAP_NET_ADMIN and is covered by the dedicated Linux TUN
+# lanes instead.
+IGNORED_SKIP_PATTERNS=(
+    --skip 'real_tun_'
+)
+
 run_coverage() {
     RUST_TEST_THREADS=1 cargo llvm-cov test \
         --manifest-path "$workspace_manifest" \
@@ -66,7 +73,8 @@ run_coverage() {
             --no-report \
             -- \
             --ignored \
-            --test-threads=1
+            --test-threads=1 \
+            "${IGNORED_SKIP_PATTERNS[@]}"
     fi
 }
 
