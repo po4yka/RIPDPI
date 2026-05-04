@@ -1040,7 +1040,17 @@ jobs:
   android-integration-tests:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard:
+          - name: service-native
+            classes: >-
+              com.poyka.ripdpi.integration.ServiceLifecycleIntegrationTest,com.poyka.ripdpi.integration.NativeBridgeInstrumentedTest
+          - name: ui
+            classes: >-
+              com.poyka.ripdpi.integration.MainActivityNavigationInstrumentedTest,com.poyka.ripdpi.integration.MainActivityShellInstrumentedTest,com.poyka.ripdpi.integration.AutomationLaunchInstrumentedTest,com.poyka.ripdpi.integration.AutomationPermissionFlowInstrumentedTest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -1064,10 +1074,23 @@ jobs:
             --avd integration \
             --api 34 \
             --arch x86_64 \
-            --target aosp_atd
+            --target aosp_atd \
+            --no-wait
+
+      - name: Build integration test APKs
+        env:
+          RUSTC_WRAPPER: sccache
+        run: |
+          ./gradlew :app:assembleDebug :app:assembleDebugAndroidTest \
+            -Pripdpi.localNativeAbis=x86_64
+
+      - name: Wait for emulator
+        run: bash scripts/ci/wait-for-android-package-manager.sh
 
       - name: Run connected Android integration tests
-        run: bash scripts/ci/run-android-integration-emulator.sh
+        run: |
+          bash scripts/ci/run-android-integration-emulator.sh \
+            --classes "${{ matrix.shard.classes }}"
 
       - name: Capture integration emulator diagnostics
         if: always()
@@ -1085,7 +1108,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: android-integration-artifacts
+          name: android-integration-artifacts-${{ matrix.shard.name }}
           path: |
             android-logcat.txt
             ${{ runner.temp }}/android-integration-diagnostics/
@@ -1228,7 +1251,7 @@ jobs:
           tool: cargo-llvm-cov
 
       - name: Generate Kotlin coverage reports
-        run: ./gradlew coverageReport -Pripdpi.skipNativeBuild=true
+        run: ./gradlew coverageReport
 
       - name: Generate Rust coverage reports with ignored tests
         run: bash scripts/ci/run-rust-coverage.sh

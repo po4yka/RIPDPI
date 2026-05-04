@@ -59,6 +59,7 @@ ram="4096M"
 heap="1024M"
 disk="8G"
 boot_timeout="600"
+no_wait=false
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -94,6 +95,10 @@ while [[ $# -gt 0 ]]; do
       boot_timeout="$2"
       shift 2
       ;;
+    --no-wait)
+      no_wait=true
+      shift
+      ;;
     *)
       echo "Unknown argument: $1" >&2
       exit 1
@@ -102,7 +107,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$avd_name" || -z "$api_level" || -z "$arch" || -z "$target" ]]; then
-  echo "Usage: $0 --avd <name> --api <level> --arch <arch> --target <target> [--ram 4096M] [--heap 1024M] [--disk 8G] [--boot-timeout 600]" >&2
+  echo "Usage: $0 --avd <name> --api <level> --arch <arch> --target <target> [--ram 4096M] [--heap 1024M] [--disk 8G] [--boot-timeout 600] [--no-wait]" >&2
   exit 1
 fi
 
@@ -170,4 +175,6 @@ nohup "$emulator_bin" \
   -no-snapshot \
   >"$emulator_log_file" 2>&1 </dev/null &
 
-wait_for_android_boot "$boot_timeout"
+if [[ "$no_wait" != "true" ]]; then
+  wait_for_android_boot "$boot_timeout"
+fi
