@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import com.poyka.ripdpi.activities.OnboardingUiState

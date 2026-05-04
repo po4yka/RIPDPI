@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.ui.screens.history
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import com.poyka.ripdpi.activities.DiagnosticsSessionFiltersUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel

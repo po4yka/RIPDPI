@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.poyka.ripdpi.activities.DesyncCoreUiState
 import com.poyka.ripdpi.activities.SettingsUiState

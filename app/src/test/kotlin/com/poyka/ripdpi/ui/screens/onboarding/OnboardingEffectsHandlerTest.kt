@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
 import android.content.Intent
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import com.poyka.ripdpi.activities.OnboardingEffect
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.runBlocking

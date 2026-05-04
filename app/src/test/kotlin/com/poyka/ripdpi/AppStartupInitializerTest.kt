@@ -13,6 +13,7 @@ import com.poyka.ripdpi.services.CdnEchSeedFromCache
 import com.poyka.ripdpi.services.DnsPathPreferenceInvalidator
 import com.poyka.ripdpi.strategy.StrategyPackService
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -26,6 +27,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import javax.inject.Provider
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class AppStartupInitializerTest {
     private lateinit var application: Application
