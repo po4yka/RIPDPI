@@ -28,7 +28,6 @@ val jacocoExcludes =
 
 tasks.withType<Test>().configureEach {
     extensions.configure<JacocoTaskExtension> {
-        isIncludeNoLocationClasses = true
         excludes = listOf("jdk.internal.*")
     }
 }
