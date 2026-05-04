@@ -9,6 +9,7 @@ import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.TaskAction
+import org.gradle.api.tasks.testing.Test
 import java.util.Properties
 
 abstract class VerifyEngineBoundaryClasspathTask : DefaultTask() {
@@ -37,6 +38,24 @@ plugins {
     id("ripdpi.android.quality")
     id("ripdpi.android.roborazzi")
     id("ripdpi.android.serialization")
+}
+
+val includeRoborazziUnitTests =
+    providers
+        .gradleProperty("ripdpi.includeRoborazziUnitTests")
+        .map { it.toBooleanStrict() }
+        .orElse(
+            providers.provider {
+                gradle.startParameter.taskNames.any { taskName ->
+                    taskName.contains("Roborazzi", ignoreCase = true)
+                }
+            },
+        )
+
+tasks.withType<Test>().configureEach {
+    if (!includeRoborazziUnitTests.get()) {
+        exclude("**/ui/screenshot/**")
+    }
 }
 
 val localProps =

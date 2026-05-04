@@ -335,7 +335,11 @@ jobs:
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Verify screenshot baselines
-        run: ./gradlew verifyRoborazziDebug -Pripdpi.skipNativeBuild=true
+        run: >-
+          ./gradlew verifyRoborazziDebug
+          -Pripdpi.skipNativeBuild=true
+          -Pripdpi.includeRoborazziUnitTests=true
+          --tests 'com.poyka.ripdpi.ui.screenshot.*'
 
       - name: Upload Roborazzi diffs
         if: always()
