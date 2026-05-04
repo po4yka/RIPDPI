@@ -291,6 +291,7 @@ jobs:
 
       - uses: ./.github/actions/setup-android-rust
         with:
+          java-version: "21"
           rust-components: ""
           rust-targets: ""
           rust-cache-shared-key: rust-android-tests
@@ -326,6 +327,7 @@ jobs:
 
       - uses: ./.github/actions/setup-android-rust
         with:
+          java-version: "21"
           rust-components: ""
           rust-targets: ""
           rust-cache-shared-key: rust-android-roborazzi
@@ -811,6 +813,7 @@ jobs:
 
       - uses: ./.github/actions/setup-android-rust
         with:
+          java-version: "21"
           rust-components: llvm-tools
           rust-cache-shared-key: rust-android
           rust-cache-save: "false"
