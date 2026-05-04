@@ -29,10 +29,13 @@ import javax.inject.Inject
 
 @HiltAndroidTest
 class NetworkPathE2ETest {
-    @get:Rule
+    @get:Rule(order = 0)
+    val e2eFixtureRule = E2eFixtureRule()
+
+    @get:Rule(order = 1)
     val hiltRule = HiltAndroidRule(this)
 
-    @get:Rule
+    @get:Rule(order = 2)
     val notificationPermissionRule: GrantPermissionRule =
         GrantPermissionRule.grant(Manifest.permission.POST_NOTIFICATIONS)
 

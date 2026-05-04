@@ -19,9 +19,13 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 
 class NativeTelemetryGoldenSmokeTest {
+    @get:Rule(order = 0)
+    val e2eFixtureRule = E2eFixtureRule()
+
     private val json =
         Json {
             explicitNulls = true

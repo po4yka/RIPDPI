@@ -39,6 +39,9 @@ import com.poyka.ripdpi.debug.PacketSmokePrepareStateFileName
 import com.poyka.ripdpi.debug.PacketSmokeProbeResultFileName
 import com.poyka.ripdpi.debug.PacketSmokeRunnerProbeResult
 import org.junit.Assume.assumeTrue
+import org.junit.rules.TestRule
+import org.junit.runner.Description
+import org.junit.runners.model.Statement
 import java.io.BufferedReader
 import java.io.File
 import java.io.IOException
@@ -556,11 +559,41 @@ fun prepareE2eEnvironment(
 }
 
 fun assumeE2eFixtureConfigured() {
-    val args = InstrumentationRegistry.getArguments()
     assumeTrue(
         "E2E fixture control arguments are required for com.poyka.ripdpi.e2e tests.",
-        args.containsKey(FixtureControlHostArg) || args.containsKey(FixtureControlPortArg),
+        isE2eFixtureConfigured(),
     )
+}
+
+class E2eFixtureRule(
+    private val allowPacketSmokeAssertWithoutFixture: Boolean = false,
+) : TestRule {
+    override fun apply(
+        base: Statement,
+        description: Description,
+    ): Statement =
+        object : Statement() {
+            override fun evaluate() {
+                if (isE2eFixtureConfigured() || allowsPacketSmokeAssertWithoutFixture()) {
+                    base.evaluate()
+                    return
+                }
+                println(
+                    "Skipping ${description.displayName}: E2E fixture control arguments are required " +
+                        "for com.poyka.ripdpi.e2e tests.",
+                )
+            }
+        }
+
+    private fun allowsPacketSmokeAssertWithoutFixture(): Boolean =
+        allowPacketSmokeAssertWithoutFixture &&
+            packetSmokeUsesPhasedPhysicalRunner() &&
+            packetSmokePhase() == PacketSmokePhase.ASSERT
+}
+
+fun isE2eFixtureConfigured(): Boolean {
+    val args = InstrumentationRegistry.getArguments()
+    return args.containsKey(FixtureControlHostArg) || args.containsKey(FixtureControlPortArg)
 }
 
 fun capturePacketSmokePrepareState(
