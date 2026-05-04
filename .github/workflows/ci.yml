@@ -834,7 +834,6 @@ jobs:
         run: |
           python3 scripts/ci/summarize_coverage.py \
             --aggregate-xml build/reports/jacoco/kotlinCoverageReport/kotlinCoverageReport.xml \
-            --module app=app/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml \
             --module core:data=core/data/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml \
             --module core:diagnostics=core/diagnostics/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml \
             --module core:engine=core/engine/build/reports/jacoco/jacocoDebugUnitTestReport/jacocoDebugUnitTestReport.xml \

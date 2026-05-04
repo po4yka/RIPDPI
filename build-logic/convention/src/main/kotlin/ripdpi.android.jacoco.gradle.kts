@@ -26,8 +26,25 @@ val jacocoExcludes =
         "**/com/poyka/ripdpi/data/schemas/**",
     )
 
+val jacocoAgentEnabled =
+    providers
+        .gradleProperty("ripdpi.jacoco.enabled")
+        .map { it.toBooleanStrict() }
+        .orElse(
+            providers.provider {
+                gradle.startParameter.taskNames.any { taskName ->
+                    taskName == "coverageReport" ||
+                        taskName.endsWith(":coverageReport") ||
+                        taskName.endsWith("jacocoDebugUnitTestReport") ||
+                        taskName.endsWith("jacocoDebugUnitTestCoverageVerification") ||
+                        taskName.endsWith("kotlinCoverageReport")
+                }
+            },
+        )
+
 tasks.withType<Test>().configureEach {
     extensions.configure<JacocoTaskExtension> {
+        isEnabled = jacocoAgentEnabled.get()
         excludes = listOf("jdk.internal.*")
     }
 }

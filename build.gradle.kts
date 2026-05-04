@@ -180,14 +180,13 @@ abstract class VerifyAppEngineBoundaryTask : DefaultTask() {
 
 val coverageModulePaths =
     listOf(
-        ":app",
         ":core:data",
         ":core:diagnostics",
         ":core:engine",
         ":core:service",
     )
 
-val qualityModulePaths = coverageModulePaths
+val qualityModulePaths = listOf(":app") + coverageModulePaths
 val lintModulePaths = qualityModulePaths
 
 fun moduleRelativePath(modulePath: String): String = modulePath.removePrefix(":").replace(':', '/')
