@@ -10,7 +10,7 @@ workspace = true
 [dependencies]
 anyhow = { workspace = true }
 base64 = { workspace = true }
-boringtun = { version = "0.7.0", default-features = false }
+boringtun = { version = "0.7.1", default-features = false }
 getrandom = "0.4"
 bytes = "1"
 serde = { workspace = true }
