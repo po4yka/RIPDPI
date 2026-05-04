@@ -299,7 +299,17 @@ jobs:
           gradle-cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Run JVM unit tests
-        run: ./gradlew testDebugUnitTest -Pripdpi.skipNativeBuild=true
+        run: >-
+          ./gradlew testDebugUnitTest
+          -x :app:testDebugUnitTest
+          -Pripdpi.skipNativeBuild=true
+
+      - name: Compile app unit tests
+        run: >-
+          ./gradlew
+          :app:compileDebugUnitTestKotlin
+          :app:hiltJavaCompileDebugUnitTest
+          -Pripdpi.skipNativeBuild=true
 
       - name: Verify diagnostics-service boundary
         run: python3 scripts/ci/verify_diagnostics_boundary.py
