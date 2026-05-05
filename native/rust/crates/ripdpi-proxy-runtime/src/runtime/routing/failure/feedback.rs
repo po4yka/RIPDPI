@@ -21,7 +21,7 @@ pub(super) fn record_failure_feedback(
     payload: Option<&[u8]>,
     failure: &ClassifiedFailure,
 ) -> io::Result<bool> {
-    let _ = note_retry_failure(state, target, route.group_index, host, payload, TransportProtocol::Tcp)?;
+    note_retry_failure(state, target, route.group_index, host, payload, TransportProtocol::Tcp)?;
     let penalize = failure_penalizes_strategy(failure);
     if !penalize {
         return Ok(false);

@@ -36,9 +36,7 @@ pub(in crate::runtime) fn note_direct_path_transport_attempt(
     targets: &[SocketAddr],
     transport: TransportProtocol,
 ) -> io::Result<()> {
-    let mut learner =
-        state.direct_path_learning.write().map_err(|_| io::Error::other("direct path learning lock poisoned"))?;
-    learner.note_transport_attempt(host, targets, transport);
+    state.policy.note_direct_path_transport_attempt(host, targets, transport);
     Ok(())
 }
 
@@ -47,9 +45,7 @@ pub(in crate::runtime) fn note_direct_path_udp_suppressed(
     host: Option<&str>,
     targets: &[SocketAddr],
 ) -> io::Result<()> {
-    let mut learner =
-        state.direct_path_learning.write().map_err(|_| io::Error::other("direct path learning lock poisoned"))?;
-    learner.note_udp_suppressed(host, targets, now_millis().max(0) as u64);
+    state.policy.note_direct_path_udp_suppressed(host, targets, now_millis().max(0) as u64);
     Ok(())
 }
 
@@ -58,9 +54,7 @@ pub(in crate::runtime) fn note_direct_path_udp_failure(
     host: Option<&str>,
     targets: &[SocketAddr],
 ) -> io::Result<()> {
-    let mut learner =
-        state.direct_path_learning.write().map_err(|_| io::Error::other("direct path learning lock poisoned"))?;
-    learner.note_udp_failure(host, targets);
+    state.policy.note_direct_path_udp_failure(host, targets);
     Ok(())
 }
 
@@ -69,10 +63,12 @@ pub(in crate::runtime) fn note_direct_path_quic_success(
     host: Option<&str>,
     targets: &[SocketAddr],
 ) -> io::Result<()> {
-    let mut learner =
-        state.direct_path_learning.write().map_err(|_| io::Error::other("direct path learning lock poisoned"))?;
     let observer = direct_path_observer(state);
-    learner.note_quic_success(observer.as_ref().map(|value| value as &dyn DirectPathLearningObserver), host, targets);
+    state.policy.note_direct_path_quic_success(
+        host,
+        targets,
+        observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
+    );
     Ok(())
 }
 
@@ -82,14 +78,12 @@ pub(in crate::runtime) fn note_direct_path_tcp_success(
     targets: &[SocketAddr],
     strategy_family: Option<&str>,
 ) -> io::Result<()> {
-    let mut learner =
-        state.direct_path_learning.write().map_err(|_| io::Error::other("direct path learning lock poisoned"))?;
     let observer = direct_path_observer(state);
-    learner.note_tcp_success(
-        observer.as_ref().map(|value| value as &dyn DirectPathLearningObserver),
+    state.policy.note_direct_path_tcp_success(
         host,
         targets,
         strategy_family,
+        observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
     );
     Ok(())
 }
@@ -99,9 +93,7 @@ pub(in crate::runtime) fn note_direct_path_tls_post_client_hello_failure(
     host: Option<&str>,
     targets: &[SocketAddr],
 ) -> io::Result<()> {
-    let mut learner =
-        state.direct_path_learning.write().map_err(|_| io::Error::other("direct path learning lock poisoned"))?;
-    learner.note_tls_post_client_hello_failure(host, targets);
+    state.policy.note_direct_path_tls_post_client_hello_failure(host, targets);
     Ok(())
 }
 
@@ -110,20 +102,20 @@ pub(in crate::runtime) fn note_direct_path_all_ips_failed(
     host: Option<&str>,
     targets: &[SocketAddr],
 ) -> io::Result<()> {
-    let mut learner =
-        state.direct_path_learning.write().map_err(|_| io::Error::other("direct path learning lock poisoned"))?;
     let observer = direct_path_observer(state);
-    learner.note_all_ips_failed(observer.as_ref().map(|value| value as &dyn DirectPathLearningObserver), host, targets);
+    state.policy.note_direct_path_all_ips_failed(
+        host,
+        targets,
+        observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
+    );
     Ok(())
 }
 
 pub(in crate::runtime) fn emit_due_direct_path_learning_timeouts(state: &RuntimeState) -> io::Result<()> {
-    let mut learner =
-        state.direct_path_learning.write().map_err(|_| io::Error::other("direct path learning lock poisoned"))?;
     let observer = direct_path_observer(state);
-    learner.emit_due_timeouts(
-        observer.as_ref().map(|value| value as &dyn DirectPathLearningObserver),
+    state.policy.emit_due_direct_path_learning_timeouts(
         now_millis().max(0) as u64,
+        observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
     );
     Ok(())
 }

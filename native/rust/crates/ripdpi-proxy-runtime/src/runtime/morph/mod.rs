@@ -16,13 +16,7 @@ pub(super) fn current_morph_policy(state: &RuntimeState) -> Option<&ProxyMorphPo
     current::current_morph_policy(state)
 }
 
-pub(super) fn apply_tcp_morph_policy_to_hints(
-    state: &RuntimeState,
-    hints: AdaptivePlannerHints,
-) -> AdaptivePlannerHints {
-    hints::apply_tcp_morph_policy_to_hints(current_morph_policy(state), hints)
-}
-
+#[cfg(test)]
 pub(super) fn apply_udp_morph_policy_to_hints(
     state: &RuntimeState,
     hints: AdaptivePlannerHints,

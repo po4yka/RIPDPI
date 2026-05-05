@@ -1,11 +1,10 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_runtime_adaptive::strategy_context;
 use ripdpi_runtime_policy::runtime_policy::{ConnectionRoute, TransportProtocol};
 
 use super::super::adaptive::{note_direct_path_udp_suppressed, now_millis};
-use super::super::state::{flush_autolearn_updates, RuntimeState};
+use super::super::state::RuntimeState;
 
 pub(in crate::runtime) fn select_route(
     state: &RuntimeState,
@@ -25,8 +24,8 @@ pub(in crate::runtime) fn select_route_for_transport(
     allow_unknown_payload: bool,
     transport: TransportProtocol,
 ) -> io::Result<ConnectionRoute> {
-    let mut cache = state.cache.write().map_err(|_| io::Error::other("cache lock poisoned"))?;
-    cache
+    state
+        .policy
         .select_initial(target, payload, host, allow_unknown_payload, transport, &state.config)
         .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))
 }
@@ -37,7 +36,7 @@ pub(in crate::runtime) fn preferred_targets_for_transport(
     host: Option<&str>,
     transport: TransportProtocol,
 ) -> Vec<SocketAddr> {
-    let decision = strategy_context::preferred_targets_for_transport(
+    let decision = state.adaptive.preferred_targets(
         state.runtime_context.as_ref(),
         original_target,
         host,
@@ -66,13 +65,9 @@ pub(in crate::runtime) fn note_route_success_for_transport(
     host: Option<&str>,
     transport: TransportProtocol,
 ) -> io::Result<()> {
-    let mut cache = state.cache.write().map_err(|_| io::Error::other("cache lock poisoned"))?;
-    cache.note_route_success_for_transport(&state.config, target, route, host, transport)?;
-    flush_autolearn_updates(state, &mut cache);
-    Ok(())
+    state.policy.note_success(target, route, host, transport, &state.config)
 }
 
 pub(in crate::runtime) fn runtime_supports_trigger(state: &RuntimeState, trigger: u32) -> io::Result<bool> {
-    let cache = state.cache.read().map_err(|_| io::Error::other("cache lock poisoned"))?;
-    Ok(cache.supports_trigger(trigger))
+    Ok(state.policy.supports_trigger(trigger))
 }

@@ -3,7 +3,8 @@ use std::thread;
 use std::time::Duration;
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
-use ripdpi_runtime_learning::bench_support::{RetryLane, RetryPacer, RetrySignature, StrategyEvolver};
+use ripdpi_runtime_adaptive::retry_stealth::{RetryLane, RetryPacer, RetrySignature};
+use ripdpi_runtime_strategy::strategy_evolver::StrategyEvolver;
 
 const THREADS: usize = 4;
 const READS_PER_THREAD: usize = 2_048;

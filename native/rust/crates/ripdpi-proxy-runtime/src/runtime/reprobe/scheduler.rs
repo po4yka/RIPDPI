@@ -1,8 +1,8 @@
 use std::net::{IpAddr, SocketAddr};
+use std::sync::Arc;
 use std::thread;
 
-use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
-use ripdpi_runtime_adaptive::strategy_evolution::StrategyEvolutionResolver;
+use ripdpi_runtime_adaptive::AdaptivePort;
 
 use super::super::state::RuntimeState;
 use super::cache_flush::flush_runtime_cache_after_handover;
@@ -46,13 +46,12 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
     tracing::info!("network_reprobe: network identity changed, scheduling reprobe");
 
     let config = state.config.clone();
-    let evolver = state.strategy_evolver.clone();
-    let adaptive_tuning = state.adaptive_tuning.clone();
+    let adaptive = state.adaptive.clone();
 
     thread::Builder::new()
         .name("ripdpi-reprobe".into())
         .spawn(move || {
-            run_reprobe(&config, &evolver, &adaptive_tuning);
+            run_reprobe(&config, &adaptive);
         })
         .ok();
 }
@@ -61,11 +60,7 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
 /// attempt a raw TLS ClientHello. A failure is classified as a DPI signature
 /// if the connection is reset, times out, or receives a TLS alert before the
 /// ServerHello completes.
-fn run_reprobe(
-    config: &ripdpi_config::RuntimeConfig,
-    evolver: &crate::sync::Arc<crate::sync::RwLock<StrategyEvolutionResolver>>,
-    adaptive_tuning: &crate::sync::Arc<crate::sync::RwLock<AdaptivePlannerResolver>>,
-) {
+fn run_reprobe(config: &ripdpi_config::RuntimeConfig, adaptive: &Arc<dyn AdaptivePort>) {
     let deadline = std::time::Instant::now() + TOTAL_DEADLINE;
     let mut failures = 0usize;
     let mut successes = 0usize;
@@ -98,5 +93,5 @@ fn run_reprobe(
         }
     }
 
-    reset_if_strategy_mismatch(failures, successes, PROBE_TARGETS.len(), evolver, adaptive_tuning);
+    reset_if_strategy_mismatch(failures, successes, PROBE_TARGETS.len(), adaptive);
 }

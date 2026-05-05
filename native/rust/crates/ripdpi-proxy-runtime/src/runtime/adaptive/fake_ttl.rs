@@ -5,6 +5,8 @@ use ripdpi_config::DesyncGroup;
 
 use crate::runtime::state::RuntimeState;
 
+use super::network_scope_key;
+
 pub(in crate::runtime) fn resolve_adaptive_fake_ttl(
     state: &RuntimeState,
     target: SocketAddr,
@@ -12,12 +14,7 @@ pub(in crate::runtime) fn resolve_adaptive_fake_ttl(
     group: &DesyncGroup,
     host: Option<&str>,
 ) -> io::Result<Option<u8>> {
-    let Some(auto_ttl) = group.actions.auto_ttl else {
-        return Ok(None);
-    };
-    let mut resolver =
-        state.adaptive_fake_ttl.write().map_err(|_| io::Error::other("adaptive fake ttl lock poisoned"))?;
-    Ok(Some(resolver.resolve(group_index, target, host, auto_ttl, group.actions.ttl)))
+    state.adaptive.resolve_fake_ttl(network_scope_key(&state.config), group_index, target, host, group)
 }
 
 pub(in crate::runtime) fn note_adaptive_fake_ttl_success(
@@ -26,10 +23,7 @@ pub(in crate::runtime) fn note_adaptive_fake_ttl_success(
     group_index: usize,
     host: Option<&str>,
 ) -> io::Result<()> {
-    let mut resolver =
-        state.adaptive_fake_ttl.write().map_err(|_| io::Error::other("adaptive fake ttl lock poisoned"))?;
-    resolver.note_success(group_index, target, host);
-    Ok(())
+    state.adaptive.note_fake_ttl_success(network_scope_key(&state.config), group_index, target, host)
 }
 
 pub(in crate::runtime) fn note_adaptive_fake_ttl_failure(
@@ -38,10 +32,7 @@ pub(in crate::runtime) fn note_adaptive_fake_ttl_failure(
     group_index: usize,
     host: Option<&str>,
 ) -> io::Result<()> {
-    let mut resolver =
-        state.adaptive_fake_ttl.write().map_err(|_| io::Error::other("adaptive fake ttl lock poisoned"))?;
-    resolver.note_failure(group_index, target, host);
-    Ok(())
+    state.adaptive.note_fake_ttl_failure(network_scope_key(&state.config), group_index, target, host)
 }
 
 pub(in crate::runtime) fn note_server_ttl_for_route(
@@ -51,8 +42,5 @@ pub(in crate::runtime) fn note_server_ttl_for_route(
     host: Option<&str>,
     observed_ttl: u8,
 ) -> io::Result<()> {
-    let mut resolver =
-        state.adaptive_fake_ttl.write().map_err(|_| io::Error::other("adaptive fake ttl lock poisoned"))?;
-    resolver.note_server_ttl(group_index, target, host, observed_ttl);
-    Ok(())
+    state.adaptive.note_server_ttl(network_scope_key(&state.config), group_index, target, host, observed_ttl)
 }

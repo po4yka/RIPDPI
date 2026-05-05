@@ -3,9 +3,9 @@
 // exhaustive interleaving exploration.
 
 #[cfg(feature = "loom")]
-pub(crate) use loom::sync::{Arc, Mutex, RwLock};
+pub(crate) use loom::sync::{Arc, Mutex};
 #[cfg(not(feature = "loom"))]
-pub(crate) use std::sync::{Arc, Mutex, RwLock};
+pub(crate) use std::sync::{Arc, Mutex};
 
 #[cfg(feature = "loom")]
 pub(crate) use loom::sync::atomic::{AtomicBool, AtomicUsize, Ordering};

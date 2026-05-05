@@ -114,8 +114,7 @@ pub(super) fn reselect_udp_flow_target(
 
 pub(super) fn store_udp_route_hint(state: &RuntimeState, entry: &UdpFlowActivationState) -> io::Result<()> {
     if let Some(host) = entry.host.clone().filter(|_| entry.cache_host) {
-        let mut cache = state.cache.write().map_err(|_| io::Error::other("cache lock poisoned"))?;
-        cache.store(
+        state.policy.store_route(
             &state.config,
             entry.current_target,
             entry.route.group_index,

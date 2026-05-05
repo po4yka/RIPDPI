@@ -20,10 +20,13 @@ KNOWN VIOLATION: :core:diagnostics depending on :core:service is a layer violati
 
 ### Rust Crate Hierarchy (inner must not depend on outer)
 
-Foundation:    ripdpi-packets, ripdpi-config, ripdpi-proxy-config, ripdpi-session, ripdpi-ipfrag, ripdpi-tls-profiles, ripdpi-native-protect, ripdpi-relay-mux, android-support
-Protocol:      ripdpi-desync, ripdpi-dns-resolver, ripdpi-vless, ripdpi-shadowtls, ripdpi-masque, ripdpi-tuic, ripdpi-hysteria2, ripdpi-naiveproxy, ripdpi-xhttp, ripdpi-cloudflare-origin, ripdpi-ws-tunnel, ripdpi-warp-core
-Orchestration: ripdpi-runtime, ripdpi-relay-core, ripdpi-tunnel-core, ripdpi-monitor, ripdpi-telemetry, ripdpi-failure-classifier, ripdpi-io-uring, ripdpi-tun-driver
-Platform/JNI:  ripdpi-android, ripdpi-tunnel-android, ripdpi-relay-android, ripdpi-warp-android, ripdpi-root-helper, ripdpi-cli
+Foundation:     ripdpi-packets, ripdpi-config, ripdpi-proxy-config, ripdpi-session, ripdpi-ipfrag, ripdpi-tls-profiles, ripdpi-native-protect, ripdpi-relay-mux, ripdpi-failure-classifier, android-support
+Protocol:       ripdpi-desync, ripdpi-desync-runtime, ripdpi-dns-resolver, ripdpi-vless, ripdpi-shadowtls, ripdpi-masque, ripdpi-tuic, ripdpi-hysteria2, ripdpi-naiveproxy, ripdpi-xhttp, ripdpi-cloudflare-origin, ripdpi-ws-tunnel, ripdpi-ws-bootstrap, ripdpi-warp-core
+Runtime-ports:  ripdpi-runtime-api (port traits: BackgroundProbes, telemetry sinks), ripdpi-runtime-policy (PolicyPort trait + RuntimePolicy impl), ripdpi-runtime-adaptive (AdaptivePort trait + concrete resolvers), ripdpi-runtime-strategy, ripdpi-runtime-dns-cache, ripdpi-runtime-platform (capability traits)
+Runtime-wiring: ripdpi-runtime-services (wires concrete resolvers to port traits; ONLY binary/entry crates may depend on this)
+Execution:      ripdpi-proxy-runtime (MUST NOT depend on runtime-* other than runtime-api and runtime-platform; fan-out MUST be <= 9)
+Orchestration:  ripdpi-relay-core, ripdpi-tunnel-core, ripdpi-tunnel-config, ripdpi-monitor-engine, ripdpi-monitor-proxy-runtime, ripdpi-telemetry, ripdpi-io-uring, ripdpi-tun-driver
+Platform/JNI:   ripdpi-android, ripdpi-android-proxy-adapter, ripdpi-android-telemetry-adapter, ripdpi-android-diagnostics-adapter, ripdpi-android-fetch-adapter, ripdpi-android-platform-adapter, ripdpi-android-vpn-protect-adapter, ripdpi-android-bridge-support, ripdpi-tunnel-android, ripdpi-relay-android, ripdpi-warp-android, ripdpi-root-helper, ripdpi-cli, ripdpi-bench
 
 ## Workflow
 
@@ -34,8 +37,23 @@ Platform/JNI:  ripdpi-android, ripdpi-tunnel-android, ripdpi-relay-android, ripd
 3. Layer violation check: For each edge, verify dependency direction respects the hierarchy. Flag any edge pointing from a lower layer to a higher layer.
 4. Circular dependency check: Detect cycles using DFS. Report any cycle with full path.
 5. Coupling metrics: For each module/crate compute fan-out and fan-in. Flag modules with fan-out > 5 (Kotlin) or > 8 (Rust). Flag modules with fan-in > 10.
-6. JNI boundary containment: Verify System.loadLibrary, external fun, and @JvmStatic external only appear in :core:engine and :app.
+6. proxy-runtime isolation check:
+   Structural check (MUST pass): grep -rn 'RuntimePolicy\|AdaptivePlannerResolver\|AdaptiveFakeTtlResolver\|RetryPacer\|StrategyEvolutionResolver\|DirectPathLearningState\|DnsHostnameCache' native/rust/crates/ripdpi-proxy-runtime/src/ | grep -v '#\[cfg(test)\]\|//\|_policy:'
+   Any output is a VIOLATION.
+   Dep graph check (MUST pass): cd native/rust && cargo tree -p ripdpi-proxy-runtime --depth 1 --edges normal --prefix none | grep '^ripdpi-' | sort -u
+   FAIL if any of these appear: ripdpi-runtime-strategy, ripdpi-runtime-dns-cache, ripdpi-runtime-learning.
+   NOTE: ripdpi-runtime-policy, ripdpi-runtime-adaptive, ripdpi-runtime-services are currently allowed (port traits not yet in runtime-api — see Known Limitations).
+   Fan-out check (target <= 9, current ~14 — tracked tech debt): cargo tree -p ripdpi-proxy-runtime --depth 1 --edges normal | grep -c '^[├└]── ripdpi-'
+7. runtime-wiring containment check: Run: cd native/rust && cargo tree --workspace --edges normal --prefix none | grep 'ripdpi-runtime-services' | sort -u
+   Allowed dependents: ripdpi-cli, ripdpi-bench, ripdpi-android-proxy-adapter, ripdpi-monitor-proxy-runtime, and other ripdpi-android-* adapter crates. Any appearance as a transitive dep of ripdpi-proxy-runtime is a violation.
+8. JNI boundary containment: Verify System.loadLibrary, external fun, and @JvmStatic external only appear in :core:engine and :app.
    Run: rg 'System.loadLibrary|external fun|@JvmStatic external' --type kotlin -l
+
+## Known Limitations (Rust — tracked tech debt)
+
+- Port traits in wrong layer: PolicyPort lives in ripdpi-runtime-policy and AdaptivePort lives in ripdpi-runtime-adaptive instead of ripdpi-runtime-api. Those two deps on proxy-runtime are allowed until port traits are migrated to runtime-api.
+- ServicesState construction in proxy-runtime: RuntimeState::new() constructs ServicesState/ServicesStateHandle internally, requiring ripdpi-runtime-services as a direct dep. Fix: move construction to binary entry crates and inject via EmbeddedProxyControl::runtime_services().
+- Fan-out target: proxy-runtime fan-out is ~14 ripdpi-* direct deps. Target is <= 9, achievable after port trait migration to runtime-api.
 
 ## Response Protocol
 

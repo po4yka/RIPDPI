@@ -3153,8 +3153,9 @@ dependencies = [
  "ripdpi-config",
  "ripdpi-proxy-config",
  "ripdpi-proxy-runtime",
+ "ripdpi-runtime-adaptive",
  "ripdpi-runtime-api",
- "ripdpi-runtime-learning",
+ "ripdpi-runtime-strategy",
  "serde_json",
 ]
 
@@ -3667,10 +3668,9 @@ dependencies = [
  "ripdpi-proxy-config",
  "ripdpi-runtime-adaptive",
  "ripdpi-runtime-api",
- "ripdpi-runtime-dns-cache",
- "ripdpi-runtime-learning",
  "ripdpi-runtime-platform",
  "ripdpi-runtime-policy",
+ "ripdpi-runtime-services",
  "ripdpi-session",
  "ripdpi-ws-bootstrap",
  "rustls",
@@ -3783,16 +3783,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-runtime-learning"
-version = "0.1.0"
-dependencies = [
- "ripdpi-runtime-adaptive",
- "ripdpi-runtime-dns-cache",
- "ripdpi-runtime-policy",
- "ripdpi-runtime-strategy",
-]
-
-[[package]]
 name = "ripdpi-runtime-platform"
 version = "0.1.0"
 dependencies = [
@@ -3825,6 +3815,21 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
+ "tracing",
+]
+
+[[package]]
+name = "ripdpi-runtime-services"
+version = "0.1.0"
+dependencies = [
+ "arc-swap",
+ "ripdpi-config",
+ "ripdpi-desync",
+ "ripdpi-failure-classifier",
+ "ripdpi-proxy-config",
+ "ripdpi-runtime-adaptive",
+ "ripdpi-runtime-api",
+ "ripdpi-runtime-policy",
  "tracing",
 ]
 

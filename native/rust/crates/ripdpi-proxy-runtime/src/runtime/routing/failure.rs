@@ -7,7 +7,7 @@ use ripdpi_runtime_policy::runtime_policy::{
 };
 use ripdpi_ws_bootstrap::encrypted_dns_ip_answers_for_host;
 
-use super::super::state::{flush_autolearn_updates, RuntimeState};
+use super::super::state::RuntimeState;
 
 mod advance;
 mod cache;
@@ -54,10 +54,13 @@ pub(in crate::runtime) fn note_block_signal_for_failure(
         .as_ref()
         .and_then(|control| control.current_network_snapshot())
         .is_none_or(|snapshot| snapshot.validated && !snapshot.captive_portal);
-    if let Ok(mut cache) = state.cache.write() {
-        cache.note_block_signal(&state.config, host, signal.signal, signal.provider.as_deref(), confirmation_allowed);
-        flush_autolearn_updates(state, &mut cache);
-    }
+    state.policy.note_block_signal(
+        &state.config,
+        host,
+        signal.signal,
+        signal.provider.as_deref(),
+        confirmation_allowed,
+    );
 }
 
 pub(in crate::runtime) fn classify_response_failure(

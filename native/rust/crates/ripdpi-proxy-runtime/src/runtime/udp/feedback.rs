@@ -12,7 +12,7 @@ use crate::runtime::retry::{
     build_retry_selection_penalties, maybe_emit_candidate_diversification, note_retry_failure, note_retry_success,
 };
 use crate::runtime::routing::{note_block_signal_for_failure, note_route_success_for_transport};
-use crate::runtime::state::{flush_autolearn_updates, RuntimeState};
+use crate::runtime::state::RuntimeState;
 
 pub(super) fn note_udp_first_response_success(
     state: &RuntimeState,
@@ -57,7 +57,7 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
         note_block_signal_for_failure(state, entry.host.as_deref(), &failure, None);
     }
     let failed_target = entry.current_target;
-    let _ = note_retry_failure(
+    note_retry_failure(
         state,
         failed_target,
         entry.route.group_index,
@@ -75,25 +75,20 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
         Some(entry.payload.as_slice()),
         TransportProtocol::Udp,
     )?;
-    let next = {
-        let mut cache = state.cache.write().map_err(|_| io::Error::other("cache lock poisoned"))?;
-        let next = cache.advance_route(
-            &state.config,
-            &entry.route,
-            RouteAdvance {
-                dest: failed_target,
-                payload: Some(entry.payload.as_slice()),
-                transport: TransportProtocol::Udp,
-                trigger: DETECT_CONNECT,
-                can_reconnect: true,
-                host: entry.host.clone(),
-                penalize_strategy_failure: false,
-                retry_penalties: Some(&retry_penalties),
-            },
-        )?;
-        flush_autolearn_updates(state, &mut cache);
-        next
-    };
+    let next = state.policy.advance_route(
+        &state.config,
+        &entry.route,
+        RouteAdvance {
+            dest: failed_target,
+            payload: Some(entry.payload.as_slice()),
+            transport: TransportProtocol::Udp,
+            trigger: DETECT_CONNECT,
+            can_reconnect: true,
+            host: entry.host.clone(),
+            penalize_strategy_failure: false,
+            retry_penalties: Some(&retry_penalties),
+        },
+    )?;
     if let Some(next_route) = next.as_ref() {
         maybe_emit_candidate_diversification(state, failed_target, next_route, &retry_penalties);
     }

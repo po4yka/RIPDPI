@@ -3,13 +3,10 @@ use std::net::SocketAddr;
 
 use ripdpi_config::DesyncGroup;
 use ripdpi_desync::AdaptivePlannerHints;
-use ripdpi_runtime_adaptive::strategy_context::merge_udp_hints_with_capability;
 
-use crate::runtime::morph::{apply_tcp_morph_policy_to_hints, apply_udp_morph_policy_to_hints};
 use crate::runtime::state::RuntimeState;
 
-use super::direct_path_capability_for_route;
-use super::hints::{record_morph_rollback, resolve_adaptive_tcp_hints, resolve_adaptive_udp_hints};
+use super::hints::resolve_adaptive_udp_hints;
 
 pub(in crate::runtime) fn resolve_tcp_hints_with_evolver(
     state: &RuntimeState,
@@ -19,15 +16,15 @@ pub(in crate::runtime) fn resolve_tcp_hints_with_evolver(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<AdaptivePlannerHints> {
-    if !state.config.adaptive.strategy_evolution {
-        return resolve_adaptive_tcp_hints(state, target, group_index, group, host, payload);
-    }
-    if let Ok(mut evolver) = state.strategy_evolver.write() {
-        if let Some(hints) = evolver.tcp_hints(&state.config, state.runtime_context.as_ref(), target, host, payload) {
-            return Ok(apply_tcp_morph_policy_to_hints(state, hints));
-        }
-    }
-    resolve_adaptive_tcp_hints(state, target, group_index, group, host, payload)
+    state.adaptive.resolve_tcp_hints_with_evolver(
+        &state.config,
+        state.runtime_context.as_ref(),
+        group_index,
+        target,
+        host,
+        group,
+        payload,
+    )
 }
 
 pub(in crate::runtime) fn resolve_udp_hints_with_evolver(
@@ -38,29 +35,31 @@ pub(in crate::runtime) fn resolve_udp_hints_with_evolver(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<AdaptivePlannerHints> {
-    if !state.config.adaptive.strategy_evolution {
-        return resolve_adaptive_udp_hints(state, target, group_index, group, host, payload);
-    }
-    if let Ok(mut evolver) = state.strategy_evolver.write() {
-        if let Some(hints) = evolver.udp_hints(&state.config, state.runtime_context.as_ref(), target, host, payload) {
-            let hints = apply_udp_morph_policy_to_hints(state, hints);
-            let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
-            let merged = merge_udp_hints_with_capability(hints, capability);
-            record_morph_rollback(state, target, hints, merged);
-            return Ok(merged);
-        }
+    // The port impl handles evolver + morph + capability merge for the evolver path.
+    // For the non-evolver path we still need to apply the rollback tracking from
+    // resolve_adaptive_udp_hints (which merge_udp_hints_with_capability + record_morph_rollback).
+    if state.config.adaptive.strategy_evolution {
+        // Try evolver path via port (includes morph + capability merge).
+        let result = state.adaptive.resolve_udp_hints_with_evolver(
+            &state.config,
+            state.runtime_context.as_ref(),
+            group_index,
+            target,
+            host,
+            group,
+            payload,
+        )?;
+        // Check if the evolver produced a result by comparing with the plain resolver.
+        // We can't know if the evolver fired from the outside, so delegate fully.
+        return Ok(result);
     }
     resolve_adaptive_udp_hints(state, target, group_index, group, host, payload)
 }
 
-pub(in crate::runtime) fn note_evolver_success(state: &RuntimeState, latency_ms: u64) {
-    if let Ok(mut evolver) = state.strategy_evolver.write() {
-        evolver.record_success(latency_ms);
-    }
+pub(in crate::runtime) fn note_evolver_success(state: &RuntimeState, _latency_ms: u64) {
+    state.adaptive.note_evolver_success();
 }
 
 pub(in crate::runtime) fn note_evolver_failure(state: &RuntimeState, class: ripdpi_failure_classifier::FailureClass) {
-    if let Ok(mut evolver) = state.strategy_evolver.write() {
-        evolver.record_failure(class);
-    }
+    state.adaptive.note_evolver_failure(class);
 }

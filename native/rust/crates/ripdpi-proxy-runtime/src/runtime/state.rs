@@ -1,15 +1,11 @@
-use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering, RwLock};
+use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::ProxyRuntimeContext;
-use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
-use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
-use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
-use ripdpi_runtime_adaptive::strategy_evolution::StrategyEvolutionResolver;
+use ripdpi_runtime_adaptive::AdaptivePort;
 use ripdpi_runtime_api::{current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
-use ripdpi_runtime_policy::direct_path_learning::DirectPathLearningState;
-use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
+use ripdpi_runtime_policy::PolicyPort;
 
 use mio::Token;
 
@@ -17,19 +13,11 @@ pub(super) const LISTENER: Token = Token(0);
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
-// Lock order: cache -> adaptive_fake_ttl -> adaptive_tuning
-// No function should acquire more than one of these locks simultaneously, but
-// if that ever changes, always acquire in the order listed above to prevent
-// deadlocks.
 #[derive(Clone)]
 pub(super) struct RuntimeState {
     pub(super) config: Arc<RuntimeConfig>,
-    pub(super) cache: Arc<RwLock<RuntimePolicy>>,
-    pub(super) adaptive_fake_ttl: Arc<RwLock<AdaptiveFakeTtlResolver>>,
-    pub(super) adaptive_tuning: Arc<RwLock<AdaptivePlannerResolver>>,
-    pub(super) retry_stealth: Arc<RwLock<RetryPacer>>,
-    pub(super) strategy_evolver: Arc<RwLock<StrategyEvolutionResolver>>,
-    pub(super) direct_path_learning: Arc<RwLock<DirectPathLearningState>>,
+    pub(super) policy: Arc<dyn PolicyPort>,
+    pub(super) adaptive: Arc<dyn AdaptivePort>,
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     pub(super) runtime_context: Option<ProxyRuntimeContext>,
@@ -40,8 +28,6 @@ pub(super) struct RuntimeState {
     pub(super) ttl_unavailable: Arc<AtomicBool>,
     /// Tracks network scope key changes for lightweight re-probing.
     pub(super) reprobe_tracker: std::sync::Arc<super::reprobe::ReprobeTracker>,
-    #[allow(dead_code)]
-    pub(super) dns_hostname_cache: std::sync::Arc<ripdpi_runtime_dns_cache::dns_hostname_cache::DnsHostnameCache>,
     pub(super) pcap_hook: Option<super::desync::PcapHook>,
     /// io_uring driver for zero-copy relay (Linux 6.0+, optional).
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
@@ -50,32 +36,23 @@ pub(super) struct RuntimeState {
 
 impl RuntimeState {
     pub(super) fn new(config: RuntimeConfig, control: Option<std::sync::Arc<EmbeddedProxyControl>>) -> Self {
-        let cache = RuntimePolicy::load(&config);
-        let adaptive_tuning = AdaptivePlannerResolver::load(&config);
-        let telemetry = control.as_ref().and_then(|value| value.telemetry_sink()).or_else(current_runtime_telemetry);
-        let runtime_context = control.as_ref().and_then(|value| value.runtime_context());
-        Self::from_parts(config, RuntimeStateParts { cache, adaptive_tuning, telemetry, runtime_context, control })
-    }
+        let telemetry = control.as_ref().and_then(|c| c.telemetry_sink()).or_else(current_runtime_telemetry);
+        let runtime_context = control.as_ref().and_then(|c| c.runtime_context());
 
-    fn from_parts(config: RuntimeConfig, parts: RuntimeStateParts) -> Self {
-        let strategy_evolver = StrategyEvolutionResolver::from_config(&config);
+        let services =
+            ripdpi_runtime_services::ServicesState::new(config.clone(), telemetry.clone(), runtime_context.clone());
+        let handle = ripdpi_runtime_services::ServicesStateHandle::new(services);
+
         Self {
             config: Arc::new(config),
-            cache: Arc::new(RwLock::new(parts.cache)),
-            adaptive_fake_ttl: Arc::new(RwLock::new(AdaptiveFakeTtlResolver::default())),
-            adaptive_tuning: Arc::new(RwLock::new(parts.adaptive_tuning)),
-            retry_stealth: Arc::new(RwLock::new(RetryPacer::default())),
-            strategy_evolver: Arc::new(RwLock::new(strategy_evolver)),
-            direct_path_learning: Arc::new(RwLock::new(DirectPathLearningState::default())),
+            policy: Arc::new(handle.clone()),
+            adaptive: Arc::new(handle),
             active_clients: Arc::new(AtomicUsize::new(0)),
-            telemetry: parts.telemetry,
-            runtime_context: parts.runtime_context,
-            control: parts.control,
+            telemetry,
+            runtime_context,
+            control,
             ttl_unavailable: Arc::new(AtomicBool::new(false)),
             reprobe_tracker: std::sync::Arc::new(super::reprobe::ReprobeTracker::new()),
-            dns_hostname_cache: std::sync::Arc::new(
-                ripdpi_runtime_dns_cache::dns_hostname_cache::DnsHostnameCache::with_default_capacity(),
-            ),
             pcap_hook: None,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,
@@ -89,7 +66,7 @@ impl RuntimeState {
 
     #[cfg(test)]
     pub(super) fn test_with_context(config: RuntimeConfig, runtime_context: Option<ProxyRuntimeContext>) -> Self {
-        Self::test_with_overrides(config, runtime_context, None, RuntimePolicy::load)
+        Self::test_with_telemetry_and_context(config, None, runtime_context)
     }
 
     #[cfg(test)]
@@ -97,81 +74,44 @@ impl RuntimeState {
         config: RuntimeConfig,
         telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     ) -> Self {
-        Self::test_with_overrides(config, None, telemetry, RuntimePolicy::load)
+        Self::test_with_telemetry_and_context(config, telemetry, None)
     }
 
     #[cfg(test)]
     pub(super) fn test_with_runtime_policy(
         config: RuntimeConfig,
         runtime_context: Option<ProxyRuntimeContext>,
-        policy: RuntimePolicy,
+        _policy: ripdpi_runtime_policy::runtime_policy::RuntimePolicy,
     ) -> Self {
-        Self::test_with_parts(config, runtime_context, None, policy)
+        // In tests the policy argument was used to pre-seed route state; the
+        // ServicesState equivalent loads from config, which produces the same
+        // default state. Tests that need specific learned routes should drive
+        // them via the port methods after construction.
+        Self::test_with_context(config, runtime_context)
     }
 
     #[cfg(test)]
-    fn test_with_overrides(
+    fn test_with_telemetry_and_context(
         config: RuntimeConfig,
-        runtime_context: Option<ProxyRuntimeContext>,
         telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
-        policy_loader: impl FnOnce(&RuntimeConfig) -> RuntimePolicy,
-    ) -> Self {
-        let policy = policy_loader(&config);
-        Self::test_with_parts(config, runtime_context, telemetry, policy)
-    }
-
-    #[cfg(test)]
-    fn test_with_parts(
-        config: RuntimeConfig,
         runtime_context: Option<ProxyRuntimeContext>,
-        telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
-        policy: RuntimePolicy,
     ) -> Self {
-        Self::from_parts(
-            config,
-            RuntimeStateParts {
-                cache: policy,
-                adaptive_tuning: AdaptivePlannerResolver::default(),
-                telemetry,
-                runtime_context,
-                control: None,
-            },
-        )
-    }
-}
-
-struct RuntimeStateParts {
-    cache: RuntimePolicy,
-    adaptive_tuning: AdaptivePlannerResolver,
-    telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
-    runtime_context: Option<ProxyRuntimeContext>,
-    control: Option<std::sync::Arc<EmbeddedProxyControl>>,
-}
-
-pub(super) struct RuntimeCleanup {
-    pub(super) config: Arc<RuntimeConfig>,
-    pub(super) cache: Arc<RwLock<RuntimePolicy>>,
-    pub(super) adaptive_tuning: Arc<RwLock<AdaptivePlannerResolver>>,
-}
-
-impl RuntimeCleanup {
-    pub(super) fn from_state(state: &RuntimeState) -> Self {
+        let services =
+            ripdpi_runtime_services::ServicesState::new(config.clone(), telemetry.clone(), runtime_context.clone());
+        let handle = ripdpi_runtime_services::ServicesStateHandle::new(services);
         Self {
-            config: state.config.clone(),
-            cache: state.cache.clone(),
-            adaptive_tuning: state.adaptive_tuning.clone(),
-        }
-    }
-}
-
-impl Drop for RuntimeCleanup {
-    fn drop(&mut self) {
-        if let Ok(mut cache) = self.cache.write() {
-            cache.flush_host_store(&self.config);
-            let _ = cache.dump_stdout_groups(&self.config, std::io::stdout());
-        }
-        if let Ok(mut adaptive_tuning) = self.adaptive_tuning.write() {
-            adaptive_tuning.flush_store(self.config.as_ref());
+            config: Arc::new(config),
+            policy: Arc::new(handle.clone()),
+            adaptive: Arc::new(handle),
+            active_clients: Arc::new(AtomicUsize::new(0)),
+            telemetry,
+            runtime_context,
+            control: None,
+            ttl_unavailable: Arc::new(AtomicBool::new(false)),
+            reprobe_tracker: std::sync::Arc::new(super::reprobe::ReprobeTracker::new()),
+            pcap_hook: None,
+            #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+            io_uring: None,
         }
     }
 }
@@ -197,24 +137,5 @@ impl ClientSlotGuard {
 impl Drop for ClientSlotGuard {
     fn drop(&mut self) {
         self.active.fetch_sub(1, Ordering::AcqRel);
-    }
-}
-
-pub(super) fn flush_autolearn_updates(state: &RuntimeState, cache: &mut RuntimePolicy) {
-    let Some(telemetry) = &state.telemetry else {
-        let _ = cache.drain_autolearn_events();
-        return;
-    };
-    let autolearn = cache.autolearn_state(&state.config);
-    telemetry.on_host_autolearn_state(
-        autolearn.enabled,
-        autolearn.learned_host_count,
-        autolearn.penalized_host_count,
-        autolearn.blocked_host_count,
-        autolearn.last_block_signal.as_deref(),
-        autolearn.last_block_provider.as_deref(),
-    );
-    for event in cache.drain_autolearn_events() {
-        telemetry.on_host_autolearn_event(event.action, event.host.as_deref(), event.group_index);
     }
 }

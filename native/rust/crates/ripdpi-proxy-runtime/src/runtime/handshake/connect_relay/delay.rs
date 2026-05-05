@@ -51,8 +51,8 @@ pub(super) fn maybe_delay_connect(
     let route = if delayed_route_matches(&state.config, route.group_index, target, &payload, host.as_deref()) {
         route
     } else {
-        let cache = state.cache.read().map_err(|_| io::Error::other("cache lock poisoned"))?;
-        cache
+        state
+            .policy
             .select_next(
                 &state.config,
                 &route,

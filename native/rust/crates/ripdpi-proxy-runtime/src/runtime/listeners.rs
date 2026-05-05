@@ -12,7 +12,7 @@ use ripdpi_runtime_platform as platform;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use self::accept_loop::run_accept_loop;
-use super::state::{flush_autolearn_updates, RuntimeCleanup, RuntimeState};
+use super::state::RuntimeState;
 
 pub(super) fn build_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
     let listen_addr = SocketAddr::new(config.network.listen.listen_ip, config.network.listen.listen_port);
@@ -39,13 +39,15 @@ pub(super) fn run_proxy_with_listener_internal(
         config.network.default_ttl = platform::detect_default_ttl()?;
     }
     let state = RuntimeState::new(config, control.clone());
-    let _cleanup = RuntimeCleanup::from_state(&state);
     let listener_addr = listener.local_addr()?;
     if let Some(telemetry) = &state.telemetry {
         telemetry.on_listener_started(listener_addr, state.config.network.max_open as usize, state.config.groups.len());
     }
-    if let Ok(mut cache) = state.cache.write() {
-        flush_autolearn_updates(&state, &mut cache);
+    // Drain any autolearn events accumulated during policy load so that
+    // telemetry reflects the initial state before any connections arrive.
+    // The policy port's ServicesState::drop handles persistence on shutdown.
+    {
+        let _ = state.policy.drain_autolearn_events();
     }
 
     super::warmup::spawn_warmup_thread(state.clone());
