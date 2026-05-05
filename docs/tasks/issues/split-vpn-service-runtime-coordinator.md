@@ -5,7 +5,7 @@ status: backlog
 area: service
 priority: high
 owner: unassigned
-parent: null
+parent: epic-srp-and-architecture-refactoring
 blocks: []
 blocked_by: []
 created: 2026-05-05
