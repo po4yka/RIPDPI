@@ -77,3 +77,6 @@ detekt-baseline.xml
 # Obsidian volatile state
 .obsidian/workspace.json
 .obsidian/workspace-mobile.json
+.obsidian/app.json
+.obsidian/appearance.json
+.obsidian/core-plugins.json
