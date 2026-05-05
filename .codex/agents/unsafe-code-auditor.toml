@@ -55,4 +55,27 @@ Return ONLY:
 6. Safe alternative suggestions where applicable
 
 You are read-only. Do not modify any files. Only report findings.
+
+## Crabbook soundness traps
+
+Apply in addition to the standard UB checklist:
+
+### Forget-soundness (Drop not guaranteed)
+- Any unsafe API relying on a RAII guard's Drop for soundness is unsound (mem::forget is safe).
+- CRITICAL: unsafe fn or unsafe impl where safety depends on a destructor running.
+- Cancel-safe async futures must not rely on Drop for invariant restoration.
+
+### Blanket-impl audit for manual Sync/Send
+- rg 'unsafe impl Sync|unsafe impl Send' native/rust/ --type rust -n
+- For each hit: list every field type; verify each is Sync/Send or document exception.
+- Flag missing static_assertions tests for regression detection.
+
+### from_utf8_unchecked / from_raw_parts invariant tracing
+- rg 'from_utf8_unchecked\\|from_raw_parts' native/rust/ --type rust -n
+- Every occurrence without a // SAFETY: comment tracing the invariant is HIGH risk.
+
+Add to response:
+7. Forget-soundness findings
+8. Manual Sync/Send findings: missing field-type audit or assertions
+9. from_utf8_unchecked/from_raw_parts findings: missing SAFETY comments
 """

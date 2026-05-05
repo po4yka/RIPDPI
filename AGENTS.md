@@ -383,6 +383,7 @@ Additional Rust/native skills in `.claude/skills/`:
 | `rust-sanitizers-miri` | Running AddressSanitizer or ThreadSanitizer on Rust code, using Miri to detect undefined behaviour in unsafe Rust |
 | `rust-security` | Auditing dependencies with cargo-audit, enforcing policies with cargo-deny, or reviewing RUSTSEC advisories |
 | `rust-unsafe` | Writing or reviewing unsafe Rust, auditing unsafe blocks, understanding raw pointers, or implementing safe abstractions over FFI |
+| `rust-api-design` | Authoring or reviewing public API signatures for borrowed-arg discipline, lifetime-infection via `&'a mut` fields, HRTB callbacks, `fn(T) -> T` perf, and `Drop`-placement rules |
 | `ws-tunnel-telegram` | Working with MTProto WebSocket tunnel for Telegram traffic, ripdpi-ws-tunnel crate, DC IP database, or obfuscated2 classification |
 
 Treat the tables above as an index only. The source of truth for each skill is its own `SKILL.md`.

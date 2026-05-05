@@ -180,6 +180,28 @@ fn test_jni_integration() {
     --target x86_64-unknown-linux-gnu
 ```
 
+## Aliasing assumptions transit via `Box`
+
+**Severity: WARNING when mixing `Box<T>` with raw pointer FFI**
+
+`Box<T>` carries `Unique<T>` semantics: the compiler assumes that the data inside is exclusively owned by the `Box` and that no other pointer aliases it (the `noalias` LLVM attribute). If you extract a `*mut T` from a `Box`, pass it to FFI, and the FFI code stores it alongside the live `Box`, you have aliasing — `Box` and the raw pointer both claim unique access.
+
+Concrete failure mode:
+```rust
+let mut boxed = Box::new(MyStruct::new());
+let raw: *mut MyStruct = &mut *boxed as *mut _;
+unsafe { ffi_register(raw); }   // FFI stores `raw`
+boxed.field = 42;               // Box load — LLVM may reorder past FFI store
+// `raw` and `boxed` now alias — Tree Borrows flags this
+```
+
+Correct patterns:
+- Use `Box::into_raw` to transfer ownership to FFI; never use the `Box` again.
+- If FFI must borrow a pointer from Rust, go through `Pin<Box<T>>` so Rust knows the address is stable and does not optimize based on `noalias`.
+- Run `MIRIFLAGS="-Zmiri-tree-borrows"` to catch this — Tree Borrows (PLDI 2025) is more precise than Stacked Borrows and surfaces this aliasing violation earlier.
+
+Reference: `crabbook/raii_and_memory_safety.md` (footnote on Box/noalias interaction)
+
 ## Related skills
 
 - `rust-debugging` -- GDB/LLDB debugging of Rust panics

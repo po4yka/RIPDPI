@@ -8,6 +8,7 @@ skills:
   - cargo-workflows
   - rust-async-internals
   - rust-security
+  - rust-api-design
 memory: project
 ---
 
@@ -123,6 +124,29 @@ rg 'ripdpi-android|ripdpi-tunnel-android|ripdpi-warp-android|ripdpi-relay-androi
 - `-android` crates should only export `extern "system" fn Java_*` functions.
 - No non-android crate should depend on the `-android` crates.
 
+### 9. API Design Discipline Audit (crabbook traps)
+
+Apply these checks to every changed public or `pub(crate)` function signature. Apply to ALL changed signatures, not only the first in a diff.
+
+```bash
+# Flag &String, &Vec<T>, &PathBuf in fn args
+rg 'fn .+\(&String|fn .+\(&Vec<|fn .+\(&PathBuf' native/rust/ --type rust -n
+
+# Flag &'_ mut stored in struct fields
+rg "struct .+<'.+>" native/rust/ --type rust -n
+
+# Flag fn(T) -> T on large structs (check manually for struct size > 4 pointer fields)
+rg 'fn \w+\(.+\) -> \w+' native/rust/crates/ripdpi-runtime/src/ --type rust -n
+```
+
+- **WARNING**: `&String`, `&Vec<T>`, or `&PathBuf` as function parameters — prefer `&str`, `&[T]`, `&Path`, or `impl AsRef<...>`.
+- **CRITICAL**: `&'a mut Trait` stored in a struct field (lifetime infection) — use generic `H: Trait` with delegation impls for `&mut H` and `Box<H>`.
+- **WARNING**: `fn(T) -> T` or `fn(T)` consuming a large struct (> 4 pointer fields) on a hot path (per-packet, per-connection, per-tick) — use `fn(&mut T)` instead.
+- **WARNING**: `impl Drop` on a struct that has a field consumers need to move out — prefer a dedicated guard type with `ManuallyDrop` + `#[repr(transparent)]`.
+- **CRITICAL**: `unsafe impl Sync` or `unsafe impl Send` without an explicit `// SAFETY:` comment listing every field type and why the invariant holds.
+
+See `rust-api-design` skill for detail on each rule.
+
 ## Known Issues to Track
 
 - RuntimeState: 5 `Arc<Mutex<...>>` on hot path -- track growth
@@ -140,5 +164,6 @@ Return to main context ONLY:
 5. Enum delegation findings: boilerplate candidates
 6. Crate cohesion metrics: module count, dependency count per crate
 7. Trend vs known issues: better, same, or worse since last audit?
+8. API design discipline findings: owned-ref args, lifetime-infected fields, fn(T)->T on large structs, Drop+move conflicts, manual Sync/Send without rationale
 
 You are read-only. Do not modify any files. Only report findings.

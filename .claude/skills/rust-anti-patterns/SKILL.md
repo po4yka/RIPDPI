@@ -87,6 +87,66 @@ Each section lists the pattern to avoid and the corrective action. Where a neigh
 - `#[allow(clippy::pedantic_*)]` is acceptable at the module or block level with a one-line justification; crate-wide pedantic allows are not.
 - See also: `rust-security`, `cargo-workflows`.
 
+## `Drop` blocks partial moves
+
+**Severity: WARNING**
+
+When a struct implements `Drop`, Rust forbids moving any field out of it — even in `Drop::drop` itself. This is a common surprise when you want to, say, consume a `Vec<T>` field after signalling completion.
+
+```rust
+// BAD: impl Drop prevents moving out of `data`
+struct Sink {
+    data: Vec<u8>,
+}
+impl Drop for Sink {
+    fn drop(&mut self) {
+        let owned = std::mem::take(&mut self.data); // forced to use take()
+    }
+}
+
+// GOOD: use a dedicated guard type; `data` stays moveable
+#[repr(transparent)]
+struct SinkGuard(std::mem::ManuallyDrop<Vec<u8>>);
+impl Drop for SinkGuard {
+    fn drop(&mut self) {
+        // SAFETY: only dropped once here
+        let owned = unsafe { std::mem::ManuallyDrop::take(&mut self.0) };
+        flush(owned);
+    }
+}
+```
+
+Rule: before adding `impl Drop` to a struct, check whether downstream code (or the struct's own `Drop::drop`) needs to consume a field. If yes, use a dedicated guard type with `ManuallyDrop` + `#[repr(transparent)]` on the guard instead.
+
+Reference: `crabbook/you_dont_want_drop.md`
+
+## Value-passing performance trap
+
+**Severity: WARNING on hot paths**
+
+`fn(T) -> T` for a large struct (> 4 pointer-sized fields) forces a `memcpy` per call — rustc cannot optimize it back to `&mut T` mutation because panic semantics require the original to remain valid until the function returns. On hot paths this silently doubles allocation traffic.
+
+```rust
+// BAD for large structs on hot path: forces memcpy in/out
+fn transform(mut state: BigState) -> BigState {
+    state.counter += 1;
+    state
+}
+
+// GOOD for hot paths: in-place mutation
+fn transform(state: &mut BigState) {
+    state.counter += 1;
+}
+```
+
+Use `fn(T) -> T` (value-passing) only for:
+- state-machine transitions where ownership transfer is the semantic (e.g., `Builder::set_foo(mut self) -> Self`)
+- small structs (≤ 4 pointer-sized fields)
+
+Profile with `cargo-flamegraph` or Criterion before choosing value-passing on any path that runs per-packet or per-connection.
+
+Reference: `crabbook/consume_and_borrowing.md`
+
 ## Quick review checklist
 
 When reviewing a Rust PR, walk this list top-to-bottom:
@@ -101,5 +161,7 @@ When reviewing a Rust PR, walk this list top-to-bottom:
 8. Any blocking syscall inside async without `spawn_blocking` or a dedicated thread?
 9. Any internal `unsafe fn` without a `# Safety` rustdoc section?
 10. Any new `#[allow(clippy::correctness | suspicious)]`? Any new `deny.toml` ignore without an SLA?
+11. Any `impl Drop` on a struct where a field needs to be consumed (moved out)? Prefer a dedicated guard type with `ManuallyDrop`.
+12. Any `fn(T) -> T` or `fn(T)` taking a large struct (> 4 pointer fields) on a hot path (per-packet/per-connection)?
 
 If the answer to any is yes, the change needs revision before merge.

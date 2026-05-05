@@ -200,6 +200,72 @@ Note: `tokio-console` is not practical for this project -- it requires the
 complexity to Android NDK cross-compilation. Use `tracing` spans and
 `RUST_LOG` filtering instead.
 
+## HRTB pitfalls in `Fn` callbacks
+
+**Severity: WARNING**
+
+Higher-Ranked Trait Bounds (HRTBs) — `for<'a> FnMut(&'a T) -> K` — are the correct shape for callbacks that take a reference and return something that must not outlive the reference. But several sharp edges exist:
+
+**Unexpressible with dependent output:** If `K` depends on `'a` (e.g., `K = &'a str`), this cannot be expressed without GATs today:
+```rust
+// Does NOT compile: K cannot depend on 'a without GATs
+fn register<F: for<'a> FnMut(&'a str) -> &'a str>(f: F) {}
+```
+Workaround: use `Box<dyn for<'a> Fn(&'a str) -> &'a str + 'static>` or restructure to pass owned values.
+
+**Closure inference quirk:** Closures in stable Rust default to fixed-lifetime inference, not HRTB inference. A closure `|s: &str| s` fails to implement `for<'a> Fn(&'a str) -> &'a str` in some compiler versions. Workaround: name the function explicitly or use a helper to force HRTB:
+```rust
+fn force_hrtb<F: for<'a> Fn(&'a str) -> &'a str>(f: F) -> F { f }
+let cb = force_hrtb(|s| s);
+```
+
+**Async-Fn with `+Send + 'static`:** Pre-RPITIT (before Rust 1.75), async functions in traits cannot be expressed as `F: for<'a> AsyncFn(&'a T)`. The canonical pre-1.75 workaround is `F: Fn(&T) -> Pin<Box<dyn Future<Output = R> + Send + '_>>`. Post-1.75 with `async fn in traits`, prefer `trait MyTrait { async fn call(&self, t: &T) -> R; }`.
+
+In RIPDPI: the JNI-to-async bridge passes callbacks across thread boundaries; all closures captured in `tokio::spawn` must be `'static + Send`. Avoid capturing `&T` references — convert to owned or `Arc<T>` before `spawn`.
+
+Reference: `crabbook/borrowing_in_generic_functions.md`
+
+## Async + shared state in event loops
+
+**Severity: WARNING**
+
+A captured `&mut State` inside an async block lives for the entire `Future`'s lifetime, from first poll to completion. Two concurrent `Future`s cannot share `&mut State`:
+```rust
+// DOES NOT COMPILE: two mutable borrows of `state` active at once
+let f1 = async { state.handle_packet(pkt1) };
+let f2 = async { state.handle_packet(pkt2) };
+tokio::join!(f1, f2); // error[E0499]
+```
+
+Correct approaches (in order of preference for RIPDPI):
+1. **Single-task ownership** (current io_loop design): one task owns `State`; all other tasks communicate via `mpsc` channels. No sharing needed. This is the RIPDPI canonical pattern — preserve it.
+2. **`Arc<Mutex<State>>`**: correct but serializes access. Acceptable for low-contention config state; unacceptable on the packet path.
+3. **`RefCell<State>` inside a `!Send` single-threaded runtime**: valid for current-thread runtimes. Not applicable to RIPDPI's multi-thread setup.
+
+Nightly/future options (document only, do not use in production today):
+- `Context::ext` (unstable): pass state through `Waker` context without `unsafe`.
+- Generators with `resume(arg)`: coroutine-style state handoff. Available via the `generator-light` crate on stable.
+
+Reference: `crabbook/event_loops_and_shared_state.md`
+
+## `Pin` necessity in FFI
+
+**Severity: WARNING for self-referential or FFI types**
+
+`Pin<&mut T>` is a guarantee that `T` will not be moved after being pinned. This is required for:
+- Self-referential structs (a field contains a pointer to another field of the same struct) — the default use of `Pin` in async state machines.
+- FFI types that must not be moved after construction, because C++ objects have non-trivial move constructors that Rust cannot call.
+
+In RIPDPI: `cxx`-generated bindings expose C++ types as `Pin<&mut CppType>`. This is correct — C++ may have a destructor that captures `this`, so the object address must remain stable. The same logic applies to any FFI handle allocated by C and returned by pointer: if the C API says "do not move this after init", wrap it in `Pin<Box<T>>` on the Rust side.
+
+Rules:
+- Never write a self-referential struct without `Pin` + `PhantomPinned`.
+- Never store a raw pointer to a stack variable and then move the variable.
+- `Box::pin(val)` is the easiest way to heap-pin a value in Rust.
+- After pinning, use `Pin::get_unchecked_mut` only with a `// SAFETY: we never move T after this point` comment.
+
+Reference: `crabbook/pin.md`
+
 ## Related skills
 
 - `.claude/skills/rust-debugging/` -- GDB/LLDB debugging of async Rust

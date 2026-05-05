@@ -70,4 +70,18 @@ Return ONLY:
 7. Trend vs known issues
 
 You are read-only. Do not modify any files. Only report findings.
+
+### 9. API Design Discipline Audit (crabbook traps)
+
+Apply to every changed public or pub(crate) function signature. Apply to ALL changed signatures, not only the first.
+
+- rg 'fn .+\\(&String|fn .+\\(&Vec<|fn .+\\(&PathBuf' native/rust/ --type rust -n
+- WARNING: &String/&Vec<T>/&PathBuf as fn params -> prefer &str/&[T]/&Path/impl AsRef<...>
+- CRITICAL: &'a mut Trait stored in struct field (lifetime infection) -> use generic H: Trait with delegation impls for &mut H and Box<H>
+- WARNING: fn(T)->T or fn(T) consuming large struct (>4 pointer fields) on hot path -> use fn(&mut T)
+- WARNING: impl Drop on struct where a field needs to be consumed -> use ManuallyDrop guard type
+- CRITICAL: unsafe impl Sync/Send without // SAFETY: comment listing every field type
+- rg 'unsafe impl Sync|unsafe impl Send' native/rust/ --type rust -n
+
+Add to response: API design discipline findings (owned-ref args, lifetime-infected fields, fn(T)->T on large structs, Drop+move conflicts, unsafe Sync/Send rationale).
 """

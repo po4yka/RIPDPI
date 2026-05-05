@@ -245,6 +245,65 @@ Should NOT need unsafe:
   - Anything a safe crate (nix, jni) already wraps
 ```
 
+## Soundness assumes `Drop` may never run
+
+**Severity: CRITICAL for public unsafe APIs**
+
+`mem::forget` is a safe function. `ManuallyDrop::new` is safe. Any public `unsafe` API that relies on a RAII guard running its `Drop` for soundness is unsound — a caller can `mem::forget` the guard.
+
+Concrete rule: if your `unsafe` code establishes a safety invariant via a guard's destructor (e.g., "the raw pointer in slot X is valid because the guard keeps the allocation alive"), the invariant must be stated in the `# Safety` section AND the API must be designed so forgetting the guard is either impossible or benign.
+
+The correct designs:
+- `thread::spawn` requires `'static` — no guard needed, lifetime enforces safety.
+- `thread::scope` uses a closure + `join` inside the scope before returning — the scope itself is the guard, and its address is captured by the running threads, so forgetting it is prevented by the borrow checker.
+- Async cancel-safety: futures polled inside `select!` can be dropped at any `.await`. If your future holds a guard, cancellation may drop it without `Drop` running if the task itself is `mem::forget`-ed by the executor. Design cancel-safe futures to not rely on `Drop` for correctness.
+
+Reference: `crabbook/raii_and_memory_safety.md`
+
+## One `unsafe` breaks local reasoning
+
+**Severity: CRITICAL**
+
+A single `unsafe` block anywhere in the call graph (including in dependencies) can invalidate type invariants codebase-wide. You cannot reason locally about safety just by looking at a single function.
+
+Concrete example: `flatbuffers` calls `str::from_utf8_unchecked` internally. If the buffer contains invalid UTF-8, the resulting `str` violates Rust's invariants. Calling `.chars()` on that `str` — safe code — triggers a panic or UB depending on the version. The `unsafe` is in the dep; the observable failure is in your safe code.
+
+Action items when auditing:
+1. `rg 'from_utf8_unchecked\|from_raw_parts\|String::from_raw_parts' native/rust/ --type rust -n` — every hit needs a SAFETY comment tracing back to where the invariant is established.
+2. `cargo deny check` — flag any dep with a known `unsafe`-soundness advisory.
+3. When a dep's `unsafe` may transit through your API surface, document the assumed invariant in your own `# Safety` section.
+
+Reference: `crabbook/unsafe_is_unsafe.md`
+
+## Manual `unsafe impl Sync/Send` checklist
+
+**Severity: CRITICAL**
+
+Manually implementing `Sync` or `Send` for a type is a promise to the compiler that you guarantee thread safety. Blanket impls on the inner type's fields can silently break this promise.
+
+Failure mode: you wrap `T` in a newtype and write `unsafe impl Sync for MyWrapper<T> {}`. Later, `T` gains an inner `Rc<i32>` field. `Rc` is `!Send + !Sync`, but the blanket impl on `Debug`/`Clone`/`Display` doesn't stop you from sending `MyWrapper<Rc<i32>>` across threads — the compiler accepts it, but a double-free or data race follows at runtime (SIGABRT under TSan).
+
+Checklist before writing `unsafe impl Sync for T` / `unsafe impl Send for T`:
+1. List every field type. For each, verify it is `Sync`/`Send` or document why your wrapper maintains the invariant despite the field not being so.
+2. Check every trait impl on `T` (especially blanket impls from `Debug`, `Clone`, `Display`). None of them should allow shared access to non-Sync inner state.
+3. Add a `static_assertions::assert_impl_all!` or `static_assertions::assert_not_impl_all!` test to catch regressions if inner types change.
+4. Tag the `unsafe impl` with a `// SAFETY:` comment listing the fields audited and why the invariant holds.
+
+Reference: `crabbook/send_and_sync.md`
+
+## `ManuallyDrop` + `from_raw_parts` reference fabrication (caution)
+
+**Severity: HIGH — use only as last resort**
+
+It is possible to fabricate a `&String` from a `&str` via `ManuallyDrop<String>` + `String::from_raw_parts`, exploiting the fact that `String` is layout-compatible with `(ptr, len, cap)` and its bytes overlap `str`. This technique is:
+- **Formally unsound** under Stacked Borrows: the `String` was never "owned" by the caller, so `from_raw_parts` creates a pointer with wrong provenance.
+- **Practically fragile**: any future change to `String`'s internal layout or allocator breaks it silently.
+- **Never necessary** in new code: accept `impl AsRef<str>` or `&str` instead of `&String` everywhere.
+
+The only context where this pattern may appear is legacy FFI where a C caller passes a pointer and length pair and a `&String` is required. In that case: document the full invariant, test under Miri with Tree Borrows (`MIRIFLAGS="-Zmiri-tree-borrows"`), and gate the call with `cfg(not(miri))` if Miri rejects it.
+
+Reference: `crabbook/crafting_reference_to_owned.md`
+
 ## Related skills
 
 - `rust-sanitizers-miri` -- Miri is the essential tool for testing unsafe code

@@ -98,6 +98,36 @@ Check each match against the audit-checklist protocol from `rust-panic-safety`:
 - C-ABI entry points (non-JNI): `std::panic::catch_unwind` is the only acceptable pattern; there is no Outcome equivalent.
 - A bare `extern "system" fn` body with no panic guard is a CRITICAL finding.
 
+## Crabbook soundness traps
+
+Apply these checks in addition to the standard UB checklist. Apply to every changed `unsafe` block in a diff.
+
+### Forget-soundness (Drop not guaranteed)
+
+Any `unsafe` API that relies on a RAII guard's `Drop` for soundness is unsound — `mem::forget` is safe. For every new `unsafe fn` or `unsafe impl`:
+- Check: does safety depend on a destructor running? If yes, CRITICAL finding.
+- `thread::spawn`-style APIs must use `'static` bounds, not runtime guards.
+- Async futures held in `select!` branches can be dropped at any `.await`. Cancel-safe designs must not rely on `Drop` for invariant restoration.
+
+### Blanket-impl audit for manual `Sync`/`Send`
+
+When auditing `unsafe impl Sync for T` or `unsafe impl Send for T`:
+1. List every field type of `T`. Verify each is `Sync`/`Send` or document the exception.
+2. For each blanket trait impl (`Debug`, `Clone`, `Display`) on `T`, verify it cannot expose inner non-`Sync`/non-`Send` state to shared access.
+3. Flag missing `static_assertions::assert_impl_all!` or `assert_not_impl_all!` tests.
+
+Grep: `rg 'unsafe impl Sync|unsafe impl Send' native/rust/ --type rust -n`
+
+### `from_utf8_unchecked` / `from_raw_parts` invariant tracing
+
+Every occurrence of `str::from_utf8_unchecked`, `String::from_raw_parts`, or `slice::from_raw_parts` must have a `// SAFETY:` comment tracing the UTF-8 or valid-slice invariant back to its origin.
+
+```bash
+rg 'from_utf8_unchecked\|from_raw_parts' native/rust/ --type rust -n
+```
+
+Flag any occurrence without a SAFETY comment as HIGH risk.
+
 ## Risk Scoring
 
 Rate each unsafe block:
@@ -113,5 +143,8 @@ Return to main context ONLY:
 3. Findings grouped by risk (HIGH / MEDIUM / LOW)
 4. Miri results: tests run, violations found, UB detected
 5. Safe alternative suggestions where applicable
+7. Forget-soundness findings: unsafe APIs relying on Drop for safety
+8. Manual Sync/Send findings: missing field-type audit or missing assertions
+9. from_utf8_unchecked / from_raw_parts findings: missing SAFETY comments
 
 You are read-only. Do not modify any files. Only report findings.

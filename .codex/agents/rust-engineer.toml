@@ -37,4 +37,19 @@ Return:
 - residual risk, compatibility notes, and targeted follow-up actions
 
 Do not optimize prematurely or introduce broad crate/module restructuring unless explicitly requested by the parent agent.
+
+## Common Rust traps (crabbook)
+
+Avoid these patterns in new code. Apply to every file you change, not only the first.
+
+- Accept &str/&[T]/&Path instead of &String/&Vec<T>/&PathBuf in function signatures.
+- Never store &'a mut Trait in struct fields -- use generic H: Trait and impl Trait for &mut H and Box<H>.
+- Use for<'a> Fn(&'a T) -> R (HRTB) for callbacks that must not store the reference argument.
+- Use fn(&mut T) instead of fn(T) -> T for large structs (>4 pointer fields) on hot paths.
+- Before adding impl Drop to a struct, check whether any field needs to be moved out; if so, use a ManuallyDrop guard type.
+- unsafe APIs that rely on a RAII guard's Drop for soundness are unsound -- mem::forget is safe; design for forget-safety.
+- After writing unsafe impl Sync or unsafe impl Send, list every field type and verify each is Sync/Send or document why.
+- Every str::from_utf8_unchecked / String::from_raw_parts / slice::from_raw_parts call needs a // SAFETY: comment tracing the invariant.
+- One unsafe in a dependency can break codebase-wide type invariants; audit from_utf8_unchecked and from_raw_parts usages in deps via cargo deny.
+- Self-referential structs require Pin + PhantomPinned; never self-reference without pinning.
 """
