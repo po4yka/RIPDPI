@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.services
 
-import com.poyka.ripdpi.core.detection.vpn.VpnAppCatalog
 import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
@@ -26,7 +25,7 @@ class DnsPathPreferenceInvalidatorTest {
 
     private fun buildInvalidator(
         store: NetworkDnsPathPreferenceStore,
-        trackedPackages: Set<String> = VpnAppCatalog.signatures.map { it.packageName }.toSet(),
+        trackedPackages: Set<String> = testVpnPackages,
     ): DnsPathPreferenceInvalidator =
         DnsPathPreferenceInvalidator(
             context = RuntimeEnvironment.getApplication(),
@@ -40,7 +39,7 @@ class DnsPathPreferenceInvalidatorTest {
     @Test
     fun `isTracked returns true for first VPN app catalog package`() {
         val invalidator = buildInvalidator(NoOpDnsPathPreferenceStore())
-        val firstPackage = VpnAppCatalog.signatures.first().packageName
+        val firstPackage = testVpnPackages.first()
         assertTrue(invalidator.isTracked(firstPackage))
     }
 
@@ -53,10 +52,10 @@ class DnsPathPreferenceInvalidatorTest {
     @Test
     fun `isTracked returns true for every package in VpnAppCatalog`() {
         val invalidator = buildInvalidator(NoOpDnsPathPreferenceStore())
-        VpnAppCatalog.signatures.forEach { sig ->
+        testVpnPackages.forEach { packageName ->
             assertTrue(
-                "Expected ${sig.packageName} to be tracked",
-                invalidator.isTracked(sig.packageName),
+                "Expected $packageName to be tracked",
+                invalidator.isTracked(packageName),
             )
         }
     }
@@ -66,8 +65,7 @@ class DnsPathPreferenceInvalidatorTest {
     @Test
     fun `trackedPackages contains all catalog package names`() {
         val invalidator = buildInvalidator(NoOpDnsPathPreferenceStore())
-        val catalogPackages = VpnAppCatalog.signatures.map { it.packageName }.toSet()
-        assertEquals(catalogPackages, invalidator.trackedPackages)
+        assertEquals(testVpnPackages, invalidator.trackedPackages)
     }
 
     // ── package filtering gate ───────────────────────────────────────────────
@@ -75,7 +73,7 @@ class DnsPathPreferenceInvalidatorTest {
     @Test
     fun `only tracked packages pass the isTracked gate that guards clearAll`() {
         val invalidator = buildInvalidator(NoOpDnsPathPreferenceStore())
-        val trackedPkg = VpnAppCatalog.signatures.first().packageName
+        val trackedPkg = testVpnPackages.first()
         val untracked = "com.example.not.a.vpn"
 
         // Only the tracked package should pass; an untracked one must not.
@@ -101,11 +99,18 @@ class DnsPathPreferenceInvalidatorTest {
         val invalidator = buildInvalidator(store, trackedPackages = customPackages)
 
         assertTrue(invalidator.isTracked("com.custom.vpn.app"))
-        assertFalse(invalidator.isTracked(VpnAppCatalog.signatures.first().packageName))
+        assertFalse(invalidator.isTracked(testVpnPackages.first()))
     }
 }
 
 // ── Test doubles ─────────────────────────────────────────────────────────────
+
+private val testVpnPackages =
+    linkedSetOf(
+        "com.v2ray.ang",
+        "org.amnezia.vpn",
+        "org.outline.android.client",
+    )
 
 private class NoOpDnsPathPreferenceStore : NetworkDnsPathPreferenceStore {
     override suspend fun getPreferredPath(fingerprintHash: String): EncryptedDnsPathCandidate? = null

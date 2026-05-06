@@ -1,7 +1,13 @@
 package com.poyka.ripdpi.core.detection
 
 import android.content.Context
+import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -23,28 +29,55 @@ data class DetectionHistory(
     val entries: List<DetectionHistoryEntry> = emptyList(),
 )
 
+interface DetectionHistoryRepository {
+    suspend fun save(entry: DetectionHistoryEntry)
+
+    suspend fun loadLatest(count: Int = 10): List<DetectionHistoryEntry>
+
+    suspend fun findByFingerprint(fingerprint: String): DetectionHistoryEntry?
+
+    suspend fun clear()
+}
+
 @Singleton
 class DetectionHistoryStore
     @Inject
     constructor(
         @ApplicationContext context: Context,
-    ) {
+        private val dispatchers: AppCoroutineDispatchers,
+    ) : DetectionHistoryRepository {
         private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         private val json = Json { ignoreUnknownKeys = true }
 
-        fun save(entry: DetectionHistoryEntry) {
-            val history = load()
-            val updated =
-                history.copy(
-                    entries =
-                        (listOf(entry) + history.entries)
-                            .distinctBy { it.networkFingerprint }
-                            .take(MAX_ENTRIES),
-                )
-            prefs.edit().putString(KEY_HISTORY, json.encodeToString(updated)).apply()
-        }
+        override suspend fun save(entry: DetectionHistoryEntry) =
+            withContext(dispatchers.io) {
+                val history = loadBlocking()
+                val updated =
+                    history.copy(
+                        entries =
+                            (listOf(entry) + history.entries)
+                                .distinctBy { it.networkFingerprint }
+                                .take(MAX_ENTRIES),
+                    )
+                prefs.edit().putString(KEY_HISTORY, json.encodeToString(updated)).apply()
+            }
 
-        fun load(): DetectionHistory =
+        override suspend fun loadLatest(count: Int): List<DetectionHistoryEntry> =
+            withContext(dispatchers.io) {
+                loadBlocking().entries.take(count)
+            }
+
+        override suspend fun findByFingerprint(fingerprint: String): DetectionHistoryEntry? =
+            withContext(dispatchers.io) {
+                loadBlocking().entries.firstOrNull { it.networkFingerprint == fingerprint }
+            }
+
+        override suspend fun clear() =
+            withContext(dispatchers.io) {
+                prefs.edit().remove(KEY_HISTORY).apply()
+            }
+
+        private fun loadBlocking(): DetectionHistory =
             try {
                 val raw = prefs.getString(KEY_HISTORY, null)
                 if (raw != null) json.decodeFromString(raw) else DetectionHistory()
@@ -52,18 +85,17 @@ class DetectionHistoryStore
                 DetectionHistory()
             }
 
-        fun findByFingerprint(fingerprint: String): DetectionHistoryEntry? =
-            load().entries.firstOrNull { it.networkFingerprint == fingerprint }
-
-        fun latestEntries(count: Int = 10): List<DetectionHistoryEntry> = load().entries.take(count)
-
-        fun clear() {
-            prefs.edit().remove(KEY_HISTORY).apply()
-        }
-
         companion object {
             private const val PREFS_NAME = "detection_history"
             private const val KEY_HISTORY = "history_json"
             private const val MAX_ENTRIES = 50
         }
     }
+
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class DetectionHistoryBindingsModule {
+    @Binds
+    @Singleton
+    abstract fun bindDetectionHistoryRepository(store: DetectionHistoryStore): DetectionHistoryRepository
+}

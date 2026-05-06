@@ -36,7 +36,7 @@ pub(in crate::runtime) fn preferred_targets_for_transport(
     host: Option<&str>,
     transport: TransportProtocol,
 ) -> Vec<SocketAddr> {
-    let decision = state.adaptive.preferred_targets(
+    let decision = state.adaptive_context.preferred_targets(
         state.runtime_context.as_ref(),
         original_target,
         host,

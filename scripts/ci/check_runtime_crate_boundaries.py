@@ -30,7 +30,6 @@ RUNTIME_API_FORBIDDEN_PROD_DEPS = {
     "ripdpi-relay-core",
     "ripdpi-relay-mux",
     "ripdpi-root-helper-protocol",
-    "ripdpi-runtime-learning",
     "ripdpi-runtime-platform",
     "ripdpi-session",
     "ripdpi-shadowtls",
@@ -52,28 +51,8 @@ RUNTIME_PLATFORM_ALLOWED_PROD_DEPS = {
     "ripdpi-root-helper-protocol",
 }
 
-RUNTIME_LEARNING_FORBIDDEN_PROD_DEPS = {
-    "libc",
-    "mio",
-    "nix",
-    "ripdpi-capabilities",
-    "ripdpi-dns-resolver",
-    "ripdpi-io-uring",
-    "ripdpi-ipfrag",
-    "ripdpi-native-protect",
-    "ripdpi-privileged-ops",
-    "ripdpi-proxy-runtime",
-    "ripdpi-root-helper-protocol",
-    "ripdpi-runtime-platform",
-    "ripdpi-ws-bootstrap",
-    "ripdpi-ws-tunnel",
-    "socket2",
-    "tokio",
-}
-
 PROXY_RUNTIME_REQUIRED_PROD_DEPS = {
     "ripdpi-runtime-api",
-    "ripdpi-runtime-learning",
     "ripdpi-runtime-platform",
 }
 
@@ -81,7 +60,6 @@ PRODUCTION_CALLERS = {
     "ripdpi-android",
     "ripdpi-cli",
     "ripdpi-monitor-engine",
-    "ripdpi-diagnostics-probes",
 }
 
 
@@ -252,14 +230,6 @@ def collect_violations(metadata: dict[str, Any]) -> list[Violation]:
         )
     )
     violations.extend(check_platform_allowlist(deps_by_package))
-    violations.extend(
-        check_forbidden_deps(
-            deps_by_package,
-            "ripdpi-runtime-learning",
-            RUNTIME_LEARNING_FORBIDDEN_PROD_DEPS,
-            "learning crate must not depend on sockets, WS bootstrap/tunnel, proxy runtime, or privileged platform operations",
-        )
-    )
     violations.extend(check_proxy_runtime_required_deps(deps_by_package))
 
     for caller in sorted(PRODUCTION_CALLERS):

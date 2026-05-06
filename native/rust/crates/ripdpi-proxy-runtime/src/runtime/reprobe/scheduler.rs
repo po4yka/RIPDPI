@@ -2,7 +2,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::thread;
 
-use ripdpi_runtime_adaptive::AdaptivePort;
+use ripdpi_runtime_adaptive::AdaptiveFeedbackPort;
 
 use super::super::state::RuntimeState;
 use super::cache_flush::flush_runtime_cache_after_handover;
@@ -46,7 +46,7 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
     tracing::info!("network_reprobe: network identity changed, scheduling reprobe");
 
     let config = state.config.clone();
-    let adaptive = state.adaptive.clone();
+    let adaptive = state.adaptive_feedback.clone();
 
     thread::Builder::new()
         .name("ripdpi-reprobe".into())
@@ -60,7 +60,7 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
 /// attempt a raw TLS ClientHello. A failure is classified as a DPI signature
 /// if the connection is reset, times out, or receives a TLS alert before the
 /// ServerHello completes.
-fn run_reprobe(config: &ripdpi_config::RuntimeConfig, adaptive: &Arc<dyn AdaptivePort>) {
+fn run_reprobe(config: &ripdpi_config::RuntimeConfig, adaptive: &Arc<dyn AdaptiveFeedbackPort>) {
     let deadline = std::time::Instant::now() + TOTAL_DEADLINE;
     let mut failures = 0usize;
     let mut successes = 0usize;

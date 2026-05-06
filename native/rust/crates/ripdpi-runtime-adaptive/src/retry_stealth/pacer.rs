@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::retry_stealth::hash::stable_hash_combine;
 use crate::retry_stealth::identity::RetrySignature;
 use crate::retry_stealth::policy::{apply_jitter, RetryDecision, RetryStealthPolicy};
-use crate::runtime_policy::RetrySelectionPenalty;
+use ripdpi_runtime_policy::runtime_policy::RetrySelectionPenalty;
 
 #[derive(Debug, Clone)]
 pub struct RetryPacer {

@@ -16,7 +16,7 @@ pub(in crate::runtime) fn resolve_tcp_hints_with_evolver(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<AdaptivePlannerHints> {
-    state.adaptive.resolve_tcp_hints_with_evolver(
+    state.adaptive_hints.resolve_tcp_hints_with_evolver(
         &state.config,
         state.runtime_context.as_ref(),
         group_index,
@@ -40,7 +40,7 @@ pub(in crate::runtime) fn resolve_udp_hints_with_evolver(
     // resolve_adaptive_udp_hints (which merge_udp_hints_with_capability + record_morph_rollback).
     if state.config.adaptive.strategy_evolution {
         // Try evolver path via port (includes morph + capability merge).
-        let result = state.adaptive.resolve_udp_hints_with_evolver(
+        let result = state.adaptive_hints.resolve_udp_hints_with_evolver(
             &state.config,
             state.runtime_context.as_ref(),
             group_index,
@@ -57,9 +57,9 @@ pub(in crate::runtime) fn resolve_udp_hints_with_evolver(
 }
 
 pub(in crate::runtime) fn note_evolver_success(state: &RuntimeState, _latency_ms: u64) {
-    state.adaptive.note_evolver_success();
+    state.adaptive_feedback.note_evolver_success();
 }
 
 pub(in crate::runtime) fn note_evolver_failure(state: &RuntimeState, class: ripdpi_failure_classifier::FailureClass) {
-    state.adaptive.note_evolver_failure(class);
+    state.adaptive_feedback.note_evolver_failure(class);
 }

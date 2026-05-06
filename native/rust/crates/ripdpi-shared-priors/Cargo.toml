@@ -1,0 +1,17 @@
+[package]
+name = "ripdpi-shared-priors"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+test-support = []
+
+[dependencies]
+base64 = { workspace = true }
+ring = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

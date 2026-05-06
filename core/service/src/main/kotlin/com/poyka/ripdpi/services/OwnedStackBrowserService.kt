@@ -1,9 +1,5 @@
 package com.poyka.ripdpi.services
 
-import android.annotation.SuppressLint
-import android.content.Context
-import android.net.http.HttpEngine
-import android.os.Build
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.DefaultNativeOwnedTlsCallTimeoutMs
 import com.poyka.ripdpi.core.DefaultNativeOwnedTlsConnectTimeoutMs
@@ -11,235 +7,18 @@ import com.poyka.ripdpi.core.DefaultNativeOwnedTlsMaxRedirects
 import com.poyka.ripdpi.core.DefaultNativeOwnedTlsReadTimeoutMs
 import com.poyka.ripdpi.core.NativeOwnedTlsHttpFetcher
 import com.poyka.ripdpi.core.NativeOwnedTlsHttpRequest
-import com.poyka.ripdpi.data.DirectDnsClassification
-import com.poyka.ripdpi.data.DirectModePolicyTtlMs
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
-import com.poyka.ripdpi.data.ServerCapabilityRecord
 import com.poyka.ripdpi.data.ServerCapabilityStore
-import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
-import java.io.IOException
-import java.net.HttpURLConnection
-import java.net.URI
-import java.net.URL
-import java.nio.charset.Charset
-import java.nio.charset.StandardCharsets
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
 
-private const val OwnedStackHttpEngineMinSdk = 34
-private const val OwnedStackAndroid17ApiLevel = 37
-private const val OwnedStackBrowserConnectTimeoutMs = 20_000
-private const val OwnedStackBrowserReadTimeoutMs = 30_000
-private const val OwnedStackBrowserUserAgent = "RIPDPI owned-stack browser"
-
 private val ownedStackLog = Logger.withTag("OwnedStack")
-private val knownAndroid17EchDomains =
-    listOf(
-        OwnedStackEchDomainRule(domain = "raw.githubusercontent.com", includeSubdomains = true),
-        OwnedStackEchDomainRule(domain = "connectivitycheck.gstatic.com", includeSubdomains = false),
-    )
-
-enum class OwnedStackBrowserBackend {
-    HTTP_ENGINE,
-    NATIVE_OWNED_TLS,
-}
-
-enum class SecureHttpMode {
-    OWNED_STACK,
-}
-
-enum class SecureHttpDnsPolicy {
-    SYSTEM_DEFAULT,
-    CAPABILITY_SCOPED,
-}
-
-enum class SecureHttpEchMode {
-    OPPORTUNISTIC,
-    REQUIRE_CONFIRMED,
-}
-
-enum class SecureHttpQuicPolicy {
-    AUTO,
-    H2_ONLY,
-}
-
-enum class OwnedStackNativeFallbackReason {
-    PLATFORM_UNAVAILABLE,
-    ECH_CONFIRMATION_MISSING,
-    PLATFORM_FAILURE,
-}
-
-data class OwnedStackBrowserSupport(
-    val platformHttpEngineAvailable: Boolean,
-    val android17EchEligible: Boolean,
-)
-
-data class OwnedStackExecutionTrace(
-    val authority: String? = null,
-    val confirmedEchCapableAuthority: Boolean = false,
-    val echEnforcedDomain: Boolean = false,
-    val effectiveEchMode: SecureHttpEchMode = SecureHttpEchMode.OPPORTUNISTIC,
-    val platformAttempted: Boolean = false,
-    val h2RetryTriggered: Boolean = false,
-    val finalQuicPolicy: SecureHttpQuicPolicy = SecureHttpQuicPolicy.AUTO,
-    val nativeFallbackReason: OwnedStackNativeFallbackReason? = null,
-)
-
-data class SecureHttpRequest(
-    val url: String,
-    val method: String = "GET",
-    val headers: Map<String, String> = emptyMap(),
-    val mode: SecureHttpMode = SecureHttpMode.OWNED_STACK,
-    val dnsPolicy: SecureHttpDnsPolicy = SecureHttpDnsPolicy.CAPABILITY_SCOPED,
-    val echMode: SecureHttpEchMode = SecureHttpEchMode.OPPORTUNISTIC,
-    val quicPolicy: SecureHttpQuicPolicy = SecureHttpQuicPolicy.AUTO,
-)
-
-data class SecureHttpResponse(
-    val requestedUrl: String,
-    val finalUrl: String,
-    val statusCode: Int,
-    val body: ByteArray,
-    val contentType: String?,
-    val backend: OwnedStackBrowserBackend,
-    val android17EchEligible: Boolean,
-    val tlsProfileId: String? = null,
-    val executionTrace: OwnedStackExecutionTrace = OwnedStackExecutionTrace(),
-)
-
-data class OwnedStackBrowserPage(
-    val requestedUrl: String,
-    val finalUrl: String,
-    val statusCode: Int,
-    val bodyText: String,
-    val contentType: String?,
-    val backend: OwnedStackBrowserBackend,
-    val android17EchEligible: Boolean,
-    val tlsProfileId: String? = null,
-    val executionTrace: OwnedStackExecutionTrace = OwnedStackExecutionTrace(),
-)
-
-data class OwnedStackPlatformResponse(
-    val finalUrl: String,
-    val statusCode: Int,
-    val body: ByteArray,
-    val contentType: String?,
-)
-
-data class OwnedStackPlatformRequest(
-    val method: String,
-    val url: String,
-    val headers: Map<String, String>,
-    val quicEnabled: Boolean,
-)
-
-private data class OwnedStackAuthorityEvidence(
-    val confirmedEchCapable: Boolean = false,
-    val echEnforcedDomain: Boolean = false,
-)
-
-private data class OwnedStackEchDomainRule(
-    val domain: String,
-    val includeSubdomains: Boolean,
-)
-
-interface OwnedStackBrowserSupportProvider {
-    fun current(): OwnedStackBrowserSupport
-}
-
-interface OwnedStackPlatformBrowserExecutor {
-    suspend fun execute(request: OwnedStackPlatformRequest): OwnedStackPlatformResponse
-}
-
-interface SecureHttpClient {
-    fun currentSupport(): OwnedStackBrowserSupport
-
-    fun normalizeUrl(rawUrl: String): String
-
-    suspend fun execute(request: SecureHttpRequest): SecureHttpResponse
-}
-
-interface OwnedStackBrowserService {
-    fun currentSupport(): OwnedStackBrowserSupport
-
-    fun normalizeUrl(rawUrl: String): String
-
-    suspend fun fetch(rawUrl: String): OwnedStackBrowserPage
-}
-
-@Singleton
-class BuildVersionOwnedStackBrowserSupportProvider
-    @Inject
-    constructor() : OwnedStackBrowserSupportProvider {
-        override fun current(): OwnedStackBrowserSupport =
-            OwnedStackBrowserSupport(
-                platformHttpEngineAvailable = Build.VERSION.SDK_INT >= OwnedStackHttpEngineMinSdk,
-                android17EchEligible = Build.VERSION.SDK_INT >= OwnedStackAndroid17ApiLevel,
-            )
-    }
-
-@Singleton
-class HttpEngineOwnedStackPlatformBrowserExecutor
-    @Inject
-    constructor(
-        @ApplicationContext context: Context,
-    ) : OwnedStackPlatformBrowserExecutor {
-        private val applicationContext = context.applicationContext
-        private val quicEnabledEngine by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-            buildHttpEngine(quicEnabled = true)
-        }
-        private val h2OnlyEngine by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
-            buildHttpEngine(quicEnabled = false)
-        }
-
-        @SuppressLint("NewApi")
-        private fun buildHttpEngine(quicEnabled: Boolean): HttpEngine =
-            HttpEngine
-                .Builder(applicationContext)
-                .setEnableHttp2(true)
-                .setEnableQuic(quicEnabled)
-                .setEnableBrotli(true)
-                .build()
-
-        @SuppressLint("NewApi")
-        override suspend fun execute(request: OwnedStackPlatformRequest): OwnedStackPlatformResponse =
-            withContext(Dispatchers.IO) {
-                val engine = if (request.quicEnabled) quicEnabledEngine else h2OnlyEngine
-                val connection =
-                    engine.openConnection(URL(request.url)) as? HttpURLConnection
-                        ?: throw IOException("HttpEngine returned a non-HTTP connection")
-                try {
-                    connection.instanceFollowRedirects = true
-                    connection.connectTimeout = OwnedStackBrowserConnectTimeoutMs
-                    connection.readTimeout = OwnedStackBrowserReadTimeoutMs
-                    connection.requestMethod = request.method.uppercase()
-                    request.headers.forEach(connection::setRequestProperty)
-                    val statusCode = connection.responseCode
-                    val bodyStream =
-                        when {
-                            statusCode >= HttpURLConnection.HTTP_BAD_REQUEST -> connection.errorStream
-                            else -> connection.inputStream
-                        }
-                    OwnedStackPlatformResponse(
-                        finalUrl = connection.url?.toString() ?: request.url,
-                        statusCode = statusCode,
-                        body = bodyStream?.use { it.readBytes() } ?: ByteArray(0),
-                        contentType = connection.contentType,
-                    )
-                } finally {
-                    connection.disconnect()
-                }
-            }
-    }
 
 @Singleton
 class DefaultSecureHttpClient
@@ -249,9 +28,15 @@ class DefaultSecureHttpClient
         private val platformExecutorProvider: Provider<OwnedStackPlatformBrowserExecutor>,
         private val nativeOwnedTlsHttpFetcher: NativeOwnedTlsHttpFetcher,
         private val tlsClientFactory: OwnedTlsClientFactory,
-        private val networkFingerprintProvider: NetworkFingerprintProvider,
-        private val serverCapabilityStore: ServerCapabilityStore,
+        networkFingerprintProvider: NetworkFingerprintProvider,
+        serverCapabilityStore: ServerCapabilityStore,
     ) : SecureHttpClient {
+        private val echEvidenceResolver =
+            OwnedStackEchEvidenceResolver(
+                networkFingerprintProvider = networkFingerprintProvider,
+                serverCapabilityStore = serverCapabilityStore,
+            )
+
         override fun currentSupport(): OwnedStackBrowserSupport = supportProvider.current()
 
         override fun normalizeUrl(rawUrl: String): String = normalizeOwnedStackBrowserUrl(rawUrl)
@@ -266,8 +51,8 @@ class DefaultSecureHttpClient
 
             val requestedUrl = normalizeUrl(request.url)
             val support = currentSupport()
-            val authority = requestedUrl.authorityFromUrl()
-            val authorityEvidence = resolveAuthorityEvidence(authority, request.dnsPolicy)
+            val authority = requestedUrl.ownedStackAuthorityFromUrl()
+            val authorityEvidence = echEvidenceResolver.resolve(authority, request.dnsPolicy)
             val confirmedPlatformEch =
                 support.android17EchEligible &&
                     (authorityEvidence.confirmedEchCapable || authorityEvidence.echEnforcedDomain)
@@ -287,12 +72,11 @@ class DefaultSecureHttpClient
                 )
             val headers = request.headers.withDefaultUserAgent()
 
-            val canAttemptPlatform =
+            return if (
                 support.platformHttpEngineAvailable &&
-                    (request.echMode != SecureHttpEchMode.REQUIRE_CONFIRMED || confirmedPlatformEch)
-
-            if (canAttemptPlatform) {
-                return attemptPlatformWithFallback(
+                (request.echMode != SecureHttpEchMode.REQUIRE_CONFIRMED || confirmedPlatformEch)
+            ) {
+                attemptPlatformWithFallback(
                     requestedUrl = requestedUrl,
                     support = support,
                     request = request,
@@ -300,26 +84,33 @@ class DefaultSecureHttpClient
                     authority = authority,
                     defaultTrace = defaultTrace,
                 )
+            } else {
+                executeNativeRequest(
+                    requestedUrl = requestedUrl,
+                    support = support,
+                    headers = headers,
+                    trace = defaultTrace.copy(nativeFallbackReason = nativeFallbackReason(support, authority)),
+                )
             }
+        }
 
-            val fallbackReason =
+        private fun nativeFallbackReason(
+            support: OwnedStackBrowserSupport,
+            authority: String?,
+        ): OwnedStackNativeFallbackReason {
+            val reason =
                 if (support.platformHttpEngineAvailable) {
                     OwnedStackNativeFallbackReason.ECH_CONFIRMATION_MISSING
                 } else {
                     OwnedStackNativeFallbackReason.PLATFORM_UNAVAILABLE
                 }
-            if (fallbackReason == OwnedStackNativeFallbackReason.ECH_CONFIRMATION_MISSING) {
+            if (reason == OwnedStackNativeFallbackReason.ECH_CONFIRMATION_MISSING) {
                 ownedStackLog.i {
                     "Owned-stack request for ${authority.orEmpty()} requires confirmed Android 17 ECH;" +
                         " using native owned TLS because no fresh ECH-capable authority evidence is cached"
                 }
             }
-            return executeNativeRequest(
-                requestedUrl = requestedUrl,
-                support = support,
-                headers = headers,
-                trace = defaultTrace.copy(nativeFallbackReason = fallbackReason),
-            )
+            return reason
         }
 
         private suspend fun attemptPlatformWithFallback(
@@ -462,7 +253,7 @@ class DefaultSecureHttpClient
             headers: Map<String, String>,
             trace: OwnedStackExecutionTrace,
         ): SecureHttpResponse {
-            val authority = requestedUrl.authorityFromUrl()
+            val authority = requestedUrl.ownedStackAuthorityFromUrl()
             val selection = tlsClientFactory.selectionForAuthority(authority)
             val response =
                 nativeOwnedTlsHttpFetcher.execute(
@@ -486,38 +277,6 @@ class DefaultSecureHttpClient
                 android17EchEligible = support.android17EchEligible,
                 tlsProfileId = selection.profileId,
                 executionTrace = trace,
-            )
-        }
-
-        private suspend fun resolveAuthorityEvidence(
-            authority: String?,
-            dnsPolicy: SecureHttpDnsPolicy,
-        ): OwnedStackAuthorityEvidence {
-            val normalizedHost =
-                authority?.normalizeOwnedStackHost()
-                    ?: return OwnedStackAuthorityEvidence()
-            val echEnforcedDomain = normalizedHost.matchesKnownAndroid17EchDomain()
-            val fingerprintHash =
-                networkFingerprintProvider
-                    .capture()
-                    ?.scopeKey()
-                    .takeIf { dnsPolicy == SecureHttpDnsPolicy.CAPABILITY_SCOPED }
-            val confirmedEchCapable =
-                if (fingerprintHash != null) {
-                    val now = System.currentTimeMillis()
-                    serverCapabilityStore
-                        .directPathCapabilitiesForFingerprint(fingerprintHash)
-                        .firstOrNull { record ->
-                            record.authority.normalizeOwnedStackHost() == normalizedHost &&
-                                record.hasFreshOwnedStackDnsEvidence(now)
-                        }?.effectiveTransportPolicyEnvelope()
-                        ?.dnsClassification == DirectDnsClassification.ECH_CAPABLE
-                } else {
-                    false
-                }
-            return OwnedStackAuthorityEvidence(
-                confirmedEchCapable = confirmedEchCapable,
-                echEnforcedDomain = echEnforcedDomain,
             )
         }
     }
@@ -558,109 +317,4 @@ internal abstract class OwnedStackBrowserServiceModule {
     @Binds
     @Singleton
     abstract fun bindOwnedStackBrowserService(service: DefaultOwnedStackBrowserService): OwnedStackBrowserService
-}
-
-fun ownedStackBrowserLaunchUrl(authority: String?): String? {
-    val normalizedAuthority = authority?.trim()?.trimEnd('/')?.takeIf(String::isNotBlank) ?: return null
-    return "https://$normalizedAuthority/"
-}
-
-private fun normalizeOwnedStackBrowserUrl(rawUrl: String): String {
-    val candidate = rawUrl.trim()
-    require(candidate.isNotBlank()) { "Enter a URL to open in the RIPDPI browser." }
-    val withScheme =
-        if ("://" in candidate) {
-            candidate
-        } else {
-            "https://$candidate"
-        }
-    val parsed = URI(withScheme)
-    require(parsed.scheme.equals("https", ignoreCase = true)) {
-        "Only HTTPS URLs are supported in the RIPDPI browser."
-    }
-    require(!parsed.host.isNullOrBlank()) { "Enter a valid HTTPS host." }
-    return parsed.toString()
-}
-
-private fun String.authorityFromUrl(): String? = runCatching { URI(this).host }.getOrNull()
-
-private fun SecureHttpResponse.toOwnedStackBrowserPage(): OwnedStackBrowserPage =
-    OwnedStackBrowserPage(
-        requestedUrl = requestedUrl,
-        finalUrl = finalUrl,
-        statusCode = statusCode,
-        bodyText = decodeOwnedStackBody(body, contentType),
-        contentType = contentType,
-        backend = backend,
-        android17EchEligible = android17EchEligible,
-        tlsProfileId = tlsProfileId,
-        executionTrace = executionTrace,
-    )
-
-private fun OwnedStackPlatformResponse.toSecureHttpResponse(
-    requestedUrl: String,
-    android17EchEligible: Boolean,
-    executionTrace: OwnedStackExecutionTrace,
-): SecureHttpResponse =
-    SecureHttpResponse(
-        requestedUrl = requestedUrl,
-        finalUrl = finalUrl,
-        statusCode = statusCode,
-        body = body,
-        contentType = contentType,
-        backend = OwnedStackBrowserBackend.HTTP_ENGINE,
-        android17EchEligible = android17EchEligible,
-        executionTrace = executionTrace,
-    )
-
-private fun Map<String, String>.withDefaultUserAgent(): Map<String, String> =
-    if (keys.any { it.equals("User-Agent", ignoreCase = true) }) {
-        this
-    } else {
-        this + ("User-Agent" to OwnedStackBrowserUserAgent)
-    }
-
-private fun String.normalizeOwnedStackHost(): String = substringBefore(':').trim().lowercase()
-
-private fun String.matchesKnownAndroid17EchDomain(): Boolean =
-    knownAndroid17EchDomains.any { rule ->
-        if (rule.includeSubdomains) {
-            this == rule.domain || this.endsWith(".${rule.domain}")
-        } else {
-            this == rule.domain
-        }
-    }
-
-private fun ServerCapabilityRecord.hasFreshOwnedStackDnsEvidence(nowMillis: Long): Boolean =
-    updatedAt > 0L && nowMillis - updatedAt <= DirectModePolicyTtlMs
-
-private fun decodeOwnedStackBody(
-    body: ByteArray,
-    contentType: String?,
-): String {
-    if (body.isEmpty()) return ""
-    val normalizedContentType = contentType?.lowercase().orEmpty()
-    val isTextual =
-        normalizedContentType.isBlank() ||
-            normalizedContentType.startsWith("text/") ||
-            normalizedContentType.contains("json") ||
-            normalizedContentType.contains("xml") ||
-            normalizedContentType.contains("javascript")
-    val charset = contentType.charsetFromContentType()
-    return if (isTextual) body.toString(charset) else "Binary response (${body.size} bytes)."
-}
-
-private fun String?.charsetFromContentType(): Charset {
-    val charsetName =
-        this
-            ?.split(';')
-            ?.map(String::trim)
-            ?.firstOrNull { it.startsWith("charset=", ignoreCase = true) }
-            ?.substringAfter('=')
-            ?.trim()
-            ?.trim('"')
-            ?.takeIf(String::isNotBlank)
-    return charsetName
-        ?.let { runCatching { Charset.forName(it) }.getOrNull() }
-        ?: StandardCharsets.UTF_8
 }

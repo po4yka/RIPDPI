@@ -6,7 +6,6 @@ use ripdpi_packets::DEFAULT_FAKE_TLS;
 use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyPreferredEdge, ProxyRuntimeContext};
 use ripdpi_runtime_policy::direct_path_learning::direct_path_ip_set_digest;
 use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
-use ripdpi_runtime_strategy::strategy_evolver::{LearningHostingFamily, LearningReachabilitySet};
 
 use crate::retry_stealth::RetryLane;
 
@@ -226,21 +225,4 @@ fn retry_lane_classification_uses_policy_transport_and_payload_protocol() {
     assert_eq!(retry_lane_for_payload(TransportProtocol::Tcp, Some(DEFAULT_FAKE_TLS)), RetryLane::TcpTls);
     assert_eq!(retry_lane_for_payload(TransportProtocol::Tcp, Some(b"GET / HTTP/1.1\r\n\r\n")), RetryLane::TcpOther);
     assert_eq!(retry_lane_for_payload(TransportProtocol::Udp, None), RetryLane::UdpOther);
-}
-
-#[test]
-fn hosting_family_context_identifies_known_cdn_buckets() {
-    assert_eq!(hosting_family_context(Some("video.cloudflare.com")), LearningHostingFamily::Cloudflare);
-    assert_eq!(hosting_family_context(Some("fonts.gstatic.com")), LearningHostingFamily::Google);
-    assert_eq!(hosting_family_context(Some("portal.yandex.ru")), LearningHostingFamily::DomesticCdn);
-    assert_eq!(hosting_family_context(Some("assets.fastly.net")), LearningHostingFamily::ForeignCdn);
-    assert_eq!(hosting_family_context(Some("origin.example.com")), LearningHostingFamily::Direct);
-}
-
-#[test]
-fn reachability_set_context_identifies_domestic_and_control_hosts() {
-    assert_eq!(reachability_set_context(Some("control")), LearningReachabilitySet::Control);
-    assert_eq!(reachability_set_context(Some("service.gov.ru")), LearningReachabilitySet::Domestic);
-    assert_eq!(reachability_set_context(Some("example.com")), LearningReachabilitySet::Foreign);
-    assert_eq!(reachability_set_context(None), LearningReachabilitySet::Unknown);
 }

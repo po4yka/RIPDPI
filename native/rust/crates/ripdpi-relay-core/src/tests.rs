@@ -4,7 +4,11 @@ use std::time::Duration;
 use ripdpi_tls_profiles::profile_catalog_version;
 
 use crate::backend::{build_backend, RelayBackend};
-use crate::config::{ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig};
+use crate::config::{
+    ChainRelayConfig, CloudflareTunnelRelayConfig, CommonRelayConfig, Hysteria2RelayConfig, MasqueRelayConfig,
+    RelayBackendConfig, ResolvedRelayFinalmaskConfig, ResolvedRelayRuntimeConfig, ResolvedShadowTlsInnerRelayConfig,
+    ShadowTlsRelayConfig, TuicRelayConfig, VlessRealityRelayConfig,
+};
 use crate::runtime::RelayRuntime;
 use crate::runtime_validation::{
     describe_upstream, planned_backend_capabilities, pool_config_for_backend, validate_finalmask_config,
@@ -12,77 +16,121 @@ use crate::runtime_validation::{
 };
 
 fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
-    ResolvedRelayRuntimeConfig {
+    let common = CommonRelayConfig {
         enabled: true,
-        kind: kind.to_string(),
         profile_id: "default".to_string(),
         outbound_bind_ip: String::new(),
         server: "relay.example".to_string(),
         server_port: 443,
         server_name: "relay.example".to_string(),
-        reality_public_key: String::new(),
-        reality_short_id: String::new(),
-        vless_transport: "reality_tcp".to_string(),
-        xhttp_path: String::new(),
-        xhttp_host: String::new(),
-        cloudflare_tunnel_mode: "consume_existing".to_string(),
-        cloudflare_publish_local_origin_url: String::new(),
-        cloudflare_credentials_ref: String::new(),
-        chain_entry_server: String::new(),
-        chain_entry_port: 443,
-        chain_entry_server_name: String::new(),
-        chain_entry_public_key: String::new(),
-        chain_entry_short_id: String::new(),
-        chain_entry_profile_id: String::new(),
-        chain_exit_server: String::new(),
-        chain_exit_port: 443,
-        chain_exit_server_name: String::new(),
-        chain_exit_public_key: String::new(),
-        chain_exit_short_id: String::new(),
-        chain_exit_profile_id: String::new(),
-        masque_url: "https://masque.example/".to_string(),
-        masque_use_http2_fallback: true,
-        masque_cloudflare_geohash_enabled: false,
-        tuic_zero_rtt: false,
-        tuic_congestion_control: "bbr".to_string(),
-        shadow_tls_inner_profile_id: String::new(),
-        shadow_tls_inner: None,
-        naive_path: String::new(),
         local_socks_host: "127.0.0.1".to_string(),
         local_socks_port: 10_80,
         udp_enabled: false,
         tcp_fallback_enabled: true,
         quic_bind_low_port: false,
         quic_migrate_after_handshake: false,
-        vless_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
-        chain_entry_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
-        chain_exit_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
-        hysteria_password: Some("secret".to_string()),
-        hysteria_salamander_key: None,
-        tuic_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
-        tuic_password: Some("secret".to_string()),
-        shadow_tls_password: Some("secret".to_string()),
-        naive_username: Some("user".to_string()),
-        naive_password: Some("secret".to_string()),
         tls_fingerprint_profile: "chrome_stable".to_string(),
-        masque_auth_mode: Some("token".to_string()),
-        masque_auth_token: Some("token".to_string()),
-        masque_client_certificate_chain_pem: None,
-        masque_client_private_key_pem: None,
-        masque_cloudflare_geohash_header: None,
-        masque_privacy_pass_provider_url: None,
-        masque_privacy_pass_provider_auth_token: None,
-        cloudflare_tunnel_token: None,
-        cloudflare_tunnel_credentials_json: None,
         finalmask: ResolvedRelayFinalmaskConfig::default(),
+    };
+    let backend = match kind {
+        "hysteria2" => RelayBackendConfig::Hysteria2(Hysteria2RelayConfig {
+            password: Some("secret".to_string()),
+            salamander_key: None,
+        }),
+        "tuic_v5" => RelayBackendConfig::TuicV5(TuicRelayConfig {
+            uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+            password: Some("secret".to_string()),
+            zero_rtt: false,
+            congestion_control: "bbr".to_string(),
+        }),
+        "vless_reality" => RelayBackendConfig::VlessReality(VlessRealityRelayConfig {
+            reality_public_key: String::new(),
+            reality_short_id: String::new(),
+            vless_transport: "reality_tcp".to_string(),
+            xhttp_path: String::new(),
+            xhttp_host: String::new(),
+            uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+        }),
+        "cloudflare_tunnel" => RelayBackendConfig::CloudflareTunnel(CloudflareTunnelRelayConfig {
+            uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+            xhttp_path: String::new(),
+            xhttp_host: String::new(),
+            tunnel_mode: "consume_existing".to_string(),
+            publish_local_origin_url: String::new(),
+            credentials_ref: String::new(),
+            tunnel_token: None,
+            tunnel_credentials_json: None,
+        }),
+        "chain_relay" => RelayBackendConfig::ChainRelay(ChainRelayConfig {
+            entry_port: 443,
+            exit_port: 443,
+            entry_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+            exit_uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
+            ..ChainRelayConfig::default()
+        }),
+        "masque" => RelayBackendConfig::Masque(MasqueRelayConfig {
+            url: "https://masque.example/".to_string(),
+            use_http2_fallback: true,
+            auth_mode: Some("token".to_string()),
+            auth_token: Some("token".to_string()),
+            ..MasqueRelayConfig::default()
+        }),
+        "shadowtls_v3" => RelayBackendConfig::ShadowTlsV3(ShadowTlsRelayConfig {
+            password: Some("secret".to_string()),
+            ..ShadowTlsRelayConfig::default()
+        }),
+        other => RelayBackendConfig::Unsupported(crate::config::UnsupportedRelayConfig { kind: other.to_string() }),
+    };
+    ResolvedRelayRuntimeConfig { common, backend }
+}
+
+fn hysteria_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut Hysteria2RelayConfig {
+    match &mut config.backend {
+        RelayBackendConfig::Hysteria2(hysteria) => hysteria,
+        _ => panic!("expected Hysteria2 config"),
+    }
+}
+
+fn tuic_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut TuicRelayConfig {
+    match &mut config.backend {
+        RelayBackendConfig::TuicV5(tuic) => tuic,
+        _ => panic!("expected TUIC config"),
+    }
+}
+
+fn vless_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut VlessRealityRelayConfig {
+    match &mut config.backend {
+        RelayBackendConfig::VlessReality(vless) => vless,
+        _ => panic!("expected VLESS Reality config"),
+    }
+}
+
+fn cloudflare_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut CloudflareTunnelRelayConfig {
+    match &mut config.backend {
+        RelayBackendConfig::CloudflareTunnel(cloudflare) => cloudflare,
+        _ => panic!("expected Cloudflare tunnel config"),
+    }
+}
+
+fn masque_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut MasqueRelayConfig {
+    match &mut config.backend {
+        RelayBackendConfig::Masque(masque) => masque,
+        _ => panic!("expected MASQUE config"),
+    }
+}
+
+fn shadowtls_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut ShadowTlsRelayConfig {
+    match &mut config.backend {
+        RelayBackendConfig::ShadowTlsV3(shadowtls) => shadowtls,
+        _ => panic!("expected ShadowTLS config"),
     }
 }
 
 #[test]
 fn relay_runtime_allows_hysteria_udp_and_salamander() {
     let mut config = sample_config("hysteria2");
-    config.udp_enabled = true;
-    config.hysteria_salamander_key = Some("salamander".to_string());
+    config.common.udp_enabled = true;
+    hysteria_config_mut(&mut config).salamander_key = Some("salamander".to_string());
     let capabilities = planned_backend_capabilities(&config);
     assert!(capabilities.udp, "Hysteria2 should report UDP capability");
 }
@@ -90,8 +138,8 @@ fn relay_runtime_allows_hysteria_udp_and_salamander() {
 #[test]
 fn relay_runtime_allows_tuic_udp_and_zero_rtt() {
     let mut config = sample_config("tuic_v5");
-    config.udp_enabled = true;
-    config.tuic_zero_rtt = true;
+    config.common.udp_enabled = true;
+    tuic_config_mut(&mut config).zero_rtt = true;
 
     let capabilities = planned_backend_capabilities(&config);
     assert!(capabilities.tcp, "TUIC should report TCP capability");
@@ -102,7 +150,7 @@ fn relay_runtime_allows_tuic_udp_and_zero_rtt() {
 #[tokio::test]
 async fn relay_runtime_rejects_udp_without_backend_support() {
     let mut config = sample_config("vless_reality");
-    config.udp_enabled = true;
+    config.common.udp_enabled = true;
     let backend = RelayBackend::Unsupported { kind: "vless_reality".to_string() };
 
     let error = validate_runtime_config(&config, &backend).expect_err("UDP must fail fast");
@@ -112,13 +160,14 @@ async fn relay_runtime_rejects_udp_without_backend_support() {
 #[tokio::test]
 async fn relay_runtime_allows_masque_udp_and_privacy_pass_provider() {
     let mut config = sample_config("masque");
-    config.udp_enabled = true;
-    config.masque_auth_mode = Some("privacy_pass".to_string());
-    config.masque_auth_token = None;
-    config.masque_client_certificate_chain_pem = None;
-    config.masque_client_private_key_pem = None;
-    config.masque_cloudflare_geohash_header = None;
-    config.masque_privacy_pass_provider_url = Some("https://provider.example/token".to_string());
+    config.common.udp_enabled = true;
+    let masque = masque_config_mut(&mut config);
+    masque.auth_mode = Some("privacy_pass".to_string());
+    masque.auth_token = None;
+    masque.client_certificate_chain_pem = None;
+    masque.client_private_key_pem = None;
+    masque.cloudflare_geohash_header = None;
+    masque.privacy_pass_provider_url = Some("https://provider.example/token".to_string());
 
     let capabilities = planned_backend_capabilities(&config);
     assert!(capabilities.udp, "MASQUE should report UDP capability");
@@ -129,20 +178,21 @@ async fn relay_runtime_allows_masque_udp_and_privacy_pass_provider() {
 #[test]
 fn relay_runtime_preserves_cloudflare_mtls_material() {
     let mut config = sample_config("masque");
-    config.masque_auth_mode = Some("cloudflare_mtls".to_string());
-    config.masque_auth_token = None;
-    config.masque_client_certificate_chain_pem = Some("cert-chain".to_string());
-    config.masque_client_private_key_pem = Some("private-key".to_string());
-    config.masque_cloudflare_geohash_header = Some("u4pruyd-GB".to_string());
+    let masque = masque_config_mut(&mut config);
+    masque.auth_mode = Some("cloudflare_mtls".to_string());
+    masque.auth_token = None;
+    masque.client_certificate_chain_pem = Some("cert-chain".to_string());
+    masque.client_private_key_pem = Some("private-key".to_string());
+    masque.cloudflare_geohash_header = Some("u4pruyd-GB".to_string());
 
-    assert_eq!(config.masque_auth_mode.as_deref(), Some("cloudflare_mtls"));
-    assert_eq!(config.masque_cloudflare_geohash_header.as_deref(), Some("u4pruyd-GB"));
+    assert_eq!(masque.auth_mode.as_deref(), Some("cloudflare_mtls"));
+    assert_eq!(masque.cloudflare_geohash_header.as_deref(), Some("u4pruyd-GB"));
 }
 
 #[test]
 fn relay_runtime_rejects_finalmask_for_unsupported_transport() {
     let mut config = sample_config("vless_reality");
-    config.finalmask = ResolvedRelayFinalmaskConfig {
+    config.common.finalmask = ResolvedRelayFinalmaskConfig {
         r#type: "header_custom".to_string(),
         header_hex: "abcd".to_string(),
         ..ResolvedRelayFinalmaskConfig::default()
@@ -155,8 +205,8 @@ fn relay_runtime_rejects_finalmask_for_unsupported_transport() {
 #[test]
 fn relay_runtime_accepts_finalmask_for_xhttp_vless() {
     let mut config = sample_config("vless_reality");
-    config.vless_transport = "xhttp".to_string();
-    config.finalmask = ResolvedRelayFinalmaskConfig {
+    vless_config_mut(&mut config).vless_transport = "xhttp".to_string();
+    config.common.finalmask = ResolvedRelayFinalmaskConfig {
         r#type: "fragment".to_string(),
         fragment_packets: 3,
         fragment_min_bytes: 32,
@@ -170,7 +220,7 @@ fn relay_runtime_accepts_finalmask_for_xhttp_vless() {
 #[test]
 fn relay_runtime_accepts_finalmask_for_cloudflare_xhttp() {
     let mut config = sample_config("cloudflare_tunnel");
-    config.finalmask = ResolvedRelayFinalmaskConfig {
+    config.common.finalmask = ResolvedRelayFinalmaskConfig {
         r#type: "sudoku".to_string(),
         sudoku_seed: "fixture-seed".to_string(),
         ..ResolvedRelayFinalmaskConfig::default()
@@ -182,7 +232,7 @@ fn relay_runtime_accepts_finalmask_for_cloudflare_xhttp() {
 #[test]
 fn relay_runtime_accepts_noise_for_xhttp_transports() {
     let mut config = sample_config("cloudflare_tunnel");
-    config.finalmask = ResolvedRelayFinalmaskConfig {
+    config.common.finalmask = ResolvedRelayFinalmaskConfig {
         r#type: "noise".to_string(),
         rand_range: "8-12".to_string(),
         ..ResolvedRelayFinalmaskConfig::default()
@@ -204,8 +254,9 @@ fn relay_telemetry_reports_tls_catalog_version() {
 #[test]
 fn relay_runtime_routes_vless_xhttp_through_tcp_only_backend() {
     let mut config = sample_config("vless_reality");
-    config.vless_transport = "xhttp".to_string();
-    config.xhttp_path = "/api/v1/stream".to_string();
+    let vless = vless_config_mut(&mut config);
+    vless.vless_transport = "xhttp".to_string();
+    vless.xhttp_path = "/api/v1/stream".to_string();
 
     let capabilities = planned_backend_capabilities(&config);
     assert_eq!((true, false), (capabilities.tcp, capabilities.udp));
@@ -215,10 +266,9 @@ fn relay_runtime_routes_vless_xhttp_through_tcp_only_backend() {
 #[test]
 fn relay_runtime_assigns_central_pool_policy_by_backend_family() {
     let hysteria = pool_config_for_backend(&sample_config("hysteria2"));
-    let xhttp = pool_config_for_backend(&ResolvedRelayRuntimeConfig {
-        vless_transport: "xhttp".to_string(),
-        ..sample_config("vless_reality")
-    });
+    let mut xhttp_config = sample_config("vless_reality");
+    vless_config_mut(&mut xhttp_config).vless_transport = "xhttp".to_string();
+    let xhttp = pool_config_for_backend(&xhttp_config);
     let chain = pool_config_for_backend(&sample_config("chain_relay"));
 
     assert_eq!(64, hysteria.max_active_leases);
@@ -232,9 +282,9 @@ fn relay_runtime_assigns_central_pool_policy_by_backend_family() {
 #[tokio::test]
 async fn relay_runtime_routes_cloudflare_tunnel_through_xhttp_backend() {
     let mut config = sample_config("cloudflare_tunnel");
-    config.server = "edge.example.com".to_string();
-    config.server_name = "edge.example.com".to_string();
-    config.xhttp_path = "/cdn/api".to_string();
+    config.common.server = "edge.example.com".to_string();
+    config.common.server_name = "edge.example.com".to_string();
+    cloudflare_config_mut(&mut config).xhttp_path = "/cdn/api".to_string();
 
     let backend = build_backend(&config).await;
     assert!(backend.is_ok(), "cloudflare tunnel backend should resolve");
@@ -244,7 +294,7 @@ async fn relay_runtime_routes_cloudflare_tunnel_through_xhttp_backend() {
 #[test]
 fn relay_runtime_rejects_invalid_outbound_bind_ip() {
     let mut config = sample_config("vless_reality");
-    config.outbound_bind_ip = "not-an-ip".to_string();
+    config.common.outbound_bind_ip = "not-an-ip".to_string();
     let backend = RelayBackend::Unsupported { kind: "vless_reality".to_string() };
 
     let error = validate_runtime_config(&config, &backend).expect_err("invalid bind ip must fail");
@@ -254,7 +304,7 @@ fn relay_runtime_rejects_invalid_outbound_bind_ip() {
 #[test]
 fn relay_runtime_rejects_bind_ip_for_unsupported_backend() {
     let mut config = sample_config("hysteria2");
-    config.outbound_bind_ip = "203.0.113.10".to_string();
+    config.common.outbound_bind_ip = "203.0.113.10".to_string();
     let backend = RelayBackend::Unsupported { kind: "hysteria2".to_string() };
 
     let error = validate_runtime_config(&config, &backend).expect_err("unsupported bind ip must fail");
@@ -264,8 +314,9 @@ fn relay_runtime_rejects_bind_ip_for_unsupported_backend() {
 #[tokio::test]
 async fn relay_runtime_builds_shadowtls_backend_with_inner_vless_profile() {
     let mut config = sample_config("shadowtls_v3");
-    config.shadow_tls_inner_profile_id = "inner-vless".to_string();
-    config.shadow_tls_inner = Some(ResolvedShadowTlsInnerRelayConfig {
+    let shadowtls = shadowtls_config_mut(&mut config);
+    shadowtls.inner_profile_id = "inner-vless".to_string();
+    shadowtls.inner = Some(ResolvedShadowTlsInnerRelayConfig {
         kind: "vless_reality".to_string(),
         profile_id: "inner-vless".to_string(),
         server: "inner.example".to_string(),

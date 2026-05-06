@@ -10,10 +10,7 @@ pub fn apply_entry(mut env: EnvUnowned<'_>, manifest_json: JString<'_>, priors_b
             let priors_b64: String = priors_base64.mutf8_chars(env)?.to_str().into_owned();
             let payload = match base64::engine::general_purpose::STANDARD.decode(priors_b64.trim()) {
                 Ok(bytes) => {
-                    match ripdpi_runtime_strategy::strategy_evolver::apply_global_shared_priors_with_embedded_key(
-                        &manifest_bytes,
-                        &bytes,
-                    ) {
+                    match ripdpi_shared_priors::apply_global_shared_priors_with_embedded_key(&manifest_bytes, &bytes) {
                         Ok(count) => serde_json::json!({"ok": true, "count": count}).to_string(),
                         Err(err) => serde_json::json!({"ok": false, "error": err.to_string()}).to_string(),
                     }

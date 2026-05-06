@@ -5,217 +5,22 @@ mod event;
 mod fault;
 mod http;
 mod socks;
+mod stack;
+mod tls;
 mod types;
 mod util;
 
 pub use self::event::*;
 pub use self::fault::*;
+pub use self::stack::FixtureStack;
 pub use self::types::*;
-
-use std::fmt;
-use std::io;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::thread::JoinHandle;
-
-use rcgen::generate_simple_self_signed;
-use rustls::pki_types::PrivateKeyDer;
-use rustls::ServerConfig;
-
-pub struct FixtureStack {
-    manifest: FixtureManifest,
-    events: EventLog,
-    faults: FaultController,
-    stop: Arc<AtomicBool>,
-    handles: Vec<JoinHandle<()>>,
-}
-
-impl FixtureStack {
-    pub fn start(config: FixtureConfig) -> io::Result<Self> {
-        let certificate = generate_simple_self_signed(vec![
-            config.fixture_domain.clone(),
-            "localhost".to_string(),
-            "127.0.0.1".to_string(),
-        ])
-        .map_err(util::other_io)?;
-        let cert_der = certificate.cert.der().clone();
-        let cert_pem = certificate.cert.pem();
-        let key_der = PrivateKeyDer::Pkcs8(certificate.signing_key.serialize_der().into());
-        let tls_server_config = Arc::new(
-            ServerConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-                .with_safe_default_protocol_versions()
-                .expect("ring provider supports default TLS versions")
-                .with_no_client_auth()
-                .with_single_cert(vec![cert_der], key_der)
-                .map_err(util::other_io)?,
-        );
-
-        let stop = Arc::new(AtomicBool::new(false));
-        let events = EventLog::new();
-        let faults = FaultController::new();
-        let (tcp_echo_handle, tcp_echo_port) = echo::start_tcp_echo_server(
-            config.bind_host.clone(),
-            config.tcp_echo_port,
-            stop.clone(),
-            events.clone(),
-            faults.clone(),
-        )?;
-        let (udp_echo_handle, udp_echo_port) = echo::start_udp_echo_server(
-            config.bind_host.clone(),
-            config.udp_echo_port,
-            stop.clone(),
-            events.clone(),
-            faults.clone(),
-        )?;
-        let (tls_echo_handle, tls_echo_port) = echo::start_tls_echo_server(
-            config.bind_host.clone(),
-            config.tls_echo_port,
-            stop.clone(),
-            events.clone(),
-            faults.clone(),
-            tls_server_config.clone(),
-        )?;
-        let (dns_udp_handle, dns_udp_port) = dns::start_dns_udp_server(
-            config.bind_host.clone(),
-            config.dns_udp_port,
-            stop.clone(),
-            events.clone(),
-            faults.clone(),
-            config.dns_answer_ipv4.clone(),
-        )?;
-        let (dns_http_handle, dns_http_port) = dns::start_dns_http_server(
-            config.bind_host.clone(),
-            config.dns_http_port,
-            stop.clone(),
-            events.clone(),
-            faults.clone(),
-            config.dns_answer_ipv4.clone(),
-        )?;
-        let (dns_dot_handle, dns_dot_port) = dns::start_dns_dot_server(
-            config.bind_host.clone(),
-            config.dns_dot_port,
-            stop.clone(),
-            events.clone(),
-            faults.clone(),
-            config.dns_answer_ipv4.clone(),
-            tls_server_config.clone(),
-        )?;
-        let (dns_dnscrypt_handle, dns_dnscrypt_port) = dns::start_dns_dnscrypt_server(
-            config.bind_host.clone(),
-            config.dns_dnscrypt_port,
-            stop.clone(),
-            events.clone(),
-            faults.clone(),
-            config.dns_answer_ipv4.clone(),
-            config.dnscrypt_provider_name.clone(),
-            config.dnscrypt_public_key.clone(),
-        )?;
-        let (dns_doq_handle, dns_doq_port) = dns::start_dns_doq_server(
-            config.bind_host.clone(),
-            config.dns_doq_port,
-            stop.clone(),
-            events.clone(),
-            faults.clone(),
-            config.dns_answer_ipv4.clone(),
-            tls_server_config.clone(),
-        )?;
-        let (socks5_handle, socks5_port) =
-            socks::start_socks5_server(config.clone(), stop.clone(), events.clone(), faults.clone())?;
-
-        let mut manifest = FixtureManifest {
-            bind_host: config.bind_host.clone(),
-            android_host: config.android_host.clone(),
-            tcp_echo_port,
-            udp_echo_port,
-            tls_echo_port,
-            dns_udp_port,
-            dns_http_port,
-            dns_dot_port,
-            dns_dnscrypt_port,
-            dns_doq_port,
-            socks5_port,
-            control_port: 0,
-            fixture_domain: config.fixture_domain.clone(),
-            fixture_ipv4: config.fixture_ipv4.clone(),
-            dns_answer_ipv4: config.dns_answer_ipv4.clone(),
-            tls_certificate_pem: cert_pem,
-            dnscrypt_provider_name: config.dnscrypt_provider_name.clone(),
-            dnscrypt_public_key: config.dnscrypt_public_key.clone(),
-        };
-        let shared_manifest = Arc::new(Mutex::new(manifest.clone()));
-        let (control_handle, control_port) = control::start_control_server(
-            config.bind_host,
-            config.control_port,
-            stop.clone(),
-            events.clone(),
-            faults.clone(),
-            shared_manifest.clone(),
-        )?;
-        manifest.control_port = control_port;
-        if let Ok(mut current) = shared_manifest.lock() {
-            *current = manifest.clone();
-        }
-
-        let handles = vec![
-            tcp_echo_handle,
-            udp_echo_handle,
-            tls_echo_handle,
-            dns_udp_handle,
-            dns_http_handle,
-            dns_dot_handle,
-            dns_dnscrypt_handle,
-            dns_doq_handle,
-            socks5_handle,
-            control_handle,
-        ];
-
-        Ok(Self { manifest, events, faults, stop, handles })
-    }
-
-    pub fn manifest(&self) -> &FixtureManifest {
-        &self.manifest
-    }
-
-    pub fn events(&self) -> EventLog {
-        self.events.clone()
-    }
-
-    pub fn faults(&self) -> FaultController {
-        self.faults.clone()
-    }
-}
-
-impl Drop for FixtureStack {
-    fn drop(&mut self) {
-        self.stop.store(true, Ordering::Relaxed);
-        util::wake_tcp(&self.manifest.bind_host, self.manifest.tcp_echo_port);
-        util::wake_tcp(&self.manifest.bind_host, self.manifest.tls_echo_port);
-        util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_http_port);
-        util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_dot_port);
-        util::wake_tcp(&self.manifest.bind_host, self.manifest.dns_dnscrypt_port);
-        util::wake_tcp(&self.manifest.bind_host, self.manifest.socks5_port);
-        util::wake_tcp(&self.manifest.bind_host, self.manifest.control_port);
-        util::wake_udp(&self.manifest.bind_host, self.manifest.udp_echo_port);
-        util::wake_udp(&self.manifest.bind_host, self.manifest.dns_udp_port);
-        util::wake_udp(&self.manifest.bind_host, self.manifest.dns_doq_port);
-        for handle in self.handles.drain(..) {
-            let _ = handle.join();
-        }
-    }
-}
-
-impl fmt::Debug for FixtureStack {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FixtureStack").field("manifest", &self.manifest).finish_non_exhaustive()
-    }
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::io::{ErrorKind, Read, Write};
     use std::net::{IpAddr, Ipv4Addr, Shutdown, SocketAddr, TcpStream, UdpSocket};
-    use std::sync::Mutex;
+    use std::sync::{Arc, Mutex};
     use std::time::Duration;
 
     use ripdpi_dns_resolver::{

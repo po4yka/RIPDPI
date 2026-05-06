@@ -19,7 +19,6 @@ members = [
     "crates/ripdpi-diagnostics-net",
     "crates/ripdpi-diagnostics-parsers",
     "crates/ripdpi-diagnostics-pcap",
-    "crates/ripdpi-diagnostics-probes",
     "crates/ripdpi-diagnostics-protocols",
     "crates/ripdpi-diagnostics-runner",
     "crates/ripdpi-diagnostics-telegram",
@@ -35,6 +34,7 @@ members = [
     "crates/ripdpi-runtime-services",
     "crates/ripdpi-runtime-platform",
     "crates/ripdpi-runtime-strategy",
+    "crates/ripdpi-shared-priors",
     "crates/ripdpi-ws-bootstrap",
     "crates/ripdpi-telemetry",
     "crates/ripdpi-native-protect",
@@ -104,7 +104,6 @@ ripdpi-diagnostics-http = { path = "crates/ripdpi-diagnostics-http" }
 ripdpi-diagnostics-net = { path = "crates/ripdpi-diagnostics-net" }
 ripdpi-diagnostics-parsers = { path = "crates/ripdpi-diagnostics-parsers" }
 ripdpi-diagnostics-pcap = { path = "crates/ripdpi-diagnostics-pcap" }
-ripdpi-diagnostics-probes = { path = "crates/ripdpi-diagnostics-probes" }
 ripdpi-diagnostics-protocols = { path = "crates/ripdpi-diagnostics-protocols" }
 ripdpi-diagnostics-runner = { path = "crates/ripdpi-diagnostics-runner" }
 ripdpi-diagnostics-telegram = { path = "crates/ripdpi-diagnostics-telegram" }
@@ -120,6 +119,7 @@ ripdpi-runtime-policy = { path = "crates/ripdpi-runtime-policy" }
 ripdpi-runtime-services = { path = "crates/ripdpi-runtime-services" }
 ripdpi-runtime-platform = { path = "crates/ripdpi-runtime-platform" }
 ripdpi-runtime-strategy = { path = "crates/ripdpi-runtime-strategy" }
+ripdpi-shared-priors = { path = "crates/ripdpi-shared-priors" }
 ripdpi-ws-bootstrap = { path = "crates/ripdpi-ws-bootstrap" }
 ripdpi-telemetry = { path = "crates/ripdpi-telemetry" }
 ripdpi-native-protect = { path = "crates/ripdpi-native-protect" }
@@ -223,6 +223,7 @@ rand = "0.10"
 sha2 = "0.11"
 flate2 = "1"
 time = "0.3"
+tungstenite = { version = "0.29", default-features = false, features = ["handshake"] }
 
 [workspace.lints.clippy]
 # Correctness & suspicious (errors)

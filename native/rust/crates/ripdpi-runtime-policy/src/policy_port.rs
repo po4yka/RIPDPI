@@ -9,7 +9,51 @@ use crate::runtime_policy::{
     ConnectionRoute, HostAutolearnEvent, HostAutolearnState, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
 };
 
-/// Coarse port trait that abstracts route selection and direct-path learning.
+/// Port trait that abstracts direct-path learning feedback.
+///
+/// Implementations hold the concrete [`DirectPathLearningState`] object. The
+/// port is separate from [`PolicyPort`] so callers that only record direct-path
+/// observations do not depend on route selection and persistence methods.
+pub trait DirectPathLearningPort: Send + Sync {
+    fn note_direct_path_transport_attempt(
+        &self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        transport: TransportProtocol,
+    );
+
+    fn note_direct_path_udp_suppressed(&self, host: Option<&str>, targets: &[SocketAddr], now_ms: u64);
+
+    fn note_direct_path_udp_failure(&self, host: Option<&str>, targets: &[SocketAddr]);
+
+    fn note_direct_path_quic_success(
+        &self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        observer: Option<&dyn DirectPathLearningObserver>,
+    );
+
+    fn note_direct_path_tcp_success(
+        &self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        strategy_family: Option<&str>,
+        observer: Option<&dyn DirectPathLearningObserver>,
+    );
+
+    fn note_direct_path_tls_post_client_hello_failure(&self, host: Option<&str>, targets: &[SocketAddr]);
+
+    fn note_direct_path_all_ips_failed(
+        &self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        observer: Option<&dyn DirectPathLearningObserver>,
+    );
+
+    fn emit_due_direct_path_learning_timeouts(&self, now_ms: u64, observer: Option<&dyn DirectPathLearningObserver>);
+}
+
+/// Coarse port trait that abstracts route selection and host policy state.
 ///
 /// Implementations hold the concrete [`RuntimePolicy`] and
 /// [`DirectPathLearningState`] objects. The port is passed by `Arc<dyn
@@ -93,45 +137,6 @@ pub trait PolicyPort: Send + Sync {
         signatures: &[(usize, u64)],
         now_ms: u64,
     ) -> BTreeMap<usize, RetrySelectionPenalty>;
-
-    // --- Direct-path learning ---
-
-    fn note_direct_path_transport_attempt(
-        &self,
-        host: Option<&str>,
-        targets: &[SocketAddr],
-        transport: TransportProtocol,
-    );
-
-    fn note_direct_path_udp_suppressed(&self, host: Option<&str>, targets: &[SocketAddr], now_ms: u64);
-
-    fn note_direct_path_udp_failure(&self, host: Option<&str>, targets: &[SocketAddr]);
-
-    fn note_direct_path_quic_success(
-        &self,
-        host: Option<&str>,
-        targets: &[SocketAddr],
-        observer: Option<&dyn DirectPathLearningObserver>,
-    );
-
-    fn note_direct_path_tcp_success(
-        &self,
-        host: Option<&str>,
-        targets: &[SocketAddr],
-        strategy_family: Option<&str>,
-        observer: Option<&dyn DirectPathLearningObserver>,
-    );
-
-    fn note_direct_path_tls_post_client_hello_failure(&self, host: Option<&str>, targets: &[SocketAddr]);
-
-    fn note_direct_path_all_ips_failed(
-        &self,
-        host: Option<&str>,
-        targets: &[SocketAddr],
-        observer: Option<&dyn DirectPathLearningObserver>,
-    );
-
-    fn emit_due_direct_path_learning_timeouts(&self, now_ms: u64, observer: Option<&dyn DirectPathLearningObserver>);
 
     // --- Autolearn / telemetry flush ---
 

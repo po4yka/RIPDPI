@@ -1,123 +1,92 @@
-//! Shared-priors loader for the offline learner.
-//!
-//! Sub-modules:
-//!
-//! - [`parser`] — NDJSON record parser (legacy entry point, unchanged).
-//! - [`manifest`] — ed25519 + SHA-256 manifest verification.
-//! - [`loader`] — `apply_priors` end-to-end pipeline with fail-secure
-//!   semantics, plus [`loader::canonical_combo_hash`] for the stable hash
-//!   used as the bundle key.
-//!
-//! Public surface re-exported here keeps the legacy parser API stable for
-//! callers that imported it before the manifest layer landed.
+//! Strategy-facing shared-priors helpers.
 
-#![allow(dead_code)]
+pub use ripdpi_shared_priors::{
+    apply_global_shared_priors, apply_global_shared_priors_with_embedded_key, apply_priors,
+    apply_priors_with_embedded_key, global_shared_priors_len, is_production_key_set, latest_shared_priors,
+    AppliedPriors, ApplyError, ManifestError, SharedPriorsError, SharedPriorsManifest, SHARED_PRIORS_PUB_KEY,
+};
 
-pub mod loader;
-pub mod manifest;
-pub mod parser;
+use crate::strategy_evolver::types::{
+    entropy_mode_disc, offset_base_disc, quic_fake_disc, tls_randrec_disc, udp_burst_disc, StrategyCombo,
+};
 
-use std::collections::HashMap;
-use std::sync::{OnceLock, RwLock};
-
-pub use loader::{apply_priors, apply_priors_with_embedded_key, canonical_combo_hash, AppliedPriors, ApplyError};
-pub use manifest::{is_production_key_set, ManifestError, SharedPriorsManifest, SHARED_PRIORS_PUB_KEY};
-pub use parser::SharedPriorsError;
-
-use super::thompson_sampling::BetaParams;
-
-// Process-wide registry that holds the most-recently verified shared
-// priors. The JNI bridge calls
-// `apply_global_shared_priors` after fetching the manifest + payload from
-// GitHub; new `StrategyEvolver` instances consult `latest_shared_priors`
-// at session start to seed their prior store.
-//
-// Replacement is wholesale and atomic: a successful apply swaps the
-// stored map; a failed apply leaves the previous map untouched, mirroring
-// the in-evolver fail-secure semantics.
-static SHARED_PRIORS_REGISTRY: OnceLock<RwLock<HashMap<u64, BetaParams>>> = OnceLock::new();
-
-fn registry() -> &'static RwLock<HashMap<u64, BetaParams>> {
-    SHARED_PRIORS_REGISTRY.get_or_init(|| RwLock::new(HashMap::new()))
+/// Stable canonical hash of a [`StrategyCombo`] used as the key in shared
+/// priors bundles. Independent of [`std::hash::Hasher`] (whose algorithm
+/// is version-dependent) — this hash is FNV-1a 64-bit over a fixed 14-byte
+/// wire form, so an external signing tool can compute the same value.
+pub fn canonical_combo_hash(combo: &StrategyCombo) -> u64 {
+    let mut bytes = [0u8; 14];
+    write_dim(&mut bytes, 0, combo.split_offset_base.map(offset_base_disc));
+    write_dim(&mut bytes, 1, combo.tls_record_offset_base.map(offset_base_disc));
+    write_dim(&mut bytes, 2, combo.tlsrandrec_profile.map(tls_randrec_disc));
+    write_dim(&mut bytes, 3, combo.udp_burst_profile.map(udp_burst_disc));
+    write_dim(&mut bytes, 4, combo.quic_fake_profile.map(quic_fake_disc));
+    write_dim(&mut bytes, 5, combo.fake_ttl);
+    write_dim(&mut bytes, 6, combo.entropy_mode.map(entropy_mode_disc));
+    fnv1a_64(&bytes)
 }
 
-/// Verify a signed shared-priors bundle and write the resulting prior
-/// store into the process-wide registry. On verification or parse
-/// failure, the registry is left untouched and the error is returned.
-///
-/// The `public_key` argument is the ed25519 public key the manifest is
-/// expected to carry a signature for. Production callers should pass
-/// [`SHARED_PRIORS_PUB_KEY`]; until that constant is replaced with a
-/// real key, every call short-circuits with
-/// [`ApplyError::Manifest`]`(`[`ManifestError::NoProductionKey`]`)` —
-/// fail-closed by design.
-///
-/// On success, returns the number of records loaded into the registry.
-pub fn apply_global_shared_priors(
-    manifest_bytes: &[u8],
-    priors_bytes: &[u8],
-    public_key: &[u8; 32],
-) -> Result<usize, ApplyError> {
-    let applied = apply_priors(manifest_bytes, priors_bytes, public_key)?;
-    let count = applied.priors.len();
-    let mut guard = registry().write().expect("shared priors registry poisoned");
-    *guard = applied.priors;
-    Ok(count)
+fn write_dim(out: &mut [u8; 14], slot: usize, disc: Option<u8>) {
+    out[slot * 2] = slot as u8;
+    out[slot * 2 + 1] = disc.unwrap_or(0xFF);
 }
 
-/// Production-key entry point for the JNI bridge — wraps
-/// [`apply_global_shared_priors`] with the embedded
-/// [`SHARED_PRIORS_PUB_KEY`].
-pub fn apply_global_shared_priors_with_embedded_key(
-    manifest_bytes: &[u8],
-    priors_bytes: &[u8],
-) -> Result<usize, ApplyError> {
-    apply_global_shared_priors(manifest_bytes, priors_bytes, &SHARED_PRIORS_PUB_KEY)
-}
-
-/// Read-only snapshot of the most-recently applied prior store. Returns
-/// an empty map when no bundle has been applied yet (the OnceLock is
-/// initialised on first read so this never panics).
-pub fn latest_shared_priors() -> HashMap<u64, BetaParams> {
-    registry().read().expect("shared priors registry poisoned").clone()
-}
-
-/// Number of priors currently in the global registry. Cheap; takes only
-/// a read lock.
-pub fn global_shared_priors_len() -> usize {
-    registry().read().expect("shared priors registry poisoned").len()
+fn fnv1a_64(bytes: &[u8]) -> u64 {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for &b in bytes {
+        hash ^= u64::from(b);
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    hash
 }
 
 #[cfg(test)]
-mod registry_tests {
-    use super::manifest::test_support::{generate_test_key, sign_manifest_bytes};
+pub(crate) mod manifest {
+    pub(crate) use ripdpi_shared_priors::manifest::test_support;
+}
+
+#[cfg(test)]
+mod tests {
+    use ripdpi_config::OffsetBase;
+
     use super::*;
+    use crate::strategy_evolver::StrategyCombo;
 
-    // The static registry is process-global, so multiple tests writing
-    // to it would race. We funnel the registry-mutation tests through a
-    // single test that exercises both apply paths in sequence.
     #[test]
-    fn registry_replaces_on_success_and_preserves_on_failure() {
-        let key = generate_test_key();
-        let priors = b"{\"combo_hash\": 1, \"alpha\": 12.0, \"beta\": 4.0}\n";
-        let manifest = sign_manifest_bytes(&key, priors, 1, "https://example/p.ndjson");
+    fn canonical_combo_hash_is_stable_for_default_combo() {
+        let combo = StrategyCombo {
+            split_offset_base: None,
+            tls_record_offset_base: None,
+            tlsrandrec_profile: None,
+            udp_burst_profile: None,
+            quic_fake_profile: None,
+            fake_ttl: None,
+            entropy_mode: None,
+        };
+        let expected = fnv1a_64(&[0, 0xFF, 1, 0xFF, 2, 0xFF, 3, 0xFF, 4, 0xFF, 5, 0xFF, 6, 0xFF]);
+        assert_eq!(canonical_combo_hash(&combo), expected);
+    }
 
-        // Successful apply: registry now has 1 entry.
-        let count = apply_global_shared_priors(manifest.as_bytes(), priors, &key.public_bytes)
-            .expect("first apply must succeed");
-        assert_eq!(count, 1);
-        assert_eq!(global_shared_priors_len(), 1);
-
-        // Failed apply: tampered payload. Registry must keep the prior entry.
-        let tampered = b"{\"combo_hash\": 1, \"alpha\": 99.0, \"beta\": 4.0}\n";
-        let err = apply_global_shared_priors(manifest.as_bytes(), tampered, &key.public_bytes)
-            .expect_err("tampered apply must fail");
-        assert!(matches!(err, ApplyError::Manifest(ManifestError::HashMismatch)));
-        assert_eq!(global_shared_priors_len(), 1, "fail-secure: registry must keep the previously-applied entry");
-
-        // Embedded-key entry point short-circuits while the placeholder is in place.
-        let err = apply_global_shared_priors_with_embedded_key(manifest.as_bytes(), priors)
-            .expect_err("placeholder embedded key must reject");
-        assert!(matches!(err, ApplyError::Manifest(ManifestError::NoProductionKey)));
+    #[test]
+    fn canonical_combo_hash_differs_for_different_combos() {
+        let combo_a = StrategyCombo {
+            split_offset_base: Some(OffsetBase::AutoHost),
+            tls_record_offset_base: None,
+            tlsrandrec_profile: None,
+            udp_burst_profile: None,
+            quic_fake_profile: None,
+            fake_ttl: Some(8),
+            entropy_mode: None,
+        };
+        let combo_b = StrategyCombo {
+            split_offset_base: Some(OffsetBase::MidSld),
+            tls_record_offset_base: None,
+            tlsrandrec_profile: None,
+            udp_burst_profile: None,
+            quic_fake_profile: None,
+            fake_ttl: Some(8),
+            entropy_mode: None,
+        };
+        assert_ne!(canonical_combo_hash(&combo_a), canonical_combo_hash(&combo_b));
     }
 }

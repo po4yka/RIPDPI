@@ -4,7 +4,7 @@ use crate::backend::builder::builders::common::{finalmask_config, invalid_input}
 use crate::backend::builder::builders::BackendBuilder;
 use crate::backend::builder::BuildContext;
 use crate::backend::{PooledRelayBackend, RelayBackend};
-use crate::config::{RelayKind, ResolvedRelayRuntimeConfig};
+use crate::config::{RelayBackendConfig, RelayKind, ResolvedRelayRuntimeConfig};
 use crate::protocols::{XhttpSessionFactory, XhttpSessionMode};
 
 pub(crate) const BUILDER: BackendBuilder = BackendBuilder::new(supports, build);
@@ -14,18 +14,21 @@ fn supports(config: &ResolvedRelayRuntimeConfig) -> bool {
 }
 
 fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
+    let RelayBackendConfig::CloudflareTunnel(cloudflare) = &config.backend else {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected Cloudflare tunnel config"));
+    };
     let mut tls = ripdpi_xhttp::XhttpTlsConfig::from_strings(
-        &config.server,
-        config.server_port,
-        &config.server_name,
-        config.vless_uuid.as_deref().unwrap_or_default(),
-        &config.xhttp_path,
-        &config.xhttp_host,
-        &config.tls_fingerprint_profile,
+        &config.common.server,
+        config.common.server_port,
+        &config.common.server_name,
+        cloudflare.uuid.as_deref().unwrap_or_default(),
+        &cloudflare.xhttp_path,
+        &cloudflare.xhttp_host,
+        &config.common.tls_fingerprint_profile,
     )
     .map_err(invalid_input)?;
     tls.bind_ip = context.outbound_bind_ip;
-    tls.finalmask = finalmask_config(&config.finalmask);
+    tls.finalmask = finalmask_config(&config.common.finalmask);
 
     Ok(RelayBackend::Xhttp(PooledRelayBackend::new(
         XhttpSessionFactory { mode: XhttpSessionMode::Tls(tls) },

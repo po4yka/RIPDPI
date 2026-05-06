@@ -3,7 +3,6 @@ use std::net::SocketAddr;
 use ripdpi_proxy_config::{ProxyDirectPathCapability, ProxyRuntimeContext};
 use ripdpi_runtime_policy::direct_path_learning::direct_path_ip_set_digest;
 use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
-use ripdpi_runtime_strategy::strategy_evolver::CapabilityContext;
 
 use super::authority::{direct_path_authority_candidates, direct_path_authority_candidates_for_targets};
 
@@ -73,16 +72,5 @@ pub fn capability_blocks_transport(
             matches!(capability.quic_mode.trim().to_ascii_uppercase().as_str(), "SOFT_DISABLE" | "HARD_DISABLE")
         }
         TransportProtocol::Tcp => false,
-    }
-}
-
-pub(crate) fn capability_context(capability: Option<&ProxyDirectPathCapability>) -> CapabilityContext {
-    let Some(capability) = capability else {
-        return CapabilityContext::Unknown;
-    };
-    if capability_requires_desync_fallback(capability) {
-        CapabilityContext::Degraded
-    } else {
-        CapabilityContext::Full
     }
 }

@@ -18,7 +18,7 @@ import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
 import com.poyka.ripdpi.data.RelayCredentialRecord
-import com.poyka.ripdpi.data.RelayCredentialStore
+import com.poyka.ripdpi.data.RelayCredentialRepository
 import com.poyka.ripdpi.data.RelayFinalmaskTypeFragment
 import com.poyka.ripdpi.data.RelayFinalmaskTypeHeaderCustom
 import com.poyka.ripdpi.data.RelayFinalmaskTypeNoise
@@ -433,7 +433,7 @@ internal fun AppSettings.Builder.applyConfigDraft(draft: ConfigDraft): AppSettin
 internal suspend fun prepareRelayDraftForPersistence(
     draft: ConfigDraft,
     relayProfileStore: RelayProfileStore,
-    relayCredentialStore: RelayCredentialStore,
+    relayCredentialStore: RelayCredentialRepository,
 ): ConfigDraft =
     if (draft.relayKind == RelayKindChainRelay) {
         migrateLegacyChainRelayDraft(draft, relayProfileStore, relayCredentialStore)
@@ -444,7 +444,7 @@ internal suspend fun prepareRelayDraftForPersistence(
 internal suspend fun migrateLegacyChainRelayDraft(
     draft: ConfigDraft,
     relayProfileStore: RelayProfileStore,
-    relayCredentialStore: RelayCredentialStore,
+    relayCredentialStore: RelayCredentialRepository,
 ): ConfigDraft {
     if (draft.relayKind != RelayKindChainRelay) {
         return draft
@@ -498,7 +498,7 @@ internal suspend fun migrateLegacyChainRelayDraft(
 
 internal suspend fun migrateLegacyChainHopProfile(
     relayProfileStore: RelayProfileStore,
-    relayCredentialStore: RelayCredentialStore,
+    relayCredentialStore: RelayCredentialRepository,
     profileId: String,
     server: String,
     serverPort: String,

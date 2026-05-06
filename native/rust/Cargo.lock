@@ -3074,7 +3074,7 @@ dependencies = [
  "jni 0.22.4",
  "ripdpi-diagnostics-dns",
  "ripdpi-runtime-platform",
- "ripdpi-runtime-strategy",
+ "ripdpi-shared-priors",
  "serde_json",
 ]
 
@@ -3346,22 +3346,6 @@ name = "ripdpi-diagnostics-pcap"
 version = "0.1.0"
 
 [[package]]
-name = "ripdpi-diagnostics-probes"
-version = "0.1.0"
-dependencies = [
- "ripdpi-diagnostics-candidates",
- "ripdpi-diagnostics-classification",
- "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-dns",
- "ripdpi-diagnostics-fat-header",
- "ripdpi-diagnostics-http",
- "ripdpi-diagnostics-runner",
- "ripdpi-diagnostics-telegram",
- "ripdpi-diagnostics-tls",
- "ripdpi-diagnostics-transport",
-]
-
-[[package]]
 name = "ripdpi-diagnostics-protocols"
 version = "0.1.0"
 dependencies = [
@@ -3403,8 +3387,6 @@ dependencies = [
  "ripdpi-diagnostics-http",
  "ripdpi-diagnostics-tls",
  "ripdpi-diagnostics-transport",
- "ripdpi-ws-bootstrap",
- "ripdpi-ws-tunnel",
  "rustls",
  "tracing",
 ]
@@ -3431,6 +3413,8 @@ dependencies = [
  "ripdpi-diagnostics-contracts",
  "rustls",
  "socket2 0.6.3",
+ "tungstenite",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -3553,15 +3537,8 @@ dependencies = [
  "native-soak-support",
  "rcgen",
  "ripdpi-config",
- "ripdpi-diagnostics-candidates",
- "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-dns",
- "ripdpi-diagnostics-http",
  "ripdpi-diagnostics-runner",
- "ripdpi-diagnostics-telegram",
- "ripdpi-diagnostics-tls",
- "ripdpi-diagnostics-transport",
  "ripdpi-failure-classifier",
  "ripdpi-packets",
  "ripdpi-proxy-config",
@@ -3701,6 +3678,7 @@ dependencies = [
 name = "ripdpi-relay-core"
 version = "0.1.0"
 dependencies = [
+ "arc-swap",
  "ripdpi-hysteria2",
  "ripdpi-masque",
  "ripdpi-relay-mux",
@@ -3758,7 +3736,6 @@ dependencies = [
  "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-runtime-policy",
- "ripdpi-runtime-strategy",
  "serde",
  "serde_json",
  "tempfile",
@@ -3826,10 +3803,12 @@ dependencies = [
  "ripdpi-config",
  "ripdpi-desync",
  "ripdpi-failure-classifier",
+ "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-runtime-adaptive",
  "ripdpi-runtime-api",
  "ripdpi-runtime-policy",
+ "ripdpi-runtime-strategy",
  "tracing",
 ]
 
@@ -3837,11 +3816,10 @@ dependencies = [
 name = "ripdpi-runtime-strategy"
 version = "0.1.0"
 dependencies = [
- "base64 0.22.1",
- "ring",
  "ripdpi-config",
  "ripdpi-desync",
  "ripdpi-failure-classifier",
+ "ripdpi-shared-priors",
  "serde",
  "serde_json",
  "tracing",
@@ -3864,6 +3842,16 @@ dependencies = [
  "serde",
  "tokio",
  "webpki-roots",
+]
+
+[[package]]
+name = "ripdpi-shared-priors"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "ring",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

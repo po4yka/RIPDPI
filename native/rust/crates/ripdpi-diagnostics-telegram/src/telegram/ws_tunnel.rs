@@ -1,5 +1,11 @@
 use std::io;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, ToSocketAddrs};
+
+use ripdpi_diagnostics_transport::ws_tls::{WsOverTlsConnector, WsOverTlsTarget};
+
+const TELEGRAM_WS_HOST: &str = "kws2.web.telegram.org";
+const TELEGRAM_WS_PATH: &str = "/apiws";
+const TELEGRAM_WS_PORT: u16 = 443;
 
 pub(crate) struct TelegramWsProbeResult {
     pub(crate) status: String,
@@ -13,12 +19,20 @@ pub(crate) struct TelegramWsProbeResult {
 /// (DC2 is the default/most common). Does not send any MTProto data -- only
 /// verifies that the WSS endpoint accepts connections.
 pub(crate) fn telegram_ws_tunnel_probe() -> TelegramWsProbeResult {
-    telegram_ws_tunnel_probe_with(
-        || ripdpi_ws_bootstrap::resolve_ws_tunnel_addr(ripdpi_ws_tunnel::TelegramDc::production(2), None, None),
-        |resolved_addr| {
-            ripdpi_ws_tunnel::probe_ws_tunnel_with_addr(ripdpi_ws_tunnel::TelegramDc::production(2), resolved_addr)
-        },
-    )
+    telegram_ws_tunnel_probe_with(resolve_telegram_ws_addr, |resolved_addr| {
+        WsOverTlsConnector.probe(&telegram_ws_target(resolved_addr))
+    })
+}
+
+fn resolve_telegram_ws_addr() -> io::Result<SocketAddr> {
+    (TELEGRAM_WS_HOST, TELEGRAM_WS_PORT)
+        .to_socket_addrs()?
+        .next()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "Telegram WS endpoint resolved no addresses"))
+}
+
+fn telegram_ws_target(resolved_addr: Option<SocketAddr>) -> WsOverTlsTarget {
+    WsOverTlsTarget::new(TELEGRAM_WS_HOST, TELEGRAM_WS_PATH).with_resolved_addr(resolved_addr)
 }
 
 pub(crate) fn telegram_ws_tunnel_probe_with<ResolveWsAddr, ProbeWs>(

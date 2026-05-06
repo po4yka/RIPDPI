@@ -23,7 +23,11 @@ impl StrategyEvolver {
         // Atomic replace: a successful refresh swaps the store wholesale.
         // Field data wins: the local `combos` map is not touched here, and
         // the merge happens at consumption time.
-        self.shared_priors = applied.priors;
+        self.shared_priors = applied
+            .priors
+            .into_iter()
+            .map(|(hash, prior)| (hash, BetaParams { alpha: prior.alpha, beta: prior.beta }))
+            .collect();
         Ok(count)
     }
 

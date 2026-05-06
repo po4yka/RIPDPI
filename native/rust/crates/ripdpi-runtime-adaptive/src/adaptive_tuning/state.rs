@@ -1,7 +1,7 @@
 use ripdpi_config::{DesyncGroup, OffsetBase, QuicFakeProfile};
 use ripdpi_desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
 
-use crate::runtime_policy::is_tls_client_hello_payload;
+use ripdpi_runtime_policy::runtime_policy::is_tls_client_hello_payload;
 
 use super::candidates::{
     quic_fake_profile_candidates, split_offset_candidates, tls_record_offset_candidates, tlsrandrec_profile_candidates,

@@ -37,7 +37,7 @@ class DetectionCheckScheduler
         private val serviceStateStore: ServiceStateStore,
         private val networkFingerprintProvider: NetworkFingerprintProvider,
         private val detectionCheckRunner: DetectionCheckRunner,
-        private val detectionHistoryStore: DetectionHistoryStore,
+        private val detectionHistoryStore: DetectionHistoryRepository,
     ) : DetectionObservationStarter {
         private var observeJob: Job? = null
         private var handoverJob: Job? = null

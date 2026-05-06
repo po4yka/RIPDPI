@@ -18,9 +18,9 @@ pub(in crate::runtime) fn resolve_adaptive_udp_hints(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<AdaptivePlannerHints> {
-    // AdaptivePort::resolve_udp_hints applies morph internally; we still need to
+    // AdaptiveHintPort::resolve_udp_hints applies morph internally; we still need to
     // merge with direct-path capability and track rollbacks here.
-    let hints = state.adaptive.resolve_udp_hints(
+    let hints = state.adaptive_hints.resolve_udp_hints(
         network_scope_key(&state.config),
         group_index,
         target,
@@ -41,7 +41,7 @@ pub(in crate::runtime) fn note_adaptive_tcp_success(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<()> {
-    state.adaptive.note_tcp_success(network_scope_key(&state.config), group_index, target, host, payload)
+    state.adaptive_feedback.note_tcp_success(network_scope_key(&state.config), group_index, target, host, payload)
 }
 
 pub(in crate::runtime) fn note_adaptive_tcp_failure(
@@ -51,7 +51,7 @@ pub(in crate::runtime) fn note_adaptive_tcp_failure(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<()> {
-    state.adaptive.note_tcp_failure(network_scope_key(&state.config), group_index, target, host, payload)
+    state.adaptive_feedback.note_tcp_failure(network_scope_key(&state.config), group_index, target, host, payload)
 }
 
 pub(in crate::runtime) fn note_adaptive_udp_success(
@@ -61,7 +61,7 @@ pub(in crate::runtime) fn note_adaptive_udp_success(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<()> {
-    state.adaptive.note_udp_success(network_scope_key(&state.config), group_index, target, host, payload)
+    state.adaptive_feedback.note_udp_success(network_scope_key(&state.config), group_index, target, host, payload)
 }
 
 pub(in crate::runtime) fn note_adaptive_udp_failure(
@@ -71,7 +71,7 @@ pub(in crate::runtime) fn note_adaptive_udp_failure(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<()> {
-    state.adaptive.note_udp_failure(network_scope_key(&state.config), group_index, target, host, payload)
+    state.adaptive_feedback.note_udp_failure(network_scope_key(&state.config), group_index, target, host, payload)
 }
 
 pub(in crate::runtime) fn record_morph_rollback(

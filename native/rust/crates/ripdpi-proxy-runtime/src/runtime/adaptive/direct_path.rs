@@ -36,7 +36,7 @@ pub(in crate::runtime) fn note_direct_path_transport_attempt(
     targets: &[SocketAddr],
     transport: TransportProtocol,
 ) -> io::Result<()> {
-    state.policy.note_direct_path_transport_attempt(host, targets, transport);
+    state.direct_path_learning.note_direct_path_transport_attempt(host, targets, transport);
     Ok(())
 }
 
@@ -45,7 +45,7 @@ pub(in crate::runtime) fn note_direct_path_udp_suppressed(
     host: Option<&str>,
     targets: &[SocketAddr],
 ) -> io::Result<()> {
-    state.policy.note_direct_path_udp_suppressed(host, targets, now_millis().max(0) as u64);
+    state.direct_path_learning.note_direct_path_udp_suppressed(host, targets, now_millis().max(0) as u64);
     Ok(())
 }
 
@@ -54,7 +54,7 @@ pub(in crate::runtime) fn note_direct_path_udp_failure(
     host: Option<&str>,
     targets: &[SocketAddr],
 ) -> io::Result<()> {
-    state.policy.note_direct_path_udp_failure(host, targets);
+    state.direct_path_learning.note_direct_path_udp_failure(host, targets);
     Ok(())
 }
 
@@ -64,7 +64,7 @@ pub(in crate::runtime) fn note_direct_path_quic_success(
     targets: &[SocketAddr],
 ) -> io::Result<()> {
     let observer = direct_path_observer(state);
-    state.policy.note_direct_path_quic_success(
+    state.direct_path_learning.note_direct_path_quic_success(
         host,
         targets,
         observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
@@ -79,7 +79,7 @@ pub(in crate::runtime) fn note_direct_path_tcp_success(
     strategy_family: Option<&str>,
 ) -> io::Result<()> {
     let observer = direct_path_observer(state);
-    state.policy.note_direct_path_tcp_success(
+    state.direct_path_learning.note_direct_path_tcp_success(
         host,
         targets,
         strategy_family,
@@ -93,7 +93,7 @@ pub(in crate::runtime) fn note_direct_path_tls_post_client_hello_failure(
     host: Option<&str>,
     targets: &[SocketAddr],
 ) -> io::Result<()> {
-    state.policy.note_direct_path_tls_post_client_hello_failure(host, targets);
+    state.direct_path_learning.note_direct_path_tls_post_client_hello_failure(host, targets);
     Ok(())
 }
 
@@ -103,7 +103,7 @@ pub(in crate::runtime) fn note_direct_path_all_ips_failed(
     targets: &[SocketAddr],
 ) -> io::Result<()> {
     let observer = direct_path_observer(state);
-    state.policy.note_direct_path_all_ips_failed(
+    state.direct_path_learning.note_direct_path_all_ips_failed(
         host,
         targets,
         observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
@@ -113,7 +113,7 @@ pub(in crate::runtime) fn note_direct_path_all_ips_failed(
 
 pub(in crate::runtime) fn emit_due_direct_path_learning_timeouts(state: &RuntimeState) -> io::Result<()> {
     let observer = direct_path_observer(state);
-    state.policy.emit_due_direct_path_learning_timeouts(
+    state.direct_path_learning.emit_due_direct_path_learning_timeouts(
         now_millis().max(0) as u64,
         observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
     );

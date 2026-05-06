@@ -530,59 +530,108 @@ fun ModeEditorScreen(
                             RelayKindFields(
                                 draft = draft,
                                 uiState = uiState,
-                                onRelayServerChanged = onRelayServerChanged,
-                                onRelayServerPortChanged = onRelayServerPortChanged,
-                                onRelayServerNameChanged = onRelayServerNameChanged,
-                                onRelayRealityPublicKeyChanged = onRelayRealityPublicKeyChanged,
-                                onRelayRealityShortIdChanged = onRelayRealityShortIdChanged,
-                                onRelayVlessTransportChanged = onRelayVlessTransportChanged,
-                                onRelayXhttpPathChanged = onRelayXhttpPathChanged,
-                                onRelayXhttpHostChanged = onRelayXhttpHostChanged,
-                                onRelayCloudflareTunnelModeChanged = onRelayCloudflareTunnelModeChanged,
-                                onRelayCloudflarePublishLocalOriginUrlChanged =
-                                onRelayCloudflarePublishLocalOriginUrlChanged,
-                                onRelayCloudflareCredentialsRefChanged = onRelayCloudflareCredentialsRefChanged,
-                                onRelayCloudflareTunnelTokenChanged = onRelayCloudflareTunnelTokenChanged,
-                                onRelayCloudflareTunnelCredentialsJsonChanged =
-                                onRelayCloudflareTunnelCredentialsJsonChanged,
-                                onRelayVlessUuidChanged = onRelayVlessUuidChanged,
-                                onRelayHysteriaPasswordChanged = onRelayHysteriaPasswordChanged,
-                                onRelayHysteriaSalamanderKeyChanged = onRelayHysteriaSalamanderKeyChanged,
-                                onRelayChainEntryProfileIdChanged = onRelayChainEntryProfileIdChanged,
-                                onRelayChainExitProfileIdChanged = onRelayChainExitProfileIdChanged,
-                                onRelayMasqueUrlChanged = onRelayMasqueUrlChanged,
-                                onRelayMasqueAuthModeChanged = onRelayMasqueAuthModeChanged,
-                                onRelayMasqueAuthTokenChanged = onRelayMasqueAuthTokenChanged,
-                                onRelayMasqueClientCertificateChainPemChanged =
-                                onRelayMasqueClientCertificateChainPemChanged,
-                                onRelayMasqueClientPrivateKeyPemChanged = onRelayMasqueClientPrivateKeyPemChanged,
-                                onRelayMasqueUseHttp2FallbackChanged = onRelayMasqueUseHttp2FallbackChanged,
-                                onRelayMasqueCloudflareGeohashEnabledChanged =
-                                onRelayMasqueCloudflareGeohashEnabledChanged,
-                                onRelayMasqueImportCertificateChainClicked = onRelayMasqueImportCertificateChainClicked,
-                                onRelayMasqueImportPrivateKeyClicked = onRelayMasqueImportPrivateKeyClicked,
-                                onRelayMasqueImportPkcs12Clicked = onRelayMasqueImportPkcs12Clicked,
-                                onRelayTuicUuidChanged = onRelayTuicUuidChanged,
-                                onRelayTuicPasswordChanged = onRelayTuicPasswordChanged,
-                                onRelayTuicZeroRttChanged = onRelayTuicZeroRttChanged,
-                                onRelayTuicCongestionControlChanged = onRelayTuicCongestionControlChanged,
-                                onRelayShadowTlsPasswordChanged = onRelayShadowTlsPasswordChanged,
-                                onRelayShadowTlsInnerProfileIdChanged = onRelayShadowTlsInnerProfileIdChanged,
-                                onRelayNaiveUsernameChanged = onRelayNaiveUsernameChanged,
-                                onRelayNaivePasswordChanged = onRelayNaivePasswordChanged,
-                                onRelayNaivePathChanged = onRelayNaivePathChanged,
-                                onRelayPtBridgeLineChanged = onRelayPtBridgeLineChanged,
-                                onRelayWebTunnelUrlChanged = onRelayWebTunnelUrlChanged,
-                                onRelaySnowflakeBrokerUrlChanged = onRelaySnowflakeBrokerUrlChanged,
-                                onRelaySnowflakeFrontDomainChanged = onRelaySnowflakeFrontDomainChanged,
-                                onRelayFinalmaskTypeChanged = onRelayFinalmaskTypeChanged,
-                                onRelayFinalmaskHeaderHexChanged = onRelayFinalmaskHeaderHexChanged,
-                                onRelayFinalmaskTrailerHexChanged = onRelayFinalmaskTrailerHexChanged,
-                                onRelayFinalmaskRandRangeChanged = onRelayFinalmaskRandRangeChanged,
-                                onRelayFinalmaskSudokuSeedChanged = onRelayFinalmaskSudokuSeedChanged,
-                                onRelayFinalmaskFragmentPacketsChanged = onRelayFinalmaskFragmentPacketsChanged,
-                                onRelayFinalmaskFragmentMinBytesChanged = onRelayFinalmaskFragmentMinBytesChanged,
-                                onRelayFinalmaskFragmentMaxBytesChanged = onRelayFinalmaskFragmentMaxBytesChanged,
+                                actions =
+                                    RelayKindFieldActions(
+                                        endpoint =
+                                            RelayEndpointActions(
+                                                onRelayServerChanged = onRelayServerChanged,
+                                                onRelayServerPortChanged = onRelayServerPortChanged,
+                                                onRelayServerNameChanged = onRelayServerNameChanged,
+                                            ),
+                                        vless =
+                                            RelayVlessActions(
+                                                onRelayRealityPublicKeyChanged = onRelayRealityPublicKeyChanged,
+                                                onRelayRealityShortIdChanged = onRelayRealityShortIdChanged,
+                                                onRelayVlessTransportChanged = onRelayVlessTransportChanged,
+                                                onRelayXhttpPathChanged = onRelayXhttpPathChanged,
+                                                onRelayXhttpHostChanged = onRelayXhttpHostChanged,
+                                                onRelayCloudflareTunnelModeChanged =
+                                                onRelayCloudflareTunnelModeChanged,
+                                                onRelayCloudflarePublishLocalOriginUrlChanged =
+                                                onRelayCloudflarePublishLocalOriginUrlChanged,
+                                                onRelayCloudflareCredentialsRefChanged =
+                                                onRelayCloudflareCredentialsRefChanged,
+                                                onRelayCloudflareTunnelTokenChanged =
+                                                onRelayCloudflareTunnelTokenChanged,
+                                                onRelayCloudflareTunnelCredentialsJsonChanged =
+                                                onRelayCloudflareTunnelCredentialsJsonChanged,
+                                                onRelayVlessUuidChanged = onRelayVlessUuidChanged,
+                                            ),
+                                        hysteria =
+                                            RelayHysteriaActions(
+                                                onRelayHysteriaPasswordChanged = onRelayHysteriaPasswordChanged,
+                                                onRelayHysteriaSalamanderKeyChanged =
+                                                onRelayHysteriaSalamanderKeyChanged,
+                                            ),
+                                        chain =
+                                            RelayChainActions(
+                                                onRelayChainEntryProfileIdChanged =
+                                                onRelayChainEntryProfileIdChanged,
+                                                onRelayChainExitProfileIdChanged =
+                                                onRelayChainExitProfileIdChanged,
+                                            ),
+                                        masque =
+                                            RelayMasqueActions(
+                                                onRelayMasqueUrlChanged = onRelayMasqueUrlChanged,
+                                                onRelayMasqueAuthModeChanged = onRelayMasqueAuthModeChanged,
+                                                onRelayMasqueAuthTokenChanged = onRelayMasqueAuthTokenChanged,
+                                                onRelayMasqueClientCertificateChainPemChanged =
+                                                onRelayMasqueClientCertificateChainPemChanged,
+                                                onRelayMasqueClientPrivateKeyPemChanged =
+                                                onRelayMasqueClientPrivateKeyPemChanged,
+                                                onRelayMasqueUseHttp2FallbackChanged =
+                                                onRelayMasqueUseHttp2FallbackChanged,
+                                                onRelayMasqueCloudflareGeohashEnabledChanged =
+                                                onRelayMasqueCloudflareGeohashEnabledChanged,
+                                                onRelayMasqueImportCertificateChainClicked =
+                                                onRelayMasqueImportCertificateChainClicked,
+                                                onRelayMasqueImportPrivateKeyClicked =
+                                                onRelayMasqueImportPrivateKeyClicked,
+                                                onRelayMasqueImportPkcs12Clicked =
+                                                onRelayMasqueImportPkcs12Clicked,
+                                            ),
+                                        tuic =
+                                            RelayTuicActions(
+                                                onRelayTuicUuidChanged = onRelayTuicUuidChanged,
+                                                onRelayTuicPasswordChanged = onRelayTuicPasswordChanged,
+                                                onRelayTuicZeroRttChanged = onRelayTuicZeroRttChanged,
+                                                onRelayTuicCongestionControlChanged =
+                                                onRelayTuicCongestionControlChanged,
+                                            ),
+                                        misc =
+                                            RelayMiscKindActions(
+                                                onRelayShadowTlsPasswordChanged = onRelayShadowTlsPasswordChanged,
+                                                onRelayShadowTlsInnerProfileIdChanged =
+                                                onRelayShadowTlsInnerProfileIdChanged,
+                                                onRelayNaiveUsernameChanged = onRelayNaiveUsernameChanged,
+                                                onRelayNaivePasswordChanged = onRelayNaivePasswordChanged,
+                                                onRelayNaivePathChanged = onRelayNaivePathChanged,
+                                                onRelayPtBridgeLineChanged = onRelayPtBridgeLineChanged,
+                                                onRelayWebTunnelUrlChanged = onRelayWebTunnelUrlChanged,
+                                                onRelaySnowflakeBrokerUrlChanged =
+                                                onRelaySnowflakeBrokerUrlChanged,
+                                                onRelaySnowflakeFrontDomainChanged =
+                                                onRelaySnowflakeFrontDomainChanged,
+                                            ),
+                                        finalmask =
+                                            RelayFinalmaskActions(
+                                                onRelayFinalmaskTypeChanged = onRelayFinalmaskTypeChanged,
+                                                onRelayFinalmaskHeaderHexChanged =
+                                                onRelayFinalmaskHeaderHexChanged,
+                                                onRelayFinalmaskTrailerHexChanged =
+                                                onRelayFinalmaskTrailerHexChanged,
+                                                onRelayFinalmaskRandRangeChanged =
+                                                onRelayFinalmaskRandRangeChanged,
+                                                onRelayFinalmaskSudokuSeedChanged =
+                                                onRelayFinalmaskSudokuSeedChanged,
+                                                onRelayFinalmaskFragmentPacketsChanged =
+                                                onRelayFinalmaskFragmentPacketsChanged,
+                                                onRelayFinalmaskFragmentMinBytesChanged =
+                                                onRelayFinalmaskFragmentMinBytesChanged,
+                                                onRelayFinalmaskFragmentMaxBytesChanged =
+                                                onRelayFinalmaskFragmentMaxBytesChanged,
+                                            ),
+                                    ),
                             )
                             if (
                                 draft.relayKind == RelayKindHysteria2 ||

@@ -3,7 +3,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use ripdpi_packets::is_quic_initial;
 
-use crate::runtime_policy::is_tls_client_hello_payload;
+use ripdpi_runtime_policy::runtime_policy::is_tls_client_hello_payload;
 
 use super::types::{AdaptiveFlowKind, AdaptivePlannerKey, AdaptivePlannerTarget};
 

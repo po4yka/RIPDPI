@@ -106,13 +106,15 @@ interface RelayProfileStore {
     suspend fun clear(profileId: String)
 }
 
-interface RelayCredentialStore {
+interface RelayCredentialRepository {
     suspend fun load(profileId: String): RelayCredentialRecord?
 
     suspend fun save(credentials: RelayCredentialRecord)
 
     suspend fun clear(profileId: String)
 }
+
+interface RelayCredentialStore : RelayCredentialRepository
 
 @Singleton
 class SharedPreferencesRelayProfileStore
@@ -195,4 +197,8 @@ abstract class RelayStoreModule {
     @Binds
     @Singleton
     abstract fun bindRelayCredentialStore(store: KeystoreRelayCredentialStore): RelayCredentialStore
+
+    @Binds
+    @Singleton
+    abstract fun bindRelayCredentialRepository(store: KeystoreRelayCredentialStore): RelayCredentialRepository
 }

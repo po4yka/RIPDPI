@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import android.app.Application
+import com.poyka.ripdpi.core.detection.community.CommunityComparisonStore
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -49,4 +50,5 @@ class SettingsActionDependencies
         val pinLockoutManager: PinLockoutManager,
         val rememberedPolicySource: DiagnosticsRememberedPolicySource,
         val serviceStateStore: ServiceStateStore,
+        val communityComparisonStore: CommunityComparisonStore,
     )

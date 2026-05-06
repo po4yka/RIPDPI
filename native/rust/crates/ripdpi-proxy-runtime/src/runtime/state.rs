@@ -3,9 +3,9 @@ use std::time::Duration;
 
 use ripdpi_config::RuntimeConfig;
 use ripdpi_proxy_config::ProxyRuntimeContext;
-use ripdpi_runtime_adaptive::AdaptivePort;
+use ripdpi_runtime_adaptive::{AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, RetryPacingPort};
 use ripdpi_runtime_api::{current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
-use ripdpi_runtime_policy::PolicyPort;
+use ripdpi_runtime_policy::{DirectPathLearningPort, PolicyPort};
 
 use mio::Token;
 
@@ -17,7 +17,11 @@ pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 pub(super) struct RuntimeState {
     pub(super) config: Arc<RuntimeConfig>,
     pub(super) policy: Arc<dyn PolicyPort>,
-    pub(super) adaptive: Arc<dyn AdaptivePort>,
+    pub(super) direct_path_learning: Arc<dyn DirectPathLearningPort>,
+    pub(super) adaptive_hints: Arc<dyn AdaptiveHintPort>,
+    pub(super) adaptive_feedback: Arc<dyn AdaptiveFeedbackPort>,
+    pub(super) adaptive_context: Arc<dyn AdaptiveContextPort>,
+    pub(super) retry_pacing: Arc<dyn RetryPacingPort>,
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     pub(super) runtime_context: Option<ProxyRuntimeContext>,
@@ -46,7 +50,11 @@ impl RuntimeState {
         Self {
             config: Arc::new(config),
             policy: Arc::new(handle.clone()),
-            adaptive: Arc::new(handle),
+            direct_path_learning: Arc::new(handle.clone()),
+            adaptive_hints: Arc::new(handle.clone()),
+            adaptive_feedback: Arc::new(handle.clone()),
+            adaptive_context: Arc::new(handle.clone()),
+            retry_pacing: Arc::new(handle),
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry,
             runtime_context,
@@ -102,7 +110,11 @@ impl RuntimeState {
         Self {
             config: Arc::new(config),
             policy: Arc::new(handle.clone()),
-            adaptive: Arc::new(handle),
+            direct_path_learning: Arc::new(handle.clone()),
+            adaptive_hints: Arc::new(handle.clone()),
+            adaptive_feedback: Arc::new(handle.clone()),
+            adaptive_context: Arc::new(handle.clone()),
+            retry_pacing: Arc::new(handle),
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry,
             runtime_context,

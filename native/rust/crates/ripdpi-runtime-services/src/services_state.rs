@@ -6,10 +6,11 @@ use ripdpi_proxy_config::{NetworkSnapshot, ProxyRuntimeContext};
 use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
 use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
 use ripdpi_runtime_adaptive::retry_stealth::RetryPacer;
-use ripdpi_runtime_adaptive::strategy_evolution::StrategyEvolutionResolver;
 use ripdpi_runtime_api::RuntimeTelemetrySink;
 use ripdpi_runtime_policy::direct_path_learning::DirectPathLearningState;
 use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
+
+use crate::strategy_evolution::StrategyEvolutionResolver;
 
 /// A warmup request enqueued via [`BackgroundProbes::request_warmup`].
 ///
@@ -21,15 +22,22 @@ pub struct WarmupRequest {
     pub is_udp: bool,
 }
 
-// Lock order (same as former RuntimeState): cache -> adaptive_fake_ttl -> adaptive_tuning
+// Stateful inventory:
+// - cache: route policy, autolearn, and host persistence.
+// - adaptive_fake_ttl: fake-TTL resolver feedback.
+// - adaptive_tuning: adaptive split/disorder hint feedback and persistence.
+// - retry_pacer: reconnect pacing and retry-selection cooldowns.
+// - strategy_evolver: strategy-evolution experiment state.
+// - direct_path_learning: direct-path UDP/QUIC/TCP reachability state.
+//
+// Lock order (same as former RuntimeState): cache -> adaptive_fake_ttl -> adaptive_tuning.
 // Never acquire more than one simultaneously; if needed, always in this order.
 pub struct ServicesState {
     pub(crate) config: Arc<RuntimeConfig>,
     pub(crate) cache: Arc<RwLock<RuntimePolicy>>,
     pub(crate) adaptive_fake_ttl: Arc<RwLock<AdaptiveFakeTtlResolver>>,
     pub(crate) adaptive_tuning: Arc<RwLock<AdaptivePlannerResolver>>,
-    #[allow(dead_code)]
-    pub(crate) retry_stealth: Arc<RwLock<RetryPacer>>,
+    pub(crate) retry_pacer: Arc<RwLock<RetryPacer>>,
     pub(crate) strategy_evolver: Arc<RwLock<StrategyEvolutionResolver>>,
     pub(crate) direct_path_learning: Arc<RwLock<DirectPathLearningState>>,
     pub(crate) telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
@@ -66,7 +74,7 @@ impl ServicesState {
             cache: Arc::new(RwLock::new(cache)),
             adaptive_fake_ttl: Arc::new(RwLock::new(AdaptiveFakeTtlResolver::default())),
             adaptive_tuning: Arc::new(RwLock::new(adaptive_tuning)),
-            retry_stealth: Arc::new(RwLock::new(RetryPacer::default())),
+            retry_pacer: Arc::new(RwLock::new(RetryPacer::default())),
             strategy_evolver: Arc::new(RwLock::new(strategy_evolver)),
             direct_path_learning: Arc::new(RwLock::new(DirectPathLearningState::default())),
             telemetry,

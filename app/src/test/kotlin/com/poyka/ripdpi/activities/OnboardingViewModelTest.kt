@@ -32,11 +32,14 @@ class OnboardingViewModelTest {
         permissionStatusProvider: FakePermissionStatusProvider = grantedPermissionStatusProvider(),
         permissionPlatformBridge: FakePermissionPlatformBridge = FakePermissionPlatformBridge(),
     ) = OnboardingViewModel(
-        appSettingsRepository = repository,
-        validationRunner = validationRunner,
-        permissionStatusProvider = permissionStatusProvider,
-        permissionPlatformBridge = permissionPlatformBridge,
-        stringResolver = FakeStringResolver(),
+        settingsCoordinator = OnboardingSettingsCoordinator(repository),
+        validationCoordinator = OnboardingValidationCoordinator(validationRunner),
+        permissionCoordinator =
+            OnboardingPermissionCoordinator(
+                permissionStatusProvider = permissionStatusProvider,
+                permissionPlatformBridge = permissionPlatformBridge,
+                stringResolver = FakeStringResolver(),
+            ),
     )
 
     @Test

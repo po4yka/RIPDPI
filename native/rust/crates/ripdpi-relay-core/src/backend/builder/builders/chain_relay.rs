@@ -4,7 +4,7 @@ use crate::backend::builder::builders::common::vless_reality_config;
 use crate::backend::builder::builders::BackendBuilder;
 use crate::backend::builder::BuildContext;
 use crate::backend::{PooledRelayBackend, RelayBackend};
-use crate::config::{RelayKind, ResolvedRelayRuntimeConfig};
+use crate::config::{RelayBackendConfig, RelayKind, ResolvedRelayRuntimeConfig};
 use crate::protocols::ChainRelaySessionFactory;
 
 pub(crate) const BUILDER: BackendBuilder = BackendBuilder::new(supports, build);
@@ -14,24 +14,27 @@ fn supports(config: &ResolvedRelayRuntimeConfig) -> bool {
 }
 
 fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
+    let RelayBackendConfig::ChainRelay(chain) = &config.backend else {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected chain relay config"));
+    };
     let entry = vless_reality_config(
-        &config.chain_entry_server,
-        config.chain_entry_port,
-        config.chain_entry_uuid.as_deref().unwrap_or_default(),
-        &config.chain_entry_server_name,
-        &config.chain_entry_public_key,
-        &config.chain_entry_short_id,
-        &config.tls_fingerprint_profile,
+        &chain.entry_server,
+        chain.entry_port,
+        chain.entry_uuid.as_deref().unwrap_or_default(),
+        &chain.entry_server_name,
+        &chain.entry_public_key,
+        &chain.entry_short_id,
+        &config.common.tls_fingerprint_profile,
     )
     .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain entry: {error}")))?;
     let exit = vless_reality_config(
-        &config.chain_exit_server,
-        config.chain_exit_port,
-        config.chain_exit_uuid.as_deref().unwrap_or_default(),
-        &config.chain_exit_server_name,
-        &config.chain_exit_public_key,
-        &config.chain_exit_short_id,
-        &config.tls_fingerprint_profile,
+        &chain.exit_server,
+        chain.exit_port,
+        chain.exit_uuid.as_deref().unwrap_or_default(),
+        &chain.exit_server_name,
+        &chain.exit_public_key,
+        &chain.exit_short_id,
+        &config.common.tls_fingerprint_profile,
     )
     .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("chain exit: {error}")))?;
 

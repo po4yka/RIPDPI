@@ -1,18 +1,15 @@
 package com.poyka.ripdpi.ui.screens.detection
 
 import android.Manifest
-import android.app.Application
-import android.content.pm.PackageManager
 import android.os.Build
-import androidx.core.content.ContextCompat
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.core.detection.AutoTuneFix
 import com.poyka.ripdpi.core.detection.DetectionAutoTuner
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.DetectionCheckRunner
 import com.poyka.ripdpi.core.detection.DetectionHistoryEntry
-import com.poyka.ripdpi.core.detection.DetectionHistoryStore
+import com.poyka.ripdpi.core.detection.DetectionHistoryRepository
 import com.poyka.ripdpi.core.detection.DetectionPermissionPlanner
 import com.poyka.ripdpi.core.detection.DetectionProgress
 import com.poyka.ripdpi.core.detection.DetectionRecommendations
@@ -21,10 +18,8 @@ import com.poyka.ripdpi.core.detection.DetectionRunnerConfig
 import com.poyka.ripdpi.core.detection.MethodologyVersion
 import com.poyka.ripdpi.core.detection.Recommendation
 import com.poyka.ripdpi.core.detection.StealthScore
-import com.poyka.ripdpi.core.detection.community.CommunityComparisonClient
-import com.poyka.ripdpi.core.detection.community.CommunityComparisonStore
 import com.poyka.ripdpi.core.detection.community.CommunityStats
-import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.core.detection.community.CommunityStatsRepository
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogService
@@ -66,30 +61,26 @@ private const val strategyEvolutionRecommendedEpsilon = 0.1
 class DetectionCheckViewModel
     @Inject
     constructor(
-        private val application: Application,
         private val appSettingsRepository: AppSettingsRepository,
         private val networkFingerprintProvider: com.poyka.ripdpi.data.NetworkFingerprintProvider,
         private val routingProtectionCatalogService: RoutingProtectionCatalogService,
         private val detectionCheckRunner: DetectionCheckRunner,
-        private val historyStore: DetectionHistoryStore,
-        private val dispatchers: AppCoroutineDispatchers,
-    ) : AndroidViewModel(application) {
+        private val historyStore: DetectionHistoryRepository,
+        private val communityStatsRepository: CommunityStatsRepository,
+        private val detectionCheckPreferences: DetectionCheckPreferences,
+        private val detectionCheckPlatform: DetectionCheckPlatform,
+    ) : ViewModel() {
         private val _uiState = MutableStateFlow(DetectionCheckUiState())
         val uiState: StateFlow<DetectionCheckUiState> = _uiState.asStateFlow()
 
         private var runJob: Job? = null
-        private val prefs by lazy {
-            application.getSharedPreferences("detection_check_prefs", android.content.Context.MODE_PRIVATE)
-        }
-        private val communityStore by lazy { CommunityComparisonStore(application) }
 
         init {
             checkInitialState()
         }
 
         private fun checkInitialState() {
-            val onboardingShown = prefs.getBoolean(PREF_ONBOARDING_SHOWN, false)
-            if (!onboardingShown) {
+            if (!detectionCheckPreferences.wasOnboardingShown()) {
                 _uiState.value = _uiState.value.copy(showOnboarding = true)
             }
             refreshPermissionState()
@@ -98,20 +89,19 @@ class DetectionCheckViewModel
         }
 
         private fun loadHistory() {
-            _uiState.value =
-                _uiState.value.copy(
-                    history = historyStore.latestEntries(),
-                )
+            viewModelScope.launch {
+                _uiState.value =
+                    _uiState.value.copy(
+                        history = historyStore.loadLatest(),
+                    )
+            }
         }
 
         private fun loadCommunityState() {
-            val cached = communityStore.getCachedStats()
-            if (cached != null) {
-                _uiState.value = _uiState.value.copy(communityStats = cached)
-            } else {
-                val localStats = CommunityComparisonClient.computeLocalStats(historyStore)
-                if (localStats.totalReports > 0) {
-                    _uiState.value = _uiState.value.copy(communityStats = localStats)
+            viewModelScope.launch {
+                val stats = communityStatsRepository.loadCachedOrLocal()
+                if (stats != null) {
+                    _uiState.value = _uiState.value.copy(communityStats = stats)
                 }
             }
         }
@@ -121,26 +111,19 @@ class DetectionCheckViewModel
                 _uiState.value =
                     _uiState.value.copy(communityStatsLoading = true, communityStatsError = null)
                 try {
-                    val localStats = CommunityComparisonClient.computeLocalStats(historyStore)
+                    val refreshResult = communityStatsRepository.refresh()
+                    val localStats = refreshResult.localStats
                     _uiState.value = _uiState.value.copy(communityStats = localStats)
 
-                    val settings = appSettingsRepository.settings.first()
-                    val statsUrl =
-                        settings.communityApiUrl.ifBlank {
-                            CommunityComparisonClient.DEFAULT_STATS_URL
-                        }
-                    val client = CommunityComparisonClient(dispatchers)
-                    client
-                        .fetchStats(statsUrl)
-                        .onSuccess { remoteStats ->
-                            communityStore.cacheStats(remoteStats)
-                            _uiState.value = _uiState.value.copy(communityStats = remoteStats)
-                        }.onFailure { error ->
-                            if (_uiState.value.communityStats == null) {
-                                _uiState.value =
-                                    _uiState.value.copy(communityStatsError = error.message)
-                            }
-                        }
+                    val remoteStats = refreshResult.remoteStats
+                    if (remoteStats != null) {
+                        _uiState.value = _uiState.value.copy(communityStats = remoteStats)
+                    } else if (_uiState.value.communityStats == null) {
+                        _uiState.value =
+                            _uiState.value.copy(
+                                communityStatsError = refreshResult.remoteError?.message,
+                            )
+                    }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (
@@ -164,7 +147,7 @@ class DetectionCheckViewModel
         }
 
         fun dismissOnboarding() {
-            prefs.edit().putBoolean(PREF_ONBOARDING_SHOWN, true).apply()
+            detectionCheckPreferences.markOnboardingShown()
             _uiState.value = _uiState.value.copy(showOnboarding = false)
         }
 
@@ -178,13 +161,9 @@ class DetectionCheckViewModel
                 requiredPermissions().map { permission ->
                     DetectionPermissionPlanner.PermissionState(
                         permission = permission,
-                        granted =
-                            ContextCompat.checkSelfPermission(
-                                application,
-                                permission,
-                            ) == PackageManager.PERMISSION_GRANTED,
+                        granted = detectionCheckPlatform.isPermissionGranted(permission),
                         shouldShowRationale = false,
-                        wasRequestedBefore = prefs.getBoolean("perm_requested_$permission", false),
+                        wasRequestedBefore = detectionCheckPreferences.wasPermissionRequested(permission),
                     )
                 }
             val action = DetectionPermissionPlanner.decideAction(states)
@@ -204,10 +183,10 @@ class DetectionCheckViewModel
                     val outcome =
                         runCatching {
                             val settings = appSettingsRepository.settings.first()
-                            val config = settings.toDetectionRunnerConfig(application.packageName)
+                            val config = settings.toDetectionRunnerConfig(detectionCheckPlatform.packageName)
                             val result =
-                                detectionCheckRunner.run(
-                                    context = application,
+                                detectionCheckPlatform.runDetectionCheck(
+                                    runner = detectionCheckRunner,
                                     config = config,
                                     onProgress = { progress ->
                                         _uiState.value = _uiState.value.copy(progress = progress)
@@ -343,7 +322,7 @@ class DetectionCheckViewModel
             _uiState.value = _uiState.value.copy(isRunning = false, progress = null)
         }
 
-        private fun saveToHistory(
+        private suspend fun saveToHistory(
             result: DetectionCheckResult,
             score: Int,
         ) {
@@ -372,16 +351,10 @@ class DetectionCheckViewModel
         }
 
         private fun markPermissionsRequested() {
-            val editor = prefs.edit()
-            for (permission in requiredPermissions()) {
-                editor.putBoolean("perm_requested_$permission", true)
-            }
-            editor.apply()
+            detectionCheckPreferences.markPermissionsRequested(requiredPermissions())
         }
 
         companion object {
-            private const val PREF_ONBOARDING_SHOWN = "detection_onboarding_shown"
-
             fun requiredPermissions(): Array<String> =
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     arrayOf(Manifest.permission.READ_PHONE_STATE, Manifest.permission.NEARBY_WIFI_DEVICES)

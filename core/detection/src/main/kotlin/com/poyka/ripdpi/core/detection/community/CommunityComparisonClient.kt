@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.core.detection.community
 
-import com.poyka.ripdpi.core.detection.DetectionHistoryStore
+import com.poyka.ripdpi.core.detection.DetectionHistoryRepository
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -62,8 +62,8 @@ class CommunityComparisonClient internal constructor(
                 .callTimeout(15, TimeUnit.SECONDS)
                 .build()
 
-        fun computeLocalStats(historyStore: DetectionHistoryStore): CommunityStats {
-            val entries = historyStore.latestEntries(count = 50)
+        suspend fun computeLocalStats(historyStore: DetectionHistoryRepository): CommunityStats {
+            val entries = historyStore.loadLatest(count = 50)
             if (entries.isEmpty()) return CommunityStats()
 
             val verdictDist = entries.groupingBy { it.verdict }.eachCount()

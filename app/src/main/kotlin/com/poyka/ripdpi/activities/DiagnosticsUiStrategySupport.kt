@@ -1,22 +1,15 @@
-@file:Suppress("TooManyFunctions")
-
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.formatOffsetExpressionLabel
-import com.poyka.ripdpi.data.strategyLaneFamilyLabel
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.diagnostics.ProbeResult
-import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.StrategyEmitterTier
-import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
-import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
@@ -29,6 +22,10 @@ import kotlinx.collections.immutable.toImmutableMap
 import java.util.Locale
 
 private const val PercentageMultiplier = 100
+
+private val strategyReportSummaryMapper = StrategyReportSummaryMapper()
+private val candidateDetailMapper = CandidateDetailMapper()
+private val auditAssessmentPresenter = AuditAssessmentPresenter()
 
 internal fun DiagnosticsUiFactorySupport.toApproachDetailUiModel(
     detail: BypassApproachDetail,
@@ -148,75 +145,24 @@ internal fun DiagnosticsUiFactorySupport.toApproachRowUiModel(
         tone = summary.toDiagnosticsTone(),
     )
 
-@Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
     report: StrategyProbeReport,
     reportResults: List<ProbeResult>,
     serviceMode: String?,
 ): DiagnosticsStrategyProbeReportUiModel {
-    fun mapFamily(
-        title: String,
-        candidates: List<StrategyProbeCandidateSummary>,
-        recommendedId: String,
-    ): DiagnosticsStrategyProbeFamilyUiModel =
-        DiagnosticsStrategyProbeFamilyUiModel(
-            title = title,
-            candidates =
-                candidates
-                    .map { candidate ->
-                        candidate.toCandidateUiModel(
-                            recommended = candidate.id == recommendedId,
-                        )
-                    }.sortedWith(
-                        compareByDescending<DiagnosticsStrategyProbeCandidateUiModel> { it.recommended }
-                            .thenBy { it.skipped }
-                            .thenBy { it.label },
-                    ).toImmutableList(),
-        )
-
     val candidateDetails =
-        (report.tcpCandidates + report.quicCandidates).associate { candidate ->
-            candidate.id to
-                toCandidateDetailUiModel(
-                    candidate = candidate,
-                    suiteId = report.suiteId,
-                    serviceMode = serviceMode,
-                    reportResults = reportResults,
-                    recommended =
-                        candidate.id == report.recommendation.tcpCandidateId ||
-                            candidate.id == report.recommendation.quicCandidateId,
-                )
-        }
-    val winningPath =
-        if (
-            report.suiteId == StrategyProbeSuiteFullMatrixV1 &&
-            report.completionKind != StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED
-        ) {
-            val tcpWinner = candidateDetails[report.recommendation.tcpCandidateId]
-            val quicWinner = candidateDetails[report.recommendation.quicCandidateId]
-            if (tcpWinner != null && quicWinner != null) {
-                DiagnosticsStrategyProbeWinningPathUiModel(
-                    tcpWinner =
-                        tcpWinner.toWinningCandidateUiModel(
-                            hiddenCandidateCount = (report.tcpCandidates.size - 1).coerceAtLeast(0),
-                        ),
-                    quicWinner =
-                        quicWinner.toWinningCandidateUiModel(
-                            hiddenCandidateCount = (report.quicCandidates.size - 1).coerceAtLeast(0),
-                        ),
-                    dnsLaneLabel = report.recommendation.dnsStrategyLabel,
-                )
-            } else {
-                null
-            }
-        } else {
-            null
-        }
+        candidateDetailMapper.candidateDetails(
+            factory = this,
+            report = report,
+            reportResults = reportResults,
+            serviceMode = serviceMode,
+        )
+    val winningPath = report.buildStrategyProbeWinningPath(candidateDetails)
 
     return DiagnosticsStrategyProbeReportUiModel(
         suiteId = report.suiteId,
         suiteLabel = strategyProbeSuiteLabel(report.suiteId),
-        summaryMetrics = buildStrategyProbeSummaryMetrics(report).toImmutableList(),
+        summaryMetrics = strategyReportSummaryMapper.summaryMetrics(report).toImmutableList(),
         completionKind = report.completionKind,
         auditAssessment = report.auditAssessment,
         recommendation =
@@ -225,40 +171,95 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
                 completionKind = report.completionKind,
             ),
         winningPath = winningPath,
-        families =
-            persistentListOf(
-                mapFamily(
-                    title =
-                        if (report.suiteId == StrategyProbeSuiteFullMatrixV1) {
-                            "TCP / HTTP / HTTPS matrix"
-                        } else {
-                            "TCP candidates"
-                        },
-                    candidates = report.tcpCandidates,
-                    recommendedId = report.recommendation.tcpCandidateId,
-                ),
-                mapFamily(
-                    title =
-                        if (report.suiteId == StrategyProbeSuiteFullMatrixV1) {
-                            "QUIC matrix"
-                        } else {
-                            "QUIC candidates"
-                        },
-                    candidates = report.quicCandidates,
-                    recommendedId = report.recommendation.quicCandidateId,
-                ),
-            ),
+        families = strategyReportSummaryMapper.families(report),
         candidateDetails = candidateDetails.toImmutableMap(),
         presentation =
-            buildStrategyProbeReportPresentation(
+            auditAssessmentPresenter.reportPresentation(
+                factory = this,
                 report = report,
                 winningPath = winningPath,
             ),
     )
 }
 
-@Suppress("LongMethod", "CyclomaticComplexMethod")
-private fun DiagnosticsUiFactorySupport.buildStrategyProbeReportPresentation(
+internal fun DiagnosticsUiFactorySupport.buildStrategyProbeCandidateDetails(
+    report: StrategyProbeReport,
+    reportResults: List<ProbeResult>,
+    serviceMode: String?,
+): Map<String, DiagnosticsStrategyProbeCandidateDetailUiModel> =
+    (report.tcpCandidates + report.quicCandidates).associate { candidate ->
+        candidate.id to
+            toCandidateDetailUiModel(
+                candidate = candidate,
+                suiteId = report.suiteId,
+                serviceMode = serviceMode,
+                reportResults = reportResults,
+                recommended =
+                    candidate.id == report.recommendation.tcpCandidateId ||
+                        candidate.id == report.recommendation.quicCandidateId,
+            )
+    }
+
+private fun StrategyProbeReport.buildStrategyProbeWinningPath(
+    candidateDetails: Map<String, DiagnosticsStrategyProbeCandidateDetailUiModel>,
+): DiagnosticsStrategyProbeWinningPathUiModel? =
+    if (suiteId == StrategyProbeSuiteFullMatrixV1 &&
+        completionKind != StrategyProbeCompletionKind.DNS_SHORT_CIRCUITED
+    ) {
+        val tcpWinner = candidateDetails[recommendation.tcpCandidateId]
+        val quicWinner = candidateDetails[recommendation.quicCandidateId]
+        if (tcpWinner != null && quicWinner != null) {
+            DiagnosticsStrategyProbeWinningPathUiModel(
+                tcpWinner =
+                    tcpWinner.toWinningCandidateUiModel(
+                        hiddenCandidateCount = (tcpCandidates.size - 1).coerceAtLeast(0),
+                    ),
+                quicWinner =
+                    quicWinner.toWinningCandidateUiModel(
+                        hiddenCandidateCount = (quicCandidates.size - 1).coerceAtLeast(0),
+                    ),
+                dnsLaneLabel = recommendation.dnsStrategyLabel,
+            )
+        } else {
+            null
+        }
+    } else {
+        null
+    }
+
+internal fun StrategyProbeReport.toStrategyProbeFamilies() =
+    persistentListOf(
+        toStrategyProbeFamily(
+            title = if (suiteId == StrategyProbeSuiteFullMatrixV1) "TCP / HTTP / HTTPS matrix" else "TCP candidates",
+            candidates = tcpCandidates,
+            recommendedId = recommendation.tcpCandidateId,
+        ),
+        toStrategyProbeFamily(
+            title = if (suiteId == StrategyProbeSuiteFullMatrixV1) "QUIC matrix" else "QUIC candidates",
+            candidates = quicCandidates,
+            recommendedId = recommendation.quicCandidateId,
+        ),
+    )
+
+private fun toStrategyProbeFamily(
+    title: String,
+    candidates: List<StrategyProbeCandidateSummary>,
+    recommendedId: String,
+): DiagnosticsStrategyProbeFamilyUiModel =
+    DiagnosticsStrategyProbeFamilyUiModel(
+        title = title,
+        candidates =
+            candidates
+                .map { candidate ->
+                    candidate.toCandidateUiModel(recommended = candidate.id == recommendedId)
+                }.sortedWith(
+                    compareByDescending<DiagnosticsStrategyProbeCandidateUiModel> { it.recommended }
+                        .thenBy { it.skipped }
+                        .thenBy { it.label },
+                ).toImmutableList(),
+    )
+
+internal fun DiagnosticsUiFactorySupport.buildStrategyProbeReportPresentation(
     report: StrategyProbeReport,
     winningPath: DiagnosticsStrategyProbeWinningPathUiModel?,
 ): DiagnosticsStrategyProbeReportPresentationUiModel {
@@ -267,50 +268,6 @@ private fun DiagnosticsUiFactorySupport.buildStrategyProbeReportPresentation(
     val isPartialResults = report.completionKind == StrategyProbeCompletionKind.PARTIAL_RESULTS
     val isIncomplete = isDnsShortCircuited || isPartialResults
     val supportsWinningPath = isFullAudit && !isIncomplete && winningPath != null
-    val executedAndPlanned =
-        if (isPartialResults) {
-            val coverage = report.auditAssessment?.coverage
-            val executed = (coverage?.tcpCandidatesExecuted ?: 0) + (coverage?.quicCandidatesExecuted ?: 0)
-            val planned = (coverage?.tcpCandidatesPlanned ?: 0) + (coverage?.quicCandidatesPlanned ?: 0)
-            executed to planned
-        } else {
-            0 to 0
-        }
-    val statusLabel =
-        when {
-            isDnsShortCircuited && isFullAudit -> context.getString(R.string.diagnostics_audit_short_circuit_title)
-            isDnsShortCircuited -> context.getString(R.string.diagnostics_probe_short_circuit_title)
-            isPartialResults && isFullAudit -> context.getString(R.string.diagnostics_audit_partial_results_title)
-            isPartialResults -> context.getString(R.string.diagnostics_probe_partial_results_title)
-            isFullAudit -> context.getString(R.string.diagnostics_audit_ready_title)
-            else -> context.getString(R.string.diagnostics_probe_ready_title)
-        }
-    val matrixTitle =
-        when {
-            isDnsShortCircuited && isFullAudit -> {
-                context.getString(R.string.diagnostics_audit_short_circuit_matrix_title)
-            }
-
-            isDnsShortCircuited -> {
-                context.getString(R.string.diagnostics_probe_short_circuit_recommendation_title)
-            }
-
-            isPartialResults -> {
-                context.getString(
-                    R.string.diagnostics_partial_results_matrix_title,
-                    executedAndPlanned.first,
-                    executedAndPlanned.second,
-                )
-            }
-
-            isFullAudit -> {
-                context.getString(R.string.diagnostics_audit_matrix_title)
-            }
-
-            else -> {
-                context.getString(R.string.diagnostics_probe_recommendation_title)
-            }
-        }
     val confidenceLabel =
         report.auditAssessment
             ?.confidence
@@ -322,9 +279,20 @@ private fun DiagnosticsUiFactorySupport.buildStrategyProbeReportPresentation(
             ?.level
             ?.let(::auditConfidenceTone)
     return DiagnosticsStrategyProbeReportPresentationUiModel(
-        statusLabel = statusLabel,
+        statusLabel =
+            strategyProbeStatusLabel(
+                isDnsShortCircuited = isDnsShortCircuited,
+                isPartialResults = isPartialResults,
+                isFullAudit = isFullAudit,
+            ),
         statusTone = if (isIncomplete) DiagnosticsTone.Warning else DiagnosticsTone.Positive,
-        matrixTitle = matrixTitle,
+        matrixTitle =
+            strategyProbeMatrixTitle(
+                report = report,
+                isDnsShortCircuited = isDnsShortCircuited,
+                isPartialResults = isPartialResults,
+                isFullAudit = isFullAudit,
+            ),
         manualApplyBadge = context.getString(R.string.diagnostics_profile_badge_manual_apply),
         supportsWinningPath = supportsWinningPath,
         isIncomplete = isIncomplete,
@@ -339,6 +307,56 @@ private fun DiagnosticsUiFactorySupport.buildStrategyProbeReportPresentation(
     )
 }
 
+private fun DiagnosticsUiFactorySupport.strategyProbeStatusLabel(
+    isDnsShortCircuited: Boolean,
+    isPartialResults: Boolean,
+    isFullAudit: Boolean,
+): String =
+    when {
+        isDnsShortCircuited && isFullAudit -> context.getString(R.string.diagnostics_audit_short_circuit_title)
+        isDnsShortCircuited -> context.getString(R.string.diagnostics_probe_short_circuit_title)
+        isPartialResults && isFullAudit -> context.getString(R.string.diagnostics_audit_partial_results_title)
+        isPartialResults -> context.getString(R.string.diagnostics_probe_partial_results_title)
+        isFullAudit -> context.getString(R.string.diagnostics_audit_ready_title)
+        else -> context.getString(R.string.diagnostics_probe_ready_title)
+    }
+
+private fun DiagnosticsUiFactorySupport.strategyProbeMatrixTitle(
+    report: StrategyProbeReport,
+    isDnsShortCircuited: Boolean,
+    isPartialResults: Boolean,
+    isFullAudit: Boolean,
+): String =
+    when {
+        isDnsShortCircuited && isFullAudit -> {
+            context.getString(R.string.diagnostics_audit_short_circuit_matrix_title)
+        }
+
+        isDnsShortCircuited -> {
+            context.getString(R.string.diagnostics_probe_short_circuit_recommendation_title)
+        }
+
+        isPartialResults -> {
+            val (executed, planned) = report.partialResultExecutionCounts()
+            context.getString(R.string.diagnostics_partial_results_matrix_title, executed, planned)
+        }
+
+        isFullAudit -> {
+            context.getString(R.string.diagnostics_audit_matrix_title)
+        }
+
+        else -> {
+            context.getString(R.string.diagnostics_probe_recommendation_title)
+        }
+    }
+
+private fun StrategyProbeReport.partialResultExecutionCounts(): Pair<Int, Int> {
+    val coverage = auditAssessment?.coverage
+    val executed = (coverage?.tcpCandidatesExecuted ?: 0) + (coverage?.quicCandidatesExecuted ?: 0)
+    val planned = (coverage?.tcpCandidatesPlanned ?: 0) + (coverage?.quicCandidatesPlanned ?: 0)
+    return executed to planned
+}
+
 private fun DiagnosticsStrategyProbeCandidateDetailUiModel.toWinningCandidateUiModel(
     hiddenCandidateCount: Int,
 ): DiagnosticsStrategyProbeWinningCandidateUiModel =
@@ -351,27 +369,6 @@ private fun DiagnosticsStrategyProbeCandidateDetailUiModel.toWinningCandidateUiM
         metrics = metrics,
         tone = tone,
         hiddenCandidateCount = hiddenCandidateCount,
-    )
-
-internal fun DiagnosticsUiFactorySupport.toResolverRecommendationUiModel(
-    recommendation: ResolverRecommendation,
-): DiagnosticsResolverRecommendationUiModel =
-    DiagnosticsResolverRecommendationUiModel(
-        headline = "Switch DNS to ${recommendation.selectedResolverId.replaceFirstChar { it.uppercase() }}",
-        rationale = recommendation.rationale,
-        fields =
-            listOf(
-                DiagnosticsFieldUiModel("Trigger", recommendation.triggerOutcome),
-                DiagnosticsFieldUiModel("Resolver", recommendation.selectedResolverId),
-                DiagnosticsFieldUiModel("Protocol", recommendation.selectedProtocol.uppercase()),
-                DiagnosticsFieldUiModel("Endpoint", recommendation.selectedEndpoint),
-                DiagnosticsFieldUiModel(
-                    "Bootstrap",
-                    recommendation.selectedBootstrapIps.joinToString().ifBlank { "None" },
-                ),
-            ),
-        appliedTemporarily = recommendation.appliedTemporarily,
-        persistable = recommendation.persistable,
     )
 
 internal fun DiagnosticsUiFactorySupport.toScopeLabel(
@@ -406,98 +403,6 @@ internal fun DiagnosticsUiFactorySupport.toScopeLabel(
         null -> {
             null
         }
-    }
-
-@Suppress("LongMethod", "CyclomaticComplexMethod")
-private fun DiagnosticsUiFactorySupport.strategySignatureFields(
-    signature: BypassStrategySignature,
-): List<DiagnosticsFieldUiModel> =
-    buildList {
-        add(DiagnosticsFieldUiModel("Mode", signature.mode))
-        add(DiagnosticsFieldUiModel("Config source", signature.configSource))
-        add(DiagnosticsFieldUiModel("Autolearn", signature.hostAutolearn))
-        add(DiagnosticsFieldUiModel("Chain", signature.chainSummary))
-        add(DiagnosticsFieldUiModel("Desync", signature.desyncMethod))
-        signature.tcpStrategyFamily?.let {
-            add(DiagnosticsFieldUiModel("TCP/TLS lane", strategyLaneFamilyLabel(it)))
-        }
-        signature.quicStrategyFamily?.let {
-            add(DiagnosticsFieldUiModel("QUIC lane", strategyLaneFamilyLabel(it)))
-        }
-        signature.dnsStrategyLabel?.let {
-            add(DiagnosticsFieldUiModel("DNS lane", it))
-        }
-        add(DiagnosticsFieldUiModel("Protocols", signature.protocolToggles.joinToString("/")))
-        if (signature.httpParserEvasions.isNotEmpty()) {
-            add(DiagnosticsFieldUiModel("HTTP parser evasions", formatHttpParserEvasions(signature.httpParserEvasions)))
-        }
-        add(DiagnosticsFieldUiModel("TLS record split", signature.tlsRecordSplitEnabled.toString()))
-        signature.tlsRecordMarker?.let {
-            add(DiagnosticsFieldUiModel("TLS record marker", formatOffsetExpressionLabel(it)))
-        }
-        signature.splitMarker?.let {
-            add(DiagnosticsFieldUiModel("Split marker", formatOffsetExpressionLabel(it)))
-        }
-        signature.activationRound?.let {
-            add(DiagnosticsFieldUiModel("Activation round", it))
-        }
-        signature.activationPayloadSize?.let {
-            add(DiagnosticsFieldUiModel("Activation payload size", it))
-        }
-        signature.activationStreamBytes?.let {
-            add(DiagnosticsFieldUiModel("Activation stream bytes", it))
-        }
-        signature.fakeTtlMode?.let {
-            add(DiagnosticsFieldUiModel("Fake TTL mode", formatFakeTtlMode(it)))
-        }
-        signature.adaptiveFakeTtlWindow?.let {
-            add(DiagnosticsFieldUiModel("Adaptive fake TTL window", it))
-        }
-        signature.adaptiveFakeTtlFallback?.let {
-            add(DiagnosticsFieldUiModel("Adaptive fake TTL fallback", it.toString()))
-        }
-        signature.adaptiveFakeTtlBias?.let {
-            add(DiagnosticsFieldUiModel("Adaptive fake TTL bias", formatAdaptiveFakeTtlBias(it)))
-        }
-        signature.fakeTlsBaseMode?.let {
-            add(DiagnosticsFieldUiModel("Fake TLS base", formatFakeTlsBaseMode(it)))
-        }
-        signature.fakeSniMode?.let {
-            add(
-                DiagnosticsFieldUiModel(
-                    "Fake TLS SNI",
-                    formatFakeTlsSni(mode = it, fixedValue = signature.fakeSniValue),
-                ),
-            )
-        }
-        if (signature.fakeTlsMods.isNotEmpty()) {
-            add(DiagnosticsFieldUiModel("Fake TLS mods", formatFakeTlsMods(signature.fakeTlsMods)))
-        }
-        signature.fakeTlsSize?.let {
-            add(DiagnosticsFieldUiModel("Fake TLS size", formatFakeTlsSize(it)))
-        }
-        signature.httpFakeProfile?.let {
-            add(DiagnosticsFieldUiModel("HTTP fake profile", formatHttpFakeProfile(it)))
-        }
-        signature.tlsFakeProfile?.let {
-            add(DiagnosticsFieldUiModel("TLS fake profile", formatTlsFakeProfile(it)))
-        }
-        signature.udpFakeProfile?.let {
-            add(DiagnosticsFieldUiModel("UDP fake profile", formatUdpFakeProfile(it)))
-        }
-        signature.fakePayloadSource?.let {
-            add(DiagnosticsFieldUiModel("Fake payload source", formatFakePayloadSource(it)))
-        }
-        signature.quicFakeProfile?.let {
-            add(DiagnosticsFieldUiModel("QUIC fake profile", formatQuicFakeProfile(it)))
-        }
-        signature.quicFakeHost?.let {
-            add(DiagnosticsFieldUiModel("QUIC fake host", it))
-        }
-        signature.fakeOffsetMarker?.let {
-            add(DiagnosticsFieldUiModel("Fake offset marker", it))
-        }
-        add(DiagnosticsFieldUiModel("Route group", signature.routeGroup ?: "Unknown"))
     }
 
 private fun strategyProbeSuiteLabel(suiteId: String): String =
@@ -797,180 +702,4 @@ private fun DiagnosticsUiFactorySupport.toStrategyProbeRecommendationUiModel(
                         strategySignatureFields(signature)
                     }.orEmpty(),
         )
-    }
-
-private fun buildStrategyProbeSummaryMetrics(report: StrategyProbeReport): List<DiagnosticsMetricUiModel> {
-    val candidates = report.tcpCandidates + report.quicCandidates
-    val worked = candidates.count { it.outcome.equals("success", ignoreCase = true) }
-    val partial = candidates.count { it.outcome.equals("partial", ignoreCase = true) }
-    val failed =
-        candidates.count { candidate ->
-            !candidate.skipped &&
-                !candidate.outcome.equals("success", ignoreCase = true) &&
-                !candidate.outcome.equals("partial", ignoreCase = true) &&
-                !candidate.outcome.equals("not_applicable", ignoreCase = true)
-        }
-    val notApplicable = candidates.count { it.outcome.equals("not_applicable", ignoreCase = true) }
-    val skipped = candidates.count { it.skipped }
-    return buildList {
-        add(DiagnosticsMetricUiModel("Worked", worked.toString(), DiagnosticsTone.Positive))
-        add(DiagnosticsMetricUiModel("Partial", partial.toString(), DiagnosticsTone.Warning))
-        add(DiagnosticsMetricUiModel("Failed", failed.toString(), DiagnosticsTone.Negative))
-        add(DiagnosticsMetricUiModel("N/A", notApplicable.toString(), DiagnosticsTone.Neutral))
-        if (skipped > 0) {
-            add(DiagnosticsMetricUiModel("Skipped", skipped.toString(), DiagnosticsTone.Neutral))
-        }
-    }
-}
-
-private fun auditConfidenceLabel(level: StrategyProbeAuditConfidenceLevel): String =
-    when (level) {
-        StrategyProbeAuditConfidenceLevel.HIGH -> "High"
-        StrategyProbeAuditConfidenceLevel.MEDIUM -> "Medium"
-        StrategyProbeAuditConfidenceLevel.LOW -> "Low"
-    }
-
-private fun auditConfidenceTone(level: StrategyProbeAuditConfidenceLevel): DiagnosticsTone =
-    when (level) {
-        StrategyProbeAuditConfidenceLevel.HIGH -> DiagnosticsTone.Positive
-        StrategyProbeAuditConfidenceLevel.MEDIUM -> DiagnosticsTone.Warning
-        StrategyProbeAuditConfidenceLevel.LOW -> DiagnosticsTone.Negative
-    }
-
-private fun auditAssessmentMetrics(assessment: StrategyProbeAuditAssessment): List<DiagnosticsMetricUiModel> =
-    listOf(
-        DiagnosticsMetricUiModel(
-            label = "Confidence",
-            value = "${auditConfidenceLabel(assessment.confidence.level)} (${assessment.confidence.score}/100)",
-            tone = auditConfidenceTone(assessment.confidence.level),
-        ),
-        DiagnosticsMetricUiModel(
-            label = "Matrix coverage",
-            value = "${assessment.coverage.matrixCoveragePercent}%",
-            tone =
-                if (assessment.coverage.matrixCoveragePercent >= 75) {
-                    DiagnosticsTone.Positive
-                } else {
-                    DiagnosticsTone.Warning
-                },
-        ),
-        DiagnosticsMetricUiModel(
-            label = "Winner coverage",
-            value = "${assessment.coverage.winnerCoveragePercent}%",
-            tone =
-                if (assessment.coverage.winnerCoveragePercent >= 50) {
-                    DiagnosticsTone.Positive
-                } else {
-                    DiagnosticsTone.Warning
-                },
-        ),
-    )
-
-private fun formatFakeTlsBaseMode(value: String): String =
-    when (value.lowercase(Locale.US)) {
-        "default" -> "Default fake ClientHello"
-        "original" -> "Original ClientHello"
-        else -> value
-    }
-
-private fun formatFakeTtlMode(value: String): String =
-    when (value.lowercase(Locale.US)) {
-        "fixed" -> "Fixed TTL"
-        "adaptive" -> "Adaptive TTL"
-        "adaptive_custom" -> "Custom adaptive TTL"
-        else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
-    }
-
-private fun formatAdaptiveFakeTtlBias(value: Int): String =
-    when {
-        value < 0 -> "Prefer lower TTLs first ($value)"
-        value > 0 -> "Prefer higher TTLs first (+$value)"
-        else -> "Alternate around the seed (0)"
-    }
-
-private fun formatFakeTlsSni(
-    mode: String,
-    fixedValue: String?,
-): String =
-    when (mode.lowercase(Locale.US)) {
-        "fixed" -> fixedValue?.takeIf { it.isNotBlank() }?.let { "Fixed ($it)" } ?: "Fixed"
-        "randomized" -> "Randomized"
-        else -> mode
-    }
-
-private fun formatFakeTlsMods(values: List<String>): String =
-    values.joinToString(", ") { value ->
-        when (value.lowercase(Locale.US)) {
-            "rand" -> "Randomize TLS material"
-            "dupsid" -> "Copy Session ID"
-            "padencap" -> "Padding camouflage"
-            else -> value
-        }
-    }
-
-private fun formatFakeTlsSize(value: Int): String =
-    when {
-        value > 0 -> "Exactly $value bytes"
-        value < 0 -> "Input minus ${-value} bytes"
-        else -> "Match input size"
-    }
-
-private fun formatHttpFakeProfile(value: String): String =
-    when (value.lowercase(Locale.US)) {
-        "compat_default" -> "Compatibility default"
-        "iana_get" -> "IANA GET"
-        "cloudflare_get" -> "Cloudflare GET"
-        else -> value
-    }
-
-private fun formatHttpParserEvasions(values: List<String>): String =
-    values.joinToString(", ") { value ->
-        when (value.lowercase(Locale.US)) {
-            "host_mixed_case" -> "Host mixed case"
-            "domain_mixed_case" -> "Domain mixed case"
-            "host_remove_spaces" -> "Host remove spaces"
-            "method_eol" -> "Method EOL shift"
-            "unix_eol" -> "Unix line endings"
-            "host_extra_space" -> "Host extra space"
-            "host_tab" -> "Host tab separator"
-            else -> value
-        }
-    }
-
-private fun formatTlsFakeProfile(value: String): String =
-    when (value.lowercase(Locale.US)) {
-        "compat_default" -> "Compatibility default"
-        "iana_firefox" -> "IANA Firefox"
-        "google_chrome" -> "Google Chrome"
-        "vk_chrome" -> "VK Chrome"
-        "sberbank_chrome" -> "Sberbank Chrome"
-        "rutracker_kyber" -> "Rutracker Kyber"
-        "bigsize_iana" -> "IANA bigsize"
-        else -> value
-    }
-
-private fun formatUdpFakeProfile(value: String): String =
-    when (value.lowercase(Locale.US)) {
-        "compat_default" -> "Compatibility default"
-        "zero_256" -> "Zero blob 256"
-        "zero_512" -> "Zero blob 512"
-        "dns_query" -> "DNS query"
-        "stun_binding" -> "STUN binding"
-        "wireguard_initiation" -> "WireGuard initiation"
-        "dht_get_peers" -> "DHT get_peers"
-        else -> value
-    }
-
-private fun formatFakePayloadSource(value: String): String =
-    when (value.lowercase(Locale.US)) {
-        "custom_raw" -> "Custom raw fake payload"
-        else -> value.replace('_', ' ').replaceFirstChar { it.uppercase(Locale.US) }
-    }
-
-private fun formatQuicFakeProfile(value: String): String =
-    when (value.lowercase(Locale.US)) {
-        "compat_default" -> "Compatibility blob"
-        "realistic_initial" -> "Realistic Initial"
-        "disabled" -> "Off"
-        else -> value
     }

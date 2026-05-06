@@ -79,6 +79,10 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private const val historyEntryLimit = 5
 private const val highStealthScoreThreshold = 70
@@ -86,50 +90,70 @@ private const val mediumStealthScoreThreshold = 40
 private const val detectedPercentageAlertThreshold = 50
 private const val percentScale = 100.0
 
+private data class CategoryEntry(
+    val title: String,
+    val category: CategoryResult,
+    val key: String,
+    val icon: ImageVector,
+)
+
 @Composable
 internal fun DetectionCheckRoute(
     onBack: () -> Unit,
     viewModel: DetectionCheckViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    DetectionPermissionHandler(
+        uiState = uiState,
+        onPermissionsResult = viewModel::onPermissionsResult,
+    ) { onRequestPermissions ->
+        DetectionCheckScreen(
+            uiState = uiState,
+            onStart = viewModel::startCheck,
+            onStop = viewModel::stopCheck,
+            onBack = onBack,
+            onDismissOnboarding = viewModel::dismissOnboarding,
+            onApplyFixes = viewModel::applyAllFixes,
+            onReloadCommunityStats = viewModel::reloadCommunityStats,
+            onRequestPermissions = onRequestPermissions,
+        )
+    }
+}
+
+@Composable
+private fun DetectionPermissionHandler(
+    uiState: DetectionCheckUiState,
+    onPermissionsResult: () -> Unit,
+    content: @Composable (onRequestPermissions: () -> Unit) -> Unit,
+) {
     val context = LocalContext.current
     val permissionLauncher =
         rememberLauncherForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions(),
-        ) { viewModel.onPermissionsResult() }
+        ) { onPermissionsResult() }
 
-    DetectionCheckScreen(
-        uiState = uiState,
-        onStart = viewModel::startCheck,
-        onStop = viewModel::stopCheck,
-        onBack = onBack,
-        onDismissOnboarding = viewModel::dismissOnboarding,
-        onApplyFixes = viewModel::applyAllFixes,
-        onReloadCommunityStats = viewModel::reloadCommunityStats,
-        onRequestPermissions = {
-            when (uiState.permissionAction) {
-                DetectionPermissionPlanner.Action.REQUEST,
-                DetectionPermissionPlanner.Action.SHOW_RATIONALE,
-                -> {
-                    permissionLauncher.launch(uiState.missingPermissions.toTypedArray())
-                }
-
-                DetectionPermissionPlanner.Action.OPEN_SETTINGS -> {
-                    val intent =
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.fromParts("package", context.packageName, null)
-                        }
-                    context.startActivity(intent)
-                }
-
-                DetectionPermissionPlanner.Action.NONE -> {}
+    content {
+        when (uiState.permissionAction) {
+            DetectionPermissionPlanner.Action.REQUEST,
+            DetectionPermissionPlanner.Action.SHOW_RATIONALE,
+            -> {
+                permissionLauncher.launch(uiState.missingPermissions.toTypedArray())
             }
-        },
-    )
+
+            DetectionPermissionPlanner.Action.OPEN_SETTINGS -> {
+                val intent =
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.fromParts("package", context.packageName, null)
+                    }
+                context.startActivity(intent)
+            }
+
+            DetectionPermissionPlanner.Action.NONE -> {}
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun DetectionCheckScreen(
     uiState: DetectionCheckUiState,
@@ -141,55 +165,17 @@ internal fun DetectionCheckScreen(
     onReloadCommunityStats: () -> Unit,
     onRequestPermissions: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
-    val layout = RipDpiThemeTokens.layout
-    val type = RipDpiThemeTokens.type
-    val motion = RipDpiThemeTokens.motion
     val performHaptic = rememberRipDpiHapticPerformer()
 
     var showMethodologyDialog by rememberSaveable { mutableStateOf(false) }
 
-    if (showMethodologyDialog) {
-        RipDpiDialog(
-            onDismissRequest = { showMethodologyDialog = false },
-            title = stringResource(R.string.detection_methodology_info),
-            dismissAction =
-                RipDpiDialogAction(
-                    label = stringResource(R.string.action_dismiss),
-                    onClick = { showMethodologyDialog = false },
-                ),
-            visuals =
-                RipDpiDialogVisuals(
-                    message = MethodologyVersion.summary(),
-                ),
-        )
-    }
-
-    if (uiState.showOnboarding) {
-        RipDpiDialog(
-            onDismissRequest = onDismissOnboarding,
-            title = stringResource(R.string.detection_onboarding_title),
-            dismissAction =
-                RipDpiDialogAction(
-                    label = stringResource(R.string.detection_onboarding_skip),
-                    onClick = onDismissOnboarding,
-                ),
-            confirmAction =
-                RipDpiDialogAction(
-                    label = stringResource(R.string.detection_onboarding_allow),
-                    onClick = {
-                        onDismissOnboarding()
-                        onRequestPermissions()
-                    },
-                ),
-            visuals =
-                RipDpiDialogVisuals(
-                    message = stringResource(R.string.detection_onboarding_body),
-                ),
-        )
-    }
+    DetectionDialogHost(
+        showMethodologyDialog = showMethodologyDialog,
+        showOnboarding = uiState.showOnboarding,
+        onDismissMethodology = { showMethodologyDialog = false },
+        onDismissOnboarding = onDismissOnboarding,
+        onRequestPermissions = onRequestPermissions,
+    )
 
     RipDpiScreenScaffold(
         topBar = {
@@ -216,186 +202,360 @@ internal fun DetectionCheckScreen(
                     .fillMaxSize()
                     .padding(innerPadding),
         ) {
-            Column(
+            DetectionCheckScreenContent(
+                uiState = uiState,
+                onStart = onStart,
+                onStop = onStop,
+                onApplyFixes = onApplyFixes,
+                onReloadCommunityStats = onReloadCommunityStats,
+                onRequestPermissions = onRequestPermissions,
+                performHaptic = performHaptic,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetectionCheckScreenContent(
+    uiState: DetectionCheckUiState,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onApplyFixes: () -> Unit,
+    onReloadCommunityStats: () -> Unit,
+    onRequestPermissions: () -> Unit,
+    performHaptic: (RipDpiHapticFeedback) -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val layout = RipDpiThemeTokens.layout
+    val type = RipDpiThemeTokens.type
+    Column(
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = layout.horizontalPadding)
+                .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(spacing.md),
+    ) {
+        Text(
+            text = stringResource(R.string.detection_check_subtitle),
+            style = type.secondaryBody,
+            color = colors.mutedForeground,
+        )
+        DetectionPermissionWarning(
+            missingPermissions = uiState.missingPermissions,
+            permissionAction = uiState.permissionAction,
+            onRequestPermissions = onRequestPermissions,
+        )
+        DetectionCheckControls(
+            isRunning = uiState.isRunning,
+            progress = uiState.progress,
+            onStart = onStart,
+            onStop = onStop,
+            performHaptic = performHaptic,
+        )
+        DetectionErrorCard(error = uiState.error, onRetry = onStart)
+        DetectionResultSummary(
+            result = uiState.result,
+            stealthScore = uiState.stealthScore,
+            stealthLabel = uiState.stealthLabel,
+            autoTuneFixes = uiState.autoTuneFixes,
+            recommendations = uiState.recommendations,
+            reportText = uiState.reportText,
+            onApplyFixes = onApplyFixes,
+            performHaptic = performHaptic,
+        )
+        DetectionHistoryCommunitySection(
+            history = uiState.history,
+            hasResult = uiState.result != null,
+            isRunning = uiState.isRunning,
+            communityStatsLoading = uiState.communityStatsLoading,
+            communityStatsError = uiState.communityStatsError,
+            communityStats = uiState.communityStats,
+            onReload = onReloadCommunityStats,
+        )
+        Spacer(modifier = Modifier.height(spacing.lg))
+    }
+}
+
+@Composable
+private fun DetectionDialogHost(
+    showMethodologyDialog: Boolean,
+    showOnboarding: Boolean,
+    onDismissMethodology: () -> Unit,
+    onDismissOnboarding: () -> Unit,
+    onRequestPermissions: () -> Unit,
+) {
+    if (showMethodologyDialog) {
+        RipDpiDialog(
+            onDismissRequest = onDismissMethodology,
+            title = stringResource(R.string.detection_methodology_info),
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.action_dismiss),
+                    onClick = onDismissMethodology,
+                ),
+            visuals =
+                RipDpiDialogVisuals(
+                    message = MethodologyVersion.summary(),
+                ),
+        )
+    }
+
+    if (showOnboarding) {
+        RipDpiDialog(
+            onDismissRequest = onDismissOnboarding,
+            title = stringResource(R.string.detection_onboarding_title),
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.detection_onboarding_skip),
+                    onClick = onDismissOnboarding,
+                ),
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.detection_onboarding_allow),
+                    onClick = {
+                        onDismissOnboarding()
+                        onRequestPermissions()
+                    },
+                ),
+            visuals =
+                RipDpiDialogVisuals(
+                    message = stringResource(R.string.detection_onboarding_body),
+                ),
+        )
+    }
+}
+
+@Composable
+private fun DetectionPermissionWarning(
+    missingPermissions: List<String>,
+    permissionAction: DetectionPermissionPlanner.Action,
+    onRequestPermissions: () -> Unit,
+) {
+    if (missingPermissions.isEmpty()) return
+
+    WarningBanner(
+        title = stringResource(R.string.detection_permission_title),
+        message =
+            when (permissionAction) {
+                DetectionPermissionPlanner.Action.OPEN_SETTINGS -> {
+                    stringResource(R.string.detection_permission_settings)
+                }
+
+                else -> {
+                    stringResource(R.string.detection_permission_rationale)
+                }
+            },
+        tone =
+            when (permissionAction) {
+                DetectionPermissionPlanner.Action.OPEN_SETTINGS -> WarningBannerTone.Restricted
+                else -> WarningBannerTone.Info
+            },
+        onClick = onRequestPermissions,
+    )
+}
+
+@Composable
+private fun DetectionCheckControls(
+    isRunning: Boolean,
+    progress: com.poyka.ripdpi.core.detection.DetectionProgress?,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    performHaptic: (RipDpiHapticFeedback) -> Unit,
+) {
+    if (isRunning) {
+        RipDpiButton(
+            text = stringResource(R.string.detection_check_stop),
+            onClick = {
+                performHaptic(RipDpiHapticFeedback.Action)
+                onStop()
+            },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.DetectionStopCheck),
+            variant = RipDpiButtonVariant.Outline,
+        )
+        progress?.let { StageProgressCard(it) }
+    } else {
+        RipDpiButton(
+            text = stringResource(R.string.detection_check_start),
+            onClick = {
+                performHaptic(RipDpiHapticFeedback.Action)
+                onStart()
+            },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.DetectionRunCheck),
+        )
+    }
+}
+
+@Composable
+private fun DetectionErrorCard(
+    error: String?,
+    onRetry: () -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    error?.let {
+        RipDpiCard(variant = RipDpiCardVariant.Status) {
+            Text(text = it, style = type.body, color = colors.destructive)
+            RipDpiButton(
+                text = stringResource(R.string.detection_error_retry),
+                onClick = onRetry,
+                variant = RipDpiButtonVariant.Outline,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetectionResultSummary(
+    result: DetectionCheckResult?,
+    stealthScore: Int?,
+    stealthLabel: String?,
+    autoTuneFixes: List<AutoTuneFix>,
+    recommendations: List<Recommendation>,
+    reportText: String?,
+    onApplyFixes: () -> Unit,
+    performHaptic: (RipDpiHapticFeedback) -> Unit,
+) {
+    val context = LocalContext.current
+    val spacing = RipDpiThemeTokens.spacing
+    result?.let {
+        LaunchedEffect(it.verdict) {
+            when (it.verdict) {
+                Verdict.NOT_DETECTED -> performHaptic(RipDpiHapticFeedback.Success)
+                Verdict.NEEDS_REVIEW -> performHaptic(RipDpiHapticFeedback.Acknowledge)
+                Verdict.DETECTED -> performHaptic(RipDpiHapticFeedback.Error)
+            }
+        }
+
+        VerdictScoreCard(it.verdict, stealthScore, stealthLabel)
+
+        if (autoTuneFixes.isNotEmpty()) {
+            AutoTuneCard(
+                fixes = autoTuneFixes,
+                onApplyAll = {
+                    performHaptic(RipDpiHapticFeedback.Confirm)
+                    onApplyFixes()
+                },
+                applyTestTag = RipDpiTestTags.DetectionApplyFixes,
+            )
+        }
+
+        if (recommendations.isNotEmpty()) {
+            DetectionRecommendations(recommendations)
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            RipDpiButton(
+                text = stringResource(R.string.detection_check_copy),
+                onClick = {
+                    performHaptic(RipDpiHapticFeedback.Acknowledge)
+                    reportText?.let { text ->
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Detection Report", text))
+                    }
+                },
                 modifier =
                     Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = layout.horizontalPadding)
-                        .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(spacing.md),
-            ) {
-                Text(
-                    text = stringResource(R.string.detection_check_subtitle),
-                    style = type.secondaryBody,
-                    color = colors.mutedForeground,
-                )
-
-                if (uiState.missingPermissions.isNotEmpty()) {
-                    WarningBanner(
-                        title = stringResource(R.string.detection_permission_title),
-                        message =
-                            when (uiState.permissionAction) {
-                                DetectionPermissionPlanner.Action.OPEN_SETTINGS -> {
-                                    stringResource(R.string.detection_permission_settings)
-                                }
-
-                                else -> {
-                                    stringResource(R.string.detection_permission_rationale)
-                                }
-                            },
-                        tone =
-                            when (uiState.permissionAction) {
-                                DetectionPermissionPlanner.Action.OPEN_SETTINGS -> WarningBannerTone.Restricted
-                                else -> WarningBannerTone.Info
-                            },
-                        onClick = onRequestPermissions,
-                    )
-                }
-
-                if (uiState.isRunning) {
-                    RipDpiButton(
-                        text = stringResource(R.string.detection_check_stop),
-                        onClick = {
-                            performHaptic(RipDpiHapticFeedback.Action)
-                            onStop()
-                        },
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .ripDpiTestTag(RipDpiTestTags.DetectionStopCheck),
-                        variant = RipDpiButtonVariant.Outline,
-                    )
-                    uiState.progress?.let { progress -> StageProgressCard(progress) }
-                } else {
-                    RipDpiButton(
-                        text = stringResource(R.string.detection_check_start),
-                        onClick = {
-                            performHaptic(RipDpiHapticFeedback.Action)
-                            onStart()
-                        },
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .ripDpiTestTag(RipDpiTestTags.DetectionRunCheck),
-                    )
-                }
-
-                uiState.error?.let { error ->
-                    RipDpiCard(variant = RipDpiCardVariant.Status) {
-                        Text(text = error, style = type.body, color = colors.destructive)
-                        RipDpiButton(
-                            text = stringResource(R.string.detection_error_retry),
-                            onClick = onStart,
-                            variant = RipDpiButtonVariant.Outline,
-                        )
+                        .weight(1f)
+                        .ripDpiTestTag(RipDpiTestTags.DetectionCopy),
+                variant = RipDpiButtonVariant.Outline,
+            )
+            RipDpiButton(
+                text = stringResource(R.string.detection_check_share),
+                onClick = {
+                    performHaptic(RipDpiHapticFeedback.Acknowledge)
+                    reportText?.let { text ->
+                        val intent =
+                            Intent(Intent.ACTION_SEND)
+                                .setType("text/plain")
+                                .putExtra(Intent.EXTRA_TEXT, text)
+                        context.startActivity(Intent.createChooser(intent, null))
                     }
-                }
+                },
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .ripDpiTestTag(RipDpiTestTags.DetectionShare),
+                variant = RipDpiButtonVariant.Outline,
+            )
+        }
 
-                uiState.result?.let { result ->
-                    LaunchedEffect(result.verdict) {
-                        when (result.verdict) {
-                            Verdict.NOT_DETECTED -> performHaptic(RipDpiHapticFeedback.Success)
-                            Verdict.NEEDS_REVIEW -> performHaptic(RipDpiHapticFeedback.Acknowledge)
-                            Verdict.DETECTED -> performHaptic(RipDpiHapticFeedback.Error)
-                        }
-                    }
+        DetectionCategoryCards(it)
+    }
+}
 
-                    VerdictScoreCard(result.verdict, uiState.stealthScore, uiState.stealthLabel)
+@Composable
+private fun DetectionHistoryCommunitySection(
+    history: List<DetectionHistoryEntry>,
+    hasResult: Boolean,
+    isRunning: Boolean,
+    communityStatsLoading: Boolean,
+    communityStatsError: String?,
+    communityStats: CommunityStats?,
+    onReload: () -> Unit,
+) {
+    DetectionHistorySection(
+        history = history,
+        hasResult = hasResult,
+        isRunning = isRunning,
+    )
+    DetectionCommunityStatsSection(
+        isLoading = communityStatsLoading,
+        error = communityStatsError,
+        stats = communityStats,
+        onReload = onReload,
+    )
+}
 
-                    if (uiState.autoTuneFixes.isNotEmpty()) {
-                        AutoTuneCard(
-                            fixes = uiState.autoTuneFixes,
-                            onApplyAll = {
-                                performHaptic(RipDpiHapticFeedback.Confirm)
-                                onApplyFixes()
-                            },
-                            applyTestTag = RipDpiTestTags.DetectionApplyFixes,
-                        )
-                    }
+@Composable
+private fun DetectionHistorySection(
+    history: List<DetectionHistoryEntry>,
+    hasResult: Boolean,
+    isRunning: Boolean,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val type = RipDpiThemeTokens.type
+    if (history.isNotEmpty()) {
+        HistoryCard(history)
+    } else if (!hasResult && !isRunning) {
+        RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+            Text(
+                text = stringResource(R.string.detection_empty_history),
+                style = type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
+    }
+}
 
-                    if (uiState.recommendations.isNotEmpty()) {
-                        RecommendationsCard(uiState.recommendations)
-                    }
+@Composable
+private fun DetectionCommunityStatsSection(
+    isLoading: Boolean,
+    error: String?,
+    stats: CommunityStats?,
+    onReload: () -> Unit,
+) {
+    when {
+        isLoading -> {
+            CommunityStatsLoadingCard()
+        }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                    ) {
-                        RipDpiButton(
-                            text = stringResource(R.string.detection_check_copy),
-                            onClick = {
-                                performHaptic(RipDpiHapticFeedback.Acknowledge)
-                                uiState.reportText?.let { text ->
-                                    val cb =
-                                        context.getSystemService(Context.CLIPBOARD_SERVICE)
-                                            as ClipboardManager
-                                    cb.setPrimaryClip(
-                                        ClipData.newPlainText("Detection Report", text),
-                                    )
-                                }
-                            },
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .ripDpiTestTag(RipDpiTestTags.DetectionCopy),
-                            variant = RipDpiButtonVariant.Outline,
-                        )
-                        RipDpiButton(
-                            text = stringResource(R.string.detection_check_share),
-                            onClick = {
-                                performHaptic(RipDpiHapticFeedback.Acknowledge)
-                                uiState.reportText?.let { text ->
-                                    val intent =
-                                        Intent(Intent.ACTION_SEND)
-                                            .setType("text/plain")
-                                            .putExtra(Intent.EXTRA_TEXT, text)
-                                    context.startActivity(
-                                        Intent.createChooser(intent, null),
-                                    )
-                                }
-                            },
-                            modifier =
-                                Modifier
-                                    .weight(1f)
-                                    .ripDpiTestTag(RipDpiTestTags.DetectionShare),
-                            variant = RipDpiButtonVariant.Outline,
-                        )
-                    }
+        error != null -> {
+            CommunityStatsErrorCard(message = error, onRetry = onReload)
+        }
 
-                    CollapsibleCategoryCards(result)
-                }
-
-                if (uiState.history.isNotEmpty()) {
-                    HistoryCard(uiState.history)
-                } else if (uiState.result == null && !uiState.isRunning) {
-                    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
-                        Text(
-                            text = stringResource(R.string.detection_empty_history),
-                            style = type.secondaryBody,
-                            color = colors.mutedForeground,
-                        )
-                    }
-                }
-
-                when {
-                    uiState.communityStatsLoading -> {
-                        CommunityStatsLoadingCard()
-                    }
-
-                    uiState.communityStatsError != null -> {
-                        CommunityStatsErrorCard(
-                            message = uiState.communityStatsError,
-                            onRetry = onReloadCommunityStats,
-                        )
-                    }
-
-                    uiState.communityStats?.let { it.totalReports > 0 } == true -> {
-                        CommunityStatsCard(uiState.communityStats!!)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(spacing.lg))
-            }
+        stats != null && stats.totalReports > 0 -> {
+            CommunityStatsCard(stats)
         }
     }
 }
@@ -540,7 +700,7 @@ private fun AutoTuneCard(
 }
 
 @Composable
-private fun RecommendationsCard(recommendations: List<Recommendation>) {
+private fun DetectionRecommendations(recommendations: List<Recommendation>) {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
     RipDpiCard(variant = RipDpiCardVariant.Outlined) {
@@ -558,95 +718,10 @@ private fun RecommendationsCard(recommendations: List<Recommendation>) {
     }
 }
 
-@Suppress("LongMethod")
 @Composable
-private fun CollapsibleCategoryCards(result: DetectionCheckResult) {
+private fun DetectionCategoryCards(result: DetectionCheckResult) {
     var expandedCategories by rememberSaveable { mutableStateOf(emptySet<String>()) }
-    val type = RipDpiThemeTokens.type
-    val spacing = RipDpiThemeTokens.spacing
-
-    data class CategoryEntry(
-        val title: String,
-        val category: CategoryResult,
-        val key: String,
-        val icon: ImageVector,
-    )
-
-    val categories =
-        buildList {
-            add(
-                CategoryEntry(
-                    stringResource(R.string.detection_check_category_geoip),
-                    result.geoIp,
-                    "geoip",
-                    RipDpiIcons.Public,
-                ),
-            )
-            add(
-                CategoryEntry(
-                    stringResource(R.string.detection_check_category_direct),
-                    result.directSigns,
-                    "direct",
-                    RipDpiIcons.Visibility,
-                ),
-            )
-            add(
-                CategoryEntry(
-                    stringResource(R.string.detection_check_category_indirect),
-                    result.indirectSigns,
-                    "indirect",
-                    RipDpiIcons.NetworkCheck,
-                ),
-            )
-            add(
-                CategoryEntry(
-                    stringResource(R.string.detection_check_category_location),
-                    result.locationSignals,
-                    "location",
-                    RipDpiIcons.LocationOn,
-                ),
-            )
-            result.dnsLeak?.let {
-                add(
-                    CategoryEntry(
-                        stringResource(R.string.detection_check_category_dns_leak),
-                        it,
-                        "dns",
-                        RipDpiIcons.Dns,
-                    ),
-                )
-            }
-            result.webRtcLeak?.let {
-                add(
-                    CategoryEntry(
-                        stringResource(R.string.detection_check_category_webrtc),
-                        it,
-                        "webrtc",
-                        RipDpiIcons.Videocam,
-                    ),
-                )
-            }
-            result.tlsFingerprint?.let {
-                add(
-                    CategoryEntry(
-                        stringResource(R.string.detection_check_category_tls),
-                        it,
-                        "tls",
-                        RipDpiIcons.Lock,
-                    ),
-                )
-            }
-            result.timingAnalysis?.let {
-                add(
-                    CategoryEntry(
-                        stringResource(R.string.detection_check_category_timing),
-                        it,
-                        "timing",
-                        RipDpiIcons.Timer,
-                    ),
-                )
-            }
-        }
+    val categories = detectionCategoryEntries(result)
 
     CollapsibleCard(
         title = stringResource(R.string.detection_check_category_bypass),
@@ -671,6 +746,76 @@ private fun CollapsibleCategoryCards(result: DetectionCheckResult) {
             findings = entry.category.findings,
         )
     }
+}
+
+@Composable
+private fun detectionCategoryEntries(result: DetectionCheckResult): List<CategoryEntry> =
+    buildList {
+        add(
+            CategoryEntry(
+                stringResource(R.string.detection_check_category_geoip),
+                result.geoIp,
+                "geoip",
+                RipDpiIcons.Public,
+            ),
+        )
+        add(
+            CategoryEntry(
+                stringResource(R.string.detection_check_category_direct),
+                result.directSigns,
+                "direct",
+                RipDpiIcons.Visibility,
+            ),
+        )
+        add(
+            CategoryEntry(
+                stringResource(R.string.detection_check_category_indirect),
+                result.indirectSigns,
+                "indirect",
+                RipDpiIcons.NetworkCheck,
+            ),
+        )
+        add(
+            CategoryEntry(
+                stringResource(R.string.detection_check_category_location),
+                result.locationSignals,
+                "location",
+                RipDpiIcons.LocationOn,
+            ),
+        )
+        addOptionalCategory(
+            result.dnsLeak,
+            stringResource(R.string.detection_check_category_dns_leak),
+            "dns",
+            RipDpiIcons.Dns,
+        )
+        addOptionalCategory(
+            result.webRtcLeak,
+            stringResource(R.string.detection_check_category_webrtc),
+            "webrtc",
+            RipDpiIcons.Videocam,
+        )
+        addOptionalCategory(
+            result.tlsFingerprint,
+            stringResource(R.string.detection_check_category_tls),
+            "tls",
+            RipDpiIcons.Lock,
+        )
+        addOptionalCategory(
+            result.timingAnalysis,
+            stringResource(R.string.detection_check_category_timing),
+            "timing",
+            RipDpiIcons.Timer,
+        )
+    }
+
+private fun MutableList<CategoryEntry>.addOptionalCategory(
+    category: CategoryResult?,
+    title: String,
+    key: String,
+    icon: ImageVector,
+) {
+    category?.let { add(CategoryEntry(title, it, key, icon)) }
 }
 
 @Composable
@@ -946,6 +1091,9 @@ private fun FindingRow(finding: Finding) {
 }
 
 private fun formatTimestamp(millis: Long): String {
-    val sdf = java.text.SimpleDateFormat("dd MMM HH:mm", java.util.Locale.getDefault())
-    return sdf.format(java.util.Date(millis))
+    val formatter =
+        DateTimeFormatter
+            .ofPattern("dd MMM HH:mm", Locale.getDefault())
+            .withZone(ZoneId.systemDefault())
+    return formatter.format(Instant.ofEpochMilli(millis))
 }

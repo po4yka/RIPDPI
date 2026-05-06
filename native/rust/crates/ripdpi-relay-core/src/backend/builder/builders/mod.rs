@@ -43,5 +43,5 @@ pub(crate) fn build_backend(config: &ResolvedRelayRuntimeConfig, context: &Build
         return (builder.build)(config, context);
     }
 
-    Ok(RelayBackend::Unsupported { kind: config.kind.clone() })
+    Ok(RelayBackend::Unsupported { kind: config.kind_id().to_string() })
 }

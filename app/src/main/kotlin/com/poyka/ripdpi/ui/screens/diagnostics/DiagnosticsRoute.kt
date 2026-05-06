@@ -69,7 +69,7 @@ fun DiagnosticsRoute(
     val currentOnOpenDnsSettings by rememberUpdatedState(onOpenDnsSettings)
     val performHaptic = rememberRipDpiHapticPerformer()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             when (effect) {
                 is DiagnosticsEffect.SaveArchiveRequested -> {

@@ -12,6 +12,8 @@ ripdpi-diagnostics-contracts = { workspace = true }
 libc = { workspace = true }
 socket2 = { workspace = true }
 rustls = { workspace = true }
+tungstenite = { workspace = true }
+webpki-roots = { workspace = true }
 
 [features]
 quic-native = []

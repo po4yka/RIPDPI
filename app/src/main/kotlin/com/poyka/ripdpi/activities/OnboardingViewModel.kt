@@ -1,21 +1,9 @@
 package com.poyka.ripdpi.activities
 
-import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.poyka.ripdpi.R
-import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
-import com.poyka.ripdpi.permissions.PermissionStatus
-import com.poyka.ripdpi.permissions.PermissionStatusProvider
-import com.poyka.ripdpi.platform.PermissionPlatformBridge
-import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.ui.screens.onboarding.OnboardingModeValidationRunner
-import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
-import com.poyka.ripdpi.ui.screens.onboarding.OnboardingValidationResult
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.BufferOverflow
@@ -29,100 +17,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-private val DefaultOnboardingPageCount = OnboardingPages.size
-
-enum class OnboardingValidationRecoveryKind {
-    RETRY,
-    REQUEST_NOTIFICATIONS,
-    REQUEST_VPN_PERMISSION,
-    SWITCH_MODE,
-}
-
-sealed interface OnboardingValidationState {
-    data object Idle : OnboardingValidationState
-
-    data object RequestingNotifications : OnboardingValidationState
-
-    data object RequestingVpnConsent : OnboardingValidationState
-
-    data class StartingMode(
-        val mode: Mode,
-    ) : OnboardingValidationState
-
-    data class RunningTrafficCheck(
-        val mode: Mode,
-    ) : OnboardingValidationState
-
-    data class Success(
-        val latencyMs: Long,
-        val mode: Mode,
-    ) : OnboardingValidationState
-
-    data class Failed(
-        val reason: String,
-        val recoveryKind: OnboardingValidationRecoveryKind = OnboardingValidationRecoveryKind.RETRY,
-        val suggestedMode: Mode? = null,
-    ) : OnboardingValidationState
-}
-
-data class OnboardingUiState(
-    val currentPage: Int = 0,
-    val totalPages: Int = DefaultOnboardingPageCount,
-    val selectedMode: Mode = Mode.VPN,
-    val selectedDnsProviderId: String = DnsProviderCloudflare,
-    val validationState: OnboardingValidationState = OnboardingValidationState.Idle,
-    val canFinishAnyway: Boolean = true,
-    val canFinishKeepingRunning: Boolean = false,
-    val canFinishDisconnected: Boolean = false,
-)
-
-sealed interface OnboardingEffect {
-    data object OnboardingComplete : OnboardingEffect
-
-    data object RequestNotificationsPermission : OnboardingEffect
-
-    data class RequestVpnConsent(
-        val intent: Intent,
-    ) : OnboardingEffect
-}
-
-private enum class PendingValidationPermission {
-    Notifications,
-    VpnConsent,
-}
-
-private val OnboardingValidationState.isBusy: Boolean
-    get() =
-        when (this) {
-            OnboardingValidationState.Idle,
-            is OnboardingValidationState.Success,
-            is OnboardingValidationState.Failed,
-            -> false
-
-            OnboardingValidationState.RequestingNotifications,
-            OnboardingValidationState.RequestingVpnConsent,
-            is OnboardingValidationState.StartingMode,
-            is OnboardingValidationState.RunningTrafficCheck,
-            -> true
-        }
-
-private fun OnboardingUiState.withValidationState(validationState: OnboardingValidationState): OnboardingUiState =
-    copy(
-        validationState = validationState,
-        canFinishAnyway = !validationState.isBusy,
-        canFinishKeepingRunning = validationState is OnboardingValidationState.Success,
-        canFinishDisconnected = validationState is OnboardingValidationState.Success,
-    )
-
 @HiltViewModel
 class OnboardingViewModel
     @Inject
     constructor(
-        private val appSettingsRepository: AppSettingsRepository,
-        private val validationRunner: OnboardingModeValidationRunner,
-        private val permissionStatusProvider: PermissionStatusProvider,
-        private val permissionPlatformBridge: PermissionPlatformBridge,
-        private val stringResolver: StringResolver,
+        private val settingsCoordinator: OnboardingSettingsCoordinator,
+        private val validationCoordinator: OnboardingValidationCoordinator,
+        private val permissionCoordinator: OnboardingPermissionCoordinator,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(OnboardingUiState())
         val uiState: StateFlow<OnboardingUiState> = _uiState.asStateFlow()
@@ -135,7 +36,6 @@ class OnboardingViewModel
         val effects: SharedFlow<OnboardingEffect> = _effects.asSharedFlow()
 
         private var validationJob: Job? = null
-        private var pendingValidationPermission: PendingValidationPermission? = null
 
         init {
             observeOnboardingSelections()
@@ -178,7 +78,7 @@ class OnboardingViewModel
                 it.copy(selectedMode = mode).withValidationState(OnboardingValidationState.Idle)
             }
             viewModelScope.launch {
-                persistSelectionsNow(mode = mode, dnsProviderId = current.selectedDnsProviderId)
+                settingsCoordinator.saveSelection(mode = mode, dnsProviderId = current.selectedDnsProviderId)
             }
         }
 
@@ -192,7 +92,7 @@ class OnboardingViewModel
                 it.copy(selectedDnsProviderId = providerId).withValidationState(OnboardingValidationState.Idle)
             }
             viewModelScope.launch {
-                persistSelectionsNow(mode = current.selectedMode, dnsProviderId = providerId)
+                settingsCoordinator.saveSelection(mode = current.selectedMode, dnsProviderId = providerId)
             }
         }
 
@@ -204,108 +104,42 @@ class OnboardingViewModel
             validationJob =
                 viewModelScope.launch {
                     val currentState = _uiState.value
-                    persistSelectionsNow(
+                    settingsCoordinator.saveSelection(
                         mode = currentState.selectedMode,
                         dnsProviderId = currentState.selectedDnsProviderId,
                     )
 
-                    val snapshot = permissionStatusProvider.currentSnapshot()
-                    if (snapshot.notifications.requiresValidationPrompt()) {
-                        pendingValidationPermission = PendingValidationPermission.Notifications
-                        _uiState.update {
-                            it.withValidationState(OnboardingValidationState.RequestingNotifications)
-                        }
-                        _effects.emit(OnboardingEffect.RequestNotificationsPermission)
-                        return@launch
-                    }
-                    if (currentState.selectedMode == Mode.VPN &&
-                        snapshot.vpnConsent.requiresValidationPrompt()
-                    ) {
-                        val intent = permissionPlatformBridge.prepareVpnPermissionIntent()
-                        if (intent == null) {
-                            pendingValidationPermission = null
-                            performValidation(currentState.selectedMode)
+                    when (val prompt = permissionCoordinator.nextValidationPrompt(currentState.selectedMode)) {
+                        OnboardingPermissionPrompt.Notifications -> {
+                            _uiState.update {
+                                it.withValidationState(OnboardingValidationState.RequestingNotifications)
+                            }
+                            _effects.emit(OnboardingEffect.RequestNotificationsPermission)
                             return@launch
                         }
-                        pendingValidationPermission = PendingValidationPermission.VpnConsent
-                        _uiState.update {
-                            it.withValidationState(OnboardingValidationState.RequestingVpnConsent)
+
+                        is OnboardingPermissionPrompt.VpnConsent -> {
+                            _uiState.update {
+                                it.withValidationState(OnboardingValidationState.RequestingVpnConsent)
+                            }
+                            _effects.emit(OnboardingEffect.RequestVpnConsent(prompt.intent))
+                            return@launch
                         }
-                        _effects.emit(OnboardingEffect.RequestVpnConsent(intent))
-                        return@launch
+
+                        null -> {
+                            Unit
+                        }
                     }
-                    pendingValidationPermission = null
                     performValidation(currentState.selectedMode)
                 }
         }
 
         fun onNotificationPermissionResult(result: PermissionResult) {
-            if (pendingValidationPermission != PendingValidationPermission.Notifications) {
-                return
-            }
-            when (result) {
-                PermissionResult.Granted -> {
-                    pendingValidationPermission = null
-                    validationJob?.cancel()
-                    validationJob =
-                        viewModelScope.launch {
-                            performValidation(_uiState.value.selectedMode)
-                        }
-                }
-
-                PermissionResult.Denied,
-                PermissionResult.DeniedPermanently,
-                PermissionResult.ReturnedFromSettings,
-                -> {
-                    pendingValidationPermission = null
-                    _uiState.update {
-                        it.withValidationState(
-                            OnboardingValidationState.Failed(
-                                reason =
-                                    stringResolver.getString(
-                                        R.string.onboarding_validation_notifications_required,
-                                    ),
-                                recoveryKind = OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS,
-                            ),
-                        )
-                    }
-                }
-            }
+            handlePermissionOutcome(permissionCoordinator.onNotificationPermissionResult(result))
         }
 
         fun onVpnPermissionResult(result: PermissionResult) {
-            if (pendingValidationPermission != PendingValidationPermission.VpnConsent) {
-                return
-            }
-            when (result) {
-                PermissionResult.Granted -> {
-                    pendingValidationPermission = null
-                    validationJob?.cancel()
-                    validationJob =
-                        viewModelScope.launch {
-                            performValidation(_uiState.value.selectedMode)
-                        }
-                }
-
-                PermissionResult.Denied,
-                PermissionResult.DeniedPermanently,
-                PermissionResult.ReturnedFromSettings,
-                -> {
-                    pendingValidationPermission = null
-                    _uiState.update {
-                        it.withValidationState(
-                            OnboardingValidationState.Failed(
-                                reason =
-                                    stringResolver.getString(
-                                        R.string.onboarding_validation_vpn_permission_denied,
-                                    ),
-                                recoveryKind = OnboardingValidationRecoveryKind.SWITCH_MODE,
-                                suggestedMode = Mode.Proxy,
-                            ),
-                        )
-                    }
-                }
-            }
+            handlePermissionOutcome(permissionCoordinator.onVpnPermissionResult(result))
         }
 
         fun acceptSuggestedMode() {
@@ -319,124 +153,94 @@ class OnboardingViewModel
             if (_uiState.value.validationState !is OnboardingValidationState.Success) {
                 return
             }
-            validationRunner.retainActiveValidation()
+            validationCoordinator.retainActiveValidation()
             completeOnboarding()
         }
 
         fun finishDisconnected() {
-            validationRunner.stopActiveValidation()
+            validationCoordinator.stopActiveValidation()
             completeOnboarding()
         }
 
         fun finishAnyway() {
-            validationRunner.stopActiveValidation()
+            validationCoordinator.stopActiveValidation()
             completeOnboarding()
         }
 
         fun skip() {
-            validationRunner.stopActiveValidation()
+            validationCoordinator.stopActiveValidation()
             completeOnboarding()
         }
 
         override fun onCleared() {
             validationJob?.cancel()
-            validationRunner.stopActiveValidation()
+            validationCoordinator.stopActiveValidation()
             super.onCleared()
         }
 
         private fun observeOnboardingSelections() {
-            viewModelScope.launch {
-                appSettingsRepository.settings.collect { settings ->
-                    if (settings.onboardingComplete) {
-                        return@collect
-                    }
-                    val selectedMode =
-                        Mode.fromString(settings.ripdpiMode.ifEmpty { Mode.VPN.preferenceValue })
-                    val dnsProviderId =
-                        settings.dnsProviderId.ifEmpty { DnsProviderCloudflare }
-                    _uiState.update { current ->
-                        if (current.selectedMode == selectedMode &&
-                            current.selectedDnsProviderId == dnsProviderId
-                        ) {
-                            current
-                        } else {
-                            current
-                                .copy(
-                                    selectedMode = selectedMode,
-                                    selectedDnsProviderId = dnsProviderId,
-                                ).withValidationState(OnboardingValidationState.Idle)
-                        }
+            settingsCoordinator.observeSelections(viewModelScope) { selectedMode, dnsProviderId ->
+                _uiState.update { current ->
+                    if (current.selectedMode == selectedMode &&
+                        current.selectedDnsProviderId == dnsProviderId
+                    ) {
+                        current
+                    } else {
+                        current
+                            .copy(
+                                selectedMode = selectedMode,
+                                selectedDnsProviderId = dnsProviderId,
+                            ).withValidationState(OnboardingValidationState.Idle)
                     }
                 }
             }
         }
 
         private suspend fun performValidation(mode: Mode) {
-            val result =
-                validationRunner.validate(mode = mode) { progress ->
+            val validationState =
+                validationCoordinator.validate(mode = mode) { progress ->
                     _uiState.update { it.withValidationState(progress) }
                 }
             _uiState.update { current ->
-                when (result) {
-                    is OnboardingValidationResult.Success -> {
-                        current.withValidationState(
-                            OnboardingValidationState.Success(
-                                latencyMs = result.latencyMs,
-                                mode = mode,
-                            ),
-                        )
-                    }
-
-                    is OnboardingValidationResult.Failed -> {
-                        current.withValidationState(
-                            OnboardingValidationState.Failed(
-                                reason = result.reason,
-                                recoveryKind =
-                                    if (result.suggestedMode != null) {
-                                        OnboardingValidationRecoveryKind.SWITCH_MODE
-                                    } else {
-                                        OnboardingValidationRecoveryKind.RETRY
-                                    },
-                                suggestedMode = result.suggestedMode,
-                            ),
-                        )
-                    }
-                }
+                current.withValidationState(validationState)
             }
         }
 
         private fun invalidateValidation() {
             validationJob?.cancel()
             validationJob = null
-            pendingValidationPermission = null
-            validationRunner.stopActiveValidation()
+            permissionCoordinator.clearPendingPermission()
+            validationCoordinator.stopActiveValidation()
         }
 
-        private suspend fun persistSelectionsNow(
-            mode: Mode,
-            dnsProviderId: String,
-        ) {
-            appSettingsRepository.update {
-                setRipdpiMode(mode.preferenceValue)
-                setDnsProviderId(dnsProviderId)
+        private fun handlePermissionOutcome(outcome: OnboardingPermissionOutcome?) {
+            when (outcome) {
+                OnboardingPermissionOutcome.ContinueValidation -> {
+                    validationJob?.cancel()
+                    validationJob =
+                        viewModelScope.launch {
+                            performValidation(_uiState.value.selectedMode)
+                        }
+                }
+
+                is OnboardingPermissionOutcome.Failed -> {
+                    _uiState.update { it.withValidationState(outcome.state) }
+                }
+
+                null -> {
+                    Unit
+                }
             }
         }
 
         private fun completeOnboarding() {
             validationJob?.cancel()
             validationJob = null
-            pendingValidationPermission = null
+            permissionCoordinator.clearPendingPermission()
             val state = _uiState.value
             viewModelScope.launch {
-                appSettingsRepository.update {
-                    setOnboardingComplete(true)
-                    setRipdpiMode(state.selectedMode.preferenceValue)
-                    setDnsProviderId(state.selectedDnsProviderId)
-                }
+                settingsCoordinator.complete(state)
                 _effects.emit(OnboardingEffect.OnboardingComplete)
             }
         }
     }
-
-private fun PermissionStatus.requiresValidationPrompt(): Boolean =
-    this != PermissionStatus.Granted && this != PermissionStatus.NotApplicable

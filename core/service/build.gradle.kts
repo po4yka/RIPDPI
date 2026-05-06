@@ -107,5 +107,4 @@ dependencies {
 
     testImplementation(libs.bundles.unit.test)
     testImplementation(libs.kotlinx.serialization.json)
-    testImplementation(project(":core:detection"))
 }

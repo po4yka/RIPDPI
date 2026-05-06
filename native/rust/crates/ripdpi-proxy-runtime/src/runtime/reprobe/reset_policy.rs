@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ripdpi_runtime_adaptive::AdaptivePort;
+use ripdpi_runtime_adaptive::AdaptiveFeedbackPort;
 
 const FAILURE_THRESHOLD: usize = 2;
 
@@ -8,7 +8,7 @@ pub(crate) fn reset_if_strategy_mismatch(
     failures: usize,
     successes: usize,
     target_count: usize,
-    adaptive: &Arc<dyn AdaptivePort>,
+    adaptive: &Arc<dyn AdaptiveFeedbackPort>,
 ) {
     if failures >= FAILURE_THRESHOLD {
         tracing::info!(

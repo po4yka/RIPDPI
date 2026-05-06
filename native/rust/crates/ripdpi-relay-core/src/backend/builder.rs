@@ -11,7 +11,7 @@ use crate::runtime_validation::{parse_outbound_bind_ip, pool_config_for_backend}
 use crate::telemetry::QuicMigrationTelemetryState;
 
 pub(crate) async fn build_backend(config: &ResolvedRelayRuntimeConfig) -> io::Result<RelayBackend> {
-    let outbound_bind_ip = parse_outbound_bind_ip(&config.outbound_bind_ip)?;
+    let outbound_bind_ip = parse_outbound_bind_ip(&config.common.outbound_bind_ip)?;
     let pool_config = pool_config_for_backend(config);
     let quic_migration = QuicMigrationTelemetryState::default();
 

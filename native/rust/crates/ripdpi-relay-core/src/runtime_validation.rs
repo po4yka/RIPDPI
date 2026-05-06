@@ -5,7 +5,7 @@ use std::time::Duration;
 use ripdpi_relay_mux::{RelayCapabilities, RelayPoolConfig};
 
 use crate::backend::RelayBackend;
-use crate::config::{RelayKind, ResolvedRelayRuntimeConfig};
+use crate::config::{RelayBackendConfig, RelayKind, ResolvedRelayRuntimeConfig};
 
 pub(crate) fn planned_backend_capabilities(config: &ResolvedRelayRuntimeConfig) -> RelayCapabilities {
     match RelayKind::from_config(config) {
@@ -47,18 +47,23 @@ pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> Re
 
 pub(crate) fn describe_upstream(config: &ResolvedRelayRuntimeConfig) -> String {
     match RelayKind::from_config(config) {
-        RelayKind::ChainRelay => format!(
-            "{}:{} -> {}:{}",
-            config.chain_entry_server, config.chain_entry_port, config.chain_exit_server, config.chain_exit_port,
-        ),
+        RelayKind::ChainRelay => match &config.backend {
+            RelayBackendConfig::ChainRelay(chain) => {
+                format!("{}:{} -> {}:{}", chain.entry_server, chain.entry_port, chain.exit_server, chain.exit_port,)
+            }
+            _ => format!("{}:{}", config.common.server, config.common.server_port),
+        },
         RelayKind::VlessReality { xhttp: true } => {
-            format!("{}:{}{}", config.server, config.server_port, normalized_xhttp_path(config))
+            format!("{}:{}{}", config.common.server, config.common.server_port, normalized_xhttp_path(config))
         }
         RelayKind::CloudflareTunnel => {
-            format!("{}:{}{}", config.server, config.server_port, normalized_xhttp_path(config))
+            format!("{}:{}{}", config.common.server, config.common.server_port, normalized_xhttp_path(config))
         }
-        RelayKind::Masque => config.masque_url.clone(),
-        _ => format!("{}:{}", config.server, config.server_port),
+        RelayKind::Masque => match &config.backend {
+            RelayBackendConfig::Masque(masque) => masque.url.clone(),
+            _ => format!("{}:{}", config.common.server, config.common.server_port),
+        },
+        _ => format!("{}:{}", config.common.server, config.common.server_port),
     }
 }
 
@@ -73,7 +78,7 @@ pub(crate) fn describe_runtime_health(state: &str, backend: Option<&RelayBackend
 }
 
 pub(crate) fn normalized_xhttp_path(config: &ResolvedRelayRuntimeConfig) -> String {
-    let trimmed = config.xhttp_path.trim().trim_matches('/');
+    let trimmed = config.xhttp_path().trim().trim_matches('/');
     if trimmed.is_empty() {
         "/".to_owned()
     } else {
@@ -83,18 +88,18 @@ pub(crate) fn normalized_xhttp_path(config: &ResolvedRelayRuntimeConfig) -> Stri
 
 pub(crate) fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backend: &RelayBackend) -> io::Result<()> {
     let kind = RelayKind::from_config(config);
-    let outbound_bind_ip = parse_outbound_bind_ip(&config.outbound_bind_ip)?;
-    if config.udp_enabled && !backend.udp_capable() {
+    let outbound_bind_ip = parse_outbound_bind_ip(&config.common.outbound_bind_ip)?;
+    if config.common.udp_enabled && !backend.udp_capable() {
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            format!("relay backend {} does not support UDP ASSOCIATE", config.kind),
+            format!("relay backend {} does not support UDP ASSOCIATE", config.kind_id()),
         ));
     }
 
     if outbound_bind_ip.is_some() && !kind.supports_outbound_bind_ip() {
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            format!("relay backend {} does not support outbound bind IP", config.kind),
+            format!("relay backend {} does not support outbound bind IP", config.kind_id()),
         ));
     }
 
@@ -104,7 +109,7 @@ pub(crate) fn validate_runtime_config(config: &ResolvedRelayRuntimeConfig, backe
 }
 
 pub(crate) fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> io::Result<()> {
-    let finalmask = &config.finalmask;
+    let finalmask = &config.common.finalmask;
     if finalmask.r#type.trim().is_empty() || finalmask.r#type == "off" {
         return Ok(());
     }
@@ -112,7 +117,7 @@ pub(crate) fn validate_finalmask_config(config: &ResolvedRelayRuntimeConfig) -> 
     if !RelayKind::from_config(config).supports_finalmask() {
         return Err(io::Error::new(
             io::ErrorKind::Unsupported,
-            format!("finalmask is unsupported for relay kind {} on its active transport", config.kind),
+            format!("finalmask is unsupported for relay kind {} on its active transport", config.kind_id()),
         ));
     }
 

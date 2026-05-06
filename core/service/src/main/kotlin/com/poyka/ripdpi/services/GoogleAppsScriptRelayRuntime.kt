@@ -19,7 +19,7 @@ internal const val RelayKindGoogleAppsScript = "google_apps_script"
  *
  * **Configuration path:** The Apps Script relay kind is selected via [RelayKindGoogleAppsScript]
  * in [UpstreamRelaySupervisor]. Per-instance parameters (script URL, auth key) are sourced from
- * the resolved relay config's credential fields, validated by [UpstreamRelaySupervisorSupport]
+ * the resolved relay config's credential fields, validated by the upstream relay support modules.
  * before the runtime is started.
  *
  * Direct UI fields for these parameters are intentionally not exposed — Apps Script integration

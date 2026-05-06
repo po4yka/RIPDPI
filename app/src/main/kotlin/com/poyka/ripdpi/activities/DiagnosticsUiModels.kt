@@ -208,18 +208,16 @@ enum class DnsBaselineStatus {
     TAMPERED,
 }
 
-enum class DpiFailureClass(
-    val label: String,
-) {
-    TCP_RESET("TCP Reset"),
-    SILENT_DROP("Silent Drop"),
-    TLS_ALERT("TLS Alert"),
-    HTTP_BLOCKPAGE("HTTP Blockpage"),
-    QUIC_BREAKAGE("QUIC Breakage"),
-    TLS_HANDSHAKE_FAILURE("TLS Handshake Failure"),
-    CONNECTION_FREEZE("Connection Freeze"),
-    REDIRECT("Redirect"),
-    OTHER("Unknown DPI"),
+enum class DpiFailureClass {
+    TCP_RESET,
+    SILENT_DROP,
+    TLS_ALERT,
+    HTTP_BLOCKPAGE,
+    QUIC_BREAKAGE,
+    TLS_HANDSHAKE_FAILURE,
+    CONNECTION_FREEZE,
+    REDIRECT,
+    OTHER,
 }
 
 @Immutable

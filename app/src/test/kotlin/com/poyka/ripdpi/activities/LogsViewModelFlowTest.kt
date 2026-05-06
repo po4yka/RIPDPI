@@ -19,8 +19,21 @@ class LogsViewModelFlowTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    private fun createViewModel(timelineSource: StubDiagnosticsTimelineSource = StubDiagnosticsTimelineSource()) =
-        LogsViewModel(FakeServiceStateStore(), timelineSource, FakeStringResolver())
+    private fun createViewModel(
+        timelineSource: StubDiagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
+    ): LogsViewModel {
+        val mapper = LogEntryMapper(FakeStringResolver())
+        return LogsViewModel(
+            dependencies =
+                LogsViewModelDependencies(
+                    serviceStateStore = FakeServiceStateStore(),
+                    diagnosticsTimelineSource = timelineSource,
+                    logEntryMapper = mapper,
+                    logAggregatorUseCase = LogAggregatorUseCase(mapper),
+                    serviceEventObserver = LogsServiceEventObserver(mapper),
+                ),
+        )
+    }
 
     @Test
     fun `initial uiState has empty logs and all filters active`() =

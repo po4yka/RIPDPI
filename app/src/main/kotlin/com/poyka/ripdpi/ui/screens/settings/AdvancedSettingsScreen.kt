@@ -27,13 +27,11 @@ import com.poyka.ripdpi.data.FakeOrderDefault
 import com.poyka.ripdpi.data.FakeOrderInterleaveRealFirst
 import com.poyka.ripdpi.data.FakeSeqModeDuplicate
 import com.poyka.ripdpi.data.FakeSeqModeSequential
-import com.poyka.ripdpi.data.HostPackApplyModeMerge
 import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
-import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
@@ -45,198 +43,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
-
-internal const val TlsPreludeModeDisabled = "disabled"
-internal const val HostPackApplyDialogDefaultMode = HostPackApplyModeMerge
-
-internal enum class AdvancedToggleSetting {
-    UseCommandLine,
-    DiagnosticsMonitorEnabled,
-    DiagnosticsExportIncludeHistory,
-    StrategyPackAllowRollbackOverride,
-    NoDomain,
-    TcpFastOpen,
-    DropSack,
-    FakeTlsRandomize,
-    FakeTlsDupSessionId,
-    FakeTlsPadEncap,
-    DesyncHttp,
-    DesyncHttps,
-    DesyncUdp,
-    HostMixedCase,
-    DomainMixedCase,
-    HostRemoveSpaces,
-    HttpHostPad,
-    HttpMethodEol,
-    HttpUnixEol,
-    HttpMethodSpace,
-    HttpHostExtraSpace,
-    HttpHostTab,
-    TlsrecEnabled,
-    QuicSupportV1,
-    QuicSupportV2,
-    QuicBindLowPort,
-    QuicMigrateAfterHandshake,
-    StrategyEvolution,
-    WarpEnabled,
-    WarpBuiltInRulesEnabled,
-    WarpScannerEnabled,
-    WarpAmneziaEnabled,
-    HostAutolearnEnabled,
-    NetworkStrategyMemoryEnabled,
-    AdaptiveFallbackEnabled,
-    AdaptiveFallbackTorst,
-    AdaptiveFallbackTlsErr,
-    AdaptiveFallbackHttpRedirect,
-    AdaptiveFallbackConnectFailure,
-    AdaptiveFallbackAutoSort,
-}
-
-internal enum class AdvancedTextSetting {
-    DiagnosticsSampleIntervalSeconds,
-    DiagnosticsHistoryRetentionDays,
-    CommandLineArgs,
-    ProxyIp,
-    ProxyPort,
-    MaxConnections,
-    BufferSize,
-    DefaultTtl,
-    ChainDsl,
-    ActivationRoundFrom,
-    ActivationRoundTo,
-    ActivationPayloadSizeFrom,
-    ActivationPayloadSizeTo,
-    ActivationStreamBytesFrom,
-    ActivationStreamBytesTo,
-    SplitMarker,
-    FakeTtl,
-    AdaptiveFakeTtlMin,
-    AdaptiveFakeTtlMax,
-    AdaptiveFakeTtlFallback,
-    FakeSni,
-    FakeOffsetMarker,
-    FakeTlsSize,
-    QuicFakeHost,
-    OobData,
-    TlsrecMarker,
-    TlsRandRecFragmentCount,
-    TlsRandRecMinFragmentSize,
-    TlsRandRecMaxFragmentSize,
-    UdpFakeCount,
-    HostAutolearnPenaltyTtlHours,
-    HostAutolearnMaxHosts,
-    AdaptiveFallbackCacheTtlSeconds,
-    AdaptiveFallbackCachePrefixV4,
-    EvolutionEpsilon,
-    EvolutionExperimentTtlMs,
-    EvolutionDecayHalfLifeMs,
-    EvolutionCooldownAfterFailures,
-    EvolutionCooldownMs,
-    EntropyPaddingTargetPermil,
-    EntropyPaddingMax,
-    ShannonEntropyTargetPermil,
-    HostsBlacklist,
-    HostsWhitelist,
-    WarpRouteHosts,
-    WarpManualEndpointHost,
-    WarpManualEndpointIpv4,
-    WarpManualEndpointIpv6,
-    WarpManualEndpointPort,
-    WarpScannerParallelism,
-    WarpScannerMaxRttMs,
-    WarpAmneziaJc,
-    WarpAmneziaJmin,
-    WarpAmneziaJmax,
-    WarpAmneziaH1,
-    WarpAmneziaH2,
-    WarpAmneziaH3,
-    WarpAmneziaH4,
-    WarpAmneziaS1,
-    WarpAmneziaS2,
-    WarpAmneziaS3,
-    WarpAmneziaS4,
-}
-
-internal enum class AdvancedOptionSetting {
-    DesyncMethod,
-    AdaptiveSplitPreset,
-    AdaptiveFakeTtlMode,
-    TlsPreludeMode,
-    FakeOrder,
-    FakeSeqMode,
-    TcpFlagsSet,
-    TcpFlagsUnset,
-    TcpFlagsOrigSet,
-    TcpFlagsOrigUnset,
-    IpIdMode,
-    HttpFakeProfile,
-    FakeTlsBase,
-    FakeTlsSniMode,
-    TlsFakeProfile,
-    HostsMode,
-    WarpRouteMode,
-    WarpEndpointSelectionMode,
-    WarpAmneziaPreset,
-    QuicInitialMode,
-    TlsFingerprintProfile,
-    EntropyMode,
-    UdpFakeProfile,
-    QuicFakeProfile,
-    AppRoutingPolicyMode,
-    DhtMitigationMode,
-}
-
-internal enum class ActivationWindowDimension {
-    Round,
-    PayloadSize,
-    StreamBytes,
-}
-
-internal data class AdaptiveSplitPresetUiModel(
-    val value: String,
-    val title: String,
-    val body: String,
-    val isRecommended: Boolean = false,
-)
-
-internal data class AdaptiveFakeTtlModeUiModel(
-    val value: String,
-    val title: String,
-    val body: String,
-    val badgeLabel: String? = null,
-    val badgeTone: StatusIndicatorTone = StatusIndicatorTone.Active,
-)
-
-internal data class AdvancedNotice(
-    val title: String,
-    val message: String,
-    val tone: WarningBannerTone,
-)
-
-internal data class AdvancedSettingsActions(
-    val onBack: () -> Unit,
-    val onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
-    val onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
-    val onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
-    val onApplyHostPackPreset: (HostPackPreset, String, String) -> Unit,
-    val onRefreshHostPackCatalog: () -> Unit,
-    val onRefreshStrategyPackCatalog: () -> Unit,
-    val onForgetLearnedHosts: () -> Unit,
-    val onClearRememberedNetworks: () -> Unit,
-    val onWsTunnelModeChanged: (String) -> Unit,
-    val onRotateTelemetrySalt: () -> Unit,
-    val onSaveActivationRange: (ActivationWindowDimension, Long?, Long?) -> Unit,
-    val onResetAdaptiveSplit: () -> Unit,
-    val onResetAdaptiveFakeTtlProfile: () -> Unit,
-    val onResetActivationWindow: () -> Unit,
-    val onResetHttpParserEvasions: () -> Unit,
-    val onResetFakePayloadLibrary: () -> Unit,
-    val onResetFakeTlsProfile: () -> Unit,
-    val onRoutingPolicyModeSelected: (String) -> Unit,
-    val onDhtMitigationModeSelected: (String) -> Unit,
-    val onAntiCorrelationEnabledChanged: (Boolean) -> Unit,
-    val onAppRoutingPresetEnabledChanged: (String, Boolean) -> Unit,
-)
 
 private data class AdvancedSettingsContentState(
     val visualEditorEnabled: Boolean,
@@ -550,30 +356,39 @@ private fun androidx.compose.foundation.lazy.LazyListScope.advancedSettingsPrima
     desyncSection(
         uiState = uiState,
         visualEditorEnabled = contentState.visualEditorEnabled,
-        showHostFakeSection = contentState.showHostFakeSection,
-        showSeqOverlapSection = contentState.showSeqOverlapSection,
-        showFakeApproxSection = contentState.showFakeApproxSection,
-        showFakeOrderingSection = contentState.showFakeOrderingSection,
-        showAdaptiveFakeTtlSection = contentState.showAdaptiveFakeTtlSection,
-        showFakePayloadLibrary = contentState.showFakePayloadLibrary,
-        showFakeTlsSection = contentState.showFakeTlsSection,
-        adaptiveSplitPresetOptions = contentState.adaptiveSplitPresetOptions,
-        adaptiveFakeTtlModeOptions = contentState.adaptiveFakeTtlModeOptions,
-        httpFakeProfileOptions = contentState.httpFakeProfileOptions,
-        fakeTlsBaseOptions = contentState.fakeTlsBaseOptions,
-        fakeTlsSniModeOptions = contentState.fakeTlsSniModeOptions,
-        tlsFakeProfileOptions = contentState.tlsFakeProfileOptions,
-        fakeOrderOptions = contentState.fakeOrderOptions,
-        fakeSeqModeOptions = contentState.fakeSeqModeOptions,
-        ipIdModeOptions = contentState.ipIdModeOptions,
-        udpFakeProfileOptions = contentState.udpFakeProfileOptions,
-        onToggleChanged = actions.onToggleChanged,
-        onTextConfirmed = actions.onTextConfirmed,
-        onOptionSelected = actions.onOptionSelected,
-        onResetAdaptiveSplit = actions.onResetAdaptiveSplit,
-        onResetAdaptiveFakeTtlProfile = actions.onResetAdaptiveFakeTtlProfile,
-        onResetFakePayloadLibrary = actions.onResetFakePayloadLibrary,
-        onResetFakeTlsProfile = actions.onResetFakeTlsProfile,
+        visibility =
+            DesyncSectionVisibility(
+                showHostFakeSection = contentState.showHostFakeSection,
+                showSeqOverlapSection = contentState.showSeqOverlapSection,
+                showFakeApproxSection = contentState.showFakeApproxSection,
+                showFakeOrderingSection = contentState.showFakeOrderingSection,
+                showAdaptiveFakeTtlSection = contentState.showAdaptiveFakeTtlSection,
+                showFakePayloadLibrary = contentState.showFakePayloadLibrary,
+                showFakeTlsSection = contentState.showFakeTlsSection,
+            ),
+        options =
+            DesyncSectionOptions(
+                adaptiveSplitPresetOptions = contentState.adaptiveSplitPresetOptions,
+                adaptiveFakeTtlModeOptions = contentState.adaptiveFakeTtlModeOptions,
+                httpFakeProfileOptions = contentState.httpFakeProfileOptions,
+                fakeTlsBaseOptions = contentState.fakeTlsBaseOptions,
+                fakeTlsSniModeOptions = contentState.fakeTlsSniModeOptions,
+                tlsFakeProfileOptions = contentState.tlsFakeProfileOptions,
+                fakeOrderOptions = contentState.fakeOrderOptions,
+                fakeSeqModeOptions = contentState.fakeSeqModeOptions,
+                ipIdModeOptions = contentState.ipIdModeOptions,
+                udpFakeProfileOptions = contentState.udpFakeProfileOptions,
+            ),
+        actions =
+            DesyncSectionActions(
+                onToggleChanged = actions.onToggleChanged,
+                onTextConfirmed = actions.onTextConfirmed,
+                onOptionSelected = actions.onOptionSelected,
+                onResetAdaptiveSplit = actions.onResetAdaptiveSplit,
+                onResetAdaptiveFakeTtlProfile = actions.onResetAdaptiveFakeTtlProfile,
+                onResetFakePayloadLibrary = actions.onResetFakePayloadLibrary,
+                onResetFakeTlsProfile = actions.onResetFakeTlsProfile,
+            ),
     )
     activationWindowSection(
         uiState = uiState,

@@ -2,7 +2,6 @@ package com.poyka.ripdpi.activities
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.poyka.ripdpi.core.detection.community.CommunityComparisonStore
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.security.PinVerifyResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -156,7 +155,7 @@ class SettingsViewModel
 
         fun clearCommunityCache() {
             viewModelScope.launch {
-                CommunityComparisonStore(settingsUiDependencies.application).clear()
+                settingsActionDependencies.communityComparisonStore.clear()
             }
         }
 

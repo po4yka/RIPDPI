@@ -132,12 +132,6 @@ fun ModeEditorRoute(
 
     BackHandler(onBack = handleBack)
 
-    LaunchedEffect(Unit) {
-        if (uiState.editingPreset == null) {
-            viewModel.startEditingPreset()
-        }
-    }
-
     val currentOnBack by rememberUpdatedState(onBack)
     val performHaptic = rememberRipDpiHapticPerformer()
     val documentLauncher =
@@ -158,7 +152,10 @@ fun ModeEditorRoute(
             }
         }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(viewModel) {
+        if (viewModel.uiState.value.editingPreset == null) {
+            viewModel.startEditingPreset()
+        }
         viewModel.effects.collectLatest { effect ->
             when (effect) {
                 ConfigEffect.SaveSuccess -> {

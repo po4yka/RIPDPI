@@ -4,7 +4,7 @@ use crate::backend::builder::builders::common::{finalmask_config, vless_reality_
 use crate::backend::builder::builders::BackendBuilder;
 use crate::backend::builder::BuildContext;
 use crate::backend::{PooledRelayBackend, RelayBackend};
-use crate::config::{RelayKind, ResolvedRelayRuntimeConfig};
+use crate::config::{RelayBackendConfig, RelayKind, ResolvedRelayRuntimeConfig};
 use crate::protocols::{VlessRealitySessionFactory, XhttpSessionFactory, XhttpSessionMode};
 
 pub(crate) const XHTTP_BUILDER: BackendBuilder = BackendBuilder::new(supports_xhttp, build_xhttp);
@@ -19,27 +19,26 @@ fn supports(config: &ResolvedRelayRuntimeConfig) -> bool {
 }
 
 fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
+    let RelayBackendConfig::VlessReality(vless) = &config.backend else {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected VLESS Reality config"));
+    };
     Ok(RelayBackend::Xhttp(PooledRelayBackend::new(
         XhttpSessionFactory {
             mode: XhttpSessionMode::Reality(ripdpi_xhttp::XhttpRealityConfig {
                 vless: vless_reality_config(
-                    &config.server,
-                    config.server_port,
-                    config.vless_uuid.as_deref().unwrap_or_default(),
-                    &config.server_name,
-                    &config.reality_public_key,
-                    &config.reality_short_id,
-                    &config.tls_fingerprint_profile,
+                    &config.common.server,
+                    config.common.server_port,
+                    vless.uuid.as_deref().unwrap_or_default(),
+                    &config.common.server_name,
+                    &vless.reality_public_key,
+                    &vless.reality_short_id,
+                    &config.common.tls_fingerprint_profile,
                 )?,
-                path: config.xhttp_path.clone(),
-                host: if config.xhttp_host.trim().is_empty() {
-                    None
-                } else {
-                    Some(config.xhttp_host.trim().to_owned())
-                },
+                path: vless.xhttp_path.clone(),
+                host: if vless.xhttp_host.trim().is_empty() { None } else { Some(vless.xhttp_host.trim().to_owned()) },
                 bind_ip: context.outbound_bind_ip,
                 xmux: ripdpi_xhttp::XmuxConfig::default(),
-                finalmask: finalmask_config(&config.finalmask),
+                finalmask: finalmask_config(&config.common.finalmask),
             }),
         },
         context.pool_config,
@@ -48,16 +47,19 @@ fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> i
 }
 
 fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> io::Result<RelayBackend> {
+    let RelayBackendConfig::VlessReality(vless) = &config.backend else {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "expected VLESS Reality config"));
+    };
     Ok(RelayBackend::VlessReality(PooledRelayBackend::new(
         VlessRealitySessionFactory {
             config: vless_reality_config(
-                &config.server,
-                config.server_port,
-                config.vless_uuid.as_deref().unwrap_or_default(),
-                &config.server_name,
-                &config.reality_public_key,
-                &config.reality_short_id,
-                &config.tls_fingerprint_profile,
+                &config.common.server,
+                config.common.server_port,
+                vless.uuid.as_deref().unwrap_or_default(),
+                &config.common.server_name,
+                &vless.reality_public_key,
+                &vless.reality_short_id,
+                &config.common.tls_fingerprint_profile,
             )?,
             outbound_bind_ip: context.outbound_bind_ip,
         },

@@ -1,23 +1,22 @@
 mod authority;
 mod direct_path_capability;
 mod hint_merge;
-mod host_taxonomy;
-mod learning_context;
 mod payload_classification;
 mod preferred_targets;
-mod reachability;
-mod resolver_health;
+
+use ripdpi_config::RuntimeConfig;
 
 pub use direct_path_capability::{
     capability_blocks_transport, capability_preserves_udp_transport, capability_requires_desync_fallback,
     capability_udp_clean, direct_path_capability_for_route, direct_path_capability_for_targets,
 };
 pub use hint_merge::merge_udp_hints_with_capability;
-pub use host_taxonomy::hosting_family_context;
-pub use learning_context::{network_scope_key, tcp_learning_context, udp_learning_context};
 pub use payload_classification::retry_lane_for_payload;
 pub use preferred_targets::{preferred_targets_for_transport, PreferredTargetsDecision};
-pub use reachability::reachability_set_context;
+
+pub fn network_scope_key(config: &RuntimeConfig) -> Option<&str> {
+    config.adaptive.network_scope_key.as_deref().map(str::trim).filter(|value| !value.is_empty())
+}
 
 #[cfg(test)]
 mod tests;

@@ -9,7 +9,7 @@ use ripdpi_runtime_policy::runtime_policy::{
     ConnectionRoute, HostAutolearnEvent, HostAutolearnState, RetrySelectionPenalty, RouteAdvance, RuntimePolicy,
     TransportProtocol,
 };
-use ripdpi_runtime_policy::PolicyPort;
+use ripdpi_runtime_policy::{DirectPathLearningPort, PolicyPort};
 
 use crate::services_state::ServicesState;
 use crate::ServicesStateHandle;
@@ -130,6 +130,30 @@ impl PolicyPort for ServicesStateHandle {
         BTreeMap::new()
     }
 
+    fn autolearn_state(&self, config: &RuntimeConfig) -> HostAutolearnState {
+        let Ok(mut cache) = self.0.cache.write() else {
+            return HostAutolearnState::default();
+        };
+        cache.autolearn_state(config)
+    }
+
+    fn drain_autolearn_events(&self) -> Vec<HostAutolearnEvent> {
+        let Ok(mut cache) = self.0.cache.write() else {
+            return Vec::new();
+        };
+        cache.drain_autolearn_events()
+    }
+
+    fn flush_host_store(&self, config: &RuntimeConfig) {
+        let Ok(mut cache) = self.0.cache.write() else {
+            return;
+        };
+        cache.flush_host_store(config);
+        let _ = cache.dump_stdout_groups(config, std::io::stdout());
+    }
+}
+
+impl DirectPathLearningPort for ServicesStateHandle {
     fn note_direct_path_transport_attempt(
         &self,
         host: Option<&str>,
@@ -205,28 +229,6 @@ impl PolicyPort for ServicesStateHandle {
             return;
         };
         dpl.emit_due_timeouts(observer, now_ms);
-    }
-
-    fn autolearn_state(&self, config: &RuntimeConfig) -> HostAutolearnState {
-        let Ok(mut cache) = self.0.cache.write() else {
-            return HostAutolearnState::default();
-        };
-        cache.autolearn_state(config)
-    }
-
-    fn drain_autolearn_events(&self) -> Vec<HostAutolearnEvent> {
-        let Ok(mut cache) = self.0.cache.write() else {
-            return Vec::new();
-        };
-        cache.drain_autolearn_events()
-    }
-
-    fn flush_host_store(&self, config: &RuntimeConfig) {
-        let Ok(mut cache) = self.0.cache.write() else {
-            return;
-        };
-        cache.flush_host_store(config);
-        let _ = cache.dump_stdout_groups(config, std::io::stdout());
     }
 }
 

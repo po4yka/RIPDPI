@@ -10,13 +10,14 @@ pub(crate) use probes::{
     blockpage_fingerprints, candidates, cdn_ech, classification, connectivity, http, observations, strategy, telegram,
     tls, transport, util,
 };
+pub(crate) use ripdpi_diagnostics_contracts as types;
 #[cfg(test)]
 pub(crate) use session::validate_scan_request;
-pub mod types {
-    pub use ripdpi_diagnostics_contracts::*;
-}
 pub mod wire {
-    pub use ripdpi_diagnostics_contracts::wire::*;
+    pub use ripdpi_diagnostics_contracts::wire::{
+        EngineObservationWire, EngineProbeResultWire, EngineProbeTaskFamily, EngineProbeTaskWire, EngineProgressWire,
+        EngineScanReportWire, EngineScanRequestWire, ResolverRecommendationWire, DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
+    };
 }
 
 #[cfg(test)]
@@ -41,7 +42,7 @@ pub use ripdpi_diagnostics_contracts::{
     TelegramVerdict, ThroughputObservationFact, ThroughputProbeStatus, ThroughputTarget, TlsProbeStatus,
     TransportFailureKind, DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
 };
-pub use ripdpi_diagnostics_transport::transport::TransportConfig;
+pub use ripdpi_diagnostics_runner::transport::TransportConfig;
 pub use session::MonitorSession;
 
 pub fn parse_proxy_config_payload_json(json: &str) -> Result<ProxyConfigPayload, String> {

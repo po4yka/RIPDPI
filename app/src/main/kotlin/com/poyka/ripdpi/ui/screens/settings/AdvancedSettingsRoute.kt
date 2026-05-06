@@ -55,7 +55,7 @@ fun AdvancedSettingsRoute(
 
     val performHaptic = rememberRipDpiHapticPerformer()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(viewModel) {
         viewModel.effects.collect { effect ->
             if (effect is SettingsEffect.Notice) {
                 performHaptic(

@@ -50,21 +50,13 @@ def base_metadata() -> dict[str, Any]:
                 ("ripdpi-privileged-ops", None),
                 ("ripdpi-root-helper-protocol", None),
             ],
-            "ripdpi-runtime-learning": [
-                ("ripdpi-config", None),
-                ("ripdpi-desync", None),
-                ("ripdpi-failure-classifier", None),
-                ("ripdpi-packets", None),
-            ],
             "ripdpi-proxy-runtime": [
                 ("ripdpi-runtime-api", None),
-                ("ripdpi-runtime-learning", None),
                 ("ripdpi-runtime-platform", None),
             ],
             "ripdpi-android": [
                 ("ripdpi-proxy-runtime", None),
                 ("ripdpi-runtime-api", None),
-                ("ripdpi-runtime-learning", None),
                 ("ripdpi-runtime-platform", None),
             ],
             "ripdpi-cli": [
@@ -73,9 +65,6 @@ def base_metadata() -> dict[str, Any]:
             ],
             "ripdpi-monitor-engine": [
                 ("ripdpi-proxy-runtime", None),
-                ("ripdpi-runtime-platform", None),
-            ],
-            "ripdpi-diagnostics-probes": [
                 ("ripdpi-runtime-platform", None),
             ],
             "ripdpi-config": [],
@@ -112,21 +101,12 @@ def test_runtime_api_rejects_platform_dependency() -> None:
     assert ("ripdpi-runtime-api", "ripdpi-runtime-platform") in violation_pairs(metadata)
 
 
-def test_learning_rejects_socket_dependency() -> None:
-    metadata = base_metadata()
-    for package in metadata["packages"]:
-        if package["name"] == "ripdpi-runtime-learning":
-            package["dependencies"].append({"name": "socket2", "kind": None})
-
-    assert ("ripdpi-runtime-learning", "socket2") in violation_pairs(metadata)
-
-
 def test_proxy_runtime_requires_split_runtime_crates() -> None:
     metadata = base_metadata()
     for package in metadata["packages"]:
         if package["name"] == "ripdpi-proxy-runtime":
             package["dependencies"] = [
-                dep for dep in package["dependencies"] if dep["name"] != "ripdpi-runtime-learning"
+                dep for dep in package["dependencies"] if dep["name"] != "ripdpi-runtime-platform"
             ]
 
-    assert ("ripdpi-proxy-runtime", "ripdpi-runtime-learning") in violation_pairs(metadata)
+    assert ("ripdpi-proxy-runtime", "ripdpi-runtime-platform") in violation_pairs(metadata)
