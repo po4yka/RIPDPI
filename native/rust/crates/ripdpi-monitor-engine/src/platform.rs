@@ -1,6 +1,6 @@
 use log::LevelFilter;
 
-use crate::NativeSessionEvent;
+use crate::contracts::NativeSessionEvent;
 
 pub trait MonitorPlatformBridge: Send + Sync {
     fn clear_passive_events(&self) {}

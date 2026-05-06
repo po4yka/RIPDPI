@@ -2,7 +2,7 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use ripdpi_monitor_engine::{
+use ripdpi_monitor_engine::wire::{
     EngineProgressWire, EngineScanReportWire, EngineScanRequestWire, DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
 };
 use serde_json::Value;

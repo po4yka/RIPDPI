@@ -1,7 +1,7 @@
 ---
 title: Split TCP typed payload adapter by family
 type: task
-status: review
+status: done
 area: transport
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Split TCP typed payload adapter by family #repo/RIPDPI #area/transport #status/review 🔼
+- [x] #task Split TCP typed payload adapter by family #repo/RIPDPI #area/transport #status/done 🔼
 
 ## Summary
 
@@ -41,7 +41,7 @@ and IPv6 extension state.
     budget.
 - [x] Existing typed payload and invariant tests still pass; add tests for any
     moved family that lacks direct coverage.
-- [ ] `python3 scripts/ci/check_native_hotspot_budgets.py` passes.
+- [x] `python3 scripts/ci/check_native_hotspot_budgets.py` passes.
 
 ## Links
 

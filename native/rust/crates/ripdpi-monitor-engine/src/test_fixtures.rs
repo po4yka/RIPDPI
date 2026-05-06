@@ -14,7 +14,7 @@ use serde_json::Value;
 use crate::transport::{decode_socks5_udp_frame, encode_socks5_udp_frame};
 use crate::types::ScanReport;
 use crate::util::{CONNECT_TIMEOUT, FAT_HEADER_THRESHOLD_BYTES, IO_TIMEOUT};
-use crate::{MonitorSession, ScanProgress};
+use crate::{contracts::ScanProgress, MonitorSession};
 
 pub struct UdpDnsServer {
     addr: SocketAddr,

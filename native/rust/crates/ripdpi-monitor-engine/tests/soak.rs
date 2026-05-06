@@ -9,10 +9,11 @@ use local_network_fixture::{FixtureConfig, FixtureManifest, FixtureStack};
 use native_soak_support::{
     acquire_global_lock, assert_growth, write_json_artifact, GrowthThresholds, SoakProfile, SoakSampler, WARMUP_WINDOW,
 };
-use ripdpi_monitor_engine::{
-    DiagnosticProfileFamily, DnsTarget, DomainTarget, MonitorSession, NativeSessionEvent, ScanKind, ScanPathMode,
-    ScanProgress, ScanReport, ScanRequest, TcpTarget,
+use ripdpi_monitor_engine::contracts::{
+    DiagnosticProfileFamily, DnsTarget, DomainTarget, NativeSessionEvent, ScanKind, ScanPathMode, ScanProgress,
+    ScanReport, ScanRequest, TcpTarget,
 };
+use ripdpi_monitor_engine::MonitorSession;
 use serde_json::json;
 
 const POLL_INTERVAL: Duration = Duration::from_millis(100);

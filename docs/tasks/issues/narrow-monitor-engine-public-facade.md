@@ -1,7 +1,7 @@
 ---
 title: Narrow monitor engine public facade
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Narrow monitor engine public facade #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [x] #task Narrow monitor engine public facade #repo/RIPDPI #area/diagnostics #status/done 🔼
 
 ## Summary
 
@@ -35,12 +35,12 @@ contract plumbing.
 
 ## Acceptance criteria
 
-- [ ] `lib.rs` exposes only the intended stable monitor-engine entrypoints.
-- [ ] Broad diagnostics DTO re-exports move to explicit namespaces or direct
+- [x] `lib.rs` exposes only the intended stable monitor-engine entrypoints.
+- [x] Broad diagnostics DTO re-exports move to explicit namespaces or direct
     consumer imports.
-- [ ] `native/rust/crates/ripdpi-monitor-engine/src/lib.rs` is under the native
+- [x] `native/rust/crates/ripdpi-monitor-engine/src/lib.rs` is under the native
     hotspot budget.
-- [ ] `python3 scripts/ci/check_native_hotspot_budgets.py` passes.
+- [x] `python3 scripts/ci/check_native_hotspot_budgets.py` passes.
 
 ## Links
 

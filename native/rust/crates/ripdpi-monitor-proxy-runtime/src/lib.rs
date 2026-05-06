@@ -5,9 +5,8 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 
 use ripdpi_diagnostics_transport::transport::wait_for_listener;
-use ripdpi_monitor_engine::{
-    CandidateProbeRuntime, CandidateRuntimeLauncher, PreparedCandidateRuntime, TransportConfig,
-};
+use ripdpi_diagnostics_transport::transport::TransportConfig;
+use ripdpi_monitor_engine::{CandidateProbeRuntime, CandidateRuntimeLauncher, PreparedCandidateRuntime};
 use ripdpi_runtime_api::EmbeddedProxyControl;
 
 pub struct ProductionCandidateRuntimeLauncher;
