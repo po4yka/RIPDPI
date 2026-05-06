@@ -1,4 +1,4 @@
-use ripdpi_proxy_config::{ProxyUiConfig, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK};
+use ripdpi_monitor_adapter::proxy_config::{ProxyUiConfig, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK};
 
 pub fn freeze_adaptive_fake_ttl_for_probe(runtime_config: &mut ProxyUiConfig) {
     if !runtime_config.fake_packets.adaptive_fake_ttl_enabled {

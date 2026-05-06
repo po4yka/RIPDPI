@@ -1,4 +1,4 @@
-use ripdpi_proxy_config::ProxyUiConfig;
+use ripdpi_monitor_adapter::proxy_config::ProxyUiConfig;
 
 use crate::candidates::StrategyCandidateSpec;
 use crate::types::{ProbeResult, StrategyEmitterTier, StrategyProbeCandidateSummary};

@@ -25,7 +25,7 @@ pub fn adaptive_connect_timeout(control_rtt_ms: Option<u64>) -> Duration {
 
 #[cfg(test)]
 mod tests {
-    use ripdpi_proxy_config::ProxyUiConfig;
+    use ripdpi_monitor_adapter::proxy_config::ProxyUiConfig;
 
     use super::*;
     use crate::transport::TransportConfig;

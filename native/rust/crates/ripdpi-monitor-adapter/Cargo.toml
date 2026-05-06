@@ -1,0 +1,21 @@
+[package]
+name = "ripdpi-monitor-adapter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-diagnostics-candidates = { workspace = true }
+ripdpi-diagnostics-classification = { workspace = true }
+ripdpi-diagnostics-contracts = { workspace = true }
+ripdpi-diagnostics-dns = { workspace = true }
+ripdpi-diagnostics-http = { workspace = true }
+ripdpi-diagnostics-runner = { workspace = true }
+ripdpi-diagnostics-telegram = { workspace = true }
+ripdpi-diagnostics-tls = { workspace = true }
+ripdpi-diagnostics-transport = { workspace = true }
+ripdpi-failure-classifier = { workspace = true }
+ripdpi-proxy-config = { workspace = true }

@@ -1,7 +1,7 @@
 ---
 title: Decouple monitor engine from concrete diagnostics lanes
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Decouple monitor engine from concrete diagnostics lanes #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [x] #task Decouple monitor engine from concrete diagnostics lanes #repo/RIPDPI #area/diagnostics #status/done 🔼
 
 ## Summary
 
@@ -36,12 +36,12 @@ gate still records this crate as a dependency hub.
 
 ## Acceptance criteria
 
-- [ ] `ripdpi-monitor-engine` depends on lane contracts/adapters rather than
+- [x] `ripdpi-monitor-engine` depends on lane contracts/adapters rather than
     each concrete diagnostics implementation crate.
-- [ ] Internal dependency count drops below the architecture-health limit or the
+- [x] Internal dependency count drops below the architecture-health limit or the
     remaining edges are intentionally narrow and documented.
-- [ ] Existing monitor-engine tests and native architecture contracts pass.
-- [ ] `python3 scripts/ci/check_architecture_health.py --check` has no new or
+- [x] Existing monitor-engine tests and native architecture contracts pass.
+- [x] `python3 scripts/ci/check_architecture_health.py --check` has no new or
     worsened entries.
 
 ## Links

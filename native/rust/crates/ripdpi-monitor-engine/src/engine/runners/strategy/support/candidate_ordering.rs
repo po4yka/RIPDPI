@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use ripdpi_failure_classifier::{ClassifiedFailure, FailureClass};
+use ripdpi_monitor_adapter::failure::{ClassifiedFailure, FailureClass};
 
 use crate::candidates::{CandidateEligibility, StrategyCandidateSpec};
 use crate::classification::{interleave_candidate_families, reorder_tcp_candidates_for_failure};

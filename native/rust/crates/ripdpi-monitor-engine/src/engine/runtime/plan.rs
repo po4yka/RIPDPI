@@ -2,7 +2,7 @@ use crate::candidates::StrategyProbeSuite;
 use crate::transport::TransportConfig;
 use crate::types::ScanRequest;
 
-use ripdpi_proxy_config::ProxyRuntimeContext;
+use ripdpi_monitor_adapter::proxy_config::ProxyRuntimeContext;
 
 use super::stage::ExecutionStageId;
 

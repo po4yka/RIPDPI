@@ -1,7 +1,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use ripdpi_failure_classifier::ClassifiedFailure;
+use ripdpi_monitor_adapter::failure::ClassifiedFailure;
 
 use crate::types::{
     DomainTarget, ProbeObservation, ProbeResult, QuicTarget, ScanReport, SharedState, StrategyProbeCandidateSummary,

@@ -1,7 +1,7 @@
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use ripdpi_proxy_config::ProxyRuntimeContext;
+use ripdpi_monitor_adapter::proxy_config::ProxyRuntimeContext;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::StrategyCandidateSpec;

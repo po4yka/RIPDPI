@@ -7,7 +7,7 @@ mod tcp;
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 
-use ripdpi_proxy_config::ProxyRuntimeContext;
+use ripdpi_monitor_adapter::proxy_config::ProxyRuntimeContext;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::StrategyCandidateSpec;
@@ -98,8 +98,12 @@ mod tests {
     #[test]
     fn execute_tcp_candidate_returns_failed_when_launcher_fails() {
         let launcher = FailingRuntimeLauncher::new();
-        let spec =
-            crate::candidates::candidate_spec("test", "Test", "test", ripdpi_proxy_config::ProxyUiConfig::default());
+        let spec = crate::candidates::candidate_spec(
+            "test",
+            "Test",
+            "test",
+            ripdpi_monitor_adapter::proxy_config::ProxyUiConfig::default(),
+        );
         let targets = vec![DomainTarget {
             host: "example.test".to_string(),
             connect_ip: None,
@@ -122,8 +126,12 @@ mod tests {
     #[test]
     fn execute_quic_candidate_without_targets_does_not_start_launcher() {
         let launcher = FailingRuntimeLauncher::new();
-        let spec =
-            crate::candidates::candidate_spec("test", "Test", "test", ripdpi_proxy_config::ProxyUiConfig::default());
+        let spec = crate::candidates::candidate_spec(
+            "test",
+            "Test",
+            "test",
+            ripdpi_monitor_adapter::proxy_config::ProxyUiConfig::default(),
+        );
         let cancel = AtomicBool::new(false);
 
         let execution = execute_quic_candidate(&launcher, &spec, &[], None, 0, &cancel);

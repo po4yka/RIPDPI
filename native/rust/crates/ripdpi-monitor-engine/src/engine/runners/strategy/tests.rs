@@ -1,5 +1,5 @@
-use ripdpi_failure_classifier::FailureClass;
-use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload, ProxyUiConfig};
+use ripdpi_monitor_adapter::failure::FailureClass;
+use ripdpi_monitor_adapter::proxy_config::{parse_proxy_config_json, ProxyConfigPayload, ProxyUiConfig};
 
 use super::FamilyFailureTracker;
 

@@ -3580,6 +3580,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-monitor-adapter"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-diagnostics-candidates",
+ "ripdpi-diagnostics-classification",
+ "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-dns",
+ "ripdpi-diagnostics-http",
+ "ripdpi-diagnostics-runner",
+ "ripdpi-diagnostics-telegram",
+ "ripdpi-diagnostics-tls",
+ "ripdpi-diagnostics-transport",
+ "ripdpi-failure-classifier",
+ "ripdpi-proxy-config",
+]
+
+[[package]]
 name = "ripdpi-monitor-engine"
 version = "0.1.0"
 dependencies = [
@@ -3593,18 +3610,9 @@ dependencies = [
  "native-soak-support",
  "rcgen",
  "ripdpi-config",
- "ripdpi-diagnostics-candidates",
- "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-dns",
- "ripdpi-diagnostics-http",
- "ripdpi-diagnostics-runner",
- "ripdpi-diagnostics-telegram",
- "ripdpi-diagnostics-tls",
- "ripdpi-diagnostics-transport",
- "ripdpi-failure-classifier",
+ "ripdpi-monitor-adapter",
  "ripdpi-packets",
- "ripdpi-proxy-config",
  "ripdpi-runtime-platform",
  "ripdpi-telemetry",
  "rustls",

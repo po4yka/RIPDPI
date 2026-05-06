@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use ripdpi_proxy_config::ProxyRuntimeContext;
+use ripdpi_monitor_adapter::proxy_config::ProxyRuntimeContext;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::{target_probe_pause_ms, StrategyCandidateSpec};

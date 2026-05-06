@@ -2,8 +2,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 
+use ripdpi_monitor_adapter::proxy_config::ProxyRuntimeContext;
 use ripdpi_packets::{build_realistic_quic_initial, parse_quic_initial, QUIC_V1_VERSION};
-use ripdpi_proxy_config::ProxyRuntimeContext;
 
 use crate::candidates::{target_probe_pause_ms, StrategyCandidateSpec};
 use crate::transport::{quic_connect_targets, relay_udp_payload_observed, TransportConfig};

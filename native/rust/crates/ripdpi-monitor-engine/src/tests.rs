@@ -19,8 +19,8 @@ use crate::transport::{direct_transport, TargetAddress, TransportConfig};
 use crate::util::{probe_session_seed, DEFAULT_DNS_SERVER};
 use crate::{CandidateProbeRuntime, CandidateRuntimeLauncher, MonitorSession, PreparedCandidateRuntime};
 
-use ripdpi_failure_classifier::{FailureAction, FailureClass};
-use ripdpi_proxy_config::{
+use ripdpi_monitor_adapter::failure::{FailureAction, FailureClass};
+use ripdpi_monitor_adapter::proxy_config::{
     parse_proxy_config_json, ProxyConfigPayload, ProxyEncryptedDnsContext, ProxyRuntimeContext, ProxyUiConfig,
 };
 

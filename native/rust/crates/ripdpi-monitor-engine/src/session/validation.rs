@@ -1,4 +1,4 @@
-use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
+use ripdpi_monitor_adapter::proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
 
 use crate::types::{EngineScanRequestWire, ScanKind, ScanPathMode, DIAGNOSTICS_ENGINE_SCHEMA_VERSION};
 

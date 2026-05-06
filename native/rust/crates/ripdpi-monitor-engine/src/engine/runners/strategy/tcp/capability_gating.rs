@@ -1,4 +1,4 @@
-use ripdpi_failure_classifier::ClassifiedFailure;
+use ripdpi_monitor_adapter::failure::ClassifiedFailure;
 
 use crate::candidates::{
     probe_fake_ttl_capability, probe_ip_fragmentation_capabilities, probe_tcp_fast_open_capability,

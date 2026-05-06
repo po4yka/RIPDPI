@@ -1,4 +1,4 @@
-use ripdpi_proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
+use ripdpi_monitor_adapter::proxy_config::{parse_proxy_config_json, ProxyConfigPayload};
 
 use crate::candidates::build_strategy_probe_suite;
 use crate::transport::TransportConfig;

@@ -1,4 +1,4 @@
-use ripdpi_proxy_config::ProxyConfigPayload;
+use ripdpi_monitor_adapter::proxy_config::ProxyConfigPayload;
 
 use crate::candidates::StrategyCandidateSpec;
 

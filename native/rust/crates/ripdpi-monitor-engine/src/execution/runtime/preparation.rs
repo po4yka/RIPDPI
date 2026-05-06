@@ -1,4 +1,4 @@
-use ripdpi_proxy_config::{runtime_config_from_ui, ProxyRuntimeContext};
+use ripdpi_monitor_adapter::proxy_config::{runtime_config_from_ui, ProxyRuntimeContext};
 
 use crate::candidates::StrategyCandidateSpec;
 
@@ -20,7 +20,7 @@ pub(crate) fn prepare_candidate_runtime(
         tracing::warn!(candidate = spec.id, error = %err, "probe runtime config validation failed");
         err.to_string()
     })?;
-    let _ = ripdpi_proxy_config::presets::apply_runtime_preset("ripdpi_default", &mut config);
+    let _ = ripdpi_monitor_adapter::proxy_config::presets::apply_runtime_preset("ripdpi_default", &mut config);
     config.network.listen.listen_port = 0;
     if let Some(ctx) = runtime_context {
         if let Some(ref path) = ctx.protect_path {
