@@ -1,7 +1,7 @@
 ---
 title: Decompose SOCKS5 core server module
 type: task
-status: backlog
+status: done
 area: proxy
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Decompose SOCKS5 core server module #repo/RIPDPI #area/proxy #status/backlog 🔼
+- [x] #task Decompose SOCKS5 core server module #repo/RIPDPI #area/proxy #status/done 🔼
 
 ## Summary
 
@@ -37,12 +37,12 @@ encoding, and async stream wrappers in one file.
 
 ## Acceptance criteria
 
-- [ ] SOCKS5 server responsibilities are split into focused modules behind the
+- [x] SOCKS5 server responsibilities are split into focused modules behind the
     existing public API.
-- [ ] TCP and UDP paths can be reviewed independently.
-- [ ] Existing SOCKS5 server tests pass, with new tests for any moved helper that
+- [x] TCP and UDP paths can be reviewed independently.
+- [x] Existing SOCKS5 server tests pass, with new tests for any moved helper that
     loses direct coverage.
-- [ ] Native hotspot/architecture checks either cover the split modules or stay
+- [x] Native hotspot/architecture checks either cover the split modules or stay
     clean without baseline increases.
 
 ## Links
