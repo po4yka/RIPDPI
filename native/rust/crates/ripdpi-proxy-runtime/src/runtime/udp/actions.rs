@@ -4,7 +4,7 @@ use std::thread;
 use std::time::Duration;
 
 use ripdpi_desync::DesyncAction;
-use ripdpi_runtime_platform as platform;
+use ripdpi_proxy_runtime_adapter::platform;
 
 #[derive(Clone, Copy)]
 pub(super) struct UdpActionExecContext<'a> {

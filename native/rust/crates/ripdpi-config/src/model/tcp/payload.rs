@@ -15,6 +15,7 @@ pub use host_fake::TcpHostFakePayload;
 pub use invariant::TcpStepPayloadInvariantError;
 pub use seq_overlap::TcpSeqOverlapPayload;
 pub use tls_prelude::TcpTlsRandRecPayload;
+pub(crate) use typed::TcpStepPayloadStorage;
 pub use typed::{TcpStepCommon, TcpStepPayload, TcpTypedChainStep};
 
 #[cfg(test)]
@@ -34,10 +35,7 @@ mod tests {
             .with_seq_overlap_payload(payload);
 
         assert_eq!(step.seq_overlap_payload(), Some(payload));
-        assert_eq!(step.overlap_size, 16);
-        assert_eq!(step.seqovl_fake_mode, SeqOverlapFakeMode::Rand);
-        assert_eq!(step.tcp_flags_set, Some(0x18));
-        assert_eq!(step.tcp_flags_unset, Some(0x02));
+        assert_eq!(step.fake_flag_overrides(), TcpFlagOverrides { set: Some(0x18), unset: Some(0x02) });
     }
 
     #[test]
@@ -52,12 +50,11 @@ mod tests {
 
     #[test]
     fn host_fake_payload_borrows_compatible_fields() {
-        let mut step = TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::Host, 1));
-        step.midhost_offset = Some(OffsetExpr::marker(OffsetBase::HostMid, 0));
-        step.fake_host_template = Some("cdn.example".to_string());
-        step.fake_order = FakeOrder::AllFakesFirst;
-        step.fake_seq_mode = FakeSeqMode::Sequential;
-        step.random_fake_host = true;
+        let mut step = TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::Host, 1))
+            .with_midhost_offset(Some(OffsetExpr::marker(OffsetBase::HostMid, 0)))
+            .with_fake_host_template(Some("cdn.example".to_string()))
+            .with_random_fake_host(true);
+        step.set_fake_ordering(TcpFakeOrdering { order: FakeOrder::AllFakesFirst, seq_mode: FakeSeqMode::Sequential });
 
         let payload = step.host_fake_payload().expect("hostfake payload");
 
@@ -88,11 +85,7 @@ mod tests {
         let step = TcpChainStep::new(TcpChainStepKind::IpFrag2, OffsetExpr::absolute(5)).with_ip_frag_payload(payload);
 
         assert_eq!(step.ip_frag_payload(), Some(payload));
-        assert!(step.ip_frag_disorder);
-        assert!(step.ipv6_hop_by_hop);
-        assert!(step.ipv6_dest_opt);
-        assert!(step.ipv6_routing);
-        assert_eq!(step.ipv6_frag_next_override, Some(6));
+        assert_eq!(step.ipv6_extension_payload(), payload.ipv6_extensions);
     }
 
     #[test]
@@ -109,6 +102,7 @@ mod tests {
         let mut step = TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(3));
         step.set_fake_ordering(TcpFakeOrdering { order: FakeOrder::AllFakesFirst, seq_mode: FakeSeqMode::Sequential });
 
+        assert_eq!(step.fake_ordering(), TcpFakeOrdering::before_each_duplicate());
         let error = step.try_typed_step().expect_err("invalid fake ordering");
 
         assert_eq!(error.kind(), TcpChainStepKind::Split);
@@ -120,6 +114,7 @@ mod tests {
         let step = TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(3))
             .with_fake_host_template(Some("example.invalid".to_string()));
 
+        assert_eq!(step.host_fake_payload(), None);
         let error = step.try_typed_step().expect_err("invalid hostfake payload");
 
         assert_eq!(error.kind(), TcpChainStepKind::Fake);

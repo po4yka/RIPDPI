@@ -980,7 +980,8 @@ fn tls_round_trip_with_tlsrec_multidisorder_desync_completes_handshake() {
     ];
     config.network.delay_conn = true;
 
-    let caps = ripdpi_runtime_platform::raw_packet::probe_ip_fragmentation_capabilities(None).unwrap_or_default();
+    let caps = ripdpi_proxy_runtime_adapter::platform::raw_packet::probe_ip_fragmentation_capabilities(None)
+        .unwrap_or_default();
     if !caps.raw_ipv4 || !caps.tcp_repair {
         eprintln!(
             "skipping tls_round_trip_with_tlsrec_multidisorder_desync_completes_handshake: \

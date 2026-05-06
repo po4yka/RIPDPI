@@ -52,6 +52,9 @@ def base_metadata() -> dict[str, Any]:
             ],
             "ripdpi-proxy-runtime": [
                 ("ripdpi-runtime-api", None),
+                ("ripdpi-proxy-runtime-adapter", None),
+            ],
+            "ripdpi-proxy-runtime-adapter": [
                 ("ripdpi-runtime-platform", None),
             ],
             "ripdpi-android": [
@@ -106,7 +109,16 @@ def test_proxy_runtime_requires_split_runtime_crates() -> None:
     for package in metadata["packages"]:
         if package["name"] == "ripdpi-proxy-runtime":
             package["dependencies"] = [
-                dep for dep in package["dependencies"] if dep["name"] != "ripdpi-runtime-platform"
+                dep for dep in package["dependencies"] if dep["name"] != "ripdpi-proxy-runtime-adapter"
             ]
+
+    assert ("ripdpi-proxy-runtime", "ripdpi-proxy-runtime-adapter") in violation_pairs(metadata)
+
+
+def test_proxy_runtime_rejects_direct_platform_dependency() -> None:
+    metadata = base_metadata()
+    for package in metadata["packages"]:
+        if package["name"] == "ripdpi-proxy-runtime":
+            package["dependencies"].append({"name": "ripdpi-runtime-platform", "kind": None})
 
     assert ("ripdpi-proxy-runtime", "ripdpi-runtime-platform") in violation_pairs(metadata)

@@ -13,6 +13,7 @@ tracing = { workspace = true }
 ripdpi-config = { workspace = true }
 ripdpi-diagnostics-contracts = { workspace = true }
 ripdpi-monitor-adapter = { workspace = true }
+ripdpi-monitor-lane-adapter = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 ripdpi-telemetry = { workspace = true }

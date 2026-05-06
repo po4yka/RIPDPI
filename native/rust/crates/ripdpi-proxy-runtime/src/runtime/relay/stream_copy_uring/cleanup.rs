@@ -1,7 +1,7 @@
 use std::io;
 use std::net::{Shutdown, TcpStream};
 
-use ripdpi_runtime_platform as platform;
+use ripdpi_proxy_runtime_adapter::platform;
 
 use super::RELAY_IDLE_TIMEOUT;
 

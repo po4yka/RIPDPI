@@ -1,21 +1,17 @@
 package com.poyka.ripdpi.services
 
-import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.NetworkFingerprint
-import com.poyka.ripdpi.data.PolicyHandoverEvent
 import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.TunnelStats
-import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 
 internal interface ServiceCoordinatorHost {
     val serviceScope: CoroutineScope
@@ -87,17 +83,24 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             isStopping = { stopping },
             setStopping = { stopping = it },
         )
-    private val telemetryLoopCoordinator =
-        ServiceTelemetryLoopCoordinator(
-            scope = host.serviceScope,
-            dispatcher = ioDispatcher,
-        )
-    private val permissionWatchdogCoordinator =
-        PermissionWatchdogCoordinator(
+    private val loopOwner =
+        ServiceRuntimeLoopOwner(
             scope = host.serviceScope,
             dispatcher = ioDispatcher,
             permissionWatchdog = permissionWatchdog,
             onPermissionRevoked = ::onPermissionRevoked,
+        )
+    private val handoverRestarter =
+        ServiceRuntimeHandoverRestarter(
+            mode = mode,
+            mutex = mutex,
+            policyHandoverEventStore = policyHandoverEventStore,
+            currentSession = { runtimeSession },
+            currentStatus = { status },
+            isStopping = { stopping },
+            setStopping = { stopping = it },
+            resolveConnectionPolicy = ::resolveHandoverConnectionPolicy,
+            restartAfterHandover = ::restartAfterHandover,
         )
     private val handoverProcessor =
         NetworkHandoverProcessor(
@@ -121,101 +124,60 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
             updateHandoverState = { state ->
                 runtimeSession?.networkHandoverState = state
             },
-            performRestart = ::performHandoverRestart,
+            performRestart = handoverRestarter::restart,
             onExhaustedFailure = ::handleExhaustedHandoverFailure,
             handoverCooldownMillis = HandoverCooldownMs,
+        )
+    private val startStopOrchestrator =
+        ServiceRuntimeStartStopOrchestrator(
+            dependencies =
+                ServiceRuntimeStartStopDependencies(
+                    mode = mode,
+                    serviceLabel = { serviceLabel },
+                    lifecycleRunner = lifecycleRunner,
+                    serviceRuntimeRegistry = serviceRuntimeRegistry,
+                    rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+                    loopOwner = loopOwner,
+                    handoverProcessor = handoverProcessor,
+                    clock = clock,
+                    host = host,
+                ),
+            callbacks =
+                ServiceRuntimeStartStopCallbacks(
+                    currentSession = { runtimeSession },
+                    setRuntimeSession = { runtimeSession = it },
+                    createRuntimeSession = ::createRuntimeSession,
+                    resolveInitialConnectionPolicy = ::resolveInitialConnectionPolicy,
+                    applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
+                    startResolvedRuntime = ::startResolvedRuntime,
+                    stopModeRuntime = ::stopModeRuntime,
+                    startModeTelemetryUpdates = ::startModeTelemetryUpdates,
+                    onAfterStopCleanup = ::onAfterStopCleanup,
+                    updateStatus = ::updateStatus,
+                    classifyStartupFailure = ::classifyStartupFailure,
+                ),
         )
 
     protected abstract val serviceLabel: String
 
-    suspend fun start() {
-        Logger.i { "Starting $serviceLabel" }
-
-        var matchedRememberedPolicy: RememberedNetworkPolicyEntity? = null
-        val session = createRuntimeSession()
-        val failure =
-            lifecycleRunner.start {
-                session.networkHandoverState = null
-                val resolution = resolveInitialConnectionPolicy()
-                matchedRememberedPolicy = resolution.matchedNetworkPolicy
-                applyActiveConnectionPolicy(
-                    session = session,
-                    resolution = resolution,
-                    restartReason = "initial_start",
-                    appliedAt = clock.nowMillis(),
-                )
-                startResolvedRuntime(
-                    session = session,
-                    resolution = resolution,
-                )
-                runtimeSession = session
-                serviceRuntimeRegistry.register(session)
-                updateStatus(ServiceStatus.Connected)
-                handoverProcessor.startMonitoring()
-                startModeTelemetryUpdates()
-                permissionWatchdogCoordinator.start()
-            }
-                ?: return
-        val error = failure as? Exception ?: IllegalStateException("Failed to start $serviceLabel", failure)
-        val classifiedError = error.unwrapSupervisorStartupFailure()
-        Logger.e(classifiedError) { "Failed to start $serviceLabel" }
-        matchedRememberedPolicy?.let { policy ->
-            rememberedNetworkPolicyStore.recordFailure(policy)
-        }
-        val failureReason = classifyStartupFailure(classifiedError)
-        updateStatus(ServiceStatus.Failed, failureReason)
-        stop()
-    }
+    suspend fun start() = startStopOrchestrator.start()
 
     suspend fun stop(
         stopSelfStartId: Int? = null,
         skipRuntimeShutdown: Boolean = false,
-    ) {
-        Logger.i { "Stopping $serviceLabel" }
-
-        val stopped =
-            lifecycleRunner.stop {
-                handoverProcessor.cancel()
-                permissionWatchdogCoordinator.cancel()
-                runCatching {
-                    stopModeRuntime(skipRuntimeShutdown)
-                }.onFailure { failure ->
-                    val error =
-                        failure as? Exception ?: IllegalStateException(
-                            "Failed to stop $serviceLabel",
-                            failure,
-                        )
-                    Logger.e(error) { "Failed to stop $serviceLabel" }
-                }
-
-                val session = runtimeSession
-                updateStatus(ServiceStatus.Disconnected)
-                telemetryLoopCoordinator.cancel()
-                onAfterStopCleanup(session)
-                session?.clearActiveConnectionPolicy()
-                session?.let {
-                    serviceRuntimeRegistry.unregister(
-                        mode = mode,
-                        runtimeId = it.runtimeId,
-                    )
-                }
-                runtimeSession = null
-                host.requestStopSelf(stopSelfStartId)
-            }
-
-        if (!stopped) {
-            return
-        }
-    }
+    ) = startStopOrchestrator.stop(
+        stopSelfStartId = stopSelfStartId,
+        skipRuntimeShutdown = skipRuntimeShutdown,
+    )
 
     fun onDestroy() {
-        telemetryLoopCoordinator.cancel()
+        loopOwner.cancelTelemetry()
         handoverProcessor.cancel()
-        permissionWatchdogCoordinator.cancel()
+        loopOwner.cancelPermissionWatchdog()
     }
 
     protected fun replaceTelemetryJob(block: suspend CoroutineScope.() -> Unit) {
-        telemetryLoopCoordinator.replace(block)
+        loopOwner.replaceTelemetryJob(block)
     }
 
     protected fun applyPendingNetworkHandoverClass(snapshot: NativeRuntimeSnapshot): NativeRuntimeSnapshot {
@@ -224,64 +186,6 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     }
 
     protected open fun onPermissionRevoked(event: PermissionChangeEvent) = Unit
-
-    private suspend fun performHandoverRestart(
-        session: TSession,
-        event: NetworkHandoverEvent,
-        appliedAt: Long,
-    ): String? {
-        val currentFingerprint = checkNotNull(event.currentFingerprint)
-        val currentFingerprintHash = currentFingerprint.scopeKey()
-        val resolution =
-            resolveHandoverConnectionPolicy(
-                fingerprint = currentFingerprint,
-                handoverClassification = event.classification,
-            )
-
-        val restartResult =
-            mutex.withLock {
-                val activeSession = runtimeSession
-                if (
-                    status != ServiceStatus.Connected ||
-                    stopping ||
-                    activeSession?.runtimeId != session.runtimeId
-                ) {
-                    return@withLock null
-                }
-
-                val previousFingerprintHash = activeSession.currentActiveConnectionPolicy?.fingerprintHash
-                stopping = true
-                try {
-                    restartAfterHandover(
-                        session = activeSession,
-                        resolution = resolution,
-                        appliedAt = appliedAt,
-                    )
-                    HandoverRestartResult(
-                        previousFingerprintHash = previousFingerprintHash,
-                        currentFingerprintHash = currentFingerprintHash,
-                    )
-                } finally {
-                    stopping = false
-                }
-            } ?: return null
-
-        policyHandoverEventStore.publish(
-            PolicyHandoverEvent(
-                mode = mode,
-                previousFingerprintHash = restartResult.previousFingerprintHash,
-                currentFingerprintHash = restartResult.currentFingerprintHash,
-                classification = event.classification,
-                currentNetworkValidated = currentFingerprint.networkValidated,
-                currentCaptivePortalDetected = currentFingerprint.captivePortalDetected,
-                usedRememberedPolicy = resolution.matchedNetworkPolicy != null,
-                policySignature = resolution.policySignature,
-                occurredAt = appliedAt,
-            ),
-        )
-
-        return currentFingerprintHash
-    }
 
     private suspend fun handleExhaustedHandoverFailure(error: Exception) {
         val reason = classifyHandoverFailure(error)
@@ -331,8 +235,3 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
 
     protected open fun onAfterStopCleanup(session: TSession?) = Unit
 }
-
-private data class HandoverRestartResult(
-    val previousFingerprintHash: String?,
-    val currentFingerprintHash: String,
-)

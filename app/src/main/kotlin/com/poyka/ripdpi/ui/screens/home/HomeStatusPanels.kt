@@ -1,107 +1,38 @@
 package com.poyka.ripdpi.ui.screens.home
 
 import android.text.format.Formatter
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.keyframes
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
-import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
-import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
 import java.util.Locale
 import kotlin.time.Duration
 
-private const val haloAlphaConnected = 0.08f
-private const val haloAlphaConnecting = 0.14f
-private const val haloAlphaError = 0.12f
-private const val modeLabelAlpha = 0.72f
-private const val buttonScaleConnectingInitial = 0.98f
-private const val buttonScaleConnectingTarget = 1.03f
-private const val buttonScaleConnectedInitial = 1.08f
-private const val buttonScaleErrorInitial = 0.95f
-private const val haloScaleConnectingInitial = 0.88f
-private const val haloScaleConnectingTarget = 1.18f
-private const val haloScaleConnectingSettle = 1.08f
-private const val haloScaleConnectedInitial = 1.08f
-private const val haloScaleConnectedTarget = 1.22f
-private const val haloScaleConnectedSettle = 1.02f
-private const val haloScaleErrorInitial = 1.04f
-private const val haloScaleErrorTarget = 1.1f
-private const val connectingPulseAlphaTarget = 0.5f
-private const val haloTranslationFraction = 0.2f
-private const val iconTransitionScale = 0.88f
-private const val shakeDistanceDp = 12
-private const val shakeTotalDurationMs = 285
-private const val shakeKeyframeT1 = 50
-private const val shakeKeyframeT2 = 110
-private const val shakeKeyframeT3 = 165
-private const val shakeKeyframeT4 = 215
-private const val shakeFractionT2 = 0.8f
-private const val shakeFractionT3 = 0.5f
-private const val shakeFractionT4 = 0.25f
-private const val connectingPulseDurationMs = 1200
-private const val connectionButtonIconSpacerDp = 12
-private const val connectionButtonModeSpacerDp = 6
 private const val secondsPerHour = 3_600
 private const val secondsPerMinute = 60
 
@@ -161,7 +92,6 @@ internal fun HomeStatusCard(
 }
 
 @Composable
-@Suppress("LongMethod", "CyclomaticComplexMethod")
 internal fun HomeConnectionButton(
     state: ConnectionState,
     label: String,
@@ -169,366 +99,18 @@ internal fun HomeConnectionButton(
     onClick: () -> Unit,
 ) {
     TrackRecomposition("HomeConnectionButton")
-    val colors = RipDpiThemeTokens.colors
-    val motion = RipDpiThemeTokens.motion
-    val type = RipDpiThemeTokens.type
-    val scheme = MaterialTheme.colorScheme
-    val homeChrome = rememberHomeChromeMetrics()
-    val density = LocalDensity.current
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
-    val performHaptic = rememberRipDpiHapticPerformer()
-    val connectionStateDescription = "${homeStatusLabel(state)}, $modeLabel"
-    val pressScale by animateFloatAsState(
-        targetValue =
-            if (isPressed && state != ConnectionState.Connecting) {
-                0.94f
-            } else {
-                1f
-            },
-        animationSpec = motion.quickTween(),
-        label = "homeConnectionPressScale",
+    HomeConnectionButtonLayout(
+        state = state,
+        label = label,
+        modeLabel = modeLabel,
+        stateDescription = "${homeStatusLabel(state)}, $modeLabel",
+        onClick = onClick,
+        interactionSource = interactionSource,
+        visuals = rememberHomeConnectionButtonVisuals(state),
+        motionState = rememberHomeConnectionButtonMotionState(state, isPressed),
     )
-    val buttonScale = remember { Animatable(1f) }
-    val haloScale = remember { Animatable(1f) }
-    val shakeOffset = remember { Animatable(0f) }
-    val previousState = remember { mutableStateOf(state) }
-    val shakeDistance = with(density) { shakeDistanceDp.dp.toPx() }
-
-    val containerColor =
-        remember(state, colors, scheme) {
-            when (state) {
-                ConnectionState.Connected, ConnectionState.Connecting -> colors.foreground
-                ConnectionState.Disconnected, ConnectionState.Error -> scheme.surface
-            }
-        }
-    val contentColor =
-        remember(state, colors) {
-            when (state) {
-                ConnectionState.Connected, ConnectionState.Connecting -> colors.background
-                ConnectionState.Disconnected, ConnectionState.Error -> colors.foreground
-            }
-        }
-    val haloColor =
-        remember(state, colors) {
-            when (state) {
-                ConnectionState.Connected -> colors.foreground.copy(alpha = haloAlphaConnected)
-                ConnectionState.Connecting -> colors.foreground.copy(alpha = haloAlphaConnecting)
-                ConnectionState.Disconnected -> colors.accent
-                ConnectionState.Error -> colors.destructive.copy(alpha = haloAlphaError)
-            }
-        }
-    val borderColor =
-        remember(state, colors) {
-            when (state) {
-                ConnectionState.Connected, ConnectionState.Connecting -> Color.Transparent
-                ConnectionState.Disconnected -> colors.cardBorder
-                ConnectionState.Error -> colors.destructive
-            }
-        }
-    val icon =
-        remember(state) {
-            when (state) {
-                ConnectionState.Connected -> com.poyka.ripdpi.ui.theme.RipDpiIcons.Connected
-                ConnectionState.Connecting -> com.poyka.ripdpi.ui.theme.RipDpiIcons.Vpn
-                ConnectionState.Disconnected -> com.poyka.ripdpi.ui.theme.RipDpiIcons.Offline
-                ConnectionState.Error -> com.poyka.ripdpi.ui.theme.RipDpiIcons.Warning
-            }
-        }
-    val animatedContainerColor by animateColorAsState(
-        targetValue = containerColor,
-        animationSpec = motion.stateTween(),
-        label = "homeConnectionContainer",
-    )
-    val animatedContentColor by animateColorAsState(
-        targetValue = contentColor,
-        animationSpec = motion.stateTween(),
-        label = "homeConnectionContent",
-    )
-    val animatedHaloColor by animateColorAsState(
-        targetValue = haloColor,
-        animationSpec = motion.stateTween(),
-        label = "homeConnectionHalo",
-    )
-    val animatedBorderColor by animateColorAsState(
-        targetValue = borderColor,
-        animationSpec = motion.quickTween(),
-        label = "homeConnectionBorder",
-    )
-    val connectingPulse =
-        if (state == ConnectionState.Connecting && motion.allowsInfiniteMotion) {
-            rememberInfiniteTransition(label = "connectingPulse")
-        } else {
-            null
-        }
-    val connectingHaloAlpha by (
-        connectingPulse?.animateFloat(
-            initialValue = 1f,
-            targetValue = connectingPulseAlphaTarget,
-            animationSpec =
-                infiniteRepeatable(
-                    animation =
-                        motion.durationTween(
-                            baseDurationMillis = connectingPulseDurationMs,
-                            easing = LinearEasing,
-                        ),
-                    repeatMode = RepeatMode.Reverse,
-                ),
-            label = "connectingHaloAlpha",
-        ) ?: animateFloatAsState(
-            targetValue = 1f,
-            animationSpec = motion.stateTween(),
-            label = "connectingHaloAlphaStatic",
-        )
-    )
-
-    LaunchedEffect(state, motion.animationsEnabled) {
-        val priorState = previousState.value
-        previousState.value = state
-
-        if (priorState == state) return@LaunchedEffect
-
-        if (!motion.animationsEnabled) {
-            buttonScale.snapTo(1f)
-            haloScale.snapTo(1f)
-            shakeOffset.snapTo(0f)
-            return@LaunchedEffect
-        }
-
-        when (state) {
-            ConnectionState.Connecting -> {
-                coroutineScope {
-                    launch {
-                        buttonScale.snapTo(buttonScaleConnectingInitial)
-                        buttonScale.animateTo(
-                            targetValue = buttonScaleConnectingTarget,
-                            animationSpec = motion.quickTween(),
-                        )
-                        buttonScale.animateTo(
-                            targetValue = 1f,
-                            animationSpec = motion.stateTween(),
-                        )
-                    }
-                    launch {
-                        haloScale.snapTo(haloScaleConnectingInitial)
-                        haloScale.animateTo(
-                            targetValue = haloScaleConnectingTarget,
-                            animationSpec = motion.emphasizedTween(),
-                        )
-                        haloScale.animateTo(
-                            targetValue = haloScaleConnectingSettle,
-                            animationSpec = motion.stateTween(),
-                        )
-                    }
-                    launch { shakeOffset.snapTo(0f) }
-                }
-            }
-
-            ConnectionState.Connected -> {
-                performHaptic(RipDpiHapticFeedback.Success)
-                coroutineScope {
-                    launch {
-                        buttonScale.snapTo(buttonScaleConnectedInitial)
-                        buttonScale.animateTo(
-                            targetValue = motion.selectionScale,
-                            animationSpec = motion.emphasizedTween(),
-                        )
-                    }
-                    launch {
-                        haloScale.snapTo(haloScaleConnectedInitial)
-                        haloScale.animateTo(
-                            targetValue = haloScaleConnectedTarget,
-                            animationSpec = motion.emphasizedTween(),
-                        )
-                        haloScale.animateTo(
-                            targetValue = haloScaleConnectedSettle,
-                            animationSpec = motion.stateTween(),
-                        )
-                    }
-                    launch {
-                        shakeOffset.animateTo(
-                            targetValue = 0f,
-                            animationSpec = motion.quickTween(),
-                        )
-                    }
-                }
-            }
-
-            ConnectionState.Error -> {
-                performHaptic(RipDpiHapticFeedback.Error)
-                coroutineScope {
-                    launch {
-                        buttonScale.snapTo(buttonScaleErrorInitial)
-                        buttonScale.animateTo(
-                            targetValue = 1f,
-                            animationSpec = motion.stateTween(),
-                        )
-                    }
-                    launch {
-                        haloScale.snapTo(haloScaleErrorInitial)
-                        haloScale.animateTo(
-                            targetValue = haloScaleErrorTarget,
-                            animationSpec = motion.quickTween(),
-                        )
-                        haloScale.animateTo(
-                            targetValue = 1f,
-                            animationSpec = motion.stateTween(),
-                        )
-                    }
-                    launch {
-                        shakeOffset.snapTo(0f)
-                        val totalDuration = motion.duration(shakeTotalDurationMs)
-                        val kf1 = totalDuration * shakeKeyframeT1 / shakeTotalDurationMs
-                        val kf2 = totalDuration * shakeKeyframeT2 / shakeTotalDurationMs
-                        val kf3 = totalDuration * shakeKeyframeT3 / shakeTotalDurationMs
-                        val kf4 = totalDuration * shakeKeyframeT4 / shakeTotalDurationMs
-                        shakeOffset.animateTo(
-                            targetValue = 0f,
-                            animationSpec =
-                                keyframes {
-                                    durationMillis = totalDuration
-                                    -shakeDistance at kf1
-                                    (shakeDistance * shakeFractionT2) at kf2
-                                    (-shakeDistance * shakeFractionT3) at kf3
-                                    (shakeDistance * shakeFractionT4) at kf4
-                                },
-                        )
-                    }
-                }
-            }
-
-            ConnectionState.Disconnected -> {
-                if (priorState == ConnectionState.Connected || priorState == ConnectionState.Connecting) {
-                    performHaptic(RipDpiHapticFeedback.Toggle)
-                }
-                coroutineScope {
-                    launch {
-                        buttonScale.animateTo(
-                            targetValue = 1f,
-                            animationSpec = motion.stateTween(),
-                        )
-                    }
-                    launch {
-                        haloScale.animateTo(
-                            targetValue = 1f,
-                            animationSpec = motion.stateTween(),
-                        )
-                    }
-                    launch {
-                        shakeOffset.animateTo(
-                            targetValue = 0f,
-                            animationSpec = motion.quickTween(),
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Box(
-            modifier =
-                Modifier
-                    .size(homeChrome.connectionHaloSize)
-                    .graphicsLayer {
-                        scaleX = haloScale.value
-                        scaleY = haloScale.value
-                        alpha = connectingHaloAlpha
-                        translationX = shakeOffset.value * haloTranslationFraction
-                    }.background(animatedHaloColor, androidx.compose.foundation.shape.CircleShape),
-        )
-        Column(
-            modifier =
-                Modifier
-                    .ripDpiTestTag(RipDpiTestTags.HomeConnectionButton)
-                    .semantics(mergeDescendants = true) {
-                        contentDescription = label
-                        stateDescription = connectionStateDescription
-                        liveRegion = LiveRegionMode.Polite
-                    }.size(homeChrome.connectionButtonSize)
-                    .graphicsLayer {
-                        scaleX = buttonScale.value * pressScale
-                        scaleY = buttonScale.value * pressScale
-                        translationX = shakeOffset.value
-                    }.background(animatedContainerColor, androidx.compose.foundation.shape.CircleShape)
-                    .border(
-                        width = 1.dp,
-                        color = animatedBorderColor,
-                        shape = androidx.compose.foundation.shape.CircleShape,
-                    ).clip(androidx.compose.foundation.shape.CircleShape)
-                    .ripDpiClickable(
-                        enabled = state != ConnectionState.Connecting,
-                        role = androidx.compose.ui.semantics.Role.Button,
-                        interactionSource = interactionSource,
-                        hapticFeedback =
-                            when (state) {
-                                ConnectionState.Connected -> RipDpiHapticFeedback.Toggle
-                                ConnectionState.Connecting -> RipDpiHapticFeedback.None
-                                ConnectionState.Disconnected, ConnectionState.Error -> RipDpiHapticFeedback.Action
-                            },
-                        onClick = onClick,
-                    ).padding(
-                        horizontal = homeChrome.connectionHorizontalPadding,
-                        vertical = homeChrome.connectionVerticalPadding,
-                    ),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            AnimatedContent(
-                targetState = icon,
-                transitionSpec = {
-                    motion.quickContentTransform(
-                        initialScale = iconTransitionScale,
-                        targetScale = iconTransitionScale,
-                    )
-                },
-                label = "homeConnectionIcon",
-            ) { currentIcon ->
-                Icon(
-                    imageVector = currentIcon,
-                    contentDescription = null,
-                    tint = animatedContentColor,
-                    modifier = Modifier.size(homeChrome.connectionIconSize),
-                )
-            }
-            Spacer(modifier = Modifier.height(connectionButtonIconSpacerDp.dp))
-            AnimatedContent(
-                targetState = label,
-                transitionSpec = {
-                    fadeIn(
-                        animationSpec = motion.stateTween(),
-                    ) togetherWith
-                        fadeOut(animationSpec = motion.quickTween())
-                },
-                label = "homeConnectionLabel",
-            ) { currentLabel ->
-                Text(
-                    text = currentLabel,
-                    style = type.bodyEmphasis,
-                    color = animatedContentColor,
-                    textAlign = TextAlign.Center,
-                )
-            }
-            Spacer(modifier = Modifier.height(connectionButtonModeSpacerDp.dp))
-            AnimatedContent(
-                targetState = modeLabel,
-                transitionSpec = {
-                    fadeIn(
-                        animationSpec = motion.quickTween(),
-                    ) togetherWith
-                        fadeOut(animationSpec = motion.quickTween())
-                },
-                label = "homeConnectionModeLabel",
-            ) { currentModeLabel ->
-                Text(
-                    text = currentModeLabel,
-                    style = type.caption,
-                    color = animatedContentColor.copy(alpha = modeLabelAlpha),
-                    textAlign = TextAlign.Center,
-                )
-            }
-        }
-    }
 }
 
 @Composable

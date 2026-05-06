@@ -3584,15 +3584,7 @@ dependencies = [
 name = "ripdpi-monitor-adapter"
 version = "0.1.0"
 dependencies = [
- "ripdpi-diagnostics-candidates",
- "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
- "ripdpi-diagnostics-dns",
- "ripdpi-diagnostics-http",
- "ripdpi-diagnostics-runner",
- "ripdpi-diagnostics-telegram",
- "ripdpi-diagnostics-tls",
- "ripdpi-diagnostics-transport",
  "ripdpi-failure-classifier",
  "ripdpi-proxy-config",
 ]
@@ -3613,6 +3605,7 @@ dependencies = [
  "ripdpi-config",
  "ripdpi-diagnostics-contracts",
  "ripdpi-monitor-adapter",
+ "ripdpi-monitor-lane-adapter",
  "ripdpi-packets",
  "ripdpi-runtime-platform",
  "ripdpi-telemetry",
@@ -3622,6 +3615,20 @@ dependencies = [
  "socket2",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "ripdpi-monitor-lane-adapter"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-diagnostics-candidates",
+ "ripdpi-diagnostics-classification",
+ "ripdpi-diagnostics-dns",
+ "ripdpi-diagnostics-http",
+ "ripdpi-diagnostics-runner",
+ "ripdpi-diagnostics-telegram",
+ "ripdpi-diagnostics-tls",
+ "ripdpi-diagnostics-transport",
 ]
 
 [[package]]
@@ -3719,7 +3726,6 @@ dependencies = [
  "ripdpi-proxy-runtime-adapter",
  "ripdpi-runtime-api",
  "ripdpi-runtime-decision-ports",
- "ripdpi-runtime-platform",
  "ripdpi-runtime-services",
  "ripdpi-session",
  "rustls",
@@ -3734,6 +3740,7 @@ name = "ripdpi-proxy-runtime-adapter"
 version = "0.1.0"
 dependencies = [
  "ripdpi-failure-classifier",
+ "ripdpi-runtime-platform",
  "ripdpi-ws-bootstrap",
 ]
 

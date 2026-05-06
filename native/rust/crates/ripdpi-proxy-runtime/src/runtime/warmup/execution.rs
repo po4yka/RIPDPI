@@ -16,7 +16,7 @@ use super::tls_probe::build_probe_client_hello;
 use crate::runtime::desync::send_with_group;
 use crate::runtime::routing::connect_target;
 use crate::runtime::state::RuntimeState;
-use ripdpi_runtime_platform as platform;
+use ripdpi_proxy_runtime_adapter::platform;
 
 /// Probe a single domain by resolving it, connecting through the desync
 /// pipeline, sending a TLS ClientHello, and reading the first response.

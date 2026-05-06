@@ -5,7 +5,7 @@ use ripdpi_desync_runtime::platform::{
     TcpFlagOverrides as DesyncTcpFlagOverrides, TcpFragmentSender, TcpPayloadSegment as DesyncTcpPayloadSegment,
 };
 
-use ripdpi_runtime_platform as runtime_platform;
+use ripdpi_proxy_runtime_adapter::platform as runtime_platform;
 
 use super::conversion::to_runtime_flags;
 use super::RuntimeTcpDesyncPlatform;

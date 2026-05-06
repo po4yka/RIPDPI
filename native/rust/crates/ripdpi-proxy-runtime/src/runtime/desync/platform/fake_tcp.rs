@@ -5,7 +5,7 @@ use ripdpi_desync_runtime::platform::{
     FakeTcpOptions as DesyncFakeTcpOptions, TcpFakeSender, TcpFlagOverrides as DesyncTcpFlagOverrides, TcpStageWait,
 };
 
-use ripdpi_runtime_platform as runtime_platform;
+use ripdpi_proxy_runtime_adapter::platform as runtime_platform;
 
 use super::conversion::to_runtime_flags;
 use super::RuntimeTcpDesyncPlatform;

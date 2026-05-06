@@ -1,6 +1,7 @@
 mod payload;
 
 use super::{ActivationFilter, OffsetExpr};
+use payload::TcpStepPayloadStorage;
 
 pub use payload::*;
 
@@ -184,166 +185,145 @@ pub enum IpIdMode {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TcpChainStep {
-    kind: TcpChainStepKind,
-    offset: OffsetExpr,
-    activation_filter: Option<ActivationFilter>,
-    midhost_offset: Option<OffsetExpr>,
-    fake_host_template: Option<String>,
-    fake_order: FakeOrder,
-    fake_seq_mode: FakeSeqMode,
-    tcp_flags_set: Option<u16>,
-    tcp_flags_unset: Option<u16>,
-    tcp_flags_orig_set: Option<u16>,
-    tcp_flags_orig_unset: Option<u16>,
-    overlap_size: i32,
-    seqovl_fake_mode: SeqOverlapFakeMode,
-    fragment_count: i32,
-    min_fragment_size: i32,
-    max_fragment_size: i32,
-    inter_segment_delay_ms: u32,
-    /// Send IP fragments in reverse order (second before first) to evade
-    /// DPI systems that expect sequential fragment delivery.
-    ip_frag_disorder: bool,
-    /// Insert IPv6 Hop-by-Hop Options extension header (no-op for IPv4).
-    ipv6_hop_by_hop: bool,
-    /// Insert IPv6 Destination Options header in unfragmentable part.
-    ipv6_dest_opt: bool,
-    /// Insert IPv6 Destination Options header in fragmentable part.
-    ipv6_dest_opt2: bool,
-    /// Insert IPv6 Routing extension header (type 0, segments_left=0).
-    ipv6_routing: bool,
-    /// Override second fragment's next_header (IPv6 only, RFC 8200 forgery).
-    ipv6_frag_next_override: Option<u8>,
-    /// When true, seed fake hostname generation from OS entropy instead of the
-    /// deterministic connection seed, producing a different domain per connection
-    /// that cannot be predicted or cached by DPI.
-    random_fake_host: bool,
+    common: TcpStepCommon,
+    payload: TcpStepPayloadStorage,
+    compatibility_error: Option<TcpStepPayloadInvariantError>,
 }
 
 impl TcpChainStep {
     pub const fn new(kind: TcpChainStepKind, offset: OffsetExpr) -> Self {
         Self {
-            kind,
-            offset,
-            activation_filter: None,
-            midhost_offset: None,
-            fake_host_template: None,
-            fake_order: FakeOrder::BeforeEach,
-            fake_seq_mode: FakeSeqMode::Duplicate,
-            tcp_flags_set: None,
-            tcp_flags_unset: None,
-            tcp_flags_orig_set: None,
-            tcp_flags_orig_unset: None,
-            overlap_size: 0,
-            seqovl_fake_mode: SeqOverlapFakeMode::Profile,
-            fragment_count: 0,
-            min_fragment_size: 0,
-            max_fragment_size: 0,
-            inter_segment_delay_ms: 0,
-            ip_frag_disorder: false,
-            ipv6_hop_by_hop: false,
-            ipv6_dest_opt: false,
-            ipv6_dest_opt2: false,
-            ipv6_routing: false,
-            ipv6_frag_next_override: None,
-            random_fake_host: false,
+            common: TcpStepCommon { offset, activation_filter: None, inter_segment_delay_ms: 0 },
+            payload: TcpStepPayloadStorage::default_for_kind(kind),
+            compatibility_error: None,
         }
     }
 
     pub const fn kind(&self) -> TcpChainStepKind {
-        self.kind
+        self.payload.kind()
     }
 
     pub fn set_kind(&mut self, kind: TcpChainStepKind) {
-        self.kind = kind;
+        self.payload = TcpStepPayloadStorage::default_for_kind(kind);
+        self.compatibility_error = None;
     }
 
     pub const fn offset(&self) -> OffsetExpr {
-        self.offset
+        self.common.offset
     }
 
     pub fn set_offset(&mut self, offset: OffsetExpr) {
-        self.offset = offset;
+        self.common.offset = offset;
     }
 
     pub const fn activation_filter(&self) -> Option<ActivationFilter> {
-        self.activation_filter
+        self.common.activation_filter
     }
 
     pub fn with_activation_filter(mut self, activation_filter: Option<ActivationFilter>) -> Self {
-        self.activation_filter = activation_filter;
+        self.common.activation_filter = activation_filter;
         self
     }
 
     pub fn set_activation_filter(&mut self, activation_filter: Option<ActivationFilter>) {
-        self.activation_filter = activation_filter;
+        self.common.activation_filter = activation_filter;
     }
 
     pub const fn midhost_offset(&self) -> Option<OffsetExpr> {
-        self.midhost_offset
+        self.payload.midhost_offset()
     }
 
     pub fn with_midhost_offset(mut self, midhost_offset: Option<OffsetExpr>) -> Self {
-        self.midhost_offset = midhost_offset;
+        if midhost_offset.is_some() && self.kind() != TcpChainStepKind::HostFake {
+            self.record_payload_violation("hostfake");
+        }
+        self.payload.set_midhost_offset(midhost_offset);
         self
     }
 
     pub fn set_midhost_offset(&mut self, midhost_offset: Option<OffsetExpr>) {
-        self.midhost_offset = midhost_offset;
+        if midhost_offset.is_some() && self.kind() != TcpChainStepKind::HostFake {
+            self.record_payload_violation("hostfake");
+        }
+        self.payload.set_midhost_offset(midhost_offset);
     }
 
     pub fn fake_host_template(&self) -> Option<&str> {
-        self.fake_host_template.as_deref()
+        self.payload.fake_host_template()
     }
 
     pub fn with_fake_host_template(mut self, fake_host_template: Option<String>) -> Self {
-        self.fake_host_template = fake_host_template;
+        if fake_host_template.is_some() && self.kind() != TcpChainStepKind::HostFake {
+            self.record_payload_violation("hostfake");
+        }
+        self.payload.set_fake_host_template(fake_host_template);
         self
     }
 
     pub fn set_fake_host_template(&mut self, fake_host_template: Option<String>) {
-        self.fake_host_template = fake_host_template;
+        if fake_host_template.is_some() && self.kind() != TcpChainStepKind::HostFake {
+            self.record_payload_violation("hostfake");
+        }
+        self.payload.set_fake_host_template(fake_host_template);
     }
 
     pub const fn random_fake_host(&self) -> bool {
-        self.random_fake_host
+        self.payload.random_fake_host()
     }
 
     pub fn with_random_fake_host(mut self, random_fake_host: bool) -> Self {
-        self.random_fake_host = random_fake_host;
+        if random_fake_host && self.kind() != TcpChainStepKind::HostFake {
+            self.record_payload_violation("hostfake");
+        }
+        self.payload.set_random_fake_host(random_fake_host);
         self
     }
 
     pub fn set_random_fake_host(&mut self, random_fake_host: bool) {
-        self.random_fake_host = random_fake_host;
+        if random_fake_host && self.kind() != TcpChainStepKind::HostFake {
+            self.record_payload_violation("hostfake");
+        }
+        self.payload.set_random_fake_host(random_fake_host);
     }
 
     pub fn set_fake_ordering(&mut self, ordering: TcpFakeOrdering) {
-        self.fake_order = ordering.order;
-        self.fake_seq_mode = ordering.seq_mode;
+        if !self.kind().supports_fake_ordering() && ordering != TcpFakeOrdering::before_each_duplicate() {
+            self.record_payload_violation("fake ordering");
+        }
+        self.payload.set_fake_ordering(ordering);
     }
 
     pub fn set_fake_flag_overrides(&mut self, flags: TcpFlagOverrides) {
-        self.tcp_flags_set = flags.set;
-        self.tcp_flags_unset = flags.unset;
+        if !self.kind().supports_fake_tcp_flags() && flags != TcpFlagOverrides::disabled() {
+            self.record_payload_violation("fake TCP flags");
+        }
+        self.payload.set_fake_flag_overrides(flags);
     }
 
     pub fn set_original_flag_overrides(&mut self, flags: TcpFlagOverrides) {
-        self.tcp_flags_orig_set = flags.set;
-        self.tcp_flags_orig_unset = flags.unset;
+        if !self.kind().supports_orig_tcp_flags() && flags != TcpFlagOverrides::disabled() {
+            self.record_payload_violation("original TCP flags");
+        }
+        self.payload.set_original_flag_overrides(flags);
     }
 
     pub const fn inter_segment_delay_ms(&self) -> u32 {
-        self.inter_segment_delay_ms
+        self.common.inter_segment_delay_ms
     }
 
     pub fn with_inter_segment_delay_ms(mut self, delay_ms: u32) -> Self {
-        self.inter_segment_delay_ms = delay_ms;
+        self.common.inter_segment_delay_ms = delay_ms;
         self
     }
 
     pub fn set_inter_segment_delay_ms(&mut self, delay_ms: u32) {
-        self.inter_segment_delay_ms = delay_ms;
+        self.common.inter_segment_delay_ms = delay_ms;
+    }
+
+    fn record_payload_violation(&mut self, field: &'static str) {
+        if self.compatibility_error.is_none() {
+            self.compatibility_error = Some(TcpStepPayloadInvariantError::new(self.kind(), field));
+        }
     }
 }
 

@@ -21,25 +21,21 @@ impl TcpChainStep {
     }
 
     pub fn apply_seq_overlap_payload(&mut self, payload: TcpSeqOverlapPayload) {
-        self.overlap_size = payload.overlap_size;
-        self.seqovl_fake_mode = payload.fake_mode;
-        self.tcp_flags_set = payload.fake_flags.set;
-        self.tcp_flags_unset = payload.fake_flags.unset;
+        if self.kind() != TcpChainStepKind::SeqOverlap
+            && (payload.overlap_size != 0
+                || !matches!(payload.fake_mode, SeqOverlapFakeMode::Profile)
+                || payload.fake_flags != TcpFlagOverrides::disabled())
+        {
+            self.record_payload_violation("sequence-overlap");
+        }
+        self.payload.set_seq_overlap_payload(payload);
     }
 
     pub fn seq_overlap_payload(&self) -> Option<TcpSeqOverlapPayload> {
-        if self.kind == TcpChainStepKind::SeqOverlap {
-            Some(TcpSeqOverlapPayload {
-                overlap_size: self.overlap_size,
-                fake_mode: self.seqovl_fake_mode,
-                fake_flags: self.fake_flag_overrides(),
-            })
-        } else {
-            None
-        }
+        self.payload.seq_overlap_payload()
     }
 
     pub(crate) const fn seq_overlap_storage_active(&self) -> bool {
-        self.overlap_size != 0 || !matches!(self.seqovl_fake_mode, SeqOverlapFakeMode::Profile)
+        self.payload.seq_overlap_storage_active()
     }
 }

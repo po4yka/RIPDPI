@@ -109,7 +109,7 @@ pub(super) fn relay_streams(
     let _ = client.shutdown(Shutdown::Both);
 
     if drop_sack {
-        let _ = ripdpi_runtime_platform::socket::detach_drop_sack(&upstream);
+        let _ = ripdpi_proxy_runtime_adapter::platform::socket::detach_drop_sack(&upstream);
     }
 
     up_result.and(down_result)?;

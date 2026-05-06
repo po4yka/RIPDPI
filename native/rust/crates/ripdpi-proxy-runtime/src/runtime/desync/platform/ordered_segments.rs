@@ -3,7 +3,7 @@ use std::net::TcpStream;
 
 use ripdpi_desync_runtime::platform::{OrderedTcpSegment as DesyncOrderedTcpSegment, TcpStageWait};
 
-use ripdpi_runtime_platform as runtime_platform;
+use ripdpi_proxy_runtime_adapter::platform as runtime_platform;
 
 use super::conversion::to_runtime_flags;
 

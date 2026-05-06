@@ -1,5 +1,5 @@
 use super::{TcpFakeOrdering, TcpFlagOverrides};
-use crate::{OffsetExpr, TcpChainStep, TcpChainStepKind};
+use crate::{OffsetExpr, TcpChainStep};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TcpHostFakePayload<'a> {
@@ -13,21 +13,10 @@ pub struct TcpHostFakePayload<'a> {
 
 impl TcpChainStep {
     pub fn host_fake_payload(&self) -> Option<TcpHostFakePayload<'_>> {
-        if self.kind == TcpChainStepKind::HostFake {
-            Some(TcpHostFakePayload {
-                midhost_offset: self.midhost_offset,
-                fake_host_template: self.fake_host_template.as_deref(),
-                random_fake_host: self.random_fake_host,
-                ordering: self.fake_ordering(),
-                fake_flags: self.fake_flag_overrides(),
-                original_flags: self.original_flag_overrides(),
-            })
-        } else {
-            None
-        }
+        self.payload.host_fake_payload()
     }
 
     pub(crate) fn hostfake_storage_active(&self) -> bool {
-        self.midhost_offset.is_some() || self.fake_host_template.is_some() || self.random_fake_host
+        self.payload.hostfake_storage_active()
     }
 }

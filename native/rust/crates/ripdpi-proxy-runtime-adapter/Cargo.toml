@@ -9,4 +9,8 @@ workspace = true
 
 [dependencies]
 ripdpi-failure-classifier = { workspace = true }
+ripdpi-runtime-platform = { workspace = true }
 ripdpi-ws-bootstrap = { workspace = true }
+
+[features]
+io-uring = ["ripdpi-runtime-platform/io-uring"]

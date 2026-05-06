@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
-use ripdpi_runtime_platform as platform;
+use ripdpi_proxy_runtime_adapter::platform;
 
 use super::error::ConnectAttemptError;
 pub(in crate::runtime) fn connect_socket(

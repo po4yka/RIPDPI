@@ -8,27 +8,16 @@ impl TcpChainStep {
     }
 
     pub fn apply_fake_payload(&mut self, payload: TcpFakePayload) {
-        self.fake_order = payload.ordering.order;
-        self.fake_seq_mode = payload.ordering.seq_mode;
-        self.tcp_flags_set = payload.fake_flags.set;
-        self.tcp_flags_unset = payload.fake_flags.unset;
-        self.tcp_flags_orig_set = payload.original_flags.set;
-        self.tcp_flags_orig_unset = payload.original_flags.unset;
+        self.set_fake_ordering(payload.ordering);
+        self.set_fake_flag_overrides(payload.fake_flags);
+        self.set_original_flag_overrides(payload.original_flags);
     }
 
     pub fn fake_payload(&self) -> Option<TcpFakePayload> {
-        if self.kind.supports_fake_ordering() {
-            Some(TcpFakePayload {
-                ordering: self.fake_ordering(),
-                fake_flags: self.fake_flag_overrides(),
-                original_flags: self.original_flag_overrides(),
-            })
-        } else {
-            None
-        }
+        self.payload.fake_payload()
     }
 
     pub const fn fake_ordering(&self) -> TcpFakeOrdering {
-        TcpFakeOrdering { order: self.fake_order, seq_mode: self.fake_seq_mode }
+        self.payload.fake_ordering()
     }
 }

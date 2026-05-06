@@ -9,7 +9,7 @@ use ripdpi_config::{
 use ripdpi_proxy_runtime_adapter::failure::{
     classify_transport_error, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
-use ripdpi_runtime_platform as platform;
+use ripdpi_proxy_runtime_adapter::platform;
 
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure, runtime_supports_trigger};
 use super::super::state::RuntimeState;

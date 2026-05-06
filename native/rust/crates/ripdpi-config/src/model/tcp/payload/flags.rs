@@ -14,10 +14,10 @@ impl TcpFlagOverrides {
 
 impl TcpChainStep {
     pub const fn fake_flag_overrides(&self) -> TcpFlagOverrides {
-        TcpFlagOverrides { set: self.tcp_flags_set, unset: self.tcp_flags_unset }
+        self.payload.fake_flag_overrides()
     }
 
     pub const fn original_flag_overrides(&self) -> TcpFlagOverrides {
-        TcpFlagOverrides { set: self.tcp_flags_orig_set, unset: self.tcp_flags_orig_unset }
+        self.payload.original_flag_overrides()
     }
 }

@@ -17,8 +17,8 @@ use std::net::TcpListener;
 use ripdpi_config::{RuntimeConfig, TcpChainStepKind, UdpChainStepKind};
 
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
+use ripdpi_proxy_runtime_adapter::platform::raw_packet::IpFragmentationCapabilities;
 use ripdpi_runtime_api::EmbeddedProxyControl;
-use ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities;
 
 pub fn run_proxy(config: RuntimeConfig) -> io::Result<()> {
     let listener = create_listener(&config)?;
@@ -45,7 +45,7 @@ fn validate_ip_fragmentation_support(config: &RuntimeConfig) -> io::Result<()> {
         return Ok(());
     }
 
-    let capabilities = ripdpi_runtime_platform::raw_packet::probe_ip_fragmentation_capabilities(
+    let capabilities = ripdpi_proxy_runtime_adapter::platform::raw_packet::probe_ip_fragmentation_capabilities(
         config.process.protect_path.as_deref(),
     )?;
     validate_ip_fragmentation_capabilities(config, capabilities)
@@ -337,7 +337,7 @@ mod tests {
 
         validate_ip_fragmentation_capabilities(
             &config,
-            ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default(),
+            ripdpi_proxy_runtime_adapter::platform::raw_packet::IpFragmentationCapabilities::default(),
         )
         .expect("non-ipfrag configs should skip capability gating");
     }
@@ -347,7 +347,7 @@ mod tests {
         let config = runtime_config_with_ipfrag(false, true, true);
         let err = validate_ip_fragmentation_capabilities(
             &config,
-            ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+            ripdpi_proxy_runtime_adapter::platform::raw_packet::IpFragmentationCapabilities {
                 raw_ipv4: true,
                 raw_ipv6: false,
                 tcp_repair: false,
@@ -364,7 +364,7 @@ mod tests {
         let config = runtime_config_with_ipfrag(true, false, false);
         let err = validate_ip_fragmentation_capabilities(
             &config,
-            ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+            ripdpi_proxy_runtime_adapter::platform::raw_packet::IpFragmentationCapabilities {
                 raw_ipv4: true,
                 raw_ipv6: false,
                 tcp_repair: false,
@@ -381,7 +381,7 @@ mod tests {
         let config = runtime_config_with_multidisorder(false);
         let err = validate_ip_fragmentation_capabilities(
             &config,
-            ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+            ripdpi_proxy_runtime_adapter::platform::raw_packet::IpFragmentationCapabilities {
                 raw_ipv4: true,
                 raw_ipv6: false,
                 tcp_repair: false,
@@ -399,7 +399,7 @@ mod tests {
 
         validate_ip_fragmentation_capabilities(
             &config,
-            ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+            ripdpi_proxy_runtime_adapter::platform::raw_packet::IpFragmentationCapabilities {
                 raw_ipv4: true,
                 raw_ipv6: true,
                 tcp_repair: true,
@@ -414,7 +414,7 @@ mod tests {
 
         validate_ip_fragmentation_capabilities(
             &config,
-            ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+            ripdpi_proxy_runtime_adapter::platform::raw_packet::IpFragmentationCapabilities {
                 raw_ipv4: true,
                 raw_ipv6: false,
                 tcp_repair: false,
@@ -425,7 +425,7 @@ mod tests {
 
     #[test]
     fn ipfrag_capability_helpers_distinguish_tcp_and_udp_requirements() {
-        let udp_only = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+        let udp_only = ripdpi_proxy_runtime_adapter::platform::raw_packet::IpFragmentationCapabilities {
             raw_ipv4: true,
             raw_ipv6: true,
             tcp_repair: false,
@@ -433,7 +433,7 @@ mod tests {
         assert!(udp_only.supports_udp_ip_fragmentation(true));
         assert!(!udp_only.supports_tcp_ip_fragmentation(true));
 
-        let tcp_and_udp = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+        let tcp_and_udp = ripdpi_proxy_runtime_adapter::platform::raw_packet::IpFragmentationCapabilities {
             raw_ipv4: true,
             raw_ipv6: true,
             tcp_repair: true,

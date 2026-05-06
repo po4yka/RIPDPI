@@ -19,7 +19,6 @@ ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
 ripdpi-runtime-decision-ports = { workspace = true }
 ripdpi-runtime-services = { workspace = true }
-ripdpi-runtime-platform = { workspace = true }
 ripdpi-proxy-runtime-adapter = { workspace = true }
 ripdpi-session = { workspace = true }
 metrics = { workspace = true }
@@ -34,7 +33,7 @@ ripdpi-io-uring = { workspace = true, optional = true }
 
 [features]
 loom = ["dep:loom", "ripdpi-runtime-api/loom", "ripdpi-desync-runtime/loom"]
-io-uring = ["dep:ripdpi-io-uring", "ripdpi-runtime-platform/io-uring"]
+io-uring = ["dep:ripdpi-io-uring", "ripdpi-proxy-runtime-adapter/io-uring"]
 
 [dev-dependencies]
 aes = { workspace = true }

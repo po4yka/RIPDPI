@@ -7,8 +7,8 @@ use std::net::{SocketAddr, TcpListener};
 use std::sync::Arc as StdArc;
 
 use ripdpi_config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::platform;
 use ripdpi_runtime_api::EmbeddedProxyControl;
-use ripdpi_runtime_platform as platform;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use self::accept_loop::run_accept_loop;

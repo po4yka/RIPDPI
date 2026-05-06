@@ -3,7 +3,7 @@ use std::net::TcpStream;
 
 use ripdpi_desync_runtime::platform::{TcpActivationState as DesyncTcpActivationState, TcpPlatformCapabilities};
 
-use ripdpi_runtime_platform as runtime_platform;
+use ripdpi_proxy_runtime_adapter::platform as runtime_platform;
 
 use super::RuntimeTcpDesyncPlatform;
 

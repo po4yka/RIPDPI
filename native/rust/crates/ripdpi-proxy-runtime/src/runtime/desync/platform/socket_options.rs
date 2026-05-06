@@ -3,7 +3,7 @@ use std::net::TcpStream;
 use std::time::Duration;
 
 use ripdpi_desync_runtime::platform::TcpSocketOptions;
-use ripdpi_runtime_platform as runtime_platform;
+use ripdpi_proxy_runtime_adapter::platform as runtime_platform;
 
 use super::RuntimeTcpDesyncPlatform;
 

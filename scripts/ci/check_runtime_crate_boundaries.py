@@ -53,6 +53,10 @@ RUNTIME_PLATFORM_ALLOWED_PROD_DEPS = {
 
 PROXY_RUNTIME_REQUIRED_PROD_DEPS = {
     "ripdpi-runtime-api",
+    "ripdpi-proxy-runtime-adapter",
+}
+
+PROXY_RUNTIME_FORBIDDEN_PROD_DEPS = {
     "ripdpi-runtime-platform",
 }
 
@@ -209,7 +213,7 @@ def check_proxy_runtime_required_deps(deps_by_package: dict[str, PackageDeps]) -
         Violation(
             package="ripdpi-proxy-runtime",
             dependency=dep,
-            message="proxy runtime orchestrator must depend on the split runtime API/platform/learning crates",
+            message="proxy runtime orchestrator must depend on the split runtime API and proxy adapter crates",
         )
         for dep in sorted(missing)
     ]
@@ -231,6 +235,14 @@ def collect_violations(metadata: dict[str, Any]) -> list[Violation]:
     )
     violations.extend(check_platform_allowlist(deps_by_package))
     violations.extend(check_proxy_runtime_required_deps(deps_by_package))
+    violations.extend(
+        check_forbidden_deps(
+            deps_by_package,
+            "ripdpi-proxy-runtime",
+            PROXY_RUNTIME_FORBIDDEN_PROD_DEPS,
+            "proxy runtime must reach platform operations through ripdpi-proxy-runtime-adapter",
+        )
+    )
 
     for caller in sorted(PRODUCTION_CALLERS):
         violations.extend(
