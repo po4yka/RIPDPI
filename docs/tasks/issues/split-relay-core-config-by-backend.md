@@ -1,7 +1,7 @@
 ---
 title: Split relay core config by backend
 type: task
-status: backlog
+status: done
 area: relay
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Split relay core config by backend #repo/RIPDPI #area/relay #status/backlog 🔼
+- [x] #task Split relay core config by backend #repo/RIPDPI #area/relay #status/done 🔼
 
 ## Summary
 
@@ -36,11 +36,11 @@ changes still land in one shared relay contract module.
 
 ## Acceptance criteria
 
-- [ ] Relay backend DTOs and conversions are split by backend family.
-- [ ] `config.rs` remains a small facade preserving the serialized JSON
+- [x] Relay backend DTOs and conversions are split by backend family.
+- [x] `config.rs` remains a small facade preserving the serialized JSON
     contract.
-- [ ] Golden or round-trip tests prove flattened relay config compatibility.
-- [ ] No new broad-root or oversized native hotspot indicators are introduced.
+- [x] Golden or round-trip tests prove flattened relay config compatibility.
+- [x] No new broad-root or oversized native hotspot indicators are introduced.
 
 ## Links
 

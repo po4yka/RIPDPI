@@ -84,6 +84,24 @@ fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
     ResolvedRelayRuntimeConfig { common, backend }
 }
 
+#[test]
+fn relay_runtime_config_round_trips_flattened_backend_fields() {
+    for kind in ["hysteria2", "tuic_v5", "vless_reality", "cloudflare_tunnel", "chain_relay", "masque", "shadowtls_v3"]
+    {
+        let config = sample_config(kind);
+        let serialized = serde_json::to_value(&config).expect("serialize relay config");
+
+        assert_eq!(kind, serialized["kind"].as_str().expect("kind field"));
+        assert!(serialized.get("localSocksHost").is_some(), "common fields stay flattened");
+
+        let round_trip: ResolvedRelayRuntimeConfig =
+            serde_json::from_value(serialized.clone()).expect("deserialize relay config");
+
+        assert_eq!(kind, round_trip.kind_id());
+        assert_eq!(serialized, serde_json::to_value(&round_trip).expect("reserialize relay config"));
+    }
+}
+
 fn hysteria_config_mut(config: &mut ResolvedRelayRuntimeConfig) -> &mut Hysteria2RelayConfig {
     match &mut config.backend {
         RelayBackendConfig::Hysteria2(hysteria) => hysteria,

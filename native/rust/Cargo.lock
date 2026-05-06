@@ -3768,6 +3768,7 @@ dependencies = [
  "ripdpi-vless",
  "ripdpi-xhttp",
  "serde",
+ "serde_json",
  "tokio",
  "tracing",
 ]
