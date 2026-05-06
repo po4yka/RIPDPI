@@ -1,6 +1,6 @@
 use ripdpi_failure_classifier::ClassifiedFailure;
 use ripdpi_proxy_config::ProxyUiConfig;
-use ripdpi_runtime_platform::RuntimeCapability;
+use ripdpi_runtime_platform::capability::RuntimeCapability;
 
 use crate::types::{ProbeResult, StrategyEmitterTier};
 

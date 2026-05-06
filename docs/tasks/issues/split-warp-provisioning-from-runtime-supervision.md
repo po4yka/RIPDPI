@@ -1,7 +1,7 @@
 ---
 title: Split WARP provisioning from runtime supervision
 type: task
-status: backlog
+status: done
 area: service
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Split WARP provisioning from runtime supervision #repo/RIPDPI #area/service #status/backlog ⏫
+- [x] #task Split WARP provisioning from runtime supervision #repo/RIPDPI #area/service #status/done ⏫
 
 ## Summary
 
@@ -35,11 +35,11 @@ endpoint and credential refresh changes do not share the supervisor surface.
 
 ## Acceptance criteria
 
-- [ ] Provisioning and endpoint/credential refresh move behind a focused
+- [x] Provisioning and endpoint/credential refresh move behind a focused
     resolver.
-- [ ] Runtime start/readiness/exit supervision is owned by a process supervisor.
-- [ ] Startup failure mapping is testable without starting the runtime process.
-- [ ] Existing WARP runtime tests stay green or are expanded for the split.
+- [x] Runtime start/readiness/exit supervision is owned by a process supervisor.
+- [x] Startup failure mapping is testable without starting the runtime process.
+- [x] Existing WARP runtime tests stay green or are expanded for the split.
 
 ## Links
 

@@ -1,7 +1,7 @@
 use std::net::{IpAddr, SocketAddr};
 
 use ripdpi_failure_classifier::{block_signal_from_failure, ClassifiedFailure};
-use ripdpi_runtime_policy::runtime_policy::{
+use ripdpi_runtime_decision_ports::policy::{
     classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
     DnsTamperingEvidence,
 };

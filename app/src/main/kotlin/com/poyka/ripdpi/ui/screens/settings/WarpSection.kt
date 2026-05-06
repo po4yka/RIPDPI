@@ -7,12 +7,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.WarpAmneziaPresetCustom
 import com.poyka.ripdpi.data.WarpAmneziaPresetOff
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.utility.checkIp
 import com.poyka.ripdpi.utility.validateIntRange

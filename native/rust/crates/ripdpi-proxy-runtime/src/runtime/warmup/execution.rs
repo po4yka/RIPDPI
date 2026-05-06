@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 
 use ripdpi_failure_classifier::ClassifiedFailure;
-use ripdpi_runtime_policy::runtime_policy::ConnectionRoute;
+use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 use ripdpi_session::OutboundProgress;
 
 use super::autolearn::{advance_after_failure, record_route_success};
@@ -48,7 +48,7 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
         return advance_after_failure(state, target, &route, domain, &payload, &failure);
     }
 
-    let _ = platform::enable_recv_ttl(&upstream);
+    let _ = platform::ttl_ops::enable_recv_ttl(&upstream);
     let mut response_buf = vec![0u8; state.config.network.buffer_size.max(16_384)];
     let read_result = upstream.read(&mut response_buf);
 

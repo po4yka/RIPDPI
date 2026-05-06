@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.ScanProgress
+import com.poyka.ripdpi.ui.logs.LogEntryMapper
 import javax.inject.Inject
 
 internal const val MaxLogEntries = 250

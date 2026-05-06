@@ -4,7 +4,9 @@ mod fragments;
 mod seq_overlap;
 mod tls_prelude;
 
-use super::{TcpChainStep, TcpChainStepKind};
+use std::fmt;
+
+use super::{ActivationFilter, OffsetExpr, SeqOverlapFakeMode, TcpChainStep, TcpChainStepKind};
 
 pub use fake::{TcpFakeOrdering, TcpFakePayload, TcpHostFakePayload};
 pub use flags::TcpFlagOverrides;
@@ -22,7 +24,156 @@ pub enum TcpStepPayload<'a> {
     IpFrag(TcpIpFragPayload),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TcpStepCommon {
+    pub offset: OffsetExpr,
+    pub activation_filter: Option<ActivationFilter>,
+    pub inter_segment_delay_ms: u32,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TcpTypedChainStep<'a> {
+    Plain { kind: TcpChainStepKind, common: TcpStepCommon, original_flags: TcpFlagOverrides },
+    SeqOverlap { common: TcpStepCommon, payload: TcpSeqOverlapPayload },
+    Fake { kind: TcpChainStepKind, common: TcpStepCommon, payload: TcpFakePayload },
+    HostFake { common: TcpStepCommon, payload: TcpHostFakePayload<'a> },
+    TlsRandRec { common: TcpStepCommon, payload: TcpTlsRandRecPayload },
+    IpFrag { common: TcpStepCommon, payload: TcpIpFragPayload, original_flags: TcpFlagOverrides },
+    FakeRst { common: TcpStepCommon, fake_flags: TcpFlagOverrides },
+}
+
+impl TcpTypedChainStep<'_> {
+    pub const fn common(&self) -> TcpStepCommon {
+        match self {
+            Self::Plain { common, .. }
+            | Self::SeqOverlap { common, .. }
+            | Self::Fake { common, .. }
+            | Self::HostFake { common, .. }
+            | Self::TlsRandRec { common, .. }
+            | Self::IpFrag { common, .. }
+            | Self::FakeRst { common, .. } => *common,
+        }
+    }
+
+    pub const fn kind(&self) -> TcpChainStepKind {
+        match self {
+            Self::Plain { kind, .. } | Self::Fake { kind, .. } => *kind,
+            Self::SeqOverlap { .. } => TcpChainStepKind::SeqOverlap,
+            Self::HostFake { .. } => TcpChainStepKind::HostFake,
+            Self::TlsRandRec { .. } => TcpChainStepKind::TlsRandRec,
+            Self::IpFrag { .. } => TcpChainStepKind::IpFrag2,
+            Self::FakeRst { .. } => TcpChainStepKind::FakeRst,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TcpStepPayloadInvariantError {
+    kind: TcpChainStepKind,
+    field: &'static str,
+}
+
+impl TcpStepPayloadInvariantError {
+    const fn new(kind: TcpChainStepKind, field: &'static str) -> Self {
+        Self { kind, field }
+    }
+
+    pub const fn kind(&self) -> TcpChainStepKind {
+        self.kind
+    }
+
+    pub const fn field(&self) -> &'static str {
+        self.field
+    }
+}
+
+impl fmt::Display for TcpStepPayloadInvariantError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(formatter, "{:?} must not declare {} payload fields", self.kind, self.field)
+    }
+}
+
+impl std::error::Error for TcpStepPayloadInvariantError {}
+
 impl TcpChainStep {
+    pub fn try_typed_step(&self) -> Result<TcpTypedChainStep<'_>, TcpStepPayloadInvariantError> {
+        self.validate_payload_family()?;
+        let common = self.common_payload();
+        Ok(match self.kind {
+            TcpChainStepKind::SeqOverlap => TcpTypedChainStep::SeqOverlap {
+                common,
+                payload: self.seq_overlap_payload().expect("validated seq overlap payload"),
+            },
+            TcpChainStepKind::Fake | TcpChainStepKind::FakeSplit | TcpChainStepKind::FakeDisorder => {
+                TcpTypedChainStep::Fake {
+                    kind: self.kind,
+                    common,
+                    payload: self.fake_payload().expect("validated fake payload"),
+                }
+            }
+            TcpChainStepKind::HostFake => TcpTypedChainStep::HostFake {
+                common,
+                payload: self.host_fake_payload().expect("validated hostfake payload"),
+            },
+            TcpChainStepKind::TlsRandRec => TcpTypedChainStep::TlsRandRec {
+                common,
+                payload: self.tls_randrec_payload().expect("validated tlsrandrec payload"),
+            },
+            TcpChainStepKind::IpFrag2 => TcpTypedChainStep::IpFrag {
+                common,
+                payload: self.ip_frag_payload().expect("validated ipfrag payload"),
+                original_flags: self.original_flag_overrides(),
+            },
+            TcpChainStepKind::FakeRst => TcpTypedChainStep::FakeRst { common, fake_flags: self.fake_flag_overrides() },
+            TcpChainStepKind::Split
+            | TcpChainStepKind::SynData
+            | TcpChainStepKind::Disorder
+            | TcpChainStepKind::MultiDisorder
+            | TcpChainStepKind::Oob
+            | TcpChainStepKind::Disoob
+            | TcpChainStepKind::TlsRec => {
+                TcpTypedChainStep::Plain { kind: self.kind, common, original_flags: self.original_flag_overrides() }
+            }
+        })
+    }
+
+    pub fn validate_payload_family(&self) -> Result<(), TcpStepPayloadInvariantError> {
+        if !self.kind.supports_fake_ordering() && self.fake_ordering() != TcpFakeOrdering::before_each_duplicate() {
+            return Err(TcpStepPayloadInvariantError::new(self.kind, "fake ordering"));
+        }
+        if !self.kind.supports_fake_tcp_flags() && self.fake_flag_overrides() != TcpFlagOverrides::disabled() {
+            return Err(TcpStepPayloadInvariantError::new(self.kind, "fake TCP flags"));
+        }
+        if !self.kind.supports_orig_tcp_flags() && self.original_flag_overrides() != TcpFlagOverrides::disabled() {
+            return Err(TcpStepPayloadInvariantError::new(self.kind, "original TCP flags"));
+        }
+        if self.kind != TcpChainStepKind::SeqOverlap && self.seq_overlap_storage_active() {
+            return Err(TcpStepPayloadInvariantError::new(self.kind, "sequence-overlap"));
+        }
+        if self.kind != TcpChainStepKind::HostFake && self.hostfake_storage_active() {
+            return Err(TcpStepPayloadInvariantError::new(self.kind, "hostfake"));
+        }
+        if self.kind != TcpChainStepKind::TlsRandRec
+            && self.kind != TcpChainStepKind::IpFrag2
+            && self.fragment_storage_active()
+        {
+            return Err(TcpStepPayloadInvariantError::new(self.kind, "fragmentation"));
+        }
+        if self.kind != TcpChainStepKind::IpFrag2 && self.ipv6_extension_payload() != TcpIpv6ExtensionPayload::default()
+        {
+            return Err(TcpStepPayloadInvariantError::new(self.kind, "IPv6 fragmentation"));
+        }
+        Ok(())
+    }
+
+    const fn common_payload(&self) -> TcpStepCommon {
+        TcpStepCommon {
+            offset: self.offset,
+            activation_filter: self.activation_filter,
+            inter_segment_delay_ms: self.inter_segment_delay_ms,
+        }
+    }
+
     pub fn with_seq_overlap_payload(mut self, payload: TcpSeqOverlapPayload) -> Self {
         self.apply_seq_overlap_payload(payload);
         self
@@ -187,6 +338,18 @@ impl TcpChainStep {
             second_frag_next_override: self.ipv6_frag_next_override,
         }
     }
+
+    const fn seq_overlap_storage_active(&self) -> bool {
+        self.overlap_size != 0 || !matches!(self.seqovl_fake_mode, SeqOverlapFakeMode::Profile)
+    }
+
+    fn hostfake_storage_active(&self) -> bool {
+        self.midhost_offset.is_some() || self.fake_host_template.is_some() || self.random_fake_host
+    }
+
+    const fn fragment_storage_active(&self) -> bool {
+        self.fragment_count != 0 || self.min_fragment_size != 0 || self.max_fragment_size != 0 || self.ip_frag_disorder
+    }
 }
 
 #[cfg(test)]
@@ -274,5 +437,43 @@ mod tests {
 
         let split = TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(3));
         assert_eq!(split.typed_payload(), TcpStepPayload::Plain);
+    }
+
+    #[test]
+    fn typed_step_rejects_fake_ordering_on_plain_step() {
+        let mut step = TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(3));
+        step.set_fake_ordering(TcpFakeOrdering { order: FakeOrder::AllFakesFirst, seq_mode: FakeSeqMode::Sequential });
+
+        let error = step.try_typed_step().expect_err("invalid fake ordering");
+
+        assert_eq!(error.kind(), TcpChainStepKind::Split);
+        assert_eq!(error.field(), "fake ordering");
+    }
+
+    #[test]
+    fn typed_step_rejects_hostfake_payload_on_fake_step() {
+        let step = TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(3))
+            .with_fake_host_template(Some("example.invalid".to_string()));
+
+        let error = step.try_typed_step().expect_err("invalid hostfake payload");
+
+        assert_eq!(error.kind(), TcpChainStepKind::Fake);
+        assert_eq!(error.field(), "hostfake");
+    }
+
+    #[test]
+    fn typed_step_projects_ipfrag_without_other_payload_families() {
+        let payload = TcpIpFragPayload {
+            fragment_count: 2,
+            min_fragment_size: 8,
+            max_fragment_size: 32,
+            disorder: true,
+            ipv6_extensions: TcpIpv6ExtensionPayload { hop_by_hop: true, ..Default::default() },
+        };
+        let step = TcpChainStep::new(TcpChainStepKind::IpFrag2, OffsetExpr::absolute(3)).with_ip_frag_payload(payload);
+
+        let typed = step.try_typed_step().expect("typed ipfrag");
+
+        assert!(matches!(typed, TcpTypedChainStep::IpFrag { payload: typed_payload, .. } if typed_payload == payload));
     }
 }

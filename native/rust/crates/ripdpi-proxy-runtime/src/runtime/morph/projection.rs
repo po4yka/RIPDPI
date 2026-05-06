@@ -8,5 +8,7 @@ pub(super) fn apply_tcp_morph_policy_to_group(
     payload: &[u8],
     hints: AdaptivePlannerHints,
 ) -> DesyncGroup {
-    ripdpi_runtime_adaptive::morph_policy::apply_tcp_morph_policy_to_group(policy, group, payload, hints)
+    ripdpi_runtime_decision_ports::adaptive::morph_policy::apply_tcp_morph_policy_to_group(
+        policy, group, payload, hints,
+    )
 }

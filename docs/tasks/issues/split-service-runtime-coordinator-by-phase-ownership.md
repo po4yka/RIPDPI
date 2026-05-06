@@ -1,7 +1,7 @@
 ---
 title: Split service runtime coordinator by phase ownership
 type: task
-status: backlog
+status: done
 area: service
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Split service runtime coordinator by phase ownership #repo/RIPDPI #area/service #status/backlog ⏫
+- [x] #task Split service runtime coordinator by phase ownership #repo/RIPDPI #area/service #status/done ⏫
 
 ## Summary
 
@@ -36,11 +36,11 @@ longer share one service-layer kernel.
 
 ## Acceptance criteria
 
-- [ ] Start/stop lifecycle orchestration is separated from permission watchdog
+- [x] Start/stop lifecycle orchestration is separated from permission watchdog
     and handover retry policy.
-- [ ] Telemetry-loop ownership moves behind a narrow collaborator.
-- [ ] Shared proxy-stack start/stop has a focused owner.
-- [ ] Existing service lifecycle tests stay green or are expanded for the new
+- [x] Telemetry-loop ownership moves behind a narrow collaborator.
+- [x] Shared proxy-stack start/stop has a focused owner.
+- [x] Existing service lifecycle tests stay green or are expanded for the new
     collaborators.
 
 ## Links

@@ -7,6 +7,7 @@ import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
+import com.poyka.ripdpi.ui.diagnostics.toScopeLabel
 
 internal data class BuildScanUiModelParams(
     val profiles: List<DiagnosticProfile>,

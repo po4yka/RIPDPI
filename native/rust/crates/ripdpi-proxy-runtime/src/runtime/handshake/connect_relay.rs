@@ -101,7 +101,7 @@ where
         SocketAddr,
         &RuntimeState,
         Option<String>,
-        ripdpi_runtime_policy::runtime_policy::ConnectionRoute,
+        ripdpi_runtime_decision_ports::policy::ConnectionRoute,
         Vec<u8>,
     ) -> Result<(), ConnectRelayError>,
     ConnectAfterWsAttempt:

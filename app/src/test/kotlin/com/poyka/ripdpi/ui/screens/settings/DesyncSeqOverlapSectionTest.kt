@@ -3,11 +3,11 @@ package com.poyka.ripdpi.ui.screens.settings
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.poyka.ripdpi.activities.DesyncCoreUiState
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.SeqOverlapFakeModeRand
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Rule
 import org.junit.Test

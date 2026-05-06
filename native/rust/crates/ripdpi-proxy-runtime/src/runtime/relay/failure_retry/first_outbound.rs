@@ -15,7 +15,7 @@ use crate::runtime::relay::failure_retry::first_outbound::route_retry::{
 use crate::runtime::relay::first_exchange::needs_first_exchange;
 use crate::runtime::routing::should_track_strategy_target;
 use crate::runtime::state::RuntimeState;
-use ripdpi_runtime_policy::runtime_policy::ConnectionRoute;
+use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 mod execution;
 mod payload;

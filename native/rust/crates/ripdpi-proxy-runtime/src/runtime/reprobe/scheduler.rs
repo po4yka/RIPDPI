@@ -2,7 +2,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::thread;
 
-use ripdpi_runtime_adaptive::AdaptiveFeedbackPort;
+use ripdpi_runtime_decision_ports::AdaptiveFeedbackPort;
 
 use super::super::state::RuntimeState;
 use super::cache_flush::flush_runtime_cache_after_handover;

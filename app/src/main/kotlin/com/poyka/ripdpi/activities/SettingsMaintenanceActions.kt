@@ -23,6 +23,7 @@ import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.HostAutolearnStoreController
 import com.poyka.ripdpi.services.TelemetryInstallSaltStore
 import com.poyka.ripdpi.strategy.StrategyPackService
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 

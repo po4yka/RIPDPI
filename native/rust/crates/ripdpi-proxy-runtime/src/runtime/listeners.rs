@@ -36,7 +36,7 @@ pub(super) fn run_proxy_with_listener_internal(
 ) -> io::Result<()> {
     let mut config = config;
     if config.network.default_ttl == 0 {
-        config.network.default_ttl = platform::detect_default_ttl()?;
+        config.network.default_ttl = platform::capability::detect_default_ttl()?;
     }
     let state = RuntimeState::new(config, control.clone());
     let listener_addr = listener.local_addr()?;

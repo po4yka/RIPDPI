@@ -76,7 +76,7 @@ pub(crate) fn send_ip_fragmented_tcp(
     flags: DesyncTcpFlagOverrides,
     ip_id_mode: Option<ripdpi_config::IpIdMode>,
 ) -> io::Result<()> {
-    runtime_platform::send_ip_fragmented_tcp(
+    runtime_platform::raw_packet::send_ip_fragmented_tcp(
         stream,
         payload,
         split_offset,

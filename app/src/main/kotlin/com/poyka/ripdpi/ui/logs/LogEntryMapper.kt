@@ -1,6 +1,10 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.logs
 
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.LogEntry
+import com.poyka.ripdpi.activities.LogSeverity
+import com.poyka.ripdpi.activities.LogSubsystem
+import com.poyka.ripdpi.activities.LogType
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeEvent

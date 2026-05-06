@@ -9,7 +9,7 @@ mod tls_boundary;
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_runtime_policy::runtime_policy::ConnectionRoute;
+use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 use self::execution::{record_relay_result, relay_with_uring_if_available};
 use self::failure_retry::{prepare_relay, PreparedRelay};

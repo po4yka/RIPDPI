@@ -1,0 +1,12 @@
+[package]
+name = "ripdpi-runtime-decision-ports"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+ripdpi-runtime-adaptive = { workspace = true }
+ripdpi-runtime-policy = { workspace = true }

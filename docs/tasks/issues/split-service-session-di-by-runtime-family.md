@@ -1,7 +1,7 @@
 ---
 title: Split service session DI by runtime family
 type: task
-status: backlog
+status: done
 area: service
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Split service session DI by runtime family #repo/RIPDPI #area/service #status/backlog ⏫
+- [x] #task Split service session DI by runtime family #repo/RIPDPI #area/service #status/done ⏫
 
 ## Summary
 
@@ -33,12 +33,12 @@ composition changes do not share one review surface.
 
 ## Acceptance criteria
 
-- [ ] Proxy, VPN, relay, WARP, tunnel, DNS failover, protect-socket, status, and
+- [x] Proxy, VPN, relay, WARP, tunnel, DNS failover, protect-socket, status, and
     coordinator providers are grouped by clear runtime-family ownership.
-- [ ] Adding a provider for one runtime family does not require editing a broad
+- [x] Adding a provider for one runtime family does not require editing a broad
     cross-runtime module.
-- [ ] DI graph tests or compile checks cover the split modules.
-- [ ] Existing service tests stay green.
+- [x] DI graph tests or compile checks cover the split modules.
+- [x] Existing service tests stay green.
 
 ## Links
 

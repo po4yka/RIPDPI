@@ -19,7 +19,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -31,6 +30,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -48,7 +48,7 @@ internal fun LazyListScope.diagnosticsHistorySection(
     uiState: SettingsUiState,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
-    onRotateTelemetrySalt: () -> Unit = {},
+    onRotateSalt: () -> Unit = {},
 ) {
     item(key = "advanced_diagnostics_history") {
         AdvancedSettingsSection(
@@ -60,7 +60,7 @@ internal fun LazyListScope.diagnosticsHistorySection(
                     uiState = uiState,
                     onToggleChanged = onToggleChanged,
                     onTextConfirmed = onTextConfirmed,
-                    onRotateTelemetrySalt = onRotateTelemetrySalt,
+                    onRotateSalt = onRotateSalt,
                 )
             }
         }
@@ -72,7 +72,7 @@ private fun DiagnosticsHistorySettingsContent(
     uiState: SettingsUiState,
     onToggleChanged: (AdvancedToggleSetting, Boolean) -> Unit,
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
-    onRotateTelemetrySalt: () -> Unit,
+    onRotateSalt: () -> Unit,
 ) {
     DiagnosticsMonitorToggle(
         enabled = uiState.diagnosticsMonitorEnabled,
@@ -92,7 +92,7 @@ private fun DiagnosticsHistorySettingsContent(
             onToggleChanged = onToggleChanged,
         )
     }
-    TelemetrySaltResetAction(onRotateTelemetrySalt = onRotateTelemetrySalt)
+    TelemetrySaltResetAction(onRotateSalt = onRotateSalt)
 }
 
 @Composable
@@ -179,7 +179,7 @@ private fun StrategyPackRollbackOverrideToggle(
 }
 
 @Composable
-private fun TelemetrySaltResetAction(onRotateTelemetrySalt: () -> Unit) {
+private fun TelemetrySaltResetAction(onRotateSalt: () -> Unit) {
     var showConfirmDialog by remember { mutableStateOf(false) }
 
     if (showConfirmDialog) {
@@ -196,7 +196,7 @@ private fun TelemetrySaltResetAction(onRotateTelemetrySalt: () -> Unit) {
                     label = stringResource(R.string.confirm_rotate_telemetry_salt_confirm),
                     onClick = {
                         showConfirmDialog = false
-                        onRotateTelemetrySalt()
+                        onRotateSalt()
                     },
                 ),
             visuals =

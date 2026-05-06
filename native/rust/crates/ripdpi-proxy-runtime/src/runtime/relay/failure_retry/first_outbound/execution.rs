@@ -4,7 +4,7 @@ use ripdpi_session::SessionState;
 
 use crate::runtime::desync::{send_with_group, OutboundSendError};
 use crate::runtime::state::RuntimeState;
-use ripdpi_runtime_policy::runtime_policy::ConnectionRoute;
+use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 pub(super) fn execute_first_write(
     upstream: &mut TcpStream,

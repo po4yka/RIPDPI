@@ -13,7 +13,7 @@ pub(super) use ripdpi_proxy_config::{
     ProxyUiUdpChainStep, ADAPTIVE_FAKE_TTL_DEFAULT_DELTA, ADAPTIVE_FAKE_TTL_DEFAULT_FALLBACK,
     ADAPTIVE_FAKE_TTL_DEFAULT_MAX, ADAPTIVE_FAKE_TTL_DEFAULT_MIN,
 };
-pub(super) use ripdpi_runtime_platform::RuntimeCapability;
+pub(super) use ripdpi_runtime_platform::capability::RuntimeCapability;
 
 pub(super) use crate::dns::{encrypted_dns_protocol, parse_bootstrap_ips};
 pub(super) use crate::util::{

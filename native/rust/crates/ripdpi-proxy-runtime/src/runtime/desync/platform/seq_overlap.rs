@@ -18,7 +18,7 @@ pub(crate) fn send_seqovl_tcp(
     flags: DesyncTcpFlagOverrides,
     ip_id_mode: Option<ripdpi_config::IpIdMode>,
 ) -> io::Result<()> {
-    runtime_platform::send_seqovl_tcp(
+    runtime_platform::raw_packet::send_seqovl_tcp(
         stream,
         real_chunk,
         fake_prefix,

@@ -3593,8 +3593,15 @@ dependencies = [
  "native-soak-support",
  "rcgen",
  "ripdpi-config",
+ "ripdpi-diagnostics-candidates",
+ "ripdpi-diagnostics-classification",
  "ripdpi-diagnostics-contracts",
+ "ripdpi-diagnostics-dns",
+ "ripdpi-diagnostics-http",
  "ripdpi-diagnostics-runner",
+ "ripdpi-diagnostics-telegram",
+ "ripdpi-diagnostics-tls",
+ "ripdpi-diagnostics-transport",
  "ripdpi-failure-classifier",
  "ripdpi-packets",
  "ripdpi-proxy-config",
@@ -3701,10 +3708,9 @@ dependencies = [
  "ripdpi-ipfrag",
  "ripdpi-packets",
  "ripdpi-proxy-config",
- "ripdpi-runtime-adaptive",
  "ripdpi-runtime-api",
+ "ripdpi-runtime-decision-ports",
  "ripdpi-runtime-platform",
- "ripdpi-runtime-policy",
  "ripdpi-runtime-services",
  "ripdpi-session",
  "ripdpi-ws-bootstrap",
@@ -3809,6 +3815,14 @@ dependencies = [
  "loom",
  "ripdpi-failure-classifier",
  "ripdpi-proxy-config",
+]
+
+[[package]]
+name = "ripdpi-runtime-decision-ports"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-runtime-adaptive",
+ "ripdpi-runtime-policy",
 ]
 
 [[package]]

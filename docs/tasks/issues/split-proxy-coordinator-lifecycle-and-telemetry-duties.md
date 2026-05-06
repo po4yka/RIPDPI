@@ -1,7 +1,7 @@
 ---
 title: Split proxy coordinator lifecycle and telemetry duties
 type: task
-status: backlog
+status: done
 area: service
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Split proxy coordinator lifecycle and telemetry duties #repo/RIPDPI #area/service #status/backlog ⏫
+- [x] #task Split proxy coordinator lifecycle and telemetry duties #repo/RIPDPI #area/service #status/done ⏫
 
 ## Summary
 
@@ -34,10 +34,10 @@ mode lifecycle from telemetry and handover concerns.
 
 ## Acceptance criteria
 
-- [ ] Runtime start/restart logic is separated from telemetry polling.
-- [ ] Tunnel telemetry synthesis has a focused owner.
-- [ ] Handover restart policy is delegated to handover ownership.
-- [ ] Proxy service tests cover lifecycle and telemetry paths independently.
+- [x] Runtime start/restart logic is separated from telemetry polling.
+- [x] Tunnel telemetry synthesis has a focused owner.
+- [x] Handover restart policy is delegated to handover ownership.
+- [x] Proxy service tests cover lifecycle and telemetry paths independently.
 
 ## Links
 

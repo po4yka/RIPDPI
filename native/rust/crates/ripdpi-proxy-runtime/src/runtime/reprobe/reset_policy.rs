@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use ripdpi_runtime_adaptive::AdaptiveFeedbackPort;
+use ripdpi_runtime_decision_ports::AdaptiveFeedbackPort;
 
 const FAILURE_THRESHOLD: usize = 2;
 

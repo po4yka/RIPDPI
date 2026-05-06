@@ -1,7 +1,7 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_runtime_policy::runtime_policy::ConnectionRoute;
+use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 use super::super::routing::{emit_failure_classified, note_block_signal_for_failure};
 use super::super::state::RuntimeState;

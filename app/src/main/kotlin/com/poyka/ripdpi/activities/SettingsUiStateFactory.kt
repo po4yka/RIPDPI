@@ -61,6 +61,7 @@ import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.data.usesSeqOverlapFakeProfile
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
+import com.poyka.ripdpi.ui.state.SettingsUiState
 
 private data class ChainAnalysisResult(
     val tcpChainSteps: List<TcpChainStepModel>,

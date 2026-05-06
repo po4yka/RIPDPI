@@ -1,7 +1,7 @@
 ---
 title: Split VPN telemetry lifecycle responsibilities
 type: task
-status: backlog
+status: done
 area: service
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Split VPN telemetry lifecycle responsibilities #repo/RIPDPI #area/service #status/backlog ⏫
+- [x] #task Split VPN telemetry lifecycle responsibilities #repo/RIPDPI #area/service #status/done ⏫
 
 ## Summary
 
@@ -33,11 +33,11 @@ telemetry polling, DNS policy recovery, and service lifecycle failure handling.
 
 ## Acceptance criteria
 
-- [ ] Telemetry coordinator only collects and publishes telemetry state.
-- [ ] Fatal runtime failure handling and service stop policy move to lifecycle
+- [x] Telemetry coordinator only collects and publishes telemetry state.
+- [x] Fatal runtime failure handling and service stop policy move to lifecycle
     ownership.
-- [ ] DNS policy tunnel refresh moves to DNS/tunnel coordination ownership.
-- [ ] Unit tests cover the split collaborators and existing service tests stay
+- [x] DNS policy tunnel refresh moves to DNS/tunnel coordination ownership.
+- [x] Unit tests cover the split collaborators and existing service tests stay
     green.
 
 ## Links

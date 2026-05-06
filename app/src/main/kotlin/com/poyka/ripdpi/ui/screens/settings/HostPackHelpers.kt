@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.HostPackRefreshFailureCodeUiModel
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.HostPackCatalog
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
@@ -10,6 +9,7 @@ import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.HostPackTargetBlacklist
 import com.poyka.ripdpi.data.HostPackTargetWhitelist
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter

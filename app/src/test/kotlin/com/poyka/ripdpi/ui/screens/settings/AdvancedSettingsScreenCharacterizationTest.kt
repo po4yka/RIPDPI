@@ -11,8 +11,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToKey
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -291,7 +291,7 @@ class AdvancedSettingsScreenCharacterizationTest {
                             onForgetLearnedHosts = {},
                             onClearRememberedNetworks = {},
                             onWsTunnelModeChanged = {},
-                            onRotateTelemetrySalt = {},
+                            onRotateSalt = {},
                             onSaveActivationRange = { _, _, _ -> },
                             onResetAdaptiveSplit = {},
                             onResetAdaptiveFakeTtlProfile = {},

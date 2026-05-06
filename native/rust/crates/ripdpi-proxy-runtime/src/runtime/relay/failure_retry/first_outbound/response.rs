@@ -10,7 +10,7 @@ use crate::runtime::relay::failure_retry::first_outbound::should_note_server_ttl
 use crate::runtime::relay::failure_retry::retry_logic::record_stream_relay_success;
 use crate::runtime::relay::first_exchange::{read_first_response, FirstResponse};
 use crate::runtime::state::RuntimeState;
-use ripdpi_runtime_policy::runtime_policy::ConnectionRoute;
+use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 pub(super) enum FirstResponseDecision {
     Complete { recorded_success: bool },

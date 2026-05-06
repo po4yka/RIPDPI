@@ -40,7 +40,7 @@ pub(super) fn shutdown_direction(writer: &TcpStream, reader: &TcpStream) {
 
 pub(super) fn detach_drop_sack_if_needed(drop_sack: bool, upstream: &TcpStream) {
     if drop_sack {
-        let _ = platform::detach_drop_sack(upstream);
+        let _ = platform::socket::detach_drop_sack(upstream);
     }
 }
 

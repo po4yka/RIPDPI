@@ -10,8 +10,8 @@ use std::thread;
 use std::time::Duration;
 
 use crate::sync::{Arc, AtomicBool, Ordering};
+use ripdpi_runtime_decision_ports::policy::extract_host;
 use ripdpi_runtime_platform as platform;
-use ripdpi_runtime_policy::runtime_policy::extract_host;
 use ripdpi_session::{
     encode_socks4_reply, encode_socks5_reply, parse_http_connect_request, parse_socks4_request, parse_socks5_request,
     ClientRequest, SessionConfig, SessionError, SocketType, S_ER_CMD, S_ER_GEN, S_VER5,
@@ -51,7 +51,7 @@ pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::
 }
 
 fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
-    let target = platform::original_dst(&client)
+    let target = platform::socket::original_dst(&client)
         .map_err(|e| io::Error::other(format!("get transparent proxy original destination: {e}")))?;
     let local = client.local_addr()?;
     if local == target {

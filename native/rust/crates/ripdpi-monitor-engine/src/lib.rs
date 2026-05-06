@@ -42,7 +42,7 @@ pub use ripdpi_diagnostics_contracts::{
     TelegramVerdict, ThroughputObservationFact, ThroughputProbeStatus, ThroughputTarget, TlsProbeStatus,
     TransportFailureKind, DIAGNOSTICS_ENGINE_SCHEMA_VERSION,
 };
-pub use ripdpi_diagnostics_runner::transport::TransportConfig;
+pub use ripdpi_diagnostics_transport::transport::TransportConfig;
 pub use session::MonitorSession;
 
 pub fn parse_proxy_config_payload_json(json: &str) -> Result<ProxyConfigPayload, String> {

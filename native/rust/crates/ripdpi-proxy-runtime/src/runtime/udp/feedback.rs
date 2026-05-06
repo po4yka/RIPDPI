@@ -1,7 +1,7 @@
 use std::io;
 
 use ripdpi_config::DETECT_CONNECT;
-use ripdpi_runtime_policy::runtime_policy::{RouteAdvance, TransportProtocol};
+use ripdpi_runtime_decision_ports::policy::{RouteAdvance, TransportProtocol};
 
 use super::flow::UdpFlowActivationState;
 use crate::runtime::adaptive::{

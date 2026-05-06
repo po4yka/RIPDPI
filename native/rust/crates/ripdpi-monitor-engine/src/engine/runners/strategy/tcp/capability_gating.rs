@@ -17,7 +17,7 @@ pub(super) struct TcpCapabilities {
     pub(super) baseline_ech_capable: bool,
     pub(super) fake_ttl_available: bool,
     pub(super) tcp_fast_open_available: bool,
-    pub(super) ipfrag_caps: ripdpi_runtime_platform::IpFragmentationCapabilities,
+    pub(super) ipfrag_caps: ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities,
 }
 
 #[derive(Clone, Copy)]

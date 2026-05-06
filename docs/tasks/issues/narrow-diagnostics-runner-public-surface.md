@@ -1,7 +1,7 @@
 ---
 title: Narrow diagnostics runner public surface
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Narrow diagnostics runner public surface #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [x] #task Narrow diagnostics runner public surface #repo/RIPDPI #area/diagnostics #status/done 🔼
 
 ## Summary
 
@@ -33,10 +33,10 @@ becoming a broad diagnostics facade again.
 
 ## Acceptance criteria
 
-- [ ] Runner root exposes only execution-owned types and entry points.
-- [ ] Consumers import protocol helpers from split protocol crates directly.
-- [ ] Compile tests or boundary checks prevent broad re-export regressions.
-- [ ] Diagnostics runner tests stay green.
+- [x] Runner root exposes only execution-owned types and entry points.
+- [x] Consumers import protocol helpers from split protocol crates directly.
+- [x] Compile tests or boundary checks prevent broad re-export regressions.
+- [x] Diagnostics runner tests stay green.
 
 ## Links
 

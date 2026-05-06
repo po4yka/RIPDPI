@@ -1,7 +1,7 @@
 ---
 title: Extract service status telemetry projection policy
 type: task
-status: backlog
+status: done
 area: service
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Extract service status telemetry projection policy #repo/RIPDPI #area/service #status/backlog ⏫
+- [x] #task Extract service status telemetry projection policy #repo/RIPDPI #area/service #status/done ⏫
 
 ## Summary
 
@@ -35,12 +35,12 @@ network identity, and strategy reporting policy.
 
 ## Acceptance criteria
 
-- [ ] Status reporter persists status and delegates projection policy to focused
+- [x] Status reporter persists status and delegates projection policy to focused
     collaborators.
-- [ ] Network fingerprint hashing and handover classification have an explicit
+- [x] Network fingerprint hashing and handover classification have an explicit
     owner.
-- [ ] Winning-strategy family derivation is separated from status persistence.
-- [ ] Unit tests cover projection behavior after extraction.
+- [x] Winning-strategy family derivation is separated from status persistence.
+- [x] Unit tests cover projection behavior after extraction.
 
 ## Links
 

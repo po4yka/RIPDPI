@@ -1,7 +1,7 @@
 ---
 title: Split advanced settings binder by feature
 type: task
-status: backlog
+status: done
 area: ui
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Split advanced settings binder by feature #repo/RIPDPI #area/ui #status/backlog 🔼
+- [x] #task Split advanced settings binder by feature #repo/RIPDPI #area/ui #status/done 🔼
 
 ## Summary
 
@@ -33,13 +33,13 @@ binders registered with the settings shell.
 
 ## Acceptance criteria
 
-- [ ] Adaptive, desync, DNS, routing, tunnel, and WARP mutations live in
+- [x] Adaptive, desync, DNS, routing, tunnel, and WARP mutations live in
     feature-owned binders.
-- [ ] Settings shell registers binders without depending on each feature's
+- [x] Settings shell registers binders without depending on each feature's
     mutation internals.
-- [ ] Adding a new feature setting does not require editing a large shared
+- [x] Adding a new feature setting does not require editing a large shared
     binder.
-- [ ] Existing settings mutation tests stay green.
+- [x] Existing settings mutation tests stay green.
 
 ## Links
 

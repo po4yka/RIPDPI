@@ -1,7 +1,7 @@
 ---
 title: Thin VPN service shell platform lifecycle glue
 type: task
-status: backlog
+status: done
 area: service
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Thin VPN service shell platform lifecycle glue #repo/RIPDPI #area/service #status/backlog ⏫
+- [x] #task Thin VPN service shell platform lifecycle glue #repo/RIPDPI #area/service #status/done ⏫
 
 ## Summary
 
@@ -36,12 +36,12 @@ binding behind focused collaborators.
 
 ## Acceptance criteria
 
-- [ ] `RipDpiVpnService` primarily delegates Android lifecycle events to
+- [x] `RipDpiVpnService` primarily delegates Android lifecycle events to
     focused owners.
-- [ ] Protect socket and JNI protect callback lifecycle move behind a dedicated
+- [x] Protect socket and JNI protect callback lifecycle move behind a dedicated
     platform-protection owner.
-- [ ] Notification rendering is separated from runtime/session composition.
-- [ ] Underlying-network binding has a focused lifecycle owner and tests.
+- [x] Notification rendering is separated from runtime/session composition.
+- [x] Underlying-network binding has a focused lifecycle owner and tests.
 
 ## Links
 

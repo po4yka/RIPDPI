@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.screens.settings
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.HostPackRefreshFailureCodeUiModel
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.HostPackCatalog
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
@@ -13,6 +12,7 @@ import com.poyka.ripdpi.data.HostPackSource
 import com.poyka.ripdpi.data.HostPackTargetBlacklist
 import com.poyka.ripdpi.data.HostPackTargetWhitelist
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

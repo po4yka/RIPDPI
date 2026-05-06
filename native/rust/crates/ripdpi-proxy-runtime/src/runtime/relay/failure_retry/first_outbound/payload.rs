@@ -4,7 +4,7 @@ use std::time::{Duration, Instant};
 
 use crate::runtime::relay::tls_boundary::OutboundTlsClientHelloAssembler;
 use crate::runtime::state::RuntimeState;
-use ripdpi_runtime_policy::runtime_policy::{extract_host, is_tls_client_hello_payload};
+use ripdpi_runtime_decision_ports::policy::{extract_host, is_tls_client_hello_payload};
 
 const FIRST_OUTBOUND_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 

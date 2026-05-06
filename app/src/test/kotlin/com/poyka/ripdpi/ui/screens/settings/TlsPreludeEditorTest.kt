@@ -1,13 +1,13 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.activities.DesyncCoreUiState
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.TlsPreludeUiState
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

@@ -1,4 +1,4 @@
-use ripdpi_config::{FakeOrder, FakeSeqMode, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind};
+use ripdpi_config::{FakeOrder, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind};
 
 use crate::types::ProxyConfigError;
 
@@ -10,6 +10,18 @@ pub(crate) fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConf
     let mut multidisorder_count = 0usize;
 
     for (index, step) in steps.iter().enumerate() {
+        let typed_step = step.try_typed_step().map_err(|error| {
+            if error.field() == "fake ordering" {
+                return ProxyConfigError::InvalidConfig(format!(
+                    "{} must not declare fake ordering fields",
+                    tcp_chain_step_kind_label(error.kind())
+                ));
+            }
+            ProxyConfigError::InvalidConfig(format!(
+                "{} has incompatible TCP chain payload: {error}",
+                tcp_chain_step_kind_label(error.kind())
+            ))
+        })?;
         let kind = step.kind();
         if kind.is_tls_prelude() {
             if saw_send_step {
@@ -29,7 +41,12 @@ pub(crate) fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConf
                 if send_step_count != 0 {
                     return Err(ProxyConfigError::InvalidConfig("seqovl must be the first tcp send step".to_string()));
                 }
-                if !step.seq_overlap_payload().is_some_and(|payload| (1..=32).contains(&payload.overlap_size)) {
+                let ripdpi_config::TcpTypedChainStep::SeqOverlap { payload, .. } = typed_step else {
+                    return Err(ProxyConfigError::InvalidConfig(
+                        "seqovl requires sequence-overlap payload".to_string(),
+                    ));
+                };
+                if !(1..=32).contains(&payload.overlap_size) {
                     return Err(ProxyConfigError::InvalidConfig("seqovl overlapSize must be in 1..=32".to_string()));
                 }
                 saw_seqovl = true;
@@ -58,19 +75,13 @@ pub(crate) fn validate_tcp_chain(steps: &[TcpChainStep]) -> Result<(), ProxyConf
                 tcp_chain_step_kind_label(kind)
             )));
         }
-        let fake_ordering = step.fake_ordering();
-        if kind.supports_fake_ordering() {
+        if let ripdpi_config::TcpTypedChainStep::HostFake { payload, .. } = typed_step {
             if kind == TcpChainStepKind::HostFake
-                && fake_ordering.order != FakeOrder::BeforeEach
-                && step.midhost_offset().is_none()
+                && payload.ordering.order != FakeOrder::BeforeEach
+                && payload.midhost_offset.is_none()
             {
                 return Err(ProxyConfigError::InvalidConfig("hostfake fakeOrder requires midhostMarker".to_string()));
             }
-        } else if fake_ordering.order != FakeOrder::BeforeEach || fake_ordering.seq_mode != FakeSeqMode::Duplicate {
-            return Err(ProxyConfigError::InvalidConfig(format!(
-                "{} must not declare fake ordering fields",
-                tcp_chain_step_kind_label(kind)
-            )));
         }
     }
 

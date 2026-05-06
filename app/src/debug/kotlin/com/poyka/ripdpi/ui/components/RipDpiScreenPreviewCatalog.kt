@@ -20,7 +20,6 @@ import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.HomeApproachSummaryUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.OnboardingUiState
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
@@ -32,6 +31,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsScreen
 import com.poyka.ripdpi.ui.screens.home.HomeScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.settings.SettingsScreen
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import kotlin.time.Duration.Companion.minutes

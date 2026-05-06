@@ -1,7 +1,7 @@
 ---
 title: Epic - Finish SRP residual architecture debt
 type: epic
-status: backlog
+status: done
 area: epic
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Epic - Finish SRP residual architecture debt #repo/RIPDPI #area/epic #status/backlog ⏫
+- [x] #task Epic - Finish SRP residual architecture debt #repo/RIPDPI #area/epic #status/done ⏫
 
 ## Goal
 
@@ -120,32 +120,32 @@ shape must actually change.
 
 ## Ship definition
 
-- [ ] Proxy runtime socket execution depends on selected-decision ports instead
+- [x] Proxy runtime socket execution depends on selected-decision ports instead
     of directly linking policy/parsing engines.
-- [ ] VPN telemetry no longer owns lifecycle stop/fatal-failure/DNS refresh
+- [x] VPN telemetry no longer owns lifecycle stop/fatal-failure/DNS refresh
     policy.
-- [ ] Service runtime/session DI and proxy-mode runtime orchestration are split
+- [x] Service runtime/session DI and proxy-mode runtime orchestration are split
     by runtime family.
-- [ ] VPN Android service shell and VPN coordinator delegate platform lifecycle
+- [x] VPN Android service shell and VPN coordinator delegate platform lifecycle
     glue and runtime-family composition to focused owners.
-- [ ] WARP bootstrap/provisioning is separated from proxy runtime construction
+- [x] WARP bootstrap/provisioning is separated from proxy runtime construction
     and WARP process supervision.
-- [ ] Service status reporting separates persistence, network identity,
+- [x] Service status reporting separates persistence, network identity,
     telemetry projection, and strategy reporting policy.
-- [ ] Diagnostics runner root exposes only execution-owned API.
-- [ ] Diagnostics and platform compatibility facades are explicit, narrow, and
+- [x] Diagnostics runner root exposes only execution-owned API.
+- [x] Diagnostics and platform compatibility facades are explicit, narrow, and
     opt-in.
-- [ ] TCP chain step invalid combinations are impossible or centrally rejected
+- [x] TCP chain step invalid combinations are impossible or centrally rejected
     by typed variants.
-- [ ] Settings and config UI aggregates are split along feature ownership.
-- [ ] Architecture gates no longer report worsened long-composable baselines for
+- [x] Settings and config UI aggregates are split along feature ownership.
+- [x] Architecture gates no longer report worsened long-composable baselines for
     the covered screens.
-- [ ] `scripts/ci/check_architecture_health.py --check` reports no new or
+- [x] `scripts/ci/check_architecture_health.py --check` reports no new or
     worsened P2/P3 entries for the covered paths, and any stale baseline entries
     are removed only after verifying the current code no longer matches them.
-- [ ] No baseline is increased as a substitute for refactoring. Any accepted
+- [x] No baseline is increased as a substitute for refactoring. Any accepted
     debt needs a separate explicit task, not this epic's completion.
-- [ ] Existing Kotlin, Rust, architecture, and screenshot validations stay green.
+- [x] Existing Kotlin, Rust, architecture, and screenshot validations stay green.
 
 ## Child tasks
 

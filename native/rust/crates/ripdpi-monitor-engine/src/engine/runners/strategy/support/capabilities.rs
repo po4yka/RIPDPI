@@ -1,4 +1,4 @@
-use ripdpi_runtime_platform::RuntimeCapability;
+use ripdpi_runtime_platform::capability::RuntimeCapability;
 
 use crate::candidates::StrategyCandidateSpec;
 use crate::types::StrategyProbeCandidateSummary;
@@ -10,7 +10,7 @@ const GENERIC_EMITTER_ELIGIBILITY_RATIONALE: &str = "Required emitter capability
 pub(in crate::engine::runners::strategy) fn capability_available(
     capability: RuntimeCapability,
     fake_ttl_available: bool,
-    ipfrag_caps: ripdpi_runtime_platform::IpFragmentationCapabilities,
+    ipfrag_caps: ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities,
 ) -> bool {
     match capability {
         RuntimeCapability::TtlWrite => fake_ttl_available,
@@ -25,10 +25,10 @@ pub(in crate::engine::runners::strategy) fn annotate_emitter_execution(
     summary: &mut StrategyProbeCandidateSummary,
     spec: &StrategyCandidateSpec,
     fake_ttl_available: bool,
-    ipfrag_caps: ripdpi_runtime_platform::IpFragmentationCapabilities,
+    ipfrag_caps: ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities,
 ) {
     if spec.exact_emitter_requires_root
-        && !ripdpi_runtime_platform::seqovl_supported()
+        && !ripdpi_runtime_platform::tcp::seqovl_supported()
         && spec.approximate_fallback_family.is_some()
     {
         summary.emitter_downgraded = true;

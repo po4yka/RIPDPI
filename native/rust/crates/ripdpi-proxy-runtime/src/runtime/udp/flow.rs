@@ -9,7 +9,7 @@ use ripdpi_session::SessionState;
 use super::feedback::note_udp_flow_timeout_failure;
 use super::flow_selection::try_advance_udp_preferred_target;
 use crate::runtime::state::{RuntimeState, UDP_FLOW_IDLE_TIMEOUT};
-use ripdpi_runtime_policy::runtime_policy::ConnectionRoute;
+use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 pub(super) struct UdpFlowActivationState {
     pub(super) session: SessionState,

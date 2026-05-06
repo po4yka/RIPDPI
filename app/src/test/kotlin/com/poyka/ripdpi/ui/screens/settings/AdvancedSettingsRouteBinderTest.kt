@@ -6,7 +6,6 @@ import com.poyka.ripdpi.activities.FakeTransportUiState
 import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsMutation
 import com.poyka.ripdpi.activities.SettingsNoticeTone
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
@@ -16,6 +15,7 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

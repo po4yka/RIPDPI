@@ -22,7 +22,7 @@ pub(crate) fn send_multi_disorder_tcp(
     ip_id_mode: Option<ripdpi_config::IpIdMode>,
 ) -> io::Result<()> {
     let runtime_segments = to_runtime_payload_segments(segments);
-    runtime_platform::send_multi_disorder_tcp(
+    runtime_platform::raw_packet::send_multi_disorder_tcp(
         stream,
         payload,
         &runtime_segments,
@@ -35,9 +35,11 @@ pub(crate) fn send_multi_disorder_tcp(
     )
 }
 
-fn to_runtime_payload_segments(segments: &[DesyncTcpPayloadSegment]) -> Vec<runtime_platform::TcpPayloadSegment> {
+fn to_runtime_payload_segments(
+    segments: &[DesyncTcpPayloadSegment],
+) -> Vec<runtime_platform::raw_packet::TcpPayloadSegment> {
     segments
         .iter()
-        .map(|segment| runtime_platform::TcpPayloadSegment { start: segment.start, end: segment.end })
+        .map(|segment| runtime_platform::raw_packet::TcpPayloadSegment { start: segment.start, end: segment.end })
         .collect()
 }

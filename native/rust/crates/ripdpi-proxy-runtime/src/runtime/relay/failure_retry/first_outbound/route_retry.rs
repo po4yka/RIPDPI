@@ -13,7 +13,7 @@ use crate::runtime::routing::{
     reconnect_target_without_tfo,
 };
 use crate::runtime::state::RuntimeState;
-use ripdpi_runtime_policy::runtime_policy::ConnectionRoute;
+use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 #[derive(Default)]
 pub(super) struct RouteRetryState {

@@ -1,6 +1,6 @@
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_runtime_policy::runtime_policy::{extract_host, ConnectionRoute};
+use ripdpi_runtime_decision_ports::policy::{extract_host, ConnectionRoute};
 
 use super::super::super::state::RuntimeState;
 use super::ConnectRelayError;

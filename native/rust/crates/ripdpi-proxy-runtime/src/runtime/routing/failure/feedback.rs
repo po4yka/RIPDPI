@@ -2,7 +2,7 @@ use std::io;
 use std::net::SocketAddr;
 
 use ripdpi_failure_classifier::{ClassifiedFailure, FailureClass};
-use ripdpi_runtime_policy::runtime_policy::{ConnectionRoute, TransportProtocol};
+use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, TransportProtocol};
 
 use super::trigger::failure_penalizes_strategy;
 use crate::runtime::adaptive::{

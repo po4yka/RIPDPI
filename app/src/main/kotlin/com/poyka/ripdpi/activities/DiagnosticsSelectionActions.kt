@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
+import com.poyka.ripdpi.ui.diagnostics.toApproachDetailUiModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 

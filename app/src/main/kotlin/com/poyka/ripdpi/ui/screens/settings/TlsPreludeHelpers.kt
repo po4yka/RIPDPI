@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
 import com.poyka.ripdpi.data.DefaultTlsRandRecMinFragmentSize
@@ -9,6 +8,7 @@ import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 import com.poyka.ripdpi.data.replaceTlsPreludeTcpChainSteps
+import com.poyka.ripdpi.ui.state.SettingsUiState
 
 internal fun SettingsUiState.toTlsPreludeEditorStep(
     mode: String = tlsPrelude.tlsPreludeMode,

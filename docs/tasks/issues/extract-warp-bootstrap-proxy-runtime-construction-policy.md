@@ -1,7 +1,7 @@
 ---
 title: Extract WARP bootstrap proxy runtime construction policy
 type: task
-status: backlog
+status: done
 area: service
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Extract WARP bootstrap proxy runtime construction policy #repo/RIPDPI #area/service #status/backlog ⏫
+- [x] #task Extract WARP bootstrap proxy runtime construction policy #repo/RIPDPI #area/service #status/done ⏫
 
 ## Summary
 
@@ -35,12 +35,12 @@ proxy runtime construction mechanics.
 
 ## Acceptance criteria
 
-- [ ] WARP enrollment delegates proxy runtime construction to a focused
+- [x] WARP enrollment delegates proxy runtime construction to a focused
     bootstrap proxy builder/runner contract.
-- [ ] WARP control-plane host filtering is expressed as bootstrap policy rather
+- [x] WARP control-plane host filtering is expressed as bootstrap policy rather
     than inline proxy-preference mutation.
-- [ ] Relay/WARP disabling for enrollment is isolated and tested.
-- [ ] Bootstrap start/stop cleanup remains symmetric on failure and
+- [x] Relay/WARP disabling for enrollment is isolated and tested.
+- [x] Bootstrap start/stop cleanup remains symmetric on failure and
     cancellation.
 
 ## Links

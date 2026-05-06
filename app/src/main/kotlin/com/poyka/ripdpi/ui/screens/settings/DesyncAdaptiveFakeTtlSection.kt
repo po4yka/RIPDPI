@@ -17,7 +17,6 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeAdaptive
 import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeCustom
 import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeFixed
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -28,6 +27,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList

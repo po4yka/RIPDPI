@@ -4,7 +4,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
 use ripdpi_config::{QuicInitialMode, RuntimeConfig};
-use ripdpi_runtime_policy::runtime_policy::{extract_host_info, ExtractedHost, HostSource};
+use ripdpi_runtime_decision_ports::policy::{extract_host_info, ExtractedHost, HostSource};
 
 use super::flow::UdpFlowActivationState;
 use super::flow_selection::ensure_udp_flow_selected;

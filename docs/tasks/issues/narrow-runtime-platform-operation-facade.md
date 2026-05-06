@@ -1,7 +1,7 @@
 ---
 title: Narrow runtime platform operation facade
 type: task
-status: backlog
+status: done
 area: engine
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Narrow runtime platform operation facade #repo/RIPDPI #area/engine #status/backlog 🔼
+- [x] #task Narrow runtime platform operation facade #repo/RIPDPI #area/engine #status/done 🔼
 
 ## Summary
 
@@ -35,11 +35,11 @@ operation families are not exposed through one facade.
 
 ## Acceptance criteria
 
-- [ ] Runtime-platform root exposes only stable top-level contracts.
-- [ ] Operation families are available through focused modules or feature-gated
+- [x] Runtime-platform root exposes only stable top-level contracts.
+- [x] Operation families are available through focused modules or feature-gated
     namespaces.
-- [ ] Consumers import only the operation family they need.
-- [ ] Rust boundary checks prevent broad root re-export regressions.
+- [x] Consumers import only the operation family they need.
+- [x] Rust boundary checks prevent broad root re-export regressions.
 
 ## Links
 

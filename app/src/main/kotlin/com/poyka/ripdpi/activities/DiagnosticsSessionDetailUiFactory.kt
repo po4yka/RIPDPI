@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
+import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeReportUiModel
 import javax.inject.Inject
 
 internal interface DiagnosticsSessionDetailUiMapper {

@@ -1,7 +1,7 @@
 ---
 title: Split DNS settings screen into focused sections
 type: task
-status: backlog
+status: done
 area: ui
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Split DNS settings screen into focused sections #repo/RIPDPI #area/ui #status/backlog 🔼
+- [x] #task Split DNS settings screen into focused sections #repo/RIPDPI #area/ui #status/done 🔼
 
 ## Summary
 
@@ -34,11 +34,11 @@ mode/protocol controls, custom resolver editors, and save actions.
 
 ## Acceptance criteria
 
-- [ ] Main DNS settings composable delegates to focused section composables.
-- [ ] Local text state and validation are isolated from catalog presentation.
-- [ ] LongMethod/CyclomaticComplexMethod suppressions are removed or no longer
+- [x] Main DNS settings composable delegates to focused section composables.
+- [x] Local text state and validation are isolated from catalog presentation.
+- [x] LongMethod/CyclomaticComplexMethod suppressions are removed or no longer
     needed for the main composable.
-- [ ] DNS settings tests and screenshots stay green.
+- [x] DNS settings tests and screenshots stay green.
 
 ## Links
 

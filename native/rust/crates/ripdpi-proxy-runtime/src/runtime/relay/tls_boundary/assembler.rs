@@ -1,6 +1,6 @@
 use ripdpi_config::RuntimeConfig;
 
-use ripdpi_runtime_policy::runtime_policy::is_tls_client_hello_payload;
+use ripdpi_runtime_decision_ports::policy::is_tls_client_hello_payload;
 
 use super::FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT;
 

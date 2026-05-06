@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use ripdpi_config::DETECT_CONNECT;
 use ripdpi_packets::{IS_HTTP, IS_HTTPS};
-use ripdpi_runtime_policy::runtime_policy::{
+use ripdpi_runtime_decision_ports::policy::{
     extract_host, group_requires_payload, route_matches_payload, TransportProtocol,
 };
 
@@ -14,7 +14,7 @@ use super::ConnectRelayError;
 
 pub(super) enum DelayConnect {
     Immediate,
-    Delayed { route: ripdpi_runtime_policy::runtime_policy::ConnectionRoute, payload: Vec<u8> },
+    Delayed { route: ripdpi_runtime_decision_ports::policy::ConnectionRoute, payload: Vec<u8> },
     Closed,
 }
 

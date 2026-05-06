@@ -3,8 +3,8 @@ use std::net::SocketAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use ripdpi_runtime_api::RuntimeTelemetrySink;
-use ripdpi_runtime_policy::direct_path_learning::DirectPathLearningObserver;
-use ripdpi_runtime_policy::runtime_policy::TransportProtocol;
+use ripdpi_runtime_decision_ports::direct_path_learning::DirectPathLearningObserver;
+use ripdpi_runtime_decision_ports::policy::TransportProtocol;
 
 use crate::runtime::state::RuntimeState;
 

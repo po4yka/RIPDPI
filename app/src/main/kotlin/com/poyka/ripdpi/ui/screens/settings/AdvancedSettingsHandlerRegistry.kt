@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.DefaultFakeOffsetMarker
 import com.poyka.ripdpi.data.DefaultTlsRecordMarker
 import com.poyka.ripdpi.data.normalizeFakeOrder
 import com.poyka.ripdpi.data.normalizeFakeSeqMode
 import com.poyka.ripdpi.data.normalizeIpIdMode
 import com.poyka.ripdpi.data.normalizeOffsetExpression
+import com.poyka.ripdpi.ui.state.SettingsUiState
 
 internal typealias ToggleHandler = AdvancedSettingsMutationWriter.(Boolean) -> Unit
 internal typealias TextHandler = AdvancedSettingsMutationWriter.(String, SettingsUiState) -> Unit

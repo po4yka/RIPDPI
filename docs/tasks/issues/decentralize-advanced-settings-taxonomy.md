@@ -1,7 +1,7 @@
 ---
 title: Decentralize advanced settings taxonomy
 type: task
-status: backlog
+status: done
 area: ui
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Decentralize advanced settings taxonomy #repo/RIPDPI #area/ui #status/backlog 🔼
+- [x] #task Decentralize advanced settings taxonomy #repo/RIPDPI #area/ui #status/done 🔼
 
 ## Summary
 
@@ -33,11 +33,11 @@ entropy, routing protection, and host/strategy packs.
 
 ## Acceptance criteria
 
-- [ ] Feature sections own their setting identifiers and action payloads.
-- [ ] Adding a setting for one feature does not require editing a broad shared
+- [x] Feature sections own their setting identifiers and action payloads.
+- [x] Adding a setting for one feature does not require editing a broad shared
     taxonomy surface.
-- [ ] Route-level code composes feature-owned taxonomy providers.
-- [ ] Advanced settings unit/screenshot coverage remains green.
+- [x] Route-level code composes feature-owned taxonomy providers.
+- [x] Advanced settings unit/screenshot coverage remains green.
 
 ## Links
 

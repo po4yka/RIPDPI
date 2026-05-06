@@ -2,35 +2,13 @@
   "version": 1,
   "entries": [
     {
-      "id": "broad-root-facade:native-rust-crates-ripdpi-diagnostics-classification-src-lib.rs:lib.rs",
-      "rule": "broad-root-facade",
-      "priority": 3,
-      "path": "native/rust/crates/ripdpi-diagnostics-classification/src/lib.rs",
-      "message": "root file exposes 11 public modules/re-exports",
-      "metricName": "rootExports",
-      "baselineValue": 11,
-      "limit": 10,
-      "suggestion": "Keep the root as a small facade and move implementation families into modules."
-    },
-    {
       "id": "broad-root-facade:native-rust-crates-ripdpi-diagnostics-net-src-lib.rs:lib.rs",
       "rule": "broad-root-facade",
       "priority": 3,
       "path": "native/rust/crates/ripdpi-diagnostics-net/src/lib.rs",
-      "message": "root file exposes 31 public modules/re-exports",
+      "message": "root file exposes 29 public modules/re-exports",
       "metricName": "rootExports",
-      "baselineValue": 31,
-      "limit": 10,
-      "suggestion": "Keep the root as a small facade and move implementation families into modules."
-    },
-    {
-      "id": "broad-root-facade:native-rust-crates-ripdpi-diagnostics-probes-src-lib.rs:lib.rs",
-      "rule": "broad-root-facade",
-      "priority": 3,
-      "path": "native/rust/crates/ripdpi-diagnostics-probes/src/lib.rs",
-      "message": "root file exposes 40 public modules/re-exports",
-      "metricName": "rootExports",
-      "baselineValue": 40,
+      "baselineValue": 29,
       "limit": 10,
       "suggestion": "Keep the root as a small facade and move implementation families into modules."
     },
@@ -79,17 +57,6 @@
       "suggestion": "Keep the root as a small facade and move implementation families into modules."
     },
     {
-      "id": "broad-root-facade:native-rust-crates-ripdpi-runtime-platform-src-lib.rs:lib.rs",
-      "rule": "broad-root-facade",
-      "priority": 3,
-      "path": "native/rust/crates/ripdpi-runtime-platform/src/lib.rs",
-      "message": "root file exposes 16 public modules/re-exports",
-      "metricName": "rootExports",
-      "baselineValue": 16,
-      "limit": 10,
-      "suggestion": "Keep the root as a small facade and move implementation families into modules."
-    },
-    {
       "id": "broad-root-facade:native-rust-crates-ripdpi-tunnel-core-src-lib.rs:lib.rs",
       "rule": "broad-root-facade",
       "priority": 3,
@@ -123,17 +90,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-configviewmodel.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigViewModel.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigViewModel.kt carries 1 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsscanactions.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
@@ -156,17 +112,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsuicontextsupport.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiContextSupport.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiContextSupport.kt carries 5 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 5,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsuistateassembler.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
@@ -185,17 +130,6 @@
       "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStateFactory.kt carries 3 complexity suppressions",
       "metricName": "suppressionCount",
       "baselineValue": 3,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsuistrategysupport.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStrategySupport.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStrategySupport.kt carries 7 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 7,
       "limit": 0,
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
@@ -262,39 +196,6 @@
       "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/ModeEditorRoute.kt carries 1 complexity suppressions",
       "metricName": "suppressionCount",
       "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-config-modeeditorscreen.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/ModeEditorScreen.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/ModeEditorScreen.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-config-relayfields.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/RelayFields.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/RelayFields.kt carries 4 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 4,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-detection-detectioncheckscreen.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionCheckScreen.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionCheckScreen.kt carries 3 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 3,
       "limit": 0,
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
@@ -398,28 +299,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-dns-dnssettingsscreen.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/dns/DnsSettingsScreen.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/dns/DnsSettingsScreen.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-home-homeanalysispanels.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/home/HomeAnalysisPanels.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/home/HomeAnalysisPanels.kt carries 3 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 3,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-home-homescreen.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
@@ -504,17 +383,6 @@
       "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/DesyncAdaptiveSplitSection.kt carries 2 complexity suppressions",
       "metricName": "suppressionCount",
       "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-desyncsection.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/DesyncSection.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/DesyncSection.kt carries 3 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 3,
       "limit": 0,
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
@@ -607,33 +475,11 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "complexity-suppression:core-service-src-main-kotlin-com-poyka-ripdpi-services-connectionpolicyresolver.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ConnectionPolicyResolver.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ConnectionPolicyResolver.kt carries 1 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "complexity-suppression:core-service-src-main-kotlin-com-poyka-ripdpi-services-networkfingerprintprovider.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
       "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt",
       "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt carries 1 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:core-service-src-main-kotlin-com-poyka-ripdpi-services-serviceruntimecoordinator.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ServiceRuntimeCoordinator.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ServiceRuntimeCoordinator.kt carries 1 complexity suppressions",
       "metricName": "suppressionCount",
       "baselineValue": 1,
       "limit": 0,
@@ -662,39 +508,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "complexity-suppression:core-service-src-main-kotlin-com-poyka-ripdpi-services-upstreamrelaysupervisorsupport.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/UpstreamRelaySupervisorSupport.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/UpstreamRelaySupervisorSupport.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:core-service-src-main-kotlin-com-poyka-ripdpi-services-vpnserviceruntimecoordinator.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/VpnServiceRuntimeCoordinator.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/VpnServiceRuntimeCoordinator.kt carries 3 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 3,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:core-service-src-main-kotlin-com-poyka-ripdpi-services-warpruntimesupervisor.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/WarpRuntimeSupervisor.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/WarpRuntimeSupervisor.kt carries 1 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "dependency-hub:native-rust-crates-ripdpi-monitor-engine-cargo.toml:ripdpi-monitor-engine",
       "rule": "dependency-hub",
       "priority": 3,
@@ -703,17 +516,6 @@
       "metricName": "internalDependencyCount",
       "baselineValue": 16,
       "limit": 12,
-      "suggestion": "Move feature composition behind narrower ports or adapter crates."
-    },
-    {
-      "id": "dependency-hub:native-rust-crates-ripdpi-proxy-runtime-cargo.toml:ripdpi-proxy-runtime",
-      "rule": "dependency-hub",
-      "priority": 2,
-      "path": "native/rust/crates/ripdpi-proxy-runtime/Cargo.toml",
-      "message": "ripdpi-proxy-runtime links 17 internal crates",
-      "metricName": "internalDependencyCount",
-      "baselineValue": 17,
-      "limit": 16,
       "suggestion": "Move feature composition behind narrower ports or adapter crates."
     },
     {
@@ -838,28 +640,6 @@
       "suggestion": "Depend on a narrow interface crate or feature adapter instead of the concrete lane."
     },
     {
-      "id": "discouraged-dependency-edge:native-rust-crates-ripdpi-proxy-runtime-cargo.toml:ripdpi-proxy-runtime--ripdpi-runtime-adaptive",
-      "rule": "discouraged-dependency-edge",
-      "priority": 2,
-      "path": "native/rust/crates/ripdpi-proxy-runtime/Cargo.toml",
-      "message": "ripdpi-proxy-runtime depends directly on ripdpi-runtime-adaptive",
-      "metricName": "edgePresent",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Depend on a narrow interface crate or feature adapter instead of the concrete lane."
-    },
-    {
-      "id": "discouraged-dependency-edge:native-rust-crates-ripdpi-proxy-runtime-cargo.toml:ripdpi-proxy-runtime--ripdpi-runtime-policy",
-      "rule": "discouraged-dependency-edge",
-      "priority": 2,
-      "path": "native/rust/crates/ripdpi-proxy-runtime/Cargo.toml",
-      "message": "ripdpi-proxy-runtime depends directly on ripdpi-runtime-policy",
-      "metricName": "edgePresent",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Depend on a narrow interface crate or feature adapter instead of the concrete lane."
-    },
-    {
       "id": "discouraged-dependency-edge:native-rust-crates-ripdpi-proxy-runtime-cargo.toml:ripdpi-proxy-runtime--ripdpi-ws-bootstrap",
       "rule": "discouraged-dependency-edge",
       "priority": 3,
@@ -904,17 +684,6 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-configviewmodel.kt:adaptive-desync-dns-relay-routing-telemetry-tunnel",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigViewModel.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigViewModel.kt references 7 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 7,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
       "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsscanactions.kt:adaptive-desync-diagnostics-dns-telemetry-tunnel",
       "rule": "kotlin-feature-spread",
       "priority": 3,
@@ -948,17 +717,6 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsuistrategysupport.kt:adaptive-desync-diagnostics-dns-relay-routing-telemetry-tunnel",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStrategySupport.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStrategySupport.kt references 8 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 8,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
       "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-historyconnectiondetailuifactory.kt:adaptive-desync-diagnostics-dns-routing-telemetry-tunnel",
       "rule": "kotlin-feature-spread",
       "priority": 3,
@@ -966,17 +724,6 @@
       "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/HistoryConnectionDetailUiFactory.kt references 7 feature families",
       "metricName": "featureFamilyCount",
       "baselineValue": 7,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-logsviewmodel.kt:adaptive-desync-diagnostics-dns-telemetry-tunnel",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/LogsViewModel.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/LogsViewModel.kt references 6 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 6,
       "limit": 5,
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
@@ -1025,17 +772,6 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-settingsuimodels.kt:adaptive-desync-diagnostics-dns-routing-telemetry-tunnel-warp",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/SettingsUiModels.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/SettingsUiModels.kt references 8 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 8,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
       "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-settingsuistatefactory.kt:adaptive-desync-diagnostics-dns-relay-routing-telemetry-tunnel-warp",
       "rule": "kotlin-feature-spread",
       "priority": 3,
@@ -1058,33 +794,11 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-config-modeeditorscreenpreviews.kt:adaptive-desync-dns-relay-routing-tunnel",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/ModeEditorScreenPreviews.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/ModeEditorScreenPreviews.kt references 6 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 6,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
       "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-detection-detectioncheckviewmodel.kt:adaptive-desync-dns-routing-telemetry-tunnel",
       "rule": "kotlin-feature-spread",
       "priority": 3,
       "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionCheckViewModel.kt",
       "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionCheckViewModel.kt references 6 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 6,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-advancedsettingsbinder.kt:adaptive-desync-dns-routing-tunnel-warp",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsBinder.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsBinder.kt references 6 feature families",
       "metricName": "featureFamilyCount",
       "baselineValue": 6,
       "limit": 5,
@@ -1113,33 +827,11 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-advancedsettingsscreen.kt:adaptive-desync-diagnostics-dns-routing-telemetry-tunnel-warp",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsScreen.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsScreen.kt references 8 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 8,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
       "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-advancedsettingssections.kt:adaptive-desync-diagnostics-dns-telemetry-tunnel",
       "rule": "kotlin-feature-spread",
       "priority": 3,
       "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsSections.kt",
       "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsSections.kt references 6 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 6,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
-      "id": "kotlin-feature-spread:core-service-src-main-kotlin-com-poyka-ripdpi-services-connectionpolicyresolver.kt:adaptive-desync-diagnostics-dns-routing-telemetry",
-      "rule": "kotlin-feature-spread",
-      "priority": 2,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ConnectionPolicyResolver.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ConnectionPolicyResolver.kt references 6 feature families",
       "metricName": "featureFamilyCount",
       "baselineValue": 6,
       "limit": 5,
@@ -1153,83 +845,6 @@
       "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ProxyServiceRuntimeCoordinator.kt references 7 feature families",
       "metricName": "featureFamilyCount",
       "baselineValue": 7,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
-      "id": "kotlin-feature-spread:core-service-src-main-kotlin-com-poyka-ripdpi-services-ripdpivpnservice.kt:adaptive-diagnostics-dns-relay-routing-telemetry-tunnel-warp",
-      "rule": "kotlin-feature-spread",
-      "priority": 2,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/RipDpiVpnService.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/RipDpiVpnService.kt references 8 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 8,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
-      "id": "kotlin-feature-spread:core-service-src-main-kotlin-com-poyka-ripdpi-services-serviceruntimecoordinator.kt:desync-diagnostics-dns-relay-routing-telemetry-tunnel-warp",
-      "rule": "kotlin-feature-spread",
-      "priority": 2,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ServiceRuntimeCoordinator.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ServiceRuntimeCoordinator.kt references 8 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 8,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
-      "id": "kotlin-feature-spread:core-service-src-main-kotlin-com-poyka-ripdpi-services-servicesessioncomponents.kt:diagnostics-dns-relay-routing-telemetry-tunnel-warp",
-      "rule": "kotlin-feature-spread",
-      "priority": 2,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ServiceSessionComponents.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ServiceSessionComponents.kt references 7 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 7,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
-      "id": "kotlin-feature-spread:core-service-src-main-kotlin-com-poyka-ripdpi-services-servicestatusreporter.kt:adaptive-desync-diagnostics-dns-relay-telemetry-tunnel-warp",
-      "rule": "kotlin-feature-spread",
-      "priority": 2,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ServiceStatusReporter.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ServiceStatusReporter.kt references 8 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 8,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
-      "id": "kotlin-feature-spread:core-service-src-main-kotlin-com-poyka-ripdpi-services-vpnserviceruntimecoordinator.kt:adaptive-diagnostics-dns-relay-routing-telemetry-tunnel-warp",
-      "rule": "kotlin-feature-spread",
-      "priority": 2,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/VpnServiceRuntimeCoordinator.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/VpnServiceRuntimeCoordinator.kt references 8 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 8,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
-      "id": "kotlin-feature-spread:core-service-src-main-kotlin-com-poyka-ripdpi-services-warpbootstrapproxyrunner.kt:adaptive-desync-relay-telemetry-tunnel-warp",
-      "rule": "kotlin-feature-spread",
-      "priority": 2,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/WarpBootstrapProxyRunner.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/WarpBootstrapProxyRunner.kt references 6 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 6,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
-      "id": "kotlin-feature-spread:core-service-src-main-kotlin-com-poyka-ripdpi-services-warpruntimesupervisor.kt:diagnostics-dns-routing-telemetry-tunnel-warp",
-      "rule": "kotlin-feature-spread",
-      "priority": 2,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/WarpRuntimeSupervisor.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/WarpRuntimeSupervisor.kt references 6 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 6,
       "limit": 5,
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
@@ -1256,17 +871,6 @@
       "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
     },
     {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsuicontextsupport.kt:diagnosticsuifactorysupport",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiContextSupport.kt",
-      "message": "DiagnosticsUiFactorySupport spans 193 lines",
-      "metricName": "functionLines",
-      "baselineValue": 193,
-      "limit": 120,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
       "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-activities-mainhomediagnosticsactions.kt:initialize",
       "rule": "long-function-or-composable",
       "priority": 3,
@@ -1275,28 +879,6 @@
       "metricName": "functionLines",
       "baselineValue": 176,
       "limit": 120,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-config-modeeditorscreen.kt:modeeditorscreen",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/ModeEditorScreen.kt",
-      "message": "ModeEditorScreen spans 635 lines",
-      "metricName": "functionLines",
-      "baselineValue": 635,
-      "limit": 100,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-detection-detectioncheckscreen.kt:detectioncheckscreen",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionCheckScreen.kt",
-      "message": "DetectionCheckScreen spans 268 lines",
-      "metricName": "functionLines",
-      "baselineValue": 268,
-      "limit": 100,
       "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
     },
     {
@@ -1333,28 +915,6 @@
       "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
     },
     {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-dns-dnssettingsscreen.kt:dnssettingsscreen",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/dns/DnsSettingsScreen.kt",
-      "message": "DnsSettingsScreen spans 431 lines",
-      "metricName": "functionLines",
-      "baselineValue": 431,
-      "limit": 100,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-home-homeanalysispanels.kt:homediagnosticsbottomsheethost",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/home/HomeAnalysisPanels.kt",
-      "message": "HomeDiagnosticsBottomSheetHost spans 498 lines",
-      "metricName": "functionLines",
-      "baselineValue": 498,
-      "limit": 100,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
       "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-home-homestatuspanels.kt:homeconnectionbutton",
       "rule": "long-function-or-composable",
       "priority": 3,
@@ -1384,39 +944,6 @@
       "message": "OnboardingIllustrationBox spans 207 lines",
       "metricName": "functionLines",
       "baselineValue": 207,
-      "limit": 100,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-advancedsettingsscreen.kt:rememberadvancedsettingscontentstate",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsScreen.kt",
-      "message": "rememberAdvancedSettingsContentState spans 181 lines",
-      "metricName": "functionLines",
-      "baselineValue": 181,
-      "limit": 100,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-desyncsection.kt:lazylistscope",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/DesyncSection.kt",
-      "message": "LazyListScope spans 721 lines",
-      "metricName": "functionLines",
-      "baselineValue": 721,
-      "limit": 100,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-theme-ripdpistate.kt:basestatestyle",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/theme/RipDpiState.kt",
-      "message": "baseStateStyle spans 184 lines",
-      "metricName": "functionLines",
-      "baselineValue": 184,
       "limit": 100,
       "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
     },
@@ -1476,17 +1003,6 @@
       "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
     },
     {
-      "id": "long-function-or-composable:core-service-src-main-kotlin-com-poyka-ripdpi-services-connectionpolicyresolver.kt:resolve",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ConnectionPolicyResolver.kt",
-      "message": "resolve spans 379 lines",
-      "metricName": "functionLines",
-      "baselineValue": 379,
-      "limit": 120,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
       "id": "long-function-or-composable:native-rust-crates-ripdpi-android-proxy-adapter-src-config.rs:proxy_ui_config_strategy",
       "rule": "long-function-or-composable",
       "priority": 3,
@@ -1496,39 +1012,6 @@
       "baselineValue": 212,
       "limit": 180,
       "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "oversized-source-file:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsuicontextsupport.kt:kotlin",
-      "rule": "oversized-source-file",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiContextSupport.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiContextSupport.kt has 740 code lines",
-      "metricName": "codeLines",
-      "baselineValue": 740,
-      "limit": 700,
-      "suggestion": "Split unrelated responsibilities into focused modules before growing this file."
-    },
-    {
-      "id": "oversized-source-file:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsuistrategysupport.kt:kotlin",
-      "rule": "oversized-source-file",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStrategySupport.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStrategySupport.kt has 922 code lines",
-      "metricName": "codeLines",
-      "baselineValue": 922,
-      "limit": 700,
-      "suggestion": "Split unrelated responsibilities into focused modules before growing this file."
-    },
-    {
-      "id": "oversized-source-file:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-advancedsettingsbinder.kt:kotlin",
-      "rule": "oversized-source-file",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsBinder.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsBinder.kt has 711 code lines",
-      "metricName": "codeLines",
-      "baselineValue": 711,
-      "limit": 700,
-      "suggestion": "Split unrelated responsibilities into focused modules before growing this file."
     }
   ]
 }

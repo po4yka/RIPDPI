@@ -1,5 +1,5 @@
 use crate::sync::{Arc, Mutex};
-use ripdpi_runtime_policy::runtime_policy::extract_host;
+use ripdpi_runtime_decision_ports::policy::extract_host;
 use ripdpi_session::SessionState;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream};
@@ -115,8 +115,11 @@ pub(super) fn flush_outbound_payload(
     let peer_addr = writer.peer_addr()?;
     let group = if let Some(rotation) = rotation {
         let mut rotation = rotation.lock().map_err(|_| io::Error::other("rotation mutex poisoned"))?;
-        let retrans_baseline =
-            if is_new_round { ripdpi_runtime_platform::tcp_total_retransmissions(writer).ok().flatten() } else { None };
+        let retrans_baseline = if is_new_round {
+            ripdpi_runtime_platform::tcp::tcp_total_retransmissions(writer).ok().flatten()
+        } else {
+            None
+        };
         if is_new_round {
             rotation.start_round(
                 &state.config,

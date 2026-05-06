@@ -1,7 +1,7 @@
 use std::io;
 
 use ripdpi_config::RuntimeConfig;
-use ripdpi_runtime_policy::runtime_policy::ConnectionRoute;
+use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 use super::flow::UdpFlowActivationState;
 use super::sockets::build_udp_upstream_socket;
@@ -91,7 +91,7 @@ pub(super) fn maybe_rebind_udp_source_port(
 #[cfg(test)]
 mod tests {
     use ripdpi_config::RuntimeConfig;
-    use ripdpi_runtime_policy::runtime_policy::ConnectionRoute;
+    use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
     use super::should_rebind_udp_source_port;
 

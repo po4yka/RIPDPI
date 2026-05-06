@@ -1,5 +1,7 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.diagnostics
 
+import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
+import com.poyka.ripdpi.activities.DiagnosticsUiFactorySupport
 import com.poyka.ripdpi.data.formatOffsetExpressionLabel
 import com.poyka.ripdpi.data.strategyLaneFamilyLabel
 import com.poyka.ripdpi.diagnostics.BypassStrategySignature

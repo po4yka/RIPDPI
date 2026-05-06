@@ -224,133 +224,113 @@ fun ModeEditorRoute(
     ModeEditorScreen(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
+        actions =
+            ModeEditorActions(
+                onBack = handleBack,
+                onModeSelected = { viewModel.updateDraft { copy(mode = it) } },
+                onDnsIpChanged = { viewModel.updateDraft { copy(dnsIp = it) } },
+                onProxyIpChanged = { viewModel.updateDraft { copy(proxyIp = it) } },
+                onProxyPortChanged = { viewModel.updateDraft { copy(proxyPort = it) } },
+                onMaxConnectionsChanged = { viewModel.updateDraft { copy(maxConnections = it) } },
+                onBufferSizeChanged = { viewModel.updateDraft { copy(bufferSize = it) } },
+                onChainDslChanged = viewModel::updateChainDsl,
+                onDefaultTtlChanged = { viewModel.updateDraft { copy(defaultTtl = it) } },
+                onCommandLineEnabledChanged = { viewModel.updateDraft { copy(useCommandLineSettings = it) } },
+                onCommandLineArgsChanged = { viewModel.updateDraft { copy(commandLineArgs = it) } },
+                onRelayEnabledChanged = { viewModel.updateDraft { copy(relayEnabled = it) } },
+                onRelayKindChanged = { relayKind -> updateRelayKind(viewModel, relayKind) },
+                onRelayProfileIdChanged = { viewModel.updateDraft { copy(relayProfileId = it) } },
+                onRelayPresetSelected = viewModel::applyRelayPreset,
+                onRelayServerChanged = { viewModel.updateDraft { copy(relayServer = it) } },
+                onRelayServerPortChanged = { viewModel.updateDraft { copy(relayServerPort = it) } },
+                onRelayServerNameChanged = { viewModel.updateDraft { copy(relayServerName = it) } },
+                onRelayRealityPublicKeyChanged = { viewModel.updateDraft { copy(relayRealityPublicKey = it) } },
+                onRelayRealityShortIdChanged = { viewModel.updateDraft { copy(relayRealityShortId = it) } },
+                onRelayVlessTransportChanged = { viewModel.updateDraft { copy(relayVlessTransport = it) } },
+                onRelayXhttpPathChanged = { viewModel.updateDraft { copy(relayXhttpPath = it) } },
+                onRelayXhttpHostChanged = { viewModel.updateDraft { copy(relayXhttpHost = it) } },
+                onRelayCloudflareTunnelModeChanged = { viewModel.updateDraft { copy(relayCloudflareTunnelMode = it) } },
+                onRelayCloudflarePublishLocalOriginUrlChanged = {
+                    viewModel.updateDraft { copy(relayCloudflarePublishLocalOriginUrl = it) }
+                },
+                onRelayCloudflareCredentialsRefChanged = {
+                    viewModel.updateDraft { copy(relayCloudflareCredentialsRef = it) }
+                },
+                onRelayCloudflareTunnelTokenChanged = {
+                    viewModel.updateDraft { copy(relayCloudflareTunnelToken = it) }
+                },
+                onRelayCloudflareTunnelCredentialsJsonChanged = {
+                    viewModel.updateDraft { copy(relayCloudflareTunnelCredentialsJson = it) }
+                },
+                onRelayVlessUuidChanged = { viewModel.updateDraft { copy(relayVlessUuid = it) } },
+                onRelayHysteriaPasswordChanged = { viewModel.updateDraft { copy(relayHysteriaPassword = it) } },
+                onRelayHysteriaSalamanderKeyChanged = {
+                    viewModel.updateDraft { copy(relayHysteriaSalamanderKey = it) }
+                },
+                onRelayChainEntryProfileIdChanged = { viewModel.updateDraft { copy(relayChainEntryProfileId = it) } },
+                onRelayChainExitProfileIdChanged = { viewModel.updateDraft { copy(relayChainExitProfileId = it) } },
+                onRelayMasqueUrlChanged = { viewModel.updateDraft { copy(relayMasqueUrl = it) } },
+                onRelayMasqueAuthModeChanged = { viewModel.updateDraft { copy(relayMasqueAuthMode = it) } },
+                onRelayMasqueAuthTokenChanged = { viewModel.updateDraft { copy(relayMasqueAuthToken = it) } },
+                onRelayMasqueClientCertificateChainPemChanged = {
+                    viewModel.updateDraft { copy(relayMasqueClientCertificateChainPem = it) }
+                },
+                onRelayMasqueClientPrivateKeyPemChanged = {
+                    viewModel.updateDraft { copy(relayMasqueClientPrivateKeyPem = it) }
+                },
+                onRelayMasqueUseHttp2FallbackChanged = {
+                    viewModel.updateDraft { copy(relayMasqueUseHttp2Fallback = it) }
+                },
+                onRelayMasqueCloudflareGeohashEnabledChanged = { enabled ->
+                    updateMasqueGeohash(viewModel, context, coarseLocationPermissionLauncher::launch, enabled)
+                },
+                onRelayMasqueImportCertificateChainClicked = {
+                    pendingMasqueImportAction = MasqueImportAction.CertificateChain
+                    documentLauncher.launch(arrayOf("*/*"))
+                },
+                onRelayMasqueImportPrivateKeyClicked = {
+                    pendingMasqueImportAction = MasqueImportAction.PrivateKey
+                    documentLauncher.launch(arrayOf("*/*"))
+                },
+                onRelayMasqueImportPkcs12Clicked = {
+                    pendingMasqueImportAction = MasqueImportAction.Pkcs12
+                    documentLauncher.launch(arrayOf("*/*"))
+                },
+                onRelayTuicUuidChanged = { viewModel.updateDraft { copy(relayTuicUuid = it) } },
+                onRelayTuicPasswordChanged = { viewModel.updateDraft { copy(relayTuicPassword = it) } },
+                onRelayTuicZeroRttChanged = { viewModel.updateDraft { copy(relayTuicZeroRtt = it) } },
+                onRelayTuicCongestionControlChanged = {
+                    viewModel.updateDraft { copy(relayTuicCongestionControl = it) }
+                },
+                onRelayShadowTlsPasswordChanged = { viewModel.updateDraft { copy(relayShadowTlsPassword = it) } },
+                onRelayShadowTlsInnerProfileIdChanged = {
+                    viewModel.updateDraft { copy(relayShadowTlsInnerProfileId = it) }
+                },
+                onRelayNaiveUsernameChanged = { viewModel.updateDraft { copy(relayNaiveUsername = it) } },
+                onRelayNaivePasswordChanged = { viewModel.updateDraft { copy(relayNaivePassword = it) } },
+                onRelayNaivePathChanged = { viewModel.updateDraft { copy(relayNaivePath = it) } },
+                onRelayPtBridgeLineChanged = { viewModel.updateDraft { copy(relayPtBridgeLine = it) } },
+                onRelayWebTunnelUrlChanged = { viewModel.updateDraft { copy(relayWebTunnelUrl = it) } },
+                onRelaySnowflakeBrokerUrlChanged = { viewModel.updateDraft { copy(relaySnowflakeBrokerUrl = it) } },
+                onRelaySnowflakeFrontDomainChanged = { viewModel.updateDraft { copy(relaySnowflakeFrontDomain = it) } },
+                onRelayFinalmaskTypeChanged = { viewModel.updateDraft { copy(relayFinalmaskType = it) } },
+                onRelayFinalmaskHeaderHexChanged = { viewModel.updateDraft { copy(relayFinalmaskHeaderHex = it) } },
+                onRelayFinalmaskTrailerHexChanged = { viewModel.updateDraft { copy(relayFinalmaskTrailerHex = it) } },
+                onRelayFinalmaskRandRangeChanged = { viewModel.updateDraft { copy(relayFinalmaskRandRange = it) } },
+                onRelayFinalmaskSudokuSeedChanged = { viewModel.updateDraft { copy(relayFinalmaskSudokuSeed = it) } },
+                onRelayFinalmaskFragmentPacketsChanged = {
+                    viewModel.updateDraft { copy(relayFinalmaskFragmentPackets = it) }
+                },
+                onRelayFinalmaskFragmentMinBytesChanged = {
+                    viewModel.updateDraft { copy(relayFinalmaskFragmentMinBytes = it) }
+                },
+                onRelayFinalmaskFragmentMaxBytesChanged = {
+                    viewModel.updateDraft { copy(relayFinalmaskFragmentMaxBytes = it) }
+                },
+                onRelayUdpEnabledChanged = { viewModel.updateDraft { copy(relayUdpEnabled = it) } },
+                onRelayLocalSocksPortChanged = { viewModel.updateDraft { copy(relayLocalSocksPort = it) } },
+                onSave = viewModel::saveDraft,
+            ),
         modifier = modifier,
-        onBack = handleBack,
-        onModeSelected = { viewModel.updateDraft { copy(mode = it) } },
-        onDnsIpChanged = { viewModel.updateDraft { copy(dnsIp = it) } },
-        onProxyIpChanged = { viewModel.updateDraft { copy(proxyIp = it) } },
-        onProxyPortChanged = { viewModel.updateDraft { copy(proxyPort = it) } },
-        onMaxConnectionsChanged = { viewModel.updateDraft { copy(maxConnections = it) } },
-        onBufferSizeChanged = { viewModel.updateDraft { copy(bufferSize = it) } },
-        onChainDslChanged = viewModel::updateChainDsl,
-        onDefaultTtlChanged = { viewModel.updateDraft { copy(defaultTtl = it) } },
-        onCommandLineEnabledChanged = { viewModel.updateDraft { copy(useCommandLineSettings = it) } },
-        onCommandLineArgsChanged = { viewModel.updateDraft { copy(commandLineArgs = it) } },
-        onRelayEnabledChanged = { viewModel.updateDraft { copy(relayEnabled = it) } },
-        onRelayKindChanged = {
-            viewModel.updateDraft {
-                when (it) {
-                    RelayKindCloudflareTunnel -> {
-                        copy(
-                            relayKind = it,
-                            relayVlessTransport = RelayVlessTransportXhttp,
-                            relayUdpEnabled = false,
-                        )
-                    }
-
-                    RelayKindShadowTlsV3,
-                    RelayKindNaiveProxy,
-                    -> {
-                        copy(
-                            relayKind = it,
-                            relayUdpEnabled = false,
-                        )
-                    }
-
-                    else -> {
-                        copy(relayKind = it)
-                    }
-                }
-            }
-        },
-        onRelayProfileIdChanged = { viewModel.updateDraft { copy(relayProfileId = it) } },
-        onRelayPresetSelected = viewModel::applyRelayPreset,
-        onRelayServerChanged = { viewModel.updateDraft { copy(relayServer = it) } },
-        onRelayServerPortChanged = { viewModel.updateDraft { copy(relayServerPort = it) } },
-        onRelayServerNameChanged = { viewModel.updateDraft { copy(relayServerName = it) } },
-        onRelayRealityPublicKeyChanged = { viewModel.updateDraft { copy(relayRealityPublicKey = it) } },
-        onRelayRealityShortIdChanged = { viewModel.updateDraft { copy(relayRealityShortId = it) } },
-        onRelayVlessTransportChanged = { viewModel.updateDraft { copy(relayVlessTransport = it) } },
-        onRelayXhttpPathChanged = { viewModel.updateDraft { copy(relayXhttpPath = it) } },
-        onRelayXhttpHostChanged = { viewModel.updateDraft { copy(relayXhttpHost = it) } },
-        onRelayCloudflareTunnelModeChanged = { viewModel.updateDraft { copy(relayCloudflareTunnelMode = it) } },
-        onRelayCloudflarePublishLocalOriginUrlChanged = {
-            viewModel.updateDraft { copy(relayCloudflarePublishLocalOriginUrl = it) }
-        },
-        onRelayCloudflareCredentialsRefChanged = { viewModel.updateDraft { copy(relayCloudflareCredentialsRef = it) } },
-        onRelayCloudflareTunnelTokenChanged = { viewModel.updateDraft { copy(relayCloudflareTunnelToken = it) } },
-        onRelayCloudflareTunnelCredentialsJsonChanged = {
-            viewModel.updateDraft { copy(relayCloudflareTunnelCredentialsJson = it) }
-        },
-        onRelayVlessUuidChanged = { viewModel.updateDraft { copy(relayVlessUuid = it) } },
-        onRelayHysteriaPasswordChanged = { viewModel.updateDraft { copy(relayHysteriaPassword = it) } },
-        onRelayHysteriaSalamanderKeyChanged = { viewModel.updateDraft { copy(relayHysteriaSalamanderKey = it) } },
-        onRelayChainEntryProfileIdChanged = { viewModel.updateDraft { copy(relayChainEntryProfileId = it) } },
-        onRelayChainExitProfileIdChanged = { viewModel.updateDraft { copy(relayChainExitProfileId = it) } },
-        onRelayMasqueUrlChanged = { viewModel.updateDraft { copy(relayMasqueUrl = it) } },
-        onRelayMasqueAuthModeChanged = { viewModel.updateDraft { copy(relayMasqueAuthMode = it) } },
-        onRelayMasqueAuthTokenChanged = { viewModel.updateDraft { copy(relayMasqueAuthToken = it) } },
-        onRelayMasqueClientCertificateChainPemChanged = {
-            viewModel.updateDraft { copy(relayMasqueClientCertificateChainPem = it) }
-        },
-        onRelayMasqueClientPrivateKeyPemChanged = {
-            viewModel.updateDraft { copy(relayMasqueClientPrivateKeyPem = it) }
-        },
-        onRelayMasqueUseHttp2FallbackChanged = { viewModel.updateDraft { copy(relayMasqueUseHttp2Fallback = it) } },
-        onRelayMasqueCloudflareGeohashEnabledChanged = { enabled ->
-            if (!enabled) {
-                viewModel.updateDraft { copy(relayMasqueCloudflareGeohashEnabled = false) }
-            } else {
-                val permissionState =
-                    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
-                if (permissionState == PackageManager.PERMISSION_GRANTED) {
-                    viewModel.updateDraft { copy(relayMasqueCloudflareGeohashEnabled = true) }
-                } else {
-                    coarseLocationPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
-                }
-            }
-        },
-        onRelayMasqueImportCertificateChainClicked = {
-            pendingMasqueImportAction = MasqueImportAction.CertificateChain
-            documentLauncher.launch(arrayOf("*/*"))
-        },
-        onRelayMasqueImportPrivateKeyClicked = {
-            pendingMasqueImportAction = MasqueImportAction.PrivateKey
-            documentLauncher.launch(arrayOf("*/*"))
-        },
-        onRelayMasqueImportPkcs12Clicked = {
-            pendingMasqueImportAction = MasqueImportAction.Pkcs12
-            documentLauncher.launch(arrayOf("*/*"))
-        },
-        onRelayTuicUuidChanged = { viewModel.updateDraft { copy(relayTuicUuid = it) } },
-        onRelayTuicPasswordChanged = { viewModel.updateDraft { copy(relayTuicPassword = it) } },
-        onRelayTuicZeroRttChanged = { viewModel.updateDraft { copy(relayTuicZeroRtt = it) } },
-        onRelayTuicCongestionControlChanged = { viewModel.updateDraft { copy(relayTuicCongestionControl = it) } },
-        onRelayShadowTlsPasswordChanged = { viewModel.updateDraft { copy(relayShadowTlsPassword = it) } },
-        onRelayShadowTlsInnerProfileIdChanged = { viewModel.updateDraft { copy(relayShadowTlsInnerProfileId = it) } },
-        onRelayNaiveUsernameChanged = { viewModel.updateDraft { copy(relayNaiveUsername = it) } },
-        onRelayNaivePasswordChanged = { viewModel.updateDraft { copy(relayNaivePassword = it) } },
-        onRelayNaivePathChanged = { viewModel.updateDraft { copy(relayNaivePath = it) } },
-        onRelayPtBridgeLineChanged = { viewModel.updateDraft { copy(relayPtBridgeLine = it) } },
-        onRelayWebTunnelUrlChanged = { viewModel.updateDraft { copy(relayWebTunnelUrl = it) } },
-        onRelaySnowflakeBrokerUrlChanged = { viewModel.updateDraft { copy(relaySnowflakeBrokerUrl = it) } },
-        onRelaySnowflakeFrontDomainChanged = { viewModel.updateDraft { copy(relaySnowflakeFrontDomain = it) } },
-        onRelayFinalmaskTypeChanged = { viewModel.updateDraft { copy(relayFinalmaskType = it) } },
-        onRelayFinalmaskHeaderHexChanged = { viewModel.updateDraft { copy(relayFinalmaskHeaderHex = it) } },
-        onRelayFinalmaskTrailerHexChanged = { viewModel.updateDraft { copy(relayFinalmaskTrailerHex = it) } },
-        onRelayFinalmaskRandRangeChanged = { viewModel.updateDraft { copy(relayFinalmaskRandRange = it) } },
-        onRelayFinalmaskSudokuSeedChanged = { viewModel.updateDraft { copy(relayFinalmaskSudokuSeed = it) } },
-        onRelayFinalmaskFragmentPacketsChanged = {
-            viewModel.updateDraft { copy(relayFinalmaskFragmentPackets = it) }
-        },
-        onRelayFinalmaskFragmentMinBytesChanged = {
-            viewModel.updateDraft { copy(relayFinalmaskFragmentMinBytes = it) }
-        },
-        onRelayFinalmaskFragmentMaxBytesChanged = {
-            viewModel.updateDraft { copy(relayFinalmaskFragmentMaxBytes = it) }
-        },
-        onRelayUdpEnabledChanged = { viewModel.updateDraft { copy(relayUdpEnabled = it) } },
-        onRelayLocalSocksPortChanged = { viewModel.updateDraft { copy(relayLocalSocksPort = it) } },
-        onSave = viewModel::saveDraft,
     )
 }

@@ -20,7 +20,6 @@ import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.activities.LogsUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.ProxyNetworkUiState
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
 import com.poyka.ripdpi.activities.TlsPreludeUiState
 import com.poyka.ripdpi.activities.buildConfigPresets
@@ -43,6 +42,7 @@ import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsActions
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsScreen
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyScreen
 import com.poyka.ripdpi.ui.screens.settings.TlsPreludeModeDisabled
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 
@@ -174,7 +174,7 @@ private fun noopAdvancedSettingsActions(): AdvancedSettingsActions =
         onForgetLearnedHosts = {},
         onClearRememberedNetworks = {},
         onWsTunnelModeChanged = {},
-        onRotateTelemetrySalt = {},
+        onRotateSalt = {},
         onSaveActivationRange = { _, _, _ -> },
         onResetAdaptiveSplit = {},
         onResetAdaptiveFakeTtlProfile = {},

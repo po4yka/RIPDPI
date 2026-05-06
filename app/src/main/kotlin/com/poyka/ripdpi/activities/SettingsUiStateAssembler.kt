@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.WarpPayloadGenSuggestion
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.security.BiometricAuthManager
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

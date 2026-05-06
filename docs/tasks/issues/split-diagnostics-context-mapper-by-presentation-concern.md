@@ -1,7 +1,7 @@
 ---
 title: Split diagnostics context mapper by presentation concern
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Split diagnostics context mapper by presentation concern #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [x] #task Split diagnostics context mapper by presentation concern #repo/RIPDPI #area/diagnostics #status/done 🔼
 
 ## Summary
 
@@ -34,10 +34,10 @@ context, transport fields, redaction, and timestamp/label helpers.
 
 ## Acceptance criteria
 
-- [ ] Context mapping is split by presentation concern.
-- [ ] LongMethod and complexity suppressions are removed or materially reduced.
-- [ ] Redaction helpers stay centralized enough to avoid privacy regressions.
-- [ ] Diagnostics UI mapper tests cover the extracted pieces.
+- [x] Context mapping is split by presentation concern.
+- [x] LongMethod and complexity suppressions are removed or materially reduced.
+- [x] Redaction helpers stay centralized enough to avoid privacy regressions.
+- [x] Diagnostics UI mapper tests cover the extracted pieces.
 
 ## Links
 

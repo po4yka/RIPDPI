@@ -17,7 +17,7 @@ pub(crate) fn activation_context_from_progress(
     transport: ActivationTransport,
     payload: Option<&[u8]>,
     tcp_segment_hint: Option<ripdpi_desync::TcpSegmentHint>,
-    tcp_activation_state: Option<ripdpi_runtime_platform::TcpActivationState>,
+    tcp_activation_state: Option<ripdpi_runtime_platform::tcp::TcpActivationState>,
     resolved_fake_ttl: Option<u8>,
     adaptive: AdaptivePlannerHints,
 ) -> ActivationContext {

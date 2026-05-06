@@ -22,7 +22,7 @@ pub(super) fn tcp_segment_hint(stream: &TcpStream) -> Option<ripdpi_desync::TcpS
     capability::tcp_segment_hint(stream)
 }
 
-pub(super) fn tcp_activation_state(stream: &TcpStream) -> Option<ripdpi_runtime_platform::TcpActivationState> {
+pub(super) fn tcp_activation_state(stream: &TcpStream) -> Option<ripdpi_runtime_platform::tcp::TcpActivationState> {
     capability::tcp_activation_state(stream)
 }
 

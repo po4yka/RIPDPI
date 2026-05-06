@@ -15,8 +15,8 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.activities.AdaptiveFallbackUiState
 import com.poyka.ripdpi.activities.HostAutolearnUiState
 import com.poyka.ripdpi.activities.ProxyNetworkUiState
-import com.poyka.ripdpi.activities.SettingsUiState
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals

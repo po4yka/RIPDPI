@@ -2,7 +2,7 @@ use crate::candidates::*;
 use crate::util::{TLS_FAKE_PROFILE_GOOGLE_CHROME, TLS_FAKE_PROFILE_GOOGLE_CHROME_HRR};
 use ripdpi_diagnostics_contracts::StrategyEmitterTier;
 use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyUiConfig};
-use ripdpi_runtime_platform::RuntimeCapability;
+use ripdpi_runtime_platform::capability::RuntimeCapability;
 
 fn minimal_ui_config() -> ProxyUiConfig {
     let mut config = ProxyUiConfig::default();
@@ -263,13 +263,19 @@ fn tfo_candidates_are_suppressed_for_upstream_relay_routes() {
 
 #[test]
 fn ipfrag_capability_helpers_split_tcp_and_udp_requirements() {
-    let udp_only =
-        ripdpi_runtime_platform::IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: true, tcp_repair: false };
+    let udp_only = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+        raw_ipv4: true,
+        raw_ipv6: true,
+        tcp_repair: false,
+    };
     assert!(!supports_tcp_ip_fragmentation_for(udp_only));
     assert!(supports_udp_ip_fragmentation_for(udp_only));
 
-    let tcp_and_udp =
-        ripdpi_runtime_platform::IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: true, tcp_repair: true };
+    let tcp_and_udp = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+        raw_ipv4: true,
+        raw_ipv6: true,
+        tcp_repair: true,
+    };
     assert!(supports_tcp_ip_fragmentation_for(tcp_and_udp));
     assert!(supports_udp_ip_fragmentation_for(tcp_and_udp));
 }

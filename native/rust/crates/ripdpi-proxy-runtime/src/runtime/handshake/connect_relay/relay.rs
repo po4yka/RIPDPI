@@ -23,7 +23,7 @@ pub(super) fn delayed_connect_relay(
     target: SocketAddr,
     state: &RuntimeState,
     host_hint: Option<String>,
-    route: ripdpi_runtime_policy::runtime_policy::ConnectionRoute,
+    route: ripdpi_runtime_decision_ports::policy::ConnectionRoute,
     payload: Vec<u8>,
 ) -> Result<(), ConnectRelayError> {
     let upstream_route = connect_delayed_route(target, state, host_hint, route, payload)?;

@@ -17,7 +17,7 @@ pub(crate) fn send_flagged_tcp_payload(
     flags: DesyncTcpFlagOverrides,
     ip_id_mode: Option<ripdpi_config::IpIdMode>,
 ) -> io::Result<()> {
-    runtime_platform::send_flagged_tcp_payload(
+    runtime_platform::raw_packet::send_flagged_tcp_payload(
         stream,
         payload,
         default_ttl,

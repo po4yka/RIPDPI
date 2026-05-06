@@ -1,0 +1,116 @@
+package com.poyka.ripdpi.service.session.proxy
+
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
+import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import com.poyka.ripdpi.data.PolicyHandoverEventStore
+import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.services.ConnectionPolicyResolver
+import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
+import com.poyka.ripdpi.services.NetworkHandoverMonitor
+import com.poyka.ripdpi.services.PermissionWatchdog
+import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
+import com.poyka.ripdpi.services.ProxyRuntimeSupervisorBundle
+import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
+import com.poyka.ripdpi.services.ProxyServiceRuntimeCoordinator
+import com.poyka.ripdpi.services.ProxyServiceSessionComponent
+import com.poyka.ripdpi.services.ScreenStateObserver
+import com.poyka.ripdpi.services.ServiceCoordinatorHost
+import com.poyka.ripdpi.services.ServiceRuntimeRegistry
+import com.poyka.ripdpi.services.ServiceSessionScope
+import com.poyka.ripdpi.services.ServiceStatusReporter
+import com.poyka.ripdpi.services.ServiceStatusReporterFactory
+import com.poyka.ripdpi.services.TelemetryFingerprintHasher
+import com.poyka.ripdpi.services.UpstreamRelaySupervisor
+import com.poyka.ripdpi.services.UpstreamRelaySupervisorFactory
+import com.poyka.ripdpi.services.WarpRuntimeSupervisor
+import com.poyka.ripdpi.services.WarpRuntimeSupervisorFactory
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import kotlinx.coroutines.Dispatchers
+
+@Module
+@InstallIn(ProxyServiceSessionComponent::class)
+internal object ProxyServiceSessionModule {
+    @Provides
+    @ServiceSessionScope
+    fun provideUpstreamRelaySupervisor(
+        host: ServiceCoordinatorHost,
+        factory: UpstreamRelaySupervisorFactory,
+    ): UpstreamRelaySupervisor = factory.create(scope = host.serviceScope, dispatcher = Dispatchers.IO)
+
+    @Provides
+    @ServiceSessionScope
+    fun provideWarpRuntimeSupervisor(
+        host: ServiceCoordinatorHost,
+        factory: WarpRuntimeSupervisorFactory,
+    ): WarpRuntimeSupervisor = factory.create(scope = host.serviceScope, dispatcher = Dispatchers.IO)
+
+    @Provides
+    @ServiceSessionScope
+    fun provideProxyRuntimeSupervisor(
+        host: ServiceCoordinatorHost,
+        factory: ProxyRuntimeSupervisorFactory,
+        networkSnapshotProvider: NativeNetworkSnapshotProvider,
+    ): ProxyRuntimeSupervisor =
+        factory.create(
+            scope = host.serviceScope,
+            dispatcher = Dispatchers.IO,
+            networkSnapshotProvider = networkSnapshotProvider,
+        )
+
+    @Provides
+    @ServiceSessionScope
+    fun provideProxyStatusReporter(
+        serviceStateStore: ServiceStateStore,
+        networkFingerprintProvider: NetworkFingerprintProvider,
+        telemetryFingerprintHasher: TelemetryFingerprintHasher,
+        factory: ServiceStatusReporterFactory,
+    ): ServiceStatusReporter =
+        factory.create(
+            mode = Mode.Proxy,
+            sender = Sender.Proxy,
+            serviceStateStore = serviceStateStore,
+            networkFingerprintProvider = networkFingerprintProvider,
+            telemetryFingerprintHasher = telemetryFingerprintHasher,
+        )
+
+    @Provides
+    @ServiceSessionScope
+    fun provideProxyCoordinator(
+        host: ServiceCoordinatorHost,
+        connectionPolicyResolver: ConnectionPolicyResolver,
+        serviceRuntimeRegistry: ServiceRuntimeRegistry,
+        rememberedNetworkPolicyStore: RememberedNetworkPolicyStore,
+        networkHandoverMonitor: NetworkHandoverMonitor,
+        policyHandoverEventStore: PolicyHandoverEventStore,
+        permissionWatchdog: PermissionWatchdog,
+        upstreamRelaySupervisor: UpstreamRelaySupervisor,
+        warpRuntimeSupervisor: WarpRuntimeSupervisor,
+        proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
+        statusReporter: ServiceStatusReporter,
+        screenStateObserver: ScreenStateObserver,
+        directPathPolicyTelemetryConsumer: DirectPathPolicyTelemetryConsumer,
+    ): ProxyServiceRuntimeCoordinator =
+        ProxyServiceRuntimeCoordinator(
+            host = host,
+            connectionPolicyResolver = connectionPolicyResolver,
+            serviceRuntimeRegistry = serviceRuntimeRegistry,
+            rememberedNetworkPolicyStore = rememberedNetworkPolicyStore,
+            networkHandoverMonitor = networkHandoverMonitor,
+            policyHandoverEventStore = policyHandoverEventStore,
+            permissionWatchdog = permissionWatchdog,
+            supervisors =
+                ProxyRuntimeSupervisorBundle(
+                    upstreamRelaySupervisor = upstreamRelaySupervisor,
+                    warpRuntimeSupervisor = warpRuntimeSupervisor,
+                    proxyRuntimeSupervisor = proxyRuntimeSupervisor,
+                ),
+            statusReporter = statusReporter,
+            screenStateObserver = screenStateObserver,
+            directPathPolicyTelemetryConsumer = directPathPolicyTelemetryConsumer,
+        )
+}

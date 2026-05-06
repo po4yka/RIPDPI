@@ -1,7 +1,7 @@
 ---
 title: Replace TcpChainStep field bag with typed variants
 type: task
-status: backlog
+status: done
 area: transport
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Replace TcpChainStep field bag with typed variants #repo/RIPDPI #area/transport #status/backlog 🔼
+- [x] #task Replace TcpChainStep field bag with typed variants #repo/RIPDPI #area/transport #status/done 🔼
 
 ## Summary
 
@@ -33,13 +33,13 @@ combinations cannot spread into downstream conversion and validation code.
 
 ## Acceptance criteria
 
-- [ ] Mutually exclusive step families are represented by typed variants or an
+- [x] Mutually exclusive step families are represented by typed variants or an
     equivalent invariant-preserving model.
-- [ ] Legacy config parsing still accepts existing profiles and reports
+- [x] Legacy config parsing still accepts existing profiles and reports
     actionable validation errors for invalid combinations.
-- [ ] Downstream conversion no longer polices payload-family invariants
+- [x] Downstream conversion no longer polices payload-family invariants
     repeatedly.
-- [ ] Golden or round-trip tests cover representative TCP step families.
+- [x] Golden or round-trip tests cover representative TCP step families.
 
 ## Links
 

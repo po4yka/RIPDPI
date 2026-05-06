@@ -1,14 +1,10 @@
 package com.poyka.ripdpi.services
 
 import android.Manifest
-import android.app.Notification
-import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.content.pm.ServiceInfo
-import android.net.ConnectivityManager
 import android.net.IpPrefix
 import android.os.Build
 import androidx.core.content.ContextCompat
@@ -20,16 +16,9 @@ import com.poyka.ripdpi.core.defaultTun2SocksTunnelMtu
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsModeEncrypted
-import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
-import com.poyka.ripdpi.utility.NotificationContentBuilder
-import com.poyka.ripdpi.utility.createConnectionNotification
-import com.poyka.ripdpi.utility.createDynamicConnectionNotification
-import com.poyka.ripdpi.utility.registerNotificationChannel
-import dagger.hilt.EntryPoints
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import javax.inject.Provider
@@ -50,61 +39,30 @@ class RipDpiVpnService :
     @Inject
     internal lateinit var sessionComponentBuilderProvider: Provider<VpnServiceSessionComponentBuilder>
 
-    private var sessionComponent: VpnServiceSessionComponent? = null
-    private lateinit var coordinator: VpnServiceRuntimeCoordinator
+    private lateinit var sessionLifecycle: VpnServiceSessionLifecycle
     private lateinit var shellDelegate: ServiceShellDelegate
-    private lateinit var protectSocketServer: VpnProtectSocketServer
+    private lateinit var notificationController: VpnForegroundNotificationController
+    private lateinit var underlyingNetworkBinder: VpnUnderlyingNetworkBinder
     private var revoked = false
 
     override val serviceScope = lifecycleScope
 
     override fun onCreate() {
         super.onCreate()
-        registerNotificationChannel(
-            this,
-            NOTIFICATION_CHANNEL_ID,
-            R.string.vpn_channel_name,
-        )
-        sessionComponent =
-            sessionComponentBuilderProvider
-                .get()
-                .host(this)
-                .vpnService(this)
-                .build()
-        val entryPoint = EntryPoints.get(checkNotNull(sessionComponent), VpnServiceSessionEntryPoint::class.java)
-        coordinator = entryPoint.coordinator()
-        protectSocketServer = entryPoint.protectSocketServer()
-        protectSocketServer.start()
-        com.poyka.ripdpi.core.RipDpiProxyNativeBindings
-            .jniRegisterVpnProtect(this)
-        com.poyka.ripdpi.core.RipDpiWarpNativeBindings
-            .jniRegisterVpnProtect(this)
-        shellDelegate =
-            ServiceShellDelegate(
-                serviceScope = lifecycleScope,
-                serviceLabel = "vpn",
-                onStart = coordinator::start,
-                onStop = coordinator::stop,
-                onRevoke = {
-                    serviceStateStore.emitFailed(
-                        sender = Sender.VPN,
-                        reason = FailureReason.PermissionLost("VPN"),
-                    )
-                    coordinator.stop()
-                },
+        notificationController = VpnForegroundNotificationController(serviceStateStore)
+        notificationController.registerChannel(this)
+        underlyingNetworkBinder = VpnUnderlyingNetworkBinder(this)
+        sessionLifecycle =
+            VpnServiceSessionLifecycle(
+                service = this,
+                serviceStateStore = serviceStateStore,
+                sessionComponentBuilderProvider = sessionComponentBuilderProvider,
             )
+        shellDelegate = sessionLifecycle.createShellDelegate()
     }
 
     override fun onDestroy() {
-        com.poyka.ripdpi.core.RipDpiProxyNativeBindings
-            .jniUnregisterVpnProtect()
-        com.poyka.ripdpi.core.RipDpiWarpNativeBindings
-            .jniUnregisterVpnProtect()
-        protectSocketServer.stop()
-        if (!revoked) {
-            coordinator.onDestroy()
-        }
-        sessionComponent = null
+        sessionLifecycle.destroy(revoked)
         super.onDestroy()
     }
 
@@ -122,7 +80,7 @@ class RipDpiVpnService :
             stopSelf(startId)
             return START_NOT_STICKY
         }
-        startForegroundService()
+        notificationController.startForeground(this)
         return shellDelegate.onStartCommand(intent?.action, startId)
     }
 
@@ -134,38 +92,7 @@ class RipDpiVpnService :
     override fun updateNotification(
         tunnelStats: TunnelStats,
         proxyTelemetry: NativeRuntimeSnapshot,
-    ) {
-        val startedAt = serviceStateStore.telemetry.value.serviceStartedAt ?: return
-        val elapsedMs = System.currentTimeMillis() - startedAt
-        val content =
-            NotificationContentBuilder.buildContentText(
-                txBytes = tunnelStats.txBytes,
-                rxBytes = tunnelStats.rxBytes,
-                elapsedMs = elapsedMs,
-            )
-        val subText =
-            NotificationContentBuilder.buildSubText(
-                activeSessions = proxyTelemetry.activeSessions,
-                rttMs = proxyTelemetry.upstreamRttMs,
-            )
-        val notification =
-            createDynamicConnectionNotification(
-                context = this,
-                channelId = NOTIFICATION_CHANNEL_ID,
-                title = getString(R.string.notification_title),
-                content = content,
-                subText = subText,
-                service = RipDpiVpnService::class.java,
-                whenTimestamp = startedAt,
-            )
-        @Suppress("SwallowedException")
-        try {
-            getSystemService(NotificationManager::class.java)
-                ?.notify(FOREGROUND_SERVICE_ID, notification)
-        } catch (e: SecurityException) {
-            Logger.w { "Cannot update notification: permission revoked" }
-        }
-    }
+    ) = notificationController.update(this, tunnelStats, proxyTelemetry)
 
     override fun requestStopSelf(stopSelfStartId: Int?) {
         val stoppedSelf = stopSelfStartId?.let(::stopSelfResult)
@@ -184,54 +111,7 @@ class RipDpiVpnService :
         )
 
     @android.annotation.SuppressLint("MissingPermission")
-    override fun syncUnderlyingNetworksFromActiveNetwork() {
-        val connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-        val hasNetworkStatePermission = hasPermission(Manifest.permission.ACCESS_NETWORK_STATE)
-        val activeNetwork =
-            if (hasNetworkStatePermission) {
-                connectivityManager.activeNetwork
-            } else {
-                null
-            }
-        val bindingAudit =
-            resolveVpnUpstreamNetworkBindingAudit(
-                hasNetworkStatePermission = hasNetworkStatePermission,
-                activeNetworkAvailable = activeNetwork != null,
-            )
-        Logger.i { "vpn upstream binding audit: ${bindingAudit.logSummary()}" }
-        setUnderlyingNetworks(
-            if (bindingAudit.bindsActiveNetwork && activeNetwork != null) {
-                arrayOf(activeNetwork)
-            } else {
-                null
-            },
-        )
-    }
-
-    private fun hasPermission(permission: String): Boolean =
-        ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
-
-    private fun startForegroundService() {
-        val notification: Notification = createNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                FOREGROUND_SERVICE_ID,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
-            )
-        } else {
-            startForeground(FOREGROUND_SERVICE_ID, notification)
-        }
-    }
-
-    private fun createNotification(): Notification =
-        createConnectionNotification(
-            this,
-            NOTIFICATION_CHANNEL_ID,
-            R.string.notification_title,
-            R.string.vpn_notification_content,
-            RipDpiVpnService::class.java,
-        )
+    override fun syncUnderlyingNetworksFromActiveNetwork() = underlyingNetworkBinder.syncFromActiveNetwork()
 
     @Suppress("UnusedParameter")
     internal suspend fun createBuilder(
@@ -308,8 +188,6 @@ class RipDpiVpnService :
     }
 
     companion object {
-        private const val FOREGROUND_SERVICE_ID: Int = 1
-        private const val NOTIFICATION_CHANNEL_ID: String = "RIPDPIVpn"
         private const val TunnelIpv4PrefixLen = 32
         private const val TunnelIpv6PrefixLen = 128
         private const val TUNNEL_IPV4_ADDRESS = "10.10.10.10"

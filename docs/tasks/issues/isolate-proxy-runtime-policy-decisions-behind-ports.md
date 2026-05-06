@@ -1,7 +1,7 @@
 ---
 title: Isolate proxy runtime policy decisions behind ports
 type: task
-status: backlog
+status: done
 area: engine
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Isolate proxy runtime policy decisions behind ports #repo/RIPDPI #area/engine #status/backlog ⏫
+- [x] #task Isolate proxy runtime policy decisions behind ports #repo/RIPDPI #area/engine #status/done ⏫
 
 ## Summary
 
@@ -33,13 +33,13 @@ crates instead of depending only on selected route/action ports.
 
 ## Acceptance criteria
 
-- [ ] Proxy runtime no longer depends directly on `ripdpi-runtime-adaptive` or
+- [x] Proxy runtime no longer depends directly on `ripdpi-runtime-adaptive` or
     `ripdpi-runtime-policy`.
-- [ ] Handshake, UDP, routing, relay, and warmup code consume narrow runtime
+- [x] Handshake, UDP, routing, relay, and warmup code consume narrow runtime
     ports or selected decisions.
-- [ ] Boundary tests or CI checks fail when proxy runtime reintroduces direct
+- [x] Boundary tests or CI checks fail when proxy runtime reintroduces direct
     policy-engine imports.
-- [ ] Existing Rust workspace tests and `rust-clippy` stay green.
+- [x] Existing Rust workspace tests and `rust-clippy` stay green.
 
 ## Links
 

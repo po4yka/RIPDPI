@@ -3,6 +3,9 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
+import com.poyka.ripdpi.ui.diagnostics.buildStrategyProbeCandidateDetails
+import com.poyka.ripdpi.ui.diagnostics.buildStrategyProbeReportPresentation
+import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeFamilies
 
 internal class StrategyReportSummaryMapper {
     fun summaryMetrics(report: StrategyProbeReport): List<DiagnosticsMetricUiModel> =

@@ -20,7 +20,7 @@ pub(crate) fn send_ordered_tcp_segments(
     wait: TcpStageWait,
 ) -> io::Result<()> {
     let runtime_segments = to_runtime_ordered_segments(segments);
-    runtime_platform::send_ordered_tcp_segments(
+    runtime_platform::raw_packet::send_ordered_tcp_segments(
         stream,
         &runtime_segments,
         original_payload_len,
@@ -35,10 +35,10 @@ pub(crate) fn send_ordered_tcp_segments(
 
 fn to_runtime_ordered_segments<'a>(
     segments: &[DesyncOrderedTcpSegment<'a>],
-) -> Vec<runtime_platform::OrderedTcpSegment<'a>> {
+) -> Vec<runtime_platform::raw_packet::OrderedTcpSegment<'a>> {
     segments
         .iter()
-        .map(|segment| runtime_platform::OrderedTcpSegment {
+        .map(|segment| runtime_platform::raw_packet::OrderedTcpSegment {
             payload: segment.payload,
             ttl: segment.ttl,
             flags: to_runtime_flags(segment.flags),

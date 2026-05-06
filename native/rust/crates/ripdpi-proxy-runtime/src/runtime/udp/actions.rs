@@ -58,7 +58,7 @@ fn execute_udp_fragmented_write_action(
     disorder: bool,
     ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
 ) -> io::Result<()> {
-    match platform::send_ip_fragmented_udp(
+    match platform::raw_packet::send_ip_fragmented_udp(
         ctx.upstream,
         ctx.target,
         bytes,

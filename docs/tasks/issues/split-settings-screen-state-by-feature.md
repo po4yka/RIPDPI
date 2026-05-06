@@ -1,7 +1,7 @@
 ---
 title: Split settings screen state by feature
 type: task
-status: backlog
+status: done
 area: ui
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Split settings screen state by feature #repo/RIPDPI #area/ui #status/backlog 🔼
+- [x] #task Split settings screen state by feature #repo/RIPDPI #area/ui #status/done 🔼
 
 ## Summary
 
@@ -33,11 +33,11 @@ diagnostics, strategy packs, service status, and reset flags.
 
 ## Acceptance criteria
 
-- [ ] Feature state is grouped by owner and exposed through narrow section
+- [x] Feature state is grouped by owner and exposed through narrow section
     models.
-- [ ] Unrelated settings do not converge in one mutable aggregate contract.
-- [ ] Reset flags live with the feature that owns the reset behavior.
-- [ ] Settings ViewModel and UI tests cover the new composition.
+- [x] Unrelated settings do not converge in one mutable aggregate contract.
+- [x] Reset flags live with the feature that owns the reset behavior.
+- [x] Settings ViewModel and UI tests cover the new composition.
 
 ## Links
 

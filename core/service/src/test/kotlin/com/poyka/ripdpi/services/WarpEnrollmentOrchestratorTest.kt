@@ -232,7 +232,8 @@ class WarpEnrollmentOrchestratorTest {
                 }
             val runner =
                 ManagedWarpBootstrapProxyRunner(
-                    appSettingsRepository = appSettingsRepository,
+                    portAllocator = WarpBootstrapLoopbackPortAllocator(),
+                    runtimePolicy = WarpBootstrapProxyRuntimePolicy(appSettingsRepository),
                     bootstrapProxyRuntimeSupervisorSessionFactory = bootstrapSessionFactory,
                     scope = backgroundScope,
                 )
@@ -340,7 +341,8 @@ class WarpEnrollmentOrchestratorTest {
                 }
             val runner =
                 ManagedWarpBootstrapProxyRunner(
-                    appSettingsRepository = appSettingsRepository,
+                    portAllocator = WarpBootstrapLoopbackPortAllocator(),
+                    runtimePolicy = WarpBootstrapProxyRuntimePolicy(appSettingsRepository),
                     bootstrapProxyRuntimeSupervisorSessionFactory = bootstrapSessionFactory,
                     scope = backgroundScope,
                 )

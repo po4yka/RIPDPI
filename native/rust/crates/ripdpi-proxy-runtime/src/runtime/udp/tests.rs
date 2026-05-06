@@ -4,7 +4,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_config::{QuicInitialMode, RuntimeConfig};
 use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
-use ripdpi_runtime_policy::runtime_policy::{HostSource, TransportProtocol};
+use ripdpi_runtime_decision_ports::policy::{HostSource, TransportProtocol};
 use ripdpi_session::S_ATP_I4;
 
 use super::client_receive::should_cache_udp_host;
@@ -76,11 +76,11 @@ fn udp_packet_round_trip_preserves_sender_and_payload() {
 #[test]
 fn should_cache_udp_host_only_caches_quic_in_cache_mode() {
     let mut config = RuntimeConfig::default();
-    let quic = ripdpi_runtime_policy::runtime_policy::ExtractedHost {
+    let quic = ripdpi_runtime_decision_ports::policy::ExtractedHost {
         host: "docs.example.test".to_string(),
         source: HostSource::Quic,
     };
-    let tls = ripdpi_runtime_policy::runtime_policy::ExtractedHost {
+    let tls = ripdpi_runtime_decision_ports::policy::ExtractedHost {
         host: "docs.example.test".to_string(),
         source: HostSource::Tls,
     };

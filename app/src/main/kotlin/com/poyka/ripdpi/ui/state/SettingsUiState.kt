@@ -1,7 +1,20 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.state
 
 import androidx.biometric.BiometricManager
 import androidx.compose.runtime.Stable
+import com.poyka.ripdpi.activities.AdaptiveFallbackUiState
+import com.poyka.ripdpi.activities.DesyncCoreUiState
+import com.poyka.ripdpi.activities.DetectionResistanceUiState
+import com.poyka.ripdpi.activities.DnsUiState
+import com.poyka.ripdpi.activities.FakeTransportUiState
+import com.poyka.ripdpi.activities.HostAutolearnUiState
+import com.poyka.ripdpi.activities.HttpParserUiState
+import com.poyka.ripdpi.activities.LauncherIconManager
+import com.poyka.ripdpi.activities.ProxyNetworkUiState
+import com.poyka.ripdpi.activities.QuicUiState
+import com.poyka.ripdpi.activities.RoutingProtectionUiState
+import com.poyka.ripdpi.activities.TlsPreludeUiState
+import com.poyka.ripdpi.activities.WarpUiState
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode

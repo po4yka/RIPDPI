@@ -82,7 +82,7 @@ pub(super) fn observe_rotation_inbound_chunk(
             return;
         }
     }
-    let retrans_delta = platform::tcp_total_retransmissions(reader)
+    let retrans_delta = platform::tcp::tcp_total_retransmissions(reader)
         .ok()
         .flatten()
         .zip(retrans_baseline)
@@ -125,7 +125,7 @@ pub(super) fn observe_rotation_transport_failure(
     }
     let host = remembered_host_value(remembered_host);
     let failure = classify_transport_error(FailureStage::FirstResponse, &err);
-    let retrans_delta = platform::tcp_total_retransmissions(reader)
+    let retrans_delta = platform::tcp::tcp_total_retransmissions(reader)
         .ok()
         .flatten()
         .zip(retrans_baseline)

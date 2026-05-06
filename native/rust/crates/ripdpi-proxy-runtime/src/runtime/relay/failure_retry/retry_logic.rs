@@ -15,7 +15,7 @@ use crate::runtime::routing::{
     note_route_success, preferred_targets_for_transport, route_uses_direct_syn_data_tfo, should_track_strategy_target,
 };
 use crate::runtime::state::RuntimeState;
-use ripdpi_runtime_policy::runtime_policy::{ConnectionRoute, TransportProtocol};
+use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, TransportProtocol};
 
 pub(crate) fn record_stream_relay_success(
     state: &RuntimeState,

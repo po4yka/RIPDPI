@@ -21,6 +21,8 @@ import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.diagnostics.resolveLegalSafetyPolicy
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.diagnostics.toApproachDetailUiModel
+import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeReportUiModel
 import javax.inject.Inject
 
 @Suppress("TooManyFunctions")

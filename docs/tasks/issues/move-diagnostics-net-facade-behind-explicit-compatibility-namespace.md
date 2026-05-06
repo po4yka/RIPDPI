@@ -1,7 +1,7 @@
 ---
 title: Move diagnostics-net facade behind explicit compatibility namespace
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Move diagnostics-net facade behind explicit compatibility namespace #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [x] #task Move diagnostics-net facade behind explicit compatibility namespace #repo/RIPDPI #area/diagnostics #status/done 🔼
 
 ## Summary
 
@@ -33,11 +33,11 @@ protocol crates.
 
 ## Acceptance criteria
 
-- [ ] Broad re-exports are removed from the root or moved behind an explicit
+- [x] Broad re-exports are removed from the root or moved behind an explicit
     compatibility namespace.
-- [ ] New consumers have clear imports from protocol-specific crates.
-- [ ] Existing compatibility consumers are migrated or intentionally annotated.
-- [ ] Boundary tests prevent accidental facade expansion.
+- [x] New consumers have clear imports from protocol-specific crates.
+- [x] Existing compatibility consumers are migrated or intentionally annotated.
+- [x] Boundary tests prevent accidental facade expansion.
 
 ## Links
 

@@ -62,7 +62,7 @@ mod tests {
     use ripdpi_desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
     use ripdpi_packets::DEFAULT_FAKE_TLS;
     use ripdpi_proxy_config::ProxyRuntimeContext;
-    use ripdpi_runtime_policy::runtime_policy::RuntimePolicy;
+    use ripdpi_runtime_decision_ports::policy::RuntimePolicy;
 
     fn state_with_policy(policy: ProxyMorphPolicy) -> RuntimeState {
         RuntimeState::test_with_runtime_policy(
