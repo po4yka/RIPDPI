@@ -229,6 +229,8 @@ When reviewing an `unsafe` block:
 - [ ] For `Send`/`Sync` impl: is thread safety actually guaranteed?
 - [ ] Is the unsafe block as small as possible?
 - [ ] Can this be tested under Miri with Tree Borrows? (`MIRIFLAGS="-Zmiri-tree-borrows" cargo +nightly miri test`) — Tree Borrows is the formal aliasing model published at PLDI 2025 and is now the recommended default. It permits more valid unsafe patterns than Stacked Borrows, so code that failed the older model may pass now.
+- [ ] Does any `Drop::drop` implementation contain `.unwrap()`, `.expect()`, or any call that can panic? → move to an explicit `close()`/`flush()` method returning `Result`.
+- [ ] Does any `#[no_mangle]` or `#[export_name]` symbol collide with an identically-named symbol in another cdylib crate loaded simultaneously?
 
 ## When to use unsafe in RIPDPI
 
@@ -303,6 +305,53 @@ It is possible to fabricate a `&String` from a `&str` via `ManuallyDrop<String>`
 The only context where this pattern may appear is legacy FFI where a C caller passes a pointer and length pair and a `&String` is required. In that case: document the full invariant, test under Miri with Tree Borrows (`MIRIFLAGS="-Zmiri-tree-borrows"`), and gate the call with `cfg(not(miri))` if Miri rejects it.
 
 Reference: `crabbook/crafting_reference_to_owned.md`
+
+## `#[no_mangle]` and `#[link_section]` symbol collision (edition 2024 hazard)
+
+**Severity: CRITICAL**
+
+In Rust 2024, `#[no_mangle]`, `#[export_name = "..."]`, and `#[link_section = "..."]` must be written as `#[unsafe(no_mangle)]`, `#[unsafe(export_name = "...")]`, and `#[unsafe(link_section = "...")]`. The unsafe wrapper acknowledges a soundness risk that predates the edition: if two compilation units export the same unmangled symbol, the linker silently picks one, causing the wrong function to be called — a soundness bug with no compile-time diagnostic.
+
+In RIPDPI: all four `-android` cdylib crates (`ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-warp-android`, `ripdpi-relay-android`) export `Java_*` symbols. The JNI naming convention (`Java_<pkg>_<class>_<method>`) provides natural uniqueness, but any `#[no_mangle]` on a non-JNI symbol (e.g., a C-API entry point, a test export, or a cbindgen-generated symbol) must be audited for uniqueness across all cdylib crates.
+
+Audit check: `rg '#\[no_mangle\]|#\[export_name' native/rust/ --type rust -n` — for every hit, verify: (a) the symbol name is unique across all crates that may be loaded simultaneously, and (b) the 2024 `unsafe()` wrapper form is used after edition migration.
+
+Reference: Edition Guide — Unsafe Attributes, RFC 3325.
+
+## Panicking inside `Drop::drop` during unwinding aborts the process
+
+**Severity: CRITICAL**
+
+If a panic is already in progress (stack unwinding), and a `Drop` implementation panics while being called, Rust immediately aborts the process — this is a "double panic". Unlike a first panic, a double panic cannot be caught by `std::panic::catch_unwind`. There is no recovery path.
+
+This is a latent hazard in any RAII guard whose `drop()` performs fallible cleanup: flushing a buffer, sending a shutdown packet, committing a transaction, closing a socket gracefully. Any `.unwrap()`, `.expect()`, or `?` (via a method that panics on error) inside `drop()` is a double-panic bomb that fires only when there is already an error in flight — exactly the worst time.
+
+```rust
+// DANGEROUS: double-panic if called during unwind
+impl Drop for BufferedWriter {
+    fn drop(&mut self) {
+        self.flush().unwrap(); // panics -> process abort if already unwinding
+    }
+}
+
+// CORRECT: log-and-discard in drop(), expose an explicit close() for Result
+impl Drop for BufferedWriter {
+    fn drop(&mut self) {
+        if let Err(e) = self.flush() {
+            tracing::error!("flush on drop failed: {e}");
+        }
+    }
+}
+impl BufferedWriter {
+    pub fn close(mut self) -> Result<()> {
+        self.flush()?; // returns error to caller instead of panicking
+    }
+}
+```
+
+Rule: `drop()` MUST NOT panic. Move all fallible cleanup to an explicit `close()` / `commit()` / `flush()` method that returns `Result`. Leave `drop()` as a silent best-effort fallback with error logging only.
+
+Reference: Rustonomicon — Unwinding, Ferrous Systems — Drop, Panic and Abort.
 
 ## Related skills
 

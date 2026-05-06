@@ -243,6 +243,49 @@ Leaf crates first (no internal dependents). Suggested order:
 
 `rustfmt.toml:edition = "2021"` controls how rustfmt formats code. Bump it only AFTER every crate is on edition 2024 and the workspace builds. Bumping it early re-formats edition-2021 code with edition-2024 rules, producing spurious diffs.
 
+## Feature unification silently enables features in `no_std` crates
+
+**Severity: WARNING**
+
+Cargo resolves features per-package, not per-dependency-edge. With resolver v2 (Rust 2021 edition default), dev-dependency features are isolated from normal dependencies — but normal-dependency features are still unified across the workspace. If any crate in the workspace enables feature `std` on a shared dep, every other workspace crate that depends on that dep gets `std` too, even crates that declare themselves `no_std`.
+
+Concrete hazard in RIPDPI: a test binary or bench crate depending on `serde` with `derive` feature will enable `derive` for all `serde` users in the workspace. More critically, if a cdylib crate depends on a dep without `std`, but a dev-dep in the workspace pulls in the same dep with `std`, the `no_std` crate silently gains `std` — potentially including `println!`, `Vec` heap allocation, or panicking infrastructure that should be absent.
+
+Detection:
+```bash
+cd native/rust
+# Find which crates activate which features on serde/tokio/etc.
+cargo tree -f '{p}: {f}' -i serde | grep -v '^$'
+cargo tree -f '{p}: {f}' -i tokio | grep -v '^$'
+
+# Check if a pure-logic crate accidentally gets std
+cargo check -p ripdpi-packets --no-default-features 2>&1 | grep 'std\|alloc'
+```
+
+Fix: for crates that must remain `no_std`, add an explicit `default-features = false` on every dep declaration and verify via `cargo check --no-default-features`. If a workspace test binary needs the `std` feature of a dep, consider gating it behind a dev-dep rather than a normal dep.
+
+Reference: [cargo feature unification pitfall — nickb.dev](https://nickb.dev/blog/cargo-workspace-and-the-feature-unification-pitfall/), Cargo Resolver docs.
+
+## Workspace dependency inheritance breaks target-specific features
+
+**Severity: WARNING**
+
+When you define a dependency in `[workspace.dependencies]` and reference it as `foo = { workspace = true }` in a subcrate, Cargo resolver v2 sometimes fails to limit features to the current compilation target. The same dependency declared directly (not via workspace inheritance) works correctly.
+
+This manifests as platform-specific features being enabled on all platforms, potentially breaking `no_std` / `#![forbid(unsafe_code)]` crates on some targets or pulling in unwanted platform code (Windows-only, Unix-only) on cross-compilation targets.
+
+Affected in RIPDPI: Android NDK cross-compilation targets. If a dep's `unix` or `linux` feature is activated via workspace inheritance and the dep does not correctly gate that feature, the Android build may pull in Linux-specific code not supported by the NDK.
+
+Detection:
+```bash
+# Compare features seen by a subcrate via workspace vs direct inheritance
+cargo tree --target aarch64-linux-android -f '{p}: {f}' -i <dep-name>
+```
+
+Workaround: for deps where target-specific features are critical, declare the dep directly in the subcrate's `Cargo.toml` with explicit `target.'cfg(...)'.dependencies` rather than relying on workspace inheritance.
+
+Reference: Cargo issue #11779.
+
 ## Related skills
 
 - `rust-debugging` -- GDB/LLDB, async debugging, backtraces

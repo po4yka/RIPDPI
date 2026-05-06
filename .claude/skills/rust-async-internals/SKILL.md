@@ -266,6 +266,159 @@ Rules:
 
 Reference: `crabbook/pin.md`
 
+## `impl Trait` (RPIT) overcaptures lifetimes in edition 2024
+
+**Severity: WARNING — edition migration hazard**
+
+In Rust 2021 and earlier, return-position `impl Trait` (RPIT) did NOT implicitly capture lifetime parameters unless explicitly listed. In Rust 2024, all in-scope lifetimes are captured automatically. Consequence: functions that were `'static`-compatible in edition 2021 may become non-`'static` after migration because the return type now captures a lifetime from an input reference.
+
+Concrete symptom: a function returning `impl Future + 'static` that takes `&self` now infers `impl Future + '_` — breaking any `tokio::spawn(obj.method())` call site.
+
+Fix: use precise `use<..>` syntax (stabilized in Rust 1.82) to opt out of capturing specific lifetimes:
+```rust
+// Edition 2024: explicitly state which lifetimes/types are captured
+fn process<'a>(data: &'a str) -> impl Future<Output = u32> + use<> {
+    async move { data.len() as u32 }
+}
+```
+
+The `impl_trait_overcaptures` lint (part of `rust-2024-compatibility` group) flags affected sites before migration. Run `cargo fix --edition` and inspect every RPIT diff carefully.
+
+Reference: [Rust Blog: impl Trait capture rules](https://blog.rust-lang.org/2024/09/05/impl-trait-capture-rules/), Edition Guide RPIT section.
+
+## `tokio::time::timeout` is cooperative — never fires on non-yielding futures
+
+**Severity: CRITICAL**
+
+`tokio::time::timeout` wraps a future and checks the deadline before each poll. If the wrapped future never reaches an `.await` point — tight CPU loop, blocking syscall, heavy synchronous computation — the timeout never fires. The future runs to completion regardless of the deadline.
+
+```rust
+// DANGEROUS: looks protected but is not
+let result = tokio::time::timeout(
+    Duration::from_secs(1),
+    async {
+        // No .await -- timeout will never fire
+        expensive_cpu_computation()
+    }
+).await;
+```
+
+Fix: any blocking or CPU-heavy work must be moved to `spawn_blocking` before wrapping with `timeout`:
+```rust
+let result = tokio::time::timeout(
+    Duration::from_secs(1),
+    tokio::task::spawn_blocking(|| expensive_cpu_computation())
+).await;
+```
+
+In RIPDPI: strategy-probe candidates, DPI classification heuristics, and TLS fingerprinting are CPU-heavy paths. Never wrap them in `timeout` without also moving them to `spawn_blocking`.
+
+## `JoinSet` drop cannot abort `spawn_blocking` threads — silent shutdown hang
+
+**Severity: WARNING**
+
+When a `JoinSet` is dropped, it calls `.abort()` on all tracked futures. However, tasks spawned via `spawn_blocking` run on OS threads and Tokio documents that they cannot be cancelled by `abort`. If a `JoinSet` contains handles to async tasks that internally delegate to `spawn_blocking` (common in database pool workers, file I/O wrappers, and heavy computation), dropping the `JoinSet` during shutdown does not stop the underlying threads.
+
+In practice: the process appears to shut down (the async tasks receive abort) but OS threads continue running until completion, potentially blocking process exit or causing `Runtime::shutdown_timeout` to fire.
+
+Fix: for tasks that use `spawn_blocking` internally, prefer explicit cancellation signalling (a `CancellationToken` passed into the blocking closure) rather than relying on `JoinSet` abort. Always test shutdown behavior under load, not just happy-path sequential tests.
+
+## `spawn_blocking` pool exhaustion from long-lived tasks
+
+**Severity: WARNING**
+
+Tokio's blocking thread pool has a default cap of 512 threads. Each `spawn_blocking` call occupies one thread until the closure completes. Long-running or indefinitely-polling tasks — file watchers, polling loops, persistent connections — exhaust the pool. When the pool is saturated, new `spawn_blocking` calls queue, causing latency spikes that appear as async slowdowns with no obvious cause.
+
+Decision rule:
+- **`spawn_blocking`**: bounded CPU work (target < 100 ms), occasional blocking syscalls, short file I/O.
+- **`std::thread::spawn`**: indefinite blocking work, event loops, long-lived watchers.
+
+In RIPDPI: the WS tunnel relay (`ripdpi-ws-tunnel`) already uses `std::thread::spawn` correctly. Any new persistent blocking work MUST follow this pattern, not `spawn_blocking`.
+
+## `block_in_place` panics on `current_thread` runtime
+
+**Severity: WARNING**
+
+`tokio::task::block_in_place` migrates the current worker thread to the blocking pool and redistributes other tasks to remaining workers. Two hazards:
+
+1. **Panics on `current_thread` runtime**: `#[tokio::test]` uses `current_thread` by default. Calling `block_in_place` inside a test panics with "can call blocking only when running on the multi-thread runtime". This causes confusing test failures when production code uses `block_in_place`.
+
+2. **Starves `join!` branches**: inside a `join!`, other branches run on the same task. `block_in_place` suspends them for the duration of the blocking call, causing unexpected sequencing (branch A completes; branch B runs only after).
+
+Fix: use `spawn_blocking` instead of `block_in_place` in both cases — it is safe on all runtime flavors and does not affect co-located tasks.
+
+## `broadcast` receiver silently drops messages on `Lagged`
+
+**Severity: WARNING**
+
+`tokio::sync::broadcast` channels have a fixed ring-buffer capacity. A slow receiver that falls behind will have old messages overwritten. The next `recv()` call returns `Err(RecvError::Lagged(n))` — but most code handles only the `Ok(msg)` arm and treats `Lagged` as a transient error, silently dropping `n` events.
+
+```rust
+// BUG: Lagged silently discarded
+while let Ok(msg) = rx.recv().await {
+    process(msg);
+}
+
+// CORRECT: handle Lagged explicitly
+loop {
+    match rx.recv().await {
+        Ok(msg) => process(msg),
+        Err(RecvError::Lagged(n)) => {
+            tracing::warn!("broadcast: dropped {} messages", n);
+            // decide: continue, alert, or reconnect
+        }
+        Err(RecvError::Closed) => break,
+    }
+}
+```
+
+For audit logs, metrics, or state-machine transition messages, `Lagged` drops are data loss. Use `mpsc` with explicit backpressure for lossless delivery.
+
+## `std::sync::Mutex` guard across `.await` deadlocks silently
+
+**Severity: CRITICAL**
+
+`std::sync::Mutex` guards do not implement `Send`. The compiler rejects them in `tokio::spawn` futures (which require `Send`). However, in `current_thread` executors or non-`Send` futures, the compiler accepts the guard crossing an `.await` point. At runtime, if the executor schedules another task that acquires the same lock, it deadlocks: the async task is suspended holding the lock, and the other task blocks.
+
+This pattern works in development (sequential load, single task) and deadlocks only under concurrent production load.
+
+```rust
+// DEADLOCK risk: guard lives across .await
+let guard = mutex.lock().unwrap();
+some_async_op().await;  // another task may try to lock here
+drop(guard);
+
+// CORRECT: drop before .await
+let value = {
+    let guard = mutex.lock().unwrap();
+    guard.value.clone()
+};
+some_async_op().await;
+```
+
+Rule: if a `Mutex` guard must genuinely live across `.await`, use `tokio::sync::Mutex`. If it does not need to, drop the guard explicitly before any `.await`.
+
+## `async fn` in traits is not object-safe and has no `Send` bound
+
+**Severity: WARNING**
+
+`async fn` in traits was stabilized in Rust 1.75 (RPITIT). Three non-obvious hazards when replacing `#[async_trait]`:
+
+1. **Not `dyn`-safe**: a trait containing `async fn` cannot be used as `dyn Trait`. Code that previously used `Box<dyn MyTrait>` (via `#[async_trait]` which boxes futures internally) breaks at compile time.
+
+2. **No automatic `Send` bound**: native `async fn` in traits does not add `Send` to the returned future. `tokio::spawn(obj.method())` fails because the future is not `Send`.
+
+3. **Fix for both**: use `#[trait_variant::make(MyTraitSend: Send)]` from the `trait-variant` crate (part of the `async-fn-in-trait` stabilization roadmap) to generate a `Send`-compatible trait variant:
+```rust
+#[trait_variant::make(MyTraitSend: Send)]
+pub trait MyTrait {
+    async fn process(&self, input: &str) -> Result<String>;
+}
+// Now use `MyTraitSend` for tokio::spawn contexts
+```
+
+In RIPDPI: any trait with `async fn` methods used in `tokio::spawn` contexts MUST use `trait_variant` or keep `#[async_trait]`. Do not mass-replace `#[async_trait]` without auditing every `Box<dyn>` and `tokio::spawn` use site.
+
 ## Related skills
 
 - `.claude/skills/rust-debugging/` -- GDB/LLDB debugging of async Rust
