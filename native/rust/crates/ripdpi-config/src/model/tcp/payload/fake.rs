@@ -1,5 +1,5 @@
 use super::TcpFlagOverrides;
-use crate::{FakeOrder, FakeSeqMode, OffsetExpr};
+use crate::{FakeOrder, FakeSeqMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TcpFakeOrdering {
@@ -21,16 +21,6 @@ impl Default for TcpFakeOrdering {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TcpFakePayload {
-    pub ordering: TcpFakeOrdering,
-    pub fake_flags: TcpFlagOverrides,
-    pub original_flags: TcpFlagOverrides,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TcpHostFakePayload<'a> {
-    pub midhost_offset: Option<OffsetExpr>,
-    pub fake_host_template: Option<&'a str>,
-    pub random_fake_host: bool,
     pub ordering: TcpFakeOrdering,
     pub fake_flags: TcpFlagOverrides,
     pub original_flags: TcpFlagOverrides,

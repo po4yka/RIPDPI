@@ -1,7 +1,7 @@
 ---
 title: Split TCP typed payload adapter by family
 type: task
-status: backlog
+status: review
 area: transport
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Split TCP typed payload adapter by family #repo/RIPDPI #area/transport #status/backlog 🔼
+- [ ] #task Split TCP typed payload adapter by family #repo/RIPDPI #area/transport #status/review 🔼
 
 ## Summary
 
@@ -36,10 +36,10 @@ and IPv6 extension state.
 
 ## Acceptance criteria
 
-- [ ] TCP typed payload code is split into focused family modules.
-- [ ] `payload.rs` is a small facade/orchestrator and is under the native hotspot
+- [x] TCP typed payload code is split into focused family modules.
+- [x] `payload.rs` is a small facade/orchestrator and is under the native hotspot
     budget.
-- [ ] Existing typed payload and invariant tests still pass; add tests for any
+- [x] Existing typed payload and invariant tests still pass; add tests for any
     moved family that lacks direct coverage.
 - [ ] `python3 scripts/ci/check_native_hotspot_budgets.py` passes.
 
