@@ -1,7 +1,7 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_failure_classifier::{
+use ripdpi_proxy_runtime_adapter::failure::{
     classify_transport_error, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
 

@@ -1,7 +1,7 @@
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_failure_classifier::{ClassifiedFailure, FailureAction, FailureClass};
+use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass};
 use ripdpi_session::SessionState;
 
 use crate::runtime::desync::OutboundSendError;

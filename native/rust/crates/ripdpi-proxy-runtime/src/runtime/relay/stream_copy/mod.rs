@@ -277,7 +277,7 @@ mod tests {
         controller.observe_round_failure(
             Some("example.org"),
             None,
-            RotationFailureReason::Transport(ripdpi_failure_classifier::FailureClass::TcpReset),
+            RotationFailureReason::Transport(ripdpi_proxy_runtime_adapter::failure::FailureClass::TcpReset),
             0,
         );
         assert!(controller.pending_advance);

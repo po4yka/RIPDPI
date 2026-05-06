@@ -1,4 +1,4 @@
-use ripdpi_failure_classifier::ClassifiedFailure;
+use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 
 use crate::runtime::routing::note_block_signal_for_failure;
 use crate::runtime::state::RuntimeState;

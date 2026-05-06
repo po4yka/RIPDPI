@@ -27,6 +27,7 @@ members = [
     "crates/ripdpi-monitor-adapter",
     "crates/ripdpi-monitor-engine",
     "crates/ripdpi-monitor-proxy-runtime",
+    "crates/ripdpi-proxy-runtime-adapter",
     "crates/ripdpi-proxy-runtime",
     "crates/ripdpi-runtime-api",
     "crates/ripdpi-runtime-adaptive",
@@ -115,6 +116,7 @@ ripdpi-diagnostics-transport = { path = "crates/ripdpi-diagnostics-transport" }
 ripdpi-monitor-adapter = { path = "crates/ripdpi-monitor-adapter" }
 ripdpi-monitor-engine = { path = "crates/ripdpi-monitor-engine" }
 ripdpi-monitor-proxy-runtime = { path = "crates/ripdpi-monitor-proxy-runtime" }
+ripdpi-proxy-runtime-adapter = { path = "crates/ripdpi-proxy-runtime-adapter" }
 ripdpi-proxy-runtime = { path = "crates/ripdpi-proxy-runtime" }
 ripdpi-runtime-api = { path = "crates/ripdpi-runtime-api" }
 ripdpi-runtime-adaptive = { path = "crates/ripdpi-runtime-adaptive" }

@@ -55,7 +55,7 @@ impl RuntimeTelemetrySink for ListenerAddressCapture {
     fn on_failure_classified(
         &self,
         _target: SocketAddr,
-        _failure: &ripdpi_failure_classifier::ClassifiedFailure,
+        _failure: &ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure,
         _host: Option<&str>,
     ) {
     }
@@ -585,7 +585,7 @@ impl RuntimeTelemetrySink for RecordingTelemetry {
     fn on_failure_classified(
         &self,
         _target: SocketAddr,
-        _failure: &ripdpi_failure_classifier::ClassifiedFailure,
+        _failure: &ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure,
         _host: Option<&str>,
     ) {
     }

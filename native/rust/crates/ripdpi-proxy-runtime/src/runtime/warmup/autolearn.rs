@@ -1,7 +1,7 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_failure_classifier::ClassifiedFailure;
+use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 use crate::runtime::routing::{advance_route_for_failure, note_route_success};

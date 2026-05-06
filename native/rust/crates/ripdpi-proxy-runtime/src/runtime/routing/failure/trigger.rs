@@ -2,7 +2,7 @@ use ripdpi_config::{
     DETECT_CONNECT, DETECT_CONNECTION_FREEZE, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT,
     DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE,
 };
-use ripdpi_failure_classifier::{ClassifiedFailure, FailureAction, FailureClass};
+use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass};
 
 use crate::runtime::routing::policy::runtime_supports_trigger;
 use crate::runtime::state::RuntimeState;

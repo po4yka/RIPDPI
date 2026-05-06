@@ -73,7 +73,7 @@ impl RuntimeTelemetrySink for ProxyHarnessTelemetry {
     fn on_failure_classified(
         &self,
         target: SocketAddr,
-        failure: &ripdpi_failure_classifier::ClassifiedFailure,
+        failure: &ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure,
         host: Option<&str>,
     ) {
         if let Some(delegate) = &self.delegate {

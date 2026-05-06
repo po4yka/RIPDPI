@@ -1,5 +1,5 @@
 use crate::sync::{Arc, Mutex};
-use ripdpi_failure_classifier::{classify_transport_error, FailureStage};
+use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, FailureStage};
 use ripdpi_runtime_platform as platform;
 use ripdpi_session::SessionState;
 use std::io;

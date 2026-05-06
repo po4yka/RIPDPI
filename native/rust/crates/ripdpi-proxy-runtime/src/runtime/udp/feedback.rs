@@ -51,9 +51,10 @@ pub(super) fn note_udp_first_response_success(
 }
 
 pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlowActivationState) -> io::Result<()> {
-    if let Some(failure) =
-        ripdpi_failure_classifier::classify_quic_probe("quic_timeout", Some("UDP flow expired before first response"))
-    {
+    if let Some(failure) = ripdpi_proxy_runtime_adapter::failure::classify_quic_probe(
+        "quic_timeout",
+        Some("UDP flow expired before first response"),
+    ) {
         note_block_signal_for_failure(state, entry.host.as_deref(), &failure, None);
     }
     let failed_target = entry.current_target;
@@ -67,7 +68,7 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
     )?;
     let _ = note_direct_path_udp_failure(state, entry.host.as_deref(), &entry.target_candidates);
     note_adaptive_udp_failure(state, failed_target, entry.route.group_index, entry.host.as_deref(), &entry.payload)?;
-    note_evolver_failure(state, ripdpi_failure_classifier::FailureClass::SilentDrop);
+    note_evolver_failure(state, ripdpi_proxy_runtime_adapter::failure::FailureClass::SilentDrop);
     let retry_penalties = build_retry_selection_penalties(
         state,
         failed_target,

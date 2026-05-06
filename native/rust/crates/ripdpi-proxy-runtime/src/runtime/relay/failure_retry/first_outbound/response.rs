@@ -2,7 +2,7 @@ use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use ripdpi_failure_classifier::ClassifiedFailure;
+use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_session::SessionState;
 
 use crate::runtime::adaptive::note_server_ttl_for_route;

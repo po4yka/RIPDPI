@@ -1,7 +1,7 @@
 ---
 title: Remove proxy runtime concrete classifier and WS bootstrap edges
 type: task
-status: backlog
+status: done
 area: proxy
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Remove proxy runtime concrete classifier and WS bootstrap edges #repo/RIPDPI #area/proxy #status/backlog 🔼
+- [x] #task Remove proxy runtime concrete classifier and WS bootstrap edges #repo/RIPDPI #area/proxy #status/done 🔼
 
 ## Summary
 
@@ -37,12 +37,12 @@ bootstrap logic from handshake, routing, and warmup paths.
 
 ## Acceptance criteria
 
-- [ ] Proxy runtime consumes classification and WS bootstrap results through
+- [x] Proxy runtime consumes classification and WS bootstrap results through
     narrow ports or adapter crates.
-- [ ] Direct Cargo edges to `ripdpi-failure-classifier` and `ripdpi-ws-bootstrap`
+- [x] Direct Cargo edges to `ripdpi-failure-classifier` and `ripdpi-ws-bootstrap`
     are removed from `ripdpi-proxy-runtime`.
-- [ ] Relay/routing/UDP/warmup behavior remains covered by existing or new tests.
-- [ ] `python3 scripts/ci/check_architecture_health.py --check` has no proxy
+- [x] Relay/routing/UDP/warmup behavior remains covered by existing or new tests.
+- [x] `python3 scripts/ci/check_architecture_health.py --check` has no proxy
     runtime discouraged-edge indicators.
 
 ## Links

@@ -3,7 +3,7 @@ use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
 
 use ripdpi_proxy_config::ProxyRuntimeContext;
-use ripdpi_ws_bootstrap::{
+use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     self as ws_bootstrap, MtprotoSeedClassification, TelegramDc, WsTunnelConfig, WsTunnelDecision,
 };
 

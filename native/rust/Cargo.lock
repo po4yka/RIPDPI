@@ -3224,6 +3224,7 @@ dependencies = [
  "ripdpi-failure-classifier",
  "ripdpi-packets",
  "ripdpi-proxy-runtime",
+ "ripdpi-proxy-runtime-adapter",
  "ripdpi-runtime-api",
  "ripdpi-telemetry",
  "rustls",
@@ -3711,22 +3712,29 @@ dependencies = [
  "ripdpi-config",
  "ripdpi-desync",
  "ripdpi-desync-runtime",
- "ripdpi-failure-classifier",
  "ripdpi-io-uring",
  "ripdpi-ipfrag",
  "ripdpi-packets",
  "ripdpi-proxy-config",
+ "ripdpi-proxy-runtime-adapter",
  "ripdpi-runtime-api",
  "ripdpi-runtime-decision-ports",
  "ripdpi-runtime-platform",
  "ripdpi-runtime-services",
  "ripdpi-session",
- "ripdpi-ws-bootstrap",
  "rustls",
  "serde_json",
  "socket2",
  "tempfile",
  "tracing",
+]
+
+[[package]]
+name = "ripdpi-proxy-runtime-adapter"
+version = "0.1.0"
+dependencies = [
+ "ripdpi-failure-classifier",
+ "ripdpi-ws-bootstrap",
 ]
 
 [[package]]

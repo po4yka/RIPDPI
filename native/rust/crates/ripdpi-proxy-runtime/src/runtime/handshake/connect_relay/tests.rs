@@ -2,9 +2,9 @@ use super::*;
 
 use crate::runtime::state::RuntimeState;
 use ripdpi_config::{RuntimeConfig, WsTunnelMode};
-use ripdpi_failure_classifier::ClassifiedFailure;
+use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
+use ripdpi_proxy_runtime_adapter::ws_bootstrap::TelegramDc;
 use ripdpi_runtime_api::RuntimeTelemetrySink;
-use ripdpi_ws_bootstrap::TelegramDc;
 use std::net::Ipv4Addr;
 use std::sync::atomic::{AtomicUsize, Ordering as StdOrdering};
 use std::sync::{Arc as StdArc, Mutex as StdMutex};

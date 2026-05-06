@@ -1,7 +1,7 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_failure_classifier::{classify_transport_error, ClassifiedFailure, FailureClass, FailureStage};
+use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, ClassifiedFailure, FailureClass, FailureStage};
 use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, TransportProtocol};
 
 use super::super::adaptive::{note_direct_path_all_ips_failed, note_direct_path_transport_attempt};
@@ -157,7 +157,7 @@ fn reconnect_target_with_tfo_mode(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ripdpi_failure_classifier::{
+    use ripdpi_proxy_runtime_adapter::failure::{
         classify_transport_error, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
     };
 

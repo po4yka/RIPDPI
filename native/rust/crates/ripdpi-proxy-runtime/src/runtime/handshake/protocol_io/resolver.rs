@@ -19,7 +19,7 @@ pub(in crate::runtime) fn resolve_name(
         return None;
     }
 
-    ripdpi_ws_bootstrap::resolve_host_via_encrypted_dns(
+    ripdpi_proxy_runtime_adapter::ws_bootstrap::resolve_host_via_encrypted_dns(
         host,
         state.runtime_context.as_ref(),
         state.config.process.protect_path.as_deref(),

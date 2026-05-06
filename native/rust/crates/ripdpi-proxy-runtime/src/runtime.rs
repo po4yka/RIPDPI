@@ -126,7 +126,7 @@ mod tests {
     use super::routing::{encode_upstream_socks_connect, failure_penalizes_strategy, failure_trigger_mask};
     use super::validate_ip_fragmentation_capabilities;
 
-    use ripdpi_failure_classifier::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
+    use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
 
     #[cfg(not(feature = "loom"))]
     #[test]

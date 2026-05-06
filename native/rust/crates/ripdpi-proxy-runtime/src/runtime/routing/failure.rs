@@ -1,11 +1,11 @@
 use std::net::{IpAddr, SocketAddr};
 
-use ripdpi_failure_classifier::{block_signal_from_failure, ClassifiedFailure};
+use ripdpi_proxy_runtime_adapter::failure::{block_signal_from_failure, ClassifiedFailure};
+use ripdpi_proxy_runtime_adapter::ws_bootstrap::encrypted_dns_ip_answers_for_host;
 use ripdpi_runtime_decision_ports::policy::{
     classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
     DnsTamperingEvidence,
 };
-use ripdpi_ws_bootstrap::encrypted_dns_ip_answers_for_host;
 
 use super::super::state::RuntimeState;
 

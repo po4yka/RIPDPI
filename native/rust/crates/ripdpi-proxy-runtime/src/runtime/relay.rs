@@ -68,8 +68,8 @@ mod tests {
     };
     use super::*;
     use ripdpi_config::{RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST};
-    use ripdpi_failure_classifier::{FailureAction, FailureClass, FailureStage};
     use ripdpi_packets::DEFAULT_FAKE_TLS;
+    use ripdpi_proxy_runtime_adapter::failure::{FailureAction, FailureClass, FailureStage};
     use ripdpi_session::TriggerEvent;
 
     mod rust_packet_seeds {

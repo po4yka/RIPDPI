@@ -442,28 +442,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "discouraged-dependency-edge:native-rust-crates-ripdpi-proxy-runtime-cargo.toml:ripdpi-proxy-runtime--ripdpi-failure-classifier",
-      "rule": "discouraged-dependency-edge",
-      "priority": 3,
-      "path": "native/rust/crates/ripdpi-proxy-runtime/Cargo.toml",
-      "message": "ripdpi-proxy-runtime depends directly on ripdpi-failure-classifier",
-      "metricName": "edgePresent",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Depend on a narrow interface crate or feature adapter instead of the concrete lane."
-    },
-    {
-      "id": "discouraged-dependency-edge:native-rust-crates-ripdpi-proxy-runtime-cargo.toml:ripdpi-proxy-runtime--ripdpi-ws-bootstrap",
-      "rule": "discouraged-dependency-edge",
-      "priority": 3,
-      "path": "native/rust/crates/ripdpi-proxy-runtime/Cargo.toml",
-      "message": "ripdpi-proxy-runtime depends directly on ripdpi-ws-bootstrap",
-      "metricName": "edgePresent",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Depend on a narrow interface crate or feature adapter instead of the concrete lane."
-    },
-    {
       "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-configdraftsupport.kt:adaptive-desync-dns-relay-telemetry-tunnel",
       "rule": "kotlin-feature-spread",
       "priority": 3,

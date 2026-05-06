@@ -5,7 +5,7 @@ use crate::runtime::state::RuntimeState;
 
 /// Resolve a probe domain to a `SocketAddr` on port 443.
 pub(crate) fn resolve_probe_target(state: &RuntimeState, domain: &str) -> io::Result<SocketAddr> {
-    use ripdpi_ws_bootstrap::resolve_host_via_encrypted_dns;
+    use ripdpi_proxy_runtime_adapter::ws_bootstrap::resolve_host_via_encrypted_dns;
 
     // Try encrypted DNS first (respects protect_path for VPN bypass).
     if let Ok(mut addr) = resolve_host_via_encrypted_dns(

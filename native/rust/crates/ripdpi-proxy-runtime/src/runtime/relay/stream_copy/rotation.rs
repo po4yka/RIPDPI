@@ -1,5 +1,5 @@
 use ripdpi_config::{DesyncGroup, RotationPolicy};
-use ripdpi_failure_classifier::FailureClass;
+use ripdpi_proxy_runtime_adapter::failure::FailureClass;
 use std::time::{Duration, Instant};
 
 use super::super::super::desync::primary_tcp_strategy_family;
