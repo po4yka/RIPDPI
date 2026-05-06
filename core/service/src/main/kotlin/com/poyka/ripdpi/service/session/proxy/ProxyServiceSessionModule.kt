@@ -7,14 +7,14 @@ import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle
+import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
 import com.poyka.ripdpi.services.ConnectionPolicyResolver
 import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import com.poyka.ripdpi.services.PermissionWatchdog
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
-import com.poyka.ripdpi.services.ProxyRuntimeSupervisorBundle
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
-import com.poyka.ripdpi.services.ProxyServiceRuntimeCoordinator
 import com.poyka.ripdpi.services.ProxyServiceSessionComponent
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceCoordinatorHost

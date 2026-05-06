@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import android.net.VpnService
+import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
 import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator
 import dagger.BindsInstance
 import dagger.hilt.DefineComponent

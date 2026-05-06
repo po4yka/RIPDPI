@@ -15,6 +15,7 @@ import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
 import com.poyka.ripdpi.utility.NotificationContentBuilder
 import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.createDynamicConnectionNotification

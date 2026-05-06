@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.services
+package com.poyka.ripdpi.service.runtime.proxy
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.FailureReason
@@ -13,6 +13,29 @@ import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.classifyFailureReason
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
+import com.poyka.ripdpi.services.BaseServiceRuntimeCoordinator
+import com.poyka.ripdpi.services.ConnectionPolicyResolution
+import com.poyka.ripdpi.services.ConnectionPolicyResolver
+import com.poyka.ripdpi.services.DirectPathPolicyTelemetryConsumer
+import com.poyka.ripdpi.services.NetworkHandoverMonitor
+import com.poyka.ripdpi.services.NoOpDirectPathPolicyTelemetryConsumer
+import com.poyka.ripdpi.services.PermissionChangeEvent
+import com.poyka.ripdpi.services.PermissionWatchdog
+import com.poyka.ripdpi.services.ProxyRuntimeSession
+import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
+import com.poyka.ripdpi.services.ProxySupervisorExitHandler
+import com.poyka.ripdpi.services.ProxyTelemetryCoordinator
+import com.poyka.ripdpi.services.ScreenStateObserver
+import com.poyka.ripdpi.services.ServiceClock
+import com.poyka.ripdpi.services.ServiceCoordinatorHost
+import com.poyka.ripdpi.services.ServiceRuntimeRegistry
+import com.poyka.ripdpi.services.ServiceStatusReporter
+import com.poyka.ripdpi.services.SharedProxyRuntimeStack
+import com.poyka.ripdpi.services.SystemServiceClock
+import com.poyka.ripdpi.services.UpstreamRelaySupervisor
+import com.poyka.ripdpi.services.WarpRuntimeSupervisor
+import com.poyka.ripdpi.services.buildLogContext
+import com.poyka.ripdpi.services.withLogContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 

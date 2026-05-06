@@ -1,7 +1,7 @@
 ---
 title: Finish proxy coordinator runtime-family split
 type: task
-status: backlog
+status: done
 area: service
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Finish proxy coordinator runtime-family split #repo/RIPDPI #area/service #status/backlog ⏫
+- [x] #task Finish proxy coordinator runtime-family split #repo/RIPDPI #area/service #status/done ⏫
 
 ## Summary
 
@@ -38,13 +38,13 @@ restart, and status reporting.
 
 ## Acceptance criteria
 
-- [ ] `ProxyServiceRuntimeCoordinator` no longer appears as a P2
+- [x] `ProxyServiceRuntimeCoordinator` no longer appears as a P2
     architecture-health indicator.
-- [ ] Relay, WARP, proxy runtime lifecycle, telemetry, exit handling, and status
+- [x] Relay, WARP, proxy runtime lifecycle, telemetry, exit handling, and status
     projection are owned by focused collaborators.
-- [ ] Proxy startup, stop, handover restart, and unexpected-exit behavior remain
+- [x] Proxy startup, stop, handover restart, and unexpected-exit behavior remain
     covered by existing or new unit tests.
-- [ ] `python3 scripts/ci/check_architecture_health.py --check` passes without
+- [x] `python3 scripts/ci/check_architecture_health.py --check` passes without
     new or worsened entries.
 
 ## Links

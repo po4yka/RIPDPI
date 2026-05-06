@@ -629,17 +629,6 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "kotlin-feature-spread:core-service-src-main-kotlin-com-poyka-ripdpi-services-proxyserviceruntimecoordinator.kt:diagnostics-dns-relay-routing-telemetry-tunnel-warp",
-      "rule": "kotlin-feature-spread",
-      "priority": 2,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ProxyServiceRuntimeCoordinator.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/ProxyServiceRuntimeCoordinator.kt references 7 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 7,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
       "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-activities-configdraftvalidationsupport.kt:validateconfigdraft",
       "rule": "long-function-or-composable",
       "priority": 3,
