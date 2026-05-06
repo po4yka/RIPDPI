@@ -1,7 +1,7 @@
 ---
 title: Clean stale architecture LOC baselines
 type: task
-status: backlog
+status: done
 area: ci
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Clean stale architecture LOC baselines #repo/RIPDPI #area/ci #status/backlog 🔼
+- [x] #task Clean stale architecture LOC baselines #repo/RIPDPI #area/ci #status/done 🔼
 
 ## Summary
 
@@ -37,11 +37,11 @@ accepted.
 
 ## Acceptance criteria
 
-- [ ] Deleted diagnostics support file entries are removed from
+- [x] Deleted diagnostics support file entries are removed from
     `config/static/file-loc-baseline.json`.
-- [ ] Reduced `AdvancedSettingsBinder` no longer has a stale oversized baseline.
-- [ ] No baseline value is increased.
-- [ ] `python3 scripts/ci/check_file_loc_limits.py` passes without stale or
+- [x] Reduced `AdvancedSettingsBinder` no longer has a stale oversized baseline.
+- [x] No baseline value is increased.
+- [x] `python3 scripts/ci/check_file_loc_limits.py` passes without stale or
     missing baseline entries.
 
 ## Links

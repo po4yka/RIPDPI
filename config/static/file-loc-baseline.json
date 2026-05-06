@@ -1,24 +1,6 @@
 {
   "entries": [
     {
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiContextSupport.kt",
-      "kind": "kotlin",
-      "measuredLoc": 740,
-      "limit": 700
-    },
-    {
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStrategySupport.kt",
-      "kind": "kotlin",
-      "measuredLoc": 922,
-      "limit": 700
-    },
-    {
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/AdvancedSettingsBinder.kt",
-      "kind": "kotlin",
-      "measuredLoc": 711,
-      "limit": 700
-    },
-    {
       "path": "native/rust/crates/ripdpi-desync-runtime/src/tcp/tests.rs",
       "kind": "rust",
       "measuredLoc": 1872,
