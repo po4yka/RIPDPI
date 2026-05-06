@@ -1,7 +1,7 @@
 ---
 title: Epic - Clear post-SRP architecture regressions
 type: epic
-status: backlog
+status: done
 area: epic
 priority: high
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Epic - Clear post-SRP architecture regressions #repo/RIPDPI #area/epic #status/backlog ⏫
+- [x] #task Epic - Clear post-SRP architecture regressions #repo/RIPDPI #area/epic #status/done ⏫
 
 ## Goal
 
@@ -50,23 +50,23 @@ epic.
 
 ## Ship definition
 
-- [ ] Proxy-mode service orchestration no longer appears as a P2 feature-spread
+- [x] Proxy-mode service orchestration no longer appears as a P2 feature-spread
     indicator.
-- [ ] TCP typed payload conversion/accessors are split below the native hotspot
+- [x] TCP typed payload conversion/accessors are split below the native hotspot
     budget and remain covered by invariant tests.
-- [ ] Monitor engine no longer depends directly on concrete diagnostics lanes
+- [x] Monitor engine no longer depends directly on concrete diagnostics lanes
     that should be hidden behind runner/adapter contracts.
-- [ ] Monitor engine root is a small facade and stays within the native hotspot
+- [x] Monitor engine root is a small facade and stays within the native hotspot
     budget.
-- [ ] Remaining native broad-root facades are narrowed or moved behind explicit
+- [x] Remaining native broad-root facades are narrowed or moved behind explicit
     compatibility namespaces.
-- [ ] Proxy runtime no longer depends directly on concrete failure-classifier or
+- [x] Proxy runtime no longer depends directly on concrete failure-classifier or
     WS bootstrap crates where decision/adapter ports are sufficient.
-- [ ] Large shared protocol/config modules found by the native audit are split
+- [x] Large shared protocol/config modules found by the native audit are split
     by responsibility and covered by focused tests.
-- [ ] File LOC baselines are refreshed only to remove deleted/reduced debt
+- [x] File LOC baselines are refreshed only to remove deleted/reduced debt
     entries; no baseline is increased.
-- [ ] These commands pass:
+- [x] These commands pass:
     `python3 scripts/ci/check_architecture_health.py --check`,
     `python3 scripts/ci/check_native_hotspot_budgets.py`,
     `python3 scripts/ci/check_file_loc_limits.py`,
