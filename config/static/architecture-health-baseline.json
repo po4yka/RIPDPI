@@ -781,17 +781,6 @@
       "baselineValue": 283,
       "limit": 120,
       "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:native-rust-crates-ripdpi-android-proxy-adapter-src-config.rs:proxy_ui_config_strategy",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "native/rust/crates/ripdpi-android-proxy-adapter/src/config.rs",
-      "message": "proxy_ui_config_strategy spans 212 lines",
-      "metricName": "functionLines",
-      "baselineValue": 212,
-      "limit": 180,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
     }
   ]
 }

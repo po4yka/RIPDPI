@@ -1,7 +1,7 @@
 ---
 title: Split Android proxy adapter config property strategy
 type: task
-status: backlog
+status: done
 area: android
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Split Android proxy adapter config property strategy #repo/RIPDPI #area/android #status/backlog 🔼
+- [x] #task Split Android proxy adapter config property strategy #repo/RIPDPI #area/android #status/done 🔼
 
 ## Summary
 
@@ -36,10 +36,10 @@ hard to review when one config family changes.
 
 ## Acceptance criteria
 
-- [ ] `proxy_ui_config_strategy` is split into per-family strategy builders.
-- [ ] Config property tests preserve current coverage and shrink behavior.
-- [ ] The long-function architecture indicator is removed.
-- [ ] `cargo test -p ripdpi-android-proxy-adapter` passes.
+- [x] `proxy_ui_config_strategy` is split into per-family strategy builders.
+- [x] Config property tests preserve current coverage and shrink behavior.
+- [x] The long-function architecture indicator is removed.
+- [x] `cargo test -p ripdpi-android-proxy-adapter` passes.
 
 ## Links
 
