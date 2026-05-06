@@ -1,6 +1,10 @@
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, UdpSocket};
 
+use ripdpi_socks5_core::client::{Config as Socks5Config, Socks5Stream};
+use ripdpi_socks5_core::util::target_addr::TargetAddr as Socks5TargetAddr;
+use ripdpi_socks5_core::{Socks5Command, SocksError};
+
 use crate::util::IO_TIMEOUT;
 
 use super::tcp::connect_direct;
@@ -30,62 +34,39 @@ pub(super) fn connect_via_socks5_observed(
     Err(last_error.unwrap_or_else(|| "no_target_candidates".to_string()))
 }
 
-pub fn negotiate_socks5(mut proxy: TcpStream, target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
+pub fn negotiate_socks5(proxy: TcpStream, target: &TargetAddress, port: u16) -> Result<TcpStream, String> {
+    proxy.set_nonblocking(true).map_err(|err| err.to_string())?;
+    let proxy = tokio::net::TcpStream::from_std(proxy).map_err(|err| err.to_string())?;
+    let target = socks5_target(target, port);
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_io()
+        .enable_time()
+        .build()
+        .map_err(|err| err.to_string())?;
+    let proxy = runtime.block_on(async move {
+        let operation = async move {
+            let mut socks = Socks5Stream::use_stream(proxy, None, Socks5Config::default()).await?;
+            socks.request(Socks5Command::TCPConnect, target).await?;
+            Ok::<_, SocksError>(socks.get_socket())
+        };
+        match tokio::time::timeout(IO_TIMEOUT, operation).await {
+            Ok(Ok(proxy)) => Ok(proxy),
+            Ok(Err(error)) => Err(error.to_string()),
+            Err(_) => Err("SOCKS5 negotiation timed out".to_string()),
+        }
+    })?;
+    let proxy = proxy.into_std().map_err(|err| err.to_string())?;
+    proxy.set_nonblocking(false).map_err(|err| err.to_string())?;
     proxy.set_read_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
     proxy.set_write_timeout(Some(IO_TIMEOUT)).map_err(|err| err.to_string())?;
-    proxy.write_all(&[0x05, 0x01, 0x00]).map_err(|err| err.to_string())?;
-    let mut auth_reply = [0u8; 2];
-    proxy.read_exact(&mut auth_reply).map_err(|err| err.to_string())?;
-    if auth_reply != [0x05, 0x00] {
-        return Err(format!("SOCKS5 auth failed: {auth_reply:?}"));
-    }
-
-    let mut request = vec![0x05, 0x01, 0x00];
-    match target {
-        TargetAddress::Ip(IpAddr::V4(ip)) => {
-            request.push(0x01);
-            request.extend(ip.octets());
-        }
-        TargetAddress::Ip(IpAddr::V6(ip)) => {
-            request.push(0x04);
-            request.extend(ip.octets());
-        }
-        TargetAddress::Host(host) => {
-            let host_bytes = host.as_bytes();
-            if host_bytes.len() > u8::MAX as usize {
-                return Err("SOCKS5 host too long".to_string());
-            }
-            request.push(0x03);
-            request.push(host_bytes.len() as u8);
-            request.extend(host_bytes);
-        }
-    }
-    request.extend(port.to_be_bytes());
-    proxy.write_all(&request).map_err(|err| err.to_string())?;
-
-    let mut reply = [0u8; 4];
-    proxy.read_exact(&mut reply).map_err(|err| err.to_string())?;
-    if reply[1] != 0x00 {
-        return Err(format!("SOCKS5 connect failed: {:x}", reply[1]));
-    }
-    match reply[3] {
-        0x01 => {
-            let mut tail = [0u8; 6];
-            proxy.read_exact(&mut tail).map_err(|err| err.to_string())?;
-        }
-        0x04 => {
-            let mut tail = [0u8; 18];
-            proxy.read_exact(&mut tail).map_err(|err| err.to_string())?;
-        }
-        0x03 => {
-            let mut len = [0u8; 1];
-            proxy.read_exact(&mut len).map_err(|err| err.to_string())?;
-            let mut tail = vec![0u8; len[0] as usize + 2];
-            proxy.read_exact(&mut tail).map_err(|err| err.to_string())?;
-        }
-        atyp => return Err(format!("SOCKS5 atyp unsupported: {atyp}")),
-    }
     Ok(proxy)
+}
+
+fn socks5_target(target: &TargetAddress, port: u16) -> Socks5TargetAddr {
+    match target {
+        TargetAddress::Ip(ip) => Socks5TargetAddr::Ip(SocketAddr::new(*ip, port)),
+        TargetAddress::Host(host) => Socks5TargetAddr::Domain(host.clone(), port),
+    }
 }
 
 pub fn socks5_noauth_handshake(stream: &mut TcpStream) -> Result<(), String> {

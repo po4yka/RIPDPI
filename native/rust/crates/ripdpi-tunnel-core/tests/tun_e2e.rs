@@ -43,30 +43,18 @@ fn init_test_tracing() {
 
 // ── Fixture helpers ──────────────────────────────────────────────────────────
 
-/// Port range for TUN E2E tests (disjoint from proxy E2E ports).
-const TUN_FIXTURE_TCP_ECHO_PORT: u16 = 47201;
-const TUN_FIXTURE_UDP_ECHO_PORT: u16 = 47202;
-const TUN_FIXTURE_TLS_ECHO_PORT: u16 = 47203;
-const TUN_FIXTURE_DNS_UDP_PORT: u16 = 47253;
-const TUN_FIXTURE_DNS_HTTP_PORT: u16 = 47254;
-const TUN_FIXTURE_DNS_DOT_PORT: u16 = 47255;
-const TUN_FIXTURE_DNS_DNSCRYPT_PORT: u16 = 47256;
-const TUN_FIXTURE_DNS_DOQ_PORT: u16 = 47257;
-const TUN_FIXTURE_SOCKS5_PORT: u16 = 47280;
-const TUN_FIXTURE_CONTROL_PORT: u16 = 47290;
-
 fn tun_fixture_config() -> FixtureConfig {
     FixtureConfig {
-        tcp_echo_port: TUN_FIXTURE_TCP_ECHO_PORT,
-        udp_echo_port: TUN_FIXTURE_UDP_ECHO_PORT,
-        tls_echo_port: TUN_FIXTURE_TLS_ECHO_PORT,
-        dns_udp_port: TUN_FIXTURE_DNS_UDP_PORT,
-        dns_http_port: TUN_FIXTURE_DNS_HTTP_PORT,
-        dns_dot_port: TUN_FIXTURE_DNS_DOT_PORT,
-        dns_dnscrypt_port: TUN_FIXTURE_DNS_DNSCRYPT_PORT,
-        dns_doq_port: TUN_FIXTURE_DNS_DOQ_PORT,
-        socks5_port: TUN_FIXTURE_SOCKS5_PORT,
-        control_port: TUN_FIXTURE_CONTROL_PORT,
+        tcp_echo_port: 0,
+        udp_echo_port: 0,
+        tls_echo_port: 0,
+        dns_udp_port: 0,
+        dns_http_port: 0,
+        dns_dot_port: 0,
+        dns_dnscrypt_port: 0,
+        dns_doq_port: 0,
+        socks5_port: 0,
+        control_port: 0,
         ..FixtureConfig::default()
     }
 }

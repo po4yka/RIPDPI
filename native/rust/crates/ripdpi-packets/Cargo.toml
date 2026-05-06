@@ -9,8 +9,8 @@ workspace = true
 
 [dependencies]
 aes = { workspace = true }
+enum-map = { workspace = true }
 nom = { version = "8", default-features = false, features = ["alloc"] }
-ripdpi-collections = { workspace = true }
 ring = { workspace = true }
 
 [dev-dependencies]

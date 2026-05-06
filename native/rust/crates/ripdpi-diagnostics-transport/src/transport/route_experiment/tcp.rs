@@ -82,33 +82,42 @@ mod tests {
 
     #[test]
     fn direct_route_experiment_binds_deterministic_stable_bucket_port() {
-        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind tcp listener");
-        let server_addr = listener.local_addr().expect("listener addr");
-        let accept_handle = thread::spawn(move || {
-            let (stream, _) = listener.accept().expect("accept");
-            let _ = stream.shutdown(Shutdown::Both);
-        });
-        let config = RouteExperimentConfig {
-            stable_flow_attempts: 1,
-            diversity_buckets: 1,
-            diversity_on_failure_only: true,
-            session_seed: 7,
-        };
-        let identity = route_identity(&[server_addr]);
-        let expected_port = route_bucket_port(crate::util::stable_probe_hash(config.session_seed, &identity), 0);
+        for session_seed in 7..256 {
+            let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind tcp listener");
+            let server_addr = listener.local_addr().expect("listener addr");
+            let config = RouteExperimentConfig {
+                stable_flow_attempts: 1,
+                diversity_buckets: 1,
+                diversity_on_failure_only: true,
+                session_seed,
+            };
+            let identity = route_identity(&[server_addr]);
+            let expected_port = route_bucket_port(crate::util::stable_probe_hash(config.session_seed, &identity), 0);
 
-        let result = connect_transport_observed(
-            &[TargetAddress::Ip(server_addr.ip())],
-            server_addr.port(),
-            &TransportConfig::Direct { route_experiment: Some(config.clone()) },
-        )
-        .expect("route-stable connect");
+            let result = connect_transport_observed(
+                &[TargetAddress::Ip(server_addr.ip())],
+                server_addr.port(),
+                &TransportConfig::Direct { route_experiment: Some(config.clone()) },
+            );
 
-        assert_eq!(result.local_addr.expect("local addr").port(), expected_port);
-        let route_report = result.route_report.expect("route report");
-        assert_eq!(route_report.selected_bucket, 0);
-        assert_eq!(route_report.selected_bucket_kind, "stable");
-        accept_handle.join().expect("join accept");
+            match result {
+                Ok(result) => {
+                    assert_eq!(result.local_addr.expect("local addr").port(), expected_port);
+                    let route_report = result.route_report.expect("route report");
+                    assert_eq!(route_report.selected_bucket, 0);
+                    assert_eq!(route_report.selected_bucket_kind, "stable");
+                    let (stream, _) = listener.accept().expect("accept");
+                    let _ = stream.shutdown(Shutdown::Both);
+                    return;
+                }
+                Err(err) if err.contains("Address already in use") || err.contains("os error 48") => {
+                    continue;
+                }
+                Err(err) => panic!("route-stable connect: {err}"),
+            }
+        }
+
+        panic!("route-stable connect could not find an available deterministic source port");
     }
 
     #[test]

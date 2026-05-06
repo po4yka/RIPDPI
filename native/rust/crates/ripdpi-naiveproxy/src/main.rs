@@ -9,7 +9,7 @@ mod tls;
 
 use std::io;
 
-use crate::config::{parse_args, parse_config};
+use crate::config::parse_config;
 use crate::errors::emit_structured_error;
 use crate::relay::run;
 
@@ -22,7 +22,7 @@ async fn main() -> io::Result<()> {
         return Ok(());
     }
 
-    match parse_config(parse_args()) {
+    match parse_config() {
         Ok(config) => {
             if let Err(error) = run(config).await {
                 emit_structured_error(&error);

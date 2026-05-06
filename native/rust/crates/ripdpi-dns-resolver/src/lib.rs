@@ -40,9 +40,6 @@ pub(crate) use dnscrypt::{
 };
 #[cfg(test)]
 #[allow(unused_imports)]
-pub(crate) use transport::{
-    build_dns_query, read_length_prefixed_frame, unix_time_secs, write_length_prefixed_frame, DEFAULT_TIMEOUT,
-    DNS_MESSAGE_MEDIA_TYPE,
-};
+pub(crate) use transport::{build_dns_query, unix_time_secs, DEFAULT_TIMEOUT, DNS_MESSAGE_MEDIA_TYPE};
 #[allow(unused_imports)]
 pub(crate) use types::DnsCryptCachedCertificate;

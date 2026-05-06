@@ -1,0 +1,34 @@
+[package]
+name = "ripdpi-socks5-core"
+version.workspace = true
+authors = ["Jonathan Dizdarevic <dizzda@gmail.com>"]
+edition.workspace = true
+license.workspace = true
+description = "Fast SOCKS5 client/server implementation written in Rust async/.await (tokio)"
+repository = "https://github.com/dizda/fast-socks5"
+categories = [
+    "asynchronous",
+    "network-programming",
+    "command-line-utilities",
+    "authentication",
+]
+keywords = ["io", "proxy", "vpn", "async", "socks"]
+
+[features]
+default = []
+socks4 = []
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+log = { workspace = true }
+socket2 = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "net", "time", "macros"] }
+tokio-stream = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"

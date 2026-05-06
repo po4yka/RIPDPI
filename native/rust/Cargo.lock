@@ -58,6 +58,7 @@ name = "android-support"
 version = "0.1.0"
 dependencies = [
  "android_logger",
+ "flume",
  "golden-test-support",
  "jni 0.22.4",
  "log",
@@ -832,6 +833,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "daemonize"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab8bfdaacb3c887a54d41bdf48d3af8873b3f5566469f8ba21b92057509f116e"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "data-encoding"
 version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -956,6 +966,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "enum-map"
+version = "2.7.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6866f3bfdf8207509a033af1a75a7b08abda06bbaaeae6669323fd5a097df2e9"
+dependencies = [
+ "enum-map-derive",
+]
+
+[[package]]
+name = "enum-map-derive"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f282cfdfe92516eb26c2af8589c274c7c17681f5ecc03c18255fe741c6aa64eb"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "env_filter"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1009,21 +1039,6 @@ checksum = "8be9f3dfaaffdae2972880079a491a1a8bb7cbed0b8dd7a347f668b4150a3b93"
 dependencies = [
  "event-listener",
  "pin-project-lite",
-]
-
-[[package]]
-name = "fast-socks5"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9545787d8304a71e1bf1b711705070a4c400cce9b332c4a11800627b7c9a2067"
-dependencies = [
- "anyhow",
- "async-trait",
- "log",
- "socket2 0.5.10",
- "thiserror 1.0.69",
- "tokio",
- "tokio-stream",
 ]
 
 [[package]]
@@ -1655,7 +1670,7 @@ dependencies = [
  "libc",
  "percent-encoding",
  "pin-project-lite",
- "socket2 0.5.10",
+ "socket2",
  "tokio",
  "tower-service",
  "tracing",
@@ -2535,6 +2550,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "pico-args"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5be167a7af36ee22fe3115051bc51f6e6c7054c9348e28deb4f49bd6f705a315"
+
+[[package]]
 name = "pin-project-lite"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2580,6 +2601,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "pollster"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
+
+[[package]]
 name = "poly1305"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2595,6 +2622,15 @@ name = "portable-atomic"
 version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c33a9471896f1c69cecef8d20cbe2f7accd12527ce60845ff44c153bb2a21b49"
+
+[[package]]
+name = "portable-atomic-util"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c2a106d1259c23fac8e543272398ae0e3c0b8d33c88ed73d0cc71b0f1d902618"
+dependencies = [
+ "portable-atomic",
+]
 
 [[package]]
 name = "potential_utf"
@@ -2720,7 +2756,7 @@ dependencies = [
  "quinn-udp",
  "rustc-hash",
  "rustls",
- "socket2 0.5.10",
+ "socket2",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -2758,7 +2794,7 @@ dependencies = [
  "cfg_aliases",
  "libc",
  "once_cell",
- "socket2 0.5.10",
+ "socket2",
  "tracing",
  "windows-sys 0.60.2",
 ]
@@ -3001,6 +3037,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ringbuf"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe47b720588c8702e34b5979cb3271a8b1842c7cb6f57408efa70c779363488c"
+dependencies = [
+ "crossbeam-utils",
+ "portable-atomic",
+ "portable-atomic-util",
+]
+
+[[package]]
 name = "ripdpi-android"
 version = "0.1.0"
 dependencies = [
@@ -3060,7 +3107,7 @@ dependencies = [
  "ripdpi-tls-profiles",
  "serde",
  "serde_json",
- "socket2 0.6.3",
+ "socket2",
  "tokio",
  "tokio-boring",
  "url",
@@ -3197,6 +3244,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "pico-args",
  "ripdpi-vless",
  "tokio",
  "tracing",
@@ -3244,7 +3292,7 @@ dependencies = [
  "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-session",
- "socket2 0.6.3",
+ "socket2",
  "tracing",
 ]
 
@@ -3260,7 +3308,7 @@ dependencies = [
  "ripdpi-proxy-config",
  "ripdpi-runtime-platform",
  "serde_json",
- "socket2 0.6.3",
+ "socket2",
  "tracing",
 ]
 
@@ -3411,8 +3459,10 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "ripdpi-diagnostics-contracts",
+ "ripdpi-socks5-core",
  "rustls",
- "socket2 0.6.3",
+ "socket2",
+ "tokio",
  "tungstenite",
  "webpki-roots",
 ]
@@ -3422,7 +3472,9 @@ name = "ripdpi-dns-resolver"
 version = "0.1.0"
 dependencies = [
  "boring",
+ "bytes",
  "crypto_box",
+ "futures",
  "hex",
  "hickory-proto",
  "hickory-resolver",
@@ -3434,11 +3486,13 @@ dependencies = [
  "rcgen",
  "reqwest",
  "ring",
+ "ripdpi-socks5-core",
  "rustls",
  "thiserror 2.0.18",
  "tokio",
  "tokio-boring",
  "tokio-rustls",
+ "tokio-util",
  "turmoil",
  "url",
  "webpki-roots",
@@ -3466,7 +3520,7 @@ dependencies = [
  "quinn",
  "rand 0.10.1",
  "rustls",
- "socket2 0.6.3",
+ "socket2",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
@@ -3483,6 +3537,8 @@ dependencies = [
  "io-uring",
  "libc",
  "log",
+ "pollster",
+ "waker-fn",
 ]
 
 [[package]]
@@ -3513,7 +3569,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
- "socket2 0.6.3",
+ "socket2",
  "thiserror 2.0.18",
  "tokio",
  "tokio-boring",
@@ -3547,7 +3603,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
- "socket2 0.6.3",
+ "socket2",
  "tokio",
  "tracing",
 ]
@@ -3567,6 +3623,7 @@ name = "ripdpi-naiveproxy"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "pico-args",
  "rcgen",
  "rustls",
  "tokio",
@@ -3583,10 +3640,10 @@ name = "ripdpi-packets"
 version = "0.1.0"
 dependencies = [
  "aes",
+ "enum-map",
  "nom 8.0.0",
  "proptest",
  "ring",
- "ripdpi-collections",
  "serde_json",
  "tls-parser",
 ]
@@ -3603,7 +3660,7 @@ dependencies = [
  "ripdpi-desync",
  "ripdpi-ipfrag",
  "serde",
- "socket2 0.6.3",
+ "socket2",
  "tracing",
 ]
 
@@ -3627,6 +3684,7 @@ dependencies = [
  "aes",
  "base64 0.22.1",
  "ctr",
+ "daemonize",
  "libc",
  "local-network-fixture",
  "loom",
@@ -3652,7 +3710,7 @@ dependencies = [
  "ripdpi-ws-bootstrap",
  "rustls",
  "serde_json",
- "socket2 0.6.3",
+ "socket2",
  "tempfile",
  "tracing",
 ]
@@ -3705,6 +3763,7 @@ version = "0.1.0"
 dependencies = [
  "libc",
  "nix 0.31.2",
+ "pico-args",
  "ripdpi-ipfrag",
  "ripdpi-privileged-ops",
  "ripdpi-root-helper-protocol",
@@ -3855,6 +3914,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ripdpi-socks5-core"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "log",
+ "socket2",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-stream",
+ "tokio-test",
+]
+
+[[package]]
 name = "ripdpi-telemetry"
 version = "0.1.0"
 dependencies = [
@@ -3888,7 +3961,7 @@ dependencies = [
  "rcgen",
  "rustls",
  "serde",
- "socket2 0.6.3",
+ "socket2",
  "tokio",
  "tracing",
  "uuid",
@@ -3947,15 +4020,16 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "etherparse",
- "fast-socks5",
  "hickory-proto",
  "libc",
  "local-network-fixture",
  "lru",
  "proptest",
+ "ringbuf",
  "ripdpi-collections",
  "ripdpi-dns-resolver",
  "ripdpi-io-uring",
+ "ripdpi-socks5-core",
  "ripdpi-tun-driver",
  "ripdpi-tunnel-config",
  "smoltcp",
@@ -4025,7 +4099,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smoltcp",
- "socket2 0.6.3",
+ "socket2",
  "tokio",
  "tracing",
 ]
@@ -4040,7 +4114,7 @@ dependencies = [
  "ripdpi-runtime-platform",
  "ripdpi-tls-profiles",
  "ripdpi-ws-tunnel",
- "socket2 0.6.3",
+ "socket2",
 ]
 
 [[package]]
@@ -4055,7 +4129,7 @@ dependencies = [
  "nix 0.31.2",
  "rcgen",
  "ripdpi-tls-profiles",
- "socket2 0.6.3",
+ "socket2",
  "tracing",
  "tungstenite",
 ]
@@ -4468,16 +4542,6 @@ dependencies = [
 
 [[package]]
 name = "socket2"
-version = "0.5.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e22376abed350d73dd1cd119b57ffccad95b4e585a7cda43e286245ce23c0678"
-dependencies = [
- "libc",
- "windows-sys 0.52.0",
-]
-
-[[package]]
-name = "socket2"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
@@ -4718,7 +4782,7 @@ dependencies = [
  "mio",
  "pin-project-lite",
  "signal-hook-registry",
- "socket2 0.6.3",
+ "socket2",
  "tokio-macros",
  "windows-sys 0.61.2",
 ]
@@ -5085,6 +5149,12 @@ checksum = "09ac3b126d3914f9849036f826e054cbabdc8519970b8998ddaf3b5bd3c65f11"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "waker-fn"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "317211a0dc0ceedd78fb2ca9a44aed3d7b9b26f81870d485c07122b4350673b7"
 
 [[package]]
 name = "walkdir"
@@ -5666,7 +5736,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7d6f32a0ff4a9f6f01231eb2059cc85479330739333e0e58cadf03b6af2cca10"
 dependencies = [
  "cfg-if",
- "windows-sys 0.59.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

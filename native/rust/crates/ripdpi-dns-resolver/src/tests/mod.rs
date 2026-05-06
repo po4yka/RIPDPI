@@ -12,7 +12,7 @@ use rcgen::generate_simple_self_signed;
 use ring::signature::{Ed25519KeyPair, KeyPair};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
-use std::io::{Read, Write};
+use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -33,6 +33,23 @@ fn build_query(name: &str) -> Vec<u8> {
 
 fn build_query_for_type(name: &str, record_type: RecordType) -> Vec<u8> {
     build_dns_query(name, record_type).expect("query serializes")
+}
+
+fn read_length_prefixed_frame(reader: &mut impl Read) -> io::Result<Vec<u8>> {
+    let mut length = [0u8; 2];
+    reader.read_exact(&mut length)?;
+    let frame_len = usize::from(u16::from_be_bytes(length));
+    let mut payload = vec![0u8; frame_len];
+    reader.read_exact(&mut payload)?;
+    Ok(payload)
+}
+
+fn write_length_prefixed_frame(writer: &mut impl Write, body: &[u8]) -> io::Result<()> {
+    let length = u16::try_from(body.len())
+        .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "DNS payload is too large for TCP framing"))?;
+    writer.write_all(&length.to_be_bytes())?;
+    writer.write_all(body)?;
+    writer.flush()
 }
 
 fn build_response(query: &[u8], answer_ip: Ipv4Addr) -> Vec<u8> {

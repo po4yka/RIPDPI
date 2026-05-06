@@ -54,6 +54,7 @@ members = [
     "crates/ripdpi-packets",
     "crates/ripdpi-ipfrag",
     "crates/ripdpi-session",
+    "crates/ripdpi-socks5-core",
     "crates/ripdpi-ws-tunnel",
     "crates/ripdpi-config",
     "crates/ripdpi-desync",
@@ -137,6 +138,7 @@ ripdpi-warp-core = { path = "crates/ripdpi-warp-core" }
 ripdpi-packets = { path = "crates/ripdpi-packets" }
 ripdpi-ipfrag = { path = "crates/ripdpi-ipfrag" }
 ripdpi-session = { path = "crates/ripdpi-session" }
+ripdpi-socks5-core = { path = "crates/ripdpi-socks5-core" }
 ripdpi-ws-tunnel = { path = "crates/ripdpi-ws-tunnel" }
 ripdpi-config = { path = "crates/ripdpi-config" }
 ripdpi-desync = { path = "crates/ripdpi-desync" }
@@ -155,6 +157,9 @@ ripdpi-xhttp = { path = "crates/ripdpi-xhttp" }
 ripdpi-naiveproxy = { path = "crates/ripdpi-naiveproxy" }
 ripdpi-cloudflare-origin = { path = "crates/ripdpi-cloudflare-origin" }
 criterion = { version = "0.8", features = ["html_reports"] }
+daemonize = "0.5"
+enum-map = "2"
+async-trait = "0.1"
 
 ripdpi-tun-driver = { path = "crates/ripdpi-tun-driver" }
 ripdpi-tunnel-config = { path = "crates/ripdpi-tunnel-config" }
@@ -167,7 +172,8 @@ android_logger = "0.15"
 anyhow = "1"
 crypto_box = { version = "0.9", features = ["chacha20"] }
 etherparse = "0.20"
-fast-socks5 = "1.0"
+pico-args = "0.5"
+pollster = "0.4"
 hex = "0.4"
 jni = "0.22"
 libc = "0.2"
@@ -196,7 +202,8 @@ thiserror = "2"
 tokio = { version = "1", default-features = false }
 tun-rs = { version = "2.8", features = ["async"] }
 tokio-rustls = { version = "0.26", default-features = false }
-tokio-util = { version = "0.7", default-features = false }
+tokio-util = { version = "0.7", default-features = false, features = ["codec"] }
+tokio-stream = "0.1"
 tracing = "0.1"
 md5 = "0.8"
 tracing-log = "0.2"
@@ -207,6 +214,7 @@ tokio-boring = "5"
 webpki-roots = "1.0"
 io-uring = "=0.7.12"
 flume = "0.12"
+waker-fn = "1"
 x25519-dalek = { version = "2", features = ["static_secrets", "getrandom"] }
 h3 = "0.0.8"
 h3-quinn = "0.0.10"
@@ -220,6 +228,7 @@ blake2 = "0.10"
 futures = "0.3"
 h3-datagram = "0.0.2"
 rand = "0.10"
+ringbuf = { version = "0.4", features = ["alloc"] }
 sha2 = "0.11"
 flate2 = "1"
 time = "0.3"

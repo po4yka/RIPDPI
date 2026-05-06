@@ -4,7 +4,7 @@ mod handlers;
 use std::fs;
 use std::io;
 use std::os::unix::net::UnixListener;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
@@ -120,24 +120,25 @@ fn handle_connection(stream: &std::os::unix::net::UnixStream) -> io::Result<()> 
 // ---------------------------------------------------------------------------
 
 fn parse_args() -> String {
-    let args: Vec<String> = std::env::args().collect();
-    let mut socket_path = None;
-
-    let mut i = 1;
-    while i < args.len() {
-        if args[i].as_str() == "--socket" {
-            i += 1;
-            if i < args.len() {
-                socket_path = Some(args[i].clone());
-            }
+    match parse_args_from_env() {
+        Ok(socket_path) => socket_path.display().to_string(),
+        Err(error) => {
+            eprintln!("Usage: ripdpi-root-helper --socket <path>");
+            eprintln!("{error}");
+            std::process::exit(1);
         }
-        i += 1;
     }
+}
 
-    socket_path.unwrap_or_else(|| {
-        eprintln!("Usage: ripdpi-root-helper --socket <path>");
-        std::process::exit(1);
-    })
+fn parse_args_from_env() -> io::Result<PathBuf> {
+    let mut args = pico_args::Arguments::from_env();
+    let socket_path =
+        args.value_from_str("--socket").map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error))?;
+    let remaining = args.finish();
+    if !remaining.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("unexpected arguments: {remaining:?}")));
+    }
+    Ok(socket_path)
 }
 
 // ---------------------------------------------------------------------------

@@ -1,9 +1,6 @@
-use std::collections::VecDeque;
-use std::sync::{Arc, PoisonError};
+use std::sync::Arc;
 
 use once_cell::sync::OnceCell;
-
-use crate::sync::Mutex;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NativeEventRecord {
@@ -74,12 +71,42 @@ impl EventRing {
 }
 
 struct EventRingBuffersInner {
-    config: RingConfig,
-    proxy: Mutex<VecDeque<NativeEventRecord>>,
-    relay: Mutex<VecDeque<NativeEventRecord>>,
-    warp: Mutex<VecDeque<NativeEventRecord>>,
-    tunnel: Mutex<VecDeque<NativeEventRecord>>,
-    diagnostics: Mutex<VecDeque<NativeEventRecord>>,
+    proxy: EventQueue,
+    relay: EventQueue,
+    warp: EventQueue,
+    tunnel: EventQueue,
+    diagnostics: EventQueue,
+}
+
+struct EventQueue {
+    sender: flume::Sender<NativeEventRecord>,
+    receiver: flume::Receiver<NativeEventRecord>,
+}
+
+impl EventQueue {
+    fn bounded(capacity: usize) -> Self {
+        let (sender, receiver) = flume::bounded(capacity.max(1));
+        Self { sender, receiver }
+    }
+
+    fn push_drop_oldest(&self, event: NativeEventRecord) {
+        match self.sender.try_send(event) {
+            Ok(()) => {}
+            Err(flume::TrySendError::Full(event)) => {
+                let _ = self.receiver.try_recv();
+                let _ = self.sender.try_send(event);
+            }
+            Err(flume::TrySendError::Disconnected(_)) => {}
+        }
+    }
+
+    fn drain(&self) -> Vec<NativeEventRecord> {
+        self.receiver.try_iter().collect()
+    }
+
+    fn clear(&self) {
+        for _ in self.receiver.try_iter() {}
+    }
 }
 
 #[derive(Clone)]
@@ -97,12 +124,11 @@ impl EventRingBuffers {
     pub fn new(config: RingConfig) -> Self {
         Self {
             inner: Arc::new(EventRingBuffersInner {
-                proxy: Mutex::new(VecDeque::with_capacity(config.proxy_capacity)),
-                relay: Mutex::new(VecDeque::with_capacity(config.relay_capacity)),
-                warp: Mutex::new(VecDeque::with_capacity(config.warp_capacity)),
-                tunnel: Mutex::new(VecDeque::with_capacity(config.tunnel_capacity)),
-                diagnostics: Mutex::new(VecDeque::with_capacity(config.diagnostics_capacity)),
-                config,
+                proxy: EventQueue::bounded(config.proxy_capacity),
+                relay: EventQueue::bounded(config.relay_capacity),
+                warp: EventQueue::bounded(config.warp_capacity),
+                tunnel: EventQueue::bounded(config.tunnel_capacity),
+                diagnostics: EventQueue::bounded(config.diagnostics_capacity),
             }),
         }
     }
@@ -148,39 +174,24 @@ impl EventRingBuffers {
     }
 
     pub(crate) fn push(&self, ring: EventRing, event: NativeEventRecord) {
-        let capacity = self.capacity(ring);
-        let mut guard = self.ring(ring).lock().unwrap_or_else(PoisonError::into_inner);
-        if guard.len() >= capacity {
-            guard.pop_front();
-        }
-        guard.push_back(event);
+        self.ring(ring).push_drop_oldest(event);
     }
 
     fn drain(&self, ring: EventRing) -> Vec<NativeEventRecord> {
-        self.ring(ring).lock().unwrap_or_else(PoisonError::into_inner).drain(..).collect()
+        self.ring(ring).drain()
     }
 
     fn clear(&self, ring: EventRing) {
-        self.ring(ring).lock().unwrap_or_else(PoisonError::into_inner).clear();
+        self.ring(ring).clear();
     }
 
-    fn ring(&self, ring: EventRing) -> &Mutex<VecDeque<NativeEventRecord>> {
+    fn ring(&self, ring: EventRing) -> &EventQueue {
         match ring {
             EventRing::Proxy => &self.inner.proxy,
             EventRing::Relay => &self.inner.relay,
             EventRing::Warp => &self.inner.warp,
             EventRing::Tunnel => &self.inner.tunnel,
             EventRing::Diagnostics => &self.inner.diagnostics,
-        }
-    }
-
-    fn capacity(&self, ring: EventRing) -> usize {
-        match ring {
-            EventRing::Proxy => self.inner.config.proxy_capacity,
-            EventRing::Relay => self.inner.config.relay_capacity,
-            EventRing::Warp => self.inner.config.warp_capacity,
-            EventRing::Tunnel => self.inner.config.tunnel_capacity,
-            EventRing::Diagnostics => self.inner.config.diagnostics_capacity,
         }
     }
 }
@@ -228,4 +239,47 @@ pub fn clear_tunnel_events() {
 
 pub fn clear_diagnostics_events() {
     global_event_rings().clear_diagnostics();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{EventRing, EventRingBuffers, NativeEventRecord, RingConfig};
+
+    fn event(message: &str) -> NativeEventRecord {
+        NativeEventRecord {
+            source: "test".to_string(),
+            level: "info".to_string(),
+            message: message.to_string(),
+            created_at: 0,
+            kind: None,
+            runtime_id: None,
+            mode: None,
+            policy_signature: None,
+            fingerprint_hash: None,
+            diagnostics_session_id: None,
+            subsystem: None,
+        }
+    }
+
+    #[test]
+    fn bounded_queue_drops_oldest_event() {
+        let rings = EventRingBuffers::new(RingConfig { proxy_capacity: 2, ..RingConfig::default() });
+
+        rings.push(EventRing::Proxy, event("first"));
+        rings.push(EventRing::Proxy, event("second"));
+        rings.push(EventRing::Proxy, event("third"));
+
+        let messages: Vec<_> = rings.drain_proxy().into_iter().map(|event| event.message).collect();
+        assert_eq!(messages, ["second", "third"]);
+    }
+
+    #[test]
+    fn clear_drains_events_without_returning_them() {
+        let rings = EventRingBuffers::new(RingConfig::default());
+
+        rings.push(EventRing::Diagnostics, event("diagnostic"));
+        rings.clear_diagnostics();
+
+        assert!(rings.drain_diagnostics().is_empty());
+    }
 }

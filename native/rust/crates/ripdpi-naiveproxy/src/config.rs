@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -19,40 +18,36 @@ pub(crate) struct NaiveProxyConfig {
     pub(crate) tls_config: Arc<RustlsClientConfig>,
 }
 
-pub(crate) fn parse_args() -> HashMap<String, String> {
-    let mut parsed = HashMap::new();
-    let mut args = std::env::args().skip(1);
-    while let Some(flag) = args.next() {
-        if !flag.starts_with("--") {
-            continue;
-        }
-
-        let value = args.next().unwrap_or_default();
-        parsed.insert(flag.trim_start_matches("--").to_owned(), value);
-    }
-    parsed
+pub(crate) fn parse_config() -> io::Result<NaiveProxyConfig> {
+    parse_config_from(pico_args::Arguments::from_env())
 }
 
-pub(crate) fn parse_config(args: HashMap<String, String>) -> io::Result<NaiveProxyConfig> {
-    let listen = args.get("listen").cloned().unwrap_or_else(|| "127.0.0.1:11980".to_owned());
-    let server_value = args
-        .get("server")
-        .cloned()
+fn parse_config_from(mut args: pico_args::Arguments) -> io::Result<NaiveProxyConfig> {
+    let listen = optional_value(&mut args, "--listen")?.unwrap_or_else(|| "127.0.0.1:11980".to_owned());
+    let server_value: String = args
+        .opt_value_from_str::<_, String>("--server")
+        .map_err(invalid_args)?
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing --server"))?;
-    let (server, server_port) = parse_server_endpoint(&server_value, args.get("server-port"))?;
-    let server_name = args
-        .get("server-name")
-        .cloned()
+    let server_port = args.opt_value_from_str::<_, String>("--server-port").map_err(invalid_args)?;
+    let (server, server_port) = parse_server_endpoint(&server_value, server_port.as_deref())?;
+    let server_name: String = args
+        .opt_value_from_str::<_, String>("--server-name")
+        .map_err(invalid_args)?
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing --server-name"))?;
-    let username = normalize_optional(args.get("username"));
-    let password = normalize_optional(args.get("password"));
+    let username = normalize_optional(optional_value(&mut args, "--username")?.as_deref());
+    let password = normalize_optional(optional_value(&mut args, "--password")?.as_deref());
     if username.is_some() ^ password.is_some() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "NaiveProxy requires both username and password when authentication is configured",
         ));
+    }
+    let path = normalize_optional(optional_value(&mut args, "--path")?.as_deref());
+    let remaining = args.finish();
+    if !remaining.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("unexpected arguments: {remaining:?}")));
     }
 
     Ok(NaiveProxyConfig {
@@ -62,12 +57,20 @@ pub(crate) fn parse_config(args: HashMap<String, String>) -> io::Result<NaivePro
         server_name,
         username,
         password,
-        path: normalize_optional(args.get("path")),
+        path,
         tls_config: default_tls_config(),
     })
 }
 
-fn normalize_optional(value: Option<&String>) -> Option<String> {
+fn optional_value(args: &mut pico_args::Arguments, flag: &'static str) -> io::Result<Option<String>> {
+    args.opt_value_from_str::<_, String>(flag).map_err(invalid_args)
+}
+
+fn invalid_args(error: pico_args::Error) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidInput, error)
+}
+
+fn normalize_optional(value: Option<&str>) -> Option<String> {
     value.and_then(|raw| {
         let trimmed = raw.trim();
         if trimmed.is_empty() {
@@ -78,7 +81,7 @@ fn normalize_optional(value: Option<&String>) -> Option<String> {
     })
 }
 
-fn parse_server_endpoint(server_value: &str, server_port: Option<&String>) -> io::Result<(String, u16)> {
+fn parse_server_endpoint(server_value: &str, server_port: Option<&str>) -> io::Result<(String, u16)> {
     if let Some(port) = server_port {
         return Ok((server_value.trim().to_owned(), parse_u16(Some(port), "--server-port")?));
     }
@@ -97,9 +100,9 @@ fn parse_server_endpoint(server_value: &str, server_port: Option<&String>) -> io
     ))
 }
 
-fn parse_u16(value: Option<&String>, flag: &str) -> io::Result<u16> {
+fn parse_u16(value: Option<&str>, flag: &str) -> io::Result<u16> {
     let raw = value
-        .map(|entry| entry.trim())
+        .map(str::trim)
         .filter(|entry| !entry.is_empty())
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, format!("missing {flag}")))?;
     raw.parse::<u16>()

@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::io;
 
 use crate::path::normalize_path;
@@ -11,28 +10,30 @@ pub(crate) struct OriginConfig {
 }
 
 pub(crate) fn parse_config() -> io::Result<OriginConfig> {
-    let args = parse_args();
-    let listen = args.get("listen").cloned().unwrap_or_else(|| "127.0.0.1:43128".to_string());
-    let path = normalize_path(args.get("path").map(String::as_str).unwrap_or("/"));
-    let uuid_raw = args
-        .get("uuid")
-        .map(String::as_str)
-        .filter(|value| !value.trim().is_empty())
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing --uuid"))?;
-    Ok(OriginConfig { listen, path, uuid: parse_uuid(uuid_raw)? })
+    parse_config_from(pico_args::Arguments::from_env())
 }
 
-fn parse_args() -> HashMap<String, String> {
-    let mut parsed = HashMap::new();
-    let mut args = std::env::args().skip(1);
-    while let Some(flag) = args.next() {
-        if !flag.starts_with("--") {
-            continue;
-        }
-        let value = args.next().unwrap_or_default();
-        parsed.insert(flag.trim_start_matches("--").to_owned(), value);
+fn parse_config_from(mut args: pico_args::Arguments) -> io::Result<OriginConfig> {
+    let listen = args
+        .opt_value_from_str::<_, String>("--listen")
+        .map_err(invalid_args)?
+        .unwrap_or_else(|| "127.0.0.1:43128".to_string());
+    let path =
+        normalize_path(args.opt_value_from_str::<_, String>("--path").map_err(invalid_args)?.as_deref().unwrap_or("/"));
+    let uuid_raw: String = args
+        .opt_value_from_str::<_, String>("--uuid")
+        .map_err(invalid_args)?
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing --uuid"))?;
+    let remaining = args.finish();
+    if !remaining.is_empty() {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("unexpected arguments: {remaining:?}")));
     }
-    parsed
+    Ok(OriginConfig { listen, path, uuid: parse_uuid(&uuid_raw)? })
+}
+
+fn invalid_args(error: pico_args::Error) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidInput, error)
 }
 
 fn parse_uuid(raw: &str) -> io::Result<[u8; 16]> {

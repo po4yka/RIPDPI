@@ -3,25 +3,16 @@
 //! Wraps existing stateless `is_*()` / `parse_*()` detection functions behind
 //! a common [`ProtocolClassifier`] trait with a registry for ordered lookup.
 
-use ripdpi_collections::enum_map::{EnumKey, EnumMap};
-
 use crate::{is_http, is_tls_client_hello, parse_http, parse_tls};
 
 /// Protocol identifier for dispatch.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, enum_map::Enum)]
 #[repr(u8)]
 pub enum ProtocolId {
     Http = 0,
     Tls = 1,
     Quic = 2,
     Ssh = 3,
-}
-
-impl EnumKey for ProtocolId {
-    const COUNT: usize = 4;
-    fn index(self) -> usize {
-        self as usize
-    }
 }
 
 impl ProtocolId {
@@ -66,14 +57,14 @@ pub struct ClassifierRegistry {
     /// Ordered list for sequential classify() (priority-based).
     ordered: Vec<Box<dyn ProtocolClassifier>>,
     /// O(1) lookup by ProtocolId (indexes into `ordered`).
-    by_id: EnumMap<ProtocolId, usize>,
+    by_id: enum_map::EnumMap<ProtocolId, Option<usize>>,
 }
 
 impl ClassifierRegistry {
     pub fn new(classifiers: Vec<Box<dyn ProtocolClassifier>>) -> Self {
-        let mut by_id = EnumMap::new();
+        let mut by_id = enum_map::EnumMap::default();
         for (i, c) in classifiers.iter().enumerate() {
-            by_id.insert(c.id(), i);
+            by_id[c.id()] = Some(i);
         }
         Self { ordered: classifiers, by_id }
     }
@@ -95,7 +86,7 @@ impl ClassifierRegistry {
 
     /// Get a specific classifier by protocol ID. O(1) via EnumMap.
     pub fn get(&self, id: ProtocolId) -> Option<&dyn ProtocolClassifier> {
-        self.by_id.get(id).and_then(|&idx| self.ordered.get(idx)).map(AsRef::as_ref)
+        self.by_id[id].and_then(|idx| self.ordered.get(idx)).map(AsRef::as_ref)
     }
 }
 

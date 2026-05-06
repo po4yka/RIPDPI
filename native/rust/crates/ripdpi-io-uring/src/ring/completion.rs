@@ -87,8 +87,6 @@ mod tests {
     use std::thread;
     use std::time::{Duration, Instant};
 
-    use crate::ring::thread_waker::thread_waker;
-
     use super::*;
 
     /// Drive a full register/complete handshake from two threads using the
@@ -113,7 +111,8 @@ mod tests {
         });
 
         // Poller: register a thread-backed waker, then park until completion.
-        let waker = thread_waker(thread::current());
+        let polling_thread = thread::current();
+        let waker = waker_fn::waker_fn(move || polling_thread.unpark());
         let mut got: Option<CompletionResult> = None;
         let start = Instant::now();
         loop {

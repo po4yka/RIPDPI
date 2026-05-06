@@ -17,6 +17,7 @@ ripdpi-root-helper-protocol = { workspace = true }
 ripdpi-ipfrag = { workspace = true }
 nix = { workspace = true }
 libc = { workspace = true }
+pico-args = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 serde = { workspace = true }

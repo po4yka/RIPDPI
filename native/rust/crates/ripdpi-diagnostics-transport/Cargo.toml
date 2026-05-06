@@ -9,9 +9,11 @@ workspace = true
 
 [dependencies]
 ripdpi-diagnostics-contracts = { workspace = true }
+ripdpi-socks5-core = { workspace = true }
 libc = { workspace = true }
 socket2 = { workspace = true }
 rustls = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "net", "rt", "time"] }
 tungstenite = { workspace = true }
 webpki-roots = { workspace = true }
 

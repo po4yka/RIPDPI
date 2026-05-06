@@ -8,7 +8,9 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+bytes = { workspace = true }
 crypto_box = { workspace = true }
+futures = { workspace = true }
 hex = { workspace = true }
 hickory-proto = { workspace = true }
 hickory-resolver = { workspace = true, optional = true }
@@ -17,10 +19,12 @@ metrics = { workspace = true }
 once_cell = { workspace = true }
 ring = { workspace = true }
 reqwest = { workspace = true }
+ripdpi-socks5-core = { workspace = true }
 rustls = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "net", "rt", "sync", "time"] }
 tokio-rustls = { workspace = true }
+tokio-util = { workspace = true, features = ["codec"] }
 boring = { workspace = true }
 tokio-boring = { workspace = true }
 quinn = { workspace = true }
