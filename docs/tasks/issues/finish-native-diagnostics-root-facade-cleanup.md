@@ -1,7 +1,7 @@
 ---
 title: Finish native diagnostics root facade cleanup
 type: task
-status: backlog
+status: done
 area: diagnostics
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Finish native diagnostics root facade cleanup #repo/RIPDPI #area/diagnostics #status/backlog 🔼
+- [x] #task Finish native diagnostics root facade cleanup #repo/RIPDPI #area/diagnostics #status/done 🔼
 
 ## Summary
 
@@ -39,11 +39,11 @@ crate split.
 
 ## Acceptance criteria
 
-- [ ] Diagnostics root crates expose only their owned public API.
-- [ ] Compatibility re-exports are explicit, opt-in/deprecated, or moved to
+- [x] Diagnostics root crates expose only their owned public API.
+- [x] Compatibility re-exports are explicit, opt-in/deprecated, or moved to
     dedicated compatibility modules that do not trigger broad-root facade rules.
-- [ ] Internal consumers import split protocol crates directly.
-- [ ] `python3 scripts/ci/check_architecture_health.py --check` has no current
+- [x] Internal consumers import split protocol crates directly.
+- [x] `python3 scripts/ci/check_architecture_health.py --check` has no current
     broad-root indicators for these three files.
 
 ## Links

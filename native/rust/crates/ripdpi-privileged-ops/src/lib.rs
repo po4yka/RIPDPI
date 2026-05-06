@@ -12,12 +12,10 @@ pub mod experimental_tier3;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 mod linux;
 
-pub use capabilities::{detect_default_ttl, probe_ip_fragmentation_capabilities};
 pub use experimental_tier3::{
     recv_icmp_wrapped_udp, send_icmp_wrapped_udp, send_syn_hide_tcp, IcmpWrappedUdpRecvFilter, IcmpWrappedUdpRole,
     IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp, SynHideMarkerKind, SynHideTcpSpec,
 };
-pub use fd::protect_socket;
 pub use fragmentation::{send_ip_fragmented_tcp, send_ip_fragmented_udp};
 pub use raw_packet::{
     send_fake_rst, send_fake_tcp, send_flagged_tcp_payload, send_multi_disorder_tcp, send_ordered_tcp_segments,
@@ -33,6 +31,10 @@ pub use ttl::{enable_recv_ttl, read_chunk_with_ttl, try_set_stream_ttl_with_outc
 pub use types::{
     FakeTcpOptions, IpFragmentationCapabilities, OrderedTcpSegment, TcpActivationState, TcpFlagOverrides,
     TcpPayloadSegment, TcpStageWait,
+};
+pub use {
+    capabilities::{detect_default_ttl, probe_ip_fragmentation_capabilities},
+    fd::protect_socket,
 };
 
 #[cfg(not(any(target_os = "linux", target_os = "android")))]

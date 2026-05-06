@@ -16,11 +16,10 @@ pub use block_detection::{
     load_blockpage_fingerprints, match_blockpage_response, BlockSignal, BlockSignalObservation, BlockpageFingerprint,
     FingerprintLocation, PatternType,
 };
-pub use connection_freeze::classify_connection_freeze;
-pub use dns::confirm_dns_tampering;
 pub use http::classify_http_blockpage;
 pub use quic::classify_quic_probe;
 pub use strategy_execution::classify_strategy_execution_failure;
 pub use tls::{classify_redirect_failure, classify_tls_alert, classify_tls_handshake_failure};
 pub use transport::classify_transport_error;
 pub use types::{ClassifiedFailure, FailureAction, FailureClass, FailureEvidence, FailureStage};
+pub use {connection_freeze::classify_connection_freeze, dns::confirm_dns_tampering};

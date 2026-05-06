@@ -9,14 +9,16 @@ pub mod sessions;
 pub mod stats;
 pub mod tunnel_api;
 
-pub use classify::{classify_ip_packet, IpClass};
-pub use device::TunDevice;
-pub use io_loop::io_loop_task;
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 pub use io_loop::IoUringTunContext;
-pub use sessions::{ActiveSessions, SessionEntry};
-pub use stats::{DnsStatsSnapshot, Stats};
-pub use tunnel_api::run_tunnel;
+pub use {
+    classify::{classify_ip_packet, IpClass},
+    device::TunDevice,
+    io_loop::io_loop_task,
+    sessions::{ActiveSessions, SessionEntry},
+    stats::{DnsStatsSnapshot, Stats},
+    tunnel_api::run_tunnel,
+};
 
 #[cfg(test)]
 mod tests {

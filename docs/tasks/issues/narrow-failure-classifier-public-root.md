@@ -1,7 +1,7 @@
 ---
 title: Narrow failure classifier public root
 type: task
-status: backlog
+status: done
 area: engine
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Narrow failure classifier public root #repo/RIPDPI #area/engine #status/backlog 🔼
+- [x] #task Narrow failure classifier public root #repo/RIPDPI #area/engine #status/done 🔼
 
 ## Summary
 
@@ -36,12 +36,12 @@ callers.
 
 ## Acceptance criteria
 
-- [ ] Stable failure DTOs remain easy to import without pulling every classifier
+- [x] Stable failure DTOs remain easy to import without pulling every classifier
     family through the root.
-- [ ] Classifier-family functions are exposed through focused modules or narrow
+- [x] Classifier-family functions are exposed through focused modules or narrow
     facade traits.
-- [ ] Runtime and diagnostics callers import only the classifier family they use.
-- [ ] The broad-root indicator for this file is removed or explicitly justified
+- [x] Runtime and diagnostics callers import only the classifier family they use.
+- [x] The broad-root indicator for this file is removed or explicitly justified
     by a narrower rule.
 
 ## Links

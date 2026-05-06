@@ -1,7 +1,7 @@
 ---
 title: Narrow tunnel core public root
 type: task
-status: backlog
+status: done
 area: vpn
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Narrow tunnel core public root #repo/RIPDPI #area/vpn #status/backlog 🔼
+- [x] #task Narrow tunnel core public root #repo/RIPDPI #area/vpn #status/done 🔼
 
 ## Summary
 
@@ -36,11 +36,11 @@ entrypoint plus explicit submodule namespaces.
 
 ## Acceptance criteria
 
-- [ ] Tunnel-core root exports only stable top-level entrypoints.
-- [ ] Lower-level device, session, stats, and I/O-loop contracts move behind
+- [x] Tunnel-core root exports only stable top-level entrypoints.
+- [x] Lower-level device, session, stats, and I/O-loop contracts move behind
     explicit modules or narrower facade types.
-- [ ] Root-level tests move to focused test modules where possible.
-- [ ] The broad-root indicator for tunnel-core is removed.
+- [x] Root-level tests move to focused test modules where possible.
+- [x] The broad-root indicator for tunnel-core is removed.
 
 ## Links
 

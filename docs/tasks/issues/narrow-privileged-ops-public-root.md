@@ -1,7 +1,7 @@
 ---
 title: Narrow privileged ops public root
 type: task
-status: backlog
+status: done
 area: engine
 priority: medium
 owner: unassigned
@@ -12,7 +12,7 @@ created: 2026-05-06
 updated: 2026-05-06
 ---
 
-- [ ] #task Narrow privileged ops public root #repo/RIPDPI #area/engine #status/backlog 🔼
+- [x] #task Narrow privileged ops public root #repo/RIPDPI #area/engine #status/done 🔼
 
 ## Summary
 
@@ -37,11 +37,11 @@ families reviewable through one broad public facade.
 
 ## Acceptance criteria
 
-- [ ] Privileged operation families are imported through focused modules.
-- [ ] The crate root re-exports only stable shared contracts intentionally meant
+- [x] Privileged operation families are imported through focused modules.
+- [x] The crate root re-exports only stable shared contracts intentionally meant
     for broad consumers.
-- [ ] Platform callers no longer depend on a one-stop privileged operation root.
-- [ ] Native architecture contracts and hotspot checks pass.
+- [x] Platform callers no longer depend on a one-stop privileged operation root.
+- [x] Native architecture contracts and hotspot checks pass.
 
 ## Links
 
