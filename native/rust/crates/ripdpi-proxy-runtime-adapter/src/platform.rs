@@ -125,6 +125,11 @@ pub mod connect {
         ripdpi_runtime_platform::tcp::tcp_round_trip_time_ms(stream)
     }
 
+    pub fn record_connection_setup_duration(group_index: usize, elapsed_seconds: f64) {
+        let group_label = format!("{group_index}");
+        metrics::histogram!("ripdpi_connection_setup_duration_seconds", "group" => group_label).record(elapsed_seconds);
+    }
+
     fn new_tcp_socket(target: SocketAddr, tfo: bool) -> Result<Socket, TcpConnectError> {
         let domain = match target {
             SocketAddr::V4(_) => Domain::IPV4,

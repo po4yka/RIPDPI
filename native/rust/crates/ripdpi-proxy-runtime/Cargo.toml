@@ -10,7 +10,6 @@ workspace = true
 [dependencies]
 ripdpi-runtime-decision-ports = { workspace = true }
 ripdpi-proxy-runtime-adapter = { workspace = true }
-metrics = { workspace = true }
 tracing = { workspace = true }
 mio = { workspace = true }
 libc = { workspace = true }

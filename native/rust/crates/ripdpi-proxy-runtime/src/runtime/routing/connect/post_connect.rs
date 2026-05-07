@@ -37,8 +37,7 @@ pub(super) fn record_connect_telemetry(
     started: Instant,
 ) {
     let elapsed = started.elapsed().as_secs_f64();
-    let group_label = format!("{group_index}");
-    metrics::histogram!("ripdpi_connection_setup_duration_seconds", "group" => group_label).record(elapsed);
+    connect_platform::record_connection_setup_duration(group_index, elapsed);
     if let Some(telemetry) = &state.telemetry {
         let upstream_addr = stream.peer_addr().unwrap_or(target);
         let upstream_rtt_ms = connect_platform::tcp_round_trip_time_ms(stream)
