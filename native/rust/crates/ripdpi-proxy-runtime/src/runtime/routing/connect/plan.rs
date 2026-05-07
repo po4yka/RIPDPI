@@ -87,10 +87,6 @@ pub(super) fn unspecified_ip_for(addr: SocketAddr) -> IpAddr {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ripdpi_proxy_runtime_adapter::model::config::{
-        group_requests_direct_syn_data_tfo, DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind,
-        UpstreamSocksConfig,
-    };
 
     #[test]
     fn outbound_connects_do_not_reuse_listener_bind_ip() {
@@ -99,18 +95,5 @@ mod tests {
             unspecified_ip_for(SocketAddr::from(([0u16, 0, 0, 0, 0, 0, 0, 1], 443))),
             IpAddr::V6(Ipv6Addr::UNSPECIFIED),
         );
-    }
-
-    #[test]
-    fn direct_syn_data_tfo_requires_payload_and_direct_upstream() {
-        let mut group = DesyncGroup::new(0);
-        group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1)));
-
-        assert!(group_requests_direct_syn_data_tfo(&group, Some(b"GET / HTTP/1.1\r\n\r\n")));
-        assert!(!group_requests_direct_syn_data_tfo(&group, None));
-        assert!(!group_requests_direct_syn_data_tfo(&group, Some(&[])));
-
-        group.policy.ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::from(([127, 0, 0, 1], 1080)) });
-        assert!(!group_requests_direct_syn_data_tfo(&group, Some(b"GET / HTTP/1.1\r\n\r\n")));
     }
 }

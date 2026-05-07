@@ -43,10 +43,6 @@ pub mod config {
         config.groups.get(group_index)
     }
 
-    pub fn selected_desync_group_owned(config: &RuntimeConfig, group_index: usize) -> Option<DesyncGroup> {
-        selected_desync_group(config, group_index).cloned()
-    }
-
     pub fn route_requires_delay_payload(config: &RuntimeConfig, group_index: usize) -> Option<bool> {
         selected_desync_group(config, group_index).map(ripdpi_runtime_decision_ports::policy::group_requires_payload)
     }
@@ -362,6 +358,24 @@ pub mod config {
 
     pub fn shadowsocks_target_policy(config: &RuntimeConfig) -> ShadowsocksTargetPolicy {
         ShadowsocksTargetPolicy { ipv6_enabled: config.network.ipv6, resolve_enabled: config.network.resolve }
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn direct_syn_data_tfo_requires_payload_and_direct_upstream() {
+            let mut group = DesyncGroup::new(0);
+            group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1)));
+
+            assert!(group_requests_direct_syn_data_tfo(&group, Some(b"GET / HTTP/1.1\r\n\r\n")));
+            assert!(!group_requests_direct_syn_data_tfo(&group, None));
+            assert!(!group_requests_direct_syn_data_tfo(&group, Some(&[])));
+
+            group.policy.ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::from(([127, 0, 0, 1], 1080)) });
+            assert!(!group_requests_direct_syn_data_tfo(&group, Some(b"GET / HTTP/1.1\r\n\r\n")));
+        }
     }
 }
 
