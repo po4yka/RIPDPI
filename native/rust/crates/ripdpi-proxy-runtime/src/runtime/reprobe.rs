@@ -12,7 +12,6 @@
 // - Reuses the same raw TLS ClientHello probe pattern as the connect path.
 
 mod cache_flush;
-mod classification;
 mod reset_policy;
 mod scheduler;
 mod target_catalog;

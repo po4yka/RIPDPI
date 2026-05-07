@@ -2,12 +2,12 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::thread;
 
+use ripdpi_proxy_runtime_adapter::failure::ProbeResult;
 use ripdpi_proxy_runtime_adapter::model::config::{network_reprobe_settings, NetworkReprobeSettings};
 use ripdpi_runtime_decision_ports::AdaptiveFeedbackPort;
 
 use super::super::state::RuntimeState;
 use super::cache_flush::flush_runtime_cache_after_handover;
-use super::classification::ProbeResult;
 use super::reset_policy::reset_if_strategy_mismatch;
 use super::target_catalog::{PROBE_TARGETS, TOTAL_DEADLINE};
 use super::tls_probe::probe_tls_handshake;
