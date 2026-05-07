@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll};
+use ripdpi_proxy_runtime_adapter::model::config::client_capacity;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use socket2::SockRef;
 
@@ -19,7 +20,7 @@ pub(crate) fn run_accept_loop(
     state: RuntimeState,
     control: Option<StdArc<EmbeddedProxyControl>>,
 ) -> io::Result<()> {
-    let worker_pool = ClientWorkerPool::new(state.config.network.max_open.max(1) as usize)?;
+    let worker_pool = ClientWorkerPool::new(client_capacity(&state.config))?;
     let result = poll_accept_loop(listener, state.clone(), control, &worker_pool);
     if let Some(telemetry) = &state.telemetry {
         telemetry.on_listener_stopped();
@@ -82,8 +83,7 @@ fn accept_client(stream: mio::net::TcpStream, state: &RuntimeState, worker_pool:
     if let Err(err) = client.set_nodelay(true) {
         tracing::debug!("set_nodelay on client socket failed (non-fatal): {err}");
     }
-    let Some(slot) = ClientSlotGuard::acquire(state.active_clients.clone(), state.config.network.max_open as usize)
-    else {
+    let Some(slot) = ClientSlotGuard::acquire(state.active_clients.clone(), client_capacity(&state.config)) else {
         tracing::warn!("client connection rejected: at capacity");
         if let Some(telemetry) = &state.telemetry {
             telemetry.on_client_slot_exhausted();

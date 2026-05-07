@@ -1,4 +1,5 @@
 pub mod config {
+    use std::net::SocketAddr;
     use std::time::Duration;
 
     pub use ripdpi_config::*;
@@ -18,6 +19,18 @@ pub mod config {
 
     pub fn udp_flow_limit(config: &RuntimeConfig) -> usize {
         config.network.max_open.max(1) as usize
+    }
+
+    pub fn listener_bind_addr(config: &RuntimeConfig) -> SocketAddr {
+        SocketAddr::new(config.network.listen.listen_ip, config.network.listen.listen_port)
+    }
+
+    pub fn client_capacity(config: &RuntimeConfig) -> usize {
+        config.network.max_open.max(1) as usize
+    }
+
+    pub fn route_group_count(config: &RuntimeConfig) -> usize {
+        config.groups.len()
     }
 
     #[derive(Clone, Copy)]
