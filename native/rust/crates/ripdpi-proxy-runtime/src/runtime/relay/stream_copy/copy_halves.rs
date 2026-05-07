@@ -1,7 +1,6 @@
 use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::model::config::selected_desync_group_owned;
-use ripdpi_proxy_runtime_adapter::model::session::SessionState;
-use ripdpi_runtime_decision_ports::policy::extract_host;
+use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host, SessionState};
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -103,7 +102,7 @@ pub(super) fn flush_outbound_payload(
         (is_new_round, progress)
     };
     let mut remembered = remembered_host.lock().map_err(|_| io::Error::other("remembered host mutex poisoned"))?;
-    if let Some(host) = extract_host(&state.config, payload) {
+    if let Some(host) = extract_payload_host(&state.config, payload) {
         *remembered = Some(host);
     }
     let host = remembered.clone();

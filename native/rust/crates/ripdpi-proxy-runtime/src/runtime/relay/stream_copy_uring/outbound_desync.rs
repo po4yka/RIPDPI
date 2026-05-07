@@ -4,8 +4,7 @@ use std::io::{self, Read};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use ripdpi_proxy_runtime_adapter::model::session::SessionState;
-use ripdpi_runtime_decision_ports::policy::extract_host;
+use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host, SessionState};
 
 use super::super::super::desync::{send_with_group, OutboundSendError};
 use super::super::super::state::RuntimeState;
@@ -55,7 +54,7 @@ fn flush_outbound_payload(
     payload: &[u8],
 ) -> io::Result<()> {
     let progress = observe_outbound_payload(session, payload)?;
-    let parsed_host = extract_host(&state.config, payload);
+    let parsed_host = extract_payload_host(&state.config, payload);
     if parsed_host.is_some() {
         *remembered_host = parsed_host.clone();
     }

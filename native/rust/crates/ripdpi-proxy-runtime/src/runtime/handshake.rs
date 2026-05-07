@@ -15,12 +15,11 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     shadowsocks_enabled, transparent_proxy_enabled, udp_associate_enabled,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{
-    encode_socks4_reply, encode_socks5_reply, parse_http_connect_request, parse_socks4_request, parse_socks5_request,
-    ClientRequest, SessionError, SocketType, S_ER_CMD, S_ER_GEN, S_VER5,
+    encode_socks4_reply, encode_socks5_reply, extract_payload_host, parse_http_connect_request, parse_socks4_request,
+    parse_socks5_request, ClientRequest, SessionError, SocketType, S_ER_CMD, S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
-use ripdpi_runtime_decision_ports::policy::extract_host;
 
 use connect_relay::{connect_and_relay, ConnectRelayError, SuccessReply};
 use protocol_io::{
@@ -193,7 +192,7 @@ fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
     let (target, first_request): (SocketAddr, Vec<u8>) =
         read_shadowsocks_request(&mut client, first_byte, &state.config, resolver)?;
-    let host = extract_host(&state.config, &first_request);
+    let host = extract_payload_host(&state.config, &first_request);
     let payload = if first_request.is_empty() { None } else { Some(first_request.as_ref()) };
     let (upstream, route) = super::routing::connect_target(target, state, payload, false, host)?;
     super::relay::relay(

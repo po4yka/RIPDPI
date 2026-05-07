@@ -1,6 +1,7 @@
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_runtime_decision_ports::policy::{extract_host, ConnectionRoute};
+use ripdpi_proxy_runtime_adapter::model::session::extract_payload_host;
+use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 use super::super::super::state::RuntimeState;
 use super::ConnectRelayError;
@@ -28,7 +29,7 @@ pub(super) fn connect_delayed_route(
     route: ConnectionRoute,
     payload: Vec<u8>,
 ) -> Result<UpstreamRoute, ConnectRelayError> {
-    let host = extract_host(&state.config, &payload).or(host_hint);
+    let host = extract_payload_host(&state.config, &payload).or(host_hint);
     let (upstream, route) =
         super::super::super::routing::connect_target_with_route(target, state, route, Some(&payload), host)
             .map_err(|err| ConnectRelayError::with_seed_request(err, true, Some(payload.clone())))?;

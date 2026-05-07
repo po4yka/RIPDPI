@@ -481,9 +481,13 @@ pub mod session {
 
     pub fn classify_outbound_payload(config: &RuntimeConfig, payload: &[u8]) -> OutboundPayloadInfo {
         OutboundPayloadInfo {
-            host: ripdpi_runtime_decision_ports::policy::extract_host(config, payload),
+            host: extract_payload_host(config, payload),
             is_tls: ripdpi_runtime_decision_ports::policy::is_tls_client_hello_payload(payload),
         }
+    }
+
+    pub fn extract_payload_host(config: &RuntimeConfig, payload: &[u8]) -> Option<String> {
+        ripdpi_runtime_decision_ports::policy::extract_host(config, payload)
     }
 
     pub fn is_tls_client_hello_payload(payload: &[u8]) -> bool {
