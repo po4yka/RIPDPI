@@ -520,6 +520,23 @@ pub mod session {
         packet
     }
 
+    pub fn encode_upstream_socks_connect(target: SocketAddr) -> Vec<u8> {
+        let mut out = vec![S_VER5, S_CMD_CONN, 0];
+        match target {
+            SocketAddr::V4(addr) => {
+                out.push(S_ATP_I4);
+                out.extend_from_slice(&addr.ip().octets());
+                out.extend_from_slice(&addr.port().to_be_bytes());
+            }
+            SocketAddr::V6(addr) => {
+                out.push(S_ATP_I6);
+                out.extend_from_slice(&addr.ip().octets());
+                out.extend_from_slice(&addr.port().to_be_bytes());
+            }
+        }
+        out
+    }
+
     pub fn parse_shadowsocks_target(
         packet: &[u8],
         policy: super::config::ShadowsocksTargetPolicy,

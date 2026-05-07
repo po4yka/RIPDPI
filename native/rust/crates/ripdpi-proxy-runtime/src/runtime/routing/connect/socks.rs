@@ -2,7 +2,9 @@ use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::model::session::{S_ATP_I4, S_ATP_I6, S_AUTH_NONE, S_CMD_CONN, S_ER_GEN, S_VER5};
+use ripdpi_proxy_runtime_adapter::model::session::{
+    encode_upstream_socks_connect, S_ATP_I4, S_ATP_I6, S_AUTH_NONE, S_ER_GEN, S_VER5,
+};
 
 use super::socket::connect_socket;
 pub(in crate::runtime::routing::connect) fn connect_via_socks(
@@ -38,23 +40,6 @@ pub(in crate::runtime::routing::connect) fn connect_via_socks(
     stream.set_read_timeout(None)?;
     stream.set_write_timeout(None)?;
     Ok(stream)
-}
-
-pub(in crate::runtime) fn encode_upstream_socks_connect(target: SocketAddr) -> Vec<u8> {
-    let mut out = vec![S_VER5, S_CMD_CONN, 0];
-    match target {
-        SocketAddr::V4(addr) => {
-            out.push(S_ATP_I4);
-            out.extend_from_slice(&addr.ip().octets());
-            out.extend_from_slice(&addr.port().to_be_bytes());
-        }
-        SocketAddr::V6(addr) => {
-            out.push(S_ATP_I6);
-            out.extend_from_slice(&addr.ip().octets());
-            out.extend_from_slice(&addr.port().to_be_bytes());
-        }
-    }
-    out
 }
 
 pub(in crate::runtime) fn read_upstream_socks_reply(stream: &mut TcpStream) -> io::Result<Vec<u8>> {
