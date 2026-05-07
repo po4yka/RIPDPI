@@ -1,4 +1,4 @@
-use ripdpi_config::DesyncGroup;
+use ripdpi_proxy_runtime_adapter::config::DesyncGroup;
 use ripdpi_proxy_runtime_adapter::desync_model::AdaptivePlannerHints;
 use ripdpi_proxy_runtime_adapter::proxy_config::ProxyMorphPolicy;
 

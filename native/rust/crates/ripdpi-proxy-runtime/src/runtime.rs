@@ -14,7 +14,7 @@ mod warmup;
 use std::io;
 use std::net::TcpListener;
 
-use ripdpi_config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::config::RuntimeConfig;
 
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
 use ripdpi_runtime_api::EmbeddedProxyControl;
@@ -50,8 +50,10 @@ mod tests {
     use crate::runtime::state::RuntimeState;
     #[cfg(not(feature = "loom"))]
     use crate::sync::{Arc, AtomicUsize};
-    use ripdpi_config::{DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT};
     use ripdpi_packets::{DEFAULT_FAKE_TLS, IS_HTTPS};
+    use ripdpi_proxy_runtime_adapter::config::{
+        DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT,
+    };
     use ripdpi_proxy_runtime_adapter::session::{
         encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, OutboundProgress, S_ATP_I4, S_ATP_I6,
         S_CMD_CONN, S_ER_CONN, S_VER5,
@@ -147,7 +149,7 @@ mod tests {
 
     #[test]
     fn failure_trigger_mask_covers_all_detection_classes() {
-        use ripdpi_config::{
+        use ripdpi_proxy_runtime_adapter::config::{
             DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT,
             DETECT_TLS_HANDSHAKE_FAILURE,
         };
@@ -255,8 +257,10 @@ mod tests {
         let mut fallback = DesyncGroup::new(1);
         fallback.matches.detect = DETECT_CONNECT;
 
-        let config =
-            ripdpi_config::RuntimeConfig { groups: vec![primary, fallback], ..ripdpi_config::RuntimeConfig::default() };
+        let config = ripdpi_proxy_runtime_adapter::config::RuntimeConfig {
+            groups: vec![primary, fallback],
+            ..ripdpi_proxy_runtime_adapter::config::RuntimeConfig::default()
+        };
         let state = RuntimeState::test(config.clone());
 
         let initial = select_route(&state, target, Some(&payload), None, false).expect("initial route");

@@ -6,7 +6,7 @@ use std::io;
 use std::net::{SocketAddr, TcpListener};
 use std::sync::Arc as StdArc;
 
-use ripdpi_config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::config::RuntimeConfig;
 use ripdpi_proxy_runtime_adapter::platform;
 use ripdpi_runtime_api::EmbeddedProxyControl;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};

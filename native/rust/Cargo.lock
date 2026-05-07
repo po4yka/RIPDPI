@@ -3716,7 +3716,6 @@ dependencies = [
  "native-soak-support",
  "nix 0.31.2",
  "ring",
- "ripdpi-config",
  "ripdpi-io-uring",
  "ripdpi-packets",
  "ripdpi-proxy-runtime-adapter",

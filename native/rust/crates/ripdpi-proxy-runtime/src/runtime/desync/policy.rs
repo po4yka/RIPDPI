@@ -1,6 +1,6 @@
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_config::DesyncGroup;
+use ripdpi_proxy_runtime_adapter::config::DesyncGroup;
 use ripdpi_proxy_runtime_adapter::desync_model::{
     ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints, TcpSegmentHint,
 };

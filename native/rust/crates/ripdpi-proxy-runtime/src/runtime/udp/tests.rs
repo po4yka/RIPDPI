@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
-use ripdpi_config::{QuicInitialMode, RuntimeConfig};
+use ripdpi_proxy_runtime_adapter::config::{QuicInitialMode, RuntimeConfig};
 use ripdpi_proxy_runtime_adapter::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::session::S_ATP_I4;
 use ripdpi_runtime_decision_ports::policy::{HostSource, TransportProtocol};

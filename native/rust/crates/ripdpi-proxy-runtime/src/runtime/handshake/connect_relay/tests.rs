@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::runtime::state::RuntimeState;
-use ripdpi_config::{RuntimeConfig, WsTunnelMode};
+use ripdpi_proxy_runtime_adapter::config::{RuntimeConfig, WsTunnelMode};
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::TelegramDc;
 use ripdpi_runtime_api::RuntimeTelemetrySink;

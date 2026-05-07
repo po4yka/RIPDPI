@@ -21,6 +21,10 @@ pub mod desync_model {
     };
 }
 
+pub mod config {
+    pub use ripdpi_config::*;
+}
+
 pub mod protocol_payload;
 pub mod raw_packet_requirements;
 

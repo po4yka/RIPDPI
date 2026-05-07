@@ -8,11 +8,13 @@ use local_network_fixture::{
     FixtureConfig, FixtureEvent, FixtureFaultOutcome, FixtureFaultScope, FixtureFaultSpec, FixtureFaultTarget,
     FixtureStack,
 };
-use ripdpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig, TcpChainStep, TcpChainStepKind};
-#[cfg(any(target_os = "linux", target_os = "android"))]
-use ripdpi_config::{OffsetBase, OffsetExpr};
 use ripdpi_packets::IS_HTTPS;
 use ripdpi_packets::{IS_TCP, IS_UDP};
+use ripdpi_proxy_runtime_adapter::config::{
+    DesyncGroup, QuicInitialMode, RuntimeConfig, TcpChainStep, TcpChainStepKind,
+};
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use ripdpi_proxy_runtime_adapter::config::{OffsetBase, OffsetExpr};
 use ripdpi_proxy_runtime_adapter::proxy_config::{runtime_config_from_ui, ProxyUiConfig};
 use ripdpi_runtime_api::RuntimeTelemetrySink;
 use std::io::{Read, Write};
@@ -370,7 +372,8 @@ fn upstream_silent_drop_fault_is_classified_end_to_end() {
 
     let telemetry = Arc::new(RecordingTelemetry::default());
     let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
-    config.groups[0].matches.detect = ripdpi_config::DETECT_SILENT_DROP | ripdpi_config::DETECT_TCP_RESET;
+    config.groups[0].matches.detect = ripdpi_proxy_runtime_adapter::config::DETECT_SILENT_DROP
+        | ripdpi_proxy_runtime_adapter::config::DETECT_TCP_RESET;
     config.timeouts.timeout_ms = 500;
     let proxy = start_proxy(config, Some(telemetry.clone() as Arc<dyn RuntimeTelemetrySink>));
 
@@ -873,10 +876,10 @@ fn tls_round_trip_with_split_desync_completes_handshake() {
 
     let mut config = ui_proxy_config();
     config.groups[0].matches.proto = IS_TCP | IS_HTTPS;
-    config.groups[0]
-        .actions
-        .tcp_chain
-        .push(TcpChainStep::new(TcpChainStepKind::Split, ripdpi_config::OffsetExpr::absolute(5)));
+    config.groups[0].actions.tcp_chain.push(TcpChainStep::new(
+        TcpChainStepKind::Split,
+        ripdpi_proxy_runtime_adapter::config::OffsetExpr::absolute(5),
+    ));
     config.network.delay_conn = true;
     let proxy = start_proxy(config, None);
 
@@ -897,10 +900,10 @@ fn tls_round_trip_with_split_desync_completes_handshake_without_delay_connect() 
 
     let mut config = ui_proxy_config();
     config.groups[0].matches.proto = IS_TCP;
-    config.groups[0]
-        .actions
-        .tcp_chain
-        .push(TcpChainStep::new(TcpChainStepKind::Split, ripdpi_config::OffsetExpr::absolute(5)));
+    config.groups[0].actions.tcp_chain.push(TcpChainStep::new(
+        TcpChainStepKind::Split,
+        ripdpi_proxy_runtime_adapter::config::OffsetExpr::absolute(5),
+    ));
     config.network.delay_conn = false;
     let proxy = start_proxy(config, None);
 
@@ -923,14 +926,14 @@ fn delay_connect_uses_plain_fallback_when_split_group_payload_does_not_match() {
 
     let mut config = ui_proxy_config();
     config.groups[0].matches.proto = IS_TCP | IS_HTTPS;
-    config.groups[0]
-        .actions
-        .tcp_chain
-        .push(TcpChainStep::new(TcpChainStepKind::Split, ripdpi_config::OffsetExpr::absolute(1)));
+    config.groups[0].actions.tcp_chain.push(TcpChainStep::new(
+        TcpChainStepKind::Split,
+        ripdpi_proxy_runtime_adapter::config::OffsetExpr::absolute(1),
+    ));
     config.network.delay_conn = true;
 
     let mut fallback = DesyncGroup::new(1);
-    fallback.matches.detect = ripdpi_config::DETECT_CONNECT;
+    fallback.matches.detect = ripdpi_proxy_runtime_adapter::config::DETECT_CONNECT;
     config.groups.push(fallback);
 
     let proxy = start_proxy(config, None);
@@ -951,10 +954,10 @@ fn tls_round_trip_with_disorder_desync_completes_handshake() {
 
     let mut config = ui_proxy_config();
     config.groups[0].matches.proto = IS_TCP | IS_HTTPS;
-    config.groups[0]
-        .actions
-        .tcp_chain
-        .push(TcpChainStep::new(TcpChainStepKind::Disorder, ripdpi_config::OffsetExpr::absolute(5)));
+    config.groups[0].actions.tcp_chain.push(TcpChainStep::new(
+        TcpChainStepKind::Disorder,
+        ripdpi_proxy_runtime_adapter::config::OffsetExpr::absolute(5),
+    ));
     config.network.delay_conn = true;
     let proxy = start_proxy(config, None);
 
@@ -1080,7 +1083,8 @@ fn route_advancement_fires_on_tcp_reset_and_second_group_handles_traffic() {
     // The first connection hits the one-shot TCP reset fault.
     // The proxy should classify the failure and advance to group 1.
     let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
-    config.groups[0].matches.detect = ripdpi_config::DETECT_TCP_RESET | ripdpi_config::DETECT_SILENT_DROP;
+    config.groups[0].matches.detect = ripdpi_proxy_runtime_adapter::config::DETECT_TCP_RESET
+        | ripdpi_proxy_runtime_adapter::config::DETECT_SILENT_DROP;
     config.timeouts.timeout_ms = 500;
 
     // Add a second fallback group
@@ -1137,7 +1141,8 @@ fn repeated_tcp_resets_confirm_blocked_host_and_expose_telemetry() {
         std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).expect("system time").as_nanos()
     ));
     config.host_autolearn.store_path = Some(store_path.to_string_lossy().into_owned());
-    config.groups[0].matches.detect = ripdpi_config::DETECT_TCP_RESET | ripdpi_config::DETECT_SILENT_DROP;
+    config.groups[0].matches.detect = ripdpi_proxy_runtime_adapter::config::DETECT_TCP_RESET
+        | ripdpi_proxy_runtime_adapter::config::DETECT_SILENT_DROP;
     config.timeouts.timeout_ms = 500;
 
     let mut fallback_a = DesyncGroup::new(1);

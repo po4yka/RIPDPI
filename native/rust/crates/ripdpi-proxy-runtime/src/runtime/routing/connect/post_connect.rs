@@ -1,7 +1,7 @@
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use ripdpi_config::DesyncGroup;
+use ripdpi_proxy_runtime_adapter::config::DesyncGroup;
 use ripdpi_proxy_runtime_adapter::platform;
 
 use super::super::super::state::RuntimeState;

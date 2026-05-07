@@ -1,6 +1,6 @@
 use std::io;
 
-use ripdpi_config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::config::RuntimeConfig;
 use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 use super::flow::UdpFlowActivationState;
@@ -90,7 +90,7 @@ pub(super) fn maybe_rebind_udp_source_port(
 
 #[cfg(test)]
 mod tests {
-    use ripdpi_config::RuntimeConfig;
+    use ripdpi_proxy_runtime_adapter::config::RuntimeConfig;
     use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
     use super::should_rebind_udp_source_port;

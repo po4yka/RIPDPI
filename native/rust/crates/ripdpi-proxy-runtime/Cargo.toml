@@ -10,7 +10,6 @@ workspace = true
 [dependencies]
 base64 = { workspace = true }
 daemonize = { workspace = true }
-ripdpi-config = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
 ripdpi-runtime-decision-ports = { workspace = true }
 ripdpi-proxy-runtime-adapter = { workspace = true }

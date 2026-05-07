@@ -67,8 +67,10 @@ mod tests {
         FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
     };
     use super::*;
-    use ripdpi_config::{RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST};
     use ripdpi_packets::DEFAULT_FAKE_TLS;
+    use ripdpi_proxy_runtime_adapter::config::{
+        RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
+    };
     use ripdpi_proxy_runtime_adapter::failure::{FailureAction, FailureClass, FailureStage};
     use ripdpi_proxy_runtime_adapter::session::TriggerEvent;
 

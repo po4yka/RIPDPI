@@ -5,8 +5,8 @@ use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
-use ripdpi_config::RuntimeTimeoutSettings;
 use ripdpi_io_uring::IoUringDriver;
+use ripdpi_proxy_runtime_adapter::config::RuntimeTimeoutSettings;
 use ripdpi_proxy_runtime_adapter::session::SessionState;
 
 use super::cleanup::shutdown_direction;

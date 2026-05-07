@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use ripdpi_config::DesyncGroup;
+use ripdpi_proxy_runtime_adapter::config::DesyncGroup;
 use ripdpi_proxy_runtime_adapter::desync_model::AdaptivePlannerHints;
 use ripdpi_proxy_runtime_adapter::proxy_config::ProxyMorphPolicy;
 
@@ -58,8 +58,10 @@ mod tests {
     use super::*;
 
     use crate::runtime::state::RuntimeState;
-    use ripdpi_config::{DesyncGroup, EntropyMode, QuicFakeProfile, RuntimeConfig, TcpChainStep, TcpChainStepKind};
     use ripdpi_packets::DEFAULT_FAKE_TLS;
+    use ripdpi_proxy_runtime_adapter::config::{
+        DesyncGroup, EntropyMode, QuicFakeProfile, RuntimeConfig, TcpChainStep, TcpChainStepKind,
+    };
     use ripdpi_proxy_runtime_adapter::desync_model::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
     use ripdpi_proxy_runtime_adapter::proxy_config::ProxyRuntimeContext;
     use ripdpi_runtime_decision_ports::policy::RuntimePolicy;
@@ -94,8 +96,8 @@ mod tests {
         });
         let mut group = DesyncGroup::new(0);
         group.actions.tcp_chain = vec![
-            TcpChainStep::new(TcpChainStepKind::TlsRec, ripdpi_config::OffsetExpr::tls_host(0)),
-            TcpChainStep::new(TcpChainStepKind::Fake, ripdpi_config::OffsetExpr::host(1)),
+            TcpChainStep::new(TcpChainStepKind::TlsRec, ripdpi_proxy_runtime_adapter::config::OffsetExpr::tls_host(0)),
+            TcpChainStep::new(TcpChainStepKind::Fake, ripdpi_proxy_runtime_adapter::config::OffsetExpr::host(1)),
         ];
         let hints =
             AdaptivePlannerHints { tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Wide), ..Default::default() };

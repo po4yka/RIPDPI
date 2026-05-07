@@ -23,8 +23,8 @@ pub(super) fn seqovl_supported() -> bool {
 #[allow(clippy::too_many_arguments)]
 pub(super) fn send_prepared_with_runtime_platform(
     writer: &mut TcpStream,
-    config: &ripdpi_config::RuntimeConfig,
-    group: &ripdpi_config::DesyncGroup,
+    config: &ripdpi_proxy_runtime_adapter::config::RuntimeConfig,
+    group: &ripdpi_proxy_runtime_adapter::config::DesyncGroup,
     payload: &[u8],
     progress: OutboundProgress,
     context: ActivationContext,

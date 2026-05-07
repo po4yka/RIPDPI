@@ -1,4 +1,4 @@
-use ripdpi_config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::config::RuntimeConfig;
 
 use ripdpi_runtime_decision_ports::policy::is_tls_client_hello_payload;
 

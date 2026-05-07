@@ -2,7 +2,7 @@ use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_config::{
+use ripdpi_proxy_runtime_adapter::config::{
     RuntimeConfig, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET,
     DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
 };
@@ -168,7 +168,7 @@ pub(super) fn response_trigger_supported(
     config: &RuntimeConfig,
     trigger: ripdpi_proxy_runtime_adapter::session::TriggerEvent,
 ) -> bool {
-    use ripdpi_config::DETECT_CONNECT;
+    use ripdpi_proxy_runtime_adapter::config::DETECT_CONNECT;
 
     let flag = match trigger {
         ripdpi_proxy_runtime_adapter::session::TriggerEvent::Redirect => DETECT_HTTP_LOCAT,

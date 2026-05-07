@@ -2,7 +2,7 @@ use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_config::DETECT_CONNECT;
+use ripdpi_proxy_runtime_adapter::config::DETECT_CONNECT;
 use ripdpi_proxy_runtime_adapter::protocol_payload;
 use ripdpi_runtime_decision_ports::policy::{
     extract_host, group_requires_payload, route_matches_payload, TransportProtocol,
@@ -76,7 +76,7 @@ pub(super) fn maybe_delay_connect(
 }
 
 fn delayed_route_matches(
-    config: &ripdpi_config::RuntimeConfig,
+    config: &ripdpi_proxy_runtime_adapter::config::RuntimeConfig,
     group_index: usize,
     target: SocketAddr,
     payload: &[u8],

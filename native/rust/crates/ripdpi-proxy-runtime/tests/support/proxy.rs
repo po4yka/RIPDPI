@@ -2,9 +2,9 @@ use std::io;
 use std::sync::Arc;
 use std::thread;
 
-use ripdpi_config::{parse_cli, ParseResult, StartupEnv};
 use ripdpi_proxy_runtime::process::prepare_embedded;
 use ripdpi_proxy_runtime::{create_listener, run_proxy_with_embedded_control};
+use ripdpi_proxy_runtime_adapter::config::{parse_cli, ParseResult, StartupEnv};
 use ripdpi_runtime_api::{clear_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
 
 use super::telemetry::{ProxyHarnessTelemetry, StartupLatch};
@@ -28,7 +28,7 @@ impl Drop for RunningProxy {
 }
 
 pub fn start_proxy(
-    config: ripdpi_config::RuntimeConfig,
+    config: ripdpi_proxy_runtime_adapter::config::RuntimeConfig,
     telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
 ) -> RunningProxy {
     prepare_embedded();
@@ -45,7 +45,7 @@ pub fn start_proxy(
     RunningProxy { port, control, thread: Some(thread) }
 }
 
-pub fn proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
+pub fn proxy_config(args: &[&str]) -> ripdpi_proxy_runtime_adapter::config::RuntimeConfig {
     let args = args.iter().map(|value| (*value).to_string()).collect::<Vec<_>>();
     match parse_cli(&args, &StartupEnv::default()).expect("parse runtime config") {
         ParseResult::Run(config) => *config,
@@ -53,7 +53,7 @@ pub fn proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
     }
 }
 
-pub fn ephemeral_proxy_config(args: &[&str]) -> ripdpi_config::RuntimeConfig {
+pub fn ephemeral_proxy_config(args: &[&str]) -> ripdpi_proxy_runtime_adapter::config::RuntimeConfig {
     let mut config = proxy_config(args);
     config.network.listen.listen_port = 0;
     config
