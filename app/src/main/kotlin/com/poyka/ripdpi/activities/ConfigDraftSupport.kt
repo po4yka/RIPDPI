@@ -1,29 +1,14 @@
 package com.poyka.ripdpi.activities
 
-import android.net.Uri
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
-import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DefaultRelayLocalSocksPort
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.DefaultSnowflakeBrokerUrl
 import com.poyka.ripdpi.data.DefaultSnowflakeFrontDomain
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
-import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCongestionControlBbr
-import com.poyka.ripdpi.data.RelayCredentialRecord
-import com.poyka.ripdpi.data.RelayCredentialStore
-import com.poyka.ripdpi.data.RelayFinalmaskTypeFragment
-import com.poyka.ripdpi.data.RelayFinalmaskTypeHeaderCustom
-import com.poyka.ripdpi.data.RelayFinalmaskTypeNoise
 import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
-import com.poyka.ripdpi.data.RelayFinalmaskTypeSudoku
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -37,21 +22,8 @@ import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
-import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
-import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
-import com.poyka.ripdpi.data.RelayPresetCatalog
-import com.poyka.ripdpi.data.RelayPresetDefinition
-import com.poyka.ripdpi.data.RelayPresetSuggestion
-import com.poyka.ripdpi.data.RelayProfileRecord
-import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
-import com.poyka.ripdpi.data.RelayVlessTransportXhttp
-import com.poyka.ripdpi.data.ServerCapabilityObservation
-import com.poyka.ripdpi.data.ServerCapabilityRecord
-import com.poyka.ripdpi.data.ServerCapabilityStore
-import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.StrategyChainSet
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepModel
@@ -61,43 +33,16 @@ import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.formatChainSummary
 import com.poyka.ripdpi.data.formatStrategyChainDsl
-import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
-import com.poyka.ripdpi.data.normalizeRelayCongestionControl
-import com.poyka.ripdpi.data.normalizeRelayFinalmaskType
-import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.primaryDesyncMethod
-import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.data.toRelaySettingsModel
-import com.poyka.ripdpi.data.validateStrategyChainUsage
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.security.ImportedMasqueClientIdentity
-import com.poyka.ripdpi.security.MasqueClientCredentialImporter
-import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
-import com.poyka.ripdpi.utility.checkIp
-import com.poyka.ripdpi.utility.validateIntRange
-import com.poyka.ripdpi.utility.validatePort
-import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.persistentMapOf
 import kotlinx.collections.immutable.toImmutableList
-import kotlinx.collections.immutable.toImmutableMap
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import java.util.Locale
-import javax.inject.Inject
-import com.poyka.ripdpi.data.FailureClass as RuntimeFailureClass
 
 internal const val defaultTtlMax = 255
 internal const val defaultRelayPort = 443
@@ -294,85 +239,22 @@ internal const val LegacyChainEntryProfileSuffix = "__ripdpi_chain_entry"
 internal const val LegacyChainExitProfileSuffix = "__ripdpi_chain_exit"
 
 internal fun AppSettings.toConfigDraft(): ConfigDraft =
-    toRelaySettingsModel().let { relay ->
-        ConfigDraft(
-            mode = Mode.fromString(ripdpiMode.ifEmpty { "vpn" }),
-            dnsIp = activeDnsSettings().dnsIp,
-            dnsSummary = activeDnsSettings().summary(),
-            proxyIp = proxyIp.ifEmpty { "127.0.0.1" },
-            proxyPort = (proxyPort.takeIf { it > 0 } ?: 1080).toString(),
-            maxConnections = (maxConnections.takeIf { it > 0 } ?: 512).toString(),
-            bufferSize = (bufferSize.takeIf { it > 0 } ?: 16_384).toString(),
-            useCommandLineSettings = enableCmdSettings,
-            commandLineArgs = cmdArgs,
-            tcpChainSteps = effectiveTcpChainSteps().toImmutableList(),
-            udpChainSteps = effectiveUdpChainSteps().toImmutableList(),
-            chainDsl = formatStrategyChainDsl(effectiveTcpChainSteps(), effectiveUdpChainSteps()),
-            desyncMethod = primaryDesyncMethod(effectiveTcpChainSteps()).ifEmpty { "none" },
-            defaultTtl = if (customTtl && defaultTtl > 0) defaultTtl.toString() else "",
-            relayEnabled = relay.enabled,
-            relayKind = relay.kind,
-            relayProfileId = relay.profileId,
-            relayPresetId = relay.profile.presetId,
-            relayServer = relay.profile.server,
-            relayServerPort = relay.profile.serverPort.toString(),
-            relayServerName = relay.profile.serverName,
-            relayRealityPublicKey = relay.profile.realityPublicKey,
-            relayRealityShortId = relay.profile.realityShortId,
-            relayVlessTransport = relay.profile.vlessTransport,
-            relayXhttpPath = relay.profile.xhttpPath,
-            relayXhttpHost = relay.profile.xhttpHost,
-            relayCloudflareTunnelMode = relay.profile.cloudflareTunnelMode,
-            relayCloudflarePublishLocalOriginUrl = relay.profile.cloudflarePublishLocalOriginUrl,
-            relayCloudflareCredentialsRef = relay.profile.cloudflareCredentialsRef,
-            relayChainEntryServer = relay.profile.chainEntryServer,
-            relayChainEntryPort = relay.profile.chainEntryPort.toString(),
-            relayChainEntryServerName = relay.profile.chainEntryServerName,
-            relayChainEntryPublicKey = relay.profile.chainEntryPublicKey,
-            relayChainEntryShortId = relay.profile.chainEntryShortId,
-            relayChainEntryProfileId = relay.profile.chainEntryProfileId,
-            relayChainExitServer = relay.profile.chainExitServer,
-            relayChainExitPort = relay.profile.chainExitPort.toString(),
-            relayChainExitServerName = relay.profile.chainExitServerName,
-            relayChainExitPublicKey = relay.profile.chainExitPublicKey,
-            relayChainExitShortId = relay.profile.chainExitShortId,
-            relayChainExitProfileId = relay.profile.chainExitProfileId,
-            relayMasqueUrl = relay.profile.masqueUrl,
-            relayMasqueAuthMode = RelayMasqueAuthModeBearer,
-            relayMasqueUseHttp2Fallback = relay.profile.masqueUseHttp2Fallback,
-            relayMasqueCloudflareGeohashEnabled = relay.profile.masqueCloudflareGeohashEnabled,
-            relayTuicZeroRtt = relay.profile.tuicZeroRtt,
-            relayTuicCongestionControl = relay.profile.tuicCongestionControl,
-            relayShadowTlsInnerProfileId = relay.profile.shadowTlsInnerProfileId,
-            relayNaivePath = relay.profile.naivePath,
-            relayPtBridgeLine = relay.profile.ptBridgeLine,
-            relayWebTunnelUrl = relay.profile.ptWebTunnelUrl,
-            relaySnowflakeBrokerUrl = relay.profile.ptSnowflakeBrokerUrl,
-            relaySnowflakeFrontDomain = relay.profile.ptSnowflakeFrontDomain,
-            relayUdpEnabled = relay.profile.udpEnabled,
-            relayLocalSocksPort = relay.profile.localSocksPort.toString(),
-            relayFinalmaskType = relay.profile.finalmask.type,
-            relayFinalmaskHeaderHex = relay.profile.finalmask.headerHex,
-            relayFinalmaskTrailerHex = relay.profile.finalmask.trailerHex,
-            relayFinalmaskRandRange = relay.profile.finalmask.randRange,
-            relayFinalmaskSudokuSeed = relay.profile.finalmask.sudokuSeed,
-            relayFinalmaskFragmentPackets =
-                relay.profile.finalmask.fragmentPackets
-                    .takeIf { it > 0 }
-                    ?.toString()
-                    .orEmpty(),
-            relayFinalmaskFragmentMinBytes =
-                relay.profile.finalmask.fragmentMinBytes
-                    .takeIf { it > 0 }
-                    ?.toString()
-                    .orEmpty(),
-            relayFinalmaskFragmentMaxBytes =
-                relay.profile.finalmask.fragmentMaxBytes
-                    .takeIf { it > 0 }
-                    ?.toString()
-                    .orEmpty(),
-        )
-    }
+    ConfigDraft(
+        mode = Mode.fromString(ripdpiMode.ifEmpty { "vpn" }),
+        dnsIp = activeDnsSettings().dnsIp,
+        dnsSummary = activeDnsSettings().summary(),
+        proxyIp = proxyIp.ifEmpty { "127.0.0.1" },
+        proxyPort = (proxyPort.takeIf { it > 0 } ?: 1080).toString(),
+        maxConnections = (maxConnections.takeIf { it > 0 } ?: 512).toString(),
+        bufferSize = (bufferSize.takeIf { it > 0 } ?: 16_384).toString(),
+        useCommandLineSettings = enableCmdSettings,
+        commandLineArgs = cmdArgs,
+        tcpChainSteps = effectiveTcpChainSteps().toImmutableList(),
+        udpChainSteps = effectiveUdpChainSteps().toImmutableList(),
+        chainDsl = formatStrategyChainDsl(effectiveTcpChainSteps(), effectiveUdpChainSteps()),
+        desyncMethod = primaryDesyncMethod(effectiveTcpChainSteps()).ifEmpty { "none" },
+        defaultTtl = if (customTtl && defaultTtl > 0) defaultTtl.toString() else "",
+    ).withRelaySettings(toRelaySettingsModel())
 
 internal fun buildConfigPresets(currentDraft: ConfigDraft): ImmutableList<ConfigPreset> {
     val recommendedDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
