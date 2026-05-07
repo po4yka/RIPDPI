@@ -88,6 +88,10 @@ pub mod config {
     pub fn quic_route_and_cache_enabled(config: &RuntimeConfig) -> bool {
         matches!(config.quic.initial_mode, QuicInitialMode::RouteAndCache)
     }
+
+    pub fn runtime_buffer_size(config: &RuntimeConfig) -> usize {
+        config.network.buffer_size.max(16_384)
+    }
 }
 
 pub mod desync {

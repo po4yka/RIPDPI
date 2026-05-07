@@ -4,6 +4,7 @@ use std::time::{Duration, Instant};
 
 use crate::runtime::relay::tls_boundary::OutboundTlsClientHelloAssembler;
 use crate::runtime::state::RuntimeState;
+use ripdpi_proxy_runtime_adapter::model::config::runtime_buffer_size;
 use ripdpi_runtime_decision_ports::policy::{extract_host, is_tls_client_hello_payload};
 
 const FIRST_OUTBOUND_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -20,7 +21,7 @@ pub(super) fn prepare_first_payload(
     seed_request: Option<Vec<u8>>,
 ) -> io::Result<Option<FirstPayload>> {
     let original_request = seed_request
-        .map_or_else(|| read_first_client_payload(client, state.config.network.buffer_size), |seed| Ok(Some(seed)))?;
+        .map_or_else(|| read_first_client_payload(client, runtime_buffer_size(&state.config)), |seed| Ok(Some(seed)))?;
     Ok(original_request.map(|original_request| {
         let host = extract_host(&state.config, &original_request);
         let is_tls = is_tls_client_hello_payload(&original_request);
@@ -30,7 +31,7 @@ pub(super) fn prepare_first_payload(
 
 fn read_first_client_payload(client: &mut TcpStream, buffer_size: usize) -> io::Result<Option<Vec<u8>>> {
     let original_timeout = client.read_timeout()?;
-    let mut buffer = vec![0u8; buffer_size.max(16_384)];
+    let mut buffer = vec![0u8; buffer_size];
     let mut assembler = OutboundTlsClientHelloAssembler::new();
     let result = loop {
         let now = Instant::now();
