@@ -2,7 +2,7 @@ use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_config::DesyncGroup;
 use ripdpi_desync::{ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints};
-use ripdpi_desync_runtime::{OutboundSendError, OutboundSendOutcome};
+use ripdpi_proxy_runtime_adapter::desync_platform::{OutboundSendError, OutboundSendOutcome};
 use ripdpi_session::OutboundProgress;
 
 use super::platform::{send_prepared_with_runtime_platform, seqovl_supported, tcp_activation_state, tcp_segment_hint};
@@ -57,7 +57,9 @@ pub(crate) fn send_with_group(
 ) -> Result<OutboundSendOutcome, OutboundSendError> {
     let capability = direct_path_capability_for_route(state.runtime_context.as_ref(), host, target);
     let (effective_group, strategy_family_override) =
-        ripdpi_desync_runtime::apply_tcp_capability_policy(group, capability, payload, progress);
+        ripdpi_proxy_runtime_adapter::desync_platform::apply_tcp_capability_policy(
+            group, capability, payload, progress,
+        );
     let effective_group = effective_group.as_ref();
     let resolved_fake_ttl = resolve_adaptive_fake_ttl(state, target, group_index, effective_group, host)?;
     let adaptive_hints = resolve_tcp_hints_with_evolver(state, target, group_index, effective_group, host, payload)?;

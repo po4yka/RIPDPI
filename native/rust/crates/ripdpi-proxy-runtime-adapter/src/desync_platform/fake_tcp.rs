@@ -5,7 +5,7 @@ use ripdpi_desync_runtime::platform::{
     FakeTcpOptions as DesyncFakeTcpOptions, TcpFakeSender, TcpFlagOverrides as DesyncTcpFlagOverrides, TcpStageWait,
 };
 
-use ripdpi_proxy_runtime_adapter::platform as runtime_platform;
+use crate::platform as runtime_platform;
 
 use super::conversion::to_runtime_flags;
 use super::RuntimeTcpDesyncPlatform;
@@ -39,7 +39,7 @@ impl TcpFakeSender for RuntimeTcpDesyncPlatform {
     }
 }
 
-pub(crate) fn send_fake_rst(
+pub fn send_fake_rst(
     stream: &TcpStream,
     default_ttl: u8,
     protect_path: Option<&str>,
@@ -50,7 +50,7 @@ pub(crate) fn send_fake_rst(
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn send_fake_tcp(
+pub fn send_fake_tcp(
     stream: &TcpStream,
     original_prefix: &[u8],
     fake_prefix: &[u8],

@@ -12,8 +12,16 @@ pub mod ip_fragmentation {
     pub use ripdpi_ipfrag::*;
 }
 
+pub mod desync_platform;
 pub mod raw_packet_requirements;
 
 pub mod ws_bootstrap {
     pub use ripdpi_ws_bootstrap::*;
+}
+
+mod sync {
+    #[cfg(feature = "loom")]
+    pub(crate) use loom::sync::atomic::AtomicBool;
+    #[cfg(not(feature = "loom"))]
+    pub(crate) use std::sync::atomic::AtomicBool;
 }

@@ -5,7 +5,7 @@ use ripdpi_desync_runtime::platform::{
     TcpFlagOverrides as DesyncTcpFlagOverrides, TcpFragmentSender, TcpPayloadSegment as DesyncTcpPayloadSegment,
 };
 
-use ripdpi_proxy_runtime_adapter::platform as runtime_platform;
+use crate::platform as runtime_platform;
 
 use super::conversion::to_runtime_flags;
 use super::RuntimeTcpDesyncPlatform;
@@ -20,7 +20,7 @@ impl TcpFragmentSender for RuntimeTcpDesyncPlatform {
         default_ttl: u8,
         protect_path: Option<&str>,
         disorder: bool,
-        ipv6_ext: ripdpi_proxy_runtime_adapter::ip_fragmentation::Ipv6ExtHeaders,
+        ipv6_ext: crate::ip_fragmentation::Ipv6ExtHeaders,
         flags: DesyncTcpFlagOverrides,
         ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
@@ -65,14 +65,14 @@ impl TcpFragmentSender for RuntimeTcpDesyncPlatform {
 }
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn send_ip_fragmented_tcp(
+pub fn send_ip_fragmented_tcp(
     stream: &TcpStream,
     payload: &[u8],
     split_offset: usize,
     default_ttl: u8,
     protect_path: Option<&str>,
     disorder: bool,
-    ipv6_ext: ripdpi_proxy_runtime_adapter::ip_fragmentation::Ipv6ExtHeaders,
+    ipv6_ext: crate::ip_fragmentation::Ipv6ExtHeaders,
     flags: DesyncTcpFlagOverrides,
     ip_id_mode: Option<ripdpi_config::IpIdMode>,
 ) -> io::Result<()> {

@@ -3718,7 +3718,6 @@ dependencies = [
  "ring",
  "ripdpi-config",
  "ripdpi-desync",
- "ripdpi-desync-runtime",
  "ripdpi-io-uring",
  "ripdpi-packets",
  "ripdpi-proxy-config",
@@ -3738,10 +3737,15 @@ dependencies = [
 name = "ripdpi-proxy-runtime-adapter"
 version = "0.1.0"
 dependencies = [
+ "loom",
  "ripdpi-config",
+ "ripdpi-desync",
+ "ripdpi-desync-runtime",
  "ripdpi-failure-classifier",
  "ripdpi-ipfrag",
+ "ripdpi-proxy-config",
  "ripdpi-runtime-platform",
+ "ripdpi-session",
  "ripdpi-ws-bootstrap",
 ]
 

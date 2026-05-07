@@ -5,12 +5,12 @@ use ripdpi_desync_runtime::platform::{
     TcpFlagOverrides as DesyncTcpFlagOverrides, TcpPayloadSegment as DesyncTcpPayloadSegment,
 };
 
-use ripdpi_proxy_runtime_adapter::platform as runtime_platform;
+use crate::platform as runtime_platform;
 
 use super::conversion::to_runtime_flags;
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn send_multi_disorder_tcp(
+pub fn send_multi_disorder_tcp(
     stream: &TcpStream,
     payload: &[u8],
     segments: &[DesyncTcpPayloadSegment],

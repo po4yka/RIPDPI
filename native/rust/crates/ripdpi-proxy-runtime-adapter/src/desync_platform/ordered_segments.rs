@@ -3,12 +3,12 @@ use std::net::TcpStream;
 
 use ripdpi_desync_runtime::platform::{OrderedTcpSegment as DesyncOrderedTcpSegment, TcpStageWait};
 
-use ripdpi_proxy_runtime_adapter::platform as runtime_platform;
+use crate::platform as runtime_platform;
 
 use super::conversion::to_runtime_flags;
 
 #[allow(clippy::too_many_arguments)]
-pub(crate) fn send_ordered_tcp_segments(
+pub fn send_ordered_tcp_segments(
     stream: &TcpStream,
     segments: &[DesyncOrderedTcpSegment<'_>],
     original_payload_len: usize,

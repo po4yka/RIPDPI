@@ -1,35 +1,22 @@
-mod capability;
-mod conversion;
-mod fake_tcp;
-mod flagged_payload;
-mod fragmentation;
-mod multi_disorder;
-mod ordered_segments;
-mod payload_sender;
-mod seq_overlap;
-mod socket_options;
-
 use std::net::TcpStream;
 
-use ripdpi_desync_runtime::{OutboundSendError, OutboundSendOutcome, PcapHook};
+use ripdpi_proxy_runtime_adapter::desync_platform::{OutboundSendError, OutboundSendOutcome, PcapHook};
 use ripdpi_session::OutboundProgress;
 
 use crate::sync::AtomicBool;
 
-pub(super) struct RuntimeTcpDesyncPlatform;
-
 pub(super) fn tcp_segment_hint(stream: &TcpStream) -> Option<ripdpi_desync::TcpSegmentHint> {
-    capability::tcp_segment_hint(stream)
+    ripdpi_proxy_runtime_adapter::desync_platform::tcp_segment_hint(stream)
 }
 
 pub(super) fn tcp_activation_state(
     stream: &TcpStream,
 ) -> Option<ripdpi_proxy_runtime_adapter::platform::tcp::TcpActivationState> {
-    capability::tcp_activation_state(stream)
+    ripdpi_proxy_runtime_adapter::desync_platform::tcp_activation_state(stream)
 }
 
 pub(super) fn seqovl_supported() -> bool {
-    capability::seqovl_supported()
+    ripdpi_proxy_runtime_adapter::desync_platform::seqovl_supported()
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -45,9 +32,8 @@ pub(super) fn send_prepared_with_runtime_platform(
     ttl_unavailable: &AtomicBool,
     pcap_hook: Option<&PcapHook>,
 ) -> Result<OutboundSendOutcome, OutboundSendError> {
-    ripdpi_desync_runtime::send_prepared_with_group(
+    ripdpi_proxy_runtime_adapter::desync_platform::send_prepared_with_runtime_platform(
         writer,
-        &RuntimeTcpDesyncPlatform,
         config,
         group,
         payload,
