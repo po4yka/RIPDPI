@@ -11,21 +11,12 @@ use ripdpi_proxy_runtime_adapter::model::config::{
 };
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
-use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use self::accept_loop::run_accept_loop;
 use super::state::RuntimeState;
 
 pub(super) fn build_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
-    let listen_addr = listener_bind_addr(config);
-    let domain = if listen_addr.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 };
-    let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
-    socket.set_reuse_address(true)?;
-    socket.bind(&SockAddr::from(listen_addr))?;
-    socket.listen(1024)?;
-    let listener: TcpListener = socket.into();
-    listener.set_nonblocking(true)?;
-    Ok(listener)
+    listener_platform::bind_tcp_listener(listener_bind_addr(config))
 }
 
 pub(super) fn run_proxy_with_listener_internal(

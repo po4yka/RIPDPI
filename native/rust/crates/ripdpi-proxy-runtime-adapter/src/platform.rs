@@ -95,9 +95,23 @@ pub mod handshake {
 
 pub mod listener {
     use std::io;
+    use std::net::{SocketAddr, TcpListener};
+
+    use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
     pub fn detect_default_ttl() -> io::Result<u8> {
         ripdpi_runtime_platform::capability::detect_default_ttl()
+    }
+
+    pub fn bind_tcp_listener(listen_addr: SocketAddr) -> io::Result<TcpListener> {
+        let domain = if listen_addr.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 };
+        let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
+        socket.set_reuse_address(true)?;
+        socket.bind(&SockAddr::from(listen_addr))?;
+        socket.listen(1024)?;
+        let listener: TcpListener = socket.into();
+        listener.set_nonblocking(true)?;
+        Ok(listener)
     }
 }
 
