@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.ResolvedRelayFinalmaskConfig
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.ResolvedShadowTlsInnerRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
+import com.poyka.ripdpi.core.RipDpiRelayFinalmaskConfig
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
@@ -85,101 +86,154 @@ internal class DefaultUpstreamRelayRuntimeConfigResolver
         }
     }
 
-@Suppress("detekt.LongMethod")
 private fun buildResolvedRelayConfig(
     profileId: String,
     resolution: RelayResolverResult,
     credentials: RelayCredentialRecord?,
     quicMigrationConfig: OwnedRelayQuicMigrationConfig,
-): ResolvedRipDpiRelayConfig {
-    val effectiveConfig = resolution.effectiveConfig
-    return ResolvedRipDpiRelayConfig(
-        enabled = effectiveConfig.enabled,
-        kind = effectiveConfig.kind,
+): ResolvedRipDpiRelayConfig =
+    ResolvedRelayConfigBuilder(
         profileId = profileId,
-        outboundBindIp = effectiveConfig.outboundBindIp,
-        server = effectiveConfig.server,
-        serverPort = effectiveConfig.serverPort,
-        serverName = effectiveConfig.serverName,
-        realityPublicKey = effectiveConfig.realityPublicKey,
-        realityShortId = effectiveConfig.realityShortId,
-        vlessTransport = effectiveConfig.vlessTransport,
-        xhttpPath = effectiveConfig.xhttpPath,
-        xhttpHost = effectiveConfig.xhttpHost,
-        cloudflareTunnelMode = effectiveConfig.cloudflareTunnelMode,
-        cloudflarePublishLocalOriginUrl = effectiveConfig.cloudflarePublishLocalOriginUrl,
-        cloudflareCredentialsRef = effectiveConfig.cloudflareCredentialsRef,
-        chainEntryServer = resolution.resolvedChainRelay?.entry?.server ?: effectiveConfig.chainEntryServer,
-        chainEntryPort = resolution.resolvedChainRelay?.entry?.serverPort ?: effectiveConfig.chainEntryPort,
-        chainEntryServerName = resolution.resolvedChainRelay?.entry?.serverName ?: effectiveConfig.chainEntryServerName,
-        chainEntryPublicKey = resolution.resolvedChainRelay?.entry?.publicKey ?: effectiveConfig.chainEntryPublicKey,
-        chainEntryShortId = resolution.resolvedChainRelay?.entry?.shortId ?: effectiveConfig.chainEntryShortId,
-        chainEntryProfileId = resolution.resolvedChainRelay?.entry?.profileId ?: effectiveConfig.chainEntryProfileId,
-        chainExitServer = resolution.resolvedChainRelay?.exit?.server ?: effectiveConfig.chainExitServer,
-        chainExitPort = resolution.resolvedChainRelay?.exit?.serverPort ?: effectiveConfig.chainExitPort,
-        chainExitServerName = resolution.resolvedChainRelay?.exit?.serverName ?: effectiveConfig.chainExitServerName,
-        chainExitPublicKey = resolution.resolvedChainRelay?.exit?.publicKey ?: effectiveConfig.chainExitPublicKey,
-        chainExitShortId = resolution.resolvedChainRelay?.exit?.shortId ?: effectiveConfig.chainExitShortId,
-        chainExitProfileId = resolution.resolvedChainRelay?.exit?.profileId ?: effectiveConfig.chainExitProfileId,
-        masqueUrl = effectiveConfig.masqueUrl,
-        masqueUseHttp2Fallback = effectiveConfig.masqueUseHttp2Fallback,
-        masqueCloudflareGeohashEnabled = effectiveConfig.masqueCloudflareGeohashEnabled,
-        tuicZeroRtt = effectiveConfig.tuicZeroRtt,
-        tuicCongestionControl = effectiveConfig.tuicCongestionControl,
-        shadowTlsInnerProfileId = effectiveConfig.shadowTlsInnerProfileId,
-        shadowTlsInner = resolution.shadowTlsInner,
-        naivePath = effectiveConfig.naivePath,
-        ptBridgeLine = effectiveConfig.ptBridgeLine,
-        ptWebTunnelUrl = effectiveConfig.ptWebTunnelUrl,
-        ptSnowflakeBrokerUrl = effectiveConfig.ptSnowflakeBrokerUrl,
-        ptSnowflakeFrontDomain = effectiveConfig.ptSnowflakeFrontDomain,
-        localSocksHost = effectiveConfig.localSocksHost,
-        localSocksPort = effectiveConfig.localSocksPort,
-        udpEnabled = effectiveConfig.udpEnabled,
-        tcpFallbackEnabled = effectiveConfig.tcpFallbackEnabled,
-        quicBindLowPort = quicMigrationConfig.bindLowPort,
-        quicMigrateAfterHandshake = quicMigrationConfig.migrateAfterHandshake,
-        vlessUuid = credentials?.vlessUuid,
-        chainEntryUuid = resolution.resolvedChainRelay?.entry?.uuid ?: credentials?.chainEntryUuid,
-        chainExitUuid = resolution.resolvedChainRelay?.exit?.uuid ?: credentials?.chainExitUuid,
-        hysteriaPassword = credentials?.hysteriaPassword,
-        hysteriaSalamanderKey = credentials?.hysteriaSalamanderKey,
-        tuicUuid = credentials?.tuicUuid,
-        tuicPassword = credentials?.tuicPassword,
-        shadowTlsPassword = credentials?.shadowTlsPassword,
-        naiveUsername = credentials?.naiveUsername,
-        naivePassword = credentials?.naivePassword,
-        tlsFingerprintProfile = resolution.effectiveTlsProfile,
-        masqueAuthMode = resolution.masqueAuthMode,
-        masqueAuthToken = credentials?.masqueAuthToken,
-        masqueClientCertificateChainPem = credentials?.masqueClientCertificateChainPem,
-        masqueClientPrivateKeyPem = credentials?.masqueClientPrivateKeyPem,
-        masqueCloudflareGeohashHeader = resolution.masqueCloudflareGeohashHeader,
-        masquePrivacyPassProviderUrl = resolution.privacyPassRuntime?.providerUrl,
-        masquePrivacyPassProviderAuthToken = resolution.privacyPassRuntime?.providerAuthToken,
-        cloudflareTunnelToken = credentials?.cloudflareTunnelToken,
-        cloudflareTunnelCredentialsJson = credentials?.cloudflareTunnelCredentialsJson,
-        appsScriptScriptIds = effectiveConfig.appsScriptScriptIds,
-        appsScriptGoogleIp = effectiveConfig.appsScriptGoogleIp,
-        appsScriptFrontDomain = effectiveConfig.appsScriptFrontDomain,
-        appsScriptSniHosts = effectiveConfig.appsScriptSniHosts,
-        appsScriptVerifySsl = effectiveConfig.appsScriptVerifySsl,
-        appsScriptParallelRelay = effectiveConfig.appsScriptParallelRelay,
-        appsScriptDirectHosts = effectiveConfig.appsScriptDirectHosts,
-        appsScriptAuthKey = credentials?.appsScriptAuthKey,
-        finalmask =
-            ResolvedRelayFinalmaskConfig(
-                type = effectiveConfig.finalmask.type,
-                headerHex = effectiveConfig.finalmask.headerHex,
-                trailerHex = effectiveConfig.finalmask.trailerHex,
-                randRange = effectiveConfig.finalmask.randRange,
-                sudokuSeed = effectiveConfig.finalmask.sudokuSeed,
-                fragmentPackets = effectiveConfig.finalmask.fragmentPackets,
-                fragmentMinBytes = effectiveConfig.finalmask.fragmentMinBytes,
-                fragmentMaxBytes = effectiveConfig.finalmask.fragmentMaxBytes,
-            ),
-    )
+        resolution = resolution,
+        credentials = credentials,
+        quicMigrationConfig = quicMigrationConfig,
+    ).build()
+
+private class ResolvedRelayConfigBuilder(
+    private val profileId: String,
+    private val resolution: RelayResolverResult,
+    private val credentials: RelayCredentialRecord?,
+    private val quicMigrationConfig: OwnedRelayQuicMigrationConfig,
+) {
+    private val effectiveConfig = resolution.effectiveConfig
+
+    fun build(): ResolvedRipDpiRelayConfig =
+        baseProjection()
+            .withResolvedChainRelay()
+            .withQuicMigration()
+            .withCredentialProjection()
+            .withMasqueProjection()
+
+    private fun baseProjection(): ResolvedRipDpiRelayConfig =
+        ResolvedRipDpiRelayConfig(
+            enabled = effectiveConfig.enabled,
+            kind = effectiveConfig.kind,
+            profileId = profileId,
+            outboundBindIp = effectiveConfig.outboundBindIp,
+            server = effectiveConfig.server,
+            serverPort = effectiveConfig.serverPort,
+            serverName = effectiveConfig.serverName,
+            realityPublicKey = effectiveConfig.realityPublicKey,
+            realityShortId = effectiveConfig.realityShortId,
+            vlessTransport = effectiveConfig.vlessTransport,
+            xhttpPath = effectiveConfig.xhttpPath,
+            xhttpHost = effectiveConfig.xhttpHost,
+            cloudflareTunnelMode = effectiveConfig.cloudflareTunnelMode,
+            cloudflarePublishLocalOriginUrl = effectiveConfig.cloudflarePublishLocalOriginUrl,
+            cloudflareCredentialsRef = effectiveConfig.cloudflareCredentialsRef,
+            chainEntryServer = effectiveConfig.chainEntryServer,
+            chainEntryPort = effectiveConfig.chainEntryPort,
+            chainEntryServerName = effectiveConfig.chainEntryServerName,
+            chainEntryPublicKey = effectiveConfig.chainEntryPublicKey,
+            chainEntryShortId = effectiveConfig.chainEntryShortId,
+            chainEntryProfileId = effectiveConfig.chainEntryProfileId,
+            chainExitServer = effectiveConfig.chainExitServer,
+            chainExitPort = effectiveConfig.chainExitPort,
+            chainExitServerName = effectiveConfig.chainExitServerName,
+            chainExitPublicKey = effectiveConfig.chainExitPublicKey,
+            chainExitShortId = effectiveConfig.chainExitShortId,
+            chainExitProfileId = effectiveConfig.chainExitProfileId,
+            masqueUrl = effectiveConfig.masqueUrl,
+            masqueUseHttp2Fallback = effectiveConfig.masqueUseHttp2Fallback,
+            masqueCloudflareGeohashEnabled = effectiveConfig.masqueCloudflareGeohashEnabled,
+            tuicZeroRtt = effectiveConfig.tuicZeroRtt,
+            tuicCongestionControl = effectiveConfig.tuicCongestionControl,
+            shadowTlsInnerProfileId = effectiveConfig.shadowTlsInnerProfileId,
+            shadowTlsInner = resolution.shadowTlsInner,
+            naivePath = effectiveConfig.naivePath,
+            ptBridgeLine = effectiveConfig.ptBridgeLine,
+            ptWebTunnelUrl = effectiveConfig.ptWebTunnelUrl,
+            ptSnowflakeBrokerUrl = effectiveConfig.ptSnowflakeBrokerUrl,
+            ptSnowflakeFrontDomain = effectiveConfig.ptSnowflakeFrontDomain,
+            localSocksHost = effectiveConfig.localSocksHost,
+            localSocksPort = effectiveConfig.localSocksPort,
+            udpEnabled = effectiveConfig.udpEnabled,
+            tcpFallbackEnabled = effectiveConfig.tcpFallbackEnabled,
+            appsScriptScriptIds = effectiveConfig.appsScriptScriptIds,
+            appsScriptGoogleIp = effectiveConfig.appsScriptGoogleIp,
+            appsScriptFrontDomain = effectiveConfig.appsScriptFrontDomain,
+            appsScriptSniHosts = effectiveConfig.appsScriptSniHosts,
+            appsScriptVerifySsl = effectiveConfig.appsScriptVerifySsl,
+            appsScriptParallelRelay = effectiveConfig.appsScriptParallelRelay,
+            appsScriptDirectHosts = effectiveConfig.appsScriptDirectHosts,
+            finalmask = effectiveConfig.finalmask.toResolvedFinalmaskConfig(),
+        )
+
+    private fun ResolvedRipDpiRelayConfig.withResolvedChainRelay(): ResolvedRipDpiRelayConfig {
+        val chainRelay = resolution.resolvedChainRelay ?: return this
+        return copy(
+            chainEntryServer = chainRelay.entry.server,
+            chainEntryPort = chainRelay.entry.serverPort,
+            chainEntryServerName = chainRelay.entry.serverName,
+            chainEntryPublicKey = chainRelay.entry.publicKey,
+            chainEntryShortId = chainRelay.entry.shortId,
+            chainEntryProfileId = chainRelay.entry.profileId,
+            chainExitServer = chainRelay.exit.server,
+            chainExitPort = chainRelay.exit.serverPort,
+            chainExitServerName = chainRelay.exit.serverName,
+            chainExitPublicKey = chainRelay.exit.publicKey,
+            chainExitShortId = chainRelay.exit.shortId,
+            chainExitProfileId = chainRelay.exit.profileId,
+        )
+    }
+
+    private fun ResolvedRipDpiRelayConfig.withQuicMigration(): ResolvedRipDpiRelayConfig =
+        copy(
+            quicBindLowPort = quicMigrationConfig.bindLowPort,
+            quicMigrateAfterHandshake = quicMigrationConfig.migrateAfterHandshake,
+        )
+
+    private fun ResolvedRipDpiRelayConfig.withCredentialProjection(): ResolvedRipDpiRelayConfig =
+        copy(
+            vlessUuid = credentials?.vlessUuid,
+            chainEntryUuid = resolution.resolvedChainRelay?.entry?.uuid ?: credentials?.chainEntryUuid,
+            chainExitUuid = resolution.resolvedChainRelay?.exit?.uuid ?: credentials?.chainExitUuid,
+            hysteriaPassword = credentials?.hysteriaPassword,
+            hysteriaSalamanderKey = credentials?.hysteriaSalamanderKey,
+            tuicUuid = credentials?.tuicUuid,
+            tuicPassword = credentials?.tuicPassword,
+            shadowTlsPassword = credentials?.shadowTlsPassword,
+            naiveUsername = credentials?.naiveUsername,
+            naivePassword = credentials?.naivePassword,
+            masqueAuthToken = credentials?.masqueAuthToken,
+            masqueClientCertificateChainPem = credentials?.masqueClientCertificateChainPem,
+            masqueClientPrivateKeyPem = credentials?.masqueClientPrivateKeyPem,
+            cloudflareTunnelToken = credentials?.cloudflareTunnelToken,
+            cloudflareTunnelCredentialsJson = credentials?.cloudflareTunnelCredentialsJson,
+            appsScriptAuthKey = credentials?.appsScriptAuthKey,
+        )
+
+    private fun ResolvedRipDpiRelayConfig.withMasqueProjection(): ResolvedRipDpiRelayConfig =
+        copy(
+            tlsFingerprintProfile = resolution.effectiveTlsProfile,
+            masqueAuthMode = resolution.masqueAuthMode,
+            masqueCloudflareGeohashHeader = resolution.masqueCloudflareGeohashHeader,
+            masquePrivacyPassProviderUrl = resolution.privacyPassRuntime?.providerUrl,
+            masquePrivacyPassProviderAuthToken = resolution.privacyPassRuntime?.providerAuthToken,
+        )
 }
+
+private fun RipDpiRelayFinalmaskConfig.toResolvedFinalmaskConfig(): ResolvedRelayFinalmaskConfig =
+    ResolvedRelayFinalmaskConfig(
+        type = type,
+        headerHex = headerHex,
+        trailerHex = trailerHex,
+        randRange = randRange,
+        sudokuSeed = sudokuSeed,
+        fragmentPackets = fragmentPackets,
+        fragmentMinBytes = fragmentMinBytes,
+        fragmentMaxBytes = fragmentMaxBytes,
+    )
 
 internal fun createDefaultUpstreamRelayRuntimeConfigResolver(
     relayProfileStore: RelayProfileStore,
