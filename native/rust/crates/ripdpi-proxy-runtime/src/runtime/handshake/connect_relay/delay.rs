@@ -6,8 +6,8 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     delayed_connect_enabled, delayed_route_matches_payload, group_requires_delay_payload, runtime_buffer_size,
     selected_desync_group, DETECT_CONNECT,
 };
+use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 use ripdpi_proxy_runtime_adapter::model::session::extract_payload_host;
-use ripdpi_runtime_decision_ports::policy::TransportProtocol;
 
 use super::super::super::state::RuntimeState;
 use super::super::protocol_io::{send_success_reply, HandshakeKind};
@@ -15,7 +15,7 @@ use super::ConnectRelayError;
 
 pub(super) enum DelayConnect {
     Immediate,
-    Delayed { route: ripdpi_runtime_decision_ports::policy::ConnectionRoute, payload: Vec<u8> },
+    Delayed { route: ConnectionRoute, payload: Vec<u8> },
     Closed,
 }
 

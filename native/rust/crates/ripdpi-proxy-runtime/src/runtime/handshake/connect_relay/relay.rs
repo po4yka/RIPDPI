@@ -1,5 +1,7 @@
 use std::net::{SocketAddr, TcpStream};
 
+use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
+
 use super::super::super::state::RuntimeState;
 use super::reply::{write_success_reply, SuccessReply};
 use super::routes::{connect_delayed_route, connect_immediate_route, connect_ws_seed_route, UpstreamRoute};
@@ -23,7 +25,7 @@ pub(super) fn delayed_connect_relay(
     target: SocketAddr,
     state: &RuntimeState,
     host_hint: Option<String>,
-    route: ripdpi_runtime_decision_ports::policy::ConnectionRoute,
+    route: ConnectionRoute,
     payload: Vec<u8>,
 ) -> Result<(), ConnectRelayError> {
     let upstream_route = connect_delayed_route(target, state, host_hint, route, payload)?;

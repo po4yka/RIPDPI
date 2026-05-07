@@ -4,7 +4,7 @@ use std::net::{SocketAddr, TcpStream};
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 use ripdpi_proxy_runtime_adapter::model::config::group_rotation_policy_enabled;
 use ripdpi_proxy_runtime_adapter::model::config::relay_timeout_settings;
-use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
+use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
 use super::super::routing::{emit_failure_classified, note_block_signal_for_failure};
 use super::super::state::RuntimeState;

@@ -1,7 +1,7 @@
 use std::net::{SocketAddr, TcpStream};
 
+use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::session::extract_payload_host;
-use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 use super::super::super::state::RuntimeState;
 use super::ConnectRelayError;
