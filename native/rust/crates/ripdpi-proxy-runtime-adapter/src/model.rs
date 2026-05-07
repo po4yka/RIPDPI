@@ -247,6 +247,19 @@ pub mod config {
         matches!(config.quic.initial_mode, QuicInitialMode::RouteAndCache)
     }
 
+    pub fn should_cache_udp_host(
+        config: &RuntimeConfig,
+        host: Option<&ripdpi_runtime_decision_ports::policy::ExtractedHost>,
+    ) -> bool {
+        use ripdpi_runtime_decision_ports::policy::HostSource;
+
+        match host.map(|value| value.source) {
+            Some(HostSource::Quic) => quic_route_and_cache_enabled(config),
+            Some(HostSource::Http | HostSource::Tls) => true,
+            None => false,
+        }
+    }
+
     pub fn runtime_buffer_size(config: &RuntimeConfig) -> usize {
         config.network.buffer_size.max(16_384)
     }
