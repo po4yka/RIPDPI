@@ -1,24 +1,10 @@
 use std::io;
 
-use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
-use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
+use ripdpi_proxy_runtime_adapter::model::config::{should_rebind_udp_source_port, udp_bind_low_port};
 
 use super::flow::UdpFlowActivationState;
 use super::sockets::build_udp_upstream_socket;
 use crate::runtime::state::RuntimeState;
-
-pub(super) fn should_rebind_udp_source_port(
-    config: &RuntimeConfig,
-    route: &ConnectionRoute,
-    quic_migrated: bool,
-    round_count: u32,
-    inbound_payload: &[u8],
-) -> bool {
-    !quic_migrated
-        && inbound_payload.first().is_some_and(|first| first & 0x80 == 0)
-        && round_count >= 2
-        && config.groups.get(route.group_index).is_some_and(|group| group.actions.quic_migrate_after_handshake)
-}
 
 pub(super) fn maybe_rebind_udp_source_port(
     state: &RuntimeState,
@@ -28,7 +14,7 @@ pub(super) fn maybe_rebind_udp_source_port(
 ) -> io::Result<()> {
     if !should_rebind_udp_source_port(
         &state.config,
-        &entry.route,
+        entry.route.group_index,
         entry.quic_migrated,
         entry.session.round_count,
         inbound_payload,
@@ -57,8 +43,7 @@ pub(super) fn maybe_rebind_udp_source_port(
     // application.  Packets already in flight on the old socket are
     // not replayed on the new socket; the QUIC stack in the client
     // application is responsible for retransmission.
-    let bind_low_port =
-        state.config.groups.get(entry.route.group_index).is_some_and(|group| group.actions.quic_bind_low_port);
+    let bind_low_port = udp_bind_low_port(&state.config, entry.route.group_index);
     match build_udp_upstream_socket(entry.current_target, protect_path, bind_low_port) {
         Ok(new_socket) => {
             entry.upstream = new_socket;
@@ -90,20 +75,16 @@ pub(super) fn maybe_rebind_udp_source_port(
 
 #[cfg(test)]
 mod tests {
-    use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
-    use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
-
-    use super::should_rebind_udp_source_port;
+    use ripdpi_proxy_runtime_adapter::model::config::{should_rebind_udp_source_port, RuntimeConfig};
 
     #[test]
     fn udp_source_rebind_waits_for_short_header_after_two_rounds() {
         let mut config = RuntimeConfig::default();
         config.groups[0].actions.quic_migrate_after_handshake = true;
-        let route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
 
-        assert!(!should_rebind_udp_source_port(&config, &route, true, 2, &[0x40]));
-        assert!(!should_rebind_udp_source_port(&config, &route, false, 1, &[0x40]));
-        assert!(!should_rebind_udp_source_port(&config, &route, false, 2, &[0xc0]));
-        assert!(should_rebind_udp_source_port(&config, &route, false, 2, &[0x40]));
+        assert!(!should_rebind_udp_source_port(&config, 0, true, 2, &[0x40]));
+        assert!(!should_rebind_udp_source_port(&config, 0, false, 1, &[0x40]));
+        assert!(!should_rebind_udp_source_port(&config, 0, false, 2, &[0xc0]));
+        assert!(should_rebind_udp_source_port(&config, 0, false, 2, &[0x40]));
     }
 }

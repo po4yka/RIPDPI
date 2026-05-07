@@ -67,6 +67,23 @@ pub mod config {
             _ => default_limit,
         }
     }
+
+    pub fn should_rebind_udp_source_port(
+        config: &RuntimeConfig,
+        group_index: usize,
+        quic_migrated: bool,
+        round_count: u32,
+        inbound_payload: &[u8],
+    ) -> bool {
+        !quic_migrated
+            && inbound_payload.first().is_some_and(|first| first & 0x80 == 0)
+            && round_count >= 2
+            && config.groups.get(group_index).is_some_and(|group| group.actions.quic_migrate_after_handshake)
+    }
+
+    pub fn udp_bind_low_port(config: &RuntimeConfig, group_index: usize) -> bool {
+        config.groups.get(group_index).is_some_and(|group| group.actions.quic_bind_low_port)
+    }
 }
 
 pub mod desync {
