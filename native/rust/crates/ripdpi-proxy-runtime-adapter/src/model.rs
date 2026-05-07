@@ -86,6 +86,26 @@ pub mod config {
         config.network.tfo
     }
 
+    pub fn ws_tunnel_always_enabled(config: &RuntimeConfig) -> bool {
+        config.adaptive.ws_tunnel_mode == WsTunnelMode::Always
+    }
+
+    pub fn ws_tunnel_fallback_enabled(config: &RuntimeConfig) -> bool {
+        config.adaptive.ws_tunnel_mode == WsTunnelMode::Fallback
+    }
+
+    pub fn ws_tunnel_config(
+        config: &RuntimeConfig,
+        resolved_addr: Option<SocketAddr>,
+    ) -> ripdpi_ws_bootstrap::WsTunnelConfig {
+        ripdpi_ws_bootstrap::WsTunnelConfig {
+            protect_path: protect_path_owned(config),
+            resolved_addr,
+            connect_timeout: connect_timeout(config),
+            fake_sni: config.adaptive.ws_tunnel_fake_sni.clone(),
+        }
+    }
+
     #[derive(Clone, Copy)]
     pub struct FirstResponseSettings {
         pub buffer_size: usize,

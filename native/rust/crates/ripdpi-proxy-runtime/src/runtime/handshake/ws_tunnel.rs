@@ -1,7 +1,9 @@
 use std::io::{self, Read};
 use std::net::{IpAddr, SocketAddr, TcpStream};
-use std::time::Duration;
 
+use ripdpi_proxy_runtime_adapter::model::config::{
+    protect_path, ws_tunnel_always_enabled, ws_tunnel_config, ws_tunnel_fallback_enabled,
+};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyRuntimeContext;
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     self as ws_bootstrap, MtprotoSeedClassification, TelegramDc, WsTunnelConfig, WsTunnelDecision,
@@ -31,7 +33,7 @@ fn classify_telegram_target(target: SocketAddr) -> Option<TelegramDc> {
 
 /// Check if WS tunnel should be tried first (Always mode).
 pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
-    if state.config.adaptive.ws_tunnel_mode != ripdpi_proxy_runtime_adapter::model::config::WsTunnelMode::Always {
+    if !ws_tunnel_always_enabled(&state.config) {
         return None;
     }
     let dc = classify_telegram_target(target)?;
@@ -41,7 +43,7 @@ pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -
 
 /// Check if WS tunnel should be tried as a last resort (Fallback mode).
 pub(super) fn should_ws_tunnel_fallback(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
-    if state.config.adaptive.ws_tunnel_mode != ripdpi_proxy_runtime_adapter::model::config::WsTunnelMode::Fallback {
+    if !ws_tunnel_fallback_enabled(&state.config) {
         return None;
     }
     classify_telegram_target(target)
@@ -135,27 +137,18 @@ where
             WsTunnelResult::UnmappableDc { raw_dc, dc, seed_request }
         }
         MtprotoSeedClassification::ValidatedMtproto { dc } => {
-            let resolved_addr =
-                match resolve_addr(dc, state.runtime_context.as_ref(), state.config.process.protect_path.as_deref()) {
-                    Ok(addr) => addr,
-                    Err(error) => {
-                        tracing::warn!(
-                            "WS tunnel encrypted DNS bootstrap failed for raw DC {} (class {:?}): {error}",
-                            dc.raw(),
-                            dc.class()
-                        );
-                        return WsTunnelResult::BootstrapFailed { dc, seed_request, error };
-                    }
-                };
-            let config = WsTunnelConfig {
-                protect_path: state.config.process.protect_path.clone(),
-                resolved_addr: Some(resolved_addr),
-                connect_timeout: match state.config.timeouts.connect_timeout_ms {
-                    0 => None,
-                    millis => Some(Duration::from_millis(millis as u64)),
-                },
-                fake_sni: state.config.adaptive.ws_tunnel_fake_sni.clone(),
+            let resolved_addr = match resolve_addr(dc, state.runtime_context.as_ref(), protect_path(&state.config)) {
+                Ok(addr) => addr,
+                Err(error) => {
+                    tracing::warn!(
+                        "WS tunnel encrypted DNS bootstrap failed for raw DC {} (class {:?}): {error}",
+                        dc.raw(),
+                        dc.class()
+                    );
+                    return WsTunnelResult::BootstrapFailed { dc, seed_request, error };
+                }
             };
+            let config = ws_tunnel_config(&state.config, Some(resolved_addr));
             match relay_ws(client, dc, seed_request.clone(), &config) {
                 Ok(()) => WsTunnelResult::ValidatedMtproto { dc },
                 Err(error) => {
@@ -212,6 +205,7 @@ mod tests {
     use aes::Aes256;
     use std::net::{Ipv4Addr, TcpListener};
     use std::thread;
+    use std::time::Duration;
 
     type Aes256Ctr = ctr::Ctr128BE<Aes256>;
 
