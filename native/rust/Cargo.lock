@@ -3739,6 +3739,7 @@ dependencies = [
  "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-runtime-api",
+ "ripdpi-runtime-decision-ports",
  "ripdpi-runtime-platform",
  "ripdpi-runtime-services",
  "ripdpi-session",

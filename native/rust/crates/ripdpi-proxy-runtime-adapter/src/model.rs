@@ -343,6 +343,76 @@ pub mod proxy_config {
     pub fn morph_policy_id(policy: &ProxyMorphPolicy) -> &str {
         policy.id.as_str()
     }
+
+    pub fn apply_udp_morph_policy_to_hints(
+        policy: Option<&ProxyMorphPolicy>,
+        hints: super::desync::AdaptivePlannerHints,
+    ) -> super::desync::AdaptivePlannerHints {
+        ripdpi_runtime_decision_ports::adaptive::morph_policy::apply_udp_morph_policy_to_hints(policy, hints)
+    }
+
+    pub fn apply_tcp_morph_policy_to_group(
+        policy: Option<&ProxyMorphPolicy>,
+        group: &super::config::DesyncGroup,
+        payload: &[u8],
+        hints: super::desync::AdaptivePlannerHints,
+    ) -> super::config::DesyncGroup {
+        ripdpi_runtime_decision_ports::adaptive::morph_policy::apply_tcp_morph_policy_to_group(
+            policy, group, payload, hints,
+        )
+    }
+
+    pub fn tcp_morph_hint_family(
+        policy: Option<&ProxyMorphPolicy>,
+        payload: &[u8],
+        hints: super::desync::AdaptivePlannerHints,
+    ) -> Option<String> {
+        ripdpi_runtime_decision_ports::adaptive::morph_policy::tcp_morph_hint_family(policy, payload, hints)
+    }
+
+    pub fn udp_morph_hint_family(
+        policy: Option<&ProxyMorphPolicy>,
+        hints: super::desync::AdaptivePlannerHints,
+    ) -> Option<String> {
+        ripdpi_runtime_decision_ports::adaptive::morph_policy::udp_morph_hint_family(policy, hints)
+    }
+
+    pub fn emit_morph_hint_applied(
+        telemetry: Option<&dyn super::runtime_api::RuntimeTelemetrySink>,
+        policy: Option<&ProxyMorphPolicy>,
+        target: std::net::SocketAddr,
+        family: Option<String>,
+    ) {
+        let Some(telemetry) = telemetry else {
+            return;
+        };
+        let Some(policy) = policy else {
+            return;
+        };
+        let Some(family) = family.as_deref().filter(|value| !value.is_empty()) else {
+            return;
+        };
+        telemetry.on_morph_hint_applied(target, morph_policy_id(policy), family);
+    }
+
+    pub fn emit_morph_rollback(
+        telemetry: Option<&dyn super::runtime_api::RuntimeTelemetrySink>,
+        policy: Option<&ProxyMorphPolicy>,
+        target: std::net::SocketAddr,
+        reason: impl AsRef<str>,
+    ) {
+        let Some(telemetry) = telemetry else {
+            return;
+        };
+        let Some(policy) = policy else {
+            return;
+        };
+        let reason = reason.as_ref();
+        if reason.is_empty() {
+            return;
+        }
+        telemetry.on_morph_rollback(target, morph_policy_id(policy), reason);
+    }
 }
 
 pub mod runtime_api {

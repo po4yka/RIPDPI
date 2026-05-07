@@ -2,18 +2,12 @@ use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
 use ripdpi_proxy_runtime_adapter::model::desync::AdaptivePlannerHints;
-use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyMorphPolicy;
+use ripdpi_proxy_runtime_adapter::model::proxy_config::{self as morph_adapter, ProxyMorphPolicy};
 
 use super::state::RuntimeState;
 
-mod current;
-mod family;
-mod hints;
-mod projection;
-mod telemetry;
-
 pub(super) fn current_morph_policy(state: &RuntimeState) -> Option<&ProxyMorphPolicy> {
-    current::current_morph_policy(state)
+    morph_adapter::morph_policy(state.runtime_context.as_ref())
 }
 
 #[cfg(test)]
@@ -21,7 +15,7 @@ pub(super) fn apply_udp_morph_policy_to_hints(
     state: &RuntimeState,
     hints: AdaptivePlannerHints,
 ) -> AdaptivePlannerHints {
-    hints::apply_udp_morph_policy_to_hints(current_morph_policy(state), hints)
+    morph_adapter::apply_udp_morph_policy_to_hints(current_morph_policy(state), hints)
 }
 
 pub(super) fn apply_tcp_morph_policy_to_group(
@@ -30,15 +24,15 @@ pub(super) fn apply_tcp_morph_policy_to_group(
     payload: &[u8],
     hints: AdaptivePlannerHints,
 ) -> DesyncGroup {
-    projection::apply_tcp_morph_policy_to_group(current_morph_policy(state), group, payload, hints)
+    morph_adapter::apply_tcp_morph_policy_to_group(current_morph_policy(state), group, payload, hints)
 }
 
 pub(super) fn emit_morph_hint_applied(state: &RuntimeState, target: SocketAddr, family: Option<String>) {
-    telemetry::emit_morph_hint_applied(state, current_morph_policy(state), target, family);
+    morph_adapter::emit_morph_hint_applied(state.telemetry.as_deref(), current_morph_policy(state), target, family);
 }
 
 pub(super) fn emit_morph_rollback(state: &RuntimeState, target: SocketAddr, reason: impl AsRef<str>) {
-    telemetry::emit_morph_rollback(state, current_morph_policy(state), target, reason);
+    morph_adapter::emit_morph_rollback(state.telemetry.as_deref(), current_morph_policy(state), target, reason);
 }
 
 pub(super) fn tcp_morph_hint_family(
@@ -46,11 +40,11 @@ pub(super) fn tcp_morph_hint_family(
     payload: &[u8],
     hints: AdaptivePlannerHints,
 ) -> Option<String> {
-    family::tcp_morph_hint_family(current_morph_policy(state), payload, hints)
+    morph_adapter::tcp_morph_hint_family(current_morph_policy(state), payload, hints)
 }
 
 pub(super) fn udp_morph_hint_family(state: &RuntimeState, hints: AdaptivePlannerHints) -> Option<String> {
-    family::udp_morph_hint_family(current_morph_policy(state), hints)
+    morph_adapter::udp_morph_hint_family(current_morph_policy(state), hints)
 }
 
 #[cfg(test)]
