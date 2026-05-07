@@ -77,6 +77,15 @@ pub mod config {
         config.process.protect_path.clone()
     }
 
+    pub fn connect_timeout(config: &RuntimeConfig) -> Option<Duration> {
+        (config.timeouts.connect_timeout_ms > 0)
+            .then(|| Duration::from_millis(config.timeouts.connect_timeout_ms as u64))
+    }
+
+    pub fn tcp_fast_open_enabled(config: &RuntimeConfig) -> bool {
+        config.network.tfo
+    }
+
     #[derive(Clone, Copy)]
     pub struct FirstResponseSettings {
         pub buffer_size: usize,

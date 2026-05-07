@@ -1,8 +1,9 @@
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
-use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, TcpChainStepKind};
+use ripdpi_proxy_runtime_adapter::model::config::{
+    connect_timeout, protect_path, tcp_fast_open_enabled, DesyncGroup, TcpChainStepKind,
+};
 
 use super::super::super::state::RuntimeState;
 use super::error::ConnectAttemptError;
@@ -49,11 +50,7 @@ fn connect_target_via_group_with_tfo(
         tcp_total_retransmissions: None,
         tcp_fast_open_enabled: false,
     })?;
-    let connect_timeout = if state.config.timeouts.connect_timeout_ms > 0 {
-        Some(Duration::from_millis(state.config.timeouts.connect_timeout_ms as u64))
-    } else {
-        None
-    };
+    let connect_timeout = connect_timeout(&state.config);
     let pre_connect_rcvbuf = group.actions.wsize.map(|w| match w.scale {
         Some(scale) if (scale as u32) < 32 => w.window.checked_shl(scale as u32).unwrap_or(u32::MAX),
         Some(_) => u32::MAX,
@@ -64,7 +61,7 @@ fn connect_target_via_group_with_tfo(
             target,
             upstream.addr,
             unspecified_ip_for(upstream.addr),
-            state.config.process.protect_path.as_deref(),
+            protect_path(&state.config),
             tfo_enabled,
             connect_timeout,
         )
@@ -77,7 +74,7 @@ fn connect_target_via_group_with_tfo(
         connect_socket_detailed(
             target,
             unspecified_ip_for(target),
-            state.config.process.protect_path.as_deref(),
+            protect_path(&state.config),
             tfo_enabled,
             connect_timeout,
             pre_connect_rcvbuf,
@@ -106,7 +103,7 @@ fn group_uses_tcp_fast_open(
     payload: Option<&[u8]>,
     allow_tfo: bool,
 ) -> bool {
-    allow_tfo && (state.config.network.tfo || group_requests_direct_syn_data_tfo(group, payload))
+    allow_tfo && (tcp_fast_open_enabled(&state.config) || group_requests_direct_syn_data_tfo(group, payload))
 }
 
 pub(super) fn unspecified_ip_for(addr: SocketAddr) -> IpAddr {
