@@ -3,6 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 use ripdpi_config::DesyncGroup;
 use ripdpi_desync::{ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints};
 use ripdpi_proxy_runtime_adapter::desync_platform::{OutboundSendError, OutboundSendOutcome};
+use ripdpi_proxy_runtime_adapter::protocol_payload;
 use ripdpi_session::OutboundProgress;
 
 use super::platform::{send_prepared_with_runtime_platform, seqovl_supported, tcp_activation_state, tcp_segment_hint};
@@ -21,7 +22,7 @@ pub(crate) fn activation_context_from_progress(
     resolved_fake_ttl: Option<u8>,
     adaptive: AdaptivePlannerHints,
 ) -> ActivationContext {
-    let has_ech = payload.and_then(ripdpi_packets::tls_marker_info).and_then(|markers| markers.ech_ext_start).is_some();
+    let has_ech = payload.is_some_and(protocol_payload::payload_has_ech);
     let tcp_state = tcp_activation_state.map_or(
         ActivationTcpState { has_ech: Some(has_ech), ..ActivationTcpState::default() },
         |state| ActivationTcpState {

@@ -3743,6 +3743,7 @@ dependencies = [
  "ripdpi-desync-runtime",
  "ripdpi-failure-classifier",
  "ripdpi-ipfrag",
+ "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-runtime-platform",
  "ripdpi-session",

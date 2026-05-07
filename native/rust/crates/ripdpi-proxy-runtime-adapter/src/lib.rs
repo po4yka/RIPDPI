@@ -13,6 +13,7 @@ pub mod ip_fragmentation {
 }
 
 pub mod desync_platform;
+pub mod protocol_payload;
 pub mod raw_packet_requirements;
 
 pub mod ws_bootstrap {

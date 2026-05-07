@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
 use ripdpi_config::DETECT_CONNECT;
-use ripdpi_packets::{IS_HTTP, IS_HTTPS};
+use ripdpi_proxy_runtime_adapter::protocol_payload;
 use ripdpi_runtime_decision_ports::policy::{
     extract_host, group_requires_payload, route_matches_payload, TransportProtocol,
 };
@@ -96,7 +96,7 @@ fn delayed_route_matches(
         return false;
     }
 
-    group.matches.any_protocol || group.matches.proto == 0 || (group.matches.proto & (IS_HTTP | IS_HTTPS)) == 0
+    protocol_payload::group_accepts_any_or_non_http_tls(group)
 }
 
 fn read_blocking_first_request(client: &mut TcpStream, buffer_size: usize) -> io::Result<Option<Vec<u8>>> {
