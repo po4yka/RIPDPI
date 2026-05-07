@@ -1,5 +1,6 @@
 use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, FailureStage};
+use ripdpi_proxy_runtime_adapter::model::config::tcp_rotation_seed;
 use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 use std::io;
 use std::net::TcpStream;
@@ -16,15 +17,8 @@ pub(super) fn group_rotation_controller(
     if session_seed.recv_count == 0 {
         return Ok(None);
     }
-    let group = state
-        .config
-        .groups
-        .get(group_index)
-        .cloned()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
-    let policy = group.actions.rotation_policy.clone();
-    Ok(policy
-        .and_then(|policy| CircularTcpRotationController::new(group, policy))
+    Ok(tcp_rotation_seed(&state.config, group_index)?
+        .and_then(|(group, policy)| CircularTcpRotationController::new(group, policy))
         .map(|controller| Arc::new(Mutex::new(controller))))
 }
 

@@ -346,6 +346,16 @@ pub mod config {
         selected_desync_group(config, group_index).is_some_and(|group| group.actions.rotation_policy.is_some())
     }
 
+    pub fn tcp_rotation_seed(
+        config: &RuntimeConfig,
+        group_index: usize,
+    ) -> io::Result<Option<(DesyncGroup, RotationPolicy)>> {
+        let group = selected_desync_group(config, group_index)
+            .cloned()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
+        Ok(group.actions.rotation_policy.clone().map(|policy| (group, policy)))
+    }
+
     pub fn primary_tcp_strategy_family_for_group(config: &RuntimeConfig, group_index: usize) -> Option<&'static str> {
         selected_desync_group(config, group_index).and_then(ripdpi_desync_runtime::primary_tcp_strategy_family)
     }
