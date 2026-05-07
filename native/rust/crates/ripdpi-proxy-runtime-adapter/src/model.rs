@@ -92,6 +92,16 @@ pub mod config {
     pub fn runtime_buffer_size(config: &RuntimeConfig) -> usize {
         config.network.buffer_size.max(16_384)
     }
+
+    #[derive(Clone, Copy)]
+    pub struct ShadowsocksTargetPolicy {
+        pub ipv6_enabled: bool,
+        pub resolve_enabled: bool,
+    }
+
+    pub fn shadowsocks_target_policy(config: &RuntimeConfig) -> ShadowsocksTargetPolicy {
+        ShadowsocksTargetPolicy { ipv6_enabled: config.network.ipv6, resolve_enabled: config.network.resolve }
+    }
 }
 
 pub mod desync {

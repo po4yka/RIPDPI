@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::model::config::{shadowsocks_target_policy, RuntimeConfig, ShadowsocksTargetPolicy};
 use ripdpi_proxy_runtime_adapter::model::session::{SocketType, S_ATP_I4, S_ATP_I6};
 
 pub(in crate::runtime::handshake) fn read_shadowsocks_request(
@@ -12,8 +12,9 @@ pub(in crate::runtime::handshake) fn read_shadowsocks_request(
 ) -> io::Result<(SocketAddr, Vec<u8>)> {
     let mut request = vec![first_byte];
     let mut chunk = [0u8; 4096];
+    let policy = shadowsocks_target_policy(config);
     loop {
-        if let Some((target, header_len)) = parse_shadowsocks_target(&request, config, &mut resolver) {
+        if let Some((target, header_len)) = parse_shadowsocks_target(&request, policy, &mut resolver) {
             return Ok((target, request[header_len..].to_vec()));
         }
         let n = client.read(&mut chunk)?;
@@ -29,14 +30,14 @@ pub(in crate::runtime::handshake) fn read_shadowsocks_request(
 
 pub(in crate::runtime::handshake) fn parse_shadowsocks_target(
     packet: &[u8],
-    config: &RuntimeConfig,
+    policy: ShadowsocksTargetPolicy,
     mut resolver: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
 ) -> Option<(SocketAddr, usize)> {
     let atyp = *packet.first()?;
     match atyp {
         S_ATP_I4 => parse_ipv4_target(packet),
-        S_ATP_I6 => parse_ipv6_target(packet, config.network.ipv6),
-        0x03 => parse_domain_target(packet, config.network.resolve, &mut resolver),
+        S_ATP_I6 => parse_ipv6_target(packet, policy.ipv6_enabled),
+        0x03 => parse_domain_target(packet, policy.resolve_enabled, &mut resolver),
         _ => None,
     }
 }
