@@ -208,6 +208,10 @@ pub mod udp {
         ripdpi_runtime_platform::socket::bind_udp_low_port(socket, local_ip, start_port).map(|_| ())
     }
 
+    pub fn is_connection_refused(err: &io::Error) -> bool {
+        err.raw_os_error() == Some(libc::ECONNREFUSED)
+    }
+
     pub fn bind_udp_socket(bind_addr: SocketAddr, protect_path: Option<&str>) -> io::Result<UdpSocket> {
         let socket = new_udp_socket(bind_addr, protect_path)?;
         socket.bind(&SockAddr::from(bind_addr))?;
@@ -305,7 +309,9 @@ pub mod process {
     use std::fs::{self, File, OpenOptions};
     use std::io;
     use std::io::Write;
+    use std::num::NonZeroUsize;
     use std::path::{Path, PathBuf};
+    use std::thread;
 
     use daemonize::Daemonize;
     use nix::fcntl::{Flock, FlockArg};
@@ -330,6 +336,21 @@ pub mod process {
             };
             Ok(Self { _pid_file: pid_file })
         }
+    }
+
+    pub fn detected_parallelism(fallback: usize) -> usize {
+        // On Android, std::thread::available_parallelism() reads cgroup files
+        // that SELinux denies on Android 14+, polluting logcat with avc:
+        // denied entries. Use sysconf(_SC_NPROCESSORS_ONLN) directly to skip
+        // the cgroup probe.
+        #[cfg(target_os = "android")]
+        {
+            let n = unsafe { libc::sysconf(libc::_SC_NPROCESSORS_ONLN) };
+            if n > 0 {
+                return n as usize;
+            }
+        }
+        thread::available_parallelism().map(NonZeroUsize::get).unwrap_or(fallback)
     }
 
     fn daemonize(pid_file: Option<&Path>) -> io::Result<()> {

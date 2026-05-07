@@ -4,6 +4,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::model::config::{selected_desync_group, udp_default_ttl, udp_ip_id_mode};
+use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
 use ripdpi_proxy_runtime_adapter::udp_desync::{
     execute_udp_actions, plan_udp_actions, ActivationTransport, UdpActionExecContext, UdpDesyncAction,
 };
@@ -37,7 +38,7 @@ pub(super) fn pump_udp_upstream_responses(
                 client_relay.send_to(&packet, client_addr)?;
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
-            Err(err) if err.raw_os_error() == Some(libc::ECONNREFUSED) => {}
+            Err(err) if udp_platform::is_connection_refused(&err) => {}
             Err(err) => return Err(err),
         }
     }

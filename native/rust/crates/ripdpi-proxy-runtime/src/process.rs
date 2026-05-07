@@ -35,7 +35,7 @@ pub fn prepare_embedded() {
     SHUTDOWN.store(false, Ordering::Release);
 }
 
-extern "C" fn handle_signal(_signal: libc::c_int) {
+extern "C" fn handle_signal(_signal: std::os::raw::c_int) {
     request_shutdown();
 }
 
