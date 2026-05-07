@@ -3,6 +3,8 @@ use std::net::{IpAddr, SocketAddr};
 
 pub use ripdpi_failure_classifier::*;
 
+use crate::model::config::RuntimeTimeoutSettings;
+
 pub fn should_track_strategy_target(target: SocketAddr) -> bool {
     !is_tunnel_infrastructure_dns_target(target)
 }
@@ -92,6 +94,10 @@ pub fn classify_first_response_transport_error(err: &io::Error) -> ClassifiedFai
     classify_transport_error(FailureStage::FirstResponse, err)
 }
 
+pub fn classify_relay_connection_freeze(timeouts: RuntimeTimeoutSettings) -> ClassifiedFailure {
+    classify_connection_freeze(0, timeouts.freeze_max_stalls, timeouts.freeze_window_ms)
+}
+
 fn is_tunnel_infrastructure_dns_target(target: SocketAddr) -> bool {
     if target.port() != 853 {
         return false;
@@ -119,4 +125,23 @@ fn is_dpi_connect_error(err: &io::Error) -> bool {
 
 fn is_dpi_write_error(err: &io::Error) -> bool {
     matches!(err.kind(), io::ErrorKind::ConnectionReset | io::ErrorKind::BrokenPipe)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::config::RuntimeTimeoutSettings;
+
+    #[test]
+    fn relay_connection_freeze_uses_relay_timeout_settings() {
+        let failure = classify_relay_connection_freeze(RuntimeTimeoutSettings {
+            freeze_window_ms: 2500,
+            freeze_max_stalls: 3,
+            ..Default::default()
+        });
+
+        assert_eq!(failure.stage, FailureStage::Relay);
+        assert!(failure.evidence.summary.contains("3"));
+        assert!(failure.evidence.summary.contains("2500"));
+    }
 }

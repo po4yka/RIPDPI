@@ -72,11 +72,7 @@ pub(super) fn record_relay_result(
     if let Err(err) = relay_result {
         if err.to_string().contains(CONNECTION_FREEZE_MARKER) {
             let t = relay_timeout_settings(&state.config);
-            let failure = ripdpi_proxy_runtime_adapter::failure::classify_connection_freeze(
-                0,
-                t.freeze_max_stalls,
-                t.freeze_window_ms,
-            );
+            let failure = ripdpi_proxy_runtime_adapter::failure::classify_relay_connection_freeze(t);
             note_block_signal_for_failure(state, success_host, &failure, None);
             emit_failure_classified(state, target, &failure, success_host);
         }
