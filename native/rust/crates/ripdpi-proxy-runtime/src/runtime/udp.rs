@@ -18,10 +18,11 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::sync::{Arc, AtomicBool, Ordering};
+use ripdpi_proxy_runtime_adapter::model::config::udp_flow_limit;
 
 use self::client_receive::receive_and_forward_udp_client_packet;
 pub(crate) use self::codec::{encode_socks5_udp_packet, parse_socks5_udp_packet};
-use self::flow::{expire_udp_flows, udp_flow_limit, UdpFlowActivationState};
+use self::flow::{expire_udp_flows, UdpFlowActivationState};
 pub(crate) use self::sockets::build_udp_relay_sockets;
 use self::upstream_pump::pump_udp_upstream_responses;
 use super::adaptive::emit_due_direct_path_learning_timeouts;

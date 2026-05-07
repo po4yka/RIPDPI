@@ -13,6 +13,10 @@ pub mod config {
             protect_path: config.process.protect_path.clone(),
         }
     }
+
+    pub fn udp_flow_limit(config: &RuntimeConfig) -> usize {
+        config.network.max_open.max(1) as usize
+    }
 }
 
 pub mod desync {
