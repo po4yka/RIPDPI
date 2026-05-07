@@ -3,7 +3,7 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::session::classify_udp_payload;
+use ripdpi_proxy_runtime_adapter::model::session::{classify_udp_payload_with, udp_payload_classifier};
 
 use super::flow::UdpFlowActivationState;
 use super::flow_selection::ensure_udp_flow_selected;
@@ -65,7 +65,8 @@ fn decode_udp_client_packet<'a>(
     }
 
     let (original_target, payload) = parse_socks5_udp_packet(packet, state)?;
-    let udp_payload = classify_udp_payload(&state.config, payload);
+    let classifier = udp_payload_classifier(&state.config);
+    let udp_payload = classify_udp_payload_with(&classifier, payload);
     Some(UdpClientPacket {
         sender,
         original_target,

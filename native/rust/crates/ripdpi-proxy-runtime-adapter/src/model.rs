@@ -950,6 +950,15 @@ pub mod session {
         pub cache_host: bool,
     }
 
+    #[derive(Clone)]
+    pub struct UdpPayloadClassifier {
+        config: RuntimeConfig,
+    }
+
+    pub fn udp_payload_classifier(config: &RuntimeConfig) -> UdpPayloadClassifier {
+        UdpPayloadClassifier { config: config.clone() }
+    }
+
     pub fn first_outbound_payload_policy(config: &RuntimeConfig) -> FirstOutboundPayloadPolicy {
         FirstOutboundPayloadPolicy { buffer_size: runtime_buffer_size(config), config: config.clone() }
     }
@@ -979,6 +988,10 @@ pub mod session {
             host: host_info.as_ref().map(|value| value.host.clone()),
             cache_host: should_cache_udp_host(config, host_info.as_ref()),
         }
+    }
+
+    pub fn classify_udp_payload_with(classifier: &UdpPayloadClassifier, payload: &[u8]) -> UdpPayloadInfo {
+        classify_udp_payload(&classifier.config, payload)
     }
 
     pub fn parse_socks5_udp_packet<'a>(
@@ -1151,6 +1164,18 @@ pub mod session {
             let info = classify_first_outbound_payload(&policy, b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n");
             assert_eq!(info.host.as_deref(), Some("example.com"));
             assert!(!info.is_tls);
+        }
+
+        #[test]
+        fn udp_payload_classifier_preserves_host_cache_policy() {
+            let mut config = RuntimeConfig::default();
+            config.quic.initial_mode = super::super::config::QuicInitialMode::RouteAndCache;
+            let classifier = udp_payload_classifier(&config);
+
+            let info = classify_udp_payload_with(&classifier, b"\xc3\x00\x00\x01\x08\x00\x00\x00\x00\x00");
+
+            assert!(info.host.is_none());
+            assert!(!info.cache_host);
         }
     }
 }
