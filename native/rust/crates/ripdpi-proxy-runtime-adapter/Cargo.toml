@@ -25,6 +25,7 @@ ripdpi-runtime-services = { workspace = true }
 ripdpi-session = { workspace = true }
 ripdpi-ws-bootstrap = { workspace = true }
 socket2 = { workspace = true }
+tracing = { workspace = true }
 loom = { workspace = true, optional = true }
 
 [features]

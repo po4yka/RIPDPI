@@ -71,9 +71,10 @@ pub mod first_response {
 
 pub mod udp {
     use std::io;
-    use std::net::{IpAddr, UdpSocket};
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
+    use std::time::Duration;
 
-    use socket2::Socket;
+    use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
     pub fn protect_socket(socket: &Socket, protect_path: &str) -> io::Result<()> {
         ripdpi_runtime_platform::vpn::protect_socket(socket, Some(protect_path))
@@ -81,6 +82,53 @@ pub mod udp {
 
     pub fn bind_low_port(socket: &UdpSocket, local_ip: IpAddr, start_port: u16) -> io::Result<()> {
         ripdpi_runtime_platform::socket::bind_udp_low_port(socket, local_ip, start_port).map(|_| ())
+    }
+
+    pub fn bind_udp_socket(bind_addr: SocketAddr, protect_path: Option<&str>) -> io::Result<UdpSocket> {
+        let socket = new_udp_socket(bind_addr, protect_path)?;
+        socket.bind(&SockAddr::from(bind_addr))?;
+        configure_udp_socket(socket)
+    }
+
+    pub fn build_udp_upstream_socket(
+        target: SocketAddr,
+        protect_path: Option<&str>,
+        bind_low_port: bool,
+    ) -> io::Result<UdpSocket> {
+        let socket = new_udp_socket(target, protect_path)?;
+        let socket = configure_udp_socket(socket)?;
+        if bind_low_port {
+            let local_ip = match target {
+                SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+            };
+            if let Err(err) = self::bind_low_port(&socket, local_ip, 4_096) {
+                tracing::warn!(%target, %err, "failed to bind UDP flow to a low source port");
+            }
+        }
+        socket.connect(target)?;
+        socket.set_nonblocking(true)?;
+        Ok(socket)
+    }
+
+    fn new_udp_socket(addr: SocketAddr, protect_path: Option<&str>) -> io::Result<Socket> {
+        let domain = match addr {
+            SocketAddr::V4(_) => Domain::IPV4,
+            SocketAddr::V6(_) => Domain::IPV6,
+        };
+        let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
+        socket.set_reuse_address(true)?;
+        if let Some(path) = protect_path {
+            protect_socket(&socket, path)?;
+        }
+        Ok(socket)
+    }
+
+    fn configure_udp_socket(socket: Socket) -> io::Result<UdpSocket> {
+        let socket: UdpSocket = socket.into();
+        socket.set_read_timeout(Some(Duration::from_millis(250)))?;
+        socket.set_write_timeout(Some(Duration::from_secs(5)))?;
+        Ok(socket)
     }
 }
 

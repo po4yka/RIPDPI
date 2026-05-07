@@ -3748,6 +3748,7 @@ dependencies = [
  "ripdpi-session",
  "ripdpi-ws-bootstrap",
  "socket2",
+ "tracing",
 ]
 
 [[package]]
