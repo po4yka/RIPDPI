@@ -2,6 +2,7 @@ use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass};
+use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::session::{observe_inbound_payload, SessionState};
 
 use crate::runtime::desync::OutboundSendError;
@@ -13,7 +14,6 @@ use crate::runtime::routing::{
     reconnect_target_without_tfo,
 };
 use crate::runtime::state::RuntimeState;
-use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 #[derive(Default)]
 pub(super) struct RouteRetryState {

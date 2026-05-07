@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::collections::BTreeMap;
 
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
-use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, RetrySelectionPenalty};
+use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, RetrySelectionPenalty};
 
 use crate::runtime::retry::maybe_emit_candidate_diversification;
 use crate::runtime::state::RuntimeState;

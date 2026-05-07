@@ -2,8 +2,8 @@ use std::io;
 use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction};
+use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 use ripdpi_proxy_runtime_adapter::response_triggers::failure_trigger_mask;
-use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, TransportProtocol};
 
 use super::cache::advance_cache_route;
 use super::feedback::record_failure_feedback;

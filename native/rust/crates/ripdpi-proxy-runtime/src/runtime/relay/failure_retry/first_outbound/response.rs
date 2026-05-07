@@ -4,6 +4,7 @@ use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_proxy_runtime_adapter::model::config::first_response_settings;
+use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::session::{inbound_payload_count, observe_inbound_payload, SessionState};
 
 use crate::runtime::adaptive::note_server_ttl_for_route;
@@ -11,7 +12,6 @@ use crate::runtime::relay::failure_retry::retry_logic::record_stream_relay_succe
 use crate::runtime::relay::first_exchange::{read_first_response, FirstResponse};
 use crate::runtime::routing::should_track_strategy_target;
 use crate::runtime::state::RuntimeState;
-use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 pub(super) enum FirstResponseDecision {
     Complete { recorded_success: bool },

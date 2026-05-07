@@ -3,7 +3,7 @@ use std::io;
 use std::net::SocketAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, RetrySelectionPenalty, TransportProtocol};
+use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, RetrySelectionPenalty, TransportProtocol};
 
 use super::state::RuntimeState;
 

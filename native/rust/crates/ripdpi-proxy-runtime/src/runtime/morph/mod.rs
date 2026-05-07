@@ -56,9 +56,9 @@ mod tests {
     use ripdpi_proxy_runtime_adapter::model::config::{
         DesyncGroup, EntropyMode, QuicFakeProfile, RuntimeConfig, TcpChainStep, TcpChainStepKind,
     };
+    use ripdpi_proxy_runtime_adapter::model::decision::RuntimePolicy;
     use ripdpi_proxy_runtime_adapter::model::desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
     use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyRuntimeContext;
-    use ripdpi_runtime_decision_ports::policy::RuntimePolicy;
 
     fn state_with_policy(policy: ProxyMorphPolicy) -> RuntimeState {
         RuntimeState::test_with_runtime_policy(

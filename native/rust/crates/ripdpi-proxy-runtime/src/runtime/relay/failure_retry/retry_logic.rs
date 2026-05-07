@@ -6,6 +6,7 @@ use ripdpi_proxy_runtime_adapter::failure::{
     FailureStage,
 };
 use ripdpi_proxy_runtime_adapter::model::config::primary_tcp_strategy_family_for_group;
+use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use crate::runtime::adaptive::{
     note_adaptive_fake_ttl_success, note_adaptive_tcp_success, note_direct_path_tcp_success, note_evolver_success,
@@ -16,7 +17,6 @@ use crate::runtime::routing::{
     note_route_success, preferred_targets_for_transport, route_uses_direct_syn_data_tfo, should_track_strategy_target,
 };
 use crate::runtime::state::RuntimeState;
-use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, TransportProtocol};
 
 pub(crate) fn record_stream_relay_success(
     state: &RuntimeState,

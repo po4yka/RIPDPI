@@ -87,7 +87,7 @@ impl RuntimeState {
     pub(super) fn test_with_runtime_policy(
         config: RuntimeConfig,
         runtime_context: Option<ProxyRuntimeContext>,
-        _policy: ripdpi_runtime_decision_ports::policy::RuntimePolicy,
+        _policy: ripdpi_proxy_runtime_adapter::model::decision::RuntimePolicy,
     ) -> Self {
         // In tests the policy argument was used to pre-seed route state; the
         // ServicesState equivalent loads from config, which produces the same

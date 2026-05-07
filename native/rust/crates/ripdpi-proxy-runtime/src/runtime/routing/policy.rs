@@ -1,7 +1,7 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, TransportProtocol};
+use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use super::super::adaptive::{note_direct_path_udp_suppressed, now_millis};
 use super::super::state::RuntimeState;

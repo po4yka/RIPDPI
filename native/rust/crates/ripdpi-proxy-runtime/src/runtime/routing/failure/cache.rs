@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol};
+use ripdpi_proxy_runtime_adapter::model::decision::{
+    ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
+};
 
 use crate::runtime::state::RuntimeState;
 

@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, ClassifiedFailure, FailureClass, FailureStage};
 use ripdpi_proxy_runtime_adapter::model::config::{max_route_retries, route_requests_direct_syn_data_tfo};
-use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, TransportProtocol};
+use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use super::super::adaptive::{note_direct_path_all_ips_failed, note_direct_path_transport_attempt};
 use super::super::state::RuntimeState;

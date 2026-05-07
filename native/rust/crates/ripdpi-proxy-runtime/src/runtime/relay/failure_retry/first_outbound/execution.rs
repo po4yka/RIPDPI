@@ -1,11 +1,11 @@
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::model::config::selected_desync_group;
+use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::session::{observe_outbound_payload, SessionState};
 
 use crate::runtime::desync::{send_with_group, OutboundSendError};
 use crate::runtime::state::RuntimeState;
-use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 pub(super) fn execute_first_write(
     upstream: &mut TcpStream,
