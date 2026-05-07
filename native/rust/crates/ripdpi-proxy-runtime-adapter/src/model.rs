@@ -1,5 +1,6 @@
 pub mod config {
     use std::net::SocketAddr;
+    use std::path::PathBuf;
     use std::time::Duration;
 
     pub use ripdpi_config::*;
@@ -83,6 +84,19 @@ pub mod config {
 
     pub fn strategy_evolution_enabled(config: &RuntimeConfig) -> bool {
         config.adaptive.strategy_evolution
+    }
+
+    #[derive(Clone)]
+    pub struct ProcessSettings {
+        pub daemonize: bool,
+        pub pid_file_path: Option<PathBuf>,
+    }
+
+    pub fn process_settings(config: &RuntimeConfig) -> ProcessSettings {
+        ProcessSettings {
+            daemonize: config.process.daemonize,
+            pid_file_path: config.process.pid_file.as_deref().map(PathBuf::from),
+        }
     }
 
     pub fn proxy_auth_token(config: &RuntimeConfig) -> Option<&str> {

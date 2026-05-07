@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use daemonize::Daemonize;
 use nix::fcntl::{Flock, FlockArg};
 
-use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::model::config::{process_settings, RuntimeConfig};
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 
@@ -20,12 +20,13 @@ pub struct ProcessGuard {
 impl ProcessGuard {
     pub fn prepare(config: &RuntimeConfig) -> io::Result<Self> {
         SHUTDOWN.store(false, Ordering::Release);
-        let pid_file_path = config.process.pid_file.as_deref().map(PathBuf::from);
-        if config.process.daemonize {
+        let settings = process_settings(config);
+        let pid_file_path = settings.pid_file_path;
+        if settings.daemonize {
             daemonize(pid_file_path.as_deref())?;
         }
         install_signal_handlers()?;
-        let pid_file = match (config.process.daemonize, pid_file_path) {
+        let pid_file = match (settings.daemonize, pid_file_path) {
             (true, Some(path)) => Some(PidFileGuard::remove_on_drop(path)),
             (false, Some(path)) => Some(PidFileGuard::create(&path)?),
             (_, None) => None,
