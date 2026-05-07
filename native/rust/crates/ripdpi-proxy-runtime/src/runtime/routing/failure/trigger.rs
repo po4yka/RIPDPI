@@ -1,4 +1,4 @@
-use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass};
+use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction};
 
 use crate::runtime::routing::policy::runtime_supports_trigger;
 use crate::runtime::state::RuntimeState;
@@ -19,14 +19,5 @@ pub(super) fn route_advance_trigger(state: &RuntimeState, failure: &ClassifiedFa
 }
 
 pub(in crate::runtime) fn failure_penalizes_strategy(failure: &ClassifiedFailure) -> bool {
-    matches!(
-        failure.class,
-        FailureClass::TcpReset
-            | FailureClass::SilentDrop
-            | FailureClass::TlsAlert
-            | FailureClass::HttpBlockpage
-            | FailureClass::Redirect
-            | FailureClass::TlsHandshakeFailure
-            | FailureClass::ConnectionFreeze
-    )
+    ripdpi_proxy_runtime_adapter::response_triggers::failure_penalizes_strategy(failure)
 }

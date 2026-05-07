@@ -76,3 +76,16 @@ pub fn failure_trigger_mask(failure: &ClassifiedFailure) -> u32 {
         FailureClass::CapabilitySkipped => 0,
     }
 }
+
+pub fn failure_penalizes_strategy(failure: &ClassifiedFailure) -> bool {
+    matches!(
+        failure.class,
+        FailureClass::TcpReset
+            | FailureClass::SilentDrop
+            | FailureClass::TlsAlert
+            | FailureClass::HttpBlockpage
+            | FailureClass::Redirect
+            | FailureClass::TlsHandshakeFailure
+            | FailureClass::ConnectionFreeze
+    )
+}
