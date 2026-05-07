@@ -3707,7 +3707,6 @@ dependencies = [
  "aes",
  "base64 0.22.1",
  "ctr",
- "daemonize",
  "libc",
  "local-network-fixture",
  "loom",
@@ -3731,7 +3730,10 @@ dependencies = [
 name = "ripdpi-proxy-runtime-adapter"
 version = "0.1.0"
 dependencies = [
+ "daemonize",
+ "libc",
  "loom",
+ "nix 0.31.2",
  "ripdpi-config",
  "ripdpi-desync",
  "ripdpi-desync-runtime",
