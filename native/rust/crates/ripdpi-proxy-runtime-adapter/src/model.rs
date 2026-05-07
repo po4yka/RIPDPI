@@ -338,6 +338,13 @@ pub mod desync {
     };
 }
 
+pub mod decision {
+    pub use ripdpi_runtime_decision_ports::policy::{
+        ConnectionRoute, ExtractedHost, HostSource, RetrySelectionPenalty, RouteAdvance, RuntimePolicy,
+        TransportProtocol,
+    };
+}
+
 pub mod proxy_config {
     pub use ripdpi_proxy_config::*;
 

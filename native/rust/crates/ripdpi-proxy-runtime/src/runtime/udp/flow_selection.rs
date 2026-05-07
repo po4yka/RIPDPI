@@ -5,9 +5,9 @@ use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::model::{
     config::{route_matches_transport_payload, udp_bind_low_port},
+    decision::{ConnectionRoute, TransportProtocol},
     session::new_session_state,
 };
-use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, TransportProtocol};
 
 use super::client_receive::UdpClientPacket;
 use super::flow::{udp_flow_at_capacity, UdpFlowActivationState};

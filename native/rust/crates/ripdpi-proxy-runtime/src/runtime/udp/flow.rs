@@ -3,12 +3,12 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
+use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
 use super::feedback::note_udp_flow_timeout_failure;
 use super::flow_selection::try_advance_udp_preferred_target;
 use crate::runtime::state::{RuntimeState, UDP_FLOW_IDLE_TIMEOUT};
-use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 pub(super) struct UdpFlowActivationState {
     pub(super) session: SessionState,

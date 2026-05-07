@@ -5,9 +5,9 @@ use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_proxy_runtime_adapter::model::config::{
     should_cache_udp_host, udp_flow_limit, QuicInitialMode, RuntimeConfig,
 };
+use ripdpi_proxy_runtime_adapter::model::decision::{ExtractedHost, HostSource, TransportProtocol};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::session::S_ATP_I4;
-use ripdpi_runtime_decision_ports::policy::{HostSource, TransportProtocol};
 
 use super::flow::udp_flow_at_capacity;
 use super::{build_udp_relay_sockets, encode_socks5_udp_packet, parse_socks5_udp_packet, sockets};
@@ -77,14 +77,8 @@ fn udp_packet_round_trip_preserves_sender_and_payload() {
 #[test]
 fn should_cache_udp_host_only_caches_quic_in_cache_mode() {
     let mut config = RuntimeConfig::default();
-    let quic = ripdpi_runtime_decision_ports::policy::ExtractedHost {
-        host: "docs.example.test".to_string(),
-        source: HostSource::Quic,
-    };
-    let tls = ripdpi_runtime_decision_ports::policy::ExtractedHost {
-        host: "docs.example.test".to_string(),
-        source: HostSource::Tls,
-    };
+    let quic = ExtractedHost { host: "docs.example.test".to_string(), source: HostSource::Quic };
+    let tls = ExtractedHost { host: "docs.example.test".to_string(), source: HostSource::Tls };
 
     config.quic.initial_mode = QuicInitialMode::Route;
     assert!(!should_cache_udp_host(&config, Some(&quic)));
