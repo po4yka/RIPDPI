@@ -1,5 +1,6 @@
 use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host, SessionState};
+use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -9,7 +10,6 @@ use super::super::super::desync::{send_with_group, DesyncSendRequest, OutboundSe
 use super::super::super::state::RuntimeState;
 use super::freeze::FreezeDetector;
 use super::observers::{observe_rotation_inbound_chunk, observe_rotation_transport_failure};
-use super::rotation::CircularTcpRotationController;
 use super::RELAY_IDLE_TIMEOUT;
 #[allow(clippy::too_many_arguments)]
 pub(super) fn copy_inbound_half(

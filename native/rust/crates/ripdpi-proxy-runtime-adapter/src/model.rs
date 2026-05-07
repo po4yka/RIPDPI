@@ -414,6 +414,10 @@ pub mod ports {
     };
 }
 
+pub mod tcp_rotation {
+    pub use crate::tcp_rotation::{CircularTcpRotationController, RotationFailureReason, RoundObservation};
+}
+
 pub mod proxy_config {
     pub use ripdpi_proxy_config::*;
 

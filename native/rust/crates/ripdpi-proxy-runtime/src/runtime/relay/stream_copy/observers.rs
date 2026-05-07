@@ -2,12 +2,12 @@ use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, FailureStage};
 use ripdpi_proxy_runtime_adapter::model::config::tcp_rotation_seed;
 use ripdpi_proxy_runtime_adapter::model::session::SessionState;
+use ripdpi_proxy_runtime_adapter::model::tcp_rotation::{CircularTcpRotationController, RotationFailureReason};
 use std::io;
 use std::net::TcpStream;
 
 use super::super::super::routing::{classify_response_failure, note_block_signal_for_failure};
 use super::super::super::state::RuntimeState;
-use super::rotation::{CircularTcpRotationController, RotationFailureReason};
 
 pub(super) fn group_rotation_controller(
     state: &RuntimeState,

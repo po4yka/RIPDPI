@@ -1,13 +1,10 @@
 mod copy_halves;
 mod freeze;
 mod observers;
-mod rotation;
 
 use copy_halves::{copy_inbound_half, copy_outbound_half};
 use freeze::FreezeDetector;
 use observers::group_rotation_controller;
-#[cfg(test)]
-use rotation::RotationFailureReason;
 
 use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::model::config::{group_drop_sack_enabled, relay_timeout_settings};
@@ -121,37 +118,7 @@ pub(super) fn relay_streams(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ripdpi_proxy_runtime_adapter::model::config::{
-        DesyncGroup, OffsetBase, OffsetExpr, RotationCandidate, RotationPolicy, TcpChainStep, TcpChainStepKind,
-    };
-    use rotation::CircularTcpRotationController;
     use std::time::{Duration, Instant};
-
-    fn rotation_controller() -> CircularTcpRotationController {
-        let mut group = DesyncGroup::new(0);
-        group.actions.tcp_chain = vec![
-            TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::tls_marker(OffsetBase::ExtLen, 0)),
-            TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::host(2)),
-        ];
-        CircularTcpRotationController::new(
-            group,
-            RotationPolicy {
-                candidates: vec![
-                    RotationCandidate {
-                        tcp_chain: vec![TcpChainStep::new(
-                            TcpChainStepKind::HostFake,
-                            OffsetExpr::marker(OffsetBase::EndHost, 8),
-                        )],
-                    },
-                    RotationCandidate {
-                        tcp_chain: vec![TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::host(1))],
-                    },
-                ],
-                ..RotationPolicy::default()
-            },
-        )
-        .expect("rotation controller")
-    }
 
     #[test]
     fn freeze_detector_disabled_when_max_stalls_zero() {
@@ -233,66 +200,5 @@ mod tests {
             assert!(!d.check(start + Duration::from_millis(5000 * i)));
             assert_eq!(d.consecutive_stalls, 0);
         }
-    }
-
-    #[test]
-    fn rotation_retransmission_failure_advances_on_next_round() {
-        let mut controller = rotation_controller();
-        let config = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
-
-        controller.start_round(&config, 2, 0, b"GET / HTTP/1.1\r\n", Some(1), Some("example.org"), None);
-        controller.observe_round_failure(Some("example.org"), None, RotationFailureReason::Retransmissions, 3);
-        assert!(controller.pending_advance);
-        assert_eq!(controller.consecutive_failures, 1);
-
-        controller.start_round(&config, 3, 128, b"GET / HTTP/1.1\r\n", Some(4), Some("example.org"), None);
-
-        assert_eq!(controller.active_candidate_index, Some(0));
-        assert!(!controller.pending_advance);
-    }
-
-    #[test]
-    fn rotation_success_clears_failure_window() {
-        let mut controller = rotation_controller();
-        controller.consecutive_failures = 2;
-        controller.consecutive_rsts = 1;
-        controller.last_failure_at = Some(Instant::now());
-
-        controller.observe_round_success();
-
-        assert_eq!(controller.consecutive_failures, 0);
-        assert_eq!(controller.consecutive_rsts, 0);
-        assert!(controller.last_failure_at.is_none());
-    }
-
-    #[test]
-    fn rotation_reset_failure_rotates_on_next_round() {
-        let mut controller = rotation_controller();
-        let config = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
-
-        controller.start_round(&config, 2, 0, b"GET / HTTP/1.1\r\n", Some(0), Some("example.org"), None);
-        controller.observe_round_failure(
-            Some("example.org"),
-            None,
-            RotationFailureReason::Transport(ripdpi_proxy_runtime_adapter::failure::FailureClass::TcpReset),
-            0,
-        );
-        assert!(controller.pending_advance);
-
-        controller.start_round(&config, 3, 64, b"GET / HTTP/1.1\r\n", Some(0), Some("example.org"), None);
-
-        assert_eq!(controller.active_candidate_index, Some(0));
-    }
-
-    #[test]
-    fn rotation_wraps_back_to_first_candidate() {
-        let mut controller = rotation_controller();
-        controller.active_candidate_index = Some(1);
-        controller.pending_advance = true;
-
-        controller.rotate_if_pending(Some("example.org"), None, 4);
-
-        assert_eq!(controller.active_candidate_index, Some(0));
-        assert!(!controller.pending_advance);
     }
 }

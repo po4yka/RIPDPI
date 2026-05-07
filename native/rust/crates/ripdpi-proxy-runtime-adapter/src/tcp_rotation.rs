@@ -1,12 +1,10 @@
-use ripdpi_proxy_runtime_adapter::failure::FailureClass;
-use ripdpi_proxy_runtime_adapter::model::config::{first_response_settings, DesyncGroup, RotationPolicy};
+use crate::failure::FailureClass;
+use crate::model::config::{first_response_settings, DesyncGroup, RotationPolicy, RuntimeConfig};
+use crate::protocol_payload::TlsRecordBoundaryTracker;
 use std::time::{Duration, Instant};
 
-use super::super::super::desync::primary_tcp_strategy_family;
-use ripdpi_proxy_runtime_adapter::protocol_payload::TlsRecordBoundaryTracker;
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum RotationFailureReason {
+pub enum RotationFailureReason {
     ResponseClassified(FailureClass),
     Retransmissions,
     Transport(FailureClass),
@@ -30,32 +28,29 @@ impl RotationFailureReason {
     }
 }
 
-pub(super) struct RoundObservation {
-    pub(super) round: u32,
-    pub(super) stream_start: usize,
-    pub(super) request_bytes: Vec<u8>,
-    pub(super) response_bytes: Vec<u8>,
-    pub(super) tls_tracker: TlsRecordBoundaryTracker,
-    pub(super) retrans_baseline: Option<u32>,
+pub struct RoundObservation {
+    pub round: u32,
+    pub stream_start: usize,
+    pub request_bytes: Vec<u8>,
+    pub response_bytes: Vec<u8>,
+    pub tls_tracker: TlsRecordBoundaryTracker,
+    pub retrans_baseline: Option<u32>,
 }
 
-pub(super) struct CircularTcpRotationController {
-    pub(super) base_group: DesyncGroup,
-    pub(super) policy: RotationPolicy,
-    pub(super) active_candidate_index: Option<usize>,
-    pub(super) pending_advance: bool,
-    pub(super) consecutive_failures: usize,
-    pub(super) consecutive_rsts: u32,
-    pub(super) last_failure_at: Option<Instant>,
-    pub(super) observed_round: Option<RoundObservation>,
-    /// When true, desync is suppressed for the remainder of this connection
-    /// until rotation completes. Set on failure detection when
-    /// `cancel_on_failure` is enabled.
-    pub(super) desync_suppressed: bool,
+pub struct CircularTcpRotationController {
+    base_group: DesyncGroup,
+    policy: RotationPolicy,
+    active_candidate_index: Option<usize>,
+    pending_advance: bool,
+    consecutive_failures: usize,
+    consecutive_rsts: u32,
+    last_failure_at: Option<Instant>,
+    observed_round: Option<RoundObservation>,
+    desync_suppressed: bool,
 }
 
 impl CircularTcpRotationController {
-    pub(super) fn new(base_group: DesyncGroup, policy: RotationPolicy) -> Option<Self> {
+    pub fn new(base_group: DesyncGroup, policy: RotationPolicy) -> Option<Self> {
         (!policy.candidates.is_empty()).then_some(Self {
             base_group,
             policy,
@@ -69,7 +64,7 @@ impl CircularTcpRotationController {
         })
     }
 
-    pub(super) fn current_group(&self) -> DesyncGroup {
+    fn current_group(&self) -> DesyncGroup {
         let mut group = self.base_group.clone();
         if let Some(index) = self.active_candidate_index {
             group.actions.tcp_chain = self.policy.candidates[index].tcp_chain.clone();
@@ -77,7 +72,7 @@ impl CircularTcpRotationController {
         group
     }
 
-    pub(super) fn current_send_group(&self) -> DesyncGroup {
+    pub fn current_send_group(&self) -> DesyncGroup {
         let mut group = self.current_group();
         if self.desync_suppressed {
             group.actions.tcp_chain.clear();
@@ -85,28 +80,28 @@ impl CircularTcpRotationController {
         group
     }
 
-    pub(super) fn retransmission_failure_matches_observation(&self, stream_start: usize, retrans_delta: u32) -> bool {
+    pub fn retransmission_failure_matches_observation(&self, stream_start: usize, retrans_delta: u32) -> bool {
         stream_start < self.policy.seq as usize && retrans_delta >= self.policy.retrans
     }
 
-    pub(super) fn current_family(&self) -> &'static str {
-        primary_tcp_strategy_family(&self.current_group()).unwrap_or("plain")
+    fn current_family(&self) -> &'static str {
+        ripdpi_desync_runtime::primary_tcp_strategy_family(&self.current_group()).unwrap_or("plain")
     }
 
-    pub(super) fn advance_target_index(&self) -> usize {
+    fn advance_target_index(&self) -> usize {
         match self.active_candidate_index {
             Some(index) => (index + 1) % self.policy.candidates.len(),
             None => 0,
         }
     }
 
-    pub(super) fn candidate_family(&self, index: usize) -> &'static str {
+    fn candidate_family(&self, index: usize) -> &'static str {
         let mut group = self.base_group.clone();
         group.actions.tcp_chain = self.policy.candidates[index].tcp_chain.clone();
-        primary_tcp_strategy_family(&group).unwrap_or("plain")
+        ripdpi_desync_runtime::primary_tcp_strategy_family(&group).unwrap_or("plain")
     }
 
-    pub(super) fn rotate_if_pending(&mut self, host: Option<&str>, target: Option<std::net::SocketAddr>, round: u32) {
+    pub fn rotate_if_pending(&mut self, host: Option<&str>, target: Option<std::net::SocketAddr>, round: u32) {
         if !self.pending_advance {
             return;
         }
@@ -139,9 +134,9 @@ impl CircularTcpRotationController {
         }
     }
 
-    pub(super) fn start_round(
+    pub fn start_round(
         &mut self,
-        config: &ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig,
+        config: &RuntimeConfig,
         round: u32,
         stream_start: usize,
         request_chunk: &[u8],
@@ -164,12 +159,7 @@ impl CircularTcpRotationController {
         });
     }
 
-    pub(super) fn append_request_chunk(
-        &mut self,
-        config: &ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig,
-        round: u32,
-        request_chunk: &[u8],
-    ) {
+    pub fn append_request_chunk(&mut self, config: &RuntimeConfig, round: u32, request_chunk: &[u8]) {
         let Some(observation) = self.observed_round.as_mut() else {
             return;
         };
@@ -181,7 +171,7 @@ impl CircularTcpRotationController {
             TlsRecordBoundaryTracker::for_first_response(&observation.request_bytes, first_response_settings(config));
     }
 
-    pub(super) fn observe_response_chunk(&mut self, chunk: &[u8]) -> bool {
+    pub fn observe_response_chunk(&mut self, chunk: &[u8]) -> bool {
         let Some(observation) = self.observed_round.as_mut() else {
             return false;
         };
@@ -190,11 +180,11 @@ impl CircularTcpRotationController {
         !observation.tls_tracker.waiting_for_tls_record()
     }
 
-    pub(super) fn observed_round(&self) -> Option<&RoundObservation> {
+    pub fn observed_round(&self) -> Option<&RoundObservation> {
         self.observed_round.as_ref()
     }
 
-    pub(super) fn observe_round_success(&mut self) {
+    pub fn observe_round_success(&mut self) {
         self.consecutive_failures = 0;
         self.consecutive_rsts = 0;
         self.last_failure_at = None;
@@ -202,7 +192,7 @@ impl CircularTcpRotationController {
         self.desync_suppressed = false;
     }
 
-    pub(super) fn observe_round_failure(
+    pub fn observe_round_failure(
         &mut self,
         host: Option<&str>,
         target: Option<std::net::SocketAddr>,
@@ -249,5 +239,98 @@ impl CircularTcpRotationController {
             }
         }
         self.observed_round = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::config::{OffsetBase, OffsetExpr, RotationCandidate, TcpChainStep, TcpChainStepKind};
+
+    fn rotation_controller() -> CircularTcpRotationController {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain = vec![
+            TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::tls_marker(OffsetBase::ExtLen, 0)),
+            TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::host(2)),
+        ];
+        CircularTcpRotationController::new(
+            group,
+            RotationPolicy {
+                candidates: vec![
+                    RotationCandidate {
+                        tcp_chain: vec![TcpChainStep::new(
+                            TcpChainStepKind::HostFake,
+                            OffsetExpr::marker(OffsetBase::EndHost, 8),
+                        )],
+                    },
+                    RotationCandidate {
+                        tcp_chain: vec![TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::host(1))],
+                    },
+                ],
+                ..RotationPolicy::default()
+            },
+        )
+        .expect("rotation controller")
+    }
+
+    #[test]
+    fn retransmission_failure_advances_on_next_round() {
+        let mut controller = rotation_controller();
+        let config = RuntimeConfig::default();
+
+        controller.start_round(&config, 2, 0, b"GET / HTTP/1.1\r\n", Some(1), Some("example.org"), None);
+        controller.observe_round_failure(Some("example.org"), None, RotationFailureReason::Retransmissions, 3);
+        assert!(controller.pending_advance);
+        assert_eq!(controller.consecutive_failures, 1);
+
+        controller.start_round(&config, 3, 128, b"GET / HTTP/1.1\r\n", Some(4), Some("example.org"), None);
+
+        assert_eq!(controller.active_candidate_index, Some(0));
+        assert!(!controller.pending_advance);
+    }
+
+    #[test]
+    fn success_clears_failure_window() {
+        let mut controller = rotation_controller();
+        controller.consecutive_failures = 2;
+        controller.consecutive_rsts = 1;
+        controller.last_failure_at = Some(Instant::now());
+
+        controller.observe_round_success();
+
+        assert_eq!(controller.consecutive_failures, 0);
+        assert_eq!(controller.consecutive_rsts, 0);
+        assert!(controller.last_failure_at.is_none());
+    }
+
+    #[test]
+    fn reset_failure_rotates_on_next_round() {
+        let mut controller = rotation_controller();
+        let config = RuntimeConfig::default();
+
+        controller.start_round(&config, 2, 0, b"GET / HTTP/1.1\r\n", Some(0), Some("example.org"), None);
+        controller.observe_round_failure(
+            Some("example.org"),
+            None,
+            RotationFailureReason::Transport(FailureClass::TcpReset),
+            0,
+        );
+        assert!(controller.pending_advance);
+
+        controller.start_round(&config, 3, 64, b"GET / HTTP/1.1\r\n", Some(0), Some("example.org"), None);
+
+        assert_eq!(controller.active_candidate_index, Some(0));
+    }
+
+    #[test]
+    fn wraps_back_to_first_candidate() {
+        let mut controller = rotation_controller();
+        controller.active_candidate_index = Some(1);
+        controller.pending_advance = true;
+
+        controller.rotate_if_pending(Some("example.org"), None, 4);
+
+        assert_eq!(controller.active_candidate_index, Some(0));
+        assert!(!controller.pending_advance);
     }
 }
