@@ -1,7 +1,7 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
+use ripdpi_proxy_runtime_adapter::model::config::{strategy_evolution_enabled, DesyncGroup};
 use ripdpi_proxy_runtime_adapter::model::desync::AdaptivePlannerHints;
 
 use crate::runtime::state::RuntimeState;
@@ -38,7 +38,7 @@ pub(in crate::runtime) fn resolve_udp_hints_with_evolver(
     // The port impl handles evolver + morph + capability merge for the evolver path.
     // For the non-evolver path we still need to apply the rollback tracking from
     // resolve_adaptive_udp_hints (which merge_udp_hints_with_capability + record_morph_rollback).
-    if state.config.adaptive.strategy_evolution {
+    if strategy_evolution_enabled(&state.config) {
         // Try evolver path via port (includes morph + capability merge).
         let result = state.adaptive_hints.resolve_udp_hints_with_evolver(
             &state.config,

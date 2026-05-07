@@ -73,6 +73,10 @@ pub mod config {
         config.host_autolearn.enabled
     }
 
+    pub fn strategy_evolution_enabled(config: &RuntimeConfig) -> bool {
+        config.adaptive.strategy_evolution
+    }
+
     pub fn proxy_auth_token(config: &RuntimeConfig) -> Option<&str> {
         config.network.listen.auth_token.as_deref()
     }
