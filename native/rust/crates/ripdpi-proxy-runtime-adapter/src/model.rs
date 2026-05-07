@@ -43,6 +43,21 @@ pub mod config {
         config.groups.len()
     }
 
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct ListenerSettings {
+        pub bind_addr: SocketAddr,
+        pub client_capacity: usize,
+        pub route_group_count: usize,
+    }
+
+    pub fn listener_settings(config: &RuntimeConfig) -> ListenerSettings {
+        ListenerSettings {
+            bind_addr: listener_bind_addr(config),
+            client_capacity: client_capacity(config),
+            route_group_count: route_group_count(config),
+        }
+    }
+
     pub fn selected_desync_group(config: &RuntimeConfig, group_index: usize) -> Option<&DesyncGroup> {
         config.groups.get(group_index)
     }
@@ -436,6 +451,22 @@ pub mod config {
             assert!(!udp_flow_at_capacity(true, 2, 2));
             assert!(udp_flow_at_capacity(false, 2, 2));
             assert!(!udp_flow_at_capacity(false, 1, 2));
+        }
+
+        #[test]
+        fn listener_settings_project_bind_capacity_and_route_count() {
+            let mut config = RuntimeConfig::default();
+            config.network.max_open = 0;
+            config.groups = vec![DesyncGroup::new(0), DesyncGroup::new(1)];
+
+            assert_eq!(
+                listener_settings(&config),
+                ListenerSettings {
+                    bind_addr: SocketAddr::new(config.network.listen.listen_ip, config.network.listen.listen_port),
+                    client_capacity: 1,
+                    route_group_count: 2,
+                },
+            );
         }
 
         #[test]

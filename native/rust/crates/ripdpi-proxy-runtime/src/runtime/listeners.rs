@@ -6,9 +6,7 @@ use std::io;
 use std::net::TcpListener;
 use std::sync::Arc as StdArc;
 
-use ripdpi_proxy_runtime_adapter::model::config::{
-    client_capacity, ensure_default_ttl, listener_bind_addr, route_group_count, RuntimeConfig,
-};
+use ripdpi_proxy_runtime_adapter::model::config::{ensure_default_ttl, listener_settings, RuntimeConfig};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
@@ -16,7 +14,7 @@ use self::accept_loop::run_accept_loop;
 use super::state::RuntimeState;
 
 pub(super) fn build_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
-    listener_platform::bind_tcp_listener(listener_bind_addr(config))
+    listener_platform::bind_tcp_listener(listener_settings(config).bind_addr)
 }
 
 pub(super) fn run_proxy_with_listener_internal(
@@ -27,9 +25,10 @@ pub(super) fn run_proxy_with_listener_internal(
     let mut config = config;
     ensure_default_ttl(&mut config, listener_platform::detect_default_ttl)?;
     let state = RuntimeState::new(config, control.clone());
+    let settings = listener_settings(&state.config);
     let listener_addr = listener.local_addr()?;
     if let Some(telemetry) = &state.telemetry {
-        telemetry.on_listener_started(listener_addr, client_capacity(&state.config), route_group_count(&state.config));
+        telemetry.on_listener_started(listener_addr, settings.client_capacity, settings.route_group_count);
     }
     // Drain any autolearn events accumulated during policy load so that
     // telemetry reflects the initial state before any connections arrive.
@@ -44,5 +43,5 @@ pub(super) fn run_proxy_with_listener_internal(
     // if the network switched (e.g. WiFi -> cellular).
     super::reprobe::maybe_spawn_reprobe(&state);
 
-    run_accept_loop(listener, state, control)
+    run_accept_loop(listener, state, control, settings.client_capacity)
 }
