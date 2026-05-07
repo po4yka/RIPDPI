@@ -4,25 +4,38 @@ use std::thread;
 use std::time::Duration;
 
 use ripdpi_desync::DesyncAction;
-use ripdpi_proxy_runtime_adapter::platform;
+
+use crate::platform;
+
+pub use ripdpi_desync::ActivationTransport;
+pub type UdpDesyncAction = DesyncAction;
 
 #[derive(Clone, Copy)]
-pub(super) struct UdpActionExecContext<'a> {
-    pub(super) upstream: &'a UdpSocket,
-    pub(super) target: SocketAddr,
-    pub(super) default_ttl: u8,
-    pub(super) protect_path: Option<&'a str>,
-    pub(super) ip_id_mode: Option<ripdpi_config::IpIdMode>,
+pub struct UdpActionExecContext<'a> {
+    pub upstream: &'a UdpSocket,
+    pub target: SocketAddr,
+    pub default_ttl: u8,
+    pub protect_path: Option<&'a str>,
+    pub ip_id_mode: Option<ripdpi_config::IpIdMode>,
 }
 
-pub(super) fn execute_udp_actions(ctx: UdpActionExecContext<'_>, actions: &[DesyncAction]) -> io::Result<()> {
+pub fn plan_udp_actions(
+    group: &ripdpi_config::DesyncGroup,
+    payload: &[u8],
+    default_ttl: u8,
+    activation: ripdpi_desync::ActivationContext,
+) -> Vec<UdpDesyncAction> {
+    ripdpi_desync::plan_udp(group, payload, default_ttl, activation)
+}
+
+pub fn execute_udp_actions(ctx: UdpActionExecContext<'_>, actions: &[UdpDesyncAction]) -> io::Result<()> {
     for action in actions {
         execute_udp_action(ctx, action)?;
     }
     Ok(())
 }
 
-fn execute_udp_action(ctx: UdpActionExecContext<'_>, action: &DesyncAction) -> io::Result<()> {
+fn execute_udp_action(ctx: UdpActionExecContext<'_>, action: &UdpDesyncAction) -> io::Result<()> {
     match action {
         DesyncAction::Write(bytes) => execute_udp_write_action(ctx, bytes),
         DesyncAction::WriteIpFragmentedUdp { bytes, split_offset, disorder, ipv6_ext } => {
@@ -56,7 +69,7 @@ fn execute_udp_fragmented_write_action(
     bytes: &[u8],
     split_offset: usize,
     disorder: bool,
-    ipv6_ext: ripdpi_proxy_runtime_adapter::ip_fragmentation::Ipv6ExtHeaders,
+    ipv6_ext: crate::ip_fragmentation::Ipv6ExtHeaders,
 ) -> io::Result<()> {
     match platform::raw_packet::send_ip_fragmented_udp(
         ctx.upstream,

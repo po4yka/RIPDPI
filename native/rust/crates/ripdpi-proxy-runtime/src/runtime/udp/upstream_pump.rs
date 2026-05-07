@@ -3,9 +3,10 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_desync::{plan_udp, ActivationTransport, DesyncAction};
+use ripdpi_proxy_runtime_adapter::udp_desync::{
+    execute_udp_actions, plan_udp_actions, ActivationTransport, UdpActionExecContext, UdpDesyncAction,
+};
 
-use super::actions::{execute_udp_actions, UdpActionExecContext};
 use super::feedback::note_udp_first_response_success;
 use super::flow::UdpFlowActivationState;
 use super::migration::maybe_rebind_udp_source_port;
@@ -65,7 +66,7 @@ fn plan_udp_flow_actions(
     entry: &mut UdpFlowActivationState,
     payload: &[u8],
     now: Instant,
-) -> io::Result<Vec<DesyncAction>> {
+) -> io::Result<Vec<UdpDesyncAction>> {
     let group =
         state.config.groups.get(entry.route.group_index).ok_or_else(|| io::Error::other("missing udp route group"))?;
     let adaptive_hints = resolve_udp_hints_with_evolver(
@@ -91,5 +92,5 @@ fn plan_udp_flow_actions(
         None,
         adaptive_hints,
     );
-    Ok(plan_udp(group, payload, state.config.network.default_ttl, activation))
+    Ok(plan_udp_actions(group, payload, state.config.network.default_ttl, activation))
 }
