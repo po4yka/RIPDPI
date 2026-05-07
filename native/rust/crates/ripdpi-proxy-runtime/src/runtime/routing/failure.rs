@@ -1,6 +1,7 @@
 use std::net::{IpAddr, SocketAddr};
 
 use ripdpi_proxy_runtime_adapter::failure::{block_signal_from_failure, ClassifiedFailure};
+use ripdpi_proxy_runtime_adapter::model::config::protect_path;
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::encrypted_dns_ip_answers_for_host;
 use ripdpi_runtime_decision_ports::policy::{
     classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
@@ -72,12 +73,7 @@ pub(in crate::runtime) fn classify_response_failure(
 ) -> Option<ClassifiedFailure> {
     let answer_set = if response_requires_dns_tampering_evidence(request, response) {
         host.and_then(|value| {
-            encrypted_dns_ip_answers_for_host(
-                value,
-                state.runtime_context.as_ref(),
-                state.config.process.protect_path.as_deref(),
-            )
-            .ok()
+            encrypted_dns_ip_answers_for_host(value, state.runtime_context.as_ref(), protect_path(&state.config)).ok()
         })
     } else {
         None
