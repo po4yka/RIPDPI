@@ -260,11 +260,13 @@ pub mod config {
             && group.actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SynData)
     }
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone)]
     pub struct TcpRouteConnectSettings {
         pub tfo_enabled: bool,
         pub upstream_socks_addr: Option<SocketAddr>,
         pub pre_connect_rcvbuf: Option<u32>,
+        pub connect_timeout: Option<Duration>,
+        pub protect_path: Option<String>,
         pub drop_sack: bool,
         pub window_clamp: Option<u32>,
         pub strip_timestamps: bool,
@@ -288,6 +290,8 @@ pub mod config {
             tfo_enabled,
             upstream_socks_addr: group.policy.ext_socks.map(|upstream| upstream.addr),
             pre_connect_rcvbuf,
+            connect_timeout: connect_timeout(config),
+            protect_path: protect_path_owned(config),
             drop_sack: group.actions.drop_sack,
             window_clamp: group.actions.wsize.map(|w| w.window).or(group.actions.window_clamp),
             strip_timestamps: group.actions.strip_timestamps,
@@ -545,6 +549,20 @@ pub mod config {
                 &plain_route,
                 Some(b"GET / HTTP/1.1\r\n\r\n"),
             ));
+        }
+
+        #[test]
+        fn tcp_route_connect_settings_project_socket_context() {
+            let mut config = RuntimeConfig::default();
+            config.timeouts.connect_timeout_ms = 1500;
+            config.process.protect_path = Some("/tmp/protect.sock".to_string());
+            config.groups[0].actions.drop_sack = true;
+
+            let settings = tcp_route_connect_settings(&config, 0, None, true).expect("connect settings");
+
+            assert_eq!(settings.connect_timeout, Some(Duration::from_millis(1500)));
+            assert_eq!(settings.protect_path.as_deref(), Some("/tmp/protect.sock"));
+            assert!(settings.drop_sack);
         }
 
         #[test]

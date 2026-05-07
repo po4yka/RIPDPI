@@ -1,9 +1,7 @@
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::model::config::{
-    connect_timeout, protect_path, tcp_route_connect_settings, TcpRouteConnectSettings,
-};
+use ripdpi_proxy_runtime_adapter::model::config::{tcp_route_connect_settings, TcpRouteConnectSettings};
 
 use super::super::super::state::RuntimeState;
 use super::error::ConnectAttemptError;
@@ -27,7 +25,7 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
     })?;
     let mut last_error = None;
     for &candidate in targets {
-        match connect_target_via_group_with_settings(candidate, state, group_index, settings) {
+        match connect_target_via_group_with_settings(candidate, state, group_index, &settings) {
             Ok(stream) => return Ok(stream),
             Err(err) => last_error = Some(err),
         }
@@ -43,18 +41,17 @@ fn connect_target_via_group_with_settings(
     target: SocketAddr,
     state: &RuntimeState,
     group_index: usize,
-    settings: TcpRouteConnectSettings,
+    settings: &TcpRouteConnectSettings,
 ) -> Result<TcpStream, ConnectAttemptError> {
     let started = std::time::Instant::now();
-    let connect_timeout = connect_timeout(&state.config);
     let stream = if let Some(upstream_addr) = settings.upstream_socks_addr {
         connect_via_socks(
             target,
             upstream_addr,
             unspecified_ip_for(upstream_addr),
-            protect_path(&state.config),
+            settings.protect_path.as_deref(),
             settings.tfo_enabled,
-            connect_timeout,
+            settings.connect_timeout,
         )
         .map_err(|source| ConnectAttemptError {
             source,
@@ -65,9 +62,9 @@ fn connect_target_via_group_with_settings(
         connect_socket_detailed(
             target,
             unspecified_ip_for(target),
-            protect_path(&state.config),
+            settings.protect_path.as_deref(),
             settings.tfo_enabled,
-            connect_timeout,
+            settings.connect_timeout,
             settings.pre_connect_rcvbuf,
         )
     }?;

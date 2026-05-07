@@ -9,7 +9,7 @@ use super::error::ConnectAttemptError;
 
 pub(super) fn apply_group_socket_options(
     stream: &TcpStream,
-    settings: TcpRouteConnectSettings,
+    settings: &TcpRouteConnectSettings,
 ) -> Result<(), ConnectAttemptError> {
     if settings.drop_sack {
         connect_platform::attach_drop_sack(stream).map_err(|source| ConnectAttemptError {
