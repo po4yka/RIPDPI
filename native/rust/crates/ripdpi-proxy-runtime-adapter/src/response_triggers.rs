@@ -39,8 +39,24 @@ pub fn first_response_detection_flags() -> &'static [u32] {
     FIRST_RESPONSE_DETECTION_FLAGS
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FirstResponseExchangePolicy {
+    pub host_autolearn_enabled: bool,
+}
+
+pub fn first_response_exchange_policy(config: &RuntimeConfig) -> FirstResponseExchangePolicy {
+    FirstResponseExchangePolicy { host_autolearn_enabled: crate::model::config::host_autolearn_enabled(config) }
+}
+
 pub fn first_response_exchange_required<E>(
     config: &RuntimeConfig,
+    mut trigger_supported: impl FnMut(u32) -> Result<bool, E>,
+) -> Result<bool, E> {
+    first_response_exchange_required_with(first_response_exchange_policy(config), &mut trigger_supported)
+}
+
+pub fn first_response_exchange_required_with<E>(
+    policy: FirstResponseExchangePolicy,
     mut trigger_supported: impl FnMut(u32) -> Result<bool, E>,
 ) -> Result<bool, E> {
     for trigger in first_response_detection_flags() {
@@ -48,7 +64,7 @@ pub fn first_response_exchange_required<E>(
             return Ok(true);
         }
     }
-    Ok(crate::model::config::host_autolearn_enabled(config))
+    Ok(policy.host_autolearn_enabled)
 }
 
 pub fn first_response_timeout(config: &RuntimeConfig, tls_partial_active: bool) -> Option<Duration> {
@@ -125,5 +141,16 @@ mod tests {
         let required = first_response_exchange_required::<()>(&config, |_| Ok(false)).expect("exchange projection");
 
         assert!(required);
+    }
+
+    #[test]
+    fn first_response_exchange_policy_projects_host_autolearn() {
+        let mut config = RuntimeConfig::default();
+        config.host_autolearn.enabled = true;
+
+        assert_eq!(
+            first_response_exchange_policy(&config),
+            FirstResponseExchangePolicy { host_autolearn_enabled: true },
+        );
     }
 }

@@ -22,7 +22,8 @@ pub(super) enum FirstResponse {
 }
 
 pub(super) fn needs_first_exchange(state: &RuntimeState) -> io::Result<bool> {
-    ripdpi_proxy_runtime_adapter::response_triggers::first_response_exchange_required(&state.config, |trigger| {
+    let policy = ripdpi_proxy_runtime_adapter::response_triggers::first_response_exchange_policy(&state.config);
+    ripdpi_proxy_runtime_adapter::response_triggers::first_response_exchange_required_with(policy, |trigger| {
         runtime_supports_trigger(state, trigger)
     })
 }
