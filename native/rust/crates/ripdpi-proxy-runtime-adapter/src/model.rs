@@ -161,16 +161,20 @@ pub mod config {
         config.host_autolearn.enabled && config.host_autolearn.warmup_probe_enabled
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    #[derive(Clone, Debug, PartialEq, Eq)]
     pub struct WarmupProbeSettings {
         pub scheduler_enabled: bool,
         pub response_buffer_size: usize,
+        pub ipv6_enabled: bool,
+        pub protect_path: Option<String>,
     }
 
     pub fn warmup_probe_settings(config: &RuntimeConfig) -> WarmupProbeSettings {
         WarmupProbeSettings {
             scheduler_enabled: warmup_probe_enabled(config) && route_group_count(config) >= 2,
             response_buffer_size: runtime_buffer_size(config),
+            ipv6_enabled: ipv6_enabled(config),
+            protect_path: protect_path_owned(config),
         }
     }
 
@@ -545,17 +549,29 @@ pub mod config {
             config.host_autolearn.enabled = true;
             config.host_autolearn.warmup_probe_enabled = true;
             config.network.buffer_size = 512;
+            config.network.ipv6 = true;
+            config.process.protect_path = Some("/tmp/protect.sock".to_string());
             config.groups = vec![DesyncGroup::new(0)];
 
             assert_eq!(
                 warmup_probe_settings(&config),
-                WarmupProbeSettings { scheduler_enabled: false, response_buffer_size: 16_384 },
+                WarmupProbeSettings {
+                    scheduler_enabled: false,
+                    response_buffer_size: 16_384,
+                    ipv6_enabled: true,
+                    protect_path: Some("/tmp/protect.sock".to_string()),
+                },
             );
 
             config.groups.push(DesyncGroup::new(1));
             assert_eq!(
                 warmup_probe_settings(&config),
-                WarmupProbeSettings { scheduler_enabled: true, response_buffer_size: 16_384 },
+                WarmupProbeSettings {
+                    scheduler_enabled: true,
+                    response_buffer_size: 16_384,
+                    ipv6_enabled: true,
+                    protect_path: Some("/tmp/protect.sock".to_string()),
+                },
             );
         }
     }
