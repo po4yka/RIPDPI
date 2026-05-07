@@ -7,9 +7,9 @@ use ripdpi_proxy_runtime_adapter::model::config::first_response_settings;
 use ripdpi_proxy_runtime_adapter::model::session::{inbound_payload_count, observe_inbound_payload, SessionState};
 
 use crate::runtime::adaptive::note_server_ttl_for_route;
-use crate::runtime::relay::failure_retry::first_outbound::should_note_server_ttl;
 use crate::runtime::relay::failure_retry::retry_logic::record_stream_relay_success;
 use crate::runtime::relay::first_exchange::{read_first_response, FirstResponse};
+use crate::runtime::routing::should_track_strategy_target;
 use crate::runtime::state::RuntimeState;
 use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
@@ -51,7 +51,7 @@ pub(super) fn handle_first_response(
             if inbound_payload_count(session_state) == 0 {
                 return Ok(FirstResponseDecision::Complete { recorded_success: false });
             }
-            if should_note_server_ttl(context.target) {
+            if should_track_strategy_target(context.target) {
                 if let Some(ttl) = server_ttl {
                     note_server_ttl_for_route(
                         context.state,

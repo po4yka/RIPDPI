@@ -13,7 +13,6 @@ use crate::runtime::relay::failure_retry::first_outbound::route_retry::{
     handle_first_response_failure, handle_first_write_failure, FirstResponseFailureContext, RouteRetryState,
 };
 use crate::runtime::relay::first_exchange::needs_first_exchange;
-use crate::runtime::routing::should_track_strategy_target;
 use crate::runtime::state::RuntimeState;
 use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
@@ -165,8 +164,4 @@ pub(crate) fn prepare_relay(
     seed_request: Option<Vec<u8>>,
 ) -> io::Result<PreparedRelay> {
     FirstOutboundCoordinator::new(state, target, route, seed_request).run(client, upstream)
-}
-
-fn should_note_server_ttl(target: SocketAddr) -> bool {
-    should_track_strategy_target(target)
 }
