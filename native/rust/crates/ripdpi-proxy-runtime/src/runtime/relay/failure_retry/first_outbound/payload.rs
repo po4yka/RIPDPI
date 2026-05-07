@@ -2,10 +2,10 @@ use std::io::{self, Read};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
 
-use crate::runtime::relay::tls_boundary::OutboundTlsClientHelloAssembler;
 use crate::runtime::state::RuntimeState;
 use ripdpi_proxy_runtime_adapter::model::config::runtime_buffer_size;
 use ripdpi_proxy_runtime_adapter::model::session::classify_outbound_payload;
+use ripdpi_proxy_runtime_adapter::protocol_payload::OutboundTlsClientHelloAssembler;
 
 const FIRST_OUTBOUND_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 

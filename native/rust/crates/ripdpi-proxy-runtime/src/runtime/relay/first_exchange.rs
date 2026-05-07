@@ -13,7 +13,7 @@ use ripdpi_proxy_runtime_adapter::platform::first_response as first_response_pla
 
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure, runtime_supports_trigger};
 use super::super::state::RuntimeState;
-use super::tls_boundary::TlsRecordBoundaryTracker;
+use ripdpi_proxy_runtime_adapter::protocol_payload::TlsRecordBoundaryTracker;
 
 pub(super) enum FirstResponse {
     Forward(Vec<u8>, Option<u8>),

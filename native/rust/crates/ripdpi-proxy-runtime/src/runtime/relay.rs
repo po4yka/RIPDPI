@@ -4,7 +4,6 @@ mod first_exchange;
 mod stream_copy;
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 mod stream_copy_uring;
-mod tls_boundary;
 
 use std::io;
 use std::net::{SocketAddr, TcpStream};
@@ -62,10 +61,6 @@ mod tests {
     use super::super::routing::trigger_flag;
     use super::failure_retry::retry_logic::classify_first_write_failure;
     use super::first_exchange::{first_response_timeout, response_trigger_supported, timeout_count_limit};
-    use super::tls_boundary::{
-        OutboundTlsClientHelloAssembler, TlsRecordBoundaryTracker, FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT,
-        FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
-    };
     use super::*;
     use ripdpi_proxy_runtime_adapter::failure::{FailureAction, FailureClass, FailureStage};
     use ripdpi_proxy_runtime_adapter::model::config::{
@@ -74,6 +69,10 @@ mod tests {
     };
     use ripdpi_proxy_runtime_adapter::model::session::TriggerEvent;
     use ripdpi_proxy_runtime_adapter::protocol_payload::DEFAULT_FAKE_TLS;
+    use ripdpi_proxy_runtime_adapter::protocol_payload::{
+        OutboundTlsClientHelloAssembler, TlsRecordBoundaryTracker, FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT,
+        FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
+    };
 
     mod rust_packet_seeds {
         include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../ripdpi-packets/tests/rust_packet_seeds.rs"));

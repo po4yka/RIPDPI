@@ -3,7 +3,7 @@ use ripdpi_proxy_runtime_adapter::model::config::{first_response_settings, Desyn
 use std::time::{Duration, Instant};
 
 use super::super::super::desync::primary_tcp_strategy_family;
-use super::super::tls_boundary::TlsRecordBoundaryTracker;
+use ripdpi_proxy_runtime_adapter::protocol_payload::TlsRecordBoundaryTracker;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum RotationFailureReason {
