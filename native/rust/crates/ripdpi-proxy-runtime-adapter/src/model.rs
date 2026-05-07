@@ -857,9 +857,10 @@ pub mod session {
         pub is_tls: bool,
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    #[derive(Clone)]
     pub struct FirstOutboundPayloadPolicy {
         pub buffer_size: usize,
+        config: RuntimeConfig,
     }
 
     pub struct UdpPayloadInfo {
@@ -868,7 +869,11 @@ pub mod session {
     }
 
     pub fn first_outbound_payload_policy(config: &RuntimeConfig) -> FirstOutboundPayloadPolicy {
-        FirstOutboundPayloadPolicy { buffer_size: runtime_buffer_size(config) }
+        FirstOutboundPayloadPolicy { buffer_size: runtime_buffer_size(config), config: config.clone() }
+    }
+
+    pub fn classify_first_outbound_payload(policy: &FirstOutboundPayloadPolicy, payload: &[u8]) -> OutboundPayloadInfo {
+        classify_outbound_payload(&policy.config, payload)
     }
 
     pub fn classify_outbound_payload(config: &RuntimeConfig, payload: &[u8]) -> OutboundPayloadInfo {
@@ -1058,8 +1063,12 @@ pub mod session {
         fn first_outbound_payload_policy_applies_runtime_buffer_floor() {
             let mut config = RuntimeConfig::default();
             config.network.buffer_size = 512;
+            let policy = first_outbound_payload_policy(&config);
 
-            assert_eq!(first_outbound_payload_policy(&config), FirstOutboundPayloadPolicy { buffer_size: 16_384 },);
+            assert_eq!(policy.buffer_size, 16_384);
+            let info = classify_first_outbound_payload(&policy, b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n");
+            assert_eq!(info.host.as_deref(), Some("example.com"));
+            assert!(!info.is_tls);
         }
     }
 }
