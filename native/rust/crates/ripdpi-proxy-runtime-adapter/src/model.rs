@@ -23,6 +23,10 @@ pub mod config {
         config.network.max_open.max(1) as usize
     }
 
+    pub fn udp_flow_at_capacity(flow_exists: bool, active_flows: usize, flow_limit: usize) -> bool {
+        !flow_exists && active_flows >= flow_limit
+    }
+
     pub fn listener_bind_addr(config: &RuntimeConfig) -> SocketAddr {
         SocketAddr::new(config.network.listen.listen_ip, config.network.listen.listen_port)
     }
@@ -415,6 +419,13 @@ pub mod config {
 
             config.network.transparent = true;
             assert_eq!(proxy_protocol_mode(&config), ProxyProtocolMode::Transparent);
+        }
+
+        #[test]
+        fn udp_flow_capacity_only_rejects_new_flows_at_limit() {
+            assert!(!udp_flow_at_capacity(true, 2, 2));
+            assert!(udp_flow_at_capacity(false, 2, 2));
+            assert!(!udp_flow_at_capacity(false, 1, 2));
         }
     }
 }
