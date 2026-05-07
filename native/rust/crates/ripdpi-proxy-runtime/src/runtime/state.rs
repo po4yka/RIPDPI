@@ -10,9 +10,6 @@ use ripdpi_proxy_runtime_adapter::model::services::new_services_handle;
 use ripdpi_runtime_decision_ports::{AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, RetryPacingPort};
 use ripdpi_runtime_decision_ports::{DirectPathLearningPort, PolicyPort};
 
-use mio::Token;
-
-pub(super) const LISTENER: Token = Token(0);
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 

@@ -10,10 +10,12 @@ use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
 use crate::process;
-use crate::runtime::state::{ClientSlotGuard, RuntimeState, LISTENER};
+use crate::runtime::state::{ClientSlotGuard, RuntimeState};
 
 use super::client_job::ClientJob;
 use super::worker_pool::ClientWorkerPool;
+
+const LISTENER: mio::Token = mio::Token(0);
 
 pub(crate) fn run_accept_loop(
     listener: TcpListener,
