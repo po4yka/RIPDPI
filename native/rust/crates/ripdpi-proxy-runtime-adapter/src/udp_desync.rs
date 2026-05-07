@@ -28,7 +28,6 @@ pub struct UdpDesyncPlanContext<'a> {
 
 pub struct UdpDesyncPlanRequest<'a> {
     pub group_index: usize,
-    pub group: &'a ripdpi_config::DesyncGroup,
     pub payload: &'a [u8],
     pub progress: ripdpi_session::OutboundProgress,
     pub host: Option<&'a str>,
@@ -49,7 +48,9 @@ pub fn plan_udp_actions_for_runtime(
     context: UdpDesyncPlanContext<'_>,
     request: UdpDesyncPlanRequest<'_>,
 ) -> io::Result<Vec<UdpDesyncAction>> {
-    let adaptive_hints = resolve_udp_hints_for_runtime(&context, &request)?;
+    let group = crate::model::config::selected_desync_group(context.config, request.group_index)
+        .ok_or_else(|| io::Error::other("missing udp route group"))?;
+    let adaptive_hints = resolve_udp_hints_for_runtime(&context, &request, group)?;
     let morph_policy = crate::model::proxy_config::morph_policy(context.runtime_context);
     crate::model::proxy_config::emit_morph_hint_applied(
         context.telemetry,
@@ -66,12 +67,13 @@ pub fn plan_udp_actions_for_runtime(
         None,
         adaptive_hints,
     );
-    Ok(plan_udp_actions(request.group, request.payload, request.default_ttl, activation))
+    Ok(plan_udp_actions(group, request.payload, request.default_ttl, activation))
 }
 
 fn resolve_udp_hints_for_runtime(
     context: &UdpDesyncPlanContext<'_>,
     request: &UdpDesyncPlanRequest<'_>,
+    group: &ripdpi_config::DesyncGroup,
 ) -> io::Result<ripdpi_desync::AdaptivePlannerHints> {
     if context.config.adaptive.strategy_evolution {
         return context.adaptive_hints.resolve_udp_hints_with_evolver(
@@ -80,7 +82,7 @@ fn resolve_udp_hints_for_runtime(
             request.group_index,
             request.target,
             request.host,
-            request.group,
+            group,
             request.payload,
         );
     }
@@ -91,7 +93,7 @@ fn resolve_udp_hints_for_runtime(
         request.group_index,
         request.target,
         request.host,
-        request.group,
+        group,
         request.payload,
     )?;
     let capability = ripdpi_runtime_decision_ports::adaptive::strategy_context::direct_path_capability_for_route(

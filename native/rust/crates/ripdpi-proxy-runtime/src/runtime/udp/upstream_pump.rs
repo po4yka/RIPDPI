@@ -3,7 +3,7 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::config::{selected_desync_group, udp_default_ttl, udp_ip_id_mode};
+use ripdpi_proxy_runtime_adapter::model::config::{udp_default_ttl, udp_ip_id_mode};
 use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
 use ripdpi_proxy_runtime_adapter::udp_desync::{
     execute_udp_actions, plan_udp_actions_for_runtime, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext,
@@ -68,8 +68,6 @@ fn plan_udp_flow_actions(
     payload: &[u8],
     now: Instant,
 ) -> io::Result<Vec<UdpDesyncAction>> {
-    let group = selected_desync_group(&state.config, entry.route.group_index)
-        .ok_or_else(|| io::Error::other("missing udp route group"))?;
     entry.last_used = now;
     entry.payload.clear();
     entry.payload.extend_from_slice(payload);
@@ -84,7 +82,6 @@ fn plan_udp_flow_actions(
         },
         UdpDesyncPlanRequest {
             group_index: entry.route.group_index,
-            group,
             payload,
             progress,
             host: entry.host.as_deref(),
