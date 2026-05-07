@@ -1,7 +1,6 @@
 use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, FailureStage};
 use ripdpi_proxy_runtime_adapter::model::session::SessionState;
-use ripdpi_proxy_runtime_adapter::platform;
 use std::io;
 use std::net::TcpStream;
 
@@ -82,7 +81,7 @@ pub(super) fn observe_rotation_inbound_chunk(
             return;
         }
     }
-    let retrans_delta = platform::tcp::tcp_total_retransmissions(reader)
+    let retrans_delta = ripdpi_proxy_runtime_adapter::platform::relay::tcp_total_retransmissions(reader)
         .ok()
         .flatten()
         .zip(retrans_baseline)
@@ -125,7 +124,7 @@ pub(super) fn observe_rotation_transport_failure(
     }
     let host = remembered_host_value(remembered_host);
     let failure = classify_transport_error(FailureStage::FirstResponse, &err);
-    let retrans_delta = platform::tcp::tcp_total_retransmissions(reader)
+    let retrans_delta = ripdpi_proxy_runtime_adapter::platform::relay::tcp_total_retransmissions(reader)
         .ok()
         .flatten()
         .zip(retrans_baseline)
