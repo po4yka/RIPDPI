@@ -438,6 +438,7 @@ pub mod services {
 }
 
 pub mod session {
+    use std::io::{self, Read};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
     use super::config::{ipv6_enabled, name_resolution_enabled, RuntimeConfig};
@@ -535,6 +536,34 @@ pub mod session {
             }
         }
         out
+    }
+
+    pub fn read_upstream_socks_reply(reader: &mut impl Read) -> io::Result<Vec<u8>> {
+        let mut header = [0u8; 4];
+        reader.read_exact(&mut header)?;
+        let mut out = header.to_vec();
+        match header[3] {
+            S_ATP_I4 => {
+                let mut tail = [0u8; 6];
+                reader.read_exact(&mut tail)?;
+                out.extend_from_slice(&tail);
+            }
+            S_ATP_I6 => {
+                let mut tail = [0u8; 18];
+                reader.read_exact(&mut tail)?;
+                out.extend_from_slice(&tail);
+            }
+            S_ATP_ID => {
+                let mut len = [0u8; 1];
+                reader.read_exact(&mut len)?;
+                out.extend_from_slice(&len);
+                let mut tail = vec![0u8; len[0] as usize + 2];
+                reader.read_exact(&mut tail)?;
+                out.extend_from_slice(&tail);
+            }
+            _ => return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid upstream socks reply")),
+        }
+        Ok(out)
     }
 
     pub fn parse_shadowsocks_target(

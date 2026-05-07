@@ -3,7 +3,7 @@ use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::session::{
-    encode_upstream_socks_connect, S_ATP_I4, S_ATP_I6, S_AUTH_NONE, S_ER_GEN, S_VER5,
+    encode_upstream_socks_connect, read_upstream_socks_reply, S_AUTH_NONE, S_ER_GEN, S_VER5,
 };
 
 use super::socket::connect_socket;
@@ -42,37 +42,10 @@ pub(in crate::runtime::routing::connect) fn connect_via_socks(
     Ok(stream)
 }
 
-pub(in crate::runtime) fn read_upstream_socks_reply(stream: &mut TcpStream) -> io::Result<Vec<u8>> {
-    let mut header = [0u8; 4];
-    stream.read_exact(&mut header)?;
-    let mut out = header.to_vec();
-    match header[3] {
-        S_ATP_I4 => {
-            let mut tail = [0u8; 6];
-            stream.read_exact(&mut tail)?;
-            out.extend_from_slice(&tail);
-        }
-        S_ATP_I6 => {
-            let mut tail = [0u8; 18];
-            stream.read_exact(&mut tail)?;
-            out.extend_from_slice(&tail);
-        }
-        0x03 => {
-            let mut len = [0u8; 1];
-            stream.read_exact(&mut len)?;
-            out.extend_from_slice(&len);
-            let mut tail = vec![0u8; len[0] as usize + 2];
-            stream.read_exact(&mut tail)?;
-            out.extend_from_slice(&tail);
-        }
-        _ => return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid upstream socks reply")),
-    }
-    Ok(out)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ripdpi_proxy_runtime_adapter::model::session::S_ATP_I4;
     use std::io;
     use std::net::{Ipv4Addr, TcpListener};
     use std::thread;
