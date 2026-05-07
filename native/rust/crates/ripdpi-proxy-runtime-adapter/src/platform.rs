@@ -51,3 +51,20 @@ pub mod connect {
         ripdpi_runtime_platform::tcp::tcp_round_trip_time_ms(stream)
     }
 }
+
+pub mod first_response {
+    use std::io;
+    use std::net::TcpStream;
+
+    pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
+        ripdpi_runtime_platform::ttl_ops::enable_recv_ttl(stream)
+    }
+
+    pub fn read_chunk_with_ttl(stream: &mut TcpStream, chunk: &mut [u8]) -> io::Result<(usize, Option<u8>)> {
+        ripdpi_runtime_platform::ttl_ops::read_chunk_with_ttl(stream, chunk)
+    }
+
+    pub fn tcp_total_retransmissions(stream: &TcpStream) -> io::Result<Option<u32>> {
+        ripdpi_runtime_platform::tcp::tcp_total_retransmissions(stream)
+    }
+}

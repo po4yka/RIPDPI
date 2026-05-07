@@ -5,7 +5,7 @@ use ripdpi_proxy_runtime_adapter::failure::{
     classify_transport_error, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
 use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
-use ripdpi_proxy_runtime_adapter::platform;
+use ripdpi_proxy_runtime_adapter::platform::first_response as first_response_platform;
 
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure, runtime_supports_trigger};
 use super::super::state::RuntimeState;
@@ -34,7 +34,7 @@ pub(super) fn read_first_response(
     config: &RuntimeConfig,
     request: &[u8],
 ) -> io::Result<FirstResponse> {
-    let _ = platform::ttl_ops::enable_recv_ttl(upstream);
+    let _ = first_response_platform::enable_recv_ttl(upstream);
     let mut collected = Vec::new();
     let mut chunk = vec![0u8; config.network.buffer_size.max(16_384)];
     let mut tls_partial = TlsRecordBoundaryTracker::for_first_response(request, config);
@@ -44,7 +44,7 @@ pub(super) fn read_first_response(
     loop {
         let _ = upstream.set_read_timeout(first_response_timeout(config, &tls_partial));
         let read_result = if collected.is_empty() {
-            platform::ttl_ops::read_chunk_with_ttl(upstream, &mut chunk).map(|(n, ttl)| {
+            first_response_platform::read_chunk_with_ttl(upstream, &mut chunk).map(|(n, ttl)| {
                 if ttl.is_some() {
                     observed_server_ttl = ttl;
                 }
@@ -95,7 +95,7 @@ pub(super) fn read_first_response(
                     }
                 } else if config.timeouts.timeout_ms != 0 {
                     let failure = classify_transport_error(FailureStage::FirstResponse, &err);
-                    let retransmissions = platform::tcp::tcp_total_retransmissions(upstream).ok().flatten();
+                    let retransmissions = first_response_platform::tcp_total_retransmissions(upstream).ok().flatten();
                     note_block_signal_for_failure(state, host, &failure, retransmissions);
                     Ok(FirstResponse::Failure { failure, response_bytes: None })
                 } else {
@@ -119,7 +119,7 @@ pub(super) fn read_first_response(
                     state,
                     host,
                     &failure,
-                    platform::tcp::tcp_total_retransmissions(upstream).ok().flatten(),
+                    first_response_platform::tcp_total_retransmissions(upstream).ok().flatten(),
                 );
                 Ok(FirstResponse::Failure { failure, response_bytes: None })
             }
