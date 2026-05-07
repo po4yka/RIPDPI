@@ -69,16 +69,24 @@ impl CircularTcpRotationController {
         })
     }
 
-    pub(super) fn is_desync_suppressed(&self) -> bool {
-        self.desync_suppressed
-    }
-
     pub(super) fn current_group(&self) -> DesyncGroup {
         let mut group = self.base_group.clone();
         if let Some(index) = self.active_candidate_index {
             group.actions.tcp_chain = self.policy.candidates[index].tcp_chain.clone();
         }
         group
+    }
+
+    pub(super) fn current_send_group(&self) -> DesyncGroup {
+        let mut group = self.current_group();
+        if self.desync_suppressed {
+            group.actions.tcp_chain.clear();
+        }
+        group
+    }
+
+    pub(super) fn retransmission_failure_matches_observation(&self, stream_start: usize, retrans_delta: u32) -> bool {
+        stream_start < self.policy.seq as usize && retrans_delta >= self.policy.retrans
     }
 
     pub(super) fn current_family(&self) -> &'static str {

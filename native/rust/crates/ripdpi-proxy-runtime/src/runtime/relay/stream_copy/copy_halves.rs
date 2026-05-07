@@ -127,11 +127,7 @@ pub(super) fn flush_outbound_payload(
         } else {
             rotation.append_request_chunk(&state.config, progress.round, payload);
         }
-        let mut group = rotation.current_group();
-        if rotation.is_desync_suppressed() {
-            group.actions.tcp_chain.clear();
-        }
-        Some(group)
+        Some(rotation.current_send_group())
     } else {
         None
     };

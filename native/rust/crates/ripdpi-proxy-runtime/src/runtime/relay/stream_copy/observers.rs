@@ -82,7 +82,7 @@ pub(super) fn observe_rotation_inbound_chunk(
         .map(|(current, baseline)| current.saturating_sub(baseline))
         .unwrap_or_default();
     if let Ok(mut rotation) = rotation.lock() {
-        if stream_start < rotation.policy.seq as usize && retrans_delta >= rotation.policy.retrans {
+        if rotation.retransmission_failure_matches_observation(stream_start, retrans_delta) {
             rotation.observe_round_failure(
                 host.as_deref(),
                 target,
