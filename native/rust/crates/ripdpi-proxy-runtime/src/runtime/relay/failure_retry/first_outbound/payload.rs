@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use crate::runtime::relay::tls_boundary::OutboundTlsClientHelloAssembler;
 use crate::runtime::state::RuntimeState;
 use ripdpi_proxy_runtime_adapter::model::config::runtime_buffer_size;
-use ripdpi_runtime_decision_ports::policy::{extract_host, is_tls_client_hello_payload};
+use ripdpi_proxy_runtime_adapter::model::session::classify_outbound_payload;
 
 const FIRST_OUTBOUND_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
@@ -23,9 +23,8 @@ pub(super) fn prepare_first_payload(
     let original_request = seed_request
         .map_or_else(|| read_first_client_payload(client, runtime_buffer_size(&state.config)), |seed| Ok(Some(seed)))?;
     Ok(original_request.map(|original_request| {
-        let host = extract_host(&state.config, &original_request);
-        let is_tls = is_tls_client_hello_payload(&original_request);
-        FirstPayload { original_request, host, is_tls }
+        let info = classify_outbound_payload(&state.config, &original_request);
+        FirstPayload { original_request, host: info.host, is_tls: info.is_tls }
     }))
 }
 

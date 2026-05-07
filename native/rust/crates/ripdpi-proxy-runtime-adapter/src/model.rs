@@ -474,6 +474,18 @@ pub mod session {
         session.recv_count
     }
 
+    pub struct OutboundPayloadInfo {
+        pub host: Option<String>,
+        pub is_tls: bool,
+    }
+
+    pub fn classify_outbound_payload(config: &RuntimeConfig, payload: &[u8]) -> OutboundPayloadInfo {
+        OutboundPayloadInfo {
+            host: ripdpi_runtime_decision_ports::policy::extract_host(config, payload),
+            is_tls: ripdpi_runtime_decision_ports::policy::is_tls_client_hello_payload(payload),
+        }
+    }
+
     pub fn parse_socks5_udp_packet<'a>(
         packet: &'a [u8],
         config: &RuntimeConfig,
