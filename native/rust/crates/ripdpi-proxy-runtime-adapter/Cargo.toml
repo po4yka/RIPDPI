@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+base64 = { workspace = true }
 daemonize = { workspace = true }
 libc = { workspace = true }
 nix = { workspace = true }
