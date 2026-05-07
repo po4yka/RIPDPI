@@ -2,7 +2,7 @@ use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
-use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyRuntimeContext;
+use ripdpi_proxy_runtime_adapter::model::proxy_config::{NetworkReprobeTracker, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{
     current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink,
 };
@@ -34,7 +34,7 @@ pub(super) struct RuntimeState {
     /// subsequent connections skip TTL desync actions immediately.
     pub(super) ttl_unavailable: Arc<AtomicBool>,
     /// Tracks network scope key changes for lightweight re-probing.
-    pub(super) reprobe_tracker: std::sync::Arc<super::reprobe::ReprobeTracker>,
+    pub(super) reprobe_tracker: std::sync::Arc<NetworkReprobeTracker>,
     pub(super) pcap_hook: Option<super::desync::PcapHook>,
     /// io_uring driver for zero-copy relay (Linux 6.0+, optional).
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
@@ -62,7 +62,7 @@ impl RuntimeState {
             runtime_context,
             control,
             ttl_unavailable: Arc::new(AtomicBool::new(false)),
-            reprobe_tracker: std::sync::Arc::new(super::reprobe::ReprobeTracker::new()),
+            reprobe_tracker: std::sync::Arc::new(NetworkReprobeTracker::new()),
             pcap_hook: None,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,
@@ -121,7 +121,7 @@ impl RuntimeState {
             runtime_context,
             control: None,
             ttl_unavailable: Arc::new(AtomicBool::new(false)),
-            reprobe_tracker: std::sync::Arc::new(super::reprobe::ReprobeTracker::new()),
+            reprobe_tracker: std::sync::Arc::new(NetworkReprobeTracker::new()),
             pcap_hook: None,
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,

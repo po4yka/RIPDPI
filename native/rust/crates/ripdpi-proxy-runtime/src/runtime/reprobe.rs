@@ -13,15 +13,12 @@
 
 mod cache_flush;
 mod classification;
-mod identity;
 mod reset_policy;
 mod scheduler;
 mod target_catalog;
 mod tls_probe;
-mod tracker;
 
 pub(crate) use scheduler::maybe_spawn_reprobe;
-pub(crate) use tracker::ReprobeTracker;
 
 #[cfg(test)]
 mod tests;
