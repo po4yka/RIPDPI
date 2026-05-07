@@ -16,6 +16,10 @@ pub mod desync_platform;
 pub mod protocol_payload;
 pub mod raw_packet_requirements;
 
+pub mod services {
+    pub use ripdpi_runtime_services::{ServicesState, ServicesStateHandle};
+}
+
 pub mod ws_bootstrap {
     pub use ripdpi_ws_bootstrap::*;
 }

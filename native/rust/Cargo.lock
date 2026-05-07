@@ -3724,7 +3724,6 @@ dependencies = [
  "ripdpi-proxy-runtime-adapter",
  "ripdpi-runtime-api",
  "ripdpi-runtime-decision-ports",
- "ripdpi-runtime-services",
  "ripdpi-session",
  "rustls",
  "serde_json",
@@ -3746,6 +3745,7 @@ dependencies = [
  "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-runtime-platform",
+ "ripdpi-runtime-services",
  "ripdpi-session",
  "ripdpi-ws-bootstrap",
 ]
