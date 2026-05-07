@@ -9,7 +9,7 @@ use ripdpi_proxy_runtime_adapter::model::proxy_config::{NetworkReprobeTracker, P
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{
     current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink,
 };
-use ripdpi_proxy_runtime_adapter::model::services::new_services_handle;
+use ripdpi_proxy_runtime_adapter::model::services::{new_services_handle, ServicesStateHandle};
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -17,12 +17,7 @@ pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 #[derive(Clone)]
 pub(super) struct RuntimeState {
     pub(super) config: Arc<RuntimeConfig>,
-    pub(super) policy: Arc<dyn PolicyPort>,
-    pub(super) direct_path_learning: Arc<dyn DirectPathLearningPort>,
-    pub(super) adaptive_hints: Arc<dyn AdaptiveHintPort>,
-    pub(super) adaptive_feedback: Arc<dyn AdaptiveFeedbackPort>,
-    pub(super) adaptive_context: Arc<dyn AdaptiveContextPort>,
-    pub(super) retry_pacing: Arc<dyn RetryPacingPort>,
+    pub(super) services: ServicesStateHandle,
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     pub(super) runtime_context: Option<ProxyRuntimeContext>,
@@ -48,12 +43,7 @@ impl RuntimeState {
 
         Self {
             config: Arc::new(config),
-            policy: Arc::new(handle.clone()),
-            direct_path_learning: Arc::new(handle.clone()),
-            adaptive_hints: Arc::new(handle.clone()),
-            adaptive_feedback: Arc::new(handle.clone()),
-            adaptive_context: Arc::new(handle.clone()),
-            retry_pacing: Arc::new(handle),
+            services: handle,
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry,
             runtime_context,
@@ -64,6 +54,30 @@ impl RuntimeState {
             #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
             io_uring: None,
         }
+    }
+
+    pub(super) fn policy(&self) -> &dyn PolicyPort {
+        &self.services
+    }
+
+    pub(super) fn direct_path_learning(&self) -> &dyn DirectPathLearningPort {
+        &self.services
+    }
+
+    pub(super) fn adaptive_hints(&self) -> &dyn AdaptiveHintPort {
+        &self.services
+    }
+
+    pub(super) fn adaptive_feedback(&self) -> &dyn AdaptiveFeedbackPort {
+        &self.services
+    }
+
+    pub(super) fn adaptive_context(&self) -> &dyn AdaptiveContextPort {
+        &self.services
+    }
+
+    pub(super) fn retry_pacing(&self) -> &dyn RetryPacingPort {
+        &self.services
     }
 
     #[cfg(test)]
@@ -93,12 +107,7 @@ impl RuntimeState {
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
         Self {
             config: Arc::new(config),
-            policy: Arc::new(handle.clone()),
-            direct_path_learning: Arc::new(handle.clone()),
-            adaptive_hints: Arc::new(handle.clone()),
-            adaptive_feedback: Arc::new(handle.clone()),
-            adaptive_context: Arc::new(handle.clone()),
-            retry_pacing: Arc::new(handle),
+            services: handle,
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry,
             runtime_context,

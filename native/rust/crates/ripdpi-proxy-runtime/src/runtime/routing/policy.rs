@@ -25,7 +25,7 @@ pub(in crate::runtime) fn select_route_for_transport(
     transport: TransportProtocol,
 ) -> io::Result<ConnectionRoute> {
     state
-        .policy
+        .policy()
         .select_initial(target, payload, host, allow_unknown_payload, transport, &state.config)
         .ok_or_else(|| io::Error::new(io::ErrorKind::PermissionDenied, "no matching desync group"))
 }
@@ -36,7 +36,7 @@ pub(in crate::runtime) fn preferred_targets_for_transport(
     host: Option<&str>,
     transport: TransportProtocol,
 ) -> Vec<SocketAddr> {
-    let decision = state.adaptive_context.preferred_targets(
+    let decision = state.adaptive_context().preferred_targets(
         state.runtime_context.as_ref(),
         original_target,
         host,
@@ -65,9 +65,9 @@ pub(in crate::runtime) fn note_route_success_for_transport(
     host: Option<&str>,
     transport: TransportProtocol,
 ) -> io::Result<()> {
-    state.policy.note_success(target, route, host, transport, &state.config)
+    state.policy().note_success(target, route, host, transport, &state.config)
 }
 
 pub(in crate::runtime) fn runtime_supports_trigger(state: &RuntimeState, trigger: u32) -> io::Result<bool> {
-    Ok(state.policy.supports_trigger(trigger))
+    Ok(state.policy().supports_trigger(trigger))
 }

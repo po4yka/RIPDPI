@@ -53,7 +53,7 @@ pub(super) fn maybe_delay_connect(
         route
     } else {
         state
-            .policy
+            .policy()
             .select_next(
                 &state.config,
                 &route,

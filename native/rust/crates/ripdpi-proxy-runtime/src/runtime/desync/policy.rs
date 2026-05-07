@@ -16,7 +16,7 @@ pub(crate) fn send_with_group(
             config: &state.config,
             runtime_context: state.runtime_context.as_ref(),
             telemetry: state.telemetry.as_deref(),
-            adaptive_hints: state.adaptive_hints.as_ref(),
+            adaptive_hints: state.adaptive_hints(),
             ttl_unavailable: &state.ttl_unavailable,
             pcap_hook: state.pcap_hook.as_ref(),
         },

@@ -80,7 +80,7 @@ fn plan_udp_flow_actions(
             config: &state.config,
             runtime_context: state.runtime_context.as_ref(),
             telemetry: state.telemetry.as_deref(),
-            adaptive_hints: state.adaptive_hints.as_ref(),
+            adaptive_hints: state.adaptive_hints(),
         },
         UdpDesyncPlanRequest {
             group_index: entry.route.group_index,
