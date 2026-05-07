@@ -19,8 +19,8 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     ClientRequest, SessionError, SocketType, S_ER_CMD, S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
+use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 use ripdpi_runtime_decision_ports::policy::extract_host;
-use socket2::SockRef;
 
 use connect_relay::{connect_and_relay, ConnectRelayError, SuccessReply};
 use protocol_io::{
@@ -76,7 +76,7 @@ fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result
         Ok(()) => Ok(()),
         Err(err) => {
             if matches!(err.kind(), io::ErrorKind::ConnectionRefused | io::ErrorKind::TimedOut) {
-                let _ = SockRef::from(&client).set_linger(Some(Duration::ZERO));
+                listener_platform::close_rejected_client(&client);
             }
             Err(err.into_io_error())
         }
