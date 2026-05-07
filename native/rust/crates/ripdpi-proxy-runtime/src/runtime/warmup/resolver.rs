@@ -2,6 +2,7 @@ use std::io;
 use std::net::{SocketAddr, ToSocketAddrs};
 
 use crate::runtime::state::RuntimeState;
+use ripdpi_proxy_runtime_adapter::model::config::{ipv6_enabled, protect_path};
 
 /// Resolve a probe domain to a `SocketAddr` on port 443.
 pub(crate) fn resolve_probe_target(state: &RuntimeState, domain: &str) -> io::Result<SocketAddr> {
@@ -11,8 +12,8 @@ pub(crate) fn resolve_probe_target(state: &RuntimeState, domain: &str) -> io::Re
     if let Ok(mut addr) = resolve_host_via_encrypted_dns(
         domain,
         state.runtime_context.as_ref(),
-        state.config.process.protect_path.as_deref(),
-        state.config.network.ipv6,
+        protect_path(&state.config),
+        ipv6_enabled(&state.config),
     ) {
         addr.set_port(443);
         return Ok(addr);

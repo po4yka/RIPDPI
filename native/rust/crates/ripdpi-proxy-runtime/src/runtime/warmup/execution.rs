@@ -1,6 +1,7 @@
 use std::io::{self, Read};
 
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
+use ripdpi_proxy_runtime_adapter::model::config::runtime_buffer_size;
 use ripdpi_proxy_runtime_adapter::model::session::OutboundProgress;
 use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
@@ -49,7 +50,7 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
     }
 
     let _ = warmup_platform::enable_recv_ttl(&upstream);
-    let mut response_buf = vec![0u8; state.config.network.buffer_size.max(16_384)];
+    let mut response_buf = vec![0u8; runtime_buffer_size(&state.config)];
     let read_result = upstream.read(&mut response_buf);
 
     match read_result {

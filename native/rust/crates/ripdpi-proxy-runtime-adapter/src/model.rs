@@ -49,6 +49,14 @@ pub mod config {
         config.network.udp
     }
 
+    pub fn ipv6_enabled(config: &RuntimeConfig) -> bool {
+        config.network.ipv6
+    }
+
+    pub fn warmup_probe_enabled(config: &RuntimeConfig) -> bool {
+        config.host_autolearn.enabled && config.host_autolearn.warmup_probe_enabled
+    }
+
     pub fn proxy_auth_token(config: &RuntimeConfig) -> Option<&str> {
         config.network.listen.auth_token.as_deref()
     }
