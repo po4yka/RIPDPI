@@ -1,4 +1,4 @@
-use super::assembler::valid_tls_record_header;
+use ripdpi_proxy_runtime_adapter::protocol_payload::valid_tls_record_header;
 
 pub(super) struct TlsClientHelloBoundaryTracker {
     enabled: bool,

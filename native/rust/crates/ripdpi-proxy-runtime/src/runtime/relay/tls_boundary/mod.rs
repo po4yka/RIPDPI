@@ -1,12 +1,12 @@
-mod assembler;
 mod client_hello;
 
 use std::time::{Duration, Instant};
 
-pub(super) use assembler::TlsRecordBoundaryTracker;
+pub(super) use ripdpi_proxy_runtime_adapter::protocol_payload::{
+    TlsRecordBoundaryTracker, FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
+};
 
 pub(super) const FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT: Duration = Duration::from_millis(75);
-pub(super) const FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT: usize = 16_384;
 
 use client_hello::TlsClientHelloBoundaryTracker;
 
