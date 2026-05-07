@@ -4,8 +4,8 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_config::{QuicInitialMode, RuntimeConfig};
 use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
+use ripdpi_proxy_runtime_adapter::session::S_ATP_I4;
 use ripdpi_runtime_decision_ports::policy::{HostSource, TransportProtocol};
-use ripdpi_session::S_ATP_I4;
 
 use super::client_receive::should_cache_udp_host;
 use super::flow::{udp_flow_at_capacity, udp_flow_limit};

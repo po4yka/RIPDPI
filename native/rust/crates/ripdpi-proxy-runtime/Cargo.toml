@@ -15,7 +15,6 @@ ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
 ripdpi-runtime-decision-ports = { workspace = true }
 ripdpi-proxy-runtime-adapter = { workspace = true }
-ripdpi-session = { workspace = true }
 metrics = { workspace = true }
 tracing = { workspace = true }
 mio = { workspace = true }

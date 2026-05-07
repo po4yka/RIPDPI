@@ -1,8 +1,8 @@
 use std::io::{self, Read};
 
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
+use ripdpi_proxy_runtime_adapter::session::OutboundProgress;
 use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
-use ripdpi_session::OutboundProgress;
 
 use super::autolearn::{advance_after_failure, record_route_success};
 use super::block_signal::record_block_signal;

@@ -2,7 +2,7 @@ use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_session::{S_ATP_I4, S_ATP_I6, S_AUTH_NONE, S_CMD_CONN, S_ER_GEN, S_VER5};
+use ripdpi_proxy_runtime_adapter::session::{S_ATP_I4, S_ATP_I6, S_AUTH_NONE, S_CMD_CONN, S_ER_GEN, S_VER5};
 
 use super::socket::connect_socket;
 pub(in crate::runtime::routing::connect) fn connect_via_socks(

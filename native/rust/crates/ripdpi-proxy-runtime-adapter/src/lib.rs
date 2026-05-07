@@ -28,6 +28,10 @@ pub mod services {
     pub use ripdpi_runtime_services::{ServicesState, ServicesStateHandle};
 }
 
+pub mod session {
+    pub use ripdpi_session::*;
+}
+
 pub mod udp_desync;
 
 pub mod ws_bootstrap {

@@ -70,7 +70,7 @@ mod tests {
     use ripdpi_config::{RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST};
     use ripdpi_packets::DEFAULT_FAKE_TLS;
     use ripdpi_proxy_runtime_adapter::failure::{FailureAction, FailureClass, FailureStage};
-    use ripdpi_session::TriggerEvent;
+    use ripdpi_proxy_runtime_adapter::session::TriggerEvent;
 
     mod rust_packet_seeds {
         include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../ripdpi-packets/tests/rust_packet_seeds.rs"));

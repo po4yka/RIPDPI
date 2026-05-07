@@ -11,11 +11,11 @@ use std::time::Duration;
 
 use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::platform;
-use ripdpi_runtime_decision_ports::policy::extract_host;
-use ripdpi_session::{
+use ripdpi_proxy_runtime_adapter::session::{
     encode_socks4_reply, encode_socks5_reply, parse_http_connect_request, parse_socks4_request, parse_socks5_request,
     ClientRequest, SessionConfig, SessionError, SocketType, S_ER_CMD, S_ER_GEN, S_VER5,
 };
+use ripdpi_runtime_decision_ports::policy::extract_host;
 use socket2::SockRef;
 
 use connect_relay::{connect_and_relay, ConnectRelayError, SuccessReply};
@@ -178,7 +178,7 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
             }
         }
         _ => {
-            use ripdpi_session::encode_http_connect_reply;
+            use ripdpi_proxy_runtime_adapter::session::encode_http_connect_reply;
             client.write_all(encode_http_connect_reply(false).as_bytes())?;
             Ok(())
         }
@@ -252,7 +252,7 @@ fn handle_socks5_connect_error(client: &mut TcpStream, err: ConnectRelayError) -
 
 fn handle_http_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
     if !err.success_reply_sent() {
-        use ripdpi_session::encode_http_connect_reply;
+        use ripdpi_proxy_runtime_adapter::session::encode_http_connect_reply;
         client.write_all(encode_http_connect_reply(false).as_bytes())?;
     }
     Err(err.into_io_error())

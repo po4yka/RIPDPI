@@ -6,7 +6,7 @@ use ripdpi_proxy_runtime_adapter::desync_model::{
 };
 use ripdpi_proxy_runtime_adapter::desync_platform::{OutboundSendError, OutboundSendOutcome};
 use ripdpi_proxy_runtime_adapter::protocol_payload;
-use ripdpi_session::OutboundProgress;
+use ripdpi_proxy_runtime_adapter::session::OutboundProgress;
 
 use super::platform::{send_prepared_with_runtime_platform, seqovl_supported, tcp_activation_state, tcp_segment_hint};
 use crate::runtime::adaptive::{

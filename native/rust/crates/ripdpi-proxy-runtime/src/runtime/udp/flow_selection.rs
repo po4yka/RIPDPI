@@ -3,8 +3,8 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
+use ripdpi_proxy_runtime_adapter::session::SessionState;
 use ripdpi_runtime_decision_ports::policy::{route_matches_payload, ConnectionRoute, TransportProtocol};
-use ripdpi_session::SessionState;
 
 use super::client_receive::UdpClientPacket;
 use super::flow::{udp_flow_at_capacity, UdpFlowActivationState};

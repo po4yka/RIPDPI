@@ -3723,7 +3723,6 @@ dependencies = [
  "ripdpi-proxy-runtime-adapter",
  "ripdpi-runtime-api",
  "ripdpi-runtime-decision-ports",
- "ripdpi-session",
  "rustls",
  "serde_json",
  "socket2",

@@ -164,14 +164,17 @@ pub(super) fn timeout_count_limit(config: &RuntimeConfig) -> i32 {
 }
 
 #[cfg(test)]
-pub(super) fn response_trigger_supported(config: &RuntimeConfig, trigger: ripdpi_session::TriggerEvent) -> bool {
+pub(super) fn response_trigger_supported(
+    config: &RuntimeConfig,
+    trigger: ripdpi_proxy_runtime_adapter::session::TriggerEvent,
+) -> bool {
     use ripdpi_config::DETECT_CONNECT;
 
     let flag = match trigger {
-        ripdpi_session::TriggerEvent::Redirect => DETECT_HTTP_LOCAT,
-        ripdpi_session::TriggerEvent::SslErr => DETECT_TLS_HANDSHAKE_FAILURE,
-        ripdpi_session::TriggerEvent::Connect => DETECT_CONNECT,
-        ripdpi_session::TriggerEvent::Torst => DETECT_TORST,
+        ripdpi_proxy_runtime_adapter::session::TriggerEvent::Redirect => DETECT_HTTP_LOCAT,
+        ripdpi_proxy_runtime_adapter::session::TriggerEvent::SslErr => DETECT_TLS_HANDSHAKE_FAILURE,
+        ripdpi_proxy_runtime_adapter::session::TriggerEvent::Connect => DETECT_CONNECT,
+        ripdpi_proxy_runtime_adapter::session::TriggerEvent::Torst => DETECT_TORST,
     };
     config.groups.iter().any(|group| group.matches.detect & flag != 0)
 }

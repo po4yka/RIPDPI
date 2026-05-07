@@ -1,6 +1,6 @@
 use crate::sync::{Arc, Mutex};
+use ripdpi_proxy_runtime_adapter::session::SessionState;
 use ripdpi_runtime_decision_ports::policy::extract_host;
-use ripdpi_session::SessionState;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};

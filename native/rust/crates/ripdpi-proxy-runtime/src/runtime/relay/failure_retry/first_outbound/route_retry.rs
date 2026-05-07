@@ -2,7 +2,7 @@ use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass};
-use ripdpi_session::SessionState;
+use ripdpi_proxy_runtime_adapter::session::SessionState;
 
 use crate::runtime::desync::OutboundSendError;
 use crate::runtime::relay::failure_retry::retry_logic::{

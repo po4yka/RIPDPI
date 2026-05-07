@@ -7,7 +7,7 @@ use std::time::Instant;
 
 use ripdpi_config::RuntimeTimeoutSettings;
 use ripdpi_io_uring::IoUringDriver;
-use ripdpi_session::SessionState;
+use ripdpi_proxy_runtime_adapter::session::SessionState;
 
 use super::cleanup::shutdown_direction;
 use super::freeze_detector::FreezeDetector;

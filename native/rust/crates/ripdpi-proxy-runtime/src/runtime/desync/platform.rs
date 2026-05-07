@@ -2,7 +2,7 @@ use std::net::TcpStream;
 
 use ripdpi_proxy_runtime_adapter::desync_model::{ActivationContext, TcpSegmentHint};
 use ripdpi_proxy_runtime_adapter::desync_platform::{OutboundSendError, OutboundSendOutcome, PcapHook};
-use ripdpi_session::OutboundProgress;
+use ripdpi_proxy_runtime_adapter::session::OutboundProgress;
 
 use crate::sync::AtomicBool;
 

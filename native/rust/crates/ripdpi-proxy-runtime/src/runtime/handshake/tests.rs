@@ -3,7 +3,7 @@ use crate::runtime::state::RuntimeState;
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
 use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
-use ripdpi_session::{
+use ripdpi_proxy_runtime_adapter::session::{
     encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, parse_http_connect_request,
     parse_socks4_request, parse_socks5_request, SessionConfig, SocketType, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_ER_GEN,
     S_VER5,
@@ -143,7 +143,7 @@ fn domain_protocols_resolve_through_encrypted_dns_runtime_context() {
         0,
     ];
     let socks4_target = parse_socks4_request(&socks4_request, session, &resolver).expect("parse socks4 request");
-    let ripdpi_session::ClientRequest::Socks4Connect(socks4_target) = socks4_target else {
+    let ripdpi_proxy_runtime_adapter::session::ClientRequest::Socks4Connect(socks4_target) = socks4_target else {
         panic!("expected SOCKS4 connect request");
     };
     assert_eq!(socks4_target.addr.ip(), expected_ip);
@@ -154,14 +154,14 @@ fn domain_protocols_resolve_through_encrypted_dns_runtime_context() {
     ];
     let socks5_target =
         parse_socks5_request(&socks5_request, SocketType::Stream, session, &resolver).expect("parse socks5 request");
-    let ripdpi_session::ClientRequest::Socks5Connect(socks5_target) = socks5_target else {
+    let ripdpi_proxy_runtime_adapter::session::ClientRequest::Socks5Connect(socks5_target) = socks5_target else {
         panic!("expected SOCKS5 connect request");
     };
     assert_eq!(socks5_target.addr.ip(), expected_ip);
 
     let http_request = b"CONNECT fixture.test:443 HTTP/1.1\r\nHost: fixture.test:443\r\n\r\n";
     let http_target = parse_http_connect_request(http_request, &resolver).expect("parse http connect request");
-    let ripdpi_session::ClientRequest::HttpConnect(http_target) = http_target else {
+    let ripdpi_proxy_runtime_adapter::session::ClientRequest::HttpConnect(http_target) = http_target else {
         panic!("expected HTTP CONNECT request");
     };
     assert_eq!(http_target.addr.ip(), expected_ip);
@@ -277,13 +277,13 @@ fn negotiate_socks5_rejects_unauthenticated_method_when_token_required() {
 
     let mut reply = [0u8; 2];
     client.read_exact(&mut reply).expect("read auth method reply");
-    assert_eq!(reply, [S_VER5, ripdpi_session::S_AUTH_BAD]);
+    assert_eq!(reply, [S_VER5, ripdpi_proxy_runtime_adapter::session::S_AUTH_BAD]);
 }
 
 #[test]
 fn negotiate_socks5_rejects_wrong_password() {
     let (mut client, mut server) = connected_pair();
-    let mut request = vec![0x01, ripdpi_session::S_AUTH_USERPASS];
+    let mut request = vec![0x01, ripdpi_proxy_runtime_adapter::session::S_AUTH_USERPASS];
     request.extend([0x01, 0x06]);
     request.extend_from_slice(b"ripdpi");
     request.push(0x05);
@@ -295,7 +295,7 @@ fn negotiate_socks5_rejects_wrong_password() {
 
     let mut method_reply = [0u8; 2];
     client.read_exact(&mut method_reply).expect("read method reply");
-    assert_eq!(method_reply, [S_VER5, ripdpi_session::S_AUTH_USERPASS]);
+    assert_eq!(method_reply, [S_VER5, ripdpi_proxy_runtime_adapter::session::S_AUTH_USERPASS]);
 
     let mut auth_reply = [0u8; 2];
     client.read_exact(&mut auth_reply).expect("read auth status");

@@ -52,7 +52,7 @@ mod tests {
     use crate::sync::{Arc, AtomicUsize};
     use ripdpi_config::{DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT};
     use ripdpi_packets::{DEFAULT_FAKE_TLS, IS_HTTPS};
-    use ripdpi_session::{
+    use ripdpi_proxy_runtime_adapter::session::{
         encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, OutboundProgress, S_ATP_I4, S_ATP_I6,
         S_CMD_CONN, S_ER_CONN, S_VER5,
     };

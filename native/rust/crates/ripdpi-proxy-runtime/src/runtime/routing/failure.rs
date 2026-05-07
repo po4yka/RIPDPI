@@ -106,11 +106,11 @@ mod tests {
 
 #[cfg(test)]
 #[allow(clippy::items_after_test_module)]
-pub(in crate::runtime) fn trigger_flag(trigger: ripdpi_session::TriggerEvent) -> u32 {
+pub(in crate::runtime) fn trigger_flag(trigger: ripdpi_proxy_runtime_adapter::session::TriggerEvent) -> u32 {
     match trigger {
-        ripdpi_session::TriggerEvent::Redirect => ripdpi_config::DETECT_HTTP_LOCAT,
-        ripdpi_session::TriggerEvent::SslErr => ripdpi_config::DETECT_TLS_HANDSHAKE_FAILURE,
-        ripdpi_session::TriggerEvent::Connect => ripdpi_config::DETECT_CONNECT,
-        ripdpi_session::TriggerEvent::Torst => ripdpi_config::DETECT_TORST,
+        ripdpi_proxy_runtime_adapter::session::TriggerEvent::Redirect => ripdpi_config::DETECT_HTTP_LOCAT,
+        ripdpi_proxy_runtime_adapter::session::TriggerEvent::SslErr => ripdpi_config::DETECT_TLS_HANDSHAKE_FAILURE,
+        ripdpi_proxy_runtime_adapter::session::TriggerEvent::Connect => ripdpi_config::DETECT_CONNECT,
+        ripdpi_proxy_runtime_adapter::session::TriggerEvent::Torst => ripdpi_config::DETECT_TORST,
     }
 }

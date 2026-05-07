@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
-use ripdpi_session::SessionState;
+use ripdpi_proxy_runtime_adapter::session::SessionState;
 
 use crate::runtime::adaptive::note_server_ttl_for_route;
 use crate::runtime::relay::failure_retry::first_outbound::should_note_server_ttl;
