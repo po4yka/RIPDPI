@@ -191,26 +191,15 @@ pub struct TcpChainStep {
 
 impl TcpChainStep {
     pub const fn new(kind: TcpChainStepKind, offset: OffsetExpr) -> Self {
-        Self {
-            common: TcpStepCommon { offset, activation_filter: None, inter_segment_delay_ms: 0 },
-            payload: TcpStepPayloadStorage::default_for_kind(kind),
-        }
+        Self { common: TcpStepCommon::new(offset), payload: TcpStepPayloadStorage::default_for_kind(kind) }
     }
 
     pub const fn kind(&self) -> TcpChainStepKind {
         self.payload.kind()
     }
 
-    pub fn set_kind(&mut self, kind: TcpChainStepKind) {
-        self.payload = TcpStepPayloadStorage::default_for_kind(kind);
-    }
-
     pub const fn offset(&self) -> OffsetExpr {
         self.common.offset
-    }
-
-    pub fn set_offset(&mut self, offset: OffsetExpr) {
-        self.common.offset = offset;
     }
 
     pub const fn activation_filter(&self) -> Option<ActivationFilter> {
@@ -222,10 +211,6 @@ impl TcpChainStep {
         self
     }
 
-    pub fn set_activation_filter(&mut self, activation_filter: Option<ActivationFilter>) {
-        self.common.activation_filter = activation_filter;
-    }
-
     pub const fn midhost_offset(&self) -> Option<OffsetExpr> {
         self.payload.midhost_offset()
     }
@@ -233,10 +218,6 @@ impl TcpChainStep {
     pub fn with_midhost_offset(mut self, midhost_offset: Option<OffsetExpr>) -> Self {
         self.payload.set_midhost_offset(midhost_offset);
         self
-    }
-
-    pub fn set_midhost_offset(&mut self, midhost_offset: Option<OffsetExpr>) {
-        self.payload.set_midhost_offset(midhost_offset);
     }
 
     pub fn fake_host_template(&self) -> Option<&str> {
@@ -248,10 +229,6 @@ impl TcpChainStep {
         self
     }
 
-    pub fn set_fake_host_template(&mut self, fake_host_template: Option<String>) {
-        self.payload.set_fake_host_template(fake_host_template);
-    }
-
     pub const fn random_fake_host(&self) -> bool {
         self.payload.random_fake_host()
     }
@@ -261,22 +238,6 @@ impl TcpChainStep {
         self
     }
 
-    pub fn set_random_fake_host(&mut self, random_fake_host: bool) {
-        self.payload.set_random_fake_host(random_fake_host);
-    }
-
-    pub fn set_fake_ordering(&mut self, ordering: TcpFakeOrdering) {
-        self.payload.set_fake_ordering(ordering);
-    }
-
-    pub fn set_fake_flag_overrides(&mut self, flags: TcpFlagOverrides) {
-        self.payload.set_fake_flag_overrides(flags);
-    }
-
-    pub fn set_original_flag_overrides(&mut self, flags: TcpFlagOverrides) {
-        self.payload.set_original_flag_overrides(flags);
-    }
-
     pub const fn inter_segment_delay_ms(&self) -> u32 {
         self.common.inter_segment_delay_ms
     }
@@ -284,10 +245,6 @@ impl TcpChainStep {
     pub fn with_inter_segment_delay_ms(mut self, delay_ms: u32) -> Self {
         self.common.inter_segment_delay_ms = delay_ms;
         self
-    }
-
-    pub fn set_inter_segment_delay_ms(&mut self, delay_ms: u32) {
-        self.common.inter_segment_delay_ms = delay_ms;
     }
 }
 

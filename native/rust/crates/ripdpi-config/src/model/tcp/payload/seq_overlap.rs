@@ -20,7 +20,7 @@ impl TcpChainStep {
         self
     }
 
-    pub fn apply_seq_overlap_payload(&mut self, payload: TcpSeqOverlapPayload) {
+    pub(crate) fn apply_seq_overlap_payload(&mut self, payload: TcpSeqOverlapPayload) {
         self.payload.set_seq_overlap_payload(payload);
     }
 

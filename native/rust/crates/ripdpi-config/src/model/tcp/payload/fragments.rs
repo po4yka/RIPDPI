@@ -24,7 +24,7 @@ impl TcpChainStep {
         self
     }
 
-    pub fn apply_ip_frag_payload(&mut self, payload: TcpIpFragPayload) {
+    pub(crate) fn apply_ip_frag_payload(&mut self, payload: TcpIpFragPayload) {
         self.payload.set_ip_frag_payload(payload);
     }
 

@@ -113,7 +113,7 @@ impl TcpMorphMutations {
             for (index, step) in
                 morphed.actions.tcp_chain.iter_mut().filter(|step| step_supports_cadence(step.kind())).enumerate()
             {
-                step.set_inter_segment_delay_ms(self.cadence[index % self.cadence.len()]);
+                *step = step.clone().with_inter_segment_delay_ms(self.cadence[index % self.cadence.len()]);
             }
         }
         morphed

@@ -13,7 +13,7 @@ impl TcpChainStep {
         self
     }
 
-    pub fn apply_tls_randrec_payload(&mut self, payload: TcpTlsRandRecPayload) {
+    pub(crate) fn apply_tls_randrec_payload(&mut self, payload: TcpTlsRandRecPayload) {
         self.payload.set_tls_randrec_payload(payload);
     }
 

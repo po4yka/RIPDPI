@@ -3,7 +3,8 @@ use std::borrow::Cow;
 use std::io;
 
 use ripdpi_config::{
-    EntropyMode, FakeOrder, FakeSeqMode, NumericRange, OffsetBase, OffsetExpr, TcpChainStep, TcpFlagOverrides,
+    EntropyMode, FakeOrder, FakeSeqMode, NumericRange, OffsetBase, OffsetExpr, TcpChainStep, TcpFakePayload,
+    TcpFlagOverrides, TcpHostFakePayload, TcpTypedChainStep,
 };
 use ripdpi_desync::{
     ActivationTcpState, ActivationTransport, AdaptivePlannerHints, DesyncAction, DesyncPlan, PlannedStep, ProtoInfo,
@@ -42,6 +43,27 @@ fn test_group() -> DesyncGroup {
 
 fn test_offset() -> OffsetExpr {
     OffsetExpr::absolute(0)
+}
+
+fn with_original_flag_overrides(step: &TcpChainStep, original_flags: TcpFlagOverrides) -> TcpChainStep {
+    match step.typed_step() {
+        TcpTypedChainStep::Plain { kind, common, .. } => {
+            TcpChainStep::from_typed_step(TcpTypedChainStep::Plain { kind, common, original_flags })
+        }
+        TcpTypedChainStep::Fake { kind, common, payload } => TcpChainStep::from_typed_step(TcpTypedChainStep::Fake {
+            kind,
+            common,
+            payload: TcpFakePayload { original_flags, ..payload },
+        }),
+        TcpTypedChainStep::HostFake { common, payload } => TcpChainStep::from_typed_step(TcpTypedChainStep::HostFake {
+            common,
+            payload: TcpHostFakePayload { original_flags, ..payload },
+        }),
+        TcpTypedChainStep::IpFrag { common, payload, .. } => {
+            TcpChainStep::from_typed_step(TcpTypedChainStep::IpFrag { common, payload, original_flags })
+        }
+        typed_step => TcpChainStep::from_typed_step(typed_step),
+    }
 }
 
 fn connected_pair() -> (TcpStream, TcpStream) {
@@ -547,8 +569,8 @@ fn execute_multidisorder_tcp_plan_rejects_partial_payload_coverage() {
 #[test]
 fn prepare_multidisorder_tcp_plan_accepts_contiguous_full_payload() {
     let mut chain = multidisorder_chain();
-    chain[0].set_inter_segment_delay_ms(17);
-    chain[0].set_original_flag_overrides(TcpFlagOverrides { set: Some(0x12), unset: None });
+    let first_step = chain[0].clone().with_inter_segment_delay_ms(17);
+    chain[0] = with_original_flag_overrides(&first_step, TcpFlagOverrides { set: Some(0x12), unset: None });
 
     let prepared = prepare_multi_disorder_tcp_plan(
         &chain,
@@ -1623,8 +1645,10 @@ fn plan_ipfrag2_fallback_writes_full_payload() {
 fn plan_ipfrag2_fallback_with_original_flags_fails_closed() {
     let (mut client, mut server) = connected_pair();
     let unavailable = default_ttl_unavailable();
-    let mut step = TcpChainStep::new(TcpChainStepKind::IpFrag2, test_offset());
-    step.set_original_flag_overrides(TcpFlagOverrides { set: Some(0x12), unset: None });
+    let step = with_original_flag_overrides(
+        &TcpChainStep::new(TcpChainStepKind::IpFrag2, test_offset()),
+        TcpFlagOverrides { set: Some(0x12), unset: None },
+    );
     let mut group = test_group();
     group.actions.tcp_chain.push(step);
 
@@ -1725,8 +1749,10 @@ fn plan_hostfake_without_resolved_span_with_original_flags_fails_closed() {
     let unavailable = default_ttl_unavailable();
     let payload = b"GET / HTTP/1.1\r\nHost: sub.example.com\r\n\r\n";
     let markers = http_marker_info(payload).expect("http markers");
-    let mut step = TcpChainStep::new(TcpChainStepKind::HostFake, test_offset());
-    step.set_original_flag_overrides(TcpFlagOverrides { set: Some(0x12), unset: None });
+    let step = with_original_flag_overrides(
+        &TcpChainStep::new(TcpChainStepKind::HostFake, test_offset()),
+        TcpFlagOverrides { set: Some(0x12), unset: None },
+    );
     let mut group = test_group();
     group.actions.tcp_chain.push(step);
 
@@ -1759,8 +1785,10 @@ fn plan_hostfake_without_resolved_span_with_original_flags_fails_closed() {
 fn plan_fakesplit_terminal_step_with_original_flags_fails_closed() {
     let (mut client, mut server) = connected_pair();
     let unavailable = default_ttl_unavailable();
-    let mut step = TcpChainStep::new(TcpChainStepKind::FakeSplit, test_offset());
-    step.set_original_flag_overrides(TcpFlagOverrides { set: Some(0x12), unset: None });
+    let step = with_original_flag_overrides(
+        &TcpChainStep::new(TcpChainStepKind::FakeSplit, test_offset()),
+        TcpFlagOverrides { set: Some(0x12), unset: None },
+    );
     let mut group = test_group();
     group.actions.tcp_chain.push(step);
 
@@ -1793,8 +1821,10 @@ fn plan_fakesplit_terminal_step_with_original_flags_fails_closed() {
 fn plan_fakeddisorder_terminal_step_with_original_flags_fails_closed() {
     let (mut client, mut server) = connected_pair();
     let unavailable = default_ttl_unavailable();
-    let mut step = TcpChainStep::new(TcpChainStepKind::FakeDisorder, test_offset());
-    step.set_original_flag_overrides(TcpFlagOverrides { set: Some(0x12), unset: None });
+    let step = with_original_flag_overrides(
+        &TcpChainStep::new(TcpChainStepKind::FakeDisorder, test_offset()),
+        TcpFlagOverrides { set: Some(0x12), unset: None },
+    );
     let mut group = test_group();
     group.actions.tcp_chain.push(step);
 

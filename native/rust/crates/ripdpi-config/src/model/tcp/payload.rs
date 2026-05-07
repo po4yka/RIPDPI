@@ -4,7 +4,6 @@ mod flags;
 mod fragments;
 mod host_fake;
 mod invariant;
-mod legacy;
 mod seq_overlap;
 mod tls_prelude;
 mod typed;
@@ -14,7 +13,6 @@ pub use flags::TcpFlagOverrides;
 pub use fragments::{TcpIpFragPayload, TcpIpv6ExtensionPayload};
 pub use host_fake::TcpHostFakePayload;
 pub use invariant::TcpStepPayloadInvariantError;
-pub use legacy::TcpLegacyPayloadFields;
 pub use seq_overlap::TcpSeqOverlapPayload;
 pub use tls_prelude::TcpTlsRandRecPayload;
 pub(crate) use typed::TcpStepPayloadStorage;
@@ -52,11 +50,15 @@ mod tests {
 
     #[test]
     fn host_fake_payload_borrows_compatible_fields() {
-        let mut step = TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::Host, 1))
+        let step = TcpChainStep::new(TcpChainStepKind::HostFake, OffsetExpr::marker(OffsetBase::Host, 1))
             .with_midhost_offset(Some(OffsetExpr::marker(OffsetBase::HostMid, 0)))
             .with_fake_host_template(Some("cdn.example".to_string()))
-            .with_random_fake_host(true);
-        step.set_fake_ordering(TcpFakeOrdering { order: FakeOrder::AllFakesFirst, seq_mode: FakeSeqMode::Sequential });
+            .with_random_fake_host(true)
+            .with_fake_payload(TcpFakePayload {
+                ordering: TcpFakeOrdering { order: FakeOrder::AllFakesFirst, seq_mode: FakeSeqMode::Sequential },
+                fake_flags: TcpFlagOverrides::disabled(),
+                original_flags: TcpFlagOverrides::disabled(),
+            });
 
         let payload = step.host_fake_payload().expect("hostfake payload");
 
@@ -100,11 +102,9 @@ mod tests {
     }
 
     #[test]
-    fn typed_step_ignores_fake_ordering_on_plain_step() {
-        let mut step = TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(3));
-        step.set_fake_ordering(TcpFakeOrdering { order: FakeOrder::AllFakesFirst, seq_mode: FakeSeqMode::Sequential });
+    fn typed_step_projects_plain_step() {
+        let step = TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(3));
 
-        assert_eq!(step.fake_ordering(), TcpFakeOrdering::before_each_duplicate());
         assert!(matches!(step.try_typed_step(), Ok(TcpTypedChainStep::Plain { .. })));
     }
 
@@ -115,34 +115,6 @@ mod tests {
 
         assert_eq!(step.host_fake_payload(), None);
         assert!(matches!(step.try_typed_step(), Ok(TcpTypedChainStep::Fake { .. })));
-    }
-
-    #[test]
-    fn legacy_payload_boundary_rejects_fake_ordering_on_plain_step() {
-        let mut step = TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::absolute(3));
-        let error = step
-            .try_apply_legacy_payload_fields(TcpLegacyPayloadFields {
-                fake_ordering: TcpFakeOrdering { order: FakeOrder::AllFakesFirst, seq_mode: FakeSeqMode::Sequential },
-                ..TcpLegacyPayloadFields::default()
-            })
-            .expect_err("legacy fake ordering");
-
-        assert_eq!(error.kind(), TcpChainStepKind::Split);
-        assert_eq!(error.field(), "fake ordering");
-    }
-
-    #[test]
-    fn legacy_payload_boundary_rejects_hostfake_payload_on_fake_step() {
-        let mut step = TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::absolute(3));
-        let error = step
-            .try_apply_legacy_payload_fields(TcpLegacyPayloadFields {
-                fake_host_template: Some("example.invalid".to_string()),
-                ..TcpLegacyPayloadFields::default()
-            })
-            .expect_err("legacy hostfake payload");
-
-        assert_eq!(error.kind(), TcpChainStepKind::Fake);
-        assert_eq!(error.field(), "hostfake");
     }
 
     #[test]
@@ -159,5 +131,25 @@ mod tests {
         let typed = step.try_typed_step().expect("typed ipfrag");
 
         assert!(matches!(typed, TcpTypedChainStep::IpFrag { payload: typed_payload, .. } if typed_payload == payload));
+    }
+
+    #[test]
+    fn typed_step_constructor_owns_hostfake_template() {
+        let common = TcpStepCommon::new(OffsetExpr::marker(OffsetBase::Host, 1));
+        let template = String::from("cdn.example");
+        let step = TcpChainStep::from_typed_step(TcpTypedChainStep::HostFake {
+            common,
+            payload: TcpHostFakePayload {
+                midhost_offset: Some(OffsetExpr::marker(OffsetBase::HostMid, 0)),
+                fake_host_template: Some(template.as_str()),
+                random_fake_host: false,
+                ordering: TcpFakeOrdering::before_each_duplicate(),
+                fake_flags: TcpFlagOverrides::disabled(),
+                original_flags: TcpFlagOverrides::disabled(),
+            },
+        });
+        drop(template);
+
+        assert_eq!(step.fake_host_template(), Some("cdn.example"));
     }
 }

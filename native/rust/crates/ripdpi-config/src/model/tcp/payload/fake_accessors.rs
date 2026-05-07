@@ -7,10 +7,10 @@ impl TcpChainStep {
         self
     }
 
-    pub fn apply_fake_payload(&mut self, payload: TcpFakePayload) {
-        self.set_fake_ordering(payload.ordering);
-        self.set_fake_flag_overrides(payload.fake_flags);
-        self.set_original_flag_overrides(payload.original_flags);
+    pub(crate) fn apply_fake_payload(&mut self, payload: TcpFakePayload) {
+        self.payload.set_fake_ordering(payload.ordering);
+        self.payload.set_fake_flag_overrides(payload.fake_flags);
+        self.payload.set_original_flag_overrides(payload.original_flags);
     }
 
     pub fn fake_payload(&self) -> Option<TcpFakePayload> {

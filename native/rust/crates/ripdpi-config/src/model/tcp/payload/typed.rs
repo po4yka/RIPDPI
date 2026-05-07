@@ -21,6 +21,12 @@ pub struct TcpStepCommon {
     pub inter_segment_delay_ms: u32,
 }
 
+impl TcpStepCommon {
+    pub const fn new(offset: OffsetExpr) -> Self {
+        Self { offset, activation_filter: None, inter_segment_delay_ms: 0 }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum TcpTypedChainStep<'a> {
     Plain { kind: TcpChainStepKind, common: TcpStepCommon, original_flags: TcpFlagOverrides },
@@ -348,10 +354,43 @@ impl TcpStepPayloadStorage {
 }
 
 impl TcpChainStep {
-    pub fn try_typed_step(&self) -> Result<TcpTypedChainStep<'_>, TcpStepPayloadInvariantError> {
-        self.validate_payload_family()?;
+    pub fn from_typed_step(step: TcpTypedChainStep<'_>) -> Self {
+        match step {
+            TcpTypedChainStep::Plain { kind, common, original_flags } => {
+                Self { common, payload: TcpStepPayloadStorage::Plain { kind, original_flags } }
+            }
+            TcpTypedChainStep::SeqOverlap { common, payload } => {
+                Self { common, payload: TcpStepPayloadStorage::SeqOverlap(payload) }
+            }
+            TcpTypedChainStep::Fake { kind, common, payload } => {
+                Self { common, payload: TcpStepPayloadStorage::Fake { kind, payload } }
+            }
+            TcpTypedChainStep::HostFake { common, payload } => Self {
+                common,
+                payload: TcpStepPayloadStorage::HostFake(TcpHostFakePayloadStorage {
+                    midhost_offset: payload.midhost_offset,
+                    fake_host_template: payload.fake_host_template.map(str::to_owned),
+                    random_fake_host: payload.random_fake_host,
+                    ordering: payload.ordering,
+                    fake_flags: payload.fake_flags,
+                    original_flags: payload.original_flags,
+                }),
+            },
+            TcpTypedChainStep::TlsRandRec { common, payload } => {
+                Self { common, payload: TcpStepPayloadStorage::TlsRandRec(payload) }
+            }
+            TcpTypedChainStep::IpFrag { common, payload, original_flags } => {
+                Self { common, payload: TcpStepPayloadStorage::IpFrag { payload, original_flags } }
+            }
+            TcpTypedChainStep::FakeRst { common, fake_flags } => {
+                Self { common, payload: TcpStepPayloadStorage::FakeRst { fake_flags } }
+            }
+        }
+    }
+
+    pub fn typed_step(&self) -> TcpTypedChainStep<'_> {
         let common = self.common_payload();
-        Ok(match &self.payload {
+        match &self.payload {
             TcpStepPayloadStorage::Plain { kind, original_flags } => {
                 TcpTypedChainStep::Plain { kind: *kind, common, original_flags: *original_flags }
             }
@@ -370,7 +409,12 @@ impl TcpChainStep {
             TcpStepPayloadStorage::FakeRst { fake_flags } => {
                 TcpTypedChainStep::FakeRst { common, fake_flags: *fake_flags }
             }
-        })
+        }
+    }
+
+    pub fn try_typed_step(&self) -> Result<TcpTypedChainStep<'_>, TcpStepPayloadInvariantError> {
+        self.validate_payload_family()?;
+        Ok(self.typed_step())
     }
 
     pub fn typed_payload(&self) -> TcpStepPayload<'_> {

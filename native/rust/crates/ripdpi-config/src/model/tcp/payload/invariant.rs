@@ -10,7 +10,7 @@ pub struct TcpStepPayloadInvariantError {
 }
 
 impl TcpStepPayloadInvariantError {
-    pub(crate) const fn new(kind: TcpChainStepKind, field: &'static str) -> Self {
+    pub const fn new(kind: TcpChainStepKind, field: &'static str) -> Self {
         Self { kind, field }
     }
 

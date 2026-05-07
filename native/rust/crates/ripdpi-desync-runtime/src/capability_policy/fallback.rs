@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use ripdpi_config::DesyncGroup;
+use ripdpi_config::{DesyncGroup, TcpChainStep};
 use ripdpi_proxy_config::ProxyDirectPathCapability;
 
 use crate::strategy_family::{primary_tcp_strategy_family, tcp_fallback_kind_for_strategy};
@@ -31,7 +31,9 @@ pub(crate) fn apply_tcp_capability_fallback<'a>(
     if let Some(fallback_kind) = tcp_fallback_kind_for_strategy(strategy_family) {
         if let Some(step) = adjusted.actions.tcp_chain.iter_mut().find(|step| !step.kind().is_tls_prelude()) {
             if step.kind() != fallback_kind {
-                step.set_kind(fallback_kind);
+                *step = TcpChainStep::new(fallback_kind, step.offset())
+                    .with_activation_filter(step.activation_filter())
+                    .with_inter_segment_delay_ms(step.inter_segment_delay_ms());
                 changed = true;
             }
         }
