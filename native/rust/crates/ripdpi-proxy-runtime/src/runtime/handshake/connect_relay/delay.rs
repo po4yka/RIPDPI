@@ -3,8 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    delayed_connect_enabled, delayed_route_matches_payload, route_requires_delay_payload, runtime_buffer_size,
-    DETECT_CONNECT,
+    delayed_connect_settings, delayed_route_matches_payload, route_requires_delay_payload, DETECT_CONNECT,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 use ripdpi_proxy_runtime_adapter::model::session::extract_payload_host;
@@ -29,7 +28,8 @@ pub(super) fn maybe_delay_connect(
     host_hint: Option<&str>,
     handshake: HandshakeKind,
 ) -> Result<DelayConnect, ConnectRelayError> {
-    if !delayed_connect_enabled(&state.config) {
+    let settings = delayed_connect_settings(&state.config);
+    if !settings.enabled {
         return Ok(DelayConnect::Immediate);
     }
     let route = super::super::super::routing::select_route(state, target, None, None, true)
@@ -42,8 +42,8 @@ pub(super) fn maybe_delay_connect(
     }
 
     send_success_reply(client, handshake).map_err(|err| ConnectRelayError::new(err, false))?;
-    let Some(payload) = read_blocking_first_request(client, runtime_buffer_size(&state.config))
-        .map_err(|err| ConnectRelayError::new(err, true))?
+    let Some(payload) =
+        read_blocking_first_request(client, settings.buffer_size).map_err(|err| ConnectRelayError::new(err, true))?
     else {
         return Ok(DelayConnect::Closed);
     };
