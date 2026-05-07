@@ -335,6 +335,15 @@ pub mod config {
         }
     }
 
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct ResponseFailureEvidenceSettings {
+        pub protect_path: Option<String>,
+    }
+
+    pub fn response_failure_evidence_settings(config: &RuntimeConfig) -> ResponseFailureEvidenceSettings {
+        ResponseFailureEvidenceSettings { protect_path: protect_path_owned(config) }
+    }
+
     #[derive(Clone, Copy)]
     pub struct FirstResponseSettings {
         pub buffer_size: usize,
@@ -578,6 +587,17 @@ pub mod config {
             assert!(!settings.rotation_enabled);
             assert_eq!(settings.timeouts.freeze_max_stalls, 7);
             assert!(relay_group_settings(&config, 1).is_none());
+        }
+
+        #[test]
+        fn response_failure_evidence_settings_project_protect_path() {
+            let mut config = RuntimeConfig::default();
+            config.process.protect_path = Some("/tmp/protect.sock".to_string());
+
+            assert_eq!(
+                response_failure_evidence_settings(&config),
+                ResponseFailureEvidenceSettings { protect_path: Some("/tmp/protect.sock".to_string()) },
+            );
         }
 
         #[test]
