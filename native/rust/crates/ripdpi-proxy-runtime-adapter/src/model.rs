@@ -303,6 +303,14 @@ pub mod config {
             .is_some_and(|group| group_requests_direct_syn_data_tfo(group, payload))
     }
 
+    pub fn connection_route_requests_direct_syn_data_tfo(
+        config: &RuntimeConfig,
+        route: &ripdpi_runtime_decision_ports::policy::ConnectionRoute,
+        payload: Option<&[u8]>,
+    ) -> bool {
+        route_requests_direct_syn_data_tfo(config, route.group_index, payload)
+    }
+
     pub fn ws_tunnel_always_enabled(config: &RuntimeConfig) -> bool {
         config.adaptive.ws_tunnel_mode == WsTunnelMode::Always
     }
@@ -478,6 +486,30 @@ pub mod config {
 
             group.policy.ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::from(([127, 0, 0, 1], 1080)) });
             assert!(!group_requests_direct_syn_data_tfo(&group, Some(b"GET / HTTP/1.1\r\n\r\n")));
+        }
+
+        #[test]
+        fn connection_route_direct_syn_data_tfo_uses_route_group() {
+            let mut direct = DesyncGroup::new(0);
+            direct.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1)));
+            let plain = DesyncGroup::new(1);
+            let config = RuntimeConfig { groups: vec![direct, plain], ..Default::default() };
+
+            let direct_route =
+                ripdpi_runtime_decision_ports::policy::ConnectionRoute { group_index: 0, attempted_mask: 0 };
+            let plain_route =
+                ripdpi_runtime_decision_ports::policy::ConnectionRoute { group_index: 1, attempted_mask: 0 };
+
+            assert!(connection_route_requests_direct_syn_data_tfo(
+                &config,
+                &direct_route,
+                Some(b"GET / HTTP/1.1\r\n\r\n"),
+            ));
+            assert!(!connection_route_requests_direct_syn_data_tfo(
+                &config,
+                &plain_route,
+                Some(b"GET / HTTP/1.1\r\n\r\n"),
+            ));
         }
 
         #[test]
