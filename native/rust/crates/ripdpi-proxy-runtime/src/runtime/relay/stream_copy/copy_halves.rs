@@ -6,7 +6,7 @@ use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
-use super::super::super::desync::{send_with_group, OutboundSendError};
+use super::super::super::desync::{send_with_group, DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
 use super::freeze::FreezeDetector;
 use super::observers::{observe_rotation_inbound_chunk, observe_rotation_transport_failure};
@@ -138,9 +138,12 @@ pub(super) fn flush_outbound_payload(
     } else {
         base_group
     };
-    let send_outcome =
-        send_with_group(writer, state, group_index, &group, payload, progress, host.as_deref(), peer_addr)
-            .map_err(OutboundSendError::into_io_error)?;
+    let send_outcome = send_with_group(
+        writer,
+        state,
+        DesyncSendRequest { group_index, group: &group, payload, progress, host: host.as_deref(), target: peer_addr },
+    )
+    .map_err(OutboundSendError::into_io_error)?;
     tracing::trace!(
         target = %peer_addr,
         strategy_family = send_outcome.strategy_family.unwrap_or("plain"),

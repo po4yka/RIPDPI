@@ -45,7 +45,7 @@ pub fn run_proxy_with_embedded_control(
 mod tests {
     #[cfg(not(feature = "loom"))]
     use super::state::ClientSlotGuard;
-    use crate::runtime::desync::send_with_group;
+    use crate::runtime::desync::{send_with_group, DesyncSendRequest};
     use crate::runtime::routing::{advance_route_for_failure, select_route};
     use crate::runtime::state::RuntimeState;
     #[cfg(not(feature = "loom"))]
@@ -289,12 +289,14 @@ mod tests {
         send_with_group(
             &mut upstream,
             &state,
-            next.group_index,
-            &config.groups[next.group_index],
-            &payload,
-            progress,
-            Some("example.org"),
-            target,
+            DesyncSendRequest {
+                group_index: next.group_index,
+                group: &config.groups[next.group_index],
+                payload: &payload,
+                progress,
+                host: Some("example.org"),
+                target,
+            },
         )
         .expect("send via fallback group");
 

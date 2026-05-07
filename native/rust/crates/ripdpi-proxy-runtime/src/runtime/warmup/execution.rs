@@ -14,7 +14,7 @@ use super::classification::{
 use super::resolver::resolve_probe_target;
 use super::target_catalog::PROBE_TIMEOUT;
 use super::tls_probe::build_probe_client_hello;
-use crate::runtime::desync::send_with_group;
+use crate::runtime::desync::{send_with_group, DesyncSendRequest};
 use crate::runtime::routing::connect_target;
 use crate::runtime::state::RuntimeState;
 use ripdpi_proxy_runtime_adapter::platform::warmup as warmup_platform;
@@ -41,8 +41,18 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
         stream_start: 0,
         stream_end: payload.len().saturating_sub(1),
     };
-    let send_result =
-        send_with_group(&mut upstream, state, route.group_index, &group, &payload, progress, Some(domain), target);
+    let send_result = send_with_group(
+        &mut upstream,
+        state,
+        DesyncSendRequest {
+            group_index: route.group_index,
+            group: &group,
+            payload: &payload,
+            progress,
+            host: Some(domain),
+            target,
+        },
+    );
 
     if let Err(err) = send_result {
         let io_err = err.into_io_error();

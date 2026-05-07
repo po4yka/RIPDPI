@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host, SessionState};
 
-use super::super::super::desync::{send_with_group, OutboundSendError};
+use super::super::super::desync::{send_with_group, DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
 use super::cleanup::shutdown_direction;
 use super::observations::observe_outbound_payload;
@@ -68,12 +68,14 @@ fn flush_outbound_payload(
     let send_outcome = send_with_group(
         writer,
         state,
-        group_index,
-        &group,
-        payload,
-        progress,
-        parsed_host.as_deref().or(remembered_host.as_deref()),
-        peer_addr,
+        DesyncSendRequest {
+            group_index,
+            group: &group,
+            payload,
+            progress,
+            host: parsed_host.as_deref().or(remembered_host.as_deref()),
+            target: peer_addr,
+        },
     )
     .map_err(OutboundSendError::into_io_error)?;
     tracing::trace!(

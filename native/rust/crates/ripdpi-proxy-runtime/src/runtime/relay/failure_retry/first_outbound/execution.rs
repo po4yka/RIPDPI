@@ -4,7 +4,7 @@ use ripdpi_proxy_runtime_adapter::model::config::selected_desync_group;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::session::{observe_outbound_payload, SessionState};
 
-use crate::runtime::desync::{send_with_group, OutboundSendError};
+use crate::runtime::desync::{send_with_group, DesyncSendRequest, OutboundSendError};
 use crate::runtime::state::RuntimeState;
 
 pub(super) fn execute_first_write(
@@ -20,8 +20,18 @@ pub(super) fn execute_first_write(
     let group = selected_desync_group(&state.config, route.group_index)
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "missing desync group"))?
         .clone();
-    let send_outcome =
-        send_with_group(upstream, state, route.group_index, &group, original_request, progress, host, target)?;
+    let send_outcome = send_with_group(
+        upstream,
+        state,
+        DesyncSendRequest {
+            group_index: route.group_index,
+            group: &group,
+            payload: original_request,
+            progress,
+            host,
+            target,
+        },
+    )?;
     tracing::debug!(
         target = %target,
         strategy_family = send_outcome.strategy_family.unwrap_or("plain"),
