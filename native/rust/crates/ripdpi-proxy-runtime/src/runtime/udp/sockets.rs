@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
-use ripdpi_proxy_runtime_adapter::platform;
+use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
 
 pub(crate) struct UdpRelaySockets {
     pub(crate) client: UdpSocket,
@@ -24,7 +24,7 @@ fn bind_udp_socket(bind_addr: SocketAddr, protect_path: Option<&str>) -> io::Res
     let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
     socket.set_reuse_address(true)?;
     if let Some(path) = protect_path {
-        platform::vpn::protect_socket(&socket, Some(path))?;
+        udp_platform::protect_socket(&socket, path)?;
     }
     socket.bind(&SockAddr::from(bind_addr))?;
     let socket: UdpSocket = socket.into();
@@ -45,7 +45,7 @@ pub(crate) fn build_udp_upstream_socket(
     let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP))?;
     socket.set_reuse_address(true)?;
     if let Some(path) = protect_path {
-        platform::vpn::protect_socket(&socket, Some(path))?;
+        udp_platform::protect_socket(&socket, path)?;
     }
     let socket: UdpSocket = socket.into();
     socket.set_read_timeout(Some(Duration::from_millis(250)))?;
@@ -55,7 +55,7 @@ pub(crate) fn build_udp_upstream_socket(
             SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
             SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
         };
-        if let Err(err) = platform::socket::bind_udp_low_port(&socket, local_ip, 4_096) {
+        if let Err(err) = udp_platform::bind_low_port(&socket, local_ip, 4_096) {
             tracing::warn!(%target, %err, "failed to bind UDP flow to a low source port");
         }
     }

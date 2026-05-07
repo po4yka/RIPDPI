@@ -68,3 +68,18 @@ pub mod first_response {
         ripdpi_runtime_platform::tcp::tcp_total_retransmissions(stream)
     }
 }
+
+pub mod udp {
+    use std::io;
+    use std::net::{IpAddr, UdpSocket};
+
+    use socket2::Socket;
+
+    pub fn protect_socket(socket: &Socket, protect_path: &str) -> io::Result<()> {
+        ripdpi_runtime_platform::vpn::protect_socket(socket, Some(protect_path))
+    }
+
+    pub fn bind_low_port(socket: &UdpSocket, local_ip: IpAddr, start_port: u16) -> io::Result<()> {
+        ripdpi_runtime_platform::socket::bind_udp_low_port(socket, local_ip, start_port).map(|_| ())
+    }
+}
