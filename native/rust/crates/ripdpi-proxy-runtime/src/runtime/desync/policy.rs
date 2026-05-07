@@ -1,7 +1,9 @@
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_config::DesyncGroup;
-use ripdpi_desync::{ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints};
+use ripdpi_proxy_runtime_adapter::desync_model::{
+    ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints, TcpSegmentHint,
+};
 use ripdpi_proxy_runtime_adapter::desync_platform::{OutboundSendError, OutboundSendOutcome};
 use ripdpi_proxy_runtime_adapter::protocol_payload;
 use ripdpi_session::OutboundProgress;
@@ -17,7 +19,7 @@ pub(crate) fn activation_context_from_progress(
     progress: OutboundProgress,
     transport: ActivationTransport,
     payload: Option<&[u8]>,
-    tcp_segment_hint: Option<ripdpi_desync::TcpSegmentHint>,
+    tcp_segment_hint: Option<TcpSegmentHint>,
     tcp_activation_state: Option<ripdpi_proxy_runtime_adapter::platform::tcp::TcpActivationState>,
     resolved_fake_ttl: Option<u8>,
     adaptive: AdaptivePlannerHints,

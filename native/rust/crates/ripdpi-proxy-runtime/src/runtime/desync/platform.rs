@@ -1,11 +1,12 @@
 use std::net::TcpStream;
 
+use ripdpi_proxy_runtime_adapter::desync_model::{ActivationContext, TcpSegmentHint};
 use ripdpi_proxy_runtime_adapter::desync_platform::{OutboundSendError, OutboundSendOutcome, PcapHook};
 use ripdpi_session::OutboundProgress;
 
 use crate::sync::AtomicBool;
 
-pub(super) fn tcp_segment_hint(stream: &TcpStream) -> Option<ripdpi_desync::TcpSegmentHint> {
+pub(super) fn tcp_segment_hint(stream: &TcpStream) -> Option<TcpSegmentHint> {
     ripdpi_proxy_runtime_adapter::desync_platform::tcp_segment_hint(stream)
 }
 
@@ -26,7 +27,7 @@ pub(super) fn send_prepared_with_runtime_platform(
     group: &ripdpi_config::DesyncGroup,
     payload: &[u8],
     progress: OutboundProgress,
-    context: ripdpi_desync::ActivationContext,
+    context: ActivationContext,
     resolved_fake_ttl: Option<u8>,
     strategy_family_override: Option<&'static str>,
     ttl_unavailable: &AtomicBool,

@@ -13,6 +13,14 @@ pub mod ip_fragmentation {
 }
 
 pub mod desync_platform;
+
+pub mod desync_model {
+    pub use ripdpi_desync::{
+        ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints, AdaptiveTlsRandRecProfile,
+        AdaptiveUdpBurstProfile, TcpSegmentHint,
+    };
+}
+
 pub mod protocol_payload;
 pub mod raw_packet_requirements;
 

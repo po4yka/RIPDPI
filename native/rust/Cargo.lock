@@ -3717,7 +3717,6 @@ dependencies = [
  "nix 0.31.2",
  "ring",
  "ripdpi-config",
- "ripdpi-desync",
  "ripdpi-io-uring",
  "ripdpi-packets",
  "ripdpi-proxy-config",

@@ -1,8 +1,8 @@
 use std::net::SocketAddr;
 
 use ripdpi_config::DesyncGroup;
-use ripdpi_desync::AdaptivePlannerHints;
 use ripdpi_proxy_config::ProxyMorphPolicy;
+use ripdpi_proxy_runtime_adapter::desync_model::AdaptivePlannerHints;
 
 use super::state::RuntimeState;
 
@@ -59,9 +59,9 @@ mod tests {
 
     use crate::runtime::state::RuntimeState;
     use ripdpi_config::{DesyncGroup, EntropyMode, QuicFakeProfile, RuntimeConfig, TcpChainStep, TcpChainStepKind};
-    use ripdpi_desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
     use ripdpi_packets::DEFAULT_FAKE_TLS;
     use ripdpi_proxy_config::ProxyRuntimeContext;
+    use ripdpi_proxy_runtime_adapter::desync_model::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
     use ripdpi_runtime_decision_ports::policy::RuntimePolicy;
 
     fn state_with_policy(policy: ProxyMorphPolicy) -> RuntimeState {
