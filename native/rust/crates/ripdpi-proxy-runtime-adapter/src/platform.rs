@@ -95,9 +95,10 @@ pub mod handshake {
 
 pub mod listener {
     use std::io;
-    use std::net::{SocketAddr, TcpListener};
+    use std::net::{SocketAddr, TcpListener, TcpStream};
+    use std::time::Duration;
 
-    use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+    use socket2::{Domain, Protocol, SockAddr, SockRef, Socket, Type};
 
     pub fn detect_default_ttl() -> io::Result<u8> {
         ripdpi_runtime_platform::capability::detect_default_ttl()
@@ -112,6 +113,10 @@ pub mod listener {
         let listener: TcpListener = socket.into();
         listener.set_nonblocking(true)?;
         Ok(listener)
+    }
+
+    pub fn close_rejected_client(client: &TcpStream) {
+        let _ = SockRef::from(client).set_linger(Some(Duration::ZERO));
     }
 }
 

@@ -7,7 +7,7 @@ use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll};
 use ripdpi_proxy_runtime_adapter::model::config::client_capacity;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
-use socket2::SockRef;
+use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
 use crate::process;
 use crate::runtime::state::{ClientSlotGuard, RuntimeState, LISTENER};
@@ -88,7 +88,7 @@ fn accept_client(stream: mio::net::TcpStream, state: &RuntimeState, worker_pool:
         if let Some(telemetry) = &state.telemetry {
             telemetry.on_client_slot_exhausted();
         }
-        close_rejected_client(&client);
+        listener_platform::close_rejected_client(&client);
         drop(client);
         return Ok(());
     };
@@ -98,7 +98,7 @@ fn accept_client(stream: mio::net::TcpStream, state: &RuntimeState, worker_pool:
             if let Some(telemetry) = &state.telemetry {
                 telemetry.on_client_error(&err);
             }
-            close_rejected_client(&client);
+            listener_platform::close_rejected_client(&client);
             drop(slot);
             drop(client);
             return Ok(());
@@ -108,7 +108,7 @@ fn accept_client(stream: mio::net::TcpStream, state: &RuntimeState, worker_pool:
         if let Some(telemetry) = &state.telemetry {
             telemetry.on_client_error(&io::Error::other("client worker pool is closed"));
         }
-        close_rejected_client(&job.client);
+        listener_platform::close_rejected_client(&job.client);
         drop(job);
         return Ok(());
     }
@@ -116,10 +116,6 @@ fn accept_client(stream: mio::net::TcpStream, state: &RuntimeState, worker_pool:
         telemetry.on_client_accepted();
     }
     Ok(())
-}
-
-fn close_rejected_client(client: &TcpStream) {
-    let _ = SockRef::from(client).set_linger(Some(Duration::ZERO));
 }
 
 fn mio_to_std_stream(stream: mio::net::TcpStream) -> TcpStream {
