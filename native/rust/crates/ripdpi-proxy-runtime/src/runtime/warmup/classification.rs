@@ -2,27 +2,24 @@ use std::io;
 use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::failure::{
-    classify_transport_error, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
+    classify_warmup_closed_before_response as adapter_classify_closed_before_response,
+    classify_warmup_first_response_error as adapter_classify_first_response_error,
+    classify_warmup_send_error as adapter_classify_send_error, ClassifiedFailure,
 };
 
 use crate::runtime::routing::{classify_response_failure, emit_failure_classified};
 use crate::runtime::state::RuntimeState;
 
 pub(crate) fn classify_send_error(err: &io::Error) -> ClassifiedFailure {
-    classify_transport_error(FailureStage::FirstWrite, err)
+    adapter_classify_send_error(err)
 }
 
 pub(crate) fn classify_first_response_error(err: &io::Error) -> ClassifiedFailure {
-    classify_transport_error(FailureStage::FirstResponse, err)
+    adapter_classify_first_response_error(err)
 }
 
 pub(crate) fn classify_closed_before_response() -> ClassifiedFailure {
-    ClassifiedFailure::new(
-        FailureClass::SilentDrop,
-        FailureStage::FirstResponse,
-        FailureAction::RetryWithMatchingGroup,
-        "warmup: upstream closed before first response",
-    )
+    adapter_classify_closed_before_response()
 }
 
 pub(crate) fn classify_response(

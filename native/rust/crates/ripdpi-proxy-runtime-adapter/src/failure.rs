@@ -53,6 +53,23 @@ pub fn classify_probe_read_error(err: &io::Error) -> ProbeResult {
     }
 }
 
+pub fn classify_warmup_send_error(err: &io::Error) -> ClassifiedFailure {
+    classify_transport_error(FailureStage::FirstWrite, err)
+}
+
+pub fn classify_warmup_first_response_error(err: &io::Error) -> ClassifiedFailure {
+    classify_transport_error(FailureStage::FirstResponse, err)
+}
+
+pub fn classify_warmup_closed_before_response() -> ClassifiedFailure {
+    ClassifiedFailure::new(
+        FailureClass::SilentDrop,
+        FailureStage::FirstResponse,
+        FailureAction::RetryWithMatchingGroup,
+        "warmup: upstream closed before first response",
+    )
+}
+
 fn is_tunnel_infrastructure_dns_target(target: SocketAddr) -> bool {
     if target.port() != 853 {
         return false;
