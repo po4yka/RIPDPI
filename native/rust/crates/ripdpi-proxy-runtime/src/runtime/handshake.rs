@@ -41,7 +41,7 @@ pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::
             let mut first = [0u8; 1];
             client.read_exact(&mut first)?;
             if shadowsocks_enabled {
-                return handle_shadowsocks(client, state, first[0]);
+                return handle_shadowsocks(client, state, &settings, first[0]);
             }
             match first[0] {
                 0x04 => handle_socks4(client, state, &settings, first[0]),
@@ -196,10 +196,15 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
     }
 }
 
-fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u8) -> io::Result<()> {
+fn handle_shadowsocks(
+    mut client: TcpStream,
+    state: &RuntimeState,
+    settings: &ProxyHandshakeSettings,
+    first_byte: u8,
+) -> io::Result<()> {
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
     let (target, first_request): (SocketAddr, Vec<u8>) =
-        read_shadowsocks_request(&mut client, first_byte, &state.config, resolver)?;
+        read_shadowsocks_request(&mut client, first_byte, settings.shadowsocks_target_policy, resolver)?;
     let host = extract_payload_host(&state.config, &first_request);
     let payload = if first_request.is_empty() { None } else { Some(first_request.as_ref()) };
     let (upstream, route) = super::routing::connect_target(target, state, payload, false, host)?;
