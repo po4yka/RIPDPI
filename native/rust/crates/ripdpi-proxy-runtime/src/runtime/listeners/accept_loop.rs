@@ -3,8 +3,6 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::Arc as StdArc;
 use std::time::Duration;
 
-use mio::net::TcpListener as MioTcpListener;
-use mio::{Events, Interest, Poll};
 use ripdpi_proxy_runtime_adapter::model::config::client_capacity;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
@@ -15,7 +13,7 @@ use crate::runtime::state::{ClientSlotGuard, RuntimeState};
 use super::client_job::ClientJob;
 use super::worker_pool::ClientWorkerPool;
 
-const LISTENER: mio::Token = mio::Token(0);
+const ACCEPT_IDLE_SLEEP: Duration = Duration::from_millis(25);
 
 pub(crate) fn run_accept_loop(
     listener: TcpListener,
@@ -38,10 +36,6 @@ fn poll_accept_loop(
     worker_pool: &ClientWorkerPool,
 ) -> io::Result<()> {
     listener.set_nonblocking(true)?;
-    let mut listener = MioTcpListener::from_std(listener);
-    let mut poll = Poll::new()?;
-    poll.registry().register(&mut listener, LISTENER, Interest::READABLE)?;
-    let mut events = Events::with_capacity(256);
 
     loop {
         let shutdown_requested =
@@ -49,38 +43,33 @@ fn poll_accept_loop(
         if shutdown_requested {
             return Ok(());
         }
-        match poll.poll(&mut events, Some(Duration::from_millis(250))) {
-            Ok(()) => {}
-            Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
-            Err(err) => return Err(err),
-        }
-        for event in &events {
-            if event.token() != LISTENER {
-                continue;
-            }
-            accept_ready_clients(&mut listener, &state, worker_pool)?;
+        if !accept_ready_clients(&listener, &state, worker_pool)? {
+            std::thread::sleep(ACCEPT_IDLE_SLEEP);
         }
     }
 }
 
 fn accept_ready_clients(
-    listener: &mut MioTcpListener,
+    listener: &TcpListener,
     state: &RuntimeState,
     worker_pool: &ClientWorkerPool,
-) -> io::Result<()> {
+) -> io::Result<bool> {
+    let mut accepted = false;
     loop {
         match listener.accept() {
-            Ok((stream, _addr)) => accept_client(stream, state, worker_pool)?,
-            Err(err) if err.kind() == io::ErrorKind::WouldBlock => return Ok(()),
+            Ok((stream, _addr)) => {
+                accepted = true;
+                accept_client(stream, state, worker_pool)?;
+            }
+            Err(err) if err.kind() == io::ErrorKind::WouldBlock => return Ok(accepted),
             Err(err) if err.kind() == io::ErrorKind::Interrupted => continue,
             Err(err) => return Err(err),
         }
     }
 }
 
-fn accept_client(stream: mio::net::TcpStream, state: &RuntimeState, worker_pool: &ClientWorkerPool) -> io::Result<()> {
+fn accept_client(client: TcpStream, state: &RuntimeState, worker_pool: &ClientWorkerPool) -> io::Result<()> {
     let state = state.clone();
-    let client = mio_to_std_stream(stream);
     client.set_nonblocking(false)?;
     if let Err(err) = client.set_nodelay(true) {
         tracing::debug!("set_nodelay on client socket failed (non-fatal): {err}");
@@ -118,13 +107,4 @@ fn accept_client(stream: mio::net::TcpStream, state: &RuntimeState, worker_pool:
         telemetry.on_client_accepted();
     }
     Ok(())
-}
-
-fn mio_to_std_stream(stream: mio::net::TcpStream) -> TcpStream {
-    use std::os::fd::{FromRawFd, IntoRawFd};
-
-    let fd = stream.into_raw_fd();
-    // SAFETY: ownership of the file descriptor is moved out of the mio stream
-    // and transferred directly into the std stream without duplication.
-    unsafe { TcpStream::from_raw_fd(fd) }
 }
