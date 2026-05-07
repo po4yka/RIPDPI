@@ -84,6 +84,10 @@ pub mod config {
     pub fn udp_bind_low_port(config: &RuntimeConfig, group_index: usize) -> bool {
         config.groups.get(group_index).is_some_and(|group| group.actions.quic_bind_low_port)
     }
+
+    pub fn quic_route_and_cache_enabled(config: &RuntimeConfig) -> bool {
+        matches!(config.quic.initial_mode, QuicInitialMode::RouteAndCache)
+    }
 }
 
 pub mod desync {

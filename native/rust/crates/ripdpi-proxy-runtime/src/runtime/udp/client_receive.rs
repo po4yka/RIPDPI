@@ -3,7 +3,7 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::config::{QuicInitialMode, RuntimeConfig};
+use ripdpi_proxy_runtime_adapter::model::config::{quic_route_and_cache_enabled, RuntimeConfig};
 use ripdpi_runtime_decision_ports::policy::{extract_host_info, ExtractedHost, HostSource};
 
 use super::flow::UdpFlowActivationState;
@@ -57,7 +57,7 @@ pub(super) fn receive_and_forward_udp_client_packet(
 
 pub(super) fn should_cache_udp_host(config: &RuntimeConfig, host: Option<&ExtractedHost>) -> bool {
     match host.map(|value| value.source) {
-        Some(HostSource::Quic) => matches!(config.quic.initial_mode, QuicInitialMode::RouteAndCache),
+        Some(HostSource::Quic) => quic_route_and_cache_enabled(config),
         Some(HostSource::Http | HostSource::Tls) => true,
         None => false,
     }
