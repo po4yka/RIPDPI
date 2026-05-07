@@ -98,6 +98,20 @@ pub mod config {
         config.network.tfo
     }
 
+    pub fn group_requests_direct_syn_data_tfo(group: &DesyncGroup, payload: Option<&[u8]>) -> bool {
+        payload.is_some_and(|bytes| !bytes.is_empty())
+            && group.policy.ext_socks.is_none()
+            && group.actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SynData)
+    }
+
+    pub fn route_requests_direct_syn_data_tfo(
+        config: &RuntimeConfig,
+        group_index: usize,
+        payload: Option<&[u8]>,
+    ) -> bool {
+        config.groups.get(group_index).is_some_and(|group| group_requests_direct_syn_data_tfo(group, payload))
+    }
+
     pub fn ws_tunnel_always_enabled(config: &RuntimeConfig) -> bool {
         config.adaptive.ws_tunnel_mode == WsTunnelMode::Always
     }

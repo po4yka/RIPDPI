@@ -2,7 +2,7 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    connect_timeout, protect_path, tcp_fast_open_enabled, DesyncGroup, TcpChainStepKind,
+    connect_timeout, group_requests_direct_syn_data_tfo, protect_path, tcp_fast_open_enabled, DesyncGroup,
 };
 
 use super::super::super::state::RuntimeState;
@@ -86,17 +86,6 @@ fn connect_target_via_group_with_tfo(
     Ok(stream)
 }
 
-fn group_has_syn_data(group: &DesyncGroup) -> bool {
-    group.actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SynData)
-}
-
-pub(in crate::runtime::routing) fn group_requests_direct_syn_data_tfo(
-    group: &DesyncGroup,
-    payload: Option<&[u8]>,
-) -> bool {
-    payload.is_some_and(|bytes| !bytes.is_empty()) && group.policy.ext_socks.is_none() && group_has_syn_data(group)
-}
-
 fn group_uses_tcp_fast_open(
     state: &RuntimeState,
     group: &DesyncGroup,
@@ -116,7 +105,9 @@ pub(super) fn unspecified_ip_for(addr: SocketAddr) -> IpAddr {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ripdpi_proxy_runtime_adapter::model::config::{OffsetExpr, TcpChainStep, UpstreamSocksConfig};
+    use ripdpi_proxy_runtime_adapter::model::config::{
+        OffsetExpr, TcpChainStep, TcpChainStepKind, UpstreamSocksConfig,
+    };
 
     #[test]
     fn outbound_connects_do_not_reuse_listener_bind_ip() {

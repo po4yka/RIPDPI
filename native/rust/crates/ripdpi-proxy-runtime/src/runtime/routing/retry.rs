@@ -2,12 +2,12 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, ClassifiedFailure, FailureClass, FailureStage};
-use ripdpi_proxy_runtime_adapter::model::config::max_route_retries;
+use ripdpi_proxy_runtime_adapter::model::config::{max_route_retries, route_requests_direct_syn_data_tfo};
 use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, TransportProtocol};
 
 use super::super::adaptive::{note_direct_path_all_ips_failed, note_direct_path_transport_attempt};
 use super::super::state::RuntimeState;
-use super::connect::{connect_target_candidates_via_group, group_requests_direct_syn_data_tfo};
+use super::connect::connect_target_candidates_via_group;
 use super::failure::{advance_route_for_failure, emit_failure_classified, note_block_signal_for_failure};
 use super::policy::{preferred_targets_for_transport, select_route};
 
@@ -104,7 +104,7 @@ pub(in crate::runtime) fn route_uses_direct_syn_data_tfo(
     route: &ConnectionRoute,
     payload: Option<&[u8]>,
 ) -> bool {
-    state.config.groups.get(route.group_index).is_some_and(|group| group_requests_direct_syn_data_tfo(group, payload))
+    route_requests_direct_syn_data_tfo(&state.config, route.group_index, payload)
 }
 
 fn reconnect_target_with_tfo_mode(
