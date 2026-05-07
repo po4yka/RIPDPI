@@ -6,7 +6,7 @@ use ripdpi_proxy_runtime_adapter::model::proxy_config::{NetworkReprobeTracker, P
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{
     current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink,
 };
-use ripdpi_proxy_runtime_adapter::model::services::{ServicesState, ServicesStateHandle};
+use ripdpi_proxy_runtime_adapter::model::services::new_services_handle;
 use ripdpi_runtime_decision_ports::{AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, RetryPacingPort};
 use ripdpi_runtime_decision_ports::{DirectPathLearningPort, PolicyPort};
 
@@ -46,8 +46,7 @@ impl RuntimeState {
         let telemetry = control.as_ref().and_then(|c| c.telemetry_sink()).or_else(current_runtime_telemetry);
         let runtime_context = control.as_ref().and_then(|c| c.runtime_context());
 
-        let services = ServicesState::new(config.clone(), telemetry.clone(), runtime_context.clone());
-        let handle = ServicesStateHandle::new(services);
+        let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
 
         Self {
             config: Arc::new(config),
@@ -106,8 +105,7 @@ impl RuntimeState {
         telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
         runtime_context: Option<ProxyRuntimeContext>,
     ) -> Self {
-        let services = ServicesState::new(config.clone(), telemetry.clone(), runtime_context.clone());
-        let handle = ServicesStateHandle::new(services);
+        let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
         Self {
             config: Arc::new(config),
             policy: Arc::new(handle.clone()),

@@ -350,7 +350,21 @@ pub mod runtime_api {
 }
 
 pub mod services {
+    use std::sync::Arc;
+
+    use super::config::RuntimeConfig;
+    use super::proxy_config::ProxyRuntimeContext;
+    use super::runtime_api::RuntimeTelemetrySink;
+
     pub use ripdpi_runtime_services::{ServicesState, ServicesStateHandle};
+
+    pub fn new_services_handle(
+        config: RuntimeConfig,
+        telemetry: Option<Arc<dyn RuntimeTelemetrySink>>,
+        runtime_context: Option<ProxyRuntimeContext>,
+    ) -> ServicesStateHandle {
+        ServicesStateHandle::new(ServicesState::new(config, telemetry, runtime_context))
+    }
 }
 
 pub mod session {
