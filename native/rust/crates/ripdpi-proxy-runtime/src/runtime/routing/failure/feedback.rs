@@ -2,9 +2,9 @@ use std::io;
 use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureClass};
+use ripdpi_proxy_runtime_adapter::response_triggers::failure_penalizes_strategy;
 use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, TransportProtocol};
 
-use super::trigger::failure_penalizes_strategy;
 use crate::runtime::adaptive::{
     note_adaptive_fake_ttl_failure, note_adaptive_tcp_failure, note_direct_path_tls_post_client_hello_failure,
     note_evolver_failure,

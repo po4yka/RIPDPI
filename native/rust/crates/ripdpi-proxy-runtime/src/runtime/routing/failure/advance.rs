@@ -1,14 +1,15 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
+use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction};
+use ripdpi_proxy_runtime_adapter::response_triggers::failure_trigger_mask;
 use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, TransportProtocol};
 
 use super::cache::advance_cache_route;
 use super::feedback::record_failure_feedback;
 use super::telemetry::emit_route_advance_telemetry;
-use super::trigger::route_advance_trigger;
 use crate::runtime::retry::build_retry_selection_penalties;
+use crate::runtime::routing::policy::runtime_supports_trigger;
 use crate::runtime::state::RuntimeState;
 
 pub(in crate::runtime) fn advance_route_for_failure(
@@ -32,4 +33,15 @@ pub(in crate::runtime) fn advance_route_for_failure(
     let next = advance_cache_route(state, target, route, host.clone(), payload, trigger, penalize, &retry_penalties)?;
     emit_route_advance_telemetry(state, target, route, next.as_ref(), trigger, failure, host_ref, &retry_penalties);
     Ok(next)
+}
+
+fn route_advance_trigger(state: &RuntimeState, failure: &ClassifiedFailure) -> io::Result<Option<u32>> {
+    let trigger = failure_trigger_mask(failure);
+    if failure.action != FailureAction::RetryWithMatchingGroup
+        || trigger == 0
+        || !runtime_supports_trigger(state, trigger)?
+    {
+        return Ok(None);
+    }
+    Ok(Some(trigger))
 }

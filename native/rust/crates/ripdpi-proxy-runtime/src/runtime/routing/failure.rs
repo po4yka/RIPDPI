@@ -14,12 +14,9 @@ mod advance;
 mod cache;
 mod feedback;
 mod telemetry;
-mod trigger;
 
 pub(in crate::runtime) use advance::advance_route_for_failure;
 pub(in crate::runtime) use telemetry::emit_failure_classified;
-#[allow(unused_imports)]
-pub(in crate::runtime) use trigger::{failure_penalizes_strategy, failure_trigger_mask};
 
 fn is_tunnel_infrastructure_dns_target(target: SocketAddr) -> bool {
     if target.port() != 853 {
