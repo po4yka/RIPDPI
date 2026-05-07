@@ -13,7 +13,6 @@ ripdpi-proxy-runtime-adapter = { workspace = true }
 metrics = { workspace = true }
 tracing = { workspace = true }
 mio = { workspace = true }
-socket2 = { workspace = true }
 libc = { workspace = true }
 nix = { workspace = true }
 loom = { workspace = true, optional = true }

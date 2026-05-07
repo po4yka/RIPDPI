@@ -15,9 +15,17 @@ pub mod relay {
 
 pub mod connect {
     use std::io;
-    use std::net::TcpStream;
+    use std::net::{IpAddr, SocketAddr, TcpStream};
+    use std::time::Duration;
 
-    use socket2::Socket;
+    use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+
+    #[derive(Debug)]
+    pub struct TcpConnectError {
+        pub source: io::Error,
+        pub tcp_total_retransmissions: Option<u32>,
+        pub tcp_fast_open_enabled: bool,
+    }
 
     pub fn protect_socket(socket: &Socket, protect_path: &str) -> io::Result<()> {
         ripdpi_runtime_platform::vpn::protect_socket(socket, Some(protect_path))
@@ -29,6 +37,65 @@ pub mod connect {
 
     pub fn tcp_total_retransmissions(socket: &Socket) -> io::Result<Option<u32>> {
         ripdpi_runtime_platform::tcp::tcp_total_retransmissions(socket)
+    }
+
+    pub fn connect_tcp_stream(
+        target: SocketAddr,
+        bind_ip: IpAddr,
+        protect_path: Option<&str>,
+        tfo: bool,
+        connect_timeout: Option<Duration>,
+        pre_connect_rcvbuf: Option<u32>,
+    ) -> Result<TcpStream, TcpConnectError> {
+        let socket = new_tcp_socket(target, tfo)?;
+        if let Some(path) = protect_path {
+            protect_socket(&socket, path).map_err(|source| connect_error(source, tfo))?;
+        }
+        if tfo {
+            enable_tcp_fastopen_if_supported(&socket).map_err(|source| connect_error(source, tfo))?;
+        }
+        bind_socket(&socket, bind_ip, target).map_err(|source| connect_error(source, tfo))?;
+        if let Some(rcvbuf) = pre_connect_rcvbuf {
+            let _ = set_rcvbuf(&socket, rcvbuf);
+        }
+        let connect_started = std::time::Instant::now();
+        tracing::debug!(
+            target = %target,
+            bind_ip = %bind_ip,
+            tcp_fast_open = tfo,
+            protected = protect_path.is_some(),
+            "ripdpi upstream connect start"
+        );
+        let connect_result = if let Some(timeout) = connect_timeout {
+            socket.connect_timeout(&SockAddr::from(target), timeout)
+        } else {
+            socket.connect(&SockAddr::from(target))
+        };
+        if let Err(source) = connect_result {
+            let tcp_total_retransmissions = tcp_total_retransmissions(&socket).ok().flatten();
+            tracing::warn!(
+                target = %target,
+                bind_ip = %bind_ip,
+                tcp_fast_open = tfo,
+                protected = protect_path.is_some(),
+                elapsed_ms = connect_started.elapsed().as_millis() as u64,
+                "ripdpi upstream connect failed: {source}"
+            );
+            return Err(TcpConnectError { source, tcp_total_retransmissions, tcp_fast_open_enabled: tfo });
+        }
+        tracing::debug!(
+            target = %target,
+            bind_ip = %bind_ip,
+            tcp_fast_open = tfo,
+            protected = protect_path.is_some(),
+            elapsed_ms = connect_started.elapsed().as_millis() as u64,
+            "ripdpi upstream connect established"
+        );
+        let stream: TcpStream = socket.into();
+        if let Err(err) = stream.set_nodelay(true) {
+            tracing::debug!("set_nodelay on upstream socket failed (non-fatal): {err}");
+        }
+        Ok(stream)
     }
 
     pub fn enable_tcp_fastopen_connect(socket: &Socket) -> io::Result<()> {
@@ -56,6 +123,51 @@ pub mod connect {
 
     pub fn tcp_round_trip_time_ms(stream: &TcpStream) -> io::Result<Option<u64>> {
         ripdpi_runtime_platform::tcp::tcp_round_trip_time_ms(stream)
+    }
+
+    fn new_tcp_socket(target: SocketAddr, tfo: bool) -> Result<Socket, TcpConnectError> {
+        let domain = match target {
+            SocketAddr::V4(_) => Domain::IPV4,
+            SocketAddr::V6(_) => Domain::IPV6,
+        };
+        Socket::new(domain, Type::STREAM, Some(Protocol::TCP)).map_err(|source| connect_error(source, tfo))
+    }
+
+    fn enable_tcp_fastopen_if_supported(socket: &Socket) -> io::Result<()> {
+        match enable_tcp_fastopen_connect(socket) {
+            Ok(()) => Ok(()),
+            #[cfg(target_os = "android")]
+            Err(err) if should_ignore_android_tfo_error(&err) => {
+                tracing::debug!("TCP Fast Open unavailable on this Android build: {err}");
+                Ok(())
+            }
+            Err(err) => Err(err),
+        }
+    }
+
+    fn bind_socket(socket: &Socket, bind_ip: IpAddr, target: SocketAddr) -> io::Result<()> {
+        if is_unspecified(bind_ip) {
+            return Ok(());
+        }
+        let bind_addr = match (bind_ip, target) {
+            (IpAddr::V4(ip), SocketAddr::V4(_)) => SocketAddr::new(IpAddr::V4(ip), 0),
+            (IpAddr::V6(ip), SocketAddr::V6(_)) => SocketAddr::new(IpAddr::V6(ip), 0),
+            _ => {
+                return Err(io::Error::new(io::ErrorKind::InvalidInput, "bind ip family does not match target family"))
+            }
+        };
+        socket.bind(&SockAddr::from(bind_addr))
+    }
+
+    fn is_unspecified(ip: IpAddr) -> bool {
+        match ip {
+            IpAddr::V4(ip) => ip.is_unspecified(),
+            IpAddr::V6(ip) => ip.is_unspecified(),
+        }
+    }
+
+    fn connect_error(source: io::Error, tfo: bool) -> TcpConnectError {
+        TcpConnectError { source, tcp_total_retransmissions: None, tcp_fast_open_enabled: tfo }
     }
 }
 

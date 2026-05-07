@@ -3721,7 +3721,6 @@ dependencies = [
  "ripdpi-runtime-decision-ports",
  "rustls",
  "serde_json",
- "socket2",
  "tempfile",
  "tracing",
 ]
