@@ -1,6 +1,9 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
+#[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+use ripdpi_proxy_runtime_adapter::model::config::group_rotation_policy_enabled;
+use ripdpi_proxy_runtime_adapter::model::config::relay_timeout_settings;
 use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
 use super::super::routing::{emit_failure_classified, note_block_signal_for_failure};
@@ -21,8 +24,7 @@ pub(super) fn relay_with_uring_if_available(
     success_host: Option<String>,
 ) -> io::Result<ripdpi_proxy_runtime_adapter::model::session::SessionState> {
     let uring_driver = ripdpi_io_uring::io_uring_capabilities().send_zc.then(|| state.io_uring.as_ref()).flatten();
-    let rotation_enabled =
-        state.config.groups.get(route.group_index).and_then(|group| group.actions.rotation_policy.as_ref()).is_some();
+    let rotation_enabled = group_rotation_policy_enabled(&state.config, route.group_index);
     if let Some(driver) = uring_driver.filter(|_| !rotation_enabled) {
         return stream_copy_uring::relay_streams_uring(
             client,
@@ -68,7 +70,7 @@ pub(super) fn record_relay_result(
     }
     if let Err(err) = relay_result {
         if err.to_string().contains(CONNECTION_FREEZE_MARKER) {
-            let t = &state.config.timeouts;
+            let t = relay_timeout_settings(&state.config);
             let failure = ripdpi_proxy_runtime_adapter::failure::classify_connection_freeze(
                 0,
                 t.freeze_max_stalls,

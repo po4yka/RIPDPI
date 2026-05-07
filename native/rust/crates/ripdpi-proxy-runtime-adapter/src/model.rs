@@ -222,6 +222,18 @@ pub mod config {
         config.network.buffer_size.max(16_384)
     }
 
+    pub fn relay_timeout_settings(config: &RuntimeConfig) -> RuntimeTimeoutSettings {
+        config.timeouts
+    }
+
+    pub fn group_drop_sack_enabled(config: &RuntimeConfig, group_index: usize) -> Option<bool> {
+        selected_desync_group(config, group_index).map(|group| group.actions.drop_sack)
+    }
+
+    pub fn group_rotation_policy_enabled(config: &RuntimeConfig, group_index: usize) -> bool {
+        selected_desync_group(config, group_index).is_some_and(|group| group.actions.rotation_policy.is_some())
+    }
+
     #[derive(Clone, Copy)]
     pub struct ShadowsocksTargetPolicy {
         pub ipv6_enabled: bool,

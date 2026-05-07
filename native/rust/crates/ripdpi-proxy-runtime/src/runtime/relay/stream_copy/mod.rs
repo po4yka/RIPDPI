@@ -10,6 +10,7 @@ use observers::group_rotation_controller;
 use rotation::RotationFailureReason;
 
 use crate::sync::{Arc, Mutex};
+use ripdpi_proxy_runtime_adapter::model::config::{group_drop_sack_enabled, relay_timeout_settings};
 use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 use std::io;
 use std::net::{Shutdown, TcpStream};
@@ -46,12 +47,8 @@ pub(super) fn relay_streams(
     let inbound_session = session_state.clone();
     let outbound_state = state.clone();
     let inbound_state = state.clone();
-    let groups = &state.config.groups;
-    let group = groups
-        .get(group_index)
-        .cloned()
+    let drop_sack = group_drop_sack_enabled(&state.config, group_index)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
-    let drop_sack = group.actions.drop_sack;
     let peer_done = Arc::new(AtomicBool::new(false));
     let freeze_detected = Arc::new(AtomicBool::new(false));
     let remembered_host = Arc::new(Mutex::new(remembered_host_seed));
@@ -61,7 +58,7 @@ pub(super) fn relay_streams(
     let outbound_rotation = rotation_state.clone();
 
     let freeze_flag = freeze_detected.clone();
-    let timeouts = state.config.timeouts;
+    let timeouts = relay_timeout_settings(&state.config);
     let down_done = peer_done.clone();
     let down = thread::Builder::new()
         .name("ripdpi-dn".into())
