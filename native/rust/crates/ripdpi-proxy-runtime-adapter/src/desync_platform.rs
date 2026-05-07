@@ -29,7 +29,7 @@ pub struct TcpDesyncExecutionContext<'a> {
 
 pub struct DesyncSendRequest<'a> {
     pub group_index: usize,
-    pub group: &'a ripdpi_config::DesyncGroup,
+    pub group_override: Option<&'a ripdpi_config::DesyncGroup>,
     pub payload: &'a [u8],
     pub progress: OutboundProgress,
     pub host: Option<&'a str>,
@@ -99,13 +99,16 @@ pub fn send_tcp_desync_payload(
     context: TcpDesyncExecutionContext<'_>,
     request: DesyncSendRequest<'_>,
 ) -> Result<OutboundSendOutcome, OutboundSendError> {
+    let selected_group = crate::model::config::selected_desync_group(context.config, request.group_index)
+        .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "missing desync group"))?;
+    let group = request.group_override.unwrap_or(selected_group);
     let capability = ripdpi_runtime_decision_ports::adaptive::strategy_context::direct_path_capability_for_route(
         context.runtime_context,
         request.host,
         request.target,
     );
     let (effective_group, strategy_family_override) =
-        apply_tcp_capability_policy(request.group, capability, request.payload, request.progress);
+        apply_tcp_capability_policy(group, capability, request.payload, request.progress);
     let effective_group = effective_group.as_ref();
     let scope_key = ripdpi_runtime_decision_ports::adaptive::strategy_context::network_scope_key(context.config);
     let resolved_fake_ttl = context.adaptive_hints.resolve_fake_ttl(

@@ -1,5 +1,4 @@
 use crate::sync::{Arc, Mutex};
-use ripdpi_proxy_runtime_adapter::model::config::selected_desync_group_owned;
 use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host, SessionState};
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream};
@@ -107,8 +106,6 @@ pub(super) fn flush_outbound_payload(
     }
     let host = remembered.clone();
     drop(remembered);
-    let base_group = selected_desync_group_owned(&state.config, group_index)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
     let peer_addr = writer.peer_addr()?;
     let group = if let Some(rotation) = rotation {
         let mut rotation = rotation.lock().map_err(|_| io::Error::other("rotation mutex poisoned"))?;
@@ -134,14 +131,21 @@ pub(super) fn flush_outbound_payload(
         if rotation.is_desync_suppressed() {
             group.actions.tcp_chain.clear();
         }
-        group
+        Some(group)
     } else {
-        base_group
+        None
     };
     let send_outcome = send_with_group(
         writer,
         state,
-        DesyncSendRequest { group_index, group: &group, payload, progress, host: host.as_deref(), target: peer_addr },
+        DesyncSendRequest {
+            group_index,
+            group_override: group.as_ref(),
+            payload,
+            progress,
+            host: host.as_deref(),
+            target: peer_addr,
+        },
     )
     .map_err(OutboundSendError::into_io_error)?;
     tracing::trace!(

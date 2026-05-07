@@ -58,19 +58,13 @@ fn flush_outbound_payload(
     if parsed_host.is_some() {
         *remembered_host = parsed_host.clone();
     }
-    let group = state
-        .config
-        .groups
-        .get(group_index)
-        .cloned()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
     let peer_addr = writer.peer_addr()?;
     let send_outcome = send_with_group(
         writer,
         state,
         DesyncSendRequest {
             group_index,
-            group: &group,
+            group_override: None,
             payload,
             progress,
             host: parsed_host.as_deref().or(remembered_host.as_deref()),

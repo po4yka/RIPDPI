@@ -290,7 +290,7 @@ mod tests {
             &state,
             DesyncSendRequest {
                 group_index: next.group_index,
-                group: &config.groups[next.group_index],
+                group_override: None,
                 payload: &payload,
                 progress,
                 host: Some("example.org"),
