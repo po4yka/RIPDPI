@@ -2,6 +2,7 @@ mod adaptive;
 mod desync;
 mod handshake;
 mod listeners;
+#[cfg(test)]
 mod morph;
 mod relay;
 mod reprobe;

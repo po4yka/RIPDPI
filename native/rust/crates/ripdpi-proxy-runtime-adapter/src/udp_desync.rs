@@ -19,6 +19,23 @@ pub struct UdpActionExecContext<'a> {
     pub ip_id_mode: Option<ripdpi_config::IpIdMode>,
 }
 
+pub struct UdpDesyncPlanContext<'a> {
+    pub config: &'a ripdpi_config::RuntimeConfig,
+    pub runtime_context: Option<&'a ripdpi_proxy_config::ProxyRuntimeContext>,
+    pub telemetry: Option<&'a dyn ripdpi_runtime_api::RuntimeTelemetrySink>,
+    pub adaptive_hints: &'a dyn ripdpi_runtime_decision_ports::AdaptiveHintPort,
+}
+
+pub struct UdpDesyncPlanRequest<'a> {
+    pub group_index: usize,
+    pub group: &'a ripdpi_config::DesyncGroup,
+    pub payload: &'a [u8],
+    pub progress: ripdpi_session::OutboundProgress,
+    pub host: Option<&'a str>,
+    pub target: SocketAddr,
+    pub default_ttl: u8,
+}
+
 pub fn plan_udp_actions(
     group: &ripdpi_config::DesyncGroup,
     payload: &[u8],
@@ -26,6 +43,73 @@ pub fn plan_udp_actions(
     activation: ripdpi_desync::ActivationContext,
 ) -> Vec<UdpDesyncAction> {
     ripdpi_desync::plan_udp(group, payload, default_ttl, activation)
+}
+
+pub fn plan_udp_actions_for_runtime(
+    context: UdpDesyncPlanContext<'_>,
+    request: UdpDesyncPlanRequest<'_>,
+) -> io::Result<Vec<UdpDesyncAction>> {
+    let adaptive_hints = resolve_udp_hints_for_runtime(&context, &request)?;
+    let morph_policy = crate::model::proxy_config::morph_policy(context.runtime_context);
+    crate::model::proxy_config::emit_morph_hint_applied(
+        context.telemetry,
+        morph_policy,
+        request.target,
+        crate::model::proxy_config::udp_morph_hint_family(morph_policy, adaptive_hints),
+    );
+    let activation = crate::desync_platform::activation_context_from_progress(
+        request.progress,
+        ActivationTransport::Udp,
+        Some(request.payload),
+        None,
+        None,
+        None,
+        adaptive_hints,
+    );
+    Ok(plan_udp_actions(request.group, request.payload, request.default_ttl, activation))
+}
+
+fn resolve_udp_hints_for_runtime(
+    context: &UdpDesyncPlanContext<'_>,
+    request: &UdpDesyncPlanRequest<'_>,
+) -> io::Result<ripdpi_desync::AdaptivePlannerHints> {
+    if context.config.adaptive.strategy_evolution {
+        return context.adaptive_hints.resolve_udp_hints_with_evolver(
+            context.config,
+            context.runtime_context,
+            request.group_index,
+            request.target,
+            request.host,
+            request.group,
+            request.payload,
+        );
+    }
+
+    let scope_key = ripdpi_runtime_decision_ports::adaptive::strategy_context::network_scope_key(context.config);
+    let hints = context.adaptive_hints.resolve_udp_hints(
+        scope_key,
+        request.group_index,
+        request.target,
+        request.host,
+        request.group,
+        request.payload,
+    )?;
+    let capability = ripdpi_runtime_decision_ports::adaptive::strategy_context::direct_path_capability_for_route(
+        context.runtime_context,
+        request.host,
+        request.target,
+    );
+    let merged =
+        ripdpi_runtime_decision_ports::adaptive::strategy_context::merge_udp_hints_with_capability(hints, capability);
+    if hints.udp_burst_profile != merged.udp_burst_profile || hints.quic_fake_profile != merged.quic_fake_profile {
+        crate::model::proxy_config::emit_morph_rollback(
+            context.telemetry,
+            crate::model::proxy_config::morph_policy(context.runtime_context),
+            request.target,
+            "direct_path_capability_downgrade",
+        );
+    }
+    Ok(merged)
 }
 
 pub fn execute_udp_actions(ctx: UdpActionExecContext<'_>, actions: &[UdpDesyncAction]) -> io::Result<()> {

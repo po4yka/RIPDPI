@@ -6,15 +6,14 @@ use std::time::Instant;
 use ripdpi_proxy_runtime_adapter::model::config::{selected_desync_group, udp_default_ttl, udp_ip_id_mode};
 use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
 use ripdpi_proxy_runtime_adapter::udp_desync::{
-    execute_udp_actions, plan_udp_actions, ActivationTransport, UdpActionExecContext, UdpDesyncAction,
+    execute_udp_actions, plan_udp_actions_for_runtime, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext,
+    UdpDesyncPlanRequest,
 };
 
 use super::encode_socks5_udp_packet;
 use super::feedback::note_udp_first_response_success;
 use super::flow::UdpFlowActivationState;
 use super::migration::maybe_rebind_udp_source_port;
-use crate::runtime::adaptive::resolve_udp_hints_with_evolver;
-use crate::runtime::morph::{emit_morph_hint_applied, udp_morph_hint_family};
 use crate::runtime::state::RuntimeState;
 
 pub(super) fn pump_udp_upstream_responses(
@@ -71,28 +70,26 @@ fn plan_udp_flow_actions(
 ) -> io::Result<Vec<UdpDesyncAction>> {
     let group = selected_desync_group(&state.config, entry.route.group_index)
         .ok_or_else(|| io::Error::other("missing udp route group"))?;
-    let adaptive_hints = resolve_udp_hints_with_evolver(
-        state,
-        entry.current_target,
-        entry.route.group_index,
-        group,
-        entry.host.as_deref(),
-        payload,
-    )?;
-    emit_morph_hint_applied(state, entry.current_target, udp_morph_hint_family(state, adaptive_hints));
     entry.last_used = now;
     entry.payload.clear();
     entry.payload.extend_from_slice(payload);
     entry.awaiting_response = true;
     let progress = entry.session.observe_datagram_outbound(payload);
-    let activation = crate::runtime::desync::activation_context_from_progress(
-        progress,
-        ActivationTransport::Udp,
-        Some(payload),
-        None,
-        None,
-        None,
-        adaptive_hints,
-    );
-    Ok(plan_udp_actions(group, payload, udp_default_ttl(&state.config), activation))
+    plan_udp_actions_for_runtime(
+        UdpDesyncPlanContext {
+            config: &state.config,
+            runtime_context: state.runtime_context.as_ref(),
+            telemetry: state.telemetry.as_deref(),
+            adaptive_hints: state.adaptive_hints.as_ref(),
+        },
+        UdpDesyncPlanRequest {
+            group_index: entry.route.group_index,
+            group,
+            payload,
+            progress,
+            host: entry.host.as_deref(),
+            target: entry.current_target,
+            default_ttl: udp_default_ttl(&state.config),
+        },
+    )
 }
