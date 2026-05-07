@@ -454,7 +454,7 @@ pub mod session {
     use std::io::{self, Read};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-    use super::config::{ipv6_enabled, name_resolution_enabled, RuntimeConfig};
+    use super::config::{ipv6_enabled, name_resolution_enabled, should_cache_udp_host, RuntimeConfig};
 
     pub use ripdpi_session::*;
 
@@ -479,6 +479,11 @@ pub mod session {
         pub is_tls: bool,
     }
 
+    pub struct UdpPayloadInfo {
+        pub host: Option<String>,
+        pub cache_host: bool,
+    }
+
     pub fn classify_outbound_payload(config: &RuntimeConfig, payload: &[u8]) -> OutboundPayloadInfo {
         OutboundPayloadInfo {
             host: extract_payload_host(config, payload),
@@ -492,6 +497,14 @@ pub mod session {
 
     pub fn is_tls_client_hello_payload(payload: &[u8]) -> bool {
         ripdpi_runtime_decision_ports::policy::is_tls_client_hello_payload(payload)
+    }
+
+    pub fn classify_udp_payload(config: &RuntimeConfig, payload: &[u8]) -> UdpPayloadInfo {
+        let host_info = ripdpi_runtime_decision_ports::policy::extract_host_info(config, payload);
+        UdpPayloadInfo {
+            host: host_info.as_ref().map(|value| value.host.clone()),
+            cache_host: should_cache_udp_host(config, host_info.as_ref()),
+        }
     }
 
     pub fn parse_socks5_udp_packet<'a>(

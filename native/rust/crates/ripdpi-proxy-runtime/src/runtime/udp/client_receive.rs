@@ -3,8 +3,7 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::config::should_cache_udp_host;
-use ripdpi_runtime_decision_ports::policy::extract_host_info;
+use ripdpi_proxy_runtime_adapter::model::session::classify_udp_payload;
 
 use super::flow::UdpFlowActivationState;
 use super::flow_selection::ensure_udp_flow_selected;
@@ -66,10 +65,14 @@ fn decode_udp_client_packet<'a>(
     }
 
     let (original_target, payload) = parse_socks5_udp_packet(packet, state)?;
-    let host_info = extract_host_info(&state.config, payload);
-    let host = host_info.as_ref().map(|value| value.host.clone());
-    let cache_host = should_cache_udp_host(&state.config, host_info.as_ref());
-    Some(UdpClientPacket { sender, original_target, payload, host, cache_host })
+    let udp_payload = classify_udp_payload(&state.config, payload);
+    Some(UdpClientPacket {
+        sender,
+        original_target,
+        payload,
+        host: udp_payload.host,
+        cache_host: udp_payload.cache_host,
+    })
 }
 
 fn accept_udp_client_sender(udp_client_addr: &mut Option<SocketAddr>, sender: SocketAddr) -> bool {
