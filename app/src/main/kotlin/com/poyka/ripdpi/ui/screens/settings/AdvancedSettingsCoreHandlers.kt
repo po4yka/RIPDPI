@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-internal val coreToggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
+internal val coreToggleHandlers: Map<AdvancedToggleSetting, CoreToggleHandler> =
     mapOf(
         AdvancedToggleSetting.UseCommandLine to
             { enabled ->
@@ -30,7 +30,7 @@ internal val coreToggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
             { enabled -> updateBoolean("tcpFastOpen", enabled) { setTcpFastOpen(enabled) } },
     )
 
-internal val coreTextHandlers: Map<AdvancedTextSetting, TextHandler> =
+internal val coreTextHandlers: Map<AdvancedTextSetting, CoreTextHandler> =
     mapOf(
         AdvancedTextSetting.DiagnosticsSampleIntervalSeconds to
             { value, _ ->
@@ -62,7 +62,7 @@ internal val coreTextHandlers: Map<AdvancedTextSetting, TextHandler> =
             { value, _ -> updateValue("hostsWhitelist", value) { setHostsWhitelist(value) } },
     )
 
-internal val coreOptionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
+internal val coreOptionHandlers: Map<AdvancedOptionSetting, CoreOptionHandler> =
     mapOf(
         AdvancedOptionSetting.HostsMode to
             { value, _ -> updateValue("hostsMode", value) { setHostsMode(value) } },

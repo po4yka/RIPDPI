@@ -8,7 +8,7 @@ import com.poyka.ripdpi.data.normalizeFakeSeqMode
 import com.poyka.ripdpi.data.normalizeIpIdMode
 import com.poyka.ripdpi.data.normalizeOffsetExpression
 
-internal val desyncToggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
+internal val desyncToggleHandlers: Map<AdvancedToggleSetting, DesyncToggleHandler> =
     mapOf(
         AdvancedToggleSetting.DropSack to
             { enabled -> updateBoolean("dropSack", enabled) { setDropSack(enabled) } },
@@ -44,86 +44,14 @@ internal val desyncToggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
             { enabled -> updateBoolean("httpHostTab", enabled) { setHttpHostTab(enabled) } },
         AdvancedToggleSetting.TlsrecEnabled to
             { _ -> Unit },
-        AdvancedToggleSetting.QuicSupportV1 to
-            { enabled -> updateBoolean("quicSupportV1", enabled) { setQuicSupportV1(enabled) } },
-        AdvancedToggleSetting.QuicSupportV2 to
-            { enabled -> updateBoolean("quicSupportV2", enabled) { setQuicSupportV2(enabled) } },
-        AdvancedToggleSetting.QuicBindLowPort to
-            { enabled -> updateBoolean("quicBindLowPort", enabled) { setQuicBindLowPort(enabled) } },
-        AdvancedToggleSetting.QuicMigrateAfterHandshake to
-            { enabled ->
-                updateBoolean("quicMigrateAfterHandshake", enabled) {
-                    setQuicMigrateAfterHandshake(enabled)
-                }
-            },
         AdvancedToggleSetting.StrategyEvolution to
             { enabled -> updateBoolean("strategyEvolution", enabled) { setStrategyEvolution(enabled) } },
     )
 
-internal val desyncTextHandlers: Map<AdvancedTextSetting, TextHandler> =
+internal val desyncTextHandlers: Map<AdvancedTextSetting, DesyncTextHandler> =
     mapOf(
         AdvancedTextSetting.DefaultTtl to { value, _ -> updateDefaultTtl(value) },
         AdvancedTextSetting.ChainDsl to { value, uiState -> updateChainDsl(value, uiState) },
-        AdvancedTextSetting.ActivationRoundFrom to
-            { value, uiState ->
-                updateActivationRangeBoundary(
-                    uiState,
-                    "groupActivationFilter.round.start",
-                    value,
-                    ActivationWindowDimension.Round,
-                    true,
-                )
-            },
-        AdvancedTextSetting.ActivationRoundTo to
-            { value, uiState ->
-                updateActivationRangeBoundary(
-                    uiState,
-                    "groupActivationFilter.round.end",
-                    value,
-                    ActivationWindowDimension.Round,
-                    false,
-                )
-            },
-        AdvancedTextSetting.ActivationPayloadSizeFrom to
-            { value, uiState ->
-                updateActivationRangeBoundary(
-                    uiState,
-                    "groupActivationFilter.payloadSize.start",
-                    value,
-                    ActivationWindowDimension.PayloadSize,
-                    true,
-                )
-            },
-        AdvancedTextSetting.ActivationPayloadSizeTo to
-            { value, uiState ->
-                updateActivationRangeBoundary(
-                    uiState,
-                    "groupActivationFilter.payloadSize.end",
-                    value,
-                    ActivationWindowDimension.PayloadSize,
-                    false,
-                )
-            },
-        AdvancedTextSetting.ActivationStreamBytesFrom to
-            { value, uiState ->
-                updateActivationRangeBoundary(
-                    uiState,
-                    "groupActivationFilter.streamBytes.start",
-                    value,
-                    ActivationWindowDimension.StreamBytes,
-                    true,
-                )
-            },
-        AdvancedTextSetting.ActivationStreamBytesTo to
-            { value, uiState ->
-                updateActivationRangeBoundary(
-                    uiState,
-                    "groupActivationFilter.streamBytes.end",
-                    value,
-                    ActivationWindowDimension.StreamBytes,
-                    false,
-                )
-            },
         AdvancedTextSetting.SplitMarker to
             { value, uiState -> updatePrimarySplitMarker(uiState, "splitMarker", value) },
         AdvancedTextSetting.FakeTtl to
@@ -143,7 +71,6 @@ internal val desyncTextHandlers: Map<AdvancedTextSetting, TextHandler> =
             },
         AdvancedTextSetting.FakeTlsSize to
             { value, _ -> updateIntValue("fakeTlsSize", value) { fakeTlsSize -> { setFakeTlsSize(fakeTlsSize) } } },
-        AdvancedTextSetting.QuicFakeHost to { value, _ -> updateQuicFakeHost(value) },
         AdvancedTextSetting.OobData to { value, _ -> updateOobData(value) },
         AdvancedTextSetting.TlsrecMarker to
             { value, uiState ->
@@ -239,7 +166,7 @@ internal val desyncTextHandlers: Map<AdvancedTextSetting, TextHandler> =
             },
     )
 
-internal val desyncOptionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
+internal val desyncOptionHandlers: Map<AdvancedOptionSetting, DesyncOptionHandler> =
     mapOf(
         AdvancedOptionSetting.DesyncMethod to
             { value, uiState -> updatePrimaryDesyncMethod(value, uiState) },
@@ -305,8 +232,6 @@ internal val desyncOptionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
             { value, _ -> updateValue("fakeTlsSniMode", value) { setFakeTlsSniMode(value) } },
         AdvancedOptionSetting.TlsFakeProfile to
             { value, _ -> updateValue("tlsFakeProfile", value) { setTlsFakeProfile(value) } },
-        AdvancedOptionSetting.QuicInitialMode to
-            { value, _ -> updateValue("quicInitialMode", value) { setQuicInitialMode(value) } },
         AdvancedOptionSetting.TlsFingerprintProfile to
             { value, _ -> updateValue("tlsFingerprintProfile", value) { setTlsFingerprintProfile(value) } },
         AdvancedOptionSetting.EntropyMode to
@@ -317,6 +242,4 @@ internal val desyncOptionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
             },
         AdvancedOptionSetting.UdpFakeProfile to
             { value, _ -> updateValue("udpFakeProfile", value) { setUdpFakeProfile(value) } },
-        AdvancedOptionSetting.QuicFakeProfile to
-            { value, _ -> updateValue("quicFakeProfile", value) { setQuicFakeProfile(value) } },
     )

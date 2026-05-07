@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-internal val warpToggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
+internal val warpToggleHandlers: Map<AdvancedToggleSetting, WarpToggleHandler> =
     mapOf(
         AdvancedToggleSetting.WarpEnabled to
             { enabled -> updateBoolean("warpEnabled", enabled) { setWarpEnabled(enabled) } },
@@ -14,46 +14,10 @@ internal val warpToggleHandlers: Map<AdvancedToggleSetting, ToggleHandler> =
             { enabled -> updateBoolean("warpScannerEnabled", enabled) { setWarpScannerEnabled(enabled) } },
         AdvancedToggleSetting.WarpAmneziaEnabled to
             { enabled -> updateBoolean("warpAmneziaEnabled", enabled) { setWarpAmneziaEnabled(enabled) } },
-        AdvancedToggleSetting.HostAutolearnEnabled to
-            { enabled -> updateBoolean("hostAutolearnEnabled", enabled) { setHostAutolearnEnabled(enabled) } },
-        AdvancedToggleSetting.NetworkStrategyMemoryEnabled to
-            { enabled ->
-                updateBoolean("networkStrategyMemoryEnabled", enabled) {
-                    setNetworkStrategyMemoryEnabled(enabled)
-                }
-            },
-        AdvancedToggleSetting.AdaptiveFallbackEnabled to
-            { enabled -> updateBoolean("adaptiveFallbackEnabled", enabled) { setAdaptiveFallbackEnabled(enabled) } },
-        AdvancedToggleSetting.AdaptiveFallbackTorst to
-            { enabled -> updateBoolean("adaptiveFallbackTorst", enabled) { setAdaptiveFallbackTorst(enabled) } },
-        AdvancedToggleSetting.AdaptiveFallbackTlsErr to
-            { enabled -> updateBoolean("adaptiveFallbackTlsErr", enabled) { setAdaptiveFallbackTlsErr(enabled) } },
-        AdvancedToggleSetting.AdaptiveFallbackHttpRedirect to
-            { enabled ->
-                updateBoolean("adaptiveFallbackHttpRedirect", enabled) {
-                    setAdaptiveFallbackHttpRedirect(enabled)
-                }
-            },
-        AdvancedToggleSetting.AdaptiveFallbackConnectFailure to
-            { enabled ->
-                updateBoolean("adaptiveFallbackConnectFailure", enabled) {
-                    setAdaptiveFallbackConnectFailure(enabled)
-                }
-            },
-        AdvancedToggleSetting.AdaptiveFallbackAutoSort to
-            { enabled -> updateBoolean("adaptiveFallbackAutoSort", enabled) { setAdaptiveFallbackAutoSort(enabled) } },
     )
 
-internal val warpTextHandlers: Map<AdvancedTextSetting, TextHandler> =
+internal val warpTextHandlers: Map<AdvancedTextSetting, WarpTextHandler> =
     mapOf(
-        AdvancedTextSetting.HostAutolearnPenaltyTtlHours to
-            { value, _ -> updateHostAutolearnPenaltyTtlHours(value) },
-        AdvancedTextSetting.HostAutolearnMaxHosts to
-            { value, _ -> updateHostAutolearnMaxHosts(value) },
-        AdvancedTextSetting.AdaptiveFallbackCacheTtlSeconds to
-            { value, _ -> updateAdaptiveFallbackCacheTtlSeconds(value) },
-        AdvancedTextSetting.AdaptiveFallbackCachePrefixV4 to
-            { value, _ -> updateAdaptiveFallbackCachePrefixV4(value) },
         AdvancedTextSetting.WarpRouteHosts to
             { value, _ -> updateValue("warpRouteHosts", value) { setWarpRouteHosts(value) } },
         AdvancedTextSetting.WarpManualEndpointHost to
@@ -120,7 +84,7 @@ internal val warpTextHandlers: Map<AdvancedTextSetting, TextHandler> =
             { value, _ -> updateIntValue("warpAmneziaS4", value) { s4 -> { setWarpAmneziaS4(s4) } } },
     )
 
-internal val warpOptionHandlers: Map<AdvancedOptionSetting, OptionHandler> =
+internal val warpOptionHandlers: Map<AdvancedOptionSetting, WarpOptionHandler> =
     mapOf(
         AdvancedOptionSetting.WarpRouteMode to
             { value, _ -> updateWarpRouteMode(value) },
