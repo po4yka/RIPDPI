@@ -1,4 +1,5 @@
 use crate::sync::{Arc, Mutex};
+use ripdpi_proxy_runtime_adapter::model::config::selected_desync_group_owned;
 use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 use ripdpi_runtime_decision_ports::policy::extract_host;
 use std::io::{self, Read, Write};
@@ -107,10 +108,7 @@ pub(super) fn flush_outbound_payload(
     }
     let host = remembered.clone();
     drop(remembered);
-    let groups = &state.config.groups;
-    let base_group = groups
-        .get(group_index)
-        .cloned()
+    let base_group = selected_desync_group_owned(&state.config, group_index)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
     let peer_addr = writer.peer_addr()?;
     let group = if let Some(rotation) = rotation {

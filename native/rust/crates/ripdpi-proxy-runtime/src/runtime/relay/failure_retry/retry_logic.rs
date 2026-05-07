@@ -5,11 +5,12 @@ use ripdpi_proxy_runtime_adapter::failure::{
     classify_strategy_execution_failure, classify_transport_error, ClassifiedFailure, FailureAction, FailureClass,
     FailureStage,
 };
+use ripdpi_proxy_runtime_adapter::model::config::primary_tcp_strategy_family_for_group;
 
 use crate::runtime::adaptive::{
     note_adaptive_fake_ttl_success, note_adaptive_tcp_success, note_direct_path_tcp_success, note_evolver_success,
 };
-use crate::runtime::desync::{primary_tcp_strategy_family, OutboundSendError};
+use crate::runtime::desync::OutboundSendError;
 use crate::runtime::retry::note_retry_success;
 use crate::runtime::routing::{
     note_route_success, preferred_targets_for_transport, route_uses_direct_syn_data_tfo, should_track_strategy_target,
@@ -36,8 +37,7 @@ pub(crate) fn record_stream_relay_success(
             state,
             success_host,
             &targets,
-            strategy_family
-                .or_else(|| state.config.groups.get(route.group_index).and_then(primary_tcp_strategy_family)),
+            strategy_family.or_else(|| primary_tcp_strategy_family_for_group(&state.config, route.group_index)),
         )?;
     }
     note_adaptive_fake_ttl_success(state, target, route.group_index, success_host)?;

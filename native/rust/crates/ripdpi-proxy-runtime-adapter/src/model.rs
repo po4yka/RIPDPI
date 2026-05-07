@@ -41,6 +41,10 @@ pub mod config {
         config.groups.get(group_index)
     }
 
+    pub fn selected_desync_group_owned(config: &RuntimeConfig, group_index: usize) -> Option<DesyncGroup> {
+        selected_desync_group(config, group_index).cloned()
+    }
+
     pub fn transparent_proxy_enabled(config: &RuntimeConfig) -> bool {
         config.network.transparent
     }
@@ -232,6 +236,10 @@ pub mod config {
 
     pub fn group_rotation_policy_enabled(config: &RuntimeConfig, group_index: usize) -> bool {
         selected_desync_group(config, group_index).is_some_and(|group| group.actions.rotation_policy.is_some())
+    }
+
+    pub fn primary_tcp_strategy_family_for_group(config: &RuntimeConfig, group_index: usize) -> Option<&'static str> {
+        selected_desync_group(config, group_index).and_then(ripdpi_desync_runtime::primary_tcp_strategy_family)
     }
 
     #[derive(Clone, Copy)]
