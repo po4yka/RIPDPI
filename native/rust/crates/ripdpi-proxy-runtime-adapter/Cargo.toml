@@ -8,6 +8,9 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+daemonize = { workspace = true }
+libc = { workspace = true }
+nix = { workspace = true }
 ripdpi-failure-classifier = { workspace = true }
 ripdpi-config = { workspace = true }
 ripdpi-desync = { workspace = true }
