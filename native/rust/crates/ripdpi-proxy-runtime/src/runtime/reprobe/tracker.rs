@@ -1,6 +1,6 @@
 use std::sync::Mutex as StdMutex;
 
-use ripdpi_proxy_config::NetworkSnapshot;
+use ripdpi_proxy_runtime_adapter::proxy_config::NetworkSnapshot;
 
 use super::identity::snapshot_identity;
 

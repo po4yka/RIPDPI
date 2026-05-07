@@ -2,7 +2,7 @@ use super::protocol_io::*;
 use crate::runtime::state::RuntimeState;
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_config::{DesyncGroup, RuntimeConfig};
-use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
+use ripdpi_proxy_runtime_adapter::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::session::{
     encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, parse_http_connect_request,
     parse_socks4_request, parse_socks5_request, SessionConfig, SocketType, S_ATP_I4, S_ATP_I6, S_CMD_CONN, S_ER_GEN,

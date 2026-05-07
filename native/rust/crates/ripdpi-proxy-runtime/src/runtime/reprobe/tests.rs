@@ -1,4 +1,4 @@
-use ripdpi_proxy_config::NetworkSnapshot;
+use ripdpi_proxy_runtime_adapter::proxy_config::NetworkSnapshot;
 
 use super::identity::snapshot_identity;
 use super::tls_probe::build_minimal_client_hello;
@@ -30,7 +30,7 @@ fn reprobe_tracker_ignores_same_identity() {
 
 #[test]
 fn reprobe_tracker_detects_ssid_change() {
-    use ripdpi_proxy_config::WifiSnapshot;
+    use ripdpi_proxy_runtime_adapter::proxy_config::WifiSnapshot;
 
     let tracker = ReprobeTracker::new();
     let snap1 = NetworkSnapshot {
@@ -49,7 +49,7 @@ fn reprobe_tracker_detects_ssid_change() {
 
 #[test]
 fn reprobe_tracker_ignores_rssi_change() {
-    use ripdpi_proxy_config::WifiSnapshot;
+    use ripdpi_proxy_runtime_adapter::proxy_config::WifiSnapshot;
 
     let tracker = ReprobeTracker::new();
     let snap1 = NetworkSnapshot {
@@ -68,7 +68,7 @@ fn reprobe_tracker_ignores_rssi_change() {
 
 #[test]
 fn snapshot_identity_includes_transport_and_wifi() {
-    use ripdpi_proxy_config::WifiSnapshot;
+    use ripdpi_proxy_runtime_adapter::proxy_config::WifiSnapshot;
 
     let snap = NetworkSnapshot {
         transport: "wifi".to_string(),
@@ -82,7 +82,7 @@ fn snapshot_identity_includes_transport_and_wifi() {
 
 #[test]
 fn snapshot_identity_includes_cellular_operator() {
-    use ripdpi_proxy_config::CellularSnapshot;
+    use ripdpi_proxy_runtime_adapter::proxy_config::CellularSnapshot;
 
     let snap = NetworkSnapshot {
         transport: "cellular".to_string(),

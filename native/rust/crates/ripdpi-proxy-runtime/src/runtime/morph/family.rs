@@ -1,5 +1,5 @@
-use ripdpi_proxy_config::ProxyMorphPolicy;
 use ripdpi_proxy_runtime_adapter::desync_model::AdaptivePlannerHints;
+use ripdpi_proxy_runtime_adapter::proxy_config::ProxyMorphPolicy;
 
 pub(super) fn tcp_morph_hint_family(
     policy: Option<&ProxyMorphPolicy>,

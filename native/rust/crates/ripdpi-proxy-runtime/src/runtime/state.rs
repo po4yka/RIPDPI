@@ -2,7 +2,7 @@ use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use ripdpi_config::RuntimeConfig;
-use ripdpi_proxy_config::ProxyRuntimeContext;
+use ripdpi_proxy_runtime_adapter::proxy_config::ProxyRuntimeContext;
 use ripdpi_proxy_runtime_adapter::services::{ServicesState, ServicesStateHandle};
 use ripdpi_runtime_api::{current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
 use ripdpi_runtime_decision_ports::{AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, RetryPacingPort};

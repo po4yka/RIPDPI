@@ -3,7 +3,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_config::{QuicInitialMode, RuntimeConfig};
-use ripdpi_proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
+use ripdpi_proxy_runtime_adapter::proxy_config::{ProxyEncryptedDnsContext, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::session::S_ATP_I4;
 use ripdpi_runtime_decision_ports::policy::{HostSource, TransportProtocol};
 
@@ -170,15 +170,15 @@ fn preferred_targets_for_transport_return_two_quic_edges_then_original_target() 
     runtime_context.preferred_edges.insert(
         "example.org".to_string(),
         vec![
-            ripdpi_proxy_config::ProxyPreferredEdge {
+            ripdpi_proxy_runtime_adapter::proxy_config::ProxyPreferredEdge {
                 ip: "203.0.113.10".to_string(),
                 transport_kind: "quic".to_string(),
             },
-            ripdpi_proxy_config::ProxyPreferredEdge {
+            ripdpi_proxy_runtime_adapter::proxy_config::ProxyPreferredEdge {
                 ip: "203.0.113.20".to_string(),
                 transport_kind: "quic".to_string(),
             },
-            ripdpi_proxy_config::ProxyPreferredEdge {
+            ripdpi_proxy_runtime_adapter::proxy_config::ProxyPreferredEdge {
                 ip: "203.0.113.30".to_string(),
                 transport_kind: "quic".to_string(),
             },

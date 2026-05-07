@@ -1,4 +1,4 @@
-use ripdpi_proxy_config::ProxyMorphPolicy;
+use ripdpi_proxy_runtime_adapter::proxy_config::ProxyMorphPolicy;
 
 use crate::runtime::state::RuntimeState;
 

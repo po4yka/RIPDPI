@@ -24,6 +24,10 @@ pub mod desync_model {
 pub mod protocol_payload;
 pub mod raw_packet_requirements;
 
+pub mod proxy_config {
+    pub use ripdpi_proxy_config::*;
+}
+
 pub mod services {
     pub use ripdpi_runtime_services::{ServicesState, ServicesStateHandle};
 }

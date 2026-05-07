@@ -13,7 +13,7 @@ use ripdpi_config::{DesyncGroup, QuicInitialMode, RuntimeConfig, TcpChainStep, T
 use ripdpi_config::{OffsetBase, OffsetExpr};
 use ripdpi_packets::IS_HTTPS;
 use ripdpi_packets::{IS_TCP, IS_UDP};
-use ripdpi_proxy_config::{runtime_config_from_ui, ProxyUiConfig};
+use ripdpi_proxy_runtime_adapter::proxy_config::{runtime_config_from_ui, ProxyUiConfig};
 use ripdpi_runtime_api::RuntimeTelemetrySink;
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpStream};
