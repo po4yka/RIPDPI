@@ -5,7 +5,7 @@ use ripdpi_desync_runtime::platform::{TcpActivationState as DesyncTcpActivationS
 
 use crate::platform as runtime_platform;
 
-use super::RuntimeTcpDesyncPlatform;
+use super::{RuntimeTcpDesyncPlatform, TcpActivationProbe};
 
 impl TcpPlatformCapabilities for RuntimeTcpDesyncPlatform {
     fn detect_default_ttl(&self) -> Option<u8> {
@@ -59,6 +59,10 @@ pub fn tcp_segment_hint(stream: &TcpStream) -> Option<ripdpi_desync::TcpSegmentH
     runtime_platform::tcp::tcp_segment_hint(stream).ok().flatten()
 }
 
-pub fn tcp_activation_state(stream: &TcpStream) -> Option<runtime_platform::tcp::TcpActivationState> {
-    runtime_platform::tcp::tcp_activation_state(stream).ok().flatten()
+pub fn tcp_activation_state(stream: &TcpStream) -> Option<TcpActivationProbe> {
+    runtime_platform::tcp::tcp_activation_state(stream).ok().flatten().map(|state| TcpActivationProbe {
+        has_timestamp: state.has_timestamp,
+        window_size: state.window_size,
+        mss: state.mss,
+    })
 }

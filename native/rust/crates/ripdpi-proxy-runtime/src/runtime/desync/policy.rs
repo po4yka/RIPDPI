@@ -2,51 +2,17 @@ use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::desync_platform::{OutboundSendError, OutboundSendOutcome};
 use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
-use ripdpi_proxy_runtime_adapter::model::desync::{
-    ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints, TcpSegmentHint,
-};
+use ripdpi_proxy_runtime_adapter::model::desync::ActivationTransport;
 use ripdpi_proxy_runtime_adapter::model::session::OutboundProgress;
-use ripdpi_proxy_runtime_adapter::protocol_payload;
 
-use super::platform::{send_prepared_with_runtime_platform, seqovl_supported, tcp_activation_state, tcp_segment_hint};
+use super::platform::{
+    activation_context_from_progress, send_prepared_with_runtime_platform, tcp_activation_state, tcp_segment_hint,
+};
 use crate::runtime::adaptive::{
     direct_path_capability_for_route, resolve_adaptive_fake_ttl, resolve_tcp_hints_with_evolver,
 };
 use crate::runtime::morph::{apply_tcp_morph_policy_to_group, emit_morph_hint_applied, tcp_morph_hint_family};
 use crate::runtime::state::RuntimeState;
-
-pub(crate) fn activation_context_from_progress(
-    progress: OutboundProgress,
-    transport: ActivationTransport,
-    payload: Option<&[u8]>,
-    tcp_segment_hint: Option<TcpSegmentHint>,
-    tcp_activation_state: Option<ripdpi_proxy_runtime_adapter::platform::tcp::TcpActivationState>,
-    resolved_fake_ttl: Option<u8>,
-    adaptive: AdaptivePlannerHints,
-) -> ActivationContext {
-    let has_ech = payload.is_some_and(protocol_payload::payload_has_ech);
-    let tcp_state = tcp_activation_state.map_or(
-        ActivationTcpState { has_ech: Some(has_ech), ..ActivationTcpState::default() },
-        |state| ActivationTcpState {
-            has_timestamp: state.has_timestamp,
-            has_ech: Some(has_ech),
-            window_size: state.window_size,
-            mss: state.mss.or_else(|| tcp_segment_hint.and_then(|hint| hint.snd_mss.or(hint.advmss))),
-        },
-    );
-    ActivationContext {
-        round: progress.round as i64,
-        payload_size: progress.payload_size as i64,
-        stream_start: progress.stream_start as i64,
-        stream_end: progress.stream_end as i64,
-        seqovl_supported: seqovl_supported(),
-        transport,
-        tcp_segment_hint,
-        tcp_state,
-        resolved_fake_ttl,
-        adaptive,
-    }
-}
 
 pub(crate) fn send_with_group(
     writer: &mut TcpStream,
