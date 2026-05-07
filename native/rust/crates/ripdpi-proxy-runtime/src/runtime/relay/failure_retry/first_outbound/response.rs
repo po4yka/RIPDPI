@@ -3,6 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
+use ripdpi_proxy_runtime_adapter::model::config::first_response_settings;
 use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
 use crate::runtime::adaptive::note_server_ttl_for_route;
@@ -38,7 +39,7 @@ pub(super) fn handle_first_response(
         context.target,
         context.host,
         upstream,
-        &context.state.config,
+        first_response_settings(&context.state.config),
         context.original_request,
     )? {
         FirstResponse::Forward(bytes, server_ttl) => {

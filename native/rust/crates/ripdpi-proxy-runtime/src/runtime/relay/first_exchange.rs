@@ -4,7 +4,10 @@ use std::net::{SocketAddr, TcpStream};
 use ripdpi_proxy_runtime_adapter::failure::{
     classify_transport_error, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
-use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::model::config::{
+    first_response_timeout as projected_first_response_timeout, first_response_timeout_count_limit,
+    FirstResponseSettings,
+};
 use ripdpi_proxy_runtime_adapter::platform::first_response as first_response_platform;
 
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure, runtime_supports_trigger};
@@ -31,18 +34,18 @@ pub(super) fn read_first_response(
     target: SocketAddr,
     host: Option<&str>,
     upstream: &mut TcpStream,
-    config: &RuntimeConfig,
+    settings: FirstResponseSettings,
     request: &[u8],
 ) -> io::Result<FirstResponse> {
     let _ = first_response_platform::enable_recv_ttl(upstream);
     let mut collected = Vec::new();
-    let mut chunk = vec![0u8; config.network.buffer_size.max(16_384)];
-    let mut tls_partial = TlsRecordBoundaryTracker::for_first_response(request, config);
+    let mut chunk = vec![0u8; settings.buffer_size];
+    let mut tls_partial = TlsRecordBoundaryTracker::for_first_response(request, settings);
     let mut timeout_count = 0i32;
     let mut observed_server_ttl: Option<u8> = None;
 
     loop {
-        let _ = upstream.set_read_timeout(first_response_timeout(config, &tls_partial));
+        let _ = upstream.set_read_timeout(first_response_timeout(settings, &tls_partial));
         let read_result = if collected.is_empty() {
             first_response_platform::read_chunk_with_ttl(upstream, &mut chunk).map(|(n, ttl)| {
                 if ttl.is_some() {
@@ -80,7 +83,7 @@ pub(super) fn read_first_response(
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
                 if tls_partial.waiting_for_tls_record() {
                     timeout_count += 1;
-                    if timeout_count >= timeout_count_limit(config) {
+                    if timeout_count >= timeout_count_limit(settings) {
                         Ok(FirstResponse::Failure {
                             failure: ClassifiedFailure::new(
                                 FailureClass::SilentDrop,
@@ -93,7 +96,7 @@ pub(super) fn read_first_response(
                     } else {
                         continue;
                     }
-                } else if config.timeouts.timeout_ms != 0 {
+                } else if settings.timeout_ms != 0 {
                     let failure = classify_transport_error(FailureStage::FirstResponse, &err);
                     let retransmissions = first_response_platform::tcp_total_retransmissions(upstream).ok().flatten();
                     note_block_signal_for_failure(state, host, &failure, retransmissions);
@@ -131,19 +134,19 @@ pub(super) fn read_first_response(
 }
 
 pub(super) fn first_response_timeout(
-    config: &RuntimeConfig,
+    settings: FirstResponseSettings,
     tls_partial: &TlsRecordBoundaryTracker,
 ) -> Option<std::time::Duration> {
-    ripdpi_proxy_runtime_adapter::response_triggers::first_response_timeout(config, tls_partial.active())
+    projected_first_response_timeout(settings, tls_partial.active())
 }
 
-pub(super) fn timeout_count_limit(config: &RuntimeConfig) -> i32 {
-    ripdpi_proxy_runtime_adapter::response_triggers::timeout_count_limit(config)
+pub(super) fn timeout_count_limit(settings: FirstResponseSettings) -> i32 {
+    first_response_timeout_count_limit(settings)
 }
 
 #[cfg(test)]
 pub(super) fn response_trigger_supported(
-    config: &RuntimeConfig,
+    config: &ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig,
     trigger: ripdpi_proxy_runtime_adapter::model::session::TriggerEvent,
 ) -> bool {
     ripdpi_proxy_runtime_adapter::response_triggers::response_trigger_supported(config, trigger)

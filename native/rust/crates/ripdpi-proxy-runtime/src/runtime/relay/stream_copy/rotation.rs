@@ -1,5 +1,5 @@
 use ripdpi_proxy_runtime_adapter::failure::FailureClass;
-use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RotationPolicy};
+use ripdpi_proxy_runtime_adapter::model::config::{first_response_settings, DesyncGroup, RotationPolicy};
 use std::time::{Duration, Instant};
 
 use super::super::super::desync::primary_tcp_strategy_family;
@@ -151,7 +151,7 @@ impl CircularTcpRotationController {
             stream_start,
             request_bytes: request_chunk.to_vec(),
             response_bytes: Vec::new(),
-            tls_tracker: TlsRecordBoundaryTracker::for_first_response(request_chunk, config),
+            tls_tracker: TlsRecordBoundaryTracker::for_first_response(request_chunk, first_response_settings(config)),
             retrans_baseline,
         });
     }
@@ -169,7 +169,8 @@ impl CircularTcpRotationController {
             return;
         }
         observation.request_bytes.extend_from_slice(request_chunk);
-        observation.tls_tracker = TlsRecordBoundaryTracker::for_first_response(&observation.request_bytes, config);
+        observation.tls_tracker =
+            TlsRecordBoundaryTracker::for_first_response(&observation.request_bytes, first_response_settings(config));
     }
 
     pub(super) fn observe_response_chunk(&mut self, chunk: &[u8]) -> bool {

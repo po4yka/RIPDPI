@@ -1,4 +1,4 @@
-use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::model::config::{first_response_bytes_limit, FirstResponseSettings};
 
 use ripdpi_runtime_decision_ports::policy::is_tls_client_hello_payload;
 
@@ -16,11 +16,11 @@ pub(crate) struct TlsRecordBoundaryTracker {
 }
 
 impl TlsRecordBoundaryTracker {
-    pub(crate) fn for_first_response(request: &[u8], config: &RuntimeConfig) -> Self {
-        if !is_tls_client_hello_payload(request) || config.timeouts.partial_timeout_ms == 0 {
+    pub(crate) fn for_first_response(request: &[u8], settings: FirstResponseSettings) -> Self {
+        if !is_tls_client_hello_payload(request) || settings.partial_timeout_ms == 0 {
             return Self::default();
         }
-        Self::enabled(first_response_bytes_limit(config))
+        Self::enabled(first_response_bytes_limit(settings, FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT))
     }
 
     fn enabled(bytes_limit: usize) -> Self {
@@ -85,13 +85,6 @@ impl TlsRecordBoundaryTracker {
             self.record_pos += take;
             pos += take;
         }
-    }
-}
-
-fn first_response_bytes_limit(config: &RuntimeConfig) -> usize {
-    match usize::try_from(config.timeouts.timeout_bytes_limit) {
-        Ok(limit) if limit != 0 => limit,
-        _ => FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
     }
 }
 
