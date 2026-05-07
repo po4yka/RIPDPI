@@ -3,8 +3,11 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::{config::udp_bind_low_port, session::new_session_state};
-use ripdpi_runtime_decision_ports::policy::{route_matches_payload, ConnectionRoute, TransportProtocol};
+use ripdpi_proxy_runtime_adapter::model::{
+    config::{route_matches_transport_payload, udp_bind_low_port},
+    session::new_session_state,
+};
+use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, TransportProtocol};
 
 use super::client_receive::UdpClientPacket;
 use super::flow::{udp_flow_at_capacity, UdpFlowActivationState};
@@ -203,7 +206,7 @@ fn update_udp_flow_selection(
     entry.host = packet.host.clone();
     entry.cache_host = packet.cache_host;
     if host_changed
-        || !route_matches_payload(
+        || !route_matches_transport_payload(
             &state.config,
             entry.route.group_index,
             entry.current_target,

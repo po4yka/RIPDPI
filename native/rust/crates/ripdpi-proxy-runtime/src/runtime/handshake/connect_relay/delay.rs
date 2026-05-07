@@ -3,12 +3,11 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    delayed_connect_enabled, runtime_buffer_size, selected_desync_group, DETECT_CONNECT,
+    delayed_connect_enabled, delayed_route_matches_payload, group_requires_delay_payload, runtime_buffer_size,
+    selected_desync_group, DETECT_CONNECT,
 };
-use ripdpi_proxy_runtime_adapter::protocol_payload;
-use ripdpi_runtime_decision_ports::policy::{
-    extract_host, group_requires_payload, route_matches_payload, TransportProtocol,
-};
+use ripdpi_proxy_runtime_adapter::model::session::extract_payload_host;
+use ripdpi_runtime_decision_ports::policy::TransportProtocol;
 
 use super::super::super::state::RuntimeState;
 use super::super::protocol_io::{send_success_reply, HandshakeKind};
@@ -38,7 +37,7 @@ pub(super) fn maybe_delay_connect(
     let group = selected_desync_group(&state.config, route.group_index).ok_or_else(|| {
         ConnectRelayError::new(io::Error::new(io::ErrorKind::NotFound, "missing desync group"), false)
     })?;
-    if !group_requires_payload(group) {
+    if !group_requires_delay_payload(group) {
         return Ok(DelayConnect::Immediate);
     }
 
@@ -49,8 +48,8 @@ pub(super) fn maybe_delay_connect(
         return Ok(DelayConnect::Closed);
     };
 
-    let host = extract_host(&state.config, &payload).or_else(|| host_hint.map(ToOwned::to_owned));
-    let route = if delayed_route_matches(&state.config, route.group_index, target, &payload, host.as_deref()) {
+    let host = extract_payload_host(&state.config, &payload).or_else(|| host_hint.map(ToOwned::to_owned));
+    let route = if delayed_route_matches_payload(&state.config, route.group_index, target, &payload, host.as_deref()) {
         route
     } else {
         state
@@ -75,30 +74,6 @@ pub(super) fn maybe_delay_connect(
     };
 
     Ok(DelayConnect::Delayed { route, payload })
-}
-
-fn delayed_route_matches(
-    config: &ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig,
-    group_index: usize,
-    target: SocketAddr,
-    payload: &[u8],
-    host_hint: Option<&str>,
-) -> bool {
-    if route_matches_payload(config, group_index, target, payload, TransportProtocol::Tcp) {
-        return true;
-    }
-
-    let Some(host) = host_hint else {
-        return false;
-    };
-    let Some(group) = selected_desync_group(config, group_index) else {
-        return false;
-    };
-    if !group.matches.filters.hosts_match(host) {
-        return false;
-    }
-
-    protocol_payload::group_accepts_any_or_non_http_tls(group)
 }
 
 fn read_blocking_first_request(client: &mut TcpStream, buffer_size: usize) -> io::Result<Option<Vec<u8>>> {

@@ -47,6 +47,46 @@ pub mod config {
         selected_desync_group(config, group_index).cloned()
     }
 
+    pub fn group_requires_delay_payload(group: &DesyncGroup) -> bool {
+        ripdpi_runtime_decision_ports::policy::group_requires_payload(group)
+    }
+
+    pub fn route_matches_transport_payload(
+        config: &RuntimeConfig,
+        group_index: usize,
+        target: SocketAddr,
+        payload: &[u8],
+        transport: ripdpi_runtime_decision_ports::policy::TransportProtocol,
+    ) -> bool {
+        ripdpi_runtime_decision_ports::policy::route_matches_payload(config, group_index, target, payload, transport)
+    }
+
+    pub fn delayed_route_matches_payload(
+        config: &RuntimeConfig,
+        group_index: usize,
+        target: SocketAddr,
+        payload: &[u8],
+        host_hint: Option<&str>,
+    ) -> bool {
+        if route_matches_transport_payload(
+            config,
+            group_index,
+            target,
+            payload,
+            ripdpi_runtime_decision_ports::policy::TransportProtocol::Tcp,
+        ) {
+            return true;
+        }
+
+        let Some(host) = host_hint else {
+            return false;
+        };
+        let Some(group) = selected_desync_group(config, group_index) else {
+            return false;
+        };
+        group.matches.filters.hosts_match(host) && crate::protocol_payload::group_accepts_any_or_non_http_tls(group)
+    }
+
     pub fn transparent_proxy_enabled(config: &RuntimeConfig) -> bool {
         config.network.transparent
     }
