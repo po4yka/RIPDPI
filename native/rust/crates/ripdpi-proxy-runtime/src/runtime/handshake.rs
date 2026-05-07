@@ -11,8 +11,8 @@ use std::time::Duration;
 
 use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::model::config::{
-    http_connect_enabled, protect_path, protect_path_owned, proxy_auth_token, proxy_session_config,
-    shadowsocks_enabled, transparent_proxy_enabled, udp_associate_enabled,
+    protect_path, protect_path_owned, proxy_auth_token, proxy_protocol_mode, proxy_session_config,
+    udp_associate_enabled, ProxyProtocolMode,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{
     encode_socks4_reply, encode_socks5_reply, extract_payload_host, parse_http_connect_request, parse_socks4_request,
@@ -34,22 +34,21 @@ use super::state::{RuntimeState, HANDSHAKE_TIMEOUT};
 pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
     let _ = client.set_write_timeout(Some(HANDSHAKE_TIMEOUT));
-    if transparent_proxy_enabled(&state.config) {
-        return handle_transparent(client, state);
-    }
-    if http_connect_enabled(&state.config) {
-        return handle_http_connect(client, state);
-    }
-
-    let mut first = [0u8; 1];
-    client.read_exact(&mut first)?;
-    if shadowsocks_enabled(&state.config) {
-        return handle_shadowsocks(client, state, first[0]);
-    }
-    match first[0] {
-        0x04 => handle_socks4(client, state, first[0]),
-        0x05 => handle_socks5(client, state, first[0]),
-        _ => Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported proxy protocol")),
+    match proxy_protocol_mode(&state.config) {
+        ProxyProtocolMode::Transparent => handle_transparent(client, state),
+        ProxyProtocolMode::HttpConnect => handle_http_connect(client, state),
+        ProxyProtocolMode::BytePrefixed { shadowsocks_enabled } => {
+            let mut first = [0u8; 1];
+            client.read_exact(&mut first)?;
+            if shadowsocks_enabled {
+                return handle_shadowsocks(client, state, first[0]);
+            }
+            match first[0] {
+                0x04 => handle_socks4(client, state, first[0]),
+                0x05 => handle_socks5(client, state, first[0]),
+                _ => Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported proxy protocol")),
+            }
+        }
     }
 }
 

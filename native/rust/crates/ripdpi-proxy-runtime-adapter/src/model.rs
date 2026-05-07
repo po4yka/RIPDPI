@@ -95,6 +95,23 @@ pub mod config {
         config.network.shadowsocks
     }
 
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum ProxyProtocolMode {
+        Transparent,
+        HttpConnect,
+        BytePrefixed { shadowsocks_enabled: bool },
+    }
+
+    pub fn proxy_protocol_mode(config: &RuntimeConfig) -> ProxyProtocolMode {
+        if transparent_proxy_enabled(config) {
+            ProxyProtocolMode::Transparent
+        } else if http_connect_enabled(config) {
+            ProxyProtocolMode::HttpConnect
+        } else {
+            ProxyProtocolMode::BytePrefixed { shadowsocks_enabled: shadowsocks_enabled(config) }
+        }
+    }
+
     pub fn udp_associate_enabled(config: &RuntimeConfig) -> bool {
         config.network.udp
     }
@@ -385,6 +402,19 @@ pub mod config {
 
             group.policy.ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::from(([127, 0, 0, 1], 1080)) });
             assert!(!group_requests_direct_syn_data_tfo(&group, Some(b"GET / HTTP/1.1\r\n\r\n")));
+        }
+
+        #[test]
+        fn proxy_protocol_mode_prefers_listener_level_modes_before_byte_prefixed_protocols() {
+            let mut config = RuntimeConfig::default();
+            config.network.shadowsocks = true;
+            assert_eq!(proxy_protocol_mode(&config), ProxyProtocolMode::BytePrefixed { shadowsocks_enabled: true });
+
+            config.network.http_connect = true;
+            assert_eq!(proxy_protocol_mode(&config), ProxyProtocolMode::HttpConnect);
+
+            config.network.transparent = true;
+            assert_eq!(proxy_protocol_mode(&config), ProxyProtocolMode::Transparent);
         }
     }
 }
