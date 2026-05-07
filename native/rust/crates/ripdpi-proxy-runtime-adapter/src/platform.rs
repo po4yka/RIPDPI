@@ -35,6 +35,13 @@ pub mod connect {
         ripdpi_runtime_platform::socket::enable_tcp_fastopen_connect(socket)
     }
 
+    pub fn should_ignore_android_tfo_error(err: &io::Error) -> bool {
+        matches!(
+            err.raw_os_error(),
+            Some(libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EPERM | libc::EACCES | libc::EINVAL)
+        )
+    }
+
     pub fn attach_drop_sack(stream: &TcpStream) -> io::Result<()> {
         ripdpi_runtime_platform::socket::attach_drop_sack(stream)
     }

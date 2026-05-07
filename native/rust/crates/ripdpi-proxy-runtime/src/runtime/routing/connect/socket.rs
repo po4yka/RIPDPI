@@ -111,7 +111,7 @@ fn enable_tcp_fastopen_if_supported(socket: &Socket) -> io::Result<()> {
 
 #[cfg(any(test, target_os = "android"))]
 pub(super) fn should_ignore_android_tfo_error(err: &io::Error) -> bool {
-    matches!(err.raw_os_error(), Some(libc::ENOPROTOOPT | libc::EOPNOTSUPP | libc::EPERM | libc::EACCES | libc::EINVAL))
+    connect_platform::should_ignore_android_tfo_error(err)
 }
 
 fn bind_socket(socket: &Socket, bind_ip: IpAddr, target: SocketAddr) -> io::Result<()> {
