@@ -8,25 +8,6 @@ use crate::runtime::state::RuntimeState;
 
 use super::hints::resolve_adaptive_udp_hints;
 
-pub(in crate::runtime) fn resolve_tcp_hints_with_evolver(
-    state: &RuntimeState,
-    target: SocketAddr,
-    group_index: usize,
-    group: &DesyncGroup,
-    host: Option<&str>,
-    payload: &[u8],
-) -> io::Result<AdaptivePlannerHints> {
-    state.adaptive_hints.resolve_tcp_hints_with_evolver(
-        &state.config,
-        state.runtime_context.as_ref(),
-        group_index,
-        target,
-        host,
-        group,
-        payload,
-    )
-}
-
 pub(in crate::runtime) fn resolve_udp_hints_with_evolver(
     state: &RuntimeState,
     target: SocketAddr,

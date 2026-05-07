@@ -18,6 +18,24 @@ use crate::sync::AtomicBool;
 
 pub use ripdpi_desync_runtime::{primary_tcp_strategy_family, OutboundSendError, OutboundSendOutcome, PcapHook};
 
+pub struct TcpDesyncExecutionContext<'a> {
+    pub config: &'a ripdpi_config::RuntimeConfig,
+    pub runtime_context: Option<&'a ripdpi_proxy_config::ProxyRuntimeContext>,
+    pub telemetry: Option<&'a dyn ripdpi_runtime_api::RuntimeTelemetrySink>,
+    pub adaptive_hints: &'a dyn ripdpi_runtime_decision_ports::AdaptiveHintPort,
+    pub ttl_unavailable: &'a AtomicBool,
+    pub pcap_hook: Option<&'a PcapHook>,
+}
+
+pub struct DesyncSendRequest<'a> {
+    pub group_index: usize,
+    pub group: &'a ripdpi_config::DesyncGroup,
+    pub payload: &'a [u8],
+    pub progress: OutboundProgress,
+    pub host: Option<&'a str>,
+    pub target: std::net::SocketAddr,
+}
+
 pub struct RuntimeTcpDesyncPlatform;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -74,6 +92,72 @@ pub fn apply_tcp_capability_policy<'a>(
     progress: ripdpi_session::OutboundProgress,
 ) -> (std::borrow::Cow<'a, ripdpi_config::DesyncGroup>, Option<&'static str>) {
     ripdpi_desync_runtime::apply_tcp_capability_policy(group, capability, payload, progress)
+}
+
+pub fn send_tcp_desync_payload(
+    writer: &mut TcpStream,
+    context: TcpDesyncExecutionContext<'_>,
+    request: DesyncSendRequest<'_>,
+) -> Result<OutboundSendOutcome, OutboundSendError> {
+    let capability = ripdpi_runtime_decision_ports::adaptive::strategy_context::direct_path_capability_for_route(
+        context.runtime_context,
+        request.host,
+        request.target,
+    );
+    let (effective_group, strategy_family_override) =
+        apply_tcp_capability_policy(request.group, capability, request.payload, request.progress);
+    let effective_group = effective_group.as_ref();
+    let scope_key = ripdpi_runtime_decision_ports::adaptive::strategy_context::network_scope_key(context.config);
+    let resolved_fake_ttl = context.adaptive_hints.resolve_fake_ttl(
+        scope_key,
+        request.group_index,
+        request.target,
+        request.host,
+        effective_group,
+    )?;
+    let adaptive_hints = context.adaptive_hints.resolve_tcp_hints_with_evolver(
+        context.config,
+        context.runtime_context,
+        request.group_index,
+        request.target,
+        request.host,
+        effective_group,
+        request.payload,
+    )?;
+    let morph_policy = crate::model::proxy_config::morph_policy(context.runtime_context);
+    crate::model::proxy_config::emit_morph_hint_applied(
+        context.telemetry,
+        morph_policy,
+        request.target,
+        crate::model::proxy_config::tcp_morph_hint_family(morph_policy, request.payload, adaptive_hints),
+    );
+    let morphed_group = crate::model::proxy_config::apply_tcp_morph_policy_to_group(
+        morph_policy,
+        effective_group,
+        request.payload,
+        adaptive_hints,
+    );
+    let activation = activation_context_from_progress(
+        request.progress,
+        ripdpi_desync::ActivationTransport::Tcp,
+        Some(request.payload),
+        tcp_segment_hint(writer),
+        tcp_activation_state(writer),
+        resolved_fake_ttl,
+        adaptive_hints,
+    );
+    send_prepared_with_runtime_platform(
+        writer,
+        context.config,
+        &morphed_group,
+        request.payload,
+        request.progress,
+        activation,
+        resolved_fake_ttl,
+        strategy_family_override,
+        context.ttl_unavailable,
+        context.pcap_hook,
+    )
 }
 
 pub fn activation_context_from_progress(

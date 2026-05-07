@@ -1,6 +1,5 @@
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
 use ripdpi_proxy_runtime_adapter::model::desync::AdaptivePlannerHints;
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{self as morph_adapter, ProxyMorphPolicy};
 
@@ -18,12 +17,13 @@ pub(super) fn apply_udp_morph_policy_to_hints(
     morph_adapter::apply_udp_morph_policy_to_hints(current_morph_policy(state), hints)
 }
 
+#[cfg(test)]
 pub(super) fn apply_tcp_morph_policy_to_group(
     state: &RuntimeState,
-    group: &DesyncGroup,
+    group: &ripdpi_proxy_runtime_adapter::model::config::DesyncGroup,
     payload: &[u8],
     hints: AdaptivePlannerHints,
-) -> DesyncGroup {
+) -> ripdpi_proxy_runtime_adapter::model::config::DesyncGroup {
     morph_adapter::apply_tcp_morph_policy_to_group(current_morph_policy(state), group, payload, hints)
 }
 
@@ -33,14 +33,6 @@ pub(super) fn emit_morph_hint_applied(state: &RuntimeState, target: SocketAddr, 
 
 pub(super) fn emit_morph_rollback(state: &RuntimeState, target: SocketAddr, reason: impl AsRef<str>) {
     morph_adapter::emit_morph_rollback(state.telemetry.as_deref(), current_morph_policy(state), target, reason);
-}
-
-pub(super) fn tcp_morph_hint_family(
-    state: &RuntimeState,
-    payload: &[u8],
-    hints: AdaptivePlannerHints,
-) -> Option<String> {
-    morph_adapter::tcp_morph_hint_family(current_morph_policy(state), payload, hints)
 }
 
 pub(super) fn udp_morph_hint_family(state: &RuntimeState, hints: AdaptivePlannerHints) -> Option<String> {

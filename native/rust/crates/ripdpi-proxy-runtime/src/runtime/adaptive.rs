@@ -15,13 +15,8 @@ pub(super) use direct_path::{
     note_direct_path_tcp_success, note_direct_path_tls_post_client_hello_failure, note_direct_path_transport_attempt,
     note_direct_path_udp_failure, note_direct_path_udp_suppressed, now_millis,
 };
-pub(super) use evolver::{
-    note_evolver_failure, note_evolver_success, resolve_tcp_hints_with_evolver, resolve_udp_hints_with_evolver,
-};
-pub(super) use fake_ttl::{
-    note_adaptive_fake_ttl_failure, note_adaptive_fake_ttl_success, note_server_ttl_for_route,
-    resolve_adaptive_fake_ttl,
-};
+pub(super) use evolver::{note_evolver_failure, note_evolver_success, resolve_udp_hints_with_evolver};
+pub(super) use fake_ttl::{note_adaptive_fake_ttl_failure, note_adaptive_fake_ttl_success, note_server_ttl_for_route};
 pub(super) use hints::{
     note_adaptive_tcp_failure, note_adaptive_tcp_success, note_adaptive_udp_failure, note_adaptive_udp_success,
 };
