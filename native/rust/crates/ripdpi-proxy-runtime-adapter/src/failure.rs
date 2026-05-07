@@ -70,6 +70,28 @@ pub fn classify_warmup_closed_before_response() -> ClassifiedFailure {
     )
 }
 
+pub fn classify_first_response_closed_before_response() -> ClassifiedFailure {
+    ClassifiedFailure::new(
+        FailureClass::SilentDrop,
+        FailureStage::FirstResponse,
+        FailureAction::RetryWithMatchingGroup,
+        "upstream closed before first response",
+    )
+}
+
+pub fn classify_first_response_partial_tls_timeout() -> ClassifiedFailure {
+    ClassifiedFailure::new(
+        FailureClass::SilentDrop,
+        FailureStage::FirstResponse,
+        FailureAction::RetryWithMatchingGroup,
+        "partial TLS response timed out",
+    )
+}
+
+pub fn classify_first_response_transport_error(err: &io::Error) -> ClassifiedFailure {
+    classify_transport_error(FailureStage::FirstResponse, err)
+}
+
 fn is_tunnel_infrastructure_dns_target(target: SocketAddr) -> bool {
     if target.port() != 853 {
         return false;
