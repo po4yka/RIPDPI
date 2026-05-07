@@ -4,18 +4,14 @@ use super::autolearn::flush_updates;
 use super::execution::probe_domain;
 use super::target_catalog::{PROBE_DOMAINS, WARMUP_DEADLINE};
 use crate::runtime::state::RuntimeState;
-use ripdpi_proxy_runtime_adapter::model::config::{route_group_count, warmup_probe_enabled};
+use ripdpi_proxy_runtime_adapter::model::config::warmup_probe_settings;
 
 /// Spawn the warmup probe as a background thread.
 ///
 /// The thread probes each domain sequentially, stopping early if the
 /// runtime shutdown is requested or the total deadline expires.
 pub(in crate::runtime) fn spawn_warmup_thread(state: RuntimeState) {
-    if !warmup_probe_enabled(&state.config) {
-        return;
-    }
-    if route_group_count(&state.config) < 2 {
-        // Warmup is only useful when there are fallback groups to escalate to.
+    if !warmup_probe_settings(&state.config).scheduler_enabled {
         return;
     }
     thread::Builder::new().name("ripdpi-warmup".into()).spawn(move || run_warmup(&state)).ok();

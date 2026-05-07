@@ -161,6 +161,19 @@ pub mod config {
         config.host_autolearn.enabled && config.host_autolearn.warmup_probe_enabled
     }
 
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct WarmupProbeSettings {
+        pub scheduler_enabled: bool,
+        pub response_buffer_size: usize,
+    }
+
+    pub fn warmup_probe_settings(config: &RuntimeConfig) -> WarmupProbeSettings {
+        WarmupProbeSettings {
+            scheduler_enabled: warmup_probe_enabled(config) && route_group_count(config) >= 2,
+            response_buffer_size: runtime_buffer_size(config),
+        }
+    }
+
     pub fn host_autolearn_enabled(config: &RuntimeConfig) -> bool {
         config.host_autolearn.enabled
     }
@@ -478,6 +491,26 @@ pub mod config {
             assert_eq!(
                 delayed_connect_settings(&config),
                 DelayedConnectSettings { enabled: true, buffer_size: 16_384 },
+            );
+        }
+
+        #[test]
+        fn warmup_probe_settings_require_enablement_and_fallback_group() {
+            let mut config = RuntimeConfig::default();
+            config.host_autolearn.enabled = true;
+            config.host_autolearn.warmup_probe_enabled = true;
+            config.network.buffer_size = 512;
+            config.groups = vec![DesyncGroup::new(0)];
+
+            assert_eq!(
+                warmup_probe_settings(&config),
+                WarmupProbeSettings { scheduler_enabled: false, response_buffer_size: 16_384 },
+            );
+
+            config.groups.push(DesyncGroup::new(1));
+            assert_eq!(
+                warmup_probe_settings(&config),
+                WarmupProbeSettings { scheduler_enabled: true, response_buffer_size: 16_384 },
             );
         }
     }
