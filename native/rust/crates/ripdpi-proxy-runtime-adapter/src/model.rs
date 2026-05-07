@@ -29,6 +29,10 @@ pub mod config {
         config.network.max_open.max(1) as usize
     }
 
+    pub fn max_route_retries(config: &RuntimeConfig) -> usize {
+        config.max_route_retries
+    }
+
     pub fn route_group_count(config: &RuntimeConfig) -> usize {
         config.groups.len()
     }

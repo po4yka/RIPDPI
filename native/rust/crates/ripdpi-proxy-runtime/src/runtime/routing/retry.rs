@@ -2,6 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, ClassifiedFailure, FailureClass, FailureStage};
+use ripdpi_proxy_runtime_adapter::model::config::max_route_retries;
 use ripdpi_runtime_decision_ports::policy::{ConnectionRoute, TransportProtocol};
 
 use super::super::adaptive::{note_direct_path_all_ips_failed, note_direct_path_transport_attempt};
@@ -31,7 +32,7 @@ pub(in crate::runtime) fn connect_target_with_route(
     payload: Option<&[u8]>,
     host: Option<String>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
-    let max_retries = state.config.max_route_retries;
+    let max_retries = max_route_retries(&state.config);
     let mut retries: usize = 0;
     loop {
         let attempt_targets = preferred_targets_for_transport(state, target, host.as_deref(), TransportProtocol::Tcp);
@@ -114,7 +115,7 @@ fn reconnect_target_with_tfo_mode(
     payload: Option<&[u8]>,
     allow_tfo: bool,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
-    let max_retries = state.config.max_route_retries;
+    let max_retries = max_route_retries(&state.config);
     let mut retries: usize = 0;
     loop {
         crate::runtime::retry::apply_retry_pacing_before_connect(state, target, &route, host.as_deref(), payload)?;
