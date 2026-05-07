@@ -1,7 +1,9 @@
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 
-use ripdpi_proxy_runtime_adapter::session::{S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_VER5};
+use ripdpi_proxy_runtime_adapter::model::session::{
+    S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_VER5,
+};
 
 pub(in crate::runtime::handshake) fn negotiate_socks5(
     client: &mut TcpStream,

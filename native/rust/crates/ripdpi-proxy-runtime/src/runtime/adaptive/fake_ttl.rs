@@ -1,7 +1,7 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::config::DesyncGroup;
+use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
 
 use crate::runtime::state::RuntimeState;
 

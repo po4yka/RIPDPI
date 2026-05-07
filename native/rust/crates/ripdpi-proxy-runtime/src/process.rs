@@ -9,7 +9,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use daemonize::Daemonize;
 use nix::fcntl::{Flock, FlockArg};
 
-use ripdpi_proxy_runtime_adapter::config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
 

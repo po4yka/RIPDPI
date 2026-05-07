@@ -2,7 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::session::SessionState;
+use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
 use crate::runtime::relay::failure_retry::first_outbound::execution::execute_first_write;
 use crate::runtime::relay::failure_retry::first_outbound::payload::prepare_first_payload;

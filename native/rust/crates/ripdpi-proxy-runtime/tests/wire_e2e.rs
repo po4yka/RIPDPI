@@ -12,8 +12,8 @@ use local_network_fixture::{FixtureConfig, FixtureStack};
 use ripdpi_packets::IS_TCP;
 use ripdpi_packets::{parse_quic_initial, IS_UDP};
 #[cfg(target_os = "linux")]
-use ripdpi_proxy_runtime_adapter::config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
-use ripdpi_proxy_runtime_adapter::config::{UdpChainStep, UdpChainStepKind};
+use ripdpi_proxy_runtime_adapter::model::config::{OffsetExpr, TcpChainStep, TcpChainStepKind};
+use ripdpi_proxy_runtime_adapter::model::config::{UdpChainStep, UdpChainStepKind};
 use std::sync::{Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::Duration;
 
@@ -61,7 +61,7 @@ fn wire_fixture_config() -> FixtureConfig {
     }
 }
 
-fn udp_fake_burst_config() -> ripdpi_proxy_runtime_adapter::config::RuntimeConfig {
+fn udp_fake_burst_config() -> ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig {
     let mut config =
         ephemeral_proxy_config(&["--ip", "127.0.0.1", "--udp-fake", "3", "--fake-quic-profile", "realistic_initial"]);
     config.groups[0].matches.proto = IS_UDP;
@@ -69,7 +69,7 @@ fn udp_fake_burst_config() -> ripdpi_proxy_runtime_adapter::config::RuntimeConfi
     config
 }
 
-fn udp_quic_chain_config() -> ripdpi_proxy_runtime_adapter::config::RuntimeConfig {
+fn udp_quic_chain_config() -> ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig {
     let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
     config.groups[0].matches.proto = IS_UDP;
     config.groups[0].actions.ttl = Some(8);
@@ -116,7 +116,7 @@ fn udp_quic_chain_config() -> ripdpi_proxy_runtime_adapter::config::RuntimeConfi
 fn tcp_multidisorder_config(
     first_offset: i64,
     second_offset: i64,
-) -> ripdpi_proxy_runtime_adapter::config::RuntimeConfig {
+) -> ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig {
     let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
     config.groups[0].matches.proto = IS_TCP;
     config.groups[0].actions.tcp_chain = vec![

@@ -60,7 +60,10 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
 /// attempt a raw TLS ClientHello. A failure is classified as a DPI signature
 /// if the connection is reset, times out, or receives a TLS alert before the
 /// ServerHello completes.
-fn run_reprobe(config: &ripdpi_proxy_runtime_adapter::config::RuntimeConfig, adaptive: &Arc<dyn AdaptiveFeedbackPort>) {
+fn run_reprobe(
+    config: &ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig,
+    adaptive: &Arc<dyn AdaptiveFeedbackPort>,
+) {
     let deadline = std::time::Instant::now() + TOTAL_DEADLINE;
     let mut failures = 0usize;
     let mut successes = 0usize;

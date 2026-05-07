@@ -1,8 +1,8 @@
 use std::io::{self, Read};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::config::RuntimeConfig;
-use ripdpi_proxy_runtime_adapter::session::{SocketType, S_ATP_I4, S_ATP_I6};
+use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::model::session::{SocketType, S_ATP_I4, S_ATP_I6};
 
 pub(in crate::runtime::handshake) fn read_shadowsocks_request(
     client: &mut TcpStream,

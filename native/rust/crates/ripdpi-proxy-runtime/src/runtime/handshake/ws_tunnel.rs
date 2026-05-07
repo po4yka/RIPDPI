@@ -2,7 +2,7 @@ use std::io::{self, Read};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::proxy_config::ProxyRuntimeContext;
+use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyRuntimeContext;
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     self as ws_bootstrap, MtprotoSeedClassification, TelegramDc, WsTunnelConfig, WsTunnelDecision,
 };
@@ -31,7 +31,7 @@ fn classify_telegram_target(target: SocketAddr) -> Option<TelegramDc> {
 
 /// Check if WS tunnel should be tried first (Always mode).
 pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
-    if state.config.adaptive.ws_tunnel_mode != ripdpi_proxy_runtime_adapter::config::WsTunnelMode::Always {
+    if state.config.adaptive.ws_tunnel_mode != ripdpi_proxy_runtime_adapter::model::config::WsTunnelMode::Always {
         return None;
     }
     let dc = classify_telegram_target(target)?;
@@ -41,7 +41,7 @@ pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -
 
 /// Check if WS tunnel should be tried as a last resort (Fallback mode).
 pub(super) fn should_ws_tunnel_fallback(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
-    if state.config.adaptive.ws_tunnel_mode != ripdpi_proxy_runtime_adapter::config::WsTunnelMode::Fallback {
+    if state.config.adaptive.ws_tunnel_mode != ripdpi_proxy_runtime_adapter::model::config::WsTunnelMode::Fallback {
         return None;
     }
     classify_telegram_target(target)
@@ -224,7 +224,7 @@ mod tests {
     }
 
     fn runtime_state() -> RuntimeState {
-        RuntimeState::test(ripdpi_proxy_runtime_adapter::config::RuntimeConfig::default())
+        RuntimeState::test(ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default())
     }
 
     fn build_test_init_packet(raw_dc: i32) -> Vec<u8> {
@@ -266,7 +266,7 @@ mod tests {
 
         let mut always = runtime_state();
         let mut cfg = (*always.config).clone();
-        cfg.adaptive.ws_tunnel_mode = ripdpi_proxy_runtime_adapter::config::WsTunnelMode::Always;
+        cfg.adaptive.ws_tunnel_mode = ripdpi_proxy_runtime_adapter::model::config::WsTunnelMode::Always;
         always.config = Arc::new(cfg);
         assert_eq!(should_ws_tunnel_first(target, &always), Some(TelegramDc::production(2)));
         assert_eq!(should_ws_tunnel_first(non_telegram_target, &always), None);
@@ -274,7 +274,7 @@ mod tests {
 
         let mut fallback = runtime_state();
         let mut cfg = (*fallback.config).clone();
-        cfg.adaptive.ws_tunnel_mode = ripdpi_proxy_runtime_adapter::config::WsTunnelMode::Fallback;
+        cfg.adaptive.ws_tunnel_mode = ripdpi_proxy_runtime_adapter::model::config::WsTunnelMode::Fallback;
         fallback.config = Arc::new(cfg);
         assert_eq!(should_ws_tunnel_fallback(target, &fallback), Some(TelegramDc::production(2)));
         assert_eq!(should_ws_tunnel_fallback(non_telegram_target, &fallback), None);

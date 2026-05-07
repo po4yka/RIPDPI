@@ -2,7 +2,7 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::config::{DesyncGroup, TcpChainStepKind};
+use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, TcpChainStepKind};
 
 use super::super::super::state::RuntimeState;
 use super::error::ConnectAttemptError;
@@ -119,7 +119,7 @@ pub(super) fn unspecified_ip_for(addr: SocketAddr) -> IpAddr {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ripdpi_proxy_runtime_adapter::config::{OffsetExpr, TcpChainStep, UpstreamSocksConfig};
+    use ripdpi_proxy_runtime_adapter::model::config::{OffsetExpr, TcpChainStep, UpstreamSocksConfig};
 
     #[test]
     fn outbound_connects_do_not_reuse_listener_bind_ip() {

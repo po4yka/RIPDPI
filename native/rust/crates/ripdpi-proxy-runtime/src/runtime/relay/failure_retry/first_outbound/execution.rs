@@ -1,6 +1,6 @@
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::session::SessionState;
+use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
 use crate::runtime::desync::{send_with_group, OutboundSendError};
 use crate::runtime::state::RuntimeState;

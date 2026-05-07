@@ -1,12 +1,12 @@
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::config::DesyncGroup;
-use ripdpi_proxy_runtime_adapter::desync_model::{
+use ripdpi_proxy_runtime_adapter::desync_platform::{OutboundSendError, OutboundSendOutcome};
+use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
+use ripdpi_proxy_runtime_adapter::model::desync::{
     ActivationContext, ActivationTcpState, ActivationTransport, AdaptivePlannerHints, TcpSegmentHint,
 };
-use ripdpi_proxy_runtime_adapter::desync_platform::{OutboundSendError, OutboundSendOutcome};
+use ripdpi_proxy_runtime_adapter::model::session::OutboundProgress;
 use ripdpi_proxy_runtime_adapter::protocol_payload;
-use ripdpi_proxy_runtime_adapter::session::OutboundProgress;
 
 use super::platform::{send_prepared_with_runtime_platform, seqovl_supported, tcp_activation_state, tcp_segment_hint};
 use crate::runtime::adaptive::{

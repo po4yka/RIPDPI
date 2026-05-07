@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use ripdpi_io_uring::IoUringDriver;
-use ripdpi_proxy_runtime_adapter::session::SessionState;
+use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
 use super::super::super::state::RuntimeState;
 use super::super::stream_copy::CONNECTION_FREEZE_MARKER;

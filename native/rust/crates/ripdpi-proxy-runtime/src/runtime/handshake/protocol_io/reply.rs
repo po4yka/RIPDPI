@@ -1,7 +1,9 @@
 use std::io::{self, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::session::{encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply};
+use ripdpi_proxy_runtime_adapter::model::session::{
+    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply,
+};
 
 #[derive(Clone, Copy)]
 pub(in crate::runtime::handshake) enum HandshakeKind {

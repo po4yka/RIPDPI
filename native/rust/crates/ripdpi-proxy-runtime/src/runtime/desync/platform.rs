@@ -1,8 +1,8 @@
 use std::net::TcpStream;
 
-use ripdpi_proxy_runtime_adapter::desync_model::{ActivationContext, TcpSegmentHint};
 use ripdpi_proxy_runtime_adapter::desync_platform::{OutboundSendError, OutboundSendOutcome, PcapHook};
-use ripdpi_proxy_runtime_adapter::session::OutboundProgress;
+use ripdpi_proxy_runtime_adapter::model::desync::{ActivationContext, TcpSegmentHint};
+use ripdpi_proxy_runtime_adapter::model::session::OutboundProgress;
 
 use crate::sync::AtomicBool;
 
@@ -23,8 +23,8 @@ pub(super) fn seqovl_supported() -> bool {
 #[allow(clippy::too_many_arguments)]
 pub(super) fn send_prepared_with_runtime_platform(
     writer: &mut TcpStream,
-    config: &ripdpi_proxy_runtime_adapter::config::RuntimeConfig,
-    group: &ripdpi_proxy_runtime_adapter::config::DesyncGroup,
+    config: &ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig,
+    group: &ripdpi_proxy_runtime_adapter::model::config::DesyncGroup,
     payload: &[u8],
     progress: OutboundProgress,
     context: ActivationContext,

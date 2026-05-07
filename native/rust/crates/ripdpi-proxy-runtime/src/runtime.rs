@@ -14,10 +14,10 @@ mod warmup;
 use std::io;
 use std::net::TcpListener;
 
-use ripdpi_proxy_runtime_adapter::config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
-use ripdpi_proxy_runtime_adapter::runtime_api::EmbeddedProxyControl;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 
 pub fn run_proxy(config: RuntimeConfig) -> io::Result<()> {
     let listener = create_listener(&config)?;
@@ -51,10 +51,10 @@ mod tests {
     #[cfg(not(feature = "loom"))]
     use crate::sync::{Arc, AtomicUsize};
     use ripdpi_packets::{DEFAULT_FAKE_TLS, IS_HTTPS};
-    use ripdpi_proxy_runtime_adapter::config::{
+    use ripdpi_proxy_runtime_adapter::model::config::{
         DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT,
     };
-    use ripdpi_proxy_runtime_adapter::session::{
+    use ripdpi_proxy_runtime_adapter::model::session::{
         encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, OutboundProgress, S_ATP_I4, S_ATP_I6,
         S_CMD_CONN, S_ER_CONN, S_VER5,
     };
@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn failure_trigger_mask_covers_all_detection_classes() {
-        use ripdpi_proxy_runtime_adapter::config::{
+        use ripdpi_proxy_runtime_adapter::model::config::{
             DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_SILENT_DROP, DETECT_TCP_RESET, DETECT_TLS_ALERT,
             DETECT_TLS_HANDSHAKE_FAILURE,
         };
@@ -257,9 +257,9 @@ mod tests {
         let mut fallback = DesyncGroup::new(1);
         fallback.matches.detect = DETECT_CONNECT;
 
-        let config = ripdpi_proxy_runtime_adapter::config::RuntimeConfig {
+        let config = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig {
             groups: vec![primary, fallback],
-            ..ripdpi_proxy_runtime_adapter::config::RuntimeConfig::default()
+            ..ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default()
         };
         let state = RuntimeState::test(config.clone());
 

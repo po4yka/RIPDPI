@@ -163,13 +163,14 @@ mod tests {
 
     #[test]
     fn max_route_retries_default_is_eight() {
-        let config = ripdpi_proxy_runtime_adapter::config::RuntimeConfig::default();
+        let config = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
         assert_eq!(config.max_route_retries, 8);
     }
 
     #[test]
     fn max_route_retries_is_customizable() {
-        let config = ripdpi_proxy_runtime_adapter::config::RuntimeConfig { max_route_retries: 3, ..Default::default() };
+        let config =
+            ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig { max_route_retries: 3, ..Default::default() };
         assert_eq!(config.max_route_retries, 3);
     }
 

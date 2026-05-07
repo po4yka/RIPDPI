@@ -17,7 +17,7 @@ use native_soak_support::{
     acquire_global_lock, assert_growth, capture_process_resource_snapshot, sample_thread_count_by_prefix,
     write_json_artifact, GrowthThresholds, LatencyRecorder, SoakProfile, SoakSampler,
 };
-use ripdpi_proxy_runtime_adapter::runtime_api::RuntimeTelemetrySink;
+use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
 use serde_json::json;
 
 use support::proxy::{ephemeral_proxy_config, start_proxy};

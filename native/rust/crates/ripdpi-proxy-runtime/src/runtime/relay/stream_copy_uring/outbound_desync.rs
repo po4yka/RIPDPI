@@ -4,7 +4,7 @@ use std::io::{self, Read};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use ripdpi_proxy_runtime_adapter::session::SessionState;
+use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 use ripdpi_runtime_decision_ports::policy::extract_host;
 
 use super::super::super::desync::{send_with_group, OutboundSendError};

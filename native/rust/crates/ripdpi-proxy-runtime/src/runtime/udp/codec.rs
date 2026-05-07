@@ -1,6 +1,6 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use ripdpi_proxy_runtime_adapter::session::{SocketType, S_ATP_I4, S_ATP_I6};
+use ripdpi_proxy_runtime_adapter::model::session::{SocketType, S_ATP_I4, S_ATP_I6};
 
 use super::super::state::RuntimeState;
 

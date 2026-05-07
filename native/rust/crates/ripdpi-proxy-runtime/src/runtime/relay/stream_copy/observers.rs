@@ -1,7 +1,7 @@
 use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, FailureStage};
+use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 use ripdpi_proxy_runtime_adapter::platform;
-use ripdpi_proxy_runtime_adapter::session::SessionState;
 use std::io;
 use std::net::TcpStream;
 

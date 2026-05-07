@@ -1,4 +1,4 @@
-use ripdpi_proxy_runtime_adapter::proxy_config::NetworkSnapshot;
+use ripdpi_proxy_runtime_adapter::model::proxy_config::NetworkSnapshot;
 
 /// Derives a stable identity string from a `NetworkSnapshot` that changes only
 /// when the physical network actually switches (WiFi->cellular, different SSID,

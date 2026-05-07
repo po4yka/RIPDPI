@@ -1,6 +1,6 @@
-use ripdpi_proxy_runtime_adapter::config::DesyncGroup;
-use ripdpi_proxy_runtime_adapter::desync_model::AdaptivePlannerHints;
-use ripdpi_proxy_runtime_adapter::proxy_config::ProxyMorphPolicy;
+use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
+use ripdpi_proxy_runtime_adapter::model::desync::AdaptivePlannerHints;
+use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyMorphPolicy;
 
 pub(super) fn apply_tcp_morph_policy_to_group(
     policy: Option<&ProxyMorphPolicy>,

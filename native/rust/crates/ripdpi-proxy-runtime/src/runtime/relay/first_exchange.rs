@@ -2,12 +2,12 @@ use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::config::{
-    RuntimeConfig, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET,
-    DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
-};
 use ripdpi_proxy_runtime_adapter::failure::{
     classify_transport_error, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
+};
+use ripdpi_proxy_runtime_adapter::model::config::{
+    RuntimeConfig, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET,
+    DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
 };
 use ripdpi_proxy_runtime_adapter::platform;
 
@@ -166,15 +166,15 @@ pub(super) fn timeout_count_limit(config: &RuntimeConfig) -> i32 {
 #[cfg(test)]
 pub(super) fn response_trigger_supported(
     config: &RuntimeConfig,
-    trigger: ripdpi_proxy_runtime_adapter::session::TriggerEvent,
+    trigger: ripdpi_proxy_runtime_adapter::model::session::TriggerEvent,
 ) -> bool {
-    use ripdpi_proxy_runtime_adapter::config::DETECT_CONNECT;
+    use ripdpi_proxy_runtime_adapter::model::config::DETECT_CONNECT;
 
     let flag = match trigger {
-        ripdpi_proxy_runtime_adapter::session::TriggerEvent::Redirect => DETECT_HTTP_LOCAT,
-        ripdpi_proxy_runtime_adapter::session::TriggerEvent::SslErr => DETECT_TLS_HANDSHAKE_FAILURE,
-        ripdpi_proxy_runtime_adapter::session::TriggerEvent::Connect => DETECT_CONNECT,
-        ripdpi_proxy_runtime_adapter::session::TriggerEvent::Torst => DETECT_TORST,
+        ripdpi_proxy_runtime_adapter::model::session::TriggerEvent::Redirect => DETECT_HTTP_LOCAT,
+        ripdpi_proxy_runtime_adapter::model::session::TriggerEvent::SslErr => DETECT_TLS_HANDSHAKE_FAILURE,
+        ripdpi_proxy_runtime_adapter::model::session::TriggerEvent::Connect => DETECT_CONNECT,
+        ripdpi_proxy_runtime_adapter::model::session::TriggerEvent::Torst => DETECT_TORST,
     };
     config.groups.iter().any(|group| group.matches.detect & flag != 0)
 }

@@ -1,5 +1,5 @@
-use ripdpi_proxy_runtime_adapter::config::{DesyncGroup, RotationPolicy};
 use ripdpi_proxy_runtime_adapter::failure::FailureClass;
+use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RotationPolicy};
 use std::time::{Duration, Instant};
 
 use super::super::super::desync::primary_tcp_strategy_family;
@@ -133,7 +133,7 @@ impl CircularTcpRotationController {
 
     pub(super) fn start_round(
         &mut self,
-        config: &ripdpi_proxy_runtime_adapter::config::RuntimeConfig,
+        config: &ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig,
         round: u32,
         stream_start: usize,
         request_chunk: &[u8],
@@ -158,7 +158,7 @@ impl CircularTcpRotationController {
 
     pub(super) fn append_request_chunk(
         &mut self,
-        config: &ripdpi_proxy_runtime_adapter::config::RuntimeConfig,
+        config: &ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig,
         round: u32,
         request_chunk: &[u8],
     ) {

@@ -6,8 +6,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use ripdpi_io_uring::IoUringDriver;
-use ripdpi_proxy_runtime_adapter::config::RuntimeTimeoutSettings;
-use ripdpi_proxy_runtime_adapter::session::SessionState;
+use ripdpi_proxy_runtime_adapter::model::config::RuntimeTimeoutSettings;
+use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
 use super::cleanup::shutdown_direction;
 use super::freeze_detector::FreezeDetector;

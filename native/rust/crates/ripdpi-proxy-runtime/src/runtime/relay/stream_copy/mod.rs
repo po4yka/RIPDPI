@@ -10,7 +10,7 @@ use observers::group_rotation_controller;
 use rotation::RotationFailureReason;
 
 use crate::sync::{Arc, Mutex};
-use ripdpi_proxy_runtime_adapter::session::SessionState;
+use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 use std::io;
 use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -124,7 +124,7 @@ pub(super) fn relay_streams(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ripdpi_proxy_runtime_adapter::config::{
+    use ripdpi_proxy_runtime_adapter::model::config::{
         DesyncGroup, OffsetBase, OffsetExpr, RotationCandidate, RotationPolicy, TcpChainStep, TcpChainStepKind,
     };
     use rotation::CircularTcpRotationController;
@@ -241,7 +241,7 @@ mod tests {
     #[test]
     fn rotation_retransmission_failure_advances_on_next_round() {
         let mut controller = rotation_controller();
-        let config = ripdpi_proxy_runtime_adapter::config::RuntimeConfig::default();
+        let config = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
 
         controller.start_round(&config, 2, 0, b"GET / HTTP/1.1\r\n", Some(1), Some("example.org"), None);
         controller.observe_round_failure(Some("example.org"), None, RotationFailureReason::Retransmissions, 3);
@@ -271,7 +271,7 @@ mod tests {
     #[test]
     fn rotation_reset_failure_rotates_on_next_round() {
         let mut controller = rotation_controller();
-        let config = ripdpi_proxy_runtime_adapter::config::RuntimeConfig::default();
+        let config = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
 
         controller.start_round(&config, 2, 0, b"GET / HTTP/1.1\r\n", Some(0), Some("example.org"), None);
         controller.observe_round_failure(

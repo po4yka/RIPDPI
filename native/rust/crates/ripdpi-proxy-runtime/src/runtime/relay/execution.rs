@@ -17,9 +17,9 @@ pub(super) fn relay_with_uring_if_available(
     upstream: TcpStream,
     state: &RuntimeState,
     route: ConnectionRoute,
-    session_state: ripdpi_proxy_runtime_adapter::session::SessionState,
+    session_state: ripdpi_proxy_runtime_adapter::model::session::SessionState,
     success_host: Option<String>,
-) -> io::Result<ripdpi_proxy_runtime_adapter::session::SessionState> {
+) -> io::Result<ripdpi_proxy_runtime_adapter::model::session::SessionState> {
     let uring_driver = ripdpi_io_uring::io_uring_capabilities().send_zc.then(|| state.io_uring.as_ref()).flatten();
     let rotation_enabled =
         state.config.groups.get(route.group_index).and_then(|group| group.actions.rotation_policy.as_ref()).is_some();
@@ -44,15 +44,15 @@ pub(super) fn relay_with_uring_if_available(
     upstream: TcpStream,
     state: &RuntimeState,
     route: ConnectionRoute,
-    session_state: ripdpi_proxy_runtime_adapter::session::SessionState,
+    session_state: ripdpi_proxy_runtime_adapter::model::session::SessionState,
     success_host: Option<String>,
-) -> io::Result<ripdpi_proxy_runtime_adapter::session::SessionState> {
+) -> io::Result<ripdpi_proxy_runtime_adapter::model::session::SessionState> {
     relay_streams(client, upstream, state, route.group_index, session_state, success_host)
 }
 
 #[inline(never)]
 pub(super) fn record_relay_result(
-    relay_result: &io::Result<ripdpi_proxy_runtime_adapter::session::SessionState>,
+    relay_result: &io::Result<ripdpi_proxy_runtime_adapter::model::session::SessionState>,
     state: &RuntimeState,
     target: SocketAddr,
     route: &ConnectionRoute,
