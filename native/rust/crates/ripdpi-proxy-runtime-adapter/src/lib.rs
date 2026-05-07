@@ -7,6 +7,7 @@ pub mod model;
 pub mod platform;
 pub mod protocol_payload;
 pub mod raw_packet_requirements;
+pub mod response_triggers;
 pub mod udp_desync;
 pub mod ws_bootstrap;
 

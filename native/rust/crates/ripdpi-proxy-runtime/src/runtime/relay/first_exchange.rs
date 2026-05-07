@@ -168,13 +168,5 @@ pub(super) fn response_trigger_supported(
     config: &RuntimeConfig,
     trigger: ripdpi_proxy_runtime_adapter::model::session::TriggerEvent,
 ) -> bool {
-    use ripdpi_proxy_runtime_adapter::model::config::DETECT_CONNECT;
-
-    let flag = match trigger {
-        ripdpi_proxy_runtime_adapter::model::session::TriggerEvent::Redirect => DETECT_HTTP_LOCAT,
-        ripdpi_proxy_runtime_adapter::model::session::TriggerEvent::SslErr => DETECT_TLS_HANDSHAKE_FAILURE,
-        ripdpi_proxy_runtime_adapter::model::session::TriggerEvent::Connect => DETECT_CONNECT,
-        ripdpi_proxy_runtime_adapter::model::session::TriggerEvent::Torst => DETECT_TORST,
-    };
-    config.groups.iter().any(|group| group.matches.detect & flag != 0)
+    ripdpi_proxy_runtime_adapter::response_triggers::response_trigger_supported(config, trigger)
 }
