@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
-use ripdpi_proxy_runtime_adapter::platform;
+use ripdpi_proxy_runtime_adapter::platform::connect as connect_platform;
 
 use super::error::ConnectAttemptError;
 pub(in crate::runtime) fn connect_socket(
@@ -36,7 +36,7 @@ pub(in crate::runtime::routing::connect) fn connect_socket_detailed(
         tcp_fast_open_enabled: tfo,
     })?;
     if let Some(path) = protect_path {
-        platform::vpn::protect_socket(&socket, Some(path)).map_err(|source| ConnectAttemptError {
+        connect_platform::protect_socket(&socket, path).map_err(|source| ConnectAttemptError {
             source,
             tcp_total_retransmissions: None,
             tcp_fast_open_enabled: tfo,
@@ -55,7 +55,7 @@ pub(in crate::runtime::routing::connect) fn connect_socket_detailed(
         tcp_fast_open_enabled: tfo,
     })?;
     if let Some(rcvbuf) = pre_connect_rcvbuf {
-        let _ = platform::socket::set_rcvbuf(&socket, rcvbuf);
+        let _ = connect_platform::set_rcvbuf(&socket, rcvbuf);
     }
     let connect_started = std::time::Instant::now();
     tracing::debug!(
@@ -71,7 +71,7 @@ pub(in crate::runtime::routing::connect) fn connect_socket_detailed(
         socket.connect(&SockAddr::from(target))
     };
     if let Err(err) = connect_result {
-        let tcp_total_retransmissions = platform::tcp::tcp_total_retransmissions(&socket).ok().flatten();
+        let tcp_total_retransmissions = connect_platform::tcp_total_retransmissions(&socket).ok().flatten();
         tracing::warn!(
             target = %target,
             bind_ip = %bind_ip,
@@ -98,7 +98,7 @@ pub(in crate::runtime::routing::connect) fn connect_socket_detailed(
 }
 
 fn enable_tcp_fastopen_if_supported(socket: &Socket) -> io::Result<()> {
-    match platform::socket::enable_tcp_fastopen_connect(socket) {
+    match connect_platform::enable_tcp_fastopen_connect(socket) {
         Ok(()) => Ok(()),
         #[cfg(target_os = "android")]
         Err(err) if should_ignore_android_tfo_error(&err) => {
