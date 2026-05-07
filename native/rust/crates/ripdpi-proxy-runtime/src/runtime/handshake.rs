@@ -10,9 +10,13 @@ use std::thread;
 use std::time::Duration;
 
 use crate::sync::{Arc, AtomicBool, Ordering};
+use ripdpi_proxy_runtime_adapter::model::config::{
+    http_connect_enabled, protect_path, protect_path_owned, proxy_auth_token, proxy_session_config,
+    shadowsocks_enabled, transparent_proxy_enabled, udp_associate_enabled,
+};
 use ripdpi_proxy_runtime_adapter::model::session::{
     encode_socks4_reply, encode_socks5_reply, parse_http_connect_request, parse_socks4_request, parse_socks5_request,
-    ClientRequest, SessionConfig, SessionError, SocketType, S_ER_CMD, S_ER_GEN, S_VER5,
+    ClientRequest, SessionError, SocketType, S_ER_CMD, S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 use ripdpi_runtime_decision_ports::policy::extract_host;
@@ -31,16 +35,16 @@ use super::state::{RuntimeState, HANDSHAKE_TIMEOUT};
 pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
     let _ = client.set_write_timeout(Some(HANDSHAKE_TIMEOUT));
-    if state.config.network.transparent {
+    if transparent_proxy_enabled(&state.config) {
         return handle_transparent(client, state);
     }
-    if state.config.network.http_connect {
+    if http_connect_enabled(&state.config) {
         return handle_http_connect(client, state);
     }
 
     let mut first = [0u8; 1];
     client.read_exact(&mut first)?;
-    if state.config.network.shadowsocks {
+    if shadowsocks_enabled(&state.config) {
         return handle_shadowsocks(client, state, first[0]);
     }
     match first[0] {
@@ -81,7 +85,7 @@ fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result
 
 fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io::Result<()> {
     let request = read_socks4_request(&mut client, version)?;
-    let session = SessionConfig { resolve: state.config.network.resolve, ipv6: state.config.network.ipv6 };
+    let session = proxy_session_config(&state.config);
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
     let parsed = parse_socks4_request(&request, session, &resolver);
     match parsed {
@@ -113,9 +117,9 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
     if version != S_VER5 {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid socks version"));
     }
-    negotiate_socks5(&mut client, state.config.network.listen.auth_token.as_deref())?;
+    negotiate_socks5(&mut client, proxy_auth_token(&state.config))?;
     let request = read_socks5_request(&mut client)?;
-    let session = SessionConfig { resolve: state.config.network.resolve, ipv6: state.config.network.ipv6 };
+    let session = proxy_session_config(&state.config);
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
 
     match parse_socks5_request(&request, SocketType::Stream, session, &resolver) {
@@ -133,7 +137,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
             }
         }
         Ok(ClientRequest::Socks5UdpAssociate(_target)) => {
-            if !state.config.network.udp {
+            if !udp_associate_enabled(&state.config) {
                 let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
                 client.write_all(encode_socks5_reply(S_ER_CMD, fail).as_bytes())?;
                 return Ok(());
@@ -155,7 +159,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
 
 fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let request = read_http_connect_request(&mut client)?;
-    if let Some(token) = state.config.network.listen.auth_token.as_deref() {
+    if let Some(token) = proxy_auth_token(&state.config) {
         if !protocol_io::validate_http_proxy_auth(&request, token) {
             let reply = b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"ripdpi\"\r\nContent-Length: 0\r\n\r\n";
             let _ = client.write_all(reply);
@@ -204,14 +208,14 @@ fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u
 
 fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let local_ip = client.local_addr()?.ip();
-    let relay = super::udp::build_udp_relay_sockets(local_ip, state.config.process.protect_path.as_deref())?;
+    let relay = super::udp::build_udp_relay_sockets(local_ip, protect_path(&state.config))?;
     let reply_addr = relay.client.local_addr()?;
     client.write_all(encode_socks5_reply(0, reply_addr).as_bytes())?;
 
     let running = Arc::new(AtomicBool::new(true));
     let worker_running = running.clone();
     let worker_state = state.clone();
-    let worker_protect_path = state.config.process.protect_path.clone();
+    let worker_protect_path = protect_path_owned(&state.config);
     let worker = thread::Builder::new()
         .name("ripdpi-udp".into())
         .spawn(move || super::udp::udp_associate_loop(relay.client, worker_protect_path, worker_state, worker_running))

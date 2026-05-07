@@ -33,6 +33,38 @@ pub mod config {
         config.groups.len()
     }
 
+    pub fn transparent_proxy_enabled(config: &RuntimeConfig) -> bool {
+        config.network.transparent
+    }
+
+    pub fn http_connect_enabled(config: &RuntimeConfig) -> bool {
+        config.network.http_connect
+    }
+
+    pub fn shadowsocks_enabled(config: &RuntimeConfig) -> bool {
+        config.network.shadowsocks
+    }
+
+    pub fn udp_associate_enabled(config: &RuntimeConfig) -> bool {
+        config.network.udp
+    }
+
+    pub fn proxy_auth_token(config: &RuntimeConfig) -> Option<&str> {
+        config.network.listen.auth_token.as_deref()
+    }
+
+    pub fn proxy_session_config(config: &RuntimeConfig) -> ripdpi_session::SessionConfig {
+        ripdpi_session::SessionConfig { resolve: config.network.resolve, ipv6: config.network.ipv6 }
+    }
+
+    pub fn protect_path(config: &RuntimeConfig) -> Option<&str> {
+        config.process.protect_path.as_deref()
+    }
+
+    pub fn protect_path_owned(config: &RuntimeConfig) -> Option<String> {
+        config.process.protect_path.clone()
+    }
+
     #[derive(Clone, Copy)]
     pub struct FirstResponseSettings {
         pub buffer_size: usize,
