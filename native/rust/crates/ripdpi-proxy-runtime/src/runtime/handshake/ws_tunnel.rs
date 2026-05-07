@@ -1,52 +1,27 @@
 use std::io::{self, Read};
-use std::net::{IpAddr, SocketAddr, TcpStream};
+use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::model::config::{
-    protect_path, ws_tunnel_always_enabled, ws_tunnel_config, ws_tunnel_fallback_enabled,
-};
+use ripdpi_proxy_runtime_adapter::model::config::{protect_path, ws_tunnel_config};
 use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyRuntimeContext;
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
-    self as ws_bootstrap, MtprotoSeedClassification, TelegramDc, WsTunnelConfig, WsTunnelDecision,
+    self as ws_bootstrap, should_tunnel_fallback, should_tunnel_first, MtprotoSeedClassification, TelegramDc,
+    WsTunnelConfig,
 };
 
 use super::super::state::RuntimeState;
 
-/// Detect Telegram DC number from target IP, independent of WS tunnel config.
-pub(super) fn detect_telegram_dc(target: SocketAddr) -> Option<u8> {
-    match target.ip() {
-        IpAddr::V4(v4) => ws_bootstrap::dc_from_ip(v4).map(TelegramDc::number),
-        IpAddr::V6(_) => None,
-    }
-}
-
-/// Format a virtual hostname for a Telegram DC, used as autolearn key.
-pub(super) fn telegram_dc_host(dc: u8) -> String {
-    format!("telegram-dc{dc}")
-}
-
-fn classify_telegram_target(target: SocketAddr) -> Option<TelegramDc> {
-    match ws_bootstrap::classify_target(target.ip()) {
-        WsTunnelDecision::Tunnel(dc) => Some(dc),
-        WsTunnelDecision::Passthrough => None,
-    }
-}
+pub(super) use ripdpi_proxy_runtime_adapter::ws_bootstrap::{detect_telegram_dc, telegram_dc_host};
 
 /// Check if WS tunnel should be tried first (Always mode).
 pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
-    if !ws_tunnel_always_enabled(&state.config) {
-        return None;
-    }
-    let dc = classify_telegram_target(target)?;
+    let dc = should_tunnel_first(target, &state.config)?;
     tracing::info!("WS tunnel: sniffing MTProto for known Telegram target {target} (DC{})", dc.number());
     Some(dc)
 }
 
 /// Check if WS tunnel should be tried as a last resort (Fallback mode).
 pub(super) fn should_ws_tunnel_fallback(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
-    if !ws_tunnel_fallback_enabled(&state.config) {
-        return None;
-    }
-    classify_telegram_target(target)
+    should_tunnel_fallback(target, &state.config)
 }
 
 /// Result of a WS tunnel attempt.
