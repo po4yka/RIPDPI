@@ -3,7 +3,7 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::config::{udp_default_ttl, udp_ip_id_mode};
+use ripdpi_proxy_runtime_adapter::model::config::{selected_desync_group, udp_default_ttl, udp_ip_id_mode};
 use ripdpi_proxy_runtime_adapter::udp_desync::{
     execute_udp_actions, plan_udp_actions, ActivationTransport, UdpActionExecContext, UdpDesyncAction,
 };
@@ -68,8 +68,8 @@ fn plan_udp_flow_actions(
     payload: &[u8],
     now: Instant,
 ) -> io::Result<Vec<UdpDesyncAction>> {
-    let group =
-        state.config.groups.get(entry.route.group_index).ok_or_else(|| io::Error::other("missing udp route group"))?;
+    let group = selected_desync_group(&state.config, entry.route.group_index)
+        .ok_or_else(|| io::Error::other("missing udp route group"))?;
     let adaptive_hints = resolve_udp_hints_with_evolver(
         state,
         entry.current_target,

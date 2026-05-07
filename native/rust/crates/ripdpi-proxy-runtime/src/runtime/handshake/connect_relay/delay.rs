@@ -2,7 +2,9 @@ use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::model::config::{delayed_connect_enabled, runtime_buffer_size, DETECT_CONNECT};
+use ripdpi_proxy_runtime_adapter::model::config::{
+    delayed_connect_enabled, runtime_buffer_size, selected_desync_group, DETECT_CONNECT,
+};
 use ripdpi_proxy_runtime_adapter::protocol_payload;
 use ripdpi_runtime_decision_ports::policy::{
     extract_host, group_requires_payload, route_matches_payload, TransportProtocol,
@@ -33,7 +35,7 @@ pub(super) fn maybe_delay_connect(
     }
     let route = super::super::super::routing::select_route(state, target, None, None, true)
         .map_err(|err| ConnectRelayError::new(err, false))?;
-    let group = state.config.groups.get(route.group_index).ok_or_else(|| {
+    let group = selected_desync_group(&state.config, route.group_index).ok_or_else(|| {
         ConnectRelayError::new(io::Error::new(io::ErrorKind::NotFound, "missing desync group"), false)
     })?;
     if !group_requires_payload(group) {
@@ -89,7 +91,7 @@ fn delayed_route_matches(
     let Some(host) = host_hint else {
         return false;
     };
-    let Some(group) = config.groups.get(group_index) else {
+    let Some(group) = selected_desync_group(config, group_index) else {
         return false;
     };
     if !group.matches.filters.hosts_match(host) {

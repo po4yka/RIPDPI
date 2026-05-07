@@ -2,7 +2,8 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    connect_timeout, group_requests_direct_syn_data_tfo, protect_path, tcp_fast_open_enabled, DesyncGroup,
+    connect_timeout, group_requests_direct_syn_data_tfo, protect_path, selected_desync_group, tcp_fast_open_enabled,
+    DesyncGroup,
 };
 
 use super::super::super::state::RuntimeState;
@@ -18,7 +19,7 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
     payload: Option<&[u8]>,
     allow_tfo: bool,
 ) -> Result<TcpStream, ConnectAttemptError> {
-    let group = state.config.groups.get(group_index).ok_or_else(|| ConnectAttemptError {
+    let group = selected_desync_group(&state.config, group_index).ok_or_else(|| ConnectAttemptError {
         source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
         tcp_total_retransmissions: None,
         tcp_fast_open_enabled: false,
@@ -45,7 +46,7 @@ fn connect_target_via_group_with_tfo(
     tfo_enabled: bool,
 ) -> Result<TcpStream, ConnectAttemptError> {
     let started = std::time::Instant::now();
-    let group = state.config.groups.get(group_index).ok_or_else(|| ConnectAttemptError {
+    let group = selected_desync_group(&state.config, group_index).ok_or_else(|| ConnectAttemptError {
         source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
         tcp_total_retransmissions: None,
         tcp_fast_open_enabled: false,

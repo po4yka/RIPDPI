@@ -1,7 +1,7 @@
 use std::io::{self, Read};
 
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
-use ripdpi_proxy_runtime_adapter::model::config::runtime_buffer_size;
+use ripdpi_proxy_runtime_adapter::model::config::{runtime_buffer_size, selected_desync_group};
 use ripdpi_proxy_runtime_adapter::model::session::OutboundProgress;
 use ripdpi_runtime_decision_ports::policy::ConnectionRoute;
 
@@ -32,7 +32,9 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
     let _ = upstream.set_write_timeout(Some(PROBE_TIMEOUT));
     let _ = upstream.set_read_timeout(Some(PROBE_TIMEOUT));
 
-    let group = state.config.groups[route.group_index].clone();
+    let group = selected_desync_group(&state.config, route.group_index)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?
+        .clone();
     let progress = OutboundProgress {
         round: 1,
         payload_size: payload.len(),

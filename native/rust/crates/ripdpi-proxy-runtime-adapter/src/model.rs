@@ -37,6 +37,10 @@ pub mod config {
         config.groups.len()
     }
 
+    pub fn selected_desync_group(config: &RuntimeConfig, group_index: usize) -> Option<&DesyncGroup> {
+        config.groups.get(group_index)
+    }
+
     pub fn transparent_proxy_enabled(config: &RuntimeConfig) -> bool {
         config.network.transparent
     }
@@ -113,7 +117,8 @@ pub mod config {
         group_index: usize,
         payload: Option<&[u8]>,
     ) -> bool {
-        config.groups.get(group_index).is_some_and(|group| group_requests_direct_syn_data_tfo(group, payload))
+        selected_desync_group(config, group_index)
+            .is_some_and(|group| group_requests_direct_syn_data_tfo(group, payload))
     }
 
     pub fn ws_tunnel_always_enabled(config: &RuntimeConfig) -> bool {
