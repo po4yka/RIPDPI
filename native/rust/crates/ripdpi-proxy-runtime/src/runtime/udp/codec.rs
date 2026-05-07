@@ -1,11 +1,11 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
+use ripdpi_proxy_runtime_adapter::model::config::{ipv6_enabled, name_resolution_enabled};
 use ripdpi_proxy_runtime_adapter::model::session::{SocketType, S_ATP_I4, S_ATP_I6};
 
 use super::super::state::RuntimeState;
 
 pub(crate) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], state: &RuntimeState) -> Option<(SocketAddr, &'a [u8])> {
-    let config = &state.config;
     if packet.len() < 4 || packet[2] != 0 {
         return None;
     }
@@ -20,7 +20,7 @@ pub(crate) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], state: &RuntimeState
             Some((SocketAddr::new(IpAddr::V4(ip), port), &packet[10..]))
         }
         S_ATP_I6 => {
-            if packet.len() < 22 || !config.network.ipv6 {
+            if packet.len() < 22 || !ipv6_enabled(&state.config) {
                 return None;
             }
             let mut raw = [0u8; 16];
@@ -31,7 +31,7 @@ pub(crate) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], state: &RuntimeState
         0x03 => {
             let len = *packet.get(4)? as usize;
             let offset = 5 + len;
-            if packet.len() < offset + 2 || !config.network.resolve {
+            if packet.len() < offset + 2 || !name_resolution_enabled(&state.config) {
                 return None;
             }
             let host = std::str::from_utf8(&packet[5..offset]).ok()?;
