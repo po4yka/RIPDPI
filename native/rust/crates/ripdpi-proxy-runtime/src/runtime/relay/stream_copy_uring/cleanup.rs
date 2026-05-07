@@ -1,7 +1,7 @@
 use std::io;
 use std::net::{Shutdown, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::platform;
+use ripdpi_proxy_runtime_adapter::platform::relay as relay_platform;
 
 use super::RELAY_IDLE_TIMEOUT;
 
@@ -40,7 +40,7 @@ pub(super) fn shutdown_direction(writer: &TcpStream, reader: &TcpStream) {
 
 pub(super) fn detach_drop_sack_if_needed(drop_sack: bool, upstream: &TcpStream) {
     if drop_sack {
-        let _ = platform::socket::detach_drop_sack(upstream);
+        let _ = relay_platform::detach_drop_sack(upstream);
     }
 }
 

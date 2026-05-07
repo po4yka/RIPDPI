@@ -16,7 +16,7 @@ use super::tls_probe::build_probe_client_hello;
 use crate::runtime::desync::send_with_group;
 use crate::runtime::routing::connect_target;
 use crate::runtime::state::RuntimeState;
-use ripdpi_proxy_runtime_adapter::platform;
+use ripdpi_proxy_runtime_adapter::platform::warmup as warmup_platform;
 
 /// Probe a single domain by resolving it, connecting through the desync
 /// pipeline, sending a TLS ClientHello, and reading the first response.
@@ -48,7 +48,7 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
         return advance_after_failure(state, target, &route, domain, &payload, &failure);
     }
 
-    let _ = platform::ttl_ops::enable_recv_ttl(&upstream);
+    let _ = warmup_platform::enable_recv_ttl(&upstream);
     let mut response_buf = vec![0u8; state.config.network.buffer_size.max(16_384)];
     let read_result = upstream.read(&mut response_buf);
 

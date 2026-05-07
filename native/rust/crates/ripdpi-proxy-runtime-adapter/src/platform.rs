@@ -83,3 +83,20 @@ pub mod udp {
         ripdpi_runtime_platform::socket::bind_udp_low_port(socket, local_ip, start_port).map(|_| ())
     }
 }
+
+pub mod listener {
+    use std::io;
+
+    pub fn detect_default_ttl() -> io::Result<u8> {
+        ripdpi_runtime_platform::capability::detect_default_ttl()
+    }
+}
+
+pub mod warmup {
+    use std::io;
+    use std::net::TcpStream;
+
+    pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
+        ripdpi_runtime_platform::ttl_ops::enable_recv_ttl(stream)
+    }
+}

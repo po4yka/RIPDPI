@@ -8,7 +8,7 @@ use std::sync::Arc as StdArc;
 
 use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
-use ripdpi_proxy_runtime_adapter::platform;
+use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use self::accept_loop::run_accept_loop;
@@ -36,7 +36,7 @@ pub(super) fn run_proxy_with_listener_internal(
 ) -> io::Result<()> {
     let mut config = config;
     if config.network.default_ttl == 0 {
-        config.network.default_ttl = platform::capability::detect_default_ttl()?;
+        config.network.default_ttl = listener_platform::detect_default_ttl()?;
     }
     let state = RuntimeState::new(config, control.clone());
     let listener_addr = listener.local_addr()?;
