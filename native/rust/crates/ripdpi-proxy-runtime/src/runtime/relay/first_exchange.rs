@@ -6,7 +6,7 @@ use ripdpi_proxy_runtime_adapter::failure::{
 };
 use ripdpi_proxy_runtime_adapter::model::config::{
     first_response_timeout as projected_first_response_timeout, first_response_timeout_count_limit,
-    FirstResponseSettings,
+    host_autolearn_enabled, FirstResponseSettings,
 };
 use ripdpi_proxy_runtime_adapter::platform::first_response as first_response_platform;
 
@@ -26,7 +26,7 @@ pub(super) fn needs_first_exchange(state: &RuntimeState) -> io::Result<bool> {
             return Ok(true);
         }
     }
-    Ok(state.config.host_autolearn.enabled)
+    Ok(host_autolearn_enabled(&state.config))
 }
 
 pub(super) fn read_first_response(
