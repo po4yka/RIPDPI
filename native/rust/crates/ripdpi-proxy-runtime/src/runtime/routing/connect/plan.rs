@@ -2,8 +2,7 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    connect_timeout, group_requests_direct_syn_data_tfo, protect_path, selected_desync_group, tcp_fast_open_enabled,
-    DesyncGroup,
+    connect_timeout, protect_path, tcp_route_connect_settings, TcpRouteConnectSettings,
 };
 
 use super::super::super::state::RuntimeState;
@@ -19,15 +18,16 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
     payload: Option<&[u8]>,
     allow_tfo: bool,
 ) -> Result<TcpStream, ConnectAttemptError> {
-    let group = selected_desync_group(&state.config, group_index).ok_or_else(|| ConnectAttemptError {
-        source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
-        tcp_total_retransmissions: None,
-        tcp_fast_open_enabled: false,
+    let settings = tcp_route_connect_settings(&state.config, group_index, payload, allow_tfo).ok_or_else(|| {
+        ConnectAttemptError {
+            source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
+            tcp_total_retransmissions: None,
+            tcp_fast_open_enabled: false,
+        }
     })?;
-    let tfo_enabled = group_uses_tcp_fast_open(state, group, payload, allow_tfo);
     let mut last_error = None;
     for &candidate in targets {
-        match connect_target_via_group_with_tfo(candidate, state, group_index, tfo_enabled) {
+        match connect_target_via_group_with_settings(candidate, state, group_index, settings) {
             Ok(stream) => return Ok(stream),
             Err(err) => last_error = Some(err),
         }
@@ -35,65 +35,46 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
     Err(last_error.unwrap_or_else(|| ConnectAttemptError {
         source: io::Error::new(io::ErrorKind::AddrNotAvailable, "no target candidates available"),
         tcp_total_retransmissions: None,
-        tcp_fast_open_enabled: tfo_enabled,
+        tcp_fast_open_enabled: settings.tfo_enabled,
     }))
 }
 
-fn connect_target_via_group_with_tfo(
+fn connect_target_via_group_with_settings(
     target: SocketAddr,
     state: &RuntimeState,
     group_index: usize,
-    tfo_enabled: bool,
+    settings: TcpRouteConnectSettings,
 ) -> Result<TcpStream, ConnectAttemptError> {
     let started = std::time::Instant::now();
-    let group = selected_desync_group(&state.config, group_index).ok_or_else(|| ConnectAttemptError {
-        source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
-        tcp_total_retransmissions: None,
-        tcp_fast_open_enabled: false,
-    })?;
     let connect_timeout = connect_timeout(&state.config);
-    let pre_connect_rcvbuf = group.actions.wsize.map(|w| match w.scale {
-        Some(scale) if (scale as u32) < 32 => w.window.checked_shl(scale as u32).unwrap_or(u32::MAX),
-        Some(_) => u32::MAX,
-        None => w.window,
-    });
-    let stream = if let Some(upstream) = group.policy.ext_socks {
+    let stream = if let Some(upstream_addr) = settings.upstream_socks_addr {
         connect_via_socks(
             target,
-            upstream.addr,
-            unspecified_ip_for(upstream.addr),
+            upstream_addr,
+            unspecified_ip_for(upstream_addr),
             protect_path(&state.config),
-            tfo_enabled,
+            settings.tfo_enabled,
             connect_timeout,
         )
         .map_err(|source| ConnectAttemptError {
             source,
             tcp_total_retransmissions: None,
-            tcp_fast_open_enabled: tfo_enabled,
+            tcp_fast_open_enabled: settings.tfo_enabled,
         })
     } else {
         connect_socket_detailed(
             target,
             unspecified_ip_for(target),
             protect_path(&state.config),
-            tfo_enabled,
+            settings.tfo_enabled,
             connect_timeout,
-            pre_connect_rcvbuf,
+            settings.pre_connect_rcvbuf,
         )
     }?;
 
-    apply_group_socket_options(&stream, group, tfo_enabled)?;
+    apply_group_socket_options(&stream, settings)?;
     record_connect_telemetry(state, &stream, target, group_index, started);
     Ok(stream)
-}
-
-fn group_uses_tcp_fast_open(
-    state: &RuntimeState,
-    group: &DesyncGroup,
-    payload: Option<&[u8]>,
-    allow_tfo: bool,
-) -> bool {
-    allow_tfo && (tcp_fast_open_enabled(&state.config) || group_requests_direct_syn_data_tfo(group, payload))
 }
 
 pub(super) fn unspecified_ip_for(addr: SocketAddr) -> IpAddr {
@@ -107,7 +88,8 @@ pub(super) fn unspecified_ip_for(addr: SocketAddr) -> IpAddr {
 mod tests {
     use super::*;
     use ripdpi_proxy_runtime_adapter::model::config::{
-        OffsetExpr, TcpChainStep, TcpChainStepKind, UpstreamSocksConfig,
+        group_requests_direct_syn_data_tfo, DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind,
+        UpstreamSocksConfig,
     };
 
     #[test]

@@ -171,6 +171,40 @@ pub mod config {
             && group.actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SynData)
     }
 
+    #[derive(Clone, Copy)]
+    pub struct TcpRouteConnectSettings {
+        pub tfo_enabled: bool,
+        pub upstream_socks_addr: Option<SocketAddr>,
+        pub pre_connect_rcvbuf: Option<u32>,
+        pub drop_sack: bool,
+        pub window_clamp: Option<u32>,
+        pub strip_timestamps: bool,
+    }
+
+    pub fn tcp_route_connect_settings(
+        config: &RuntimeConfig,
+        group_index: usize,
+        payload: Option<&[u8]>,
+        allow_tfo: bool,
+    ) -> Option<TcpRouteConnectSettings> {
+        let group = selected_desync_group(config, group_index)?;
+        let tfo_enabled =
+            allow_tfo && (tcp_fast_open_enabled(config) || group_requests_direct_syn_data_tfo(group, payload));
+        let pre_connect_rcvbuf = group.actions.wsize.map(|w| match w.scale {
+            Some(scale) if (scale as u32) < 32 => w.window.checked_shl(scale as u32).unwrap_or(u32::MAX),
+            Some(_) => u32::MAX,
+            None => w.window,
+        });
+        Some(TcpRouteConnectSettings {
+            tfo_enabled,
+            upstream_socks_addr: group.policy.ext_socks.map(|upstream| upstream.addr),
+            pre_connect_rcvbuf,
+            drop_sack: group.actions.drop_sack,
+            window_clamp: group.actions.wsize.map(|w| w.window).or(group.actions.window_clamp),
+            strip_timestamps: group.actions.strip_timestamps,
+        })
+    }
+
     pub fn route_requests_direct_syn_data_tfo(
         config: &RuntimeConfig,
         group_index: usize,

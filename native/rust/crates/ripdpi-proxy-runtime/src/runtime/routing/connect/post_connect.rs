@@ -1,7 +1,7 @@
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
+use ripdpi_proxy_runtime_adapter::model::config::TcpRouteConnectSettings;
 use ripdpi_proxy_runtime_adapter::platform::connect as connect_platform;
 
 use super::super::super::state::RuntimeState;
@@ -9,21 +9,19 @@ use super::error::ConnectAttemptError;
 
 pub(super) fn apply_group_socket_options(
     stream: &TcpStream,
-    group: &DesyncGroup,
-    tfo_enabled: bool,
+    settings: TcpRouteConnectSettings,
 ) -> Result<(), ConnectAttemptError> {
-    if group.actions.drop_sack {
+    if settings.drop_sack {
         connect_platform::attach_drop_sack(stream).map_err(|source| ConnectAttemptError {
             source,
             tcp_total_retransmissions: None,
-            tcp_fast_open_enabled: tfo_enabled,
+            tcp_fast_open_enabled: settings.tfo_enabled,
         })?;
     }
-    let effective_clamp = group.actions.wsize.map(|w| w.window).or(group.actions.window_clamp);
-    if let Some(clamp) = effective_clamp {
+    if let Some(clamp) = settings.window_clamp {
         let _ = connect_platform::set_tcp_window_clamp(stream, clamp);
     }
-    if group.actions.strip_timestamps {
+    if settings.strip_timestamps {
         let _ = connect_platform::attach_strip_timestamps(stream);
     }
     Ok(())
