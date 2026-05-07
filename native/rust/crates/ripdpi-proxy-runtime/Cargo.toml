@@ -13,7 +13,6 @@ ripdpi-proxy-runtime-adapter = { workspace = true }
 metrics = { workspace = true }
 tracing = { workspace = true }
 mio = { workspace = true }
-ring = { workspace = true }
 socket2 = { workspace = true }
 libc = { workspace = true }
 nix = { workspace = true }
@@ -31,6 +30,7 @@ ctr = "0.10"
 local-network-fixture = { workspace = true }
 native-soak-support = { workspace = true }
 ripdpi-packets = { workspace = true }
+ring = { workspace = true }
 rustls = { workspace = true }
 serde_json = { workspace = true }
 tempfile = "3.27"
