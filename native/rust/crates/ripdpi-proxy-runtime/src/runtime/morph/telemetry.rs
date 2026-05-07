@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyMorphPolicy;
+use ripdpi_proxy_runtime_adapter::model::proxy_config::{morph_policy_id, ProxyMorphPolicy};
 
 use crate::runtime::state::RuntimeState;
 
@@ -19,7 +19,7 @@ pub(super) fn emit_morph_hint_applied(
     let Some(family) = family.as_deref().filter(|value| !value.is_empty()) else {
         return;
     };
-    telemetry.on_morph_hint_applied(target, policy.id.as_str(), family);
+    telemetry.on_morph_hint_applied(target, morph_policy_id(policy), family);
 }
 
 pub(super) fn emit_morph_rollback(
@@ -38,5 +38,5 @@ pub(super) fn emit_morph_rollback(
     if reason.is_empty() {
         return;
     }
-    telemetry.on_morph_rollback(target, policy.id.as_str(), reason);
+    telemetry.on_morph_rollback(target, morph_policy_id(policy), reason);
 }

@@ -72,6 +72,14 @@ pub mod proxy_config {
         }
         id
     }
+
+    pub fn morph_policy(context: Option<&ProxyRuntimeContext>) -> Option<&ProxyMorphPolicy> {
+        context?.morph_policy.as_ref()
+    }
+
+    pub fn morph_policy_id(policy: &ProxyMorphPolicy) -> &str {
+        policy.id.as_str()
+    }
 }
 
 pub mod runtime_api {
