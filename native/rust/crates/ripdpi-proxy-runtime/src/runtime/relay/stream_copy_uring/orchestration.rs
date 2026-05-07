@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use ripdpi_io_uring::IoUringDriver;
-use ripdpi_proxy_runtime_adapter::model::config::{group_drop_sack_enabled, relay_timeout_settings};
+use ripdpi_proxy_runtime_adapter::model::config::relay_group_settings;
 use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
 use super::super::super::state::RuntimeState;
@@ -36,13 +36,13 @@ pub(in crate::runtime) fn relay_streams_uring(
     let outbound_session = session_state.clone();
     let inbound_session = session_state.clone();
     let outbound_state = state.clone();
-    let drop_sack = group_drop_sack_enabled(&state.config, group_index)
+    let settings = relay_group_settings(&state.config, group_index)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
     let peer_done = Arc::new(AtomicBool::new(false));
     let freeze_detected = Arc::new(AtomicBool::new(false));
 
     let freeze_flag = freeze_detected.clone();
-    let timeouts = relay_timeout_settings(&state.config);
+    let timeouts = settings.timeouts;
     let down_done = peer_done.clone();
     let uring_clone = Arc::clone(uring);
     let client_fd = sockets.client_writer.as_raw_fd();
@@ -78,7 +78,7 @@ pub(in crate::runtime) fn relay_streams_uring(
     let down_result = down.join().map_err(|_| io::Error::other("downstream thread panicked"))?;
 
     shutdown_relay_pair(&upstream, &client);
-    detach_drop_sack_if_needed(drop_sack, &upstream);
+    detach_drop_sack_if_needed(settings.drop_sack, &upstream);
 
     up_result?;
     down_result?;

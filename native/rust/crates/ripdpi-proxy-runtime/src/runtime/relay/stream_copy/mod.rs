@@ -7,7 +7,7 @@ use freeze::FreezeDetector;
 use observers::group_rotation_controller;
 
 use crate::sync::{Arc, Mutex};
-use ripdpi_proxy_runtime_adapter::model::config::{group_drop_sack_enabled, relay_timeout_settings};
+use ripdpi_proxy_runtime_adapter::model::config::relay_group_settings;
 use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 use std::io;
 use std::net::{Shutdown, TcpStream};
@@ -44,7 +44,7 @@ pub(super) fn relay_streams(
     let inbound_session = session_state.clone();
     let outbound_state = state.clone();
     let inbound_state = state.clone();
-    let drop_sack = group_drop_sack_enabled(&state.config, group_index)
+    let settings = relay_group_settings(&state.config, group_index)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
     let peer_done = Arc::new(AtomicBool::new(false));
     let freeze_detected = Arc::new(AtomicBool::new(false));
@@ -55,7 +55,7 @@ pub(super) fn relay_streams(
     let outbound_rotation = rotation_state.clone();
 
     let freeze_flag = freeze_detected.clone();
-    let timeouts = relay_timeout_settings(&state.config);
+    let timeouts = settings.timeouts;
     let down_done = peer_done.clone();
     let down = thread::Builder::new()
         .name("ripdpi-dn".into())
@@ -102,7 +102,7 @@ pub(super) fn relay_streams(
     let _ = upstream.shutdown(Shutdown::Both);
     let _ = client.shutdown(Shutdown::Both);
 
-    if drop_sack {
+    if settings.drop_sack {
         let _ = ripdpi_proxy_runtime_adapter::platform::relay::detach_drop_sack(&upstream);
     }
 

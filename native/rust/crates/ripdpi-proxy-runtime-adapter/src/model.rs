@@ -447,6 +447,22 @@ pub mod config {
         selected_desync_group(config, group_index).is_some_and(|group| group.actions.rotation_policy.is_some())
     }
 
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct RelayGroupSettings {
+        pub drop_sack: bool,
+        pub rotation_enabled: bool,
+        pub timeouts: RuntimeTimeoutSettings,
+    }
+
+    pub fn relay_group_settings(config: &RuntimeConfig, group_index: usize) -> Option<RelayGroupSettings> {
+        let group = selected_desync_group(config, group_index)?;
+        Some(RelayGroupSettings {
+            drop_sack: group.actions.drop_sack,
+            rotation_enabled: group.actions.rotation_policy.is_some(),
+            timeouts: relay_timeout_settings(config),
+        })
+    }
+
     pub fn tcp_rotation_seed(
         config: &RuntimeConfig,
         group_index: usize,
@@ -510,6 +526,21 @@ pub mod config {
                 &plain_route,
                 Some(b"GET / HTTP/1.1\r\n\r\n"),
             ));
+        }
+
+        #[test]
+        fn relay_group_settings_project_drop_sack_rotation_and_timeouts() {
+            let mut group = DesyncGroup::new(0);
+            group.actions.drop_sack = true;
+            let mut config = RuntimeConfig { groups: vec![group], ..Default::default() };
+            config.timeouts.freeze_max_stalls = 7;
+
+            let settings = relay_group_settings(&config, 0).expect("relay group settings");
+
+            assert!(settings.drop_sack);
+            assert!(!settings.rotation_enabled);
+            assert_eq!(settings.timeouts.freeze_max_stalls, 7);
+            assert!(relay_group_settings(&config, 1).is_none());
         }
 
         #[test]

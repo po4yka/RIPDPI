@@ -2,7 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-use ripdpi_proxy_runtime_adapter::model::config::group_rotation_policy_enabled;
+use ripdpi_proxy_runtime_adapter::model::config::relay_group_settings;
 use ripdpi_proxy_runtime_adapter::model::config::relay_timeout_settings;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
@@ -24,7 +24,8 @@ pub(super) fn relay_with_uring_if_available(
     success_host: Option<String>,
 ) -> io::Result<ripdpi_proxy_runtime_adapter::model::session::SessionState> {
     let uring_driver = ripdpi_io_uring::io_uring_capabilities().send_zc.then(|| state.io_uring.as_ref()).flatten();
-    let rotation_enabled = group_rotation_policy_enabled(&state.config, route.group_index);
+    let rotation_enabled =
+        relay_group_settings(&state.config, route.group_index).is_some_and(|settings| settings.rotation_enabled);
     if let Some(driver) = uring_driver.filter(|_| !rotation_enabled) {
         return stream_copy_uring::relay_streams_uring(
             client,
