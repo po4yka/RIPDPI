@@ -2,6 +2,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 use std::thread;
 
+use ripdpi_proxy_runtime_adapter::model::config::{network_reprobe_settings, NetworkReprobeSettings};
 use ripdpi_runtime_decision_ports::AdaptiveFeedbackPort;
 
 use super::super::state::RuntimeState;
@@ -20,7 +21,8 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
     let Some(control) = &state.control else {
         return;
     };
-    if !state.config.host_autolearn.network_reprobe_enabled {
+    let settings = network_reprobe_settings(&state.config);
+    if !settings.enabled {
         return;
     }
     let Some(snapshot) = control.current_network_snapshot() else {
@@ -45,13 +47,12 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
 
     tracing::info!("network_reprobe: network identity changed, scheduling reprobe");
 
-    let config = state.config.clone();
     let adaptive = state.adaptive_feedback.clone();
 
     thread::Builder::new()
         .name("ripdpi-reprobe".into())
         .spawn(move || {
-            run_reprobe(&config, &adaptive);
+            run_reprobe(settings, &adaptive);
         })
         .ok();
 }
@@ -60,10 +61,7 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
 /// attempt a raw TLS ClientHello. A failure is classified as a DPI signature
 /// if the connection is reset, times out, or receives a TLS alert before the
 /// ServerHello completes.
-fn run_reprobe(
-    config: &ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig,
-    adaptive: &Arc<dyn AdaptiveFeedbackPort>,
-) {
+fn run_reprobe(settings: NetworkReprobeSettings, adaptive: &Arc<dyn AdaptiveFeedbackPort>) {
     let deadline = std::time::Instant::now() + TOTAL_DEADLINE;
     let mut failures = 0usize;
     let mut successes = 0usize;
@@ -80,7 +78,7 @@ fn run_reprobe(
         };
         let target = SocketAddr::new(ip, 443);
 
-        match probe_tls_handshake(target, target_def.domain, config.process.protect_path.as_deref()) {
+        match probe_tls_handshake(target, target_def.domain, settings.protect_path.as_deref()) {
             ProbeResult::Success => {
                 tracing::debug!("network_reprobe: {} passed", target_def.domain);
                 successes += 1;

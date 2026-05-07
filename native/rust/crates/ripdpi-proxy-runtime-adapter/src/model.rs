@@ -1,5 +1,18 @@
 pub mod config {
     pub use ripdpi_config::*;
+
+    #[derive(Clone)]
+    pub struct NetworkReprobeSettings {
+        pub enabled: bool,
+        pub protect_path: Option<String>,
+    }
+
+    pub fn network_reprobe_settings(config: &RuntimeConfig) -> NetworkReprobeSettings {
+        NetworkReprobeSettings {
+            enabled: config.host_autolearn.network_reprobe_enabled,
+            protect_path: config.process.protect_path.clone(),
+        }
+    }
 }
 
 pub mod desync {
