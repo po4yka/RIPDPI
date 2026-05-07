@@ -2,7 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, ClassifiedFailure, FailureClass, FailureStage};
-use ripdpi_proxy_runtime_adapter::model::config::{max_route_retries, route_requests_direct_syn_data_tfo};
+use ripdpi_proxy_runtime_adapter::model::config::{route_requests_direct_syn_data_tfo, tcp_route_retry_settings};
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use super::super::adaptive::{note_direct_path_all_ips_failed, note_direct_path_transport_attempt};
@@ -32,7 +32,7 @@ pub(in crate::runtime) fn connect_target_with_route(
     payload: Option<&[u8]>,
     host: Option<String>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
-    let max_retries = max_route_retries(&state.config);
+    let settings = tcp_route_retry_settings(&state.config);
     let mut retries: usize = 0;
     loop {
         let attempt_targets = preferred_targets_for_transport(state, target, host.as_deref(), TransportProtocol::Tcp);
@@ -59,7 +59,7 @@ pub(in crate::runtime) fn connect_target_with_route(
                     }
                 }
                 note_block_signal_for_failure(state, host.as_deref(), &failure, err.tcp_total_retransmissions);
-                if retries > max_retries {
+                if retries > settings.max_route_retries {
                     let _ = note_direct_path_all_ips_failed(state, host.as_deref(), &attempt_targets);
                     return Err(err.into_io_error());
                 }
@@ -115,7 +115,7 @@ fn reconnect_target_with_tfo_mode(
     payload: Option<&[u8]>,
     allow_tfo: bool,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
-    let max_retries = max_route_retries(&state.config);
+    let settings = tcp_route_retry_settings(&state.config);
     let mut retries: usize = 0;
     loop {
         crate::runtime::retry::apply_retry_pacing_before_connect(state, target, &route, host.as_deref(), payload)?;
@@ -124,7 +124,7 @@ fn reconnect_target_with_tfo_mode(
             Ok(stream) => return Ok((stream, route)),
             Err(mut err) => {
                 retries += 1;
-                if retries > max_retries {
+                if retries > settings.max_route_retries {
                     return Err(err.into_io_error());
                 }
                 let mut failure = classify_transport_error(FailureStage::Connect, &err.source);

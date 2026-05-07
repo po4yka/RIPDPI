@@ -39,6 +39,15 @@ pub mod config {
         config.max_route_retries
     }
 
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct TcpRouteRetrySettings {
+        pub max_route_retries: usize,
+    }
+
+    pub fn tcp_route_retry_settings(config: &RuntimeConfig) -> TcpRouteRetrySettings {
+        TcpRouteRetrySettings { max_route_retries: max_route_retries(config) }
+    }
+
     pub fn route_group_count(config: &RuntimeConfig) -> usize {
         config.groups.len()
     }
@@ -513,6 +522,16 @@ pub mod config {
             assert!(!udp_flow_at_capacity(true, 2, 2));
             assert!(udp_flow_at_capacity(false, 2, 2));
             assert!(!udp_flow_at_capacity(false, 1, 2));
+        }
+
+        #[test]
+        fn tcp_route_retry_settings_project_retry_limit() {
+            let mut config = RuntimeConfig { max_route_retries: 3, ..Default::default() };
+
+            assert_eq!(tcp_route_retry_settings(&config), TcpRouteRetrySettings { max_route_retries: 3 });
+
+            config.max_route_retries = 0;
+            assert_eq!(tcp_route_retry_settings(&config), TcpRouteRetrySettings { max_route_retries: 0 });
         }
 
         #[test]
