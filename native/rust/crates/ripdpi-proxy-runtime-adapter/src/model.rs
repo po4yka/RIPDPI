@@ -49,6 +49,10 @@ pub mod config {
         config.network.udp
     }
 
+    pub fn delayed_connect_enabled(config: &RuntimeConfig) -> bool {
+        config.network.delay_conn
+    }
+
     pub fn ipv6_enabled(config: &RuntimeConfig) -> bool {
         config.network.ipv6
     }

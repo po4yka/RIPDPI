@@ -2,7 +2,7 @@ use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::model::config::DETECT_CONNECT;
+use ripdpi_proxy_runtime_adapter::model::config::{delayed_connect_enabled, runtime_buffer_size, DETECT_CONNECT};
 use ripdpi_proxy_runtime_adapter::protocol_payload;
 use ripdpi_runtime_decision_ports::policy::{
     extract_host, group_requires_payload, route_matches_payload, TransportProtocol,
@@ -28,7 +28,7 @@ pub(super) fn maybe_delay_connect(
     host_hint: Option<&str>,
     handshake: HandshakeKind,
 ) -> Result<DelayConnect, ConnectRelayError> {
-    if !state.config.network.delay_conn {
+    if !delayed_connect_enabled(&state.config) {
         return Ok(DelayConnect::Immediate);
     }
     let route = super::super::super::routing::select_route(state, target, None, None, true)
@@ -41,7 +41,7 @@ pub(super) fn maybe_delay_connect(
     }
 
     send_success_reply(client, handshake).map_err(|err| ConnectRelayError::new(err, false))?;
-    let Some(payload) = read_blocking_first_request(client, state.config.network.buffer_size)
+    let Some(payload) = read_blocking_first_request(client, runtime_buffer_size(&state.config))
         .map_err(|err| ConnectRelayError::new(err, true))?
     else {
         return Ok(DelayConnect::Closed);
@@ -102,7 +102,7 @@ fn delayed_route_matches(
 fn read_blocking_first_request(client: &mut TcpStream, buffer_size: usize) -> io::Result<Option<Vec<u8>>> {
     let original_timeout = client.read_timeout()?;
     client.set_read_timeout(Some(DELAY_CONN_READ_TIMEOUT))?;
-    let mut buffer = vec![0u8; buffer_size.max(16_384)];
+    let mut buffer = vec![0u8; buffer_size];
     let result = match client.read(&mut buffer) {
         Ok(0) => Ok(None),
         Ok(n) => {
