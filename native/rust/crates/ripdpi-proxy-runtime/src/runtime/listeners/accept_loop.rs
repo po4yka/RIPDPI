@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use mio::net::TcpListener as MioTcpListener;
 use mio::{Events, Interest, Poll};
-use ripdpi_runtime_api::EmbeddedProxyControl;
+use ripdpi_proxy_runtime_adapter::runtime_api::EmbeddedProxyControl;
 use socket2::SockRef;
 
 use crate::process;

@@ -16,7 +16,7 @@ use ripdpi_proxy_runtime_adapter::config::{
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use ripdpi_proxy_runtime_adapter::config::{OffsetBase, OffsetExpr};
 use ripdpi_proxy_runtime_adapter::proxy_config::{runtime_config_from_ui, ProxyUiConfig};
-use ripdpi_runtime_api::RuntimeTelemetrySink;
+use ripdpi_proxy_runtime_adapter::runtime_api::RuntimeTelemetrySink;
 use std::io::{Read, Write};
 use std::net::{Ipv4Addr, SocketAddr, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};

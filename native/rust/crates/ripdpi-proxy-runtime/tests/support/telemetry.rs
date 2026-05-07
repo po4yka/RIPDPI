@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
-use ripdpi_runtime_api::RuntimeTelemetrySink;
+use ripdpi_proxy_runtime_adapter::runtime_api::RuntimeTelemetrySink;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, Error as TlsError, SignatureScheme};

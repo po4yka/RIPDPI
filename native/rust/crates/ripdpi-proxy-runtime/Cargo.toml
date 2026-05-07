@@ -10,7 +10,6 @@ workspace = true
 [dependencies]
 base64 = { workspace = true }
 daemonize = { workspace = true }
-ripdpi-runtime-api = { workspace = true }
 ripdpi-runtime-decision-ports = { workspace = true }
 ripdpi-proxy-runtime-adapter = { workspace = true }
 metrics = { workspace = true }
@@ -24,7 +23,7 @@ loom = { workspace = true, optional = true }
 ripdpi-io-uring = { workspace = true, optional = true }
 
 [features]
-loom = ["dep:loom", "ripdpi-runtime-api/loom", "ripdpi-proxy-runtime-adapter/loom"]
+loom = ["dep:loom", "ripdpi-proxy-runtime-adapter/loom"]
 io-uring = ["dep:ripdpi-io-uring", "ripdpi-proxy-runtime-adapter/io-uring"]
 
 [dev-dependencies]

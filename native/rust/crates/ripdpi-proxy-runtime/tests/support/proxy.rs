@@ -5,7 +5,7 @@ use std::thread;
 use ripdpi_proxy_runtime::process::prepare_embedded;
 use ripdpi_proxy_runtime::{create_listener, run_proxy_with_embedded_control};
 use ripdpi_proxy_runtime_adapter::config::{parse_cli, ParseResult, StartupEnv};
-use ripdpi_runtime_api::{clear_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
+use ripdpi_proxy_runtime_adapter::runtime_api::{clear_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink};
 
 use super::telemetry::{ProxyHarnessTelemetry, StartupLatch};
 use super::START_TIMEOUT;

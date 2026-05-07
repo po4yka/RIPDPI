@@ -17,7 +17,7 @@ use std::net::TcpListener;
 use ripdpi_proxy_runtime_adapter::config::RuntimeConfig;
 
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
-use ripdpi_runtime_api::EmbeddedProxyControl;
+use ripdpi_proxy_runtime_adapter::runtime_api::EmbeddedProxyControl;
 
 pub fn run_proxy(config: RuntimeConfig) -> io::Result<()> {
     let listener = create_listener(&config)?;

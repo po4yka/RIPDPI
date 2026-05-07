@@ -18,7 +18,7 @@ use local_network_fixture::{
 use native_soak_support::{
     acquire_global_lock, assert_growth, write_json_artifact, GrowthThresholds, SoakProfile, SoakSampler, WARMUP_WINDOW,
 };
-use ripdpi_runtime_api::RuntimeTelemetrySink;
+use ripdpi_proxy_runtime_adapter::runtime_api::RuntimeTelemetrySink;
 use rustls::pki_types::ServerName;
 use rustls::{ClientConfig, ClientConnection, StreamOwned};
 use serde_json::json;

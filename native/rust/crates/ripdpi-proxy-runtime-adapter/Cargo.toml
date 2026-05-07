@@ -15,6 +15,7 @@ ripdpi-desync-runtime = { workspace = true }
 ripdpi-ipfrag = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-proxy-config = { workspace = true }
+ripdpi-runtime-api = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 ripdpi-runtime-services = { workspace = true }
 ripdpi-session = { workspace = true }
@@ -22,5 +23,5 @@ ripdpi-ws-bootstrap = { workspace = true }
 loom = { workspace = true, optional = true }
 
 [features]
-loom = ["dep:loom", "ripdpi-desync-runtime/loom"]
+loom = ["dep:loom", "ripdpi-desync-runtime/loom", "ripdpi-runtime-api/loom"]
 io-uring = ["ripdpi-runtime-platform/io-uring"]
