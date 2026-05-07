@@ -11,8 +11,7 @@ use std::time::Duration;
 
 use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::model::config::{
-    protect_path, protect_path_owned, proxy_auth_token, proxy_protocol_mode, proxy_session_config,
-    udp_associate_enabled, ProxyProtocolMode,
+    proxy_handshake_settings, ProxyHandshakeSettings, ProxyProtocolMode,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{
     encode_socks4_reply, encode_socks5_reply, extract_payload_host, parse_http_connect_request, parse_socks4_request,
@@ -34,7 +33,8 @@ use super::state::{RuntimeState, HANDSHAKE_TIMEOUT};
 pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
     let _ = client.set_write_timeout(Some(HANDSHAKE_TIMEOUT));
-    match proxy_protocol_mode(&state.config) {
+    let settings = proxy_handshake_settings(&state.config);
+    match settings.protocol_mode {
         ProxyProtocolMode::Transparent => handle_transparent(client, state),
         ProxyProtocolMode::HttpConnect => handle_http_connect(client, state),
         ProxyProtocolMode::BytePrefixed { shadowsocks_enabled } => {
@@ -44,8 +44,8 @@ pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::
                 return handle_shadowsocks(client, state, first[0]);
             }
             match first[0] {
-                0x04 => handle_socks4(client, state, first[0]),
-                0x05 => handle_socks5(client, state, first[0]),
+                0x04 => handle_socks4(client, state, &settings, first[0]),
+                0x05 => handle_socks5(client, state, &settings, first[0]),
                 _ => Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported proxy protocol")),
             }
         }
@@ -81,11 +81,15 @@ fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result
     }
 }
 
-fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io::Result<()> {
+fn handle_socks4(
+    mut client: TcpStream,
+    state: &RuntimeState,
+    settings: &ProxyHandshakeSettings,
+    version: u8,
+) -> io::Result<()> {
     let request = read_socks4_request(&mut client, version)?;
-    let session = proxy_session_config(&state.config);
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
-    let parsed = parse_socks4_request(&request, session, &resolver);
+    let parsed = parse_socks4_request(&request, settings.session_config, &resolver);
     match parsed {
         Ok(ClientRequest::Socks4Connect(target)) => {
             let dc_host = detect_telegram_dc(target.addr).map(|dc| {
@@ -111,16 +115,20 @@ fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
     }
 }
 
-fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io::Result<()> {
+fn handle_socks5(
+    mut client: TcpStream,
+    state: &RuntimeState,
+    settings: &ProxyHandshakeSettings,
+    version: u8,
+) -> io::Result<()> {
     if version != S_VER5 {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid socks version"));
     }
-    negotiate_socks5(&mut client, proxy_auth_token(&state.config))?;
+    negotiate_socks5(&mut client, settings.auth_token.as_deref())?;
     let request = read_socks5_request(&mut client)?;
-    let session = proxy_session_config(&state.config);
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
 
-    match parse_socks5_request(&request, SocketType::Stream, session, &resolver) {
+    match parse_socks5_request(&request, SocketType::Stream, settings.session_config, &resolver) {
         Ok(ClientRequest::Socks5Connect(target)) => {
             let dc_host = detect_telegram_dc(target.addr).map(|dc| {
                 if let Some(telemetry) = &state.telemetry {
@@ -135,12 +143,12 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
             }
         }
         Ok(ClientRequest::Socks5UdpAssociate(_target)) => {
-            if !udp_associate_enabled(&state.config) {
+            if !settings.udp_associate_enabled {
                 let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
                 client.write_all(encode_socks5_reply(S_ER_CMD, fail).as_bytes())?;
                 return Ok(());
             }
-            handle_socks5_udp_associate(client, state)
+            handle_socks5_udp_associate(client, state, settings)
         }
         Ok(_) => {
             let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
@@ -157,7 +165,8 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
 
 fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let request = read_http_connect_request(&mut client)?;
-    if let Some(token) = proxy_auth_token(&state.config) {
+    let settings = proxy_handshake_settings(&state.config);
+    if let Some(token) = settings.auth_token.as_deref() {
         if !protocol_io::validate_http_proxy_auth(&request, token) {
             let reply = b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"ripdpi\"\r\nContent-Length: 0\r\n\r\n";
             let _ = client.write_all(reply);
@@ -204,16 +213,20 @@ fn handle_shadowsocks(mut client: TcpStream, state: &RuntimeState, first_byte: u
     )
 }
 
-fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
+fn handle_socks5_udp_associate(
+    mut client: TcpStream,
+    state: &RuntimeState,
+    settings: &ProxyHandshakeSettings,
+) -> io::Result<()> {
     let local_ip = client.local_addr()?.ip();
-    let relay = super::udp::build_udp_relay_sockets(local_ip, protect_path(&state.config))?;
+    let relay = super::udp::build_udp_relay_sockets(local_ip, settings.protect_path.as_deref())?;
     let reply_addr = relay.client.local_addr()?;
     client.write_all(encode_socks5_reply(0, reply_addr).as_bytes())?;
 
     let running = Arc::new(AtomicBool::new(true));
     let worker_running = running.clone();
     let worker_state = state.clone();
-    let worker_protect_path = protect_path_owned(&state.config);
+    let worker_protect_path = settings.protect_path.clone();
     let worker = thread::Builder::new()
         .name("ripdpi-udp".into())
         .spawn(move || super::udp::udp_associate_loop(relay.client, worker_protect_path, worker_state, worker_running))

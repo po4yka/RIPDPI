@@ -203,6 +203,25 @@ pub mod config {
         ripdpi_session::SessionConfig { resolve: config.network.resolve, ipv6: config.network.ipv6 }
     }
 
+    #[derive(Clone)]
+    pub struct ProxyHandshakeSettings {
+        pub protocol_mode: ProxyProtocolMode,
+        pub auth_token: Option<String>,
+        pub session_config: ripdpi_session::SessionConfig,
+        pub udp_associate_enabled: bool,
+        pub protect_path: Option<String>,
+    }
+
+    pub fn proxy_handshake_settings(config: &RuntimeConfig) -> ProxyHandshakeSettings {
+        ProxyHandshakeSettings {
+            protocol_mode: proxy_protocol_mode(config),
+            auth_token: proxy_auth_token(config).map(ToOwned::to_owned),
+            session_config: proxy_session_config(config),
+            udp_associate_enabled: udp_associate_enabled(config),
+            protect_path: protect_path_owned(config),
+        }
+    }
+
     pub fn protect_path(config: &RuntimeConfig) -> Option<&str> {
         config.process.protect_path.as_deref()
     }
@@ -457,6 +476,26 @@ pub mod config {
 
             config.network.transparent = true;
             assert_eq!(proxy_protocol_mode(&config), ProxyProtocolMode::Transparent);
+        }
+
+        #[test]
+        fn proxy_handshake_settings_project_protocol_session_udp_and_protect_policy() {
+            let mut config = RuntimeConfig::default();
+            config.network.shadowsocks = true;
+            config.network.udp = true;
+            config.network.resolve = false;
+            config.network.ipv6 = true;
+            config.network.listen.auth_token = Some("secret".to_string());
+            config.process.protect_path = Some("/tmp/protect.sock".to_string());
+
+            let settings = proxy_handshake_settings(&config);
+
+            assert_eq!(settings.protocol_mode, ProxyProtocolMode::BytePrefixed { shadowsocks_enabled: true },);
+            assert_eq!(settings.auth_token.as_deref(), Some("secret"));
+            assert!(!settings.session_config.resolve);
+            assert!(settings.session_config.ipv6);
+            assert!(settings.udp_associate_enabled);
+            assert_eq!(settings.protect_path.as_deref(), Some("/tmp/protect.sock"));
         }
 
         #[test]
