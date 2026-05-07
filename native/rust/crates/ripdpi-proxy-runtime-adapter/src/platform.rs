@@ -338,6 +338,10 @@ pub mod process {
         }
     }
 
+    pub fn install_shutdown_signal_handlers(handler: extern "C" fn(std::os::raw::c_int)) -> io::Result<()> {
+        ripdpi_runtime_platform::capability::install_shutdown_signal_handlers(handler)
+    }
+
     pub fn detected_parallelism(fallback: usize) -> usize {
         // On Android, std::thread::available_parallelism() reads cgroup files
         // that SELinux denies on Android 14+, polluting logcat with avc:

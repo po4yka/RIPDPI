@@ -40,12 +40,7 @@ extern "C" fn handle_signal(_signal: std::os::raw::c_int) {
 }
 
 fn install_signal_handlers() -> io::Result<()> {
-    use nix::sys::signal::{signal, SigHandler, Signal};
-    for sig in [Signal::SIGINT, Signal::SIGTERM, Signal::SIGHUP] {
-        // SAFETY: handle_signal only writes to an atomic bool, which is async-signal-safe.
-        unsafe { signal(sig, SigHandler::Handler(handle_signal)) }.map_err(io::Error::from)?;
-    }
-    Ok(())
+    process_platform::install_shutdown_signal_handlers(handle_signal)
 }
 
 #[cfg(test)]

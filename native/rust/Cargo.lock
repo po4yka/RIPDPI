@@ -3710,7 +3710,6 @@ dependencies = [
  "local-network-fixture",
  "loom",
  "native-soak-support",
- "nix 0.31.2",
  "ring",
  "ripdpi-io-uring",
  "ripdpi-packets",
