@@ -392,6 +392,15 @@ pub mod config {
             && config.groups.get(group_index).is_some_and(|group| group.actions.quic_migrate_after_handshake)
     }
 
+    #[derive(Clone, Copy)]
+    pub struct UdpGroupSocketSettings {
+        pub bind_low_port: bool,
+    }
+
+    pub fn udp_group_socket_settings(config: &RuntimeConfig, group_index: usize) -> UdpGroupSocketSettings {
+        UdpGroupSocketSettings { bind_low_port: udp_bind_low_port(config, group_index) }
+    }
+
     pub fn udp_bind_low_port(config: &RuntimeConfig, group_index: usize) -> bool {
         config.groups.get(group_index).is_some_and(|group| group.actions.quic_bind_low_port)
     }
@@ -585,6 +594,16 @@ pub mod config {
             assert!(!udp_flow_at_capacity(true, 2, 2));
             assert!(udp_flow_at_capacity(false, 2, 2));
             assert!(!udp_flow_at_capacity(false, 1, 2));
+        }
+
+        #[test]
+        fn udp_group_socket_settings_project_bind_policy() {
+            let mut group = DesyncGroup::new(0);
+            group.actions.quic_bind_low_port = true;
+            let config = RuntimeConfig { groups: vec![group], ..Default::default() };
+
+            assert!(udp_group_socket_settings(&config, 0).bind_low_port);
+            assert!(!udp_group_socket_settings(&config, 1).bind_low_port);
         }
 
         #[test]
