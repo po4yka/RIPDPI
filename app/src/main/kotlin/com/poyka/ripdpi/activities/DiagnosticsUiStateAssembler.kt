@@ -22,7 +22,6 @@ internal class DiagnosticsUiStateAssembler
     constructor(
         private val uiStateFactory: DiagnosticsUiStateFactory,
     ) {
-        @Suppress("LongMethod")
         fun assemble(
             scope: CoroutineScope,
             interactionDependencies: DiagnosticsInteractionDependencies,
@@ -32,38 +31,73 @@ internal class DiagnosticsUiStateAssembler
             sessionDetailState: StateFlow<SessionDetailState>,
             scanLifecycleState: StateFlow<ScanLifecycleState>,
         ): StateFlow<DiagnosticsUiState> {
-            val liveData =
-                combine(
-                    interactionDependencies.diagnosticsTimelineSource.telemetry,
-                    interactionDependencies.diagnosticsTimelineSource.nativeEvents,
-                    interactionDependencies.diagnosticsTimelineSource.activeScanProgress,
-                    interactionDependencies.diagnosticsTimelineSource.snapshots,
-                    interactionDependencies.diagnosticsTimelineSource.contexts,
-                ) { telemetry, nativeEvents, progress, snapshots, contexts ->
-                    LiveDataSnapshot(
-                        activeConnectionSession = null,
-                        currentTelemetry = null,
-                        telemetry = telemetry,
-                        nativeEvents = nativeEvents,
-                        progress = progress,
-                        snapshots = snapshots,
-                        contexts = contexts,
-                        liveTelemetry = emptyList(),
-                        liveNativeEvents = emptyList(),
-                        liveSnapshots = emptyList(),
-                        liveContexts = emptyList(),
-                    )
-                }.stateIn(
-                    scope,
-                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
-                    LiveDataSnapshot.EMPTY,
+            val data =
+                assembleDiagnosticsDataState(
+                    scope = scope,
+                    interactionDependencies = interactionDependencies,
+                    contextDependencies = contextDependencies,
+                )
+            val controls =
+                assembleControlState(
+                    scope = scope,
+                    selectionState = selectionState,
+                    filterState = filterState,
+                    sessionDetailState = sessionDetailState,
+                    scanLifecycleState = scanLifecycleState,
                 )
 
-            val currentTelemetryData =
+            return combine(data, controls) { diagnosticsData, controls ->
+                uiStateFactory.buildUiState(
+                    buildInput(
+                        diagnosticsData = diagnosticsData,
+                        controls = controls,
+                    ),
+                )
+            }.stateIn(
+                scope = scope,
+                started = SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                initialValue = DiagnosticsUiState(),
+            )
+        }
+
+        private fun assembleDiagnosticsDataState(
+            scope: CoroutineScope,
+            interactionDependencies: DiagnosticsInteractionDependencies,
+            contextDependencies: DiagnosticsContextDependencies,
+        ): StateFlow<DiagnosticsAssemblyData> {
+            val live = assembleLiveDataState(scope, interactionDependencies, contextDependencies)
+            val scan = assembleScanDataState(scope, interactionDependencies)
+            val config = assembleConfigState(scope, contextDependencies)
+            return combine(live, scan, config) { liveData, scanData, configData ->
+                DiagnosticsAssemblyData(
+                    live = liveData,
+                    scan = scanData,
+                    config = configData,
+                )
+            }.stateIn(
+                scope,
+                SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                DiagnosticsAssemblyData(
+                    live = LiveDataSnapshot.EMPTY,
+                    scan = ScanDataSnapshot.EMPTY,
+                    config = config.value,
+                ),
+            )
+        }
+
+        private fun assembleLiveDataState(
+            scope: CoroutineScope,
+            interactionDependencies: DiagnosticsInteractionDependencies,
+            contextDependencies: DiagnosticsContextDependencies,
+        ): StateFlow<LiveDataSnapshot> {
+            val timeline = interactionDependencies.diagnosticsTimelineSource
+            val archivedTelemetry = assembleArchivedTelemetryState(scope, interactionDependencies)
+            val liveRuntime = assembleLiveRuntimeState(scope, interactionDependencies)
+            val currentTelemetry =
                 combine(
                     contextDependencies.serviceStateStore.status,
                     contextDependencies.serviceStateStore.telemetry,
-                    interactionDependencies.diagnosticsTimelineSource.activeConnectionSession,
+                    timeline.activeConnectionSession,
                 ) { (status, mode), telemetry, activeConnectionSession ->
                     buildCurrentServiceTelemetry(
                         status = status,
@@ -77,165 +111,212 @@ internal class DiagnosticsUiStateAssembler
                     null,
                 )
 
-            val liveRuntimeData =
-                combine(
-                    interactionDependencies.diagnosticsTimelineSource.activeConnectionSession,
-                    interactionDependencies.diagnosticsTimelineSource.liveSnapshots,
-                    interactionDependencies.diagnosticsTimelineSource.liveContexts,
-                    interactionDependencies.diagnosticsTimelineSource.liveTelemetry,
-                    interactionDependencies.diagnosticsTimelineSource.liveNativeEvents,
-                ) { activeConnectionSession, liveSnapshots, liveContexts, liveTelemetry, liveNativeEvents ->
-                    LiveRuntimeSnapshot(
-                        activeConnectionSession = activeConnectionSession,
-                        liveSnapshots = liveSnapshots,
-                        liveContexts = liveContexts,
-                        liveTelemetry = liveTelemetry,
-                        liveNativeEvents = liveNativeEvents,
-                    )
-                }.stateIn(
-                    scope,
-                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
-                    LiveRuntimeSnapshot.EMPTY,
-                )
-
-            val combinedLiveData =
-                combine(liveData, liveRuntimeData, currentTelemetryData) { live, runtime, currentTelemetry ->
-                    live.copy(
-                        activeConnectionSession = runtime.activeConnectionSession,
-                        currentTelemetry = currentTelemetry,
-                        liveTelemetry = runtime.liveTelemetry,
-                        liveNativeEvents = runtime.liveNativeEvents,
-                        liveSnapshots = runtime.liveSnapshots,
-                        liveContexts = runtime.liveContexts,
-                    )
-                }.stateIn(
-                    scope,
-                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
-                    LiveDataSnapshot.EMPTY,
-                )
-
-            val scanData =
-                combine(
-                    interactionDependencies.diagnosticsTimelineSource.profiles,
-                    interactionDependencies.diagnosticsTimelineSource.sessions,
-                    interactionDependencies.diagnosticsTimelineSource.approachStats,
-                    interactionDependencies.diagnosticsTimelineSource.exports,
-                ) { profiles, sessions, approachStats, exports ->
-                    ScanDataSnapshot(profiles, sessions, approachStats, exports)
-                }.stateIn(
-                    scope,
-                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
-                    ScanDataSnapshot.EMPTY,
-                )
-
-            val configData =
-                combine(
-                    contextDependencies.appSettingsRepository.settings,
-                    contextDependencies.rememberedPolicySource.observePolicies(
-                        limit = DiagnosticsRememberedPolicyLimit,
-                    ),
-                    contextDependencies.serviceStateStore.status,
-                    contextDependencies.activeConnectionPolicySource.activePolicies,
-                ) { settings, rememberedPolicies, serviceStatus, activePolicies ->
-                    val (_, activeMode) = serviceStatus
-                    val connectionPolicy =
-                        activePolicies[activeMode]
-                            ?: activePolicies.values.maxByOrNull(DiagnosticActiveConnectionPolicy::appliedAt)
-                    ConfigSnapshot(settings, rememberedPolicies, connectionPolicy)
-                }.stateIn(
-                    scope,
-                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
-                    ConfigSnapshot(
-                        settings = AppSettingsSerializer.defaultValue,
-                        rememberedPolicies = emptyList(),
-                        activeConnectionPolicy = null,
-                    ),
-                )
-
-            val combinedData =
-                combine(combinedLiveData, scanData, configData) { live, scan, config ->
-                    Triple(live, scan, config)
-                }.stateIn(
-                    scope,
-                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
-                    Triple(LiveDataSnapshot.EMPTY, ScanDataSnapshot.EMPTY, configData.value),
-                )
-
-            val combinedUi =
-                combine(
-                    selectionState,
-                    filterState,
-                    sessionDetailState,
-                    scanLifecycleState,
-                ) { selection, filter, sessionDetail, scanLifecycle ->
-                    UiControlState(selection, filter, sessionDetail, scanLifecycle)
-                }.stateIn(
-                    scope,
-                    SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
-                    UiControlState(
-                        selection = SelectionState(),
-                        filter = FilterState(),
-                        sessionDetail = SessionDetailState(),
-                        scanLifecycle = ScanLifecycleState(),
-                    ),
-                )
-
-            return combine(combinedData, combinedUi) { (live, scan, config), ui ->
-                uiStateFactory.buildUiState(
-                    DiagnosticsUiStateInput(
-                        profiles = scan.profiles,
-                        settings = config.settings,
-                        progress = live.progress,
-                        sessions = scan.sessions,
-                        approachStats = scan.approachStats,
-                        snapshots = live.snapshots,
-                        contexts = live.contexts,
-                        currentTelemetry = live.currentTelemetry,
-                        telemetry = live.telemetry,
-                        nativeEvents = live.nativeEvents,
-                        activeConnectionSession = live.activeConnectionSession,
-                        liveSnapshots = live.liveSnapshots,
-                        liveContexts = live.liveContexts,
-                        liveTelemetry = live.liveTelemetry,
-                        liveNativeEvents = live.liveNativeEvents,
-                        exports = scan.exports,
-                        rememberedPolicies = config.rememberedPolicies,
-                        activeConnectionPolicy = config.activeConnectionPolicy,
-                        selectedSectionRequest = ui.selection.selectedSectionRequest,
-                        selectedProfileId = ui.selection.selectedProfileId,
-                        selectedApproachMode = ui.selection.selectedApproachMode,
-                        selectedProbe = ui.selection.selectedProbe,
-                        selectedEventId = ui.selection.selectedEventId,
-                        sessionPathMode = ui.filter.sessionPathModeFilter,
-                        sessionStatus = ui.filter.sessionStatusFilter,
-                        sessionSearch = ui.filter.sessionSearch,
-                        eventSource = ui.filter.eventSourceFilter,
-                        eventSeverity = ui.filter.eventSeverityFilter,
-                        eventSearch = ui.filter.eventSearch,
-                        eventAutoScroll = ui.filter.eventAutoScroll,
-                        selectedSessionDetail = ui.sessionDetail.selectedSessionDetail,
-                        selectedStrategyProbeCandidate = ui.selection.selectedStrategyProbeCandidate,
-                        selectedApproachDetail = ui.selection.selectedApproachDetail,
-                        sensitiveSessionDetailsVisible = ui.sessionDetail.sensitiveSessionDetailsVisible,
-                        archiveActionState = ui.scanLifecycle.archiveActionState,
-                        scanStartedAt = ui.scanLifecycle.scanStartedAt,
-                        activeScanPathMode = ui.scanLifecycle.activeScanPathMode,
-                        completedProbes = ui.scanLifecycle.accumulatedProbes,
-                        candidateTimeline = ui.scanLifecycle.accumulatedStrategyCandidates,
-                        dnsBaselineStatus = ui.scanLifecycle.dnsBaselineStatus,
-                        dpiFailureClass = ui.scanLifecycle.dpiFailureClass,
-                        hiddenProbeConflictDialog = ui.scanLifecycle.hiddenProbeConflictDialog,
-                        sensitiveProfileConsentDialog = ui.scanLifecycle.sensitiveProfileConsentDialog,
-                        queuedManualScanRequest = ui.scanLifecycle.queuedManualScanRequest,
-                    ),
+            return combine(archivedTelemetry, liveRuntime, currentTelemetry) { archived, runtime, current ->
+                archived.copy(
+                    activeConnectionSession = runtime.activeConnectionSession,
+                    currentTelemetry = current,
+                    liveTelemetry = runtime.liveTelemetry,
+                    liveNativeEvents = runtime.liveNativeEvents,
+                    liveSnapshots = runtime.liveSnapshots,
+                    liveContexts = runtime.liveContexts,
                 )
             }.stateIn(
-                scope = scope,
-                started = SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
-                initialValue = DiagnosticsUiState(),
+                scope,
+                SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                LiveDataSnapshot.EMPTY,
+            )
+        }
+
+        private fun assembleArchivedTelemetryState(
+            scope: CoroutineScope,
+            interactionDependencies: DiagnosticsInteractionDependencies,
+        ): StateFlow<LiveDataSnapshot> {
+            val timeline = interactionDependencies.diagnosticsTimelineSource
+            return combine(
+                timeline.telemetry,
+                timeline.nativeEvents,
+                timeline.activeScanProgress,
+                timeline.snapshots,
+                timeline.contexts,
+            ) { telemetry, nativeEvents, progress, snapshots, contexts ->
+                LiveDataSnapshot(
+                    activeConnectionSession = null,
+                    currentTelemetry = null,
+                    telemetry = telemetry,
+                    nativeEvents = nativeEvents,
+                    progress = progress,
+                    snapshots = snapshots,
+                    contexts = contexts,
+                    liveTelemetry = emptyList(),
+                    liveNativeEvents = emptyList(),
+                    liveSnapshots = emptyList(),
+                    liveContexts = emptyList(),
+                )
+            }.stateIn(
+                scope,
+                SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                LiveDataSnapshot.EMPTY,
+            )
+        }
+
+        private fun assembleLiveRuntimeState(
+            scope: CoroutineScope,
+            interactionDependencies: DiagnosticsInteractionDependencies,
+        ): StateFlow<LiveRuntimeSnapshot> {
+            val timeline = interactionDependencies.diagnosticsTimelineSource
+            return combine(
+                timeline.activeConnectionSession,
+                timeline.liveSnapshots,
+                timeline.liveContexts,
+                timeline.liveTelemetry,
+                timeline.liveNativeEvents,
+            ) { activeConnectionSession, liveSnapshots, liveContexts, liveTelemetry, liveNativeEvents ->
+                LiveRuntimeSnapshot(
+                    activeConnectionSession = activeConnectionSession,
+                    liveSnapshots = liveSnapshots,
+                    liveContexts = liveContexts,
+                    liveTelemetry = liveTelemetry,
+                    liveNativeEvents = liveNativeEvents,
+                )
+            }.stateIn(
+                scope,
+                SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                LiveRuntimeSnapshot.EMPTY,
+            )
+        }
+
+        private fun assembleScanDataState(
+            scope: CoroutineScope,
+            interactionDependencies: DiagnosticsInteractionDependencies,
+        ): StateFlow<ScanDataSnapshot> {
+            val timeline = interactionDependencies.diagnosticsTimelineSource
+            return combine(
+                timeline.profiles,
+                timeline.sessions,
+                timeline.approachStats,
+                timeline.exports,
+            ) { profiles, sessions, approachStats, exports ->
+                ScanDataSnapshot(profiles, sessions, approachStats, exports)
+            }.stateIn(
+                scope,
+                SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                ScanDataSnapshot.EMPTY,
+            )
+        }
+
+        private fun assembleConfigState(
+            scope: CoroutineScope,
+            contextDependencies: DiagnosticsContextDependencies,
+        ): StateFlow<ConfigSnapshot> =
+            combine(
+                contextDependencies.appSettingsRepository.settings,
+                contextDependencies.rememberedPolicySource.observePolicies(
+                    limit = DiagnosticsRememberedPolicyLimit,
+                ),
+                contextDependencies.serviceStateStore.status,
+                contextDependencies.activeConnectionPolicySource.activePolicies,
+            ) { settings, rememberedPolicies, serviceStatus, activePolicies ->
+                val (_, activeMode) = serviceStatus
+                val connectionPolicy =
+                    activePolicies[activeMode]
+                        ?: activePolicies.values.maxByOrNull(DiagnosticActiveConnectionPolicy::appliedAt)
+                ConfigSnapshot(settings, rememberedPolicies, connectionPolicy)
+            }.stateIn(
+                scope,
+                SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                ConfigSnapshot(
+                    settings = AppSettingsSerializer.defaultValue,
+                    rememberedPolicies = emptyList(),
+                    activeConnectionPolicy = null,
+                ),
+            )
+
+        private fun assembleControlState(
+            scope: CoroutineScope,
+            selectionState: StateFlow<SelectionState>,
+            filterState: StateFlow<FilterState>,
+            sessionDetailState: StateFlow<SessionDetailState>,
+            scanLifecycleState: StateFlow<ScanLifecycleState>,
+        ): StateFlow<UiControlState> =
+            combine(
+                selectionState,
+                filterState,
+                sessionDetailState,
+                scanLifecycleState,
+            ) { selection, filter, sessionDetail, scanLifecycle ->
+                UiControlState(selection, filter, sessionDetail, scanLifecycle)
+            }.stateIn(
+                scope,
+                SharingStarted.WhileSubscribed(DiagnosticsStateSubscriptionMillis),
+                UiControlState(
+                    selection = SelectionState(),
+                    filter = FilterState(),
+                    sessionDetail = SessionDetailState(),
+                    scanLifecycle = ScanLifecycleState(),
+                ),
+            )
+
+        private fun buildInput(
+            diagnosticsData: DiagnosticsAssemblyData,
+            controls: UiControlState,
+        ): DiagnosticsUiStateInput {
+            val live = diagnosticsData.live
+            val scan = diagnosticsData.scan
+            val config = diagnosticsData.config
+            return DiagnosticsUiStateInput(
+                profiles = scan.profiles,
+                settings = config.settings,
+                progress = live.progress,
+                sessions = scan.sessions,
+                approachStats = scan.approachStats,
+                snapshots = live.snapshots,
+                contexts = live.contexts,
+                currentTelemetry = live.currentTelemetry,
+                telemetry = live.telemetry,
+                nativeEvents = live.nativeEvents,
+                activeConnectionSession = live.activeConnectionSession,
+                liveSnapshots = live.liveSnapshots,
+                liveContexts = live.liveContexts,
+                liveTelemetry = live.liveTelemetry,
+                liveNativeEvents = live.liveNativeEvents,
+                exports = scan.exports,
+                rememberedPolicies = config.rememberedPolicies,
+                activeConnectionPolicy = config.activeConnectionPolicy,
+                selectedSectionRequest = controls.selection.selectedSectionRequest,
+                selectedProfileId = controls.selection.selectedProfileId,
+                selectedApproachMode = controls.selection.selectedApproachMode,
+                selectedProbe = controls.selection.selectedProbe,
+                selectedEventId = controls.selection.selectedEventId,
+                sessionPathMode = controls.filter.sessionPathModeFilter,
+                sessionStatus = controls.filter.sessionStatusFilter,
+                sessionSearch = controls.filter.sessionSearch,
+                eventSource = controls.filter.eventSourceFilter,
+                eventSeverity = controls.filter.eventSeverityFilter,
+                eventSearch = controls.filter.eventSearch,
+                eventAutoScroll = controls.filter.eventAutoScroll,
+                selectedSessionDetail = controls.sessionDetail.selectedSessionDetail,
+                selectedStrategyProbeCandidate = controls.selection.selectedStrategyProbeCandidate,
+                selectedApproachDetail = controls.selection.selectedApproachDetail,
+                sensitiveSessionDetailsVisible = controls.sessionDetail.sensitiveSessionDetailsVisible,
+                archiveActionState = controls.scanLifecycle.archiveActionState,
+                scanStartedAt = controls.scanLifecycle.scanStartedAt,
+                activeScanPathMode = controls.scanLifecycle.activeScanPathMode,
+                completedProbes = controls.scanLifecycle.accumulatedProbes,
+                candidateTimeline = controls.scanLifecycle.accumulatedStrategyCandidates,
+                dnsBaselineStatus = controls.scanLifecycle.dnsBaselineStatus,
+                dpiFailureClass = controls.scanLifecycle.dpiFailureClass,
+                hiddenProbeConflictDialog = controls.scanLifecycle.hiddenProbeConflictDialog,
+                sensitiveProfileConsentDialog = controls.scanLifecycle.sensitiveProfileConsentDialog,
+                queuedManualScanRequest = controls.scanLifecycle.queuedManualScanRequest,
             )
         }
     }
+
+private data class DiagnosticsAssemblyData(
+    val live: LiveDataSnapshot,
+    val scan: ScanDataSnapshot,
+    val config: ConfigSnapshot,
+)
 
 internal fun buildCurrentServiceTelemetry(
     status: AppStatus,
