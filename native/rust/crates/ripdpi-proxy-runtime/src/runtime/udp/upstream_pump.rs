@@ -3,7 +3,7 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::config::{udp_default_ttl, udp_ip_id_mode};
+use ripdpi_proxy_runtime_adapter::model::config::udp_group_packet_settings;
 use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
 use ripdpi_proxy_runtime_adapter::udp_desync::{
     execute_udp_actions, plan_udp_actions_for_runtime, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext,
@@ -52,12 +52,13 @@ pub(super) fn send_udp_flow_payload(
     protect_path: Option<&str>,
 ) -> io::Result<()> {
     let actions = plan_udp_flow_actions(state, entry, payload, now)?;
+    let packet_settings = udp_group_packet_settings(&state.config, entry.route.group_index);
     let exec_ctx = UdpActionExecContext {
         upstream: &entry.upstream,
         target: entry.current_target,
-        default_ttl: udp_default_ttl(&state.config),
+        default_ttl: packet_settings.default_ttl,
         protect_path,
-        ip_id_mode: udp_ip_id_mode(&state.config, entry.route.group_index),
+        ip_id_mode: packet_settings.ip_id_mode,
     };
     execute_udp_actions(exec_ctx, &actions)
 }
@@ -73,6 +74,7 @@ fn plan_udp_flow_actions(
     entry.payload.extend_from_slice(payload);
     entry.awaiting_response = true;
     let progress = entry.session.observe_datagram_outbound(payload);
+    let packet_settings = udp_group_packet_settings(&state.config, entry.route.group_index);
     plan_udp_actions_for_runtime(
         UdpDesyncPlanContext {
             config: &state.config,
@@ -86,7 +88,7 @@ fn plan_udp_flow_actions(
             progress,
             host: entry.host.as_deref(),
             target: entry.current_target,
-            default_ttl: udp_default_ttl(&state.config),
+            default_ttl: packet_settings.default_ttl,
         },
     )
 }

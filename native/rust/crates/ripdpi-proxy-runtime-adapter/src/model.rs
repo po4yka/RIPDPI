@@ -401,6 +401,16 @@ pub mod config {
         UdpGroupSocketSettings { bind_low_port: udp_bind_low_port(config, group_index) }
     }
 
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct UdpGroupPacketSettings {
+        pub default_ttl: u8,
+        pub ip_id_mode: Option<IpIdMode>,
+    }
+
+    pub fn udp_group_packet_settings(config: &RuntimeConfig, group_index: usize) -> UdpGroupPacketSettings {
+        UdpGroupPacketSettings { default_ttl: udp_default_ttl(config), ip_id_mode: udp_ip_id_mode(config, group_index) }
+    }
+
     pub fn udp_bind_low_port(config: &RuntimeConfig, group_index: usize) -> bool {
         config.groups.get(group_index).is_some_and(|group| group.actions.quic_bind_low_port)
     }
@@ -604,6 +614,23 @@ pub mod config {
 
             assert!(udp_group_socket_settings(&config, 0).bind_low_port);
             assert!(!udp_group_socket_settings(&config, 1).bind_low_port);
+        }
+
+        #[test]
+        fn udp_group_packet_settings_project_ttl_and_ip_id_policy() {
+            let mut group = DesyncGroup::new(0);
+            group.actions.ip_id_mode = Some(IpIdMode::Seq);
+            let mut config = RuntimeConfig { groups: vec![group], ..Default::default() };
+            config.network.default_ttl = 42;
+
+            assert_eq!(
+                udp_group_packet_settings(&config, 0),
+                UdpGroupPacketSettings { default_ttl: 42, ip_id_mode: Some(IpIdMode::Seq) },
+            );
+            assert_eq!(
+                udp_group_packet_settings(&config, 1),
+                UdpGroupPacketSettings { default_ttl: 42, ip_id_mode: None }
+            );
         }
 
         #[test]
