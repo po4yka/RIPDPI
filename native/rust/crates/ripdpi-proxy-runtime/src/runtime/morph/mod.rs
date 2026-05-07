@@ -52,13 +52,13 @@ mod tests {
     use super::*;
 
     use crate::runtime::state::RuntimeState;
-    use ripdpi_packets::DEFAULT_FAKE_TLS;
     use ripdpi_proxy_runtime_adapter::model::config::{
         DesyncGroup, EntropyMode, QuicFakeProfile, RuntimeConfig, TcpChainStep, TcpChainStepKind,
     };
     use ripdpi_proxy_runtime_adapter::model::decision::RuntimePolicy;
     use ripdpi_proxy_runtime_adapter::model::desync::{AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
     use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyRuntimeContext;
+    use ripdpi_proxy_runtime_adapter::protocol_payload::DEFAULT_FAKE_TLS;
 
     fn state_with_policy(policy: ProxyMorphPolicy) -> RuntimeState {
         RuntimeState::test_with_runtime_policy(

@@ -1,5 +1,8 @@
 use ripdpi_packets::{tls_fake_profile_bytes, tune_tls_padding_size_into, TlsFakeProfile};
 
+pub const DEFAULT_FAKE_TLS: &[u8] = ripdpi_packets::DEFAULT_FAKE_TLS;
+pub const IS_HTTPS: u32 = ripdpi_packets::IS_HTTPS;
+
 /// Build a TLS ClientHello with the given domain as SNI.
 ///
 /// Uses the Google Chrome fake TLS profile, which the SNI replacement function

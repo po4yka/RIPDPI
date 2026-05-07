@@ -50,7 +50,6 @@ mod tests {
     use crate::runtime::state::RuntimeState;
     #[cfg(not(feature = "loom"))]
     use crate::sync::{Arc, AtomicUsize};
-    use ripdpi_packets::{DEFAULT_FAKE_TLS, IS_HTTPS};
     use ripdpi_proxy_runtime_adapter::model::config::{
         DesyncGroup, OffsetExpr, TcpChainStep, TcpChainStepKind, DETECT_CONNECT, DETECT_HTTP_LOCAT,
     };
@@ -58,6 +57,7 @@ mod tests {
         encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, OutboundProgress, S_ATP_I4, S_ATP_I6,
         S_CMD_CONN, S_ER_CONN, S_VER5,
     };
+    use ripdpi_proxy_runtime_adapter::protocol_payload::{DEFAULT_FAKE_TLS, IS_HTTPS};
     use std::io::Read;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpListener, TcpStream};
     #[cfg(not(feature = "loom"))]
