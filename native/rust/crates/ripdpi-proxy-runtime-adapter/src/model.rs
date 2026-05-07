@@ -53,6 +53,10 @@ pub mod config {
         config.network.ipv6
     }
 
+    pub fn name_resolution_enabled(config: &RuntimeConfig) -> bool {
+        config.network.resolve
+    }
+
     pub fn warmup_probe_enabled(config: &RuntimeConfig) -> bool {
         config.host_autolearn.enabled && config.host_autolearn.warmup_probe_enabled
     }
