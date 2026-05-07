@@ -484,6 +484,74 @@ pub mod proxy_config {
         }
         telemetry.on_morph_rollback(target, morph_policy_id(policy), reason);
     }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use crate::protocol_payload::DEFAULT_FAKE_TLS;
+
+        use super::super::config::{DesyncGroup, EntropyMode, QuicFakeProfile, TcpChainStep, TcpChainStepKind};
+        use super::super::desync::{AdaptivePlannerHints, AdaptiveTlsRandRecProfile, AdaptiveUdpBurstProfile};
+
+        fn policy() -> ProxyMorphPolicy {
+            ProxyMorphPolicy {
+                id: "balanced".to_string(),
+                first_flight_size_min: 320,
+                first_flight_size_max: 640,
+                padding_envelope_min: 16,
+                padding_envelope_max: 64,
+                entropy_target_permil: 3400,
+                tcp_burst_cadence_ms: vec![0, 12, 24],
+                tls_burst_cadence_ms: vec![0, 8],
+                quic_burst_profile: "compat_burst".to_string(),
+                fake_packet_shape_profile: "compat_default".to_string(),
+            }
+        }
+
+        #[test]
+        fn tcp_morph_policy_updates_group_actions_and_cadence() {
+            let policy = policy();
+            let mut group = DesyncGroup::new(0);
+            group.actions.tcp_chain = vec![
+                TcpChainStep::new(TcpChainStepKind::TlsRec, super::super::config::OffsetExpr::tls_host(0)),
+                TcpChainStep::new(TcpChainStepKind::Fake, super::super::config::OffsetExpr::host(1)),
+            ];
+            let hints = AdaptivePlannerHints {
+                tlsrandrec_profile: Some(AdaptiveTlsRandRecProfile::Wide),
+                ..Default::default()
+            };
+
+            let morphed = apply_tcp_morph_policy_to_group(Some(&policy), &group, DEFAULT_FAKE_TLS, hints);
+
+            assert_eq!(morphed.actions.fake_tls_size, 640);
+            assert_eq!(morphed.actions.entropy_mode, EntropyMode::Popcount);
+            assert_eq!(morphed.actions.entropy_padding_target_permil, Some(3400));
+            assert_eq!(morphed.actions.entropy_padding_max, 64);
+            assert_eq!(morphed.actions.tcp_chain[0].inter_segment_delay_ms(), 0);
+            assert_eq!(morphed.actions.tcp_chain[1].inter_segment_delay_ms(), 8);
+        }
+
+        #[test]
+        fn udp_morph_policy_overrides_hint_profiles() {
+            let policy = ProxyMorphPolicy {
+                id: "balanced".to_string(),
+                first_flight_size_min: 0,
+                first_flight_size_max: 0,
+                padding_envelope_min: 0,
+                padding_envelope_max: 0,
+                entropy_target_permil: 0,
+                tcp_burst_cadence_ms: Vec::new(),
+                tls_burst_cadence_ms: Vec::new(),
+                quic_burst_profile: "realistic_burst".to_string(),
+                fake_packet_shape_profile: "realistic_initial".to_string(),
+            };
+
+            let hints = apply_udp_morph_policy_to_hints(Some(&policy), AdaptivePlannerHints::default());
+
+            assert_eq!(hints.udp_burst_profile, Some(AdaptiveUdpBurstProfile::Aggressive));
+            assert_eq!(hints.quic_fake_profile, Some(QuicFakeProfile::RealisticInitial));
+        }
+    }
 }
 
 pub mod runtime_api {

@@ -85,19 +85,6 @@ impl RuntimeState {
     }
 
     #[cfg(test)]
-    pub(super) fn test_with_runtime_policy(
-        config: RuntimeConfig,
-        runtime_context: Option<ProxyRuntimeContext>,
-        _policy: ripdpi_proxy_runtime_adapter::model::decision::RuntimePolicy,
-    ) -> Self {
-        // In tests the policy argument was used to pre-seed route state; the
-        // ServicesState equivalent loads from config, which produces the same
-        // default state. Tests that need specific learned routes should drive
-        // them via the port methods after construction.
-        Self::test_with_context(config, runtime_context)
-    }
-
-    #[cfg(test)]
     fn test_with_telemetry_and_context(
         config: RuntimeConfig,
         telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
