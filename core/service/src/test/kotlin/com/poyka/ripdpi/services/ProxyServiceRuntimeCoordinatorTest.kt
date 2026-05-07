@@ -10,6 +10,8 @@ import com.poyka.ripdpi.data.NativeNetworkSnapshot
 import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.WarpRouteModeRules
+import com.poyka.ripdpi.service.runtime.proxy.ProxyRuntimeSupervisorBundle
+import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher

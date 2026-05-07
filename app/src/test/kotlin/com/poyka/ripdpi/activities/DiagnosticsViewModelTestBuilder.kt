@@ -39,6 +39,15 @@ internal fun createDiagnosticsViewModel(
             DiagnosticsUiStateFactory(
                 support = support,
                 sessionDetailUiMapper = DiagnosticsSessionDetailUiFactory(support),
+                resolver = DiagnosticsUiInputResolver(support),
+                overviewFactory = DiagnosticsOverviewUiStateFactory(support),
+                scanFactory = DiagnosticsScanUiStateFactory(support),
+                liveFactory = DiagnosticsLiveUiStateFactory(support),
+                sessionsFactory = DiagnosticsSessionsUiStateFactory(support),
+                approachesFactory = DiagnosticsApproachesUiStateFactory(support),
+                eventsFactory = DiagnosticsEventsUiStateFactory(support),
+                shareFactory = DiagnosticsShareUiStateFactory(support),
+                performanceFactory = DiagnosticsPerformanceUiStateFactory(),
             )
         DiagnosticsViewModel(
             diagnosticsInteractionDependencies =

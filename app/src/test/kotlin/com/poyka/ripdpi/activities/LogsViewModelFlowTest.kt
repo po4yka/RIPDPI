@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.ScanProgress
+import com.poyka.ripdpi.ui.logs.LogEntryMapper
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals

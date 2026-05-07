@@ -335,19 +335,45 @@ private class TestCoordinator(
     var handoverFailuresRemaining: Int = 0
     val statusTransitions = mutableListOf<ServiceStatus>()
 
-    override val serviceLabel: String = "test"
+    override val runtimeHooks: ServiceRuntimeModeHooks<ProxyRuntimeSession> =
+        ServiceRuntimeModeHooks(
+            serviceLabel = "test",
+            startHooks =
+                ServiceRuntimeStartHooks(
+                    createRuntimeSession = ::createRuntimeSession,
+                    resolveInitialConnectionPolicy = ::resolveInitialConnectionPolicy,
+                    applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
+                    startResolvedRuntime = ::startResolvedRuntime,
+                    startModeTelemetryUpdates = ::startModeTelemetryUpdates,
+                ),
+            stopHooks =
+                ServiceRuntimeStopHooks(
+                    stopModeRuntime = ::stopModeRuntime,
+                ),
+            handoverHooks =
+                ServiceRuntimeHandoverHooks(
+                    resolveConnectionPolicy = ::resolveHandoverConnectionPolicy,
+                    restartAfterHandover = ::restartAfterHandover,
+                    classifyFailure = ::classifyHandoverFailure,
+                ),
+            statusHooks =
+                ServiceRuntimeStatusHooks(
+                    updateStatus = ::updateStatus,
+                    classifyStartupFailure = ::classifyStartupFailure,
+                ),
+        )
 
-    override fun createRuntimeSession(): ProxyRuntimeSession = ProxyRuntimeSession()
+    private fun createRuntimeSession(): ProxyRuntimeSession = ProxyRuntimeSession()
 
-    override suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution =
+    private suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution =
         sampleResolution(mode = Mode.Proxy)
 
-    override suspend fun resolveHandoverConnectionPolicy(
+    private suspend fun resolveHandoverConnectionPolicy(
         fingerprint: NetworkFingerprint,
         handoverClassification: String,
     ): ConnectionPolicyResolution = sampleResolution(mode = Mode.Proxy, policySignature = "handover")
 
-    override fun applyActiveConnectionPolicy(
+    private fun applyActiveConnectionPolicy(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
         restartReason: String,
@@ -369,7 +395,7 @@ private class TestCoordinator(
         )
     }
 
-    override suspend fun startResolvedRuntime(
+    private suspend fun startResolvedRuntime(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
     ) {
@@ -379,14 +405,14 @@ private class TestCoordinator(
         }
     }
 
-    override suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
+    private suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
         stopCalls += 1
         stopGate?.await()
     }
 
-    override fun startModeTelemetryUpdates() = Unit
+    private fun startModeTelemetryUpdates(replaceTelemetryJob: TelemetryJobReplacer) = Unit
 
-    override suspend fun restartAfterHandover(
+    private suspend fun restartAfterHandover(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
@@ -404,7 +430,7 @@ private class TestCoordinator(
         )
     }
 
-    override fun updateStatus(
+    private fun updateStatus(
         newStatus: ServiceStatus,
         failureReason: FailureReason?,
     ) {
@@ -412,7 +438,7 @@ private class TestCoordinator(
         statusTransitions += newStatus
     }
 
-    override fun classifyStartupFailure(error: Exception): FailureReason = FailureReason.Unexpected(error)
+    private fun classifyStartupFailure(error: Exception): FailureReason = FailureReason.Unexpected(error)
 
-    override fun classifyHandoverFailure(error: Exception): FailureReason = FailureReason.Unexpected(error)
+    private fun classifyHandoverFailure(error: Exception): FailureReason = FailureReason.Unexpected(error)
 }

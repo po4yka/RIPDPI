@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.activeDnsSettings
+import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeCoordinator
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher

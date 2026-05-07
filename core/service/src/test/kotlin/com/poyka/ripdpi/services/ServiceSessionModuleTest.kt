@@ -7,6 +7,11 @@ import com.poyka.ripdpi.data.NativeNetworkSnapshotProvider
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeDnsDependencies
+import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeRuntimeDependencies
+import com.poyka.ripdpi.service.runtime.vpn.VpnServiceRuntimeStatusDependencies
+import com.poyka.ripdpi.service.session.proxy.ProxyServiceSessionModule
+import com.poyka.ripdpi.service.session.vpn.VpnServiceSessionModule
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.runTest

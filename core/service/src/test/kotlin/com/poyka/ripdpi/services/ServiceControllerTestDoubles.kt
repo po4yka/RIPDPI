@@ -63,6 +63,7 @@ import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyEntity
 import com.poyka.ripdpi.data.diagnostics.RememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.service.warp.WarpRuntimeConfigResolver
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow

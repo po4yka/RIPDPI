@@ -59,6 +59,7 @@ import com.poyka.ripdpi.proto.ActivationFilter
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proto.NumericRange
 import com.poyka.ripdpi.proto.StrategyTcpStep
+import com.poyka.ripdpi.settings.state.toUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

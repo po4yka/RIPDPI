@@ -37,11 +37,16 @@ class UpstreamRelayRuntimeConfigResolverTest {
         DefaultUpstreamRelayRuntimeConfigResolver(
             relayProfileStore = relayProfileStore,
             relayCredentialStore = relayCredentialStore,
-            cloudflareMasqueGeohashResolver =
-                object : CloudflareMasqueGeohashResolver {
-                    override suspend fun resolveHeaderValue(): String? = masqueGeohashHeader
-                },
-            masquePrivacyPassProvider = masquePrivacyPassProvider,
+            relayKindResolverRegistry =
+                createDefaultRelayKindResolverRegistry(
+                    relayProfileStore = relayProfileStore,
+                    relayCredentialStore = relayCredentialStore,
+                    cloudflareMasqueGeohashResolver =
+                        object : CloudflareMasqueGeohashResolver {
+                            override suspend fun resolveHeaderValue(): String? = masqueGeohashHeader
+                        },
+                    masquePrivacyPassProvider = masquePrivacyPassProvider,
+                ),
             tlsFingerprintProfileProvider =
                 object : OwnedTlsFingerprintProfileProvider {
                     override fun currentProfile(): String = tlsFingerprintProfile
