@@ -4,7 +4,7 @@ use std::thread;
 
 use ripdpi_proxy_runtime_adapter::failure::ProbeResult;
 use ripdpi_proxy_runtime_adapter::model::config::{network_reprobe_settings, NetworkReprobeSettings};
-use ripdpi_runtime_decision_ports::AdaptiveFeedbackPort;
+use ripdpi_proxy_runtime_adapter::model::ports::AdaptiveFeedbackPort;
 
 use super::super::state::RuntimeState;
 use super::cache_flush::flush_runtime_cache_after_handover;

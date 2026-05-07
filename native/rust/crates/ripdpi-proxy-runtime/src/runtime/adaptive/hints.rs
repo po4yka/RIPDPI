@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::model::config::DesyncGroup;
 use ripdpi_proxy_runtime_adapter::model::desync::AdaptivePlannerHints;
-use ripdpi_runtime_decision_ports::adaptive::strategy_context::merge_udp_hints_with_capability;
+use ripdpi_proxy_runtime_adapter::model::ports::merge_udp_hints_with_capability;
 
 use crate::runtime::morph::emit_morph_rollback;
 use crate::runtime::state::RuntimeState;

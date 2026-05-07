@@ -8,7 +8,6 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-ripdpi-runtime-decision-ports = { workspace = true }
 ripdpi-proxy-runtime-adapter = { workspace = true }
 tracing = { workspace = true }
 loom = { workspace = true, optional = true }

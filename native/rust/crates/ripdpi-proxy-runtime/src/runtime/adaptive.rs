@@ -25,6 +25,4 @@ pub(super) use fake_ttl::{
 pub(super) use hints::{
     note_adaptive_tcp_failure, note_adaptive_tcp_success, note_adaptive_udp_failure, note_adaptive_udp_success,
 };
-pub(super) use ripdpi_runtime_decision_ports::adaptive::strategy_context::{
-    direct_path_capability_for_route, network_scope_key,
-};
+pub(super) use ripdpi_proxy_runtime_adapter::model::ports::{direct_path_capability_for_route, network_scope_key};
