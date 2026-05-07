@@ -486,6 +486,10 @@ pub mod session {
         }
     }
 
+    pub fn is_tls_client_hello_payload(payload: &[u8]) -> bool {
+        ripdpi_runtime_decision_ports::policy::is_tls_client_hello_payload(payload)
+    }
+
     pub fn parse_socks5_udp_packet<'a>(
         packet: &'a [u8],
         config: &RuntimeConfig,

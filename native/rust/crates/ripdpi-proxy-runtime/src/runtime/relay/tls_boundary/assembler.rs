@@ -1,6 +1,5 @@
 use ripdpi_proxy_runtime_adapter::model::config::{first_response_bytes_limit, FirstResponseSettings};
-
-use ripdpi_runtime_decision_ports::policy::is_tls_client_hello_payload;
+use ripdpi_proxy_runtime_adapter::model::session::is_tls_client_hello_payload;
 
 use super::FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT;
 
