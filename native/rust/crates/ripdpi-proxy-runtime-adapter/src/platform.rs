@@ -84,6 +84,15 @@ pub mod udp {
     }
 }
 
+pub mod handshake {
+    use std::io;
+    use std::net::{SocketAddr, TcpStream};
+
+    pub fn original_destination(stream: &TcpStream) -> io::Result<SocketAddr> {
+        ripdpi_runtime_platform::socket::original_dst(stream)
+    }
+}
+
 pub mod listener {
     use std::io;
 
