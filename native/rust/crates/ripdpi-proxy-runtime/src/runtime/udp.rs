@@ -1,10 +1,8 @@
 mod client_receive;
-mod codec;
 mod feedback;
 mod flow;
 mod flow_selection;
 mod migration;
-mod response_encode;
 mod sockets;
 mod upstream_pump;
 
@@ -19,14 +17,22 @@ use std::time::{Duration, Instant};
 
 use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::model::config::udp_flow_limit;
+use ripdpi_proxy_runtime_adapter::model::session::{self as session_model, SocketType};
 
 use self::client_receive::receive_and_forward_udp_client_packet;
-pub(crate) use self::codec::{encode_socks5_udp_packet, parse_socks5_udp_packet};
 use self::flow::{expire_udp_flows, UdpFlowActivationState};
 pub(crate) use self::sockets::build_udp_relay_sockets;
 use self::upstream_pump::pump_udp_upstream_responses;
 use super::adaptive::emit_due_direct_path_learning_timeouts;
 use super::state::RuntimeState;
+pub(crate) use session_model::encode_socks5_udp_packet;
+
+pub(crate) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], state: &RuntimeState) -> Option<(SocketAddr, &'a [u8])> {
+    session_model::parse_socks5_udp_packet(packet, &state.config, |host, socket_type| {
+        debug_assert_eq!(socket_type, SocketType::Datagram);
+        super::handshake::resolve_name(host, socket_type, state)
+    })
+}
 
 pub(super) fn udp_associate_loop(
     client_relay: UdpSocket,
