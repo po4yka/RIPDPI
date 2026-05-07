@@ -39,6 +39,18 @@ pub fn first_response_detection_flags() -> &'static [u32] {
     FIRST_RESPONSE_DETECTION_FLAGS
 }
 
+pub fn first_response_exchange_required<E>(
+    config: &RuntimeConfig,
+    mut trigger_supported: impl FnMut(u32) -> Result<bool, E>,
+) -> Result<bool, E> {
+    for trigger in first_response_detection_flags() {
+        if trigger_supported(*trigger)? {
+            return Ok(true);
+        }
+    }
+    Ok(crate::model::config::host_autolearn_enabled(config))
+}
+
 pub fn first_response_timeout(config: &RuntimeConfig, tls_partial_active: bool) -> Option<Duration> {
     if tls_partial_active {
         Some(Duration::from_millis(config.timeouts.partial_timeout_ms as u64))
@@ -88,4 +100,30 @@ pub fn failure_penalizes_strategy(failure: &ClassifiedFailure) -> bool {
             | FailureClass::TlsHandshakeFailure
             | FailureClass::ConnectionFreeze
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn first_response_exchange_required_accepts_supported_detection_trigger() {
+        let mut config = RuntimeConfig::default();
+        config.host_autolearn.enabled = false;
+
+        let required = first_response_exchange_required::<()>(&config, |trigger| Ok(trigger == DETECT_HTTP_BLOCKPAGE))
+            .expect("exchange projection");
+
+        assert!(required);
+    }
+
+    #[test]
+    fn first_response_exchange_required_falls_back_to_host_autolearn() {
+        let mut config = RuntimeConfig::default();
+        config.host_autolearn.enabled = true;
+
+        let required = first_response_exchange_required::<()>(&config, |_| Ok(false)).expect("exchange projection");
+
+        assert!(required);
+    }
 }
