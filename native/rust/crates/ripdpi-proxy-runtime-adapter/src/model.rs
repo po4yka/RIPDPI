@@ -85,6 +85,25 @@ pub mod config {
         ripdpi_runtime_decision_ports::policy::route_matches_payload(config, group_index, target, payload, transport)
     }
 
+    #[derive(Clone)]
+    pub struct RoutePayloadMatcher {
+        config: RuntimeConfig,
+    }
+
+    pub fn route_payload_matcher(config: &RuntimeConfig) -> RoutePayloadMatcher {
+        RoutePayloadMatcher { config: config.clone() }
+    }
+
+    pub fn route_matches_transport_payload_with(
+        matcher: &RoutePayloadMatcher,
+        group_index: usize,
+        target: SocketAddr,
+        payload: &[u8],
+        transport: ripdpi_runtime_decision_ports::policy::TransportProtocol,
+    ) -> bool {
+        route_matches_transport_payload(&matcher.config, group_index, target, payload, transport)
+    }
+
     pub fn delayed_route_matches_payload(
         config: &RuntimeConfig,
         group_index: usize,
@@ -558,6 +577,30 @@ pub mod config {
                 &plain_route,
                 Some(b"GET / HTTP/1.1\r\n\r\n"),
             ));
+        }
+
+        #[test]
+        fn route_payload_matcher_preserves_payload_matching() {
+            let config = RuntimeConfig::default();
+            let matcher = route_payload_matcher(&config);
+            let target = SocketAddr::from(([203, 0, 113, 7], 443));
+
+            assert_eq!(
+                route_matches_transport_payload_with(
+                    &matcher,
+                    0,
+                    target,
+                    b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n",
+                    ripdpi_runtime_decision_ports::policy::TransportProtocol::Tcp,
+                ),
+                route_matches_transport_payload(
+                    &config,
+                    0,
+                    target,
+                    b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n",
+                    ripdpi_runtime_decision_ports::policy::TransportProtocol::Tcp,
+                ),
+            );
         }
 
         #[test]
