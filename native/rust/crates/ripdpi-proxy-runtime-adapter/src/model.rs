@@ -705,7 +705,9 @@ pub mod session {
     use std::io::{self, Read};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-    use super::config::{ipv6_enabled, name_resolution_enabled, should_cache_udp_host, RuntimeConfig};
+    use super::config::{
+        ipv6_enabled, name_resolution_enabled, runtime_buffer_size, should_cache_udp_host, RuntimeConfig,
+    };
 
     pub use ripdpi_session::*;
 
@@ -730,9 +732,18 @@ pub mod session {
         pub is_tls: bool,
     }
 
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct FirstOutboundPayloadPolicy {
+        pub buffer_size: usize,
+    }
+
     pub struct UdpPayloadInfo {
         pub host: Option<String>,
         pub cache_host: bool,
+    }
+
+    pub fn first_outbound_payload_policy(config: &RuntimeConfig) -> FirstOutboundPayloadPolicy {
+        FirstOutboundPayloadPolicy { buffer_size: runtime_buffer_size(config) }
     }
 
     pub fn classify_outbound_payload(config: &RuntimeConfig, payload: &[u8]) -> OutboundPayloadInfo {
@@ -912,6 +923,19 @@ pub mod session {
         let port = u16::from_be_bytes([packet[2 + len], packet[3 + len]]);
         let resolved = resolve_name(host, SocketType::Stream)?;
         Some((SocketAddr::new(resolved.ip(), port), 2 + len + 2))
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn first_outbound_payload_policy_applies_runtime_buffer_floor() {
+            let mut config = RuntimeConfig::default();
+            config.network.buffer_size = 512;
+
+            assert_eq!(first_outbound_payload_policy(&config), FirstOutboundPayloadPolicy { buffer_size: 16_384 },);
+        }
     }
 }
 
