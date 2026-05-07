@@ -3,6 +3,7 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
+use ripdpi_proxy_runtime_adapter::model::config::{udp_default_ttl, udp_ip_id_mode};
 use ripdpi_proxy_runtime_adapter::udp_desync::{
     execute_udp_actions, plan_udp_actions, ActivationTransport, UdpActionExecContext, UdpDesyncAction,
 };
@@ -54,9 +55,9 @@ pub(super) fn send_udp_flow_payload(
     let exec_ctx = UdpActionExecContext {
         upstream: &entry.upstream,
         target: entry.current_target,
-        default_ttl: state.config.network.default_ttl,
+        default_ttl: udp_default_ttl(&state.config),
         protect_path,
-        ip_id_mode: state.config.groups[entry.route.group_index].actions.ip_id_mode,
+        ip_id_mode: udp_ip_id_mode(&state.config, entry.route.group_index),
     };
     execute_udp_actions(exec_ctx, &actions)
 }
@@ -92,5 +93,5 @@ fn plan_udp_flow_actions(
         None,
         adaptive_hints,
     );
-    Ok(plan_udp_actions(group, payload, state.config.network.default_ttl, activation))
+    Ok(plan_udp_actions(group, payload, udp_default_ttl(&state.config), activation))
 }

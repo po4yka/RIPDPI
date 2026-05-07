@@ -3,7 +3,7 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::session::new_session_state;
+use ripdpi_proxy_runtime_adapter::model::{config::udp_bind_low_port, session::new_session_state};
 use ripdpi_runtime_decision_ports::policy::{route_matches_payload, ConnectionRoute, TransportProtocol};
 
 use super::client_receive::UdpClientPacket;
@@ -80,8 +80,7 @@ pub(super) fn select_udp_flow_target(
         if let Some(telemetry) = &state.telemetry {
             telemetry.on_route_selected(target, route.group_index, host, phase);
         }
-        let bind_low_port =
-            state.config.groups.get(route.group_index).is_some_and(|group| group.actions.quic_bind_low_port);
+        let bind_low_port = udp_bind_low_port(&state.config, route.group_index);
         let Ok(upstream) = build_udp_upstream_socket(target, protect_path, bind_low_port) else {
             continue;
         };

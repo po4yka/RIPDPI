@@ -183,6 +183,14 @@ pub mod config {
         config.groups.get(group_index).is_some_and(|group| group.actions.quic_bind_low_port)
     }
 
+    pub fn udp_ip_id_mode(config: &RuntimeConfig, group_index: usize) -> Option<IpIdMode> {
+        config.groups.get(group_index).and_then(|group| group.actions.ip_id_mode)
+    }
+
+    pub fn udp_default_ttl(config: &RuntimeConfig) -> u8 {
+        config.network.default_ttl
+    }
+
     pub fn quic_route_and_cache_enabled(config: &RuntimeConfig) -> bool {
         matches!(config.quic.initial_mode, QuicInitialMode::RouteAndCache)
     }
