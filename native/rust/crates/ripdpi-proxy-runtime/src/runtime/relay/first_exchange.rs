@@ -1,14 +1,10 @@
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
-use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::failure::{
     classify_transport_error, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
-use ripdpi_proxy_runtime_adapter::model::config::{
-    RuntimeConfig, DETECT_DNS_TAMPER, DETECT_HTTP_BLOCKPAGE, DETECT_HTTP_LOCAT, DETECT_SILENT_DROP, DETECT_TCP_RESET,
-    DETECT_TLS_ALERT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
-};
+use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 use ripdpi_proxy_runtime_adapter::platform;
 
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure, runtime_supports_trigger};
@@ -22,14 +18,12 @@ pub(super) enum FirstResponse {
 }
 
 pub(super) fn needs_first_exchange(state: &RuntimeState) -> io::Result<bool> {
-    Ok(runtime_supports_trigger(state, DETECT_HTTP_LOCAT)?
-        || runtime_supports_trigger(state, DETECT_HTTP_BLOCKPAGE)?
-        || runtime_supports_trigger(state, DETECT_TLS_HANDSHAKE_FAILURE)?
-        || runtime_supports_trigger(state, DETECT_TLS_ALERT)?
-        || runtime_supports_trigger(state, DETECT_TCP_RESET)?
-        || runtime_supports_trigger(state, DETECT_SILENT_DROP)?
-        || runtime_supports_trigger(state, DETECT_DNS_TAMPER)?
-        || state.config.host_autolearn.enabled)
+    for trigger in ripdpi_proxy_runtime_adapter::response_triggers::first_response_detection_flags() {
+        if runtime_supports_trigger(state, *trigger)? {
+            return Ok(true);
+        }
+    }
+    Ok(state.config.host_autolearn.enabled)
 }
 
 pub(super) fn read_first_response(
@@ -139,28 +133,12 @@ pub(super) fn read_first_response(
 pub(super) fn first_response_timeout(
     config: &RuntimeConfig,
     tls_partial: &TlsRecordBoundaryTracker,
-) -> Option<Duration> {
-    if tls_partial.active() {
-        Some(Duration::from_millis(config.timeouts.partial_timeout_ms as u64))
-    } else if config.timeouts.timeout_ms != 0 {
-        Some(Duration::from_millis(config.timeouts.timeout_ms as u64))
-    } else if config.groups.iter().any(|group| {
-        group.matches.detect
-            & (DETECT_HTTP_LOCAT
-                | DETECT_HTTP_BLOCKPAGE
-                | DETECT_TLS_HANDSHAKE_FAILURE
-                | DETECT_TLS_ALERT
-                | DETECT_TORST)
-            != 0
-    }) {
-        Some(Duration::from_millis(250))
-    } else {
-        None
-    }
+) -> Option<std::time::Duration> {
+    ripdpi_proxy_runtime_adapter::response_triggers::first_response_timeout(config, tls_partial.active())
 }
 
 pub(super) fn timeout_count_limit(config: &RuntimeConfig) -> i32 {
-    config.timeouts.timeout_count_limit.max(1)
+    ripdpi_proxy_runtime_adapter::response_triggers::timeout_count_limit(config)
 }
 
 #[cfg(test)]
