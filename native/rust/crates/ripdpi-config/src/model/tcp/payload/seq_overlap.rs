@@ -1,5 +1,5 @@
 use super::TcpFlagOverrides;
-use crate::{SeqOverlapFakeMode, TcpChainStep, TcpChainStepKind};
+use crate::{SeqOverlapFakeMode, TcpChainStep};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TcpSeqOverlapPayload {
@@ -21,13 +21,6 @@ impl TcpChainStep {
     }
 
     pub fn apply_seq_overlap_payload(&mut self, payload: TcpSeqOverlapPayload) {
-        if self.kind() != TcpChainStepKind::SeqOverlap
-            && (payload.overlap_size != 0
-                || !matches!(payload.fake_mode, SeqOverlapFakeMode::Profile)
-                || payload.fake_flags != TcpFlagOverrides::disabled())
-        {
-            self.record_payload_violation("sequence-overlap");
-        }
         self.payload.set_seq_overlap_payload(payload);
     }
 

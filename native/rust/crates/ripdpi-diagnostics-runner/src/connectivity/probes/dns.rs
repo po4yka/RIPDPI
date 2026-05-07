@@ -1,10 +1,10 @@
 use std::collections::BTreeSet;
 
-use crate::dns::*;
-use crate::dns_oracle::{evaluate_dns_oracles, DnsOracleResponse};
-use crate::transport::TransportConfig;
+use crate::connectivity::adapters::dns::*;
+use crate::connectivity::adapters::dns_oracle::{evaluate_dns_oracles, DnsOracleResponse};
+use crate::connectivity::adapters::transport::TransportConfig;
+use crate::connectivity::adapters::util::{is_suspected_dns_tampering_outcome, DEFAULT_DNS_SERVER};
 use crate::types::{DnsTarget, ProbeDetail, ProbeResult, ScanPathMode};
-use crate::util::{is_suspected_dns_tampering_outcome, DEFAULT_DNS_SERVER};
 
 use super::super::trigger_fuzzing::append_dns_trigger_fuzzing_details;
 

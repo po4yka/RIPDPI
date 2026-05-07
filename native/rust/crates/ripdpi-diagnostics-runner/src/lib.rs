@@ -1,10 +1,8 @@
-mod adapters;
 pub mod connectivity;
 pub mod domain;
 pub mod strategy;
 
-pub(crate) use adapters::{candidates, dns, dns_analysis, dns_oracle, fat_header, http, tls, transport, util};
-
+pub(crate) mod shared_adapters;
 pub(crate) use ripdpi_diagnostics_contracts as types;
 
 #[cfg(test)]

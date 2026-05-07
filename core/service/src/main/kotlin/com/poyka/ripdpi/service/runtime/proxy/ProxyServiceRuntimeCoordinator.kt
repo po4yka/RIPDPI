@@ -28,10 +28,17 @@ import com.poyka.ripdpi.services.ProxyTelemetryCoordinator
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceClock
 import com.poyka.ripdpi.services.ServiceCoordinatorHost
+import com.poyka.ripdpi.services.ServiceRuntimeHandoverHooks
+import com.poyka.ripdpi.services.ServiceRuntimeModeHooks
+import com.poyka.ripdpi.services.ServiceRuntimePermissionHooks
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
+import com.poyka.ripdpi.services.ServiceRuntimeStartHooks
+import com.poyka.ripdpi.services.ServiceRuntimeStatusHooks
+import com.poyka.ripdpi.services.ServiceRuntimeStopHooks
 import com.poyka.ripdpi.services.ServiceStatusReporter
 import com.poyka.ripdpi.services.SharedProxyRuntimeStack
 import com.poyka.ripdpi.services.SystemServiceClock
+import com.poyka.ripdpi.services.TelemetryJobReplacer
 import com.poyka.ripdpi.services.UpstreamRelaySupervisor
 import com.poyka.ripdpi.services.WarpRuntimeSupervisor
 import com.poyka.ripdpi.services.buildLogContext
@@ -107,14 +114,41 @@ internal class ProxyServiceRuntimeCoordinator(
             currentNetworkHandoverState = currentNetworkHandoverState,
         )
 
-    override val serviceLabel: String = "proxy"
+    override val runtimeHooks =
+        ServiceRuntimeModeHooks(
+            serviceLabel = "proxy",
+            startHooks =
+                ServiceRuntimeStartHooks(
+                    createRuntimeSession = ::createRuntimeSession,
+                    resolveInitialConnectionPolicy = ::resolveInitialConnectionPolicy,
+                    applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
+                    startResolvedRuntime = ::startResolvedRuntime,
+                    startModeTelemetryUpdates = ::startModeTelemetryUpdates,
+                ),
+            stopHooks =
+                ServiceRuntimeStopHooks(
+                    stopModeRuntime = ::stopModeRuntime,
+                ),
+            handoverHooks =
+                ServiceRuntimeHandoverHooks(
+                    resolveConnectionPolicy = ::resolveHandoverConnectionPolicy,
+                    restartAfterHandover = ::restartAfterHandover,
+                    classifyFailure = ::classifyHandoverFailure,
+                ),
+            statusHooks =
+                ServiceRuntimeStatusHooks(
+                    updateStatus = ::updateStatus,
+                    classifyStartupFailure = ::classifyStartupFailure,
+                ),
+            permissionHooks = ServiceRuntimePermissionHooks(::onPermissionRevoked),
+        )
 
-    override fun createRuntimeSession(): ProxyRuntimeSession = ProxyRuntimeSession()
+    private fun createRuntimeSession(): ProxyRuntimeSession = ProxyRuntimeSession()
 
-    override suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution =
+    private suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution =
         connectionPolicyResolver.resolve(mode = Mode.Proxy)
 
-    override suspend fun resolveHandoverConnectionPolicy(
+    private suspend fun resolveHandoverConnectionPolicy(
         fingerprint: NetworkFingerprint,
         handoverClassification: String,
     ): ConnectionPolicyResolution =
@@ -124,7 +158,7 @@ internal class ProxyServiceRuntimeCoordinator(
             handoverClassification = handoverClassification,
         )
 
-    override fun applyActiveConnectionPolicy(
+    private fun applyActiveConnectionPolicy(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
         restartReason: String,
@@ -151,7 +185,7 @@ internal class ProxyServiceRuntimeCoordinator(
         )
     }
 
-    override suspend fun startResolvedRuntime(
+    private suspend fun startResolvedRuntime(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
     ) {
@@ -166,15 +200,15 @@ internal class ProxyServiceRuntimeCoordinator(
         )
     }
 
-    override suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
+    private suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
         proxyRuntimeStack.stop(skipRuntimeShutdown)
     }
 
-    override fun startModeTelemetryUpdates() {
-        telemetryCoordinator.start(::replaceTelemetryJob)
+    private fun startModeTelemetryUpdates(replaceTelemetryJob: TelemetryJobReplacer) {
+        telemetryCoordinator.start(replaceTelemetryJob)
     }
 
-    override suspend fun restartAfterHandover(
+    private suspend fun restartAfterHandover(
         session: ProxyRuntimeSession,
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
@@ -197,7 +231,7 @@ internal class ProxyServiceRuntimeCoordinator(
         )
     }
 
-    override fun updateStatus(
+    private fun updateStatus(
         newStatus: ServiceStatus,
         failureReason: FailureReason?,
     ) {
@@ -213,13 +247,13 @@ internal class ProxyServiceRuntimeCoordinator(
         )
     }
 
-    override fun onPermissionRevoked(event: PermissionChangeEvent) {
+    private fun onPermissionRevoked(event: PermissionChangeEvent) {
         if (event.kind == PermissionChangeEvent.KIND_NOTIFICATIONS) {
             Logger.i { "Notification permission revoked while proxy running" }
         }
     }
 
-    override fun classifyStartupFailure(error: Exception): FailureReason = classifyFailureReason(error)
+    private fun classifyStartupFailure(error: Exception): FailureReason = classifyFailureReason(error)
 
-    override fun classifyHandoverFailure(error: Exception): FailureReason = classifyFailureReason(error)
+    private fun classifyHandoverFailure(error: Exception): FailureReason = classifyFailureReason(error)
 }

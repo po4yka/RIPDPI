@@ -1,4 +1,4 @@
-use crate::{TcpChainStep, TcpChainStepKind};
+use crate::TcpChainStep;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TcpIpFragPayload {
@@ -25,18 +25,6 @@ impl TcpChainStep {
     }
 
     pub fn apply_ip_frag_payload(&mut self, payload: TcpIpFragPayload) {
-        if self.kind() != TcpChainStepKind::IpFrag2 {
-            if payload.fragment_count != 0
-                || payload.min_fragment_size != 0
-                || payload.max_fragment_size != 0
-                || payload.disorder
-            {
-                self.record_payload_violation("fragmentation");
-            }
-            if payload.ipv6_extensions != TcpIpv6ExtensionPayload::default() {
-                self.record_payload_violation("IPv6 fragmentation");
-            }
-        }
         self.payload.set_ip_frag_payload(payload);
     }
 

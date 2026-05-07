@@ -1,4 +1,4 @@
-use crate::transport::TransportConfig;
+use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::{ProbeDetail, ProbeResult, ThroughputTarget};
 
 use super::super::endpoint::measure_throughput_window;

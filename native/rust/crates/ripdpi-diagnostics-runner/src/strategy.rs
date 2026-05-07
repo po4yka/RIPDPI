@@ -2,17 +2,18 @@ use std::net::IpAddr;
 
 use ripdpi_proxy_config::ProxyRuntimeContext;
 
+pub(crate) mod adapters;
 mod classification;
 mod details;
 mod failure;
 mod overrides;
 mod resolution;
 
-use crate::candidates::{
+use self::adapters::candidates::{
     strategy_probe_encrypted_dns_context, strategy_probe_encrypted_dns_endpoint, strategy_probe_encrypted_dns_label,
     StrategyProbeBaseline,
 };
-use crate::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
+use self::adapters::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
 use crate::types::{DomainTarget, ProbeResult};
 
 use self::classification::classify_target_dns_integrity;
@@ -121,7 +122,7 @@ mod tests {
     use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol};
     use ripdpi_proxy_config::ProxyEncryptedDnsContext;
 
-    use crate::dns_oracle::{evaluate_dns_oracles, DnsOracleResponse};
+    use crate::strategy::adapters::dns_oracle::{evaluate_dns_oracles, DnsOracleResponse};
     use crate::types::DomainTarget;
 
     use super::evaluate_strategy_dns_target;

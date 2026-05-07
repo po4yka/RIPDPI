@@ -1,4 +1,4 @@
-use crate::transport::RouteExperimentReport;
+use crate::connectivity::adapters::transport::RouteExperimentReport;
 use crate::types::ProbeDetail;
 
 #[inline(never)]

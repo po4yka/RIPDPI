@@ -48,7 +48,7 @@ fn parse_proxy_tcp_chain_step(step: &ProxyUiTcpChainStep, field_name: &str) -> R
     let activation_filter = activation::parse_tcp_activation_filter(step, field_name)?;
     let ipv6_ext = ipv6::parse_tcp_ipv6_extension_profile(step)?;
 
-    Ok(ParsedTcpChainStepFields {
+    ParsedTcpChainStepFields {
         kind,
         offset,
         activation_filter,
@@ -63,7 +63,7 @@ fn parse_proxy_tcp_chain_step(step: &ProxyUiTcpChainStep, field_name: &str) -> R
         ipv6_ext,
         random_fake_host: step.random_fake_host,
     }
-    .into_step())
+    .into_step()
 }
 
 pub(crate) fn ensure_hostfake_allows_offset(

@@ -2,14 +2,14 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::http::{describe_http_observation, is_blockpage, try_http_request};
-use crate::tls::{
+use crate::connectivity::adapters::http::{describe_http_observation, is_blockpage, try_http_request};
+use crate::connectivity::adapters::tls::{
     classify_tls_signal, is_server_tls_version_rejection, preferred_tls_observation, try_tls_handshake,
     TlsClientProfile,
 };
-use crate::transport::{domain_connect_target, resolve_addresses, TransportConfig};
+use crate::connectivity::adapters::transport::{domain_connect_target, resolve_addresses, TransportConfig};
+use crate::connectivity::adapters::util::format_socket_result;
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
-use crate::util::format_socket_result;
 
 use super::super::trigger_fuzzing::{append_http_trigger_fuzzing_details, append_tls_trigger_fuzzing_details};
 use super::support::append_route_details;

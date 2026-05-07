@@ -1,10 +1,12 @@
 use std::collections::BTreeSet;
 
 use super::summary::{append_trigger_fuzzing_summary, TriggerFuzzOutcome};
-use crate::dns::{build_dns_query_with_type, parse_dns_response};
-use crate::transport::{relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr, TransportConfig};
+use crate::connectivity::adapters::dns::{build_dns_query_with_type, parse_dns_response};
+use crate::connectivity::adapters::transport::{
+    relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr, TransportConfig,
+};
+use crate::connectivity::adapters::util::now_ms;
 use crate::types::{DnsTarget, ProbeDetail};
-use crate::util::now_ms;
 
 const MAX_DNS_FUZZ_VARIANTS: usize = 3;
 
@@ -15,7 +17,7 @@ pub(crate) fn append_trigger_fuzzing_details(
     baseline_outcome: &str,
     encrypted_result: &Result<Vec<String>, String>,
 ) {
-    let udp_server = target.udp_server.as_deref().unwrap_or(crate::util::DEFAULT_DNS_SERVER);
+    let udp_server = target.udp_server.as_deref().unwrap_or(crate::connectivity::adapters::util::DEFAULT_DNS_SERVER);
     let variants = [
         (
             "uppercase_qname",

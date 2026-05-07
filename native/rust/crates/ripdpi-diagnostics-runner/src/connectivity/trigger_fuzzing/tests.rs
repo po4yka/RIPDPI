@@ -5,9 +5,9 @@ use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
+use crate::connectivity::adapters::transport::direct_transport;
 use crate::connectivity::{run_dns_probe, run_domain_probe};
 use crate::test_fixtures::{build_udp_dns_answer, HttpTextServer, TlsHttpServer, TlsMode};
-use crate::transport::direct_transport;
 use crate::types::{DnsTarget, DomainTarget, ProbeDetail, ScanPathMode};
 
 #[test]

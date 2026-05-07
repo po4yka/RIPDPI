@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 
+use crate::connectivity::adapters::util::{classify_dns_answer_overlap, ip_set, DnsAnswerOverlap};
 use crate::types::ScanPathMode;
-use crate::util::{classify_dns_answer_overlap, ip_set, DnsAnswerOverlap};
 
 pub(super) fn classify_dns_probe_outcome(
     udp_result: &Result<Vec<String>, String>,

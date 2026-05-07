@@ -1,148 +1,81 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.BuildConfig
-import com.poyka.ripdpi.diagnostics.BypassApproachSummary
-import com.poyka.ripdpi.diagnostics.DiagnosticActiveConnectionPolicy
-import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
-import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
-import com.poyka.ripdpi.diagnostics.DiagnosticEvent
-import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
-import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
-import com.poyka.ripdpi.diagnostics.DiagnosticProfile
-import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
-import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
-import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
-import com.poyka.ripdpi.diagnostics.DiagnosticsJurisdictionProfileAccess
-import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
+import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
-import com.poyka.ripdpi.diagnostics.ScanProgress
-import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
-import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
-import com.poyka.ripdpi.diagnostics.resolveLegalSafetyPolicy
-import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.diagnostics.toApproachDetailUiModel
-import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeReportUiModel
 import javax.inject.Inject
 
-@Suppress("TooManyFunctions")
 internal class DiagnosticsUiStateFactory
     @Inject
     constructor(
         private val support: DiagnosticsUiFactorySupport,
         private val sessionDetailUiMapper: DiagnosticsSessionDetailUiMapper,
+        private val resolver: DiagnosticsUiInputResolver = DiagnosticsUiInputResolver(support),
+        private val overviewFactory: DiagnosticsOverviewUiStateFactory = DiagnosticsOverviewUiStateFactory(support),
+        private val scanFactory: DiagnosticsScanUiStateFactory = DiagnosticsScanUiStateFactory(support),
+        private val liveFactory: DiagnosticsLiveUiStateFactory = DiagnosticsLiveUiStateFactory(support),
+        private val sessionsFactory: DiagnosticsSessionsUiStateFactory = DiagnosticsSessionsUiStateFactory(support),
+        private val approachesFactory: DiagnosticsApproachesUiStateFactory =
+            DiagnosticsApproachesUiStateFactory(support),
+        private val eventsFactory: DiagnosticsEventsUiStateFactory = DiagnosticsEventsUiStateFactory(support),
+        private val shareFactory: DiagnosticsShareUiStateFactory = DiagnosticsShareUiStateFactory(support),
+        private val performanceFactory: DiagnosticsPerformanceUiStateFactory = DiagnosticsPerformanceUiStateFactory(),
     ) {
-        private var buildSequence = 0L
-
-        @Suppress("LongMethod")
         fun buildUiState(input: DiagnosticsUiStateInput): DiagnosticsUiState {
-            var eventMappingDurationNs = 0L
-            var resolveDurationNs = 0L
-            var overviewDurationNs = 0L
-            var scanDurationNs = 0L
-            var liveDurationNs = 0L
-            var sessionsDurationNs = 0L
-            var approachesDurationNs = 0L
-            var eventsDurationNs = 0L
-            var shareDurationNs = 0L
-            val buildStartedAtNs = System.nanoTime()
-
+            val timer = performanceFactory.startTimer()
             val eventModels =
-                measureDuration(record = { duration ->
-                    eventMappingDurationNs = duration
-                }) {
-                    input.nativeEvents.map(support::toEventUiModel)
+                timer.measureEventMapping {
+                    eventsFactory.mapEvents(input.nativeEvents)
                 }
-            val sessionRows = input.sessions.map(support::toSessionRowUiModel)
+            val sessionRows = sessionsFactory.mapRows(input.sessions)
             val resolvedInput =
-                measureDuration(record = { duration ->
-                    resolveDurationNs = duration
-                }) {
-                    resolveUiInput(input, eventModels)
+                timer.measureResolve {
+                    resolver.resolve(input, eventModels)
                 }
             val eventsState =
-                measureDuration(record = { duration ->
-                    eventsDurationNs = duration
-                }) {
-                    buildEventsState(input, eventModels)
-                }
-            val overview =
-                measureDuration(record = { duration ->
-                    overviewDurationNs = duration
-                }) {
-                    buildOverviewState(input, resolvedInput, sessionRows)
-                }
-            val scan =
-                measureDuration(record = { duration ->
-                    scanDurationNs = duration
-                }) {
-                    buildScanState(input, resolvedInput)
-                }
-            val live =
-                measureDuration(record = { duration ->
-                    liveDurationNs = duration
-                }) {
-                    buildLiveState(input)
-                }
-            val sessions =
-                measureDuration(record = { duration ->
-                    sessionsDurationNs = duration
-                }) {
-                    buildSessionsState(input, sessionRows)
-                }
-            val approaches =
-                measureDuration(record = { duration ->
-                    approachesDurationNs = duration
-                }) {
-                    buildApproachesState(input)
-                }
-            val share =
-                measureDuration(record = { duration ->
-                    shareDurationNs = duration
-                }) {
-                    buildShareState(input, resolvedInput)
+                timer.measureEvents {
+                    eventsFactory.build(input, eventModels)
                 }
 
             return DiagnosticsUiState(
                 selectedSection = resolvedInput.selectedSection,
-                overview = overview,
-                scan = scan,
-                live = live,
-                sessions = sessions,
-                approaches = approaches,
+                overview =
+                    timer.measureOverview {
+                        overviewFactory.build(input, resolvedInput, sessionRows)
+                    },
+                scan =
+                    timer.measureScan {
+                        scanFactory.build(input, resolvedInput)
+                    },
+                live =
+                    timer.measureLive {
+                        liveFactory.build(input)
+                    },
+                sessions =
+                    timer.measureSessions {
+                        sessionsFactory.build(input, sessionRows)
+                    },
+                approaches =
+                    timer.measureApproaches {
+                        approachesFactory.build(input)
+                    },
                 events = eventsState.model,
-                share = share,
+                share =
+                    timer.measureShare {
+                        shareFactory.build(input, resolvedInput)
+                    },
                 selectedSessionDetail = resolvedInput.sessionDetailWithVisibility,
                 selectedApproachDetail = input.selectedApproachDetail,
                 selectedEvent = eventsState.selectedEvent,
                 selectedProbe = input.selectedProbe,
                 selectedStrategyProbeCandidate = resolvedInput.selectedStrategyProbeCandidate,
-                performance =
-                    if (BuildConfig.DEBUG) {
-                        DiagnosticsPerformanceUiModel(
-                            buildSequence = ++buildSequence,
-                            totalDurationMillis = nanosToMillis(System.nanoTime() - buildStartedAtNs),
-                            eventMappingDurationMillis = nanosToMillis(eventMappingDurationNs),
-                            resolveDurationMillis = nanosToMillis(resolveDurationNs),
-                            overviewDurationMillis = nanosToMillis(overviewDurationNs),
-                            scanDurationMillis = nanosToMillis(scanDurationNs),
-                            liveDurationMillis = nanosToMillis(liveDurationNs),
-                            sessionsDurationMillis = nanosToMillis(sessionsDurationNs),
-                            approachesDurationMillis = nanosToMillis(approachesDurationNs),
-                            eventsDurationMillis = nanosToMillis(eventsDurationNs),
-                            shareDurationMillis = nanosToMillis(shareDurationNs),
-                            telemetryCount = input.telemetry.size,
-                            nativeEventCount = input.nativeEvents.size,
-                            sessionCount = input.sessions.size,
-                        )
-                    } else {
-                        null
-                    },
+                performance = performanceFactory.build(input, timer),
             )
         }
 
         fun toSessionDetailUiModel(
-            detail: DiagnosticSessionDetail,
+            detail: com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail,
             showSensitiveDetails: Boolean,
         ): DiagnosticsSessionDetailUiModel =
             sessionDetailUiMapper.toSessionDetailUiModel(
@@ -150,9 +83,8 @@ internal class DiagnosticsUiStateFactory
                 showSensitiveDetails = showSensitiveDetails,
             )
 
-        fun toApproachDetailUiModel(
-            detail: com.poyka.ripdpi.diagnostics.BypassApproachDetail,
-        ): DiagnosticsApproachDetailUiModel = support.toApproachDetailUiModel(detail)
+        fun toApproachDetailUiModel(detail: BypassApproachDetail): DiagnosticsApproachDetailUiModel =
+            support.toApproachDetailUiModel(detail)
 
         fun toCompletedProbeUiModel(
             phase: String,
@@ -177,403 +109,49 @@ internal class DiagnosticsUiStateFactory
                         }
                     },
             )
-
-        @Suppress("LongMethod")
-        private fun resolveUiInput(
-            input: DiagnosticsUiStateInput,
-            eventModels: List<DiagnosticsEventUiModel>,
-        ): ResolvedDiagnosticsUiInput {
-            val visibleProfiles =
-                input.profiles.filter { profile ->
-                    profile.request?.resolveLegalSafetyPolicy()?.access !=
-                        DiagnosticsJurisdictionProfileAccess.BLOCKED
-                }
-            val activeProfile =
-                visibleProfiles.firstOrNull { it.id == input.selectedProfileId }
-                    ?: visibleProfiles.firstOrNull()
-            val latestSnapshot =
-                input.snapshots
-                    .firstOrNull()
-                    ?.let { support.toNetworkSnapshotUiModel(it, showSensitiveDetails = false) }
-            val latestContext =
-                (input.contexts.firstOrNull { it.sessionId == null } ?: input.contexts.firstOrNull())?.context
-            val latestCompletedSession = input.sessions.firstCompletedOrLatest()
-            val latestAutomaticBackgroundSession =
-                input.sessions.latestFinishedSessionForLaunchOrigin(
-                    com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin.AUTOMATIC_BACKGROUND,
-                )
-            val latestUserInitiatedSession =
-                input.sessions.latestFinishedSessionForLaunchOrigin(
-                    com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin.USER_INITIATED,
-                )
-            val latestProfileSession = input.sessions.latestSessionForProfile(activeProfile?.id, latestCompletedSession)
-            val latestProfileReport = latestProfileSession?.report
-            val latestStrategyProbeReport = latestProfileSession.toStrategyProbeReport(latestProfileReport)
-            val sessionDetailWithVisibility =
-                input.selectedSessionDetail?.copy(
-                    sensitiveDetailsVisible = input.sensitiveSessionDetailsVisible,
-                )
-            return ResolvedDiagnosticsUiInput(
-                activeProfile = activeProfile,
-                visibleProfiles = visibleProfiles,
-                omittedProfileCount = (input.profiles.size - visibleProfiles.size).coerceAtLeast(0),
-                activeProfileRequest = activeProfile?.request,
-                selectedProfileUi = activeProfile?.let(support::toProfileOptionUiModel),
-                latestSnapshot = latestSnapshot,
-                latestContext = latestContext,
-                latestCompletedSession = latestCompletedSession,
-                recentAutomaticProbe =
-                    latestAutomaticBackgroundSession
-                        ?.takeIf { automaticSession ->
-                            latestUserInitiatedSession?.let { userSession ->
-                                automaticSession.sortTimestamp() > userSession.sortTimestamp()
-                            } != false
-                        }?.let(support::toAutomaticProbeCalloutUiModel),
-                latestProfileSession = latestProfileSession,
-                latestReport = latestCompletedSession?.report,
-                latestReportResults =
-                    latestProfileReport
-                        ?.results
-                        ?.mapIndexed { index, result ->
-                            support.toProbeResultUiModel(
-                                index = index,
-                                pathMode = support.parsePathMode(latestProfileSession.pathMode),
-                                result = result,
-                            )
-                        }.orEmpty(),
-                latestResolverRecommendation =
-                    latestProfileReport?.resolverRecommendation?.let(support::toResolverRecommendationUiModel),
-                latestStrategyProbeReport = latestStrategyProbeReport,
-                currentTelemetry = input.currentTelemetry,
-                health =
-                    support.deriveHealth(
-                        input.progress,
-                        latestCompletedSession,
-                        input.currentTelemetry,
-                        input.nativeEvents,
-                    ),
-                warnings =
-                    buildWarnings(
-                        latestContext = latestContext,
-                        eventModels = eventModels,
-                    ),
-                rememberedNetworkRows =
-                    input.rememberedPolicies.map { policy ->
-                        support.toRememberedNetworkUiModel(policy, input.activeConnectionPolicy)
-                    },
-                selectedSection =
-                    if (input.progress != null) {
-                        DiagnosticsSection.Scan
-                    } else {
-                        input.selectedSectionRequest
-                    },
-                sessionDetailWithVisibility = sessionDetailWithVisibility,
-                selectedStrategyProbeCandidate =
-                    resolveSelectedStrategyProbeCandidate(
-                        candidate = input.selectedStrategyProbeCandidate,
-                        sessionDetailWithVisibility = sessionDetailWithVisibility,
-                        latestStrategyProbeReport = latestStrategyProbeReport,
-                    ),
-            )
-        }
-
-        private fun buildOverviewState(
-            input: DiagnosticsUiStateInput,
-            resolvedInput: ResolvedDiagnosticsUiInput,
-            sessionRows: List<DiagnosticsSessionRowUiModel>,
-        ): DiagnosticsOverviewUiModel =
-            support.buildOverviewUiModel(
-                health = resolvedInput.health,
-                progress = input.progress,
-                latestSession = resolvedInput.latestCompletedSession,
-                recentAutomaticProbe = resolvedInput.recentAutomaticProbe,
-                latestSnapshot = resolvedInput.latestSnapshot,
-                latestContext = resolvedInput.latestContext,
-                currentTelemetry = resolvedInput.currentTelemetry,
-                sessions = input.sessions,
-                nativeEvents = input.nativeEvents,
-                selectedProfile = resolvedInput.selectedProfileUi,
-                sessionRows = sessionRows,
-                rememberedNetworkRows = resolvedInput.rememberedNetworkRows,
-                warnings = resolvedInput.warnings,
-            )
-
-        private fun buildScanState(
-            input: DiagnosticsUiStateInput,
-            resolvedInput: ResolvedDiagnosticsUiInput,
-        ): DiagnosticsScanUiModel =
-            support.buildScanUiModel(
-                BuildScanUiModelParams(
-                    profiles = resolvedInput.visibleProfiles,
-                    omittedProfileCount = resolvedInput.omittedProfileCount,
-                    activeProfile = resolvedInput.activeProfile,
-                    activeProfileRequest = resolvedInput.activeProfileRequest,
-                    latestProfileSession = resolvedInput.latestProfileSession,
-                    activeScanPathMode = input.activeScanPathMode,
-                    latestReportResults = resolvedInput.latestReportResults,
-                    latestResolverRecommendation = resolvedInput.latestResolverRecommendation,
-                    latestStrategyProbeReport = resolvedInput.latestStrategyProbeReport,
-                    progress = input.progress,
-                    rawArgsEnabled = input.settings.enableCmdSettings,
-                    vpnPermissionDisabled =
-                        resolvedInput.latestContext
-                            ?.permissions
-                            ?.vpnPermissionState == "disabled",
-                    scanStartedAt = input.scanStartedAt,
-                    completedProbes = input.completedProbes,
-                    candidateTimeline = input.candidateTimeline,
-                    dnsBaselineStatus = input.dnsBaselineStatus,
-                    dpiFailureClass = input.dpiFailureClass,
-                    networkContext = buildScanNetworkContext(input.liveSnapshots.firstOrNull(), input.currentTelemetry),
-                    hiddenProbeConflictDialog = input.hiddenProbeConflictDialog,
-                    sensitiveProfileConsentDialog = input.sensitiveProfileConsentDialog,
-                    queuedManualScanRequest = input.queuedManualScanRequest,
-                ),
-            )
-
-        private fun buildScanNetworkContext(
-            snapshot: com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot?,
-            telemetry: com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample?,
-        ): ScanNetworkContextUiModel? {
-            val net = snapshot?.snapshot ?: return null
-            val transport = net.transport.replaceFirstChar { it.uppercase() }
-            val signalLabel =
-                net.wifiDetails?.rssiDbm?.let { "$it dBm" }
-                    ?: net.cellularDetails?.signalDbm?.let { "$it dBm" }
-            val resolverLabel =
-                telemetry?.let { t ->
-                    val id = t.resolverId?.replaceFirstChar { it.uppercase() }
-                    val proto = t.resolverProtocol?.uppercase()
-                    if (id != null && proto != null) "$id $proto" else id ?: proto
-                }
-            return ScanNetworkContextUiModel(
-                transport = transport,
-                signalLabel = signalLabel,
-                resolverLabel = resolverLabel,
-                validated = net.networkValidated,
-            )
-        }
-
-        private fun buildLiveState(input: DiagnosticsUiStateInput): DiagnosticsLiveUiModel =
-            support.buildLiveUiModel(
-                activeConnectionSession = input.activeConnectionSession,
-                telemetry = input.liveTelemetry,
-                currentTelemetry = input.liveTelemetry.firstOrNull(),
-                nativeEvents = input.liveNativeEvents,
-                latestSnapshot =
-                    input.liveSnapshots
-                        .firstOrNull { it.snapshotKind == ConnectionSampleArtifactKind }
-                        ?.let { support.toNetworkSnapshotUiModel(it, showSensitiveDetails = false) },
-                latestContext =
-                    input.liveContexts
-                        .firstOrNull { it.contextKind == ConnectionSampleArtifactKind }
-                        ?.context,
-            )
-
-        private fun buildSessionsState(
-            input: DiagnosticsUiStateInput,
-            sessionRows: List<DiagnosticsSessionRowUiModel>,
-        ): DiagnosticsSessionsUiModel =
-            support.buildSessionsUiModel(
-                sessions = input.sessions,
-                sessionRows = sessionRows,
-                sessionPathMode = input.sessionPathMode,
-                sessionStatus = input.sessionStatus,
-                sessionSearch = input.sessionSearch,
-                selectedSessionDetail = input.selectedSessionDetail,
-            )
-
-        private fun buildApproachesState(input: DiagnosticsUiStateInput): DiagnosticsApproachesUiModel =
-            support.buildApproachesUiModel(
-                approachStats = input.approachStats,
-                selectedApproachMode = input.selectedApproachMode,
-                selectedApproachDetail = input.selectedApproachDetail,
-            )
-
-        private fun buildShareState(
-            input: DiagnosticsUiStateInput,
-            resolvedInput: ResolvedDiagnosticsUiInput,
-        ): DiagnosticsShareUiModel =
-            support.buildShareUiModel(
-                latestCompletedSession = resolvedInput.latestCompletedSession,
-                latestSnapshot = resolvedInput.latestSnapshot,
-                latestContext = resolvedInput.latestContext,
-                currentTelemetry = resolvedInput.currentTelemetry,
-                nativeEvents = input.nativeEvents,
-                latestReport = resolvedInput.latestReport,
-                approachStats = input.approachStats,
-                selectedSessionDetail = input.selectedSessionDetail,
-                archiveActionState = input.archiveActionState,
-                exports = input.exports,
-            )
-
-        private fun buildEventsState(
-            input: DiagnosticsUiStateInput,
-            eventModels: List<DiagnosticsEventUiModel>,
-        ): DiagnosticsEventsState {
-            val (model, selectedEvent) =
-                support.buildEventsUiModel(
-                    eventModels = eventModels,
-                    selectedEventId = input.selectedEventId,
-                    eventSource = input.eventSource,
-                    eventSeverity = input.eventSeverity,
-                    eventSearch = input.eventSearch,
-                    eventAutoScroll = input.eventAutoScroll,
-                )
-            return DiagnosticsEventsState(model = model, selectedEvent = selectedEvent)
-        }
-
-        private fun buildWarnings(
-            latestContext: DiagnosticContextModel?,
-            eventModels: List<DiagnosticsEventUiModel>,
-        ): List<DiagnosticsEventUiModel> =
-            (
-                support.buildContextWarnings(latestContext) +
-                    eventModels.filter { it.tone == DiagnosticsTone.Negative || it.tone == DiagnosticsTone.Warning }
-            ).take(MaxOverviewWarnings)
-
-        private fun resolveSelectedStrategyProbeCandidate(
-            candidate: DiagnosticsStrategyProbeCandidateDetailUiModel?,
-            sessionDetailWithVisibility: DiagnosticsSessionDetailUiModel?,
-            latestStrategyProbeReport: DiagnosticsStrategyProbeReportUiModel?,
-        ): DiagnosticsStrategyProbeCandidateDetailUiModel? =
-            candidate?.let { selected ->
-                sessionDetailWithVisibility
-                    ?.strategyProbeReport
-                    ?.candidateDetails
-                    ?.get(selected.id)
-                    ?: latestStrategyProbeReport?.candidateDetails?.get(selected.id)
-                    ?: selected
-            }
-
-        private fun List<DiagnosticScanSession>.firstCompletedOrLatest(): DiagnosticScanSession? =
-            firstOrNull { it.report != null } ?: firstOrNull()
-
-        private fun List<DiagnosticScanSession>.latestSessionForProfile(
-            profileId: String?,
-            fallbackSession: DiagnosticScanSession?,
-        ): DiagnosticScanSession? =
-            firstOrNull { it.profileId == profileId && it.report != null }
-                ?: firstOrNull { it.profileId == profileId }
-                ?: fallbackSession
-
-        private fun List<DiagnosticScanSession>.latestFinishedSessionForLaunchOrigin(
-            launchOrigin: com.poyka.ripdpi.diagnostics.DiagnosticsScanLaunchOrigin,
-        ): DiagnosticScanSession? =
-            filter { session ->
-                session.launchOrigin == launchOrigin && session.finishedAt != null
-            }.maxByOrNull(DiagnosticScanSession::sortTimestamp)
-
-        private fun DiagnosticScanSession?.toStrategyProbeReport(
-            latestProfileReport: DiagnosticsSessionProjection?,
-        ): DiagnosticsStrategyProbeReportUiModel? =
-            latestProfileReport?.strategyProbeReport?.let { report ->
-                support.toStrategyProbeReportUiModel(
-                    report = report,
-                    reportResults = latestProfileReport.results,
-                    serviceMode = this?.serviceMode,
-                )
-            }
-
-        private inline fun <T> measureDuration(
-            record: (Long) -> Unit,
-            block: () -> T,
-        ): T {
-            val startedAt = System.nanoTime()
-            return block().also { record(System.nanoTime() - startedAt) }
-        }
-
-        private fun nanosToMillis(durationNs: Long): Double = durationNs / NanosPerMillisecond.toDouble()
     }
-
-private data class ResolvedDiagnosticsUiInput(
-    val activeProfile: DiagnosticProfile?,
-    val visibleProfiles: List<DiagnosticProfile>,
-    val omittedProfileCount: Int,
-    val activeProfileRequest: DiagnosticsProfileProjection?,
-    val selectedProfileUi: DiagnosticsProfileOptionUiModel?,
-    val latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
-    val latestContext: DiagnosticContextModel?,
-    val latestCompletedSession: DiagnosticScanSession?,
-    val recentAutomaticProbe: DiagnosticsAutomaticProbeCalloutUiModel?,
-    val latestProfileSession: DiagnosticScanSession?,
-    val latestReport: DiagnosticsSessionProjection?,
-    val latestReportResults: List<DiagnosticsProbeResultUiModel>,
-    val latestResolverRecommendation: DiagnosticsResolverRecommendationUiModel?,
-    val latestStrategyProbeReport: DiagnosticsStrategyProbeReportUiModel?,
-    val currentTelemetry: DiagnosticTelemetrySample?,
-    val health: DiagnosticsHealth,
-    val warnings: List<DiagnosticsEventUiModel>,
-    val rememberedNetworkRows: List<DiagnosticsRememberedNetworkUiModel>,
-    val selectedSection: DiagnosticsSection,
-    val sessionDetailWithVisibility: DiagnosticsSessionDetailUiModel?,
-    val selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel?,
-)
-
-private data class DiagnosticsEventsState(
-    val model: DiagnosticsEventsUiModel,
-    val selectedEvent: DiagnosticsEventUiModel?,
-)
-
-internal data class DiagnosticsUiStateInput(
-    val profiles: List<DiagnosticProfile>,
-    val settings: AppSettings,
-    val progress: ScanProgress?,
-    val sessions: List<DiagnosticScanSession>,
-    val approachStats: List<BypassApproachSummary>,
-    val snapshots: List<DiagnosticNetworkSnapshot>,
-    val contexts: List<DiagnosticContextSnapshot>,
-    val currentTelemetry: DiagnosticTelemetrySample?,
-    val telemetry: List<DiagnosticTelemetrySample>,
-    val nativeEvents: List<DiagnosticEvent>,
-    val activeConnectionSession: com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession?,
-    val liveSnapshots: List<DiagnosticNetworkSnapshot>,
-    val liveContexts: List<DiagnosticContextSnapshot>,
-    val liveTelemetry: List<DiagnosticTelemetrySample>,
-    val liveNativeEvents: List<DiagnosticEvent>,
-    val exports: List<DiagnosticExportRecord>,
-    val rememberedPolicies: List<DiagnosticsRememberedPolicy>,
-    val activeConnectionPolicy: DiagnosticActiveConnectionPolicy?,
-    val selectedSectionRequest: DiagnosticsSection,
-    val selectedProfileId: String?,
-    val selectedApproachMode: DiagnosticsApproachMode,
-    val selectedProbe: DiagnosticsProbeResultUiModel?,
-    val selectedEventId: String?,
-    val sessionPathMode: String?,
-    val sessionStatus: String?,
-    val sessionSearch: String,
-    val eventSource: String?,
-    val eventSeverity: String?,
-    val eventSearch: String,
-    val eventAutoScroll: Boolean,
-    val selectedSessionDetail: DiagnosticsSessionDetailUiModel?,
-    val selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel?,
-    val selectedApproachDetail: DiagnosticsApproachDetailUiModel?,
-    val sensitiveSessionDetailsVisible: Boolean,
-    val archiveActionState: ArchiveActionState,
-    val scanStartedAt: Long?,
-    val activeScanPathMode: ScanPathMode?,
-    val completedProbes: List<CompletedProbeUiModel> = emptyList(),
-    val candidateTimeline: List<StrategyCandidateTimelineEntryUiModel> = emptyList(),
-    val dnsBaselineStatus: DnsBaselineStatus? = null,
-    val dpiFailureClass: DpiFailureClass? = null,
-    val hiddenProbeConflictDialog: HiddenProbeConflictDialogState? = null,
-    val sensitiveProfileConsentDialog: SensitiveProfileConsentDialogState? = null,
-    val queuedManualScanRequest: QueuedManualScanRequest? = null,
-)
 
 private fun phaseToConnectivityProbeType(phase: String): String? =
     when (phase) {
-        "environment" -> "network_environment"
-        "dns" -> "dns_integrity"
-        "reachability" -> "domain_reachability"
-        "quic" -> "quic_reachability"
-        "tcp" -> "tcp_fat_header"
-        "service" -> "service_reachability"
-        "circumvention" -> "circumvention_reachability"
-        "telegram" -> "telegram_availability"
-        "throughput" -> "throughput_window"
-        else -> null
+        "environment" -> {
+            "network_environment"
+        }
+
+        "dns" -> {
+            "dns_integrity"
+        }
+
+        "reachability" -> {
+            "domain_reachability"
+        }
+
+        "quic" -> {
+            "quic_reachability"
+        }
+
+        "tcp" -> {
+            "tcp_fat_header"
+        }
+
+        "service" -> {
+            "service_reachability"
+        }
+
+        "circumvention" -> {
+            "circumvention_reachability"
+        }
+
+        "telegram" -> {
+            "telegram_availability"
+        }
+
+        "throughput" -> {
+            "throughput_window"
+        }
+
+        else -> {
+            null
+        }
     }
 
 private fun strategyProgressTone(outcome: String): DiagnosticsTone =
@@ -586,7 +164,8 @@ private fun strategyProgressTone(outcome: String): DiagnosticsTone =
             DiagnosticsTone.Warning
         }
 
-        outcome.equals("skipped", ignoreCase = true) || outcome.equals("not_applicable", ignoreCase = true) -> {
+        outcome.equals("skipped", ignoreCase = true) ||
+            outcome.equals("not_applicable", ignoreCase = true) -> {
             DiagnosticsTone.Neutral
         }
 
@@ -594,9 +173,3 @@ private fun strategyProgressTone(outcome: String): DiagnosticsTone =
             DiagnosticsTone.Negative
         }
     }
-
-private const val ConnectionSampleArtifactKind = "connection_sample"
-private const val MaxOverviewWarnings = 3
-private const val NanosPerMillisecond = 1_000_000L
-
-private fun DiagnosticScanSession.sortTimestamp(): Long = finishedAt ?: startedAt

@@ -33,10 +33,6 @@ impl std::error::Error for TcpStepPayloadInvariantError {}
 
 impl TcpChainStep {
     pub fn validate_payload_family(&self) -> Result<(), TcpStepPayloadInvariantError> {
-        if let Some(error) = &self.compatibility_error {
-            return Err(error.clone());
-        }
-
         let kind = self.kind();
         if !kind.supports_fake_ordering() && self.fake_ordering() != TcpFakeOrdering::before_each_duplicate() {
             return Err(TcpStepPayloadInvariantError::new(kind, "fake ordering"));

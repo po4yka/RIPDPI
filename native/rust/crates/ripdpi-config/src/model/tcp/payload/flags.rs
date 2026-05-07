@@ -1,6 +1,6 @@
 use crate::TcpChainStep;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct TcpFlagOverrides {
     pub set: Option<u16>,
     pub unset: Option<u16>,

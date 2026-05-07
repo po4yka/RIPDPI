@@ -57,17 +57,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsuistatefactory.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStateFactory.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStateFactory.kt carries 3 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 3,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-mainhomediagnosticsactions.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
@@ -376,17 +365,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-settingspreferencesscreen.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/SettingsPreferencesScreen.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/SettingsPreferencesScreen.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-settings-warpsection.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
@@ -403,17 +381,6 @@
       "priority": 3,
       "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt",
       "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/NetworkFingerprintProvider.kt carries 1 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:core-service-src-main-kotlin-com-poyka-ripdpi-services-upstreamrelayruntimeconfigresolver.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "core/service/src/main/kotlin/com/poyka/ripdpi/services/UpstreamRelayRuntimeConfigResolver.kt",
-      "message": "core/service/src/main/kotlin/com/poyka/ripdpi/services/UpstreamRelayRuntimeConfigResolver.kt carries 1 complexity suppressions",
       "metricName": "suppressionCount",
       "baselineValue": 1,
       "limit": 0,

@@ -1,7 +1,7 @@
 use ripdpi_dns_resolver::EncryptedDnsEndpoint;
 
-use crate::dns::resolve_https_service_bindings_via_encrypted_dns_with_endpoint;
-use crate::transport::TransportConfig;
+use crate::connectivity::adapters::dns::resolve_https_service_bindings_via_encrypted_dns_with_endpoint;
+use crate::connectivity::adapters::transport::TransportConfig;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum DnsHttpsClass {

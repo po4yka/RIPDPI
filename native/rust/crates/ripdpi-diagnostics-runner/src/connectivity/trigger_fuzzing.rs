@@ -3,7 +3,7 @@ mod http_fuzz;
 mod summary;
 mod tls_fuzz;
 
-use crate::transport::TransportConfig;
+use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::{DnsTarget, DomainTarget, ProbeDetail};
 
 pub(crate) fn append_http_trigger_fuzzing_details(

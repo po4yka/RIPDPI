@@ -1,4 +1,4 @@
-use crate::dns_analysis::{analyze_dns_response, compare_dns_responses, parse_record_set};
+use crate::connectivity::adapters::dns_analysis::{analyze_dns_response, compare_dns_responses, parse_record_set};
 use crate::types::ProbeResult;
 
 use super::super::support::{push_detail, push_joined_str_detail, push_joined_string_detail};

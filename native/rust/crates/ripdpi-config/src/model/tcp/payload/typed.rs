@@ -225,7 +225,8 @@ impl TcpStepPayloadStorage {
 
     pub(crate) fn set_original_flag_overrides(&mut self, flags: TcpFlagOverrides) {
         match self {
-            Self::Plain { original_flags, .. } | Self::IpFrag { original_flags, .. } => *original_flags = flags,
+            Self::Plain { kind, original_flags } if kind.supports_orig_tcp_flags() => *original_flags = flags,
+            Self::IpFrag { original_flags, .. } => *original_flags = flags,
             Self::Fake { payload, .. } => payload.original_flags = flags,
             Self::HostFake(payload) => payload.original_flags = flags,
             _ => {}

@@ -8,8 +8,8 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::http::HttpObservation;
-use crate::transport::TransportConfig;
+use crate::connectivity::adapters::http::HttpObservation;
+use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::ThroughputTarget;
 
 pub(super) use types::{EndpointProbeObservation, ThroughputSample};

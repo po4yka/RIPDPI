@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::transport::TransportConfig;
+use crate::shared_adapters::transport::TransportConfig;
 use crate::types::{ProbeResult, ProbeTaskFamily, ScanProgress, ScanRequest, SharedState};
 
 pub struct ExecutionPlan {

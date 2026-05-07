@@ -1,8 +1,8 @@
 use std::net::{IpAddr, SocketAddr};
 
-use crate::dns::{build_fallback_encrypted_dns_endpoints, resolve_via_encrypted_dns};
-use crate::dns_oracle::{evaluate_dns_oracles, DnsOracleAssessment, DnsOracleResponse};
-use crate::transport::{direct_transport, domain_connect_target, resolve_addresses, TargetAddress};
+use crate::strategy::adapters::dns::{build_fallback_encrypted_dns_endpoints, resolve_via_encrypted_dns};
+use crate::strategy::adapters::dns_oracle::{evaluate_dns_oracles, DnsOracleAssessment, DnsOracleResponse};
+use crate::strategy::adapters::transport::{direct_transport, domain_connect_target, resolve_addresses, TargetAddress};
 use crate::types::DomainTarget;
 
 pub(super) struct SystemDnsResolution {

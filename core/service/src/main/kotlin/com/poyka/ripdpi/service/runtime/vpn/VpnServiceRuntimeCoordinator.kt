@@ -31,12 +31,19 @@ import com.poyka.ripdpi.services.ProxyRuntimeSupervisor
 import com.poyka.ripdpi.services.ProxyRuntimeSupervisorFactory
 import com.poyka.ripdpi.services.ScreenStateObserver
 import com.poyka.ripdpi.services.ServiceClock
+import com.poyka.ripdpi.services.ServiceRuntimeHandoverHooks
+import com.poyka.ripdpi.services.ServiceRuntimeModeHooks
+import com.poyka.ripdpi.services.ServiceRuntimePermissionHooks
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
+import com.poyka.ripdpi.services.ServiceRuntimeStartHooks
+import com.poyka.ripdpi.services.ServiceRuntimeStatusHooks
+import com.poyka.ripdpi.services.ServiceRuntimeStopHooks
 import com.poyka.ripdpi.services.ServiceStatusReporter
 import com.poyka.ripdpi.services.ServiceStatusReporterFactory
 import com.poyka.ripdpi.services.SharedProxyRuntimeStack
 import com.poyka.ripdpi.services.SystemServiceClock
 import com.poyka.ripdpi.services.TelemetryFingerprintHasher
+import com.poyka.ripdpi.services.TelemetryJobReplacer
 import com.poyka.ripdpi.services.UpstreamRelaySupervisor
 import com.poyka.ripdpi.services.UpstreamRelaySupervisorFactory
 import com.poyka.ripdpi.services.VpnCoordinatorHost
@@ -221,17 +228,45 @@ internal class VpnServiceRuntimeCoordinator(
                 },
         )
 
-    override val serviceLabel: String = "VPN"
+    override val runtimeHooks =
+        ServiceRuntimeModeHooks(
+            serviceLabel = "VPN",
+            startHooks =
+                ServiceRuntimeStartHooks(
+                    createRuntimeSession = ::createRuntimeSession,
+                    resolveInitialConnectionPolicy = ::resolveInitialConnectionPolicy,
+                    applyActiveConnectionPolicy = ::applyActiveConnectionPolicy,
+                    startResolvedRuntime = ::startResolvedRuntime,
+                    startModeTelemetryUpdates = ::startModeTelemetryUpdates,
+                ),
+            stopHooks =
+                ServiceRuntimeStopHooks(
+                    stopModeRuntime = ::stopModeRuntime,
+                    onAfterStopCleanup = ::onAfterStopCleanup,
+                ),
+            handoverHooks =
+                ServiceRuntimeHandoverHooks(
+                    resolveConnectionPolicy = ::resolveHandoverConnectionPolicy,
+                    restartAfterHandover = ::restartAfterHandover,
+                    classifyFailure = ::classifyHandoverFailure,
+                ),
+            statusHooks =
+                ServiceRuntimeStatusHooks(
+                    updateStatus = ::updateStatus,
+                    classifyStartupFailure = ::classifyStartupFailure,
+                ),
+            permissionHooks = ServiceRuntimePermissionHooks(::onPermissionRevoked),
+        )
 
-    override fun createRuntimeSession(): VpnRuntimeSession = VpnRuntimeSession()
+    private fun createRuntimeSession(): VpnRuntimeSession = VpnRuntimeSession()
 
-    override suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution =
+    private suspend fun resolveInitialConnectionPolicy(): ConnectionPolicyResolution =
         connectionPolicyResolver.resolve(
             mode = Mode.VPN,
             resolverOverride = resolverOverrideStore.override.value,
         )
 
-    override suspend fun resolveHandoverConnectionPolicy(
+    private suspend fun resolveHandoverConnectionPolicy(
         fingerprint: NetworkFingerprint,
         handoverClassification: String,
     ): ConnectionPolicyResolution =
@@ -242,7 +277,7 @@ internal class VpnServiceRuntimeCoordinator(
             handoverClassification = handoverClassification,
         )
 
-    override fun applyActiveConnectionPolicy(
+    private fun applyActiveConnectionPolicy(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
         restartReason: String,
@@ -269,22 +304,22 @@ internal class VpnServiceRuntimeCoordinator(
         )
     }
 
-    override suspend fun startResolvedRuntime(
+    private suspend fun startResolvedRuntime(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
     ) {
         runtimeCompositionCoordinator.start(session, resolution)
     }
 
-    override suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
+    private suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
         runtimeCompositionCoordinator.stop(skipRuntimeShutdown)
     }
 
-    override fun startModeTelemetryUpdates() {
-        telemetryCoordinator.start(tunnelRefreshCoordinator, ::replaceTelemetryJob)
+    private fun startModeTelemetryUpdates(replaceTelemetryJob: TelemetryJobReplacer) {
+        telemetryCoordinator.start(tunnelRefreshCoordinator, replaceTelemetryJob)
     }
 
-    override suspend fun restartAfterHandover(
+    private suspend fun restartAfterHandover(
         session: VpnRuntimeSession,
         resolution: ConnectionPolicyResolution,
         appliedAt: Long,
@@ -292,7 +327,7 @@ internal class VpnServiceRuntimeCoordinator(
         runtimeCompositionCoordinator.restartAfterHandover(session, resolution, appliedAt)
     }
 
-    override fun updateStatus(
+    private fun updateStatus(
         newStatus: ServiceStatus,
         failureReason: FailureReason?,
     ) {
@@ -308,13 +343,13 @@ internal class VpnServiceRuntimeCoordinator(
         )
     }
 
-    override fun classifyStartupFailure(error: Exception): FailureReason =
+    private fun classifyStartupFailure(error: Exception): FailureReason =
         classifyFailureReason(error, isTunnelContext = true)
 
-    override fun classifyHandoverFailure(error: Exception): FailureReason =
+    private fun classifyHandoverFailure(error: Exception): FailureReason =
         classifyFailureReason(error, isTunnelContext = true)
 
-    override fun onPermissionRevoked(event: PermissionChangeEvent) {
+    private fun onPermissionRevoked(event: PermissionChangeEvent) {
         when (event.kind) {
             PermissionChangeEvent.KIND_VPN_CONSENT -> {
                 Logger.e { "VPN consent revoked while running" }
@@ -328,7 +363,7 @@ internal class VpnServiceRuntimeCoordinator(
         }
     }
 
-    override fun onAfterStopCleanup(session: VpnRuntimeSession?) {
+    private fun onAfterStopCleanup(session: VpnRuntimeSession?) {
         telemetryCoordinator.stopProtectFailureMonitoring()
         resolverOverrideStore.clear()
         runtimeCompositionCoordinator.resetAfterStop(session)

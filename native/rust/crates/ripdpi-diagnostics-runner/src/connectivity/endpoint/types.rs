@@ -1,4 +1,4 @@
-use crate::transport::{RouteExperimentReport, TargetAddress};
+use crate::connectivity::adapters::transport::{RouteExperimentReport, TargetAddress};
 
 #[derive(Clone)]
 pub(crate) struct ThroughputSample {

@@ -39,21 +39,8 @@ class SettingsPreferencesScreenTest {
             RipDpiTheme {
                 SettingsScreen(
                     uiState = SettingsUiState(),
-                    onOpenDnsSettings = {},
-                    onOpenAdvancedSettings = {},
-                    onOpenCustomization = {},
-                    onOpenAbout = {},
-                    onOpenDataTransparency = {},
-                    onShareDebugBundle = { clicked = true },
+                    actions = testActions(onShareDebugBundle = { clicked = true }),
                     permissionSummary = PermissionSummaryUiState(),
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                    onThemeSelected = {},
-                    onWebRtcProtectionChanged = {},
-                    onExcludeRussianAppsChanged = {},
-                    onFullTunnelModeChanged = {},
-                    onBiometricChanged = {},
-                    onSaveBackupPin = {},
                 )
             }
         }
@@ -73,12 +60,7 @@ class SettingsPreferencesScreenTest {
             RipDpiTheme {
                 SettingsScreen(
                     uiState = SettingsUiState(),
-                    onOpenDnsSettings = {},
-                    onOpenAdvancedSettings = {},
-                    onOpenCustomization = {},
-                    onOpenAbout = {},
-                    onOpenDataTransparency = {},
-                    onShareDebugBundle = {},
+                    actions = testActions(),
                     permissionSummary =
                         PermissionSummaryUiState(
                             backgroundGuidance =
@@ -97,14 +79,6 @@ class SettingsPreferencesScreenTest {
                                     ),
                                 ),
                         ),
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                    onThemeSelected = {},
-                    onWebRtcProtectionChanged = {},
-                    onExcludeRussianAppsChanged = {},
-                    onFullTunnelModeChanged = {},
-                    onBiometricChanged = {},
-                    onSaveBackupPin = {},
                 )
             }
         }
@@ -123,4 +97,22 @@ class SettingsPreferencesScreenTest {
             .onNodeWithTag(RipDpiTestTags.settingsPermission(PermissionKind.BatteryOptimization))
             .assertIsDisplayed()
     }
+
+    private fun testActions(onShareDebugBundle: () -> Unit = {}): SettingsScreenActions =
+        SettingsScreenActions(
+            onOpenDnsSettings = {},
+            onOpenAdvancedSettings = {},
+            onOpenCustomization = {},
+            onOpenAbout = {},
+            onOpenDataTransparency = {},
+            onShareDebugBundle = onShareDebugBundle,
+            onRepairPermission = {},
+            onOpenVpnPermissionDialog = {},
+            onThemeSelected = {},
+            onWebRtcProtectionChanged = {},
+            onExcludeRussianAppsChanged = {},
+            onFullTunnelModeChanged = {},
+            onBiometricChanged = {},
+            onSaveBackupPin = {},
+        )
 }

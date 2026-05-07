@@ -1,7 +1,7 @@
 use std::net::{IpAddr, SocketAddr};
 
-use crate::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
-use crate::util::{classify_dns_answer_overlap, DnsAnswerOverlap};
+use crate::strategy::adapters::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
+use crate::strategy::adapters::util::{classify_dns_answer_overlap, DnsAnswerOverlap};
 
 pub(super) struct StrategyDnsClassification {
     pub(super) tampering_detected: bool,

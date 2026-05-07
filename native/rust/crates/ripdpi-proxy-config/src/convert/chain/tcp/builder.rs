@@ -1,9 +1,11 @@
 use ripdpi_config::{
     ActivationFilter, FakeOrder, FakeSeqMode, OffsetExpr, TcpChainStep, TcpChainStepKind, TcpFakeOrdering,
-    TcpFlagOverrides, TcpIpFragPayload, TcpIpv6ExtensionPayload, TcpSeqOverlapPayload, TcpTlsRandRecPayload,
+    TcpFlagOverrides, TcpIpFragPayload, TcpIpv6ExtensionPayload, TcpLegacyPayloadFields, TcpSeqOverlapPayload,
+    TcpStepPayloadInvariantError, TcpTlsRandRecPayload,
 };
 
 use crate::convert::chain::ipv6::ParsedIpv6ExtensionProfile;
+use crate::types::ProxyConfigError;
 
 use super::flags::ParsedTcpFlags;
 use super::seq_overlap::ParsedSeqOverlap;
@@ -26,19 +28,22 @@ pub(crate) struct ParsedTcpChainStepFields {
 }
 
 impl ParsedTcpChainStepFields {
-    pub(crate) fn into_step(self) -> TcpChainStep {
+    pub(crate) fn into_step(self) -> Result<TcpChainStep, ProxyConfigError> {
         let fake_flags = TcpFlagOverrides { set: self.tcp_flags.set, unset: self.tcp_flags.unset };
         let original_flags = TcpFlagOverrides { set: self.tcp_flags.orig_set, unset: self.tcp_flags.orig_unset };
         let mut step = TcpChainStep::new(self.kind, self.offset)
             .with_activation_filter(self.activation_filter)
-            .with_midhost_offset(self.midhost_offset)
-            .with_fake_host_template(self.fake_host_template)
-            .with_random_fake_host(self.random_fake_host)
             .with_inter_segment_delay_ms(self.inter_segment_delay_ms.min(500));
 
-        step.set_fake_ordering(TcpFakeOrdering { order: self.fake_order, seq_mode: self.fake_seq_mode });
-        step.set_fake_flag_overrides(fake_flags);
-        step.set_original_flag_overrides(original_flags);
+        step.try_apply_legacy_payload_fields(TcpLegacyPayloadFields {
+            midhost_offset: self.midhost_offset,
+            fake_host_template: self.fake_host_template,
+            random_fake_host: self.random_fake_host,
+            fake_ordering: TcpFakeOrdering { order: self.fake_order, seq_mode: self.fake_seq_mode },
+            fake_flags,
+            original_flags,
+        })
+        .map_err(incompatible_tcp_payload_error)?;
 
         match self.kind {
             TcpChainStepKind::SeqOverlap => {
@@ -73,6 +78,40 @@ impl ParsedTcpChainStepFields {
             _ => {}
         }
 
-        step
+        Ok(step)
+    }
+}
+
+fn incompatible_tcp_payload_error(error: TcpStepPayloadInvariantError) -> ProxyConfigError {
+    if error.field() == "fake ordering" {
+        return ProxyConfigError::InvalidConfig(format!(
+            "{} must not declare fake ordering fields",
+            tcp_chain_step_kind_label(error.kind())
+        ));
+    }
+    ProxyConfigError::InvalidConfig(format!(
+        "{} has incompatible TCP chain payload: {error}",
+        tcp_chain_step_kind_label(error.kind())
+    ))
+}
+
+fn tcp_chain_step_kind_label(kind: TcpChainStepKind) -> &'static str {
+    match kind {
+        TcpChainStepKind::Split => "split",
+        TcpChainStepKind::SynData => "syndata",
+        TcpChainStepKind::SeqOverlap => "seqovl",
+        TcpChainStepKind::Disorder => "disorder",
+        TcpChainStepKind::MultiDisorder => "multidisorder",
+        TcpChainStepKind::Fake => "fake",
+        TcpChainStepKind::FakeSplit => "fakedsplit",
+        TcpChainStepKind::FakeDisorder => "fakeddisorder",
+        TcpChainStepKind::HostFake => "hostfake",
+        TcpChainStepKind::Oob => "oob",
+        TcpChainStepKind::Disoob => "disoob",
+        TcpChainStepKind::TlsRec => "tlsrec",
+        TcpChainStepKind::TlsRandRec => "tlsrandrec",
+        TcpChainStepKind::IpFrag2 => "ipfrag2",
+        TcpChainStepKind::FakeRst => "fakerst",
+        _ => "unknown",
     }
 }

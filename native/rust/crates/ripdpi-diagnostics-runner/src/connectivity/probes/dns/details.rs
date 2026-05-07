@@ -2,9 +2,9 @@ use std::collections::BTreeSet;
 
 use ripdpi_dns_resolver::EncryptedDnsEndpoint;
 
-use crate::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
+use crate::connectivity::adapters::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
+use crate::connectivity::adapters::util::{format_result_set, ip_set};
 use crate::types::{ProbeDetail, ProbeResult};
-use crate::util::{format_result_set, ip_set};
 
 use super::classify_dns_latency_quality;
 

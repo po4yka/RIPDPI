@@ -31,6 +31,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsScreen
 import com.poyka.ripdpi.ui.screens.home.HomeScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.settings.SettingsScreen
+import com.poyka.ripdpi.ui.screens.settings.SettingsScreenActions
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -171,13 +172,7 @@ internal fun RipDpiSettingsMediumPreviewScene() {
                     webrtcProtectionEnabled = true,
                     themedAppIconEnabled = true,
                 ),
-            onOpenDnsSettings = {},
-            onOpenAdvancedSettings = {},
-            onOpenCustomization = {},
-            onOpenAbout = {},
-            onOpenDataTransparency = {},
-            onOpenDetectionCheck = {},
-            onShareDebugBundle = {},
+            actions = settingsPreviewActions(),
             permissionSummary =
                 PermissionSummaryUiState(
                     items =
@@ -197,14 +192,6 @@ internal fun RipDpiSettingsMediumPreviewScene() {
                             ),
                         ),
                 ),
-            onRepairPermission = {},
-            onOpenVpnPermissionDialog = {},
-            onThemeSelected = {},
-            onWebRtcProtectionChanged = {},
-            onExcludeRussianAppsChanged = {},
-            onFullTunnelModeChanged = {},
-            onBiometricChanged = {},
-            onSaveBackupPin = {},
         )
     }
 }
@@ -222,13 +209,7 @@ internal fun RipDpiSettingsDarkPreviewScene() {
                     webrtcProtectionEnabled = true,
                     themedAppIconEnabled = true,
                 ),
-            onOpenDnsSettings = {},
-            onOpenAdvancedSettings = {},
-            onOpenCustomization = {},
-            onOpenAbout = {},
-            onOpenDataTransparency = {},
-            onOpenDetectionCheck = {},
-            onShareDebugBundle = {},
+            actions = settingsPreviewActions(),
             permissionSummary =
                 PermissionSummaryUiState(
                     items =
@@ -248,17 +229,28 @@ internal fun RipDpiSettingsDarkPreviewScene() {
                             ),
                         ),
                 ),
-            onRepairPermission = {},
-            onOpenVpnPermissionDialog = {},
-            onThemeSelected = {},
-            onWebRtcProtectionChanged = {},
-            onExcludeRussianAppsChanged = {},
-            onFullTunnelModeChanged = {},
-            onBiometricChanged = {},
-            onSaveBackupPin = {},
         )
     }
 }
+
+private fun settingsPreviewActions(): SettingsScreenActions =
+    SettingsScreenActions(
+        onOpenDnsSettings = {},
+        onOpenAdvancedSettings = {},
+        onOpenCustomization = {},
+        onOpenAbout = {},
+        onOpenDataTransparency = {},
+        onOpenDetectionCheck = {},
+        onShareDebugBundle = {},
+        onRepairPermission = {},
+        onOpenVpnPermissionDialog = {},
+        onThemeSelected = {},
+        onWebRtcProtectionChanged = {},
+        onExcludeRussianAppsChanged = {},
+        onFullTunnelModeChanged = {},
+        onBiometricChanged = {},
+        onSaveBackupPin = {},
+    )
 
 @Preview(name = "Intro Large Font", showBackground = true, widthDp = 420, heightDp = 900, fontScale = 1.3f)
 @Composable

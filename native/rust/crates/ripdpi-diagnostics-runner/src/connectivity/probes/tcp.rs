@@ -1,5 +1,5 @@
-use crate::fat_header::*;
-use crate::transport::TransportConfig;
+use crate::connectivity::adapters::fat_header::*;
+use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::{ProbeDetail, ProbeResult, TcpTarget};
 
 pub fn run_tcp_probe(target: &TcpTarget, whitelist_sni: &[String], transport: &TransportConfig) -> ProbeResult {

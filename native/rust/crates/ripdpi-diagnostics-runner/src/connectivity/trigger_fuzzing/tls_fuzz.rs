@@ -6,9 +6,11 @@ use ripdpi_packets::{
 };
 
 use super::summary::{append_trigger_fuzzing_summary, TriggerFuzzOutcome};
-use crate::transport::{connect_transport_observed, domain_connect_targets, TargetAddress, TransportConfig};
+use crate::connectivity::adapters::transport::{
+    connect_transport_observed, domain_connect_targets, TargetAddress, TransportConfig,
+};
+use crate::connectivity::adapters::util::IO_TIMEOUT;
 use crate::types::{DomainTarget, ProbeDetail};
-use crate::util::IO_TIMEOUT;
 
 const MAX_TLS_FUZZ_VARIANTS: usize = 3;
 

@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use ripdpi_dns_resolver::{EncryptedDnsEndpoint, EncryptedDnsProtocol};
 
-use crate::dns_oracle::{evaluate_dns_oracles, DnsOracleResponse};
+use crate::connectivity::adapters::dns_oracle::{evaluate_dns_oracles, DnsOracleResponse};
 use crate::types::ScanPathMode;
 
 use super::answer_classification::{classify_dns_answer_class, DnsAnswerClass};

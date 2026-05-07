@@ -12,8 +12,8 @@ use std::collections::BTreeSet;
 
 use ripdpi_dns_resolver::EncryptedDnsEndpoint;
 
-use crate::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
-use crate::transport::TransportConfig;
+use crate::connectivity::adapters::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
+use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::{ProbeResult, ScanPathMode};
 
 pub(super) fn oracle_result_for_probe(

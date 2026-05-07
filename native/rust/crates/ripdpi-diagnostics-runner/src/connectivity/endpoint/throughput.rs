@@ -1,12 +1,12 @@
 use std::io::{ErrorKind, Read, Write};
 
-use crate::http::{
+use crate::connectivity::adapters::http::{
     classify_http_response, parse_http_response, read_http_headers, try_http_request_targets, HttpObservation,
 };
-use crate::tls::{open_probe_stream_targets, TlsClientProfile};
-use crate::transport::TransportConfig;
+use crate::connectivity::adapters::tls::{open_probe_stream_targets, TlsClientProfile};
+use crate::connectivity::adapters::transport::TransportConfig;
+use crate::connectivity::adapters::util::{find_headers_end, MAX_HTTP_BYTES};
 use crate::types::ThroughputTarget;
-use crate::util::{find_headers_end, MAX_HTTP_BYTES};
 
 use super::target_parse::parse_http_target;
 use super::types::ThroughputSample;

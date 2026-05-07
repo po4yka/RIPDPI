@@ -187,7 +187,6 @@ pub enum IpIdMode {
 pub struct TcpChainStep {
     common: TcpStepCommon,
     payload: TcpStepPayloadStorage,
-    compatibility_error: Option<TcpStepPayloadInvariantError>,
 }
 
 impl TcpChainStep {
@@ -195,7 +194,6 @@ impl TcpChainStep {
         Self {
             common: TcpStepCommon { offset, activation_filter: None, inter_segment_delay_ms: 0 },
             payload: TcpStepPayloadStorage::default_for_kind(kind),
-            compatibility_error: None,
         }
     }
 
@@ -205,7 +203,6 @@ impl TcpChainStep {
 
     pub fn set_kind(&mut self, kind: TcpChainStepKind) {
         self.payload = TcpStepPayloadStorage::default_for_kind(kind);
-        self.compatibility_error = None;
     }
 
     pub const fn offset(&self) -> OffsetExpr {
@@ -234,17 +231,11 @@ impl TcpChainStep {
     }
 
     pub fn with_midhost_offset(mut self, midhost_offset: Option<OffsetExpr>) -> Self {
-        if midhost_offset.is_some() && self.kind() != TcpChainStepKind::HostFake {
-            self.record_payload_violation("hostfake");
-        }
         self.payload.set_midhost_offset(midhost_offset);
         self
     }
 
     pub fn set_midhost_offset(&mut self, midhost_offset: Option<OffsetExpr>) {
-        if midhost_offset.is_some() && self.kind() != TcpChainStepKind::HostFake {
-            self.record_payload_violation("hostfake");
-        }
         self.payload.set_midhost_offset(midhost_offset);
     }
 
@@ -253,17 +244,11 @@ impl TcpChainStep {
     }
 
     pub fn with_fake_host_template(mut self, fake_host_template: Option<String>) -> Self {
-        if fake_host_template.is_some() && self.kind() != TcpChainStepKind::HostFake {
-            self.record_payload_violation("hostfake");
-        }
         self.payload.set_fake_host_template(fake_host_template);
         self
     }
 
     pub fn set_fake_host_template(&mut self, fake_host_template: Option<String>) {
-        if fake_host_template.is_some() && self.kind() != TcpChainStepKind::HostFake {
-            self.record_payload_violation("hostfake");
-        }
         self.payload.set_fake_host_template(fake_host_template);
     }
 
@@ -272,38 +257,23 @@ impl TcpChainStep {
     }
 
     pub fn with_random_fake_host(mut self, random_fake_host: bool) -> Self {
-        if random_fake_host && self.kind() != TcpChainStepKind::HostFake {
-            self.record_payload_violation("hostfake");
-        }
         self.payload.set_random_fake_host(random_fake_host);
         self
     }
 
     pub fn set_random_fake_host(&mut self, random_fake_host: bool) {
-        if random_fake_host && self.kind() != TcpChainStepKind::HostFake {
-            self.record_payload_violation("hostfake");
-        }
         self.payload.set_random_fake_host(random_fake_host);
     }
 
     pub fn set_fake_ordering(&mut self, ordering: TcpFakeOrdering) {
-        if !self.kind().supports_fake_ordering() && ordering != TcpFakeOrdering::before_each_duplicate() {
-            self.record_payload_violation("fake ordering");
-        }
         self.payload.set_fake_ordering(ordering);
     }
 
     pub fn set_fake_flag_overrides(&mut self, flags: TcpFlagOverrides) {
-        if !self.kind().supports_fake_tcp_flags() && flags != TcpFlagOverrides::disabled() {
-            self.record_payload_violation("fake TCP flags");
-        }
         self.payload.set_fake_flag_overrides(flags);
     }
 
     pub fn set_original_flag_overrides(&mut self, flags: TcpFlagOverrides) {
-        if !self.kind().supports_orig_tcp_flags() && flags != TcpFlagOverrides::disabled() {
-            self.record_payload_violation("original TCP flags");
-        }
         self.payload.set_original_flag_overrides(flags);
     }
 
@@ -318,12 +288,6 @@ impl TcpChainStep {
 
     pub fn set_inter_segment_delay_ms(&mut self, delay_ms: u32) {
         self.common.inter_segment_delay_ms = delay_ms;
-    }
-
-    fn record_payload_violation(&mut self, field: &'static str) {
-        if self.compatibility_error.is_none() {
-            self.compatibility_error = Some(TcpStepPayloadInvariantError::new(self.kind(), field));
-        }
     }
 }
 

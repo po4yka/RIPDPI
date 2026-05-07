@@ -3,9 +3,9 @@ use std::io::Write;
 use ripdpi_packets::{mod_http_like_c, MH_HMIX, MH_HOSTEXTRASPACE, MH_UNIXEOL};
 
 use super::summary::{append_trigger_fuzzing_summary, TriggerFuzzOutcome};
-use crate::http::{classify_http_response, read_http_response};
-use crate::tls::{open_probe_stream_targets, TlsClientProfile};
-use crate::transport::{domain_connect_targets, TargetAddress, TransportConfig};
+use crate::connectivity::adapters::http::{classify_http_response, read_http_response};
+use crate::connectivity::adapters::tls::{open_probe_stream_targets, TlsClientProfile};
+use crate::connectivity::adapters::transport::{domain_connect_targets, TargetAddress, TransportConfig};
 use crate::types::{DomainTarget, ProbeDetail};
 
 const MAX_HTTP_FUZZ_VARIANTS: usize = 3;
@@ -56,7 +56,7 @@ fn execute_variant(
                 return ("http_unreachable".to_string(), err.to_string());
             }
 
-            let response = read_http_response(&mut stream.stream, crate::util::MAX_HTTP_BYTES);
+            let response = read_http_response(&mut stream.stream, crate::connectivity::adapters::util::MAX_HTTP_BYTES);
             stream.stream.shutdown();
             match response {
                 Ok(response) => (classify_http_response(&response), format!("status={}", response.status_code)),

@@ -9,6 +9,8 @@ workspace = true
 
 [dependencies]
 ripdpi-failure-classifier = { workspace = true }
+ripdpi-config = { workspace = true }
+ripdpi-ipfrag = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 ripdpi-ws-bootstrap = { workspace = true }
 

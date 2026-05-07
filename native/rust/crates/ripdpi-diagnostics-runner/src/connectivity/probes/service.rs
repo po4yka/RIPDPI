@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::http::describe_http_observation;
-use crate::transport::TransportConfig;
+use crate::connectivity::adapters::http::describe_http_observation;
+use crate::connectivity::adapters::transport::TransportConfig;
 use crate::types::{CircumventionTarget, ProbeDetail, ProbeResult, ServiceTarget};
 
 use super::super::endpoint::{

@@ -20,7 +20,7 @@ impl TcpFragmentSender for RuntimeTcpDesyncPlatform {
         default_ttl: u8,
         protect_path: Option<&str>,
         disorder: bool,
-        ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
+        ipv6_ext: ripdpi_proxy_runtime_adapter::ip_fragmentation::Ipv6ExtHeaders,
         flags: DesyncTcpFlagOverrides,
         ip_id_mode: Option<ripdpi_config::IpIdMode>,
     ) -> io::Result<()> {
@@ -72,7 +72,7 @@ pub(crate) fn send_ip_fragmented_tcp(
     default_ttl: u8,
     protect_path: Option<&str>,
     disorder: bool,
-    ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders,
+    ipv6_ext: ripdpi_proxy_runtime_adapter::ip_fragmentation::Ipv6ExtHeaders,
     flags: DesyncTcpFlagOverrides,
     ip_id_mode: Option<ripdpi_config::IpIdMode>,
 ) -> io::Result<()> {

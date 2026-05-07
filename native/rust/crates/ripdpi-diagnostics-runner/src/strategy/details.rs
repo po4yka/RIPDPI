@@ -1,7 +1,7 @@
 use ripdpi_proxy_config::ProxyEncryptedDnsContext;
 
 use crate::connectivity::{classify_dns_latency_quality, is_dns_injection_suspected};
-use crate::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
+use crate::strategy::adapters::dns_oracle::{DnsOracleAssessment, DnsOracleResponse};
 use crate::types::{DomainTarget, ProbeDetail, ProbeResult};
 
 use super::classification::StrategyDnsClassification;

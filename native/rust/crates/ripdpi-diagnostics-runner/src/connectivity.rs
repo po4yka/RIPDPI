@@ -1,3 +1,4 @@
+pub(crate) mod adapters;
 mod endpoint;
 mod probes;
 mod report;
