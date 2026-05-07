@@ -3,7 +3,7 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::session::SessionState;
+use ripdpi_proxy_runtime_adapter::model::session::new_session_state;
 use ripdpi_runtime_decision_ports::policy::{route_matches_payload, ConnectionRoute, TransportProtocol};
 
 use super::client_receive::UdpClientPacket;
@@ -177,7 +177,7 @@ fn build_initial_udp_flow_entry(
         return Ok(None);
     };
     let entry = UdpFlowActivationState {
-        session: SessionState::default(),
+        session: new_session_state(),
         last_used: now,
         route: selection.route,
         host: packet.host.clone(),

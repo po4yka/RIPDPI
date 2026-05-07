@@ -2,7 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::session::SessionState;
+use ripdpi_proxy_runtime_adapter::model::session::{new_session_state, SessionState};
 
 use crate::runtime::relay::failure_retry::first_outbound::execution::execute_first_write;
 use crate::runtime::relay::failure_retry::first_outbound::payload::prepare_first_payload;
@@ -51,7 +51,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
             return Ok(PreparedRelay {
                 upstream,
                 route: self.route,
-                session_state: SessionState::default(),
+                session_state: new_session_state(),
                 success_recorded: false,
                 success_host: None,
                 success_payload: None,
@@ -68,7 +68,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let inspect_first_response = needs_first_exchange(self.state)?;
 
         loop {
-            session_state = SessionState::default();
+            session_state = new_session_state();
             let tls_send_start = first_payload.is_tls.then(Instant::now);
             match execute_first_write(
                 &mut upstream,

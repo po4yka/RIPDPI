@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_proxy_runtime_adapter::model::config::first_response_settings;
-use ripdpi_proxy_runtime_adapter::model::session::SessionState;
+use ripdpi_proxy_runtime_adapter::model::session::{inbound_payload_count, observe_inbound_payload, SessionState};
 
 use crate::runtime::adaptive::note_server_ttl_for_route;
 use crate::runtime::relay::failure_retry::first_outbound::should_note_server_ttl;
@@ -46,9 +46,9 @@ pub(super) fn handle_first_response(
             if let (Some(start), Some(telemetry)) = (context.tls_send_start, &context.state.telemetry) {
                 telemetry.on_tls_handshake_completed(context.target, start.elapsed().as_millis() as u64);
             }
-            session_state.observe_inbound(&bytes);
+            observe_inbound_payload(session_state, &bytes);
             client.write_all(&bytes)?;
-            if session_state.recv_count == 0 {
+            if inbound_payload_count(session_state) == 0 {
                 return Ok(FirstResponseDecision::Complete { recorded_success: false });
             }
             if should_note_server_ttl(context.target) {

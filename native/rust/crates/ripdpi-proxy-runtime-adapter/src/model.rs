@@ -163,4 +163,20 @@ pub mod services {
 
 pub mod session {
     pub use ripdpi_session::*;
+
+    pub fn new_session_state() -> SessionState {
+        SessionState::default()
+    }
+
+    pub fn observe_inbound_payload(session: &mut SessionState, payload: &[u8]) {
+        session.observe_inbound(payload);
+    }
+
+    pub fn observe_outbound_payload(session: &mut SessionState, payload: &[u8]) -> OutboundProgress {
+        session.observe_outbound(payload)
+    }
+
+    pub fn inbound_payload_count(session: &SessionState) -> usize {
+        session.recv_count
+    }
 }
