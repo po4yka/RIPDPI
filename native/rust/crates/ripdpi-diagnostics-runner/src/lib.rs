@@ -2,7 +2,6 @@ pub mod connectivity;
 pub mod domain;
 pub mod strategy;
 
-pub(crate) mod shared_adapters;
 pub(crate) use ripdpi_diagnostics_contracts as types;
 
 #[cfg(test)]

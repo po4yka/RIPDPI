@@ -9,8 +9,8 @@ use rcgen::generate_simple_self_signed;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 
-use crate::shared_adapters::transport::{decode_socks5_udp_frame, encode_socks5_udp_frame};
-use crate::shared_adapters::util::{CONNECT_TIMEOUT, FAT_HEADER_THRESHOLD_BYTES, IO_TIMEOUT};
+use ripdpi_diagnostics_contracts::util::{CONNECT_TIMEOUT, FAT_HEADER_THRESHOLD_BYTES, IO_TIMEOUT};
+use ripdpi_diagnostics_transport::transport::{decode_socks5_udp_frame, encode_socks5_udp_frame};
 
 pub struct UdpDnsServer {
     addr: SocketAddr,

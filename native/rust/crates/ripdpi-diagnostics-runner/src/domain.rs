@@ -4,8 +4,8 @@ use std::sync::{Arc, Mutex};
 
 use rustls::client::danger::ServerCertVerifier;
 
-use crate::shared_adapters::transport::TransportConfig;
 use crate::types::{ProbeResult, ProbeTaskFamily, ScanProgress, ScanRequest, SharedState};
+use ripdpi_diagnostics_transport::transport::TransportConfig;
 
 pub struct ExecutionPlan {
     pub session_id: String,
