@@ -47,8 +47,8 @@ pub mod config {
         selected_desync_group(config, group_index).cloned()
     }
 
-    pub fn group_requires_delay_payload(group: &DesyncGroup) -> bool {
-        ripdpi_runtime_decision_ports::policy::group_requires_payload(group)
+    pub fn route_requires_delay_payload(config: &RuntimeConfig, group_index: usize) -> Option<bool> {
+        selected_desync_group(config, group_index).map(ripdpi_runtime_decision_ports::policy::group_requires_payload)
     }
 
     pub fn route_matches_transport_payload(

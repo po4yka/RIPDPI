@@ -3,8 +3,8 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    delayed_connect_enabled, delayed_route_matches_payload, group_requires_delay_payload, runtime_buffer_size,
-    selected_desync_group, DETECT_CONNECT,
+    delayed_connect_enabled, delayed_route_matches_payload, route_requires_delay_payload, runtime_buffer_size,
+    DETECT_CONNECT,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 use ripdpi_proxy_runtime_adapter::model::session::extract_payload_host;
@@ -34,10 +34,10 @@ pub(super) fn maybe_delay_connect(
     }
     let route = super::super::super::routing::select_route(state, target, None, None, true)
         .map_err(|err| ConnectRelayError::new(err, false))?;
-    let group = selected_desync_group(&state.config, route.group_index).ok_or_else(|| {
+    let requires_delay = route_requires_delay_payload(&state.config, route.group_index).ok_or_else(|| {
         ConnectRelayError::new(io::Error::new(io::ErrorKind::NotFound, "missing desync group"), false)
     })?;
-    if !group_requires_delay_payload(group) {
+    if !requires_delay {
         return Ok(DelayConnect::Immediate);
     }
 
