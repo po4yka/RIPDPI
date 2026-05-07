@@ -1,4 +1,5 @@
 pub mod config {
+    use std::io;
     use std::net::SocketAddr;
     use std::path::PathBuf;
     use std::time::Duration;
@@ -230,6 +231,16 @@ pub mod config {
 
     pub fn udp_default_ttl(config: &RuntimeConfig) -> u8 {
         config.network.default_ttl
+    }
+
+    pub fn ensure_default_ttl(
+        config: &mut RuntimeConfig,
+        detect_default_ttl: impl FnOnce() -> io::Result<u8>,
+    ) -> io::Result<()> {
+        if config.network.default_ttl == 0 {
+            config.network.default_ttl = detect_default_ttl()?;
+        }
+        Ok(())
     }
 
     pub fn quic_route_and_cache_enabled(config: &RuntimeConfig) -> bool {
