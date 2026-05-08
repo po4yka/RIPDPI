@@ -8,7 +8,7 @@ mod stream_copy_uring;
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::model::config::relay_timeout_settings;
+use ripdpi_proxy_runtime_adapter::model::config::{primary_tcp_strategy_family_with, relay_group_settings_with};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
 use self::execution::{record_relay_result, relay_with_uring_if_available, RelayResultContext};
@@ -42,11 +42,10 @@ pub(super) fn relay(
 
     let relay_result =
         relay_with_uring_if_available(client, upstream, state, route.clone(), session_state, success_host.clone());
-    let relay_timeouts = relay_timeout_settings(&state.config);
-    let primary_strategy_family = ripdpi_proxy_runtime_adapter::model::config::primary_tcp_strategy_family_for_group(
-        &state.config,
-        route.group_index,
-    );
+    let relay_group_settings = relay_group_settings_with(&state.relay_group_settings, route.group_index)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing relay group settings"))?;
+    let relay_timeouts = relay_group_settings.timeouts;
+    let primary_strategy_family = primary_tcp_strategy_family_with(&state.relay_group_settings, route.group_index);
     record_relay_result(
         &relay_result,
         state,
