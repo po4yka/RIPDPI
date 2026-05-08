@@ -21,13 +21,7 @@ pub(in crate::runtime) fn resolve_name(
         return None;
     }
 
-    ripdpi_proxy_runtime_adapter::ws_bootstrap::resolve_host_via_encrypted_dns(
-        host,
-        state.runtime_context.as_ref(),
-        handshake_settings.protect_path.as_deref(),
-        ipv6_enabled,
-    )
-    .ok()
+    state.resolve_encrypted_dns_host(host, handshake_settings.protect_path.as_deref(), ipv6_enabled).ok()
 }
 
 fn resolve_localhost(host: &str, ipv6_enabled: bool) -> Option<SocketAddr> {

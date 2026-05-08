@@ -43,7 +43,10 @@ use ripdpi_proxy_runtime_adapter::model::session::{
 };
 use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
 use ripdpi_proxy_runtime_adapter::udp_desync::{udp_desync_planner, UdpDesyncPlanContext, UdpDesyncPlanner};
-use ripdpi_proxy_runtime_adapter::ws_bootstrap::{encrypted_dns_ip_answers_for_host, EncryptedDnsIpAnswers};
+use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
+    encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr, EncryptedDnsIpAnswers,
+    TelegramDc,
+};
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -89,7 +92,7 @@ pub(super) struct RuntimeState {
     pub(super) services: ServicesStateHandle,
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
-    pub(super) runtime_context: Option<ProxyRuntimeContext>,
+    runtime_context: Option<ProxyRuntimeContext>,
     pub(super) control: Option<std::sync::Arc<EmbeddedProxyControl>>,
     /// Session-level flag: once any connection discovers that per-socket TTL
     /// modification is rejected by the kernel (EROFS on Android), all
@@ -557,6 +560,19 @@ impl RuntimeState {
             self.runtime_context.as_ref(),
             self.response_failure_evidence_settings.protect_path.as_deref(),
         )
+    }
+
+    pub(super) fn resolve_encrypted_dns_host(
+        &self,
+        host: &str,
+        protect_path: Option<&str>,
+        ipv6_enabled: bool,
+    ) -> io::Result<SocketAddr> {
+        resolve_host_via_encrypted_dns(host, self.runtime_context.as_ref(), protect_path, ipv6_enabled)
+    }
+
+    pub(super) fn resolve_ws_tunnel_addr(&self, dc: TelegramDc) -> io::Result<SocketAddr> {
+        resolve_ws_tunnel_addr(dc, self.runtime_context.as_ref(), self.ws_tunnel_settings.protect_path.as_deref())
     }
 
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
