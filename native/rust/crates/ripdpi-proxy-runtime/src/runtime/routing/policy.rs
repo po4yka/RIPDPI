@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
-use super::super::adaptive::{note_direct_path_udp_suppressed, now_millis};
+use super::super::adaptive::now_millis;
 use super::super::state::RuntimeState;
 
 pub(in crate::runtime) fn select_route(
@@ -36,17 +36,7 @@ pub(in crate::runtime) fn preferred_targets_for_transport(
     host: Option<&str>,
     transport: TransportProtocol,
 ) -> Vec<SocketAddr> {
-    let decision = state.adaptive_context().preferred_targets(
-        state.runtime_context.as_ref(),
-        original_target,
-        host,
-        transport,
-        now_millis(),
-    );
-    if decision.suppressed_udp {
-        let _ = note_direct_path_udp_suppressed(state, host, &decision.suppressed_targets);
-    }
-    decision.targets
+    state.preferred_targets_for_transport(original_target, host, transport, now_millis())
 }
 
 pub(in crate::runtime) fn note_route_success(

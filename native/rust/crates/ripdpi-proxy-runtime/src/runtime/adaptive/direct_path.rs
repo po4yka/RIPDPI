@@ -20,15 +20,6 @@ pub(in crate::runtime) fn note_direct_path_transport_attempt(
     Ok(())
 }
 
-pub(in crate::runtime) fn note_direct_path_udp_suppressed(
-    state: &RuntimeState,
-    host: Option<&str>,
-    targets: &[SocketAddr],
-) -> io::Result<()> {
-    state.note_direct_path_udp_suppressed(host, targets, now_millis().max(0) as u64);
-    Ok(())
-}
-
 pub(in crate::runtime) fn note_direct_path_udp_failure(
     state: &RuntimeState,
     host: Option<&str>,

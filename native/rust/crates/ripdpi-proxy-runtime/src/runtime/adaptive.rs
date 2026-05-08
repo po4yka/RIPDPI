@@ -13,7 +13,7 @@ mod hints;
 pub(super) use direct_path::{
     emit_due_direct_path_learning_timeouts, note_direct_path_all_ips_failed, note_direct_path_quic_success,
     note_direct_path_tcp_success, note_direct_path_tls_post_client_hello_failure, note_direct_path_transport_attempt,
-    note_direct_path_udp_failure, note_direct_path_udp_suppressed, now_millis,
+    note_direct_path_udp_failure, now_millis,
 };
 pub(super) use evolver::{note_evolver_failure, note_evolver_success};
 pub(super) use fake_ttl::{note_adaptive_fake_ttl_failure, note_adaptive_fake_ttl_success, note_server_ttl_for_route};

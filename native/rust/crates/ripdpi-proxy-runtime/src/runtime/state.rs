@@ -164,10 +164,6 @@ impl RuntimeState {
         &self.services
     }
 
-    pub(super) fn adaptive_context(&self) -> &dyn AdaptiveContextPort {
-        &self.services
-    }
-
     pub(super) fn clear_connection_cache(&self) -> usize {
         self.policy().clear_connection_cache()
     }
@@ -356,6 +352,27 @@ impl RuntimeState {
         transport: TransportProtocol,
     ) {
         DirectPathLearningPort::note_direct_path_transport_attempt(&self.services, host, targets, transport);
+    }
+
+    pub(super) fn preferred_targets_for_transport(
+        &self,
+        original_target: SocketAddr,
+        host: Option<&str>,
+        transport: TransportProtocol,
+        now_ms: i64,
+    ) -> Vec<SocketAddr> {
+        let decision = AdaptiveContextPort::preferred_targets(
+            &self.services,
+            self.runtime_context.as_ref(),
+            original_target,
+            host,
+            transport,
+            now_ms,
+        );
+        if decision.suppressed_udp {
+            self.note_direct_path_udp_suppressed(host, &decision.suppressed_targets, now_ms.max(0) as u64);
+        }
+        decision.targets
     }
 
     pub(super) fn note_direct_path_udp_suppressed(&self, host: Option<&str>, targets: &[SocketAddr], now_ms: u64) {
