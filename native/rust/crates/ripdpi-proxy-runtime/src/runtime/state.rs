@@ -294,10 +294,6 @@ impl RuntimeState {
         tcp_rotation_seed_with(&self.relay_group_settings, group_index)
     }
 
-    pub(super) fn relay_host_extractor(&self) -> PayloadHostExtractor {
-        self.relay_host_extractor.clone()
-    }
-
     pub(super) fn relay_first_response_settings(&self) -> FirstResponseSettings {
         self.relay_first_response
     }

@@ -56,10 +56,7 @@ pub(super) fn relay_with_uring_if_available(
 fn relay_stream_settings(state: &RuntimeState, group_index: usize) -> io::Result<RelayStreamSettings> {
     Ok(RelayStreamSettings {
         group: state.relay_group(group_index)?,
-        outbound: RelayOutboundSettings {
-            host_extractor: state.relay_host_extractor(),
-            first_response: state.relay_first_response_settings(),
-        },
+        outbound: RelayOutboundSettings { first_response: state.relay_first_response_settings() },
         rotation_seed: state.relay_rotation_seed(group_index)?,
     })
 }

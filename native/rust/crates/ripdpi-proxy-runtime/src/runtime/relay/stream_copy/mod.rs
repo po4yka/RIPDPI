@@ -10,7 +10,6 @@ use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::model::config::{
     DesyncGroup, FirstResponseSettings, RelayGroupSettings, RotationPolicy,
 };
-use ripdpi_proxy_runtime_adapter::model::session::PayloadHostExtractor;
 use std::io;
 use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -32,7 +31,6 @@ pub(super) struct RelayStreamSettings {
 
 #[derive(Clone)]
 pub(super) struct RelayOutboundSettings {
-    pub(super) host_extractor: PayloadHostExtractor,
     pub(super) first_response: FirstResponseSettings,
 }
 
