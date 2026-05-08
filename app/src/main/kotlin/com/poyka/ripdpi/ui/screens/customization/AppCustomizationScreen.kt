@@ -228,7 +228,7 @@ private fun AppCustomizationScreenDarkPreview() {
         AppCustomizationScreen(
             uiState =
                 SettingsUiState(
-                    appIconVariant = LauncherIconManager.RavenIconKey,
+                    appIconVariant = LauncherIconManager.CrackedIconKey,
                     themedAppIconEnabled = false,
                 ),
             onBack = {},

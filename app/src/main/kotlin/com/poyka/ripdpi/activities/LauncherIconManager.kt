@@ -16,15 +16,13 @@ data class LauncherIconOption(
 )
 
 object LauncherIconManager {
-    const val DefaultIconKey = "default"
-    const val DarkIconKey = "dark"
-    const val BlackIconKey = "black"
-    const val RavenIconKey = "raven"
-    const val RavenDarkIconKey = "raven_dark"
-    const val RavenBlackIconKey = "raven_black"
-    const val NeutralIconKey = "neutral"
-    const val CharcoalIconKey = "charcoal"
-    const val StealthIconKey = "stealth"
+    const val DefaultIconKey = "clean"
+    const val CleanIconKey = "clean"
+    const val CrackedIconKey = "cracked"
+    const val DisintegrateIconKey = "disintegrate"
+    const val GlitchIconKey = "glitch"
+    const val RubbleIconKey = "rubble"
+    const val StitchIconKey = "stitch"
 
     const val ThemedIconStyle = "themed"
     const val PlainIconStyle = "plain"
@@ -32,67 +30,46 @@ object LauncherIconManager {
     val availableIcons: List<LauncherIconOption> =
         listOf(
             LauncherIconOption(
-                key = DefaultIconKey,
-                labelRes = R.string.customization_icon_default,
-                previewRes = R.drawable.ic_launcher,
-                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityDefaultThemed",
-                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityDefaultPlain",
+                key = CleanIconKey,
+                labelRes = R.string.customization_icon_clean,
+                previewRes = R.drawable.ic_launcher_foreground_ripdpi_clean,
+                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityCleanThemed",
+                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityCleanPlain",
             ),
             LauncherIconOption(
-                key = DarkIconKey,
-                labelRes = R.string.customization_icon_dark,
-                previewRes = R.drawable.ic_launcher_dark,
-                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityDarkThemed",
-                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityDarkPlain",
+                key = CrackedIconKey,
+                labelRes = R.string.customization_icon_cracked,
+                previewRes = R.drawable.ic_launcher_foreground_ripdpi_cracked,
+                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityCrackedThemed",
+                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityCrackedPlain",
             ),
             LauncherIconOption(
-                key = BlackIconKey,
-                labelRes = R.string.customization_icon_black,
-                previewRes = R.drawable.ic_launcher_black,
-                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityBlackThemed",
-                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityBlackPlain",
+                key = DisintegrateIconKey,
+                labelRes = R.string.customization_icon_disintegrate,
+                previewRes = R.drawable.ic_launcher_foreground_ripdpi_disintegrate,
+                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityDisintegrateThemed",
+                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityDisintegratePlain",
             ),
             LauncherIconOption(
-                key = RavenIconKey,
-                labelRes = R.string.customization_icon_raven,
-                previewRes = R.drawable.ic_launcher_raven,
-                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityRavenThemed",
-                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityRavenPlain",
+                key = GlitchIconKey,
+                labelRes = R.string.customization_icon_glitch,
+                previewRes = R.drawable.ic_launcher_foreground_ripdpi_glitch,
+                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityGlitchThemed",
+                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityGlitchPlain",
             ),
             LauncherIconOption(
-                key = RavenDarkIconKey,
-                labelRes = R.string.customization_icon_raven_dark,
-                previewRes = R.drawable.ic_launcher_raven_dark,
-                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityRavenDarkThemed",
-                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityRavenDarkPlain",
+                key = RubbleIconKey,
+                labelRes = R.string.customization_icon_rubble,
+                previewRes = R.drawable.ic_launcher_foreground_ripdpi_rubble,
+                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityRubbleThemed",
+                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityRubblePlain",
             ),
             LauncherIconOption(
-                key = RavenBlackIconKey,
-                labelRes = R.string.customization_icon_raven_black,
-                previewRes = R.drawable.ic_launcher_raven_black,
-                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityRavenBlackThemed",
-                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityRavenBlackPlain",
-            ),
-            LauncherIconOption(
-                key = NeutralIconKey,
-                labelRes = R.string.customization_icon_neutral,
-                previewRes = R.drawable.ic_launcher_neutral,
-                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityNeutralThemed",
-                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityNeutralPlain",
-            ),
-            LauncherIconOption(
-                key = CharcoalIconKey,
-                labelRes = R.string.customization_icon_charcoal,
-                previewRes = R.drawable.ic_launcher_charcoal,
-                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityCharcoalThemed",
-                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityCharcoalPlain",
-            ),
-            LauncherIconOption(
-                key = StealthIconKey,
-                labelRes = R.string.customization_icon_stealth,
-                previewRes = R.drawable.ic_launcher_stealth,
-                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityStealthThemed",
-                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityStealthPlain",
+                key = StitchIconKey,
+                labelRes = R.string.customization_icon_stitch,
+                previewRes = R.drawable.ic_launcher_foreground_ripdpi_stitch,
+                themedAliasClassName = "com.poyka.ripdpi.activities.MainActivityStitchThemed",
+                plainAliasClassName = "com.poyka.ripdpi.activities.MainActivityStitchPlain",
             ),
         )
 

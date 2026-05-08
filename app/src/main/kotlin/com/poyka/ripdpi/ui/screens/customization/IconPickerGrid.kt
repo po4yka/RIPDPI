@@ -167,7 +167,7 @@ private fun IconPickerGridDarkPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
         IconPickerGrid(
             options = LauncherIconManager.availableIcons,
-            selectedKey = LauncherIconManager.RavenIconKey,
+            selectedKey = LauncherIconManager.CrackedIconKey,
             onOptionSelected = {},
         )
     }

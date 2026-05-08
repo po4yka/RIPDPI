@@ -48,12 +48,12 @@
         </activity>
 
         <activity-alias
-            android:name=".activities.MainActivityDefaultThemed"
+            android:name=".activities.MainActivityCleanThemed"
             android:enabled="true"
             android:exported="true"
             android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher"
-            android:roundIcon="@mipmap/ic_launcher_round"
+            android:icon="@mipmap/ic_launcher_ripdpi_clean"
+            android:roundIcon="@mipmap/ic_launcher_ripdpi_clean_round"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -63,12 +63,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".activities.MainActivityDefaultPlain"
+            android:name=".activities.MainActivityCleanPlain"
             android:enabled="false"
             android:exported="true"
             android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_plain"
-            android:roundIcon="@mipmap/ic_launcher_round_plain"
+            android:icon="@mipmap/ic_launcher_ripdpi_clean_plain"
+            android:roundIcon="@mipmap/ic_launcher_ripdpi_clean_round_plain"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -78,12 +78,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".activities.MainActivityDarkThemed"
+            android:name=".activities.MainActivityCrackedThemed"
             android:enabled="false"
             android:exported="true"
             android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_dark"
-            android:roundIcon="@mipmap/ic_launcher_dark_round"
+            android:icon="@mipmap/ic_launcher_ripdpi_cracked"
+            android:roundIcon="@mipmap/ic_launcher_ripdpi_cracked_round"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -93,12 +93,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".activities.MainActivityDarkPlain"
+            android:name=".activities.MainActivityCrackedPlain"
             android:enabled="false"
             android:exported="true"
             android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_dark_plain"
-            android:roundIcon="@mipmap/ic_launcher_dark_round_plain"
+            android:icon="@mipmap/ic_launcher_ripdpi_cracked_plain"
+            android:roundIcon="@mipmap/ic_launcher_ripdpi_cracked_round_plain"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -108,12 +108,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".activities.MainActivityBlackThemed"
+            android:name=".activities.MainActivityDisintegrateThemed"
             android:enabled="false"
             android:exported="true"
             android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_black"
-            android:roundIcon="@mipmap/ic_launcher_black_round"
+            android:icon="@mipmap/ic_launcher_ripdpi_disintegrate"
+            android:roundIcon="@mipmap/ic_launcher_ripdpi_disintegrate_round"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -123,12 +123,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".activities.MainActivityBlackPlain"
+            android:name=".activities.MainActivityDisintegratePlain"
             android:enabled="false"
             android:exported="true"
             android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_black_plain"
-            android:roundIcon="@mipmap/ic_launcher_black_round_plain"
+            android:icon="@mipmap/ic_launcher_ripdpi_disintegrate_plain"
+            android:roundIcon="@mipmap/ic_launcher_ripdpi_disintegrate_round_plain"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -138,12 +138,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".activities.MainActivityRavenThemed"
+            android:name=".activities.MainActivityGlitchThemed"
             android:enabled="false"
             android:exported="true"
             android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_raven"
-            android:roundIcon="@mipmap/ic_launcher_raven_round"
+            android:icon="@mipmap/ic_launcher_ripdpi_glitch"
+            android:roundIcon="@mipmap/ic_launcher_ripdpi_glitch_round"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -153,12 +153,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".activities.MainActivityRavenPlain"
+            android:name=".activities.MainActivityGlitchPlain"
             android:enabled="false"
             android:exported="true"
             android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_raven_plain"
-            android:roundIcon="@mipmap/ic_launcher_raven_round_plain"
+            android:icon="@mipmap/ic_launcher_ripdpi_glitch_plain"
+            android:roundIcon="@mipmap/ic_launcher_ripdpi_glitch_round_plain"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -168,12 +168,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".activities.MainActivityRavenDarkThemed"
+            android:name=".activities.MainActivityRubbleThemed"
             android:enabled="false"
             android:exported="true"
             android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_raven_dark"
-            android:roundIcon="@mipmap/ic_launcher_raven_dark_round"
+            android:icon="@mipmap/ic_launcher_ripdpi_rubble"
+            android:roundIcon="@mipmap/ic_launcher_ripdpi_rubble_round"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -183,12 +183,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".activities.MainActivityRavenDarkPlain"
+            android:name=".activities.MainActivityRubblePlain"
             android:enabled="false"
             android:exported="true"
             android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_raven_dark_plain"
-            android:roundIcon="@mipmap/ic_launcher_raven_dark_round_plain"
+            android:icon="@mipmap/ic_launcher_ripdpi_rubble_plain"
+            android:roundIcon="@mipmap/ic_launcher_ripdpi_rubble_round_plain"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -198,12 +198,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".activities.MainActivityRavenBlackThemed"
+            android:name=".activities.MainActivityStitchThemed"
             android:enabled="false"
             android:exported="true"
             android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_raven_black"
-            android:roundIcon="@mipmap/ic_launcher_raven_black_round"
+            android:icon="@mipmap/ic_launcher_ripdpi_stitch"
+            android:roundIcon="@mipmap/ic_launcher_ripdpi_stitch_round"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -213,102 +213,12 @@
         </activity-alias>
 
         <activity-alias
-            android:name=".activities.MainActivityRavenBlackPlain"
+            android:name=".activities.MainActivityStitchPlain"
             android:enabled="false"
             android:exported="true"
             android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_raven_black_plain"
-            android:roundIcon="@mipmap/ic_launcher_raven_black_round_plain"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".activities.MainActivityNeutralThemed"
-            android:enabled="false"
-            android:exported="true"
-            android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_neutral"
-            android:roundIcon="@mipmap/ic_launcher_neutral_round"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".activities.MainActivityNeutralPlain"
-            android:enabled="false"
-            android:exported="true"
-            android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_neutral_plain"
-            android:roundIcon="@mipmap/ic_launcher_neutral_round_plain"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".activities.MainActivityCharcoalThemed"
-            android:enabled="false"
-            android:exported="true"
-            android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_charcoal"
-            android:roundIcon="@mipmap/ic_launcher_charcoal_round"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".activities.MainActivityCharcoalPlain"
-            android:enabled="false"
-            android:exported="true"
-            android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_charcoal_plain"
-            android:roundIcon="@mipmap/ic_launcher_charcoal_round_plain"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".activities.MainActivityStealthThemed"
-            android:enabled="false"
-            android:exported="true"
-            android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_stealth"
-            android:roundIcon="@mipmap/ic_launcher_stealth_round"
-            android:label="@string/app_name">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
-        <activity-alias
-            android:name=".activities.MainActivityStealthPlain"
-            android:enabled="false"
-            android:exported="true"
-            android:targetActivity=".activities.MainActivity"
-            android:icon="@mipmap/ic_launcher_stealth_plain"
-            android:roundIcon="@mipmap/ic_launcher_stealth_round_plain"
+            android:icon="@mipmap/ic_launcher_ripdpi_stitch_plain"
+            android:roundIcon="@mipmap/ic_launcher_ripdpi_stitch_round_plain"
             android:label="@string/app_name">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
