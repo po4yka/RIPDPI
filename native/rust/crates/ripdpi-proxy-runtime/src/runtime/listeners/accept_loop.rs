@@ -7,7 +7,7 @@ use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
 use crate::process;
-use crate::runtime::state::{ClientSlotGuard, RuntimeState};
+use crate::runtime::state::RuntimeState;
 
 use super::client_job::ClientJob;
 use super::worker_pool::ClientWorkerPool;
@@ -81,7 +81,7 @@ fn accept_client(
     if let Err(err) = client.set_nodelay(true) {
         tracing::debug!("set_nodelay on client socket failed (non-fatal): {err}");
     }
-    let Some(slot) = ClientSlotGuard::acquire(state.active_clients.clone(), client_capacity) else {
+    let Some(slot) = state.acquire_client_slot(client_capacity) else {
         tracing::warn!("client connection rejected: at capacity");
         if let Some(telemetry) = &state.telemetry {
             telemetry.on_client_slot_exhausted();

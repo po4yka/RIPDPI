@@ -90,7 +90,7 @@ pub(super) struct RuntimeState {
     first_response_exchange_policy: FirstResponseExchangePolicy,
     response_failure_evidence_settings: ResponseFailureEvidenceSettings,
     pub(super) services: ServicesStateHandle,
-    pub(super) active_clients: Arc<AtomicUsize>,
+    active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     runtime_context: Option<ProxyRuntimeContext>,
     control: Option<std::sync::Arc<EmbeddedProxyControl>>,
@@ -580,6 +580,10 @@ impl RuntimeState {
 
     pub(super) fn block_signal_confirmation_allowed(&self) -> bool {
         self.current_network_snapshot().is_none_or(|snapshot| snapshot.validated && !snapshot.captive_portal)
+    }
+
+    pub(super) fn acquire_client_slot(&self, client_capacity: usize) -> Option<ClientSlotGuard> {
+        ClientSlotGuard::acquire(self.active_clients.clone(), client_capacity)
     }
 
     pub(super) fn resolve_encrypted_dns_host(
