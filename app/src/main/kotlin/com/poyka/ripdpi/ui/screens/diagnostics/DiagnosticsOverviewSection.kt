@@ -66,6 +66,7 @@ internal fun OverviewSection(
     live: com.poyka.ripdpi.activities.DiagnosticsLiveUiModel,
     isActiveScan: Boolean,
     onSelectSection: (DiagnosticsSection) -> Unit,
+    onRunScan: () -> Unit,
     onSelectSession: (String) -> Unit,
     onOpenHistory: () -> Unit,
 ) {
@@ -86,6 +87,7 @@ internal fun OverviewSection(
                 overview = overview,
                 isActiveScan = isActiveScan,
                 onSelectSection = onSelectSection,
+                onRunScan = onRunScan,
             )
         }
         if (live.health != DiagnosticsHealth.Idle && live.metrics.isNotEmpty()) {
@@ -153,7 +155,6 @@ internal fun OverviewSection(
                             onOpenHistory = onOpenHistory,
                         )
                     }
-                    HistoryCalloutCard(onOpenHistory = onOpenHistory)
                 }
             }
         }
@@ -274,35 +275,11 @@ private fun AutomaticProbeHistoryCard(
 }
 
 @Composable
-private fun HistoryCalloutCard(onOpenHistory: () -> Unit) {
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
-        androidx.compose.material3.Text(
-            text = stringResource(R.string.diagnostics_open_history_title),
-            style = RipDpiThemeTokens.type.bodyEmphasis,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
-        androidx.compose.material3.Text(
-            text = stringResource(R.string.diagnostics_open_history_body),
-            style = RipDpiThemeTokens.type.body,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
-        RipDpiButton(
-            text = stringResource(R.string.diagnostics_open_history_action),
-            onClick = onOpenHistory,
-            variant = RipDpiButtonVariant.Outline,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsOverviewHistoryAction),
-        )
-    }
-}
-
-@Composable
 private fun DiagnosticsHealthHero(
     overview: DiagnosticsOverviewUiModel,
     isActiveScan: Boolean,
     onSelectSection: (DiagnosticsSection) -> Unit,
+    onRunScan: () -> Unit,
 ) {
     TrackRecomposition("DiagnosticsHealthHero")
     val colors = RipDpiThemeTokens.colors
@@ -324,14 +301,19 @@ private fun DiagnosticsHealthHero(
                     null
                 },
         )
-        if (!isActiveScan) {
-            RipDpiButton(
-                text = stringResource(R.string.diagnostics_overview_run_scan_action),
-                onClick = { onSelectSection(DiagnosticsSection.Scan) },
-                variant = RipDpiButtonVariant.Primary,
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+        RipDpiButton(
+            text = stringResource(R.string.diagnostics_overview_run_scan_action),
+            onClick = {
+                onSelectSection(DiagnosticsSection.Scan)
+                onRunScan()
+            },
+            enabled = !isActiveScan,
+            variant = RipDpiButtonVariant.Primary,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsOverviewRunScanAction),
+        )
         RipDpiCard(variant = RipDpiCardVariant.Elevated) {
             StatusIndicator(
                 label = overview.health.displayLabel(),

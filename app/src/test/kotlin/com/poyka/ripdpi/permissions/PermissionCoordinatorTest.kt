@@ -49,6 +49,42 @@ class PermissionCoordinatorTest {
     }
 
     @Test
+    fun `explicit proxy start is not blocked by configured vpn consent`() {
+        val resolution =
+            coordinator.resolve(
+                action = PermissionAction.StartProxyMode,
+                configuredMode = Mode.VPN,
+                snapshot =
+                    PermissionSnapshot(
+                        vpnConsent = PermissionStatus.RequiresSystemPrompt,
+                        notifications = PermissionStatus.Granted,
+                        batteryOptimization = PermissionStatus.NotApplicable,
+                    ),
+            )
+
+        assertTrue(resolution.required.isEmpty())
+        assertEquals(null, resolution.blockedBy)
+    }
+
+    @Test
+    fun `explicit vpn start requires vpn consent independent of configured proxy mode`() {
+        val resolution =
+            coordinator.resolve(
+                action = PermissionAction.StartVpnMode,
+                configuredMode = Mode.Proxy,
+                snapshot =
+                    PermissionSnapshot(
+                        vpnConsent = PermissionStatus.RequiresSystemPrompt,
+                        notifications = PermissionStatus.Granted,
+                        batteryOptimization = PermissionStatus.NotApplicable,
+                    ),
+            )
+
+        assertEquals(listOf(PermissionKind.VpnConsent), resolution.required)
+        assertEquals(PermissionKind.VpnConsent, resolution.blockedBy)
+    }
+
+    @Test
     fun `battery optimization repair targets only that permission`() {
         val resolution =
             coordinator.resolve(

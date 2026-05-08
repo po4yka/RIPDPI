@@ -206,9 +206,7 @@ private fun buildDiagnosticCard(
                 }
 
                 latestAudit != null -> {
-                    latestAudit.summary.ifBlank {
-                        stringResolver.getString(R.string.home_mode_card_status_inactive)
-                    }
+                    latestAudit.diagnosticStatusLine(stringResolver)
                 }
 
                 else -> {
@@ -226,6 +224,39 @@ private fun buildDiagnosticCard(
 private fun HomeDiagnosticsLatestAuditUiState.confidenceLabel(): String? =
     recommendationSummary
         ?: summary.takeIf { it.isNotBlank() }
+
+private fun HomeDiagnosticsLatestAuditUiState.diagnosticStatusLine(stringResolver: StringResolver): String =
+    when {
+        stale -> {
+            stringResolver.getString(R.string.home_mode_card_diagnostic_status_stale)
+        }
+
+        actionable -> {
+            stringResolver.getString(R.string.home_mode_card_diagnostic_status_actionable)
+        }
+
+        failedStageCount > 0 && totalStageCount > 0 -> {
+            stringResolver.getString(
+                R.string.home_mode_card_diagnostic_status_review_format,
+                failedStageCount,
+                totalStageCount,
+            )
+        }
+
+        totalStageCount > 0 -> {
+            stringResolver.getString(
+                R.string.home_mode_card_diagnostic_status_complete_format,
+                completedStageCount,
+                totalStageCount,
+            )
+        }
+
+        else -> {
+            summary.ifBlank {
+                stringResolver.getString(R.string.home_mode_card_diagnostic_status_review)
+            }
+        }
+    }
 
 private fun modeStatusLabel(
     connectionState: ConnectionState,

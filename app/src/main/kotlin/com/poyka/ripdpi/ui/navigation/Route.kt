@@ -4,6 +4,7 @@ import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -47,6 +48,20 @@ sealed class Route {
     }
 
     @Serializable
+    data object LocalBypassConfig : Route() {
+        override val stableRoute = "config/local_bypass"
+        override val titleRes = R.string.title_local_bypass_config
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
+    data object VpnConfig : Route() {
+        override val stableRoute = "config/vpn"
+        override val titleRes = R.string.title_vpn_config
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data object Settings : Route() {
         override val stableRoute = "settings"
         override val titleRes = R.string.settings
@@ -54,9 +69,17 @@ sealed class Route {
     }
 
     @Serializable
-    data object Diagnostics : Route() {
+    data class Diagnostics(
+        @SerialName("auto_start_scan")
+        val autoStartScan: Boolean = false,
+    ) : Route() {
+        @kotlinx.serialization.Transient
         override val stableRoute = "diagnostics"
+
+        @kotlinx.serialization.Transient
         override val titleRes = R.string.diagnostics
+
+        @kotlinx.serialization.Transient
         override val icon: ImageVector = RipDpiIcons.Logs
     }
 
@@ -146,7 +169,7 @@ sealed class Route {
 
     companion object {
         val topLevel: List<Route>
-            get() = listOf(Home, Config, Diagnostics, Settings)
+            get() = listOf(Home, Config, Diagnostics(), Settings)
 
         val all: List<Route>
             get() =
@@ -154,7 +177,9 @@ sealed class Route {
                     Onboarding,
                     Home,
                     Config,
-                    Diagnostics,
+                    LocalBypassConfig,
+                    VpnConfig,
+                    Diagnostics(),
                     History,
                     Logs,
                     Settings,

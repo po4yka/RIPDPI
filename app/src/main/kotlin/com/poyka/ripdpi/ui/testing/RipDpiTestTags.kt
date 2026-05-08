@@ -54,6 +54,14 @@ internal object RipDpiTestTags {
 
     const val ConfigEditCurrentButton = "config-edit-current"
     const val ConfigDnsSettings = "config-dns-settings"
+    const val ConfigLocalBypassSummary = "config-local-bypass-summary"
+    const val ConfigLocalBypassMode = "config-local-bypass-mode"
+    const val ConfigLocalBypassListenAddress = "config-local-bypass-listen-address"
+    const val ConfigLocalBypassDesync = "config-local-bypass-desync"
+    const val ConfigVpnSummary = "config-vpn-summary"
+    const val ConfigVpnRelay = "config-vpn-relay"
+    const val ConfigVpnProtocol = "config-vpn-protocol"
+    const val ConfigVpnCredentials = "config-vpn-credentials"
     const val ModeEditorCancel = "mode-editor-cancel"
     const val ModeEditorSave = "mode-editor-save"
     const val ModeEditorProxyIp = "mode-editor-proxy-ip"
@@ -121,6 +129,7 @@ internal object RipDpiTestTags {
     const val DiagnosticsOverviewHistoryAction = "diagnostics-overview-history-action"
     const val DiagnosticsOverviewAutomaticProbeCard = "diagnostics-overview-automatic-probe-card"
     const val DiagnosticsOverviewHero = "diagnostics-overview-hero"
+    const val DiagnosticsOverviewRunScanAction = "diagnostics-overview-run-scan-action"
     const val DiagnosticsResolverKeepSession = "diagnostics-resolver-keep-session"
     const val DiagnosticsResolverSaveSetting = "diagnostics-resolver-save-setting"
     const val DiagnosticsResolverRecommendationCard = "diagnostics-resolver-recommendation-card"
@@ -224,6 +233,8 @@ internal object RipDpiTestTags {
     val configPreset: (String) -> String = { presetId -> "config-preset-${sanitize(presetId)}" }
 
     val configMode: (String) -> String = { modeKey -> "config-mode-${sanitize(modeKey)}" }
+
+    val configModeSection: (String) -> String = { sectionKey -> "config-mode-section-${sanitize(sectionKey)}" }
 
     val settingsPermission: (PermissionKind) -> String = { kind -> "settings-permission-${sanitize(kind.name)}" }
 

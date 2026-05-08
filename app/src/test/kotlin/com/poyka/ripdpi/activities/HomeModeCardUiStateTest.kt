@@ -171,6 +171,81 @@ class HomeModeCardUiStateTest {
         assertEquals("TCP split + QUIC fake", diagnostic.secondaryLabel)
     }
 
+    @Test
+    fun `diagnostic card status line prioritizes actionable audit state`() {
+        val diagnostic =
+            buildCards(
+                homeDiagnostics =
+                    HomeDiagnosticsUiState(
+                        latestAudit =
+                            HomeDiagnosticsLatestAuditUiState(
+                                headline = "Analysis complete",
+                                summary = "Working TCP and QUIC winners found.",
+                                completedStageCount = 4,
+                                totalStageCount = 4,
+                                actionable = true,
+                            ),
+                    ),
+            ).single { it.mode == HomeMode.Diagnostic }
+
+        assertEquals("Recommendation ready", diagnostic.statusLine)
+    }
+
+    @Test
+    fun `diagnostic card status line asks for rerun when latest audit is stale`() {
+        val diagnostic =
+            buildCards(
+                homeDiagnostics =
+                    HomeDiagnosticsUiState(
+                        latestAudit =
+                            HomeDiagnosticsLatestAuditUiState(
+                                headline = "Analysis complete",
+                                summary = "Working TCP and QUIC winners found.",
+                                completedStageCount = 4,
+                                totalStageCount = 4,
+                                stale = true,
+                                actionable = true,
+                            ),
+                    ),
+            ).single { it.mode == HomeMode.Diagnostic }
+
+        assertEquals("Network changed - rerun scan", diagnostic.statusLine)
+    }
+
+    @Test
+    fun `diagnostic card status line summarizes latest audit stage counts`() {
+        val failedDiagnostic =
+            buildCards(
+                homeDiagnostics =
+                    HomeDiagnosticsUiState(
+                        latestAudit =
+                            HomeDiagnosticsLatestAuditUiState(
+                                headline = "Analysis incomplete",
+                                summary = "Some stages failed.",
+                                completedStageCount = 2,
+                                failedStageCount = 1,
+                                totalStageCount = 4,
+                            ),
+                    ),
+            ).single { it.mode == HomeMode.Diagnostic }
+        val completeDiagnostic =
+            buildCards(
+                homeDiagnostics =
+                    HomeDiagnosticsUiState(
+                        latestAudit =
+                            HomeDiagnosticsLatestAuditUiState(
+                                headline = "Analysis complete",
+                                summary = "No recommendation.",
+                                completedStageCount = 3,
+                                totalStageCount = 4,
+                            ),
+                    ),
+            ).single { it.mode == HomeMode.Diagnostic }
+
+        assertEquals("Review 1/4 stages", failedDiagnostic.statusLine)
+        assertEquals("3/4 stages complete", completeDiagnostic.statusLine)
+    }
+
     private fun buildCards(
         settings: AppSettings = AppSettingsSerializer.defaultValue,
         activeMode: Mode = Mode.VPN,

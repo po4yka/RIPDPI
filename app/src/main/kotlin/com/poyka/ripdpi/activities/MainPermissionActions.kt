@@ -69,7 +69,7 @@ internal class MainPermissionActions(
 
     fun resolvePermissionAction(action: PermissionAction) {
         if (
-            (action is PermissionAction.StartConfiguredMode || action is PermissionAction.StartVpnMode) &&
+            action.isStartModeAction() &&
             mutations.currentUiState().connectionState == ConnectionState.Connecting
         ) {
             return
@@ -136,6 +136,7 @@ internal class MainPermissionActions(
                         mutations.trySend(MainEffect.ShowVpnPermissionDialog)
                     }
 
+                    PermissionAction.StartProxyMode,
                     PermissionAction.StartVpnMode,
                     PermissionAction.RunHomeAnalysis,
                     is PermissionAction.RepairPermission,
@@ -282,6 +283,10 @@ internal class MainPermissionActions(
                 onStartMode(mutations.currentUiState().configuredMode)
             }
 
+            PermissionAction.StartProxyMode -> {
+                onStartMode(Mode.Proxy)
+            }
+
             PermissionAction.StartVpnMode -> {
                 onStartMode(Mode.VPN)
             }
@@ -332,3 +337,8 @@ internal class MainPermissionActions(
 
     private fun createBatteryOptimizationIntent(): Intent = permissionPlatformBridge.createBatteryOptimizationIntent()
 }
+
+private fun PermissionAction.isStartModeAction(): Boolean =
+    this is PermissionAction.StartConfiguredMode ||
+        this is PermissionAction.StartProxyMode ||
+        this is PermissionAction.StartVpnMode

@@ -32,6 +32,7 @@ import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserRoute
+import com.poyka.ripdpi.ui.screens.config.ConfigModeSection
 import com.poyka.ripdpi.ui.screens.config.ConfigRoute
 import com.poyka.ripdpi.ui.screens.config.ModeEditorRoute
 import com.poyka.ripdpi.ui.screens.customization.AboutRoute
@@ -276,22 +277,31 @@ private fun NavGraphBuilder.addPrimaryRoutes(
     ) {
         HomeRoute(
             onOpenDiagnostics = {
-                onDiagnosticsInitialSectionChanged(DiagnosticsSection.Tools)
-                navController.navigate(Route.Diagnostics) {
+                onDiagnosticsInitialSectionChanged(DiagnosticsSection.Scan)
+                navController.navigate(Route.Diagnostics()) {
                     launchSingleTop = true
                     restoreState = true
+                }
+            },
+            onRunDiagnosticsScan = {
+                onDiagnosticsInitialSectionChanged(DiagnosticsSection.Scan)
+                navController.navigate(Route.Diagnostics(autoStartScan = true)) {
+                    launchSingleTop = true
                 }
             },
             onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
             onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
             onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+            onOpenLocalBypassConfig = { navController.navigateConfigSubRoute(Route.LocalBypassConfig) },
+            onOpenVpnConfig = { navController.navigateConfigSubRoute(Route.VpnConfig) },
             onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
             viewModel = mainViewModel,
         )
     }
     composable<Route.Diagnostics>(
         deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://diagnostics" }),
-    ) {
+    ) { backStackEntry ->
+        val route = backStackEntry.toRoute<Route.Diagnostics>()
         val diagnosticsViewModel: DiagnosticsViewModel = hiltViewModel()
         DiagnosticsRoute(
             onShareArchive = actions.onShareDiagnosticsArchive,
@@ -305,7 +315,7 @@ private fun NavGraphBuilder.addPrimaryRoutes(
             onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
             onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
             onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
-            initialSection = diagnosticsInitialSection,
+            initialSection = diagnosticsInitialSection ?: DiagnosticsSection.Scan.takeIf { route.autoStartScan },
             onInitialSectionHandled = { onDiagnosticsInitialSectionChanged(null) },
             viewModel = diagnosticsViewModel,
         )
@@ -342,6 +352,27 @@ private fun NavGraphBuilder.addConfigRoutes(navController: NavHostController) {
             ConfigRoute(
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
                 onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
+                initialModeSection = ConfigModeSection.LocalBypass,
+                viewModel = configViewModel,
+            )
+        }
+        composable<Route.LocalBypassConfig> {
+            val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
+            val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
+            ConfigRoute(
+                onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+                onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
+                initialModeSection = ConfigModeSection.LocalBypass,
+                viewModel = configViewModel,
+            )
+        }
+        composable<Route.VpnConfig> {
+            val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
+            val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
+            ConfigRoute(
+                onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
+                onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
+                initialModeSection = ConfigModeSection.Vpn,
                 viewModel = configViewModel,
             )
         }
@@ -428,6 +459,13 @@ private fun NavHostController.navigateTopLevel(destination: Route) {
     }
 }
 
+private fun NavHostController.navigateConfigSubRoute(destination: Route) {
+    navigate(destination) {
+        launchSingleTop = true
+        restoreState = true
+    }
+}
+
 internal fun nestedEnterTransition(motion: RipDpiMotion) = motion.nestedEnterTransition()
 
 internal fun nestedPopExitTransition(motion: RipDpiMotion) = motion.nestedPopExitTransition()
@@ -441,45 +479,31 @@ internal fun nestedPopExitTransition(motion: RipDpiMotion) = motion.nestedPopExi
  * so external surfaces (automation, telemetry, deep links) keep their string contract.
  */
 internal fun NavDestination.stableRouteKey(): String? =
-    when {
-        hasRoute<Route.Home>() -> Route.Home.stableRoute
-        hasRoute<Route.Config>() -> Route.Config.stableRoute
-        hasRoute<Route.Diagnostics>() -> Route.Diagnostics.stableRoute
-        hasRoute<Route.Settings>() -> Route.Settings.stableRoute
-        hasRoute<Route.Onboarding>() -> Route.Onboarding.stableRoute
-        hasRoute<Route.History>() -> Route.History.stableRoute
-        hasRoute<Route.Logs>() -> Route.Logs.stableRoute
-        hasRoute<Route.ModeEditor>() -> Route.ModeEditor.stableRoute
-        hasRoute<Route.DnsSettings>() -> Route.DnsSettings.stableRoute
-        hasRoute<Route.AdvancedSettings>() -> Route.AdvancedSettings.stableRoute
-        hasRoute<Route.BiometricPrompt>() -> Route.BiometricPrompt.stableRoute
-        hasRoute<Route.AppCustomization>() -> Route.AppCustomization.stableRoute
-        hasRoute<Route.About>() -> Route.About.stableRoute
-        hasRoute<Route.DataTransparency>() -> Route.DataTransparency.stableRoute
-        hasRoute<Route.DetectionCheck>() -> Route.DetectionCheck.stableRoute
-        hasRoute<Route.OwnedStackBrowser>() -> Route.OwnedStackBrowser().stableRoute
-        else -> null
-    }
+    stableRouteMatchers.firstOrNull { (_, matches) -> matches() }?.first
 
-internal fun NavDestination.matchesRoute(route: Route): Boolean =
-    when (route) {
-        Route.Home -> hasRoute<Route.Home>()
-        Route.Config -> hasRoute<Route.Config>()
-        Route.Diagnostics -> hasRoute<Route.Diagnostics>()
-        Route.Settings -> hasRoute<Route.Settings>()
-        Route.Onboarding -> hasRoute<Route.Onboarding>()
-        Route.History -> hasRoute<Route.History>()
-        Route.Logs -> hasRoute<Route.Logs>()
-        Route.ModeEditor -> hasRoute<Route.ModeEditor>()
-        Route.DnsSettings -> hasRoute<Route.DnsSettings>()
-        Route.AdvancedSettings -> hasRoute<Route.AdvancedSettings>()
-        Route.BiometricPrompt -> hasRoute<Route.BiometricPrompt>()
-        Route.AppCustomization -> hasRoute<Route.AppCustomization>()
-        Route.About -> hasRoute<Route.About>()
-        Route.DataTransparency -> hasRoute<Route.DataTransparency>()
-        Route.DetectionCheck -> hasRoute<Route.DetectionCheck>()
-        is Route.OwnedStackBrowser -> hasRoute<Route.OwnedStackBrowser>()
-    }
+internal fun NavDestination.matchesRoute(route: Route): Boolean = stableRouteKey() == route.stableRoute
+
+private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>> =
+    listOf(
+        Route.Home.stableRoute to { hasRoute<Route.Home>() },
+        Route.Config.stableRoute to { hasRoute<Route.Config>() },
+        Route.LocalBypassConfig.stableRoute to { hasRoute<Route.LocalBypassConfig>() },
+        Route.VpnConfig.stableRoute to { hasRoute<Route.VpnConfig>() },
+        Route.Diagnostics().stableRoute to { hasRoute<Route.Diagnostics>() },
+        Route.Settings.stableRoute to { hasRoute<Route.Settings>() },
+        Route.Onboarding.stableRoute to { hasRoute<Route.Onboarding>() },
+        Route.History.stableRoute to { hasRoute<Route.History>() },
+        Route.Logs.stableRoute to { hasRoute<Route.Logs>() },
+        Route.ModeEditor.stableRoute to { hasRoute<Route.ModeEditor>() },
+        Route.DnsSettings.stableRoute to { hasRoute<Route.DnsSettings>() },
+        Route.AdvancedSettings.stableRoute to { hasRoute<Route.AdvancedSettings>() },
+        Route.BiometricPrompt.stableRoute to { hasRoute<Route.BiometricPrompt>() },
+        Route.AppCustomization.stableRoute to { hasRoute<Route.AppCustomization>() },
+        Route.About.stableRoute to { hasRoute<Route.About>() },
+        Route.DataTransparency.stableRoute to { hasRoute<Route.DataTransparency>() },
+        Route.DetectionCheck.stableRoute to { hasRoute<Route.DetectionCheck>() },
+        Route.OwnedStackBrowser().stableRoute to { hasRoute<Route.OwnedStackBrowser>() },
+    )
 
 internal fun shouldNavigateToHomeFromLaunchRequest(
     launchHomeRequested: Boolean,

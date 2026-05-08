@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -17,13 +18,17 @@ import javax.inject.Inject
 class DiagnosticsViewModel
     @Inject
     internal constructor(
+        savedStateHandle: SavedStateHandle,
         private val diagnosticsInteractionDependencies: DiagnosticsInteractionDependencies,
         private val diagnosticsContextDependencies: DiagnosticsContextDependencies,
         private val diagnosticsViewModelBootstrapper: DiagnosticsViewModelBootstrapper,
         diagnosticsUiStateAssembler: DiagnosticsUiStateAssembler,
         uiStateFactory: DiagnosticsUiStateFactory,
     ) : ViewModel() {
+        private val autoStartScan: Boolean =
+            savedStateHandle["auto_start_scan"] ?: savedStateHandle["autoStartScan"] ?: false
         private var initialized = false
+        private var autoStartScanHandled = false
         private val selectionState = MutableStateFlow(SelectionState())
         private val filterState = MutableStateFlow(FilterState())
         private val sessionDetailState = MutableStateFlow(SessionDetailState())
@@ -94,9 +99,18 @@ class DiagnosticsViewModel
                 scope = viewModelScope,
                 initializeScanActions = scanActions::initialize,
             )
+            if (autoStartScan && !autoStartScanHandled) {
+                autoStartScanHandled = true
+                runScan()
+            }
         }
 
         fun selectSection(section: DiagnosticsSection) = selectionActions.selectSection(section)
+
+        val lastScanSummary: String?
+            get() =
+                uiState.value.scan.latestSession
+                    ?.toLastScanSummary()
 
         fun selectProfile(profileId: String) = selectionActions.selectProfile(profileId)
 
@@ -144,6 +158,8 @@ class DiagnosticsViewModel
 
         fun startInPathScan() = scanActions.startInPathScan()
 
+        fun runScan() = startInPathScan()
+
         fun waitForHiddenProbeAndRun() = scanActions.waitForHiddenProbeAndRun()
 
         fun cancelHiddenProbeAndRun() = scanActions.cancelHiddenProbeAndRun()
@@ -178,3 +194,9 @@ class DiagnosticsViewModel
             _pcapRecording.value = !_pcapRecording.value
         }
     }
+
+private fun DiagnosticsSessionRowUiModel.toLastScanSummary(): String =
+    listOf(
+        metrics.firstOrNull { it.label.contains("confidence", ignoreCase = true) }?.value ?: status,
+        startedAtLabel,
+    ).joinToString(" · ")

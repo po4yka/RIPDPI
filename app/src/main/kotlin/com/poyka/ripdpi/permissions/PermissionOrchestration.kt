@@ -60,6 +60,8 @@ data class PermissionSnapshot(
 sealed interface PermissionAction {
     data object StartConfiguredMode : PermissionAction
 
+    data object StartProxyMode : PermissionAction
+
     data object StartVpnMode : PermissionAction
 
     data object RunHomeAnalysis : PermissionAction
@@ -184,6 +186,10 @@ class PermissionCoordinator
                         buildStartRequirements(mode = configuredMode, snapshot = snapshot)
                     }
 
+                    PermissionAction.StartProxyMode -> {
+                        buildStartRequirements(mode = Mode.Proxy, snapshot = snapshot)
+                    }
+
                     PermissionAction.StartVpnMode -> {
                         buildStartRequirements(mode = Mode.VPN, snapshot = snapshot)
                     }
@@ -211,6 +217,7 @@ class PermissionCoordinator
             val recommended =
                 when (action) {
                     PermissionAction.StartConfiguredMode,
+                    PermissionAction.StartProxyMode,
                     PermissionAction.StartVpnMode,
                     -> buildRecommendationList(snapshot)
 

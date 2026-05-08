@@ -59,6 +59,29 @@ class RipDpiNavHostLogicTest {
     }
 
     @Test
+    fun `local bypass config route resolves without becoming a bottom tab`() {
+        assertEquals(Route.LocalBypassConfig, Route.fromStableRoute(Route.LocalBypassConfig.stableRoute))
+        assertTrue(Route.all.contains(Route.LocalBypassConfig))
+        assertFalse(Route.topLevel.contains(Route.LocalBypassConfig))
+    }
+
+    @Test
+    fun `vpn config route resolves without becoming a bottom tab`() {
+        assertEquals(Route.VpnConfig, Route.fromStableRoute(Route.VpnConfig.stableRoute))
+        assertTrue(Route.all.contains(Route.VpnConfig))
+        assertFalse(Route.topLevel.contains(Route.VpnConfig))
+    }
+
+    @Test
+    fun `diagnostics auto-start route keeps the stable bottom tab key`() {
+        val autoStartRoute = Route.Diagnostics(autoStartScan = true)
+
+        assertEquals("diagnostics", autoStartRoute.stableRoute)
+        assertEquals(Route.Diagnostics(), Route.fromStableRoute(autoStartRoute.stableRoute))
+        assertTrue(Route.topLevel.contains(Route.Diagnostics()))
+    }
+
+    @Test
     fun `logs route stays off the bottom navigation`() {
         assertTrue(Route.all.contains(Route.Logs))
         assertFalse(Route.topLevel.contains(Route.Logs))

@@ -3,11 +3,16 @@ package com.poyka.ripdpi.ui.screens.config
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -26,7 +31,6 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
@@ -45,6 +49,7 @@ fun ConfigRoute(
     onOpenModeEditor: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
     viewModel: ConfigViewModel = hiltViewModel(),
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
@@ -71,6 +76,7 @@ fun ConfigRoute(
             onOpenModeEditor()
         },
         onOpenDnsSettings = onOpenDnsSettings,
+        initialModeSection = initialModeSection,
     )
 }
 
@@ -83,12 +89,15 @@ fun ConfigScreen(
     onEditCurrent: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    initialModeSection: ConfigModeSection = ConfigModeSection.LocalBypass,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val selectedPreset = uiState.presets.firstOrNull { it.isSelected } ?: uiState.presets.last()
     val desyncSummary = uiState.draft.chainSummary
+    var selectedModeSectionKey by rememberSaveable { mutableStateOf(initialModeSection.stableKey) }
+    val selectedModeSection = ConfigModeSection.fromStableKey(selectedModeSectionKey)
 
     RipDpiContentScreenScaffold(
         modifier =
@@ -124,6 +133,11 @@ fun ConfigScreen(
                 color = colors.mutedForeground,
             )
 
+            ConfigModeSectionSwitcher(
+                selectedSection = selectedModeSection,
+                onSectionSelected = { section -> selectedModeSectionKey = section.stableKey },
+            )
+
             ConfigModeChips(
                 selectedMode = uiState.activeMode,
                 onModeSelected = onModeSelected,
@@ -142,6 +156,14 @@ fun ConfigScreen(
                 trailingIcon = RipDpiIcons.ChevronRight,
             )
         }
+
+        ConfigSelectedModeSection(
+            section = selectedModeSection,
+            uiState = uiState,
+            desyncSummary = desyncSummary,
+            onEditCurrent = onEditCurrent,
+            onOpenDnsSettings = onOpenDnsSettings,
+        )
 
         Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
             SettingsCategoryHeader(title = stringResource(R.string.config_presets_section))
@@ -163,64 +185,68 @@ fun ConfigScreen(
                 }
             }
         }
+    }
+}
 
-        Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-            SettingsCategoryHeader(title = stringResource(R.string.config_summary_section))
-            RipDpiCard {
-                SettingsRow(
-                    title = stringResource(R.string.mode_setting),
-                    subtitle = stringResource(R.string.config_mode_summary),
-                    value = stringResource(modeLabelRes(uiState.draft.mode)),
-                    showDivider = true,
+@Composable
+internal fun ConfigModeSectionSwitcher(
+    selectedSection: ConfigModeSection,
+    onSectionSelected: (ConfigModeSection) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        Text(
+            text = stringResource(R.string.config_mode_sections_title),
+            style = RipDpiThemeTokens.type.secondaryBody,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+        ) {
+            ConfigModeSection.entries.forEach { section ->
+                RipDpiChip(
+                    text = stringResource(configModeSectionTitleRes(section)),
+                    selected = selectedSection == section,
+                    onClick = { onSectionSelected(section) },
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configModeSection(section.stableKey)),
                 )
-                SettingsRow(
-                    title = stringResource(R.string.title_dns_settings),
-                    subtitle =
-                        stringResource(
-                            if (uiState.draft.mode == Mode.VPN) {
-                                R.string.config_dns_summary_enabled
-                            } else {
-                                R.string.config_dns_summary_disabled
-                            },
-                        ),
-                    value = uiState.draft.dnsSummary,
-                    onClick = onOpenDnsSettings,
-                    showDivider = true,
-                    testTag = RipDpiTestTags.ConfigDnsSettings,
-                )
-                SettingsRow(
-                    title = stringResource(R.string.bye_dpi_proxy_ip_setting),
-                    subtitle = stringResource(R.string.config_listen_address_summary),
-                    value =
-                        stringResource(
-                            R.string.proxy_address,
-                            uiState.draft.proxyIp,
-                            uiState.draft.proxyPort,
-                        ),
-                    monospaceValue = true,
-                    showDivider = true,
-                )
-                SettingsRow(
-                    title = stringResource(R.string.ripdpi_desync_method_setting),
-                    subtitle = stringResource(R.string.config_desync_method_summary),
-                    value = desyncSummary,
-                    showDivider = true,
-                )
-                SettingsRow(
-                    title = stringResource(R.string.config_relay_title),
-                    subtitle = stringResource(R.string.config_relay_body),
-                    value = uiState.draft.relaySummary,
-                    showDivider = uiState.draft.defaultTtl.isNotBlank(),
-                )
-                if (uiState.draft.defaultTtl.isNotBlank()) {
-                    SettingsRow(
-                        title = stringResource(R.string.ripdpi_default_ttl_setting),
-                        subtitle = stringResource(R.string.config_default_ttl_summary),
-                        value = uiState.draft.defaultTtl,
-                        monospaceValue = true,
-                    )
-                }
             }
+        }
+    }
+}
+
+@Composable
+private fun ConfigSelectedModeSection(
+    section: ConfigModeSection,
+    uiState: ConfigUiState,
+    desyncSummary: String,
+    onEditCurrent: () -> Unit,
+    onOpenDnsSettings: () -> Unit,
+) {
+    when (section) {
+        ConfigModeSection.LocalBypass -> {
+            LocalBypassConfigScreen(
+                uiState = uiState,
+                desyncSummary = desyncSummary,
+                onOpenDesyncSettings = onEditCurrent,
+                onOpenDnsSettings = onOpenDnsSettings,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassSummary),
+            )
+        }
+
+        ConfigModeSection.Vpn -> {
+            VpnConfigScreen(
+                uiState = uiState,
+                onOpenRelaySettings = onEditCurrent,
+                onOpenDnsSettings = onOpenDnsSettings,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSummary),
+            )
         }
     }
 }
@@ -272,6 +298,24 @@ internal fun modeLabelRes(mode: Mode): Int =
         Mode.Proxy -> R.string.home_mode_proxy
     }
 
+enum class ConfigModeSection(
+    val stableKey: String,
+) {
+    LocalBypass("local_bypass"),
+    Vpn("vpn"),
+    ;
+
+    companion object {
+        fun fromStableKey(key: String): ConfigModeSection = entries.firstOrNull { it.stableKey == key } ?: LocalBypass
+    }
+}
+
+private fun configModeSectionTitleRes(section: ConfigModeSection): Int =
+    when (section) {
+        ConfigModeSection.LocalBypass -> R.string.home_mode_local_dpi_bypass
+        ConfigModeSection.Vpn -> R.string.home_mode_remote_vpn
+    }
+
 @Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
@@ -288,6 +332,7 @@ private fun ConfigScreenPreview() {
             onPresetSelected = {},
             onEditCurrent = {},
             onOpenDnsSettings = {},
+            initialModeSection = ConfigModeSection.LocalBypass,
         )
     }
 }
@@ -317,6 +362,7 @@ private fun ConfigScreenDarkPreview() {
             onPresetSelected = {},
             onEditCurrent = {},
             onOpenDnsSettings = {},
+            initialModeSection = ConfigModeSection.Vpn,
         )
     }
 }

@@ -670,6 +670,110 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `local bypass toggle starts proxy mode independent of configured vpn mode`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val viewModel =
+                createViewModel(
+                    serviceController = serviceController,
+                    permissionStatusProvider =
+                        FakePermissionStatusProvider(
+                            snapshot =
+                                PermissionSnapshot(
+                                    vpnConsent = PermissionStatus.RequiresSystemPrompt,
+                                    notifications = PermissionStatus.Granted,
+                                    batteryOptimization = PermissionStatus.Granted,
+                                ),
+                        ),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.onToggleLocalBypass(enabled = true)
+            advanceUntilIdle()
+
+            assertEquals(Mode.VPN, viewModel.uiState.value.configuredMode)
+            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
+            collector.cancel()
+        }
+
+    @Test
+    fun `local bypass toggle stops active proxy session when disabled`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy)
+            val viewModel =
+                createViewModel(
+                    serviceStateStore = serviceStateStore,
+                    serviceController = serviceController,
+                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                    initialize = false,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.onToggleLocalBypass(enabled = false)
+            advanceUntilIdle()
+
+            assertEquals(1, serviceController.stopCount)
+            assertTrue(serviceController.startedModes.isEmpty())
+            collector.cancel()
+        }
+
+    @Test
+    fun `vpn toggle starts vpn mode independent of configured proxy mode`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val settingsRepository =
+                FakeAppSettingsRepository(
+                    initialSettings =
+                        AppSettings
+                            .newBuilder()
+                            .setOnboardingComplete(true)
+                            .setRipdpiMode("proxy")
+                            .build(),
+                )
+            val viewModel =
+                createViewModel(
+                    appSettingsRepository = settingsRepository,
+                    serviceController = serviceController,
+                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.onToggleVpn(enabled = true)
+            advanceUntilIdle()
+
+            assertEquals(Mode.Proxy, viewModel.uiState.value.configuredMode)
+            assertEquals(listOf(Mode.VPN), serviceController.startedModes)
+            collector.cancel()
+        }
+
+    @Test
+    fun `vpn toggle stops active vpn session when disabled`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+            val viewModel =
+                createViewModel(
+                    serviceStateStore = serviceStateStore,
+                    serviceController = serviceController,
+                    permissionStatusProvider = grantedPermissionStatusProvider(),
+                    initialize = false,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            advanceUntilIdle()
+
+            viewModel.onToggleVpn(enabled = false)
+            advanceUntilIdle()
+
+            assertEquals(1, serviceController.stopCount)
+            assertTrue(serviceController.startedModes.isEmpty())
+            collector.cancel()
+        }
+
+    @Test
     fun `home state exposes current approach summary`() =
         runTest {
             val settings =

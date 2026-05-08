@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -66,6 +67,88 @@ class DiagnosticsRouteTest {
         composeRule.waitForIdle()
 
         assertEquals(1, diagnosticsBootstrapper.initializeCalls)
+    }
+
+    @Test
+    fun `route auto-start argument starts in-path scan once`() {
+        val manager = FakeDiagnosticsManager()
+        var startCount = 0
+        var startedPathMode: ScanPathMode? = null
+        manager.scanController.onStartScan = { pathMode, _ ->
+            startCount += 1
+            startedPathMode = pathMode
+            DiagnosticsManualScanStartResult.Started("session-auto")
+        }
+        val viewModel =
+            createDiagnosticsViewModel(
+                appContext = RuntimeEnvironment.getApplication(),
+                diagnosticsManager = manager,
+                appSettingsRepository = FakeAppSettingsRepository(),
+                autoStartScan = true,
+                initialize = false,
+            )
+        val recomposeTrigger = mutableIntStateOf(0)
+
+        composeRule.setContent {
+            recomposeTrigger.intValue
+            RipDpiTheme {
+                DiagnosticsRoute(
+                    onShareArchive = { _, _ -> },
+                    onSaveArchive = { _, _ -> },
+                    onShareSummary = { _, _ -> },
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                    viewModel = viewModel,
+                )
+            }
+        }
+
+        composeRule.waitUntil(timeoutMillis = 5_000) { startCount == 1 }
+        composeRule.runOnUiThread {
+            recomposeTrigger.intValue += 1
+        }
+        composeRule.waitForIdle()
+
+        assertEquals(1, startCount)
+        assertEquals(ScanPathMode.IN_PATH, startedPathMode)
+    }
+
+    @Test
+    fun `dashboard run scan button is enabled and starts in-path scan`() {
+        val manager = FakeDiagnosticsManager()
+        var startedPathMode: ScanPathMode? = null
+        manager.scanController.onStartScan = { pathMode, _ ->
+            startedPathMode = pathMode
+            DiagnosticsManualScanStartResult.Started("session-dashboard")
+        }
+        val viewModel =
+            createDiagnosticsViewModel(
+                appContext = RuntimeEnvironment.getApplication(),
+                diagnosticsManager = manager,
+                appSettingsRepository = FakeAppSettingsRepository(),
+            )
+
+        composeRule.setContent {
+            RipDpiTheme {
+                DiagnosticsRoute(
+                    onShareArchive = { _, _ -> },
+                    onSaveArchive = { _, _ -> },
+                    onShareSummary = { _, _ -> },
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                    viewModel = viewModel,
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.DiagnosticsOverviewRunScanAction)
+            .assertIsDisplayed()
+            .assertIsEnabled()
+            .performClick()
+        composeRule.waitUntil(timeoutMillis = 5_000) { startedPathMode == ScanPathMode.IN_PATH }
+
+        assertEquals(ScanPathMode.IN_PATH, startedPathMode)
     }
 
     @Test

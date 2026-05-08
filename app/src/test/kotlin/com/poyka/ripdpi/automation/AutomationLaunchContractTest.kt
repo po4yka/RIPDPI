@@ -73,7 +73,7 @@ class AutomationLaunchContractTest {
                     mapOf(
                         AutomationLaunchContract.Enabled to "false",
                         AutomationLaunchContract.ResetState to "true",
-                        AutomationLaunchContract.StartRoute to Route.Diagnostics.stableRoute,
+                        AutomationLaunchContract.StartRoute to Route.Diagnostics().stableRoute,
                         AutomationLaunchContract.DisableMotion to "true",
                     ),
             )

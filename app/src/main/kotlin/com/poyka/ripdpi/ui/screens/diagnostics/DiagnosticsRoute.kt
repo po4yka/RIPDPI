@@ -154,6 +154,7 @@ fun DiagnosticsRoute(
         snackbarHostState = snackbarHostState,
         onSelectSection = viewModel::selectSection,
         onSelectProfile = viewModel::selectProfile,
+        onRunScan = viewModel::runScan,
         onRunRawScan = viewModel::startRawScan,
         onRunInPathScan = viewModel::startInPathScan,
         onWaitForHiddenProbeAndRun = viewModel::waitForHiddenProbeAndRun,

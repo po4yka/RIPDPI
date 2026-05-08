@@ -517,6 +517,22 @@ class MainViewModel
             }
         }
 
+        fun onToggleLocalBypass(enabled: Boolean) {
+            if (enabled) {
+                permissionActions.resolvePermissionAction(PermissionAction.StartProxyMode)
+            } else if (uiState.value.appStatus == AppStatus.Running && uiState.value.activeMode == Mode.Proxy) {
+                connectionActions.stop()
+            }
+        }
+
+        fun onToggleVpn(enabled: Boolean) {
+            if (enabled) {
+                permissionActions.resolvePermissionAction(PermissionAction.StartVpnMode)
+            } else if (uiState.value.appStatus == AppStatus.Running && uiState.value.activeMode == Mode.VPN) {
+                connectionActions.stop()
+            }
+        }
+
         fun onVpnPermissionContinueRequested() = permissionActions.onVpnPermissionContinueRequested()
 
         fun onOpenVpnPermissionRequested() = permissionActions.onOpenVpnPermissionRequested()

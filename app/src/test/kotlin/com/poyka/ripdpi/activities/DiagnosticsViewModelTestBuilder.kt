@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import android.content.Context
+import androidx.lifecycle.SavedStateHandle
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.Mode
@@ -32,6 +33,7 @@ internal fun createDiagnosticsViewModel(
     rememberedPolicySource: DiagnosticsRememberedPolicySource = EmptyRememberedNetworkPolicySource(),
     activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource = EmptyActiveConnectionPolicySource(),
     serviceStateStore: ServiceStateStore = DefaultServiceStateStore(),
+    autoStartScan: Boolean = false,
     initialize: Boolean = true,
 ): DiagnosticsViewModel =
     DiagnosticsUiFactorySupport(appContext).let { support ->
@@ -50,6 +52,10 @@ internal fun createDiagnosticsViewModel(
                 performanceFactory = DiagnosticsPerformanceUiStateFactory(),
             )
         DiagnosticsViewModel(
+            savedStateHandle =
+                SavedStateHandle(
+                    mapOf("auto_start_scan" to autoStartScan),
+                ),
             diagnosticsInteractionDependencies =
                 DiagnosticsInteractionDependencies(
                     diagnosticsTimelineSource = diagnosticsTimelineSource,
@@ -86,6 +92,7 @@ internal fun createDiagnosticsViewModel(
     rememberedPolicySource: DiagnosticsRememberedPolicySource = EmptyRememberedNetworkPolicySource(),
     activeConnectionPolicySource: DiagnosticsActiveConnectionPolicySource = EmptyActiveConnectionPolicySource(),
     serviceStateStore: ServiceStateStore = DefaultServiceStateStore(),
+    autoStartScan: Boolean = false,
     initialize: Boolean = true,
 ): DiagnosticsViewModel =
     createDiagnosticsViewModel(
@@ -100,6 +107,7 @@ internal fun createDiagnosticsViewModel(
         rememberedPolicySource = rememberedPolicySource,
         activeConnectionPolicySource = activeConnectionPolicySource,
         serviceStateStore = serviceStateStore,
+        autoStartScan = autoStartScan,
         initialize = initialize,
     )
 

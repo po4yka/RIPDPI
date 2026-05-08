@@ -103,6 +103,7 @@ fun DiagnosticsScreen(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     onSelectSection: (DiagnosticsSection) -> Unit,
     onSelectProfile: (String) -> Unit,
+    onRunScan: () -> Unit = {},
     onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
     onWaitForHiddenProbeAndRun: () -> Unit = {},
@@ -154,7 +155,7 @@ fun DiagnosticsScreen(
     RipDpiScreenScaffold(
         modifier =
             modifier
-                .ripDpiTestTag(RipDpiTestTags.screen(Route.Diagnostics))
+                .ripDpiTestTag(RipDpiTestTags.screen(Route.Diagnostics()))
                 .fillMaxSize()
                 .background(colors.background),
         snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
@@ -225,6 +226,7 @@ fun DiagnosticsScreen(
                                 live = uiState.live,
                                 isActiveScan = uiState.scan.activeProgress != null,
                                 onSelectSection = onSelectSection,
+                                onRunScan = onRunScan,
                                 onSelectSession = onSelectSession,
                                 onOpenHistory = onOpenHistory,
                             )
