@@ -4,7 +4,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::model::config::udp_flow_at_capacity as projected_udp_flow_at_capacity;
-use ripdpi_proxy_runtime_adapter::model::config::UdpGroupPacketSettings;
+use ripdpi_proxy_runtime_adapter::model::config::{UdpGroupPacketSettings, UdpGroupSocketSettings};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
@@ -16,6 +16,7 @@ pub(super) struct UdpFlowActivationState {
     pub(super) session: SessionState,
     pub(super) last_used: Instant,
     pub(super) route: ConnectionRoute,
+    pub(super) socket_settings: UdpGroupSocketSettings,
     pub(super) packet_settings: UdpGroupPacketSettings,
     pub(super) host: Option<String>,
     pub(super) payload: Vec<u8>,

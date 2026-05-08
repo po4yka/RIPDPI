@@ -1,6 +1,6 @@
 use std::io;
 
-use ripdpi_proxy_runtime_adapter::model::config::{should_rebind_udp_source_port, udp_group_socket_settings};
+use ripdpi_proxy_runtime_adapter::model::config::should_rebind_udp_source_port;
 
 use super::flow::UdpFlowActivationState;
 use super::sockets::build_udp_upstream_socket;
@@ -43,8 +43,7 @@ pub(super) fn maybe_rebind_udp_source_port(
     // application.  Packets already in flight on the old socket are
     // not replayed on the new socket; the QUIC stack in the client
     // application is responsible for retransmission.
-    let socket_settings = udp_group_socket_settings(&state.config, entry.route.group_index);
-    match build_udp_upstream_socket(entry.current_target, protect_path, socket_settings.bind_low_port) {
+    match build_udp_upstream_socket(entry.current_target, protect_path, entry.socket_settings.bind_low_port) {
         Ok(new_socket) => {
             entry.upstream = new_socket;
             entry.quic_migrated = true;
