@@ -411,9 +411,22 @@ pub mod config {
         }
     }
 
-    pub fn should_rebind_udp_source_port(
-        config: &RuntimeConfig,
-        group_index: usize,
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub struct UdpSourceRebindPolicy {
+        pub after_handshake: bool,
+    }
+
+    pub fn udp_source_rebind_policy(config: &RuntimeConfig, group_index: usize) -> UdpSourceRebindPolicy {
+        UdpSourceRebindPolicy {
+            after_handshake: config
+                .groups
+                .get(group_index)
+                .is_some_and(|group| group.actions.quic_migrate_after_handshake),
+        }
+    }
+
+    pub fn should_rebind_udp_source_port_with(
+        policy: UdpSourceRebindPolicy,
         quic_migrated: bool,
         round_count: u32,
         inbound_payload: &[u8],
@@ -421,7 +434,22 @@ pub mod config {
         !quic_migrated
             && inbound_payload.first().is_some_and(|first| first & 0x80 == 0)
             && round_count >= 2
-            && config.groups.get(group_index).is_some_and(|group| group.actions.quic_migrate_after_handshake)
+            && policy.after_handshake
+    }
+
+    pub fn should_rebind_udp_source_port(
+        config: &RuntimeConfig,
+        group_index: usize,
+        quic_migrated: bool,
+        round_count: u32,
+        inbound_payload: &[u8],
+    ) -> bool {
+        should_rebind_udp_source_port_with(
+            udp_source_rebind_policy(config, group_index),
+            quic_migrated,
+            round_count,
+            inbound_payload,
+        )
     }
 
     #[derive(Clone, Copy)]
@@ -695,6 +723,32 @@ pub mod config {
 
             assert!(udp_group_socket_settings(&config, 0).bind_low_port);
             assert!(!udp_group_socket_settings(&config, 1).bind_low_port);
+        }
+
+        #[test]
+        fn udp_source_rebind_policy_projects_quic_migration_policy() {
+            let mut group = DesyncGroup::new(0);
+            group.actions.quic_migrate_after_handshake = true;
+            let config = RuntimeConfig { groups: vec![group], ..Default::default() };
+
+            assert_eq!(udp_source_rebind_policy(&config, 0), UdpSourceRebindPolicy { after_handshake: true });
+            assert_eq!(udp_source_rebind_policy(&config, 1), UdpSourceRebindPolicy { after_handshake: false });
+        }
+
+        #[test]
+        fn udp_source_rebind_policy_waits_for_short_header_after_two_rounds() {
+            let policy = UdpSourceRebindPolicy { after_handshake: true };
+
+            assert!(!should_rebind_udp_source_port_with(policy, true, 2, &[0x40]));
+            assert!(!should_rebind_udp_source_port_with(policy, false, 1, &[0x40]));
+            assert!(!should_rebind_udp_source_port_with(policy, false, 2, &[0xc0]));
+            assert!(!should_rebind_udp_source_port_with(
+                UdpSourceRebindPolicy { after_handshake: false },
+                false,
+                2,
+                &[0x40],
+            ));
+            assert!(should_rebind_udp_source_port_with(policy, false, 2, &[0x40]));
         }
 
         #[test]

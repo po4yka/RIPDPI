@@ -6,7 +6,8 @@ use std::time::Instant;
 use ripdpi_proxy_runtime_adapter::model::{
     config::{
         route_matches_transport_payload_with, route_payload_matcher, udp_group_packet_settings,
-        udp_group_socket_settings, UdpGroupPacketSettings, UdpGroupSocketSettings,
+        udp_group_socket_settings, udp_source_rebind_policy, UdpGroupPacketSettings, UdpGroupSocketSettings,
+        UdpSourceRebindPolicy,
     },
     decision::{ConnectionRoute, TransportProtocol},
     session::new_session_state,
@@ -25,6 +26,7 @@ pub(super) struct UdpFlowSelection {
     pub(super) route: ConnectionRoute,
     pub(super) socket_settings: UdpGroupSocketSettings,
     pub(super) packet_settings: UdpGroupPacketSettings,
+    pub(super) source_rebind_policy: UdpSourceRebindPolicy,
     pub(super) upstream: UdpSocket,
 }
 
@@ -34,6 +36,7 @@ pub(super) struct UdpFlowSelectionWithCandidates {
     pub(super) route: ConnectionRoute,
     pub(super) socket_settings: UdpGroupSocketSettings,
     pub(super) packet_settings: UdpGroupPacketSettings,
+    pub(super) source_rebind_policy: UdpSourceRebindPolicy,
     pub(super) upstream: UdpSocket,
     pub(super) target_candidates: Vec<SocketAddr>,
 }
@@ -92,10 +95,19 @@ pub(super) fn select_udp_flow_target(
         }
         let socket_settings = udp_group_socket_settings(&state.config, route.group_index);
         let packet_settings = udp_group_packet_settings(&state.config, route.group_index);
+        let source_rebind_policy = udp_source_rebind_policy(&state.config, route.group_index);
         let Ok(upstream) = build_udp_upstream_socket(target, protect_path, socket_settings.bind_low_port) else {
             continue;
         };
-        return Ok(Some(UdpFlowSelection { target, target_index, route, socket_settings, packet_settings, upstream }));
+        return Ok(Some(UdpFlowSelection {
+            target,
+            target_index,
+            route,
+            socket_settings,
+            packet_settings,
+            source_rebind_policy,
+            upstream,
+        }));
     }
     Ok(None)
 }
@@ -119,6 +131,7 @@ pub(super) fn reselect_udp_flow_target(
         route: selection.route,
         socket_settings: selection.socket_settings,
         packet_settings: selection.packet_settings,
+        source_rebind_policy: selection.source_rebind_policy,
         upstream: selection.upstream,
         target_candidates,
     }))
@@ -157,6 +170,7 @@ pub(super) fn try_advance_udp_preferred_target(
         entry.route = selection.route;
         entry.socket_settings = selection.socket_settings;
         entry.packet_settings = selection.packet_settings;
+        entry.source_rebind_policy = selection.source_rebind_policy;
         entry.upstream = selection.upstream;
         entry.current_target = selection.target;
         entry.target_index = selection.target_index;
@@ -196,6 +210,7 @@ fn build_initial_udp_flow_entry(
         route: selection.route,
         socket_settings: selection.socket_settings,
         packet_settings: selection.packet_settings,
+        source_rebind_policy: selection.source_rebind_policy,
         host: packet.host.clone(),
         payload: Vec::new(),
         awaiting_response: true,
@@ -242,6 +257,7 @@ fn update_udp_flow_selection(
         entry.route = selection.route;
         entry.socket_settings = selection.socket_settings;
         entry.packet_settings = selection.packet_settings;
+        entry.source_rebind_policy = selection.source_rebind_policy;
         entry.upstream = selection.upstream;
         entry.current_target = selection.target;
         entry.target_candidates = selection.target_candidates;

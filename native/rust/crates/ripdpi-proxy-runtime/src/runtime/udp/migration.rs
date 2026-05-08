@@ -1,6 +1,6 @@
 use std::io;
 
-use ripdpi_proxy_runtime_adapter::model::config::should_rebind_udp_source_port;
+use ripdpi_proxy_runtime_adapter::model::config::should_rebind_udp_source_port_with;
 
 use super::flow::UdpFlowActivationState;
 use super::sockets::build_udp_upstream_socket;
@@ -12,9 +12,8 @@ pub(super) fn maybe_rebind_udp_source_port(
     inbound_payload: &[u8],
     protect_path: Option<&str>,
 ) -> io::Result<()> {
-    if !should_rebind_udp_source_port(
-        &state.config,
-        entry.route.group_index,
+    if !should_rebind_udp_source_port_with(
+        entry.source_rebind_policy,
         entry.quic_migrated,
         entry.session.round_count,
         inbound_payload,
@@ -74,16 +73,15 @@ pub(super) fn maybe_rebind_udp_source_port(
 
 #[cfg(test)]
 mod tests {
-    use ripdpi_proxy_runtime_adapter::model::config::{should_rebind_udp_source_port, RuntimeConfig};
+    use ripdpi_proxy_runtime_adapter::model::config::{should_rebind_udp_source_port_with, UdpSourceRebindPolicy};
 
     #[test]
     fn udp_source_rebind_waits_for_short_header_after_two_rounds() {
-        let mut config = RuntimeConfig::default();
-        config.groups[0].actions.quic_migrate_after_handshake = true;
+        let policy = UdpSourceRebindPolicy { after_handshake: true };
 
-        assert!(!should_rebind_udp_source_port(&config, 0, true, 2, &[0x40]));
-        assert!(!should_rebind_udp_source_port(&config, 0, false, 1, &[0x40]));
-        assert!(!should_rebind_udp_source_port(&config, 0, false, 2, &[0xc0]));
-        assert!(should_rebind_udp_source_port(&config, 0, false, 2, &[0x40]));
+        assert!(!should_rebind_udp_source_port_with(policy, true, 2, &[0x40]));
+        assert!(!should_rebind_udp_source_port_with(policy, false, 1, &[0x40]));
+        assert!(!should_rebind_udp_source_port_with(policy, false, 2, &[0xc0]));
+        assert!(should_rebind_udp_source_port_with(policy, false, 2, &[0x40]));
     }
 }
