@@ -1,6 +1,5 @@
 use std::io;
 
-use ripdpi_proxy_runtime_adapter::model::config::DETECT_CONNECT;
 use ripdpi_proxy_runtime_adapter::model::decision::{RouteAdvance, TransportProtocol};
 
 use super::flow::UdpFlowActivationState;
@@ -51,10 +50,7 @@ pub(super) fn note_udp_first_response_success(
 }
 
 pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlowActivationState) -> io::Result<()> {
-    if let Some(failure) = ripdpi_proxy_runtime_adapter::failure::classify_quic_probe(
-        "quic_timeout",
-        Some("UDP flow expired before first response"),
-    ) {
+    if let Some(failure) = RuntimeState::udp_flow_timeout_failure() {
         note_block_signal_for_failure(state, entry.host.as_deref(), &failure, None);
     }
     let failed_target = entry.current_target;
@@ -68,7 +64,7 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
     )?;
     let _ = note_direct_path_udp_failure(state, entry.host.as_deref(), &entry.target_candidates);
     note_adaptive_udp_failure(state, failed_target, entry.route.group_index, entry.host.as_deref(), &entry.payload)?;
-    note_evolver_failure(state, ripdpi_proxy_runtime_adapter::failure::FailureClass::SilentDrop);
+    note_evolver_failure(state, RuntimeState::silent_drop_failure_class());
     let retry_penalties = build_retry_selection_penalties(
         state,
         failed_target,
@@ -82,7 +78,7 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
             dest: failed_target,
             payload: Some(entry.payload.as_slice()),
             transport: TransportProtocol::Udp,
-            trigger: DETECT_CONNECT,
+            trigger: RuntimeState::connect_failure_trigger(),
             can_reconnect: true,
             host: entry.host.clone(),
             penalize_strategy_failure: false,
@@ -97,7 +93,7 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
             failed_target,
             entry.route.group_index,
             next.group_index,
-            DETECT_CONNECT,
+            RuntimeState::connect_failure_trigger(),
             entry.host.as_deref(),
         );
     } else {

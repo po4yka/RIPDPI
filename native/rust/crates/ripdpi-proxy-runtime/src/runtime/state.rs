@@ -25,7 +25,7 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     ProxyProtocolMode, RelayGroupSettings, RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RotationPolicy,
     RoutePayloadMatcher, RuntimeConfig, ShadowsocksTargetPolicy, TcpRouteConnectSettingsTable, TcpRouteRetrySettings,
     TcpRouteSynDataSettings, UdpGroupPacketSettings, UdpGroupSettingsTable, UdpGroupSocketSettings,
-    UdpSourceRebindPolicy, WarmupProbeSettings, WsTunnelSettings,
+    UdpSourceRebindPolicy, WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
@@ -599,6 +599,21 @@ impl RuntimeState {
 
     pub(super) fn failure_penalizes_strategy(failure: &ClassifiedFailure) -> bool {
         failure_penalizes_strategy(failure)
+    }
+
+    pub(super) fn udp_flow_timeout_failure() -> Option<ClassifiedFailure> {
+        ripdpi_proxy_runtime_adapter::failure::classify_quic_probe(
+            "quic_timeout",
+            Some("UDP flow expired before first response"),
+        )
+    }
+
+    pub(super) fn silent_drop_failure_class() -> FailureClass {
+        FailureClass::SilentDrop
+    }
+
+    pub(super) fn connect_failure_trigger() -> u32 {
+        DETECT_CONNECT
     }
 
     pub(super) fn should_track_strategy_target(target: SocketAddr) -> bool {
