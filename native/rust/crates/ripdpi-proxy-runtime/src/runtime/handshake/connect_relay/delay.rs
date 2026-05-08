@@ -25,7 +25,7 @@ pub(super) fn maybe_delay_connect(
     host_hint: Option<&str>,
     handshake: HandshakeKind,
 ) -> Result<DelayConnect, ConnectRelayError> {
-    let settings = state.delayed_connect_settings;
+    let settings = state.delayed_connect_settings();
     if !settings.enabled {
         return Ok(DelayConnect::Immediate);
     }

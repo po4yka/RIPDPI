@@ -31,7 +31,7 @@ use super::state::{RuntimeState, HANDSHAKE_TIMEOUT};
 pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
     let _ = client.set_write_timeout(Some(HANDSHAKE_TIMEOUT));
-    let settings = &state.handshake_settings;
+    let settings = state.handshake_settings();
     match settings.protocol_mode {
         ProxyProtocolMode::Transparent => handle_transparent(client, state),
         ProxyProtocolMode::HttpConnect => handle_http_connect(client, state),
@@ -163,7 +163,7 @@ fn handle_socks5(
 
 fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let request = read_http_connect_request(&mut client)?;
-    let settings = &state.handshake_settings;
+    let settings = state.handshake_settings();
     if let Some(token) = settings.auth_token.as_deref() {
         if !protocol_io::validate_http_proxy_auth(&request, token) {
             let reply = b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"ripdpi\"\r\nContent-Length: 0\r\n\r\n";

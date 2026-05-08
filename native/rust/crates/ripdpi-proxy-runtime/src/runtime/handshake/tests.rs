@@ -136,7 +136,7 @@ fn domain_protocols_resolve_through_encrypted_dns_runtime_context() {
     let runtime_context = fixture_runtime_context(stack.manifest().dns_http_port);
     let state = runtime_state_with_context(RuntimeConfig::default(), Some(runtime_context));
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, &state);
-    let session = state.handshake_settings.session_config;
+    let session = state.handshake_settings().session_config;
     let expected_ip = stack.manifest().dns_answer_ipv4.parse::<IpAddr>().expect("fixture ip");
 
     let socks4_request = [
@@ -170,7 +170,7 @@ fn domain_protocols_resolve_through_encrypted_dns_runtime_context() {
     assert_eq!(http_target.addr.ip(), expected_ip);
 
     let shadowsocks_request = [0x03, 12, b'f', b'i', b'x', b't', b'u', b'r', b'e', b'.', b't', b'e', b's', b't', 0, 80];
-    let policy = state.handshake_settings.shadowsocks_target_policy;
+    let policy = state.handshake_settings().shadowsocks_target_policy;
     let (shadowsocks_target, header_len) =
         parse_shadowsocks_target(&shadowsocks_request, policy, resolver).expect("parse shadowsocks target");
     assert_eq!(shadowsocks_target.ip(), expected_ip);

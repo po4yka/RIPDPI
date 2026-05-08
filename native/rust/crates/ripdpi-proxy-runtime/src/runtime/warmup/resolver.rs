@@ -7,7 +7,7 @@ use crate::runtime::state::RuntimeState;
 pub(crate) fn resolve_probe_target(state: &RuntimeState, domain: &str) -> io::Result<SocketAddr> {
     use ripdpi_proxy_runtime_adapter::ws_bootstrap::resolve_host_via_encrypted_dns;
 
-    let settings = state.warmup_probe_settings.clone();
+    let settings = state.warmup_probe_settings();
     // Try encrypted DNS first (respects protect_path for VPN bypass).
     if let Ok(mut addr) = resolve_host_via_encrypted_dns(
         domain,

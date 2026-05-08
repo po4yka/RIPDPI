@@ -14,14 +14,15 @@ pub(super) use ripdpi_proxy_runtime_adapter::ws_bootstrap::{detect_telegram_dc, 
 
 /// Check if WS tunnel should be tried first (Always mode).
 pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
-    let dc = should_tunnel_first_with(target, &state.ws_tunnel_settings)?;
+    let settings = state.ws_tunnel_settings();
+    let dc = should_tunnel_first_with(target, settings)?;
     tracing::info!("WS tunnel: sniffing MTProto for known Telegram target {target} (DC{})", dc.number());
     Some(dc)
 }
 
 /// Check if WS tunnel should be tried as a last resort (Fallback mode).
 pub(super) fn should_ws_tunnel_fallback(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
-    should_tunnel_fallback_with(target, &state.ws_tunnel_settings)
+    should_tunnel_fallback_with(target, state.ws_tunnel_settings())
 }
 
 /// Result of a WS tunnel attempt.
@@ -115,7 +116,7 @@ where
             let resolved_addr = match resolve_addr(
                 dc,
                 state.runtime_context.as_ref(),
-                state.ws_tunnel_settings.protect_path.as_deref(),
+                state.ws_tunnel_settings().protect_path.as_deref(),
             ) {
                 Ok(addr) => addr,
                 Err(error) => {
@@ -127,7 +128,7 @@ where
                     return WsTunnelResult::BootstrapFailed { dc, seed_request, error };
                 }
             };
-            let config = ws_tunnel_config_with(&state.ws_tunnel_settings, Some(resolved_addr));
+            let config = ws_tunnel_config_with(state.ws_tunnel_settings(), Some(resolved_addr));
             match relay_ws(client, dc, seed_request.clone(), &config) {
                 Ok(()) => WsTunnelResult::ValidatedMtproto { dc },
                 Err(error) => {

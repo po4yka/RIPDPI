@@ -63,12 +63,12 @@ impl DirectPathLearningObserver for RuntimeTelemetryDirectPathObserver<'_> {
 
 #[derive(Clone)]
 pub(super) struct RuntimeState {
-    pub(super) listener_settings: ListenerSettings,
-    pub(super) handshake_settings: ProxyHandshakeSettings,
-    pub(super) delayed_connect_settings: DelayedConnectSettings,
-    pub(super) network_reprobe_settings: NetworkReprobeSettings,
-    pub(super) ws_tunnel_settings: WsTunnelSettings,
-    pub(super) warmup_probe_settings: WarmupProbeSettings,
+    listener_settings: ListenerSettings,
+    handshake_settings: ProxyHandshakeSettings,
+    delayed_connect_settings: DelayedConnectSettings,
+    network_reprobe_settings: NetworkReprobeSettings,
+    ws_tunnel_settings: WsTunnelSettings,
+    warmup_probe_settings: WarmupProbeSettings,
     route_retry_settings: TcpRouteRetrySettings,
     route_syn_data_settings: TcpRouteSynDataSettings,
     route_connect_settings: TcpRouteConnectSettingsTable,
@@ -193,6 +193,30 @@ impl RuntimeState {
         } else {
             self.drain_autolearn_events();
         }
+    }
+
+    pub(super) fn listener_settings(&self) -> ListenerSettings {
+        self.listener_settings
+    }
+
+    pub(super) fn handshake_settings(&self) -> &ProxyHandshakeSettings {
+        &self.handshake_settings
+    }
+
+    pub(super) fn delayed_connect_settings(&self) -> DelayedConnectSettings {
+        self.delayed_connect_settings
+    }
+
+    pub(super) fn network_reprobe_settings(&self) -> NetworkReprobeSettings {
+        self.network_reprobe_settings.clone()
+    }
+
+    pub(super) fn ws_tunnel_settings(&self) -> &WsTunnelSettings {
+        &self.ws_tunnel_settings
+    }
+
+    pub(super) fn warmup_probe_settings(&self) -> WarmupProbeSettings {
+        self.warmup_probe_settings.clone()
     }
 
     pub(super) fn note_retry_success(

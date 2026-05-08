@@ -12,18 +12,19 @@ pub(in crate::runtime) fn resolve_name(
     if let Ok(ip) = host.parse::<IpAddr>() {
         return Some(SocketAddr::new(ip, 0));
     }
-    let ipv6_enabled = state.handshake_settings.session_config.ipv6;
+    let handshake_settings = state.handshake_settings();
+    let ipv6_enabled = handshake_settings.session_config.ipv6;
     if let Some(loopback) = resolve_localhost(host, ipv6_enabled) {
         return Some(loopback);
     }
-    if !state.handshake_settings.session_config.resolve {
+    if !handshake_settings.session_config.resolve {
         return None;
     }
 
     ripdpi_proxy_runtime_adapter::ws_bootstrap::resolve_host_via_encrypted_dns(
         host,
         state.runtime_context.as_ref(),
-        state.handshake_settings.protect_path.as_deref(),
+        handshake_settings.protect_path.as_deref(),
         ipv6_enabled,
     )
     .ok()

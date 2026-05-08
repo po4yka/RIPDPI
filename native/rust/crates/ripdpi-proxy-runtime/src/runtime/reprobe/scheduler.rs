@@ -20,7 +20,7 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
     let Some(control) = &state.control else {
         return;
     };
-    let settings = state.network_reprobe_settings.clone();
+    let settings = state.network_reprobe_settings();
     if !settings.enabled {
         return;
     }
