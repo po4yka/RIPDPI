@@ -1,10 +1,10 @@
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::model::config::{protect_path, ws_tunnel_config};
+use ripdpi_proxy_runtime_adapter::model::config::ws_tunnel_config_with;
 use ripdpi_proxy_runtime_adapter::model::proxy_config::ProxyRuntimeContext;
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
-    self as ws_bootstrap, should_tunnel_fallback, should_tunnel_first, MtprotoSeedClassification, TelegramDc,
+    self as ws_bootstrap, should_tunnel_fallback_with, should_tunnel_first_with, MtprotoSeedClassification, TelegramDc,
     WsTunnelConfig,
 };
 
@@ -14,14 +14,14 @@ pub(super) use ripdpi_proxy_runtime_adapter::ws_bootstrap::{detect_telegram_dc, 
 
 /// Check if WS tunnel should be tried first (Always mode).
 pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
-    let dc = should_tunnel_first(target, &state.config)?;
+    let dc = should_tunnel_first_with(target, &state.ws_tunnel_settings)?;
     tracing::info!("WS tunnel: sniffing MTProto for known Telegram target {target} (DC{})", dc.number());
     Some(dc)
 }
 
 /// Check if WS tunnel should be tried as a last resort (Fallback mode).
 pub(super) fn should_ws_tunnel_fallback(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
-    should_tunnel_fallback(target, &state.config)
+    should_tunnel_fallback_with(target, &state.ws_tunnel_settings)
 }
 
 /// Result of a WS tunnel attempt.
@@ -112,7 +112,11 @@ where
             WsTunnelResult::UnmappableDc { raw_dc, dc, seed_request }
         }
         MtprotoSeedClassification::ValidatedMtproto { dc } => {
-            let resolved_addr = match resolve_addr(dc, state.runtime_context.as_ref(), protect_path(&state.config)) {
+            let resolved_addr = match resolve_addr(
+                dc,
+                state.runtime_context.as_ref(),
+                state.ws_tunnel_settings.protect_path.as_deref(),
+            ) {
                 Ok(addr) => addr,
                 Err(error) => {
                     tracing::warn!(
@@ -123,7 +127,7 @@ where
                     return WsTunnelResult::BootstrapFailed { dc, seed_request, error };
                 }
             };
-            let config = ws_tunnel_config(&state.config, Some(resolved_addr));
+            let config = ws_tunnel_config_with(&state.ws_tunnel_settings, Some(resolved_addr));
             match relay_ws(client, dc, seed_request.clone(), &config) {
                 Ok(()) => WsTunnelResult::ValidatedMtproto { dc },
                 Err(error) => {
@@ -175,7 +179,6 @@ mod tests {
     use super::*;
 
     use crate::runtime::state::RuntimeState;
-    use crate::sync::Arc;
     use aes::cipher::{KeyIvInit, StreamCipher};
     use aes::Aes256;
     use std::net::{Ipv4Addr, TcpListener};
@@ -194,6 +197,10 @@ mod tests {
 
     fn runtime_state() -> RuntimeState {
         RuntimeState::test(ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default())
+    }
+
+    fn runtime_state_with_config(config: ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig) -> RuntimeState {
+        RuntimeState::test(config)
     }
 
     fn build_test_init_packet(raw_dc: i32) -> Vec<u8> {
@@ -233,18 +240,16 @@ mod tests {
         let target = SocketAddr::from((Ipv4Addr::new(149, 154, 167, 91), 443));
         let non_telegram_target = SocketAddr::from((Ipv4Addr::new(203, 0, 113, 10), 443));
 
-        let mut always = runtime_state();
-        let mut cfg = (*always.config).clone();
+        let mut cfg = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
         cfg.adaptive.ws_tunnel_mode = ripdpi_proxy_runtime_adapter::model::config::WsTunnelMode::Always;
-        always.config = Arc::new(cfg);
+        let always = runtime_state_with_config(cfg);
         assert_eq!(should_ws_tunnel_first(target, &always), Some(TelegramDc::production(2)));
         assert_eq!(should_ws_tunnel_first(non_telegram_target, &always), None);
         assert_eq!(should_ws_tunnel_fallback(target, &always), None);
 
-        let mut fallback = runtime_state();
-        let mut cfg = (*fallback.config).clone();
+        let mut cfg = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
         cfg.adaptive.ws_tunnel_mode = ripdpi_proxy_runtime_adapter::model::config::WsTunnelMode::Fallback;
-        fallback.config = Arc::new(cfg);
+        let fallback = runtime_state_with_config(cfg);
         assert_eq!(should_ws_tunnel_fallback(target, &fallback), Some(TelegramDc::production(2)));
         assert_eq!(should_ws_tunnel_fallback(non_telegram_target, &fallback), None);
         assert_eq!(should_ws_tunnel_first(target, &fallback), None);
@@ -294,10 +299,9 @@ mod tests {
     #[test]
     fn run_ws_tunnel_with_seed_validates_and_relays_test_dc() {
         let (_app, relay_client) = connected_pair();
-        let mut state = runtime_state();
-        let mut cfg = (*state.config).clone();
+        let mut cfg = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
         cfg.timeouts.connect_timeout_ms = 1_500;
-        state.config = Arc::new(cfg);
+        let state = runtime_state_with_config(cfg);
         let seed_request = build_test_init_packet(10_002);
         let resolved_addr = SocketAddr::from((Ipv4Addr::LOCALHOST, 443));
 
