@@ -10,7 +10,7 @@ pub(in crate::runtime) fn note_adaptive_tcp_success(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<()> {
-    state.adaptive_feedback().note_tcp_success(group_index, target, host, payload)
+    state.note_adaptive_tcp_success(target, group_index, host, payload)
 }
 
 pub(in crate::runtime) fn note_adaptive_tcp_failure(
@@ -20,7 +20,7 @@ pub(in crate::runtime) fn note_adaptive_tcp_failure(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<()> {
-    state.adaptive_feedback().note_tcp_failure(group_index, target, host, payload)
+    state.note_adaptive_tcp_failure(target, group_index, host, payload)
 }
 
 pub(in crate::runtime) fn note_adaptive_udp_success(
@@ -30,7 +30,7 @@ pub(in crate::runtime) fn note_adaptive_udp_success(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<()> {
-    state.adaptive_feedback().note_udp_success(group_index, target, host, payload)
+    state.note_adaptive_udp_success(target, group_index, host, payload)
 }
 
 pub(in crate::runtime) fn note_adaptive_udp_failure(
@@ -40,5 +40,5 @@ pub(in crate::runtime) fn note_adaptive_udp_failure(
     host: Option<&str>,
     payload: &[u8],
 ) -> io::Result<()> {
-    state.adaptive_feedback().note_udp_failure(group_index, target, host, payload)
+    state.note_adaptive_udp_failure(target, group_index, host, payload)
 }

@@ -9,7 +9,7 @@ pub(in crate::runtime) fn note_adaptive_fake_ttl_success(
     group_index: usize,
     host: Option<&str>,
 ) -> io::Result<()> {
-    state.adaptive_feedback().note_fake_ttl_success(group_index, target, host)
+    state.note_adaptive_fake_ttl_success(target, group_index, host)
 }
 
 pub(in crate::runtime) fn note_adaptive_fake_ttl_failure(
@@ -18,7 +18,7 @@ pub(in crate::runtime) fn note_adaptive_fake_ttl_failure(
     group_index: usize,
     host: Option<&str>,
 ) -> io::Result<()> {
-    state.adaptive_feedback().note_fake_ttl_failure(group_index, target, host)
+    state.note_adaptive_fake_ttl_failure(target, group_index, host)
 }
 
 pub(in crate::runtime) fn note_server_ttl_for_route(
@@ -28,5 +28,5 @@ pub(in crate::runtime) fn note_server_ttl_for_route(
     host: Option<&str>,
     observed_ttl: u8,
 ) -> io::Result<()> {
-    state.adaptive_feedback().note_server_ttl(group_index, target, host, observed_ttl)
+    state.note_server_ttl(target, group_index, host, observed_ttl)
 }
