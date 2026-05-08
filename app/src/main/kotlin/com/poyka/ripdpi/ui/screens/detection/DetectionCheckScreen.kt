@@ -33,6 +33,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,16 +85,16 @@ internal fun DetectionCheckRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     DetectionPermissionHandler(
         uiState = uiState,
-        onPermissionsResult = viewModel::onPermissionsResult,
+        onPermissionsResult = remember(viewModel) { viewModel::onPermissionsResult },
     ) { onRequestPermissions ->
         DetectionCheckScreen(
             uiState = uiState,
-            onStart = viewModel::startCheck,
-            onStop = viewModel::stopCheck,
+            onStart = remember(viewModel) { viewModel::startCheck },
+            onStop = remember(viewModel) { viewModel::stopCheck },
             onBack = onBack,
-            onDismissOnboarding = viewModel::dismissOnboarding,
-            onApplyFixes = viewModel::applyAllFixes,
-            onReloadCommunityStats = viewModel::reloadCommunityStats,
+            onDismissOnboarding = remember(viewModel) { viewModel::dismissOnboarding },
+            onApplyFixes = remember(viewModel) { viewModel::applyAllFixes },
+            onReloadCommunityStats = remember(viewModel) { viewModel::reloadCommunityStats },
             onRequestPermissions = onRequestPermissions,
         )
     }
