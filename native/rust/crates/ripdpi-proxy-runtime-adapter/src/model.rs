@@ -1415,6 +1415,11 @@ pub mod session {
         session.recv_count
     }
 
+    pub fn observe_first_response_payload(session: &mut SessionState, payload: &[u8]) -> bool {
+        observe_inbound_payload(session, payload);
+        inbound_payload_count(session) > 0
+    }
+
     pub fn outbound_payload_count_this_round(session: &SessionState) -> usize {
         session.sent_this_round
     }
