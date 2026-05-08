@@ -100,6 +100,7 @@ fun RipDpiNavHost(
     val selectedTopLevel =
         currentDestination?.let { destination ->
             Route.topLevel.firstOrNull { destination.matchesRoute(it) }
+                ?: if (currentStableRoute in configSubRouteStableKeys) Route.Config else null
         }
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
@@ -483,6 +484,12 @@ internal fun NavDestination.stableRouteKey(): String? =
     stableRouteMatchers.firstOrNull { (_, matches) -> matches() }?.first
 
 internal fun NavDestination.matchesRoute(route: Route): Boolean = stableRouteKey() == route.stableRoute
+
+private val configSubRouteStableKeys =
+    setOf(
+        Route.LocalBypassConfig.stableRoute,
+        Route.VpnConfig.stableRoute,
+    )
 
 private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>> =
     listOf(
