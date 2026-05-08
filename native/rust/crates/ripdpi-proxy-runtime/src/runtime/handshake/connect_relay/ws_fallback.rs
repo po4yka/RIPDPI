@@ -100,7 +100,7 @@ fn handle_ws_fallback_result(target: SocketAddr, state: &RuntimeState, result: W
 }
 
 fn record_ws_tunnel_failure(target: SocketAddr, state: &RuntimeState) {
-    if let Some(dc) = super::super::ws_tunnel::detect_telegram_dc(target) {
+    if let Some(dc) = RuntimeState::detect_telegram_dc(target) {
         state.note_ws_tunnel_escalation(target, dc, false);
     }
 }

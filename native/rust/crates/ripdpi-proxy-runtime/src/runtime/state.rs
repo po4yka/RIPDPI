@@ -70,8 +70,9 @@ use ripdpi_proxy_runtime_adapter::udp_desync::{
     UdpDesyncPlanContext, UdpDesyncPlanRequest, UdpDesyncPlanner,
 };
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
-    encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr,
-    should_tunnel_fallback_with, should_tunnel_first_with, EncryptedDnsIpAnswers, TelegramDc, WsTunnelConfig,
+    detect_telegram_dc, encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr,
+    should_tunnel_fallback_with, should_tunnel_first_with, telegram_dc_host, EncryptedDnsIpAnswers, TelegramDc,
+    WsTunnelConfig,
 };
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -1105,6 +1106,20 @@ impl RuntimeState {
         if let Some(telemetry) = &self.telemetry {
             telemetry.on_telegram_dc_detected(target, dc);
         }
+    }
+
+    pub(super) fn detect_telegram_dc(target: SocketAddr) -> Option<u8> {
+        detect_telegram_dc(target)
+    }
+
+    pub(super) fn telegram_dc_host(dc: u8) -> String {
+        telegram_dc_host(dc)
+    }
+
+    pub(super) fn telegram_dc_host_hint(&self, target: SocketAddr) -> Option<String> {
+        let dc = Self::detect_telegram_dc(target)?;
+        self.note_telegram_dc_detected(target, dc);
+        Some(Self::telegram_dc_host(dc))
     }
 
     pub(super) fn note_ws_tunnel_escalation(&self, target: SocketAddr, dc: u8, success: bool) {

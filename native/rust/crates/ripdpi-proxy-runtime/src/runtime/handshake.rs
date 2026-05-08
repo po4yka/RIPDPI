@@ -21,7 +21,6 @@ use connect_relay::{connect_and_relay, ConnectRelayError, SuccessReply};
 use protocol_io::{
     negotiate_socks5, read_http_connect_request, read_shadowsocks_request, read_socks4_request, read_socks5_request,
 };
-use ws_tunnel::{detect_telegram_dc, telegram_dc_host};
 
 pub(super) use protocol_io::resolve_name;
 
@@ -59,10 +58,7 @@ fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result
         ));
     }
 
-    let dc_host = detect_telegram_dc(target).map(|dc| {
-        state.note_telegram_dc_detected(target, dc);
-        telegram_dc_host(dc)
-    });
+    let dc_host = state.telegram_dc_host_hint(target);
 
     match connect_and_relay(&mut client, target, state, dc_host, SuccessReply::None) {
         Ok(()) => Ok(()),
@@ -81,10 +77,7 @@ fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
     let parsed = RuntimeState::parse_socks4_request(&request, state.proxy_session_config(), resolver);
     match parsed {
         Ok(ClientRequest::Socks4Connect(target)) => {
-            let dc_host = detect_telegram_dc(target.addr).map(|dc| {
-                state.note_telegram_dc_detected(target.addr, dc);
-                telegram_dc_host(dc)
-            });
+            let dc_host = state.telegram_dc_host_hint(target.addr);
             let host_hint = target.host.or(dc_host);
             match connect_and_relay(&mut client, target.addr, state, host_hint, SuccessReply::Socks4) {
                 Ok(()) => Ok(()),
@@ -112,10 +105,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
 
     match RuntimeState::parse_socks5_request(&request, SocketType::Stream, state.proxy_session_config(), resolver) {
         Ok(ClientRequest::Socks5Connect(target)) => {
-            let dc_host = detect_telegram_dc(target.addr).map(|dc| {
-                state.note_telegram_dc_detected(target.addr, dc);
-                telegram_dc_host(dc)
-            });
+            let dc_host = state.telegram_dc_host_hint(target.addr);
             let host_hint = target.host.or(dc_host);
             match connect_and_relay(&mut client, target.addr, state, host_hint, SuccessReply::Socks5) {
                 Ok(()) => Ok(()),
@@ -155,10 +145,7 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
     match RuntimeState::parse_http_connect_request(&request, resolver) {
         Ok(ClientRequest::HttpConnect(target)) => {
-            let dc_host = detect_telegram_dc(target.addr).map(|dc| {
-                state.note_telegram_dc_detected(target.addr, dc);
-                telegram_dc_host(dc)
-            });
+            let dc_host = state.telegram_dc_host_hint(target.addr);
             let host_hint = target.host.or(dc_host);
             match connect_and_relay(&mut client, target.addr, state, host_hint, SuccessReply::HttpConnect) {
                 Ok(()) => Ok(()),

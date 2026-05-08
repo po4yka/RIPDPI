@@ -7,8 +7,6 @@ use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
 
 use super::super::state::RuntimeState;
 
-pub(super) use ripdpi_proxy_runtime_adapter::ws_bootstrap::{detect_telegram_dc, telegram_dc_host};
-
 /// Check if WS tunnel should be tried first (Always mode).
 pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
     let dc = state.should_ws_tunnel_first(target)?;
@@ -220,12 +218,12 @@ mod tests {
     fn detect_telegram_dc_extracts_dc_number_from_known_ipv4_target() {
         let target = SocketAddr::from((Ipv4Addr::new(149, 154, 167, 91), 443));
 
-        assert_eq!(detect_telegram_dc(target), Some(2));
+        assert_eq!(RuntimeState::detect_telegram_dc(target), Some(2));
     }
 
     #[test]
     fn telegram_dc_host_formats_virtual_hostname() {
-        assert_eq!(telegram_dc_host(4), "telegram-dc4");
+        assert_eq!(RuntimeState::telegram_dc_host(4), "telegram-dc4");
     }
 
     #[test]
