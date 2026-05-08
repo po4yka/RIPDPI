@@ -4,7 +4,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use ripdpi_config::{ParseResult, StartupEnv};
-use ripdpi_proxy_runtime::process::ProcessGuard;
+use ripdpi_proxy_runtime::process::{process_settings, ProcessGuard};
 use ripdpi_runtime_api::install_runtime_telemetry;
 
 use crate::telemetry::TracingTelemetrySink;
@@ -41,7 +41,7 @@ fn run_proxy(config: ripdpi_config::RuntimeConfig) -> ExitCode {
     let sink = Arc::new(TracingTelemetrySink::new());
     install_runtime_telemetry(sink.clone());
 
-    let _guard = match ProcessGuard::prepare(&config) {
+    let _guard = match ProcessGuard::prepare(process_settings(&config)) {
         Ok(guard) => guard,
         Err(err) => {
             tracing::error!(%err, "failed to prepare process");

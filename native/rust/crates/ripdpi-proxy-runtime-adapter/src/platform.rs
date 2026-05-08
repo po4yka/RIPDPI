@@ -316,15 +316,14 @@ pub mod process {
     use daemonize::Daemonize;
     use nix::fcntl::{Flock, FlockArg};
 
-    use crate::model::config::{process_settings, RuntimeConfig};
+    use crate::model::config::ProcessSettings;
 
     pub struct ProcessGuard {
         _pid_file: Option<PidFileGuard>,
     }
 
     impl ProcessGuard {
-        pub fn prepare(config: &RuntimeConfig) -> io::Result<Self> {
-            let settings = process_settings(config);
+        pub fn prepare(settings: ProcessSettings) -> io::Result<Self> {
             let pid_file_path = settings.pid_file_path;
             if settings.daemonize {
                 daemonize(pid_file_path.as_deref())?;

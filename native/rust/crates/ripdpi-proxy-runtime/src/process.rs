@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(test)]
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+pub use ripdpi_proxy_runtime_adapter::model::config::{process_settings, ProcessSettings};
 use ripdpi_proxy_runtime_adapter::platform::process as process_platform;
 
 static SHUTDOWN: AtomicBool = AtomicBool::new(false);
@@ -15,9 +15,9 @@ pub struct ProcessGuard {
 }
 
 impl ProcessGuard {
-    pub fn prepare(config: &RuntimeConfig) -> io::Result<Self> {
+    pub fn prepare(settings: ProcessSettings) -> io::Result<Self> {
         SHUTDOWN.store(false, Ordering::Release);
-        let inner = process_platform::ProcessGuard::prepare(config)?;
+        let inner = process_platform::ProcessGuard::prepare(settings)?;
         install_signal_handlers()?;
         Ok(Self { _inner: inner })
     }
@@ -48,6 +48,7 @@ mod tests {
     use std::sync::{LazyLock, Mutex};
 
     use super::*;
+    use ripdpi_proxy_runtime_adapter::model::config::ProcessSettings;
 
     static PROCESS_TEST_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
@@ -62,7 +63,8 @@ mod tests {
         request_shutdown();
         assert!(shutdown_requested());
 
-        let guard = ProcessGuard::prepare(&RuntimeConfig::default()).expect("prepare process guard");
+        let guard = ProcessGuard::prepare(ProcessSettings { daemonize: false, pid_file_path: None })
+            .expect("prepare process guard");
 
         assert!(!shutdown_requested());
         drop(guard);
@@ -72,11 +74,10 @@ mod tests {
     fn prepare_with_pid_file_writes_and_removes_pidfile() {
         let _lock = PROCESS_TEST_MUTEX.lock().expect("lock process test mutex");
         let path = temp_pid_path();
-        let mut config = RuntimeConfig::default();
-        config.process.pid_file = Some(path.display().to_string());
+        let settings = ProcessSettings { daemonize: false, pid_file_path: Some(path.clone()) };
 
         {
-            let guard = ProcessGuard::prepare(&config).expect("prepare process guard with pidfile");
+            let guard = ProcessGuard::prepare(settings).expect("prepare process guard with pidfile");
             let contents = std::fs::read_to_string(&path).expect("pidfile contents");
             assert_eq!(contents, std::process::id().to_string());
             drop(guard);
