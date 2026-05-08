@@ -48,9 +48,12 @@ use ripdpi_proxy_runtime_adapter::model::services::{
     new_services_handle, reprobe_reset_handle, ReprobeResetHandle, ServicesStateHandle,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{
-    extract_payload_host_with, first_outbound_payload_policy, payload_host_extractor, udp_packet_parser,
-    udp_payload_classifier, FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, PayloadHostExtractor,
-    SessionConfig, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
+    extract_payload_host_with, first_outbound_payload_policy, has_inbound_payload, new_session_state,
+    observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
+    observe_outbound_payload, observe_retry_response_payload, outbound_payload_count_this_round,
+    payload_host_extractor, udp_packet_parser, udp_payload_classifier, FirstOutboundPayloadPolicy, OutboundPayloadInfo,
+    OutboundProgress, PayloadHostExtractor, SessionConfig, SessionState, SocketType, UdpPacketParser,
+    UdpPayloadClassifier, UdpPayloadInfo,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use ripdpi_proxy_runtime_adapter::protocol_payload::{FirstResponseBoundaryTracker, OutboundTlsClientHelloAssembler};
@@ -431,6 +434,41 @@ impl RuntimeState {
 
     pub(super) fn first_outbound_payload_buffer_size(&self) -> usize {
         self.first_outbound_payload_policy.buffer_size
+    }
+
+    pub(super) fn new_session_state() -> SessionState {
+        new_session_state()
+    }
+
+    pub(super) fn observe_session_inbound_payload(state: &mut SessionState, payload: &[u8]) {
+        observe_inbound_payload(state, payload);
+    }
+
+    pub(super) fn session_has_inbound_payload(state: &SessionState) -> bool {
+        has_inbound_payload(state)
+    }
+
+    pub(super) fn observe_session_outbound_payload(state: &mut SessionState, payload: &[u8]) -> OutboundProgress {
+        observe_outbound_payload(state, payload)
+    }
+
+    pub(super) fn observe_session_datagram_outbound_payload(
+        state: &mut SessionState,
+        payload: &[u8],
+    ) -> OutboundProgress {
+        observe_datagram_outbound_payload(state, payload)
+    }
+
+    pub(super) fn observe_session_first_response_payload(state: &mut SessionState, payload: &[u8]) -> bool {
+        observe_first_response_payload(state, payload)
+    }
+
+    pub(super) fn observe_session_retry_response_payload(state: &mut SessionState, payload: &[u8]) {
+        observe_retry_response_payload(state, payload);
+    }
+
+    pub(super) fn outbound_payload_count_this_round(state: &SessionState) -> usize {
+        outbound_payload_count_this_round(state)
     }
 
     pub(super) fn classify_first_outbound_payload(&self, payload: &[u8]) -> OutboundPayloadInfo {
