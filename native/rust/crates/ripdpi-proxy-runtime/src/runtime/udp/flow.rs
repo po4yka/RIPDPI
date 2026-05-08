@@ -3,7 +3,6 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::config::udp_flow_at_capacity as projected_udp_flow_at_capacity;
 use ripdpi_proxy_runtime_adapter::model::config::{
     UdpGroupPacketSettings, UdpGroupSocketSettings, UdpSourceRebindPolicy,
 };
@@ -37,7 +36,7 @@ pub(super) fn udp_flow_at_capacity<T>(
     flow_key: (SocketAddr, SocketAddr),
     flow_limit: usize,
 ) -> bool {
-    projected_udp_flow_at_capacity(flow_state.contains_key(&flow_key), flow_state.len(), flow_limit)
+    RuntimeState::udp_flow_at_capacity(flow_state.contains_key(&flow_key), flow_state.len(), flow_limit)
 }
 
 pub(super) fn expire_udp_flows(

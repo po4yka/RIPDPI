@@ -23,13 +23,14 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     relay_group_settings_with, response_failure_evidence_settings, route_matches_transport_payload_with,
     route_payload_matcher, route_requires_delay_payload_with, should_rebind_udp_source_port_with,
     tcp_rotation_seed_with, tcp_route_connect_settings_table, tcp_route_connect_settings_with,
-    tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit, udp_group_settings_table,
-    udp_group_settings_with, warmup_probe_settings, ws_tunnel_config_with, ws_tunnel_settings, DelayedConnectSettings,
-    DesyncGroup, FirstResponseSettings, ListenerSettings, NetworkReprobeSettings, ProxyHandshakeSettings,
-    ProxyProtocolMode, RelayGroupSettings, RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RotationPolicy,
-    RoutePayloadMatcher, RuntimeConfig, RuntimeTimeoutSettings, ShadowsocksTargetPolicy, TcpRouteConnectSettingsTable,
-    TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupPacketSettings, UdpGroupSettingsTable,
-    UdpGroupSocketSettings, UdpSourceRebindPolicy, WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
+    tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_at_capacity, udp_flow_limit,
+    udp_group_settings_table, udp_group_settings_with, warmup_probe_settings, ws_tunnel_config_with,
+    ws_tunnel_settings, DelayedConnectSettings, DesyncGroup, FirstResponseSettings, ListenerSettings,
+    NetworkReprobeSettings, ProxyHandshakeSettings, ProxyProtocolMode, RelayGroupSettings, RelayGroupSettingsTable,
+    ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig, RuntimeTimeoutSettings,
+    ShadowsocksTargetPolicy, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings,
+    UdpGroupPacketSettings, UdpGroupSettingsTable, UdpGroupSocketSettings, UdpSourceRebindPolicy, WarmupProbeSettings,
+    WsTunnelSettings, DETECT_CONNECT,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
@@ -497,6 +498,10 @@ impl RuntimeState {
 
     pub(super) fn udp_flow_limit(&self) -> usize {
         self.udp_flow_limit
+    }
+
+    pub(super) fn udp_flow_at_capacity(flow_exists: bool, active_flow_count: usize, flow_limit: usize) -> bool {
+        udp_flow_at_capacity(flow_exists, active_flow_count, flow_limit)
     }
 
     pub(super) fn udp_flow_group_policy(&self, group_index: usize) -> Option<UdpFlowGroupPolicy> {
