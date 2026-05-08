@@ -45,8 +45,8 @@ pub(super) fn handle_first_response(
         context.original_request,
     )? {
         FirstResponse::Forward(bytes, server_ttl) => {
-            if let (Some(start), Some(telemetry)) = (context.tls_send_start, &context.state.telemetry) {
-                telemetry.on_tls_handshake_completed(context.target, start.elapsed().as_millis() as u64);
+            if let Some(start) = context.tls_send_start {
+                context.state.note_tls_handshake_completed(context.target, start.elapsed().as_millis() as u64);
             }
             let has_inbound_payload = session_state.observe_first_response_payload(&bytes);
             client.write_all(&bytes)?;

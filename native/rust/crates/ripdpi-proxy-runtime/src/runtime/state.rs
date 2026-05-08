@@ -91,7 +91,7 @@ pub(super) struct RuntimeState {
     response_failure_evidence_settings: ResponseFailureEvidenceSettings,
     services: ServicesStateHandle,
     active_clients: Arc<AtomicUsize>,
-    pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
+    telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     runtime_context: Option<ProxyRuntimeContext>,
     control: Option<std::sync::Arc<EmbeddedProxyControl>>,
     /// Session-level flag: once any connection discovers that per-socket TTL
@@ -694,6 +694,18 @@ impl RuntimeState {
     pub(super) fn note_upstream_connected(&self, upstream_addr: SocketAddr, upstream_rtt_ms: Option<u64>) {
         if let Some(telemetry) = &self.telemetry {
             telemetry.on_upstream_connected(upstream_addr, upstream_rtt_ms);
+        }
+    }
+
+    pub(super) fn note_quic_migration_status(&self, target: SocketAddr, status: &'static str, reason: &'static str) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_quic_migration_status(target, status, reason);
+        }
+    }
+
+    pub(super) fn note_tls_handshake_completed(&self, target: SocketAddr, elapsed_ms: u64) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_tls_handshake_completed(target, elapsed_ms);
         }
     }
 

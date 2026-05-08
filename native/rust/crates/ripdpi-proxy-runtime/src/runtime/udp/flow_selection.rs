@@ -54,9 +54,7 @@ pub(super) fn ensure_udp_flow_selected(
             limit = flow_limit,
             "UDP flow rejected: at capacity"
         );
-        if let Some(telemetry) = &state.telemetry {
-            telemetry.on_client_slot_exhausted();
-        }
+        state.note_client_slot_exhausted();
         return Ok(false);
     }
 
@@ -86,9 +84,7 @@ pub(super) fn select_udp_flow_target(
         else {
             continue;
         };
-        if let Some(telemetry) = &state.telemetry {
-            telemetry.on_route_selected(target, route.group_index, host, phase);
-        }
+        state.note_route_selected(target, route.group_index, host, phase);
         let Some(group_settings) = state.udp_group(route.group_index) else {
             continue;
         };

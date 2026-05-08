@@ -46,13 +46,11 @@ pub(super) fn maybe_rebind_udp_source_port(
         Ok(new_socket) => {
             entry.upstream = new_socket;
             entry.quic_migrated = true;
-            if let Some(telemetry) = &state.telemetry {
-                telemetry.on_quic_migration_status(
-                    entry.current_target,
-                    "rebind_only",
-                    "udp_source_port_rebind_after_handshake",
-                );
-            }
+            state.note_quic_migration_status(
+                entry.current_target,
+                "rebind_only",
+                "udp_source_port_rebind_after_handshake",
+            );
             tracing::debug!(
                 target = %entry.current_target,
                 round = entry.session.round_count(),

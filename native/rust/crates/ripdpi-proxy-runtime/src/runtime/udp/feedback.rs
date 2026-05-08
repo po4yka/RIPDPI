@@ -92,8 +92,8 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
     if let Some(next_route) = next.as_ref() {
         maybe_emit_candidate_diversification(state, failed_target, next_route, &retry_penalties);
     }
-    if let (Some(telemetry), Some(next)) = (&state.telemetry, next) {
-        telemetry.on_route_advanced(
+    if let Some(next) = next {
+        state.note_route_advanced(
             failed_target,
             entry.route.group_index,
             next.group_index,
