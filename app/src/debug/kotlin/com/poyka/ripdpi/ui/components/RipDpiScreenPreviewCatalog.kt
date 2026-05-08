@@ -17,7 +17,7 @@ import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.DiagnosticsUiState
 import com.poyka.ripdpi.activities.DnsUiState
-import com.poyka.ripdpi.activities.HomeApproachSummaryUiState
+import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.data.AppStatus
@@ -35,7 +35,6 @@ import com.poyka.ripdpi.ui.screens.settings.SettingsScreenActions
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
-import kotlin.time.Duration.Companion.minutes
 
 @Preview(name = "Home Expanded", showBackground = true, widthDp = 1040, heightDp = 920)
 @Composable
@@ -53,16 +52,8 @@ internal fun RipDpiHomeExpandedPreviewScene() {
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connected,
-                    connectionDuration = 47.minutes,
                     dataTransferred = 54_321_987L,
-                    approachSummary =
-                        HomeApproachSummaryUiState(
-                            title = "TTL split with fake request",
-                            verification = "Verified today",
-                            successRate = "84% success rate",
-                            supportingText =
-                                "Stable on restrictive networks and resilient against plain reset injection.",
-                        ),
+                    modeCards = homePreviewModeCards(activeMode = HomeMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -83,16 +74,8 @@ internal fun RipDpiHomeCompactPreviewScene() {
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connected,
-                    connectionDuration = 47.minutes,
                     dataTransferred = 54_321_987L,
-                    approachSummary =
-                        HomeApproachSummaryUiState(
-                            title = "TTL split with fake request",
-                            verification = "Verified today",
-                            successRate = "84% success rate",
-                            supportingText =
-                                "Stable on restrictive networks and resilient against plain reset injection.",
-                        ),
+                    modeCards = homePreviewModeCards(activeMode = HomeMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -113,16 +96,8 @@ internal fun RipDpiHomeDarkPreviewScene() {
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connected,
-                    connectionDuration = 47.minutes,
                     dataTransferred = 54_321_987L,
-                    approachSummary =
-                        HomeApproachSummaryUiState(
-                            title = "TTL split with fake request",
-                            verification = "Verified today",
-                            successRate = "84% success rate",
-                            supportingText =
-                                "Stable on restrictive networks and resilient against plain reset injection.",
-                        ),
+                    modeCards = homePreviewModeCards(activeMode = HomeMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -143,6 +118,7 @@ internal fun RipDpiHomeConnectingPreviewScene() {
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connecting,
+                    modeCards = homePreviewModeCards(loadingMode = HomeMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},

@@ -92,6 +92,14 @@ internal fun buildMainUiState(
             appStatus = status,
             runtimeConnectionState = runtime.connectionState,
         )
+    val homeDiagnosticsUiState =
+        buildHomeDiagnosticsUiState(
+            settings = settings,
+            appStatus = status,
+            connectionState = effectiveConnectionState,
+            runtime = homeDiagnostics,
+            stringResolver = stringResolver,
+        )
     return MainUiState(
         appStatus = status,
         activeMode = activeMode,
@@ -116,12 +124,15 @@ internal fun buildMainUiState(
         errorMessage = runtime.errorMessage,
         permissionSummary = permissionSummary,
         approachSummary = approachSummary,
-        homeDiagnostics =
-            buildHomeDiagnosticsUiState(
+        homeDiagnostics = homeDiagnosticsUiState,
+        modeCards =
+            buildHomeModeCards(
                 settings = settings,
-                appStatus = status,
+                activeMode = activeMode,
+                configuredMode = configuredMode,
                 connectionState = effectiveConnectionState,
-                runtime = homeDiagnostics,
+                connectionDuration = runtime.connectionDuration,
+                homeDiagnostics = homeDiagnosticsUiState,
                 stringResolver = stringResolver,
             ),
         controlPlaneHealthSummary =

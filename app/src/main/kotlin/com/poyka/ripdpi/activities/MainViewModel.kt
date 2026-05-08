@@ -215,8 +215,27 @@ data class MainUiState(
     val permissionSummary: PermissionSummaryUiState = PermissionSummaryUiState(),
     val approachSummary: HomeApproachSummaryUiState? = null,
     val homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
+    val modeCards: ImmutableList<HomeModeCardUiState> = DefaultHomeModeCards,
     val controlPlaneHealthSummary: ControlPlaneHealthSummaryUiModel? = null,
 ) {
+    val localBypassCard: HomeModeCardUiState
+        get() =
+            modeCards.firstOrNull { it.mode == HomeMode.LocalDpiBypass } ?: HomeModeCardUiState(
+                mode = HomeMode.LocalDpiBypass,
+            )
+
+    val vpnCard: HomeModeCardUiState
+        get() =
+            modeCards.firstOrNull { it.mode == HomeMode.RemoteVpn } ?: HomeModeCardUiState(
+                mode = HomeMode.RemoteVpn,
+            )
+
+    val diagnosticCard: HomeModeCardUiState
+        get() =
+            modeCards.firstOrNull { it.mode == HomeMode.Diagnostic } ?: HomeModeCardUiState(
+                mode = HomeMode.Diagnostic,
+            )
+
     val isConnected: Boolean
         get() = connectionState == ConnectionState.Connected
 

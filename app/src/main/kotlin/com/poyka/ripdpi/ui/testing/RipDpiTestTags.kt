@@ -349,6 +349,14 @@ internal object RipDpiTestTags {
 
     fun homeConnectionStage(stage: String): String = "home-connection-stage-${sanitize(stage)}"
 
+    fun homeModeCard(mode: String): String = "home-mode-card-${sanitize(mode)}"
+
+    fun homeModeCardBody(mode: String): String = "home-mode-card-body-${sanitize(mode)}"
+
+    fun homeModePrimaryAction(mode: String): String = "home-mode-primary-${sanitize(mode)}"
+
+    fun homeModeConfigureAction(mode: String): String = "home-mode-configure-${sanitize(mode)}"
+
     fun routeProfile(routeId: String): String = "route-profile-${sanitize(routeId)}"
 
     fun routeCapability(kind: String): String = "route-capability-${sanitize(kind)}"

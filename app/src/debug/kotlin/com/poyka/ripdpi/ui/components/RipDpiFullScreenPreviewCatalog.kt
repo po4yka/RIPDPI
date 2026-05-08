@@ -10,6 +10,8 @@ import com.poyka.ripdpi.activities.HistoryConnectionFiltersUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionsUiModel
 import com.poyka.ripdpi.activities.HistoryUiState
+import com.poyka.ripdpi.activities.HomeMode
+import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.HostAutolearnUiState
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.HttpParserUiState
@@ -52,7 +54,7 @@ import kotlinx.collections.immutable.persistentListOf
 internal fun RipDpiHomeDisconnectedPreviewScene() {
     RipDpiTheme(themePreference = "light") {
         HomeScreen(
-            uiState = MainUiState(),
+            uiState = MainUiState(modeCards = homePreviewModeCards()),
             onToggleConnection = {},
             onOpenDiagnostics = {},
             onOpenHistory = {},
@@ -73,6 +75,7 @@ internal fun RipDpiHomeErrorPreviewScene() {
                     configuredMode = Mode.Proxy,
                     proxyIp = "127.0.0.1",
                     proxyPort = "1080",
+                    modeCards = homePreviewModeCards(),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -529,6 +532,7 @@ internal fun RipDpiHomeHighContrastPreviewScene() {
                 MainUiState(
                     appStatus = AppStatus.Running,
                     connectionState = ConnectionState.Connected,
+                    modeCards = homePreviewModeCards(activeMode = HomeMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -537,4 +541,66 @@ internal fun RipDpiHomeHighContrastPreviewScene() {
             onOpenVpnPermissionDialog = {},
         )
     }
+}
+
+internal fun homePreviewModeCards(
+    activeMode: HomeMode? = null,
+    loadingMode: HomeMode? = null,
+) = persistentListOf(
+    homePreviewModeCard(
+        mode = HomeMode.LocalDpiBypass,
+        activeMode = activeMode,
+        loadingMode = loadingMode,
+    ),
+    homePreviewModeCard(
+        mode = HomeMode.RemoteVpn,
+        activeMode = activeMode,
+        loadingMode = loadingMode,
+    ),
+    homePreviewModeCard(
+        mode = HomeMode.Diagnostic,
+        activeMode = activeMode,
+        loadingMode = loadingMode,
+    ),
+)
+
+private fun homePreviewModeCard(
+    mode: HomeMode,
+    activeMode: HomeMode?,
+    loadingMode: HomeMode?,
+): HomeModeCardUiState {
+    val active = mode == activeMode
+    val loading = mode == loadingMode
+    return HomeModeCardUiState(
+        mode = mode,
+        title =
+            when (mode) {
+                HomeMode.LocalDpiBypass -> "Local DPI Bypass"
+                HomeMode.RemoteVpn -> "VPN with Remote Server"
+                HomeMode.Diagnostic -> "Network Diagnostic"
+            },
+        primaryLabel =
+            when (mode) {
+                HomeMode.LocalDpiBypass -> "tlsrec_split_host - AdGuard DoH"
+                HomeMode.RemoteVpn -> "relay.example"
+                HomeMode.Diagnostic -> if (loading) "Stage 2 of 4 - Testing TCP" else "No analysis yet"
+            },
+        secondaryLabel = if (active) "Connected 00:47:00" else null,
+        statusLine =
+            when {
+                loading -> "Running"
+                active -> "Connected 00:47:00"
+                else -> "Inactive"
+            },
+        primaryActionLabel =
+            when {
+                mode == HomeMode.Diagnostic -> "Run Scan"
+                active -> "Disable"
+                else -> "Enable"
+            },
+        configureLabel = "Configure",
+        primaryActionEnabled = !loading,
+        isActive = active,
+        isLoading = loading,
+    )
 }

@@ -1,30 +1,20 @@
 package com.poyka.ripdpi.ui.screens.home
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import com.poyka.ripdpi.activities.AnalysisProgressUiState
-import com.poyka.ripdpi.activities.AnalysisStageStatus
-import com.poyka.ripdpi.activities.AnalysisStageUiState
-import com.poyka.ripdpi.activities.ControlPlaneHealthItemUiModel
-import com.poyka.ripdpi.activities.ControlPlaneHealthSeverityUiModel
-import com.poyka.ripdpi.activities.ControlPlaneHealthSummaryUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRemediationStepUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsVerificationSheetUiState
+import com.poyka.ripdpi.activities.HomeMode
+import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import com.poyka.ripdpi.permissions.BackgroundGuidanceUiState
@@ -35,6 +25,7 @@ import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -94,13 +85,9 @@ class HomeScreenTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.HomePermissionRecommendationBanner)
             .assertIsDisplayed()
-        val dismissNodes =
-            composeRule
-                .onAllNodes(
-                    androidx.compose.ui.test
-                        .hasTestTag(RipDpiTestTags.WarningBannerDismiss),
-                ).fetchSemanticsNodes()
-        assertTrue("Expected at least one dismiss button", dismissNodes.isNotEmpty())
+        composeRule
+            .onAllNodesWithTag(RipDpiTestTags.WarningBannerDismiss)
+            .assertCountEquals(1)
     }
 
     @Test
@@ -142,11 +129,11 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `home diagnostics card renders alongside connection and history sections`() {
+    fun `home renders the three mode cards in order and removes legacy body sections`() {
         composeRule.setContent {
             RipDpiTheme {
                 HomeScreen(
-                    uiState = MainUiState(),
+                    uiState = MainUiState(modeCards = modeCards()),
                     onToggleConnection = {},
                     onOpenDiagnostics = {},
                     onOpenHistory = {},
@@ -156,84 +143,63 @@ class HomeScreenTest {
             }
         }
 
-        val connectionTop =
+        HomeMode.entries.forEach { mode ->
             composeRule
-                .onNodeWithTag(RipDpiTestTags.HomeConnectionButton)
+                .onAllNodesWithTag(RipDpiTestTags.homeModeCard(mode.name))
+                .assertCountEquals(1)
+        }
+
+        val bypassTop = cardTop(HomeMode.LocalDpiBypass)
+        val vpnTop = cardTop(HomeMode.RemoteVpn)
+        val diagnosticTop = cardTop(HomeMode.Diagnostic)
+        assertTrue(vpnTop > bypassTop)
+        assertTrue(diagnosticTop > vpnTop)
+
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionButton).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsCard).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeHistoryCard).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.HomeStatsGrid).assertDoesNotExist()
+    }
+
+    @Test
+    fun `permission warning remains above mode cards`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState = uiStateWithBothBanners().copy(modeCards = modeCards()),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        val warningBottom =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.HomePermissionRecommendationBanner)
                 .fetchSemanticsNode()
                 .boundsInRoot
-                .top
-        val diagnosticsTop =
-            composeRule
-                .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsCard)
-                .fetchSemanticsNode()
-                .boundsInRoot
-                .top
-        assertTrue(diagnosticsTop > connectionTop)
+                .bottom
+        assertTrue(cardTop(HomeMode.LocalDpiBypass) > warningBottom)
     }
 
     @Test
-    fun `control plane summary opens advanced settings`() {
-        var openedAdvancedSettings = false
+    fun `mode cards route primary and card actions through screen callbacks`() {
+        var bypassEnabled: Boolean? = null
+        var vpnEnabled: Boolean? = null
+        var bypassOpened = false
+        var vpnOpened = false
         composeRule.setContent {
             RipDpiTheme {
                 HomeScreen(
-                    uiState =
-                        MainUiState(
-                            controlPlaneHealthSummary =
-                                ControlPlaneHealthSummaryUiModel(
-                                    title = "Control plane",
-                                    summary = "Review the active snapshots.",
-                                    items =
-                                        persistentListOf(
-                                            ControlPlaneHealthItemUiModel(
-                                                label = "Strategy packs",
-                                                summary = "Rollback rejected",
-                                                severity = ControlPlaneHealthSeverityUiModel.Warning,
-                                            ),
-                                        ),
-                                    actionLabel = "Open Advanced Settings",
-                                    severity = ControlPlaneHealthSeverityUiModel.Warning,
-                                ),
-                        ),
+                    uiState = MainUiState(modeCards = modeCards(activeMode = HomeMode.LocalDpiBypass)),
                     onToggleConnection = {},
-                    onOpenDiagnostics = {},
-                    onOpenHistory = {},
-                    onOpenAdvancedSettings = { openedAdvancedSettings = true },
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                )
-            }
-        }
-
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeControlPlaneHealthCard).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeControlPlaneHealthAction).performClick()
-        assertTrue(openedAdvancedSettings)
-    }
-
-    @Test
-    fun `verified vpn action stays disabled until analysis produces actionable result`() {
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeScreen(
-                    uiState =
-                        MainUiState(
-                            homeDiagnostics =
-                                HomeDiagnosticsUiState(
-                                    analysisAction =
-                                        HomeDiagnosticsActionUiState(
-                                            label = "Run Full Analysis",
-                                            supportingText = "Run the audit first.",
-                                            enabled = true,
-                                        ),
-                                    verifiedVpnAction =
-                                        HomeDiagnosticsActionUiState(
-                                            label = "Start Verified VPN",
-                                            supportingText = "Run analysis first.",
-                                            enabled = false,
-                                        ),
-                                ),
-                        ),
-                    onToggleConnection = {},
+                    onBypassToggle = { bypassEnabled = it },
+                    onVpnToggle = { vpnEnabled = it },
+                    onBypassCardClick = { bypassOpened = true },
+                    onVpnCardClick = { vpnOpened = true },
                     onOpenDiagnostics = {},
                     onOpenHistory = {},
                     onRepairPermission = {},
@@ -242,12 +208,51 @@ class HomeScreenTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRunAnalysis).assertHasClickAction()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsVerifiedVpn).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.LocalDpiBypass.name)).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.RemoteVpn.name)).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.homeModeConfigureAction(HomeMode.LocalDpiBypass.name)).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.homeModeCardBody(HomeMode.RemoteVpn.name)).performClick()
+
+        assertEquals(false, bypassEnabled)
+        assertEquals(true, vpnEnabled)
+        assertTrue(bypassOpened)
+        assertTrue(vpnOpened)
     }
 
     @Test
-    fun `analysis and verification sheets expose actions`() {
+    fun `diagnostic card runs analysis and opens diagnostics`() {
+        var ranAnalysis = false
+        var openedDiagnostics = false
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState = MainUiState(modeCards = modeCards()),
+                    onToggleConnection = {},
+                    onDiagnosticRun = { ranAnalysis = true },
+                    onDiagnosticCardClick = { openedDiagnostics = true },
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.Diagnostic.name))
+            .performScrollTo()
+            .performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.homeModeCardBody(HomeMode.Diagnostic.name))
+            .performScrollTo()
+            .performClick()
+
+        assertTrue(ranAnalysis)
+        assertTrue(openedDiagnostics)
+    }
+
+    @Test
+    fun `analysis and verification sheets stay functional with mode card body`() {
         var shared = false
         var openedDiagnostics = false
         composeRule.setContent {
@@ -255,6 +260,7 @@ class HomeScreenTest {
                 HomeScreen(
                     uiState =
                         MainUiState(
+                            modeCards = modeCards(),
                             homeDiagnostics =
                                 HomeDiagnosticsUiState(
                                     analysisAction =
@@ -300,8 +306,8 @@ class HomeScreenTest {
         }
 
         composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsAnalysisSheet).assertIsDisplayed()
-        composeRule.onNodeWithText("WARP routing").assertExists()
-        composeRule.onNodeWithText("2 hosts").assertExists()
+        composeRule.onNodeWithText("WARP routing").assertIsDisplayed()
+        composeRule.onNodeWithText("2 hosts").assertIsDisplayed()
         composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsShareAction).performClick()
         assertTrue(shared)
 
@@ -310,244 +316,12 @@ class HomeScreenTest {
         assertTrue(openedDiagnostics)
     }
 
-    @Test
-    fun `home diagnostics remediation card opens advanced settings`() {
-        var openedAdvancedSettings = false
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeScreen(
-                    uiState =
-                        MainUiState(
-                            homeDiagnostics =
-                                HomeDiagnosticsUiState(
-                                    analysisAction =
-                                        HomeDiagnosticsActionUiState(
-                                            label = "Run Full Analysis",
-                                            supportingText = "Unavailable while command line settings are active.",
-                                            enabled = false,
-                                        ),
-                                    verifiedVpnAction =
-                                        HomeDiagnosticsActionUiState(
-                                            label = "Start Verified VPN",
-                                            supportingText = "Run analysis first.",
-                                            enabled = false,
-                                        ),
-                                    remediationLadder =
-                                        remediationLadder(
-                                            title = "Full analysis unavailable",
-                                            summary = "Turn off command line settings before running the workflow.",
-                                            actionLabel = "Open Advanced Settings",
-                                            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS,
-                                            tone = DiagnosticsTone.Negative,
-                                        ),
-                                ),
-                        ),
-                    onToggleConnection = {},
-                    onOpenDiagnostics = {},
-                    onOpenHistory = {},
-                    onOpenAdvancedSettings = { openedAdvancedSettings = true },
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                )
-            }
-        }
-
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRemediationCard).performScrollTo().fetchSemanticsNode()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRemediationAction).performScrollTo().performClick()
-        assertTrue(openedAdvancedSettings)
-    }
-
-    @Test
-    fun `analysis sheet renders remediation ladder instead of duplicate diagnostics cta`() {
-        var openedHistory = false
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeScreen(
-                    uiState =
-                        MainUiState(
-                            homeDiagnostics =
-                                HomeDiagnosticsUiState(
-                                    analysisAction =
-                                        HomeDiagnosticsActionUiState(
-                                            label = "Run Full Analysis",
-                                            supportingText = "Ready",
-                                            enabled = true,
-                                        ),
-                                    verifiedVpnAction =
-                                        HomeDiagnosticsActionUiState(
-                                            label = "Start Verified VPN",
-                                            supportingText = "Review the latest audit.",
-                                            enabled = false,
-                                        ),
-                                    analysisSheet =
-                                        HomeDiagnosticsAnalysisSheetUiState(
-                                            runId = "home-run",
-                                            headline = "Review the latest analysis",
-                                            summary = "Some stages were incomplete.",
-                                            remediationLadder =
-                                                remediationLadder(
-                                                    title = "Review incomplete results",
-                                                    summary = "Open history and compare the failed stage details.",
-                                                    actionLabel = "Open History",
-                                                    actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY,
-                                                ),
-                                            actionableHeadline = "Old free-form next steps",
-                                            actionableNextSteps = listOf("This text should not render."),
-                                        ),
-                                ),
-                        ),
-                    onToggleConnection = {},
-                    onOpenDiagnostics = {},
-                    onOpenHistory = { openedHistory = true },
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                )
-            }
-        }
-
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsAnalysisSheet).assertIsDisplayed()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRemediationCard).performScrollTo().fetchSemanticsNode()
-        composeRule.onNodeWithText("Old free-form next steps").assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsOpenDiagnosticsAction).fetchSemanticsNode()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRemediationAction).performScrollTo().performClick()
-        assertTrue(openedHistory)
-    }
-
-    @Test
-    fun `home remediation ladder opens mode editor`() {
-        var openedModeEditor = false
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeScreen(
-                    uiState =
-                        MainUiState(
-                            homeDiagnostics =
-                                HomeDiagnosticsUiState(
-                                    analysisAction =
-                                        HomeDiagnosticsActionUiState(
-                                            label = "Run Full Analysis",
-                                            supportingText = "Ready",
-                                            enabled = true,
-                                        ),
-                                    verifiedVpnAction =
-                                        HomeDiagnosticsActionUiState(
-                                            label = "Start Verified VPN",
-                                            supportingText = "Review the latest analysis.",
-                                            enabled = false,
-                                        ),
-                                    remediationLadder =
-                                        remediationLadder(
-                                            title = "Prefer a browser-camouflage relay",
-                                            summary = "Open Mode Editor and switch relay family.",
-                                            actionLabel = "Open Mode Editor",
-                                            actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR,
-                                        ),
-                                ),
-                        ),
-                    onToggleConnection = {},
-                    onOpenDiagnostics = {},
-                    onOpenHistory = {},
-                    onOpenModeEditor = { openedModeEditor = true },
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                )
-            }
-        }
-
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRemediationAction).performScrollTo().performClick()
-        assertTrue(openedModeEditor)
-    }
-
-    @Test
-    fun `analysis progress indicator shown when analysis is busy with progress`() {
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeScreen(
-                    uiState =
-                        MainUiState(
-                            homeDiagnostics =
-                                HomeDiagnosticsUiState(
-                                    analysisAction =
-                                        HomeDiagnosticsActionUiState(
-                                            label = "Run Full Analysis",
-                                            supportingText = "Stage 2 of 3 \u00B7 Testing TCP Desync",
-                                            enabled = false,
-                                            busy = true,
-                                        ),
-                                    verifiedVpnAction =
-                                        HomeDiagnosticsActionUiState(
-                                            label = "Start Verified VPN",
-                                            supportingText = "Finish analysis first.",
-                                            enabled = false,
-                                        ),
-                                    analysisProgress =
-                                        AnalysisProgressUiState(
-                                            stages =
-                                                persistentListOf(
-                                                    AnalysisStageUiState(AnalysisStageStatus.COMPLETED),
-                                                    AnalysisStageUiState(AnalysisStageStatus.RUNNING),
-                                                    AnalysisStageUiState(AnalysisStageStatus.PENDING),
-                                                ),
-                                            activeStageIndex = 1,
-                                        ),
-                                ),
-                        ),
-                    onToggleConnection = {},
-                    onOpenDiagnostics = {},
-                    onOpenHistory = {},
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                )
-            }
-        }
-
-        composeRule.waitForIdle()
+    private fun cardTop(mode: HomeMode): Float =
         composeRule
-            .onNode(hasContentDescription("1 completed, 1 running", substring = true))
-            .assertExists()
-        composeRule
-            .onNode(hasText("Stage 2 of 3", substring = true))
-            .assertExists()
-    }
-
-    @Test
-    fun `plain text shown when analysis is not busy`() {
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeScreen(
-                    uiState =
-                        MainUiState(
-                            homeDiagnostics =
-                                HomeDiagnosticsUiState(
-                                    analysisAction =
-                                        HomeDiagnosticsActionUiState(
-                                            label = "Run Full Analysis",
-                                            supportingText = "Run the audit first.",
-                                            enabled = true,
-                                            busy = false,
-                                        ),
-                                    verifiedVpnAction =
-                                        HomeDiagnosticsActionUiState(
-                                            label = "Start Verified VPN",
-                                            supportingText = "Run analysis first.",
-                                            enabled = false,
-                                        ),
-                                ),
-                        ),
-                    onToggleConnection = {},
-                    onOpenDiagnostics = {},
-                    onOpenHistory = {},
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                )
-            }
-        }
-
-        composeRule.waitForIdle()
-        composeRule
-            .onNode(hasText("Run the audit first."))
-            .assertExists()
-    }
+            .onNodeWithTag(RipDpiTestTags.homeModeCard(mode.name))
+            .fetchSemanticsNode()
+            .boundsInRoot
+            .top
 
     private fun uiStateWithBothBanners(): MainUiState =
         MainUiState(
@@ -570,22 +344,42 @@ class HomeScreenTest {
                 ),
         )
 
-    private fun remediationLadder(
-        title: String,
-        summary: String,
-        actionLabel: String,
-        actionKind: DiagnosticsRemediationActionKindUiModel,
-        tone: DiagnosticsTone = DiagnosticsTone.Warning,
-    ) = DiagnosticsRemediationLadderUiModel(
-        title = title,
-        summary = summary,
-        steps =
-            persistentListOf(
-                DiagnosticsRemediationStepUiModel("Open the suggested screen."),
-                DiagnosticsRemediationStepUiModel("Review the latest diagnostics context."),
-                DiagnosticsRemediationStepUiModel("Retry after making the change."),
-            ),
-        primaryAction = DiagnosticsRemediationActionUiModel(label = actionLabel, kind = actionKind),
-        tone = tone,
-    )
+    private fun modeCards(activeMode: HomeMode? = null) =
+        persistentListOf(
+            card(HomeMode.LocalDpiBypass, activeMode = activeMode),
+            card(HomeMode.RemoteVpn, activeMode = activeMode),
+            card(HomeMode.Diagnostic, activeMode = activeMode),
+        )
+
+    private fun card(
+        mode: HomeMode,
+        activeMode: HomeMode?,
+    ): HomeModeCardUiState {
+        val active = mode == activeMode
+        return HomeModeCardUiState(
+            mode = mode,
+            title =
+                when (mode) {
+                    HomeMode.LocalDpiBypass -> "Local DPI Bypass"
+                    HomeMode.RemoteVpn -> "VPN with Remote Server"
+                    HomeMode.Diagnostic -> "Network Diagnostic"
+                },
+            primaryLabel =
+                when (mode) {
+                    HomeMode.LocalDpiBypass -> "tlsrec_split_host - AdGuard DoH"
+                    HomeMode.RemoteVpn -> "relay.example"
+                    HomeMode.Diagnostic -> "No analysis yet"
+                },
+            statusLine = if (active) "Connected 00:01:00" else "Inactive",
+            primaryActionLabel =
+                when {
+                    mode == HomeMode.Diagnostic -> "Run Scan"
+                    active -> "Disable"
+                    else -> "Enable"
+                },
+            configureLabel = "Configure",
+            primaryActionEnabled = true,
+            isActive = active,
+        )
+    }
 }

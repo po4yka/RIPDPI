@@ -7,12 +7,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -20,7 +17,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
-import com.poyka.ripdpi.activities.HomeApproachSummaryUiState
+import com.poyka.ripdpi.activities.HomeMode
+import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionKind
@@ -37,12 +35,8 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
-import kotlin.time.Duration
+import kotlinx.collections.immutable.persistentListOf
 import kotlin.time.Duration.Companion.ZERO
-
-private const val columnWeightPrimary = 1.08f
-private const val columnWeightSecondary = 0.92f
 
 @Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 @OptIn(ExperimentalFoundationApi::class)
@@ -50,6 +44,12 @@ private const val columnWeightSecondary = 0.92f
 fun HomeScreen(
     uiState: MainUiState,
     onToggleConnection: () -> Unit,
+    onBypassToggle: (Boolean) -> Unit = { onToggleConnection() },
+    onVpnToggle: (Boolean) -> Unit = { onToggleConnection() },
+    onDiagnosticRun: () -> Unit = {},
+    onBypassCardClick: () -> Unit = {},
+    onVpnCardClick: () -> Unit = {},
+    onDiagnosticCardClick: () -> Unit = {},
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenAdvancedSettings: () -> Unit = {},
@@ -59,19 +59,12 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onDismissBatteryBanner: () -> Unit = {},
     onDismissBackgroundGuidance: () -> Unit = {},
-    onRunFullAnalysis: () -> Unit = {},
-    onRunQuickAnalysis: () -> Unit = {},
-    onStartVerifiedVpn: () -> Unit = {},
     onShareAnalysis: () -> Unit = {},
     onDismissAnalysisSheet: () -> Unit = {},
     onDismissVerificationSheet: () -> Unit = {},
-    onTogglePcapRecording: () -> Unit = {},
 ) {
     TrackRecomposition("HomeScreen")
     val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
-    val layout = RipDpiThemeTokens.layout
-    val type = RipDpiThemeTokens.type
     val clipboardManager = LocalContext.current.getSystemService(ClipboardManager::class.java)
     val performHaptic = rememberRipDpiHapticPerformer()
 
@@ -187,75 +180,15 @@ fun HomeScreen(
             }
         }
 
-        if (layout.widthClass == RipDpiWidthClass.Expanded) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(layout.groupGap),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Column(
-                    modifier = Modifier.weight(columnWeightPrimary),
-                    verticalArrangement = Arrangement.spacedBy(layout.groupGap),
-                ) {
-                    HomeStatusCard(uiState = uiState, onToggleConnection = onToggleConnection)
-                    HomeDiagnosticsCard(
-                        uiState = uiState,
-                        onOpenDiagnostics = onOpenDiagnostics,
-                        onOpenHistory = onOpenHistory,
-                        onOpenAdvancedSettings = onOpenAdvancedSettings,
-                        onOpenModeEditor = onOpenModeEditor,
-                        onRunFullAnalysis = onRunFullAnalysis,
-                        onRunQuickAnalysis = onRunQuickAnalysis,
-                        onStartVerifiedVpn = onStartVerifiedVpn,
-                        onTogglePcapRecording = onTogglePcapRecording,
-                    )
-                    uiState.approachSummary?.let { summary ->
-                        HomeApproachCard(summary = summary, onOpenDiagnostics = onOpenDiagnostics)
-                    }
-                    HomeHistoryCard(onOpenHistory = onOpenHistory)
-                }
-                Column(
-                    modifier = Modifier.weight(columnWeightSecondary),
-                    verticalArrangement = Arrangement.spacedBy(spacing.md),
-                ) {
-                    Text(
-                        text = stringResource(R.string.home_overview_title),
-                        style = type.sectionTitle,
-                        color = colors.mutedForeground,
-                    )
-                    HomeStatsGrid(uiState = uiState)
-                }
-            }
-        } else {
-            HomeStatusCard(uiState = uiState, onToggleConnection = onToggleConnection)
-            HomeDiagnosticsCard(
-                uiState = uiState,
-                onOpenDiagnostics = onOpenDiagnostics,
-                onOpenHistory = onOpenHistory,
-                onOpenAdvancedSettings = onOpenAdvancedSettings,
-                onOpenModeEditor = onOpenModeEditor,
-                onRunFullAnalysis = onRunFullAnalysis,
-                onRunQuickAnalysis = onRunQuickAnalysis,
-                onStartVerifiedVpn = onStartVerifiedVpn,
-                onTogglePcapRecording = onTogglePcapRecording,
-            )
-
-            if (uiState.connectionState == ConnectionState.Connected) {
-                uiState.approachSummary?.let { summary ->
-                    HomeApproachCard(summary = summary, onOpenDiagnostics = onOpenDiagnostics)
-                }
-            }
-            HomeHistoryCard(onOpenHistory = onOpenHistory)
-
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                Text(
-                    text = stringResource(R.string.home_overview_title),
-                    style = type.sectionTitle,
-                    color = colors.mutedForeground,
-                )
-                HomeStatsGrid(uiState = uiState)
-            }
-        }
+        HomeModeCardList(
+            uiState = uiState,
+            onBypassToggle = onBypassToggle,
+            onVpnToggle = onVpnToggle,
+            onDiagnosticRun = onDiagnosticRun,
+            onBypassCardClick = onBypassCardClick,
+            onVpnCardClick = onVpnCardClick,
+            onDiagnosticCardClick = onDiagnosticCardClick,
+        )
 
         HomeDiagnosticsBottomSheetHost(
             uiState = uiState,
@@ -270,13 +203,48 @@ fun HomeScreen(
     }
 }
 
+@Composable
+private fun HomeModeCardList(
+    uiState: MainUiState,
+    onBypassToggle: (Boolean) -> Unit,
+    onVpnToggle: (Boolean) -> Unit,
+    onDiagnosticRun: () -> Unit,
+    onBypassCardClick: () -> Unit,
+    onVpnCardClick: () -> Unit,
+    onDiagnosticCardClick: () -> Unit,
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.layout.groupGap),
+    ) {
+        HomeModeCard(
+            uiState = uiState.localBypassCard,
+            onPrimaryAction = { onBypassToggle(!uiState.localBypassCard.isActive) },
+            onConfigure = onBypassCardClick,
+            onCardClick = onBypassCardClick,
+        )
+        HomeModeCard(
+            uiState = uiState.vpnCard,
+            onPrimaryAction = { onVpnToggle(!uiState.vpnCard.isActive) },
+            onConfigure = onVpnCardClick,
+            onCardClick = onVpnCardClick,
+        )
+        HomeModeCard(
+            uiState = uiState.diagnosticCard,
+            onPrimaryAction = onDiagnosticRun,
+            onConfigure = onDiagnosticCardClick,
+            onCardClick = onDiagnosticCardClick,
+        )
+    }
+}
+
 @Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
-private fun HomeScreenDisconnectedPreview() {
+private fun HomeScreenAllInactivePreview() {
     RipDpiTheme(themePreference = "light") {
         HomeScreen(
-            uiState = MainUiState(),
+            uiState = MainUiState(modeCards = previewHomeModeCards()),
             onToggleConnection = {},
             onOpenDiagnostics = {},
             onOpenHistory = {},
@@ -289,22 +257,42 @@ private fun HomeScreenDisconnectedPreview() {
 @Suppress("UnusedPrivateMember")
 @Preview(showBackground = true)
 @Composable
-private fun HomeScreenConnectedPreview() {
+private fun HomeScreenBypassActivePreview() {
     RipDpiTheme(themePreference = "dark") {
         HomeScreen(
-            uiState =
-                MainUiState(
-                    connectionState = ConnectionState.Connected,
-                    connectionDuration = Duration.parse("PT18M42S"),
-                    dataTransferred = 18_242_560L,
-                    approachSummary =
-                        HomeApproachSummaryUiState(
-                            title = "VPN Split · HTTP/HTTPS",
-                            verification = "Validated",
-                            successRate = "83%",
-                            supportingText = "Stable on the last 3 runtime sessions",
-                        ),
-                ),
+            uiState = MainUiState(modeCards = previewHomeModeCards(activeMode = HomeMode.LocalDpiBypass)),
+            onToggleConnection = {},
+            onOpenDiagnostics = {},
+            onOpenHistory = {},
+            onRepairPermission = {},
+            onOpenVpnPermissionDialog = {},
+        )
+    }
+}
+
+@Suppress("UnusedPrivateMember")
+@Preview(showBackground = true)
+@Composable
+private fun HomeScreenVpnActivePreview() {
+    RipDpiTheme(themePreference = "light") {
+        HomeScreen(
+            uiState = MainUiState(modeCards = previewHomeModeCards(activeMode = HomeMode.RemoteVpn)),
+            onToggleConnection = {},
+            onOpenDiagnostics = {},
+            onOpenHistory = {},
+            onRepairPermission = {},
+            onOpenVpnPermissionDialog = {},
+        )
+    }
+}
+
+@Suppress("UnusedPrivateMember")
+@Preview(showBackground = true)
+@Composable
+private fun HomeScreenDiagnosticRunningPreview() {
+    RipDpiTheme(themePreference = "dark") {
+        HomeScreen(
+            uiState = MainUiState(modeCards = previewHomeModeCards(loadingMode = HomeMode.Diagnostic)),
             onToggleConnection = {},
             onOpenDiagnostics = {},
             onOpenHistory = {},
@@ -336,4 +324,66 @@ private fun HomeScreenErrorPreview() {
             onOpenVpnPermissionDialog = {},
         )
     }
+}
+
+private fun previewHomeModeCards(
+    activeMode: HomeMode? = null,
+    loadingMode: HomeMode? = null,
+) = persistentListOf(
+    previewHomeModeCard(
+        mode = HomeMode.LocalDpiBypass,
+        activeMode = activeMode,
+        loadingMode = loadingMode,
+    ),
+    previewHomeModeCard(
+        mode = HomeMode.RemoteVpn,
+        activeMode = activeMode,
+        loadingMode = loadingMode,
+    ),
+    previewHomeModeCard(
+        mode = HomeMode.Diagnostic,
+        activeMode = activeMode,
+        loadingMode = loadingMode,
+    ),
+)
+
+private fun previewHomeModeCard(
+    mode: HomeMode,
+    activeMode: HomeMode?,
+    loadingMode: HomeMode?,
+): HomeModeCardUiState {
+    val active = mode == activeMode
+    val loading = mode == loadingMode
+    return HomeModeCardUiState(
+        mode = mode,
+        title =
+            when (mode) {
+                HomeMode.LocalDpiBypass -> "Local DPI Bypass"
+                HomeMode.RemoteVpn -> "VPN with Remote Server"
+                HomeMode.Diagnostic -> "Network Diagnostic"
+            },
+        primaryLabel =
+            when (mode) {
+                HomeMode.LocalDpiBypass -> "tlsrec_split_host - AdGuard DoH"
+                HomeMode.RemoteVpn -> "relay.example"
+                HomeMode.Diagnostic -> if (loading) "Stage 2 of 4 - Testing TCP" else "No analysis yet"
+            },
+        secondaryLabel = if (active) "Connected 00:18:42" else null,
+        statusLine =
+            when {
+                loading -> "Running"
+                active -> "Connected 00:18:42"
+                else -> "Inactive"
+            },
+        primaryActionLabel =
+            when {
+                mode == HomeMode.Diagnostic -> "Run Scan"
+                active -> "Disable"
+                else -> "Enable"
+            },
+        configureLabel = "Configure",
+        primaryActionEnabled = !loading,
+        isActive = active,
+        isLoading = loading,
+    )
 }
