@@ -2,7 +2,6 @@ use std::net::{IpAddr, SocketAddr};
 use std::thread;
 
 use ripdpi_proxy_runtime_adapter::failure::ProbeResult;
-use ripdpi_proxy_runtime_adapter::model::config::NetworkReprobeSettings;
 use ripdpi_proxy_runtime_adapter::model::services::ReprobeResetHandle;
 
 use super::super::state::RuntimeState;
@@ -17,8 +16,7 @@ use super::tls_probe::probe_tls_handshake;
 /// The function is intentionally fire-and-forget: the spawned thread runs
 /// independently and logs results via tracing.
 pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
-    let settings = state.network_reprobe_settings();
-    if !settings.enabled {
+    if !state.network_reprobe_enabled() {
         return;
     }
     let Some(snapshot) = state.current_network_snapshot() else {
@@ -44,11 +42,12 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
     tracing::info!("network_reprobe: network identity changed, scheduling reprobe");
 
     let reset_handle = state.reprobe_reset_handle();
+    let protect_path = state.network_reprobe_protect_path();
 
     thread::Builder::new()
         .name("ripdpi-reprobe".into())
         .spawn(move || {
-            run_reprobe(settings, &reset_handle);
+            run_reprobe(protect_path, &reset_handle);
         })
         .ok();
 }
@@ -57,7 +56,7 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
 /// attempt a raw TLS ClientHello. A failure is classified as a DPI signature
 /// if the connection is reset, times out, or receives a TLS alert before the
 /// ServerHello completes.
-fn run_reprobe(settings: NetworkReprobeSettings, reset_handle: &ReprobeResetHandle) {
+fn run_reprobe(protect_path: Option<String>, reset_handle: &ReprobeResetHandle) {
     let deadline = std::time::Instant::now() + TOTAL_DEADLINE;
     let mut failures = 0usize;
     let mut successes = 0usize;
@@ -74,7 +73,7 @@ fn run_reprobe(settings: NetworkReprobeSettings, reset_handle: &ReprobeResetHand
         };
         let target = SocketAddr::new(ip, 443);
 
-        match probe_tls_handshake(target, target_def.domain, settings.protect_path.as_deref()) {
+        match probe_tls_handshake(target, target_def.domain, protect_path.as_deref()) {
             ProbeResult::Success => {
                 tracing::debug!("network_reprobe: {} passed", target_def.domain);
                 successes += 1;

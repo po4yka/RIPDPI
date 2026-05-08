@@ -223,8 +223,12 @@ impl RuntimeState {
         self.delayed_connect_settings.buffer_size
     }
 
-    pub(super) fn network_reprobe_settings(&self) -> NetworkReprobeSettings {
-        self.network_reprobe_settings.clone()
+    pub(super) fn network_reprobe_enabled(&self) -> bool {
+        self.network_reprobe_settings.enabled
+    }
+
+    pub(super) fn network_reprobe_protect_path(&self) -> Option<String> {
+        self.network_reprobe_settings.protect_path.clone()
     }
 
     pub(super) fn ws_tunnel_settings(&self) -> &WsTunnelSettings {
