@@ -10,6 +10,7 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     FirstResponseSettings,
 };
 use ripdpi_proxy_runtime_adapter::platform::first_response as first_response_platform;
+use ripdpi_proxy_runtime_adapter::response_triggers::FirstResponseExchangePolicy;
 
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure, runtime_supports_trigger};
 use super::super::state::RuntimeState;
@@ -21,8 +22,7 @@ pub(super) enum FirstResponse {
     NoData,
 }
 
-pub(super) fn needs_first_exchange(state: &RuntimeState) -> io::Result<bool> {
-    let policy = ripdpi_proxy_runtime_adapter::response_triggers::first_response_exchange_policy(&state.config);
+pub(super) fn needs_first_exchange(state: &RuntimeState, policy: FirstResponseExchangePolicy) -> io::Result<bool> {
     ripdpi_proxy_runtime_adapter::response_triggers::first_response_exchange_required_with(policy, |trigger| {
         runtime_supports_trigger(state, trigger)
     })

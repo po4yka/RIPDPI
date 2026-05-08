@@ -5,6 +5,7 @@ use std::time::Instant;
 use ripdpi_proxy_runtime_adapter::model::config::first_response_settings;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::session::{first_outbound_payload_policy, new_session_state, SessionState};
+use ripdpi_proxy_runtime_adapter::response_triggers::first_response_exchange_policy;
 
 use crate::runtime::relay::failure_retry::first_outbound::execution::execute_first_write;
 use crate::runtime::relay::failure_retry::first_outbound::payload::prepare_first_payload;
@@ -66,7 +67,8 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let mut session_state;
         let mut success_recorded = false;
         let mut success_strategy_family;
-        let inspect_first_response = needs_first_exchange(self.state)?;
+        let inspect_first_response =
+            needs_first_exchange(self.state, first_response_exchange_policy(&self.state.config))?;
         let response_settings = first_response_settings(&self.state.config);
 
         loop {
