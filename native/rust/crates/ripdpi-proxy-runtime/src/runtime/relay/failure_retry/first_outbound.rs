@@ -2,6 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
+use ripdpi_proxy_runtime_adapter::model::config::first_response_settings;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::session::{new_session_state, SessionState};
 
@@ -65,6 +66,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let mut success_recorded = false;
         let mut success_strategy_family;
         let inspect_first_response = needs_first_exchange(self.state)?;
+        let response_settings = first_response_settings(&self.state.config);
 
         loop {
             session_state = new_session_state();
@@ -109,6 +111,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                     route: &route,
                     host: first_payload.host.as_deref(),
                     original_request: &first_payload.original_request,
+                    response_settings,
                     success_strategy_family,
                     tls_send_start,
                 },

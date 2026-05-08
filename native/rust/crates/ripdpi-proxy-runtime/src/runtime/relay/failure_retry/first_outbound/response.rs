@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
-use ripdpi_proxy_runtime_adapter::model::config::first_response_settings;
+use ripdpi_proxy_runtime_adapter::model::config::FirstResponseSettings;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::session::{inbound_payload_count, observe_inbound_payload, SessionState};
 
@@ -24,6 +24,7 @@ pub(super) struct FirstResponseContext<'a> {
     pub(super) route: &'a ConnectionRoute,
     pub(super) host: Option<&'a str>,
     pub(super) original_request: &'a [u8],
+    pub(super) response_settings: FirstResponseSettings,
     pub(super) success_strategy_family: Option<&'static str>,
     pub(super) tls_send_start: Option<Instant>,
 }
@@ -39,7 +40,7 @@ pub(super) fn handle_first_response(
         context.target,
         context.host,
         upstream,
-        first_response_settings(&context.state.config),
+        context.response_settings,
         context.original_request,
     )? {
         FirstResponse::Forward(bytes, server_ttl) => {
