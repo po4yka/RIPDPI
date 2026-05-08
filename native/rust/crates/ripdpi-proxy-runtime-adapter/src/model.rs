@@ -1407,6 +1407,10 @@ pub mod session {
         session.observe_outbound(payload)
     }
 
+    pub fn observe_datagram_outbound_payload(session: &mut SessionState, payload: &[u8]) -> OutboundProgress {
+        session.observe_datagram_outbound(payload)
+    }
+
     pub fn inbound_payload_count(session: &SessionState) -> usize {
         session.recv_count
     }

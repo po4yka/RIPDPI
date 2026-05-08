@@ -3,7 +3,7 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::session::observe_inbound_payload;
+use ripdpi_proxy_runtime_adapter::model::session::{observe_datagram_outbound_payload, observe_inbound_payload};
 use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
 use ripdpi_proxy_runtime_adapter::udp_desync::{
     execute_udp_actions, plan_udp_actions_for_runtime, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext,
@@ -72,7 +72,7 @@ fn plan_udp_flow_actions(
     entry.payload.clear();
     entry.payload.extend_from_slice(payload);
     entry.awaiting_response = true;
-    let progress = entry.session.observe_datagram_outbound(payload);
+    let progress = observe_datagram_outbound_payload(&mut entry.session, payload);
     plan_udp_actions_for_runtime(
         UdpDesyncPlanContext {
             planner: &state.udp_desync_planner,
