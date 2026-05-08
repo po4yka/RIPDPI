@@ -1394,6 +1394,10 @@ pub mod session {
         session.recv_count
     }
 
+    pub fn outbound_payload_count_this_round(session: &SessionState) -> usize {
+        session.sent_this_round
+    }
+
     pub struct OutboundPayloadInfo {
         pub host: Option<String>,
         pub is_tls: bool,

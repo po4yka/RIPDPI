@@ -1,5 +1,8 @@
 use crate::sync::{Arc, Mutex};
-use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host_with, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::{
+    extract_payload_host_with, observe_inbound_payload, observe_outbound_payload, outbound_payload_count_this_round,
+    SessionState,
+};
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream};
@@ -40,7 +43,7 @@ pub(super) fn copy_inbound_half(
             }
             Ok(n) => {
                 if let Ok(mut state) = session.lock() {
-                    state.observe_inbound(&buffer[..n]);
+                    observe_inbound_payload(&mut state, &buffer[..n]);
                 }
                 observe_rotation_inbound_chunk(
                     state,
@@ -98,8 +101,8 @@ pub(super) fn flush_outbound_payload(
 ) -> io::Result<()> {
     let (is_new_round, progress) = {
         let mut state = session.lock().map_err(|_| io::Error::other("session mutex poisoned"))?;
-        let is_new_round = state.sent_this_round == 0;
-        let progress = state.observe_outbound(payload);
+        let is_new_round = outbound_payload_count_this_round(&state) == 0;
+        let progress = observe_outbound_payload(&mut state, payload);
         (is_new_round, progress)
     };
     let mut remembered = remembered_host.lock().map_err(|_| io::Error::other("remembered host mutex poisoned"))?;

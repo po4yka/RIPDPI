@@ -3,6 +3,7 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
+use ripdpi_proxy_runtime_adapter::model::session::observe_inbound_payload;
 use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
 use ripdpi_proxy_runtime_adapter::udp_desync::{
     execute_udp_actions, plan_udp_actions_for_runtime, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext,
@@ -29,7 +30,7 @@ pub(super) fn pump_udp_upstream_responses(
                 made_progress = true;
                 let now = Instant::now();
                 entry.last_used = now;
-                entry.session.observe_inbound(&upstream_buffer[..n]);
+                observe_inbound_payload(&mut entry.session, &upstream_buffer[..n]);
                 note_udp_first_response_success(state, entry)?;
                 maybe_rebind_udp_source_port(state, entry, &upstream_buffer[..n], protect_path)?;
                 let packet = encode_socks5_udp_packet(entry.current_target, &upstream_buffer[..n]);

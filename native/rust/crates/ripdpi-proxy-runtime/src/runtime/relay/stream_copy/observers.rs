@@ -1,7 +1,7 @@
 use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, FailureStage};
 use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RotationPolicy};
-use ripdpi_proxy_runtime_adapter::model::session::SessionState;
+use ripdpi_proxy_runtime_adapter::model::session::{inbound_payload_count, SessionState};
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::{CircularTcpRotationController, RotationFailureReason};
 use std::io;
 use std::net::TcpStream;
@@ -13,7 +13,7 @@ pub(super) fn group_rotation_controller(
     rotation_seed: Option<(DesyncGroup, RotationPolicy)>,
     session_seed: &SessionState,
 ) -> Option<Arc<Mutex<CircularTcpRotationController>>> {
-    if session_seed.recv_count == 0 {
+    if inbound_payload_count(session_seed) == 0 {
         return None;
     }
     rotation_seed
