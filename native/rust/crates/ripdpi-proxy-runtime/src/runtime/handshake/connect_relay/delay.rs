@@ -25,8 +25,7 @@ pub(super) fn maybe_delay_connect(
     host_hint: Option<&str>,
     handshake: HandshakeKind,
 ) -> Result<DelayConnect, ConnectRelayError> {
-    let settings = state.delayed_connect_settings();
-    if !settings.enabled {
+    if !state.delayed_connect_enabled() {
         return Ok(DelayConnect::Immediate);
     }
     let route = super::super::super::routing::select_route(state, target, None, None, true)
@@ -38,8 +37,8 @@ pub(super) fn maybe_delay_connect(
     }
 
     send_success_reply(client, handshake).map_err(|err| ConnectRelayError::new(err, false))?;
-    let Some(payload) =
-        read_blocking_first_request(client, settings.buffer_size).map_err(|err| ConnectRelayError::new(err, true))?
+    let Some(payload) = read_blocking_first_request(client, state.delayed_connect_buffer_size())
+        .map_err(|err| ConnectRelayError::new(err, true))?
     else {
         return Ok(DelayConnect::Closed);
     };

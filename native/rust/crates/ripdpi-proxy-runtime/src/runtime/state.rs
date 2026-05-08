@@ -211,8 +211,12 @@ impl RuntimeState {
         &self.handshake_settings
     }
 
-    pub(super) fn delayed_connect_settings(&self) -> DelayedConnectSettings {
-        self.delayed_connect_settings
+    pub(super) fn delayed_connect_enabled(&self) -> bool {
+        self.delayed_connect_settings.enabled
+    }
+
+    pub(super) fn delayed_connect_buffer_size(&self) -> usize {
+        self.delayed_connect_settings.buffer_size
     }
 
     pub(super) fn network_reprobe_settings(&self) -> NetworkReprobeSettings {
