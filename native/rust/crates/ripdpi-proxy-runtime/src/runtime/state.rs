@@ -1,7 +1,7 @@
 use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::collections::BTreeMap;
 use std::io::{self, Read};
-use std::net::{SocketAddr, TcpStream};
+use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::desync_platform::{
@@ -64,8 +64,8 @@ use ripdpi_proxy_runtime_adapter::response_triggers::{
     failure_penalizes_strategy, failure_trigger_mask, first_response_exchange_policy, FirstResponseExchangePolicy,
 };
 use ripdpi_proxy_runtime_adapter::udp_desync::{
-    plan_udp_actions_for_runtime, udp_desync_planner, UdpDesyncAction, UdpDesyncPlanContext, UdpDesyncPlanRequest,
-    UdpDesyncPlanner,
+    execute_udp_actions, plan_udp_actions_for_runtime, udp_desync_planner, UdpActionExecContext, UdpDesyncAction,
+    UdpDesyncPlanContext, UdpDesyncPlanRequest, UdpDesyncPlanner,
 };
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr,
@@ -997,6 +997,25 @@ impl RuntimeState {
         request: UdpDesyncPlanRequest<'_>,
     ) -> io::Result<Vec<UdpDesyncAction>> {
         plan_udp_actions_for_runtime(self.udp_desync_plan_context(), request)
+    }
+
+    pub(super) fn execute_udp_desync_actions(
+        upstream: &UdpSocket,
+        target: SocketAddr,
+        packet_settings: UdpGroupPacketSettings,
+        protect_path: Option<&str>,
+        actions: &[UdpDesyncAction],
+    ) -> io::Result<()> {
+        execute_udp_actions(
+            UdpActionExecContext {
+                upstream,
+                target,
+                default_ttl: packet_settings.default_ttl,
+                protect_path,
+                ip_id_mode: packet_settings.ip_id_mode,
+            },
+            actions,
+        )
     }
 
     fn udp_desync_plan_context(&self) -> UdpDesyncPlanContext<'_> {

@@ -4,9 +4,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
-use ripdpi_proxy_runtime_adapter::udp_desync::{
-    execute_udp_actions, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanRequest,
-};
+use ripdpi_proxy_runtime_adapter::udp_desync::{UdpDesyncAction, UdpDesyncPlanRequest};
 
 use super::encode_socks5_udp_packet;
 use super::feedback::note_udp_first_response_success;
@@ -51,14 +49,13 @@ pub(super) fn send_udp_flow_payload(
     protect_path: Option<&str>,
 ) -> io::Result<()> {
     let actions = plan_udp_flow_actions(state, entry, payload, now)?;
-    let exec_ctx = UdpActionExecContext {
-        upstream: &entry.upstream,
-        target: entry.current_target,
-        default_ttl: entry.packet_settings.default_ttl,
+    RuntimeState::execute_udp_desync_actions(
+        &entry.upstream,
+        entry.current_target,
+        entry.packet_settings,
         protect_path,
-        ip_id_mode: entry.packet_settings.ip_id_mode,
-    };
-    execute_udp_actions(exec_ctx, &actions)
+        &actions,
+    )
 }
 
 fn plan_udp_flow_actions(
