@@ -12,8 +12,7 @@ use std::time::Duration;
 use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::model::config::ProxyProtocolMode;
 use ripdpi_proxy_runtime_adapter::model::session::{
-    parse_http_connect_request, parse_socks4_request, parse_socks5_request, ClientRequest, SessionError, SocketType,
-    S_ER_CMD, S_ER_GEN, S_VER5,
+    ClientRequest, SessionError, SocketType, S_ER_CMD, S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
@@ -79,7 +78,7 @@ fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result
 fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io::Result<()> {
     let request = read_socks4_request(&mut client, version)?;
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
-    let parsed = parse_socks4_request(&request, state.proxy_session_config(), &resolver);
+    let parsed = RuntimeState::parse_socks4_request(&request, state.proxy_session_config(), resolver);
     match parsed {
         Ok(ClientRequest::Socks4Connect(target)) => {
             let dc_host = detect_telegram_dc(target.addr).map(|dc| {
@@ -111,7 +110,7 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
     let request = read_socks5_request(&mut client)?;
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
 
-    match parse_socks5_request(&request, SocketType::Stream, state.proxy_session_config(), &resolver) {
+    match RuntimeState::parse_socks5_request(&request, SocketType::Stream, state.proxy_session_config(), resolver) {
         Ok(ClientRequest::Socks5Connect(target)) => {
             let dc_host = detect_telegram_dc(target.addr).map(|dc| {
                 state.note_telegram_dc_detected(target.addr, dc);
@@ -154,7 +153,7 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
         }
     }
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
-    match parse_http_connect_request(&request, &resolver) {
+    match RuntimeState::parse_http_connect_request(&request, resolver) {
         Ok(ClientRequest::HttpConnect(target)) => {
             let dc_host = detect_telegram_dc(target.addr).map(|dc| {
                 state.note_telegram_dc_detected(target.addr, dc);
