@@ -101,7 +101,7 @@ pub(in crate::runtime::handshake) fn read_http_connect_request(client: &mut TcpS
 ///
 /// Expected encoding: `Basic base64("ripdpi:<token>")`.
 pub(in crate::runtime::handshake) fn validate_http_proxy_auth(request: &[u8], token: &str) -> bool {
-    ripdpi_proxy_runtime_adapter::model::protocol_auth::validate_http_proxy_auth(request, token)
+    crate::runtime::state::RuntimeState::validate_http_proxy_auth(request, token)
 }
 
 fn read_socks5_userpass_auth(client: &mut TcpStream, token: &str) -> io::Result<()> {
