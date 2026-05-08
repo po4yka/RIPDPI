@@ -4,7 +4,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::model::{
-    config::{udp_group_settings_with, UdpGroupPacketSettings, UdpGroupSocketSettings, UdpSourceRebindPolicy},
+    config::{UdpGroupPacketSettings, UdpGroupSocketSettings, UdpSourceRebindPolicy},
     decision::{ConnectionRoute, TransportProtocol},
 };
 
@@ -89,7 +89,7 @@ pub(super) fn select_udp_flow_target(
         if let Some(telemetry) = &state.telemetry {
             telemetry.on_route_selected(target, route.group_index, host, phase);
         }
-        let Some(group_settings) = udp_group_settings_with(&state.udp_group_settings, route.group_index) else {
+        let Some(group_settings) = state.udp_group(route.group_index) else {
             continue;
         };
         let socket_settings = group_settings.socket;

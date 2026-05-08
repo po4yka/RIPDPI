@@ -14,10 +14,11 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     relay_group_settings_with, response_failure_evidence_settings, route_matches_transport_payload_with,
     route_payload_matcher, route_requires_delay_payload_with, tcp_rotation_seed_with, tcp_route_connect_settings_table,
     tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit, udp_group_settings_table,
-    warmup_probe_settings, ws_tunnel_settings, DelayedConnectSettings, DesyncGroup, FirstResponseSettings,
-    ListenerSettings, NetworkReprobeSettings, ProxyHandshakeSettings, RelayGroupSettings, RelayGroupSettingsTable,
-    ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettingsTable,
-    TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings,
+    udp_group_settings_with, warmup_probe_settings, ws_tunnel_settings, DelayedConnectSettings, DesyncGroup,
+    FirstResponseSettings, ListenerSettings, NetworkReprobeSettings, ProxyHandshakeSettings, RelayGroupSettings,
+    RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig,
+    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettings,
+    UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
@@ -70,10 +71,10 @@ pub(super) struct RuntimeState {
     pub(super) route_syn_data_settings: TcpRouteSynDataSettings,
     pub(super) route_connect_settings: TcpRouteConnectSettingsTable,
     pub(super) tcp_desync_executor: TcpDesyncExecutor,
-    pub(super) udp_group_settings: UdpGroupSettingsTable,
+    udp_group_settings: UdpGroupSettingsTable,
     route_payload_matcher: RoutePayloadMatcher,
     pub(super) udp_desync_planner: UdpDesyncPlanner,
-    pub(super) udp_flow_limit: usize,
+    udp_flow_limit: usize,
     udp_packet_parser: UdpPacketParser,
     udp_payload_classifier: UdpPayloadClassifier,
     relay_group_settings: RelayGroupSettingsTable,
@@ -322,6 +323,14 @@ impl RuntimeState {
 
     pub(super) fn udp_payload_classifier(&self) -> UdpPayloadClassifier {
         self.udp_payload_classifier.clone()
+    }
+
+    pub(super) fn udp_flow_limit(&self) -> usize {
+        self.udp_flow_limit
+    }
+
+    pub(super) fn udp_group(&self, group_index: usize) -> Option<UdpGroupSettings> {
+        udp_group_settings_with(&self.udp_group_settings, group_index)
     }
 
     pub(super) fn select_initial_route(
