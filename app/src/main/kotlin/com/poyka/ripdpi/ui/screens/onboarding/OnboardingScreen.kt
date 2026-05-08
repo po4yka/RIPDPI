@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -195,16 +196,16 @@ fun OnboardingRoute(
     OnboardingScreen(
         uiState = uiState,
         modifier = modifier,
-        onPageChanged = viewModel::setCurrentPage,
-        onSkip = viewModel::skip,
-        onModeSelected = viewModel::selectMode,
-        onDnsSelected = viewModel::selectDnsProvider,
-        onRunValidation = viewModel::runValidation,
-        onFinishKeepingRunning = viewModel::finishKeepingRunning,
-        onFinishDisconnected = viewModel::finishDisconnected,
-        onFinishAnyway = viewModel::finishAnyway,
-        onAcceptSuggestedMode = viewModel::acceptSuggestedMode,
-        onContinue = viewModel::nextPage,
+        onPageChanged = remember(viewModel) { viewModel::setCurrentPage },
+        onSkip = remember(viewModel) { viewModel::skip },
+        onModeSelected = remember(viewModel) { viewModel::selectMode },
+        onDnsSelected = remember(viewModel) { viewModel::selectDnsProvider },
+        onRunValidation = remember(viewModel) { viewModel::runValidation },
+        onFinishKeepingRunning = remember(viewModel) { viewModel::finishKeepingRunning },
+        onFinishDisconnected = remember(viewModel) { viewModel::finishDisconnected },
+        onFinishAnyway = remember(viewModel) { viewModel::finishAnyway },
+        onAcceptSuggestedMode = remember(viewModel) { viewModel::acceptSuggestedMode },
+        onContinue = remember(viewModel) { viewModel::nextPage },
     )
 }
 
