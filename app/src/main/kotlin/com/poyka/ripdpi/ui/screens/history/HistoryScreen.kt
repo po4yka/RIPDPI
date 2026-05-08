@@ -22,6 +22,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
@@ -35,6 +36,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
+import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
@@ -227,6 +229,70 @@ internal fun HistoryScreen(
         EventDetailSheet(
             event = event,
             onDismissRequest = onDismissEventDetail,
+        )
+    }
+}
+
+@Suppress("UnusedPrivateMember")
+@Preview(showBackground = true)
+@Composable
+private fun HistoryScreenConnectionsPreview() {
+    RipDpiTheme {
+        HistoryScreen(
+            uiState = HistoryUiState(selectedSection = HistorySection.Connections),
+            onBack = {},
+            onRefresh = {},
+            onSelectSection = {},
+            onConnectionModeFilter = {},
+            onConnectionStatusFilter = {},
+            onConnectionSearch = {},
+            onClearConnectionFilters = {},
+            onSelectConnection = {},
+            onDismissConnectionDetail = {},
+            onDiagnosticsPathFilter = {},
+            onDiagnosticsStatusFilter = {},
+            onDiagnosticsSearch = {},
+            onClearDiagnosticsFilters = {},
+            onSelectDiagnosticsSession = {},
+            onDismissDiagnosticsDetail = {},
+            onToggleEventFilter = { _, _ -> },
+            onEventSearch = {},
+            onClearEventFilters = {},
+            onEventAutoScroll = {},
+            onSelectEvent = {},
+            onDismissEventDetail = {},
+        )
+    }
+}
+
+@Suppress("UnusedPrivateMember")
+@Preview(showBackground = true)
+@Composable
+private fun HistoryScreenEventsPreview() {
+    RipDpiTheme {
+        HistoryScreen(
+            uiState = HistoryUiState(selectedSection = HistorySection.Events),
+            onBack = {},
+            onRefresh = {},
+            onSelectSection = {},
+            onConnectionModeFilter = {},
+            onConnectionStatusFilter = {},
+            onConnectionSearch = {},
+            onClearConnectionFilters = {},
+            onSelectConnection = {},
+            onDismissConnectionDetail = {},
+            onDiagnosticsPathFilter = {},
+            onDiagnosticsStatusFilter = {},
+            onDiagnosticsSearch = {},
+            onClearDiagnosticsFilters = {},
+            onSelectDiagnosticsSession = {},
+            onDismissDiagnosticsDetail = {},
+            onToggleEventFilter = { _, _ -> },
+            onEventSearch = {},
+            onClearEventFilters = {},
+            onEventAutoScroll = {},
+            onSelectEvent = {},
+            onDismissEventDetail = {},
         )
     }
 }
