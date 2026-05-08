@@ -3,10 +3,9 @@ use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
 use crate::runtime::desync::OutboundSendError;
-use crate::runtime::relay::failure_retry::first_outbound::observations::observe_retry_response_payload;
+use crate::runtime::relay::failure_retry::first_outbound::observations::FirstOutboundSession;
 use crate::runtime::relay::failure_retry::retry_logic::{
     classify_first_write_failure, should_retry_syn_data_without_tfo,
 };
@@ -66,7 +65,7 @@ pub(super) fn handle_first_write_failure(
 
 pub(super) fn handle_first_response_failure(
     client: &mut TcpStream,
-    session_state: &mut SessionState,
+    session_state: &mut FirstOutboundSession,
     retry_state: &mut RouteRetryState,
     context: FirstResponseFailureContext<'_>,
 ) -> io::Result<Option<ReconnectedRoute>> {
@@ -105,7 +104,7 @@ pub(super) fn handle_first_response_failure(
         return Err(io::Error::new(io::ErrorKind::ConnectionReset, context.failure.evidence.summary.clone()));
     }
     if let Some(bytes) = context.response_bytes {
-        observe_retry_response_payload(session_state, &bytes);
+        session_state.observe_retry_response_payload(&bytes);
         client.write_all(&bytes)?;
         return Ok(None);
     }

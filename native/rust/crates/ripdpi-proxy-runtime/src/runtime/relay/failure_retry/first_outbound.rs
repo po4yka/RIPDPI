@@ -4,10 +4,11 @@ use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::model::config::{primary_tcp_strategy_family_with, FirstResponseSettings};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::model::session::{new_session_state, FirstOutboundPayloadPolicy};
+use ripdpi_proxy_runtime_adapter::model::session::FirstOutboundPayloadPolicy;
 use ripdpi_proxy_runtime_adapter::response_triggers::FirstResponseExchangePolicy;
 
 use crate::runtime::relay::failure_retry::first_outbound::execution::execute_first_write;
+use crate::runtime::relay::failure_retry::first_outbound::observations::FirstOutboundSession;
 use crate::runtime::relay::failure_retry::first_outbound::payload::prepare_first_payload;
 use crate::runtime::relay::failure_retry::first_outbound::response::{
     handle_first_response, FirstResponseContext, FirstResponseDecision,
@@ -66,7 +67,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
             return Ok(PreparedRelay {
                 upstream,
                 route: self.route,
-                session_state: RelaySession::from_state(new_session_state()),
+                session_state: FirstOutboundSession::new().into_relay_session(),
                 success_recorded: false,
                 success_host: None,
                 success_payload: None,
@@ -83,7 +84,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let inspect_first_response = needs_first_exchange(self.state, self.policies.exchange)?;
 
         loop {
-            session_state = new_session_state();
+            session_state = FirstOutboundSession::new();
             let tls_send_start = first_payload.is_tls.then(Instant::now);
             match execute_first_write(
                 &mut upstream,
@@ -165,7 +166,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         Ok(PreparedRelay {
             upstream,
             route,
-            session_state: RelaySession::from_state(session_state),
+            session_state: session_state.into_relay_session(),
             success_recorded,
             success_host: first_payload.host,
             success_payload: Some(first_payload.original_request),
