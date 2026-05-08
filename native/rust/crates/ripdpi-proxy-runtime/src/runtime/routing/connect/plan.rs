@@ -1,7 +1,7 @@
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::model::config::{tcp_route_connect_settings, TcpRouteConnectSettings};
+use ripdpi_proxy_runtime_adapter::model::config::{tcp_route_connect_settings_with, TcpRouteConnectSettings};
 
 use super::super::super::state::RuntimeState;
 use super::error::ConnectAttemptError;
@@ -16,13 +16,12 @@ pub(in crate::runtime::routing) fn connect_target_candidates_via_group(
     payload: Option<&[u8]>,
     allow_tfo: bool,
 ) -> Result<TcpStream, ConnectAttemptError> {
-    let settings = tcp_route_connect_settings(&state.config, group_index, payload, allow_tfo).ok_or_else(|| {
-        ConnectAttemptError {
+    let settings = tcp_route_connect_settings_with(&state.route_connect_settings, group_index, payload, allow_tfo)
+        .ok_or_else(|| ConnectAttemptError {
             source: io::Error::new(io::ErrorKind::NotFound, "missing desync group"),
             tcp_total_retransmissions: None,
             tcp_fast_open_enabled: false,
-        }
-    })?;
+        })?;
     let mut last_error = None;
     for &candidate in targets {
         match connect_target_via_group_with_settings(candidate, state, group_index, &settings) {

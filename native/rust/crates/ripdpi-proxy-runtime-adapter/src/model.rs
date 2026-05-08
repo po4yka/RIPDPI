@@ -314,22 +314,39 @@ pub mod config {
         pub strip_timestamps: bool,
     }
 
-    pub fn tcp_route_connect_settings(
-        config: &RuntimeConfig,
-        group_index: usize,
-        payload: Option<&[u8]>,
-        allow_tfo: bool,
-    ) -> Option<TcpRouteConnectSettings> {
-        let group = selected_desync_group(config, group_index)?;
-        let tfo_enabled =
-            allow_tfo && (tcp_fast_open_enabled(config) || group_requests_direct_syn_data_tfo(group, payload));
+    #[derive(Clone)]
+    pub struct TcpRouteConnectProfile {
+        pub tfo_enabled: bool,
+        pub direct_syn_data_tfo: bool,
+        pub upstream_socks_addr: Option<SocketAddr>,
+        pub pre_connect_rcvbuf: Option<u32>,
+        pub connect_timeout: Option<Duration>,
+        pub protect_path: Option<String>,
+        pub drop_sack: bool,
+        pub window_clamp: Option<u32>,
+        pub strip_timestamps: bool,
+    }
+
+    #[derive(Clone)]
+    pub struct TcpRouteConnectSettingsTable {
+        groups: Vec<TcpRouteConnectProfile>,
+    }
+
+    pub fn tcp_route_connect_settings_table(config: &RuntimeConfig) -> TcpRouteConnectSettingsTable {
+        TcpRouteConnectSettingsTable {
+            groups: config.groups.iter().map(|group| tcp_route_connect_profile(config, group)).collect(),
+        }
+    }
+
+    fn tcp_route_connect_profile(config: &RuntimeConfig, group: &DesyncGroup) -> TcpRouteConnectProfile {
         let pre_connect_rcvbuf = group.actions.wsize.map(|w| match w.scale {
             Some(scale) if (scale as u32) < 32 => w.window.checked_shl(scale as u32).unwrap_or(u32::MAX),
             Some(_) => u32::MAX,
             None => w.window,
         });
-        Some(TcpRouteConnectSettings {
-            tfo_enabled,
+        TcpRouteConnectProfile {
+            tfo_enabled: tcp_fast_open_enabled(config),
+            direct_syn_data_tfo: group_uses_direct_syn_data_tfo(group),
             upstream_socks_addr: group.policy.ext_socks.map(|upstream| upstream.addr),
             pre_connect_rcvbuf,
             connect_timeout: connect_timeout(config),
@@ -337,7 +354,37 @@ pub mod config {
             drop_sack: group.actions.drop_sack,
             window_clamp: group.actions.wsize.map(|w| w.window).or(group.actions.window_clamp),
             strip_timestamps: group.actions.strip_timestamps,
+        }
+    }
+
+    pub fn tcp_route_connect_settings_with(
+        table: &TcpRouteConnectSettingsTable,
+        group_index: usize,
+        payload: Option<&[u8]>,
+        allow_tfo: bool,
+    ) -> Option<TcpRouteConnectSettings> {
+        let profile = table.groups.get(group_index)?;
+        let tfo_enabled = allow_tfo
+            && (profile.tfo_enabled || (payload.is_some_and(|bytes| !bytes.is_empty()) && profile.direct_syn_data_tfo));
+        Some(TcpRouteConnectSettings {
+            tfo_enabled,
+            upstream_socks_addr: profile.upstream_socks_addr,
+            pre_connect_rcvbuf: profile.pre_connect_rcvbuf,
+            connect_timeout: profile.connect_timeout,
+            protect_path: profile.protect_path.clone(),
+            drop_sack: profile.drop_sack,
+            window_clamp: profile.window_clamp,
+            strip_timestamps: profile.strip_timestamps,
         })
+    }
+
+    pub fn tcp_route_connect_settings(
+        config: &RuntimeConfig,
+        group_index: usize,
+        payload: Option<&[u8]>,
+        allow_tfo: bool,
+    ) -> Option<TcpRouteConnectSettings> {
+        tcp_route_connect_settings_with(&tcp_route_connect_settings_table(config), group_index, payload, allow_tfo)
     }
 
     pub fn route_requests_direct_syn_data_tfo(
@@ -694,6 +741,26 @@ pub mod config {
             assert_eq!(settings.connect_timeout, Some(Duration::from_millis(1500)));
             assert_eq!(settings.protect_path.as_deref(), Some("/tmp/protect.sock"));
             assert!(settings.drop_sack);
+        }
+
+        #[test]
+        fn tcp_route_connect_settings_table_preserves_tfo_policy() {
+            let mut group = DesyncGroup::new(0);
+            group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1)));
+            let mut config = RuntimeConfig { groups: vec![group], ..Default::default() };
+            config.network.tfo = false;
+            let table = tcp_route_connect_settings_table(&config);
+
+            let without_payload = tcp_route_connect_settings_with(&table, 0, None, true).expect("connect settings");
+            let with_payload = tcp_route_connect_settings_with(&table, 0, Some(b"GET / HTTP/1.1\r\n\r\n"), true)
+                .expect("connect settings");
+            let tfo_disallowed = tcp_route_connect_settings_with(&table, 0, Some(b"GET / HTTP/1.1\r\n\r\n"), false)
+                .expect("connect settings");
+
+            assert!(!without_payload.tfo_enabled);
+            assert!(with_payload.tfo_enabled);
+            assert!(!tfo_disallowed.tfo_enabled);
+            assert!(tcp_route_connect_settings_with(&table, 1, Some(b"x"), true).is_none());
         }
 
         #[test]
