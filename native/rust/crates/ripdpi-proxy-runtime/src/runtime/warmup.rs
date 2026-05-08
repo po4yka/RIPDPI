@@ -14,6 +14,5 @@ mod execution;
 mod resolver;
 mod scheduler;
 mod target_catalog;
-mod tls_probe;
 
 pub(super) use scheduler::spawn_warmup_thread;

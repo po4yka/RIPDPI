@@ -12,7 +12,6 @@ use super::classification::{
 };
 use super::resolver::resolve_probe_target;
 use super::target_catalog::PROBE_TIMEOUT;
-use super::tls_probe::build_probe_client_hello;
 use crate::runtime::desync::{send_with_group, DesyncSendRequest};
 use crate::runtime::routing::connect_target;
 use crate::runtime::state::RuntimeState;
@@ -25,7 +24,7 @@ use ripdpi_proxy_runtime_adapter::platform::warmup as warmup_platform;
 /// `Ok(false)` if the connection succeeded on the first group.
 pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<bool> {
     let target = resolve_probe_target(state, domain)?;
-    let payload = build_probe_client_hello(domain);
+    let payload = RuntimeState::build_probe_client_hello(domain);
     let (mut upstream, route) = connect_target(target, state, Some(&payload), false, Some(domain.to_owned()))?;
 
     let _ = upstream.set_write_timeout(Some(PROBE_TIMEOUT));
