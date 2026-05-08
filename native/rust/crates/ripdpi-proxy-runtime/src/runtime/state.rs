@@ -4,7 +4,9 @@ use std::io;
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::desync_platform::{tcp_desync_executor, TcpDesyncExecutor};
+use ripdpi_proxy_runtime_adapter::desync_platform::{
+    tcp_desync_executor, TcpDesyncExecutionContext, TcpDesyncExecutor,
+};
 use ripdpi_proxy_runtime_adapter::failure::FailureClass;
 use ripdpi_proxy_runtime_adapter::model::config::{
     delayed_connect_settings, first_response_settings, listener_settings, network_reprobe_settings,
@@ -17,7 +19,7 @@ use ripdpi_proxy_runtime_adapter::model::config::{
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, RetrySelectionPenalty, TransportProtocol};
 use ripdpi_proxy_runtime_adapter::model::ports::{
-    AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, DirectPathLearningPort, PolicyPort, RetryPacingPort,
+    AdaptiveContextPort, AdaptiveFeedbackPort, DirectPathLearningPort, PolicyPort, RetryPacingPort,
 };
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{NetworkReprobeTracker, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{
@@ -31,7 +33,7 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     FirstOutboundPayloadPolicy, PayloadHostExtractor, UdpPacketParser, UdpPayloadClassifier,
 };
 use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
-use ripdpi_proxy_runtime_adapter::udp_desync::{udp_desync_planner, UdpDesyncPlanner};
+use ripdpi_proxy_runtime_adapter::udp_desync::{udp_desync_planner, UdpDesyncPlanContext, UdpDesyncPlanner};
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -148,10 +150,6 @@ impl RuntimeState {
     }
 
     pub(super) fn direct_path_learning(&self) -> &dyn DirectPathLearningPort {
-        &self.services
-    }
-
-    pub(super) fn adaptive_hints(&self) -> &dyn AdaptiveHintPort {
         &self.services
     }
 
@@ -318,6 +316,26 @@ impl RuntimeState {
 
     pub(super) fn note_evolver_failure(&self, class: FailureClass) {
         AdaptiveFeedbackPort::note_evolver_failure(&self.services, class);
+    }
+
+    pub(super) fn tcp_desync_execution_context(&self) -> TcpDesyncExecutionContext<'_> {
+        TcpDesyncExecutionContext {
+            executor: &self.tcp_desync_executor,
+            runtime_context: self.runtime_context.as_ref(),
+            telemetry: self.telemetry.as_deref(),
+            adaptive_hints: &self.services,
+            ttl_unavailable: &self.ttl_unavailable,
+            pcap_hook: self.pcap_hook.as_ref(),
+        }
+    }
+
+    pub(super) fn udp_desync_plan_context(&self) -> UdpDesyncPlanContext<'_> {
+        UdpDesyncPlanContext {
+            planner: &self.udp_desync_planner,
+            runtime_context: self.runtime_context.as_ref(),
+            telemetry: self.telemetry.as_deref(),
+            adaptive_hints: &self.services,
+        }
     }
 
     pub(super) fn reprobe_reset_handle(&self) -> ReprobeResetHandle {

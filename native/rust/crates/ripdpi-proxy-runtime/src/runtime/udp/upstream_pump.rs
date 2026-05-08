@@ -5,8 +5,7 @@ use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
 use ripdpi_proxy_runtime_adapter::udp_desync::{
-    execute_udp_actions, plan_udp_actions_for_runtime, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext,
-    UdpDesyncPlanRequest,
+    execute_udp_actions, plan_udp_actions_for_runtime, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanRequest,
 };
 
 use super::encode_socks5_udp_packet;
@@ -74,12 +73,7 @@ fn plan_udp_flow_actions(
     entry.awaiting_response = true;
     let progress = observe_datagram_outbound(entry, payload);
     plan_udp_actions_for_runtime(
-        UdpDesyncPlanContext {
-            planner: &state.udp_desync_planner,
-            runtime_context: state.runtime_context.as_ref(),
-            telemetry: state.telemetry.as_deref(),
-            adaptive_hints: state.adaptive_hints(),
-        },
+        state.udp_desync_plan_context(),
         UdpDesyncPlanRequest {
             group_index: entry.route.group_index,
             payload,
