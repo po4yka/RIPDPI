@@ -72,10 +72,10 @@ pub(super) struct RuntimeState {
     route_retry_settings: TcpRouteRetrySettings,
     route_syn_data_settings: TcpRouteSynDataSettings,
     route_connect_settings: TcpRouteConnectSettingsTable,
-    pub(super) tcp_desync_executor: TcpDesyncExecutor,
+    tcp_desync_executor: TcpDesyncExecutor,
     udp_group_settings: UdpGroupSettingsTable,
     route_payload_matcher: RoutePayloadMatcher,
-    pub(super) udp_desync_planner: UdpDesyncPlanner,
+    udp_desync_planner: UdpDesyncPlanner,
     udp_flow_limit: usize,
     udp_packet_parser: UdpPacketParser,
     udp_payload_classifier: UdpPayloadClassifier,
@@ -93,13 +93,13 @@ pub(super) struct RuntimeState {
     /// Session-level flag: once any connection discovers that per-socket TTL
     /// modification is rejected by the kernel (EROFS on Android), all
     /// subsequent connections skip TTL desync actions immediately.
-    pub(super) ttl_unavailable: Arc<AtomicBool>,
+    ttl_unavailable: Arc<AtomicBool>,
     /// Tracks network scope key changes for lightweight re-probing.
     pub(super) reprobe_tracker: std::sync::Arc<NetworkReprobeTracker>,
-    pub(super) pcap_hook: Option<super::desync::PcapHook>,
+    pcap_hook: Option<super::desync::PcapHook>,
     /// io_uring driver for zero-copy relay (Linux 6.0+, optional).
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-    pub(super) io_uring: Option<std::sync::Arc<ripdpi_io_uring::IoUringDriver>>,
+    io_uring: Option<std::sync::Arc<ripdpi_io_uring::IoUringDriver>>,
 }
 
 impl RuntimeState {
@@ -548,6 +548,11 @@ impl RuntimeState {
             telemetry: self.telemetry.as_deref(),
             adaptive_hints: &self.services,
         }
+    }
+
+    #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+    pub(super) fn io_uring_driver(&self) -> Option<&std::sync::Arc<ripdpi_io_uring::IoUringDriver>> {
+        self.io_uring.as_ref()
     }
 
     pub(super) fn note_direct_path_transport_attempt(
