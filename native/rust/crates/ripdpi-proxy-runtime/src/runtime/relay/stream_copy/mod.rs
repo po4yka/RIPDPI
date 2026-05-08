@@ -1,5 +1,6 @@
 mod copy_halves;
 mod freeze;
+mod observations;
 mod observers;
 
 use copy_halves::{copy_inbound_half, copy_outbound_half};
