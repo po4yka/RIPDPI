@@ -5,8 +5,7 @@ use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::model::{
     config::{
-        route_matches_transport_payload_with, route_payload_matcher, udp_group_packet_settings,
-        udp_group_socket_settings, udp_source_rebind_policy, UdpGroupPacketSettings, UdpGroupSocketSettings,
+        route_matches_transport_payload_with, udp_group_settings_with, UdpGroupPacketSettings, UdpGroupSocketSettings,
         UdpSourceRebindPolicy,
     },
     decision::{ConnectionRoute, TransportProtocol},
@@ -93,9 +92,12 @@ pub(super) fn select_udp_flow_target(
         if let Some(telemetry) = &state.telemetry {
             telemetry.on_route_selected(target, route.group_index, host, phase);
         }
-        let socket_settings = udp_group_socket_settings(&state.config, route.group_index);
-        let packet_settings = udp_group_packet_settings(&state.config, route.group_index);
-        let source_rebind_policy = udp_source_rebind_policy(&state.config, route.group_index);
+        let Some(group_settings) = udp_group_settings_with(&state.udp_group_settings, route.group_index) else {
+            continue;
+        };
+        let socket_settings = group_settings.socket;
+        let packet_settings = group_settings.packet;
+        let source_rebind_policy = group_settings.source_rebind;
         let Ok(upstream) = build_udp_upstream_socket(target, protect_path, socket_settings.bind_low_port) else {
             continue;
         };
@@ -233,10 +235,9 @@ fn update_udp_flow_selection(
     let host_changed = entry.host.as_deref() != packet.host.as_deref();
     entry.host = packet.host.clone();
     entry.cache_host = packet.cache_host;
-    let route_matcher = route_payload_matcher(&state.config);
     if host_changed
         || !route_matches_transport_payload_with(
-            &route_matcher,
+            &state.udp_route_matcher,
             entry.route.group_index,
             entry.current_target,
             packet.payload,

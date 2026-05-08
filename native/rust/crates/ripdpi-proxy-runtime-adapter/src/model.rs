@@ -541,6 +541,37 @@ pub mod config {
         UdpGroupPacketSettings { default_ttl: udp_default_ttl(config), ip_id_mode: udp_ip_id_mode(config, group_index) }
     }
 
+    #[derive(Clone, Copy)]
+    pub struct UdpGroupSettings {
+        pub socket: UdpGroupSocketSettings,
+        pub packet: UdpGroupPacketSettings,
+        pub source_rebind: UdpSourceRebindPolicy,
+    }
+
+    #[derive(Clone)]
+    pub struct UdpGroupSettingsTable {
+        groups: Vec<UdpGroupSettings>,
+    }
+
+    pub fn udp_group_settings_table(config: &RuntimeConfig) -> UdpGroupSettingsTable {
+        UdpGroupSettingsTable {
+            groups: config
+                .groups
+                .iter()
+                .enumerate()
+                .map(|(group_index, _)| UdpGroupSettings {
+                    socket: udp_group_socket_settings(config, group_index),
+                    packet: udp_group_packet_settings(config, group_index),
+                    source_rebind: udp_source_rebind_policy(config, group_index),
+                })
+                .collect(),
+        }
+    }
+
+    pub fn udp_group_settings_with(table: &UdpGroupSettingsTable, group_index: usize) -> Option<UdpGroupSettings> {
+        table.groups.get(group_index).copied()
+    }
+
     pub fn udp_bind_low_port(config: &RuntimeConfig, group_index: usize) -> bool {
         config.groups.get(group_index).is_some_and(|group| group.actions.quic_bind_low_port)
     }
@@ -914,6 +945,23 @@ pub mod config {
 
             assert!(udp_group_socket_settings(&config, 0).bind_low_port);
             assert!(!udp_group_socket_settings(&config, 1).bind_low_port);
+        }
+
+        #[test]
+        fn udp_group_settings_table_preserves_udp_group_policy() {
+            let mut group = DesyncGroup::new(0);
+            group.actions.quic_bind_low_port = true;
+            group.actions.quic_migrate_after_handshake = true;
+            let mut config = RuntimeConfig { groups: vec![group], ..Default::default() };
+            config.network.default_ttl = 42;
+
+            let table = udp_group_settings_table(&config);
+            let settings = udp_group_settings_with(&table, 0).expect("udp group settings");
+
+            assert!(settings.socket.bind_low_port);
+            assert_eq!(settings.packet.default_ttl, 42);
+            assert!(settings.source_rebind.after_handshake);
+            assert!(udp_group_settings_with(&table, 1).is_none());
         }
 
         #[test]

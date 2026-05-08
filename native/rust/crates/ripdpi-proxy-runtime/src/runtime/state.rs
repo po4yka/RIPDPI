@@ -2,10 +2,10 @@ use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    first_response_settings, relay_group_settings_table, response_failure_evidence_settings,
-    tcp_route_connect_settings_table, tcp_route_retry_settings, tcp_route_syn_data_settings, FirstResponseSettings,
-    RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RuntimeConfig, TcpRouteConnectSettingsTable,
-    TcpRouteRetrySettings, TcpRouteSynDataSettings,
+    first_response_settings, relay_group_settings_table, response_failure_evidence_settings, route_payload_matcher,
+    tcp_route_connect_settings_table, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_group_settings_table,
+    FirstResponseSettings, RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RoutePayloadMatcher,
+    RuntimeConfig, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable,
 };
 use ripdpi_proxy_runtime_adapter::model::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, DirectPathLearningPort, PolicyPort, RetryPacingPort,
@@ -29,6 +29,8 @@ pub(super) struct RuntimeState {
     pub(super) route_retry_settings: TcpRouteRetrySettings,
     pub(super) route_syn_data_settings: TcpRouteSynDataSettings,
     pub(super) route_connect_settings: TcpRouteConnectSettingsTable,
+    pub(super) udp_group_settings: UdpGroupSettingsTable,
+    pub(super) udp_route_matcher: RoutePayloadMatcher,
     pub(super) relay_group_settings: RelayGroupSettingsTable,
     pub(super) relay_host_extractor: PayloadHostExtractor,
     pub(super) relay_first_response: FirstResponseSettings,
@@ -62,6 +64,8 @@ impl RuntimeState {
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
         let route_connect_settings = tcp_route_connect_settings_table(&config);
+        let udp_group_settings = udp_group_settings_table(&config);
+        let udp_route_matcher = route_payload_matcher(&config);
         let relay_group_settings = relay_group_settings_table(&config);
         let relay_host_extractor = payload_host_extractor(&config);
         let relay_first_response = first_response_settings(&config);
@@ -74,6 +78,8 @@ impl RuntimeState {
             route_retry_settings,
             route_syn_data_settings,
             route_connect_settings,
+            udp_group_settings,
+            udp_route_matcher,
             relay_group_settings,
             relay_host_extractor,
             relay_first_response,
@@ -145,6 +151,8 @@ impl RuntimeState {
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
         let route_connect_settings = tcp_route_connect_settings_table(&config);
+        let udp_group_settings = udp_group_settings_table(&config);
+        let udp_route_matcher = route_payload_matcher(&config);
         let relay_group_settings = relay_group_settings_table(&config);
         let relay_host_extractor = payload_host_extractor(&config);
         let relay_first_response = first_response_settings(&config);
@@ -157,6 +165,8 @@ impl RuntimeState {
             route_retry_settings,
             route_syn_data_settings,
             route_connect_settings,
+            udp_group_settings,
+            udp_route_matcher,
             relay_group_settings,
             relay_host_extractor,
             relay_first_response,
