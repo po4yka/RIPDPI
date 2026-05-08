@@ -10,9 +10,11 @@ use ripdpi_proxy_runtime_adapter::desync_platform::{
 };
 use ripdpi_proxy_runtime_adapter::failure::{
     block_signal_from_failure, classify_first_response_closed_before_response,
-    classify_first_response_partial_tls_timeout, classify_relay_connection_freeze, classify_transport_error,
-    classify_warmup_closed_before_response, classify_warmup_first_response_error, classify_warmup_send_error,
-    should_track_strategy_target, BlockSignal, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
+    classify_first_response_partial_tls_timeout, classify_probe_connect_error, classify_probe_read_error,
+    classify_probe_tls_response, classify_probe_write_error, classify_relay_connection_freeze,
+    classify_transport_error, classify_warmup_closed_before_response, classify_warmup_first_response_error,
+    classify_warmup_send_error, should_track_strategy_target, BlockSignal, ClassifiedFailure, FailureAction,
+    FailureClass, FailureStage, ProbeResult,
 };
 use ripdpi_proxy_runtime_adapter::model::config::{
     connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
@@ -648,6 +650,22 @@ impl RuntimeState {
 
     pub(super) fn classify_warmup_closed_before_response() -> ClassifiedFailure {
         classify_warmup_closed_before_response()
+    }
+
+    pub(super) fn classify_probe_connect_error(source: &io::Error) -> ProbeResult {
+        classify_probe_connect_error(source)
+    }
+
+    pub(super) fn classify_probe_write_error(source: &io::Error) -> ProbeResult {
+        classify_probe_write_error(source)
+    }
+
+    pub(super) fn classify_probe_read_error(source: &io::Error) -> ProbeResult {
+        classify_probe_read_error(source)
+    }
+
+    pub(super) fn classify_probe_tls_response(header: [u8; 5], handshake_type: Option<u8>) -> ProbeResult {
+        classify_probe_tls_response(header, handshake_type)
     }
 
     pub(super) fn connect_failure_retries_without_tfo(

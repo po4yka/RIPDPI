@@ -1,12 +1,10 @@
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use ripdpi_proxy_runtime_adapter::failure::{
-    classify_probe_connect_error, classify_probe_read_error, classify_probe_tls_response, classify_probe_write_error,
-    ProbeResult,
-};
+use ripdpi_proxy_runtime_adapter::failure::ProbeResult;
 
 use super::super::routing::connect_socket;
+use super::super::state::RuntimeState;
 use super::target_catalog::PROBE_TIMEOUT;
 
 /// Attempt a raw TLS ClientHello to `target` and read the first response bytes.
@@ -16,7 +14,7 @@ pub(crate) fn probe_tls_handshake(target: SocketAddr, sni: &str, protect_path: O
     let stream =
         match connect_socket(target, IpAddr::V4(Ipv4Addr::UNSPECIFIED), protect_path, false, Some(PROBE_TIMEOUT)) {
             Ok(s) => s,
-            Err(err) => return classify_probe_connect_error(&err),
+            Err(err) => return RuntimeState::classify_probe_connect_error(&err),
         };
 
     if stream.set_read_timeout(Some(PROBE_TIMEOUT)).is_err() {
@@ -29,16 +27,16 @@ pub(crate) fn probe_tls_handshake(target: SocketAddr, sni: &str, protect_path: O
     let client_hello = build_minimal_client_hello(sni);
     let mut stream = stream;
     if let Err(err) = stream.write_all(&client_hello) {
-        return classify_probe_write_error(&err);
+        return RuntimeState::classify_probe_write_error(&err);
     }
 
     let mut header = [0u8; 5];
     match stream.read_exact(&mut header) {
         Ok(()) => {
             let handshake_type = read_handshake_type(&mut stream, header);
-            classify_probe_tls_response(header, handshake_type)
+            RuntimeState::classify_probe_tls_response(header, handshake_type)
         }
-        Err(err) => classify_probe_read_error(&err),
+        Err(err) => RuntimeState::classify_probe_read_error(&err),
     }
 }
 
