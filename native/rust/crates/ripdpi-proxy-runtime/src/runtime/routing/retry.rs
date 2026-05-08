@@ -2,9 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, ClassifiedFailure, FailureClass, FailureStage};
-use ripdpi_proxy_runtime_adapter::model::config::{
-    connection_route_requests_direct_syn_data_tfo_with, TcpRouteRetrySettings,
-};
+use ripdpi_proxy_runtime_adapter::model::config::TcpRouteRetrySettings;
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use super::super::adaptive::{note_direct_path_all_ips_failed, note_direct_path_transport_attempt};
@@ -24,7 +22,7 @@ pub(in crate::runtime) fn connect_target(
     if let Some(telemetry) = &state.telemetry {
         telemetry.on_route_selected(target, route.group_index, host.as_deref(), "initial");
     }
-    let settings = state.route_retry_settings;
+    let settings = state.route_retry_settings();
     connect_target_with_route(target, state, route, settings, payload, host)
 }
 
@@ -89,7 +87,7 @@ pub(in crate::runtime) fn reconnect_target(
     host: Option<String>,
     payload: Option<&[u8]>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
-    let settings = state.route_retry_settings;
+    let settings = state.route_retry_settings();
     reconnect_target_with_tfo_mode(target, state, route, settings, host, payload, true)
 }
 
@@ -100,7 +98,7 @@ pub(in crate::runtime) fn reconnect_target_without_tfo(
     host: Option<String>,
     payload: Option<&[u8]>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
-    let settings = state.route_retry_settings;
+    let settings = state.route_retry_settings();
     reconnect_target_with_tfo_mode(target, state, route, settings, host, payload, false)
 }
 
@@ -109,7 +107,7 @@ pub(in crate::runtime) fn route_uses_direct_syn_data_tfo(
     route: &ConnectionRoute,
     payload: Option<&[u8]>,
 ) -> bool {
-    connection_route_requests_direct_syn_data_tfo_with(&state.route_syn_data_settings, route, payload)
+    state.route_uses_direct_syn_data_tfo(route, payload)
 }
 
 fn reconnect_target_with_tfo_mode(

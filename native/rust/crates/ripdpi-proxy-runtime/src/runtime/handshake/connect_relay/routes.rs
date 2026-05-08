@@ -33,7 +33,7 @@ pub(super) fn connect_delayed_route(
         target,
         state,
         route,
-        state.route_retry_settings,
+        state.route_retry_settings(),
         Some(&payload),
         host,
     )

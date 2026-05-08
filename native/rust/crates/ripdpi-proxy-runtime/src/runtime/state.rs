@@ -9,16 +9,18 @@ use ripdpi_proxy_runtime_adapter::desync_platform::{
 };
 use ripdpi_proxy_runtime_adapter::failure::{BlockSignal, FailureClass};
 use ripdpi_proxy_runtime_adapter::model::config::{
-    delayed_connect_settings, delayed_route_matches_payload_with, first_response_settings, listener_settings,
-    network_reprobe_settings, primary_tcp_strategy_family_with, proxy_handshake_settings, relay_group_settings_table,
-    relay_group_settings_with, response_failure_evidence_settings, route_matches_transport_payload_with,
-    route_payload_matcher, route_requires_delay_payload_with, tcp_rotation_seed_with, tcp_route_connect_settings_table,
-    tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit, udp_group_settings_table,
-    udp_group_settings_with, warmup_probe_settings, ws_tunnel_settings, DelayedConnectSettings, DesyncGroup,
-    FirstResponseSettings, ListenerSettings, NetworkReprobeSettings, ProxyHandshakeSettings, RelayGroupSettings,
-    RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig,
-    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettings,
-    UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings,
+    connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
+    first_response_settings, listener_settings, network_reprobe_settings, primary_tcp_strategy_family_with,
+    proxy_handshake_settings, relay_group_settings_table, relay_group_settings_with,
+    response_failure_evidence_settings, route_matches_transport_payload_with, route_payload_matcher,
+    route_requires_delay_payload_with, tcp_rotation_seed_with, tcp_route_connect_settings_table,
+    tcp_route_connect_settings_with, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit,
+    udp_group_settings_table, udp_group_settings_with, warmup_probe_settings, ws_tunnel_settings,
+    DelayedConnectSettings, DesyncGroup, FirstResponseSettings, ListenerSettings, NetworkReprobeSettings,
+    ProxyHandshakeSettings, RelayGroupSettings, RelayGroupSettingsTable, ResponseFailureEvidenceSettings,
+    RotationPolicy, RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettings, TcpRouteConnectSettingsTable,
+    TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettings, UdpGroupSettingsTable, WarmupProbeSettings,
+    WsTunnelSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
@@ -67,9 +69,9 @@ pub(super) struct RuntimeState {
     pub(super) network_reprobe_settings: NetworkReprobeSettings,
     pub(super) ws_tunnel_settings: WsTunnelSettings,
     pub(super) warmup_probe_settings: WarmupProbeSettings,
-    pub(super) route_retry_settings: TcpRouteRetrySettings,
-    pub(super) route_syn_data_settings: TcpRouteSynDataSettings,
-    pub(super) route_connect_settings: TcpRouteConnectSettingsTable,
+    route_retry_settings: TcpRouteRetrySettings,
+    route_syn_data_settings: TcpRouteSynDataSettings,
+    route_connect_settings: TcpRouteConnectSettingsTable,
     pub(super) tcp_desync_executor: TcpDesyncExecutor,
     udp_group_settings: UdpGroupSettingsTable,
     route_payload_matcher: RoutePayloadMatcher,
@@ -331,6 +333,23 @@ impl RuntimeState {
 
     pub(super) fn udp_group(&self, group_index: usize) -> Option<UdpGroupSettings> {
         udp_group_settings_with(&self.udp_group_settings, group_index)
+    }
+
+    pub(super) fn route_retry_settings(&self) -> TcpRouteRetrySettings {
+        self.route_retry_settings
+    }
+
+    pub(super) fn route_uses_direct_syn_data_tfo(&self, route: &ConnectionRoute, payload: Option<&[u8]>) -> bool {
+        connection_route_requests_direct_syn_data_tfo_with(&self.route_syn_data_settings, route, payload)
+    }
+
+    pub(super) fn route_connect_settings(
+        &self,
+        group_index: usize,
+        payload: Option<&[u8]>,
+        allow_tfo: bool,
+    ) -> Option<TcpRouteConnectSettings> {
+        tcp_route_connect_settings_with(&self.route_connect_settings, group_index, payload, allow_tfo)
     }
 
     pub(super) fn select_initial_route(
