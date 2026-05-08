@@ -11,22 +11,7 @@ pub(crate) fn flush_updates(state: &RuntimeState) {
     // The policy port handles autolearn flushing internally on every mutating
     // call. A final explicit drain ensures any accumulated events are emitted
     // even when no route mutations occurred during warmup.
-    if let Some(telemetry) = &state.telemetry {
-        let autolearn = state.policy().autolearn_state();
-        telemetry.on_host_autolearn_state(
-            autolearn.enabled,
-            autolearn.learned_host_count,
-            autolearn.penalized_host_count,
-            autolearn.blocked_host_count,
-            autolearn.last_block_signal.as_deref(),
-            autolearn.last_block_provider.as_deref(),
-        );
-        for event in state.policy().drain_autolearn_events() {
-            telemetry.on_host_autolearn_event(event.action, event.host.as_deref(), event.group_index);
-        }
-    } else {
-        let _ = state.policy().drain_autolearn_events();
-    }
+    state.flush_autolearn_telemetry();
 }
 
 pub(crate) fn record_route_success(

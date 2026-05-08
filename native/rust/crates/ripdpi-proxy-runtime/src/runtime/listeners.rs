@@ -33,9 +33,7 @@ pub(super) fn run_proxy_with_listener_internal(
     // Drain any autolearn events accumulated during policy load so that
     // telemetry reflects the initial state before any connections arrive.
     // The policy port's ServicesState::drop handles persistence on shutdown.
-    {
-        let _ = state.policy().drain_autolearn_events();
-    }
+    state.drain_autolearn_events();
 
     super::warmup::spawn_warmup_thread(state.clone());
 

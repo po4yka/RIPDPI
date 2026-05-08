@@ -162,6 +162,33 @@ impl RuntimeState {
         &self.services
     }
 
+    pub(super) fn clear_connection_cache(&self) -> usize {
+        self.policy().clear_connection_cache()
+    }
+
+    pub(super) fn drain_autolearn_events(&self) {
+        let _ = self.policy().drain_autolearn_events();
+    }
+
+    pub(super) fn flush_autolearn_telemetry(&self) {
+        if let Some(telemetry) = &self.telemetry {
+            let autolearn = self.policy().autolearn_state();
+            telemetry.on_host_autolearn_state(
+                autolearn.enabled,
+                autolearn.learned_host_count,
+                autolearn.penalized_host_count,
+                autolearn.blocked_host_count,
+                autolearn.last_block_signal.as_deref(),
+                autolearn.last_block_provider.as_deref(),
+            );
+            for event in self.policy().drain_autolearn_events() {
+                telemetry.on_host_autolearn_event(event.action, event.host.as_deref(), event.group_index);
+            }
+        } else {
+            self.drain_autolearn_events();
+        }
+    }
+
     pub(super) fn reprobe_reset_handle(&self) -> ReprobeResetHandle {
         reprobe_reset_handle(&self.services)
     }
