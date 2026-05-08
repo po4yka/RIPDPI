@@ -14,14 +14,15 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     first_response_settings, first_response_timeout, first_response_timeout_count_limit, listener_settings,
     network_reprobe_settings, primary_tcp_strategy_family_with, proxy_handshake_settings, relay_group_settings_table,
     relay_group_settings_with, response_failure_evidence_settings, route_matches_transport_payload_with,
-    route_payload_matcher, route_requires_delay_payload_with, tcp_rotation_seed_with, tcp_route_connect_settings_table,
-    tcp_route_connect_settings_with, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit,
-    udp_group_settings_table, udp_group_settings_with, warmup_probe_settings, ws_tunnel_config_with,
-    ws_tunnel_settings, DelayedConnectSettings, DesyncGroup, FirstResponseSettings, ListenerSettings,
-    NetworkReprobeSettings, ProxyHandshakeSettings, ProxyProtocolMode, RelayGroupSettings, RelayGroupSettingsTable,
-    ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig, ShadowsocksTargetPolicy,
-    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupPacketSettings,
-    UdpGroupSettingsTable, UdpGroupSocketSettings, UdpSourceRebindPolicy, WarmupProbeSettings, WsTunnelSettings,
+    route_payload_matcher, route_requires_delay_payload_with, should_rebind_udp_source_port_with,
+    tcp_rotation_seed_with, tcp_route_connect_settings_table, tcp_route_connect_settings_with,
+    tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit, udp_group_settings_table,
+    udp_group_settings_with, warmup_probe_settings, ws_tunnel_config_with, ws_tunnel_settings, DelayedConnectSettings,
+    DesyncGroup, FirstResponseSettings, ListenerSettings, NetworkReprobeSettings, ProxyHandshakeSettings,
+    ProxyProtocolMode, RelayGroupSettings, RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RotationPolicy,
+    RoutePayloadMatcher, RuntimeConfig, ShadowsocksTargetPolicy, TcpRouteConnectSettingsTable, TcpRouteRetrySettings,
+    TcpRouteSynDataSettings, UdpGroupPacketSettings, UdpGroupSettingsTable, UdpGroupSocketSettings,
+    UdpSourceRebindPolicy, WarmupProbeSettings, WsTunnelSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
@@ -491,6 +492,15 @@ impl RuntimeState {
     pub(super) fn udp_flow_group_policy(&self, group_index: usize) -> Option<UdpFlowGroupPolicy> {
         let group = udp_group_settings_with(&self.udp_group_settings, group_index)?;
         Some(UdpFlowGroupPolicy { socket: group.socket, packet: group.packet, source_rebind: group.source_rebind })
+    }
+
+    pub(super) fn should_rebind_udp_flow_source_port(
+        policy: UdpSourceRebindPolicy,
+        quic_migrated: bool,
+        round_count: u32,
+        inbound_payload: &[u8],
+    ) -> bool {
+        should_rebind_udp_source_port_with(policy, quic_migrated, round_count, inbound_payload)
     }
 
     pub(super) fn max_route_retries(&self) -> usize {

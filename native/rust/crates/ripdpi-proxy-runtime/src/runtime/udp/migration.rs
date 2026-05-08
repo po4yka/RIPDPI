@@ -1,7 +1,5 @@
 use std::io;
 
-use ripdpi_proxy_runtime_adapter::model::config::should_rebind_udp_source_port_with;
-
 use super::flow::UdpFlowActivationState;
 use super::sockets::build_udp_upstream_socket;
 use crate::runtime::state::RuntimeState;
@@ -12,7 +10,7 @@ pub(super) fn maybe_rebind_udp_source_port(
     inbound_payload: &[u8],
     protect_path: Option<&str>,
 ) -> io::Result<()> {
-    if !should_rebind_udp_source_port_with(
+    if !RuntimeState::should_rebind_udp_flow_source_port(
         entry.source_rebind_policy,
         entry.quic_migrated,
         entry.session.round_count(),
