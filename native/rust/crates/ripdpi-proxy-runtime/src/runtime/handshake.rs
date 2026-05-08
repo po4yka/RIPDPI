@@ -12,8 +12,8 @@ use std::time::Duration;
 use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::model::config::ProxyProtocolMode;
 use ripdpi_proxy_runtime_adapter::model::session::{
-    encode_socks4_reply, encode_socks5_reply, parse_http_connect_request, parse_socks4_request, parse_socks5_request,
-    ClientRequest, SessionError, SocketType, S_ER_CMD, S_ER_GEN, S_VER5,
+    parse_http_connect_request, parse_socks4_request, parse_socks5_request, ClientRequest, SessionError, SocketType,
+    S_ER_CMD, S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
@@ -93,11 +93,11 @@ fn handle_socks4(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
             }
         }
         Ok(_) => {
-            client.write_all(encode_socks4_reply(false).as_bytes())?;
+            client.write_all(RuntimeState::encode_socks4_reply(false).as_bytes())?;
             Ok(())
         }
         Err(_) => {
-            client.write_all(encode_socks4_reply(false).as_bytes())?;
+            client.write_all(RuntimeState::encode_socks4_reply(false).as_bytes())?;
             Ok(())
         }
     }
@@ -126,19 +126,19 @@ fn handle_socks5(mut client: TcpStream, state: &RuntimeState, version: u8) -> io
         Ok(ClientRequest::Socks5UdpAssociate(_target)) => {
             if !state.udp_associate_enabled() {
                 let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
-                client.write_all(encode_socks5_reply(S_ER_CMD, fail).as_bytes())?;
+                client.write_all(RuntimeState::encode_socks5_reply(S_ER_CMD, fail).as_bytes())?;
                 return Ok(());
             }
             handle_socks5_udp_associate(client, state)
         }
         Ok(_) => {
             let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
-            client.write_all(encode_socks5_reply(S_ER_GEN, fail).as_bytes())?;
+            client.write_all(RuntimeState::encode_socks5_reply(S_ER_GEN, fail).as_bytes())?;
             Ok(())
         }
         Err(SessionError { code }) => {
             let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
-            client.write_all(encode_socks5_reply(code, fail).as_bytes())?;
+            client.write_all(RuntimeState::encode_socks5_reply(code, fail).as_bytes())?;
             Ok(())
         }
     }
@@ -167,8 +167,7 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
             }
         }
         _ => {
-            use ripdpi_proxy_runtime_adapter::model::session::encode_http_connect_reply;
-            client.write_all(encode_http_connect_reply(false).as_bytes())?;
+            client.write_all(RuntimeState::encode_http_connect_reply(false).as_bytes())?;
             Ok(())
         }
     }
@@ -196,7 +195,7 @@ fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> i
     let protect_path = state.handshake_protect_path();
     let relay = super::udp::build_udp_relay_sockets(local_ip, protect_path.as_deref())?;
     let reply_addr = relay.client.local_addr()?;
-    client.write_all(encode_socks5_reply(0, reply_addr).as_bytes())?;
+    client.write_all(RuntimeState::encode_socks5_reply(0, reply_addr).as_bytes())?;
 
     let running = Arc::new(AtomicBool::new(true));
     let worker_running = running.clone();
@@ -227,7 +226,7 @@ fn handle_socks5_udp_associate(mut client: TcpStream, state: &RuntimeState) -> i
 
 fn handle_socks4_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
     if !err.success_reply_sent() {
-        client.write_all(encode_socks4_reply(false).as_bytes())?;
+        client.write_all(RuntimeState::encode_socks4_reply(false).as_bytes())?;
     }
     Err(err.into_io_error())
 }
@@ -235,15 +234,14 @@ fn handle_socks4_connect_error(client: &mut TcpStream, err: ConnectRelayError) -
 fn handle_socks5_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
     if !err.success_reply_sent() {
         let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
-        client.write_all(encode_socks5_reply(S_ER_GEN, fail).as_bytes())?;
+        client.write_all(RuntimeState::encode_socks5_reply(S_ER_GEN, fail).as_bytes())?;
     }
     Err(err.into_io_error())
 }
 
 fn handle_http_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
     if !err.success_reply_sent() {
-        use ripdpi_proxy_runtime_adapter::model::session::encode_http_connect_reply;
-        client.write_all(encode_http_connect_reply(false).as_bytes())?;
+        client.write_all(RuntimeState::encode_http_connect_reply(false).as_bytes())?;
     }
     Err(err.into_io_error())
 }

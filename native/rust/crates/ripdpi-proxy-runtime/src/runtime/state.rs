@@ -48,11 +48,12 @@ use ripdpi_proxy_runtime_adapter::model::services::{
     new_services_handle, reprobe_reset_handle, ReprobeResetHandle, ServicesStateHandle,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{
-    encode_upstream_socks_connect, extract_payload_host_with, first_outbound_payload_policy, has_inbound_payload,
-    new_session_state, observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
+    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, encode_upstream_socks_connect,
+    extract_payload_host_with, first_outbound_payload_policy, has_inbound_payload, new_session_state,
+    observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
     observe_outbound_payload, observe_retry_response_payload, outbound_payload_count_this_round,
     payload_host_extractor, read_upstream_socks_reply, udp_packet_parser, udp_payload_classifier,
-    FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, PayloadHostExtractor, SessionConfig,
+    FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, PayloadHostExtractor, ProxyReply, SessionConfig,
     SessionState, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
@@ -477,6 +478,18 @@ impl RuntimeState {
 
     pub(super) fn read_upstream_socks_reply(reader: &mut impl Read) -> io::Result<Vec<u8>> {
         read_upstream_socks_reply(reader)
+    }
+
+    pub(super) fn encode_socks4_reply(granted: bool) -> ProxyReply {
+        encode_socks4_reply(granted)
+    }
+
+    pub(super) fn encode_socks5_reply(code: u8, addr: SocketAddr) -> ProxyReply {
+        encode_socks5_reply(code, addr)
+    }
+
+    pub(super) fn encode_http_connect_reply(success: bool) -> ProxyReply {
+        encode_http_connect_reply(success)
     }
 
     pub(super) fn classify_first_outbound_payload(&self, payload: &[u8]) -> OutboundPayloadInfo {
