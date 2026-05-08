@@ -1,7 +1,6 @@
 use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::failure::{block_signal_from_failure, ClassifiedFailure};
-use ripdpi_proxy_runtime_adapter::model::config::response_failure_evidence_settings;
 use ripdpi_proxy_runtime_adapter::model::decision::{
     classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
     DnsTamperingEvidence,
@@ -52,13 +51,12 @@ pub(in crate::runtime) fn classify_response_failure(
     response: &[u8],
     host: Option<&str>,
 ) -> Option<ClassifiedFailure> {
-    let evidence_settings = response_failure_evidence_settings(&state.config);
     let answer_set = if response_requires_dns_tampering_evidence(request, response) {
         host.and_then(|value| {
             encrypted_dns_ip_answers_for_host(
                 value,
                 state.runtime_context.as_ref(),
-                evidence_settings.protect_path.as_deref(),
+                state.response_failure_evidence_settings.protect_path.as_deref(),
             )
             .ok()
         })

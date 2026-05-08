@@ -2,8 +2,8 @@ use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    tcp_route_retry_settings, tcp_route_syn_data_settings, RuntimeConfig, TcpRouteRetrySettings,
-    TcpRouteSynDataSettings,
+    response_failure_evidence_settings, tcp_route_retry_settings, tcp_route_syn_data_settings,
+    ResponseFailureEvidenceSettings, RuntimeConfig, TcpRouteRetrySettings, TcpRouteSynDataSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, DirectPathLearningPort, PolicyPort, RetryPacingPort,
@@ -22,6 +22,7 @@ pub(super) struct RuntimeState {
     pub(super) config: Arc<RuntimeConfig>,
     pub(super) route_retry_settings: TcpRouteRetrySettings,
     pub(super) route_syn_data_settings: TcpRouteSynDataSettings,
+    pub(super) response_failure_evidence_settings: ResponseFailureEvidenceSettings,
     pub(super) services: ServicesStateHandle,
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
@@ -48,11 +49,13 @@ impl RuntimeState {
 
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
+        let response_failure_evidence_settings = response_failure_evidence_settings(&config);
 
         Self {
             config: Arc::new(config),
             route_retry_settings,
             route_syn_data_settings,
+            response_failure_evidence_settings,
             services: handle,
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry,
@@ -117,11 +120,13 @@ impl RuntimeState {
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
+        let response_failure_evidence_settings = response_failure_evidence_settings(&config);
 
         Self {
             config: Arc::new(config),
             route_retry_settings,
             route_syn_data_settings,
+            response_failure_evidence_settings,
             services: handle,
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry,
