@@ -1078,6 +1078,15 @@ pub mod session {
     }
 
     #[derive(Clone)]
+    pub struct PayloadHostExtractor {
+        config: RuntimeConfig,
+    }
+
+    pub fn payload_host_extractor(config: &RuntimeConfig) -> PayloadHostExtractor {
+        PayloadHostExtractor { config: config.clone() }
+    }
+
+    #[derive(Clone)]
     pub struct UdpPayloadClassifier {
         config: RuntimeConfig,
     }
@@ -1103,6 +1112,10 @@ pub mod session {
 
     pub fn extract_payload_host(config: &RuntimeConfig, payload: &[u8]) -> Option<String> {
         ripdpi_runtime_decision_ports::policy::extract_host(config, payload)
+    }
+
+    pub fn extract_payload_host_with(extractor: &PayloadHostExtractor, payload: &[u8]) -> Option<String> {
+        extract_payload_host(&extractor.config, payload)
     }
 
     pub fn is_tls_client_hello_payload(payload: &[u8]) -> bool {
@@ -1291,6 +1304,16 @@ pub mod session {
             let info = classify_first_outbound_payload(&policy, b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n");
             assert_eq!(info.host.as_deref(), Some("example.com"));
             assert!(!info.is_tls);
+        }
+
+        #[test]
+        fn payload_host_extractor_preserves_host_parsing() {
+            let config = RuntimeConfig::default();
+            let extractor = payload_host_extractor(&config);
+
+            let host = extract_payload_host_with(&extractor, b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n");
+
+            assert_eq!(host.as_deref(), Some("example.com"));
         }
 
         #[test]

@@ -1,5 +1,5 @@
 use crate::sync::{Arc, Mutex};
-use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host_with, payload_host_extractor, SessionState};
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream};
@@ -101,7 +101,8 @@ pub(super) fn flush_outbound_payload(
         (is_new_round, progress)
     };
     let mut remembered = remembered_host.lock().map_err(|_| io::Error::other("remembered host mutex poisoned"))?;
-    if let Some(host) = extract_payload_host(&state.config, payload) {
+    let host_extractor = payload_host_extractor(&state.config);
+    if let Some(host) = extract_payload_host_with(&host_extractor, payload) {
         *remembered = Some(host);
     }
     let host = remembered.clone();
