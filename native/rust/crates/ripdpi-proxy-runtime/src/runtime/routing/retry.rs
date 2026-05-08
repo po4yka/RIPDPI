@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, ClassifiedFailure, FailureClass, FailureStage};
 use ripdpi_proxy_runtime_adapter::model::config::{
-    connection_route_requests_direct_syn_data_tfo, TcpRouteRetrySettings,
+    connection_route_requests_direct_syn_data_tfo_with, TcpRouteRetrySettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
@@ -109,7 +109,7 @@ pub(in crate::runtime) fn route_uses_direct_syn_data_tfo(
     route: &ConnectionRoute,
     payload: Option<&[u8]>,
 ) -> bool {
-    connection_route_requests_direct_syn_data_tfo(&state.config, route, payload)
+    connection_route_requests_direct_syn_data_tfo_with(&state.route_syn_data_settings, route, payload)
 }
 
 fn reconnect_target_with_tfo_mode(

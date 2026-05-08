@@ -1,7 +1,10 @@
 use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::model::config::{tcp_route_retry_settings, RuntimeConfig, TcpRouteRetrySettings};
+use ripdpi_proxy_runtime_adapter::model::config::{
+    tcp_route_retry_settings, tcp_route_syn_data_settings, RuntimeConfig, TcpRouteRetrySettings,
+    TcpRouteSynDataSettings,
+};
 use ripdpi_proxy_runtime_adapter::model::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, DirectPathLearningPort, PolicyPort, RetryPacingPort,
 };
@@ -18,6 +21,7 @@ pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 pub(super) struct RuntimeState {
     pub(super) config: Arc<RuntimeConfig>,
     pub(super) route_retry_settings: TcpRouteRetrySettings,
+    pub(super) route_syn_data_settings: TcpRouteSynDataSettings,
     pub(super) services: ServicesStateHandle,
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
@@ -43,10 +47,12 @@ impl RuntimeState {
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
 
         let route_retry_settings = tcp_route_retry_settings(&config);
+        let route_syn_data_settings = tcp_route_syn_data_settings(&config);
 
         Self {
             config: Arc::new(config),
             route_retry_settings,
+            route_syn_data_settings,
             services: handle,
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry,
@@ -110,10 +116,12 @@ impl RuntimeState {
     ) -> Self {
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
         let route_retry_settings = tcp_route_retry_settings(&config);
+        let route_syn_data_settings = tcp_route_syn_data_settings(&config);
 
         Self {
             config: Arc::new(config),
             route_retry_settings,
+            route_syn_data_settings,
             services: handle,
             active_clients: Arc::new(AtomicUsize::new(0)),
             telemetry,

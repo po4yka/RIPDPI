@@ -273,10 +273,33 @@ pub mod config {
         config.network.tfo
     }
 
-    pub fn group_requests_direct_syn_data_tfo(group: &DesyncGroup, payload: Option<&[u8]>) -> bool {
-        payload.is_some_and(|bytes| !bytes.is_empty())
-            && group.policy.ext_socks.is_none()
+    pub fn group_uses_direct_syn_data_tfo(group: &DesyncGroup) -> bool {
+        group.policy.ext_socks.is_none()
             && group.actions.tcp_chain.iter().any(|step| step.kind() == TcpChainStepKind::SynData)
+    }
+
+    pub fn group_requests_direct_syn_data_tfo(group: &DesyncGroup, payload: Option<&[u8]>) -> bool {
+        payload.is_some_and(|bytes| !bytes.is_empty()) && group_uses_direct_syn_data_tfo(group)
+    }
+
+    #[derive(Clone, Debug, PartialEq, Eq)]
+    pub struct TcpRouteSynDataSettings {
+        direct_syn_data_groups: Vec<bool>,
+    }
+
+    pub fn tcp_route_syn_data_settings(config: &RuntimeConfig) -> TcpRouteSynDataSettings {
+        TcpRouteSynDataSettings {
+            direct_syn_data_groups: config.groups.iter().map(group_uses_direct_syn_data_tfo).collect(),
+        }
+    }
+
+    pub fn connection_route_requests_direct_syn_data_tfo_with(
+        settings: &TcpRouteSynDataSettings,
+        route: &ripdpi_runtime_decision_ports::policy::ConnectionRoute,
+        payload: Option<&[u8]>,
+    ) -> bool {
+        payload.is_some_and(|bytes| !bytes.is_empty())
+            && settings.direct_syn_data_groups.get(route.group_index).copied().unwrap_or(false)
     }
 
     #[derive(Clone)]
@@ -331,7 +354,7 @@ pub mod config {
         route: &ripdpi_runtime_decision_ports::policy::ConnectionRoute,
         payload: Option<&[u8]>,
     ) -> bool {
-        route_requests_direct_syn_data_tfo(config, route.group_index, payload)
+        connection_route_requests_direct_syn_data_tfo_with(&tcp_route_syn_data_settings(config), route, payload)
     }
 
     pub fn ws_tunnel_always_enabled(config: &RuntimeConfig) -> bool {
@@ -575,11 +598,13 @@ pub mod config {
             let mut group = DesyncGroup::new(0);
             group.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1)));
 
+            assert!(group_uses_direct_syn_data_tfo(&group));
             assert!(group_requests_direct_syn_data_tfo(&group, Some(b"GET / HTTP/1.1\r\n\r\n")));
             assert!(!group_requests_direct_syn_data_tfo(&group, None));
             assert!(!group_requests_direct_syn_data_tfo(&group, Some(&[])));
 
             group.policy.ext_socks = Some(UpstreamSocksConfig { addr: SocketAddr::from(([127, 0, 0, 1], 1080)) });
+            assert!(!group_uses_direct_syn_data_tfo(&group));
             assert!(!group_requests_direct_syn_data_tfo(&group, Some(b"GET / HTTP/1.1\r\n\r\n")));
         }
 
@@ -602,6 +627,32 @@ pub mod config {
             ));
             assert!(!connection_route_requests_direct_syn_data_tfo(
                 &config,
+                &plain_route,
+                Some(b"GET / HTTP/1.1\r\n\r\n"),
+            ));
+        }
+
+        #[test]
+        fn projected_syn_data_settings_preserve_payload_and_route_group_policy() {
+            let mut direct = DesyncGroup::new(0);
+            direct.actions.tcp_chain.push(TcpChainStep::new(TcpChainStepKind::SynData, OffsetExpr::absolute(1)));
+            let plain = DesyncGroup::new(1);
+            let config = RuntimeConfig { groups: vec![direct, plain], ..Default::default() };
+            let settings = tcp_route_syn_data_settings(&config);
+
+            let direct_route =
+                ripdpi_runtime_decision_ports::policy::ConnectionRoute { group_index: 0, attempted_mask: 0 };
+            let plain_route =
+                ripdpi_runtime_decision_ports::policy::ConnectionRoute { group_index: 1, attempted_mask: 0 };
+
+            assert!(connection_route_requests_direct_syn_data_tfo_with(
+                &settings,
+                &direct_route,
+                Some(b"GET / HTTP/1.1\r\n\r\n"),
+            ));
+            assert!(!connection_route_requests_direct_syn_data_tfo_with(&settings, &direct_route, Some(&[])));
+            assert!(!connection_route_requests_direct_syn_data_tfo_with(
+                &settings,
                 &plain_route,
                 Some(b"GET / HTTP/1.1\r\n\r\n"),
             ));
