@@ -7,7 +7,7 @@ use freeze::FreezeDetector;
 use observers::group_rotation_controller;
 
 use crate::sync::{Arc, Mutex};
-use ripdpi_proxy_runtime_adapter::model::config::relay_group_settings;
+use ripdpi_proxy_runtime_adapter::model::config::RelayGroupSettings;
 use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 use std::io;
 use std::net::{Shutdown, TcpStream};
@@ -25,6 +25,7 @@ pub(super) fn relay_streams(
     upstream: TcpStream,
     state: &RuntimeState,
     group_index: usize,
+    settings: RelayGroupSettings,
     session_seed: SessionState,
     remembered_host_seed: Option<String>,
 ) -> io::Result<SessionState> {
@@ -44,8 +45,6 @@ pub(super) fn relay_streams(
     let inbound_session = session_state.clone();
     let outbound_state = state.clone();
     let inbound_state = state.clone();
-    let settings = relay_group_settings(&state.config, group_index)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
     let peer_done = Arc::new(AtomicBool::new(false));
     let freeze_detected = Arc::new(AtomicBool::new(false));
     let remembered_host = Arc::new(Mutex::new(remembered_host_seed));

@@ -1,9 +1,7 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
-#[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-use ripdpi_proxy_runtime_adapter::model::config::relay_group_settings;
-use ripdpi_proxy_runtime_adapter::model::config::relay_timeout_settings;
+use ripdpi_proxy_runtime_adapter::model::config::{relay_group_settings, relay_timeout_settings};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
 use super::super::routing::{emit_failure_classified, note_block_signal_for_failure};
@@ -23,21 +21,22 @@ pub(super) fn relay_with_uring_if_available(
     session_state: ripdpi_proxy_runtime_adapter::model::session::SessionState,
     success_host: Option<String>,
 ) -> io::Result<ripdpi_proxy_runtime_adapter::model::session::SessionState> {
+    let settings = relay_group_settings(&state.config, route.group_index)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
     let uring_driver = ripdpi_io_uring::io_uring_capabilities().send_zc.then(|| state.io_uring.as_ref()).flatten();
-    let rotation_enabled =
-        relay_group_settings(&state.config, route.group_index).is_some_and(|settings| settings.rotation_enabled);
-    if let Some(driver) = uring_driver.filter(|_| !rotation_enabled) {
+    if let Some(driver) = uring_driver.filter(|_| !settings.rotation_enabled) {
         return stream_copy_uring::relay_streams_uring(
             client,
             upstream,
             state,
             route.group_index,
+            settings,
             session_state,
             success_host,
             driver,
         );
     }
-    relay_streams(client, upstream, state, route.group_index, session_state, success_host)
+    relay_streams(client, upstream, state, route.group_index, settings, session_state, success_host)
 }
 
 #[cfg(not(all(feature = "io-uring", any(target_os = "linux", target_os = "android"))))]
@@ -50,7 +49,9 @@ pub(super) fn relay_with_uring_if_available(
     session_state: ripdpi_proxy_runtime_adapter::model::session::SessionState,
     success_host: Option<String>,
 ) -> io::Result<ripdpi_proxy_runtime_adapter::model::session::SessionState> {
-    relay_streams(client, upstream, state, route.group_index, session_state, success_host)
+    let settings = relay_group_settings(&state.config, route.group_index)
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
+    relay_streams(client, upstream, state, route.group_index, settings, session_state, success_host)
 }
 
 #[inline(never)]

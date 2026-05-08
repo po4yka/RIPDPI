@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use ripdpi_io_uring::IoUringDriver;
-use ripdpi_proxy_runtime_adapter::model::config::relay_group_settings;
+use ripdpi_proxy_runtime_adapter::model::config::RelayGroupSettings;
 use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
 use super::super::super::state::RuntimeState;
@@ -25,6 +25,7 @@ pub(in crate::runtime) fn relay_streams_uring(
     upstream: TcpStream,
     state: &RuntimeState,
     group_index: usize,
+    settings: RelayGroupSettings,
     session_seed: SessionState,
     remembered_host_seed: Option<String>,
     uring: &Arc<IoUringDriver>,
@@ -36,8 +37,6 @@ pub(in crate::runtime) fn relay_streams_uring(
     let outbound_session = session_state.clone();
     let inbound_session = session_state.clone();
     let outbound_state = state.clone();
-    let settings = relay_group_settings(&state.config, group_index)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
     let peer_done = Arc::new(AtomicBool::new(false));
     let freeze_detected = Arc::new(AtomicBool::new(false));
 
