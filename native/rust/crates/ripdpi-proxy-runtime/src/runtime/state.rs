@@ -19,7 +19,8 @@ use ripdpi_proxy_runtime_adapter::model::config::{
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, RetrySelectionPenalty, TransportProtocol};
 use ripdpi_proxy_runtime_adapter::model::ports::{
-    AdaptiveContextPort, AdaptiveFeedbackPort, DirectPathLearningPort, PolicyPort, RetryPacingPort,
+    AdaptiveContextPort, AdaptiveFeedbackPort, DirectPathLearningObserver, DirectPathLearningPort, PolicyPort,
+    RetryPacingPort,
 };
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{NetworkReprobeTracker, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{
@@ -37,6 +38,20 @@ use ripdpi_proxy_runtime_adapter::udp_desync::{udp_desync_planner, UdpDesyncPlan
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
+
+struct RuntimeTelemetryDirectPathObserver<'a>(&'a dyn RuntimeTelemetrySink);
+
+impl DirectPathLearningObserver for RuntimeTelemetryDirectPathObserver<'_> {
+    fn on_direct_path_learning_signal(
+        &self,
+        authority: &str,
+        ip_set_digest: &str,
+        event: &'static str,
+        strategy_family: Option<&str>,
+    ) {
+        self.0.on_direct_path_learning_signal(authority, ip_set_digest, event, strategy_family);
+    }
+}
 
 #[derive(Clone)]
 pub(super) struct RuntimeState {
@@ -146,10 +161,6 @@ impl RuntimeState {
     }
 
     pub(super) fn policy(&self) -> &dyn PolicyPort {
-        &self.services
-    }
-
-    pub(super) fn direct_path_learning(&self) -> &dyn DirectPathLearningPort {
         &self.services
     }
 
@@ -336,6 +347,76 @@ impl RuntimeState {
             telemetry: self.telemetry.as_deref(),
             adaptive_hints: &self.services,
         }
+    }
+
+    pub(super) fn note_direct_path_transport_attempt(
+        &self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        transport: TransportProtocol,
+    ) {
+        DirectPathLearningPort::note_direct_path_transport_attempt(&self.services, host, targets, transport);
+    }
+
+    pub(super) fn note_direct_path_udp_suppressed(&self, host: Option<&str>, targets: &[SocketAddr], now_ms: u64) {
+        DirectPathLearningPort::note_direct_path_udp_suppressed(&self.services, host, targets, now_ms);
+    }
+
+    pub(super) fn note_direct_path_udp_failure(&self, host: Option<&str>, targets: &[SocketAddr]) {
+        DirectPathLearningPort::note_direct_path_udp_failure(&self.services, host, targets);
+    }
+
+    pub(super) fn note_direct_path_quic_success(&self, host: Option<&str>, targets: &[SocketAddr]) {
+        let observer = self.direct_path_observer();
+        DirectPathLearningPort::note_direct_path_quic_success(
+            &self.services,
+            host,
+            targets,
+            observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
+        );
+    }
+
+    pub(super) fn note_direct_path_tcp_success(
+        &self,
+        host: Option<&str>,
+        targets: &[SocketAddr],
+        strategy_family: Option<&str>,
+    ) {
+        let observer = self.direct_path_observer();
+        DirectPathLearningPort::note_direct_path_tcp_success(
+            &self.services,
+            host,
+            targets,
+            strategy_family,
+            observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
+        );
+    }
+
+    pub(super) fn note_direct_path_tls_post_client_hello_failure(&self, host: Option<&str>, targets: &[SocketAddr]) {
+        DirectPathLearningPort::note_direct_path_tls_post_client_hello_failure(&self.services, host, targets);
+    }
+
+    pub(super) fn note_direct_path_all_ips_failed(&self, host: Option<&str>, targets: &[SocketAddr]) {
+        let observer = self.direct_path_observer();
+        DirectPathLearningPort::note_direct_path_all_ips_failed(
+            &self.services,
+            host,
+            targets,
+            observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
+        );
+    }
+
+    pub(super) fn emit_due_direct_path_learning_timeouts(&self, now_ms: u64) {
+        let observer = self.direct_path_observer();
+        DirectPathLearningPort::emit_due_direct_path_learning_timeouts(
+            &self.services,
+            now_ms,
+            observer.as_ref().map(|o| o as &dyn DirectPathLearningObserver),
+        );
+    }
+
+    fn direct_path_observer(&self) -> Option<RuntimeTelemetryDirectPathObserver<'_>> {
+        self.telemetry.as_deref().map(RuntimeTelemetryDirectPathObserver)
     }
 
     pub(super) fn reprobe_reset_handle(&self) -> ReprobeResetHandle {
