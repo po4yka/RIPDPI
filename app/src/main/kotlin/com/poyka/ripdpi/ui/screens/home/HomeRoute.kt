@@ -34,12 +34,12 @@ fun HomeRoute(
         onOpenHistory = onOpenHistory,
         onOpenAdvancedSettings = onOpenAdvancedSettings,
         onOpenModeEditor = onOpenModeEditor,
-        onRepairPermission = viewModel::onRepairPermissionRequested,
+        onRepairPermission = remember(viewModel) { viewModel::onRepairPermissionRequested },
         onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
-        onDismissBatteryBanner = viewModel::onDismissBatteryBanner,
-        onDismissBackgroundGuidance = viewModel::onDismissBackgroundGuidance,
-        onShareAnalysis = viewModel::onShareHomeAnalysis,
-        onDismissAnalysisSheet = viewModel::dismissHomeAnalysisSheet,
-        onDismissVerificationSheet = viewModel::dismissHomeVerificationSheet,
+        onDismissBatteryBanner = remember(viewModel) { viewModel::onDismissBatteryBanner },
+        onDismissBackgroundGuidance = remember(viewModel) { viewModel::onDismissBackgroundGuidance },
+        onShareAnalysis = remember(viewModel) { viewModel::onShareHomeAnalysis },
+        onDismissAnalysisSheet = remember(viewModel) { viewModel::dismissHomeAnalysisSheet },
+        onDismissVerificationSheet = remember(viewModel) { viewModel::dismissHomeVerificationSheet },
     )
 }

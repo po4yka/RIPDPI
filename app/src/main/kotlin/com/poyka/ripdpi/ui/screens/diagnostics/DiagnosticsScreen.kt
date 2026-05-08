@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.BuildConfig
@@ -88,6 +89,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import java.util.Locale
 
@@ -666,5 +668,91 @@ private fun ShareSection(
                 variant = RipDpiButtonVariant.Outline,
             )
         }
+    }
+}
+
+@Preview(showBackground = true, name = "Dashboard — idle")
+@Composable
+private fun DiagnosticsScreenIdlePreview() {
+    RipDpiTheme {
+        DiagnosticsScreen(
+            uiState = DiagnosticsUiState(),
+            pagerState = rememberPagerState(pageCount = { DiagnosticsSection.entries.size }),
+            onSelectSection = {},
+            onSelectProfile = {},
+            onRunRawScan = {},
+            onRunInPathScan = {},
+            onCancelScan = {},
+            onKeepResolverRecommendation = {},
+            onSaveResolverRecommendation = {},
+            onSelectSession = {},
+            onDismissSessionDetail = {},
+            onSelectStrategyProbeCandidate = {},
+            onDismissStrategyProbeCandidate = {},
+            onSelectApproachMode = {},
+            onSelectApproach = {},
+            onDismissApproachDetail = {},
+            onSelectEvent = {},
+            onDismissEventDetail = {},
+            onSelectProbe = {},
+            onDismissProbeDetail = {},
+            onToggleSensitiveSessionDetails = {},
+            onSessionPathFilter = {},
+            onSessionStatusFilter = {},
+            onSessionSearch = {},
+            onToggleEventFilter = { _, _ -> },
+            onEventSearch = {},
+            onEventAutoScroll = {},
+            onShareSummary = {},
+            onShareArchive = {},
+            onSaveArchive = {},
+            onSaveLogs = {},
+            onOpenHistory = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Scan tab — idle")
+@Composable
+private fun DiagnosticsScreenScanTabPreview() {
+    RipDpiTheme {
+        DiagnosticsScreen(
+            uiState = DiagnosticsUiState(selectedSection = DiagnosticsSection.Scan),
+            pagerState =
+                rememberPagerState(
+                    initialPage = 1,
+                    pageCount = { DiagnosticsSection.entries.size },
+                ),
+            onSelectSection = {},
+            onSelectProfile = {},
+            onRunRawScan = {},
+            onRunInPathScan = {},
+            onCancelScan = {},
+            onKeepResolverRecommendation = {},
+            onSaveResolverRecommendation = {},
+            onSelectSession = {},
+            onDismissSessionDetail = {},
+            onSelectStrategyProbeCandidate = {},
+            onDismissStrategyProbeCandidate = {},
+            onSelectApproachMode = {},
+            onSelectApproach = {},
+            onDismissApproachDetail = {},
+            onSelectEvent = {},
+            onDismissEventDetail = {},
+            onSelectProbe = {},
+            onDismissProbeDetail = {},
+            onToggleSensitiveSessionDetails = {},
+            onSessionPathFilter = {},
+            onSessionStatusFilter = {},
+            onSessionSearch = {},
+            onToggleEventFilter = { _, _ -> },
+            onEventSearch = {},
+            onEventAutoScroll = {},
+            onShareSummary = {},
+            onShareArchive = {},
+            onSaveArchive = {},
+            onSaveLogs = {},
+            onOpenHistory = {},
+        )
     }
 }

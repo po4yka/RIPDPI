@@ -26,7 +26,7 @@ class DiagnosticsViewModel
         uiStateFactory: DiagnosticsUiStateFactory,
     ) : ViewModel() {
         private val autoStartScan: Boolean =
-            savedStateHandle["auto_start_scan"] ?: savedStateHandle["autoStartScan"] ?: false
+            savedStateHandle.get<Boolean>("auto_start_scan") ?: false
         private var initialized = false
         private var autoStartScanHandled = false
         private val selectionState = MutableStateFlow(SelectionState())

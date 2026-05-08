@@ -463,6 +463,7 @@ private fun NavHostController.navigateConfigSubRoute(destination: Route) {
     navigate(destination) {
         launchSingleTop = true
         restoreState = true
+        popUpTo<Route.Home> { saveState = true }
     }
 }
 
