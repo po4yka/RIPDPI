@@ -19,9 +19,7 @@ pub(in crate::runtime) fn connect_target(
     host: Option<String>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
     let route = select_route(state, target, payload, host.as_deref(), allow_unknown_payload)?;
-    if let Some(telemetry) = &state.telemetry {
-        telemetry.on_route_selected(target, route.group_index, host.as_deref(), "initial");
-    }
+    state.note_route_selected(target, route.group_index, host.as_deref(), "initial");
     let settings = state.route_retry_settings();
     connect_target_with_route(target, state, route, settings, payload, host)
 }

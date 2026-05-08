@@ -64,9 +64,7 @@ pub(super) fn maybe_emit_candidate_diversification(
     {
         return;
     }
-    if let Some(telemetry) = &state.telemetry {
-        telemetry.on_retry_paced(target, route.group_index, "candidate_order_diversified", 0);
-    }
+    state.note_retry_paced(target, route.group_index, "candidate_order_diversified", 0);
 }
 
 pub(super) fn apply_retry_pacing_before_connect(

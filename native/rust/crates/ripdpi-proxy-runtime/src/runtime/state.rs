@@ -7,7 +7,7 @@ use std::time::Duration;
 use ripdpi_proxy_runtime_adapter::desync_platform::{
     tcp_desync_executor, TcpDesyncExecutionContext, TcpDesyncExecutor,
 };
-use ripdpi_proxy_runtime_adapter::failure::{BlockSignal, FailureClass};
+use ripdpi_proxy_runtime_adapter::failure::{BlockSignal, ClassifiedFailure, FailureClass};
 use ripdpi_proxy_runtime_adapter::model::config::{
     connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
     first_response_settings, listener_settings, network_reprobe_settings, primary_tcp_strategy_family_with,
@@ -631,6 +631,69 @@ impl RuntimeState {
     pub(super) fn note_ws_tunnel_escalation(&self, target: SocketAddr, dc: u8, success: bool) {
         if let Some(telemetry) = &self.telemetry {
             telemetry.on_ws_tunnel_escalation(target, dc, success);
+        }
+    }
+
+    pub(super) fn note_retry_paced(
+        &self,
+        target: SocketAddr,
+        group_index: usize,
+        reason: &'static str,
+        backoff_ms: u64,
+    ) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_retry_paced(target, group_index, reason, backoff_ms);
+        }
+    }
+
+    pub(super) fn note_route_selected(
+        &self,
+        target: SocketAddr,
+        group_index: usize,
+        host: Option<&str>,
+        reason: &'static str,
+    ) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_route_selected(target, group_index, host, reason);
+        }
+    }
+
+    pub(super) fn note_failure_classified(&self, target: SocketAddr, failure: &ClassifiedFailure, host: Option<&str>) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_failure_classified(target, failure, host);
+        }
+    }
+
+    pub(super) fn note_route_advanced(
+        &self,
+        target: SocketAddr,
+        previous_group_index: usize,
+        next_group_index: usize,
+        trigger: u32,
+        host: Option<&str>,
+    ) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_route_advanced(target, previous_group_index, next_group_index, trigger, host);
+        }
+    }
+
+    pub(super) fn note_adaptive_override(
+        &self,
+        target: SocketAddr,
+        group_index: usize,
+        trigger: u32,
+        failure_class: &'static str,
+        host: Option<&str>,
+        reason: &'static str,
+    ) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_adaptive_override(target, group_index, trigger, failure_class, host, reason);
+        }
+    }
+
+    pub(super) fn note_upstream_connected(&self, upstream_addr: SocketAddr, upstream_rtt_ms: Option<u64>) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_upstream_connected(upstream_addr, upstream_rtt_ms);
         }
     }
 

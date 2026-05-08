@@ -17,9 +17,7 @@ pub(in crate::runtime) fn emit_failure_classified(
     if !super::should_track_strategy_target(target) {
         return;
     }
-    if let Some(telemetry) = &state.telemetry {
-        telemetry.on_failure_classified(target, failure, host);
-    }
+    state.note_failure_classified(target, failure, host);
 }
 
 pub(super) fn emit_route_advance_telemetry(
@@ -35,9 +33,9 @@ pub(super) fn emit_route_advance_telemetry(
     if let Some(next_route) = next_route {
         maybe_emit_candidate_diversification(state, target, next_route, retry_penalties);
     }
-    if let (Some(telemetry), Some(next_route)) = (&state.telemetry, next_route) {
-        telemetry.on_route_advanced(target, previous_route.group_index, next_route.group_index, trigger, host);
-        telemetry.on_adaptive_override(
+    if let Some(next_route) = next_route {
+        state.note_route_advanced(target, previous_route.group_index, next_route.group_index, trigger, host);
+        state.note_adaptive_override(
             target,
             next_route.group_index,
             trigger,

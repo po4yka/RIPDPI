@@ -36,12 +36,10 @@ pub(super) fn record_connect_telemetry(
 ) {
     let elapsed = started.elapsed().as_secs_f64();
     connect_platform::record_connection_setup_duration(group_index, elapsed);
-    if let Some(telemetry) = &state.telemetry {
-        let upstream_addr = stream.peer_addr().unwrap_or(target);
-        let upstream_rtt_ms = connect_platform::tcp_round_trip_time_ms(stream)
-            .ok()
-            .flatten()
-            .or_else(|| Some(started.elapsed().as_millis() as u64));
-        telemetry.on_upstream_connected(upstream_addr, upstream_rtt_ms);
-    }
+    let upstream_addr = stream.peer_addr().unwrap_or(target);
+    let upstream_rtt_ms = connect_platform::tcp_round_trip_time_ms(stream)
+        .ok()
+        .flatten()
+        .or_else(|| Some(started.elapsed().as_millis() as u64));
+    state.note_upstream_connected(upstream_addr, upstream_rtt_ms);
 }
