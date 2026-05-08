@@ -3,8 +3,6 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::session::{classify_udp_payload_with, UdpPayloadClassifier};
-
 use super::flow::UdpFlowActivationState;
 use super::flow_selection::ensure_udp_flow_selected;
 use super::parse_socks5_udp_packet;
@@ -31,16 +29,13 @@ pub(super) fn receive_and_forward_udp_client_packet(
     udp_client_addr: &mut Option<SocketAddr>,
     flow_state: &mut HashMap<(SocketAddr, SocketAddr), UdpFlowActivationState>,
     flow_limit: usize,
-    payload_classifier: &UdpPayloadClassifier,
     state: &RuntimeState,
     protect_path: Option<&str>,
 ) -> io::Result<bool> {
     match client_relay.recv_from(client_buffer) {
         Ok((n, sender)) => {
             let now = Instant::now();
-            let Some(packet) =
-                decode_udp_client_packet(&client_buffer[..n], sender, udp_client_addr, payload_classifier, state)
-            else {
+            let Some(packet) = decode_udp_client_packet(&client_buffer[..n], sender, udp_client_addr, state) else {
                 return Ok(true);
             };
             if !ensure_udp_flow_selected(state, protect_path, flow_state, flow_limit, &packet, now)? {
@@ -61,7 +56,6 @@ fn decode_udp_client_packet<'a>(
     packet: &'a [u8],
     sender: SocketAddr,
     udp_client_addr: &mut Option<SocketAddr>,
-    payload_classifier: &UdpPayloadClassifier,
     state: &RuntimeState,
 ) -> Option<UdpClientPacket<'a>> {
     if !accept_udp_client_sender(udp_client_addr, sender) {
@@ -69,7 +63,7 @@ fn decode_udp_client_packet<'a>(
     }
 
     let (original_target, payload) = parse_socks5_udp_packet(packet, state)?;
-    let udp_payload = classify_udp_payload_with(payload_classifier, payload);
+    let udp_payload = state.classify_udp_payload(payload);
     Some(UdpClientPacket {
         sender,
         original_target,

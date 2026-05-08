@@ -46,7 +46,6 @@ pub(super) fn udp_associate_loop(
     let mut upstream_buffer = [0u8; 65_535];
     let mut flow_state = HashMap::<(SocketAddr, SocketAddr), UdpFlowActivationState>::new();
     let flow_limit = state.udp_flow_limit();
-    let payload_classifier = state.udp_payload_classifier();
 
     while running.load(Ordering::Relaxed) {
         emit_due_direct_path_learning_timeouts(&state)?;
@@ -57,7 +56,6 @@ pub(super) fn udp_associate_loop(
             &mut udp_client_addr,
             &mut flow_state,
             flow_limit,
-            &payload_classifier,
             &state,
             protect_path.as_deref(),
         )?;

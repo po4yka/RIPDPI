@@ -40,7 +40,7 @@ use ripdpi_proxy_runtime_adapter::model::services::{
 use ripdpi_proxy_runtime_adapter::model::session::{
     extract_payload_host_with, first_outbound_payload_policy, payload_host_extractor, udp_packet_parser,
     udp_payload_classifier, FirstOutboundPayloadPolicy, PayloadHostExtractor, SocketType, UdpPacketParser,
-    UdpPayloadClassifier,
+    UdpPayloadClassifier, UdpPayloadInfo,
 };
 use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
 use ripdpi_proxy_runtime_adapter::udp_desync::{
@@ -351,8 +351,8 @@ impl RuntimeState {
         )
     }
 
-    pub(super) fn udp_payload_classifier(&self) -> UdpPayloadClassifier {
-        self.udp_payload_classifier.clone()
+    pub(super) fn classify_udp_payload(&self, payload: &[u8]) -> UdpPayloadInfo {
+        ripdpi_proxy_runtime_adapter::model::session::classify_udp_payload_with(&self.udp_payload_classifier, payload)
     }
 
     pub(super) fn udp_flow_limit(&self) -> usize {
