@@ -76,6 +76,7 @@ pub(super) struct RelayResultContext<'a> {
     pub(super) success_host: Option<&'a str>,
     pub(super) success_payload: Option<&'a [u8]>,
     pub(super) success_strategy_family: Option<&'a str>,
+    pub(super) primary_strategy_family: Option<&'a str>,
 }
 
 #[inline(never)]
@@ -93,6 +94,7 @@ pub(super) fn record_relay_result(
                 context.success_host,
                 context.success_payload,
                 context.success_strategy_family,
+                context.primary_strategy_family,
             )?;
         }
     }

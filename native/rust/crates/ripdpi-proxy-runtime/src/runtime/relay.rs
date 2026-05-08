@@ -43,6 +43,10 @@ pub(super) fn relay(
     let relay_result =
         relay_with_uring_if_available(client, upstream, state, route.clone(), session_state, success_host.clone());
     let relay_timeouts = relay_timeout_settings(&state.config);
+    let primary_strategy_family = ripdpi_proxy_runtime_adapter::model::config::primary_tcp_strategy_family_for_group(
+        &state.config,
+        route.group_index,
+    );
     record_relay_result(
         &relay_result,
         state,
@@ -54,6 +58,7 @@ pub(super) fn relay(
             success_host: success_host.as_deref(),
             success_payload: success_payload.as_deref(),
             success_strategy_family,
+            primary_strategy_family,
         },
     )?;
     relay_result.map(|_| ())

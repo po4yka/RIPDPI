@@ -5,7 +5,6 @@ use ripdpi_proxy_runtime_adapter::failure::{
     classify_strategy_execution_failure, classify_transport_error, ClassifiedFailure, FailureAction, FailureClass,
     FailureStage,
 };
-use ripdpi_proxy_runtime_adapter::model::config::primary_tcp_strategy_family_for_group;
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use crate::runtime::adaptive::{
@@ -25,6 +24,7 @@ pub(crate) fn record_stream_relay_success(
     success_host: Option<&str>,
     success_payload: Option<&[u8]>,
     strategy_family: Option<&str>,
+    primary_strategy_family: Option<&str>,
 ) -> io::Result<()> {
     if !should_track_strategy_target(target) {
         return Ok(());
@@ -33,12 +33,7 @@ pub(crate) fn record_stream_relay_success(
         let targets = preferred_targets_for_transport(state, target, success_host, TransportProtocol::Tcp);
         note_adaptive_tcp_success(state, target, route.group_index, success_host, request)?;
         note_retry_success(state, target, route.group_index, success_host, Some(request), TransportProtocol::Tcp)?;
-        note_direct_path_tcp_success(
-            state,
-            success_host,
-            &targets,
-            strategy_family.or_else(|| primary_tcp_strategy_family_for_group(&state.config, route.group_index)),
-        )?;
+        note_direct_path_tcp_success(state, success_host, &targets, strategy_family.or(primary_strategy_family))?;
     }
     note_adaptive_fake_ttl_success(state, target, route.group_index, success_host)?;
     note_evolver_success(state, 0);

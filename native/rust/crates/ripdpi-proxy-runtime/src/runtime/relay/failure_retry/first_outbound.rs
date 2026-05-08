@@ -2,7 +2,9 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::config::{first_response_settings, FirstResponseSettings};
+use ripdpi_proxy_runtime_adapter::model::config::{
+    first_response_settings, primary_tcp_strategy_family_for_group, FirstResponseSettings,
+};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::session::{
     first_outbound_payload_policy, new_session_state, FirstOutboundPayloadPolicy, SessionState,
@@ -127,6 +129,10 @@ impl<'a> FirstOutboundCoordinator<'a> {
                     original_request: &first_payload.original_request,
                     response_settings: self.policies.response,
                     success_strategy_family,
+                    primary_strategy_family: primary_tcp_strategy_family_for_group(
+                        &self.state.config,
+                        route.group_index,
+                    ),
                     tls_send_start,
                 },
             )? {

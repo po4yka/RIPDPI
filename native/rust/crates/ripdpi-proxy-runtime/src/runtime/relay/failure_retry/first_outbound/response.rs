@@ -26,6 +26,7 @@ pub(super) struct FirstResponseContext<'a> {
     pub(super) original_request: &'a [u8],
     pub(super) response_settings: FirstResponseSettings,
     pub(super) success_strategy_family: Option<&'static str>,
+    pub(super) primary_strategy_family: Option<&'static str>,
     pub(super) tls_send_start: Option<Instant>,
 }
 
@@ -70,6 +71,7 @@ pub(super) fn handle_first_response(
                 context.host,
                 Some(context.original_request),
                 context.success_strategy_family,
+                context.primary_strategy_family,
             )?;
             Ok(FirstResponseDecision::Complete { recorded_success: true })
         }
