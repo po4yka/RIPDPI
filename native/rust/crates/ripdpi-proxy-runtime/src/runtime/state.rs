@@ -19,6 +19,7 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     first_outbound_payload_policy, payload_host_extractor, FirstOutboundPayloadPolicy, PayloadHostExtractor,
 };
 use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
+use ripdpi_proxy_runtime_adapter::udp_desync::{udp_desync_planner, UdpDesyncPlanner};
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -31,6 +32,7 @@ pub(super) struct RuntimeState {
     pub(super) route_connect_settings: TcpRouteConnectSettingsTable,
     pub(super) udp_group_settings: UdpGroupSettingsTable,
     pub(super) udp_route_matcher: RoutePayloadMatcher,
+    pub(super) udp_desync_planner: UdpDesyncPlanner,
     pub(super) relay_group_settings: RelayGroupSettingsTable,
     pub(super) relay_host_extractor: PayloadHostExtractor,
     pub(super) relay_first_response: FirstResponseSettings,
@@ -66,6 +68,7 @@ impl RuntimeState {
         let route_connect_settings = tcp_route_connect_settings_table(&config);
         let udp_group_settings = udp_group_settings_table(&config);
         let udp_route_matcher = route_payload_matcher(&config);
+        let udp_desync_planner = udp_desync_planner(&config);
         let relay_group_settings = relay_group_settings_table(&config);
         let relay_host_extractor = payload_host_extractor(&config);
         let relay_first_response = first_response_settings(&config);
@@ -80,6 +83,7 @@ impl RuntimeState {
             route_connect_settings,
             udp_group_settings,
             udp_route_matcher,
+            udp_desync_planner,
             relay_group_settings,
             relay_host_extractor,
             relay_first_response,
@@ -153,6 +157,7 @@ impl RuntimeState {
         let route_connect_settings = tcp_route_connect_settings_table(&config);
         let udp_group_settings = udp_group_settings_table(&config);
         let udp_route_matcher = route_payload_matcher(&config);
+        let udp_desync_planner = udp_desync_planner(&config);
         let relay_group_settings = relay_group_settings_table(&config);
         let relay_host_extractor = payload_host_extractor(&config);
         let relay_first_response = first_response_settings(&config);
@@ -167,6 +172,7 @@ impl RuntimeState {
             route_connect_settings,
             udp_group_settings,
             udp_route_matcher,
+            udp_desync_planner,
             relay_group_settings,
             relay_host_extractor,
             relay_first_response,

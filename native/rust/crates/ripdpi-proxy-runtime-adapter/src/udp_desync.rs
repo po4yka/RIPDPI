@@ -10,6 +10,15 @@ use crate::platform;
 pub use ripdpi_desync::ActivationTransport;
 pub type UdpDesyncAction = DesyncAction;
 
+#[derive(Clone)]
+pub struct UdpDesyncPlanner {
+    config: ripdpi_config::RuntimeConfig,
+}
+
+pub fn udp_desync_planner(config: &ripdpi_config::RuntimeConfig) -> UdpDesyncPlanner {
+    UdpDesyncPlanner { config: config.clone() }
+}
+
 #[derive(Clone, Copy)]
 pub struct UdpActionExecContext<'a> {
     pub upstream: &'a UdpSocket,
@@ -20,7 +29,7 @@ pub struct UdpActionExecContext<'a> {
 }
 
 pub struct UdpDesyncPlanContext<'a> {
-    pub config: &'a ripdpi_config::RuntimeConfig,
+    pub planner: &'a UdpDesyncPlanner,
     pub runtime_context: Option<&'a ripdpi_proxy_config::ProxyRuntimeContext>,
     pub telemetry: Option<&'a dyn ripdpi_runtime_api::RuntimeTelemetrySink>,
     pub adaptive_hints: &'a dyn ripdpi_runtime_decision_ports::AdaptiveHintPort,
@@ -48,7 +57,8 @@ pub fn plan_udp_actions_for_runtime(
     context: UdpDesyncPlanContext<'_>,
     request: UdpDesyncPlanRequest<'_>,
 ) -> io::Result<Vec<UdpDesyncAction>> {
-    let group = crate::model::config::selected_desync_group(context.config, request.group_index)
+    let config = &context.planner.config;
+    let group = crate::model::config::selected_desync_group(config, request.group_index)
         .ok_or_else(|| io::Error::other("missing udp route group"))?;
     let adaptive_hints = resolve_udp_hints_for_runtime(&context, &request, group)?;
     let morph_policy = crate::model::proxy_config::morph_policy(context.runtime_context);
@@ -75,9 +85,10 @@ fn resolve_udp_hints_for_runtime(
     request: &UdpDesyncPlanRequest<'_>,
     group: &ripdpi_config::DesyncGroup,
 ) -> io::Result<ripdpi_desync::AdaptivePlannerHints> {
-    if context.config.adaptive.strategy_evolution {
+    let config = &context.planner.config;
+    if config.adaptive.strategy_evolution {
         return context.adaptive_hints.resolve_udp_hints_with_evolver(
-            context.config,
+            config,
             context.runtime_context,
             request.group_index,
             request.target,
@@ -87,7 +98,7 @@ fn resolve_udp_hints_for_runtime(
         );
     }
 
-    let scope_key = ripdpi_runtime_decision_ports::adaptive::strategy_context::network_scope_key(context.config);
+    let scope_key = ripdpi_runtime_decision_ports::adaptive::strategy_context::network_scope_key(config);
     let hints = context.adaptive_hints.resolve_udp_hints(
         scope_key,
         request.group_index,

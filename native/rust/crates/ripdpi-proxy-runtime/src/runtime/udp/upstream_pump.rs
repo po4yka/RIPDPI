@@ -74,7 +74,7 @@ fn plan_udp_flow_actions(
     let progress = entry.session.observe_datagram_outbound(payload);
     plan_udp_actions_for_runtime(
         UdpDesyncPlanContext {
-            config: &state.config,
+            planner: &state.udp_desync_planner,
             runtime_context: state.runtime_context.as_ref(),
             telemetry: state.telemetry.as_deref(),
             adaptive_hints: state.adaptive_hints(),
