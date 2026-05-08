@@ -1411,17 +1411,17 @@ pub mod session {
         session.observe_datagram_outbound(payload)
     }
 
-    pub fn inbound_payload_count(session: &SessionState) -> usize {
-        session.recv_count
-    }
-
     pub fn has_inbound_payload(session: &SessionState) -> bool {
-        inbound_payload_count(session) > 0
+        session.recv_count > 0
     }
 
     pub fn observe_first_response_payload(session: &mut SessionState, payload: &[u8]) -> bool {
         observe_inbound_payload(session, payload);
         has_inbound_payload(session)
+    }
+
+    pub fn observe_retry_response_payload(session: &mut SessionState, payload: &[u8]) {
+        observe_inbound_payload(session, payload);
     }
 
     pub fn outbound_payload_count_this_round(session: &SessionState) -> usize {

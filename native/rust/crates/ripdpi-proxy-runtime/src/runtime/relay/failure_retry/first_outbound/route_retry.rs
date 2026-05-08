@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::model::session::{observe_inbound_payload, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::{observe_retry_response_payload, SessionState};
 
 use crate::runtime::desync::OutboundSendError;
 use crate::runtime::relay::failure_retry::retry_logic::{
@@ -104,7 +104,7 @@ pub(super) fn handle_first_response_failure(
         return Err(io::Error::new(io::ErrorKind::ConnectionReset, context.failure.evidence.summary.clone()));
     }
     if let Some(bytes) = context.response_bytes {
-        observe_inbound_payload(session_state, &bytes);
+        observe_retry_response_payload(session_state, &bytes);
         client.write_all(&bytes)?;
         return Ok(None);
     }
