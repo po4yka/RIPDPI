@@ -622,6 +622,18 @@ impl RuntimeState {
         }
     }
 
+    pub(super) fn note_telegram_dc_detected(&self, target: SocketAddr, dc: u8) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_telegram_dc_detected(target, dc);
+        }
+    }
+
+    pub(super) fn note_ws_tunnel_escalation(&self, target: SocketAddr, dc: u8, success: bool) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_ws_tunnel_escalation(target, dc, success);
+        }
+    }
+
     pub(super) fn resolve_encrypted_dns_host(
         &self,
         host: &str,

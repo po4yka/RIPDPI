@@ -62,9 +62,7 @@ fn handle_transparent(mut client: TcpStream, state: &RuntimeState) -> io::Result
     }
 
     let dc_host = detect_telegram_dc(target).map(|dc| {
-        if let Some(telemetry) = &state.telemetry {
-            telemetry.on_telegram_dc_detected(target, dc);
-        }
+        state.note_telegram_dc_detected(target, dc);
         telegram_dc_host(dc)
     });
 
@@ -91,9 +89,7 @@ fn handle_socks4(
     match parsed {
         Ok(ClientRequest::Socks4Connect(target)) => {
             let dc_host = detect_telegram_dc(target.addr).map(|dc| {
-                if let Some(telemetry) = &state.telemetry {
-                    telemetry.on_telegram_dc_detected(target.addr, dc);
-                }
+                state.note_telegram_dc_detected(target.addr, dc);
                 telegram_dc_host(dc)
             });
             let host_hint = target.host.or(dc_host);
@@ -129,9 +125,7 @@ fn handle_socks5(
     match parse_socks5_request(&request, SocketType::Stream, settings.session_config, &resolver) {
         Ok(ClientRequest::Socks5Connect(target)) => {
             let dc_host = detect_telegram_dc(target.addr).map(|dc| {
-                if let Some(telemetry) = &state.telemetry {
-                    telemetry.on_telegram_dc_detected(target.addr, dc);
-                }
+                state.note_telegram_dc_detected(target.addr, dc);
                 telegram_dc_host(dc)
             });
             let host_hint = target.host.or(dc_host);
@@ -175,9 +169,7 @@ fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Resul
     match parse_http_connect_request(&request, &resolver) {
         Ok(ClientRequest::HttpConnect(target)) => {
             let dc_host = detect_telegram_dc(target.addr).map(|dc| {
-                if let Some(telemetry) = &state.telemetry {
-                    telemetry.on_telegram_dc_detected(target.addr, dc);
-                }
+                state.note_telegram_dc_detected(target.addr, dc);
                 telegram_dc_host(dc)
             });
             let host_hint = target.host.or(dc_host);

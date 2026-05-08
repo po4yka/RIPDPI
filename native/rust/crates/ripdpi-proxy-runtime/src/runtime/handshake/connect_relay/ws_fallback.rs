@@ -60,9 +60,7 @@ where
 fn handle_ws_fallback_result(target: SocketAddr, state: &RuntimeState, result: WsTunnelResult) -> bool {
     match result {
         WsTunnelResult::ValidatedMtproto { dc } => {
-            if let Some(telemetry) = &state.telemetry {
-                telemetry.on_ws_tunnel_escalation(target, dc.number(), true);
-            }
+            state.note_ws_tunnel_escalation(target, dc.number(), true);
             true
         }
         WsTunnelResult::NotMtproto { .. } => {
@@ -86,9 +84,7 @@ fn handle_ws_fallback_result(target: SocketAddr, state: &RuntimeState, result: W
                 dc.raw(),
                 dc.class()
             );
-            if let Some(telemetry) = &state.telemetry {
-                telemetry.on_ws_tunnel_escalation(target, dc.number(), false);
-            }
+            state.note_ws_tunnel_escalation(target, dc.number(), false);
             false
         }
         WsTunnelResult::WsOpenOrRelayFailed { dc, error, .. } => {
@@ -97,18 +93,14 @@ fn handle_ws_fallback_result(target: SocketAddr, state: &RuntimeState, result: W
                 dc.raw(),
                 dc.class()
             );
-            if let Some(telemetry) = &state.telemetry {
-                telemetry.on_ws_tunnel_escalation(target, dc.number(), false);
-            }
+            state.note_ws_tunnel_escalation(target, dc.number(), false);
             false
         }
     }
 }
 
 fn record_ws_tunnel_failure(target: SocketAddr, state: &RuntimeState) {
-    if let Some(telemetry) = &state.telemetry {
-        if let Some(dc) = super::super::ws_tunnel::detect_telegram_dc(target) {
-            telemetry.on_ws_tunnel_escalation(target, dc, false);
-        }
+    if let Some(dc) = super::super::ws_tunnel::detect_telegram_dc(target) {
+        state.note_ws_tunnel_escalation(target, dc, false);
     }
 }
