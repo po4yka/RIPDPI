@@ -19,6 +19,7 @@ use crate::runtime::relay::first_exchange::needs_first_exchange;
 use crate::runtime::state::RuntimeState;
 
 mod execution;
+mod observations;
 mod payload;
 mod response;
 mod route_retry;

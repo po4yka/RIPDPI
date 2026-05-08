@@ -3,9 +3,10 @@ use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::model::session::{observe_retry_response_payload, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
 use crate::runtime::desync::OutboundSendError;
+use crate::runtime::relay::failure_retry::first_outbound::observations::observe_retry_response_payload;
 use crate::runtime::relay::failure_retry::retry_logic::{
     classify_first_write_failure, should_retry_syn_data_without_tfo,
 };

@@ -5,9 +5,10 @@ use std::time::Instant;
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_proxy_runtime_adapter::model::config::FirstResponseSettings;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::model::session::{observe_first_response_payload, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
 use crate::runtime::adaptive::note_server_ttl_for_route;
+use crate::runtime::relay::failure_retry::first_outbound::observations::observe_first_response_payload;
 use crate::runtime::relay::failure_retry::retry_logic::record_stream_relay_success;
 use crate::runtime::relay::first_exchange::{read_first_response, FirstResponse};
 use crate::runtime::routing::should_track_strategy_target;
