@@ -18,10 +18,11 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     tcp_route_connect_settings_with, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit,
     udp_group_settings_table, udp_group_settings_with, warmup_probe_settings, ws_tunnel_config_with,
     ws_tunnel_settings, DelayedConnectSettings, DesyncGroup, FirstResponseSettings, ListenerSettings,
-    NetworkReprobeSettings, ProxyHandshakeSettings, RelayGroupSettings, RelayGroupSettingsTable,
-    ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettings,
-    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupPacketSettings,
-    UdpGroupSettingsTable, UdpGroupSocketSettings, UdpSourceRebindPolicy, WarmupProbeSettings, WsTunnelSettings,
+    NetworkReprobeSettings, ProxyHandshakeSettings, ProxyProtocolMode, RelayGroupSettings, RelayGroupSettingsTable,
+    ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig, ShadowsocksTargetPolicy,
+    TcpRouteConnectSettings, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings,
+    UdpGroupPacketSettings, UdpGroupSettingsTable, UdpGroupSocketSettings, UdpSourceRebindPolicy, WarmupProbeSettings,
+    WsTunnelSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
@@ -39,8 +40,8 @@ use ripdpi_proxy_runtime_adapter::model::services::{
 };
 use ripdpi_proxy_runtime_adapter::model::session::{
     extract_payload_host_with, first_outbound_payload_policy, payload_host_extractor, udp_packet_parser,
-    udp_payload_classifier, FirstOutboundPayloadPolicy, OutboundPayloadInfo, PayloadHostExtractor, SocketType,
-    UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
+    udp_payload_classifier, FirstOutboundPayloadPolicy, OutboundPayloadInfo, PayloadHostExtractor, SessionConfig,
+    SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
 };
 use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
 use ripdpi_proxy_runtime_adapter::udp_desync::{
@@ -218,8 +219,28 @@ impl RuntimeState {
         self.listener_settings.route_group_count
     }
 
-    pub(super) fn handshake_settings(&self) -> &ProxyHandshakeSettings {
-        &self.handshake_settings
+    pub(super) fn proxy_protocol_mode(&self) -> ProxyProtocolMode {
+        self.handshake_settings.protocol_mode
+    }
+
+    pub(super) fn proxy_auth_token(&self) -> Option<&str> {
+        self.handshake_settings.auth_token.as_deref()
+    }
+
+    pub(super) fn proxy_session_config(&self) -> SessionConfig {
+        self.handshake_settings.session_config
+    }
+
+    pub(super) fn shadowsocks_target_policy(&self) -> ShadowsocksTargetPolicy {
+        self.handshake_settings.shadowsocks_target_policy
+    }
+
+    pub(super) fn udp_associate_enabled(&self) -> bool {
+        self.handshake_settings.udp_associate_enabled
+    }
+
+    pub(super) fn handshake_protect_path(&self) -> Option<String> {
+        self.handshake_settings.protect_path.clone()
     }
 
     pub(super) fn delayed_connect_enabled(&self) -> bool {

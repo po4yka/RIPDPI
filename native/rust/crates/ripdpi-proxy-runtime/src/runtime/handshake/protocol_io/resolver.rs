@@ -12,16 +12,17 @@ pub(in crate::runtime) fn resolve_name(
     if let Ok(ip) = host.parse::<IpAddr>() {
         return Some(SocketAddr::new(ip, 0));
     }
-    let handshake_settings = state.handshake_settings();
-    let ipv6_enabled = handshake_settings.session_config.ipv6;
+    let session_config = state.proxy_session_config();
+    let ipv6_enabled = session_config.ipv6;
     if let Some(loopback) = resolve_localhost(host, ipv6_enabled) {
         return Some(loopback);
     }
-    if !handshake_settings.session_config.resolve {
+    if !session_config.resolve {
         return None;
     }
 
-    state.resolve_encrypted_dns_host(host, handshake_settings.protect_path.as_deref(), ipv6_enabled).ok()
+    let protect_path = state.handshake_protect_path();
+    state.resolve_encrypted_dns_host(host, protect_path.as_deref(), ipv6_enabled).ok()
 }
 
 fn resolve_localhost(host: &str, ipv6_enabled: bool) -> Option<SocketAddr> {
