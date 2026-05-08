@@ -11,6 +11,7 @@ use ripdpi_proxy_runtime_adapter::desync_platform::{
 use ripdpi_proxy_runtime_adapter::failure::{
     block_signal_from_failure, classify_first_response_closed_before_response,
     classify_first_response_partial_tls_timeout, classify_relay_connection_freeze, classify_transport_error,
+    classify_warmup_closed_before_response, classify_warmup_first_response_error, classify_warmup_send_error,
     should_track_strategy_target, BlockSignal, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
 use ripdpi_proxy_runtime_adapter::model::config::{
@@ -635,6 +636,18 @@ impl RuntimeState {
 
     pub(super) fn classify_relay_connection_freeze(timeouts: RuntimeTimeoutSettings) -> ClassifiedFailure {
         classify_relay_connection_freeze(timeouts)
+    }
+
+    pub(super) fn classify_warmup_send_error(source: &io::Error) -> ClassifiedFailure {
+        classify_warmup_send_error(source)
+    }
+
+    pub(super) fn classify_warmup_first_response_error(source: &io::Error) -> ClassifiedFailure {
+        classify_warmup_first_response_error(source)
+    }
+
+    pub(super) fn classify_warmup_closed_before_response() -> ClassifiedFailure {
+        classify_warmup_closed_before_response()
     }
 
     pub(super) fn connect_failure_retries_without_tfo(
