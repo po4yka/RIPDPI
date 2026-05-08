@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, ClassifiedFailure, FailureClass, FailureStage};
 use ripdpi_proxy_runtime_adapter::model::config::{
-    connection_route_requests_direct_syn_data_tfo, tcp_route_retry_settings, TcpRouteRetrySettings,
+    connection_route_requests_direct_syn_data_tfo, TcpRouteRetrySettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
@@ -24,7 +24,7 @@ pub(in crate::runtime) fn connect_target(
     if let Some(telemetry) = &state.telemetry {
         telemetry.on_route_selected(target, route.group_index, host.as_deref(), "initial");
     }
-    let settings = tcp_route_retry_settings(&state.config);
+    let settings = state.route_retry_settings;
     connect_target_with_route(target, state, route, settings, payload, host)
 }
 
@@ -89,7 +89,7 @@ pub(in crate::runtime) fn reconnect_target(
     host: Option<String>,
     payload: Option<&[u8]>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
-    let settings = tcp_route_retry_settings(&state.config);
+    let settings = state.route_retry_settings;
     reconnect_target_with_tfo_mode(target, state, route, settings, host, payload, true)
 }
 
@@ -100,7 +100,7 @@ pub(in crate::runtime) fn reconnect_target_without_tfo(
     host: Option<String>,
     payload: Option<&[u8]>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
-    let settings = tcp_route_retry_settings(&state.config);
+    let settings = state.route_retry_settings;
     reconnect_target_with_tfo_mode(target, state, route, settings, host, payload, false)
 }
 
