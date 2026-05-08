@@ -89,7 +89,7 @@ pub(super) struct RuntimeState {
     first_outbound_payload_policy: FirstOutboundPayloadPolicy,
     first_response_exchange_policy: FirstResponseExchangePolicy,
     response_failure_evidence_settings: ResponseFailureEvidenceSettings,
-    pub(super) services: ServicesStateHandle,
+    services: ServicesStateHandle,
     active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     runtime_context: Option<ProxyRuntimeContext>,
