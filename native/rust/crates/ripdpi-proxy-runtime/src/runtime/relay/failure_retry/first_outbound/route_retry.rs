@@ -11,7 +11,7 @@ use crate::runtime::relay::failure_retry::retry_logic::{
 };
 use crate::runtime::routing::{
     advance_route_for_failure, emit_failure_classified, note_block_signal_for_failure, reconnect_target,
-    reconnect_target_without_tfo,
+    reconnect_target_without_tfo, route_uses_direct_syn_data_tfo,
 };
 use crate::runtime::state::RuntimeState;
 
@@ -121,13 +121,8 @@ fn should_retry_syn_data(
     failure: &ClassifiedFailure,
     retry_state: &RouteRetryState,
 ) -> bool {
-    should_retry_syn_data_without_tfo(
-        state,
-        route,
-        Some(original_request),
-        failure,
-        retry_state.syn_data_retry_attempted,
-    )
+    let route_requests_direct_syn_data_tfo = route_uses_direct_syn_data_tfo(state, route, Some(original_request));
+    should_retry_syn_data_without_tfo(route_requests_direct_syn_data_tfo, failure, retry_state.syn_data_retry_attempted)
 }
 
 fn reconnect_without_tfo(

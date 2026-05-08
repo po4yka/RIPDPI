@@ -12,9 +12,7 @@ use crate::runtime::adaptive::{
 };
 use crate::runtime::desync::OutboundSendError;
 use crate::runtime::retry::note_retry_success;
-use crate::runtime::routing::{
-    note_route_success, preferred_targets_for_transport, route_uses_direct_syn_data_tfo, should_track_strategy_target,
-};
+use crate::runtime::routing::{note_route_success, preferred_targets_for_transport, should_track_strategy_target};
 use crate::runtime::state::RuntimeState;
 
 pub(crate) fn record_stream_relay_success(
@@ -74,14 +72,12 @@ pub(crate) fn classify_first_write_failure(error: &OutboundSendError) -> Classif
 }
 
 pub(crate) fn should_retry_syn_data_without_tfo(
-    state: &RuntimeState,
-    route: &ConnectionRoute,
-    payload: Option<&[u8]>,
+    route_requests_direct_syn_data_tfo: bool,
     failure: &ClassifiedFailure,
     already_retried: bool,
 ) -> bool {
     !already_retried
-        && route_uses_direct_syn_data_tfo(state, route, payload)
+        && route_requests_direct_syn_data_tfo
         && failure.action != FailureAction::SurfaceOnly
         && matches!(failure.class, FailureClass::ConnectFailure | FailureClass::TcpReset)
 }
