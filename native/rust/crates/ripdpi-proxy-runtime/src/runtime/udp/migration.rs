@@ -69,15 +69,16 @@ pub(super) fn maybe_rebind_udp_source_port(
 
 #[cfg(test)]
 mod tests {
-    use ripdpi_proxy_runtime_adapter::model::config::{should_rebind_udp_source_port_with, UdpSourceRebindPolicy};
+    use crate::runtime::state::RuntimeState;
+    use ripdpi_proxy_runtime_adapter::model::config::UdpSourceRebindPolicy;
 
     #[test]
     fn udp_source_rebind_waits_for_short_header_after_two_rounds() {
         let policy = UdpSourceRebindPolicy { after_handshake: true };
 
-        assert!(!should_rebind_udp_source_port_with(policy, true, 2, &[0x40]));
-        assert!(!should_rebind_udp_source_port_with(policy, false, 1, &[0x40]));
-        assert!(!should_rebind_udp_source_port_with(policy, false, 2, &[0xc0]));
-        assert!(should_rebind_udp_source_port_with(policy, false, 2, &[0x40]));
+        assert!(!RuntimeState::should_rebind_udp_flow_source_port(policy, true, 2, &[0x40]));
+        assert!(!RuntimeState::should_rebind_udp_flow_source_port(policy, false, 1, &[0x40]));
+        assert!(!RuntimeState::should_rebind_udp_flow_source_port(policy, false, 2, &[0xc0]));
+        assert!(RuntimeState::should_rebind_udp_flow_source_port(policy, false, 2, &[0x40]));
     }
 }
