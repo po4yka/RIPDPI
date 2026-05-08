@@ -1,10 +1,7 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::failure::{
-    classify_strategy_execution_failure, classify_transport_error, ClassifiedFailure, FailureAction, FailureClass,
-    FailureStage,
-};
+use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use crate::runtime::adaptive::{
@@ -40,35 +37,7 @@ pub(crate) fn record_stream_relay_success(
 }
 
 pub(crate) fn classify_first_write_failure(error: &OutboundSendError) -> ClassifiedFailure {
-    match error {
-        OutboundSendError::Transport(source) => classify_transport_error(FailureStage::FirstWrite, source),
-        OutboundSendError::StrategyExecution {
-            action,
-            strategy_family,
-            fallback,
-            bytes_committed,
-            source_errno,
-            source,
-        } => {
-            let mut failure = classify_strategy_execution_failure(
-                FailureStage::FirstWrite,
-                action,
-                source.kind(),
-                *source_errno,
-                error.to_string(),
-            )
-            .unwrap_or_else(|| classify_transport_error(FailureStage::FirstWrite, source));
-            failure = failure.with_tag("strategyFamily", (*strategy_family).to_string());
-            failure = failure.with_tag("bytesCommitted", bytes_committed.to_string());
-            if let Some(fallback_family) = fallback {
-                failure = failure.with_tag("fallback", (*fallback_family).to_string());
-            }
-            if *bytes_committed > 0 {
-                failure.action = FailureAction::SurfaceOnly;
-            }
-            failure
-        }
-    }
+    RuntimeState::classify_first_write_failure(error)
 }
 
 pub(crate) fn should_retry_syn_data_without_tfo(
@@ -76,8 +45,9 @@ pub(crate) fn should_retry_syn_data_without_tfo(
     failure: &ClassifiedFailure,
     already_retried: bool,
 ) -> bool {
-    !already_retried
-        && route_requests_direct_syn_data_tfo
-        && failure.action != FailureAction::SurfaceOnly
-        && matches!(failure.class, FailureClass::ConnectFailure | FailureClass::TcpReset)
+    RuntimeState::first_write_failure_retries_syn_data_without_tfo(
+        route_requests_direct_syn_data_tfo,
+        failure,
+        already_retried,
+    )
 }

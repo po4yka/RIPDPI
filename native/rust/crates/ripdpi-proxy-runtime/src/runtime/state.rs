@@ -12,9 +12,9 @@ use ripdpi_proxy_runtime_adapter::failure::{
     block_signal_from_failure, classify_first_response_closed_before_response,
     classify_first_response_partial_tls_timeout, classify_probe_connect_error, classify_probe_read_error,
     classify_probe_tls_response, classify_probe_write_error, classify_relay_connection_freeze,
-    classify_transport_error, classify_warmup_closed_before_response, classify_warmup_first_response_error,
-    classify_warmup_send_error, should_track_strategy_target, BlockSignal, ClassifiedFailure, FailureAction,
-    FailureClass, FailureStage, ProbeResult,
+    classify_strategy_execution_failure, classify_transport_error, classify_warmup_closed_before_response,
+    classify_warmup_first_response_error, classify_warmup_send_error, should_track_strategy_target, BlockSignal,
+    ClassifiedFailure, FailureAction, FailureClass, FailureStage, ProbeResult,
 };
 use ripdpi_proxy_runtime_adapter::model::config::{
     connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
@@ -666,6 +666,49 @@ impl RuntimeState {
 
     pub(super) fn classify_probe_tls_response(header: [u8; 5], handshake_type: Option<u8>) -> ProbeResult {
         classify_probe_tls_response(header, handshake_type)
+    }
+
+    pub(super) fn classify_first_write_failure(error: &OutboundSendError) -> ClassifiedFailure {
+        match error {
+            OutboundSendError::Transport(source) => classify_transport_error(FailureStage::FirstWrite, source),
+            OutboundSendError::StrategyExecution {
+                action,
+                strategy_family,
+                fallback,
+                bytes_committed,
+                source_errno,
+                source,
+            } => {
+                let mut failure = classify_strategy_execution_failure(
+                    FailureStage::FirstWrite,
+                    action,
+                    source.kind(),
+                    *source_errno,
+                    error.to_string(),
+                )
+                .unwrap_or_else(|| classify_transport_error(FailureStage::FirstWrite, source));
+                failure = failure.with_tag("strategyFamily", (*strategy_family).to_string());
+                failure = failure.with_tag("bytesCommitted", bytes_committed.to_string());
+                if let Some(fallback_family) = fallback {
+                    failure = failure.with_tag("fallback", (*fallback_family).to_string());
+                }
+                if *bytes_committed > 0 {
+                    failure.action = FailureAction::SurfaceOnly;
+                }
+                failure
+            }
+        }
+    }
+
+    pub(super) fn first_write_failure_retries_syn_data_without_tfo(
+        route_requests_direct_syn_data_tfo: bool,
+        failure: &ClassifiedFailure,
+        already_retried: bool,
+    ) -> bool {
+        !already_retried
+            && route_requests_direct_syn_data_tfo
+            && failure.action != FailureAction::SurfaceOnly
+            && matches!(failure.class, FailureClass::ConnectFailure | FailureClass::TcpReset)
     }
 
     pub(super) fn connect_failure_retries_without_tfo(
