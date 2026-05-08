@@ -20,9 +20,8 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     ws_tunnel_settings, DelayedConnectSettings, DesyncGroup, FirstResponseSettings, ListenerSettings,
     NetworkReprobeSettings, ProxyHandshakeSettings, ProxyProtocolMode, RelayGroupSettings, RelayGroupSettingsTable,
     ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig, ShadowsocksTargetPolicy,
-    TcpRouteConnectSettings, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings,
-    UdpGroupPacketSettings, UdpGroupSettingsTable, UdpGroupSocketSettings, UdpSourceRebindPolicy, WarmupProbeSettings,
-    WsTunnelSettings,
+    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupPacketSettings,
+    UdpGroupSettingsTable, UdpGroupSocketSettings, UdpSourceRebindPolicy, WarmupProbeSettings, WsTunnelSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
@@ -118,6 +117,18 @@ pub(super) struct UdpFlowGroupPolicy {
     pub(super) socket: UdpGroupSocketSettings,
     pub(super) packet: UdpGroupPacketSettings,
     pub(super) source_rebind: UdpSourceRebindPolicy,
+}
+
+#[derive(Clone)]
+pub(super) struct RouteConnectPolicy {
+    pub(super) tfo_enabled: bool,
+    pub(super) upstream_socks_addr: Option<SocketAddr>,
+    pub(super) pre_connect_rcvbuf: Option<u32>,
+    pub(super) connect_timeout: Option<Duration>,
+    pub(super) protect_path: Option<String>,
+    pub(super) drop_sack: bool,
+    pub(super) window_clamp: Option<u32>,
+    pub(super) strip_timestamps: bool,
 }
 
 impl RuntimeState {
@@ -490,13 +501,23 @@ impl RuntimeState {
         connection_route_requests_direct_syn_data_tfo_with(&self.route_syn_data_settings, route, payload)
     }
 
-    pub(super) fn route_connect_settings(
+    pub(super) fn route_connect_policy(
         &self,
         group_index: usize,
         payload: Option<&[u8]>,
         allow_tfo: bool,
-    ) -> Option<TcpRouteConnectSettings> {
-        tcp_route_connect_settings_with(&self.route_connect_settings, group_index, payload, allow_tfo)
+    ) -> Option<RouteConnectPolicy> {
+        let settings = tcp_route_connect_settings_with(&self.route_connect_settings, group_index, payload, allow_tfo)?;
+        Some(RouteConnectPolicy {
+            tfo_enabled: settings.tfo_enabled,
+            upstream_socks_addr: settings.upstream_socks_addr,
+            pre_connect_rcvbuf: settings.pre_connect_rcvbuf,
+            connect_timeout: settings.connect_timeout,
+            protect_path: settings.protect_path,
+            drop_sack: settings.drop_sack,
+            window_clamp: settings.window_clamp,
+            strip_timestamps: settings.strip_timestamps,
+        })
     }
 
     pub(super) fn select_initial_route(
