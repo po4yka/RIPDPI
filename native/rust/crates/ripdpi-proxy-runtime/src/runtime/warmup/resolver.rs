@@ -2,13 +2,12 @@ use std::io;
 use std::net::{SocketAddr, ToSocketAddrs};
 
 use crate::runtime::state::RuntimeState;
-use ripdpi_proxy_runtime_adapter::model::config::warmup_probe_settings;
 
 /// Resolve a probe domain to a `SocketAddr` on port 443.
 pub(crate) fn resolve_probe_target(state: &RuntimeState, domain: &str) -> io::Result<SocketAddr> {
     use ripdpi_proxy_runtime_adapter::ws_bootstrap::resolve_host_via_encrypted_dns;
 
-    let settings = warmup_probe_settings(&state.config);
+    let settings = state.warmup_probe_settings.clone();
     // Try encrypted DNS first (respects protect_path for VPN bypass).
     if let Ok(mut addr) = resolve_host_via_encrypted_dns(
         domain,
