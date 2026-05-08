@@ -3,7 +3,7 @@ use std::thread;
 
 use ripdpi_proxy_runtime_adapter::failure::ProbeResult;
 use ripdpi_proxy_runtime_adapter::model::config::NetworkReprobeSettings;
-use ripdpi_proxy_runtime_adapter::model::services::ServicesStateHandle;
+use ripdpi_proxy_runtime_adapter::model::services::{reprobe_reset_handle, ReprobeResetHandle};
 
 use super::super::state::RuntimeState;
 use super::cache_flush::flush_runtime_cache_after_handover;
@@ -46,12 +46,12 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
 
     tracing::info!("network_reprobe: network identity changed, scheduling reprobe");
 
-    let services = state.services.clone();
+    let reset_handle = reprobe_reset_handle(&state.services);
 
     thread::Builder::new()
         .name("ripdpi-reprobe".into())
         .spawn(move || {
-            run_reprobe(settings, &services);
+            run_reprobe(settings, &reset_handle);
         })
         .ok();
 }
@@ -60,7 +60,7 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
 /// attempt a raw TLS ClientHello. A failure is classified as a DPI signature
 /// if the connection is reset, times out, or receives a TLS alert before the
 /// ServerHello completes.
-fn run_reprobe(settings: NetworkReprobeSettings, services: &ServicesStateHandle) {
+fn run_reprobe(settings: NetworkReprobeSettings, reset_handle: &ReprobeResetHandle) {
     let deadline = std::time::Instant::now() + TOTAL_DEADLINE;
     let mut failures = 0usize;
     let mut successes = 0usize;
@@ -93,5 +93,5 @@ fn run_reprobe(settings: NetworkReprobeSettings, services: &ServicesStateHandle)
         }
     }
 
-    reset_if_strategy_mismatch(failures, successes, PROBE_TARGETS.len(), services);
+    reset_if_strategy_mismatch(failures, successes, PROBE_TARGETS.len(), reset_handle);
 }
