@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_config::RuntimeConfig;
 use ripdpi_failure_classifier::BlockSignal;
 use ripdpi_runtime_policy::direct_path_learning::DirectPathLearningObserver;
 use ripdpi_runtime_policy::runtime_policy::{
@@ -22,10 +21,9 @@ impl PolicyPort for ServicesStateHandle {
         host: Option<&str>,
         allow_unknown_payload: bool,
         transport: TransportProtocol,
-        config: &RuntimeConfig,
     ) -> Option<ConnectionRoute> {
         let mut cache = self.0.cache.write().ok()?;
-        let result = cache.select_initial(target, payload, host, allow_unknown_payload, transport, config);
+        let result = cache.select_initial(target, payload, host, allow_unknown_payload, transport, &self.0.config);
         self.0.flush_autolearn(&mut cache);
         result
     }
@@ -36,38 +34,25 @@ impl PolicyPort for ServicesStateHandle {
         route: &ConnectionRoute,
         host: Option<&str>,
         transport: TransportProtocol,
-        config: &RuntimeConfig,
     ) -> io::Result<()> {
         let mut cache = self.0.cache.write().map_err(|_| io::Error::other("policy cache lock poisoned"))?;
-        cache.note_route_success_for_transport(config, target, route, host, transport)?;
+        cache.note_route_success_for_transport(&self.0.config, target, route, host, transport)?;
         self.0.flush_autolearn(&mut cache);
         Ok(())
     }
 
-    fn advance_route(
-        &self,
-        config: &RuntimeConfig,
-        route: &ConnectionRoute,
-        advance: RouteAdvance<'_>,
-    ) -> io::Result<Option<ConnectionRoute>> {
+    fn advance_route(&self, route: &ConnectionRoute, advance: RouteAdvance<'_>) -> io::Result<Option<ConnectionRoute>> {
         let mut cache = self.0.cache.write().map_err(|_| io::Error::other("policy cache lock poisoned"))?;
-        let result = cache.advance_route(config, route, advance)?;
+        let result = cache.advance_route(&self.0.config, route, advance)?;
         self.0.flush_autolearn(&mut cache);
         Ok(result)
     }
 
-    fn note_block_signal(
-        &self,
-        config: &RuntimeConfig,
-        host: &str,
-        signal: BlockSignal,
-        provider: Option<&str>,
-        confirmation_allowed: bool,
-    ) {
+    fn note_block_signal(&self, host: &str, signal: BlockSignal, provider: Option<&str>, confirmation_allowed: bool) {
         let Ok(mut cache) = self.0.cache.write() else {
             return;
         };
-        cache.note_block_signal(config, host, signal, provider, confirmation_allowed);
+        cache.note_block_signal(&self.0.config, host, signal, provider, confirmation_allowed);
         self.0.flush_autolearn(&mut cache);
     }
 
@@ -80,7 +65,6 @@ impl PolicyPort for ServicesStateHandle {
 
     fn select_next(
         &self,
-        config: &RuntimeConfig,
         route: &ConnectionRoute,
         dest: SocketAddr,
         payload: Option<&[u8]>,
@@ -91,28 +75,31 @@ impl PolicyPort for ServicesStateHandle {
         retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
     ) -> Option<ConnectionRoute> {
         let cache = self.0.cache.read().ok()?;
-        cache.select_next(config, route, dest, payload, host, transport, trigger, can_reconnect, retry_penalties)
+        cache.select_next(
+            &self.0.config,
+            route,
+            dest,
+            payload,
+            host,
+            transport,
+            trigger,
+            can_reconnect,
+            retry_penalties,
+        )
     }
 
-    fn store_route(
-        &self,
-        config: &RuntimeConfig,
-        dest: SocketAddr,
-        group_index: usize,
-        attempted_mask: u64,
-        host: Option<String>,
-    ) {
+    fn store_route(&self, dest: SocketAddr, group_index: usize, attempted_mask: u64, host: Option<String>) {
         let Ok(mut cache) = self.0.cache.write() else {
             return;
         };
-        cache.store(config, dest, group_index, attempted_mask, host);
+        cache.store(&self.0.config, dest, group_index, attempted_mask, host);
     }
 
-    fn clear_connection_cache(&self, config: &RuntimeConfig) -> usize {
+    fn clear_connection_cache(&self) -> usize {
         let Ok(mut cache) = self.0.cache.write() else {
             return 0;
         };
-        let cleared = cache.clear_connection_cache(config);
+        let cleared = cache.clear_connection_cache(&self.0.config);
         self.0.flush_autolearn(&mut cache);
         cleared
     }
@@ -130,11 +117,11 @@ impl PolicyPort for ServicesStateHandle {
         BTreeMap::new()
     }
 
-    fn autolearn_state(&self, config: &RuntimeConfig) -> HostAutolearnState {
+    fn autolearn_state(&self) -> HostAutolearnState {
         let Ok(mut cache) = self.0.cache.write() else {
             return HostAutolearnState::default();
         };
-        cache.autolearn_state(config)
+        cache.autolearn_state(&self.0.config)
     }
 
     fn drain_autolearn_events(&self) -> Vec<HostAutolearnEvent> {
@@ -144,12 +131,12 @@ impl PolicyPort for ServicesStateHandle {
         cache.drain_autolearn_events()
     }
 
-    fn flush_host_store(&self, config: &RuntimeConfig) {
+    fn flush_host_store(&self) {
         let Ok(mut cache) = self.0.cache.write() else {
             return;
         };
-        cache.flush_host_store(config);
-        let _ = cache.dump_stdout_groups(config, std::io::stdout());
+        cache.flush_host_store(&self.0.config);
+        let _ = cache.dump_stdout_groups(&self.0.config, std::io::stdout());
     }
 }
 

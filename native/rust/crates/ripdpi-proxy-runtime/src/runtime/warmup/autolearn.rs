@@ -12,7 +12,7 @@ pub(crate) fn flush_updates(state: &RuntimeState) {
     // call. A final explicit drain ensures any accumulated events are emitted
     // even when no route mutations occurred during warmup.
     if let Some(telemetry) = &state.telemetry {
-        let autolearn = state.policy().autolearn_state(&state.config);
+        let autolearn = state.policy().autolearn_state();
         telemetry.on_host_autolearn_state(
             autolearn.enabled,
             autolearn.learned_host_count,

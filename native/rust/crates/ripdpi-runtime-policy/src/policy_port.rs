@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 use std::net::SocketAddr;
 
-use ripdpi_config::RuntimeConfig;
 use ripdpi_failure_classifier::BlockSignal;
 
 use crate::direct_path_learning::DirectPathLearningObserver;
@@ -69,7 +68,6 @@ pub trait PolicyPort: Send + Sync {
         host: Option<&str>,
         allow_unknown_payload: bool,
         transport: TransportProtocol,
-        config: &RuntimeConfig,
     ) -> Option<ConnectionRoute>;
 
     fn note_success(
@@ -78,24 +76,15 @@ pub trait PolicyPort: Send + Sync {
         route: &ConnectionRoute,
         host: Option<&str>,
         transport: TransportProtocol,
-        config: &RuntimeConfig,
     ) -> std::io::Result<()>;
 
     fn advance_route(
         &self,
-        config: &RuntimeConfig,
         route: &ConnectionRoute,
         advance: RouteAdvance<'_>,
     ) -> std::io::Result<Option<ConnectionRoute>>;
 
-    fn note_block_signal(
-        &self,
-        config: &RuntimeConfig,
-        host: &str,
-        signal: BlockSignal,
-        provider: Option<&str>,
-        confirmation_allowed: bool,
-    );
+    fn note_block_signal(&self, host: &str, signal: BlockSignal, provider: Option<&str>, confirmation_allowed: bool);
 
     fn supports_trigger(&self, trigger: u32) -> bool;
 
@@ -104,7 +93,6 @@ pub trait PolicyPort: Send + Sync {
     #[allow(clippy::too_many_arguments)]
     fn select_next(
         &self,
-        config: &RuntimeConfig,
         route: &ConnectionRoute,
         dest: SocketAddr,
         payload: Option<&[u8]>,
@@ -116,18 +104,11 @@ pub trait PolicyPort: Send + Sync {
     ) -> Option<ConnectionRoute>;
 
     /// Persist a confirmed route for a destination (UDP hint caching).
-    fn store_route(
-        &self,
-        config: &RuntimeConfig,
-        dest: SocketAddr,
-        group_index: usize,
-        attempted_mask: u64,
-        host: Option<String>,
-    );
+    fn store_route(&self, dest: SocketAddr, group_index: usize, attempted_mask: u64, host: Option<String>);
 
     /// Clear the in-memory connection cache and persist the cleared state.
     /// Returns the number of entries cleared.
-    fn clear_connection_cache(&self, config: &RuntimeConfig) -> usize;
+    fn clear_connection_cache(&self) -> usize;
 
     // --- Retry-penalty support ---
 
@@ -140,10 +121,10 @@ pub trait PolicyPort: Send + Sync {
 
     // --- Autolearn / telemetry flush ---
 
-    fn autolearn_state(&self, config: &RuntimeConfig) -> HostAutolearnState;
+    fn autolearn_state(&self) -> HostAutolearnState;
     fn drain_autolearn_events(&self) -> Vec<HostAutolearnEvent>;
 
     // --- Persistence (called on shutdown) ---
 
-    fn flush_host_store(&self, config: &RuntimeConfig);
+    fn flush_host_store(&self);
 }
