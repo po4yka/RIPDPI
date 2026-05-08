@@ -1,5 +1,4 @@
 use crate::sync::{Arc, Mutex};
-use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, FailureStage};
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::{CircularTcpRotationController, RotationFailureReason};
 use std::io;
 use std::net::TcpStream;
@@ -102,7 +101,7 @@ pub(super) fn observe_rotation_transport_failure(
         return;
     }
     let host = remembered_host_value(remembered_host);
-    let failure = classify_transport_error(FailureStage::FirstResponse, &err);
+    let failure = RuntimeState::classify_first_response_transport_error(&err);
     let retrans_delta = ripdpi_proxy_runtime_adapter::platform::relay::tcp_total_retransmissions(reader)
         .ok()
         .flatten()

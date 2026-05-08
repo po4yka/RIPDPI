@@ -9,8 +9,8 @@ use ripdpi_proxy_runtime_adapter::desync_platform::{
     TcpDesyncExecutionContext, TcpDesyncExecutor,
 };
 use ripdpi_proxy_runtime_adapter::failure::{
-    block_signal_from_failure, classify_transport_error, should_track_strategy_target, BlockSignal, ClassifiedFailure,
-    FailureAction, FailureClass, FailureStage,
+    block_signal_from_failure, classify_relay_connection_freeze, classify_transport_error,
+    should_track_strategy_target, BlockSignal, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
 };
 use ripdpi_proxy_runtime_adapter::model::config::{
     connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
@@ -23,9 +23,9 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     udp_group_settings_with, warmup_probe_settings, ws_tunnel_config_with, ws_tunnel_settings, DelayedConnectSettings,
     DesyncGroup, FirstResponseSettings, ListenerSettings, NetworkReprobeSettings, ProxyHandshakeSettings,
     ProxyProtocolMode, RelayGroupSettings, RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RotationPolicy,
-    RoutePayloadMatcher, RuntimeConfig, ShadowsocksTargetPolicy, TcpRouteConnectSettingsTable, TcpRouteRetrySettings,
-    TcpRouteSynDataSettings, UdpGroupPacketSettings, UdpGroupSettingsTable, UdpGroupSocketSettings,
-    UdpSourceRebindPolicy, WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
+    RoutePayloadMatcher, RuntimeConfig, RuntimeTimeoutSettings, ShadowsocksTargetPolicy, TcpRouteConnectSettingsTable,
+    TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupPacketSettings, UdpGroupSettingsTable,
+    UdpGroupSocketSettings, UdpSourceRebindPolicy, WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
@@ -618,6 +618,14 @@ impl RuntimeState {
 
     pub(super) fn classify_connect_transport_error(source: &io::Error) -> ClassifiedFailure {
         classify_transport_error(FailureStage::Connect, source)
+    }
+
+    pub(super) fn classify_first_response_transport_error(source: &io::Error) -> ClassifiedFailure {
+        classify_transport_error(FailureStage::FirstResponse, source)
+    }
+
+    pub(super) fn classify_relay_connection_freeze(timeouts: RuntimeTimeoutSettings) -> ClassifiedFailure {
+        classify_relay_connection_freeze(timeouts)
     }
 
     pub(super) fn connect_failure_retries_without_tfo(
