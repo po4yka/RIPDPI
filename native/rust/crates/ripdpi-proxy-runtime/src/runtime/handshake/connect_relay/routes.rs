@@ -29,15 +29,9 @@ pub(super) fn connect_delayed_route(
     payload: Vec<u8>,
 ) -> Result<UpstreamRoute, ConnectRelayError> {
     let host = state.extract_relay_payload_host(&payload).or(host_hint);
-    let (upstream, route) = super::super::super::routing::connect_target_with_route(
-        target,
-        state,
-        route,
-        state.route_retry_settings(),
-        Some(&payload),
-        host,
-    )
-    .map_err(|err| ConnectRelayError::with_seed_request(err, true, Some(payload.clone())))?;
+    let (upstream, route) =
+        super::super::super::routing::connect_target_with_route(target, state, route, Some(&payload), host)
+            .map_err(|err| ConnectRelayError::with_seed_request(err, true, Some(payload.clone())))?;
     Ok(UpstreamRoute { upstream, route, seed_request: Some(payload) })
 }
 

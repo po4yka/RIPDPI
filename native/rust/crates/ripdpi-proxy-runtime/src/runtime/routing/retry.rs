@@ -2,7 +2,6 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, ClassifiedFailure, FailureClass, FailureStage};
-use ripdpi_proxy_runtime_adapter::model::config::TcpRouteRetrySettings;
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use super::super::adaptive::{note_direct_path_all_ips_failed, note_direct_path_transport_attempt};
@@ -20,15 +19,13 @@ pub(in crate::runtime) fn connect_target(
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
     let route = select_route(state, target, payload, host.as_deref(), allow_unknown_payload)?;
     state.note_route_selected(target, route.group_index, host.as_deref(), "initial");
-    let settings = state.route_retry_settings();
-    connect_target_with_route(target, state, route, settings, payload, host)
+    connect_target_with_route(target, state, route, payload, host)
 }
 
 pub(in crate::runtime) fn connect_target_with_route(
     target: SocketAddr,
     state: &RuntimeState,
     mut route: ConnectionRoute,
-    settings: TcpRouteRetrySettings,
     payload: Option<&[u8]>,
     host: Option<String>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
@@ -58,7 +55,7 @@ pub(in crate::runtime) fn connect_target_with_route(
                     }
                 }
                 note_block_signal_for_failure(state, host.as_deref(), &failure, err.tcp_total_retransmissions);
-                if retries > settings.max_route_retries {
+                if retries > state.max_route_retries() {
                     let _ = note_direct_path_all_ips_failed(state, host.as_deref(), &attempt_targets);
                     return Err(err.into_io_error());
                 }
@@ -85,8 +82,7 @@ pub(in crate::runtime) fn reconnect_target(
     host: Option<String>,
     payload: Option<&[u8]>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
-    let settings = state.route_retry_settings();
-    reconnect_target_with_tfo_mode(target, state, route, settings, host, payload, true)
+    reconnect_target_with_tfo_mode(target, state, route, host, payload, true)
 }
 
 pub(in crate::runtime) fn reconnect_target_without_tfo(
@@ -96,8 +92,7 @@ pub(in crate::runtime) fn reconnect_target_without_tfo(
     host: Option<String>,
     payload: Option<&[u8]>,
 ) -> io::Result<(TcpStream, ConnectionRoute)> {
-    let settings = state.route_retry_settings();
-    reconnect_target_with_tfo_mode(target, state, route, settings, host, payload, false)
+    reconnect_target_with_tfo_mode(target, state, route, host, payload, false)
 }
 
 pub(in crate::runtime) fn route_uses_direct_syn_data_tfo(
@@ -112,7 +107,6 @@ fn reconnect_target_with_tfo_mode(
     target: SocketAddr,
     state: &RuntimeState,
     mut route: ConnectionRoute,
-    settings: TcpRouteRetrySettings,
     host: Option<String>,
     payload: Option<&[u8]>,
     allow_tfo: bool,
@@ -125,7 +119,7 @@ fn reconnect_target_with_tfo_mode(
             Ok(stream) => return Ok((stream, route)),
             Err(mut err) => {
                 retries += 1;
-                if retries > settings.max_route_retries {
+                if retries > state.max_route_retries() {
                     return Err(err.into_io_error());
                 }
                 let mut failure = classify_transport_error(FailureStage::Connect, &err.source);

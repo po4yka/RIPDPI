@@ -383,8 +383,8 @@ impl RuntimeState {
         udp_group_settings_with(&self.udp_group_settings, group_index)
     }
 
-    pub(super) fn route_retry_settings(&self) -> TcpRouteRetrySettings {
-        self.route_retry_settings
+    pub(super) fn max_route_retries(&self) -> usize {
+        self.route_retry_settings.max_route_retries
     }
 
     pub(super) fn route_uses_direct_syn_data_tfo(&self, route: &ConnectionRoute, payload: Option<&[u8]>) -> bool {
