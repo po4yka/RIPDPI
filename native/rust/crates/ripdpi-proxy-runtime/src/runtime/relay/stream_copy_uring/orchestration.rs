@@ -7,9 +7,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use ripdpi_io_uring::IoUringDriver;
-use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
 use super::super::super::state::RuntimeState;
+use super::super::session::RelaySession;
 use super::super::stream_copy::{RelayStreamSettings, CONNECTION_FREEZE_MARKER};
 use super::cleanup::{clone_relay_sockets, configure_relay_sockets, detach_drop_sack_if_needed, shutdown_relay_pair};
 use super::inbound_zc::copy_inbound_zc;
@@ -25,14 +25,14 @@ pub(in crate::runtime) fn relay_streams_uring(
     state: &RuntimeState,
     group_index: usize,
     settings: RelayStreamSettings,
-    session_seed: SessionState,
+    session_seed: RelaySession,
     remembered_host_seed: Option<String>,
     uring: &Arc<IoUringDriver>,
-) -> io::Result<SessionState> {
+) -> io::Result<RelaySession> {
     configure_relay_sockets(&client, &upstream);
 
     let sockets = clone_relay_sockets(&client, &upstream)?;
-    let session_state = Arc::new(Mutex::new(session_seed));
+    let session_state = Arc::new(Mutex::new(session_seed.into_state()));
     let outbound_session = session_state.clone();
     let inbound_session = session_state.clone();
     let outbound_state = state.clone();
@@ -86,5 +86,8 @@ pub(in crate::runtime) fn relay_streams_uring(
         return Err(io::Error::new(io::ErrorKind::TimedOut, CONNECTION_FREEZE_MARKER));
     }
 
-    session_state.lock().map_err(|_| io::Error::other("session mutex poisoned")).map(|state| state.clone())
+    session_state
+        .lock()
+        .map_err(|_| io::Error::other("session mutex poisoned"))
+        .map(|state| RelaySession::from_state(state.clone()))
 }

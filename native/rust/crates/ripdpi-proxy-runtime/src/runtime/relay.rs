@@ -1,6 +1,7 @@
 mod execution;
 mod failure_retry;
 mod first_exchange;
+mod session;
 mod stream_copy;
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 mod stream_copy_uring;

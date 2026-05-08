@@ -8,14 +8,14 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     UdpGroupPacketSettings, UdpGroupSocketSettings, UdpSourceRebindPolicy,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
 use super::feedback::note_udp_flow_timeout_failure;
 use super::flow_selection::try_advance_udp_preferred_target;
+use super::session::UdpFlowSession;
 use crate::runtime::state::{RuntimeState, UDP_FLOW_IDLE_TIMEOUT};
 
 pub(super) struct UdpFlowActivationState {
-    pub(super) session: SessionState,
+    pub(super) session: UdpFlowSession,
     pub(super) last_used: Instant,
     pub(super) route: ConnectionRoute,
     pub(super) socket_settings: UdpGroupSocketSettings,

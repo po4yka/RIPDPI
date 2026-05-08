@@ -5,11 +5,11 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     relay_group_settings_with, tcp_rotation_seed_with, RuntimeTimeoutSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::model::session::has_inbound_payload;
 
 use super::super::routing::{emit_failure_classified, note_block_signal_for_failure};
 use super::super::state::RuntimeState;
 use super::failure_retry::record_stream_relay_success;
+use super::session::RelaySession;
 use super::stream_copy::{relay_streams, RelayOutboundSettings, RelayStreamSettings, CONNECTION_FREEZE_MARKER};
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 use super::stream_copy_uring;
@@ -21,9 +21,9 @@ pub(super) fn relay_with_uring_if_available(
     upstream: TcpStream,
     state: &RuntimeState,
     route: ConnectionRoute,
-    session_state: ripdpi_proxy_runtime_adapter::model::session::SessionState,
+    session_state: RelaySession,
     success_host: Option<String>,
-) -> io::Result<ripdpi_proxy_runtime_adapter::model::session::SessionState> {
+) -> io::Result<RelaySession> {
     let relay_settings = relay_stream_settings(state, route.group_index)?;
     let uring_driver = ripdpi_io_uring::io_uring_capabilities().send_zc.then(|| state.io_uring.as_ref()).flatten();
     if let Some(driver) = uring_driver.filter(|_| !relay_settings.group.rotation_enabled) {
@@ -48,9 +48,9 @@ pub(super) fn relay_with_uring_if_available(
     upstream: TcpStream,
     state: &RuntimeState,
     route: ConnectionRoute,
-    session_state: ripdpi_proxy_runtime_adapter::model::session::SessionState,
+    session_state: RelaySession,
     success_host: Option<String>,
-) -> io::Result<ripdpi_proxy_runtime_adapter::model::session::SessionState> {
+) -> io::Result<RelaySession> {
     let relay_settings = relay_stream_settings(state, route.group_index)?;
     relay_streams(client, upstream, state, route.group_index, relay_settings, session_state, success_host)
 }
@@ -81,12 +81,12 @@ pub(super) struct RelayResultContext<'a> {
 
 #[inline(never)]
 pub(super) fn record_relay_result(
-    relay_result: &io::Result<ripdpi_proxy_runtime_adapter::model::session::SessionState>,
+    relay_result: &io::Result<RelaySession>,
     state: &RuntimeState,
     context: RelayResultContext<'_>,
 ) -> io::Result<()> {
     if let Ok(final_state) = relay_result {
-        if !context.success_recorded && has_inbound_payload(final_state) {
+        if !context.success_recorded && final_state.has_inbound_payload() {
             record_stream_relay_success(
                 state,
                 context.target,

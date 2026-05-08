@@ -15,7 +15,7 @@ pub(super) fn maybe_rebind_udp_source_port(
     if !should_rebind_udp_source_port_with(
         entry.source_rebind_policy,
         entry.quic_migrated,
-        entry.session.round_count,
+        entry.session.round_count(),
         inbound_payload,
     ) {
         return Ok(());
@@ -55,7 +55,7 @@ pub(super) fn maybe_rebind_udp_source_port(
             }
             tracing::debug!(
                 target = %entry.current_target,
-                round = entry.session.round_count,
+                round = entry.session.round_count(),
                 "QUIC UDP source-port rebind (RFC 9000 migration requires QUIC-layer implementation)"
             );
             Ok(())

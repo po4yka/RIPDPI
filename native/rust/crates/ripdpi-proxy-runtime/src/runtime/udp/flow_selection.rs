@@ -9,11 +9,11 @@ use ripdpi_proxy_runtime_adapter::model::{
         UdpSourceRebindPolicy,
     },
     decision::{ConnectionRoute, TransportProtocol},
-    session::new_session_state,
 };
 
 use super::client_receive::UdpClientPacket;
 use super::flow::{udp_flow_at_capacity, UdpFlowActivationState};
+use super::session::UdpFlowSession;
 use super::sockets::build_udp_upstream_socket;
 use super::upstream_pump::send_udp_flow_payload;
 use crate::runtime::routing::{preferred_targets_for_transport, select_route_for_transport};
@@ -206,7 +206,7 @@ fn build_initial_udp_flow_entry(
         return Ok(None);
     };
     let entry = UdpFlowActivationState {
-        session: new_session_state(),
+        session: UdpFlowSession::new(),
         last_used: now,
         route: selection.route,
         socket_settings: selection.socket_settings,

@@ -11,13 +11,14 @@ use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::model::config::{
     DesyncGroup, FirstResponseSettings, RelayGroupSettings, RotationPolicy,
 };
-use ripdpi_proxy_runtime_adapter::model::session::{PayloadHostExtractor, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::PayloadHostExtractor;
 use std::io;
 use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use super::super::state::RuntimeState;
+use super::session::RelaySession;
 
 const RELAY_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 
@@ -48,9 +49,10 @@ pub(super) fn relay_streams(
     state: &RuntimeState,
     group_index: usize,
     settings: RelayStreamSettings,
-    session_seed: SessionState,
+    session_seed: RelaySession,
     remembered_host_seed: Option<String>,
-) -> io::Result<SessionState> {
+) -> io::Result<RelaySession> {
+    let session_seed = session_seed.into_state();
     let rotation_state = group_rotation_controller(settings.rotation_seed.clone(), &session_seed);
     let _ = (client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), client.set_write_timeout(None));
     let _ = (upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), upstream.set_write_timeout(None));
@@ -134,7 +136,10 @@ pub(super) fn relay_streams(
         return Err(io::Error::new(io::ErrorKind::TimedOut, CONNECTION_FREEZE_MARKER));
     }
 
-    session_state.lock().map_err(|_| io::Error::other("session mutex poisoned")).map(|state| state.clone())
+    session_state
+        .lock()
+        .map_err(|_| io::Error::other("session mutex poisoned"))
+        .map(|state| RelaySession::from_state(state.clone()))
 }
 
 #[cfg(test)]

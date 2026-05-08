@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::model::config::{primary_tcp_strategy_family_with, FirstResponseSettings};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::model::session::{new_session_state, FirstOutboundPayloadPolicy, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::{new_session_state, FirstOutboundPayloadPolicy};
 use ripdpi_proxy_runtime_adapter::response_triggers::FirstResponseExchangePolicy;
 
 use crate::runtime::relay::failure_retry::first_outbound::execution::execute_first_write;
@@ -16,6 +16,7 @@ use crate::runtime::relay::failure_retry::first_outbound::route_retry::{
     handle_first_response_failure, handle_first_write_failure, FirstResponseFailureContext, RouteRetryState,
 };
 use crate::runtime::relay::first_exchange::needs_first_exchange;
+use crate::runtime::relay::session::RelaySession;
 use crate::runtime::state::RuntimeState;
 
 mod execution;
@@ -27,7 +28,7 @@ mod route_retry;
 pub(crate) struct PreparedRelay {
     pub(crate) upstream: TcpStream,
     pub(crate) route: ConnectionRoute,
-    pub(crate) session_state: SessionState,
+    pub(crate) session_state: RelaySession,
     pub(crate) success_recorded: bool,
     pub(crate) success_host: Option<String>,
     pub(crate) success_payload: Option<Vec<u8>>,
@@ -65,7 +66,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
             return Ok(PreparedRelay {
                 upstream,
                 route: self.route,
-                session_state: new_session_state(),
+                session_state: RelaySession::from_state(new_session_state()),
                 success_recorded: false,
                 success_host: None,
                 success_payload: None,
@@ -164,7 +165,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         Ok(PreparedRelay {
             upstream,
             route,
-            session_state,
+            session_state: RelaySession::from_state(session_state),
             success_recorded,
             success_host: first_payload.host,
             success_payload: Some(first_payload.original_request),
