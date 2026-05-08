@@ -5,7 +5,6 @@ use ripdpi_proxy_runtime_adapter::model::decision::{
     classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
     DnsTamperingEvidence,
 };
-use ripdpi_proxy_runtime_adapter::ws_bootstrap::encrypted_dns_ip_answers_for_host;
 
 use super::super::state::RuntimeState;
 
@@ -46,14 +45,7 @@ pub(in crate::runtime) fn classify_response_failure(
     host: Option<&str>,
 ) -> Option<ClassifiedFailure> {
     let answer_set = if response_requires_dns_tampering_evidence(request, response) {
-        host.and_then(|value| {
-            encrypted_dns_ip_answers_for_host(
-                value,
-                state.runtime_context.as_ref(),
-                state.response_failure_evidence_settings.protect_path.as_deref(),
-            )
-            .ok()
-        })
+        host.and_then(|value| state.encrypted_dns_ip_answers_for_host(value).ok())
     } else {
         None
     };

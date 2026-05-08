@@ -43,6 +43,7 @@ use ripdpi_proxy_runtime_adapter::model::session::{
 };
 use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
 use ripdpi_proxy_runtime_adapter::udp_desync::{udp_desync_planner, UdpDesyncPlanContext, UdpDesyncPlanner};
+use ripdpi_proxy_runtime_adapter::ws_bootstrap::{encrypted_dns_ip_answers_for_host, EncryptedDnsIpAnswers};
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -84,7 +85,7 @@ pub(super) struct RuntimeState {
     relay_first_response: FirstResponseSettings,
     first_outbound_payload_policy: FirstOutboundPayloadPolicy,
     first_response_exchange_policy: FirstResponseExchangePolicy,
-    pub(super) response_failure_evidence_settings: ResponseFailureEvidenceSettings,
+    response_failure_evidence_settings: ResponseFailureEvidenceSettings,
     pub(super) services: ServicesStateHandle,
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
@@ -548,6 +549,14 @@ impl RuntimeState {
             telemetry: self.telemetry.as_deref(),
             adaptive_hints: &self.services,
         }
+    }
+
+    pub(super) fn encrypted_dns_ip_answers_for_host(&self, host: &str) -> io::Result<EncryptedDnsIpAnswers> {
+        encrypted_dns_ip_answers_for_host(
+            host,
+            self.runtime_context.as_ref(),
+            self.response_failure_evidence_settings.protect_path.as_deref(),
+        )
     }
 
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
