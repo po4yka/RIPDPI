@@ -3,7 +3,7 @@ use std::thread;
 
 use ripdpi_proxy_runtime_adapter::failure::ProbeResult;
 use ripdpi_proxy_runtime_adapter::model::config::NetworkReprobeSettings;
-use ripdpi_proxy_runtime_adapter::model::services::{reprobe_reset_handle, ReprobeResetHandle};
+use ripdpi_proxy_runtime_adapter::model::services::ReprobeResetHandle;
 
 use super::super::state::RuntimeState;
 use super::cache_flush::flush_runtime_cache_after_handover;
@@ -46,7 +46,7 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
 
     tracing::info!("network_reprobe: network identity changed, scheduling reprobe");
 
-    let reset_handle = reprobe_reset_handle(&state.services);
+    let reset_handle = state.reprobe_reset_handle();
 
     thread::Builder::new()
         .name("ripdpi-reprobe".into())

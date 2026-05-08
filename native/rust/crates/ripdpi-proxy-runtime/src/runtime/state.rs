@@ -18,7 +18,9 @@ use ripdpi_proxy_runtime_adapter::model::proxy_config::{NetworkReprobeTracker, P
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{
     current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink,
 };
-use ripdpi_proxy_runtime_adapter::model::services::{new_services_handle, ServicesStateHandle};
+use ripdpi_proxy_runtime_adapter::model::services::{
+    new_services_handle, reprobe_reset_handle, ReprobeResetHandle, ServicesStateHandle,
+};
 use ripdpi_proxy_runtime_adapter::model::session::{
     first_outbound_payload_policy, payload_host_extractor, udp_packet_parser, udp_payload_classifier,
     FirstOutboundPayloadPolicy, PayloadHostExtractor, UdpPacketParser, UdpPayloadClassifier,
@@ -158,6 +160,10 @@ impl RuntimeState {
 
     pub(super) fn retry_pacing(&self) -> &dyn RetryPacingPort {
         &self.services
+    }
+
+    pub(super) fn reprobe_reset_handle(&self) -> ReprobeResetHandle {
+        reprobe_reset_handle(&self.services)
     }
 
     #[cfg(test)]
