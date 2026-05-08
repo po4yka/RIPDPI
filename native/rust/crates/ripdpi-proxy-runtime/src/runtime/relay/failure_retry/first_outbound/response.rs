@@ -3,7 +3,6 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
-use ripdpi_proxy_runtime_adapter::model::config::FirstResponseSettings;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
 use crate::runtime::adaptive::note_server_ttl_for_route;
@@ -24,7 +23,6 @@ pub(super) struct FirstResponseContext<'a> {
     pub(super) route: &'a ConnectionRoute,
     pub(super) host: Option<&'a str>,
     pub(super) original_request: &'a [u8],
-    pub(super) response_settings: FirstResponseSettings,
     pub(super) success_strategy_family: Option<&'static str>,
     pub(super) primary_strategy_family: Option<&'static str>,
     pub(super) tls_send_start: Option<Instant>,
@@ -36,14 +34,7 @@ pub(super) fn handle_first_response(
     session_state: &mut FirstOutboundSession,
     context: FirstResponseContext<'_>,
 ) -> io::Result<FirstResponseDecision> {
-    match read_first_response(
-        context.state,
-        context.target,
-        context.host,
-        upstream,
-        context.response_settings,
-        context.original_request,
-    )? {
+    match read_first_response(context.state, context.target, context.host, upstream, context.original_request)? {
         FirstResponse::Forward(bytes, server_ttl) => {
             if let Some(start) = context.tls_send_start {
                 context.state.note_tls_handshake_completed(context.target, start.elapsed().as_millis() as u64);

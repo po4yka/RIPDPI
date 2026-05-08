@@ -10,9 +10,8 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     FirstResponseSettings,
 };
 use ripdpi_proxy_runtime_adapter::platform::first_response as first_response_platform;
-use ripdpi_proxy_runtime_adapter::response_triggers::FirstResponseExchangePolicy;
 
-use super::super::routing::{classify_response_failure, note_block_signal_for_failure, runtime_supports_trigger};
+use super::super::routing::{classify_response_failure, note_block_signal_for_failure};
 use super::super::state::RuntimeState;
 use ripdpi_proxy_runtime_adapter::protocol_payload::FirstResponseBoundaryTracker;
 
@@ -22,10 +21,8 @@ pub(super) enum FirstResponse {
     NoData,
 }
 
-pub(super) fn needs_first_exchange(state: &RuntimeState, policy: FirstResponseExchangePolicy) -> io::Result<bool> {
-    ripdpi_proxy_runtime_adapter::response_triggers::first_response_exchange_required_with(policy, |trigger| {
-        runtime_supports_trigger(state, trigger)
-    })
+pub(super) fn needs_first_exchange(state: &RuntimeState) -> io::Result<bool> {
+    state.first_response_exchange_required()
 }
 
 pub(super) fn read_first_response(
@@ -33,9 +30,9 @@ pub(super) fn read_first_response(
     target: SocketAddr,
     host: Option<&str>,
     upstream: &mut TcpStream,
-    settings: FirstResponseSettings,
     request: &[u8],
 ) -> io::Result<FirstResponse> {
+    let settings = state.relay_first_response_settings();
     let _ = first_response_platform::enable_recv_ttl(upstream);
     let mut collected = Vec::new();
     let mut chunk = vec![0u8; settings.buffer_size];

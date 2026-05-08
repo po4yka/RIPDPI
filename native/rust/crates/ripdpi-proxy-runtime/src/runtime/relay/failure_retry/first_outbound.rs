@@ -2,9 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::config::FirstResponseSettings;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::response_triggers::FirstResponseExchangePolicy;
 
 use crate::runtime::relay::failure_retry::first_outbound::execution::execute_first_write;
 use crate::runtime::relay::failure_retry::first_outbound::observations::FirstOutboundSession;
@@ -41,21 +39,11 @@ pub(super) struct FirstOutboundCoordinator<'a> {
     target: SocketAddr,
     route: ConnectionRoute,
     seed_request: Option<Vec<u8>>,
-    policies: FirstOutboundPolicies,
-}
-
-struct FirstOutboundPolicies {
-    response: FirstResponseSettings,
-    exchange: FirstResponseExchangePolicy,
 }
 
 impl<'a> FirstOutboundCoordinator<'a> {
     fn new(state: &'a RuntimeState, target: SocketAddr, route: ConnectionRoute, seed_request: Option<Vec<u8>>) -> Self {
-        let policies = FirstOutboundPolicies {
-            response: state.relay_first_response_settings(),
-            exchange: state.first_response_exchange_policy(),
-        };
-        Self { state, target, route, seed_request, policies }
+        Self { state, target, route, seed_request }
     }
 
     fn run(self, client: &mut TcpStream, mut upstream: TcpStream) -> io::Result<PreparedRelay> {
@@ -78,7 +66,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let mut session_state;
         let mut success_recorded = false;
         let mut success_strategy_family;
-        let inspect_first_response = needs_first_exchange(self.state, self.policies.exchange)?;
+        let inspect_first_response = needs_first_exchange(self.state)?;
 
         loop {
             session_state = FirstOutboundSession::new();
@@ -123,7 +111,6 @@ impl<'a> FirstOutboundCoordinator<'a> {
                     route: &route,
                     host: first_payload.host.as_deref(),
                     original_request: &first_payload.original_request,
-                    response_settings: self.policies.response,
                     success_strategy_family,
                     primary_strategy_family: self.state.primary_tcp_strategy_family(route.group_index),
                     tls_send_start,

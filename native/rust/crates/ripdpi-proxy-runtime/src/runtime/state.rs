@@ -334,8 +334,11 @@ impl RuntimeState {
         )
     }
 
-    pub(super) fn first_response_exchange_policy(&self) -> FirstResponseExchangePolicy {
-        self.first_response_exchange_policy
+    pub(super) fn first_response_exchange_required(&self) -> io::Result<bool> {
+        ripdpi_proxy_runtime_adapter::response_triggers::first_response_exchange_required_with(
+            self.first_response_exchange_policy,
+            |trigger| Ok(PolicyPort::supports_trigger(&self.services, trigger)),
+        )
     }
 
     pub(super) fn primary_tcp_strategy_family(&self, group_index: usize) -> Option<&'static str> {
