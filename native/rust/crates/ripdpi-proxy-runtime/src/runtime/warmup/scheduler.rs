@@ -53,5 +53,5 @@ fn run_warmup(state: &RuntimeState) {
 }
 
 fn is_shutdown(state: &RuntimeState) -> bool {
-    state.control.as_ref().map_or_else(crate::process::shutdown_requested, |c| c.shutdown_requested())
+    state.shutdown_requested()
 }

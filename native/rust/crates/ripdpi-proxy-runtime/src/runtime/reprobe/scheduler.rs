@@ -17,14 +17,11 @@ use super::tls_probe::probe_tls_handshake;
 /// The function is intentionally fire-and-forget: the spawned thread runs
 /// independently and logs results via tracing.
 pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
-    let Some(control) = &state.control else {
-        return;
-    };
     let settings = state.network_reprobe_settings();
     if !settings.enabled {
         return;
     }
-    let Some(snapshot) = control.current_network_snapshot() else {
+    let Some(snapshot) = state.current_network_snapshot() else {
         return;
     };
 
@@ -38,7 +35,7 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
         return;
     }
 
-    if !state.reprobe_tracker.check_snapshot(&snapshot) {
+    if !state.should_reprobe_network(&snapshot) {
         return;
     }
 

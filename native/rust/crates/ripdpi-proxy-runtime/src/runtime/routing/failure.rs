@@ -29,11 +29,7 @@ pub(in crate::runtime) fn note_block_signal_for_failure(
     let Some(signal) = block_signal_from_failure(failure, tcp_total_retransmissions) else {
         return;
     };
-    let confirmation_allowed = state
-        .control
-        .as_ref()
-        .and_then(|control| control.current_network_snapshot())
-        .is_none_or(|snapshot| snapshot.validated && !snapshot.captive_portal);
+    let confirmation_allowed = state.block_signal_confirmation_allowed();
     state.note_block_signal(host, signal.signal, signal.provider.as_deref(), confirmation_allowed);
 }
 

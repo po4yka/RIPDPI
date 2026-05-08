@@ -29,7 +29,7 @@ use ripdpi_proxy_runtime_adapter::model::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, DirectPathLearningObserver, DirectPathLearningPort, PolicyPort,
     RetryPacingPort,
 };
-use ripdpi_proxy_runtime_adapter::model::proxy_config::{NetworkReprobeTracker, ProxyRuntimeContext};
+use ripdpi_proxy_runtime_adapter::model::proxy_config::{NetworkReprobeTracker, NetworkSnapshot, ProxyRuntimeContext};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::{
     current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink,
 };
@@ -93,13 +93,13 @@ pub(super) struct RuntimeState {
     pub(super) active_clients: Arc<AtomicUsize>,
     pub(super) telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
     runtime_context: Option<ProxyRuntimeContext>,
-    pub(super) control: Option<std::sync::Arc<EmbeddedProxyControl>>,
+    control: Option<std::sync::Arc<EmbeddedProxyControl>>,
     /// Session-level flag: once any connection discovers that per-socket TTL
     /// modification is rejected by the kernel (EROFS on Android), all
     /// subsequent connections skip TTL desync actions immediately.
     ttl_unavailable: Arc<AtomicBool>,
     /// Tracks network scope key changes for lightweight re-probing.
-    pub(super) reprobe_tracker: std::sync::Arc<NetworkReprobeTracker>,
+    reprobe_tracker: std::sync::Arc<NetworkReprobeTracker>,
     pcap_hook: Option<super::desync::PcapHook>,
     /// io_uring driver for zero-copy relay (Linux 6.0+, optional).
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
@@ -560,6 +560,26 @@ impl RuntimeState {
             self.runtime_context.as_ref(),
             self.response_failure_evidence_settings.protect_path.as_deref(),
         )
+    }
+
+    pub(super) fn shutdown_requested(&self) -> bool {
+        self.control.as_ref().map_or_else(crate::process::shutdown_requested, |control| control.shutdown_requested())
+    }
+
+    pub(super) fn has_embedded_control(&self) -> bool {
+        self.control.is_some()
+    }
+
+    pub(super) fn current_network_snapshot(&self) -> Option<NetworkSnapshot> {
+        self.control.as_ref().and_then(|control| control.current_network_snapshot())
+    }
+
+    pub(super) fn should_reprobe_network(&self, snapshot: &NetworkSnapshot) -> bool {
+        self.reprobe_tracker.check_snapshot(snapshot)
+    }
+
+    pub(super) fn block_signal_confirmation_allowed(&self) -> bool {
+        self.current_network_snapshot().is_none_or(|snapshot| snapshot.validated && !snapshot.captive_portal)
     }
 
     pub(super) fn resolve_encrypted_dns_host(

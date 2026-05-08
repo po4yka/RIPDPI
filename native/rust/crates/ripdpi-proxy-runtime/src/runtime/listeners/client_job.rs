@@ -1,8 +1,6 @@
 use std::io;
 use std::net::TcpStream;
 
-use crate::process;
-
 use crate::runtime::state::{ClientSlotGuard, RuntimeState};
 
 pub(crate) struct ClientJob {
@@ -16,11 +14,11 @@ pub(crate) fn process_client_job(job: ClientJob) {
     let _slot = slot;
     let result = super::super::handshake::handle_client(client, &state);
     if let Err(err) = &result {
-        let shutting_down = state.control.as_ref().map_or_else(process::shutdown_requested, |c| c.shutdown_requested());
+        let shutting_down = state.shutdown_requested();
         if shutting_down && is_connection_closed_error(err) {
             tracing::trace!("ripdpi client error during shutdown (expected): {err}");
         } else if is_connection_closed_error(err) {
-            if state.control.is_some() {
+            if state.has_embedded_control() {
                 tracing::trace!("ripdpi client disconnected: {err}");
             } else {
                 tracing::debug!("ripdpi client disconnected: {err}");
