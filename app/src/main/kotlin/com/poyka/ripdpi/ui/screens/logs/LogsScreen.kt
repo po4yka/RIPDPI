@@ -84,12 +84,12 @@ fun LogsRoute(
 
     LogsScreen(
         uiState = uiState,
-        onRefresh = viewModel::refresh,
-        onToggleSubsystemFilter = viewModel::toggleSubsystemFilter,
-        onToggleSeverityFilter = viewModel::toggleSeverityFilter,
-        onAutoScrollChanged = viewModel::setAutoScroll,
-        onActiveSessionOnlyChanged = viewModel::setActiveSessionOnly,
-        onClearLogs = viewModel::clearLogs,
+        onRefresh = remember(viewModel) { viewModel::refresh },
+        onToggleSubsystemFilter = remember(viewModel) { viewModel::toggleSubsystemFilter },
+        onToggleSeverityFilter = remember(viewModel) { viewModel::toggleSeverityFilter },
+        onAutoScrollChanged = remember(viewModel) { viewModel::setAutoScroll },
+        onActiveSessionOnlyChanged = remember(viewModel) { viewModel::setActiveSessionOnly },
+        onClearLogs = remember(viewModel) { viewModel::clearLogs },
         onSaveLogs = onSaveLogs,
         onShareSupportBundle = onShareSupportBundle,
         modifier = modifier,
