@@ -18,6 +18,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -50,26 +51,26 @@ fun HistoryRoute(
     HistoryScreen(
         uiState = uiState,
         onBack = onBack,
-        onRefresh = viewModel::refresh,
-        onSelectSection = viewModel::selectSection,
-        onConnectionModeFilter = viewModel::setConnectionModeFilter,
-        onConnectionStatusFilter = viewModel::setConnectionStatusFilter,
-        onConnectionSearch = viewModel::setConnectionSearch,
-        onClearConnectionFilters = viewModel::clearConnectionFilters,
-        onSelectConnection = viewModel::selectConnection,
-        onDismissConnectionDetail = viewModel::dismissConnectionDetail,
-        onDiagnosticsPathFilter = viewModel::setDiagnosticsPathModeFilter,
-        onDiagnosticsStatusFilter = viewModel::setDiagnosticsStatusFilter,
-        onDiagnosticsSearch = viewModel::setDiagnosticsSearch,
-        onClearDiagnosticsFilters = viewModel::clearDiagnosticsFilters,
-        onSelectDiagnosticsSession = viewModel::selectDiagnosticsSession,
-        onDismissDiagnosticsDetail = viewModel::dismissDiagnosticsDetail,
-        onToggleEventFilter = viewModel::toggleEventFilter,
-        onEventSearch = viewModel::setEventSearch,
-        onClearEventFilters = viewModel::clearEventFilters,
-        onEventAutoScroll = viewModel::setEventAutoScroll,
-        onSelectEvent = viewModel::selectEvent,
-        onDismissEventDetail = viewModel::dismissEventDetail,
+        onRefresh = remember(viewModel) { viewModel::refresh },
+        onSelectSection = remember(viewModel) { viewModel::selectSection },
+        onConnectionModeFilter = remember(viewModel) { viewModel::setConnectionModeFilter },
+        onConnectionStatusFilter = remember(viewModel) { viewModel::setConnectionStatusFilter },
+        onConnectionSearch = remember(viewModel) { viewModel::setConnectionSearch },
+        onClearConnectionFilters = remember(viewModel) { viewModel::clearConnectionFilters },
+        onSelectConnection = remember(viewModel) { viewModel::selectConnection },
+        onDismissConnectionDetail = remember(viewModel) { viewModel::dismissConnectionDetail },
+        onDiagnosticsPathFilter = remember(viewModel) { viewModel::setDiagnosticsPathModeFilter },
+        onDiagnosticsStatusFilter = remember(viewModel) { viewModel::setDiagnosticsStatusFilter },
+        onDiagnosticsSearch = remember(viewModel) { viewModel::setDiagnosticsSearch },
+        onClearDiagnosticsFilters = remember(viewModel) { viewModel::clearDiagnosticsFilters },
+        onSelectDiagnosticsSession = remember(viewModel) { viewModel::selectDiagnosticsSession },
+        onDismissDiagnosticsDetail = remember(viewModel) { viewModel::dismissDiagnosticsDetail },
+        onToggleEventFilter = remember(viewModel) { viewModel::toggleEventFilter },
+        onEventSearch = remember(viewModel) { viewModel::setEventSearch },
+        onClearEventFilters = remember(viewModel) { viewModel::clearEventFilters },
+        onEventAutoScroll = remember(viewModel) { viewModel::setEventAutoScroll },
+        onSelectEvent = remember(viewModel) { viewModel::selectEvent },
+        onDismissEventDetail = remember(viewModel) { viewModel::dismissEventDetail },
         modifier = modifier,
     )
 }
