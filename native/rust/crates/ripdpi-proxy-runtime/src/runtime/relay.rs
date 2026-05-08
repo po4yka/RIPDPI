@@ -79,8 +79,8 @@ mod tests {
     use ripdpi_proxy_runtime_adapter::model::session::TriggerEvent;
     use ripdpi_proxy_runtime_adapter::protocol_payload::DEFAULT_FAKE_TLS;
     use ripdpi_proxy_runtime_adapter::protocol_payload::{
-        OutboundTlsClientHelloAssembler, TlsRecordBoundaryTracker, FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT,
-        FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
+        FirstResponseBoundaryTracker, OutboundTlsClientHelloAssembler, TlsRecordBoundaryTracker,
+        FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT, FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
     };
 
     mod rust_packet_seeds {
@@ -176,12 +176,12 @@ mod tests {
         config.timeouts.partial_timeout_ms = 75;
         config.timeouts.timeout_ms = 900;
         let settings = first_response_settings(&config);
-        let tls_tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, settings);
+        let tls_tracker = FirstResponseBoundaryTracker::for_request(DEFAULT_FAKE_TLS, settings);
         assert_eq!(first_response_timeout(settings, &tls_tracker), Some(Duration::from_millis(75)));
 
         config.timeouts.partial_timeout_ms = 0;
         let settings = first_response_settings(&config);
-        let inactive_tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, settings);
+        let inactive_tracker = FirstResponseBoundaryTracker::for_request(DEFAULT_FAKE_TLS, settings);
         assert_eq!(first_response_timeout(settings, &inactive_tracker), Some(Duration::from_millis(900)));
 
         config.timeouts.timeout_ms = 0;

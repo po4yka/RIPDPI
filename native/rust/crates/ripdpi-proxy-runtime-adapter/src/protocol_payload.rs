@@ -46,6 +46,29 @@ pub struct TlsRecordBoundaryTracker {
     bytes_limit: usize,
 }
 
+#[derive(Default)]
+pub struct FirstResponseBoundaryTracker {
+    tracker: TlsRecordBoundaryTracker,
+}
+
+impl FirstResponseBoundaryTracker {
+    pub fn for_request(request: &[u8], settings: crate::model::config::FirstResponseSettings) -> Self {
+        Self { tracker: TlsRecordBoundaryTracker::for_first_response(request, settings) }
+    }
+
+    pub fn active(&self) -> bool {
+        self.tracker.active()
+    }
+
+    pub fn waiting_for_tls_record(&self) -> bool {
+        self.tracker.waiting_for_tls_record()
+    }
+
+    pub fn observe(&mut self, bytes: &[u8]) {
+        self.tracker.observe(bytes);
+    }
+}
+
 impl TlsRecordBoundaryTracker {
     pub fn for_first_response(request: &[u8], settings: crate::model::config::FirstResponseSettings) -> Self {
         if !crate::model::session::is_tls_client_hello_payload(request) || settings.partial_timeout_ms == 0 {

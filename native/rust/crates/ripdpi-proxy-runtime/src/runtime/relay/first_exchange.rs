@@ -14,7 +14,7 @@ use ripdpi_proxy_runtime_adapter::response_triggers::FirstResponseExchangePolicy
 
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure, runtime_supports_trigger};
 use super::super::state::RuntimeState;
-use ripdpi_proxy_runtime_adapter::protocol_payload::TlsRecordBoundaryTracker;
+use ripdpi_proxy_runtime_adapter::protocol_payload::FirstResponseBoundaryTracker;
 
 pub(super) enum FirstResponse {
     Forward(Vec<u8>, Option<u8>),
@@ -39,7 +39,7 @@ pub(super) fn read_first_response(
     let _ = first_response_platform::enable_recv_ttl(upstream);
     let mut collected = Vec::new();
     let mut chunk = vec![0u8; settings.buffer_size];
-    let mut tls_partial = TlsRecordBoundaryTracker::for_first_response(request, settings);
+    let mut tls_partial = FirstResponseBoundaryTracker::for_request(request, settings);
     let mut timeout_count = 0i32;
     let mut observed_server_ttl: Option<u8> = None;
 
@@ -124,7 +124,7 @@ pub(super) fn read_first_response(
 
 pub(super) fn first_response_timeout(
     settings: FirstResponseSettings,
-    tls_partial: &TlsRecordBoundaryTracker,
+    tls_partial: &FirstResponseBoundaryTracker,
 ) -> Option<std::time::Duration> {
     projected_first_response_timeout(settings, tls_partial.active())
 }
