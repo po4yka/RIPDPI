@@ -1,5 +1,5 @@
 use crate::failure::FailureClass;
-use crate::model::config::{first_response_settings, DesyncGroup, RotationPolicy, RuntimeConfig};
+use crate::model::config::{DesyncGroup, FirstResponseSettings, RotationPolicy};
 use crate::protocol_payload::TlsRecordBoundaryTracker;
 use std::time::{Duration, Instant};
 
@@ -136,7 +136,7 @@ impl CircularTcpRotationController {
 
     pub fn start_round(
         &mut self,
-        config: &RuntimeConfig,
+        first_response: FirstResponseSettings,
         round: u32,
         stream_start: usize,
         request_chunk: &[u8],
@@ -154,12 +154,12 @@ impl CircularTcpRotationController {
             stream_start,
             request_bytes: request_chunk.to_vec(),
             response_bytes: Vec::new(),
-            tls_tracker: TlsRecordBoundaryTracker::for_first_response(request_chunk, first_response_settings(config)),
+            tls_tracker: TlsRecordBoundaryTracker::for_first_response(request_chunk, first_response),
             retrans_baseline,
         });
     }
 
-    pub fn append_request_chunk(&mut self, config: &RuntimeConfig, round: u32, request_chunk: &[u8]) {
+    pub fn append_request_chunk(&mut self, first_response: FirstResponseSettings, round: u32, request_chunk: &[u8]) {
         let Some(observation) = self.observed_round.as_mut() else {
             return;
         };
@@ -168,7 +168,7 @@ impl CircularTcpRotationController {
         }
         observation.request_bytes.extend_from_slice(request_chunk);
         observation.tls_tracker =
-            TlsRecordBoundaryTracker::for_first_response(&observation.request_bytes, first_response_settings(config));
+            TlsRecordBoundaryTracker::for_first_response(&observation.request_bytes, first_response);
     }
 
     pub fn observe_response_chunk(&mut self, chunk: &[u8]) -> bool {
@@ -245,7 +245,10 @@ impl CircularTcpRotationController {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::config::{OffsetBase, OffsetExpr, RotationCandidate, TcpChainStep, TcpChainStepKind};
+    use crate::model::config::{
+        first_response_settings, OffsetBase, OffsetExpr, RotationCandidate, RuntimeConfig, TcpChainStep,
+        TcpChainStepKind,
+    };
 
     fn rotation_controller() -> CircularTcpRotationController {
         let mut group = DesyncGroup::new(0);
@@ -278,12 +281,28 @@ mod tests {
         let mut controller = rotation_controller();
         let config = RuntimeConfig::default();
 
-        controller.start_round(&config, 2, 0, b"GET / HTTP/1.1\r\n", Some(1), Some("example.org"), None);
+        controller.start_round(
+            first_response_settings(&config),
+            2,
+            0,
+            b"GET / HTTP/1.1\r\n",
+            Some(1),
+            Some("example.org"),
+            None,
+        );
         controller.observe_round_failure(Some("example.org"), None, RotationFailureReason::Retransmissions, 3);
         assert!(controller.pending_advance);
         assert_eq!(controller.consecutive_failures, 1);
 
-        controller.start_round(&config, 3, 128, b"GET / HTTP/1.1\r\n", Some(4), Some("example.org"), None);
+        controller.start_round(
+            first_response_settings(&config),
+            3,
+            128,
+            b"GET / HTTP/1.1\r\n",
+            Some(4),
+            Some("example.org"),
+            None,
+        );
 
         assert_eq!(controller.active_candidate_index, Some(0));
         assert!(!controller.pending_advance);
@@ -308,7 +327,15 @@ mod tests {
         let mut controller = rotation_controller();
         let config = RuntimeConfig::default();
 
-        controller.start_round(&config, 2, 0, b"GET / HTTP/1.1\r\n", Some(0), Some("example.org"), None);
+        controller.start_round(
+            first_response_settings(&config),
+            2,
+            0,
+            b"GET / HTTP/1.1\r\n",
+            Some(0),
+            Some("example.org"),
+            None,
+        );
         controller.observe_round_failure(
             Some("example.org"),
             None,
@@ -317,7 +344,15 @@ mod tests {
         );
         assert!(controller.pending_advance);
 
-        controller.start_round(&config, 3, 64, b"GET / HTTP/1.1\r\n", Some(0), Some("example.org"), None);
+        controller.start_round(
+            first_response_settings(&config),
+            3,
+            64,
+            b"GET / HTTP/1.1\r\n",
+            Some(0),
+            Some("example.org"),
+            None,
+        );
 
         assert_eq!(controller.active_candidate_index, Some(0));
     }

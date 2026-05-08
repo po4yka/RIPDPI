@@ -1,4 +1,5 @@
 use crate::sync::{Arc, Mutex};
+use ripdpi_proxy_runtime_adapter::model::config::first_response_settings;
 use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host_with, payload_host_extractor, SessionState};
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use std::io::{self, Read, Write};
@@ -110,6 +111,7 @@ pub(super) fn flush_outbound_payload(
     let peer_addr = writer.peer_addr()?;
     let group = if let Some(rotation) = rotation {
         let mut rotation = rotation.lock().map_err(|_| io::Error::other("rotation mutex poisoned"))?;
+        let first_response = first_response_settings(&state.config);
         let retrans_baseline = if is_new_round {
             ripdpi_proxy_runtime_adapter::platform::relay::tcp_total_retransmissions(writer).ok().flatten()
         } else {
@@ -117,7 +119,7 @@ pub(super) fn flush_outbound_payload(
         };
         if is_new_round {
             rotation.start_round(
-                &state.config,
+                first_response,
                 progress.round,
                 progress.stream_start,
                 payload,
@@ -126,7 +128,7 @@ pub(super) fn flush_outbound_payload(
                 Some(peer_addr),
             );
         } else {
-            rotation.append_request_chunk(&state.config, progress.round, payload);
+            rotation.append_request_chunk(first_response, progress.round, payload);
         }
         Some(rotation.current_send_group())
     } else {
