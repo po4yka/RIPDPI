@@ -586,6 +586,42 @@ impl RuntimeState {
         ClientSlotGuard::acquire(self.active_clients.clone(), client_capacity)
     }
 
+    pub(super) fn note_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_listener_started(bind_addr, max_clients, group_count);
+        }
+    }
+
+    pub(super) fn note_listener_stopped(&self) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_listener_stopped();
+        }
+    }
+
+    pub(super) fn note_client_slot_exhausted(&self) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_client_slot_exhausted();
+        }
+    }
+
+    pub(super) fn note_client_accepted(&self) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_client_accepted();
+        }
+    }
+
+    pub(super) fn note_client_finished(&self) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_client_finished();
+        }
+    }
+
+    pub(super) fn note_client_error(&self, error: &io::Error) {
+        if let Some(telemetry) = &self.telemetry {
+            telemetry.on_client_error(error);
+        }
+    }
+
     pub(super) fn resolve_encrypted_dns_host(
         &self,
         host: &str,

@@ -22,9 +22,7 @@ pub(crate) fn run_accept_loop(
 ) -> io::Result<()> {
     let worker_pool = ClientWorkerPool::new(client_capacity)?;
     let result = poll_accept_loop(listener, state.clone(), control, &worker_pool, client_capacity);
-    if let Some(telemetry) = &state.telemetry {
-        telemetry.on_listener_stopped();
-    }
+    state.note_listener_stopped();
     worker_pool.drain_gracefully();
     result
 }
@@ -83,9 +81,7 @@ fn accept_client(
     }
     let Some(slot) = state.acquire_client_slot(client_capacity) else {
         tracing::warn!("client connection rejected: at capacity");
-        if let Some(telemetry) = &state.telemetry {
-            telemetry.on_client_slot_exhausted();
-        }
+        state.note_client_slot_exhausted();
         listener_platform::close_rejected_client(&client);
         drop(client);
         return Ok(());
@@ -93,9 +89,7 @@ fn accept_client(
     if let Err(err) = worker_pool.ensure_capacity() {
         tracing::error!("failed to provision client worker: {err}");
         if !worker_pool.has_live_workers() {
-            if let Some(telemetry) = &state.telemetry {
-                telemetry.on_client_error(&err);
-            }
+            state.note_client_error(&err);
             listener_platform::close_rejected_client(&client);
             drop(slot);
             drop(client);
@@ -103,15 +97,11 @@ fn accept_client(
         }
     }
     if let Err(job) = worker_pool.enqueue(ClientJob { client, state: state.clone(), slot }) {
-        if let Some(telemetry) = &state.telemetry {
-            telemetry.on_client_error(&io::Error::other("client worker pool is closed"));
-        }
+        state.note_client_error(&io::Error::other("client worker pool is closed"));
         listener_platform::close_rejected_client(&job.client);
         drop(job);
         return Ok(());
     }
-    if let Some(telemetry) = &state.telemetry {
-        telemetry.on_client_accepted();
-    }
+    state.note_client_accepted();
     Ok(())
 }

@@ -28,13 +28,9 @@ pub(crate) fn process_client_job(job: ClientJob) {
         } else {
             tracing::error!("ripdpi client error: {err}");
         }
-        if let Some(telemetry) = &state.telemetry {
-            telemetry.on_client_error(err);
-        }
+        state.note_client_error(err);
     }
-    if let Some(telemetry) = &state.telemetry {
-        telemetry.on_client_finished();
-    }
+    state.note_client_finished();
 }
 
 /// Returns `true` for I/O errors that are expected when the proxy shuts down
