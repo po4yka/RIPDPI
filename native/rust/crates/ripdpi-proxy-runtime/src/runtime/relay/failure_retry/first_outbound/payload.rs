@@ -2,8 +2,7 @@ use std::io::{self, Read};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
 
-use crate::runtime::state::RuntimeState;
-use ripdpi_proxy_runtime_adapter::model::session::{classify_first_outbound_payload, first_outbound_payload_policy};
+use ripdpi_proxy_runtime_adapter::model::session::{classify_first_outbound_payload, FirstOutboundPayloadPolicy};
 use ripdpi_proxy_runtime_adapter::protocol_payload::OutboundTlsClientHelloAssembler;
 
 const FIRST_OUTBOUND_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -16,14 +15,13 @@ pub(super) struct FirstPayload {
 
 pub(super) fn prepare_first_payload(
     client: &mut TcpStream,
-    state: &RuntimeState,
+    policy: &FirstOutboundPayloadPolicy,
     seed_request: Option<Vec<u8>>,
 ) -> io::Result<Option<FirstPayload>> {
-    let policy = first_outbound_payload_policy(&state.config);
     let original_request =
         seed_request.map_or_else(|| read_first_client_payload(client, policy.buffer_size), |seed| Ok(Some(seed)))?;
     Ok(original_request.map(|original_request| {
-        let info = classify_first_outbound_payload(&policy, &original_request);
+        let info = classify_first_outbound_payload(policy, &original_request);
         FirstPayload { original_request, host: info.host, is_tls: info.is_tls }
     }))
 }

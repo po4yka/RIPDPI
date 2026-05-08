@@ -4,7 +4,7 @@ use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::model::config::first_response_settings;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::model::session::{new_session_state, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::{first_outbound_payload_policy, new_session_state, SessionState};
 
 use crate::runtime::relay::failure_retry::first_outbound::execution::execute_first_write;
 use crate::runtime::relay::failure_retry::first_outbound::payload::prepare_first_payload;
@@ -46,7 +46,8 @@ impl<'a> FirstOutboundCoordinator<'a> {
     }
 
     fn run(self, client: &mut TcpStream, mut upstream: TcpStream) -> io::Result<PreparedRelay> {
-        let first_payload = prepare_first_payload(client, self.state, self.seed_request)?;
+        let payload_policy = first_outbound_payload_policy(&self.state.config);
+        let first_payload = prepare_first_payload(client, &payload_policy, self.seed_request)?;
         let Some(first_payload) = first_payload else {
             return Ok(PreparedRelay {
                 upstream,
