@@ -20,8 +20,8 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     ws_tunnel_settings, DelayedConnectSettings, DesyncGroup, FirstResponseSettings, ListenerSettings,
     NetworkReprobeSettings, ProxyHandshakeSettings, RelayGroupSettings, RelayGroupSettingsTable,
     ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettings,
-    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettings,
-    UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings,
+    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupPacketSettings,
+    UdpGroupSettingsTable, UdpGroupSocketSettings, UdpSourceRebindPolicy, WarmupProbeSettings, WsTunnelSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
@@ -108,6 +108,13 @@ pub(super) struct RuntimeState {
     /// io_uring driver for zero-copy relay (Linux 6.0+, optional).
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
     io_uring: Option<std::sync::Arc<ripdpi_io_uring::IoUringDriver>>,
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct UdpFlowGroupPolicy {
+    pub(super) socket: UdpGroupSocketSettings,
+    pub(super) packet: UdpGroupPacketSettings,
+    pub(super) source_rebind: UdpSourceRebindPolicy,
 }
 
 impl RuntimeState {
@@ -402,8 +409,9 @@ impl RuntimeState {
         self.udp_flow_limit
     }
 
-    pub(super) fn udp_group(&self, group_index: usize) -> Option<UdpGroupSettings> {
-        udp_group_settings_with(&self.udp_group_settings, group_index)
+    pub(super) fn udp_flow_group_policy(&self, group_index: usize) -> Option<UdpFlowGroupPolicy> {
+        let group = udp_group_settings_with(&self.udp_group_settings, group_index)?;
+        Some(UdpFlowGroupPolicy { socket: group.socket, packet: group.packet, source_rebind: group.source_rebind })
     }
 
     pub(super) fn max_route_retries(&self) -> usize {

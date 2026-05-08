@@ -85,12 +85,12 @@ pub(super) fn select_udp_flow_target(
             continue;
         };
         state.note_route_selected(target, route.group_index, host, phase);
-        let Some(group_settings) = state.udp_group(route.group_index) else {
+        let Some(group_policy) = state.udp_flow_group_policy(route.group_index) else {
             continue;
         };
-        let socket_settings = group_settings.socket;
-        let packet_settings = group_settings.packet;
-        let source_rebind_policy = group_settings.source_rebind;
+        let socket_settings = group_policy.socket;
+        let packet_settings = group_policy.packet;
+        let source_rebind_policy = group_policy.source_rebind;
         let Ok(upstream) = build_udp_upstream_socket(target, protect_path, socket_settings.bind_low_port) else {
             continue;
         };
