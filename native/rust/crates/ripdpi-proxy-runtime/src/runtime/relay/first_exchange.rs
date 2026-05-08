@@ -1,10 +1,7 @@
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::failure::{
-    classify_first_response_closed_before_response, classify_first_response_partial_tls_timeout,
-    classify_first_response_transport_error, ClassifiedFailure,
-};
+use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 #[cfg(test)]
 use ripdpi_proxy_runtime_adapter::model::config::{
     first_response_timeout as projected_first_response_timeout, first_response_timeout_count_limit,
@@ -55,7 +52,7 @@ pub(super) fn read_first_response(
         };
         let result = match read_result {
             Ok(0) => Ok(FirstResponse::Failure {
-                failure: classify_first_response_closed_before_response(),
+                failure: RuntimeState::classify_first_response_closed_before_response(),
                 response_bytes: None,
             }),
             Ok(n) => {
@@ -77,14 +74,14 @@ pub(super) fn read_first_response(
                     timeout_count += 1;
                     if timeout_count >= state.relay_first_response_timeout_count_limit() {
                         Ok(FirstResponse::Failure {
-                            failure: classify_first_response_partial_tls_timeout(),
+                            failure: RuntimeState::classify_first_response_partial_tls_timeout(),
                             response_bytes: None,
                         })
                     } else {
                         continue;
                     }
                 } else if state.relay_first_response_reports_timeout_failure() {
-                    let failure = classify_first_response_transport_error(&err);
+                    let failure = RuntimeState::classify_first_response_transport_error(&err);
                     let retransmissions = first_response_platform::tcp_total_retransmissions(upstream).ok().flatten();
                     note_block_signal_for_failure(state, host, &failure, retransmissions);
                     Ok(FirstResponse::Failure { failure, response_bytes: None })
@@ -104,7 +101,7 @@ pub(super) fn read_first_response(
                         | io::ErrorKind::HostUnreachable
                 ) =>
             {
-                let failure = classify_first_response_transport_error(&err);
+                let failure = RuntimeState::classify_first_response_transport_error(&err);
                 note_block_signal_for_failure(
                     state,
                     host,
