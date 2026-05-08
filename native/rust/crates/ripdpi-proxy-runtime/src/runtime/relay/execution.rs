@@ -5,7 +5,7 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     relay_group_settings_with, tcp_rotation_seed_with, RuntimeTimeoutSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::model::session::inbound_payload_count;
+use ripdpi_proxy_runtime_adapter::model::session::has_inbound_payload;
 
 use super::super::routing::{emit_failure_classified, note_block_signal_for_failure};
 use super::super::state::RuntimeState;
@@ -86,7 +86,7 @@ pub(super) fn record_relay_result(
     context: RelayResultContext<'_>,
 ) -> io::Result<()> {
     if let Ok(final_state) = relay_result {
-        if !context.success_recorded && inbound_payload_count(final_state) > 0 {
+        if !context.success_recorded && has_inbound_payload(final_state) {
             record_stream_relay_success(
                 state,
                 context.target,
