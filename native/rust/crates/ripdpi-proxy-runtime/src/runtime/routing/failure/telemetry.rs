@@ -14,7 +14,7 @@ pub(in crate::runtime) fn emit_failure_classified(
     failure: &ClassifiedFailure,
     host: Option<&str>,
 ) {
-    if !super::should_track_strategy_target(target) {
+    if !RuntimeState::should_track_strategy_target(target) {
         return;
     }
     state.note_failure_classified(target, failure, host);

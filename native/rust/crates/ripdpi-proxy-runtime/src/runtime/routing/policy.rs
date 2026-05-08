@@ -56,7 +56,3 @@ pub(in crate::runtime) fn note_route_success_for_transport(
 ) -> io::Result<()> {
     state.note_route_success(target, route, host, transport)
 }
-
-pub(in crate::runtime) fn runtime_supports_trigger(state: &RuntimeState, trigger: u32) -> io::Result<bool> {
-    Ok(state.runtime_supports_trigger(trigger))
-}

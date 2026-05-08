@@ -3,7 +3,6 @@ use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureClass};
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
-use ripdpi_proxy_runtime_adapter::response_triggers::failure_penalizes_strategy;
 
 use crate::runtime::adaptive::{
     note_adaptive_fake_ttl_failure, note_adaptive_tcp_failure, note_direct_path_tls_post_client_hello_failure,
@@ -22,7 +21,7 @@ pub(super) fn record_failure_feedback(
     failure: &ClassifiedFailure,
 ) -> io::Result<bool> {
     note_retry_failure(state, target, route.group_index, host, payload, TransportProtocol::Tcp)?;
-    let penalize = failure_penalizes_strategy(failure);
+    let penalize = RuntimeState::failure_penalizes_strategy(failure);
     if !penalize {
         return Ok(false);
     }

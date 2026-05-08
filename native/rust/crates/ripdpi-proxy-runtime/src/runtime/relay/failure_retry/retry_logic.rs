@@ -12,7 +12,7 @@ use crate::runtime::adaptive::{
 };
 use crate::runtime::desync::OutboundSendError;
 use crate::runtime::retry::note_retry_success;
-use crate::runtime::routing::{note_route_success, preferred_targets_for_transport, should_track_strategy_target};
+use crate::runtime::routing::{note_route_success, preferred_targets_for_transport};
 use crate::runtime::state::RuntimeState;
 
 pub(crate) fn record_stream_relay_success(
@@ -24,7 +24,7 @@ pub(crate) fn record_stream_relay_success(
     strategy_family: Option<&str>,
     primary_strategy_family: Option<&str>,
 ) -> io::Result<()> {
-    if !should_track_strategy_target(target) {
+    if !RuntimeState::should_track_strategy_target(target) {
         return Ok(());
     }
     if let Some(request) = success_payload {

@@ -8,7 +8,10 @@ use ripdpi_proxy_runtime_adapter::desync_platform::{
     send_tcp_desync_payload, tcp_desync_executor, DesyncSendRequest, OutboundSendError, OutboundSendOutcome,
     TcpDesyncExecutionContext, TcpDesyncExecutor,
 };
-use ripdpi_proxy_runtime_adapter::failure::{BlockSignal, ClassifiedFailure, FailureClass};
+use ripdpi_proxy_runtime_adapter::failure::{
+    block_signal_from_failure, should_track_strategy_target, BlockSignal, ClassifiedFailure, FailureAction,
+    FailureClass,
+};
 use ripdpi_proxy_runtime_adapter::model::config::{
     connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
     first_response_settings, first_response_timeout, first_response_timeout_count_limit, listener_settings,
@@ -25,7 +28,8 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     UdpSourceRebindPolicy, WarmupProbeSettings, WsTunnelSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
-    ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
+    classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
+    ConnectionRoute, DnsTamperingEvidence, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
 };
 use ripdpi_proxy_runtime_adapter::model::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, DirectPathLearningObserver, DirectPathLearningPort, PolicyPort,
@@ -45,7 +49,9 @@ use ripdpi_proxy_runtime_adapter::model::session::{
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use ripdpi_proxy_runtime_adapter::protocol_payload::FirstResponseBoundaryTracker;
-use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
+use ripdpi_proxy_runtime_adapter::response_triggers::{
+    failure_penalizes_strategy, failure_trigger_mask, first_response_exchange_policy, FirstResponseExchangePolicy,
+};
 use ripdpi_proxy_runtime_adapter::udp_desync::{
     plan_udp_actions_for_runtime, udp_desync_planner, UdpDesyncAction, UdpDesyncPlanContext, UdpDesyncPlanRequest,
     UdpDesyncPlanner,
@@ -578,6 +584,66 @@ impl RuntimeState {
 
     pub(super) fn runtime_supports_trigger(&self, trigger: u32) -> bool {
         PolicyPort::supports_trigger(&self.services, trigger)
+    }
+
+    pub(super) fn retry_trigger_for_failure(&self, failure: &ClassifiedFailure) -> Option<u32> {
+        let trigger = failure_trigger_mask(failure);
+        if failure.action != FailureAction::RetryWithMatchingGroup
+            || trigger == 0
+            || !self.runtime_supports_trigger(trigger)
+        {
+            return None;
+        }
+        Some(trigger)
+    }
+
+    pub(super) fn failure_penalizes_strategy(failure: &ClassifiedFailure) -> bool {
+        failure_penalizes_strategy(failure)
+    }
+
+    pub(super) fn should_track_strategy_target(target: SocketAddr) -> bool {
+        should_track_strategy_target(target)
+    }
+
+    pub(super) fn note_block_signal_for_failure(
+        &self,
+        host: Option<&str>,
+        failure: &ClassifiedFailure,
+        tcp_total_retransmissions: Option<u32>,
+    ) {
+        let Some(host) = host else {
+            return;
+        };
+        let Some(signal) = block_signal_from_failure(failure, tcp_total_retransmissions) else {
+            return;
+        };
+        self.note_block_signal(
+            host,
+            signal.signal,
+            signal.provider.as_deref(),
+            self.block_signal_confirmation_allowed(),
+        );
+    }
+
+    pub(super) fn classify_response_failure(
+        &self,
+        target: SocketAddr,
+        request: &[u8],
+        response: &[u8],
+        host: Option<&str>,
+    ) -> Option<ClassifiedFailure> {
+        let answer_set = if response_requires_dns_tampering_evidence(request, response) {
+            host.and_then(|value| self.encrypted_dns_ip_answers_for_host(value).ok())
+        } else {
+            None
+        };
+        let dns_evidence = host.zip(answer_set.as_ref()).map(|(value, answers)| DnsTamperingEvidence {
+            host: value,
+            target_ip: target.ip(),
+            answers: &answers.answers,
+            resolver_label: &answers.label,
+        });
+        classify_policy_response_failure(request, response, dns_evidence)
     }
 
     pub(super) fn note_block_signal(

@@ -9,7 +9,6 @@ use crate::runtime::adaptive::note_server_ttl_for_route;
 use crate::runtime::relay::failure_retry::first_outbound::observations::FirstOutboundSession;
 use crate::runtime::relay::failure_retry::retry_logic::record_stream_relay_success;
 use crate::runtime::relay::first_exchange::{read_first_response, FirstResponse};
-use crate::runtime::routing::should_track_strategy_target;
 use crate::runtime::state::RuntimeState;
 
 pub(super) enum FirstResponseDecision {
@@ -44,7 +43,7 @@ pub(super) fn handle_first_response(
             if !has_inbound_payload {
                 return Ok(FirstResponseDecision::Complete { recorded_success: false });
             }
-            if should_track_strategy_target(context.target) {
+            if RuntimeState::should_track_strategy_target(context.target) {
                 if let Some(ttl) = server_ttl {
                     note_server_ttl_for_route(
                         context.state,

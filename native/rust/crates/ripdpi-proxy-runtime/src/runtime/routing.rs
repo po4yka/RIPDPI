@@ -6,7 +6,6 @@ mod retry;
 pub(super) use connect::connect_socket;
 pub(super) use failure::{
     advance_route_for_failure, classify_response_failure, emit_failure_classified, note_block_signal_for_failure,
-    should_track_strategy_target,
 };
 pub(super) use policy::{
     note_route_success, note_route_success_for_transport, preferred_targets_for_transport, select_route,
