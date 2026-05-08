@@ -96,8 +96,7 @@ fun LogsRoute(
     )
 }
 
-@Suppress("LongMethod")
-@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun LogsScreen(
     uiState: LogsUiState,
@@ -115,32 +114,20 @@ internal fun LogsScreen(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
-    val filteredLogs = uiState.filteredLogs
-    val listState = rememberLazyListState()
-    val clipboardManager = LocalContext.current.getSystemService(ClipboardManager::class.java)
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val performHaptic = rememberRipDpiHapticPerformer()
     val copiedMessage = stringResource(R.string.copied_to_clipboard)
-    val isAtLiveEdge by remember(listState) {
-        derivedStateOf {
-            val lastVisibleItemIndex =
-                listState.layoutInfo.visibleItemsInfo
-                    .lastOrNull()
-                    ?.index
-                    ?: return@derivedStateOf true
-            lastVisibleItemIndex >= (listState.layoutInfo.totalItemsCount - 2).coerceAtLeast(0)
+    val onShowCopiedSnackbar: () -> Unit =
+        remember(scope, snackbarHostState, copiedMessage) {
+            {
+                scope.launch {
+                    snackbarHostState.showRipDpiSnackbar(
+                        message = copiedMessage,
+                        tone = RipDpiSnackbarTone.Default,
+                    )
+                }
+            }
         }
-    }
-
-    LaunchedEffect(uiState.isAutoScroll, uiState.latestLog?.id, filteredLogs.size) {
-        val latestLog = uiState.latestLog ?: return@LaunchedEffect
-        val shouldAutoScroll =
-            uiState.isAutoScroll && latestLog in filteredLogs && filteredLogs.isNotEmpty() && isAtLiveEdge
-        if (shouldAutoScroll) {
-            listState.animateScrollToItem(filteredLogs.lastIndex)
-        }
-    }
 
     RipDpiScreenScaffold(
         modifier =
@@ -194,40 +181,81 @@ internal fun LogsScreen(
                         onActiveSessionOnlyChanged = onActiveSessionOnlyChanged,
                     )
 
-                    SettingsCategoryHeader(title = stringResource(R.string.logs_stream_section))
-
-                    if (filteredLogs.isEmpty()) {
-                        LogsEmptyStateCard(
-                            hasBufferedLogs = uiState.logs.isNotEmpty(),
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    } else {
-                        LogsStreamCard(
-                            entries = filteredLogs,
-                            listState = listState,
-                            onCopyEntry = { entry ->
-                                clipboardManager?.setPrimaryClip(
-                                    ClipData.newPlainText(
-                                        "log",
-                                        "${entry.timestamp} [${entry.subsystem.name}] ${entry.message}",
-                                    ),
-                                )
-                                performHaptic(RipDpiHapticFeedback.Acknowledge)
-                                scope.launch {
-                                    snackbarHostState.showRipDpiSnackbar(
-                                        message = copiedMessage,
-                                        tone = RipDpiSnackbarTone.Default,
-                                    )
-                                }
-                            },
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .weight(1f),
-                        )
-                    }
+                    LogsStreamSection(
+                        uiState = uiState,
+                        onShowCopiedSnackbar = onShowCopiedSnackbar,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .weight(1f),
+                    )
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun LogsStreamSection(
+    uiState: LogsUiState,
+    onShowCopiedSnackbar: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val filteredLogs = uiState.filteredLogs
+    val listState = rememberLazyListState()
+    val context = LocalContext.current
+    val clipboardManager =
+        remember(context) {
+            context.getSystemService(ClipboardManager::class.java)
+        }
+    val performHaptic = rememberRipDpiHapticPerformer()
+    val isAtLiveEdge by remember(listState) {
+        derivedStateOf {
+            val lastVisibleItemIndex =
+                listState.layoutInfo.visibleItemsInfo
+                    .lastOrNull()
+                    ?.index
+                    ?: return@derivedStateOf true
+            lastVisibleItemIndex >= (listState.layoutInfo.totalItemsCount - 2).coerceAtLeast(0)
+        }
+    }
+
+    LaunchedEffect(uiState.isAutoScroll, uiState.latestLog?.id, filteredLogs.size) {
+        val latestLog = uiState.latestLog ?: return@LaunchedEffect
+        val shouldAutoScroll =
+            uiState.isAutoScroll && latestLog in filteredLogs && filteredLogs.isNotEmpty() && isAtLiveEdge
+        if (shouldAutoScroll) {
+            listState.animateScrollToItem(filteredLogs.lastIndex)
+        }
+    }
+
+    Column(modifier = modifier) {
+        SettingsCategoryHeader(title = stringResource(R.string.logs_stream_section))
+        if (filteredLogs.isEmpty()) {
+            LogsEmptyStateCard(
+                hasBufferedLogs = uiState.logs.isNotEmpty(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+        } else {
+            LogsStreamCard(
+                entries = filteredLogs,
+                listState = listState,
+                onCopyEntry = { entry ->
+                    clipboardManager?.setPrimaryClip(
+                        ClipData.newPlainText(
+                            "log",
+                            "${entry.timestamp} [${entry.subsystem.name}] ${entry.message}",
+                        ),
+                    )
+                    performHaptic(RipDpiHapticFeedback.Acknowledge)
+                    onShowCopiedSnackbar()
+                },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+            )
         }
     }
 }
