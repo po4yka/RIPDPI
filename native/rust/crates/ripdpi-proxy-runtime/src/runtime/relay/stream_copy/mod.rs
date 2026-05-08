@@ -52,7 +52,7 @@ pub(super) fn relay_streams(
     remembered_host_seed: Option<String>,
 ) -> io::Result<RelaySession> {
     let rotation_state = session_seed.rotation_controller(settings.rotation_seed.clone());
-    let session_seed = session_seed.into_state();
+    let session_state = session_seed.into_shared();
     let _ = (client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), client.set_write_timeout(None));
     let _ = (upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), upstream.set_write_timeout(None));
 
@@ -63,7 +63,6 @@ pub(super) fn relay_streams(
     let client_writer = client.try_clone().map_err(clone_err("client"))?;
     let upstream_reader = upstream.try_clone().map_err(clone_err("upstream"))?;
     let upstream_writer = upstream.try_clone().map_err(clone_err("upstream"))?;
-    let session_state = Arc::new(Mutex::new(session_seed));
     let outbound_session = session_state.clone();
     let inbound_session = session_state.clone();
     let outbound_state = state.clone();
@@ -135,10 +134,7 @@ pub(super) fn relay_streams(
         return Err(io::Error::new(io::ErrorKind::TimedOut, CONNECTION_FREEZE_MARKER));
     }
 
-    session_state
-        .lock()
-        .map_err(|_| io::Error::other("session mutex poisoned"))
-        .map(|state| RelaySession::from_state(state.clone()))
+    session_state.snapshot()
 }
 
 #[cfg(test)]

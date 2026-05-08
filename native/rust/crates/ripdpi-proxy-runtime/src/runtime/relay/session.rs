@@ -1,7 +1,13 @@
 use crate::sync::{Arc, Mutex};
 
+use std::io;
+
 use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RotationPolicy};
-use ripdpi_proxy_runtime_adapter::model::session::{has_inbound_payload, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::{
+    has_inbound_payload, observe_inbound_payload as observe_session_inbound_payload,
+    observe_outbound_payload as observe_session_outbound_payload, outbound_payload_count_this_round, OutboundProgress,
+    SessionState,
+};
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 
 pub(super) struct RelaySession {
@@ -13,8 +19,8 @@ impl RelaySession {
         Self { state }
     }
 
-    pub(super) fn into_state(self) -> SessionState {
-        self.state
+    pub(super) fn into_shared(self) -> RelaySharedSession {
+        RelaySharedSession { state: Arc::new(Mutex::new(self.state)) }
     }
 
     pub(super) fn has_inbound_payload(&self) -> bool {
@@ -31,5 +37,32 @@ impl RelaySession {
         rotation_seed
             .and_then(|(group, policy)| CircularTcpRotationController::new(group, policy))
             .map(|controller| Arc::new(Mutex::new(controller)))
+    }
+}
+
+#[derive(Clone)]
+pub(super) struct RelaySharedSession {
+    state: Arc<Mutex<SessionState>>,
+}
+
+impl RelaySharedSession {
+    pub(super) fn snapshot(&self) -> io::Result<RelaySession> {
+        self.state
+            .lock()
+            .map_err(|_| io::Error::other("session mutex poisoned"))
+            .map(|state| RelaySession::from_state(state.clone()))
+    }
+
+    pub(super) fn observe_inbound_payload(&self, payload: &[u8]) {
+        if let Ok(mut state) = self.state.lock() {
+            observe_session_inbound_payload(&mut state, payload);
+        }
+    }
+
+    pub(super) fn observe_outbound_payload(&self, payload: &[u8]) -> io::Result<(bool, OutboundProgress)> {
+        let mut state = self.state.lock().map_err(|_| io::Error::other("session mutex poisoned"))?;
+        let is_new_round = outbound_payload_count_this_round(&state) == 0;
+        let progress = observe_session_outbound_payload(&mut state, payload);
+        Ok((is_new_round, progress))
     }
 }

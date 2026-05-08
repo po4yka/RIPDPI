@@ -1,4 +1,4 @@
-use crate::sync::{Arc, Mutex};
+use crate::sync::Arc;
 
 use std::io;
 use std::net::TcpStream;
@@ -32,7 +32,7 @@ pub(in crate::runtime) fn relay_streams_uring(
     configure_relay_sockets(&client, &upstream);
 
     let sockets = clone_relay_sockets(&client, &upstream)?;
-    let session_state = Arc::new(Mutex::new(session_seed.into_state()));
+    let session_state = session_seed.into_shared();
     let outbound_session = session_state.clone();
     let inbound_session = session_state.clone();
     let outbound_state = state.clone();
@@ -86,8 +86,5 @@ pub(in crate::runtime) fn relay_streams_uring(
         return Err(io::Error::new(io::ErrorKind::TimedOut, CONNECTION_FREEZE_MARKER));
     }
 
-    session_state
-        .lock()
-        .map_err(|_| io::Error::other("session mutex poisoned"))
-        .map(|state| RelaySession::from_state(state.clone()))
+    session_state.snapshot()
 }

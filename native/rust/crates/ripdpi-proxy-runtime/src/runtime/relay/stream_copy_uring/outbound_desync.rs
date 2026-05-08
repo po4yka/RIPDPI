@@ -1,13 +1,12 @@
-use crate::sync::{Arc, Mutex};
-
 use std::io::{self, Read};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host_with, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::extract_payload_host_with;
 
 use super::super::super::desync::{send_with_group, DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
+use super::super::session::RelaySharedSession;
 use super::super::stream_copy::RelayOutboundSettings;
 use super::cleanup::shutdown_direction;
 use super::observations::observe_outbound_payload;
@@ -21,7 +20,7 @@ pub(super) fn copy_outbound_half(
     state: RuntimeState,
     group_index: usize,
     settings: RelayOutboundSettings,
-    session: Arc<Mutex<SessionState>>,
+    session: RelaySharedSession,
     peer_done: Arc<AtomicBool>,
     mut remembered_host: Option<String>,
 ) -> io::Result<()> {
@@ -60,7 +59,7 @@ fn flush_outbound_payload(
     state: &RuntimeState,
     group_index: usize,
     settings: &RelayOutboundSettings,
-    session: &Arc<Mutex<SessionState>>,
+    session: &RelaySharedSession,
     remembered_host: &mut Option<String>,
     payload: &[u8],
 ) -> io::Result<()> {

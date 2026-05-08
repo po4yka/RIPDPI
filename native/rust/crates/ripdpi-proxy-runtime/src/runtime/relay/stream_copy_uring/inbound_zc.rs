@@ -1,5 +1,3 @@
-use crate::sync::{Arc, Mutex};
-
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -7,8 +5,8 @@ use std::time::Instant;
 
 use ripdpi_io_uring::IoUringDriver;
 use ripdpi_proxy_runtime_adapter::model::config::RuntimeTimeoutSettings;
-use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 
+use super::super::session::RelaySharedSession;
 use super::cleanup::shutdown_direction;
 use super::freeze_detector::FreezeDetector;
 use super::inbound_fallback::copy_inbound_fallback;
@@ -24,7 +22,7 @@ pub(super) fn copy_inbound_zc(
     mut reader: TcpStream,
     mut writer: TcpStream,
     writer_fd: i32,
-    session: Arc<Mutex<SessionState>>,
+    session: RelaySharedSession,
     peer_done: Arc<AtomicBool>,
     timeouts: RuntimeTimeoutSettings,
     freeze_detected: Arc<AtomicBool>,

@@ -1,12 +1,9 @@
-use crate::sync::{Arc, Mutex};
-
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::session::SessionState;
-
+use super::super::session::RelaySharedSession;
 use super::cleanup::shutdown_direction;
 use super::freeze_detector::FreezeDetector;
 use super::observations::observe_inbound_payload;
@@ -15,7 +12,7 @@ use super::observations::observe_inbound_payload;
 pub(super) fn copy_inbound_fallback(
     mut reader: TcpStream,
     mut writer: TcpStream,
-    session: Arc<Mutex<SessionState>>,
+    session: RelaySharedSession,
     peer_done: Arc<AtomicBool>,
     mut detector: FreezeDetector,
     freeze_detected: Arc<AtomicBool>,

@@ -1,5 +1,5 @@
 use crate::sync::{Arc, Mutex};
-use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host_with, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::extract_payload_host_with;
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream};
@@ -8,6 +8,7 @@ use std::time::Instant;
 
 use super::super::super::desync::{send_with_group, DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
+use super::super::session::RelaySharedSession;
 use super::freeze::FreezeDetector;
 use super::observations::{observe_inbound_payload, observe_outbound_payload};
 use super::observers::{observe_rotation_inbound_chunk, observe_rotation_transport_failure};
@@ -18,7 +19,7 @@ pub(super) fn copy_inbound_half(
     mut reader: TcpStream,
     mut writer: TcpStream,
     state: &RuntimeState,
-    session: Arc<Mutex<SessionState>>,
+    session: RelaySharedSession,
     remembered_host: Arc<Mutex<Option<String>>>,
     rotation: Option<Arc<Mutex<CircularTcpRotationController>>>,
     peer_done: Arc<AtomicBool>,
@@ -90,7 +91,7 @@ pub(super) fn flush_outbound_payload(
     state: &RuntimeState,
     group_index: usize,
     settings: &RelayOutboundSettings,
-    session: &Arc<Mutex<SessionState>>,
+    session: &RelaySharedSession,
     remembered_host: &Arc<Mutex<Option<String>>>,
     rotation: Option<&Arc<Mutex<CircularTcpRotationController>>>,
     payload: &[u8],
@@ -153,7 +154,7 @@ pub(super) fn copy_outbound_half(
     mut reader: TcpStream,
     mut writer: TcpStream,
     context: RelayOutboundContext,
-    session: Arc<Mutex<SessionState>>,
+    session: RelaySharedSession,
     remembered_host: Arc<Mutex<Option<String>>>,
     rotation: Option<Arc<Mutex<CircularTcpRotationController>>>,
     peer_done: Arc<AtomicBool>,
