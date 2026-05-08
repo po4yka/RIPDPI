@@ -65,7 +65,6 @@ pub(in crate::runtime) fn relay_streams_uring(
         sockets.upstream_writer,
         outbound_state,
         group_index,
-        settings.outbound,
         outbound_session,
         peer_done.clone(),
         remembered_host_seed,

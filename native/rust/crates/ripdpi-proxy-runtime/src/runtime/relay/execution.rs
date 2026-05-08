@@ -8,7 +8,7 @@ use super::super::routing::{emit_failure_classified, note_block_signal_for_failu
 use super::super::state::RuntimeState;
 use super::failure_retry::record_stream_relay_success;
 use super::session::RelaySession;
-use super::stream_copy::{relay_streams, RelayOutboundSettings, RelayStreamSettings, CONNECTION_FREEZE_MARKER};
+use super::stream_copy::{relay_streams, RelayStreamSettings, CONNECTION_FREEZE_MARKER};
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 use super::stream_copy_uring;
 
@@ -56,7 +56,6 @@ pub(super) fn relay_with_uring_if_available(
 fn relay_stream_settings(state: &RuntimeState, group_index: usize) -> io::Result<RelayStreamSettings> {
     Ok(RelayStreamSettings {
         group: state.relay_group(group_index)?,
-        outbound: RelayOutboundSettings { first_response: state.relay_first_response_settings() },
         rotation_seed: state.relay_rotation_seed(group_index)?,
     })
 }

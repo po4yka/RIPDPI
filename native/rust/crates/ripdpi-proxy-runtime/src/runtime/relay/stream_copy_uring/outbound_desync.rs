@@ -5,7 +5,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use super::super::super::desync::{send_with_group, DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
 use super::super::session::RelaySharedSession;
-use super::super::stream_copy::RelayOutboundSettings;
 use super::cleanup::shutdown_direction;
 use super::observations::observe_outbound_payload;
 use super::RELAY_IDLE_TIMEOUT;
@@ -17,7 +16,6 @@ pub(super) fn copy_outbound_half(
     mut writer: TcpStream,
     state: RuntimeState,
     group_index: usize,
-    settings: RelayOutboundSettings,
     session: RelaySharedSession,
     peer_done: Arc<AtomicBool>,
     mut remembered_host: Option<String>,
@@ -28,15 +26,7 @@ pub(super) fn copy_outbound_half(
         match reader.read(&mut buffer) {
             Ok(0) => break,
             Ok(n) => {
-                flush_outbound_payload(
-                    &mut writer,
-                    &state,
-                    group_index,
-                    &settings,
-                    &session,
-                    &mut remembered_host,
-                    &buffer[..n],
-                )?;
+                flush_outbound_payload(&mut writer, &state, group_index, &session, &mut remembered_host, &buffer[..n])?;
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
                 if peer_done.load(Ordering::Acquire) {
@@ -56,7 +46,6 @@ fn flush_outbound_payload(
     writer: &mut TcpStream,
     state: &RuntimeState,
     group_index: usize,
-    settings: &RelayOutboundSettings,
     session: &RelaySharedSession,
     remembered_host: &mut Option<String>,
     payload: &[u8],

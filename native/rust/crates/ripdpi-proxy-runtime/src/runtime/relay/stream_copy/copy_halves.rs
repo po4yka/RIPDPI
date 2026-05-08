@@ -11,8 +11,8 @@ use super::super::session::RelaySharedSession;
 use super::freeze::FreezeDetector;
 use super::observations::{observe_inbound_payload, observe_outbound_payload};
 use super::observers::{observe_rotation_inbound_chunk, observe_rotation_transport_failure};
+use super::RelayOutboundContext;
 use super::RELAY_IDLE_TIMEOUT;
-use super::{RelayOutboundContext, RelayOutboundSettings};
 #[allow(clippy::too_many_arguments)]
 pub(super) fn copy_inbound_half(
     mut reader: TcpStream,
@@ -89,7 +89,6 @@ pub(super) fn flush_outbound_payload(
     writer: &mut TcpStream,
     state: &RuntimeState,
     group_index: usize,
-    settings: &RelayOutboundSettings,
     session: &RelaySharedSession,
     remembered_host: &Arc<Mutex<Option<String>>>,
     rotation: Option<&Arc<Mutex<CircularTcpRotationController>>>,
@@ -105,6 +104,7 @@ pub(super) fn flush_outbound_payload(
     let peer_addr = writer.peer_addr()?;
     let group = if let Some(rotation) = rotation {
         let mut rotation = rotation.lock().map_err(|_| io::Error::other("rotation mutex poisoned"))?;
+        let first_response = state.relay_first_response_settings();
         let retrans_baseline = if is_new_round {
             ripdpi_proxy_runtime_adapter::platform::relay::tcp_total_retransmissions(writer).ok().flatten()
         } else {
@@ -112,7 +112,7 @@ pub(super) fn flush_outbound_payload(
         };
         if is_new_round {
             rotation.start_round(
-                settings.first_response,
+                first_response,
                 progress.round,
                 progress.stream_start,
                 payload,
@@ -121,7 +121,7 @@ pub(super) fn flush_outbound_payload(
                 Some(peer_addr),
             );
         } else {
-            rotation.append_request_chunk(settings.first_response, progress.round, payload);
+            rotation.append_request_chunk(first_response, progress.round, payload);
         }
         Some(rotation.current_send_group())
     } else {
@@ -168,7 +168,6 @@ pub(super) fn copy_outbound_half(
                     &mut writer,
                     &context.state,
                     context.group_index,
-                    &context.settings,
                     &session,
                     &remembered_host,
                     rotation.as_ref(),

@@ -7,9 +7,7 @@ use copy_halves::{copy_inbound_half, copy_outbound_half};
 use freeze::FreezeDetector;
 
 use crate::sync::{Arc, Mutex};
-use ripdpi_proxy_runtime_adapter::model::config::{
-    DesyncGroup, FirstResponseSettings, RelayGroupSettings, RotationPolicy,
-};
+use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RelayGroupSettings, RotationPolicy};
 use std::io;
 use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -25,19 +23,12 @@ pub(super) const CONNECTION_FREEZE_MARKER: &str = "connection freeze detected";
 #[derive(Clone)]
 pub(super) struct RelayStreamSettings {
     pub(super) group: RelayGroupSettings,
-    pub(super) outbound: RelayOutboundSettings,
     pub(super) rotation_seed: Option<(DesyncGroup, RotationPolicy)>,
-}
-
-#[derive(Clone)]
-pub(super) struct RelayOutboundSettings {
-    pub(super) first_response: FirstResponseSettings,
 }
 
 pub(super) struct RelayOutboundContext {
     pub(super) state: RuntimeState,
     pub(super) group_index: usize,
-    pub(super) settings: RelayOutboundSettings,
 }
 
 pub(super) fn relay_streams(
@@ -65,8 +56,7 @@ pub(super) fn relay_streams(
     let inbound_session = session_state.clone();
     let outbound_state = state.clone();
     let inbound_state = state.clone();
-    let outbound_context =
-        RelayOutboundContext { state: outbound_state, group_index, settings: settings.outbound.clone() };
+    let outbound_context = RelayOutboundContext { state: outbound_state, group_index };
     let peer_done = Arc::new(AtomicBool::new(false));
     let freeze_detected = Arc::new(AtomicBool::new(false));
     let remembered_host = Arc::new(Mutex::new(remembered_host_seed));
