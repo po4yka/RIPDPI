@@ -1388,6 +1388,15 @@ pub mod session {
         UdpPayloadClassifier { config: config.clone() }
     }
 
+    #[derive(Clone)]
+    pub struct UdpPacketParser {
+        config: RuntimeConfig,
+    }
+
+    pub fn udp_packet_parser(config: &RuntimeConfig) -> UdpPacketParser {
+        UdpPacketParser { config: config.clone() }
+    }
+
     pub fn first_outbound_payload_policy(config: &RuntimeConfig) -> FirstOutboundPayloadPolicy {
         FirstOutboundPayloadPolicy { buffer_size: runtime_buffer_size(config), config: config.clone() }
     }
@@ -1467,6 +1476,14 @@ pub mod session {
             }
             _ => None,
         }
+    }
+
+    pub fn parse_socks5_udp_packet_with<'a>(
+        parser: &UdpPacketParser,
+        packet: &'a [u8],
+        resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
+    ) -> Option<(SocketAddr, &'a [u8])> {
+        parse_socks5_udp_packet(packet, &parser.config, resolve_name)
     }
 
     pub fn encode_socks5_udp_packet(sender: SocketAddr, payload: &[u8]) -> Vec<u8> {
@@ -1619,6 +1636,21 @@ pub mod session {
 
             assert!(info.host.is_none());
             assert!(!info.cache_host);
+        }
+
+        #[test]
+        fn udp_packet_parser_preserves_socks5_domain_resolution() {
+            let config = RuntimeConfig::default();
+            let parser = udp_packet_parser(&config);
+            let packet = [0, 0, 0, S_ATP_ID, 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 0x01, 0xbb, b'x'];
+
+            let parsed = parse_socks5_udp_packet_with(&parser, &packet, |host, socket_type| {
+                assert_eq!(host, "example");
+                assert_eq!(socket_type, SocketType::Datagram);
+                Some(SocketAddr::from(([203, 0, 113, 7], 0)))
+            });
+
+            assert_eq!(parsed, Some((SocketAddr::from(([203, 0, 113, 7], 443)), &b"x"[..])));
         }
     }
 }

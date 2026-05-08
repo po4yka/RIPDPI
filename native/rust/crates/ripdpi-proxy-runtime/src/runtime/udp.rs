@@ -16,8 +16,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::sync::{Arc, AtomicBool, Ordering};
-use ripdpi_proxy_runtime_adapter::model::config::udp_flow_limit;
-use ripdpi_proxy_runtime_adapter::model::session::{self as session_model, udp_payload_classifier, SocketType};
+use ripdpi_proxy_runtime_adapter::model::session::{self as session_model, SocketType};
 
 use self::client_receive::receive_and_forward_udp_client_packet;
 use self::flow::{expire_udp_flows, UdpFlowActivationState};
@@ -28,7 +27,7 @@ use super::state::RuntimeState;
 pub(crate) use session_model::encode_socks5_udp_packet;
 
 pub(crate) fn parse_socks5_udp_packet<'a>(packet: &'a [u8], state: &RuntimeState) -> Option<(SocketAddr, &'a [u8])> {
-    session_model::parse_socks5_udp_packet(packet, &state.config, |host, socket_type| {
+    session_model::parse_socks5_udp_packet_with(&state.udp_packet_parser, packet, |host, socket_type| {
         debug_assert_eq!(socket_type, SocketType::Datagram);
         super::handshake::resolve_name(host, socket_type, state)
     })
@@ -44,8 +43,8 @@ pub(super) fn udp_associate_loop(
     let mut client_buffer = [0u8; 65_535];
     let mut upstream_buffer = [0u8; 65_535];
     let mut flow_state = HashMap::<(SocketAddr, SocketAddr), UdpFlowActivationState>::new();
-    let flow_limit = udp_flow_limit(&state.config);
-    let payload_classifier = udp_payload_classifier(&state.config);
+    let flow_limit = state.udp_flow_limit;
+    let payload_classifier = state.udp_payload_classifier.clone();
 
     while running.load(Ordering::Relaxed) {
         emit_due_direct_path_learning_timeouts(&state)?;

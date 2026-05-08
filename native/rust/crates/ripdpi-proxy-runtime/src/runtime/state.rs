@@ -3,9 +3,10 @@ use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
     first_response_settings, relay_group_settings_table, response_failure_evidence_settings, route_payload_matcher,
-    tcp_route_connect_settings_table, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_group_settings_table,
-    FirstResponseSettings, RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RoutePayloadMatcher,
-    RuntimeConfig, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable,
+    tcp_route_connect_settings_table, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit,
+    udp_group_settings_table, FirstResponseSettings, RelayGroupSettingsTable, ResponseFailureEvidenceSettings,
+    RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings,
+    UdpGroupSettingsTable,
 };
 use ripdpi_proxy_runtime_adapter::model::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, DirectPathLearningPort, PolicyPort, RetryPacingPort,
@@ -16,7 +17,8 @@ use ripdpi_proxy_runtime_adapter::model::runtime_api::{
 };
 use ripdpi_proxy_runtime_adapter::model::services::{new_services_handle, ServicesStateHandle};
 use ripdpi_proxy_runtime_adapter::model::session::{
-    first_outbound_payload_policy, payload_host_extractor, FirstOutboundPayloadPolicy, PayloadHostExtractor,
+    first_outbound_payload_policy, payload_host_extractor, udp_packet_parser, udp_payload_classifier,
+    FirstOutboundPayloadPolicy, PayloadHostExtractor, UdpPacketParser, UdpPayloadClassifier,
 };
 use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
 use ripdpi_proxy_runtime_adapter::udp_desync::{udp_desync_planner, UdpDesyncPlanner};
@@ -33,6 +35,9 @@ pub(super) struct RuntimeState {
     pub(super) udp_group_settings: UdpGroupSettingsTable,
     pub(super) udp_route_matcher: RoutePayloadMatcher,
     pub(super) udp_desync_planner: UdpDesyncPlanner,
+    pub(super) udp_flow_limit: usize,
+    pub(super) udp_packet_parser: UdpPacketParser,
+    pub(super) udp_payload_classifier: UdpPayloadClassifier,
     pub(super) relay_group_settings: RelayGroupSettingsTable,
     pub(super) relay_host_extractor: PayloadHostExtractor,
     pub(super) relay_first_response: FirstResponseSettings,
@@ -69,6 +74,9 @@ impl RuntimeState {
         let udp_group_settings = udp_group_settings_table(&config);
         let udp_route_matcher = route_payload_matcher(&config);
         let udp_desync_planner = udp_desync_planner(&config);
+        let udp_flow_limit = udp_flow_limit(&config);
+        let udp_packet_parser = udp_packet_parser(&config);
+        let udp_payload_classifier = udp_payload_classifier(&config);
         let relay_group_settings = relay_group_settings_table(&config);
         let relay_host_extractor = payload_host_extractor(&config);
         let relay_first_response = first_response_settings(&config);
@@ -84,6 +92,9 @@ impl RuntimeState {
             udp_group_settings,
             udp_route_matcher,
             udp_desync_planner,
+            udp_flow_limit,
+            udp_packet_parser,
+            udp_payload_classifier,
             relay_group_settings,
             relay_host_extractor,
             relay_first_response,
@@ -158,6 +169,9 @@ impl RuntimeState {
         let udp_group_settings = udp_group_settings_table(&config);
         let udp_route_matcher = route_payload_matcher(&config);
         let udp_desync_planner = udp_desync_planner(&config);
+        let udp_flow_limit = udp_flow_limit(&config);
+        let udp_packet_parser = udp_packet_parser(&config);
+        let udp_payload_classifier = udp_payload_classifier(&config);
         let relay_group_settings = relay_group_settings_table(&config);
         let relay_host_extractor = payload_host_extractor(&config);
         let relay_first_response = first_response_settings(&config);
@@ -173,6 +187,9 @@ impl RuntimeState {
             udp_group_settings,
             udp_route_matcher,
             udp_desync_planner,
+            udp_flow_limit,
+            udp_packet_parser,
+            udp_payload_classifier,
             relay_group_settings,
             relay_host_extractor,
             relay_first_response,
