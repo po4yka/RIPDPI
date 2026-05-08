@@ -17,8 +17,4 @@ pub(super) use retry::{
 };
 
 #[cfg(test)]
-pub(super) use connect::encode_upstream_socks_connect;
-#[cfg(test)]
 pub(super) use failure::trigger_flag;
-#[cfg(test)]
-pub(super) use ripdpi_proxy_runtime_adapter::response_triggers::{failure_penalizes_strategy, failure_trigger_mask};

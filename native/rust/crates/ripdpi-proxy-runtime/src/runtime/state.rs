@@ -718,6 +718,11 @@ impl RuntimeState {
         failure_penalizes_strategy(failure)
     }
 
+    #[cfg(test)]
+    pub(super) fn failure_trigger_mask(failure: &ClassifiedFailure) -> u32 {
+        failure_trigger_mask(failure)
+    }
+
     pub(super) fn udp_flow_timeout_failure() -> Option<ClassifiedFailure> {
         ripdpi_proxy_runtime_adapter::failure::classify_quic_probe(
             "quic_timeout",

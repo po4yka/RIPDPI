@@ -66,7 +66,6 @@ mod tests {
     use std::sync::atomic::Ordering;
     use std::thread;
 
-    use super::routing::{encode_upstream_socks_connect, failure_penalizes_strategy, failure_trigger_mask};
     use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass, FailureStage};
 
     #[cfg(not(feature = "loom"))]
@@ -86,7 +85,7 @@ mod tests {
     #[test]
     fn encode_upstream_socks_connect_encodes_ipv6_targets() {
         let target = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 8080);
-        let encoded = encode_upstream_socks_connect(target);
+        let encoded = RuntimeState::encode_upstream_socks_connect(target);
 
         assert_eq!(encoded[..4], [S_VER5, S_CMD_CONN, 0, S_ATP_I6]);
         assert_eq!(&encoded[4..20], &Ipv6Addr::LOCALHOST.octets());
@@ -171,14 +170,18 @@ mod tests {
         for (class, expected_mask) in cases {
             let failure =
                 ClassifiedFailure::new(class, FailureStage::FirstResponse, FailureAction::RetryWithMatchingGroup, "");
-            assert_eq!(failure_trigger_mask(&failure), expected_mask, "trigger mask mismatch for {class:?}");
+            assert_eq!(
+                RuntimeState::failure_trigger_mask(&failure),
+                expected_mask,
+                "trigger mask mismatch for {class:?}"
+            );
         }
 
         // Classes with zero trigger mask
         for class in [FailureClass::QuicBreakage, FailureClass::Unknown] {
             let failure =
                 ClassifiedFailure::new(class, FailureStage::FirstResponse, FailureAction::RetryWithMatchingGroup, "");
-            assert_eq!(failure_trigger_mask(&failure), 0, "{class:?} should have zero mask");
+            assert_eq!(RuntimeState::failure_trigger_mask(&failure), 0, "{class:?} should have zero mask");
         }
     }
 
@@ -203,12 +206,12 @@ mod tests {
         for class in penalizing {
             let failure =
                 ClassifiedFailure::new(class, FailureStage::FirstResponse, FailureAction::RetryWithMatchingGroup, "");
-            assert!(failure_penalizes_strategy(&failure), "{class:?} should penalize");
+            assert!(RuntimeState::failure_penalizes_strategy(&failure), "{class:?} should penalize");
         }
         for class in non_penalizing {
             let failure =
                 ClassifiedFailure::new(class, FailureStage::FirstResponse, FailureAction::RetryWithMatchingGroup, "");
-            assert!(!failure_penalizes_strategy(&failure), "{class:?} should not penalize");
+            assert!(!RuntimeState::failure_penalizes_strategy(&failure), "{class:?} should not penalize");
         }
     }
 
@@ -233,8 +236,15 @@ mod tests {
             "capability unavailable: ttl_write",
         );
 
-        assert_eq!(failure_trigger_mask(&failure), 0, "CapabilitySkipped must not trigger any block-detection signal");
-        assert!(!failure_penalizes_strategy(&failure), "CapabilitySkipped must not penalise the strategy");
+        assert_eq!(
+            RuntimeState::failure_trigger_mask(&failure),
+            0,
+            "CapabilitySkipped must not trigger any block-detection signal"
+        );
+        assert!(
+            !RuntimeState::failure_penalizes_strategy(&failure),
+            "CapabilitySkipped must not penalise the strategy"
+        );
         assert_eq!(failure.class.as_str(), "capability_skipped", "CapabilitySkipped string form must be stable");
     }
 
