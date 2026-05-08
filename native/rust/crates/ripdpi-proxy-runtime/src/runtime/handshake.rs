@@ -12,8 +12,8 @@ use std::time::Duration;
 use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::model::config::{ProxyHandshakeSettings, ProxyProtocolMode};
 use ripdpi_proxy_runtime_adapter::model::session::{
-    encode_socks4_reply, encode_socks5_reply, extract_payload_host_with, parse_http_connect_request,
-    parse_socks4_request, parse_socks5_request, ClientRequest, SessionError, SocketType, S_ER_CMD, S_ER_GEN, S_VER5,
+    encode_socks4_reply, encode_socks5_reply, parse_http_connect_request, parse_socks4_request, parse_socks5_request,
+    ClientRequest, SessionError, SocketType, S_ER_CMD, S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
@@ -203,7 +203,7 @@ fn handle_shadowsocks(
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
     let (target, first_request): (SocketAddr, Vec<u8>) =
         read_shadowsocks_request(&mut client, first_byte, settings.shadowsocks_target_policy, resolver)?;
-    let host = extract_payload_host_with(&state.relay_host_extractor, &first_request);
+    let host = state.extract_relay_payload_host(&first_request);
     let payload = if first_request.is_empty() { None } else { Some(first_request.as_ref()) };
     let (upstream, route) = super::routing::connect_target(target, state, payload, false, host)?;
     super::relay::relay(

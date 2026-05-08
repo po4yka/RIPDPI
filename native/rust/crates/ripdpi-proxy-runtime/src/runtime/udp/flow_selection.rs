@@ -4,10 +4,7 @@ use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::model::{
-    config::{
-        route_matches_transport_payload_with, udp_group_settings_with, UdpGroupPacketSettings, UdpGroupSocketSettings,
-        UdpSourceRebindPolicy,
-    },
+    config::{udp_group_settings_with, UdpGroupPacketSettings, UdpGroupSocketSettings, UdpSourceRebindPolicy},
     decision::{ConnectionRoute, TransportProtocol},
 };
 
@@ -236,8 +233,7 @@ fn update_udp_flow_selection(
     entry.host = packet.host.clone();
     entry.cache_host = packet.cache_host;
     if host_changed
-        || !route_matches_transport_payload_with(
-            &state.route_payload_matcher,
+        || !state.route_matches_transport_payload(
             entry.route.group_index,
             entry.current_target,
             packet.payload,

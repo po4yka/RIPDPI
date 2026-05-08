@@ -2,7 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::config::{primary_tcp_strategy_family_with, FirstResponseSettings};
+use ripdpi_proxy_runtime_adapter::model::config::FirstResponseSettings;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::session::FirstOutboundPayloadPolicy;
 use ripdpi_proxy_runtime_adapter::response_triggers::FirstResponseExchangePolicy;
@@ -54,9 +54,9 @@ struct FirstOutboundPolicies {
 impl<'a> FirstOutboundCoordinator<'a> {
     fn new(state: &'a RuntimeState, target: SocketAddr, route: ConnectionRoute, seed_request: Option<Vec<u8>>) -> Self {
         let policies = FirstOutboundPolicies {
-            payload: state.first_outbound_payload_policy.clone(),
-            response: state.relay_first_response,
-            exchange: state.first_response_exchange_policy,
+            payload: state.first_outbound_payload_policy(),
+            response: state.relay_first_response_settings(),
+            exchange: state.first_response_exchange_policy(),
         };
         Self { state, target, route, seed_request, policies }
     }
@@ -128,10 +128,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                     original_request: &first_payload.original_request,
                     response_settings: self.policies.response,
                     success_strategy_family,
-                    primary_strategy_family: primary_tcp_strategy_family_with(
-                        &self.state.relay_group_settings,
-                        route.group_index,
-                    ),
+                    primary_strategy_family: self.state.primary_tcp_strategy_family(route.group_index),
                     tls_send_start,
                 },
             )? {
