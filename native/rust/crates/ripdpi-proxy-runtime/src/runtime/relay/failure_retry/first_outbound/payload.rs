@@ -2,8 +2,6 @@ use std::io::{self, Read};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
 
-use ripdpi_proxy_runtime_adapter::protocol_payload::OutboundTlsClientHelloAssembler;
-
 use crate::runtime::state::RuntimeState;
 
 const FIRST_OUTBOUND_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -32,7 +30,7 @@ pub(super) fn prepare_first_payload(
 fn read_first_client_payload(client: &mut TcpStream, buffer_size: usize) -> io::Result<Option<Vec<u8>>> {
     let original_timeout = client.read_timeout()?;
     let mut buffer = vec![0u8; buffer_size];
-    let mut assembler = OutboundTlsClientHelloAssembler::new();
+    let mut assembler = RuntimeState::first_outbound_tls_client_hello_assembler();
     let result = loop {
         let now = Instant::now();
         let timeout = assembler.timeout(now).unwrap_or(FIRST_OUTBOUND_IDLE_TIMEOUT);

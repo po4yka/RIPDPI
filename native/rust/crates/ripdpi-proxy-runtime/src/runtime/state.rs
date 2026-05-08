@@ -53,7 +53,7 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     SessionConfig, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
-use ripdpi_proxy_runtime_adapter::protocol_payload::FirstResponseBoundaryTracker;
+use ripdpi_proxy_runtime_adapter::protocol_payload::{FirstResponseBoundaryTracker, OutboundTlsClientHelloAssembler};
 use ripdpi_proxy_runtime_adapter::response_triggers::{
     failure_penalizes_strategy, failure_trigger_mask, first_response_exchange_policy, FirstResponseExchangePolicy,
 };
@@ -438,6 +438,10 @@ impl RuntimeState {
             &self.first_outbound_payload_policy,
             payload,
         )
+    }
+
+    pub(super) fn first_outbound_tls_client_hello_assembler() -> OutboundTlsClientHelloAssembler {
+        OutboundTlsClientHelloAssembler::new()
     }
 
     pub(super) fn first_response_exchange_required(&self) -> io::Result<bool> {
