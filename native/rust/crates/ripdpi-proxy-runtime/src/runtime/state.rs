@@ -16,12 +16,12 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     response_failure_evidence_settings, route_matches_transport_payload_with, route_payload_matcher,
     route_requires_delay_payload_with, tcp_rotation_seed_with, tcp_route_connect_settings_table,
     tcp_route_connect_settings_with, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit,
-    udp_group_settings_table, udp_group_settings_with, warmup_probe_settings, ws_tunnel_settings,
-    DelayedConnectSettings, DesyncGroup, FirstResponseSettings, ListenerSettings, NetworkReprobeSettings,
-    ProxyHandshakeSettings, RelayGroupSettings, RelayGroupSettingsTable, ResponseFailureEvidenceSettings,
-    RotationPolicy, RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettings, TcpRouteConnectSettingsTable,
-    TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettings, UdpGroupSettingsTable, WarmupProbeSettings,
-    WsTunnelSettings,
+    udp_group_settings_table, udp_group_settings_with, warmup_probe_settings, ws_tunnel_config_with,
+    ws_tunnel_settings, DelayedConnectSettings, DesyncGroup, FirstResponseSettings, ListenerSettings,
+    NetworkReprobeSettings, ProxyHandshakeSettings, RelayGroupSettings, RelayGroupSettingsTable,
+    ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettings,
+    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettings,
+    UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
@@ -48,8 +48,8 @@ use ripdpi_proxy_runtime_adapter::udp_desync::{
     UdpDesyncPlanner,
 };
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
-    encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr, EncryptedDnsIpAnswers,
-    TelegramDc,
+    encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr,
+    should_tunnel_fallback_with, should_tunnel_first_with, EncryptedDnsIpAnswers, TelegramDc, WsTunnelConfig,
 };
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -231,8 +231,16 @@ impl RuntimeState {
         self.network_reprobe_settings.protect_path.clone()
     }
 
-    pub(super) fn ws_tunnel_settings(&self) -> &WsTunnelSettings {
-        &self.ws_tunnel_settings
+    pub(super) fn should_ws_tunnel_first(&self, target: SocketAddr) -> Option<TelegramDc> {
+        should_tunnel_first_with(target, &self.ws_tunnel_settings)
+    }
+
+    pub(super) fn should_ws_tunnel_fallback(&self, target: SocketAddr) -> Option<TelegramDc> {
+        should_tunnel_fallback_with(target, &self.ws_tunnel_settings)
+    }
+
+    pub(super) fn ws_tunnel_config(&self, resolved_addr: Option<SocketAddr>) -> WsTunnelConfig {
+        ws_tunnel_config_with(&self.ws_tunnel_settings, resolved_addr)
     }
 
     pub(super) fn warmup_probe_scheduler_enabled(&self) -> bool {

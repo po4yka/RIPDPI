@@ -1,10 +1,8 @@
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::model::config::ws_tunnel_config_with;
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
-    self as ws_bootstrap, should_tunnel_fallback_with, should_tunnel_first_with, MtprotoSeedClassification, TelegramDc,
-    WsTunnelConfig,
+    self as ws_bootstrap, MtprotoSeedClassification, TelegramDc, WsTunnelConfig,
 };
 
 use super::super::state::RuntimeState;
@@ -13,15 +11,14 @@ pub(super) use ripdpi_proxy_runtime_adapter::ws_bootstrap::{detect_telegram_dc, 
 
 /// Check if WS tunnel should be tried first (Always mode).
 pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
-    let settings = state.ws_tunnel_settings();
-    let dc = should_tunnel_first_with(target, settings)?;
+    let dc = state.should_ws_tunnel_first(target)?;
     tracing::info!("WS tunnel: sniffing MTProto for known Telegram target {target} (DC{})", dc.number());
     Some(dc)
 }
 
 /// Check if WS tunnel should be tried as a last resort (Fallback mode).
 pub(super) fn should_ws_tunnel_fallback(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
-    should_tunnel_fallback_with(target, state.ws_tunnel_settings())
+    state.should_ws_tunnel_fallback(target)
 }
 
 /// Result of a WS tunnel attempt.
@@ -123,7 +120,7 @@ where
                     return WsTunnelResult::BootstrapFailed { dc, seed_request, error };
                 }
             };
-            let config = ws_tunnel_config_with(state.ws_tunnel_settings(), Some(resolved_addr));
+            let config = state.ws_tunnel_config(Some(resolved_addr));
             match relay_ws(client, dc, seed_request.clone(), &config) {
                 Ok(()) => WsTunnelResult::ValidatedMtproto { dc },
                 Err(error) => {
