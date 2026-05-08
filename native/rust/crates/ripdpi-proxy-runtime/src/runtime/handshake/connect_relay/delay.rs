@@ -2,7 +2,6 @@ use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::model::config::DETECT_CONNECT;
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use super::super::super::state::RuntimeState;
@@ -54,7 +53,7 @@ pub(super) fn maybe_delay_connect(
                 Some(&payload),
                 host.as_deref(),
                 TransportProtocol::Tcp,
-                DETECT_CONNECT,
+                RuntimeState::connect_failure_trigger(),
                 true,
                 None,
             )
