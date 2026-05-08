@@ -22,7 +22,7 @@ pub(super) fn note_retry_success(
     payload: Option<&[u8]>,
     transport: TransportProtocol,
 ) -> io::Result<()> {
-    state.retry_pacing().note_retry_success(target, group_index, host, payload, transport)
+    state.note_retry_success(target, group_index, host, payload, transport)
 }
 
 pub(super) fn note_retry_failure(
@@ -33,7 +33,7 @@ pub(super) fn note_retry_failure(
     payload: Option<&[u8]>,
     transport: TransportProtocol,
 ) -> io::Result<()> {
-    state.retry_pacing().note_retry_failure(target, group_index, host, payload, transport, now_millis())
+    state.note_retry_failure(target, group_index, host, payload, transport, now_millis())
 }
 
 /// Builds retry selection penalties for all groups.
@@ -44,7 +44,7 @@ pub(super) fn build_retry_selection_penalties(
     payload: Option<&[u8]>,
     transport: TransportProtocol,
 ) -> io::Result<BTreeMap<usize, RetrySelectionPenalty>> {
-    state.retry_pacing().build_retry_penalties(target, host, payload, transport, now_millis())
+    state.build_retry_penalties(target, host, payload, transport, now_millis())
 }
 
 pub(super) fn maybe_emit_candidate_diversification(
@@ -76,17 +76,5 @@ pub(super) fn apply_retry_pacing_before_connect(
     host: Option<&str>,
     payload: Option<&[u8]>,
 ) -> io::Result<()> {
-    let telemetry = state.telemetry.clone();
-    state.retry_pacing().apply_retry_pacing(
-        target,
-        route.group_index,
-        host,
-        payload,
-        now_millis(),
-        &|target, group_index, reason, backoff_ms| {
-            if let Some(tel) = &telemetry {
-                tel.on_retry_paced(target, group_index, reason, backoff_ms);
-            }
-        },
-    )
+    state.apply_retry_pacing(target, route, host, payload, now_millis())
 }

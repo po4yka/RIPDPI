@@ -1,4 +1,7 @@
 use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
+use std::collections::BTreeMap;
+use std::io;
+use std::net::SocketAddr;
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::desync_platform::{tcp_desync_executor, TcpDesyncExecutor};
@@ -11,6 +14,7 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     ResponseFailureEvidenceSettings, RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettingsTable,
     TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings,
 };
+use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, RetrySelectionPenalty, TransportProtocol};
 use ripdpi_proxy_runtime_adapter::model::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, DirectPathLearningPort, PolicyPort, RetryPacingPort,
 };
@@ -158,10 +162,6 @@ impl RuntimeState {
         &self.services
     }
 
-    pub(super) fn retry_pacing(&self) -> &dyn RetryPacingPort {
-        &self.services
-    }
-
     pub(super) fn clear_connection_cache(&self) -> usize {
         self.policy().clear_connection_cache()
     }
@@ -187,6 +187,64 @@ impl RuntimeState {
         } else {
             self.drain_autolearn_events();
         }
+    }
+
+    pub(super) fn note_retry_success(
+        &self,
+        target: SocketAddr,
+        group_index: usize,
+        host: Option<&str>,
+        payload: Option<&[u8]>,
+        transport: TransportProtocol,
+    ) -> io::Result<()> {
+        RetryPacingPort::note_retry_success(&self.services, target, group_index, host, payload, transport)
+    }
+
+    pub(super) fn note_retry_failure(
+        &self,
+        target: SocketAddr,
+        group_index: usize,
+        host: Option<&str>,
+        payload: Option<&[u8]>,
+        transport: TransportProtocol,
+        now_ms: u64,
+    ) -> io::Result<()> {
+        RetryPacingPort::note_retry_failure(&self.services, target, group_index, host, payload, transport, now_ms)
+    }
+
+    pub(super) fn build_retry_penalties(
+        &self,
+        target: SocketAddr,
+        host: Option<&str>,
+        payload: Option<&[u8]>,
+        transport: TransportProtocol,
+        now_ms: u64,
+    ) -> io::Result<BTreeMap<usize, RetrySelectionPenalty>> {
+        RetryPacingPort::build_retry_penalties(&self.services, target, host, payload, transport, now_ms)
+    }
+
+    pub(super) fn apply_retry_pacing(
+        &self,
+        target: SocketAddr,
+        route: &ConnectionRoute,
+        host: Option<&str>,
+        payload: Option<&[u8]>,
+        now_ms: u64,
+    ) -> io::Result<()> {
+        let telemetry = self.telemetry.clone();
+        RetryPacingPort::apply_retry_pacing(
+            &self.services,
+            target,
+            route.group_index,
+            host,
+            payload,
+            now_ms,
+            &|target, group_index, reason, backoff_ms| {
+                if let Some(tel) = &telemetry {
+                    tel.on_retry_paced(target, group_index, reason, backoff_ms);
+                }
+            },
+        )
     }
 
     pub(super) fn reprobe_reset_handle(&self) -> ReprobeResetHandle {
