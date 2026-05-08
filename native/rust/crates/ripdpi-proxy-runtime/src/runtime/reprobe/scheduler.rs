@@ -2,7 +2,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::thread;
 
 use ripdpi_proxy_runtime_adapter::failure::ProbeResult;
-use ripdpi_proxy_runtime_adapter::model::config::{network_reprobe_settings, NetworkReprobeSettings};
+use ripdpi_proxy_runtime_adapter::model::config::NetworkReprobeSettings;
 use ripdpi_proxy_runtime_adapter::model::services::ServicesStateHandle;
 
 use super::super::state::RuntimeState;
@@ -20,7 +20,7 @@ pub(crate) fn maybe_spawn_reprobe(state: &RuntimeState) {
     let Some(control) = &state.control else {
         return;
     };
-    let settings = network_reprobe_settings(&state.config);
+    let settings = state.network_reprobe_settings.clone();
     if !settings.enabled {
         return;
     }

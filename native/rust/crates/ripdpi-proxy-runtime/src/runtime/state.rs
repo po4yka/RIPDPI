@@ -2,13 +2,13 @@ use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    delayed_connect_settings, first_response_settings, listener_settings, proxy_handshake_settings,
-    relay_group_settings_table, response_failure_evidence_settings, route_payload_matcher,
+    delayed_connect_settings, first_response_settings, listener_settings, network_reprobe_settings,
+    proxy_handshake_settings, relay_group_settings_table, response_failure_evidence_settings, route_payload_matcher,
     tcp_route_connect_settings_table, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit,
     udp_group_settings_table, warmup_probe_settings, DelayedConnectSettings, FirstResponseSettings, ListenerSettings,
-    ProxyHandshakeSettings, RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RoutePayloadMatcher,
-    RuntimeConfig, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable,
-    WarmupProbeSettings,
+    NetworkReprobeSettings, ProxyHandshakeSettings, RelayGroupSettingsTable, ResponseFailureEvidenceSettings,
+    RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings,
+    UdpGroupSettingsTable, WarmupProbeSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, DirectPathLearningPort, PolicyPort, RetryPacingPort,
@@ -34,6 +34,7 @@ pub(super) struct RuntimeState {
     pub(super) listener_settings: ListenerSettings,
     pub(super) handshake_settings: ProxyHandshakeSettings,
     pub(super) delayed_connect_settings: DelayedConnectSettings,
+    pub(super) network_reprobe_settings: NetworkReprobeSettings,
     pub(super) warmup_probe_settings: WarmupProbeSettings,
     pub(super) route_retry_settings: TcpRouteRetrySettings,
     pub(super) route_syn_data_settings: TcpRouteSynDataSettings,
@@ -77,6 +78,7 @@ impl RuntimeState {
         let listener_settings = listener_settings(&config);
         let handshake_settings = proxy_handshake_settings(&config);
         let delayed_connect_settings = delayed_connect_settings(&config);
+        let network_reprobe_settings = network_reprobe_settings(&config);
         let warmup_probe_settings = warmup_probe_settings(&config);
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
@@ -99,6 +101,7 @@ impl RuntimeState {
             listener_settings,
             handshake_settings,
             delayed_connect_settings,
+            network_reprobe_settings,
             warmup_probe_settings,
             route_retry_settings,
             route_syn_data_settings,
@@ -180,6 +183,7 @@ impl RuntimeState {
         let listener_settings = listener_settings(&config);
         let handshake_settings = proxy_handshake_settings(&config);
         let delayed_connect_settings = delayed_connect_settings(&config);
+        let network_reprobe_settings = network_reprobe_settings(&config);
         let warmup_probe_settings = warmup_probe_settings(&config);
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
@@ -202,6 +206,7 @@ impl RuntimeState {
             listener_settings,
             handshake_settings,
             delayed_connect_settings,
+            network_reprobe_settings,
             warmup_probe_settings,
             route_retry_settings,
             route_syn_data_settings,
