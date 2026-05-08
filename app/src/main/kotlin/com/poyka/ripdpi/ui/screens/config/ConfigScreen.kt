@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -57,7 +58,7 @@ fun ConfigRoute(
     ConfigScreen(
         uiState = uiState,
         modifier = modifier,
-        onModeSelected = viewModel::selectMode,
+        onModeSelected = remember(viewModel) { viewModel::selectMode },
         onPresetSelected = { preset ->
             when (preset.kind) {
                 ConfigPresetKind.Custom -> {
