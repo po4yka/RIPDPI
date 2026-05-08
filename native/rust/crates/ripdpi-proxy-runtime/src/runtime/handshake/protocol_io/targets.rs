@@ -7,7 +7,13 @@ use ripdpi_proxy_runtime_adapter::model::session::SocketType;
 use crate::runtime::state::RuntimeState;
 
 #[cfg(test)]
-pub(in crate::runtime::handshake) use ripdpi_proxy_runtime_adapter::model::session::parse_shadowsocks_target;
+pub(in crate::runtime::handshake) fn parse_shadowsocks_target(
+    request: &[u8],
+    policy: ShadowsocksTargetPolicy,
+    mut resolver: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
+) -> Option<(SocketAddr, usize)> {
+    RuntimeState::parse_shadowsocks_target(request, policy, &mut resolver)
+}
 
 pub(in crate::runtime::handshake) fn read_shadowsocks_request(
     client: &mut TcpStream,
