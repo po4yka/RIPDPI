@@ -2,10 +2,12 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::config::first_response_settings;
+use ripdpi_proxy_runtime_adapter::model::config::{first_response_settings, FirstResponseSettings};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::model::session::{first_outbound_payload_policy, new_session_state, SessionState};
-use ripdpi_proxy_runtime_adapter::response_triggers::first_response_exchange_policy;
+use ripdpi_proxy_runtime_adapter::model::session::{
+    first_outbound_payload_policy, new_session_state, FirstOutboundPayloadPolicy, SessionState,
+};
+use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
 
 use crate::runtime::relay::failure_retry::first_outbound::execution::execute_first_write;
 use crate::runtime::relay::failure_retry::first_outbound::payload::prepare_first_payload;
@@ -39,16 +41,27 @@ pub(super) struct FirstOutboundCoordinator<'a> {
     target: SocketAddr,
     route: ConnectionRoute,
     seed_request: Option<Vec<u8>>,
+    policies: FirstOutboundPolicies,
+}
+
+struct FirstOutboundPolicies {
+    payload: FirstOutboundPayloadPolicy,
+    response: FirstResponseSettings,
+    exchange: FirstResponseExchangePolicy,
 }
 
 impl<'a> FirstOutboundCoordinator<'a> {
     fn new(state: &'a RuntimeState, target: SocketAddr, route: ConnectionRoute, seed_request: Option<Vec<u8>>) -> Self {
-        Self { state, target, route, seed_request }
+        let policies = FirstOutboundPolicies {
+            payload: first_outbound_payload_policy(&state.config),
+            response: first_response_settings(&state.config),
+            exchange: first_response_exchange_policy(&state.config),
+        };
+        Self { state, target, route, seed_request, policies }
     }
 
     fn run(self, client: &mut TcpStream, mut upstream: TcpStream) -> io::Result<PreparedRelay> {
-        let payload_policy = first_outbound_payload_policy(&self.state.config);
-        let first_payload = prepare_first_payload(client, &payload_policy, self.seed_request)?;
+        let first_payload = prepare_first_payload(client, &self.policies.payload, self.seed_request)?;
         let Some(first_payload) = first_payload else {
             return Ok(PreparedRelay {
                 upstream,
@@ -67,9 +80,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let mut session_state;
         let mut success_recorded = false;
         let mut success_strategy_family;
-        let inspect_first_response =
-            needs_first_exchange(self.state, first_response_exchange_policy(&self.state.config))?;
-        let response_settings = first_response_settings(&self.state.config);
+        let inspect_first_response = needs_first_exchange(self.state, self.policies.exchange)?;
 
         loop {
             session_state = new_session_state();
@@ -114,7 +125,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
                     route: &route,
                     host: first_payload.host.as_deref(),
                     original_request: &first_payload.original_request,
-                    response_settings,
+                    response_settings: self.policies.response,
                     success_strategy_family,
                     tls_send_start,
                 },
