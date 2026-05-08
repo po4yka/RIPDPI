@@ -2,11 +2,12 @@ use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    first_response_settings, listener_settings, relay_group_settings_table, response_failure_evidence_settings,
-    route_payload_matcher, tcp_route_connect_settings_table, tcp_route_retry_settings, tcp_route_syn_data_settings,
-    udp_flow_limit, udp_group_settings_table, warmup_probe_settings, FirstResponseSettings, ListenerSettings,
-    RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RoutePayloadMatcher, RuntimeConfig,
-    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable,
+    delayed_connect_settings, first_response_settings, listener_settings, proxy_handshake_settings,
+    relay_group_settings_table, response_failure_evidence_settings, route_payload_matcher,
+    tcp_route_connect_settings_table, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit,
+    udp_group_settings_table, warmup_probe_settings, DelayedConnectSettings, FirstResponseSettings, ListenerSettings,
+    ProxyHandshakeSettings, RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RoutePayloadMatcher,
+    RuntimeConfig, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable,
     WarmupProbeSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::ports::{
@@ -31,12 +32,14 @@ pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 pub(super) struct RuntimeState {
     pub(super) config: Arc<RuntimeConfig>,
     pub(super) listener_settings: ListenerSettings,
+    pub(super) handshake_settings: ProxyHandshakeSettings,
+    pub(super) delayed_connect_settings: DelayedConnectSettings,
     pub(super) warmup_probe_settings: WarmupProbeSettings,
     pub(super) route_retry_settings: TcpRouteRetrySettings,
     pub(super) route_syn_data_settings: TcpRouteSynDataSettings,
     pub(super) route_connect_settings: TcpRouteConnectSettingsTable,
     pub(super) udp_group_settings: UdpGroupSettingsTable,
-    pub(super) udp_route_matcher: RoutePayloadMatcher,
+    pub(super) route_payload_matcher: RoutePayloadMatcher,
     pub(super) udp_desync_planner: UdpDesyncPlanner,
     pub(super) udp_flow_limit: usize,
     pub(super) udp_packet_parser: UdpPacketParser,
@@ -72,12 +75,14 @@ impl RuntimeState {
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
 
         let listener_settings = listener_settings(&config);
+        let handshake_settings = proxy_handshake_settings(&config);
+        let delayed_connect_settings = delayed_connect_settings(&config);
         let warmup_probe_settings = warmup_probe_settings(&config);
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
         let route_connect_settings = tcp_route_connect_settings_table(&config);
         let udp_group_settings = udp_group_settings_table(&config);
-        let udp_route_matcher = route_payload_matcher(&config);
+        let route_payload_matcher = route_payload_matcher(&config);
         let udp_desync_planner = udp_desync_planner(&config);
         let udp_flow_limit = udp_flow_limit(&config);
         let udp_packet_parser = udp_packet_parser(&config);
@@ -92,12 +97,14 @@ impl RuntimeState {
         Self {
             config: Arc::new(config),
             listener_settings,
+            handshake_settings,
+            delayed_connect_settings,
             warmup_probe_settings,
             route_retry_settings,
             route_syn_data_settings,
             route_connect_settings,
             udp_group_settings,
-            udp_route_matcher,
+            route_payload_matcher,
             udp_desync_planner,
             udp_flow_limit,
             udp_packet_parser,
@@ -171,12 +178,14 @@ impl RuntimeState {
     ) -> Self {
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
         let listener_settings = listener_settings(&config);
+        let handshake_settings = proxy_handshake_settings(&config);
+        let delayed_connect_settings = delayed_connect_settings(&config);
         let warmup_probe_settings = warmup_probe_settings(&config);
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
         let route_connect_settings = tcp_route_connect_settings_table(&config);
         let udp_group_settings = udp_group_settings_table(&config);
-        let udp_route_matcher = route_payload_matcher(&config);
+        let route_payload_matcher = route_payload_matcher(&config);
         let udp_desync_planner = udp_desync_planner(&config);
         let udp_flow_limit = udp_flow_limit(&config);
         let udp_packet_parser = udp_packet_parser(&config);
@@ -191,12 +200,14 @@ impl RuntimeState {
         Self {
             config: Arc::new(config),
             listener_settings,
+            handshake_settings,
+            delayed_connect_settings,
             warmup_probe_settings,
             route_retry_settings,
             route_syn_data_settings,
             route_connect_settings,
             udp_group_settings,
-            udp_route_matcher,
+            route_payload_matcher,
             udp_desync_planner,
             udp_flow_limit,
             udp_packet_parser,

@@ -104,6 +104,10 @@ pub mod config {
         route_matches_transport_payload(&matcher.config, group_index, target, payload, transport)
     }
 
+    pub fn route_requires_delay_payload_with(matcher: &RoutePayloadMatcher, group_index: usize) -> Option<bool> {
+        route_requires_delay_payload(&matcher.config, group_index)
+    }
+
     pub fn delayed_route_matches_payload(
         config: &RuntimeConfig,
         group_index: usize,
@@ -128,6 +132,16 @@ pub mod config {
             return false;
         };
         group.matches.filters.hosts_match(host) && crate::protocol_payload::group_accepts_any_or_non_http_tls(group)
+    }
+
+    pub fn delayed_route_matches_payload_with(
+        matcher: &RoutePayloadMatcher,
+        group_index: usize,
+        target: SocketAddr,
+        payload: &[u8],
+        host_hint: Option<&str>,
+    ) -> bool {
+        delayed_route_matches_payload(&matcher.config, group_index, target, payload, host_hint)
     }
 
     pub fn transparent_proxy_enabled(config: &RuntimeConfig) -> bool {

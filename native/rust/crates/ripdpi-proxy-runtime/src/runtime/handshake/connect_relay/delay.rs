@@ -3,10 +3,10 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    delayed_connect_settings, delayed_route_matches_payload, route_requires_delay_payload, DETECT_CONNECT,
+    delayed_route_matches_payload_with, route_requires_delay_payload_with, DETECT_CONNECT,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
-use ripdpi_proxy_runtime_adapter::model::session::extract_payload_host;
+use ripdpi_proxy_runtime_adapter::model::session::extract_payload_host_with;
 
 use super::super::super::state::RuntimeState;
 use super::super::protocol_io::{send_success_reply, HandshakeKind};
@@ -28,15 +28,16 @@ pub(super) fn maybe_delay_connect(
     host_hint: Option<&str>,
     handshake: HandshakeKind,
 ) -> Result<DelayConnect, ConnectRelayError> {
-    let settings = delayed_connect_settings(&state.config);
+    let settings = state.delayed_connect_settings;
     if !settings.enabled {
         return Ok(DelayConnect::Immediate);
     }
     let route = super::super::super::routing::select_route(state, target, None, None, true)
         .map_err(|err| ConnectRelayError::new(err, false))?;
-    let requires_delay = route_requires_delay_payload(&state.config, route.group_index).ok_or_else(|| {
-        ConnectRelayError::new(io::Error::new(io::ErrorKind::NotFound, "missing desync group"), false)
-    })?;
+    let requires_delay = route_requires_delay_payload_with(&state.route_payload_matcher, route.group_index)
+        .ok_or_else(|| {
+            ConnectRelayError::new(io::Error::new(io::ErrorKind::NotFound, "missing desync group"), false)
+        })?;
     if !requires_delay {
         return Ok(DelayConnect::Immediate);
     }
@@ -48,8 +49,15 @@ pub(super) fn maybe_delay_connect(
         return Ok(DelayConnect::Closed);
     };
 
-    let host = extract_payload_host(&state.config, &payload).or_else(|| host_hint.map(ToOwned::to_owned));
-    let route = if delayed_route_matches_payload(&state.config, route.group_index, target, &payload, host.as_deref()) {
+    let host =
+        extract_payload_host_with(&state.relay_host_extractor, &payload).or_else(|| host_hint.map(ToOwned::to_owned));
+    let route = if delayed_route_matches_payload_with(
+        &state.route_payload_matcher,
+        route.group_index,
+        target,
+        &payload,
+        host.as_deref(),
+    ) {
         route
     } else {
         state

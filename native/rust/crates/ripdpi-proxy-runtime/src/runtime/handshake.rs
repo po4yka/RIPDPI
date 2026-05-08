@@ -10,12 +10,10 @@ use std::thread;
 use std::time::Duration;
 
 use crate::sync::{Arc, AtomicBool, Ordering};
-use ripdpi_proxy_runtime_adapter::model::config::{
-    proxy_handshake_settings, ProxyHandshakeSettings, ProxyProtocolMode,
-};
+use ripdpi_proxy_runtime_adapter::model::config::{ProxyHandshakeSettings, ProxyProtocolMode};
 use ripdpi_proxy_runtime_adapter::model::session::{
-    encode_socks4_reply, encode_socks5_reply, extract_payload_host, parse_http_connect_request, parse_socks4_request,
-    parse_socks5_request, ClientRequest, SessionError, SocketType, S_ER_CMD, S_ER_GEN, S_VER5,
+    encode_socks4_reply, encode_socks5_reply, extract_payload_host_with, parse_http_connect_request,
+    parse_socks4_request, parse_socks5_request, ClientRequest, SessionError, SocketType, S_ER_CMD, S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::platform::handshake as handshake_platform;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
@@ -33,7 +31,7 @@ use super::state::{RuntimeState, HANDSHAKE_TIMEOUT};
 pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let _ = client.set_read_timeout(Some(HANDSHAKE_TIMEOUT));
     let _ = client.set_write_timeout(Some(HANDSHAKE_TIMEOUT));
-    let settings = proxy_handshake_settings(&state.config);
+    let settings = &state.handshake_settings;
     match settings.protocol_mode {
         ProxyProtocolMode::Transparent => handle_transparent(client, state),
         ProxyProtocolMode::HttpConnect => handle_http_connect(client, state),
@@ -41,11 +39,11 @@ pub(super) fn handle_client(mut client: TcpStream, state: &RuntimeState) -> io::
             let mut first = [0u8; 1];
             client.read_exact(&mut first)?;
             if shadowsocks_enabled {
-                return handle_shadowsocks(client, state, &settings, first[0]);
+                return handle_shadowsocks(client, state, settings, first[0]);
             }
             match first[0] {
-                0x04 => handle_socks4(client, state, &settings, first[0]),
-                0x05 => handle_socks5(client, state, &settings, first[0]),
+                0x04 => handle_socks4(client, state, settings, first[0]),
+                0x05 => handle_socks5(client, state, settings, first[0]),
                 _ => Err(io::Error::new(io::ErrorKind::InvalidData, "unsupported proxy protocol")),
             }
         }
@@ -165,7 +163,7 @@ fn handle_socks5(
 
 fn handle_http_connect(mut client: TcpStream, state: &RuntimeState) -> io::Result<()> {
     let request = read_http_connect_request(&mut client)?;
-    let settings = proxy_handshake_settings(&state.config);
+    let settings = &state.handshake_settings;
     if let Some(token) = settings.auth_token.as_deref() {
         if !protocol_io::validate_http_proxy_auth(&request, token) {
             let reply = b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"ripdpi\"\r\nContent-Length: 0\r\n\r\n";
@@ -205,7 +203,7 @@ fn handle_shadowsocks(
     let resolver = |host: &str, socket_type: SocketType| resolve_name(host, socket_type, state);
     let (target, first_request): (SocketAddr, Vec<u8>) =
         read_shadowsocks_request(&mut client, first_byte, settings.shadowsocks_target_policy, resolver)?;
-    let host = extract_payload_host(&state.config, &first_request);
+    let host = extract_payload_host_with(&state.relay_host_extractor, &first_request);
     let payload = if first_request.is_empty() { None } else { Some(first_request.as_ref()) };
     let (upstream, route) = super::routing::connect_target(target, state, payload, false, host)?;
     super::relay::relay(

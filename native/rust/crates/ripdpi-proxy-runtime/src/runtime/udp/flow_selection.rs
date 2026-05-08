@@ -237,7 +237,7 @@ fn update_udp_flow_selection(
     entry.cache_host = packet.cache_host;
     if host_changed
         || !route_matches_transport_payload_with(
-            &state.udp_route_matcher,
+            &state.route_payload_matcher,
             entry.route.group_index,
             entry.current_target,
             packet.payload,
