@@ -35,7 +35,8 @@ use ripdpi_proxy_runtime_adapter::model::services::{
 };
 use ripdpi_proxy_runtime_adapter::model::session::{
     extract_payload_host_with, first_outbound_payload_policy, payload_host_extractor, udp_packet_parser,
-    udp_payload_classifier, FirstOutboundPayloadPolicy, PayloadHostExtractor, UdpPacketParser, UdpPayloadClassifier,
+    udp_payload_classifier, FirstOutboundPayloadPolicy, PayloadHostExtractor, SocketType, UdpPacketParser,
+    UdpPayloadClassifier,
 };
 use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
 use ripdpi_proxy_runtime_adapter::udp_desync::{udp_desync_planner, UdpDesyncPlanContext, UdpDesyncPlanner};
@@ -73,8 +74,8 @@ pub(super) struct RuntimeState {
     route_payload_matcher: RoutePayloadMatcher,
     pub(super) udp_desync_planner: UdpDesyncPlanner,
     pub(super) udp_flow_limit: usize,
-    pub(super) udp_packet_parser: UdpPacketParser,
-    pub(super) udp_payload_classifier: UdpPayloadClassifier,
+    udp_packet_parser: UdpPacketParser,
+    udp_payload_classifier: UdpPayloadClassifier,
     relay_group_settings: RelayGroupSettingsTable,
     relay_host_extractor: PayloadHostExtractor,
     relay_first_response: FirstResponseSettings,
@@ -305,6 +306,22 @@ impl RuntimeState {
         transport: TransportProtocol,
     ) -> bool {
         route_matches_transport_payload_with(&self.route_payload_matcher, group_index, target, payload, transport)
+    }
+
+    pub(super) fn parse_socks5_udp_packet<'a>(
+        &self,
+        packet: &'a [u8],
+        resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
+    ) -> Option<(SocketAddr, &'a [u8])> {
+        ripdpi_proxy_runtime_adapter::model::session::parse_socks5_udp_packet_with(
+            &self.udp_packet_parser,
+            packet,
+            resolve_name,
+        )
+    }
+
+    pub(super) fn udp_payload_classifier(&self) -> UdpPayloadClassifier {
+        self.udp_payload_classifier.clone()
     }
 
     pub(super) fn select_initial_route(
