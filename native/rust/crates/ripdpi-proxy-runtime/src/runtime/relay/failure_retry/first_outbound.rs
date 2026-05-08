@@ -2,14 +2,10 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::config::{
-    first_response_settings, primary_tcp_strategy_family_for_group, FirstResponseSettings,
-};
+use ripdpi_proxy_runtime_adapter::model::config::{primary_tcp_strategy_family_with, FirstResponseSettings};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::model::session::{
-    first_outbound_payload_policy, new_session_state, FirstOutboundPayloadPolicy, SessionState,
-};
-use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
+use ripdpi_proxy_runtime_adapter::model::session::{new_session_state, FirstOutboundPayloadPolicy, SessionState};
+use ripdpi_proxy_runtime_adapter::response_triggers::FirstResponseExchangePolicy;
 
 use crate::runtime::relay::failure_retry::first_outbound::execution::execute_first_write;
 use crate::runtime::relay::failure_retry::first_outbound::payload::prepare_first_payload;
@@ -55,9 +51,9 @@ struct FirstOutboundPolicies {
 impl<'a> FirstOutboundCoordinator<'a> {
     fn new(state: &'a RuntimeState, target: SocketAddr, route: ConnectionRoute, seed_request: Option<Vec<u8>>) -> Self {
         let policies = FirstOutboundPolicies {
-            payload: first_outbound_payload_policy(&state.config),
-            response: first_response_settings(&state.config),
-            exchange: first_response_exchange_policy(&state.config),
+            payload: state.first_outbound_payload_policy.clone(),
+            response: state.relay_first_response,
+            exchange: state.first_response_exchange_policy,
         };
         Self { state, target, route, seed_request, policies }
     }
@@ -129,8 +125,8 @@ impl<'a> FirstOutboundCoordinator<'a> {
                     original_request: &first_payload.original_request,
                     response_settings: self.policies.response,
                     success_strategy_family,
-                    primary_strategy_family: primary_tcp_strategy_family_for_group(
-                        &self.state.config,
+                    primary_strategy_family: primary_tcp_strategy_family_with(
+                        &self.state.relay_group_settings,
                         route.group_index,
                     ),
                     tls_send_start,

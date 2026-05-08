@@ -15,7 +15,10 @@ use ripdpi_proxy_runtime_adapter::model::runtime_api::{
     current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink,
 };
 use ripdpi_proxy_runtime_adapter::model::services::{new_services_handle, ServicesStateHandle};
-use ripdpi_proxy_runtime_adapter::model::session::{payload_host_extractor, PayloadHostExtractor};
+use ripdpi_proxy_runtime_adapter::model::session::{
+    first_outbound_payload_policy, payload_host_extractor, FirstOutboundPayloadPolicy, PayloadHostExtractor,
+};
+use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -29,6 +32,8 @@ pub(super) struct RuntimeState {
     pub(super) relay_group_settings: RelayGroupSettingsTable,
     pub(super) relay_host_extractor: PayloadHostExtractor,
     pub(super) relay_first_response: FirstResponseSettings,
+    pub(super) first_outbound_payload_policy: FirstOutboundPayloadPolicy,
+    pub(super) first_response_exchange_policy: FirstResponseExchangePolicy,
     pub(super) response_failure_evidence_settings: ResponseFailureEvidenceSettings,
     pub(super) services: ServicesStateHandle,
     pub(super) active_clients: Arc<AtomicUsize>,
@@ -60,6 +65,8 @@ impl RuntimeState {
         let relay_group_settings = relay_group_settings_table(&config);
         let relay_host_extractor = payload_host_extractor(&config);
         let relay_first_response = first_response_settings(&config);
+        let first_outbound_payload_policy = first_outbound_payload_policy(&config);
+        let first_response_exchange_policy = first_response_exchange_policy(&config);
         let response_failure_evidence_settings = response_failure_evidence_settings(&config);
 
         Self {
@@ -70,6 +77,8 @@ impl RuntimeState {
             relay_group_settings,
             relay_host_extractor,
             relay_first_response,
+            first_outbound_payload_policy,
+            first_response_exchange_policy,
             response_failure_evidence_settings,
             services: handle,
             active_clients: Arc::new(AtomicUsize::new(0)),
@@ -139,6 +148,8 @@ impl RuntimeState {
         let relay_group_settings = relay_group_settings_table(&config);
         let relay_host_extractor = payload_host_extractor(&config);
         let relay_first_response = first_response_settings(&config);
+        let first_outbound_payload_policy = first_outbound_payload_policy(&config);
+        let first_response_exchange_policy = first_response_exchange_policy(&config);
         let response_failure_evidence_settings = response_failure_evidence_settings(&config);
 
         Self {
@@ -149,6 +160,8 @@ impl RuntimeState {
             relay_group_settings,
             relay_host_extractor,
             relay_first_response,
+            first_outbound_payload_policy,
+            first_response_exchange_policy,
             response_failure_evidence_settings,
             services: handle,
             active_clients: Arc::new(AtomicUsize::new(0)),

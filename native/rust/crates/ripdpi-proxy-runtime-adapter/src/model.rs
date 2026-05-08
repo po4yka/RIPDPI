@@ -616,6 +616,7 @@ pub mod config {
     pub struct RelayGroupSettingsTable {
         groups: Vec<RelayGroupSettings>,
         rotation_seeds: Vec<Option<(DesyncGroup, RotationPolicy)>>,
+        primary_strategy_families: Vec<Option<&'static str>>,
     }
 
     pub fn relay_group_settings_table(config: &RuntimeConfig) -> RelayGroupSettingsTable {
@@ -633,6 +634,11 @@ pub mod config {
                 .groups
                 .iter()
                 .map(|group| group.actions.rotation_policy.clone().map(|policy| (group.clone(), policy)))
+                .collect(),
+            primary_strategy_families: config
+                .groups
+                .iter()
+                .map(ripdpi_desync_runtime::primary_tcp_strategy_family)
                 .collect(),
         }
     }
@@ -655,6 +661,13 @@ pub mod config {
             .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))
     }
 
+    pub fn primary_tcp_strategy_family_with(
+        table: &RelayGroupSettingsTable,
+        group_index: usize,
+    ) -> Option<&'static str> {
+        table.primary_strategy_families.get(group_index).copied().flatten()
+    }
+
     pub fn tcp_rotation_seed(
         config: &RuntimeConfig,
         group_index: usize,
@@ -663,7 +676,7 @@ pub mod config {
     }
 
     pub fn primary_tcp_strategy_family_for_group(config: &RuntimeConfig, group_index: usize) -> Option<&'static str> {
-        selected_desync_group(config, group_index).and_then(ripdpi_desync_runtime::primary_tcp_strategy_family)
+        primary_tcp_strategy_family_with(&relay_group_settings_table(config), group_index)
     }
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -832,8 +845,10 @@ pub mod config {
             assert!(settings.drop_sack);
             assert!(settings.rotation_enabled);
             assert!(seed.is_some());
+            assert_eq!(primary_tcp_strategy_family_with(&table, 0), primary_tcp_strategy_family_for_group(&config, 0));
             assert!(relay_group_settings_with(&table, 1).is_none());
             assert!(tcp_rotation_seed_with(&table, 1).is_err());
+            assert!(primary_tcp_strategy_family_with(&table, 1).is_none());
         }
 
         #[test]
