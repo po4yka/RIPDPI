@@ -5,7 +5,6 @@ mod observers;
 
 use copy_halves::{copy_inbound_half, copy_outbound_half};
 use freeze::FreezeDetector;
-use observers::group_rotation_controller;
 
 use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::model::config::{
@@ -52,8 +51,8 @@ pub(super) fn relay_streams(
     session_seed: RelaySession,
     remembered_host_seed: Option<String>,
 ) -> io::Result<RelaySession> {
+    let rotation_state = session_seed.rotation_controller(settings.rotation_seed.clone());
     let session_seed = session_seed.into_state();
-    let rotation_state = group_rotation_controller(settings.rotation_seed.clone(), &session_seed);
     let _ = (client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), client.set_write_timeout(None));
     let _ = (upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), upstream.set_write_timeout(None));
 
