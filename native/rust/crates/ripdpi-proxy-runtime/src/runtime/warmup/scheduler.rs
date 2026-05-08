@@ -10,7 +10,7 @@ use crate::runtime::state::RuntimeState;
 /// The thread probes each domain sequentially, stopping early if the
 /// runtime shutdown is requested or the total deadline expires.
 pub(in crate::runtime) fn spawn_warmup_thread(state: RuntimeState) {
-    if !state.warmup_probe_settings().scheduler_enabled {
+    if !state.warmup_probe_scheduler_enabled() {
         return;
     }
     thread::Builder::new().name("ripdpi-warmup".into()).spawn(move || run_warmup(&state)).ok();

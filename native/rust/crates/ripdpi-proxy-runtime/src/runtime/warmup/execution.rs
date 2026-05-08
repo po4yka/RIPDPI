@@ -58,7 +58,7 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
     }
 
     let _ = warmup_platform::enable_recv_ttl(&upstream);
-    let mut response_buf = vec![0u8; state.warmup_probe_settings().response_buffer_size];
+    let mut response_buf = vec![0u8; state.warmup_probe_response_buffer_size()];
     let read_result = upstream.read(&mut response_buf);
 
     match read_result {

@@ -223,8 +223,21 @@ impl RuntimeState {
         &self.ws_tunnel_settings
     }
 
-    pub(super) fn warmup_probe_settings(&self) -> WarmupProbeSettings {
-        self.warmup_probe_settings.clone()
+    pub(super) fn warmup_probe_scheduler_enabled(&self) -> bool {
+        self.warmup_probe_settings.scheduler_enabled
+    }
+
+    pub(super) fn warmup_probe_response_buffer_size(&self) -> usize {
+        self.warmup_probe_settings.response_buffer_size
+    }
+
+    pub(super) fn resolve_warmup_probe_host(&self, host: &str) -> io::Result<SocketAddr> {
+        resolve_host_via_encrypted_dns(
+            host,
+            self.runtime_context.as_ref(),
+            self.warmup_probe_settings.protect_path.as_deref(),
+            self.warmup_probe_settings.ipv6_enabled,
+        )
     }
 
     pub(super) fn note_retry_success(
