@@ -18,8 +18,17 @@ use crate::sync::AtomicBool;
 
 pub use ripdpi_desync_runtime::{primary_tcp_strategy_family, OutboundSendError, OutboundSendOutcome, PcapHook};
 
+#[derive(Clone)]
+pub struct TcpDesyncExecutor {
+    config: ripdpi_config::RuntimeConfig,
+}
+
+pub fn tcp_desync_executor(config: &ripdpi_config::RuntimeConfig) -> TcpDesyncExecutor {
+    TcpDesyncExecutor { config: config.clone() }
+}
+
 pub struct TcpDesyncExecutionContext<'a> {
-    pub config: &'a ripdpi_config::RuntimeConfig,
+    pub executor: &'a TcpDesyncExecutor,
     pub runtime_context: Option<&'a ripdpi_proxy_config::ProxyRuntimeContext>,
     pub telemetry: Option<&'a dyn ripdpi_runtime_api::RuntimeTelemetrySink>,
     pub adaptive_hints: &'a dyn ripdpi_runtime_decision_ports::AdaptiveHintPort,
@@ -99,7 +108,8 @@ pub fn send_tcp_desync_payload(
     context: TcpDesyncExecutionContext<'_>,
     request: DesyncSendRequest<'_>,
 ) -> Result<OutboundSendOutcome, OutboundSendError> {
-    let selected_group = crate::model::config::selected_desync_group(context.config, request.group_index)
+    let config = &context.executor.config;
+    let selected_group = crate::model::config::selected_desync_group(config, request.group_index)
         .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "missing desync group"))?;
     let group = request.group_override.unwrap_or(selected_group);
     let capability = ripdpi_runtime_decision_ports::adaptive::strategy_context::direct_path_capability_for_route(
@@ -110,7 +120,7 @@ pub fn send_tcp_desync_payload(
     let (effective_group, strategy_family_override) =
         apply_tcp_capability_policy(group, capability, request.payload, request.progress);
     let effective_group = effective_group.as_ref();
-    let scope_key = ripdpi_runtime_decision_ports::adaptive::strategy_context::network_scope_key(context.config);
+    let scope_key = ripdpi_runtime_decision_ports::adaptive::strategy_context::network_scope_key(config);
     let resolved_fake_ttl = context.adaptive_hints.resolve_fake_ttl(
         scope_key,
         request.group_index,
@@ -119,7 +129,7 @@ pub fn send_tcp_desync_payload(
         effective_group,
     )?;
     let adaptive_hints = context.adaptive_hints.resolve_tcp_hints_with_evolver(
-        context.config,
+        config,
         context.runtime_context,
         request.group_index,
         request.target,
@@ -151,7 +161,7 @@ pub fn send_tcp_desync_payload(
     );
     send_prepared_with_runtime_platform(
         writer,
-        context.config,
+        config,
         &morphed_group,
         request.payload,
         request.progress,

@@ -1,6 +1,7 @@
 use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
+use ripdpi_proxy_runtime_adapter::desync_platform::{tcp_desync_executor, TcpDesyncExecutor};
 use ripdpi_proxy_runtime_adapter::model::config::{
     delayed_connect_settings, first_response_settings, listener_settings, network_reprobe_settings,
     proxy_handshake_settings, relay_group_settings_table, response_failure_evidence_settings, route_payload_matcher,
@@ -30,7 +31,6 @@ pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone)]
 pub(super) struct RuntimeState {
-    pub(super) config: Arc<RuntimeConfig>,
     pub(super) listener_settings: ListenerSettings,
     pub(super) handshake_settings: ProxyHandshakeSettings,
     pub(super) delayed_connect_settings: DelayedConnectSettings,
@@ -40,6 +40,7 @@ pub(super) struct RuntimeState {
     pub(super) route_retry_settings: TcpRouteRetrySettings,
     pub(super) route_syn_data_settings: TcpRouteSynDataSettings,
     pub(super) route_connect_settings: TcpRouteConnectSettingsTable,
+    pub(super) tcp_desync_executor: TcpDesyncExecutor,
     pub(super) udp_group_settings: UdpGroupSettingsTable,
     pub(super) route_payload_matcher: RoutePayloadMatcher,
     pub(super) udp_desync_planner: UdpDesyncPlanner,
@@ -85,6 +86,7 @@ impl RuntimeState {
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
         let route_connect_settings = tcp_route_connect_settings_table(&config);
+        let tcp_desync_executor = tcp_desync_executor(&config);
         let udp_group_settings = udp_group_settings_table(&config);
         let route_payload_matcher = route_payload_matcher(&config);
         let udp_desync_planner = udp_desync_planner(&config);
@@ -99,7 +101,6 @@ impl RuntimeState {
         let response_failure_evidence_settings = response_failure_evidence_settings(&config);
 
         Self {
-            config: Arc::new(config),
             listener_settings,
             handshake_settings,
             delayed_connect_settings,
@@ -109,6 +110,7 @@ impl RuntimeState {
             route_retry_settings,
             route_syn_data_settings,
             route_connect_settings,
+            tcp_desync_executor,
             udp_group_settings,
             route_payload_matcher,
             udp_desync_planner,
@@ -192,6 +194,7 @@ impl RuntimeState {
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
         let route_connect_settings = tcp_route_connect_settings_table(&config);
+        let tcp_desync_executor = tcp_desync_executor(&config);
         let udp_group_settings = udp_group_settings_table(&config);
         let route_payload_matcher = route_payload_matcher(&config);
         let udp_desync_planner = udp_desync_planner(&config);
@@ -206,7 +209,6 @@ impl RuntimeState {
         let response_failure_evidence_settings = response_failure_evidence_settings(&config);
 
         Self {
-            config: Arc::new(config),
             listener_settings,
             handshake_settings,
             delayed_connect_settings,
@@ -216,6 +218,7 @@ impl RuntimeState {
             route_retry_settings,
             route_syn_data_settings,
             route_connect_settings,
+            tcp_desync_executor,
             udp_group_settings,
             route_payload_matcher,
             udp_desync_planner,

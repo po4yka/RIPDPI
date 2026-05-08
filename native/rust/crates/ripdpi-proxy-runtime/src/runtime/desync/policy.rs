@@ -13,7 +13,7 @@ pub(crate) fn send_with_group(
     send_tcp_desync_payload(
         writer,
         TcpDesyncExecutionContext {
-            config: &state.config,
+            executor: &state.tcp_desync_executor,
             runtime_context: state.runtime_context.as_ref(),
             telemetry: state.telemetry.as_deref(),
             adaptive_hints: state.adaptive_hints(),
