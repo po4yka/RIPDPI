@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
@@ -8,6 +9,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.activities.DiagnosticsEffect
@@ -28,7 +30,7 @@ fun DiagnosticsRoute(
     onSaveArchive: (String, String) -> Unit,
     onShareSummary: (String, String) -> Unit,
     onSaveLogs: () -> Unit,
-    modifier: androidx.compose.ui.Modifier = androidx.compose.ui.Modifier,
+    modifier: Modifier = Modifier,
     onOpenAdvancedSettings: () -> Unit = {},
     onOpenDnsSettings: () -> Unit = {},
     onOpenDetectionCheck: () -> Unit = {},
@@ -45,9 +47,7 @@ fun DiagnosticsRoute(
     }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val pcapRecording by viewModel.pcapRecording.collectAsStateWithLifecycle()
-    val pagerState =
-        androidx.compose.foundation.pager
-            .rememberPagerState { DiagnosticsSection.entries.size }
+    val pagerState = rememberPagerState { DiagnosticsSection.entries.size }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.selectedSection) {
