@@ -8,9 +8,10 @@ mod stream_copy_uring;
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
+use ripdpi_proxy_runtime_adapter::model::config::relay_timeout_settings;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
-use self::execution::{record_relay_result, relay_with_uring_if_available};
+use self::execution::{record_relay_result, relay_with_uring_if_available, RelayResultContext};
 use self::failure_retry::{prepare_relay, PreparedRelay};
 use super::state::RuntimeState;
 
@@ -41,15 +42,19 @@ pub(super) fn relay(
 
     let relay_result =
         relay_with_uring_if_available(client, upstream, state, route.clone(), session_state, success_host.clone());
+    let relay_timeouts = relay_timeout_settings(&state.config);
     record_relay_result(
         &relay_result,
         state,
-        target,
-        &route,
-        success_recorded,
-        success_host.as_deref(),
-        success_payload.as_deref(),
-        success_strategy_family,
+        RelayResultContext {
+            relay_timeouts,
+            target,
+            route: &route,
+            success_recorded,
+            success_host: success_host.as_deref(),
+            success_payload: success_payload.as_deref(),
+            success_strategy_family,
+        },
     )?;
     relay_result.map(|_| ())
 }
