@@ -1,6 +1,5 @@
 use crate::sync::{Arc, Mutex};
-use ripdpi_proxy_runtime_adapter::model::config::first_response_settings;
-use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host_with, payload_host_extractor, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host_with, SessionState};
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use std::io::{self, Read, Write};
 use std::net::{Shutdown, TcpStream};
@@ -12,6 +11,7 @@ use super::super::super::state::RuntimeState;
 use super::freeze::FreezeDetector;
 use super::observers::{observe_rotation_inbound_chunk, observe_rotation_transport_failure};
 use super::RELAY_IDLE_TIMEOUT;
+use super::{RelayOutboundContext, RelayOutboundSettings};
 #[allow(clippy::too_many_arguments)]
 pub(super) fn copy_inbound_half(
     mut reader: TcpStream,
@@ -90,6 +90,7 @@ pub(super) fn flush_outbound_payload(
     writer: &mut TcpStream,
     state: &RuntimeState,
     group_index: usize,
+    settings: &RelayOutboundSettings,
     session: &Arc<Mutex<SessionState>>,
     remembered_host: &Arc<Mutex<Option<String>>>,
     rotation: Option<&Arc<Mutex<CircularTcpRotationController>>>,
@@ -102,8 +103,7 @@ pub(super) fn flush_outbound_payload(
         (is_new_round, progress)
     };
     let mut remembered = remembered_host.lock().map_err(|_| io::Error::other("remembered host mutex poisoned"))?;
-    let host_extractor = payload_host_extractor(&state.config);
-    if let Some(host) = extract_payload_host_with(&host_extractor, payload) {
+    if let Some(host) = extract_payload_host_with(&settings.host_extractor, payload) {
         *remembered = Some(host);
     }
     let host = remembered.clone();
@@ -111,7 +111,6 @@ pub(super) fn flush_outbound_payload(
     let peer_addr = writer.peer_addr()?;
     let group = if let Some(rotation) = rotation {
         let mut rotation = rotation.lock().map_err(|_| io::Error::other("rotation mutex poisoned"))?;
-        let first_response = first_response_settings(&state.config);
         let retrans_baseline = if is_new_round {
             ripdpi_proxy_runtime_adapter::platform::relay::tcp_total_retransmissions(writer).ok().flatten()
         } else {
@@ -119,7 +118,7 @@ pub(super) fn flush_outbound_payload(
         };
         if is_new_round {
             rotation.start_round(
-                first_response,
+                settings.first_response,
                 progress.round,
                 progress.stream_start,
                 payload,
@@ -128,7 +127,7 @@ pub(super) fn flush_outbound_payload(
                 Some(peer_addr),
             );
         } else {
-            rotation.append_request_chunk(first_response, progress.round, payload);
+            rotation.append_request_chunk(settings.first_response, progress.round, payload);
         }
         Some(rotation.current_send_group())
     } else {
@@ -159,8 +158,7 @@ pub(super) fn flush_outbound_payload(
 pub(super) fn copy_outbound_half(
     mut reader: TcpStream,
     mut writer: TcpStream,
-    state: RuntimeState,
-    group_index: usize,
+    context: RelayOutboundContext,
     session: Arc<Mutex<SessionState>>,
     remembered_host: Arc<Mutex<Option<String>>>,
     rotation: Option<Arc<Mutex<CircularTcpRotationController>>>,
@@ -174,8 +172,9 @@ pub(super) fn copy_outbound_half(
             Ok(n) => {
                 flush_outbound_payload(
                     &mut writer,
-                    &state,
-                    group_index,
+                    &context.state,
+                    context.group_index,
+                    &context.settings,
                     &session,
                     &remembered_host,
                     rotation.as_ref(),

@@ -7,8 +7,8 @@ use freeze::FreezeDetector;
 use observers::group_rotation_controller;
 
 use crate::sync::{Arc, Mutex};
-use ripdpi_proxy_runtime_adapter::model::config::RelayGroupSettings;
-use ripdpi_proxy_runtime_adapter::model::session::SessionState;
+use ripdpi_proxy_runtime_adapter::model::config::{FirstResponseSettings, RelayGroupSettings};
+use ripdpi_proxy_runtime_adapter::model::session::{PayloadHostExtractor, SessionState};
 use std::io;
 use std::net::{Shutdown, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -20,12 +20,30 @@ const RELAY_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(6
 
 pub(super) const CONNECTION_FREEZE_MARKER: &str = "connection freeze detected";
 
+#[derive(Clone)]
+pub(super) struct RelayStreamSettings {
+    pub(super) group: RelayGroupSettings,
+    pub(super) outbound: RelayOutboundSettings,
+}
+
+#[derive(Clone)]
+pub(super) struct RelayOutboundSettings {
+    pub(super) host_extractor: PayloadHostExtractor,
+    pub(super) first_response: FirstResponseSettings,
+}
+
+pub(super) struct RelayOutboundContext {
+    pub(super) state: RuntimeState,
+    pub(super) group_index: usize,
+    pub(super) settings: RelayOutboundSettings,
+}
+
 pub(super) fn relay_streams(
     client: TcpStream,
     upstream: TcpStream,
     state: &RuntimeState,
     group_index: usize,
-    settings: RelayGroupSettings,
+    settings: RelayStreamSettings,
     session_seed: SessionState,
     remembered_host_seed: Option<String>,
 ) -> io::Result<SessionState> {
@@ -45,6 +63,8 @@ pub(super) fn relay_streams(
     let inbound_session = session_state.clone();
     let outbound_state = state.clone();
     let inbound_state = state.clone();
+    let outbound_context =
+        RelayOutboundContext { state: outbound_state, group_index, settings: settings.outbound.clone() };
     let peer_done = Arc::new(AtomicBool::new(false));
     let freeze_detected = Arc::new(AtomicBool::new(false));
     let remembered_host = Arc::new(Mutex::new(remembered_host_seed));
@@ -54,7 +74,7 @@ pub(super) fn relay_streams(
     let outbound_rotation = rotation_state.clone();
 
     let freeze_flag = freeze_detected.clone();
-    let timeouts = settings.timeouts;
+    let timeouts = settings.group.timeouts;
     let down_done = peer_done.clone();
     let down = thread::Builder::new()
         .name("ripdpi-dn".into())
@@ -81,8 +101,7 @@ pub(super) fn relay_streams(
     let up_result = copy_outbound_half(
         client_reader,
         upstream_writer,
-        outbound_state,
-        group_index,
+        outbound_context,
         outbound_session,
         outbound_host,
         outbound_rotation,
@@ -101,7 +120,7 @@ pub(super) fn relay_streams(
     let _ = upstream.shutdown(Shutdown::Both);
     let _ = client.shutdown(Shutdown::Both);
 
-    if settings.drop_sack {
+    if settings.group.drop_sack {
         let _ = ripdpi_proxy_runtime_adapter::platform::relay::detach_drop_sack(&upstream);
     }
 

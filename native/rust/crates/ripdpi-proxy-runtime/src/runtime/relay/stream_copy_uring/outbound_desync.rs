@@ -4,10 +4,11 @@ use std::io::{self, Read};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host_with, payload_host_extractor, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::{extract_payload_host_with, SessionState};
 
 use super::super::super::desync::{send_with_group, DesyncSendRequest, OutboundSendError};
 use super::super::super::state::RuntimeState;
+use super::super::stream_copy::RelayOutboundSettings;
 use super::cleanup::shutdown_direction;
 use super::observations::observe_outbound_payload;
 use super::RELAY_IDLE_TIMEOUT;
@@ -19,6 +20,7 @@ pub(super) fn copy_outbound_half(
     mut writer: TcpStream,
     state: RuntimeState,
     group_index: usize,
+    settings: RelayOutboundSettings,
     session: Arc<Mutex<SessionState>>,
     peer_done: Arc<AtomicBool>,
     mut remembered_host: Option<String>,
@@ -29,7 +31,15 @@ pub(super) fn copy_outbound_half(
         match reader.read(&mut buffer) {
             Ok(0) => break,
             Ok(n) => {
-                flush_outbound_payload(&mut writer, &state, group_index, &session, &mut remembered_host, &buffer[..n])?;
+                flush_outbound_payload(
+                    &mut writer,
+                    &state,
+                    group_index,
+                    &settings,
+                    &session,
+                    &mut remembered_host,
+                    &buffer[..n],
+                )?;
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
                 if peer_done.load(Ordering::Acquire) {
@@ -49,13 +59,13 @@ fn flush_outbound_payload(
     writer: &mut TcpStream,
     state: &RuntimeState,
     group_index: usize,
+    settings: &RelayOutboundSettings,
     session: &Arc<Mutex<SessionState>>,
     remembered_host: &mut Option<String>,
     payload: &[u8],
 ) -> io::Result<()> {
     let progress = observe_outbound_payload(session, payload)?;
-    let host_extractor = payload_host_extractor(&state.config);
-    let parsed_host = extract_payload_host_with(&host_extractor, payload);
+    let parsed_host = extract_payload_host_with(&settings.host_extractor, payload);
     if parsed_host.is_some() {
         *remembered_host = parsed_host.clone();
     }
