@@ -1,6 +1,6 @@
 use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::collections::BTreeMap;
-use std::io;
+use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
@@ -48,12 +48,12 @@ use ripdpi_proxy_runtime_adapter::model::services::{
     new_services_handle, reprobe_reset_handle, ReprobeResetHandle, ServicesStateHandle,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{
-    extract_payload_host_with, first_outbound_payload_policy, has_inbound_payload, new_session_state,
-    observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
+    encode_upstream_socks_connect, extract_payload_host_with, first_outbound_payload_policy, has_inbound_payload,
+    new_session_state, observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
     observe_outbound_payload, observe_retry_response_payload, outbound_payload_count_this_round,
-    payload_host_extractor, udp_packet_parser, udp_payload_classifier, FirstOutboundPayloadPolicy, OutboundPayloadInfo,
-    OutboundProgress, PayloadHostExtractor, SessionConfig, SessionState, SocketType, UdpPacketParser,
-    UdpPayloadClassifier, UdpPayloadInfo,
+    payload_host_extractor, read_upstream_socks_reply, udp_packet_parser, udp_payload_classifier,
+    FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, PayloadHostExtractor, SessionConfig,
+    SessionState, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use ripdpi_proxy_runtime_adapter::protocol_payload::{FirstResponseBoundaryTracker, OutboundTlsClientHelloAssembler};
@@ -469,6 +469,14 @@ impl RuntimeState {
 
     pub(super) fn outbound_payload_count_this_round(state: &SessionState) -> usize {
         outbound_payload_count_this_round(state)
+    }
+
+    pub(super) fn encode_upstream_socks_connect(target: SocketAddr) -> Vec<u8> {
+        encode_upstream_socks_connect(target)
+    }
+
+    pub(super) fn read_upstream_socks_reply(reader: &mut impl Read) -> io::Result<Vec<u8>> {
+        read_upstream_socks_reply(reader)
     }
 
     pub(super) fn classify_first_outbound_payload(&self, payload: &[u8]) -> OutboundPayloadInfo {

@@ -2,11 +2,10 @@ use std::io::{self, Read, Write};
 use std::net::{IpAddr, SocketAddr, TcpStream};
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::model::session::{
-    encode_upstream_socks_connect, read_upstream_socks_reply, S_AUTH_NONE, S_ER_GEN, S_VER5,
-};
+use ripdpi_proxy_runtime_adapter::model::session::{S_AUTH_NONE, S_ER_GEN, S_VER5};
 
 use super::socket::connect_socket;
+use crate::runtime::state::RuntimeState;
 pub(in crate::runtime::routing::connect) fn connect_via_socks(
     target: SocketAddr,
     upstream: SocketAddr,
@@ -27,9 +26,9 @@ pub(in crate::runtime::routing::connect) fn connect_via_socks(
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "upstream socks auth failed"));
         }
 
-        let request = encode_upstream_socks_connect(target);
+        let request = RuntimeState::encode_upstream_socks_connect(target);
         stream.write_all(&request)?;
-        let reply = read_upstream_socks_reply(&mut stream)?;
+        let reply = RuntimeState::read_upstream_socks_reply(&mut stream)?;
         if reply.get(1).copied().unwrap_or(S_ER_GEN) != 0 {
             return Err(io::Error::new(io::ErrorKind::ConnectionRefused, "upstream socks connect failed"));
         }
