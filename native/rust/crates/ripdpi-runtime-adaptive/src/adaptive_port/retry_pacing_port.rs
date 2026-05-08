@@ -2,14 +2,12 @@ use std::collections::BTreeMap;
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_config::RuntimeConfig;
 use ripdpi_runtime_policy::runtime_policy::{RetrySelectionPenalty, TransportProtocol};
 
 /// Retry pacing port for reconnect backoff and retry-selection penalties.
 pub trait RetryPacingPort: Send + Sync {
     fn note_retry_success(
         &self,
-        config: &RuntimeConfig,
         target: SocketAddr,
         group_index: usize,
         host: Option<&str>,
@@ -19,7 +17,6 @@ pub trait RetryPacingPort: Send + Sync {
 
     fn note_retry_failure(
         &self,
-        config: &RuntimeConfig,
         target: SocketAddr,
         group_index: usize,
         host: Option<&str>,
@@ -30,7 +27,6 @@ pub trait RetryPacingPort: Send + Sync {
 
     fn build_retry_penalties(
         &self,
-        config: &RuntimeConfig,
         target: SocketAddr,
         host: Option<&str>,
         payload: Option<&[u8]>,
@@ -40,7 +36,6 @@ pub trait RetryPacingPort: Send + Sync {
 
     fn apply_retry_pacing(
         &self,
-        config: &RuntimeConfig,
         target: SocketAddr,
         group_index: usize,
         host: Option<&str>,

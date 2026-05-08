@@ -1,10 +1,10 @@
 use crate::strategy_evolution::StrategyEvolutionResolver;
 use crate::ServicesStateHandle;
-use ripdpi_config::RuntimeConfig;
 use ripdpi_failure_classifier::FailureClass;
 use ripdpi_runtime_adaptive::adaptive_fake_ttl::AdaptiveFakeTtlResolver;
 use ripdpi_runtime_adaptive::adaptive_port::AdaptiveFeedbackPort;
 use ripdpi_runtime_adaptive::adaptive_tuning::AdaptivePlannerResolver;
+use ripdpi_runtime_adaptive::strategy_context::network_scope_key;
 use std::io;
 use std::net::SocketAddr;
 impl ServicesStateHandle {
@@ -30,65 +30,52 @@ impl ServicesStateHandle {
 impl AdaptiveFeedbackPort for ServicesStateHandle {
     fn note_tcp_success(
         &self,
-        scope_key: Option<&str>,
         group_index: usize,
         target: SocketAddr,
         host: Option<&str>,
         payload: &[u8],
     ) -> io::Result<()> {
+        let scope_key = network_scope_key(&self.0.config);
         self.with_tuning(|resolver| resolver.note_tcp_success(scope_key, group_index, target, host, payload))
     }
     fn note_tcp_failure(
         &self,
-        scope_key: Option<&str>,
         group_index: usize,
         target: SocketAddr,
         host: Option<&str>,
         payload: &[u8],
     ) -> io::Result<()> {
+        let scope_key = network_scope_key(&self.0.config);
         self.with_tuning(|resolver| resolver.note_tcp_failure(scope_key, group_index, target, host, payload))
     }
     fn note_udp_success(
         &self,
-        scope_key: Option<&str>,
         group_index: usize,
         target: SocketAddr,
         host: Option<&str>,
         payload: &[u8],
     ) -> io::Result<()> {
+        let scope_key = network_scope_key(&self.0.config);
         self.with_tuning(|resolver| resolver.note_udp_success(scope_key, group_index, target, host, payload))
     }
     fn note_udp_failure(
         &self,
-        scope_key: Option<&str>,
         group_index: usize,
         target: SocketAddr,
         host: Option<&str>,
         payload: &[u8],
     ) -> io::Result<()> {
+        let scope_key = network_scope_key(&self.0.config);
         self.with_tuning(|resolver| resolver.note_udp_failure(scope_key, group_index, target, host, payload))
     }
-    fn note_fake_ttl_success(
-        &self,
-        _: Option<&str>,
-        group_index: usize,
-        target: SocketAddr,
-        host: Option<&str>,
-    ) -> io::Result<()> {
+    fn note_fake_ttl_success(&self, group_index: usize, target: SocketAddr, host: Option<&str>) -> io::Result<()> {
         self.with_fake_ttl(|resolver| resolver.note_success(group_index, target, host))
     }
-    fn note_fake_ttl_failure(
-        &self,
-        _: Option<&str>,
-        group_index: usize,
-        target: SocketAddr,
-        host: Option<&str>,
-    ) -> io::Result<()> {
+    fn note_fake_ttl_failure(&self, group_index: usize, target: SocketAddr, host: Option<&str>) -> io::Result<()> {
         self.with_fake_ttl(|resolver| resolver.note_failure(group_index, target, host))
     }
     fn note_server_ttl(
         &self,
-        _: Option<&str>,
         group_index: usize,
         target: SocketAddr,
         host: Option<&str>,
@@ -113,9 +100,9 @@ impl AdaptiveFeedbackPort for ServicesStateHandle {
             tuning.clear_all();
         }
     }
-    fn flush_adaptive_store(&self, config: &RuntimeConfig) {
+    fn flush_adaptive_store(&self) {
         if let Ok(mut resolver) = self.0.adaptive_tuning.write() {
-            resolver.flush_store(config);
+            resolver.flush_store(&self.0.config);
         }
     }
 }

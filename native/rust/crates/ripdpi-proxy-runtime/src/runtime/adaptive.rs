@@ -20,4 +20,3 @@ pub(super) use fake_ttl::{note_adaptive_fake_ttl_failure, note_adaptive_fake_ttl
 pub(super) use hints::{
     note_adaptive_tcp_failure, note_adaptive_tcp_success, note_adaptive_udp_failure, note_adaptive_udp_success,
 };
-pub(super) use ripdpi_proxy_runtime_adapter::model::ports::network_scope_key;

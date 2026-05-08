@@ -4,7 +4,6 @@ use std::net::SocketAddr;
 use std::thread;
 use std::time::Duration;
 
-use ripdpi_config::RuntimeConfig;
 use ripdpi_runtime_adaptive::adaptive_port::RetryPacingPort;
 use ripdpi_runtime_policy::runtime_policy::{RetrySelectionPenalty, TransportProtocol};
 
@@ -13,14 +12,15 @@ use crate::ServicesStateHandle;
 impl RetryPacingPort for ServicesStateHandle {
     fn note_retry_success(
         &self,
-        config: &RuntimeConfig,
         target: SocketAddr,
         group_index: usize,
         host: Option<&str>,
         payload: Option<&[u8]>,
         transport: TransportProtocol,
     ) -> io::Result<()> {
-        let Some(signature) = self.build_retry_signature(config, target, group_index, host, payload, transport)? else {
+        let Some(signature) =
+            self.build_retry_signature(&self.0.config, target, group_index, host, payload, transport)?
+        else {
             return Ok(());
         };
         let mut pacer = self.0.retry_pacer.write().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
@@ -30,7 +30,6 @@ impl RetryPacingPort for ServicesStateHandle {
 
     fn note_retry_failure(
         &self,
-        config: &RuntimeConfig,
         target: SocketAddr,
         group_index: usize,
         host: Option<&str>,
@@ -38,7 +37,9 @@ impl RetryPacingPort for ServicesStateHandle {
         transport: TransportProtocol,
         now_ms: u64,
     ) -> io::Result<()> {
-        let Some(signature) = self.build_retry_signature(config, target, group_index, host, payload, transport)? else {
+        let Some(signature) =
+            self.build_retry_signature(&self.0.config, target, group_index, host, payload, transport)?
+        else {
             return Ok(());
         };
         let mut pacer = self.0.retry_pacer.write().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
@@ -48,13 +49,13 @@ impl RetryPacingPort for ServicesStateHandle {
 
     fn build_retry_penalties(
         &self,
-        config: &RuntimeConfig,
         target: SocketAddr,
         host: Option<&str>,
         payload: Option<&[u8]>,
         transport: TransportProtocol,
         now_ms: u64,
     ) -> io::Result<BTreeMap<usize, RetrySelectionPenalty>> {
+        let config = &self.0.config;
         let mut signatures = Vec::with_capacity(config.groups.len());
         for group_index in 0..config.groups.len() {
             if let Some(sig) = self.build_retry_signature(config, target, group_index, host, payload, transport)? {
@@ -71,7 +72,6 @@ impl RetryPacingPort for ServicesStateHandle {
 
     fn apply_retry_pacing(
         &self,
-        config: &RuntimeConfig,
         target: SocketAddr,
         group_index: usize,
         host: Option<&str>,
@@ -80,7 +80,7 @@ impl RetryPacingPort for ServicesStateHandle {
         on_paced: &dyn Fn(SocketAddr, usize, &'static str, u64),
     ) -> io::Result<()> {
         let Some(signature) =
-            self.build_retry_signature(config, target, group_index, host, payload, TransportProtocol::Tcp)?
+            self.build_retry_signature(&self.0.config, target, group_index, host, payload, TransportProtocol::Tcp)?
         else {
             return Ok(());
         };
