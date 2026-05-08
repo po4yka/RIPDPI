@@ -25,7 +25,7 @@ pub(super) fn run_proxy_with_listener_internal(
     let mut config = config;
     ensure_default_ttl(&mut config, listener_platform::detect_default_ttl)?;
     let state = RuntimeState::new(config, control.clone());
-    let settings = listener_settings(&state.config);
+    let settings = state.listener_settings;
     let listener_addr = listener.local_addr()?;
     if let Some(telemetry) = &state.telemetry {
         telemetry.on_listener_started(listener_addr, settings.client_capacity, settings.route_group_count);

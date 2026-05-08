@@ -2,11 +2,11 @@ use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    first_response_settings, relay_group_settings_table, response_failure_evidence_settings, route_payload_matcher,
-    tcp_route_connect_settings_table, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit,
-    udp_group_settings_table, FirstResponseSettings, RelayGroupSettingsTable, ResponseFailureEvidenceSettings,
-    RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings,
-    UdpGroupSettingsTable,
+    first_response_settings, listener_settings, relay_group_settings_table, response_failure_evidence_settings,
+    route_payload_matcher, tcp_route_connect_settings_table, tcp_route_retry_settings, tcp_route_syn_data_settings,
+    udp_flow_limit, udp_group_settings_table, FirstResponseSettings, ListenerSettings, RelayGroupSettingsTable,
+    ResponseFailureEvidenceSettings, RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettingsTable,
+    TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable,
 };
 use ripdpi_proxy_runtime_adapter::model::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, AdaptiveHintPort, DirectPathLearningPort, PolicyPort, RetryPacingPort,
@@ -29,6 +29,7 @@ pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 #[derive(Clone)]
 pub(super) struct RuntimeState {
     pub(super) config: Arc<RuntimeConfig>,
+    pub(super) listener_settings: ListenerSettings,
     pub(super) route_retry_settings: TcpRouteRetrySettings,
     pub(super) route_syn_data_settings: TcpRouteSynDataSettings,
     pub(super) route_connect_settings: TcpRouteConnectSettingsTable,
@@ -68,6 +69,7 @@ impl RuntimeState {
 
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
 
+        let listener_settings = listener_settings(&config);
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
         let route_connect_settings = tcp_route_connect_settings_table(&config);
@@ -86,6 +88,7 @@ impl RuntimeState {
 
         Self {
             config: Arc::new(config),
+            listener_settings,
             route_retry_settings,
             route_syn_data_settings,
             route_connect_settings,
@@ -163,6 +166,7 @@ impl RuntimeState {
         runtime_context: Option<ProxyRuntimeContext>,
     ) -> Self {
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
+        let listener_settings = listener_settings(&config);
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
         let route_connect_settings = tcp_route_connect_settings_table(&config);
@@ -181,6 +185,7 @@ impl RuntimeState {
 
         Self {
             config: Arc::new(config),
+            listener_settings,
             route_retry_settings,
             route_syn_data_settings,
             route_connect_settings,
