@@ -9,8 +9,8 @@ use ripdpi_proxy_runtime_adapter::desync_platform::{
     TcpDesyncExecutionContext, TcpDesyncExecutor,
 };
 use ripdpi_proxy_runtime_adapter::failure::{
-    block_signal_from_failure, should_track_strategy_target, BlockSignal, ClassifiedFailure, FailureAction,
-    FailureClass,
+    block_signal_from_failure, classify_transport_error, should_track_strategy_target, BlockSignal, ClassifiedFailure,
+    FailureAction, FailureClass, FailureStage,
 };
 use ripdpi_proxy_runtime_adapter::model::config::{
     connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
@@ -614,6 +614,17 @@ impl RuntimeState {
 
     pub(super) fn connect_failure_trigger() -> u32 {
         DETECT_CONNECT
+    }
+
+    pub(super) fn classify_connect_transport_error(source: &io::Error) -> ClassifiedFailure {
+        classify_transport_error(FailureStage::Connect, source)
+    }
+
+    pub(super) fn connect_failure_retries_without_tfo(
+        tcp_fast_open_enabled: bool,
+        failure: &ClassifiedFailure,
+    ) -> bool {
+        tcp_fast_open_enabled && matches!(failure.class, FailureClass::ConnectFailure | FailureClass::TcpReset)
     }
 
     pub(super) fn should_track_strategy_target(target: SocketAddr) -> bool {

@@ -1,7 +1,6 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, ClassifiedFailure, FailureClass, FailureStage};
 use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
 
 use super::super::adaptive::{note_direct_path_all_ips_failed, note_direct_path_transport_attempt};
@@ -37,8 +36,8 @@ pub(in crate::runtime) fn connect_target_with_route(
             Ok(stream) => return Ok((stream, route)),
             Err(mut err) => {
                 retries += 1;
-                let mut failure = classify_transport_error(FailureStage::Connect, &err.source);
-                if should_retry_without_tfo(err.tcp_fast_open_enabled, &failure) {
+                let mut failure = RuntimeState::classify_connect_transport_error(&err.source);
+                if RuntimeState::connect_failure_retries_without_tfo(err.tcp_fast_open_enabled, &failure) {
                     tracing::debug!(group_index = route.group_index, target = %target, "retrying connect without TCP Fast Open");
                     match connect_target_candidates_via_group(
                         &attempt_targets,
@@ -50,7 +49,7 @@ pub(in crate::runtime) fn connect_target_with_route(
                         Ok(stream) => return Ok((stream, route)),
                         Err(fallback_err) => {
                             err = fallback_err;
-                            failure = classify_transport_error(FailureStage::Connect, &err.source);
+                            failure = RuntimeState::classify_connect_transport_error(&err.source);
                         }
                     }
                 }
@@ -69,10 +68,6 @@ pub(in crate::runtime) fn connect_target_with_route(
             }
         }
     }
-}
-
-fn should_retry_without_tfo(tcp_fast_open_enabled: bool, failure: &ClassifiedFailure) -> bool {
-    tcp_fast_open_enabled && matches!(failure.class, FailureClass::ConnectFailure | FailureClass::TcpReset)
 }
 
 pub(in crate::runtime) fn reconnect_target(
@@ -122,8 +117,8 @@ fn reconnect_target_with_tfo_mode(
                 if retries > state.max_route_retries() {
                     return Err(err.into_io_error());
                 }
-                let mut failure = classify_transport_error(FailureStage::Connect, &err.source);
-                if allow_tfo && should_retry_without_tfo(err.tcp_fast_open_enabled, &failure) {
+                let mut failure = RuntimeState::classify_connect_transport_error(&err.source);
+                if allow_tfo && RuntimeState::connect_failure_retries_without_tfo(err.tcp_fast_open_enabled, &failure) {
                     tracing::debug!(group_index = route.group_index, target = %target, "retrying reconnect without TCP Fast Open");
                     match connect_target_candidates_via_group(
                         &attempt_targets,
@@ -135,7 +130,7 @@ fn reconnect_target_with_tfo_mode(
                         Ok(stream) => return Ok((stream, route)),
                         Err(fallback_err) => {
                             err = fallback_err;
-                            failure = classify_transport_error(FailureStage::Connect, &err.source);
+                            failure = RuntimeState::classify_connect_transport_error(&err.source);
                         }
                     }
                 }
@@ -181,9 +176,9 @@ mod tests {
             "reset",
         );
 
-        assert!(should_retry_without_tfo(true, &connect_failure));
-        assert!(should_retry_without_tfo(true, &reset_failure));
-        assert!(!should_retry_without_tfo(false, &connect_failure));
-        assert!(!should_retry_without_tfo(false, &reset_failure));
+        assert!(RuntimeState::connect_failure_retries_without_tfo(true, &connect_failure));
+        assert!(RuntimeState::connect_failure_retries_without_tfo(true, &reset_failure));
+        assert!(!RuntimeState::connect_failure_retries_without_tfo(false, &connect_failure));
+        assert!(!RuntimeState::connect_failure_retries_without_tfo(false, &reset_failure));
     }
 }
