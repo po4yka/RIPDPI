@@ -49,9 +49,9 @@ use ripdpi_proxy_runtime_adapter::model::services::{
     new_services_handle, reprobe_reset_handle, ReprobeResetHandle, ServicesStateHandle,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{
-    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, encode_upstream_socks_connect,
-    extract_payload_host_with, first_outbound_payload_policy, has_inbound_payload, new_session_state,
-    observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
+    encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, encode_socks5_udp_packet,
+    encode_upstream_socks_connect, extract_payload_host_with, first_outbound_payload_policy, has_inbound_payload,
+    new_session_state, observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
     observe_outbound_payload, observe_retry_response_payload, outbound_payload_count_this_round,
     parse_http_connect_request, parse_shadowsocks_target, parse_socks4_request, parse_socks5_request,
     payload_host_extractor, read_upstream_socks_reply, udp_packet_parser, udp_payload_classifier, ClientRequest,
@@ -598,6 +598,10 @@ impl RuntimeState {
             packet,
             resolve_name,
         )
+    }
+
+    pub(super) fn encode_socks5_udp_packet(target: SocketAddr, payload: &[u8]) -> Vec<u8> {
+        encode_socks5_udp_packet(target, payload)
     }
 
     pub(super) fn classify_udp_payload(&self, payload: &[u8]) -> UdpPayloadInfo {
