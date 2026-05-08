@@ -104,24 +104,22 @@ pub(super) fn flush_outbound_payload(
     let peer_addr = writer.peer_addr()?;
     let group = if let Some(rotation) = rotation {
         let mut rotation = rotation.lock().map_err(|_| io::Error::other("rotation mutex poisoned"))?;
-        let first_response = state.relay_first_response_settings();
         let retrans_baseline = if is_new_round {
             ripdpi_proxy_runtime_adapter::platform::relay::tcp_total_retransmissions(writer).ok().flatten()
         } else {
             None
         };
         if is_new_round {
-            rotation.start_round(
-                first_response,
-                progress.round,
-                progress.stream_start,
+            state.start_relay_rotation_round(
+                &mut rotation,
+                progress,
                 payload,
                 retrans_baseline,
                 host.as_deref(),
                 Some(peer_addr),
             );
         } else {
-            rotation.append_request_chunk(first_response, progress.round, payload);
+            state.append_relay_rotation_request_chunk(&mut rotation, progress.round, payload);
         }
         Some(rotation.current_send_group())
     } else {

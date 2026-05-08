@@ -11,10 +11,10 @@ use ripdpi_proxy_runtime_adapter::desync_platform::{
 use ripdpi_proxy_runtime_adapter::failure::{BlockSignal, ClassifiedFailure, FailureClass};
 use ripdpi_proxy_runtime_adapter::model::config::{
     connection_route_requests_direct_syn_data_tfo_with, delayed_connect_settings, delayed_route_matches_payload_with,
-    first_response_settings, listener_settings, network_reprobe_settings, primary_tcp_strategy_family_with,
-    proxy_handshake_settings, relay_group_settings_table, relay_group_settings_with,
-    response_failure_evidence_settings, route_matches_transport_payload_with, route_payload_matcher,
-    route_requires_delay_payload_with, tcp_rotation_seed_with, tcp_route_connect_settings_table,
+    first_response_settings, first_response_timeout, first_response_timeout_count_limit, listener_settings,
+    network_reprobe_settings, primary_tcp_strategy_family_with, proxy_handshake_settings, relay_group_settings_table,
+    relay_group_settings_with, response_failure_evidence_settings, route_matches_transport_payload_with,
+    route_payload_matcher, route_requires_delay_payload_with, tcp_rotation_seed_with, tcp_route_connect_settings_table,
     tcp_route_connect_settings_with, tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit,
     udp_group_settings_table, udp_group_settings_with, warmup_probe_settings, ws_tunnel_config_with,
     ws_tunnel_settings, DelayedConnectSettings, DesyncGroup, FirstResponseSettings, ListenerSettings,
@@ -40,9 +40,11 @@ use ripdpi_proxy_runtime_adapter::model::services::{
 };
 use ripdpi_proxy_runtime_adapter::model::session::{
     extract_payload_host_with, first_outbound_payload_policy, payload_host_extractor, udp_packet_parser,
-    udp_payload_classifier, FirstOutboundPayloadPolicy, OutboundPayloadInfo, PayloadHostExtractor, SessionConfig,
-    SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
+    udp_payload_classifier, FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, PayloadHostExtractor,
+    SessionConfig, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
 };
+use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
+use ripdpi_proxy_runtime_adapter::protocol_payload::FirstResponseBoundaryTracker;
 use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
 use ripdpi_proxy_runtime_adapter::udp_desync::{
     plan_udp_actions_for_runtime, udp_desync_planner, UdpDesyncAction, UdpDesyncPlanContext, UdpDesyncPlanRequest,
@@ -355,8 +357,53 @@ impl RuntimeState {
         tcp_rotation_seed_with(&self.relay_group_settings, group_index)
     }
 
-    pub(super) fn relay_first_response_settings(&self) -> FirstResponseSettings {
-        self.relay_first_response
+    pub(super) fn relay_first_response_buffer_size(&self) -> usize {
+        self.relay_first_response.buffer_size
+    }
+
+    pub(super) fn relay_first_response_boundary_tracker(&self, request: &[u8]) -> FirstResponseBoundaryTracker {
+        FirstResponseBoundaryTracker::for_request(request, self.relay_first_response)
+    }
+
+    pub(super) fn relay_first_response_timeout(&self, tls_partial: &FirstResponseBoundaryTracker) -> Option<Duration> {
+        first_response_timeout(self.relay_first_response, tls_partial.active())
+    }
+
+    pub(super) fn relay_first_response_timeout_count_limit(&self) -> i32 {
+        first_response_timeout_count_limit(self.relay_first_response)
+    }
+
+    pub(super) fn relay_first_response_reports_timeout_failure(&self) -> bool {
+        self.relay_first_response.timeout_ms != 0
+    }
+
+    pub(super) fn start_relay_rotation_round(
+        &self,
+        rotation: &mut CircularTcpRotationController,
+        progress: OutboundProgress,
+        payload: &[u8],
+        retrans_baseline: Option<u32>,
+        host: Option<&str>,
+        target: Option<SocketAddr>,
+    ) {
+        rotation.start_round(
+            self.relay_first_response,
+            progress.round,
+            progress.stream_start,
+            payload,
+            retrans_baseline,
+            host,
+            target,
+        );
+    }
+
+    pub(super) fn append_relay_rotation_request_chunk(
+        &self,
+        rotation: &mut CircularTcpRotationController,
+        round: u32,
+        payload: &[u8],
+    ) {
+        rotation.append_request_chunk(self.relay_first_response, round, payload);
     }
 
     pub(super) fn first_outbound_payload_buffer_size(&self) -> usize {

@@ -5,15 +5,17 @@ use ripdpi_proxy_runtime_adapter::failure::{
     classify_first_response_closed_before_response, classify_first_response_partial_tls_timeout,
     classify_first_response_transport_error, ClassifiedFailure,
 };
+#[cfg(test)]
 use ripdpi_proxy_runtime_adapter::model::config::{
     first_response_timeout as projected_first_response_timeout, first_response_timeout_count_limit,
     FirstResponseSettings,
 };
 use ripdpi_proxy_runtime_adapter::platform::first_response as first_response_platform;
+#[cfg(test)]
+use ripdpi_proxy_runtime_adapter::protocol_payload::FirstResponseBoundaryTracker;
 
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure};
 use super::super::state::RuntimeState;
-use ripdpi_proxy_runtime_adapter::protocol_payload::FirstResponseBoundaryTracker;
 
 pub(super) enum FirstResponse {
     Forward(Vec<u8>, Option<u8>),
@@ -32,16 +34,15 @@ pub(super) fn read_first_response(
     upstream: &mut TcpStream,
     request: &[u8],
 ) -> io::Result<FirstResponse> {
-    let settings = state.relay_first_response_settings();
     let _ = first_response_platform::enable_recv_ttl(upstream);
     let mut collected = Vec::new();
-    let mut chunk = vec![0u8; settings.buffer_size];
-    let mut tls_partial = FirstResponseBoundaryTracker::for_request(request, settings);
+    let mut chunk = vec![0u8; state.relay_first_response_buffer_size()];
+    let mut tls_partial = state.relay_first_response_boundary_tracker(request);
     let mut timeout_count = 0i32;
     let mut observed_server_ttl: Option<u8> = None;
 
     loop {
-        let _ = upstream.set_read_timeout(first_response_timeout(settings, &tls_partial));
+        let _ = upstream.set_read_timeout(state.relay_first_response_timeout(&tls_partial));
         let read_result = if collected.is_empty() {
             first_response_platform::read_chunk_with_ttl(upstream, &mut chunk).map(|(n, ttl)| {
                 if ttl.is_some() {
@@ -74,7 +75,7 @@ pub(super) fn read_first_response(
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {
                 if tls_partial.waiting_for_tls_record() {
                     timeout_count += 1;
-                    if timeout_count >= timeout_count_limit(settings) {
+                    if timeout_count >= state.relay_first_response_timeout_count_limit() {
                         Ok(FirstResponse::Failure {
                             failure: classify_first_response_partial_tls_timeout(),
                             response_bytes: None,
@@ -82,7 +83,7 @@ pub(super) fn read_first_response(
                     } else {
                         continue;
                     }
-                } else if settings.timeout_ms != 0 {
+                } else if state.relay_first_response_reports_timeout_failure() {
                     let failure = classify_first_response_transport_error(&err);
                     let retransmissions = first_response_platform::tcp_total_retransmissions(upstream).ok().flatten();
                     note_block_signal_for_failure(state, host, &failure, retransmissions);
@@ -119,6 +120,7 @@ pub(super) fn read_first_response(
     }
 }
 
+#[cfg(test)]
 pub(super) fn first_response_timeout(
     settings: FirstResponseSettings,
     tls_partial: &FirstResponseBoundaryTracker,
@@ -126,6 +128,7 @@ pub(super) fn first_response_timeout(
     projected_first_response_timeout(settings, tls_partial.active())
 }
 
+#[cfg(test)]
 pub(super) fn timeout_count_limit(settings: FirstResponseSettings) -> i32 {
     first_response_timeout_count_limit(settings)
 }
