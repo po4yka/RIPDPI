@@ -3,17 +3,36 @@ use std::io;
 use ripdpi_config::{RuntimeConfig, TcpChainStepKind, UdpChainStepKind};
 use ripdpi_runtime_platform::raw_packet::{probe_ip_fragmentation_capabilities, IpFragmentationCapabilities};
 
-pub fn validate_ip_fragmentation_support(config: &RuntimeConfig) -> io::Result<()> {
-    if !requires_raw_packet_desync(config) {
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RawPacketRequirements {
+    protect_path: Option<String>,
+    ipv6_enabled: bool,
+    requires_packet_owned_tcp: bool,
+    requires_udp_ipfrag: bool,
+}
+
+pub fn raw_packet_requirements(config: &RuntimeConfig) -> RawPacketRequirements {
+    RawPacketRequirements {
+        protect_path: config.process.protect_path.clone(),
+        ipv6_enabled: config.network.ipv6,
+        requires_packet_owned_tcp: requires_packet_owned_tcp(config),
+        requires_udp_ipfrag: requires_udp_ipfrag(config),
+    }
+}
+
+pub fn validate_ip_fragmentation_support(requirements: &RawPacketRequirements) -> io::Result<()> {
+    if !requirements.requires_raw_packet_desync() {
         return Ok(());
     }
 
-    let capabilities = probe_ip_fragmentation_capabilities(config.process.protect_path.as_deref())?;
-    validate_ip_fragmentation_capabilities(config, capabilities)
+    let capabilities = probe_ip_fragmentation_capabilities(requirements.protect_path.as_deref())?;
+    validate_ip_fragmentation_capabilities(requirements, capabilities)
 }
 
-fn requires_raw_packet_desync(config: &RuntimeConfig) -> bool {
-    requires_packet_owned_tcp(config) || requires_udp_ipfrag(config)
+impl RawPacketRequirements {
+    fn requires_raw_packet_desync(&self) -> bool {
+        self.requires_packet_owned_tcp || self.requires_udp_ipfrag
+    }
 }
 
 fn requires_packet_owned_tcp(config: &RuntimeConfig) -> bool {
@@ -33,11 +52,11 @@ fn requires_udp_ipfrag(config: &RuntimeConfig) -> bool {
 }
 
 fn validate_ip_fragmentation_capabilities(
-    config: &RuntimeConfig,
+    requirements: &RawPacketRequirements,
     capabilities: IpFragmentationCapabilities,
 ) -> io::Result<()> {
-    let requires_packet_owned_tcp = requires_packet_owned_tcp(config);
-    let requires_udp_ipfrag = requires_udp_ipfrag(config);
+    let requires_packet_owned_tcp = requirements.requires_packet_owned_tcp;
+    let requires_udp_ipfrag = requirements.requires_udp_ipfrag;
     if !requires_packet_owned_tcp && !requires_udp_ipfrag {
         return Ok(());
     }
@@ -46,7 +65,7 @@ fn validate_ip_fragmentation_capabilities(
     if (requires_packet_owned_tcp || requires_udp_ipfrag) && !capabilities.raw_ipv4 {
         missing.push("raw IPv4 sockets");
     }
-    if (requires_packet_owned_tcp || requires_udp_ipfrag) && config.network.ipv6 && !capabilities.raw_ipv6 {
+    if (requires_packet_owned_tcp || requires_udp_ipfrag) && requirements.ipv6_enabled && !capabilities.raw_ipv6 {
         missing.push("raw IPv6 sockets");
     }
     if requires_packet_owned_tcp && !capabilities.tcp_repair {
@@ -67,7 +86,7 @@ mod tests {
         DesyncGroup, OffsetExpr, RuntimeConfig, TcpChainStep, TcpChainStepKind, UdpChainStep, UdpChainStepKind,
     };
 
-    use super::validate_ip_fragmentation_capabilities;
+    use super::{raw_packet_requirements, validate_ip_fragmentation_capabilities};
     use crate::platform::raw_packet::IpFragmentationCapabilities;
 
     fn runtime_config_with_ipfrag(tcp: bool, udp: bool, ipv6: bool) -> RuntimeConfig {
@@ -108,15 +127,18 @@ mod tests {
     fn ipfrag_capability_validation_allows_non_fragmenting_configs() {
         let config = RuntimeConfig::default();
 
-        validate_ip_fragmentation_capabilities(&config, IpFragmentationCapabilities::default())
+        let requirements = raw_packet_requirements(&config);
+
+        validate_ip_fragmentation_capabilities(&requirements, IpFragmentationCapabilities::default())
             .expect("non-ipfrag configs should skip capability gating");
     }
 
     #[test]
     fn ipfrag_capability_validation_requires_ipv6_raw_socket_when_enabled() {
         let config = runtime_config_with_ipfrag(false, true, true);
+        let requirements = raw_packet_requirements(&config);
         let err = validate_ip_fragmentation_capabilities(
-            &config,
+            &requirements,
             IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: false, tcp_repair: false },
         )
         .expect_err("ipv6 ipfrag should require raw ipv6");
@@ -128,8 +150,9 @@ mod tests {
     #[test]
     fn ipfrag_capability_validation_requires_tcp_repair_for_tcp_steps() {
         let config = runtime_config_with_ipfrag(true, false, false);
+        let requirements = raw_packet_requirements(&config);
         let err = validate_ip_fragmentation_capabilities(
-            &config,
+            &requirements,
             IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: false, tcp_repair: false },
         )
         .expect_err("tcp ipfrag should require tcp repair");
@@ -141,8 +164,9 @@ mod tests {
     #[test]
     fn multidisorder_capability_validation_requires_tcp_repair_for_packet_owned_tcp() {
         let config = runtime_config_with_multidisorder(false);
+        let requirements = raw_packet_requirements(&config);
         let err = validate_ip_fragmentation_capabilities(
-            &config,
+            &requirements,
             IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: false, tcp_repair: false },
         )
         .expect_err("multidisorder should require tcp repair");
@@ -155,8 +179,10 @@ mod tests {
     fn multidisorder_capability_validation_accepts_raw_sockets_and_tcp_repair() {
         let config = runtime_config_with_multidisorder(true);
 
+        let requirements = raw_packet_requirements(&config);
+
         validate_ip_fragmentation_capabilities(
-            &config,
+            &requirements,
             IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: true, tcp_repair: true },
         )
         .expect("multidisorder should pass when raw sockets and tcp repair are available");
@@ -166,8 +192,10 @@ mod tests {
     fn ipfrag_capability_validation_does_not_require_ipv6_when_disabled() {
         let config = runtime_config_with_ipfrag(false, true, false);
 
+        let requirements = raw_packet_requirements(&config);
+
         validate_ip_fragmentation_capabilities(
-            &config,
+            &requirements,
             IpFragmentationCapabilities { raw_ipv4: true, raw_ipv6: false, tcp_repair: false },
         )
         .expect("ipv4-only ipfrag should not require raw ipv6");
