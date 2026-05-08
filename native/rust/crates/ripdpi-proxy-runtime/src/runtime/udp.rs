@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 
 use crate::sync::{Arc, AtomicBool, Ordering};
 use ripdpi_proxy_runtime_adapter::model::config::udp_flow_limit;
-use ripdpi_proxy_runtime_adapter::model::session::{self as session_model, SocketType};
+use ripdpi_proxy_runtime_adapter::model::session::{self as session_model, udp_payload_classifier, SocketType};
 
 use self::client_receive::receive_and_forward_udp_client_packet;
 use self::flow::{expire_udp_flows, UdpFlowActivationState};
@@ -45,6 +45,7 @@ pub(super) fn udp_associate_loop(
     let mut upstream_buffer = [0u8; 65_535];
     let mut flow_state = HashMap::<(SocketAddr, SocketAddr), UdpFlowActivationState>::new();
     let flow_limit = udp_flow_limit(&state.config);
+    let payload_classifier = udp_payload_classifier(&state.config);
 
     while running.load(Ordering::Relaxed) {
         emit_due_direct_path_learning_timeouts(&state)?;
@@ -55,6 +56,7 @@ pub(super) fn udp_associate_loop(
             &mut udp_client_addr,
             &mut flow_state,
             flow_limit,
+            &payload_classifier,
             &state,
             protect_path.as_deref(),
         )?;
