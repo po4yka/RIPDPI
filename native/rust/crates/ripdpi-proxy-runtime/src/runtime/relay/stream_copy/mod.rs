@@ -7,7 +7,9 @@ use freeze::FreezeDetector;
 use observers::group_rotation_controller;
 
 use crate::sync::{Arc, Mutex};
-use ripdpi_proxy_runtime_adapter::model::config::{FirstResponseSettings, RelayGroupSettings};
+use ripdpi_proxy_runtime_adapter::model::config::{
+    DesyncGroup, FirstResponseSettings, RelayGroupSettings, RotationPolicy,
+};
 use ripdpi_proxy_runtime_adapter::model::session::{PayloadHostExtractor, SessionState};
 use std::io;
 use std::net::{Shutdown, TcpStream};
@@ -24,6 +26,7 @@ pub(super) const CONNECTION_FREEZE_MARKER: &str = "connection freeze detected";
 pub(super) struct RelayStreamSettings {
     pub(super) group: RelayGroupSettings,
     pub(super) outbound: RelayOutboundSettings,
+    pub(super) rotation_seed: Option<(DesyncGroup, RotationPolicy)>,
 }
 
 #[derive(Clone)]
@@ -47,7 +50,7 @@ pub(super) fn relay_streams(
     session_seed: SessionState,
     remembered_host_seed: Option<String>,
 ) -> io::Result<SessionState> {
-    let rotation_state = group_rotation_controller(state, group_index, &session_seed)?;
+    let rotation_state = group_rotation_controller(settings.rotation_seed.clone(), &session_seed);
     let _ = (client.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), client.set_write_timeout(None));
     let _ = (upstream.set_read_timeout(Some(RELAY_IDLE_TIMEOUT)), upstream.set_write_timeout(None));
 

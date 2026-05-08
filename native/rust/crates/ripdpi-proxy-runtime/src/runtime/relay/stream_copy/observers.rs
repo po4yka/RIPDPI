@@ -1,6 +1,6 @@
 use crate::sync::{Arc, Mutex};
 use ripdpi_proxy_runtime_adapter::failure::{classify_transport_error, FailureStage};
-use ripdpi_proxy_runtime_adapter::model::config::tcp_rotation_seed;
+use ripdpi_proxy_runtime_adapter::model::config::{DesyncGroup, RotationPolicy};
 use ripdpi_proxy_runtime_adapter::model::session::SessionState;
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::{CircularTcpRotationController, RotationFailureReason};
 use std::io;
@@ -10,16 +10,15 @@ use super::super::super::routing::{classify_response_failure, note_block_signal_
 use super::super::super::state::RuntimeState;
 
 pub(super) fn group_rotation_controller(
-    state: &RuntimeState,
-    group_index: usize,
+    rotation_seed: Option<(DesyncGroup, RotationPolicy)>,
     session_seed: &SessionState,
-) -> io::Result<Option<Arc<Mutex<CircularTcpRotationController>>>> {
+) -> Option<Arc<Mutex<CircularTcpRotationController>>> {
     if session_seed.recv_count == 0 {
-        return Ok(None);
+        return None;
     }
-    Ok(tcp_rotation_seed(&state.config, group_index)?
+    rotation_seed
         .and_then(|(group, policy)| CircularTcpRotationController::new(group, policy))
-        .map(|controller| Arc::new(Mutex::new(controller))))
+        .map(|controller| Arc::new(Mutex::new(controller)))
 }
 
 pub(super) fn remembered_host_value(remembered_host: &Arc<Mutex<Option<String>>>) -> Option<String> {

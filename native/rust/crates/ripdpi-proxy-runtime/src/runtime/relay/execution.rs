@@ -2,7 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    first_response_settings, relay_group_settings, RuntimeTimeoutSettings,
+    first_response_settings, relay_group_settings, tcp_rotation_seed, RuntimeTimeoutSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 use ripdpi_proxy_runtime_adapter::model::session::payload_host_extractor;
@@ -24,17 +24,9 @@ pub(super) fn relay_with_uring_if_available(
     session_state: ripdpi_proxy_runtime_adapter::model::session::SessionState,
     success_host: Option<String>,
 ) -> io::Result<ripdpi_proxy_runtime_adapter::model::session::SessionState> {
-    let settings = relay_group_settings(&state.config, route.group_index)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
-    let relay_settings = RelayStreamSettings {
-        group: settings,
-        outbound: RelayOutboundSettings {
-            host_extractor: payload_host_extractor(&state.config),
-            first_response: first_response_settings(&state.config),
-        },
-    };
+    let relay_settings = relay_stream_settings(state, route.group_index)?;
     let uring_driver = ripdpi_io_uring::io_uring_capabilities().send_zc.then(|| state.io_uring.as_ref()).flatten();
-    if let Some(driver) = uring_driver.filter(|_| !settings.rotation_enabled) {
+    if let Some(driver) = uring_driver.filter(|_| !relay_settings.group.rotation_enabled) {
         return stream_copy_uring::relay_streams_uring(
             client,
             upstream,
@@ -59,16 +51,21 @@ pub(super) fn relay_with_uring_if_available(
     session_state: ripdpi_proxy_runtime_adapter::model::session::SessionState,
     success_host: Option<String>,
 ) -> io::Result<ripdpi_proxy_runtime_adapter::model::session::SessionState> {
-    let settings = relay_group_settings(&state.config, route.group_index)
+    let relay_settings = relay_stream_settings(state, route.group_index)?;
+    relay_streams(client, upstream, state, route.group_index, relay_settings, session_state, success_host)
+}
+
+fn relay_stream_settings(state: &RuntimeState, group_index: usize) -> io::Result<RelayStreamSettings> {
+    let group = relay_group_settings(&state.config, group_index)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
-    let relay_settings = RelayStreamSettings {
-        group: settings,
+    Ok(RelayStreamSettings {
+        group,
         outbound: RelayOutboundSettings {
             host_extractor: payload_host_extractor(&state.config),
             first_response: first_response_settings(&state.config),
         },
-    };
-    relay_streams(client, upstream, state, route.group_index, relay_settings, session_state, success_host)
+        rotation_seed: tcp_rotation_seed(&state.config, group_index)?,
+    })
 }
 
 pub(super) struct RelayResultContext<'a> {
