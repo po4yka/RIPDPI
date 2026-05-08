@@ -2,8 +2,9 @@ use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    response_failure_evidence_settings, tcp_route_connect_settings_table, tcp_route_retry_settings,
-    tcp_route_syn_data_settings, ResponseFailureEvidenceSettings, RuntimeConfig, TcpRouteConnectSettingsTable,
+    first_response_settings, relay_group_settings_table, response_failure_evidence_settings,
+    tcp_route_connect_settings_table, tcp_route_retry_settings, tcp_route_syn_data_settings, FirstResponseSettings,
+    RelayGroupSettingsTable, ResponseFailureEvidenceSettings, RuntimeConfig, TcpRouteConnectSettingsTable,
     TcpRouteRetrySettings, TcpRouteSynDataSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::ports::{
@@ -14,6 +15,7 @@ use ripdpi_proxy_runtime_adapter::model::runtime_api::{
     current_runtime_telemetry, EmbeddedProxyControl, RuntimeTelemetrySink,
 };
 use ripdpi_proxy_runtime_adapter::model::services::{new_services_handle, ServicesStateHandle};
+use ripdpi_proxy_runtime_adapter::model::session::{payload_host_extractor, PayloadHostExtractor};
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -24,6 +26,9 @@ pub(super) struct RuntimeState {
     pub(super) route_retry_settings: TcpRouteRetrySettings,
     pub(super) route_syn_data_settings: TcpRouteSynDataSettings,
     pub(super) route_connect_settings: TcpRouteConnectSettingsTable,
+    pub(super) relay_group_settings: RelayGroupSettingsTable,
+    pub(super) relay_host_extractor: PayloadHostExtractor,
+    pub(super) relay_first_response: FirstResponseSettings,
     pub(super) response_failure_evidence_settings: ResponseFailureEvidenceSettings,
     pub(super) services: ServicesStateHandle,
     pub(super) active_clients: Arc<AtomicUsize>,
@@ -52,6 +57,9 @@ impl RuntimeState {
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
         let route_connect_settings = tcp_route_connect_settings_table(&config);
+        let relay_group_settings = relay_group_settings_table(&config);
+        let relay_host_extractor = payload_host_extractor(&config);
+        let relay_first_response = first_response_settings(&config);
         let response_failure_evidence_settings = response_failure_evidence_settings(&config);
 
         Self {
@@ -59,6 +67,9 @@ impl RuntimeState {
             route_retry_settings,
             route_syn_data_settings,
             route_connect_settings,
+            relay_group_settings,
+            relay_host_extractor,
+            relay_first_response,
             response_failure_evidence_settings,
             services: handle,
             active_clients: Arc::new(AtomicUsize::new(0)),
@@ -125,6 +136,9 @@ impl RuntimeState {
         let route_retry_settings = tcp_route_retry_settings(&config);
         let route_syn_data_settings = tcp_route_syn_data_settings(&config);
         let route_connect_settings = tcp_route_connect_settings_table(&config);
+        let relay_group_settings = relay_group_settings_table(&config);
+        let relay_host_extractor = payload_host_extractor(&config);
+        let relay_first_response = first_response_settings(&config);
         let response_failure_evidence_settings = response_failure_evidence_settings(&config);
 
         Self {
@@ -132,6 +146,9 @@ impl RuntimeState {
             route_retry_settings,
             route_syn_data_settings,
             route_connect_settings,
+            relay_group_settings,
+            relay_host_extractor,
+            relay_first_response,
             response_failure_evidence_settings,
             services: handle,
             active_clients: Arc::new(AtomicUsize::new(0)),

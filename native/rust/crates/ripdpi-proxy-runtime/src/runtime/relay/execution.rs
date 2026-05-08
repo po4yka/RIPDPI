@@ -2,10 +2,9 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    first_response_settings, relay_group_settings, tcp_rotation_seed, RuntimeTimeoutSettings,
+    relay_group_settings_with, tcp_rotation_seed_with, RuntimeTimeoutSettings,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-use ripdpi_proxy_runtime_adapter::model::session::payload_host_extractor;
 
 use super::super::routing::{emit_failure_classified, note_block_signal_for_failure};
 use super::super::state::RuntimeState;
@@ -56,15 +55,15 @@ pub(super) fn relay_with_uring_if_available(
 }
 
 fn relay_stream_settings(state: &RuntimeState, group_index: usize) -> io::Result<RelayStreamSettings> {
-    let group = relay_group_settings(&state.config, group_index)
+    let group = relay_group_settings_with(&state.relay_group_settings, group_index)
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "missing desync group"))?;
     Ok(RelayStreamSettings {
         group,
         outbound: RelayOutboundSettings {
-            host_extractor: payload_host_extractor(&state.config),
-            first_response: first_response_settings(&state.config),
+            host_extractor: state.relay_host_extractor.clone(),
+            first_response: state.relay_first_response,
         },
-        rotation_seed: tcp_rotation_seed(&state.config, group_index)?,
+        rotation_seed: tcp_rotation_seed_with(&state.relay_group_settings, group_index)?,
     })
 }
 
