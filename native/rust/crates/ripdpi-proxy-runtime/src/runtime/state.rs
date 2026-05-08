@@ -7,7 +7,7 @@ use std::time::Duration;
 use ripdpi_proxy_runtime_adapter::desync_platform::{
     tcp_desync_executor, TcpDesyncExecutionContext, TcpDesyncExecutor,
 };
-use ripdpi_proxy_runtime_adapter::failure::FailureClass;
+use ripdpi_proxy_runtime_adapter::failure::{BlockSignal, FailureClass};
 use ripdpi_proxy_runtime_adapter::model::config::{
     delayed_connect_settings, first_response_settings, listener_settings, network_reprobe_settings,
     proxy_handshake_settings, relay_group_settings_table, response_failure_evidence_settings, route_payload_matcher,
@@ -17,7 +17,9 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     ResponseFailureEvidenceSettings, RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettingsTable,
     TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings,
 };
-use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, RetrySelectionPenalty, TransportProtocol};
+use ripdpi_proxy_runtime_adapter::model::decision::{
+    ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
+};
 use ripdpi_proxy_runtime_adapter::model::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, DirectPathLearningObserver, DirectPathLearningPort, PolicyPort,
     RetryPacingPort,
@@ -160,21 +162,17 @@ impl RuntimeState {
         }
     }
 
-    pub(super) fn policy(&self) -> &dyn PolicyPort {
-        &self.services
-    }
-
     pub(super) fn clear_connection_cache(&self) -> usize {
-        self.policy().clear_connection_cache()
+        PolicyPort::clear_connection_cache(&self.services)
     }
 
     pub(super) fn drain_autolearn_events(&self) {
-        let _ = self.policy().drain_autolearn_events();
+        let _ = PolicyPort::drain_autolearn_events(&self.services);
     }
 
     pub(super) fn flush_autolearn_telemetry(&self) {
         if let Some(telemetry) = &self.telemetry {
-            let autolearn = self.policy().autolearn_state();
+            let autolearn = PolicyPort::autolearn_state(&self.services);
             telemetry.on_host_autolearn_state(
                 autolearn.enabled,
                 autolearn.learned_host_count,
@@ -183,7 +181,7 @@ impl RuntimeState {
                 autolearn.last_block_signal.as_deref(),
                 autolearn.last_block_provider.as_deref(),
             );
-            for event in self.policy().drain_autolearn_events() {
+            for event in PolicyPort::drain_autolearn_events(&self.services) {
                 telemetry.on_host_autolearn_event(event.action, event.host.as_deref(), event.group_index);
             }
         } else {
@@ -247,6 +245,84 @@ impl RuntimeState {
                 }
             },
         )
+    }
+
+    pub(super) fn select_initial_route(
+        &self,
+        target: SocketAddr,
+        payload: Option<&[u8]>,
+        host: Option<&str>,
+        allow_unknown_payload: bool,
+        transport: TransportProtocol,
+    ) -> Option<ConnectionRoute> {
+        PolicyPort::select_initial(&self.services, target, payload, host, allow_unknown_payload, transport)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn select_next_route(
+        &self,
+        route: &ConnectionRoute,
+        target: SocketAddr,
+        payload: Option<&[u8]>,
+        host: Option<&str>,
+        transport: TransportProtocol,
+        trigger: u32,
+        can_reconnect: bool,
+        retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
+    ) -> Option<ConnectionRoute> {
+        PolicyPort::select_next(
+            &self.services,
+            route,
+            target,
+            payload,
+            host,
+            transport,
+            trigger,
+            can_reconnect,
+            retry_penalties,
+        )
+    }
+
+    pub(super) fn note_route_success(
+        &self,
+        target: SocketAddr,
+        route: &ConnectionRoute,
+        host: Option<&str>,
+        transport: TransportProtocol,
+    ) -> io::Result<()> {
+        PolicyPort::note_success(&self.services, target, route, host, transport)
+    }
+
+    pub(super) fn runtime_supports_trigger(&self, trigger: u32) -> bool {
+        PolicyPort::supports_trigger(&self.services, trigger)
+    }
+
+    pub(super) fn note_block_signal(
+        &self,
+        host: &str,
+        signal: BlockSignal,
+        provider: Option<&str>,
+        confirmation_allowed: bool,
+    ) {
+        PolicyPort::note_block_signal(&self.services, host, signal, provider, confirmation_allowed);
+    }
+
+    pub(super) fn advance_route(
+        &self,
+        route: &ConnectionRoute,
+        advance: RouteAdvance<'_>,
+    ) -> io::Result<Option<ConnectionRoute>> {
+        PolicyPort::advance_route(&self.services, route, advance)
+    }
+
+    pub(super) fn store_udp_route_hint(
+        &self,
+        dest: SocketAddr,
+        group_index: usize,
+        attempted_mask: u64,
+        host: Option<String>,
+    ) {
+        PolicyPort::store_route(&self.services, dest, group_index, attempted_mask, host);
     }
 
     pub(super) fn note_adaptive_tcp_success(

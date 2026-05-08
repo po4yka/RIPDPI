@@ -35,7 +35,7 @@ pub(in crate::runtime) fn note_block_signal_for_failure(
         .as_ref()
         .and_then(|control| control.current_network_snapshot())
         .is_none_or(|snapshot| snapshot.validated && !snapshot.captive_portal);
-    state.policy().note_block_signal(host, signal.signal, signal.provider.as_deref(), confirmation_allowed);
+    state.note_block_signal(host, signal.signal, signal.provider.as_deref(), confirmation_allowed);
 }
 
 pub(in crate::runtime) fn classify_response_failure(

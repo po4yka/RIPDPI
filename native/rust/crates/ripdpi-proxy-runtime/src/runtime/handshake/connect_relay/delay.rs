@@ -61,8 +61,7 @@ pub(super) fn maybe_delay_connect(
         route
     } else {
         state
-            .policy()
-            .select_next(
+            .select_next_route(
                 &route,
                 target,
                 Some(&payload),

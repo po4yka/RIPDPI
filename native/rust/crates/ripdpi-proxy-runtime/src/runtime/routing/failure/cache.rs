@@ -18,7 +18,7 @@ pub(super) fn advance_cache_route(
     penalize: bool,
     retry_penalties: &BTreeMap<usize, RetrySelectionPenalty>,
 ) -> io::Result<Option<ConnectionRoute>> {
-    state.policy().advance_route(
+    state.advance_route(
         route,
         RouteAdvance {
             dest: target,

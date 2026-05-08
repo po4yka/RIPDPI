@@ -76,7 +76,7 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
         Some(entry.payload.as_slice()),
         TransportProtocol::Udp,
     )?;
-    let next = state.policy().advance_route(
+    let next = state.advance_route(
         &entry.route,
         RouteAdvance {
             dest: failed_target,
