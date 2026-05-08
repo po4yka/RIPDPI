@@ -13,7 +13,7 @@ mod warmup;
 use std::io;
 use std::net::TcpListener;
 
-use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::model::config::{listener_settings, RuntimeConfig};
 
 use self::listeners::{build_listener, run_proxy_with_listener_internal};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
@@ -25,7 +25,7 @@ pub fn run_proxy(config: RuntimeConfig) -> io::Result<()> {
 
 pub fn create_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
     ripdpi_proxy_runtime_adapter::raw_packet_requirements::validate_ip_fragmentation_support(config)?;
-    build_listener(config)
+    build_listener(listener_settings(config))
 }
 
 pub fn run_proxy_with_listener(config: RuntimeConfig, listener: TcpListener) -> io::Result<()> {
