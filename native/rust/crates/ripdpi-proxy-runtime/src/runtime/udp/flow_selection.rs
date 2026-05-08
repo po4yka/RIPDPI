@@ -4,7 +4,10 @@ use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::model::{
-    config::{route_matches_transport_payload_with, route_payload_matcher, udp_group_socket_settings},
+    config::{
+        route_matches_transport_payload_with, route_payload_matcher, udp_group_packet_settings,
+        udp_group_socket_settings, UdpGroupPacketSettings,
+    },
     decision::{ConnectionRoute, TransportProtocol},
     session::new_session_state,
 };
@@ -20,6 +23,7 @@ pub(super) struct UdpFlowSelection {
     pub(super) target: SocketAddr,
     pub(super) target_index: usize,
     pub(super) route: ConnectionRoute,
+    pub(super) packet_settings: UdpGroupPacketSettings,
     pub(super) upstream: UdpSocket,
 }
 
@@ -27,6 +31,7 @@ pub(super) struct UdpFlowSelectionWithCandidates {
     pub(super) target: SocketAddr,
     pub(super) target_index: usize,
     pub(super) route: ConnectionRoute,
+    pub(super) packet_settings: UdpGroupPacketSettings,
     pub(super) upstream: UdpSocket,
     pub(super) target_candidates: Vec<SocketAddr>,
 }
@@ -84,10 +89,11 @@ pub(super) fn select_udp_flow_target(
             telemetry.on_route_selected(target, route.group_index, host, phase);
         }
         let socket_settings = udp_group_socket_settings(&state.config, route.group_index);
+        let packet_settings = udp_group_packet_settings(&state.config, route.group_index);
         let Ok(upstream) = build_udp_upstream_socket(target, protect_path, socket_settings.bind_low_port) else {
             continue;
         };
-        return Ok(Some(UdpFlowSelection { target, target_index, route, upstream }));
+        return Ok(Some(UdpFlowSelection { target, target_index, route, packet_settings, upstream }));
     }
     Ok(None)
 }
@@ -109,6 +115,7 @@ pub(super) fn reselect_udp_flow_target(
         target: selection.target,
         target_index: selection.target_index,
         route: selection.route,
+        packet_settings: selection.packet_settings,
         upstream: selection.upstream,
         target_candidates,
     }))
@@ -145,6 +152,7 @@ pub(super) fn try_advance_udp_preferred_target(
         "edge_fallback",
     )? {
         entry.route = selection.route;
+        entry.packet_settings = selection.packet_settings;
         entry.upstream = selection.upstream;
         entry.current_target = selection.target;
         entry.target_index = selection.target_index;
@@ -182,6 +190,7 @@ fn build_initial_udp_flow_entry(
         session: new_session_state(),
         last_used: now,
         route: selection.route,
+        packet_settings: selection.packet_settings,
         host: packet.host.clone(),
         payload: Vec::new(),
         awaiting_response: true,
@@ -226,6 +235,7 @@ fn update_udp_flow_selection(
             return Ok(false);
         };
         entry.route = selection.route;
+        entry.packet_settings = selection.packet_settings;
         entry.upstream = selection.upstream;
         entry.current_target = selection.target;
         entry.target_candidates = selection.target_candidates;
