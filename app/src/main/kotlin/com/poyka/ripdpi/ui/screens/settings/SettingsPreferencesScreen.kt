@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -53,15 +54,15 @@ fun SettingsRoute(
                 onRepairPermission = onRepairPermission,
                 onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
                 onDismissBackgroundGuidance = onDismissBackgroundGuidance,
-                onThemeSelected = viewModel::setAppTheme,
-                onWebRtcProtectionChanged = viewModel::setWebRtcProtectionEnabled,
-                onExcludeRussianAppsChanged = viewModel::setExcludeRussianAppsEnabled,
-                onFullTunnelModeChanged = viewModel::setFullTunnelMode,
-                onBiometricChanged = viewModel::setBiometricEnabled,
-                onSaveBackupPin = viewModel::setBackupPin,
-                onResetSettings = viewModel::resetSettings,
-                onCommunityApiUrlChanged = viewModel::setCommunityApiUrl,
-                onClearCommunityCache = viewModel::clearCommunityCache,
+                onThemeSelected = remember(viewModel) { viewModel::setAppTheme },
+                onWebRtcProtectionChanged = remember(viewModel) { viewModel::setWebRtcProtectionEnabled },
+                onExcludeRussianAppsChanged = remember(viewModel) { viewModel::setExcludeRussianAppsEnabled },
+                onFullTunnelModeChanged = remember(viewModel) { viewModel::setFullTunnelMode },
+                onBiometricChanged = remember(viewModel) { viewModel::setBiometricEnabled },
+                onSaveBackupPin = remember(viewModel) { viewModel::setBackupPin },
+                onResetSettings = remember(viewModel) { viewModel::resetSettings },
+                onCommunityApiUrlChanged = remember(viewModel) { viewModel::setCommunityApiUrl },
+                onClearCommunityCache = remember(viewModel) { viewModel::clearCommunityCache },
             ),
         permissionSummary = permissionSummary,
         modifier = modifier,
