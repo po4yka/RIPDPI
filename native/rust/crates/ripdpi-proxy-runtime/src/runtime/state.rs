@@ -203,8 +203,12 @@ impl RuntimeState {
         }
     }
 
-    pub(super) fn listener_settings(&self) -> ListenerSettings {
-        self.listener_settings
+    pub(super) fn listener_client_capacity(&self) -> usize {
+        self.listener_settings.client_capacity
+    }
+
+    pub(super) fn listener_route_group_count(&self) -> usize {
+        self.listener_settings.route_group_count
     }
 
     pub(super) fn handshake_settings(&self) -> &ProxyHandshakeSettings {

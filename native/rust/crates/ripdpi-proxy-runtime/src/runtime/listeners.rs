@@ -25,9 +25,9 @@ pub(super) fn run_proxy_with_listener_internal(
     let mut config = config;
     ensure_default_ttl(&mut config, listener_platform::detect_default_ttl)?;
     let state = RuntimeState::new(config, control.clone());
-    let settings = state.listener_settings();
+    let client_capacity = state.listener_client_capacity();
     let listener_addr = listener.local_addr()?;
-    state.note_listener_started(listener_addr, settings.client_capacity, settings.route_group_count);
+    state.note_listener_started(listener_addr, client_capacity, state.listener_route_group_count());
     // Drain any autolearn events accumulated during policy load so that
     // telemetry reflects the initial state before any connections arrive.
     // The policy port's ServicesState::drop handles persistence on shutdown.
@@ -39,5 +39,5 @@ pub(super) fn run_proxy_with_listener_internal(
     // if the network switched (e.g. WiFi -> cellular).
     super::reprobe::maybe_spawn_reprobe(&state);
 
-    run_accept_loop(listener, state, control, settings.client_capacity)
+    run_accept_loop(listener, state, control, client_capacity)
 }
