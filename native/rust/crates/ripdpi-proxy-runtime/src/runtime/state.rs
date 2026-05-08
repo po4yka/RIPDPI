@@ -1,11 +1,12 @@
 use crate::sync::{Arc, AtomicBool, AtomicUsize, Ordering};
 use std::collections::BTreeMap;
 use std::io;
-use std::net::SocketAddr;
+use std::net::{SocketAddr, TcpStream};
 use std::time::Duration;
 
 use ripdpi_proxy_runtime_adapter::desync_platform::{
-    tcp_desync_executor, TcpDesyncExecutionContext, TcpDesyncExecutor,
+    send_tcp_desync_payload, tcp_desync_executor, DesyncSendRequest, OutboundSendError, OutboundSendOutcome,
+    TcpDesyncExecutionContext, TcpDesyncExecutor,
 };
 use ripdpi_proxy_runtime_adapter::failure::{BlockSignal, ClassifiedFailure, FailureClass};
 use ripdpi_proxy_runtime_adapter::model::config::{
@@ -42,7 +43,10 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     UdpPayloadClassifier,
 };
 use ripdpi_proxy_runtime_adapter::response_triggers::{first_response_exchange_policy, FirstResponseExchangePolicy};
-use ripdpi_proxy_runtime_adapter::udp_desync::{udp_desync_planner, UdpDesyncPlanContext, UdpDesyncPlanner};
+use ripdpi_proxy_runtime_adapter::udp_desync::{
+    plan_udp_actions_for_runtime, udp_desync_planner, UdpDesyncAction, UdpDesyncPlanContext, UdpDesyncPlanRequest,
+    UdpDesyncPlanner,
+};
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr, EncryptedDnsIpAnswers,
     TelegramDc,
@@ -534,7 +538,15 @@ impl RuntimeState {
         AdaptiveFeedbackPort::note_evolver_failure(&self.services, class);
     }
 
-    pub(super) fn tcp_desync_execution_context(&self) -> TcpDesyncExecutionContext<'_> {
+    pub(super) fn send_tcp_desync_payload(
+        &self,
+        writer: &mut TcpStream,
+        request: DesyncSendRequest<'_>,
+    ) -> Result<OutboundSendOutcome, OutboundSendError> {
+        send_tcp_desync_payload(writer, self.tcp_desync_execution_context(), request)
+    }
+
+    fn tcp_desync_execution_context(&self) -> TcpDesyncExecutionContext<'_> {
         TcpDesyncExecutionContext {
             executor: &self.tcp_desync_executor,
             runtime_context: self.runtime_context.as_ref(),
@@ -545,7 +557,14 @@ impl RuntimeState {
         }
     }
 
-    pub(super) fn udp_desync_plan_context(&self) -> UdpDesyncPlanContext<'_> {
+    pub(super) fn plan_udp_desync_actions(
+        &self,
+        request: UdpDesyncPlanRequest<'_>,
+    ) -> io::Result<Vec<UdpDesyncAction>> {
+        plan_udp_actions_for_runtime(self.udp_desync_plan_context(), request)
+    }
+
+    fn udp_desync_plan_context(&self) -> UdpDesyncPlanContext<'_> {
         UdpDesyncPlanContext {
             planner: &self.udp_desync_planner,
             runtime_context: self.runtime_context.as_ref(),
