@@ -70,12 +70,12 @@ mod tests {
         DETECT_TORST,
     };
     use super::super::failure::{RuntimeFailureAction, RuntimeFailureClass, RuntimeFailureStage};
-    use super::super::response::RuntimeTriggerEvent;
-    use super::super::types::{
+    use super::super::payload::{
         RuntimeFirstResponseBoundaryTracker, RuntimeOutboundTlsClientHelloAssembler, RuntimeTlsRecordBoundaryTracker,
         RUNTIME_DEFAULT_FAKE_TLS, RUNTIME_FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT,
         RUNTIME_FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
     };
+    use super::super::response::RuntimeTriggerEvent;
     use super::failure_retry::retry_logic::classify_first_write_failure;
     use super::first_exchange::{first_response_timeout, timeout_count_limit};
     use super::*;

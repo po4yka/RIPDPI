@@ -1,8 +1,8 @@
 use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    DesyncGroup, FirstResponseSettings, IpIdMode, RelayGroupSettings, RotationPolicy, RuntimeTimeoutSettings,
-    UdpGroupPacketSettings, UdpSourceRebindPolicy,
+    DesyncGroup, IpIdMode, RelayGroupSettings, RotationPolicy, RuntimeTimeoutSettings, UdpGroupPacketSettings,
+    UdpSourceRebindPolicy,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
@@ -12,31 +12,11 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, SessionError, SessionState, SocketType,
     UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
 };
-use ripdpi_proxy_runtime_adapter::protocol_payload::{
-    build_probe_client_hello, FirstResponseBoundaryTracker, OutboundTlsClientHelloAssembler,
-};
-#[cfg(test)]
-use ripdpi_proxy_runtime_adapter::protocol_payload::{
-    TlsRecordBoundaryTracker, DEFAULT_FAKE_TLS, FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT,
-    FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
-};
 
 pub(super) type RuntimeConnectionRoute = ConnectionRoute;
 pub(super) type RuntimeRetrySelectionPenalty = RetrySelectionPenalty;
 pub(super) type RuntimeRouteAdvance<'a> = RouteAdvance<'a>;
 pub(super) type RuntimeTransportProtocol = TransportProtocol;
-pub(super) type RuntimeFirstResponseBoundaryTracker = FirstResponseBoundaryTracker;
-pub(super) type RuntimeOutboundTlsClientHelloAssembler = OutboundTlsClientHelloAssembler;
-#[cfg(test)]
-pub(super) type RuntimeTlsRecordBoundaryTracker = TlsRecordBoundaryTracker;
-#[cfg(test)]
-pub(super) const RUNTIME_DEFAULT_FAKE_TLS: &[u8] = DEFAULT_FAKE_TLS;
-#[cfg(test)]
-pub(super) const RUNTIME_FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT: std::time::Duration =
-    FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT;
-#[cfg(test)]
-pub(super) const RUNTIME_FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT: usize = FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT;
-
 pub(super) fn runtime_classify_first_outbound_payload(
     policy: &FirstOutboundPayloadPolicy,
     payload: &[u8],
@@ -54,21 +34,6 @@ pub(super) fn runtime_parse_socks5_udp_packet<'a>(
 
 pub(super) fn runtime_classify_udp_payload(classifier: &UdpPayloadClassifier, payload: &[u8]) -> UdpPayloadInfo {
     classify_udp_payload_with(classifier, payload)
-}
-
-pub(super) fn runtime_first_response_boundary_tracker(
-    request: &[u8],
-    settings: FirstResponseSettings,
-) -> RuntimeFirstResponseBoundaryTracker {
-    FirstResponseBoundaryTracker::for_request(request, settings)
-}
-
-pub(super) fn runtime_outbound_tls_client_hello_assembler() -> RuntimeOutboundTlsClientHelloAssembler {
-    OutboundTlsClientHelloAssembler::new()
-}
-
-pub(super) fn runtime_build_probe_client_hello(domain: &str) -> Vec<u8> {
-    build_probe_client_hello(domain)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

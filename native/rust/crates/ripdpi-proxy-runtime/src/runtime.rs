@@ -4,6 +4,7 @@ mod desync;
 mod failure;
 mod handshake;
 mod listeners;
+mod payload;
 mod ports;
 mod relay;
 mod reprobe;

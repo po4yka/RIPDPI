@@ -7,7 +7,7 @@ use super::super::config::{
     FirstResponseSettings,
 };
 #[cfg(test)]
-use super::super::types::RuntimeFirstResponseBoundaryTracker;
+use super::super::payload::RuntimeFirstResponseBoundaryTracker;
 
 use super::super::failure::RuntimeClassifiedFailure;
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure};
