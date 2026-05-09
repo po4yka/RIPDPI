@@ -1,8 +1,6 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
-
 use crate::runtime::adaptive::{
     note_adaptive_fake_ttl_success, note_adaptive_tcp_success, note_direct_path_tcp_success,
 };
@@ -10,12 +8,12 @@ use crate::runtime::desync::OutboundSendError;
 use crate::runtime::retry::note_retry_success;
 use crate::runtime::routing::{note_route_success, preferred_targets_for_transport};
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::RuntimeClassifiedFailure;
+use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeConnectionRoute, RuntimeTransportProtocol};
 
 pub(crate) fn record_stream_relay_success(
     state: &RuntimeState,
     target: SocketAddr,
-    route: &ConnectionRoute,
+    route: &RuntimeConnectionRoute,
     success_host: Option<&str>,
     success_payload: Option<&[u8]>,
     strategy_family: Option<&str>,
@@ -25,9 +23,16 @@ pub(crate) fn record_stream_relay_success(
         return Ok(());
     }
     if let Some(request) = success_payload {
-        let targets = preferred_targets_for_transport(state, target, success_host, TransportProtocol::Tcp);
+        let targets = preferred_targets_for_transport(state, target, success_host, RuntimeTransportProtocol::Tcp);
         note_adaptive_tcp_success(state, target, route.group_index, success_host, request)?;
-        note_retry_success(state, target, route.group_index, success_host, Some(request), TransportProtocol::Tcp)?;
+        note_retry_success(
+            state,
+            target,
+            route.group_index,
+            success_host,
+            Some(request),
+            RuntimeTransportProtocol::Tcp,
+        )?;
         note_direct_path_tcp_success(state, success_host, &targets, strategy_family.or(primary_strategy_family))?;
     }
     note_adaptive_fake_ttl_success(state, target, route.group_index, success_host)?;

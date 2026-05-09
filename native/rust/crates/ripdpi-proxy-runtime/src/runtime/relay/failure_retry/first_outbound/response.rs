@@ -2,14 +2,12 @@ use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-
 use crate::runtime::adaptive::note_server_ttl_for_route;
 use crate::runtime::relay::failure_retry::retry_logic::record_stream_relay_success;
 use crate::runtime::relay::first_exchange::{read_first_response, FirstResponse};
 use crate::runtime::relay::session::FirstOutboundSession;
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::RuntimeClassifiedFailure;
+use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeConnectionRoute};
 
 pub(super) enum FirstResponseDecision {
     Complete { recorded_success: bool },
@@ -19,7 +17,7 @@ pub(super) enum FirstResponseDecision {
 pub(super) struct FirstResponseContext<'a> {
     pub(super) state: &'a RuntimeState,
     pub(super) target: SocketAddr,
-    pub(super) route: &'a ConnectionRoute,
+    pub(super) route: &'a RuntimeConnectionRoute,
     pub(super) host: Option<&'a str>,
     pub(super) original_request: &'a [u8],
     pub(super) success_strategy_family: Option<&'static str>,

@@ -1,8 +1,6 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-
 use super::super::routing::{emit_failure_classified, note_block_signal_for_failure};
 use super::super::state::RuntimeState;
 use super::failure_retry::record_stream_relay_success;
@@ -10,7 +8,7 @@ use super::session::RelaySession;
 use super::stream_copy::{relay_streams, RelayStreamSettings, CONNECTION_FREEZE_MARKER};
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 use super::stream_copy_uring;
-use crate::runtime::types::RuntimeRelayTimeouts;
+use crate::runtime::types::{RuntimeConnectionRoute, RuntimeRelayTimeouts};
 
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 #[inline(never)]
@@ -18,7 +16,7 @@ pub(super) fn relay_with_uring_if_available(
     client: TcpStream,
     upstream: TcpStream,
     state: &RuntimeState,
-    route: ConnectionRoute,
+    route: RuntimeConnectionRoute,
     session_state: RelaySession,
     success_host: Option<String>,
 ) -> io::Result<RelaySession> {
@@ -45,7 +43,7 @@ pub(super) fn relay_with_uring_if_available(
     client: TcpStream,
     upstream: TcpStream,
     state: &RuntimeState,
-    route: ConnectionRoute,
+    route: RuntimeConnectionRoute,
     session_state: RelaySession,
     success_host: Option<String>,
 ) -> io::Result<RelaySession> {
@@ -63,7 +61,7 @@ fn relay_stream_settings(state: &RuntimeState, group_index: usize) -> io::Result
 pub(super) struct RelayResultContext<'a> {
     pub(super) relay_timeouts: RuntimeRelayTimeouts,
     pub(super) target: SocketAddr,
-    pub(super) route: &'a ConnectionRoute,
+    pub(super) route: &'a RuntimeConnectionRoute,
     pub(super) success_recorded: bool,
     pub(super) success_host: Option<&'a str>,
     pub(super) success_payload: Option<&'a [u8]>,

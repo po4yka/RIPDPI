@@ -1,8 +1,6 @@
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-
 use crate::runtime::desync::OutboundSendError;
 use crate::runtime::relay::failure_retry::retry_logic::{
     classify_first_write_failure, should_retry_syn_data_without_tfo,
@@ -13,7 +11,9 @@ use crate::runtime::routing::{
     reconnect_target_without_tfo, route_uses_direct_syn_data_tfo,
 };
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeFailureAction, RuntimeFailureClass};
+use crate::runtime::types::{
+    RuntimeClassifiedFailure, RuntimeConnectionRoute, RuntimeFailureAction, RuntimeFailureClass,
+};
 
 #[derive(Default)]
 pub(super) struct RouteRetryState {
@@ -22,13 +22,13 @@ pub(super) struct RouteRetryState {
 
 pub(super) struct ReconnectedRoute {
     pub(super) upstream: TcpStream,
-    pub(super) route: ConnectionRoute,
+    pub(super) route: RuntimeConnectionRoute,
 }
 
 pub(super) struct FirstResponseFailureContext<'a> {
     pub(super) state: &'a RuntimeState,
     pub(super) target: SocketAddr,
-    pub(super) route: &'a ConnectionRoute,
+    pub(super) route: &'a RuntimeConnectionRoute,
     pub(super) host: Option<String>,
     pub(super) original_request: &'a [u8],
     pub(super) failure: &'a RuntimeClassifiedFailure,
@@ -38,7 +38,7 @@ pub(super) struct FirstResponseFailureContext<'a> {
 pub(super) fn handle_first_write_failure(
     state: &RuntimeState,
     target: SocketAddr,
-    route: &ConnectionRoute,
+    route: &RuntimeConnectionRoute,
     host: Option<String>,
     original_request: &[u8],
     err: OutboundSendError,
@@ -116,7 +116,7 @@ pub(super) fn handle_first_response_failure(
 
 fn should_retry_syn_data(
     state: &RuntimeState,
-    route: &ConnectionRoute,
+    route: &RuntimeConnectionRoute,
     original_request: &[u8],
     failure: &RuntimeClassifiedFailure,
     retry_state: &RouteRetryState,
@@ -128,7 +128,7 @@ fn should_retry_syn_data(
 fn reconnect_without_tfo(
     state: &RuntimeState,
     target: SocketAddr,
-    route: &ConnectionRoute,
+    route: &RuntimeConnectionRoute,
     host: Option<String>,
     original_request: &[u8],
     retry_state: &mut RouteRetryState,
@@ -141,7 +141,7 @@ fn reconnect_without_tfo(
 fn reconnect_route(
     state: &RuntimeState,
     target: SocketAddr,
-    route: ConnectionRoute,
+    route: RuntimeConnectionRoute,
     host: Option<String>,
     original_request: &[u8],
 ) -> io::Result<ReconnectedRoute> {

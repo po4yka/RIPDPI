@@ -2,8 +2,6 @@ use std::io;
 use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-
 use crate::runtime::relay::failure_retry::first_outbound::execution::execute_first_write;
 use crate::runtime::relay::failure_retry::first_outbound::payload::prepare_first_payload;
 use crate::runtime::relay::failure_retry::first_outbound::response::{
@@ -15,6 +13,7 @@ use crate::runtime::relay::failure_retry::first_outbound::route_retry::{
 use crate::runtime::relay::first_exchange::needs_first_exchange;
 use crate::runtime::relay::session::{FirstOutboundSession, RelaySession};
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::RuntimeConnectionRoute;
 
 mod execution;
 mod payload;
@@ -23,7 +22,7 @@ mod route_retry;
 
 pub(crate) struct PreparedRelay {
     pub(crate) upstream: TcpStream,
-    pub(crate) route: ConnectionRoute,
+    pub(crate) route: RuntimeConnectionRoute,
     pub(crate) session_state: RelaySession,
     pub(crate) success_recorded: bool,
     pub(crate) success_host: Option<String>,
@@ -35,12 +34,17 @@ pub(crate) struct PreparedRelay {
 pub(super) struct FirstOutboundCoordinator<'a> {
     state: &'a RuntimeState,
     target: SocketAddr,
-    route: ConnectionRoute,
+    route: RuntimeConnectionRoute,
     seed_request: Option<Vec<u8>>,
 }
 
 impl<'a> FirstOutboundCoordinator<'a> {
-    fn new(state: &'a RuntimeState, target: SocketAddr, route: ConnectionRoute, seed_request: Option<Vec<u8>>) -> Self {
+    fn new(
+        state: &'a RuntimeState,
+        target: SocketAddr,
+        route: RuntimeConnectionRoute,
+        seed_request: Option<Vec<u8>>,
+    ) -> Self {
         Self { state, target, route, seed_request }
     }
 
@@ -161,7 +165,7 @@ pub(crate) fn prepare_relay(
     upstream: TcpStream,
     state: &RuntimeState,
     target: SocketAddr,
-    route: ConnectionRoute,
+    route: RuntimeConnectionRoute,
     seed_request: Option<Vec<u8>>,
 ) -> io::Result<PreparedRelay> {
     FirstOutboundCoordinator::new(state, target, route, seed_request).run(client, upstream)

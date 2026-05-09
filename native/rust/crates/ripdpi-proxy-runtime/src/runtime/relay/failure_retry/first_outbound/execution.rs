@@ -1,16 +1,15 @@
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-
 use crate::runtime::desync::{DesyncSendRequest, OutboundSendError};
 use crate::runtime::relay::session::FirstOutboundSession;
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::RuntimeConnectionRoute;
 
 pub(super) fn execute_first_write(
     upstream: &mut TcpStream,
     state: &RuntimeState,
     target: SocketAddr,
-    route: &ConnectionRoute,
+    route: &RuntimeConnectionRoute,
     original_request: &[u8],
     host: Option<&str>,
     session_state: &mut FirstOutboundSession,
