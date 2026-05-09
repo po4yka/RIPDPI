@@ -57,7 +57,7 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     payload_host_extractor, read_upstream_socks_reply, udp_packet_parser, udp_payload_classifier, ClientRequest,
     FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, PayloadHostExtractor, ProxyReply, SessionConfig,
     SessionError, SessionState, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, S_AUTH_BAD,
-    S_AUTH_NONE, S_AUTH_USERPASS, S_ER_GEN, S_VER5,
+    S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD, S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use ripdpi_proxy_runtime_adapter::protocol_payload::{
@@ -511,6 +511,18 @@ impl RuntimeState {
             S_AUTH_BAD
         };
         ([S_VER5, method], method != S_AUTH_BAD)
+    }
+
+    pub(super) fn is_socks5_version(version: u8) -> bool {
+        version == S_VER5
+    }
+
+    pub(super) fn socks5_command_unsupported_code() -> u8 {
+        S_ER_CMD
+    }
+
+    pub(super) fn socks5_general_failure_code() -> u8 {
+        S_ER_GEN
     }
 
     pub(super) fn encode_socks4_reply(granted: bool) -> ProxyReply {
