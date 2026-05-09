@@ -502,6 +502,10 @@ impl RuntimeState {
         observe_datagram_outbound_payload(state, payload)
     }
 
+    pub(super) fn single_payload_progress(payload_size: usize) -> OutboundProgress {
+        OutboundProgress { round: 1, payload_size, stream_start: 0, stream_end: payload_size.saturating_sub(1) }
+    }
+
     pub(super) fn observe_session_first_response_payload(state: &mut SessionState, payload: &[u8]) -> bool {
         observe_first_response_payload(state, payload)
     }
