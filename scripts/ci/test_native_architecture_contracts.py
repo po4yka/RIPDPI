@@ -82,6 +82,43 @@ pub fn data_from_str() {}
         self.assertEqual(violations, [])
 
 
+class RuntimeDecisionPortsTests(unittest.TestCase):
+    def test_explicit_port_exports_pass(self) -> None:
+        source = """
+pub use ripdpi_runtime_adaptive::morph_policy::{
+    apply_tcp_morph_policy_to_group, apply_udp_morph_policy_to_hints,
+};
+pub use ripdpi_runtime_policy::{
+    ConnectionRoute, DirectPathLearningObserver, DirectPathLearningPort, PolicyPort,
+};
+"""
+        violations = sut.runtime_decision_ports_violations(sut.RUNTIME_DECISION_PORTS_PATH, source)
+        self.assertEqual(violations, [])
+
+    def test_broad_module_shortcuts_fail(self) -> None:
+        source = """
+pub mod adaptive {
+    pub use ripdpi_runtime_adaptive::strategy_context;
+}
+pub mod policy {
+    pub use ripdpi_runtime_policy::runtime_policy::*;
+}
+"""
+        violations = sut.runtime_decision_ports_violations(sut.RUNTIME_DECISION_PORTS_PATH, source)
+        messages = [violation.message for violation in violations]
+        self.assertTrue(any("broad module `adaptive`" in message for message in messages))
+        self.assertTrue(any("broad module `policy`" in message for message in messages))
+
+    def test_engine_state_exports_fail(self) -> None:
+        source = """
+pub use ripdpi_runtime_policy::{DirectPathLearningState, RuntimePolicy};
+"""
+        violations = sut.runtime_decision_ports_violations(sut.RUNTIME_DECISION_PORTS_PATH, source)
+        messages = [violation.message for violation in violations]
+        self.assertTrue(any("runtime policy engine type export" in message for message in messages))
+        self.assertTrue(any("direct-path learning state export" in message for message in messages))
+
+
 class RepoCollectionTests(unittest.TestCase):
     def test_collect_violations_reads_repo_layout(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -105,6 +142,10 @@ class RepoCollectionTests(unittest.TestCase):
             self._write(
                 repo_root / "native/rust/crates/ripdpi-config/src/parse/startup_env.rs",
                 "pub struct StartupEnv;\nimpl StartupEnv {}\n",
+            )
+            self._write(
+                repo_root / "native/rust/crates/ripdpi-runtime-decision-ports/src/lib.rs",
+                "pub use ripdpi_runtime_policy::{ConnectionRoute, PolicyPort};\n",
             )
 
             violations = sut.collect_violations(repo_root)

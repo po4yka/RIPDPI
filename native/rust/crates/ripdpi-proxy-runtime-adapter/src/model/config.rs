@@ -3,6 +3,8 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::time::Duration;
 
+use ripdpi_runtime_decision_ports::{ConnectionRoute, ExtractedHost, HostSource, TransportProtocol};
+
 pub use ripdpi_config::*;
 
 #[derive(Clone)]
@@ -71,7 +73,7 @@ pub fn selected_desync_group(config: &RuntimeConfig, group_index: usize) -> Opti
 }
 
 pub fn route_requires_delay_payload(config: &RuntimeConfig, group_index: usize) -> Option<bool> {
-    selected_desync_group(config, group_index).map(ripdpi_runtime_decision_ports::policy::group_requires_payload)
+    selected_desync_group(config, group_index).map(ripdpi_runtime_decision_ports::group_requires_payload)
 }
 
 pub fn route_matches_transport_payload(
@@ -79,9 +81,9 @@ pub fn route_matches_transport_payload(
     group_index: usize,
     target: SocketAddr,
     payload: &[u8],
-    transport: ripdpi_runtime_decision_ports::policy::TransportProtocol,
+    transport: TransportProtocol,
 ) -> bool {
-    ripdpi_runtime_decision_ports::policy::route_matches_payload(config, group_index, target, payload, transport)
+    ripdpi_runtime_decision_ports::route_matches_payload(config, group_index, target, payload, transport)
 }
 
 #[derive(Clone)]
@@ -98,7 +100,7 @@ pub fn route_matches_transport_payload_with(
     group_index: usize,
     target: SocketAddr,
     payload: &[u8],
-    transport: ripdpi_runtime_decision_ports::policy::TransportProtocol,
+    transport: TransportProtocol,
 ) -> bool {
     route_matches_transport_payload(&matcher.config, group_index, target, payload, transport)
 }
@@ -114,13 +116,7 @@ pub fn delayed_route_matches_payload(
     payload: &[u8],
     host_hint: Option<&str>,
 ) -> bool {
-    if route_matches_transport_payload(
-        config,
-        group_index,
-        target,
-        payload,
-        ripdpi_runtime_decision_ports::policy::TransportProtocol::Tcp,
-    ) {
+    if route_matches_transport_payload(config, group_index, target, payload, TransportProtocol::Tcp) {
         return true;
     }
 
@@ -307,7 +303,7 @@ pub fn tcp_route_syn_data_settings(config: &RuntimeConfig) -> TcpRouteSynDataSet
 
 pub fn connection_route_requests_direct_syn_data_tfo_with(
     settings: &TcpRouteSynDataSettings,
-    route: &ripdpi_runtime_decision_ports::policy::ConnectionRoute,
+    route: &ConnectionRoute,
     payload: Option<&[u8]>,
 ) -> bool {
     payload.is_some_and(|bytes| !bytes.is_empty())
@@ -405,7 +401,7 @@ pub fn route_requests_direct_syn_data_tfo(config: &RuntimeConfig, group_index: u
 
 pub fn connection_route_requests_direct_syn_data_tfo(
     config: &RuntimeConfig,
-    route: &ripdpi_runtime_decision_ports::policy::ConnectionRoute,
+    route: &ConnectionRoute,
     payload: Option<&[u8]>,
 ) -> bool {
     connection_route_requests_direct_syn_data_tfo_with(&tcp_route_syn_data_settings(config), route, payload)
@@ -628,12 +624,7 @@ pub fn quic_route_and_cache_enabled(config: &RuntimeConfig) -> bool {
     matches!(config.quic.initial_mode, QuicInitialMode::RouteAndCache)
 }
 
-pub fn should_cache_udp_host(
-    config: &RuntimeConfig,
-    host: Option<&ripdpi_runtime_decision_ports::policy::ExtractedHost>,
-) -> bool {
-    use ripdpi_runtime_decision_ports::policy::HostSource;
-
+pub fn should_cache_udp_host(config: &RuntimeConfig, host: Option<&ExtractedHost>) -> bool {
     match host.map(|value| value.source) {
         Some(HostSource::Quic) => quic_route_and_cache_enabled(config),
         Some(HostSource::Http | HostSource::Tls) => true,
@@ -770,8 +761,8 @@ mod tests {
         let plain = DesyncGroup::new(1);
         let config = RuntimeConfig { groups: vec![direct, plain], ..Default::default() };
 
-        let direct_route = ripdpi_runtime_decision_ports::policy::ConnectionRoute { group_index: 0, attempted_mask: 0 };
-        let plain_route = ripdpi_runtime_decision_ports::policy::ConnectionRoute { group_index: 1, attempted_mask: 0 };
+        let direct_route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
+        let plain_route = ConnectionRoute { group_index: 1, attempted_mask: 0 };
 
         assert!(
             connection_route_requests_direct_syn_data_tfo(&config, &direct_route, Some(b"GET / HTTP/1.1\r\n\r\n"),)
@@ -789,8 +780,8 @@ mod tests {
         let config = RuntimeConfig { groups: vec![direct, plain], ..Default::default() };
         let settings = tcp_route_syn_data_settings(&config);
 
-        let direct_route = ripdpi_runtime_decision_ports::policy::ConnectionRoute { group_index: 0, attempted_mask: 0 };
-        let plain_route = ripdpi_runtime_decision_ports::policy::ConnectionRoute { group_index: 1, attempted_mask: 0 };
+        let direct_route = ConnectionRoute { group_index: 0, attempted_mask: 0 };
+        let plain_route = ConnectionRoute { group_index: 1, attempted_mask: 0 };
 
         assert!(connection_route_requests_direct_syn_data_tfo_with(
             &settings,
@@ -817,14 +808,14 @@ mod tests {
                 0,
                 target,
                 b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n",
-                ripdpi_runtime_decision_ports::policy::TransportProtocol::Tcp,
+                TransportProtocol::Tcp,
             ),
             route_matches_transport_payload(
                 &config,
                 0,
                 target,
                 b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n",
-                ripdpi_runtime_decision_ports::policy::TransportProtocol::Tcp,
+                TransportProtocol::Tcp,
             ),
         );
     }

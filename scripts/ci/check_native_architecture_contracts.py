@@ -19,6 +19,7 @@ ADAPTER_FILES = (
 CONFIG_ROOT = Path("native/rust/crates/ripdpi-config/src")
 CONFIG_PARSE_ROOT = CONFIG_ROOT / "parse"
 CONFIG_MODEL_PATH = CONFIG_ROOT / "model" / "mod.rs"
+RUNTIME_DECISION_PORTS_PATH = Path("native/rust/crates/ripdpi-runtime-decision-ports/src/lib.rs")
 PARSE_OWNED_FN_PREFIXES = ("parse_", "normalize_")
 PARSE_OWNED_FN_NAMES = {"data_from_str", "file_or_inline_bytes"}
 
@@ -39,6 +40,29 @@ TOP_LEVEL_FORBIDDEN_ITEM_PATTERNS = {
 }
 STARTUP_ENV_STRUCT_RE = re.compile(r"^\s*(?:pub(?:\([^)]*\))?\s+)?struct\s+StartupEnv\b", re.MULTILINE)
 STARTUP_ENV_IMPL_RE = re.compile(r"^\s*impl\s+StartupEnv\b", re.MULTILINE)
+RUNTIME_DECISION_PORTS_FORBIDDEN_PATTERNS = {
+    "broad module `adaptive`": re.compile(r"^\s*pub\s+mod\s+adaptive\b", re.MULTILINE),
+    "broad module `direct_path_learning`": re.compile(r"^\s*pub\s+mod\s+direct_path_learning\b", re.MULTILINE),
+    "broad module `policy`": re.compile(r"^\s*pub\s+mod\s+policy\b", re.MULTILINE),
+    "adaptive morph-policy module re-export": re.compile(
+        r"^\s*pub\s+use\s+ripdpi_runtime_adaptive::morph_policy(?=\s*;|::\*)",
+        re.MULTILINE,
+    ),
+    "adaptive strategy-context module re-export": re.compile(
+        r"^\s*pub\s+use\s+ripdpi_runtime_adaptive::strategy_context(?=\s*;|::\*)",
+        re.MULTILINE,
+    ),
+    "policy engine module re-export": re.compile(
+        r"^\s*pub\s+use\s+ripdpi_runtime_policy::runtime_policy(?=\s*;|::\*)",
+        re.MULTILINE,
+    ),
+    "direct-path learning module re-export": re.compile(
+        r"^\s*pub\s+use\s+ripdpi_runtime_policy::direct_path_learning(?=\s*;|::\*)",
+        re.MULTILINE,
+    ),
+    "runtime policy engine type export": re.compile(r"\bRuntimePolicy\b"),
+    "direct-path learning state export": re.compile(r"\bDirectPathLearningState\b"),
+}
 
 
 @dataclass(frozen=True)
@@ -103,6 +127,21 @@ def config_ownership_violations(relative_path: Path, source_text: str) -> list[V
     return violations
 
 
+def runtime_decision_ports_violations(relative_path: Path, source_text: str) -> list[Violation]:
+    violations: list[Violation] = []
+
+    for description, pattern in RUNTIME_DECISION_PORTS_FORBIDDEN_PATTERNS.items():
+        if pattern.search(source_text):
+            violations.append(
+                Violation(
+                    path=relative_path.as_posix(),
+                    message=f"runtime decision ports must not expose {description}",
+                )
+            )
+
+    return violations
+
+
 def collect_violations(repo_root: Path) -> list[Violation]:
     violations: list[Violation] = []
 
@@ -113,6 +152,11 @@ def collect_violations(repo_root: Path) -> list[Violation]:
     for source_path in sorted((repo_root / CONFIG_ROOT).rglob("*.rs")):
         relative_path = source_path.relative_to(repo_root)
         violations.extend(config_ownership_violations(relative_path, read_production_source(source_path)))
+
+    runtime_ports_path = repo_root / RUNTIME_DECISION_PORTS_PATH
+    violations.extend(
+        runtime_decision_ports_violations(RUNTIME_DECISION_PORTS_PATH, read_production_source(runtime_ports_path))
+    )
 
     return violations
 
