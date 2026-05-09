@@ -151,7 +151,7 @@ fn reconnect_target_with_tfo_mode(
 mod tests {
     use super::*;
     use crate::runtime::config::RuntimeConfig;
-    use crate::runtime::types::{
+    use crate::runtime::failure::{
         RuntimeClassifiedFailure, RuntimeFailureAction, RuntimeFailureClass, RuntimeFailureStage,
     };
 

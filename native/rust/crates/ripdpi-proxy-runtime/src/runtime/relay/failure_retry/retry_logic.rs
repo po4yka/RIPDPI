@@ -5,10 +5,11 @@ use crate::runtime::adaptive::{
     note_adaptive_fake_ttl_success, note_adaptive_tcp_success, note_direct_path_tcp_success,
 };
 use crate::runtime::desync::OutboundSendError;
+use crate::runtime::failure::RuntimeClassifiedFailure;
 use crate::runtime::retry::note_retry_success;
 use crate::runtime::routing::{note_route_success, preferred_targets_for_transport};
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeConnectionRoute, RuntimeTransportProtocol};
+use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
 
 pub(crate) fn record_stream_relay_success(
     state: &RuntimeState,

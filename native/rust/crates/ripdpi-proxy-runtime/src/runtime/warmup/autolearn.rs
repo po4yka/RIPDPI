@@ -1,9 +1,10 @@
 use std::io;
 use std::net::SocketAddr;
 
+use crate::runtime::failure::RuntimeClassifiedFailure;
 use crate::runtime::routing::{advance_route_for_failure, note_route_success};
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeConnectionRoute};
+use crate::runtime::types::RuntimeConnectionRoute;
 
 pub(crate) fn flush_updates(state: &RuntimeState) {
     // The policy port handles autolearn flushing internally on every mutating

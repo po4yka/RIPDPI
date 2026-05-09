@@ -4,9 +4,10 @@ use std::net::SocketAddr;
 use super::cache::advance_cache_route;
 use super::feedback::record_failure_feedback;
 use super::telemetry::emit_route_advance_telemetry;
+use crate::runtime::failure::RuntimeClassifiedFailure;
 use crate::runtime::retry::build_retry_selection_penalties;
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeConnectionRoute, RuntimeTransportProtocol};
+use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
 
 pub(in crate::runtime) fn advance_route_for_failure(
     state: &RuntimeState,

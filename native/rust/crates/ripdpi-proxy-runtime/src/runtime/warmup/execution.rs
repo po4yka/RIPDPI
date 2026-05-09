@@ -6,9 +6,10 @@ use super::platform as warmup_platform;
 use super::resolver::resolve_probe_target;
 use super::target_catalog::PROBE_TIMEOUT;
 use crate::runtime::desync::DesyncSendRequest;
+use crate::runtime::failure::RuntimeClassifiedFailure;
 use crate::runtime::routing::{classify_response_failure, connect_target, emit_failure_classified};
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeConnectionRoute};
+use crate::runtime::types::RuntimeConnectionRoute;
 
 /// Probe a single domain by resolving it, connecting through the desync
 /// pipeline, sending a TLS ClientHello, and reading the first response.

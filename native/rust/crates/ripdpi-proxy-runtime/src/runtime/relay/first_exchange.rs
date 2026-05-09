@@ -9,9 +9,9 @@ use super::super::config::{
 #[cfg(test)]
 use super::super::types::RuntimeFirstResponseBoundaryTracker;
 
+use super::super::failure::RuntimeClassifiedFailure;
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure};
 use super::super::state::RuntimeState;
-use super::super::types::RuntimeClassifiedFailure;
 use super::platform as relay_platform;
 
 pub(super) enum FirstResponse {

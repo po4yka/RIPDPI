@@ -2,6 +2,7 @@ use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
 
 use crate::runtime::desync::OutboundSendError;
+use crate::runtime::failure::{RuntimeClassifiedFailure, RuntimeFailureAction, RuntimeFailureClass};
 use crate::runtime::relay::failure_retry::retry_logic::{
     classify_first_write_failure, should_retry_syn_data_without_tfo,
 };
@@ -11,9 +12,7 @@ use crate::runtime::routing::{
     reconnect_target_without_tfo, route_uses_direct_syn_data_tfo,
 };
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::{
-    RuntimeClassifiedFailure, RuntimeConnectionRoute, RuntimeFailureAction, RuntimeFailureClass,
-};
+use crate::runtime::types::RuntimeConnectionRoute;
 
 #[derive(Default)]
 pub(super) struct RouteRetryState {

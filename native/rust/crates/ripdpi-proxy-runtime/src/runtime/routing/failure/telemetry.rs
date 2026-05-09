@@ -2,9 +2,10 @@ use std::net::SocketAddr;
 
 use std::collections::BTreeMap;
 
+use crate::runtime::failure::RuntimeClassifiedFailure;
 use crate::runtime::retry::maybe_emit_candidate_diversification;
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeConnectionRoute, RuntimeRetrySelectionPenalty};
+use crate::runtime::types::{RuntimeConnectionRoute, RuntimeRetrySelectionPenalty};
 
 pub(in crate::runtime) fn emit_failure_classified(
     state: &RuntimeState,

@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 
+use super::super::failure::RuntimeClassifiedFailure;
 use super::super::state::RuntimeState;
-use super::super::types::RuntimeClassifiedFailure;
 
 mod advance;
 mod cache;

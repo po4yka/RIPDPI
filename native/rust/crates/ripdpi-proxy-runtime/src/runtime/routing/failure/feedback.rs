@@ -4,12 +4,11 @@ use std::net::SocketAddr;
 use crate::runtime::adaptive::{
     note_adaptive_fake_ttl_failure, note_adaptive_tcp_failure, note_direct_path_tls_post_client_hello_failure,
 };
+use crate::runtime::failure::{RuntimeClassifiedFailure, RuntimeFailureClass};
 use crate::runtime::retry::note_retry_failure;
 use crate::runtime::routing::policy::preferred_targets_for_transport;
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::{
-    RuntimeClassifiedFailure, RuntimeConnectionRoute, RuntimeFailureClass, RuntimeTransportProtocol,
-};
+use crate::runtime::types::{RuntimeConnectionRoute, RuntimeTransportProtocol};
 
 pub(super) fn record_failure_feedback(
     state: &RuntimeState,

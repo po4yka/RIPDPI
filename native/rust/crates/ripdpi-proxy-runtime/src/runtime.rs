@@ -1,6 +1,7 @@
 mod adaptive;
 mod config;
 mod desync;
+mod failure;
 mod handshake;
 mod listeners;
 mod ports;

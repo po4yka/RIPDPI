@@ -3,11 +3,12 @@ use std::net::{SocketAddr, TcpStream};
 use std::time::Instant;
 
 use crate::runtime::adaptive::note_server_ttl_for_route;
+use crate::runtime::failure::RuntimeClassifiedFailure;
 use crate::runtime::relay::failure_retry::retry_logic::record_stream_relay_success;
 use crate::runtime::relay::first_exchange::{read_first_response, FirstResponse};
 use crate::runtime::relay::session::FirstOutboundSession;
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeConnectionRoute};
+use crate::runtime::types::RuntimeConnectionRoute;
 
 pub(super) enum FirstResponseDecision {
     Complete { recorded_success: bool },
