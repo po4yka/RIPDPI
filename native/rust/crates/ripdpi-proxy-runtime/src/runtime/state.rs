@@ -56,8 +56,8 @@ use ripdpi_proxy_runtime_adapter::model::session::{
     parse_http_connect_request, parse_shadowsocks_target, parse_socks4_request, parse_socks5_request,
     payload_host_extractor, read_upstream_socks_reply, udp_packet_parser, udp_payload_classifier, ClientRequest,
     FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, PayloadHostExtractor, ProxyReply, SessionConfig,
-    SessionError, SessionState, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, S_AUTH_NONE,
-    S_ER_GEN, S_VER5,
+    SessionError, SessionState, SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, S_AUTH_BAD,
+    S_AUTH_NONE, S_AUTH_USERPASS, S_ER_GEN, S_VER5,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use ripdpi_proxy_runtime_adapter::protocol_payload::{
@@ -496,6 +496,21 @@ impl RuntimeState {
 
     pub(super) fn upstream_socks_connect_succeeded(reply: &[u8]) -> bool {
         reply.get(1).copied().unwrap_or(S_ER_GEN) == 0
+    }
+
+    pub(super) fn socks5_auth_selection(auth_token: Option<&str>, methods: &[u8]) -> ([u8; 2], bool) {
+        let method = if auth_token.is_some() {
+            if methods.contains(&S_AUTH_USERPASS) {
+                S_AUTH_USERPASS
+            } else {
+                S_AUTH_BAD
+            }
+        } else if methods.contains(&S_AUTH_NONE) {
+            S_AUTH_NONE
+        } else {
+            S_AUTH_BAD
+        };
+        ([S_VER5, method], method != S_AUTH_BAD)
     }
 
     pub(super) fn encode_socks4_reply(granted: bool) -> ProxyReply {

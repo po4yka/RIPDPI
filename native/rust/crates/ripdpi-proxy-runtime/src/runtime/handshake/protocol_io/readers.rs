@@ -1,9 +1,9 @@
 use std::io::{self, Read, Write};
 use std::net::TcpStream;
 
-use ripdpi_proxy_runtime_adapter::model::session::{
-    S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_VER5,
-};
+use ripdpi_proxy_runtime_adapter::model::session::{S_ATP_I4, S_ATP_I6};
+
+use crate::runtime::state::RuntimeState;
 
 pub(in crate::runtime::handshake) fn negotiate_socks5(
     client: &mut TcpStream,
@@ -14,18 +14,16 @@ pub(in crate::runtime::handshake) fn negotiate_socks5(
     let mut methods = vec![0u8; count[0] as usize];
     client.read_exact(&mut methods)?;
 
+    let (reply, accepted) = RuntimeState::socks5_auth_selection(auth_token, &methods);
+    client.write_all(&reply)?;
     if let Some(token) = auth_token {
-        let method = if methods.contains(&S_AUTH_USERPASS) { S_AUTH_USERPASS } else { S_AUTH_BAD };
-        client.write_all(&[S_VER5, method])?;
-        if method == S_AUTH_BAD {
+        if !accepted {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no supported socks5 auth method"));
         }
 
         read_socks5_userpass_auth(client, token)
     } else {
-        let method = if methods.contains(&S_AUTH_NONE) { S_AUTH_NONE } else { S_AUTH_BAD };
-        client.write_all(&[S_VER5, method])?;
-        if method == S_AUTH_BAD {
+        if !accepted {
             return Err(io::Error::new(io::ErrorKind::PermissionDenied, "no supported socks auth method"));
         }
         Ok(())
