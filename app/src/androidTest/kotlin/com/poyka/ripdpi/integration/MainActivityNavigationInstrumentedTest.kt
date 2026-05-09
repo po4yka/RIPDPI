@@ -310,8 +310,8 @@ class MainActivityNavigationInstrumentedTest {
         composeRule.tapBottomNav(Route.Config)
         composeRule.assertScreenVisible(Route.Config)
 
-        composeRule.tapBottomNav(Route.Diagnostics)
-        composeRule.assertScreenVisible(Route.Diagnostics)
+        composeRule.tapBottomNav(Route.Diagnostics())
+        composeRule.assertScreenVisible(Route.Diagnostics())
 
         composeRule.tapBottomNav(Route.Settings)
         composeRule.assertScreenVisible(Route.Settings)
@@ -350,14 +350,14 @@ class MainActivityNavigationInstrumentedTest {
 
     @Test
     fun openingHistoryFromDiagnosticsReturnsToDiagnosticsOnBack() {
-        composeRule.tapBottomNav(Route.Diagnostics)
-        composeRule.assertScreenVisible(Route.Diagnostics)
+        composeRule.tapBottomNav(Route.Diagnostics())
+        composeRule.assertScreenVisible(Route.Diagnostics())
 
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsTopHistoryAction).performClick()
         composeRule.assertScreenVisible(Route.History)
 
         composeRule.pressBack()
-        composeRule.assertScreenVisible(Route.Diagnostics)
+        composeRule.assertScreenVisible(Route.Diagnostics())
     }
 
     @Test
@@ -377,9 +377,9 @@ class MainActivityNavigationInstrumentedTest {
     fun diagnosticsApproachesSectionIsReachableFromBottomNav() {
         composeRule.assertScreenVisible(Route.Home)
 
-        composeRule.tapBottomNav(Route.Diagnostics)
+        composeRule.tapBottomNav(Route.Diagnostics())
 
-        composeRule.assertScreenVisible(Route.Diagnostics)
+        composeRule.assertScreenVisible(Route.Diagnostics())
         composeRule.waitForTag(RipDpiTestTags.diagnosticsSection(DiagnosticsSection.Tools))
         composeRule
             .onNodeWithTag(RipDpiTestTags.diagnosticsSection(DiagnosticsSection.Tools))
