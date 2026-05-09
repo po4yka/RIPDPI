@@ -2,17 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsscanactions.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsScanActions.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsScanActions.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsuicommonsupport.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
@@ -20,17 +9,6 @@
       "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiCommonSupport.kt carries 1 complexity suppressions",
       "metricName": "suppressionCount",
       "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-mainhomediagnosticsactions.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/MainHomeDiagnosticsActions.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/MainHomeDiagnosticsActions.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
       "limit": 0,
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
@@ -204,9 +182,9 @@
       "rule": "complexity-suppression",
       "priority": 3,
       "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/logs/LogsScreen.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/logs/LogsScreen.kt carries 2 complexity suppressions",
+      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/logs/LogsScreen.kt carries 1 complexity suppressions",
       "metricName": "suppressionCount",
-      "baselineValue": 2,
+      "baselineValue": 1,
       "limit": 0,
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
@@ -365,17 +343,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-configrelaysupport.kt:adaptive-desync-diagnostics-dns-relay-routing-telemetry-tunnel-warp",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigRelaySupport.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigRelaySupport.kt references 9 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 9,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
       "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsscanactions.kt:adaptive-desync-diagnostics-dns-telemetry-tunnel",
       "rule": "kotlin-feature-spread",
       "priority": 3,
@@ -508,28 +475,6 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsscanactions.kt:initialize",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsScanActions.kt",
-      "message": "initialize spans 174 lines",
-      "metricName": "functionLines",
-      "baselineValue": 174,
-      "limit": 120,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-activities-mainhomediagnosticsactions.kt:initialize",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/MainHomeDiagnosticsActions.kt",
-      "message": "initialize spans 176 lines",
-      "metricName": "functionLines",
-      "baselineValue": 176,
-      "limit": 120,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
       "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-diagnostics-diagnosticsscanprogress.kt:scanprogresscard",
       "rule": "long-function-or-composable",
       "priority": 3,
@@ -581,50 +526,6 @@
       "message": "DiagnosticsCatalogLegalSafetyRule spans 170 lines",
       "metricName": "functionLines",
       "baselineValue": 170,
-      "limit": 120,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:core-data-settings-src-main-kotlin-com-poyka-ripdpi-data-appsettingsjson.kt:appsettingssnapshot",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "core/data/settings/src/main/kotlin/com/poyka/ripdpi/data/AppSettingsJson.kt",
-      "message": "AppSettingsSnapshot spans 290 lines",
-      "metricName": "functionLines",
-      "baselineValue": 290,
-      "limit": 120,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:core-detection-src-main-kotlin-com-poyka-ripdpi-core-detection-detectionrunner.kt:evaluate",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "core/detection/src/main/kotlin/com/poyka/ripdpi/core/detection/DetectionRunner.kt",
-      "message": "evaluate spans 285 lines",
-      "metricName": "functionLines",
-      "baselineValue": 285,
-      "limit": 120,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:core-diagnostics-data-src-main-kotlin-com-poyka-ripdpi-data-diagnostics-diagnosticsdatabase.kt:observeprofiles",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "core/diagnostics-data/src/main/kotlin/com/poyka/ripdpi/data/diagnostics/DiagnosticsDatabase.kt",
-      "message": "observeProfiles spans 397 lines",
-      "metricName": "functionLines",
-      "baselineValue": 397,
-      "limit": 120,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:core-engine-src-main-kotlin-com-poyka-ripdpi-core-ripdpiproxyuipreferences.kt:tonativeconfigjson",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "core/engine/src/main/kotlin/com/poyka/ripdpi/core/RipDpiProxyUIPreferences.kt",
-      "message": "toNativeConfigJson spans 283 lines",
-      "metricName": "functionLines",
-      "baselineValue": 283,
       "limit": 120,
       "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
     }

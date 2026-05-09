@@ -24,8 +24,16 @@ internal class DiagnosticsScanActions(
     private val appContext: Context,
     private val loadSessionDetail: suspend (sessionId: String, showSensitiveDetails: Boolean) -> Unit,
 ) {
-    @Suppress("LongMethod", "CyclomaticComplexMethod", "TooGenericExceptionCaught")
     fun initialize() {
+        observeScanCompletion()
+        observeCompletedProbes()
+        observeBaselineSignals()
+        observeStrategyCandidates()
+        observePendingAuditSession()
+        observeQueuedHiddenProbe()
+    }
+
+    private fun observeScanCompletion() {
         mutations.launch {
             var prevProgress: com.poyka.ripdpi.diagnostics.ScanProgress? = null
             diagnosticsTimelineSource.activeScanProgress.collect { progress ->
@@ -58,6 +66,9 @@ internal class DiagnosticsScanActions(
                 prevProgress = progress
             }
         }
+    }
+
+    private fun observeCompletedProbes() {
         mutations.launch {
             diagnosticsTimelineSource.activeScanProgress.collect { progress ->
                 val target = progress?.latestProbeTarget ?: return@collect
@@ -85,6 +96,9 @@ internal class DiagnosticsScanActions(
                 }
             }
         }
+    }
+
+    private fun observeBaselineSignals() {
         mutations.launch {
             diagnosticsTimelineSource.activeScanProgress.collect { progress ->
                 if (progress == null) return@collect
@@ -115,6 +129,9 @@ internal class DiagnosticsScanActions(
                 }
             }
         }
+    }
+
+    private fun observeStrategyCandidates() {
         mutations.launch {
             diagnosticsTimelineSource.activeScanProgress.collect { progress ->
                 val strategyProgress = progress?.strategyProbeProgress ?: return@collect
@@ -150,6 +167,9 @@ internal class DiagnosticsScanActions(
                 }
             }
         }
+    }
+
+    private fun observePendingAuditSession() {
         mutations.launch {
             val pendingAuditSessionId =
                 scanLifecycle
@@ -178,6 +198,9 @@ internal class DiagnosticsScanActions(
                 }
             }
         }
+    }
+
+    private fun observeQueuedHiddenProbe() {
         mutations.launch {
             var hadHiddenProbe = diagnosticsScanController.hiddenAutomaticProbeActive.value
             diagnosticsScanController.hiddenAutomaticProbeActive.collect { hiddenProbeActive ->

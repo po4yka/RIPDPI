@@ -68,11 +68,22 @@ internal class MainHomeDiagnosticsActions(
 ) {
     private var activeRunObservation: Job? = null
 
-    @Suppress("LongMethod", "CyclomaticComplexMethod")
     fun initialize() {
+        observeInitialFingerprint()
+        observeActiveScanProgress()
+        observeVerificationSessions()
+        observeVerifiedVpnConnection()
+        observeVpnConsentWhileWaiting()
+        observeServiceStatusForFingerprint()
+    }
+
+    private fun observeInitialFingerprint() {
         mutations.launch {
             refreshFingerprint()
         }
+    }
+
+    private fun observeActiveScanProgress() {
         mutations.launch {
             diagnosticsTimelineSource.activeScanProgress.collect { progress ->
                 val progressSessionId = progress?.sessionId
@@ -147,6 +158,9 @@ internal class MainHomeDiagnosticsActions(
                 }
             }
         }
+    }
+
+    private fun observeVerificationSessions() {
         mutations.launch {
             diagnosticsTimelineSource.sessions.collect { sessions ->
                 homeDiagnosticsState.value.activeVerificationSessionId?.let { sessionId ->
@@ -175,6 +189,9 @@ internal class MainHomeDiagnosticsActions(
                 }
             }
         }
+    }
+
+    private fun observeVerifiedVpnConnection() {
         mutations.launch {
             runtimeState
                 .map { it.connectionState }
@@ -211,6 +228,9 @@ internal class MainHomeDiagnosticsActions(
                     }
                 }
         }
+    }
+
+    private fun observeVpnConsentWhileWaiting() {
         mutations.launch {
             permissionState
                 .map { it.issue?.kind }
@@ -239,6 +259,9 @@ internal class MainHomeDiagnosticsActions(
                     }
                 }
         }
+    }
+
+    private fun observeServiceStatusForFingerprint() {
         mutations.launch {
             serviceStateStore.status.collect {
                 refreshFingerprint()
