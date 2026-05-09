@@ -26,6 +26,11 @@ use ripdpi_proxy_runtime_adapter::model::session::{
 use ripdpi_proxy_runtime_adapter::protocol_payload::{
     build_probe_client_hello, FirstResponseBoundaryTracker, OutboundTlsClientHelloAssembler,
 };
+#[cfg(test)]
+use ripdpi_proxy_runtime_adapter::protocol_payload::{
+    TlsRecordBoundaryTracker, DEFAULT_FAKE_TLS, FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT,
+    FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
+};
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     classify_mtproto_seed, detect_telegram_dc, encrypted_dns_ip_answers_for_host, relay_ws_tunnel,
     resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr, should_tunnel_fallback_with, should_tunnel_first_with,
@@ -46,6 +51,15 @@ pub(super) type RuntimeTransportProtocol = TransportProtocol;
 pub(super) type RuntimeFirstResponseBoundaryTracker = FirstResponseBoundaryTracker;
 pub(super) type RuntimeOutboundTlsClientHelloAssembler = OutboundTlsClientHelloAssembler;
 pub(super) type RuntimeEncryptedDnsIpAnswers = EncryptedDnsIpAnswers;
+#[cfg(test)]
+pub(super) type RuntimeTlsRecordBoundaryTracker = TlsRecordBoundaryTracker;
+#[cfg(test)]
+pub(super) const RUNTIME_DEFAULT_FAKE_TLS: &[u8] = DEFAULT_FAKE_TLS;
+#[cfg(test)]
+pub(super) const RUNTIME_FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT: std::time::Duration =
+    FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT;
+#[cfg(test)]
+pub(super) const RUNTIME_FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT: usize = FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT;
 
 pub(super) fn runtime_response_requires_dns_tampering_evidence(request: &[u8], response: &[u8]) -> bool {
     response_requires_dns_tampering_evidence(request, response)

@@ -65,20 +65,19 @@ pub(super) fn relay(
 mod tests {
     use std::time::{Duration, Instant};
 
-    use super::failure_retry::retry_logic::classify_first_write_failure;
-    use super::first_exchange::{first_response_timeout, timeout_count_limit};
-    use super::*;
-    use ripdpi_proxy_runtime_adapter::failure::{FailureAction, FailureClass, FailureStage};
-    use ripdpi_proxy_runtime_adapter::model::config::{
+    use super::super::config::{
         first_response_settings, RuntimeConfig, DETECT_CONNECT, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE,
         DETECT_TORST,
     };
-    use ripdpi_proxy_runtime_adapter::model::session::TriggerEvent;
-    use ripdpi_proxy_runtime_adapter::protocol_payload::DEFAULT_FAKE_TLS;
-    use ripdpi_proxy_runtime_adapter::protocol_payload::{
-        FirstResponseBoundaryTracker, OutboundTlsClientHelloAssembler, TlsRecordBoundaryTracker,
-        FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT, FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
+    use super::super::response::RuntimeTriggerEvent;
+    use super::super::types::{
+        RuntimeFailureAction, RuntimeFailureClass, RuntimeFailureStage, RuntimeFirstResponseBoundaryTracker,
+        RuntimeOutboundTlsClientHelloAssembler, RuntimeTlsRecordBoundaryTracker, RUNTIME_DEFAULT_FAKE_TLS,
+        RUNTIME_FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT, RUNTIME_FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT,
     };
+    use super::failure_retry::retry_logic::classify_first_write_failure;
+    use super::first_exchange::{first_response_timeout, timeout_count_limit};
+    use super::*;
 
     mod rust_packet_seeds {
         include!(concat!(env!("CARGO_MANIFEST_DIR"), "/../ripdpi-packets/tests/rust_packet_seeds.rs"));
@@ -95,9 +94,9 @@ mod tests {
             source: io::Error::from_raw_os_error(libc::EINVAL),
         });
 
-        assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
-        assert_eq!(failure.stage, FailureStage::FirstWrite);
-        assert_eq!(failure.action, FailureAction::RetryWithMatchingGroup);
+        assert_eq!(failure.class, RuntimeFailureClass::StrategyExecutionFailure);
+        assert_eq!(failure.stage, RuntimeFailureStage::FirstWrite);
+        assert_eq!(failure.action, RuntimeFailureAction::RetryWithMatchingGroup);
         assert!(failure.evidence.summary.contains("desync action=set_ttl"));
     }
 
@@ -112,9 +111,9 @@ mod tests {
             source: io::Error::new(io::ErrorKind::Unsupported, "only supported on Linux/Android"),
         });
 
-        assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
-        assert_eq!(failure.stage, FailureStage::FirstWrite);
-        assert_eq!(failure.action, FailureAction::RetryWithMatchingGroup);
+        assert_eq!(failure.class, RuntimeFailureClass::StrategyExecutionFailure);
+        assert_eq!(failure.stage, RuntimeFailureStage::FirstWrite);
+        assert_eq!(failure.action, RuntimeFailureAction::RetryWithMatchingGroup);
         assert!(failure.evidence.summary.contains("desync action=await_writable"));
     }
 
@@ -129,7 +128,7 @@ mod tests {
             source: io::Error::from_raw_os_error(libc::EROFS),
         });
 
-        assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
+        assert_eq!(failure.class, RuntimeFailureClass::StrategyExecutionFailure);
         assert!(failure.evidence.summary.contains("fallback=split"));
         assert!(failure.evidence.tags.iter().any(|tag| tag == "fallback=split"));
     }
@@ -145,8 +144,8 @@ mod tests {
             source: io::Error::from_raw_os_error(libc::EROFS),
         });
 
-        assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
-        assert_eq!(failure.action, FailureAction::RetryWithMatchingGroup);
+        assert_eq!(failure.class, RuntimeFailureClass::StrategyExecutionFailure);
+        assert_eq!(failure.action, RuntimeFailureAction::RetryWithMatchingGroup);
         assert!(failure.evidence.tags.iter().any(|tag| tag == "strategyFamily=split"));
         assert!(failure.evidence.tags.iter().any(|tag| tag == "bytesCommitted=0"));
     }
@@ -162,8 +161,8 @@ mod tests {
             source: io::Error::from_raw_os_error(libc::EROFS),
         });
 
-        assert_eq!(failure.class, FailureClass::StrategyExecutionFailure);
-        assert_eq!(failure.action, FailureAction::SurfaceOnly);
+        assert_eq!(failure.class, RuntimeFailureClass::StrategyExecutionFailure);
+        assert_eq!(failure.action, RuntimeFailureAction::SurfaceOnly);
         assert!(failure.evidence.tags.iter().any(|tag| tag == "bytesCommitted=3"));
     }
 
@@ -173,12 +172,12 @@ mod tests {
         config.timeouts.partial_timeout_ms = 75;
         config.timeouts.timeout_ms = 900;
         let settings = first_response_settings(&config);
-        let tls_tracker = FirstResponseBoundaryTracker::for_request(DEFAULT_FAKE_TLS, settings);
+        let tls_tracker = RuntimeFirstResponseBoundaryTracker::for_request(RUNTIME_DEFAULT_FAKE_TLS, settings);
         assert_eq!(first_response_timeout(settings, &tls_tracker), Some(Duration::from_millis(75)));
 
         config.timeouts.partial_timeout_ms = 0;
         let settings = first_response_settings(&config);
-        let inactive_tracker = FirstResponseBoundaryTracker::for_request(DEFAULT_FAKE_TLS, settings);
+        let inactive_tracker = RuntimeFirstResponseBoundaryTracker::for_request(RUNTIME_DEFAULT_FAKE_TLS, settings);
         assert_eq!(first_response_timeout(settings, &inactive_tracker), Some(Duration::from_millis(900)));
 
         config.timeouts.timeout_ms = 0;
@@ -186,11 +185,11 @@ mod tests {
         let settings = first_response_settings(&config);
         assert_eq!(first_response_timeout(settings, &inactive_tracker), Some(Duration::from_millis(250)));
         assert_eq!(timeout_count_limit(settings), 1);
-        assert!(RuntimeState::response_trigger_supported(&config, TriggerEvent::Redirect));
-        assert!(RuntimeState::response_trigger_supported(&config, TriggerEvent::Connect));
-        assert!(!RuntimeState::response_trigger_supported(&config, TriggerEvent::Torst));
-        assert_eq!(RuntimeState::trigger_flag(TriggerEvent::SslErr), DETECT_TLS_HANDSHAKE_FAILURE);
-        assert_eq!(RuntimeState::trigger_flag(TriggerEvent::Torst), DETECT_TORST);
+        assert!(RuntimeState::response_trigger_supported(&config, RuntimeTriggerEvent::Redirect));
+        assert!(RuntimeState::response_trigger_supported(&config, RuntimeTriggerEvent::Connect));
+        assert!(!RuntimeState::response_trigger_supported(&config, RuntimeTriggerEvent::Torst));
+        assert_eq!(RuntimeState::trigger_flag(RuntimeTriggerEvent::SslErr), DETECT_TLS_HANDSHAKE_FAILURE);
+        assert_eq!(RuntimeState::trigger_flag(RuntimeTriggerEvent::Torst), DETECT_TORST);
 
         config.groups[0].matches.detect = 0;
         let settings = first_response_settings(&config);
@@ -203,7 +202,7 @@ mod tests {
         config.timeouts.partial_timeout_ms = 50;
 
         let settings = first_response_settings(&config);
-        let mut tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, settings);
+        let mut tracker = RuntimeTlsRecordBoundaryTracker::for_first_response(RUNTIME_DEFAULT_FAKE_TLS, settings);
         assert!(tracker.active());
         tracker.observe(&[0x16, 0x03, 0x03, 0x00, 0x05, 0xaa]);
         assert!(tracker.waiting_for_tls_record());
@@ -214,11 +213,12 @@ mod tests {
         limited_config.timeouts.partial_timeout_ms = 50;
         limited_config.timeouts.timeout_bytes_limit = 3;
         let limited_settings = first_response_settings(&limited_config);
-        let mut limited = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, limited_settings);
+        let mut limited =
+            RuntimeTlsRecordBoundaryTracker::for_first_response(RUNTIME_DEFAULT_FAKE_TLS, limited_settings);
         limited.observe(&[0x16, 0x03, 0x03, 0x00]);
         assert!(!limited.active());
 
-        let mut invalid = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, settings);
+        let mut invalid = RuntimeTlsRecordBoundaryTracker::for_first_response(RUNTIME_DEFAULT_FAKE_TLS, settings);
         invalid.observe(&[0x13, 0x03, 0x03, 0x00, 0x01, 0x00]);
         assert!(!invalid.active());
     }
@@ -229,10 +229,12 @@ mod tests {
         config.timeouts.partial_timeout_ms = 50;
         config.timeouts.timeout_bytes_limit = 0;
 
-        let mut tracker =
-            TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, first_response_settings(&config));
+        let mut tracker = RuntimeTlsRecordBoundaryTracker::for_first_response(
+            RUNTIME_DEFAULT_FAKE_TLS,
+            first_response_settings(&config),
+        );
         tracker.observe(&[0x16, 0x03, 0x03, 0xff, 0xff]);
-        tracker.observe(&vec![0xaa; FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT - 5]);
+        tracker.observe(&vec![0xaa; RUNTIME_FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT - 5]);
         assert!(tracker.active());
         tracker.observe(&[0xbb]);
 
@@ -245,10 +247,12 @@ mod tests {
         config.timeouts.partial_timeout_ms = 50;
         config.timeouts.timeout_bytes_limit = -1;
 
-        let mut tracker =
-            TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, first_response_settings(&config));
+        let mut tracker = RuntimeTlsRecordBoundaryTracker::for_first_response(
+            RUNTIME_DEFAULT_FAKE_TLS,
+            first_response_settings(&config),
+        );
         tracker.observe(&[0x16, 0x03, 0x03, 0xff, 0xff]);
-        tracker.observe(&vec![0xaa; FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT - 5]);
+        tracker.observe(&vec![0xaa; RUNTIME_FIRST_TLS_CLIENT_HELLO_BYTES_LIMIT - 5]);
         assert!(tracker.active());
         tracker.observe(&[0xbb]);
 
@@ -261,7 +265,10 @@ mod tests {
     fn tls_record_tracker_inactive_without_partial_timeout() {
         let mut config = RuntimeConfig::default();
         config.timeouts.partial_timeout_ms = 0;
-        let tracker = TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, first_response_settings(&config));
+        let tracker = RuntimeTlsRecordBoundaryTracker::for_first_response(
+            RUNTIME_DEFAULT_FAKE_TLS,
+            first_response_settings(&config),
+        );
         assert!(!tracker.active());
         assert!(!tracker.waiting_for_tls_record());
     }
@@ -271,7 +278,7 @@ mod tests {
         let mut config = RuntimeConfig::default();
         config.timeouts.partial_timeout_ms = 50;
         let non_tls = b"GET / HTTP/1.1\r\n";
-        let tracker = TlsRecordBoundaryTracker::for_first_response(non_tls, first_response_settings(&config));
+        let tracker = RuntimeTlsRecordBoundaryTracker::for_first_response(non_tls, first_response_settings(&config));
         assert!(!tracker.active());
     }
 
@@ -279,8 +286,10 @@ mod tests {
     fn tls_record_tracker_multi_record_observation() {
         let mut config = RuntimeConfig::default();
         config.timeouts.partial_timeout_ms = 50;
-        let mut tracker =
-            TlsRecordBoundaryTracker::for_first_response(DEFAULT_FAKE_TLS, first_response_settings(&config));
+        let mut tracker = RuntimeTlsRecordBoundaryTracker::for_first_response(
+            RUNTIME_DEFAULT_FAKE_TLS,
+            first_response_settings(&config),
+        );
         assert!(tracker.active());
 
         // First record: content type 0x16 (handshake), size 3
@@ -297,7 +306,7 @@ mod tests {
 
     #[test]
     fn outbound_tls_client_hello_assembler_buffers_partial_client_hello_until_complete() {
-        let mut assembler = OutboundTlsClientHelloAssembler::new();
+        let mut assembler = RuntimeOutboundTlsClientHelloAssembler::new();
         let start = Instant::now();
 
         assert!(assembler.push(&[0x16, 0x03, 0x03, 0x00], start).is_none());
@@ -326,7 +335,7 @@ mod tests {
         multi_record.extend_from_slice(&(second.len() as u16).to_be_bytes());
         multi_record.extend_from_slice(second);
 
-        let mut assembler = OutboundTlsClientHelloAssembler::new();
+        let mut assembler = RuntimeOutboundTlsClientHelloAssembler::new();
         let start = Instant::now();
         let boundary = split + 5;
 
@@ -342,7 +351,7 @@ mod tests {
 
     #[test]
     fn outbound_tls_client_hello_assembler_falls_back_for_invalid_header() {
-        let mut assembler = OutboundTlsClientHelloAssembler::new();
+        let mut assembler = RuntimeOutboundTlsClientHelloAssembler::new();
         let payload =
             assembler.push(&[0x16, 0x00, 0x00, 0x00, 0x01, 0xff], Instant::now()).expect("invalid header should flush");
 
@@ -353,7 +362,7 @@ mod tests {
     #[test]
     fn outbound_tls_client_hello_assembler_keeps_non_tls_flows_on_fast_path() {
         let payload = b"GET / HTTP/1.1\r\nHost: example.org\r\n\r\n";
-        let mut assembler = OutboundTlsClientHelloAssembler::new();
+        let mut assembler = RuntimeOutboundTlsClientHelloAssembler::new();
 
         let flushed = assembler.push(payload, Instant::now()).expect("non-tls flows should flush immediately");
 
@@ -363,7 +372,7 @@ mod tests {
 
     #[test]
     fn outbound_tls_client_hello_assembler_flushes_partial_record_after_timeout() {
-        let mut assembler = OutboundTlsClientHelloAssembler::new();
+        let mut assembler = RuntimeOutboundTlsClientHelloAssembler::new();
         let start = Instant::now();
 
         assert!(assembler.push(&[0x16, 0x03], start).is_none());
@@ -371,7 +380,7 @@ mod tests {
         assert!(assembler.flush_on_timeout(start + Duration::from_millis(50)).is_none());
 
         let payload = assembler
-            .flush_on_timeout(start + FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT + Duration::from_millis(1))
+            .flush_on_timeout(start + RUNTIME_FIRST_TLS_CLIENT_HELLO_ASSEMBLY_TIMEOUT + Duration::from_millis(1))
             .expect("partial tls record should flush on timeout");
         assert_eq!(payload, vec![0x16, 0x03]);
         assert!(!assembler.is_buffering());

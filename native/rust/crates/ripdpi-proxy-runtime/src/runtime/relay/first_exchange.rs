@@ -2,12 +2,12 @@ use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 
 #[cfg(test)]
-use ripdpi_proxy_runtime_adapter::model::config::{
+use super::super::config::{
     first_response_timeout as projected_first_response_timeout, first_response_timeout_count_limit,
     FirstResponseSettings,
 };
 #[cfg(test)]
-use ripdpi_proxy_runtime_adapter::protocol_payload::FirstResponseBoundaryTracker;
+use super::super::types::RuntimeFirstResponseBoundaryTracker;
 
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure};
 use super::super::state::RuntimeState;
@@ -121,7 +121,7 @@ pub(super) fn read_first_response(
 #[cfg(test)]
 pub(super) fn first_response_timeout(
     settings: FirstResponseSettings,
-    tls_partial: &FirstResponseBoundaryTracker,
+    tls_partial: &RuntimeFirstResponseBoundaryTracker,
 ) -> Option<std::time::Duration> {
     projected_first_response_timeout(settings, tls_partial.active())
 }

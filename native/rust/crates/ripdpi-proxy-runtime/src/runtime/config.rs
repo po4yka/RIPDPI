@@ -9,11 +9,16 @@ pub(super) use ripdpi_proxy_runtime_adapter::model::config::{
     TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable,
     WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
 };
+#[cfg(test)]
+pub(super) use ripdpi_proxy_runtime_adapter::model::config::{
+    first_response_settings, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
+};
 
 use ripdpi_proxy_runtime_adapter::model::config::{
-    delayed_connect_settings, first_response_settings, network_reprobe_settings, proxy_handshake_settings,
-    relay_group_settings_table, response_failure_evidence_settings, route_payload_matcher, tcp_route_retry_settings,
-    tcp_route_syn_data_settings, udp_flow_limit, udp_group_settings_table, warmup_probe_settings, ws_tunnel_settings,
+    delayed_connect_settings, first_response_settings as projected_first_response_settings, network_reprobe_settings,
+    proxy_handshake_settings, relay_group_settings_table, response_failure_evidence_settings, route_payload_matcher,
+    tcp_route_retry_settings, tcp_route_syn_data_settings, udp_flow_limit, udp_group_settings_table,
+    warmup_probe_settings, ws_tunnel_settings,
 };
 
 pub(super) struct RuntimeConfigProjection {
@@ -49,7 +54,7 @@ pub(super) fn runtime_config_projection(config: &RuntimeConfig) -> RuntimeConfig
         route_payload_matcher: route_payload_matcher(config),
         udp_flow_limit: udp_flow_limit(config),
         relay_group_settings: relay_group_settings_table(config),
-        relay_first_response: first_response_settings(config),
+        relay_first_response: projected_first_response_settings(config),
         response_failure_evidence_settings: response_failure_evidence_settings(config),
     }
 }
