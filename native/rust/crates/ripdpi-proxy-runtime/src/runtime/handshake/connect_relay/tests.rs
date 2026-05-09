@@ -3,7 +3,7 @@ use super::*;
 use crate::runtime::config::{RuntimeConfig, WsTunnelMode};
 use crate::runtime::failure::RuntimeClassifiedFailure;
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::RuntimeTelegramDc;
+use crate::runtime::ws::RuntimeTelegramDc;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
 use std::net::Ipv4Addr;
 use std::sync::atomic::{AtomicUsize, Ordering as StdOrdering};

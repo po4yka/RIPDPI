@@ -54,18 +54,20 @@ use super::session::{
     S_ER_GEN, S_VER5,
 };
 use super::types::{
-    runtime_build_probe_client_hello, runtime_classify_first_outbound_payload, runtime_classify_mtproto_seed,
-    runtime_classify_udp_payload, runtime_client_request, runtime_detect_telegram_dc,
-    runtime_encrypted_dns_ip_answers_for_host, runtime_first_response_boundary_tracker, runtime_outbound_progress,
-    runtime_outbound_tls_client_hello_assembler, runtime_parse_socks5_udp_packet, runtime_relay_ws_tunnel,
-    runtime_resolve_host_via_encrypted_dns, runtime_resolve_ws_tunnel_addr, runtime_session_error,
+    runtime_build_probe_client_hello, runtime_classify_first_outbound_payload, runtime_classify_udp_payload,
+    runtime_client_request, runtime_first_response_boundary_tracker, runtime_outbound_progress,
+    runtime_outbound_tls_client_hello_assembler, runtime_parse_socks5_udp_packet, runtime_session_error,
+    runtime_udp_packet_settings, RuntimeClientRequest, RuntimeConnectionRoute, RuntimeFirstResponseBoundaryTracker,
+    RuntimeOutboundProgress, RuntimeOutboundTlsClientHelloAssembler, RuntimeProxyProtocolMode,
+    RuntimeRelayGroupSettings, RuntimeRelayRotationSeed, RuntimeRelayTimeouts, RuntimeRetrySelectionPenalty,
+    RuntimeRouteAdvance, RuntimeSessionError, RuntimeSessionState, RuntimeTransportProtocol, RuntimeUdpPacketSettings,
+    RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy,
+};
+use super::ws::{
+    runtime_classify_mtproto_seed, runtime_detect_telegram_dc, runtime_encrypted_dns_ip_answers_for_host,
+    runtime_relay_ws_tunnel, runtime_resolve_host_via_encrypted_dns, runtime_resolve_ws_tunnel_addr,
     runtime_should_ws_tunnel_fallback, runtime_should_ws_tunnel_first, runtime_telegram_dc_host,
-    runtime_udp_packet_settings, runtime_ws_tunnel_config, RuntimeClientRequest, RuntimeConnectionRoute,
-    RuntimeEncryptedDnsIpAnswers, RuntimeFirstResponseBoundaryTracker, RuntimeOutboundProgress,
-    RuntimeOutboundTlsClientHelloAssembler, RuntimeProxyProtocolMode, RuntimeRelayGroupSettings,
-    RuntimeRelayRotationSeed, RuntimeRelayTimeouts, RuntimeRetrySelectionPenalty, RuntimeRouteAdvance,
-    RuntimeSessionError, RuntimeSessionState, RuntimeTelegramDc, RuntimeTransportProtocol, RuntimeUdpPacketSettings,
-    RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, RuntimeWsTunnelConfig, UdpFlowGroupPolicy,
+    runtime_ws_tunnel_config, RuntimeEncryptedDnsIpAnswers, RuntimeTelegramDc, RuntimeWsTunnelConfig,
     WsSeedClassification,
 };
 use ripdpi_proxy_runtime_adapter::model::proxy_config::{NetworkReprobeTracker, NetworkSnapshot, ProxyRuntimeContext};

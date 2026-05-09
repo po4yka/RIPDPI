@@ -2,7 +2,7 @@ use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 
 use super::super::state::RuntimeState;
-use super::super::types::{RuntimeTelegramDc, RuntimeWsTunnelConfig, WsSeedClassification};
+use super::super::ws::{RuntimeTelegramDc, RuntimeWsTunnelConfig, WsSeedClassification};
 
 /// Check if WS tunnel should be tried first (Always mode).
 pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<RuntimeTelegramDc> {
