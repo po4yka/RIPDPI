@@ -1,0 +1,104 @@
+package com.poyka.ripdpi.data.diagnostics
+
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.PrimaryKey
+import com.poyka.ripdpi.data.RuntimeTelemetryState
+import kotlinx.serialization.Serializable
+
+@Entity(
+    tableName = "telemetry_samples",
+    indices = [
+        Index(
+            name = "index_telemetry_samples_sessionId_createdAt",
+            value = ["sessionId", "createdAt"],
+        ),
+        Index(
+            name = "index_telemetry_samples_connectionSessionId_createdAt",
+            value = ["connectionSessionId", "createdAt"],
+        ),
+        Index(
+            name = "index_telemetry_samples_createdAt",
+            value = ["createdAt"],
+        ),
+        Index(
+            name = "index_telemetry_samples_fingerprint_mode_createdAt",
+            value = ["telemetryNetworkFingerprintHash", "activeMode", "createdAt"],
+        ),
+    ],
+)
+@Serializable
+data class TelemetrySampleEntity(
+    @PrimaryKey val id: String,
+    val sessionId: String?,
+    val connectionSessionId: String? = null,
+    val activeMode: String?,
+    val connectionState: String,
+    val networkType: String,
+    val publicIp: String?,
+    val failureClass: String? = null,
+    val telemetryNetworkFingerprintHash: String? = null,
+    val winningTcpStrategyFamily: String? = null,
+    val winningQuicStrategyFamily: String? = null,
+    val proxyRttBand: String = "unknown",
+    val resolverRttBand: String = "unknown",
+    val proxyRouteRetryCount: Long = 0,
+    val tunnelRecoveryRetryCount: Long = 0,
+    val resolverId: String? = null,
+    val resolverProtocol: String? = null,
+    val resolverEndpoint: String? = null,
+    val resolverLatencyMs: Long? = null,
+    val dnsFailuresTotal: Long = 0,
+    val resolverFallbackActive: Boolean = false,
+    val resolverFallbackReason: String? = null,
+    val networkHandoverClass: String? = null,
+    val networkHandoverState: String? = null,
+    val proxyTelemetryState: String = RuntimeTelemetryState.NoData.wireValue,
+    val proxyTelemetryMessage: String? = null,
+    val relayTelemetryState: String = RuntimeTelemetryState.NoData.wireValue,
+    val relayTelemetryMessage: String? = null,
+    val warpTelemetryState: String = RuntimeTelemetryState.NoData.wireValue,
+    val warpTelemetryMessage: String? = null,
+    val tunnelTelemetryState: String = RuntimeTelemetryState.NoData.wireValue,
+    val tunnelTelemetryMessage: String? = null,
+    val lastFailureClass: String? = null,
+    val lastFallbackAction: String? = null,
+    val txPackets: Long,
+    val txBytes: Long,
+    val rxPackets: Long,
+    val rxBytes: Long,
+    val createdAt: Long,
+)
+
+@Entity(
+    tableName = "native_session_events",
+    indices = [
+        Index(
+            name = "index_native_session_events_sessionId_createdAt",
+            value = ["sessionId", "createdAt"],
+        ),
+        Index(
+            name = "index_native_session_events_connectionSessionId_createdAt",
+            value = ["connectionSessionId", "createdAt"],
+        ),
+        Index(
+            name = "index_native_session_events_createdAt",
+            value = ["createdAt"],
+        ),
+    ],
+)
+@Serializable
+data class NativeSessionEventEntity(
+    @PrimaryKey val id: String,
+    val sessionId: String?,
+    val connectionSessionId: String? = null,
+    val source: String,
+    val level: String,
+    val message: String,
+    val createdAt: Long,
+    val runtimeId: String? = null,
+    val mode: String? = null,
+    val policySignature: String? = null,
+    val fingerprintHash: String? = null,
+    val subsystem: String? = null,
+)

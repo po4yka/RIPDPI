@@ -1,0 +1,77 @@
+package com.poyka.ripdpi.data.diagnostics
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface DiagnosticsTelemetryDao {
+    @Query("SELECT * FROM telemetry_samples ORDER BY createdAt DESC LIMIT :limit")
+    fun observeTelemetry(limit: Int = 200): Flow<List<TelemetrySampleEntity>>
+
+    @Query(
+        """
+        SELECT * FROM telemetry_samples
+        WHERE activeMode = :activeMode
+            AND telemetryNetworkFingerprintHash = :fingerprintHash
+            AND createdAt >= :createdAfter
+        ORDER BY createdAt DESC
+        LIMIT 1
+        """,
+    )
+    suspend fun getLatestTelemetrySampleForFingerprint(
+        activeMode: String,
+        fingerprintHash: String,
+        createdAfter: Long,
+    ): TelemetrySampleEntity?
+
+    @Query(
+        """
+        SELECT * FROM telemetry_samples
+        WHERE connectionSessionId = :connectionSessionId
+        ORDER BY createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    fun observeTelemetryForConnectionSession(
+        connectionSessionId: String,
+        limit: Int = 200,
+    ): Flow<List<TelemetrySampleEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTelemetrySample(sample: TelemetrySampleEntity)
+
+    @Query("SELECT * FROM native_session_events ORDER BY createdAt DESC LIMIT :limit")
+    fun observeNativeEvents(limit: Int = 250): Flow<List<NativeSessionEventEntity>>
+
+    @Query(
+        """
+        SELECT * FROM native_session_events
+        WHERE sessionId = :sessionId
+        ORDER BY createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    suspend fun getNativeEventsForSession(
+        sessionId: String,
+        limit: Int = 500,
+    ): List<NativeSessionEventEntity>
+
+    @Query(
+        """
+        SELECT * FROM native_session_events
+        WHERE connectionSessionId = :connectionSessionId
+        ORDER BY createdAt DESC
+        LIMIT :limit
+        """,
+    )
+    fun observeNativeEventsForConnectionSession(
+        connectionSessionId: String,
+        limit: Int = 250,
+    ): Flow<List<NativeSessionEventEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity)
+}

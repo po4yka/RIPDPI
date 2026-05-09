@@ -1,0 +1,48 @@
+package com.poyka.ripdpi.data.diagnostics
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface DiagnosticsScanDao {
+    // reportJson is projected via CASE (see DiagnosticsReportPersister.MaxInlineReportJsonBytes)
+    // to null payloads above ~1.5MB; larger rows overflow Android's 2MB CursorWindow.
+    @Query(
+        """
+        SELECT id, profileId, approachProfileId, approachProfileName, strategyId, strategyLabel, strategyJson,
+               pathMode, serviceMode, status, summary,
+               CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
+               startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
+               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash
+        FROM scan_sessions ORDER BY startedAt DESC LIMIT :limit
+        """,
+    )
+    fun observeRecentScanSessions(limit: Int = 50): Flow<List<ScanSessionEntity>>
+
+    @Query(
+        """
+        SELECT id, profileId, approachProfileId, approachProfileName, strategyId, strategyLabel, strategyJson,
+               pathMode, serviceMode, status, summary,
+               CASE WHEN length(CAST(reportJson AS BLOB)) <= 1500000 THEN reportJson ELSE NULL END AS reportJson,
+               startedAt, finishedAt, launchOrigin, triggerType, triggerClassification, triggerOccurredAt,
+               triggerPreviousFingerprintHash, triggerCurrentFingerprintHash
+        FROM scan_sessions WHERE id = :sessionId LIMIT 1
+        """,
+    )
+    suspend fun getScanSession(sessionId: String): ScanSessionEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertScanSession(session: ScanSessionEntity)
+
+    @Query("SELECT * FROM probe_results WHERE sessionId = :sessionId ORDER BY createdAt ASC")
+    suspend fun getProbeResults(sessionId: String): List<ProbeResultEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProbeResults(results: List<ProbeResultEntity>)
+
+    @Query("DELETE FROM probe_results WHERE sessionId = :sessionId")
+    suspend fun deleteProbeResultsForSession(sessionId: String)
+}
