@@ -76,8 +76,9 @@ use super::response::{
 #[cfg(test)]
 use super::response::{runtime_response_trigger_flag, runtime_response_trigger_supported, RuntimeTriggerEvent};
 use super::types::{
-    runtime_classify_mtproto_seed, runtime_classify_response_failure, runtime_client_request,
-    runtime_outbound_progress, runtime_probe_result, runtime_relay_ws_tunnel,
+    runtime_classify_first_outbound_payload, runtime_classify_mtproto_seed, runtime_classify_quic_probe,
+    runtime_classify_response_failure, runtime_classify_udp_payload, runtime_client_request, runtime_outbound_progress,
+    runtime_parse_socks5_udp_packet, runtime_probe_result, runtime_relay_ws_tunnel,
     runtime_response_requires_dns_tampering_evidence, runtime_session_error, runtime_udp_packet_settings,
     RuntimeClientRequest, RuntimeConnectionRoute, RuntimeDnsTamperingEvidence, RuntimeOutboundProgress,
     RuntimeProbeResult, RuntimeProxyProtocolMode, RuntimeRelayGroupSettings, RuntimeRelayRotationSeed,
@@ -668,10 +669,7 @@ impl RuntimeState {
     }
 
     pub(super) fn classify_first_outbound_payload(&self, payload: &[u8]) -> OutboundPayloadInfo {
-        ripdpi_proxy_runtime_adapter::model::session::classify_first_outbound_payload(
-            &self.first_outbound_payload_policy,
-            payload,
-        )
+        runtime_classify_first_outbound_payload(&self.first_outbound_payload_policy, payload)
     }
 
     pub(super) fn first_outbound_tls_client_hello_assembler() -> OutboundTlsClientHelloAssembler {
@@ -726,11 +724,7 @@ impl RuntimeState {
         packet: &'a [u8],
         resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
     ) -> Option<(SocketAddr, &'a [u8])> {
-        ripdpi_proxy_runtime_adapter::model::session::parse_socks5_udp_packet_with(
-            &self.udp_packet_parser,
-            packet,
-            resolve_name,
-        )
+        runtime_parse_socks5_udp_packet(&self.udp_packet_parser, packet, resolve_name)
     }
 
     pub(super) fn encode_socks5_udp_packet(target: SocketAddr, payload: &[u8]) -> Vec<u8> {
@@ -738,7 +732,7 @@ impl RuntimeState {
     }
 
     pub(super) fn classify_udp_payload(&self, payload: &[u8]) -> UdpPayloadInfo {
-        ripdpi_proxy_runtime_adapter::model::session::classify_udp_payload_with(&self.udp_payload_classifier, payload)
+        runtime_classify_udp_payload(&self.udp_payload_classifier, payload)
     }
 
     pub(super) fn udp_flow_limit(&self) -> usize {
@@ -879,10 +873,7 @@ impl RuntimeState {
     }
 
     pub(super) fn udp_flow_timeout_failure() -> Option<ClassifiedFailure> {
-        ripdpi_proxy_runtime_adapter::failure::classify_quic_probe(
-            "quic_timeout",
-            Some("UDP flow expired before first response"),
-        )
+        runtime_classify_quic_probe("quic_timeout", Some("UDP flow expired before first response"))
     }
 
     pub(super) fn silent_drop_failure_class() -> FailureClass {

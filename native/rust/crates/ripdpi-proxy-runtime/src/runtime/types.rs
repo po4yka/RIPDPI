@@ -1,7 +1,9 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass, ProbeResult};
+use ripdpi_proxy_runtime_adapter::failure::{
+    classify_quic_probe, ClassifiedFailure, FailureAction, FailureClass, ProbeResult,
+};
 use ripdpi_proxy_runtime_adapter::model::config::{
     DesyncGroup, IpIdMode, RelayGroupSettings, RotationPolicy, RuntimeTimeoutSettings, UdpGroupPacketSettings,
     UdpSourceRebindPolicy,
@@ -10,7 +12,11 @@ use ripdpi_proxy_runtime_adapter::model::decision::{
     classify_response_failure, response_requires_dns_tampering_evidence, ConnectionRoute, DnsTamperingEvidence,
     RetrySelectionPenalty, RouteAdvance, TransportProtocol,
 };
-use ripdpi_proxy_runtime_adapter::model::session::{ClientRequest, OutboundProgress, SessionError, SessionState};
+use ripdpi_proxy_runtime_adapter::model::session::{
+    classify_first_outbound_payload, classify_udp_payload_with, parse_socks5_udp_packet_with, ClientRequest,
+    FirstOutboundPayloadPolicy, OutboundPayloadInfo, OutboundProgress, SessionError, SessionState, SocketType,
+    UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo,
+};
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     classify_mtproto_seed, relay_ws_tunnel, MtprotoSeedClassification, TelegramDc, WsTunnelConfig,
 };
@@ -34,6 +40,29 @@ pub(super) fn runtime_classify_response_failure(
     dns_evidence: Option<RuntimeDnsTamperingEvidence<'_>>,
 ) -> Option<RuntimeClassifiedFailure> {
     classify_response_failure(request, response, dns_evidence)
+}
+
+pub(super) fn runtime_classify_quic_probe(outcome: &str, error: Option<&str>) -> Option<RuntimeClassifiedFailure> {
+    classify_quic_probe(outcome, error)
+}
+
+pub(super) fn runtime_classify_first_outbound_payload(
+    policy: &FirstOutboundPayloadPolicy,
+    payload: &[u8],
+) -> OutboundPayloadInfo {
+    classify_first_outbound_payload(policy, payload)
+}
+
+pub(super) fn runtime_parse_socks5_udp_packet<'a>(
+    parser: &UdpPacketParser,
+    packet: &'a [u8],
+    resolve_name: impl FnMut(&str, SocketType) -> Option<SocketAddr>,
+) -> Option<(SocketAddr, &'a [u8])> {
+    parse_socks5_udp_packet_with(parser, packet, resolve_name)
+}
+
+pub(super) fn runtime_classify_udp_payload(classifier: &UdpPayloadClassifier, payload: &[u8]) -> UdpPayloadInfo {
+    classify_udp_payload_with(classifier, payload)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
