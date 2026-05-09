@@ -1,16 +1,14 @@
 use std::io::{self, Read};
 
-use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-
 use super::autolearn::{advance_after_failure, record_route_success};
 use super::block_signal::record_block_signal;
+use super::platform as warmup_platform;
 use super::resolver::resolve_probe_target;
 use super::target_catalog::PROBE_TIMEOUT;
 use crate::runtime::desync::DesyncSendRequest;
 use crate::runtime::routing::{classify_response_failure, connect_target, emit_failure_classified};
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::RuntimeClassifiedFailure;
-use ripdpi_proxy_runtime_adapter::platform::warmup as warmup_platform;
+use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeConnectionRoute};
 
 /// Probe a single domain by resolving it, connecting through the desync
 /// pipeline, sending a TLS ClientHello, and reading the first response.
@@ -77,7 +75,7 @@ pub(crate) fn probe_domain(state: &RuntimeState, domain: &str) -> io::Result<boo
 fn handle_blocked_response(
     state: &RuntimeState,
     target: std::net::SocketAddr,
-    route: &ConnectionRoute,
+    route: &RuntimeConnectionRoute,
     domain: &str,
     payload: &[u8],
     failure: RuntimeClassifiedFailure,

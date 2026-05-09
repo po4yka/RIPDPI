@@ -1,11 +1,9 @@
 use std::io;
 use std::net::SocketAddr;
 
-use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
-
 use crate::runtime::routing::{advance_route_for_failure, note_route_success};
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::RuntimeClassifiedFailure;
+use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeConnectionRoute};
 
 pub(crate) fn flush_updates(state: &RuntimeState) {
     // The policy port handles autolearn flushing internally on every mutating
@@ -17,7 +15,7 @@ pub(crate) fn flush_updates(state: &RuntimeState) {
 pub(crate) fn record_route_success(
     state: &RuntimeState,
     target: SocketAddr,
-    route: &ConnectionRoute,
+    route: &RuntimeConnectionRoute,
     domain: &str,
 ) -> io::Result<()> {
     note_route_success(state, target, route, Some(domain))
@@ -26,7 +24,7 @@ pub(crate) fn record_route_success(
 pub(crate) fn advance_after_failure(
     state: &RuntimeState,
     target: SocketAddr,
-    route: &ConnectionRoute,
+    route: &RuntimeConnectionRoute,
     domain: &str,
     payload: &[u8],
     failure: &RuntimeClassifiedFailure,

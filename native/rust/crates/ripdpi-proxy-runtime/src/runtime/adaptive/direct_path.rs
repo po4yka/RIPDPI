@@ -2,9 +2,8 @@ use std::io;
 use std::net::SocketAddr;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use ripdpi_proxy_runtime_adapter::model::decision::TransportProtocol;
-
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::RuntimeTransportProtocol;
 
 pub(in crate::runtime) fn now_millis() -> i64 {
     SystemTime::now().duration_since(UNIX_EPOCH).map(|value| value.as_millis() as i64).unwrap_or(0)
@@ -14,7 +13,7 @@ pub(in crate::runtime) fn note_direct_path_transport_attempt(
     state: &RuntimeState,
     host: Option<&str>,
     targets: &[SocketAddr],
-    transport: TransportProtocol,
+    transport: RuntimeTransportProtocol,
 ) -> io::Result<()> {
     state.note_direct_path_transport_attempt(host, targets, transport);
     Ok(())

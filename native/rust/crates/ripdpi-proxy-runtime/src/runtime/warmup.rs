@@ -10,6 +10,7 @@
 mod autolearn;
 mod block_signal;
 mod execution;
+mod platform;
 mod resolver;
 mod scheduler;
 mod target_catalog;
