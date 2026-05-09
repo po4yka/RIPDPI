@@ -5,8 +5,10 @@ use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::time::Duration;
 
 use super::desync::{
-    send_tcp_desync_payload, tcp_desync_executor, DesyncSendRequest, OutboundSendError, OutboundSendOutcome,
-    TcpDesyncExecutionContext, TcpDesyncExecutor,
+    execute_udp_actions, plan_udp_actions_for_runtime, send_tcp_desync_payload, tcp_desync_executor,
+    udp_desync_planner, DesyncSendRequest, OutboundSendError, OutboundSendOutcome, TcpDesyncExecutionContext,
+    TcpDesyncExecutor, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext, UdpDesyncPlanRequest,
+    UdpDesyncPlanner,
 };
 use super::response::{
     runtime_failure_penalizes_strategy, runtime_failure_trigger_mask, runtime_first_response_exchange_policy,
@@ -78,11 +80,6 @@ use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationContro
 use ripdpi_proxy_runtime_adapter::raw_packet_requirements::{
     raw_packet_requirements, validate_ip_fragmentation_support,
 };
-use ripdpi_proxy_runtime_adapter::udp_desync::{
-    execute_udp_actions, plan_udp_actions_for_runtime, udp_desync_planner, UdpActionExecContext, UdpDesyncAction,
-    UdpDesyncPlanContext, UdpDesyncPlanRequest, UdpDesyncPlanner,
-};
-
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 pub(super) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
 
