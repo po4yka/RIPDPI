@@ -116,6 +116,13 @@ pub(super) struct RuntimeOutboundProgress {
     pub(super) stream_end: usize,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum RuntimeProbeResult {
+    Success,
+    DpiFailure(&'static str),
+    NetworkError(&'static str),
+}
+
 struct RuntimeTelemetryDirectPathObserver<'a>(&'a dyn RuntimeTelemetrySink);
 
 impl DirectPathLearningObserver for RuntimeTelemetryDirectPathObserver<'_> {
@@ -962,20 +969,20 @@ impl RuntimeState {
         classify_warmup_closed_before_response()
     }
 
-    pub(super) fn classify_probe_connect_error(source: &io::Error) -> ProbeResult {
-        classify_probe_connect_error(source)
+    pub(super) fn classify_probe_connect_error(source: &io::Error) -> RuntimeProbeResult {
+        runtime_probe_result(classify_probe_connect_error(source))
     }
 
-    pub(super) fn classify_probe_write_error(source: &io::Error) -> ProbeResult {
-        classify_probe_write_error(source)
+    pub(super) fn classify_probe_write_error(source: &io::Error) -> RuntimeProbeResult {
+        runtime_probe_result(classify_probe_write_error(source))
     }
 
-    pub(super) fn classify_probe_read_error(source: &io::Error) -> ProbeResult {
-        classify_probe_read_error(source)
+    pub(super) fn classify_probe_read_error(source: &io::Error) -> RuntimeProbeResult {
+        runtime_probe_result(classify_probe_read_error(source))
     }
 
-    pub(super) fn classify_probe_tls_response(header: [u8; 5], handshake_type: Option<u8>) -> ProbeResult {
-        classify_probe_tls_response(header, handshake_type)
+    pub(super) fn classify_probe_tls_response(header: [u8; 5], handshake_type: Option<u8>) -> RuntimeProbeResult {
+        runtime_probe_result(classify_probe_tls_response(header, handshake_type))
     }
 
     pub(super) fn classify_first_write_failure(error: &OutboundSendError) -> ClassifiedFailure {
@@ -1674,6 +1681,14 @@ impl RuntimeOutboundProgress {
             stream_start: self.stream_start,
             stream_end: self.stream_end,
         }
+    }
+}
+
+fn runtime_probe_result(result: ProbeResult) -> RuntimeProbeResult {
+    match result {
+        ProbeResult::Success => RuntimeProbeResult::Success,
+        ProbeResult::DpiFailure(reason) => RuntimeProbeResult::DpiFailure(reason),
+        ProbeResult::NetworkError(reason) => RuntimeProbeResult::NetworkError(reason),
     }
 }
 

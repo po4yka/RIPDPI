@@ -1,10 +1,9 @@
 use std::net::{IpAddr, SocketAddr};
 use std::thread;
 
-use ripdpi_proxy_runtime_adapter::failure::ProbeResult;
 use ripdpi_proxy_runtime_adapter::model::services::ReprobeResetHandle;
 
-use super::super::state::RuntimeState;
+use super::super::state::{RuntimeProbeResult, RuntimeState};
 use super::cache_flush::flush_runtime_cache_after_handover;
 use super::reset_policy::reset_if_strategy_mismatch;
 use super::target_catalog::{PROBE_TARGETS, TOTAL_DEADLINE};
@@ -74,15 +73,15 @@ fn run_reprobe(protect_path: Option<String>, reset_handle: &ReprobeResetHandle) 
         let target = SocketAddr::new(ip, 443);
 
         match probe_tls_handshake(target, target_def.domain, protect_path.as_deref()) {
-            ProbeResult::Success => {
+            RuntimeProbeResult::Success => {
                 tracing::debug!("network_reprobe: {} passed", target_def.domain);
                 successes += 1;
             }
-            ProbeResult::DpiFailure(reason) => {
+            RuntimeProbeResult::DpiFailure(reason) => {
                 tracing::debug!("network_reprobe: {} failed ({reason})", target_def.domain);
                 failures += 1;
             }
-            ProbeResult::NetworkError(reason) => {
+            RuntimeProbeResult::NetworkError(reason) => {
                 // Network errors (DNS, routing) are not DPI -- don't count them.
                 tracing::debug!("network_reprobe: {} network error ({reason}), skipping", target_def.domain);
             }

@@ -1,16 +1,14 @@
 use std::io::{Read, Write};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
-use ripdpi_proxy_runtime_adapter::failure::ProbeResult;
-
 use super::super::routing::connect_socket;
-use super::super::state::RuntimeState;
+use super::super::state::{RuntimeProbeResult, RuntimeState};
 use super::target_catalog::PROBE_TIMEOUT;
 
 /// Attempt a raw TLS ClientHello to `target` and read the first response bytes.
 /// Returns `Success` if we get a ServerHello (TLS record type 0x16, handshake
 /// type 0x02), `DpiFailure` if we see signs of DPI interference.
-pub(crate) fn probe_tls_handshake(target: SocketAddr, sni: &str, protect_path: Option<&str>) -> ProbeResult {
+pub(crate) fn probe_tls_handshake(target: SocketAddr, sni: &str, protect_path: Option<&str>) -> RuntimeProbeResult {
     let stream =
         match connect_socket(target, IpAddr::V4(Ipv4Addr::UNSPECIFIED), protect_path, false, Some(PROBE_TIMEOUT)) {
             Ok(s) => s,
@@ -18,10 +16,10 @@ pub(crate) fn probe_tls_handshake(target: SocketAddr, sni: &str, protect_path: O
         };
 
     if stream.set_read_timeout(Some(PROBE_TIMEOUT)).is_err() {
-        return ProbeResult::NetworkError("set_timeout_failed");
+        return RuntimeProbeResult::NetworkError("set_timeout_failed");
     }
     if stream.set_write_timeout(Some(PROBE_TIMEOUT)).is_err() {
-        return ProbeResult::NetworkError("set_timeout_failed");
+        return RuntimeProbeResult::NetworkError("set_timeout_failed");
     }
 
     let client_hello = build_minimal_client_hello(sni);
