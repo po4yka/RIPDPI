@@ -4,7 +4,6 @@ use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
 use ripdpi_proxy_runtime_adapter::platform::udp as udp_platform;
-use ripdpi_proxy_runtime_adapter::udp_desync::{UdpDesyncAction, UdpDesyncPlanRequest};
 
 use super::encode_socks5_udp_packet;
 use super::feedback::note_udp_first_response_success;
@@ -48,7 +47,19 @@ pub(super) fn send_udp_flow_payload(
     now: Instant,
     protect_path: Option<&str>,
 ) -> io::Result<()> {
-    let actions = plan_udp_flow_actions(state, entry, payload, now)?;
+    entry.last_used = now;
+    entry.payload.clear();
+    entry.payload.extend_from_slice(payload);
+    entry.awaiting_response = true;
+    let progress = observe_datagram_outbound(entry, payload);
+    let actions = state.plan_udp_flow_actions(
+        entry.route.group_index,
+        payload,
+        progress,
+        entry.host.as_deref(),
+        entry.current_target,
+        entry.packet_settings.default_ttl,
+    )?;
     RuntimeState::execute_udp_desync_actions(
         &entry.upstream,
         entry.current_target,
@@ -56,25 +67,4 @@ pub(super) fn send_udp_flow_payload(
         protect_path,
         &actions,
     )
-}
-
-fn plan_udp_flow_actions(
-    state: &RuntimeState,
-    entry: &mut UdpFlowActivationState,
-    payload: &[u8],
-    now: Instant,
-) -> io::Result<Vec<UdpDesyncAction>> {
-    entry.last_used = now;
-    entry.payload.clear();
-    entry.payload.extend_from_slice(payload);
-    entry.awaiting_response = true;
-    let progress = observe_datagram_outbound(entry, payload);
-    state.plan_udp_desync_actions(UdpDesyncPlanRequest {
-        group_index: entry.route.group_index,
-        payload,
-        progress,
-        host: entry.host.as_deref(),
-        target: entry.current_target,
-        default_ttl: entry.packet_settings.default_ttl,
-    })
 }

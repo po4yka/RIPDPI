@@ -1109,11 +1109,20 @@ impl RuntimeState {
         }
     }
 
-    pub(super) fn plan_udp_desync_actions(
-        &self,
-        request: UdpDesyncPlanRequest<'_>,
-    ) -> io::Result<Vec<UdpDesyncAction>> {
+    fn plan_udp_desync_actions(&self, request: UdpDesyncPlanRequest<'_>) -> io::Result<Vec<UdpDesyncAction>> {
         plan_udp_actions_for_runtime(self.udp_desync_plan_context(), request)
+    }
+
+    pub(super) fn plan_udp_flow_actions(
+        &self,
+        group_index: usize,
+        payload: &[u8],
+        progress: OutboundProgress,
+        host: Option<&str>,
+        target: SocketAddr,
+        default_ttl: u8,
+    ) -> io::Result<Vec<UdpDesyncAction>> {
+        self.plan_udp_desync_actions(UdpDesyncPlanRequest { group_index, payload, progress, host, target, default_ttl })
     }
 
     pub(super) fn execute_udp_desync_actions(
