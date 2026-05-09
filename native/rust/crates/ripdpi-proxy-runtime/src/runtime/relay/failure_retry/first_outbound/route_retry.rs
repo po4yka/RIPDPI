@@ -5,10 +5,10 @@ use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, Fa
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
 use crate::runtime::desync::OutboundSendError;
-use crate::runtime::relay::failure_retry::first_outbound::observations::FirstOutboundSession;
 use crate::runtime::relay::failure_retry::retry_logic::{
     classify_first_write_failure, should_retry_syn_data_without_tfo,
 };
+use crate::runtime::relay::session::FirstOutboundSession;
 use crate::runtime::routing::{
     advance_route_for_failure, emit_failure_classified, note_block_signal_for_failure, reconnect_target,
     reconnect_target_without_tfo, route_uses_direct_syn_data_tfo,

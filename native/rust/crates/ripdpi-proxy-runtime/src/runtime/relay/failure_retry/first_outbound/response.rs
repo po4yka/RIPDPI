@@ -6,9 +6,9 @@ use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
 use crate::runtime::adaptive::note_server_ttl_for_route;
-use crate::runtime::relay::failure_retry::first_outbound::observations::FirstOutboundSession;
 use crate::runtime::relay::failure_retry::retry_logic::record_stream_relay_success;
 use crate::runtime::relay::first_exchange::{read_first_response, FirstResponse};
+use crate::runtime::relay::session::FirstOutboundSession;
 use crate::runtime::state::RuntimeState;
 
 pub(super) enum FirstResponseDecision {

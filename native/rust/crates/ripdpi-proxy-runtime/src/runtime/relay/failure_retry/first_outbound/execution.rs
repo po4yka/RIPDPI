@@ -3,7 +3,7 @@ use std::net::{SocketAddr, TcpStream};
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
 use crate::runtime::desync::{send_with_group, DesyncSendRequest, OutboundSendError};
-use crate::runtime::relay::failure_retry::first_outbound::observations::FirstOutboundSession;
+use crate::runtime::relay::session::FirstOutboundSession;
 use crate::runtime::state::RuntimeState;
 
 pub(super) fn execute_first_write(
