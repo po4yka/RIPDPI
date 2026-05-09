@@ -294,6 +294,7 @@ def evaluate_measurements(
 
     new_violations: list[dict[str, object]] = []
     baseline_exemptions: list[dict[str, object]] = []
+    baseline_growth_violations: list[dict[str, object]] = []
     stale_baseline_entries: list[dict[str, object]] = []
     missing_baseline_entries: list[dict[str, object]] = []
 
@@ -313,6 +314,14 @@ def evaluate_measurements(
                 "baselineMeasuredLoc": baseline_entry.measured_loc,
             },
         )
+        if measurement.measured_loc > baseline_entry.measured_loc:
+            baseline_growth_violations.append(
+                {
+                    **asdict(measurement),
+                    "baselineMeasuredLoc": baseline_entry.measured_loc,
+                    "growth": measurement.measured_loc - baseline_entry.measured_loc,
+                },
+            )
 
     for key, baseline_entry in baseline_entries.items():
         current = measurement_index.get(key)
@@ -339,6 +348,7 @@ def evaluate_measurements(
         "counts": counts,
         "newViolations": sorted(new_violations, key=lambda item: item["path"]),
         "baselineExemptions": sorted(baseline_exemptions, key=lambda item: item["path"]),
+        "baselineGrowthViolations": sorted(baseline_growth_violations, key=lambda item: item["path"]),
         "staleBaselineEntries": sorted(stale_baseline_entries, key=lambda item: item["path"]),
         "missingBaselineEntries": sorted(missing_baseline_entries, key=lambda item: item["path"]),
     }
@@ -372,6 +382,17 @@ def format_summary(results: dict[str, object]) -> str:
             "  - "
             f"{exemption['path']} [{exemption['kind']}] limit={exemption['limit']} "
             f"baseline={exemption['baselineMeasuredLoc']} current={exemption['measured_loc']}",
+        )
+
+    baseline_growth = results["baselineGrowthViolations"]
+    assert isinstance(baseline_growth, list)
+    lines.append(f"Baseline growth violations: {len(baseline_growth)}")
+    for violation in baseline_growth:
+        lines.append(
+            "  - "
+            f"{violation['path']} [{violation['kind']}] limit={violation['limit']} "
+            f"baseline={violation['baselineMeasuredLoc']} current={violation['measured_loc']} "
+            f"growth={violation['growth']}",
         )
 
     stale_entries = results["staleBaselineEntries"]
@@ -564,8 +585,10 @@ def main() -> int:
     print(summary)
 
     new_violations = results["newViolations"]
+    baseline_growth = results["baselineGrowthViolations"]
     assert isinstance(new_violations, list)
-    return 1 if new_violations else 0
+    assert isinstance(baseline_growth, list)
+    return 1 if new_violations or baseline_growth else 0
 
 
 if __name__ == "__main__":

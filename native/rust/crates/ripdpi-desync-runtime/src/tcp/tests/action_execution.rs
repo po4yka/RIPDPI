@@ -1,0 +1,433 @@
+use super::*;
+
+#[test]
+fn actions_write_only_no_strategy() {
+    let (mut client, mut server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::Write(b"hello".to_vec()), DesyncAction::Write(b"world".to_vec())];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        None,
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    // write_transport_payload returns bytes.len() (not accumulated), so last write's len is returned
+    assert_eq!(result.unwrap(), 5);
+    let mut buf = vec![0u8; 10];
+    use std::io::Read;
+    server.read_exact(&mut buf).expect("read");
+    assert_eq!(&buf, b"helloworld");
+}
+
+#[test]
+fn actions_write_with_strategy() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::Write(b"hello".to_vec())];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        Some("split"),
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    assert_eq!(result.unwrap(), 5);
+}
+
+#[test]
+fn actions_set_ttl_and_restore() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::SetTtl(42), DesyncAction::Write(b"x".to_vec()), DesyncAction::RestoreDefaultTtl];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        Some("disorder"),
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    assert_eq!(result.unwrap(), 1);
+}
+
+#[test]
+fn actions_set_ttl_auto_detect() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::SetTtl(1), DesyncAction::RestoreDefaultTtl];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        0,
+        false,
+        Duration::from_millis(10),
+        Some("disorder"),
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    assert_eq!(result.unwrap(), 0);
+}
+
+#[test]
+fn actions_write_urgent_no_strategy() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::WriteUrgent { prefix: b"ab".to_vec(), urgent_byte: b'!' }];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        None,
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    assert_eq!(result.unwrap(), 3); // prefix.len() + 1
+}
+
+#[test]
+fn actions_write_urgent_with_strategy() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::WriteUrgent { prefix: b"ab".to_vec(), urgent_byte: b'!' }];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        Some("oob"),
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    assert_eq!(result.unwrap(), 3);
+}
+
+// ipfrag2 fallback tests: on non-Linux, send_ip_fragmented_tcp returns
+// Unsupported and the fallback path plain-writes the data.  On Linux the
+// raw-socket call needs CAP_NET_RAW which CI runners lack.
+#[test]
+#[cfg(not(target_os = "linux"))]
+fn actions_ipfrag2_fallback_with_strategy() {
+    let (mut client, mut server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::WriteIpFragmentedTcp {
+        bytes: b"hello".to_vec(),
+        split_offset: 2,
+        disorder: false,
+        ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+    }];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        Some("ipfrag2"),
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    assert_eq!(result.unwrap(), 5);
+    let mut buf = vec![0u8; 5];
+    use std::io::Read;
+    server.read_exact(&mut buf).expect("read");
+    assert_eq!(&buf, b"hello");
+}
+
+#[test]
+#[cfg(not(target_os = "linux"))]
+fn actions_ipfrag2_fallback_no_strategy() {
+    let (mut client, mut server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::WriteIpFragmentedTcp {
+        bytes: b"world".to_vec(),
+        split_offset: 2,
+        disorder: false,
+        ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+    }];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        None,
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    assert_eq!(result.unwrap(), 5);
+    let mut buf = vec![0u8; 5];
+    use std::io::Read;
+    server.read_exact(&mut buf).expect("read");
+    assert_eq!(&buf, b"world");
+}
+
+#[test]
+fn actions_seqovl_fallback_to_split() {
+    let (mut client, mut server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::WriteSeqOverlap {
+        real_chunk: b"ab".to_vec(),
+        fake_prefix: b"xx".to_vec(),
+        remainder: b"cd".to_vec(),
+    }];
+    // On macOS, send_seqovl_tcp returns Unsupported -> fallback writes real_chunk + remainder
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        None,
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    assert_eq!(result.unwrap(), 4);
+    let mut buf = vec![0u8; 4];
+    use std::io::Read;
+    server.read_exact(&mut buf).expect("read");
+    assert_eq!(&buf, b"abcd");
+}
+
+#[test]
+fn actions_udp_frag_rejects_in_tcp() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::WriteIpFragmentedUdp {
+        bytes: b"data".to_vec(),
+        split_offset: 2,
+        disorder: false,
+        ipv6_ext: ripdpi_ipfrag::Ipv6ExtHeaders::default(),
+    }];
+    let err = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        None,
+        &unavailable,
+        false,
+        None,
+        None,
+    )
+    .unwrap_err();
+    assert_eq!(err.kind(), io::ErrorKind::InvalidInput);
+    assert!(err.to_string().contains("udp fragmentation action reached tcp executor"));
+}
+
+#[test]
+fn actions_attach_detach_drop_sack_noop() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::AttachDropSack, DesyncAction::Write(b"x".to_vec()), DesyncAction::DetachDropSack];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        None,
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    assert_eq!(result.unwrap(), 1);
+}
+
+#[test]
+fn actions_window_clamp_ignored_on_unsupported() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions =
+        vec![DesyncAction::SetWindowClamp(1024), DesyncAction::Write(b"x".to_vec()), DesyncAction::RestoreWindowClamp];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        None,
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    assert_eq!(result.unwrap(), 1);
+}
+
+// These operations return Unsupported on macOS but succeed on Linux,
+// so the "errors on unsupported" assertion only holds off-Linux.
+#[test]
+#[cfg(not(target_os = "linux"))]
+fn actions_await_writable_errors_on_unsupported() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::Write(b"x".to_vec()), DesyncAction::AwaitWritable];
+    let err = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        Some("split"),
+        &unavailable,
+        false,
+        None,
+        None,
+    )
+    .unwrap_err();
+    assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
+}
+
+#[test]
+#[cfg(not(target_os = "linux"))]
+fn actions_set_md5sig_errors_on_unsupported() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![DesyncAction::SetMd5Sig { key_len: 16 }];
+    let err = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        Some("split"),
+        &unavailable,
+        false,
+        None,
+        None,
+    )
+    .unwrap_err();
+    assert!(matches!(err, OutboundSendError::StrategyExecution { .. }));
+}
+
+#[test]
+fn actions_ttl_unavailable_skips_set_restore() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = AtomicBool::new(true);
+    let actions = vec![DesyncAction::SetTtl(1), DesyncAction::Write(b"data".to_vec()), DesyncAction::RestoreDefaultTtl];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        Some("disorder"),
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    assert_eq!(result.unwrap(), 4);
+}
+
+#[test]
+fn actions_safety_net_restores_ttl_on_success() {
+    let (mut client, _server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    // SetTtl modifies TTL, then write + no RestoreDefaultTtl -- safety net should restore
+    let actions = vec![DesyncAction::SetTtl(42), DesyncAction::Write(b"x".to_vec())];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(10),
+        Some("disorder"),
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    // Should succeed and safety net restores TTL at lines 590-594
+    assert_eq!(result.unwrap(), 1);
+}
+
+// ---------------------------------------------------------------
+// TTL and OOB wrapper tests
+// ---------------------------------------------------------------
+
+#[test]
+fn set_stream_ttl_loopback() {
+    let (client, _server) = connected_pair();
+    let result = set_stream_ttl(&client, 42);
+    assert!(result.is_ok(), "set_stream_ttl should succeed on loopback: {:?}", result.err());
+}
+
+#[test]
+fn send_out_of_band_sends_prefix_plus_byte() {
+    let (client, _server) = connected_pair();
+    let result = send_out_of_band(&client, b"abc", b'!');
+    assert!(result.is_ok(), "send_out_of_band should succeed on loopback: {:?}", result.err());
+}
+
+#[test]
+fn send_oob_action_named_accumulates() {
+    let (client, _server) = connected_pair();
+    let result = send_oob_action_named(&client, b"ab", b'!', "send_oob", "oob", None, 10);
+    assert_eq!(result.unwrap(), 13); // 10 + 2 + 1
+}
+
+// ---------------------------------------------------------------
+// execute_tcp_plan validation tests
+// ---------------------------------------------------------------
+
+#[test]
+fn actions_delay_does_not_affect_bytes_committed() {
+    let (mut client, mut server) = connected_pair();
+    let unavailable = default_ttl_unavailable();
+    let actions = vec![
+        DesyncAction::Write(b"hello".to_vec()),
+        DesyncAction::Delay(1), // 1ms delay
+        DesyncAction::Write(b"world".to_vec()),
+    ];
+    let result = execute_tcp_actions(
+        &mut client,
+        &actions,
+        64,
+        false,
+        Duration::from_millis(50),
+        None,
+        &unavailable,
+        false,
+        None,
+        None,
+    );
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap(), 5); // last write's len (write_transport_payload returns per-call bytes)
+
+    let mut buf = vec![0u8; 10];
+    use std::io::Read;
+    server.read_exact(&mut buf).expect("read_exact");
+    assert_eq!(&buf, b"helloworld");
+}

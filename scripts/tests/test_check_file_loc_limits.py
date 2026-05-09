@@ -133,11 +133,37 @@ class CheckFileLocLimitsTest(unittest.TestCase):
         results = check_file_loc_limits.evaluate_measurements(measurements, baseline)
 
         self.assertEqual(1, len(results["baselineExemptions"]))
+        self.assertEqual(1, len(results["baselineGrowthViolations"]))
+        self.assertEqual(20, results["baselineGrowthViolations"][0]["growth"])
         self.assertEqual(1, len(results["newViolations"]))
         self.assertEqual(
             "core/data/src/main/kotlin/com/poyka/ripdpi/data/diagnostics/DiagnosticsDatabase.kt",
             results["newViolations"][0]["path"],
         )
+
+    def test_baseline_exemption_without_growth_does_not_fail_growth_gate(self) -> None:
+        measurements = [
+            check_file_loc_limits.SourceMeasurement(
+                path="native/rust/crates/ripdpi-runtime/src/runtime_policy.rs",
+                kind="rust",
+                measured_loc=1600,
+                limit=1500,
+            ),
+        ]
+        baseline = {
+            ("native/rust/crates/ripdpi-runtime/src/runtime_policy.rs", "rust", 1500):
+                check_file_loc_limits.BaselineEntry(
+                    path="native/rust/crates/ripdpi-runtime/src/runtime_policy.rs",
+                    kind="rust",
+                    measured_loc=1600,
+                    limit=1500,
+                ),
+        }
+
+        results = check_file_loc_limits.evaluate_measurements(measurements, baseline)
+
+        self.assertEqual(1, len(results["baselineExemptions"]))
+        self.assertEqual([], results["baselineGrowthViolations"])
 
     def test_stale_and_missing_baseline_entries_are_reported(self) -> None:
         measurements = [

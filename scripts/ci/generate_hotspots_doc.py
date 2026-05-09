@@ -94,6 +94,11 @@ def render_markdown(rows: list[dict]) -> str:
     )
     lines.append("")
 
+    if not rows:
+        lines.append("No baseline-exempt files are currently recorded.")
+        lines.append("")
+        return "\n".join(lines) + "\n"
+
     # Group by kind for section headers.
     kind_order = ["compose", "kotlin", "rust"]
     kind_labels = {
@@ -129,9 +134,6 @@ def main() -> int:
 
     raw_data = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
     entries: list[dict] = raw_data.get("entries", [])
-    if not entries:
-        print("ERROR: baseline entries list is empty", file=sys.stderr)
-        return 1
 
     rows = build_rows(entries, REPO_ROOT)
     content = render_markdown(rows)
