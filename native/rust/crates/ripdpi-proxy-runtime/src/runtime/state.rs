@@ -33,14 +33,14 @@ use super::response::{
 use super::response::{runtime_response_trigger_flag, runtime_response_trigger_supported, RuntimeTriggerEvent};
 use super::session::{
     encode_http_connect_reply, encode_socks4_reply, encode_socks5_reply, encode_socks5_udp_packet,
-    encode_upstream_socks_connect, extract_payload_host_with, first_outbound_payload_policy, has_inbound_payload,
-    new_session_state, observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
+    encode_upstream_socks_connect, extract_payload_host_with, has_inbound_payload, new_session_state,
+    observe_datagram_outbound_payload, observe_first_response_payload, observe_inbound_payload,
     observe_outbound_payload, observe_retry_response_payload, outbound_payload_count_this_round,
     parse_http_connect_request, parse_shadowsocks_target, parse_socks4_request, parse_socks5_request,
-    payload_host_extractor, read_upstream_socks_reply, udp_packet_parser, udp_payload_classifier,
-    validate_http_proxy_auth, FirstOutboundPayloadPolicy, OutboundPayloadInfo, PayloadHostExtractor, ProxyReply,
-    SocketType, UdpPacketParser, UdpPayloadClassifier, UdpPayloadInfo, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE,
-    S_AUTH_USERPASS, S_ER_CMD, S_ER_GEN, S_VER5,
+    read_upstream_socks_reply, runtime_session_projection, validate_http_proxy_auth, FirstOutboundPayloadPolicy,
+    OutboundPayloadInfo, PayloadHostExtractor, ProxyReply, RuntimeSessionProjection, SocketType, UdpPacketParser,
+    UdpPayloadClassifier, UdpPayloadInfo, S_ATP_I4, S_ATP_I6, S_AUTH_BAD, S_AUTH_NONE, S_AUTH_USERPASS, S_ER_CMD,
+    S_ER_GEN, S_VER5,
 };
 use super::types::{
     runtime_block_signal_from_failure, runtime_build_probe_client_hello, runtime_classify_first_outbound_payload,
@@ -185,12 +185,14 @@ impl RuntimeState {
             relay_first_response,
             response_failure_evidence_settings,
         } = runtime_config_projection(&config);
+        let RuntimeSessionProjection {
+            udp_packet_parser,
+            udp_payload_classifier,
+            relay_host_extractor,
+            first_outbound_payload_policy,
+        } = runtime_session_projection(&config);
         let tcp_desync_executor = tcp_desync_executor(&config);
         let udp_desync_planner = udp_desync_planner(&config);
-        let udp_packet_parser = udp_packet_parser(&config);
-        let udp_payload_classifier = udp_payload_classifier(&config);
-        let relay_host_extractor = payload_host_extractor(&config);
-        let first_outbound_payload_policy = first_outbound_payload_policy(&config);
         let first_response_exchange_policy = runtime_first_response_exchange_policy(&config);
 
         Self {
@@ -1535,12 +1537,14 @@ impl RuntimeState {
             relay_first_response,
             response_failure_evidence_settings,
         } = runtime_config_projection(&config);
+        let RuntimeSessionProjection {
+            udp_packet_parser,
+            udp_payload_classifier,
+            relay_host_extractor,
+            first_outbound_payload_policy,
+        } = runtime_session_projection(&config);
         let tcp_desync_executor = tcp_desync_executor(&config);
         let udp_desync_planner = udp_desync_planner(&config);
-        let udp_packet_parser = udp_packet_parser(&config);
-        let udp_payload_classifier = udp_payload_classifier(&config);
-        let relay_host_extractor = payload_host_extractor(&config);
-        let first_outbound_payload_policy = first_outbound_payload_policy(&config);
         let first_response_exchange_policy = runtime_first_response_exchange_policy(&config);
 
         Self {
