@@ -150,31 +150,31 @@ fn reconnect_target_with_tfo_mode(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ripdpi_proxy_runtime_adapter::failure::{
-        classify_transport_error, ClassifiedFailure, FailureAction, FailureClass, FailureStage,
+    use crate::runtime::config::RuntimeConfig;
+    use crate::runtime::types::{
+        RuntimeClassifiedFailure, RuntimeFailureAction, RuntimeFailureClass, RuntimeFailureStage,
     };
 
     #[test]
     fn max_route_retries_default_is_eight() {
-        let config = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
+        let config = RuntimeConfig::default();
         assert_eq!(config.max_route_retries, 8);
     }
 
     #[test]
     fn max_route_retries_is_customizable() {
-        let config =
-            ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig { max_route_retries: 3, ..Default::default() };
+        let config = RuntimeConfig { max_route_retries: 3, ..Default::default() };
         assert_eq!(config.max_route_retries, 3);
     }
 
     #[test]
     fn retry_without_tfo_depends_on_attempt_using_tfo() {
         let connect_failure =
-            classify_transport_error(FailureStage::Connect, &io::Error::new(io::ErrorKind::ConnectionRefused, "boom"));
-        let reset_failure = ClassifiedFailure::new(
-            FailureClass::TcpReset,
-            FailureStage::Connect,
-            FailureAction::RetryWithMatchingGroup,
+            RuntimeState::classify_connect_transport_error(&io::Error::new(io::ErrorKind::ConnectionRefused, "boom"));
+        let reset_failure = RuntimeClassifiedFailure::new(
+            RuntimeFailureClass::TcpReset,
+            RuntimeFailureStage::Connect,
+            RuntimeFailureAction::RetryWithMatchingGroup,
             "reset",
         );
 
