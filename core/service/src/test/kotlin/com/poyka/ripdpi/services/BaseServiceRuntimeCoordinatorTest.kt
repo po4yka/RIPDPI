@@ -369,8 +369,8 @@ private class TestCoordinator(
         sampleResolution(mode = Mode.Proxy)
 
     private suspend fun resolveHandoverConnectionPolicy(
-        fingerprint: NetworkFingerprint,
-        handoverClassification: String,
+        _fingerprint: NetworkFingerprint,
+        _handoverClassification: String,
     ): ConnectionPolicyResolution = sampleResolution(mode = Mode.Proxy, policySignature = "handover")
 
     private fun applyActiveConnectionPolicy(
@@ -396,8 +396,8 @@ private class TestCoordinator(
     }
 
     private suspend fun startResolvedRuntime(
-        session: ProxyRuntimeSession,
-        resolution: ConnectionPolicyResolution,
+        _session: ProxyRuntimeSession,
+        _resolution: ConnectionPolicyResolution,
     ) {
         startCalls += 1
         if (failOnStart) {
@@ -405,12 +405,12 @@ private class TestCoordinator(
         }
     }
 
-    private suspend fun stopModeRuntime(skipRuntimeShutdown: Boolean) {
+    private suspend fun stopModeRuntime(_skipRuntimeShutdown: Boolean) {
         stopCalls += 1
         stopGate?.await()
     }
 
-    private fun startModeTelemetryUpdates(replaceTelemetryJob: TelemetryJobReplacer) = Unit
+    private fun startModeTelemetryUpdates(_replaceTelemetryJob: TelemetryJobReplacer) = Unit
 
     private suspend fun restartAfterHandover(
         session: ProxyRuntimeSession,
@@ -432,7 +432,7 @@ private class TestCoordinator(
 
     private fun updateStatus(
         newStatus: ServiceStatus,
-        failureReason: FailureReason?,
+        _failureReason: FailureReason?,
     ) {
         status = newStatus
         statusTransitions += newStatus
