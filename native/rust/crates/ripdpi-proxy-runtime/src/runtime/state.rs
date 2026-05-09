@@ -30,10 +30,6 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings,
     UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
 };
-use ripdpi_proxy_runtime_adapter::model::decision::{
-    classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
-    ConnectionRoute, DnsTamperingEvidence, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
-};
 use ripdpi_proxy_runtime_adapter::model::ports::{
     AdaptiveContextPort, AdaptiveFeedbackPort, DirectPathLearningObserver, DirectPathLearningPort, PolicyPort,
     RetryPacingPort,
@@ -77,10 +73,12 @@ use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
 };
 
 use super::types::{
-    runtime_client_request, runtime_outbound_progress, runtime_probe_result, runtime_session_error,
-    runtime_udp_packet_settings, RuntimeClientRequest, RuntimeOutboundProgress, RuntimeProbeResult,
-    RuntimeProxyProtocolMode, RuntimeRelayGroupSettings, RuntimeRelayRotationSeed, RuntimeRelayTimeouts,
-    RuntimeSessionError, RuntimeSessionState, RuntimeTelegramDc, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings,
+    runtime_classify_response_failure, runtime_client_request, runtime_outbound_progress, runtime_probe_result,
+    runtime_response_requires_dns_tampering_evidence, runtime_session_error, runtime_udp_packet_settings,
+    RuntimeClientRequest, RuntimeConnectionRoute, RuntimeDnsTamperingEvidence, RuntimeOutboundProgress,
+    RuntimeProbeResult, RuntimeProxyProtocolMode, RuntimeRelayGroupSettings, RuntimeRelayRotationSeed,
+    RuntimeRelayTimeouts, RuntimeRetrySelectionPenalty, RuntimeRouteAdvance, RuntimeSessionError, RuntimeSessionState,
+    RuntimeTelegramDc, RuntimeTransportProtocol, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings,
     RuntimeUdpSourceRebindPolicy, RuntimeWsTunnelConfig, UdpFlowGroupPolicy, WsSeedClassification,
 };
 
@@ -371,7 +369,7 @@ impl RuntimeState {
         group_index: usize,
         host: Option<&str>,
         payload: Option<&[u8]>,
-        transport: TransportProtocol,
+        transport: RuntimeTransportProtocol,
     ) -> io::Result<()> {
         RetryPacingPort::note_retry_success(&self.services, target, group_index, host, payload, transport)
     }
@@ -382,7 +380,7 @@ impl RuntimeState {
         group_index: usize,
         host: Option<&str>,
         payload: Option<&[u8]>,
-        transport: TransportProtocol,
+        transport: RuntimeTransportProtocol,
         now_ms: u64,
     ) -> io::Result<()> {
         RetryPacingPort::note_retry_failure(&self.services, target, group_index, host, payload, transport, now_ms)
@@ -393,16 +391,16 @@ impl RuntimeState {
         target: SocketAddr,
         host: Option<&str>,
         payload: Option<&[u8]>,
-        transport: TransportProtocol,
+        transport: RuntimeTransportProtocol,
         now_ms: u64,
-    ) -> io::Result<BTreeMap<usize, RetrySelectionPenalty>> {
+    ) -> io::Result<BTreeMap<usize, RuntimeRetrySelectionPenalty>> {
         RetryPacingPort::build_retry_penalties(&self.services, target, host, payload, transport, now_ms)
     }
 
     pub(super) fn apply_retry_pacing(
         &self,
         target: SocketAddr,
-        route: &ConnectionRoute,
+        route: &RuntimeConnectionRoute,
         host: Option<&str>,
         payload: Option<&[u8]>,
         now_ms: u64,
@@ -730,7 +728,7 @@ impl RuntimeState {
         group_index: usize,
         target: SocketAddr,
         payload: &[u8],
-        transport: TransportProtocol,
+        transport: RuntimeTransportProtocol,
     ) -> bool {
         route_matches_transport_payload_with(&self.route_payload_matcher, group_index, target, payload, transport)
     }
@@ -785,7 +783,11 @@ impl RuntimeState {
         self.route_retry_settings.max_route_retries
     }
 
-    pub(super) fn route_uses_direct_syn_data_tfo(&self, route: &ConnectionRoute, payload: Option<&[u8]>) -> bool {
+    pub(super) fn route_uses_direct_syn_data_tfo(
+        &self,
+        route: &RuntimeConnectionRoute,
+        payload: Option<&[u8]>,
+    ) -> bool {
         connection_route_requests_direct_syn_data_tfo_with(&self.route_syn_data_settings, route, payload)
     }
 
@@ -814,23 +816,23 @@ impl RuntimeState {
         payload: Option<&[u8]>,
         host: Option<&str>,
         allow_unknown_payload: bool,
-        transport: TransportProtocol,
-    ) -> Option<ConnectionRoute> {
+        transport: RuntimeTransportProtocol,
+    ) -> Option<RuntimeConnectionRoute> {
         PolicyPort::select_initial(&self.services, target, payload, host, allow_unknown_payload, transport)
     }
 
     #[allow(clippy::too_many_arguments)]
     pub(super) fn select_next_route(
         &self,
-        route: &ConnectionRoute,
+        route: &RuntimeConnectionRoute,
         target: SocketAddr,
         payload: Option<&[u8]>,
         host: Option<&str>,
-        transport: TransportProtocol,
+        transport: RuntimeTransportProtocol,
         trigger: u32,
         can_reconnect: bool,
-        retry_penalties: Option<&BTreeMap<usize, RetrySelectionPenalty>>,
-    ) -> Option<ConnectionRoute> {
+        retry_penalties: Option<&BTreeMap<usize, RuntimeRetrySelectionPenalty>>,
+    ) -> Option<RuntimeConnectionRoute> {
         PolicyPort::select_next(
             &self.services,
             route,
@@ -847,9 +849,9 @@ impl RuntimeState {
     pub(super) fn note_route_success(
         &self,
         target: SocketAddr,
-        route: &ConnectionRoute,
+        route: &RuntimeConnectionRoute,
         host: Option<&str>,
-        transport: TransportProtocol,
+        transport: RuntimeTransportProtocol,
     ) -> io::Result<()> {
         PolicyPort::note_success(&self.services, target, route, host, transport)
     }
@@ -1039,18 +1041,18 @@ impl RuntimeState {
         response: &[u8],
         host: Option<&str>,
     ) -> Option<ClassifiedFailure> {
-        let answer_set = if response_requires_dns_tampering_evidence(request, response) {
+        let answer_set = if runtime_response_requires_dns_tampering_evidence(request, response) {
             host.and_then(|value| self.encrypted_dns_ip_answers_for_host(value).ok())
         } else {
             None
         };
-        let dns_evidence = host.zip(answer_set.as_ref()).map(|(value, answers)| DnsTamperingEvidence {
+        let dns_evidence = host.zip(answer_set.as_ref()).map(|(value, answers)| RuntimeDnsTamperingEvidence {
             host: value,
             target_ip: target.ip(),
             answers: &answers.answers,
             resolver_label: &answers.label,
         });
-        classify_policy_response_failure(request, response, dns_evidence)
+        runtime_classify_response_failure(request, response, dns_evidence)
     }
 
     pub(super) fn note_block_signal(
@@ -1065,9 +1067,9 @@ impl RuntimeState {
 
     pub(super) fn advance_route(
         &self,
-        route: &ConnectionRoute,
-        advance: RouteAdvance<'_>,
-    ) -> io::Result<Option<ConnectionRoute>> {
+        route: &RuntimeConnectionRoute,
+        advance: RuntimeRouteAdvance<'_>,
+    ) -> io::Result<Option<RuntimeConnectionRoute>> {
         PolicyPort::advance_route(&self.services, route, advance)
     }
 
@@ -1422,7 +1424,7 @@ impl RuntimeState {
         &self,
         host: Option<&str>,
         targets: &[SocketAddr],
-        transport: TransportProtocol,
+        transport: RuntimeTransportProtocol,
     ) {
         DirectPathLearningPort::note_direct_path_transport_attempt(&self.services, host, targets, transport);
     }
@@ -1431,7 +1433,7 @@ impl RuntimeState {
         &self,
         original_target: SocketAddr,
         host: Option<&str>,
-        transport: TransportProtocol,
+        transport: RuntimeTransportProtocol,
         now_ms: i64,
     ) -> Vec<SocketAddr> {
         let decision = AdaptiveContextPort::preferred_targets(

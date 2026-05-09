@@ -6,7 +6,8 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     UdpSourceRebindPolicy,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
-    ConnectionRoute, RetrySelectionPenalty, RouteAdvance, TransportProtocol,
+    classify_response_failure, response_requires_dns_tampering_evidence, ConnectionRoute, DnsTamperingEvidence,
+    RetrySelectionPenalty, RouteAdvance, TransportProtocol,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{ClientRequest, OutboundProgress, SessionError, SessionState};
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{TelegramDc, WsTunnelConfig};
@@ -15,9 +16,22 @@ pub(super) type RuntimeClassifiedFailure = ClassifiedFailure;
 pub(super) type RuntimeFailureAction = FailureAction;
 pub(super) type RuntimeFailureClass = FailureClass;
 pub(super) type RuntimeConnectionRoute = ConnectionRoute;
+pub(super) type RuntimeDnsTamperingEvidence<'a> = DnsTamperingEvidence<'a>;
 pub(super) type RuntimeRetrySelectionPenalty = RetrySelectionPenalty;
 pub(super) type RuntimeRouteAdvance<'a> = RouteAdvance<'a>;
 pub(super) type RuntimeTransportProtocol = TransportProtocol;
+
+pub(super) fn runtime_response_requires_dns_tampering_evidence(request: &[u8], response: &[u8]) -> bool {
+    response_requires_dns_tampering_evidence(request, response)
+}
+
+pub(super) fn runtime_classify_response_failure(
+    request: &[u8],
+    response: &[u8],
+    dns_evidence: Option<RuntimeDnsTamperingEvidence<'_>>,
+) -> Option<RuntimeClassifiedFailure> {
+    classify_response_failure(request, response, dns_evidence)
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum RuntimeProxyProtocolMode {
