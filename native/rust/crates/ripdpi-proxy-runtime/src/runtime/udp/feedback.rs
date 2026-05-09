@@ -1,7 +1,5 @@
 use std::io;
 
-use ripdpi_proxy_runtime_adapter::model::decision::{RouteAdvance, TransportProtocol};
-
 use super::flow::UdpFlowActivationState;
 use crate::runtime::adaptive::{
     note_adaptive_udp_failure, note_adaptive_udp_success, note_direct_path_all_ips_failed,
@@ -12,6 +10,7 @@ use crate::runtime::retry::{
 };
 use crate::runtime::routing::{note_block_signal_for_failure, note_route_success_for_transport};
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::{RuntimeRouteAdvance, RuntimeTransportProtocol};
 
 pub(super) fn note_udp_first_response_success(
     state: &RuntimeState,
@@ -35,14 +34,14 @@ pub(super) fn note_udp_first_response_success(
         entry.route.group_index,
         entry.host.as_deref(),
         Some(&entry.payload),
-        TransportProtocol::Udp,
+        RuntimeTransportProtocol::Udp,
     )?;
     note_route_success_for_transport(
         state,
         entry.current_target,
         &entry.route,
         entry.host.as_deref(),
-        TransportProtocol::Udp,
+        RuntimeTransportProtocol::Udp,
     )?;
     state.note_evolver_success();
     entry.awaiting_response = false;
@@ -60,7 +59,7 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
         entry.route.group_index,
         entry.host.as_deref(),
         Some(entry.payload.as_slice()),
-        TransportProtocol::Udp,
+        RuntimeTransportProtocol::Udp,
     )?;
     let _ = note_direct_path_udp_failure(state, entry.host.as_deref(), &entry.target_candidates);
     note_adaptive_udp_failure(state, failed_target, entry.route.group_index, entry.host.as_deref(), &entry.payload)?;
@@ -70,14 +69,14 @@ pub(super) fn note_udp_flow_timeout_failure(state: &RuntimeState, entry: &UdpFlo
         failed_target,
         entry.host.as_deref(),
         Some(entry.payload.as_slice()),
-        TransportProtocol::Udp,
+        RuntimeTransportProtocol::Udp,
     )?;
     let next = state.advance_route(
         &entry.route,
-        RouteAdvance {
+        RuntimeRouteAdvance {
             dest: failed_target,
             payload: Some(entry.payload.as_slice()),
-            transport: TransportProtocol::Udp,
+            transport: RuntimeTransportProtocol::Udp,
             trigger: RuntimeState::connect_failure_trigger(),
             can_reconnect: true,
             host: entry.host.clone(),

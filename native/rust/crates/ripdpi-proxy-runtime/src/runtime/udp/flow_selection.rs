@@ -3,8 +3,6 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use ripdpi_proxy_runtime_adapter::model::decision::{ConnectionRoute, TransportProtocol};
-
 use super::client_receive::UdpClientPacket;
 use super::flow::{udp_flow_at_capacity, UdpFlowActivationState};
 use super::session::UdpFlowSession;
@@ -12,12 +10,15 @@ use super::sockets::build_udp_upstream_socket;
 use super::upstream_pump::send_udp_flow_payload;
 use crate::runtime::routing::{preferred_targets_for_transport, select_route_for_transport};
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::{RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy};
+use crate::runtime::types::{
+    RuntimeConnectionRoute, RuntimeTransportProtocol, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings,
+    RuntimeUdpSourceRebindPolicy,
+};
 
 pub(super) struct UdpFlowSelection {
     pub(super) target: SocketAddr,
     pub(super) target_index: usize,
-    pub(super) route: ConnectionRoute,
+    pub(super) route: RuntimeConnectionRoute,
     pub(super) socket_settings: RuntimeUdpSocketSettings,
     pub(super) packet_settings: RuntimeUdpPacketSettings,
     pub(super) source_rebind_policy: RuntimeUdpSourceRebindPolicy,
@@ -27,7 +28,7 @@ pub(super) struct UdpFlowSelection {
 pub(super) struct UdpFlowSelectionWithCandidates {
     pub(super) target: SocketAddr,
     pub(super) target_index: usize,
-    pub(super) route: ConnectionRoute,
+    pub(super) route: RuntimeConnectionRoute,
     pub(super) socket_settings: RuntimeUdpSocketSettings,
     pub(super) packet_settings: RuntimeUdpPacketSettings,
     pub(super) source_rebind_policy: RuntimeUdpSourceRebindPolicy,
@@ -78,7 +79,8 @@ pub(super) fn select_udp_flow_target(
     phase: &'static str,
 ) -> io::Result<Option<UdpFlowSelection>> {
     for (target_index, &target) in target_candidates.iter().enumerate().skip(start_index) {
-        let Ok(route) = select_route_for_transport(state, target, Some(payload), host, false, TransportProtocol::Udp)
+        let Ok(route) =
+            select_route_for_transport(state, target, Some(payload), host, false, RuntimeTransportProtocol::Udp)
         else {
             continue;
         };
@@ -112,7 +114,8 @@ pub(super) fn reselect_udp_flow_target(
     payload: &[u8],
     host: Option<&str>,
 ) -> io::Result<Option<UdpFlowSelectionWithCandidates>> {
-    let target_candidates = preferred_targets_for_transport(state, original_target, host, TransportProtocol::Udp);
+    let target_candidates =
+        preferred_targets_for_transport(state, original_target, host, RuntimeTransportProtocol::Udp);
     let Some(selection) =
         select_udp_flow_target(state, protect_path, host, payload, &target_candidates, 0, "payload_reselect")?
     else {
@@ -182,8 +185,12 @@ fn build_initial_udp_flow_entry(
     packet: &UdpClientPacket<'_>,
     now: Instant,
 ) -> io::Result<Option<UdpFlowActivationState>> {
-    let target_candidates =
-        preferred_targets_for_transport(state, packet.original_target, packet.host.as_deref(), TransportProtocol::Udp);
+    let target_candidates = preferred_targets_for_transport(
+        state,
+        packet.original_target,
+        packet.host.as_deref(),
+        RuntimeTransportProtocol::Udp,
+    );
     let Some(selection) = select_udp_flow_target(
         state,
         protect_path,
@@ -231,7 +238,7 @@ fn update_udp_flow_selection(
             entry.route.group_index,
             entry.current_target,
             packet.payload,
-            TransportProtocol::Udp,
+            RuntimeTransportProtocol::Udp,
         )
     {
         let Some(selection) = reselect_udp_flow_target(
