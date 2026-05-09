@@ -3,7 +3,8 @@ use std::io;
 use ripdpi_root_helper_protocol::CMD_PROBE_CAPABILITIES;
 
 use super::RootHelperClient;
-use crate::{CapabilityOutcome, CapabilityUnavailable, IpFragmentationCapabilities, RuntimeCapability};
+use crate::capability::{CapabilityOutcome, CapabilityUnavailable, RuntimeCapability};
+use crate::IpFragmentationCapabilities;
 
 impl RootHelperClient {
     /// Probe what privileged capabilities the helper process has.

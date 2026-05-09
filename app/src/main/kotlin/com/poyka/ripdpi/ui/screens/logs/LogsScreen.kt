@@ -115,19 +115,7 @@ internal fun LogsScreen(
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
-    val copiedMessage = stringResource(R.string.copied_to_clipboard)
-    val onShowCopiedSnackbar: () -> Unit =
-        remember(scope, snackbarHostState, copiedMessage) {
-            {
-                scope.launch {
-                    snackbarHostState.showRipDpiSnackbar(
-                        message = copiedMessage,
-                        tone = RipDpiSnackbarTone.Default,
-                    )
-                }
-            }
-        }
+    val onShowCopiedSnackbar = rememberCopiedToClipboardSnackbar(snackbarHostState)
 
     RipDpiScreenScaffold(
         modifier =
@@ -535,6 +523,22 @@ private fun metadataChips(entry: LogEntry): ImmutableList<String> =
             add("active")
         }
     }.toPersistentList()
+
+@Composable
+private fun rememberCopiedToClipboardSnackbar(snackbarHostState: SnackbarHostState): () -> Unit {
+    val scope = rememberCoroutineScope()
+    val copiedMessage = stringResource(R.string.copied_to_clipboard)
+    return remember(scope, snackbarHostState, copiedMessage) {
+        {
+            scope.launch {
+                snackbarHostState.showRipDpiSnackbar(
+                    message = copiedMessage,
+                    tone = RipDpiSnackbarTone.Default,
+                )
+            }
+        }
+    }
+}
 
 @Composable
 private fun LogsEmptyStateCard(

@@ -11,16 +11,15 @@ internal class DiagnosticsUiStateFactory
     constructor(
         private val support: DiagnosticsUiFactorySupport,
         private val sessionDetailUiMapper: DiagnosticsSessionDetailUiMapper,
-        private val resolver: DiagnosticsUiInputResolver = DiagnosticsUiInputResolver(support),
-        private val overviewFactory: DiagnosticsOverviewUiStateFactory = DiagnosticsOverviewUiStateFactory(support),
-        private val scanFactory: DiagnosticsScanUiStateFactory = DiagnosticsScanUiStateFactory(support),
-        private val liveFactory: DiagnosticsLiveUiStateFactory = DiagnosticsLiveUiStateFactory(support),
-        private val sessionsFactory: DiagnosticsSessionsUiStateFactory = DiagnosticsSessionsUiStateFactory(support),
-        private val approachesFactory: DiagnosticsApproachesUiStateFactory =
-            DiagnosticsApproachesUiStateFactory(support),
-        private val eventsFactory: DiagnosticsEventsUiStateFactory = DiagnosticsEventsUiStateFactory(support),
-        private val shareFactory: DiagnosticsShareUiStateFactory = DiagnosticsShareUiStateFactory(support),
-        private val performanceFactory: DiagnosticsPerformanceUiStateFactory = DiagnosticsPerformanceUiStateFactory(),
+        private val resolver: DiagnosticsUiInputResolver,
+        private val overviewFactory: DiagnosticsOverviewUiStateFactory,
+        private val scanFactory: DiagnosticsScanUiStateFactory,
+        private val liveFactory: DiagnosticsLiveUiStateFactory,
+        private val sessionsFactory: DiagnosticsSessionsUiStateFactory,
+        private val approachesFactory: DiagnosticsApproachesUiStateFactory,
+        private val eventsFactory: DiagnosticsEventsUiStateFactory,
+        private val shareFactory: DiagnosticsShareUiStateFactory,
+        private val performanceFactory: DiagnosticsPerformanceUiStateFactory,
     ) {
         fun buildUiState(input: DiagnosticsUiStateInput): DiagnosticsUiState {
             val timer = performanceFactory.startTimer()

@@ -2,28 +2,6 @@
   "version": 1,
   "entries": [
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-configdraftvalidationsupport.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigDraftValidationSupport.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigDraftValidationSupport.kt carries 2 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 2,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-configrelaysupport.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigRelaySupport.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigRelaySupport.kt carries 1 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
       "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsscanactions.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
@@ -40,17 +18,6 @@
       "priority": 3,
       "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiCommonSupport.kt",
       "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiCommonSupport.kt carries 1 complexity suppressions",
-      "metricName": "suppressionCount",
-      "baselineValue": 1,
-      "limit": 0,
-      "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
-    },
-    {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsuistateassembler.kt:suppression",
-      "rule": "complexity-suppression",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStateAssembler.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStateAssembler.kt carries 1 complexity suppressions",
       "metricName": "suppressionCount",
       "baselineValue": 1,
       "limit": 0,
@@ -398,28 +365,6 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-configdraftsupport.kt:adaptive-desync-dns-relay-telemetry-tunnel",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigDraftSupport.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigDraftSupport.kt references 6 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 6,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-configdraftvalidationsupport.kt:adaptive-desync-dns-relay-telemetry-tunnel",
-      "rule": "kotlin-feature-spread",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigDraftValidationSupport.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigDraftValidationSupport.kt references 6 feature families",
-      "metricName": "featureFamilyCount",
-      "baselineValue": 6,
-      "limit": 5,
-      "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
-    },
-    {
       "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-configrelaysupport.kt:adaptive-desync-diagnostics-dns-relay-routing-telemetry-tunnel-warp",
       "rule": "kotlin-feature-spread",
       "priority": 3,
@@ -563,17 +508,6 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-activities-configdraftvalidationsupport.kt:validateconfigdraft",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/ConfigDraftValidationSupport.kt",
-      "message": "validateConfigDraft spans 232 lines",
-      "metricName": "functionLines",
-      "baselineValue": 232,
-      "limit": 120,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
       "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsscanactions.kt:initialize",
       "rule": "long-function-or-composable",
       "priority": 3,
@@ -625,17 +559,6 @@
       "message": "StrategyProbeReportCard spans 205 lines",
       "metricName": "functionLines",
       "baselineValue": 205,
-      "limit": 100,
-      "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
-    },
-    {
-      "id": "long-function-or-composable:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-logs-logsscreen.kt:logsscreen",
-      "rule": "long-function-or-composable",
-      "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/logs/LogsScreen.kt",
-      "message": "LogsScreen spans 132 lines",
-      "metricName": "functionLines",
-      "baselineValue": 132,
       "limit": 100,
       "suggestion": "Extract state, rendering, parsing, or execution phases into named helpers."
     },

@@ -47,6 +47,9 @@ impl<T> core::convert::From<T> for ripdpi_runtime_api::EmbeddedProxyControl
 pub fn ripdpi_runtime_api::EmbeddedProxyControl::from(t: T) -> T
 impl<T> typenum::type_operators::Same for ripdpi_runtime_api::EmbeddedProxyControl
 pub type ripdpi_runtime_api::EmbeddedProxyControl::Output = T
+pub trait ripdpi_runtime_api::BackgroundProbes: core::marker::Send + core::marker::Sync
+pub fn ripdpi_runtime_api::BackgroundProbes::notify_network_change(&self, snapshot: ripdpi_proxy_config::types::network::NetworkSnapshot)
+pub fn ripdpi_runtime_api::BackgroundProbes::request_warmup(&self, authority: &str, is_udp: bool)
 pub trait ripdpi_runtime_api::RuntimeTelemetrySink: core::marker::Send + core::marker::Sync
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_adaptive_override(&self, _target: core::net::socket_addr::SocketAddr, _group_index: usize, _trigger_mask: u32, _failure_class: &'static str, _host: core::option::Option<&str>, _reason: &'static str)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_client_accepted(&self)

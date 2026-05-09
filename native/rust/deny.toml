@@ -4,6 +4,9 @@ ignore = [
     # paste 1.0.15 (proc-macro, no runtime risk) -- unmaintained but pulled
     # transitively via netlink-packet-core; no updated upstream version available.
     "RUSTSEC-2024-0436",
+    # daemonize -- unmaintained but no replacement available; used only in the
+    # root-helper binary which is opt-in behind root_mode_enabled.
+    "RUSTSEC-2025-0069",
 ]
 
 [licenses]
