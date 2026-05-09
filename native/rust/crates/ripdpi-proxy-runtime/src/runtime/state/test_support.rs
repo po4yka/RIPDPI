@@ -1,0 +1,90 @@
+use super::*;
+
+impl RuntimeState {
+    #[cfg(test)]
+    pub(in crate::runtime) fn test(config: RuntimeConfig) -> Self {
+        Self::test_with_context(config, None)
+    }
+    #[cfg(test)]
+    pub(in crate::runtime) fn test_with_context(
+        config: RuntimeConfig,
+        runtime_context: Option<ProxyRuntimeContext>,
+    ) -> Self {
+        Self::test_with_telemetry_and_context(config, None, runtime_context)
+    }
+    #[cfg(test)]
+    pub(in crate::runtime) fn test_with_telemetry(
+        config: RuntimeConfig,
+        telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
+    ) -> Self {
+        Self::test_with_telemetry_and_context(config, telemetry, None)
+    }
+    #[cfg(test)]
+    fn test_with_telemetry_and_context(
+        config: RuntimeConfig,
+        telemetry: Option<std::sync::Arc<dyn RuntimeTelemetrySink>>,
+        runtime_context: Option<ProxyRuntimeContext>,
+    ) -> Self {
+        let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
+        let RuntimeConfigProjection {
+            listener_settings,
+            handshake_settings,
+            delayed_connect_settings,
+            network_reprobe_settings,
+            ws_tunnel_settings,
+            warmup_probe_settings,
+            route_retry_settings,
+            route_syn_data_settings,
+            route_connect_settings,
+            udp_group_settings,
+            route_payload_matcher,
+            udp_flow_limit,
+            relay_group_settings,
+            relay_first_response,
+            response_failure_evidence_settings,
+        } = runtime_config_projection(&config);
+        let RuntimeSessionProjection {
+            udp_packet_parser,
+            udp_payload_classifier,
+            relay_host_extractor,
+            first_outbound_payload_policy,
+        } = runtime_session_projection(&config);
+        let RuntimeDesyncProjection { tcp_desync_executor, udp_desync_planner } = runtime_desync_projection(&config);
+        let RuntimeResponseProjection { first_response_exchange_policy } = runtime_response_projection(&config);
+
+        Self {
+            listener_settings,
+            handshake_settings,
+            delayed_connect_settings,
+            network_reprobe_settings,
+            ws_tunnel_settings,
+            warmup_probe_settings,
+            route_retry_settings,
+            route_syn_data_settings,
+            route_connect_settings,
+            tcp_desync_executor,
+            udp_group_settings,
+            route_payload_matcher,
+            udp_desync_planner,
+            udp_flow_limit,
+            udp_packet_parser,
+            udp_payload_classifier,
+            relay_group_settings,
+            relay_host_extractor,
+            relay_first_response,
+            first_outbound_payload_policy,
+            first_response_exchange_policy,
+            response_failure_evidence_settings,
+            services: handle,
+            active_clients: Arc::new(AtomicUsize::new(0)),
+            telemetry,
+            runtime_context,
+            control: None,
+            ttl_unavailable: Arc::new(AtomicBool::new(false)),
+            reprobe_tracker: std::sync::Arc::new(NetworkReprobeTracker::new()),
+            pcap_hook: None,
+            #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
+            io_uring: None,
+        }
+    }
+}
