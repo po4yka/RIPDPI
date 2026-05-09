@@ -1440,12 +1440,6 @@ fakeddisorder endhost</string>
     <string name="customization_shape_sheet_action">Понятно</string>
     <string name="customization_themed_icon_title">Монохромный тематический значок</string>
     <string name="customization_themed_icon_body">Следовать системной теме Material You</string>
-    <string name="customization_icon_raven">Raven</string>
-    <string name="customization_icon_raven_dark">Raven Dark</string>
-    <string name="customization_icon_raven_black">Raven Black</string>
-    <string name="customization_icon_neutral">Нейтральный</string>
-    <string name="customization_icon_charcoal">Угольный</string>
-    <string name="customization_icon_stealth">Stealth</string>
     <string name="biometric_prompt_title">Разблокировать RIPDPI</string>
     <string name="biometric_prompt_body">Используйте биометрическую аутентификацию перед открытием главной панели на этом устройстве.</string>
     <string name="biometric_prompt_action">Разблокировать</string>
