@@ -9,6 +9,7 @@ workspace = true
 
 [dependencies]
 ripdpi-proxy-runtime-adapter = { workspace = true }
+ripdpi-runtime-api = { workspace = true }
 tracing = { workspace = true }
 loom = { workspace = true, optional = true }
 ripdpi-io-uring = { workspace = true, optional = true }

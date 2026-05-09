@@ -674,7 +674,7 @@ private fun ShareSection(
 
 @Preview(showBackground = true, name = "Dashboard — idle")
 @Composable
-private fun DiagnosticsScreenIdlePreview() {
+private fun previewDiagnosticsScreenIdle() {
     RipDpiTheme {
         DiagnosticsScreen(
             uiState = DiagnosticsUiState(),
@@ -715,7 +715,7 @@ private fun DiagnosticsScreenIdlePreview() {
 
 @Preview(showBackground = true, name = "Scan tab — idle")
 @Composable
-private fun DiagnosticsScreenScanTabPreview() {
+private fun previewDiagnosticsScreenScanTab() {
     RipDpiTheme {
         DiagnosticsScreen(
             uiState = DiagnosticsUiState(selectedSection = DiagnosticsSection.Scan),
