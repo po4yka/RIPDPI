@@ -6,15 +6,15 @@ use std::io;
 use std::net::TcpListener;
 use std::sync::Arc as StdArc;
 
-use ripdpi_proxy_runtime_adapter::model::config::{ListenerSettings, RuntimeConfig};
+use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
 use self::accept_loop::run_accept_loop;
 use super::state::RuntimeState;
 
-pub(super) fn build_listener(settings: ListenerSettings) -> io::Result<TcpListener> {
-    listener_platform::bind_tcp_listener(settings.bind_addr)
+pub(super) fn build_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
+    listener_platform::bind_tcp_listener(RuntimeState::listener_bind_addr(config))
 }
 
 pub(super) fn run_proxy_with_listener_internal(

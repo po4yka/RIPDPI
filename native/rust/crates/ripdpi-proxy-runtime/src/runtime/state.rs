@@ -62,6 +62,9 @@ use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationContro
 use ripdpi_proxy_runtime_adapter::protocol_payload::{
     build_probe_client_hello, FirstResponseBoundaryTracker, OutboundTlsClientHelloAssembler,
 };
+use ripdpi_proxy_runtime_adapter::raw_packet_requirements::{
+    raw_packet_requirements, validate_ip_fragmentation_support,
+};
 use ripdpi_proxy_runtime_adapter::response_triggers::{
     failure_penalizes_strategy, failure_trigger_mask, first_response_exchange_policy, FirstResponseExchangePolicy,
 };
@@ -153,6 +156,14 @@ pub(super) struct RouteConnectPolicy {
 }
 
 impl RuntimeState {
+    pub(super) fn validate_runtime_requirements(config: &RuntimeConfig) -> io::Result<()> {
+        validate_ip_fragmentation_support(&raw_packet_requirements(config))
+    }
+
+    pub(super) fn listener_bind_addr(config: &RuntimeConfig) -> SocketAddr {
+        listener_settings(config).bind_addr
+    }
+
     pub(super) fn ensure_config_default_ttl(
         config: &mut RuntimeConfig,
         detect_default_ttl: impl FnOnce() -> io::Result<u8>,
