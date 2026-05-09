@@ -3,12 +3,14 @@ mod client_job;
 mod worker_pool;
 
 use std::io;
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
 use std::sync::Arc as StdArc;
 
 use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
+
+use crate::process;
 
 use self::accept_loop::run_accept_loop;
 use super::state::RuntimeState;
@@ -39,5 +41,24 @@ pub(super) fn run_proxy_with_listener_internal(
     // if the network switched (e.g. WiFi -> cellular).
     super::reprobe::maybe_spawn_reprobe(&state);
 
-    run_accept_loop(listener, state, control, client_capacity)
+    run_accept_loop(listener, state, RuntimeShutdown::new(control), client_capacity)
+}
+
+pub(super) fn close_rejected_client(client: &TcpStream) {
+    listener_platform::close_rejected_client(client);
+}
+
+#[derive(Clone)]
+pub(super) struct RuntimeShutdown {
+    control: Option<StdArc<EmbeddedProxyControl>>,
+}
+
+impl RuntimeShutdown {
+    fn new(control: Option<StdArc<EmbeddedProxyControl>>) -> Self {
+        Self { control }
+    }
+
+    pub(super) fn requested(&self) -> bool {
+        self.control.as_ref().map_or_else(process::shutdown_requested, |value| value.shutdown_requested())
+    }
 }

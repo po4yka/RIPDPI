@@ -1,27 +1,23 @@
 use std::io;
 use std::net::{TcpListener, TcpStream};
-use std::sync::Arc as StdArc;
 use std::time::Duration;
 
-use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
-use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
-
-use crate::process;
 use crate::runtime::state::RuntimeState;
 
 use super::client_job::ClientJob;
 use super::worker_pool::ClientWorkerPool;
+use super::{close_rejected_client, RuntimeShutdown};
 
 const ACCEPT_IDLE_SLEEP: Duration = Duration::from_millis(25);
 
 pub(crate) fn run_accept_loop(
     listener: TcpListener,
     state: RuntimeState,
-    control: Option<StdArc<EmbeddedProxyControl>>,
+    shutdown: RuntimeShutdown,
     client_capacity: usize,
 ) -> io::Result<()> {
     let worker_pool = ClientWorkerPool::new(client_capacity)?;
-    let result = poll_accept_loop(listener, state.clone(), control, &worker_pool, client_capacity);
+    let result = poll_accept_loop(listener, state.clone(), shutdown, &worker_pool, client_capacity);
     state.note_listener_stopped();
     worker_pool.drain_gracefully();
     result
@@ -30,16 +26,14 @@ pub(crate) fn run_accept_loop(
 fn poll_accept_loop(
     listener: TcpListener,
     state: RuntimeState,
-    control: Option<StdArc<EmbeddedProxyControl>>,
+    shutdown: RuntimeShutdown,
     worker_pool: &ClientWorkerPool,
     client_capacity: usize,
 ) -> io::Result<()> {
     listener.set_nonblocking(true)?;
 
     loop {
-        let shutdown_requested =
-            control.as_ref().map_or_else(process::shutdown_requested, |value| value.shutdown_requested());
-        if shutdown_requested {
+        if shutdown.requested() {
             return Ok(());
         }
         if !accept_ready_clients(&listener, &state, worker_pool, client_capacity)? {
@@ -82,7 +76,7 @@ fn accept_client(
     let Some(slot) = state.acquire_client_slot(client_capacity) else {
         tracing::warn!("client connection rejected: at capacity");
         state.note_client_slot_exhausted();
-        listener_platform::close_rejected_client(&client);
+        close_rejected_client(&client);
         drop(client);
         return Ok(());
     };
@@ -90,7 +84,7 @@ fn accept_client(
         tracing::error!("failed to provision client worker: {err}");
         if !worker_pool.has_live_workers() {
             state.note_client_error(&err);
-            listener_platform::close_rejected_client(&client);
+            close_rejected_client(&client);
             drop(slot);
             drop(client);
             return Ok(());
@@ -98,7 +92,7 @@ fn accept_client(
     }
     if let Err(job) = worker_pool.enqueue(ClientJob { client, state: state.clone(), slot }) {
         state.note_client_error(&io::Error::other("client worker pool is closed"));
-        listener_platform::close_rejected_client(&job.client);
+        close_rejected_client(&job.client);
         drop(job);
         return Ok(());
     }
