@@ -23,6 +23,16 @@ RIPDPI is an Android VPN/proxy application for DPI (Deep Packet Inspection) bypa
 ./gradlew staticAnalysis              # Run detekt + ktlint + Android lint
 ```
 
+## Project Rules
+
+- **Never extend baselines** (detekt, LoC, lint). Fix the underlying violation -- baselines exist only for legacy debt; do not work around CI or hook enforcement.
+- **Non-rooted Android baseline** -- the app must fully function on non-rooted devices. Root-only features (`ripdpi-root-helper`, `FakeRst`, `MultiDisorder`, `IpFrag2`) are opt-in behind the `root_mode_enabled` setting and must degrade gracefully when root is unavailable.
+- **No backend server** -- all features work offline and locally. Do not design features that require an API endpoint or remote service. External data uses static files on GitHub or bundled assets; user data never leaves the device unless the user explicitly exports it.
+- **Goal-driven execution** -- before implementing, convert each task into verifiable success criteria (test name, metric delta, UI render) and verify each before reporting completion. Ask for clarification when criteria are ambiguous rather than guessing.
+- **Surface ambiguity early** -- an undocumented JNI contract, a missing schema migration, an unclear protobuf field number, a `DesyncMode` without documented activation: name it, do not guess.
+- **Reproduce before fixing** -- a packet-smoke scenario, a `cargo nextest` test, or a Roborazzi baseline is the artifact you change; the source edit follows.
+- Removing custom detekt rules, lint baselines, or other quality gates is out of scope unless explicitly requested.
+
 ## Task Board
 
 This repository uses Obsidian Tasks-compatible Markdown task lines as the canonical task system.
