@@ -1,8 +1,24 @@
 pub(crate) use ripdpi_proxy_runtime_adapter::desync_platform::{
-    send_tcp_desync_payload, tcp_desync_executor, DesyncSendRequest, OutboundSendError, OutboundSendOutcome, PcapHook,
+    send_tcp_desync_payload, DesyncSendRequest, OutboundSendError, OutboundSendOutcome, PcapHook,
     TcpDesyncExecutionContext, TcpDesyncExecutor,
 };
 pub(crate) use ripdpi_proxy_runtime_adapter::udp_desync::{
-    execute_udp_actions, plan_udp_actions_for_runtime, udp_desync_planner, UdpActionExecContext, UdpDesyncAction,
-    UdpDesyncPlanContext, UdpDesyncPlanRequest, UdpDesyncPlanner,
+    execute_udp_actions, plan_udp_actions_for_runtime, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext,
+    UdpDesyncPlanRequest, UdpDesyncPlanner,
 };
+
+use ripdpi_proxy_runtime_adapter::desync_platform::tcp_desync_executor;
+use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
+use ripdpi_proxy_runtime_adapter::udp_desync::udp_desync_planner;
+
+pub(super) struct RuntimeDesyncProjection {
+    pub(super) tcp_desync_executor: TcpDesyncExecutor,
+    pub(super) udp_desync_planner: UdpDesyncPlanner,
+}
+
+pub(super) fn runtime_desync_projection(config: &RuntimeConfig) -> RuntimeDesyncProjection {
+    RuntimeDesyncProjection {
+        tcp_desync_executor: tcp_desync_executor(config),
+        udp_desync_planner: udp_desync_planner(config),
+    }
+}

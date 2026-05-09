@@ -15,8 +15,12 @@ pub(super) type RuntimeFirstResponseExchangePolicy = FirstResponseExchangePolicy
 #[cfg(test)]
 pub(super) type RuntimeTriggerEvent = TriggerEvent;
 
-pub(super) fn runtime_first_response_exchange_policy(config: &RuntimeConfig) -> RuntimeFirstResponseExchangePolicy {
-    first_response_exchange_policy(config)
+pub(super) struct RuntimeResponseProjection {
+    pub(super) first_response_exchange_policy: RuntimeFirstResponseExchangePolicy,
+}
+
+pub(super) fn runtime_response_projection(config: &RuntimeConfig) -> RuntimeResponseProjection {
+    RuntimeResponseProjection { first_response_exchange_policy: first_response_exchange_policy(config) }
 }
 
 pub(super) fn runtime_first_response_exchange_required(

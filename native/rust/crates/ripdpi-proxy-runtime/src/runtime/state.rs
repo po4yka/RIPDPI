@@ -16,8 +16,8 @@ use super::config::{
     UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
 };
 use super::desync::{
-    execute_udp_actions, plan_udp_actions_for_runtime, send_tcp_desync_payload, tcp_desync_executor,
-    udp_desync_planner, DesyncSendRequest, OutboundSendError, OutboundSendOutcome, TcpDesyncExecutionContext,
+    execute_udp_actions, plan_udp_actions_for_runtime, runtime_desync_projection, send_tcp_desync_payload,
+    DesyncSendRequest, OutboundSendError, OutboundSendOutcome, RuntimeDesyncProjection, TcpDesyncExecutionContext,
     TcpDesyncExecutor, UdpActionExecContext, UdpDesyncAction, UdpDesyncPlanContext, UdpDesyncPlanRequest,
     UdpDesyncPlanner,
 };
@@ -26,8 +26,8 @@ use super::ports::{
     RetryPacingPort,
 };
 use super::response::{
-    runtime_failure_penalizes_strategy, runtime_failure_trigger_mask, runtime_first_response_exchange_policy,
-    runtime_first_response_exchange_required, RuntimeFirstResponseExchangePolicy,
+    runtime_failure_penalizes_strategy, runtime_failure_trigger_mask, runtime_first_response_exchange_required,
+    runtime_response_projection, RuntimeFirstResponseExchangePolicy, RuntimeResponseProjection,
 };
 #[cfg(test)]
 use super::response::{runtime_response_trigger_flag, runtime_response_trigger_supported, RuntimeTriggerEvent};
@@ -191,9 +191,8 @@ impl RuntimeState {
             relay_host_extractor,
             first_outbound_payload_policy,
         } = runtime_session_projection(&config);
-        let tcp_desync_executor = tcp_desync_executor(&config);
-        let udp_desync_planner = udp_desync_planner(&config);
-        let first_response_exchange_policy = runtime_first_response_exchange_policy(&config);
+        let RuntimeDesyncProjection { tcp_desync_executor, udp_desync_planner } = runtime_desync_projection(&config);
+        let RuntimeResponseProjection { first_response_exchange_policy } = runtime_response_projection(&config);
 
         Self {
             listener_settings,
@@ -1543,9 +1542,8 @@ impl RuntimeState {
             relay_host_extractor,
             first_outbound_payload_policy,
         } = runtime_session_projection(&config);
-        let tcp_desync_executor = tcp_desync_executor(&config);
-        let udp_desync_planner = udp_desync_planner(&config);
-        let first_response_exchange_policy = runtime_first_response_exchange_policy(&config);
+        let RuntimeDesyncProjection { tcp_desync_executor, udp_desync_planner } = runtime_desync_projection(&config);
+        let RuntimeResponseProjection { first_response_exchange_policy } = runtime_response_projection(&config);
 
         Self {
             listener_settings,
