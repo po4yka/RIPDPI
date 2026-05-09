@@ -76,7 +76,8 @@ use super::response::{
 #[cfg(test)]
 use super::response::{runtime_response_trigger_flag, runtime_response_trigger_supported, RuntimeTriggerEvent};
 use super::types::{
-    runtime_classify_response_failure, runtime_client_request, runtime_outbound_progress, runtime_probe_result,
+    runtime_classify_mtproto_seed, runtime_classify_response_failure, runtime_client_request,
+    runtime_outbound_progress, runtime_probe_result, runtime_relay_ws_tunnel,
     runtime_response_requires_dns_tampering_evidence, runtime_session_error, runtime_udp_packet_settings,
     RuntimeClientRequest, RuntimeConnectionRoute, RuntimeDnsTamperingEvidence, RuntimeOutboundProgress,
     RuntimeProbeResult, RuntimeProxyProtocolMode, RuntimeRelayGroupSettings, RuntimeRelayRotationSeed,
@@ -322,17 +323,7 @@ impl RuntimeState {
     }
 
     pub(super) fn classify_mtproto_seed(seed: &[u8]) -> WsSeedClassification {
-        match ripdpi_proxy_runtime_adapter::ws_bootstrap::classify_mtproto_seed(seed) {
-            ripdpi_proxy_runtime_adapter::ws_bootstrap::MtprotoSeedClassification::NotMtproto => {
-                WsSeedClassification::NotMtproto
-            }
-            ripdpi_proxy_runtime_adapter::ws_bootstrap::MtprotoSeedClassification::UnmappableDc { raw_dc, dc } => {
-                WsSeedClassification::UnmappableDc { raw_dc, dc: dc.map(RuntimeTelegramDc::from_adapter) }
-            }
-            ripdpi_proxy_runtime_adapter::ws_bootstrap::MtprotoSeedClassification::ValidatedMtproto { dc } => {
-                WsSeedClassification::ValidatedMtproto { dc: RuntimeTelegramDc::from_adapter(dc) }
-            }
-        }
+        runtime_classify_mtproto_seed(seed)
     }
 
     pub(super) fn relay_ws_tunnel(
@@ -341,12 +332,7 @@ impl RuntimeState {
         seed_request: Vec<u8>,
         config: &RuntimeWsTunnelConfig,
     ) -> io::Result<()> {
-        ripdpi_proxy_runtime_adapter::ws_bootstrap::relay_ws_tunnel(
-            client,
-            dc.into_adapter(),
-            seed_request,
-            config.as_adapter(),
-        )
+        runtime_relay_ws_tunnel(client, dc, seed_request, config)
     }
 
     pub(super) fn warmup_probe_scheduler_enabled(&self) -> bool {

@@ -1,4 +1,5 @@
-use std::net::SocketAddr;
+use std::io;
+use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::failure::{ClassifiedFailure, FailureAction, FailureClass, ProbeResult};
 use ripdpi_proxy_runtime_adapter::model::config::{
@@ -10,7 +11,9 @@ use ripdpi_proxy_runtime_adapter::model::decision::{
     RetrySelectionPenalty, RouteAdvance, TransportProtocol,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{ClientRequest, OutboundProgress, SessionError, SessionState};
-use ripdpi_proxy_runtime_adapter::ws_bootstrap::{TelegramDc, WsTunnelConfig};
+use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
+    classify_mtproto_seed, relay_ws_tunnel, MtprotoSeedClassification, TelegramDc, WsTunnelConfig,
+};
 
 pub(super) type RuntimeClassifiedFailure = ClassifiedFailure;
 pub(super) type RuntimeFailureAction = FailureAction;
@@ -196,6 +199,27 @@ pub(super) enum WsSeedClassification {
     NotMtproto,
     UnmappableDc { raw_dc: i32, dc: Option<RuntimeTelegramDc> },
     ValidatedMtproto { dc: RuntimeTelegramDc },
+}
+
+pub(super) fn runtime_classify_mtproto_seed(seed: &[u8]) -> WsSeedClassification {
+    match classify_mtproto_seed(seed) {
+        MtprotoSeedClassification::NotMtproto => WsSeedClassification::NotMtproto,
+        MtprotoSeedClassification::UnmappableDc { raw_dc, dc } => {
+            WsSeedClassification::UnmappableDc { raw_dc, dc: dc.map(RuntimeTelegramDc::from_adapter) }
+        }
+        MtprotoSeedClassification::ValidatedMtproto { dc } => {
+            WsSeedClassification::ValidatedMtproto { dc: RuntimeTelegramDc::from_adapter(dc) }
+        }
+    }
+}
+
+pub(super) fn runtime_relay_ws_tunnel(
+    client: TcpStream,
+    dc: RuntimeTelegramDc,
+    seed_request: Vec<u8>,
+    config: &RuntimeWsTunnelConfig,
+) -> io::Result<()> {
+    relay_ws_tunnel(client, dc.into_adapter(), seed_request, config.as_adapter())
 }
 
 pub(super) fn runtime_relay_timeouts(settings: RuntimeTimeoutSettings) -> RuntimeRelayTimeouts {
