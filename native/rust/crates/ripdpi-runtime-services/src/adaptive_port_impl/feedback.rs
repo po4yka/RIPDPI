@@ -10,19 +10,19 @@ use std::net::SocketAddr;
 impl ServicesStateHandle {
     fn with_tuning(&self, action: impl FnOnce(&mut AdaptivePlannerResolver)) -> io::Result<()> {
         let mut resolver =
-            self.0.adaptive_tuning.write().map_err(|_| io::Error::other("adaptive tuning lock poisoned"))?;
+            self.0.adaptive.tuning.write().map_err(|_| io::Error::other("adaptive tuning lock poisoned"))?;
         action(&mut resolver);
         resolver.persist_if_due(self.0.config.as_ref());
         Ok(())
     }
     fn with_fake_ttl(&self, action: impl FnOnce(&mut AdaptiveFakeTtlResolver)) -> io::Result<()> {
         let mut resolver =
-            self.0.adaptive_fake_ttl.write().map_err(|_| io::Error::other("adaptive fake ttl lock poisoned"))?;
+            self.0.adaptive.fake_ttl.write().map_err(|_| io::Error::other("adaptive fake ttl lock poisoned"))?;
         action(&mut resolver);
         Ok(())
     }
     fn with_evolver(&self, action: impl FnOnce(&mut StrategyEvolutionResolver)) {
-        if let Ok(mut evolver) = self.0.strategy_evolver.write() {
+        if let Ok(mut evolver) = self.0.adaptive.strategy_evolver.write() {
             action(&mut evolver);
         }
     }
@@ -96,12 +96,12 @@ impl AdaptiveFeedbackPort for ServicesStateHandle {
         self.with_evolver(StrategyEvolutionResolver::reset);
     }
     fn clear_adaptive_tuning(&self) {
-        if let Ok(mut tuning) = self.0.adaptive_tuning.write() {
+        if let Ok(mut tuning) = self.0.adaptive.tuning.write() {
             tuning.clear_all();
         }
     }
     fn flush_adaptive_store(&self) {
-        if let Ok(mut resolver) = self.0.adaptive_tuning.write() {
+        if let Ok(mut resolver) = self.0.adaptive.tuning.write() {
             resolver.flush_store(&self.0.config);
         }
     }

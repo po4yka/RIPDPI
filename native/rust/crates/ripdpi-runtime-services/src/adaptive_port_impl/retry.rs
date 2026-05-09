@@ -23,7 +23,8 @@ impl RetryPacingPort for ServicesStateHandle {
         else {
             return Ok(());
         };
-        let mut pacer = self.0.retry_pacer.write().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
+        let mut pacer =
+            self.0.adaptive.retry_pacer.write().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
         pacer.clear_success(&signature);
         Ok(())
     }
@@ -42,7 +43,8 @@ impl RetryPacingPort for ServicesStateHandle {
         else {
             return Ok(());
         };
-        let mut pacer = self.0.retry_pacer.write().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
+        let mut pacer =
+            self.0.adaptive.retry_pacer.write().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
         pacer.record_failure(&signature, now_ms);
         Ok(())
     }
@@ -62,7 +64,7 @@ impl RetryPacingPort for ServicesStateHandle {
                 signatures.push((group_index, sig));
             }
         }
-        let pacer = self.0.retry_pacer.read().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
+        let pacer = self.0.adaptive.retry_pacer.read().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
         let mut penalties = BTreeMap::new();
         for (group_index, signature) in signatures {
             penalties.insert(group_index, pacer.penalty_for(&signature, now_ms));
@@ -85,7 +87,8 @@ impl RetryPacingPort for ServicesStateHandle {
             return Ok(());
         };
         let decision = {
-            let pacer = self.0.retry_pacer.read().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
+            let pacer =
+                self.0.adaptive.retry_pacer.read().map_err(|_| io::Error::other("retry pacing rwlock poisoned"))?;
             pacer.retry_delay_for(&signature, now_ms)
         };
         let Some(decision) = decision.filter(|d| d.backoff_ms > 0) else {

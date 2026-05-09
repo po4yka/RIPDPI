@@ -18,7 +18,7 @@ use crate::ServicesStateHandle;
 
 impl ServicesStateHandle {
     pub(crate) fn morph_policy(&self) -> Option<&ProxyMorphPolicy> {
-        self.0.runtime_context.as_ref()?.morph_policy.as_ref()
+        self.0.runtime.runtime_context.as_ref()?.morph_policy.as_ref()
     }
 
     pub(crate) fn build_retry_signature(

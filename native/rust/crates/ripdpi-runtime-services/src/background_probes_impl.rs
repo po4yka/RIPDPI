@@ -16,7 +16,7 @@ impl BackgroundProbes for ServicesStateHandle {
     /// reprobe.
     fn notify_network_change(&self, snapshot: NetworkSnapshot) {
         // Persist the raw snapshot for lock-free consumption by proxy-runtime.
-        self.network_snapshot.store(Arc::new(Some(snapshot.clone())));
+        self.network.snapshot.store(Arc::new(Some(snapshot.clone())));
 
         // Skip reprobe when the network is not usable.
         if snapshot.captive_portal || !snapshot.validated {
@@ -30,7 +30,7 @@ impl BackgroundProbes for ServicesStateHandle {
 
         let identity = network_identity(&snapshot);
         let should_reprobe = {
-            let mut last = self.last_network_identity.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut last = self.network.last_identity.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             if last.as_deref() == Some(&identity) {
                 false
             } else {
@@ -48,7 +48,7 @@ impl BackgroundProbes for ServicesStateHandle {
             // Individual domain requests let proxy-runtime decide the execution order.
             for domain in REPROBE_DOMAINS {
                 let req = WarmupRequest { authority: (*domain).to_owned(), is_udp: false };
-                if self.warmup_tx.try_send(req).is_err() {
+                if self.warmup.tx.try_send(req).is_err() {
                     tracing::debug!("background_probes: warmup channel full, dropping reprobe for {domain}");
                 }
             }
@@ -62,7 +62,7 @@ impl BackgroundProbes for ServicesStateHandle {
     /// normal routing pipeline.
     fn request_warmup(&self, authority: &str, is_udp: bool) {
         let req = WarmupRequest { authority: authority.to_owned(), is_udp };
-        if self.warmup_tx.try_send(req).is_err() {
+        if self.warmup.tx.try_send(req).is_err() {
             tracing::debug!("background_probes: warmup channel full, dropping request for {authority}");
         }
     }

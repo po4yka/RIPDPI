@@ -20,7 +20,7 @@ impl AdaptiveHintPort for ServicesStateHandle {
     ) -> io::Result<AdaptivePlannerHints> {
         let hints = {
             let mut resolver =
-                self.0.adaptive_tuning.write().map_err(|_| io::Error::other("adaptive tuning lock poisoned"))?;
+                self.0.adaptive.tuning.write().map_err(|_| io::Error::other("adaptive tuning lock poisoned"))?;
             resolver.resolve_tcp_hints(scope_key, group_index, target, host, group, payload)
         };
         Ok(morph_policy::apply_tcp_morph_policy_to_hints(self.morph_policy(), hints))
@@ -36,7 +36,7 @@ impl AdaptiveHintPort for ServicesStateHandle {
     ) -> io::Result<AdaptivePlannerHints> {
         let hints = {
             let mut resolver =
-                self.0.adaptive_tuning.write().map_err(|_| io::Error::other("adaptive tuning lock poisoned"))?;
+                self.0.adaptive.tuning.write().map_err(|_| io::Error::other("adaptive tuning lock poisoned"))?;
             resolver.resolve_udp_hints(scope_key, group_index, target, host, group, payload)
         };
         Ok(morph_policy::apply_udp_morph_policy_to_hints(self.morph_policy(), hints))
@@ -53,7 +53,7 @@ impl AdaptiveHintPort for ServicesStateHandle {
             return Ok(None);
         };
         let mut resolver =
-            self.0.adaptive_fake_ttl.write().map_err(|_| io::Error::other("adaptive fake ttl lock poisoned"))?;
+            self.0.adaptive.fake_ttl.write().map_err(|_| io::Error::other("adaptive fake ttl lock poisoned"))?;
         Ok(Some(resolver.resolve(group_index, target, host, auto_ttl, group.actions.ttl)))
     }
     fn resolve_tcp_hints_with_evolver(
@@ -67,7 +67,7 @@ impl AdaptiveHintPort for ServicesStateHandle {
         payload: &[u8],
     ) -> io::Result<AdaptivePlannerHints> {
         if config.adaptive.strategy_evolution {
-            if let Ok(mut evolver) = self.0.strategy_evolver.write() {
+            if let Ok(mut evolver) = self.0.adaptive.strategy_evolver.write() {
                 if let Some(hints) = evolver.tcp_hints(config, context, target, host, payload) {
                     return Ok(morph_policy::apply_tcp_morph_policy_to_hints(self.morph_policy(), hints));
                 }
@@ -86,7 +86,7 @@ impl AdaptiveHintPort for ServicesStateHandle {
         payload: &[u8],
     ) -> io::Result<AdaptivePlannerHints> {
         if config.adaptive.strategy_evolution {
-            if let Ok(mut evolver) = self.0.strategy_evolver.write() {
+            if let Ok(mut evolver) = self.0.adaptive.strategy_evolver.write() {
                 if let Some(hints) = evolver.udp_hints(config, context, target, host, payload) {
                     let hints = morph_policy::apply_udp_morph_policy_to_hints(self.morph_policy(), hints);
                     let capability = strategy_context::direct_path_capability_for_route(context, host, target);
