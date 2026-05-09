@@ -1,10 +1,10 @@
 use super::*;
 
 use crate::runtime::state::RuntimeState;
+use crate::runtime::types::RuntimeTelegramDc;
 use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
 use ripdpi_proxy_runtime_adapter::model::config::{RuntimeConfig, WsTunnelMode};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
-use ripdpi_proxy_runtime_adapter::ws_bootstrap::TelegramDc;
 use std::net::Ipv4Addr;
 use std::sync::atomic::{AtomicUsize, Ordering as StdOrdering};
 use std::sync::{Arc as StdArc, Mutex as StdMutex};
@@ -130,7 +130,7 @@ fn always_mode_replays_seed_through_plain_connect_after_bootstrap_failure() {
         SuccessReply::Socks5,
         |_client, _reply, _upstream| Ok(()),
         move |_client, _state| WsTunnelResult::BootstrapFailed {
-            dc: TelegramDc::production(2),
+            dc: RuntimeTelegramDc::production(2),
             seed_request: bootstrap_seed.clone(),
             error: io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out"),
         },
@@ -178,7 +178,7 @@ fn fallback_mode_reuses_preserved_seed_for_validated_mtproto() {
         |_client, _state| unreachable!("fresh WS sniff should not be used"),
         move |_client, replay_seed, _state| {
             assert_eq!(replay_seed, fallback_seed);
-            WsTunnelResult::ValidatedMtproto { dc: TelegramDc::production(2) }
+            WsTunnelResult::ValidatedMtproto { dc: RuntimeTelegramDc::production(2) }
         },
         |_client, _state, _target, _host_hint, _handshake| Ok(DelayConnect::Immediate),
         move |_client, _target, _state, _dc_host, _reply| {
@@ -269,7 +269,7 @@ fn fallback_mode_returns_original_error_for_bootstrap_failure() {
         move |_client, replay_seed, _state| {
             assert_eq!(replay_seed, fallback_seed);
             WsTunnelResult::BootstrapFailed {
-                dc: TelegramDc::production(2),
+                dc: RuntimeTelegramDc::production(2),
                 seed_request: replay_seed,
                 error: io::Error::new(io::ErrorKind::TimedOut, "bootstrap timed out"),
             }

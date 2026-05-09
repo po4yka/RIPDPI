@@ -5,7 +5,7 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     IpIdMode, RuntimeTimeoutSettings, UdpGroupPacketSettings, UdpSourceRebindPolicy,
 };
 use ripdpi_proxy_runtime_adapter::model::session::{ClientRequest, OutboundProgress, SessionError, SessionState};
-use ripdpi_proxy_runtime_adapter::ws_bootstrap::TelegramDc;
+use ripdpi_proxy_runtime_adapter::ws_bootstrap::{TelegramDc, WsTunnelConfig};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum RuntimeProxyProtocolMode {
@@ -81,10 +81,69 @@ pub(super) struct RuntimeRelayTimeouts {
     pub(super) freeze_max_stalls: u32,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct RuntimeTelegramDc(TelegramDc);
+
+impl RuntimeTelegramDc {
+    pub(super) fn number(self) -> u8 {
+        self.0.number()
+    }
+
+    pub(super) fn raw(self) -> i32 {
+        self.0.raw()
+    }
+
+    pub(super) fn class(self) -> impl std::fmt::Debug {
+        self.0.class()
+    }
+
+    pub(super) fn into_adapter(self) -> TelegramDc {
+        self.0
+    }
+
+    pub(super) fn from_adapter(dc: TelegramDc) -> Self {
+        Self(dc)
+    }
+
+    #[cfg(test)]
+    pub(super) fn production(dc: u8) -> Self {
+        Self(TelegramDc::production(dc))
+    }
+
+    #[cfg(test)]
+    pub(super) fn from_raw(raw_dc: i32) -> Option<Self> {
+        TelegramDc::from_raw(raw_dc).map(Self)
+    }
+}
+
+pub(super) struct RuntimeWsTunnelConfig {
+    inner: WsTunnelConfig,
+    #[cfg(test)]
+    pub(super) resolved_addr: Option<SocketAddr>,
+    #[cfg(test)]
+    pub(super) connect_timeout: Option<std::time::Duration>,
+}
+
+impl RuntimeWsTunnelConfig {
+    pub(super) fn from_adapter(inner: WsTunnelConfig) -> Self {
+        Self {
+            #[cfg(test)]
+            resolved_addr: inner.resolved_addr,
+            #[cfg(test)]
+            connect_timeout: inner.connect_timeout,
+            inner,
+        }
+    }
+
+    pub(super) fn as_adapter(&self) -> &WsTunnelConfig {
+        &self.inner
+    }
+}
+
 pub(super) enum WsSeedClassification {
     NotMtproto,
-    UnmappableDc { raw_dc: i32, dc: Option<TelegramDc> },
-    ValidatedMtproto { dc: TelegramDc },
+    UnmappableDc { raw_dc: i32, dc: Option<RuntimeTelegramDc> },
+    ValidatedMtproto { dc: RuntimeTelegramDc },
 }
 
 pub(super) fn runtime_relay_timeouts(settings: RuntimeTimeoutSettings) -> RuntimeRelayTimeouts {

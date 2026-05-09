@@ -1,31 +1,29 @@
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::ws_bootstrap::{TelegramDc, WsTunnelConfig};
-
 use super::super::state::RuntimeState;
-use super::super::types::WsSeedClassification;
+use super::super::types::{RuntimeTelegramDc, RuntimeWsTunnelConfig, WsSeedClassification};
 
 /// Check if WS tunnel should be tried first (Always mode).
-pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
+pub(super) fn should_ws_tunnel_first(target: SocketAddr, state: &RuntimeState) -> Option<RuntimeTelegramDc> {
     let dc = state.should_ws_tunnel_first(target)?;
     tracing::info!("WS tunnel: sniffing MTProto for known Telegram target {target} (DC{})", dc.number());
     Some(dc)
 }
 
 /// Check if WS tunnel should be tried as a last resort (Fallback mode).
-pub(super) fn should_ws_tunnel_fallback(target: SocketAddr, state: &RuntimeState) -> Option<TelegramDc> {
+pub(super) fn should_ws_tunnel_fallback(target: SocketAddr, state: &RuntimeState) -> Option<RuntimeTelegramDc> {
     state.should_ws_tunnel_fallback(target)
 }
 
 /// Result of a WS tunnel attempt.
 pub(super) enum WsTunnelResult {
-    ValidatedMtproto { dc: TelegramDc },
+    ValidatedMtproto { dc: RuntimeTelegramDc },
     NotMtproto { seed_request: Vec<u8> },
-    UnmappableDc { raw_dc: i32, dc: Option<TelegramDc>, seed_request: Vec<u8> },
+    UnmappableDc { raw_dc: i32, dc: Option<RuntimeTelegramDc>, seed_request: Vec<u8> },
     ShortInit { seed_request: Vec<u8>, error: io::Error },
-    BootstrapFailed { dc: TelegramDc, seed_request: Vec<u8>, error: io::Error },
-    WsOpenOrRelayFailed { dc: TelegramDc, seed_request: Vec<u8>, error: io::Error },
+    BootstrapFailed { dc: RuntimeTelegramDc, seed_request: Vec<u8>, error: io::Error },
+    WsOpenOrRelayFailed { dc: RuntimeTelegramDc, seed_request: Vec<u8>, error: io::Error },
 }
 
 /// Execute the WebSocket tunnel relay after sniffing the first 64 bytes from
@@ -65,8 +63,8 @@ fn run_ws_tunnel_with<ReadSeed, ResolveAddr, RelayWs>(
 ) -> WsTunnelResult
 where
     ReadSeed: FnOnce(&mut TcpStream) -> Result<Vec<u8>, SeedReadError>,
-    ResolveAddr: FnOnce(&RuntimeState, TelegramDc) -> io::Result<SocketAddr>,
-    RelayWs: FnOnce(TcpStream, TelegramDc, Vec<u8>, &WsTunnelConfig) -> io::Result<()>,
+    ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc) -> io::Result<SocketAddr>,
+    RelayWs: FnOnce(TcpStream, RuntimeTelegramDc, Vec<u8>, &RuntimeWsTunnelConfig) -> io::Result<()>,
 {
     let seed_request = match read_seed(&mut client) {
         Ok(seed_request) => seed_request,
@@ -86,8 +84,8 @@ fn run_ws_tunnel_with_seed_impl<ResolveAddr, RelayWs>(
     relay_ws: RelayWs,
 ) -> WsTunnelResult
 where
-    ResolveAddr: FnOnce(&RuntimeState, TelegramDc) -> io::Result<SocketAddr>,
-    RelayWs: FnOnce(TcpStream, TelegramDc, Vec<u8>, &WsTunnelConfig) -> io::Result<()>,
+    ResolveAddr: FnOnce(&RuntimeState, RuntimeTelegramDc) -> io::Result<SocketAddr>,
+    RelayWs: FnOnce(TcpStream, RuntimeTelegramDc, Vec<u8>, &RuntimeWsTunnelConfig) -> io::Result<()>,
 {
     if seed_request.len() < 64 {
         return WsTunnelResult::ShortInit {
@@ -233,14 +231,14 @@ mod tests {
         let mut cfg = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
         cfg.adaptive.ws_tunnel_mode = ripdpi_proxy_runtime_adapter::model::config::WsTunnelMode::Always;
         let always = runtime_state_with_config(cfg);
-        assert_eq!(should_ws_tunnel_first(target, &always), Some(TelegramDc::production(2)));
+        assert_eq!(should_ws_tunnel_first(target, &always), Some(RuntimeTelegramDc::production(2)));
         assert_eq!(should_ws_tunnel_first(non_telegram_target, &always), None);
         assert_eq!(should_ws_tunnel_fallback(target, &always), None);
 
         let mut cfg = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
         cfg.adaptive.ws_tunnel_mode = ripdpi_proxy_runtime_adapter::model::config::WsTunnelMode::Fallback;
         let fallback = runtime_state_with_config(cfg);
-        assert_eq!(should_ws_tunnel_fallback(target, &fallback), Some(TelegramDc::production(2)));
+        assert_eq!(should_ws_tunnel_fallback(target, &fallback), Some(RuntimeTelegramDc::production(2)));
         assert_eq!(should_ws_tunnel_fallback(non_telegram_target, &fallback), None);
         assert_eq!(should_ws_tunnel_first(target, &fallback), None);
     }
@@ -282,7 +280,7 @@ mod tests {
                 raw_dc: -3,
                 dc: Some(dc),
                 ..
-            } if dc == TelegramDc::from_raw(-3).expect("media dc")
+            } if dc == RuntimeTelegramDc::from_raw(-3).expect("media dc")
         ));
     }
 
@@ -300,11 +298,11 @@ mod tests {
             seed_request.clone(),
             &state,
             |_state, dc| {
-                assert_eq!(dc, TelegramDc::from_raw(10_002).expect("test dc"));
+                assert_eq!(dc, RuntimeTelegramDc::from_raw(10_002).expect("test dc"));
                 Ok(resolved_addr)
             },
             |_client, dc, forwarded_seed, config| {
-                assert_eq!(dc, TelegramDc::from_raw(10_002).expect("test dc"));
+                assert_eq!(dc, RuntimeTelegramDc::from_raw(10_002).expect("test dc"));
                 assert_eq!(forwarded_seed, seed_request);
                 assert_eq!(config.resolved_addr, Some(resolved_addr));
                 assert_eq!(config.connect_timeout, Some(Duration::from_millis(1_500)));
@@ -315,7 +313,7 @@ mod tests {
         assert!(matches!(
             result,
             WsTunnelResult::ValidatedMtproto { dc }
-            if dc == TelegramDc::from_raw(10_002).expect("test dc")
+            if dc == RuntimeTelegramDc::from_raw(10_002).expect("test dc")
         ));
     }
 
@@ -336,7 +334,7 @@ mod tests {
         assert!(matches!(
             result,
             WsTunnelResult::BootstrapFailed { dc, seed_request: preserved, error }
-            if dc == TelegramDc::from_raw(10_002).expect("test dc")
+            if dc == RuntimeTelegramDc::from_raw(10_002).expect("test dc")
                 && preserved == seed_request
                 && error.kind() == io::ErrorKind::TimedOut
         ));
@@ -359,7 +357,7 @@ mod tests {
         assert!(matches!(
             result,
             WsTunnelResult::WsOpenOrRelayFailed { dc, seed_request: preserved, error }
-            if dc == TelegramDc::production(1)
+            if dc == RuntimeTelegramDc::production(1)
                 && preserved == seed_request
                 && error.kind() == io::ErrorKind::ConnectionRefused
         ));

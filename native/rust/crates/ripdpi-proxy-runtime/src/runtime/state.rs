@@ -74,16 +74,15 @@ use ripdpi_proxy_runtime_adapter::udp_desync::{
 };
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
     detect_telegram_dc, encrypted_dns_ip_answers_for_host, resolve_host_via_encrypted_dns, resolve_ws_tunnel_addr,
-    should_tunnel_fallback_with, should_tunnel_first_with, telegram_dc_host, EncryptedDnsIpAnswers, TelegramDc,
-    WsTunnelConfig,
+    should_tunnel_fallback_with, should_tunnel_first_with, telegram_dc_host, EncryptedDnsIpAnswers,
 };
 
 use super::types::{
     runtime_client_request, runtime_outbound_progress, runtime_probe_result, runtime_relay_timeouts,
     runtime_session_error, runtime_udp_packet_settings, RuntimeClientRequest, RuntimeOutboundProgress,
     RuntimeProbeResult, RuntimeProxyProtocolMode, RuntimeRelayTimeouts, RuntimeSessionError, RuntimeSessionState,
-    RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy,
-    WsSeedClassification,
+    RuntimeTelegramDc, RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy,
+    RuntimeWsTunnelConfig, UdpFlowGroupPolicy, WsSeedClassification,
 };
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -310,16 +309,16 @@ impl RuntimeState {
         self.network_reprobe_settings.protect_path.clone()
     }
 
-    pub(super) fn should_ws_tunnel_first(&self, target: SocketAddr) -> Option<TelegramDc> {
-        should_tunnel_first_with(target, &self.ws_tunnel_settings)
+    pub(super) fn should_ws_tunnel_first(&self, target: SocketAddr) -> Option<RuntimeTelegramDc> {
+        should_tunnel_first_with(target, &self.ws_tunnel_settings).map(RuntimeTelegramDc::from_adapter)
     }
 
-    pub(super) fn should_ws_tunnel_fallback(&self, target: SocketAddr) -> Option<TelegramDc> {
-        should_tunnel_fallback_with(target, &self.ws_tunnel_settings)
+    pub(super) fn should_ws_tunnel_fallback(&self, target: SocketAddr) -> Option<RuntimeTelegramDc> {
+        should_tunnel_fallback_with(target, &self.ws_tunnel_settings).map(RuntimeTelegramDc::from_adapter)
     }
 
-    pub(super) fn ws_tunnel_config(&self, resolved_addr: Option<SocketAddr>) -> WsTunnelConfig {
-        ws_tunnel_config_with(&self.ws_tunnel_settings, resolved_addr)
+    pub(super) fn ws_tunnel_config(&self, resolved_addr: Option<SocketAddr>) -> RuntimeWsTunnelConfig {
+        RuntimeWsTunnelConfig::from_adapter(ws_tunnel_config_with(&self.ws_tunnel_settings, resolved_addr))
     }
 
     pub(super) fn classify_mtproto_seed(seed: &[u8]) -> WsSeedClassification {
@@ -328,21 +327,26 @@ impl RuntimeState {
                 WsSeedClassification::NotMtproto
             }
             ripdpi_proxy_runtime_adapter::ws_bootstrap::MtprotoSeedClassification::UnmappableDc { raw_dc, dc } => {
-                WsSeedClassification::UnmappableDc { raw_dc, dc }
+                WsSeedClassification::UnmappableDc { raw_dc, dc: dc.map(RuntimeTelegramDc::from_adapter) }
             }
             ripdpi_proxy_runtime_adapter::ws_bootstrap::MtprotoSeedClassification::ValidatedMtproto { dc } => {
-                WsSeedClassification::ValidatedMtproto { dc }
+                WsSeedClassification::ValidatedMtproto { dc: RuntimeTelegramDc::from_adapter(dc) }
             }
         }
     }
 
     pub(super) fn relay_ws_tunnel(
         client: TcpStream,
-        dc: TelegramDc,
+        dc: RuntimeTelegramDc,
         seed_request: Vec<u8>,
-        config: &WsTunnelConfig,
+        config: &RuntimeWsTunnelConfig,
     ) -> io::Result<()> {
-        ripdpi_proxy_runtime_adapter::ws_bootstrap::relay_ws_tunnel(client, dc, seed_request, config)
+        ripdpi_proxy_runtime_adapter::ws_bootstrap::relay_ws_tunnel(
+            client,
+            dc.into_adapter(),
+            seed_request,
+            config.as_adapter(),
+        )
     }
 
     pub(super) fn warmup_probe_scheduler_enabled(&self) -> bool {
@@ -1401,8 +1405,12 @@ impl RuntimeState {
         resolve_host_via_encrypted_dns(host, self.runtime_context.as_ref(), protect_path, ipv6_enabled)
     }
 
-    pub(super) fn resolve_ws_tunnel_addr(&self, dc: TelegramDc) -> io::Result<SocketAddr> {
-        resolve_ws_tunnel_addr(dc, self.runtime_context.as_ref(), self.ws_tunnel_settings.protect_path.as_deref())
+    pub(super) fn resolve_ws_tunnel_addr(&self, dc: RuntimeTelegramDc) -> io::Result<SocketAddr> {
+        resolve_ws_tunnel_addr(
+            dc.into_adapter(),
+            self.runtime_context.as_ref(),
+            self.ws_tunnel_settings.protect_path.as_deref(),
+        )
     }
 
     #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
