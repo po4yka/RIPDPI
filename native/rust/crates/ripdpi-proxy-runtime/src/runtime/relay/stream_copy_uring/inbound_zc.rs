@@ -4,13 +4,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 use ripdpi_io_uring::IoUringDriver;
-use ripdpi_proxy_runtime_adapter::model::config::RuntimeTimeoutSettings;
 
 use super::super::session::RelaySharedSession;
 use super::cleanup::shutdown_direction;
 use super::freeze_detector::FreezeDetector;
 use super::inbound_fallback::copy_inbound_fallback;
 use super::uring_buffers::{acquire_registered_buffer, block_on_completion, pool_buf_slice};
+use crate::runtime::types::RuntimeRelayTimeouts;
 
 /// Inbound copy using io_uring zero-copy send.
 ///
@@ -23,7 +23,7 @@ pub(super) fn copy_inbound_zc(
     writer_fd: i32,
     session: RelaySharedSession,
     peer_done: Arc<AtomicBool>,
-    timeouts: RuntimeTimeoutSettings,
+    timeouts: RuntimeRelayTimeouts,
     freeze_detected: Arc<AtomicBool>,
     uring: &IoUringDriver,
 ) -> io::Result<()> {

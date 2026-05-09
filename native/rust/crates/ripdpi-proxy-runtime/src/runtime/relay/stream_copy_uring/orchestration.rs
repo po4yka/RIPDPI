@@ -9,6 +9,7 @@ use std::thread;
 use ripdpi_io_uring::IoUringDriver;
 
 use super::super::super::state::RuntimeState;
+use super::super::super::types::runtime_relay_timeouts;
 use super::super::session::RelaySession;
 use super::super::stream_copy::{RelayStreamSettings, CONNECTION_FREEZE_MARKER};
 use super::cleanup::{clone_relay_sockets, configure_relay_sockets, detach_drop_sack_if_needed, shutdown_relay_pair};
@@ -40,7 +41,7 @@ pub(in crate::runtime) fn relay_streams_uring(
     let freeze_detected = Arc::new(AtomicBool::new(false));
 
     let freeze_flag = freeze_detected.clone();
-    let timeouts = settings.group.timeouts;
+    let timeouts = runtime_relay_timeouts(settings.group.timeouts);
     let down_done = peer_done.clone();
     let uring_clone = Arc::clone(uring);
     let client_fd = sockets.client_writer.as_raw_fd();

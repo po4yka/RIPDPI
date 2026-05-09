@@ -13,6 +13,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
 use super::super::state::RuntimeState;
+use super::super::types::runtime_relay_timeouts;
 use super::session::RelaySession;
 
 const RELAY_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
@@ -65,7 +66,7 @@ pub(super) fn relay_streams(
     let outbound_rotation = rotation_state.clone();
 
     let freeze_flag = freeze_detected.clone();
-    let timeouts = settings.group.timeouts;
+    let timeouts = runtime_relay_timeouts(settings.group.timeouts);
     let down_done = peer_done.clone();
     let down = thread::Builder::new()
         .name("ripdpi-dn".into())

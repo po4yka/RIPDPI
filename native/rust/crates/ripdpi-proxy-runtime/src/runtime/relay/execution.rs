@@ -1,7 +1,6 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
-use ripdpi_proxy_runtime_adapter::model::config::RuntimeTimeoutSettings;
 use ripdpi_proxy_runtime_adapter::model::decision::ConnectionRoute;
 
 use super::super::routing::{emit_failure_classified, note_block_signal_for_failure};
@@ -11,6 +10,7 @@ use super::session::RelaySession;
 use super::stream_copy::{relay_streams, RelayStreamSettings, CONNECTION_FREEZE_MARKER};
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 use super::stream_copy_uring;
+use crate::runtime::types::RuntimeRelayTimeouts;
 
 #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 #[inline(never)]
@@ -61,7 +61,7 @@ fn relay_stream_settings(state: &RuntimeState, group_index: usize) -> io::Result
 }
 
 pub(super) struct RelayResultContext<'a> {
-    pub(super) relay_timeouts: RuntimeTimeoutSettings,
+    pub(super) relay_timeouts: RuntimeRelayTimeouts,
     pub(super) target: SocketAddr,
     pub(super) route: &'a ConnectionRoute,
     pub(super) success_recorded: bool,

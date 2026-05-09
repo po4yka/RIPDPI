@@ -1,7 +1,9 @@
 use std::net::SocketAddr;
 
 use ripdpi_proxy_runtime_adapter::failure::ProbeResult;
-use ripdpi_proxy_runtime_adapter::model::config::{IpIdMode, UdpGroupPacketSettings, UdpSourceRebindPolicy};
+use ripdpi_proxy_runtime_adapter::model::config::{
+    IpIdMode, RuntimeTimeoutSettings, UdpGroupPacketSettings, UdpSourceRebindPolicy,
+};
 use ripdpi_proxy_runtime_adapter::model::session::{ClientRequest, OutboundProgress, SessionError, SessionState};
 use ripdpi_proxy_runtime_adapter::ws_bootstrap::TelegramDc;
 
@@ -72,10 +74,36 @@ pub(super) struct RuntimeUdpSourceRebindPolicy {
     pub(super) after_handshake: bool,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) struct RuntimeRelayTimeouts {
+    pub(super) freeze_window_ms: u32,
+    pub(super) freeze_min_bytes: u32,
+    pub(super) freeze_max_stalls: u32,
+}
+
 pub(super) enum WsSeedClassification {
     NotMtproto,
     UnmappableDc { raw_dc: i32, dc: Option<TelegramDc> },
     ValidatedMtproto { dc: TelegramDc },
+}
+
+pub(super) fn runtime_relay_timeouts(settings: RuntimeTimeoutSettings) -> RuntimeRelayTimeouts {
+    RuntimeRelayTimeouts {
+        freeze_window_ms: settings.freeze_window_ms,
+        freeze_min_bytes: settings.freeze_min_bytes,
+        freeze_max_stalls: settings.freeze_max_stalls,
+    }
+}
+
+impl RuntimeRelayTimeouts {
+    pub(super) fn into_adapter(self) -> RuntimeTimeoutSettings {
+        RuntimeTimeoutSettings {
+            freeze_window_ms: self.freeze_window_ms,
+            freeze_min_bytes: self.freeze_min_bytes,
+            freeze_max_stalls: self.freeze_max_stalls,
+            ..RuntimeTimeoutSettings::default()
+        }
+    }
 }
 
 pub(super) fn runtime_client_request(request: ClientRequest) -> RuntimeClientRequest {

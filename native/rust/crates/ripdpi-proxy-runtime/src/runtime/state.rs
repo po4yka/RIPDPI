@@ -27,9 +27,9 @@ use ripdpi_proxy_runtime_adapter::model::config::{
     udp_flow_limit, udp_group_settings_table, udp_group_settings_with, warmup_probe_settings, ws_tunnel_config_with,
     ws_tunnel_settings, DelayedConnectSettings, DesyncGroup, FirstResponseSettings, ListenerSettings,
     NetworkReprobeSettings, ProxyHandshakeSettings, ProxyProtocolMode, RelayGroupSettings, RelayGroupSettingsTable,
-    ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig, RuntimeTimeoutSettings,
-    TcpRouteConnectSettingsTable, TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable,
-    WarmupProbeSettings, WsTunnelSettings, DETECT_CONNECT,
+    ResponseFailureEvidenceSettings, RotationPolicy, RoutePayloadMatcher, RuntimeConfig, TcpRouteConnectSettingsTable,
+    TcpRouteRetrySettings, TcpRouteSynDataSettings, UdpGroupSettingsTable, WarmupProbeSettings, WsTunnelSettings,
+    DETECT_CONNECT,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::{
     classify_response_failure as classify_policy_response_failure, response_requires_dns_tampering_evidence,
@@ -79,10 +79,11 @@ use ripdpi_proxy_runtime_adapter::ws_bootstrap::{
 };
 
 use super::types::{
-    runtime_client_request, runtime_outbound_progress, runtime_probe_result, runtime_session_error,
-    runtime_udp_packet_settings, RuntimeClientRequest, RuntimeOutboundProgress, RuntimeProbeResult,
-    RuntimeProxyProtocolMode, RuntimeSessionError, RuntimeSessionState, RuntimeUdpPacketSettings,
-    RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy, WsSeedClassification,
+    runtime_client_request, runtime_outbound_progress, runtime_probe_result, runtime_relay_timeouts,
+    runtime_session_error, runtime_udp_packet_settings, RuntimeClientRequest, RuntimeOutboundProgress,
+    RuntimeProbeResult, RuntimeProxyProtocolMode, RuntimeRelayTimeouts, RuntimeSessionError, RuntimeSessionState,
+    RuntimeUdpPacketSettings, RuntimeUdpSocketSettings, RuntimeUdpSourceRebindPolicy, UdpFlowGroupPolicy,
+    WsSeedClassification,
 };
 
 pub(super) const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
@@ -917,8 +918,12 @@ impl RuntimeState {
         classify_first_response_partial_tls_timeout()
     }
 
-    pub(super) fn classify_relay_connection_freeze(timeouts: RuntimeTimeoutSettings) -> ClassifiedFailure {
-        classify_relay_connection_freeze(timeouts)
+    pub(super) fn classify_relay_connection_freeze(timeouts: RuntimeRelayTimeouts) -> ClassifiedFailure {
+        classify_relay_connection_freeze(timeouts.into_adapter())
+    }
+
+    pub(super) fn relay_timeouts(&self, group_index: usize) -> io::Result<RuntimeRelayTimeouts> {
+        self.relay_group(group_index).map(|group| runtime_relay_timeouts(group.timeouts))
     }
 
     pub(super) fn classify_warmup_send_error(source: &io::Error) -> ClassifiedFailure {

@@ -42,7 +42,7 @@ pub(super) fn relay(
 
     let relay_result =
         relay_with_uring_if_available(client, upstream, state, route.clone(), session_state, success_host.clone());
-    let relay_timeouts = state.relay_group(route.group_index)?.timeouts;
+    let relay_timeouts = state.relay_timeouts(route.group_index)?;
     let primary_strategy_family = state.primary_tcp_strategy_family(route.group_index);
     record_relay_result(
         &relay_result,
