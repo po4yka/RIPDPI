@@ -11,7 +11,6 @@ mod cleanup;
 mod freeze_detector;
 mod inbound_fallback;
 mod inbound_zc;
-mod observations;
 mod orchestration;
 mod outbound_desync;
 mod uring_buffers;

@@ -10,7 +10,6 @@ use super::super::session::RelaySharedSession;
 use super::cleanup::shutdown_direction;
 use super::freeze_detector::FreezeDetector;
 use super::inbound_fallback::copy_inbound_fallback;
-use super::observations::observe_inbound_payload;
 use super::uring_buffers::{acquire_registered_buffer, block_on_completion, pool_buf_slice};
 
 /// Inbound copy using io_uring zero-copy send.
@@ -42,7 +41,7 @@ pub(super) fn copy_inbound_zc(
             Ok(0) => break,
             Ok(n) => {
                 handle.set_len(n);
-                observe_inbound_payload(&session, &handle[..]);
+                session.observe_inbound_payload(&handle[..]);
 
                 let future = uring.send_zc(writer_fd, handle.buf_index(), n as u32);
                 let pending = handle.into_pending();

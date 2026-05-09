@@ -9,7 +9,6 @@ use super::super::super::desync::{send_with_group, DesyncSendRequest, OutboundSe
 use super::super::super::state::RuntimeState;
 use super::super::session::RelaySharedSession;
 use super::freeze::FreezeDetector;
-use super::observations::{observe_inbound_payload, observe_outbound_payload};
 use super::observers::{observe_rotation_inbound_chunk, observe_rotation_transport_failure};
 use super::RelayOutboundContext;
 use super::RELAY_IDLE_TIMEOUT;
@@ -40,7 +39,7 @@ pub(super) fn copy_inbound_half(
                 break;
             }
             Ok(n) => {
-                observe_inbound_payload(&session, &buffer[..n]);
+                session.observe_inbound_payload(&buffer[..n]);
                 observe_rotation_inbound_chunk(
                     state,
                     target,
@@ -94,7 +93,7 @@ pub(super) fn flush_outbound_payload(
     rotation: Option<&Arc<Mutex<CircularTcpRotationController>>>,
     payload: &[u8],
 ) -> io::Result<()> {
-    let (is_new_round, progress) = observe_outbound_payload(session, payload)?;
+    let (is_new_round, progress) = session.observe_outbound_payload(payload)?;
     let mut remembered = remembered_host.lock().map_err(|_| io::Error::other("remembered host mutex poisoned"))?;
     if let Some(host) = state.extract_relay_payload_host(payload) {
         *remembered = Some(host);

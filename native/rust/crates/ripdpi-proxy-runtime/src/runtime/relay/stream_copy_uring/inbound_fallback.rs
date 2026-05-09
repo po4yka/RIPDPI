@@ -6,7 +6,6 @@ use std::time::Instant;
 use super::super::session::RelaySharedSession;
 use super::cleanup::shutdown_direction;
 use super::freeze_detector::FreezeDetector;
-use super::observations::observe_inbound_payload;
 
 /// Fallback: normal inbound copy when ZC buffers are exhausted.
 pub(super) fn copy_inbound_fallback(
@@ -22,7 +21,7 @@ pub(super) fn copy_inbound_fallback(
         match reader.read(&mut buffer) {
             Ok(0) => break,
             Ok(n) => {
-                observe_inbound_payload(&session, &buffer[..n]);
+                session.observe_inbound_payload(&buffer[..n]);
                 writer.write_all(&buffer[..n])?;
                 detector.record_bytes(n);
                 if detector.check(Instant::now()) {

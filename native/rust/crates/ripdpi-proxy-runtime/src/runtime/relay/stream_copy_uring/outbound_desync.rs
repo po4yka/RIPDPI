@@ -6,7 +6,6 @@ use super::super::super::desync::{send_with_group, DesyncSendRequest, OutboundSe
 use super::super::super::state::RuntimeState;
 use super::super::session::RelaySharedSession;
 use super::cleanup::shutdown_direction;
-use super::observations::observe_outbound_payload;
 use super::RELAY_IDLE_TIMEOUT;
 
 /// Outbound copy using the standard desync pipeline.
@@ -50,7 +49,7 @@ fn flush_outbound_payload(
     remembered_host: &mut Option<String>,
     payload: &[u8],
 ) -> io::Result<()> {
-    let progress = observe_outbound_payload(session, payload)?;
+    let (_, progress) = session.observe_outbound_payload(payload)?;
     let parsed_host = state.extract_relay_payload_host(payload);
     if parsed_host.is_some() {
         *remembered_host = parsed_host.clone();
