@@ -11,7 +11,7 @@ pub(super) use ripdpi_proxy_runtime_adapter::model::config::{
 };
 #[cfg(test)]
 pub(super) use ripdpi_proxy_runtime_adapter::model::config::{
-    first_response_settings, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
+    first_response_settings, WsTunnelMode, DETECT_HTTP_LOCAT, DETECT_TLS_HANDSHAKE_FAILURE, DETECT_TORST,
 };
 
 use ripdpi_proxy_runtime_adapter::model::config::{

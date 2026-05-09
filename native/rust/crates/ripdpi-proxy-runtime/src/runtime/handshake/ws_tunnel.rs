@@ -166,6 +166,7 @@ fn read_mtproto_seed(client: &mut TcpStream) -> Result<Vec<u8>, SeedReadError> {
 mod tests {
     use super::*;
 
+    use crate::runtime::config::{RuntimeConfig, WsTunnelMode};
     use crate::runtime::state::RuntimeState;
     use aes::cipher::{KeyIvInit, StreamCipher};
     use aes::Aes256;
@@ -184,10 +185,10 @@ mod tests {
     }
 
     fn runtime_state() -> RuntimeState {
-        RuntimeState::test(ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default())
+        RuntimeState::test(RuntimeConfig::default())
     }
 
-    fn runtime_state_with_config(config: ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig) -> RuntimeState {
+    fn runtime_state_with_config(config: RuntimeConfig) -> RuntimeState {
         RuntimeState::test(config)
     }
 
@@ -228,15 +229,15 @@ mod tests {
         let target = SocketAddr::from((Ipv4Addr::new(149, 154, 167, 91), 443));
         let non_telegram_target = SocketAddr::from((Ipv4Addr::new(203, 0, 113, 10), 443));
 
-        let mut cfg = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
-        cfg.adaptive.ws_tunnel_mode = ripdpi_proxy_runtime_adapter::model::config::WsTunnelMode::Always;
+        let mut cfg = RuntimeConfig::default();
+        cfg.adaptive.ws_tunnel_mode = WsTunnelMode::Always;
         let always = runtime_state_with_config(cfg);
         assert_eq!(should_ws_tunnel_first(target, &always), Some(RuntimeTelegramDc::production(2)));
         assert_eq!(should_ws_tunnel_first(non_telegram_target, &always), None);
         assert_eq!(should_ws_tunnel_fallback(target, &always), None);
 
-        let mut cfg = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
-        cfg.adaptive.ws_tunnel_mode = ripdpi_proxy_runtime_adapter::model::config::WsTunnelMode::Fallback;
+        let mut cfg = RuntimeConfig::default();
+        cfg.adaptive.ws_tunnel_mode = WsTunnelMode::Fallback;
         let fallback = runtime_state_with_config(cfg);
         assert_eq!(should_ws_tunnel_fallback(target, &fallback), Some(RuntimeTelegramDc::production(2)));
         assert_eq!(should_ws_tunnel_fallback(non_telegram_target, &fallback), None);
@@ -287,7 +288,7 @@ mod tests {
     #[test]
     fn run_ws_tunnel_with_seed_validates_and_relays_test_dc() {
         let (_app, relay_client) = connected_pair();
-        let mut cfg = ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig::default();
+        let mut cfg = RuntimeConfig::default();
         cfg.timeouts.connect_timeout_ms = 1_500;
         let state = runtime_state_with_config(cfg);
         let seed_request = build_test_init_packet(10_002);

@@ -1,9 +1,8 @@
 use super::*;
 
+use crate::runtime::config::{RuntimeConfig, WsTunnelMode};
 use crate::runtime::state::RuntimeState;
-use crate::runtime::types::RuntimeTelegramDc;
-use ripdpi_proxy_runtime_adapter::failure::ClassifiedFailure;
-use ripdpi_proxy_runtime_adapter::model::config::{RuntimeConfig, WsTunnelMode};
+use crate::runtime::types::{RuntimeClassifiedFailure, RuntimeTelegramDc};
 use ripdpi_proxy_runtime_adapter::model::runtime_api::RuntimeTelemetrySink;
 use std::net::Ipv4Addr;
 use std::sync::atomic::{AtomicUsize, Ordering as StdOrdering};
@@ -39,7 +38,7 @@ impl RuntimeTelemetrySink for TestTelemetry {
 
     fn on_route_selected(&self, _target: SocketAddr, _group_index: usize, _host: Option<&str>, _phase: &'static str) {}
 
-    fn on_failure_classified(&self, _target: SocketAddr, _failure: &ClassifiedFailure, _host: Option<&str>) {}
+    fn on_failure_classified(&self, _target: SocketAddr, _failure: &RuntimeClassifiedFailure, _host: Option<&str>) {}
 
     fn on_route_advanced(
         &self,

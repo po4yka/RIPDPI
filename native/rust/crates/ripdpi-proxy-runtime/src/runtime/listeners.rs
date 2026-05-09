@@ -6,13 +6,13 @@ use std::io;
 use std::net::{TcpListener, TcpStream};
 use std::sync::Arc as StdArc;
 
-use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 use ripdpi_proxy_runtime_adapter::model::runtime_api::EmbeddedProxyControl;
 use ripdpi_proxy_runtime_adapter::platform::listener as listener_platform;
 
 use crate::process;
 
 use self::accept_loop::run_accept_loop;
+use super::config::RuntimeConfig;
 use super::state::RuntimeState;
 
 pub(super) fn build_listener(config: &RuntimeConfig) -> io::Result<TcpListener> {
