@@ -129,11 +129,3 @@ pub(super) fn first_response_timeout(
 pub(super) fn timeout_count_limit(settings: FirstResponseSettings) -> i32 {
     first_response_timeout_count_limit(settings)
 }
-
-#[cfg(test)]
-pub(super) fn response_trigger_supported(
-    config: &ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig,
-    trigger: ripdpi_proxy_runtime_adapter::model::session::TriggerEvent,
-) -> bool {
-    ripdpi_proxy_runtime_adapter::response_triggers::response_trigger_supported(config, trigger)
-}

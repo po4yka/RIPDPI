@@ -66,7 +66,7 @@ mod tests {
     use std::time::{Duration, Instant};
 
     use super::failure_retry::retry_logic::classify_first_write_failure;
-    use super::first_exchange::{first_response_timeout, response_trigger_supported, timeout_count_limit};
+    use super::first_exchange::{first_response_timeout, timeout_count_limit};
     use super::*;
     use ripdpi_proxy_runtime_adapter::failure::{FailureAction, FailureClass, FailureStage};
     use ripdpi_proxy_runtime_adapter::model::config::{
@@ -186,9 +186,9 @@ mod tests {
         let settings = first_response_settings(&config);
         assert_eq!(first_response_timeout(settings, &inactive_tracker), Some(Duration::from_millis(250)));
         assert_eq!(timeout_count_limit(settings), 1);
-        assert!(response_trigger_supported(&config, TriggerEvent::Redirect));
-        assert!(response_trigger_supported(&config, TriggerEvent::Connect));
-        assert!(!response_trigger_supported(&config, TriggerEvent::Torst));
+        assert!(RuntimeState::response_trigger_supported(&config, TriggerEvent::Redirect));
+        assert!(RuntimeState::response_trigger_supported(&config, TriggerEvent::Connect));
+        assert!(!RuntimeState::response_trigger_supported(&config, TriggerEvent::Torst));
         assert_eq!(RuntimeState::trigger_flag(TriggerEvent::SslErr), DETECT_TLS_HANDSHAKE_FAILURE);
         assert_eq!(RuntimeState::trigger_flag(TriggerEvent::Torst), DETECT_TORST);
 
